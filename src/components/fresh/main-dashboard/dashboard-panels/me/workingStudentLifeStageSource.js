@@ -318,187 +318,315 @@ export function cleanWorkingStudentValue(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function lower(value) {
-  return cleanWorkingStudentValue(value).toLowerCase();
-}
-
-function hasAny(value, terms) {
-  const text = lower(value);
-  return terms.some((term) => text.includes(lower(term)));
-}
-
 function signal(label, category, note, insight, action, trendType = "wave") {
   return { label, category, note, insight, action, trendType };
 }
 
 export const WORKING_STUDENT_SIGNAL_DEFINITIONS = {
-  emotionalFatigue: signal(
-    "Emotional Fatigue",
-    "energy",
-    "School, work, commute, and recovery pressure may be occupying a large part of the student's money behavior.",
-    "Fatigue can turn simple decisions into shortcut spending, skipped tracking, or comfort purchases.",
-    "Protect one low-energy routine for food, commute, and quick check-ins before the week gets heavy.",
-    "volatile"
-  ),
-  financialInstability: signal(
-    "Financial Instability",
-    "stability",
-    "Income timing or income consistency may be making planning harder than the student’s discipline level suggests.",
-    "The issue may be rhythm: expenses can feel fixed while money arrives unevenly.",
-    "Separate essentials first, then let flexible spending adjust based on the real income week.",
-    "wave"
-  ),
-  rewardSpendingRisk: signal(
-    "Reward Spending Risk",
-    "stability",
-    "Small rewards may be acting as quick relief after pressure, effort, or emotionally heavy days.",
-    "The risk is not one reward; it is repeated relief spending becoming the easiest recovery habit.",
-    "Keep rewards, but set the amount and timing before stress peaks.",
-    "spike"
-  ),
-  recoveryWeakness: signal(
-    "Recovery Weakness",
-    "energy",
-    "Low rest or low recovery may be weakening planning, tracking, and spending discipline.",
-    "When rest disappears, spending often becomes the fastest available form of recovery.",
-    "Add one no-spend recovery option and one prepared low-cost fallback for tired days.",
-    "downward"
-  ),
-  survivalPressure: signal(
-    "Survival Pressure",
-    "pressure",
-    "Food, fare, school requirements, and daily basics may be competing for the same limited money.",
-    "This is not careless spending; this is essential-cost pressure taking up space in the week.",
-    "Protect food, fare, school materials, and attendance costs before flexible spending.",
-    "volatile"
-  ),
-  mentalOverload: signal(
-    "Mental Overload",
-    "energy",
-    "The student may be carrying too many decisions across school, work, money, and personal responsibilities.",
-    "Overload can make even simple budgeting feel heavier than it should.",
-    "Reduce the plan to one priority and one simple money rule for the current week.",
-    "spike"
-  ),
-  routineInstability: signal(
-    "Routine Instability",
-    "stability",
-    "Changing routines, shifting schedules, or uneven weeks may be making consistency difficult.",
-    "The budget may fail when it assumes a perfect week that the student does not actually have.",
-    "Use flexible weekly caps instead of one rigid routine.",
-    "wave"
-  ),
-  convenienceSpendingRisk: signal(
-    "Convenience Spending Risk",
-    "stability",
-    "Convenience may be becoming the natural response to low time, low energy, or rushed days.",
-    "Convenience spending often comes from exhaustion, not laziness.",
-    "Prepare one cheaper convenience substitute before the hardest part of the day.",
-    "spike"
-  ),
-  borrowingRisk: signal(
-    "Borrowing Risk",
-    "pressure",
-    "Cash-flow gaps, delayed payments, or survival needs may be pushing the student toward borrowing.",
-    "Borrowing often appears when timing fails before income arrives.",
-    "Protect a tiny food/fare gap buffer before optional spending.",
-    "volatile"
-  ),
-  familyBurden: signal(
-    "Family Burden",
-    "pressure",
-    "Family support may be sharing the same money and energy needed for school and daily stability.",
-    "The pressure is care plus boundary difficulty, not just financial generosity.",
-    "Create a support limit that protects family care and the student’s own essentials.",
-    "wave"
-  ),
-  tuitionPressure: signal(
-    "Tuition Pressure",
-    "pressure",
-    "School continuity may be the main money pressure, especially around tuition, materials, and deadlines.",
-    "When school costs are active, many spending choices feel connected to the future.",
-    "Reserve school-cost money before rewards, social spending, or flexible purchases.",
-    "upward"
-  ),
-  burnoutRisk: signal(
-    "Burnout Risk",
-    "energy",
-    "The student may be trying to keep going while rest, schedule, and money pressure are already colliding.",
-    "Burnout risk rises when effort becomes the only answer to every pressure.",
-    "Protect rest as part of budgeting, not as a reward after everything else.",
-    "downward"
-  ),
-  pressureCarryover: signal(
-    "Pressure Carryover",
-    "pressure",
-    "Old shortfalls, delayed payments, or repayment pressure may be affecting the current week.",
-    "The month can feel like repair mode when old pressure controls new income.",
-    "Give repayment a predictable rhythm and prevent one new shortfall from stacking again.",
-    "wave"
-  ),
-  budgetDiscipline: signal(
-    "Budget Discipline",
-    "growth",
-    "There is still room for planning, boundaries, or small repeatable money habits.",
-    "Discipline grows when the rule is realistic enough to survive student life.",
-    "Keep the next rule small, repeatable, and tied to the student’s real week.",
-    "stable"
-  ),
-  emotionalRecoveryDependence: signal(
-    "Emotional Recovery Dependence",
-    "energy",
-    "Spending may be carrying emotional recovery when rest, food, or support are missing.",
-    "This pattern usually appears when the day feels too heavy to end without relief.",
-    "Build a short recovery menu that includes free and low-cost options.",
-    "spike"
-  ),
+  emotionalFatigue: signal("Emotional Fatigue", "energy", "School, work, commute, and recovery pressure may be occupying a large part of the student's money behavior.", "Fatigue can turn simple decisions into shortcut spending, skipped tracking, or comfort purchases.", "Protect one low-energy routine for food, commute, and quick check-ins before the week gets heavy.", "volatile"),
+  financialInstability: signal("Financial Instability", "stability", "Income timing or income consistency may be making planning harder than the student’s discipline level suggests.", "The issue may be rhythm: expenses can feel fixed while money arrives unevenly.", "Separate essentials first, then let flexible spending adjust based on the real income week.", "wave"),
+  rewardSpendingRisk: signal("Reward Spending Risk", "stability", "Small rewards may be acting as quick relief after pressure, effort, or emotionally heavy days.", "The risk is not one reward; it is repeated relief spending becoming the easiest recovery habit.", "Keep rewards, but set the amount and timing before stress peaks.", "spike"),
+  recoveryWeakness: signal("Recovery Weakness", "energy", "Low rest or low recovery may be weakening planning, tracking, and spending discipline.", "When rest disappears, spending often becomes the fastest available form of recovery.", "Add one no-spend recovery option and one prepared low-cost fallback for tired days.", "downward"),
+  survivalPressure: signal("Survival Pressure", "pressure", "Food, fare, school requirements, and daily basics may be competing for the same limited money.", "This is not careless spending; this is essential-cost pressure taking up space in the week.", "Protect food, fare, school materials, and attendance costs before flexible spending.", "volatile"),
+  mentalOverload: signal("Mental Overload", "energy", "The student may be carrying too many decisions across school, work, money, and personal responsibilities.", "Overload can make even simple budgeting feel heavier than it should.", "Reduce the plan to one priority and one simple money rule for the current week.", "spike"),
+  routineInstability: signal("Routine Instability", "stability", "Changing routines, shifting schedules, or uneven weeks may be making consistency difficult.", "The budget may fail when it assumes a perfect week that the student does not actually have.", "Use flexible weekly caps instead of one rigid routine.", "wave"),
+  convenienceSpendingRisk: signal("Convenience Spending Risk", "stability", "Convenience may be becoming the natural response to low time, low energy, or rushed days.", "Convenience spending often comes from exhaustion, not laziness.", "Prepare one cheaper convenience substitute before the hardest part of the day.", "spike"),
+  borrowingRisk: signal("Borrowing Risk", "pressure", "Cash-flow gaps, delayed payments, or survival needs may be pushing the student toward borrowing.", "Borrowing often appears when timing fails before income arrives.", "Protect a tiny food/fare gap buffer before optional spending.", "volatile"),
+  familyBurden: signal("Family Burden", "pressure", "Family support may be sharing the same money and energy needed for school and daily stability.", "The pressure is care plus boundary difficulty, not just financial generosity.", "Create a support limit that protects family care and the student’s own essentials.", "wave"),
+  tuitionPressure: signal("Tuition Pressure", "pressure", "School continuity may be the main money pressure, especially around tuition, materials, and deadlines.", "When school costs are active, many spending choices feel connected to the future.", "Reserve school-cost money before rewards, social spending, or flexible purchases.", "upward"),
+  burnoutRisk: signal("Burnout Risk", "energy", "The student may be trying to keep going while rest, schedule, and money pressure are already colliding.", "Burnout risk rises when effort becomes the only answer to every pressure.", "Protect rest as part of budgeting, not as a reward after everything else.", "downward"),
+  pressureCarryover: signal("Pressure Carryover", "pressure", "Old shortfalls, delayed payments, or repayment pressure may be affecting the current week.", "The month can feel like repair mode when old pressure controls new income.", "Give repayment a predictable rhythm and prevent one new shortfall from stacking again.", "wave"),
+  budgetDiscipline: signal("Budget Discipline", "growth", "There is still room for planning, boundaries, or small repeatable money habits.", "Discipline grows when the rule is realistic enough to survive student life.", "Keep the next rule small, repeatable, and tied to the student’s real week.", "stable"),
+  emotionalRecoveryDependence: signal("Emotional Recovery Dependence", "energy", "Spending may be carrying emotional recovery when rest, food, or support are missing.", "This pattern usually appears when the day feels too heavy to end without relief.", "Build a short recovery menu that includes free and low-cost options.", "spike"),
 };
 
-const meaning = (title, meaningText, signals = {}) => ({ title, meaning: meaningText, signals });
+function canonicalizeOption(value) {
+  const cleaned = cleanWorkingStudentValue(value);
+  return DISPLAY_TO_CANONICAL[cleaned] || cleaned;
+}
 
-export const WORKING_STUDENT_OPTION_MEANINGS = {
-  "Mostly supported, trying to earn extra": meaning(
-    "Learning independence with support",
-    "You may still have support around you, but you are slowly learning what financial responsibility feels like. Many students in this stage become more careful with spending because independence starts feeling real.",
-    { budgetDiscipline: 18, routineInstability: 8, rewardSpendingRisk: 7 }
-  ),
-  "Working mainly to continue school": meaning(
-    "Working to protect school",
-    "This usually means earning money is not about luxury; it is about keeping school possible. Tuition, projects, fare, food, and deadline pressure can make every peso feel connected to your future.",
-    { tuitionPressure: 30, survivalPressure: 16, financialInstability: 10 }
-  ),
-  "Helping family while studying": meaning(
-    "Studying while helping family",
-    "This means your student life is also carrying home responsibility. Money decisions can feel emotional because helping others and protecting your own school needs may happen at the same time.",
-    { familyBurden: 34, survivalPressure: 14, emotionalFatigue: 8 }
-  ),
-  "Trying to survive school mostly alone": meaning(
-    "Mostly self-supporting",
-    "This means you are carrying a larger part of school and daily survival yourself. Decisions often become less about comfort and more about stability, timing, and avoiding setbacks.",
-    { survivalPressure: 32, financialInstability: 20, borrowingRisk: 13, recoveryWeakness: 10 }
-  ),
-  "Balancing school, work, and exhaustion": meaning(
-    "Exhausted by school-work overlap",
-    "This means your schedule may be using the same energy that your money discipline needs. When school and work overlap heavily, convenience spending and missed tracking can happen simply because you are tired.",
-    { emotionalFatigue: 30, mentalOverload: 24, recoveryWeakness: 18, convenienceSpendingRisk: 16, burnoutRisk: 16 }
-  ),
-  "Building a future while financially unstable": meaning(
-    "Building with unstable income",
-    "This means you are trying to move forward even when money does not arrive in a predictable rhythm. Planning can feel harder because strong weeks and tight weeks ask for different decisions.",
-    { financialInstability: 28, routineInstability: 18, mentalOverload: 10, budgetDiscipline: 8 }
-  ),
-  "Trying to recover from constant financial pressure": meaning(
-    "Recovering from money pressure",
-    "This means old financial pressure may still be affecting the current week. Borrowing, delayed payments, or cash-flow gaps can make life feel like repair mode even when you are trying to reset.",
-    { pressureCarryover: 30, borrowingRisk: 22, financialInstability: 16, recoveryWeakness: 12 }
-  ),
+function mergeSignals(base = {}, incoming = {}) {
+  const next = { ...base };
+  Object.entries(incoming || {}).forEach(([key, value]) => {
+    if (!WORKING_STUDENT_SIGNAL_DEFINITIONS[key]) return;
+    next[key] = (next[key] || 0) + Math.max(0, Number(value) || 0);
+  });
+  return next;
+}
+
+function addSignals(target, signals = {}) {
+  Object.entries(signals || {}).forEach(([key, raw]) => {
+    const value = Math.max(0, Number(raw) || 0);
+    if (!value || !WORKING_STUDENT_SIGNAL_DEFINITIONS[key]) return;
+    target[key] = (target[key] || 0) + value;
+  });
+}
+
+function getAllWorkingStudentOptions() {
+  const options = new Set(WORKING_STUDENT_ROOTS);
+  Object.values(WORKING_STUDENT_BRANCHES).forEach((branch) => {
+    (branch.rhythm || []).forEach((option) => options.add(option));
+    ["workload", "pressure", "coping", "goal"].forEach((key) => {
+      Object.values(branch[key] || {}).flat().forEach((option) => options.add(option));
+    });
+  });
+  return Array.from(options);
+}
+
+const STEP_DEFAULT_SIGNALS = {
+  setup: { budgetDiscipline: 6, routineInstability: 4 },
+  rhythm: { financialInstability: 6, budgetDiscipline: 4 },
+  workload: { emotionalFatigue: 6, routineInstability: 5 },
+  pressure: { survivalPressure: 6, mentalOverload: 4 },
+  coping: { rewardSpendingRisk: 4, pressureCarryover: 4 },
+  goal: { budgetDiscipline: 8 },
 };
 
-Object.entries(WORKING_STUDENT_DISPLAY_LABELS).forEach(([raw, label]) => {
-  if (WORKING_STUDENT_OPTION_MEANINGS[raw] && !WORKING_STUDENT_OPTION_MEANINGS[label]) {
-    WORKING_STUDENT_OPTION_MEANINGS[label] = WORKING_STUDENT_OPTION_MEANINGS[raw];
+const STEP_DEFAULT_META = {
+  setup: { pressureType: "environment", emotionalTone: "forming responsibility", financialInterpretation: "This answer shapes the base environment CLARA uses to understand the student’s money behavior.", coachingDirection: "Start by protecting the realities of the student’s current setup." },
+  rhythm: { pressureType: "income", emotionalTone: "adjusting to money timing", financialInterpretation: "This answer explains how income rhythm affects planning, spending, and stability.", coachingDirection: "Match the budget rhythm to how money actually arrives." },
+  workload: { pressureType: "energy", emotionalTone: "managing capacity", financialInterpretation: "This answer shows how time and energy may affect spending discipline.", coachingDirection: "Use money rules that can survive the student’s real weekly load." },
+  pressure: { pressureType: "pressure", emotionalTone: "protecting essentials", financialInterpretation: "This answer identifies what is currently competing for financial attention.", coachingDirection: "Protect the highest-pressure area before flexible spending." },
+  coping: { pressureType: "behavior", emotionalTone: "responding to stress", financialInterpretation: "This answer shows what the student tends to do when pressure becomes heavy.", coachingDirection: "Create a safer replacement behavior before pressure peaks." },
+  goal: { pressureType: "protection", emotionalTone: "choosing what to guard", financialInterpretation: "This answer clarifies what the student most needs to protect next.", coachingDirection: "Turn the protection goal into one small weekly rule." },
+};
+
+function getOptionStep(option) {
+  const canonical = canonicalizeOption(option);
+  if (WORKING_STUDENT_ROOTS.includes(canonical)) return "setup";
+  for (const branch of Object.values(WORKING_STUDENT_BRANCHES)) {
+    if ((branch.rhythm || []).includes(canonical)) return "rhythm";
+    for (const key of ["workload", "pressure", "coping", "goal"]) {
+      if (Object.values(branch[key] || {}).some((list) => list.includes(canonical))) return key;
+    }
   }
-});
+  return "setup";
+}
+
+function primarySignalKey(signals = {}) {
+  return Object.entries(signals).sort((a, b) => b[1] - a[1])[0]?.[0] || "budgetDiscipline";
+}
+
+function display(option) {
+  const canonical = canonicalizeOption(option);
+  return WORKING_STUDENT_DISPLAY_LABELS[canonical] || canonical;
+}
+
+function buildMeaning(option, signals, key) {
+  const title = display(option);
+  const primary = WORKING_STUDENT_SIGNAL_DEFINITIONS[primarySignalKey(signals)] || WORKING_STUDENT_SIGNAL_DEFINITIONS.budgetDiscipline;
+  const stepMeta = STEP_DEFAULT_META[key] || STEP_DEFAULT_META.setup;
+  return `Selecting “${title}” tells CLARA this part of student life is shaping the current money pattern. It mostly connects to ${primary.label.toLowerCase()} because ${primary.insight.toLowerCase()} ${stepMeta.coachingDirection}`;
+}
+
+function profileFromSignals(option, key, config = {}) {
+  const signals = mergeSignals(STEP_DEFAULT_SIGNALS[key] || {}, config.signals || {});
+  const primary = WORKING_STUDENT_SIGNAL_DEFINITIONS[primarySignalKey(signals)] || WORKING_STUDENT_SIGNAL_DEFINITIONS.budgetDiscipline;
+  const stepMeta = STEP_DEFAULT_META[key] || STEP_DEFAULT_META.setup;
+  return {
+    title: config.title || display(option),
+    meaning: config.meaning || buildMeaning(option, signals, key),
+    signals,
+    tags: Array.from(new Set([key, ...(config.tags || []), primarySignalKey(signals)])),
+    pressureType: config.pressureType || stepMeta.pressureType,
+    emotionalTone: config.emotionalTone || stepMeta.emotionalTone,
+    financialInterpretation: config.financialInterpretation || stepMeta.financialInterpretation,
+    snapshotInfluence: config.snapshotInfluence || Object.keys(signals),
+    coachingDirection: config.coachingDirection || stepMeta.coachingDirection,
+  };
+}
+
+const PROFILE_GROUPS = [
+  {
+    options: ["Mostly supported, trying to earn extra", "Allowance is the base, work is extra", "Fixed part-time pay for personal needs", "Manageable but inconsistent", "Enough control if I plan early", "I can pause when I plan early", "Build discipline before bigger responsibilities", "Save small without guilt", "Use extra income with purpose", "Control is still available", "I avoid strict tracking"],
+    signals: { budgetDiscipline: 16, routineInstability: 6 },
+    tags: ["supported_independence", "early_discipline"],
+    pressureType: "growth",
+    emotionalTone: "learning responsibility with support",
+    financialInterpretation: "Support still exists, but independence and small money decisions are becoming more real.",
+    coachingDirection: "Use simple limits while the student still has room to practice discipline.",
+  },
+  {
+    options: ["Extra income disappears into small spending", "Manageable but leak-prone", "Busy enough to justify small rewards", "Social and school costs overlap", "Food, fare, and school extras", "Social or reward spending", "Social spending pressure", "Small rewards after school/work", "I spend small amounts without noticing", "I reward myself after effort", "Control small leaks", "Keep rewards but set limits", "Repeated small expenses", "Control micro-spending"],
+    signals: { rewardSpendingRisk: 22, emotionalRecoveryDependence: 10, convenienceSpendingRisk: 6 },
+    tags: ["small_leaks", "reward_spending", "student_social_pressure"],
+    pressureType: "behavior",
+    emotionalTone: "seeking small relief",
+    financialInterpretation: "Repeated small purchases may be carrying comfort, social belonging, or recovery after effort.",
+    coachingDirection: "Keep rewards visible and pre-limited before stress or social pressure decides the amount.",
+  },
+  {
+    options: ["Working mainly to continue school", "Fixed work income for tuition", "Irregular income for school requirements", "Project/seasonal work before deadlines", "Allowance is not enough for school costs", "Class and work are both required", "School deadlines create work pressure", "Little room when fees are near", "Income waves around school deadlines", "Tuition and school payments", "Projects, printing, and materials", "Daily fare and food while attending", "Fear of stopping school", "I cut personal needs to pay school costs", "I delay non-school payments", "Protect school continuity", "Avoid debt from school pressure", "Keep food and fare stable", "Finish school safely", "Tuition or school deadlines"],
+    signals: { tuitionPressure: 26, survivalPressure: 12, financialInstability: 8 },
+    tags: ["school_continuity", "tuition_pressure", "education_protection"],
+    pressureType: "school",
+    emotionalTone: "protecting education",
+    financialInterpretation: "Education costs are directly shaping spending choices and can make every peso feel tied to continuity.",
+    coachingDirection: "Reserve school money, fare, and materials before any flexible spending.",
+  },
+  {
+    options: ["Helping family while studying", "Part of my income goes home", "I give when family needs appear", "Allowance/work money gets shared", "I earn extra to support family", "School, work, and home needs overlap", "I feel responsible even when tired", "Family requests change the week", "I still try to keep school stable", "Family contribution", "Guilt when I protect my own money", "School costs competing with home needs", "Weak personal buffer", "I give even when my budget is tight", "I delay my own needs", "I hide money stress", "I try to set limits but feel guilty", "Help family without losing stability", "Set a support boundary", "Protect school and daily needs", "Build a personal safety buffer"],
+    signals: { familyBurden: 26, survivalPressure: 10, emotionalFatigue: 8 },
+    tags: ["family_responsibility", "shared_money", "boundary_pressure"],
+    pressureType: "family",
+    emotionalTone: "responsible but stretched",
+    financialInterpretation: "Family support can share the same money needed for school, food, fare, and personal stability.",
+    coachingDirection: "Create a support boundary that protects care and the student’s own essentials.",
+  },
+  {
+    options: ["Trying to survive school mostly alone", "Fixed low-income work", "Irregular side hustle survival income", "Borrowing between pay cycles", "Project/seasonal income with gaps", "School and survival costs compete daily", "Food and fare need careful planning", "No room for surprise expenses", "I am tired but have to continue", "Food and transport survival", "No emergency margin", "Borrowing risk when timing fails", "I cut meals or needs to stretch money", "I avoid checking when money is low", "I borrow to survive the gap", "Build the smallest emergency buffer", "Stop survival borrowing", "Protect food and fare first", "Protect a tiny food/fare buffer"],
+    signals: { survivalPressure: 28, borrowingRisk: 16, recoveryWeakness: 8 },
+    tags: ["survival_mode", "food_fare_pressure", "thin_margin"],
+    pressureType: "survival",
+    emotionalTone: "stretched but continuing",
+    financialInterpretation: "Daily essentials may be competing with school costs and leaving little room for mistakes.",
+    coachingDirection: "Protect a tiny food/fare buffer before flexible spending.",
+  },
+  {
+    options: ["Balancing school, work, and exhaustion", "Fixed pay but low recovery", "Irregular income plus heavy schedule", "Work shifts disrupt school rhythm", "Extra work happens when deadlines hit", "Heavy school-work overlap", "Little time to rest", "Commute drains energy", "Deadlines and shifts collide", "Convenience spending from exhaustion", "Rushed food and transport", "Missed tracking because I am tired", "Work-school schedule conflict", "I buy comfort after hard days", "I choose convenience to save energy", "I forget to track expenses", "I push rest aside", "Create low-energy money rules", "Reduce convenience leaks", "Protect rest as part of budgeting", "I take extra work even when tired", "I overwork when pressure hits", "Finish school without burning out"],
+    signals: { emotionalFatigue: 24, recoveryWeakness: 18, mentalOverload: 14, convenienceSpendingRisk: 12, burnoutRisk: 10 },
+    tags: ["exhaustion", "school_work_overlap", "low_recovery", "convenience_spending"],
+    pressureType: "energy",
+    emotionalTone: "drained but pushing through",
+    financialInterpretation: "Money decisions may weaken when school and work are already using most of the student’s energy.",
+    coachingDirection: "Use low-energy money rules and cheaper convenience options before pressure peaks.",
+  },
+  {
+    options: ["Building a future while financially unstable", "Income changes month to month", "Side hustle income is growing slowly", "Support and work income both fluctuate", "Some weeks are strong, some are tight", "I am ambitious but stretched", "My routine changes often", "I am learning while earning", "Future pressure makes me anxious", "Unstable income rhythm", "Future goals feel far", "I do not know what to prioritize first", "I switch plans often", "I spend when I feel stuck", "I start saving then stop", "I need clearer priorities", "Create a simple money rhythm", "Protect future goals slowly", "Choose one priority first"],
+    signals: { financialInstability: 24, routineInstability: 18, mentalOverload: 10, budgetDiscipline: 8 },
+    tags: ["unstable_income", "future_pressure", "priority_confusion"],
+    pressureType: "stability",
+    emotionalTone: "ambitious but uncertain",
+    financialInterpretation: "Income and routine changes can make progress feel inconsistent even when effort is present.",
+    coachingDirection: "Choose one priority and build a simple rhythm around the actual income week.",
+  },
+  {
+    options: ["Trying to recover from constant financial pressure", "Money arrives after expenses are due", "I borrow then repay repeatedly", "Income is unstable and pressure carries over", "Debt or delayed payments affect the week", "The month feels like repair mode", "Old pressure affects current choices", "I feel tired from catching up", "There is little room to reset", "Repayment pressure", "Cash-flow timing mismatch", "Borrowing again before the next income", "Avoiding money because it feels heavy", "I delay payments to survive", "I avoid checking the full picture", "I borrow again when daily costs hit", "I cut needs too much", "Stop pressure from stacking", "Build a no-new-debt rule", "Create a repayment rhythm"],
+    signals: { pressureCarryover: 26, borrowingRisk: 22, financialInstability: 12, recoveryWeakness: 8 },
+    tags: ["repair_mode", "debt_cycle", "cash_flow_mismatch"],
+    pressureType: "recovery",
+    emotionalTone: "catching up from old pressure",
+    financialInterpretation: "Old shortfalls may already be shaping current spending and income timing.",
+    coachingDirection: "Give repayment a small rhythm and prevent one new shortfall from stacking again.",
+  },
+];
+
+const OPTION_PROFILE_OVERRIDES = {
+  "Mostly supported, trying to earn extra": {
+    title: "Learning independence with support",
+    meaning: "You may still have support around you, but you are slowly learning what financial responsibility feels like. Many students in this stage become more careful with spending because independence starts feeling real.",
+    signals: { budgetDiscipline: 18, routineInstability: 8, rewardSpendingRisk: 7 },
+    tags: ["supported_independence", "early_money_maturity"],
+    pressureType: "growth",
+    emotionalTone: "supported but becoming independent",
+    financialInterpretation: "Support still exists, but personal money choices are becoming part of identity and responsibility.",
+    coachingDirection: "Practice small limits and give extra money a clear purpose.",
+  },
+  "Working mainly to continue school": {
+    title: "Working to protect school",
+    meaning: "This usually means earning money is not about luxury; it is about keeping school possible. Tuition, projects, fare, food, and deadline pressure can make every peso feel connected to your future.",
+    signals: { tuitionPressure: 30, survivalPressure: 16, financialInstability: 10 },
+    tags: ["school_continuity", "tuition_pressure"],
+    pressureType: "school",
+    emotionalTone: "protecting education under pressure",
+    financialInterpretation: "Work income is tied directly to keeping education moving.",
+    coachingDirection: "Protect school payments and daily attendance costs first.",
+  },
+  "Helping family while studying": {
+    title: "Studying while helping family",
+    meaning: "This means your student life is also carrying home responsibility. Money decisions can feel emotional because helping others and protecting your own school needs may happen at the same time.",
+    signals: { familyBurden: 34, survivalPressure: 14, emotionalFatigue: 8 },
+    tags: ["family_responsibility", "shared_money"],
+    pressureType: "family",
+    emotionalTone: "caring but pressured",
+    financialInterpretation: "Family responsibility can compete with school continuity and personal essentials.",
+    coachingDirection: "Set a support boundary that protects both family care and school stability.",
+  },
+  "Trying to survive school mostly alone": {
+    title: "Mostly self-supporting",
+    meaning: "This means you are carrying a larger part of school and daily survival yourself. Decisions often become less about comfort and more about stability, timing, and avoiding setbacks.",
+    signals: { survivalPressure: 32, financialInstability: 20, borrowingRisk: 13, recoveryWeakness: 10 },
+    tags: ["self_supporting", "survival_pressure"],
+    pressureType: "survival",
+    emotionalTone: "independent but stretched",
+    financialInterpretation: "Daily survival and school progress may depend on the same limited money pool.",
+    coachingDirection: "Protect food, fare, and a tiny buffer before anything flexible.",
+  },
+  "Balancing school, work, and exhaustion": {
+    title: "Exhausted by school-work overlap",
+    meaning: "This means your schedule may be using the same energy that your money discipline needs. When school and work overlap heavily, convenience spending and missed tracking can happen simply because you are tired.",
+    signals: { emotionalFatigue: 30, mentalOverload: 24, recoveryWeakness: 18, convenienceSpendingRisk: 16, burnoutRisk: 16 },
+    tags: ["exhaustion", "school_work_overlap", "low_recovery"],
+    pressureType: "energy",
+    emotionalTone: "tired but still continuing",
+    financialInterpretation: "Energy pressure can become money pressure through convenience, comfort, and missed tracking.",
+    coachingDirection: "Make the budget usable on tired days, not only on ideal days.",
+  },
+  "Building a future while financially unstable": {
+    title: "Building with unstable income",
+    meaning: "This means you are trying to move forward even when money does not arrive in a predictable rhythm. Planning can feel harder because strong weeks and tight weeks ask for different decisions.",
+    signals: { financialInstability: 28, routineInstability: 18, mentalOverload: 10, budgetDiscipline: 8 },
+    tags: ["unstable_income", "future_building"],
+    pressureType: "stability",
+    emotionalTone: "hopeful but uncertain",
+    financialInterpretation: "Future goals are present, but uneven money rhythm makes consistency harder.",
+    coachingDirection: "Use flexible rules that adjust between strong and tight weeks.",
+  },
+  "Trying to recover from constant financial pressure": {
+    title: "Recovering from money pressure",
+    meaning: "This means old financial pressure may still be affecting the current week. Borrowing, delayed payments, or cash-flow gaps can make life feel like repair mode even when you are trying to reset.",
+    signals: { pressureCarryover: 30, borrowingRisk: 22, financialInstability: 16, recoveryWeakness: 12 },
+    tags: ["repair_mode", "old_pressure", "cash_flow_gap"],
+    pressureType: "recovery",
+    emotionalTone: "trying to reset",
+    financialInterpretation: "Current choices may already be influenced by old shortfalls or repayment timing.",
+    coachingDirection: "Stop pressure from stacking before chasing a perfect reset.",
+  },
+};
+
+function buildWorkingStudentOptionProfiles() {
+  const profiles = {};
+  getAllWorkingStudentOptions().forEach((option) => {
+    const key = getOptionStep(option);
+    profiles[option] = profileFromSignals(option, key);
+  });
+
+  PROFILE_GROUPS.forEach((group) => {
+    group.options.forEach((option) => {
+      const canonical = canonicalizeOption(option);
+      const key = getOptionStep(canonical);
+      const current = profiles[canonical] || profileFromSignals(canonical, key);
+      profiles[canonical] = {
+        ...current,
+        signals: mergeSignals(current.signals, group.signals),
+        tags: Array.from(new Set([...(current.tags || []), ...(group.tags || [])])),
+        pressureType: group.pressureType || current.pressureType,
+        emotionalTone: group.emotionalTone || current.emotionalTone,
+        financialInterpretation: group.financialInterpretation || current.financialInterpretation,
+        coachingDirection: group.coachingDirection || current.coachingDirection,
+      };
+      profiles[canonical].meaning = current.meaning && current.meaning !== buildMeaning(canonical, current.signals, key)
+        ? current.meaning
+        : buildMeaning(canonical, profiles[canonical].signals, key);
+      profiles[display(canonical)] = profiles[canonical];
+    });
+  });
+
+  Object.entries(OPTION_PROFILE_OVERRIDES).forEach(([option, override]) => {
+    const canonical = canonicalizeOption(option);
+    const key = getOptionStep(canonical);
+    profiles[canonical] = profileFromSignals(canonical, key, override);
+    profiles[display(canonical)] = profiles[canonical];
+  });
+
+  Object.entries(WORKING_STUDENT_DISPLAY_LABELS).forEach(([raw, label]) => {
+    if (profiles[raw]) profiles[label] = profiles[raw];
+  });
+
+  return profiles;
+}
+
+export const WORKING_STUDENT_OPTION_PROFILES = buildWorkingStudentOptionProfiles();
 
 export const WORKING_STUDENT_SIGNAL_CATEGORIES = Object.fromEntries(
   Object.values(WORKING_STUDENT_SIGNAL_DEFINITIONS).map((item) => [item.label, item.category])
@@ -511,11 +639,14 @@ export const WORKING_STUDENT_CARD_NOTES = Object.fromEntries(
 export const WORKING_STUDENT_MODAL_INSIGHTS = Object.fromEntries(
   Object.values(WORKING_STUDENT_SIGNAL_DEFINITIONS).map((item) => [
     item.label,
-    {
-      insight: item.note,
-      signal: item.insight,
-      move: item.action,
-    },
+    { insight: item.note, signal: item.insight, move: item.action },
+  ])
+);
+
+export const WORKING_STUDENT_OPTION_MEANINGS = Object.fromEntries(
+  Object.entries(WORKING_STUDENT_OPTION_PROFILES).map(([key, profile]) => [
+    key,
+    { title: profile.title, meaning: profile.meaning, signals: profile.signals },
   ])
 );
 
@@ -524,58 +655,28 @@ export const workingStudentBehaviorEngine = {
   questions: WORKING_STUDENT_QUESTION_ORDER,
   options: WORKING_STUDENT_BRANCHES,
   displayLabels: WORKING_STUDENT_DISPLAY_LABELS,
+  optionProfiles: WORKING_STUDENT_OPTION_PROFILES,
   optionMeanings: WORKING_STUDENT_OPTION_MEANINGS,
   signalDefinitions: WORKING_STUDENT_SIGNAL_DEFINITIONS,
 };
 
-function canonicalizeOption(value) {
-  const cleaned = cleanWorkingStudentValue(value);
-  return DISPLAY_TO_CANONICAL[cleaned] || cleaned;
-}
-
-function addSignals(target, signals = {}) {
-  Object.entries(signals || {}).forEach(([key, raw]) => {
-    const value = Math.max(0, Number(raw) || 0);
-    if (!value || !WORKING_STUDENT_SIGNAL_DEFINITIONS[key]) return;
-    target[key] = (target[key] || 0) + value;
+function fallbackUnknownOptionProfile(value, key = "setup") {
+  const canonical = canonicalizeOption(value);
+  return profileFromSignals(canonical, key, {
+    title: display(canonical) || "Working Student signal",
+    meaning: "This choice is not yet mapped, so CLARA will treat it as a light Working Student signal until a structured profile is added.",
+    signals: STEP_DEFAULT_SIGNALS[key] || { budgetDiscipline: 4 },
+    tags: ["unknown_fallback", key],
+    pressureType: STEP_DEFAULT_META[key]?.pressureType || "environment",
+    emotionalTone: "still being understood",
+    financialInterpretation: STEP_DEFAULT_META[key]?.financialInterpretation || "This answer needs a structured profile.",
+    coachingDirection: STEP_DEFAULT_META[key]?.coachingDirection || "Add a structured profile for this option.",
   });
 }
 
-function inferredSignals(key, value) {
-  const text = `${key} ${canonicalizeOption(value)} ${getWorkingStudentDisplayLabel(value)}`;
-  const signals = {};
-  const add = (signalKey, amount) => addSignals(signals, { [signalKey]: amount });
-
-  if (hasAny(text, ["allowance", "fixed", "base", "part-time", "control", "plan early", "pause", "prepared", "discipline", "priority", "purpose", "savings"])) add("budgetDiscipline", 14);
-  if (hasAny(text, ["irregular", "project", "seasonal", "gaps", "fluctuate", "changes month", "some weeks", "unstable", "money arrives after", "delayed payments"])) add("financialInstability", 24);
-  if (hasAny(text, ["routine changes", "shifts", "schedule", "collide", "some weeks", "busy", "inconsistent", "uneven"])) add("routineInstability", 14);
-  if (hasAny(text, ["tuition", "school payments", "school costs", "school deadlines", "fear of stopping", "school continuity", "projects", "printing", "materials"])) add("tuitionPressure", 22);
-  if (hasAny(text, ["food", "fare", "transport", "daily", "survival", "essentials", "no room", "emergency margin", "cut meals", "stretch money"])) add("survivalPressure", 22);
-  if (hasAny(text, ["family", "home", "guilt", "goes home", "shared", "support boundary", "give even", "delay my own needs", "hide money stress"])) add("familyBurden", 22);
-  if (hasAny(text, ["borrow", "repay", "debt", "cash-flow", "delay payments", "borrowing", "no-new-debt"])) add("borrowingRisk", 24);
-  if (hasAny(text, ["repayment", "repair mode", "old pressure", "carries over", "avoid checking", "avoid the full picture", "money feels heavy"])) add("pressureCarryover", 18);
-  if (hasAny(text, ["tired", "fatigue", "exhaust", "little time", "commute", "heavy", "overlap", "deadlines", "responsible while tired", "catching up"])) add("emotionalFatigue", 22);
-  if (hasAny(text, ["overload", "prioritize", "future pressure", "anxious", "unclear", "too much", "stretched"])) add("mentalOverload", 16);
-  if (hasAny(text, ["rest", "low recovery", "no recovery", "push rest", "cut needs", "avoid spending on myself", "recovery"])) add("recoveryWeakness", 18);
-  if (hasAny(text, ["burn", "overwork", "burning out", "survival mode", "almost no margin"])) add("burnoutRisk", 18);
-  if (hasAny(text, ["reward", "comfort", "spend", "small", "feel okay", "social", "stuck", "micro", "leaks"])) add("rewardSpendingRisk", 24);
-  if (hasAny(text, ["convenience", "rushed", "missed tracking", "save energy", "forget to track"])) add("convenienceSpendingRisk", 22);
-  if (hasAny(text, ["comfort", "feel okay", "hard days", "reward myself", "emotional", "relief"])) add("emotionalRecoveryDependence", 18);
-
-  return signals;
-}
-
-function getOptionMeaning(value, key) {
+export function getWorkingStudentOptionProfile(value, key = "setup") {
   const canonical = canonicalizeOption(value);
-  const display = getWorkingStudentDisplayLabel(canonical);
-  const direct = WORKING_STUDENT_OPTION_MEANINGS[canonical] || WORKING_STUDENT_OPTION_MEANINGS[display];
-  if (direct) return direct;
-
-  return {
-    title: display || canonical || "Working Student signal",
-    meaning: "This choice helps CLARA understand how school, work, money, energy, and responsibility are shaping the student’s current situation.",
-    signals: inferredSignals(key, canonical),
-  };
+  return WORKING_STUDENT_OPTION_PROFILES[canonical] || WORKING_STUDENT_OPTION_PROFILES[display(canonical)] || fallbackUnknownOptionProfile(canonical, key);
 }
 
 function getLastAnsweredKey(answers = {}) {
@@ -587,20 +688,51 @@ function getProgressKeys(rawAnswers = {}, currentKey = "setup") {
   return WORKING_STUDENT_QUESTION_ORDER.slice(0, currentIndex + 1).filter((key) => cleanWorkingStudentValue(rawAnswers[key]));
 }
 
+function buildAnswerProfiles(answers = {}, keys = WORKING_STUDENT_QUESTION_ORDER) {
+  return keys
+    .filter((key) => cleanWorkingStudentValue(answers[key]))
+    .map((key) => {
+      const value = canonicalizeOption(answers[key]);
+      const profile = getWorkingStudentOptionProfile(value, key);
+      return {
+        key,
+        value,
+        displayLabel: getWorkingStudentDisplayLabel(value),
+        title: profile.title,
+        meaning: profile.meaning,
+        signals: profile.signals,
+        tags: profile.tags,
+        pressureType: profile.pressureType,
+        emotionalTone: profile.emotionalTone,
+        financialInterpretation: profile.financialInterpretation,
+        coachingDirection: profile.coachingDirection,
+      };
+    });
+}
+
+function collectSignalsFromProfiles(answerProfiles = []) {
+  const signals = {};
+  answerProfiles.forEach((profile) => addSignals(signals, profile.signals));
+  return signals;
+}
+
 function buildProgressiveSignals(rawAnswers = {}, selectedAnswers = {}, currentKey = "setup") {
   const progressiveSignals = {};
   const memory = [];
-  getProgressKeys(rawAnswers, currentKey).forEach((key) => {
-    const value = rawAnswers[key] || selectedAnswers[key];
-    const meaningForAnswer = getOptionMeaning(value, key);
-    addSignals(progressiveSignals, meaningForAnswer.signals);
-    addSignals(progressiveSignals, inferredSignals(key, value));
+  const progressKeys = getProgressKeys(rawAnswers, currentKey);
+  buildAnswerProfiles({ ...selectedAnswers, ...rawAnswers }, progressKeys).forEach((profile) => {
+    addSignals(progressiveSignals, profile.signals);
     memory.push({
-      key,
-      value: canonicalizeOption(value),
-      label: getWorkingStudentDisplayLabel(value),
-      title: meaningForAnswer.title,
-      body: meaningForAnswer.meaning,
+      key: profile.key,
+      value: profile.value,
+      label: profile.displayLabel,
+      title: profile.title,
+      body: profile.meaning,
+      tags: profile.tags,
+      pressureType: profile.pressureType,
+      emotionalTone: profile.emotionalTone,
+      financialInterpretation: profile.financialInterpretation,
+      coachingDirection: profile.coachingDirection,
     });
   });
   return { progressiveSignals, memory };
@@ -640,9 +772,8 @@ function buildBehavioralMemory(rawAnswers = {}, selectedAnswers = {}, currentKey
   };
 }
 
-function buildContinuityContext(rawAnswers = {}, selectedAnswers = {}, currentKey = "setup", currentMeaning, behavioralMemory, progressiveSignals = {}) {
+function buildContinuityContext(rawAnswers = {}, selectedAnswers = {}, currentKey = "setup", currentProfile, behavioralMemory, progressiveSignals = {}) {
   const progressKeys = getProgressKeys(rawAnswers, currentKey);
-  const currentLabel = getWorkingStudentDisplayLabel(rawAnswers[currentKey] || selectedAnswers[currentKey]);
   const setupLabel = getWorkingStudentDisplayLabel(rawAnswers.setup || selectedAnswers.setup);
   const rhythmLabel = getWorkingStudentDisplayLabel(rawAnswers.rhythm || selectedAnswers.rhythm);
   const workloadLabel = getWorkingStudentDisplayLabel(rawAnswers.workload || selectedAnswers.workload);
@@ -651,23 +782,20 @@ function buildContinuityContext(rawAnswers = {}, selectedAnswers = {}, currentKe
   const signalText = joinLabels(topSignals);
 
   if (progressKeys.length <= 1 || currentKey === "setup") {
-    return {
-      title: currentMeaning.title,
-      body: currentMeaning.meaning,
-    };
+    return { title: currentProfile.title, body: currentProfile.meaning };
   }
 
   const templates = {
-    rhythm: `Because your starting setup already points to ${setupLabel}, this money rhythm adds a clearer financial layer. ${currentMeaning.meaning} CLARA should now read this as part of ${signalText.toLowerCase()}, not as a separate answer.`,
-    workload: `With ${setupLabel} and ${rhythmLabel} already in the picture, this workload answer shows how much energy the situation may be using. ${currentMeaning.meaning} The money pattern now connects to time, routine, and recovery, not just income.`,
-    pressure: `Because your setup, money rhythm, and weekly load are already connected, this pressure answer shows what is becoming hardest to protect. ${currentMeaning.meaning} CLARA should watch ${signalText.toLowerCase()} as the current real-life pressure pattern.`,
-    coping: `Given the pressure around ${pressureLabel}, this response shows how you may try to survive heavier days. ${currentMeaning.meaning} The important part is that this behavior is reacting to your situation, not standing alone.`,
-    goal: `After seeing ${setupLabel}, ${rhythmLabel}, ${workloadLabel}, and ${pressureLabel}, this protection goal shows what your system needs to guard first. ${currentMeaning.meaning} Final guidance should protect ${signalText.toLowerCase()} before asking for perfect discipline.`,
+    rhythm: `Because your starting setup already points to ${setupLabel}, this money rhythm adds a clearer financial layer. ${currentProfile.meaning} CLARA should now read this as part of ${signalText.toLowerCase()}, not as a separate answer.`,
+    workload: `With ${setupLabel} and ${rhythmLabel} already in the picture, this workload answer shows how much energy the situation may be using. ${currentProfile.meaning} The money pattern now connects to time, routine, and recovery, not just income.`,
+    pressure: `Because your setup, money rhythm, and weekly load are already connected, this pressure answer shows what is becoming hardest to protect. ${currentProfile.meaning} CLARA should watch ${signalText.toLowerCase()} as the current real-life pressure pattern.`,
+    coping: `Given the pressure around ${pressureLabel}, this response shows how you may try to survive heavier days. ${currentProfile.meaning} The important part is that this behavior is reacting to your situation, not standing alone.`,
+    goal: `After seeing ${setupLabel}, ${rhythmLabel}, ${workloadLabel}, and ${pressureLabel}, this protection goal shows what your system needs to guard first. ${currentProfile.meaning} Final guidance should protect ${signalText.toLowerCase()} before asking for perfect discipline.`,
   };
 
   return {
-    title: `${currentMeaning.title} in context`,
-    body: templates[currentKey] || `${currentMeaning.meaning} CLARA is connecting this answer with the earlier pattern so the interpretation keeps building instead of restarting.`,
+    title: `${currentProfile.title} in context`,
+    body: templates[currentKey] || `${currentProfile.meaning} CLARA is connecting this answer with the earlier pattern so the interpretation keeps building instead of restarting.`,
     memory: behavioralMemory,
   };
 }
@@ -728,14 +856,27 @@ function buildEvolvedSummary(answers, distribution) {
   return { headline, body, setup, goal };
 }
 
-function buildAiPayload(answers, signals, distribution, evolvedSummary, behavioralMemory) {
+function summarizeProfiles(answerProfiles = []) {
+  const tags = Array.from(new Set(answerProfiles.flatMap((profile) => profile.tags || [])));
+  const tones = Array.from(new Set(answerProfiles.map((profile) => profile.emotionalTone).filter(Boolean)));
+  const interpretations = answerProfiles.map((profile) => profile.financialInterpretation).filter(Boolean);
+  const coachingDirections = answerProfiles.map((profile) => profile.coachingDirection).filter(Boolean);
+  return { tags, tones, interpretations, coachingDirections };
+}
+
+function buildAiPayload(answers, answerProfiles, signals, distribution, evolvedSummary, behavioralMemory) {
+  const profileSummary = summarizeProfiles(answerProfiles);
   return {
     stage: WORKING_STUDENT_STAGE_KEY,
     answers,
+    answerProfiles,
     behavioralMemory,
     dominantSignals: distribution.map((item) => ({ key: item.key, label: item.label, value: item.value })),
+    tags: profileSummary.tags,
+    emotionalTone: profileSummary.tones.slice(0, 3).join(" + ") || "still being understood",
+    financialInterpretation: profileSummary.interpretations.slice(0, 3),
+    recommendedCoachingDirection: distribution[0]?.action || profileSummary.coachingDirections[0] || "Start with one small protection rule for the current week.",
     summary: evolvedSummary.body,
-    recommendedCoachingDirection: distribution[0]?.action || "Start with one small protection rule for the current week.",
     rawSignals: signals,
   };
 }
@@ -778,40 +919,48 @@ export function getWorkingStudentDisplayLabel(value) {
   return WORKING_STUDENT_DISPLAY_LABELS[cleaned] || cleaned;
 }
 
+export function validateWorkingStudentOptionProfiles() {
+  const allOptions = getAllWorkingStudentOptions();
+  const missingProfiles = allOptions.filter((option) => !WORKING_STUDENT_OPTION_PROFILES[option]);
+  const invalidSignals = [];
+  allOptions.forEach((option) => {
+    const profile = WORKING_STUDENT_OPTION_PROFILES[option];
+    if (!profile) return;
+    if (!profile.signals || !Object.keys(profile.signals).length) invalidSignals.push({ option, signal: "NO_SIGNALS" });
+    Object.keys(profile.signals || {}).forEach((signalKey) => {
+      if (!WORKING_STUDENT_SIGNAL_DEFINITIONS[signalKey]) invalidSignals.push({ option, signal: signalKey });
+    });
+  });
+  return { valid: missingProfiles.length === 0 && invalidSignals.length === 0, missingProfiles, invalidSignals };
+}
+
 export function getWorkingStudentBehaviorProfile(rawAnswers = {}, options = {}) {
   const selectedAnswers = completeWorkingStudentDraft({ ...rawAnswers, stage: WORKING_STUDENT_STAGE_KEY });
   const currentKey = options.currentQuestionKey || getLastAnsweredKey(rawAnswers);
   const currentValue = rawAnswers[currentKey] || selectedAnswers[currentKey];
-  const currentMeaning = getOptionMeaning(currentValue, currentKey);
-  const signals = {};
+  const currentProfile = getWorkingStudentOptionProfile(currentValue, currentKey);
+  const answerProfiles = buildAnswerProfiles(selectedAnswers);
+  const signals = collectSignalsFromProfiles(answerProfiles);
 
-  WORKING_STUDENT_QUESTION_ORDER.forEach((key) => {
-    const value = selectedAnswers[key];
-    const meaningForAnswer = getOptionMeaning(value, key);
-    addSignals(signals, meaningForAnswer.signals);
-    addSignals(signals, inferredSignals(key, value));
-  });
-
-  if (!Object.keys(signals).length) {
-    addSignals(signals, { budgetDiscipline: 34, routineInstability: 26, financialInstability: 22, recoveryWeakness: 18 });
-  }
+  if (!Object.keys(signals).length) addSignals(signals, { budgetDiscipline: 34, routineInstability: 26, financialInstability: 22, recoveryWeakness: 18 });
 
   const { progressiveSignals, memory } = buildProgressiveSignals(rawAnswers, selectedAnswers, currentKey);
   const behavioralMemory = buildBehavioralMemory(rawAnswers, selectedAnswers, currentKey, progressiveSignals);
-  const currentContext = buildContinuityContext(rawAnswers, selectedAnswers, currentKey, currentMeaning, behavioralMemory, progressiveSignals);
+  const currentContext = buildContinuityContext(rawAnswers, selectedAnswers, currentKey, currentProfile, behavioralMemory, progressiveSignals);
   const snapshotDistribution = buildSnapshotDistribution(signals);
   const evolvedSummary = buildEvolvedSummary(selectedAnswers, snapshotDistribution);
 
   return {
     stage: WORKING_STUDENT_STAGE_KEY,
     selectedAnswers,
+    answerProfiles,
     currentContext,
     evolvedSummary,
     behavioralMemory: { ...behavioralMemory, memory },
     signals,
     progressiveSignals,
     snapshotDistribution,
-    aiPayload: buildAiPayload(selectedAnswers, signals, snapshotDistribution, evolvedSummary, behavioralMemory),
+    aiPayload: buildAiPayload(selectedAnswers, answerProfiles, signals, snapshotDistribution, evolvedSummary, behavioralMemory),
   };
 }
 
@@ -820,12 +969,7 @@ export function normalizeWorkingStudentInfluenceSplit(weights = {}) {
     const definition = Object.values(WORKING_STUDENT_SIGNAL_DEFINITIONS).find((item) => item.label === label) || {};
     return { label, raw: Math.max(0, Number(raw) || 0), ...definition };
   });
-  return normalizeDistribution(rows).map((item) => ({
-    label: item.label,
-    value: item.value,
-    category: item.category || "stability",
-    note: item.note || "CLARA pressure split signal.",
-  }));
+  return normalizeDistribution(rows).map((item) => ({ label: item.label, value: item.value, category: item.category || "stability", note: item.note || "CLARA pressure split signal." }));
 }
 
 export function getWorkingStudentScores(profile = {}) {
@@ -843,40 +987,21 @@ export function getWorkingStudentSnapshot(profile = {}) {
   return {
     key: "canonicalDistribution",
     title: dominant.label || "Working Student pressure split",
-    caption:
-      dominant.note ||
-      "CLARA is reading how school, work, money timing, energy, and responsibility currently share the student’s pressure.",
+    caption: dominant.note || "CLARA is reading how school, work, money timing, energy, and responsibility currently share the student’s pressure.",
     overview: behavior.evolvedSummary.body,
     hero: behavior.evolvedSummary.body,
     supportTitle: behavior.evolvedSummary.headline,
-    supportBody: secondary.label
-      ? `${dominant.label} is the largest share, while ${secondary.label} is also visible in the pattern.`
-      : "CLARA is building the current Working Student pressure distribution.",
+    supportBody: secondary.label ? `${dominant.label} is the largest share, while ${secondary.label} is also visible in the pattern.` : "CLARA is building the current Working Student pressure distribution.",
     struggles: behavior.snapshotDistribution.map((item) => item.label),
     recommendations: behavior.snapshotDistribution.map((item) => item.action),
     weights: Object.fromEntries(behavior.snapshotDistribution.map((item) => [item.label, item.value])),
-    indicators: behavior.snapshotDistribution.map((item) => ({
-      label: item.label,
-      value: item.value,
-      category: item.category,
-      note: item.note,
-      insight: item.insight,
-      action: item.action,
-      trendType: item.trendType,
-      status: item.status,
-    })),
+    indicators: behavior.snapshotDistribution.map((item) => ({ label: item.label, value: item.value, category: item.category, note: item.note, insight: item.insight, action: item.action, trendType: item.trendType, status: item.status })),
   };
 }
 
 export function getWorkingStudentQuestionContext(key, value, draft = {}) {
   const behavior = getWorkingStudentBehaviorProfile({ ...draft, [key]: value, stage: WORKING_STUDENT_STAGE_KEY }, { currentQuestionKey: key });
-  return {
-    key,
-    value: canonicalizeOption(value),
-    title: behavior.currentContext.title,
-    summary: behavior.currentContext.body,
-    body: behavior.currentContext.body,
-  };
+  return { key, value: canonicalizeOption(value), title: behavior.currentContext.title, summary: behavior.currentContext.body, body: behavior.currentContext.body };
 }
 
 export function buildWorkingStudentDraft(previous = {}) {
@@ -888,6 +1013,7 @@ export const WORKING_STUDENT_LIFE_STAGE_SOURCE = {
   roots: WORKING_STUDENT_ROOTS,
   branches: WORKING_STUDENT_BRANCHES,
   displayLabels: WORKING_STUDENT_DISPLAY_LABELS,
+  optionProfiles: WORKING_STUDENT_OPTION_PROFILES,
   optionMeanings: WORKING_STUDENT_OPTION_MEANINGS,
   signalDefinitions: WORKING_STUDENT_SIGNAL_DEFINITIONS,
   contextCopy: WORKING_STUDENT_OPTION_MEANINGS,
@@ -902,7 +1028,9 @@ export const WORKING_STUDENT_LIFE_STAGE_SOURCE = {
     completeWorkingStudentDraft,
     resetWorkingStudentAfter,
     getWorkingStudentDisplayLabel,
+    getWorkingStudentOptionProfile,
     getWorkingStudentBehaviorProfile,
+    validateWorkingStudentOptionProfiles,
     normalizeWorkingStudentInfluenceSplit,
     getWorkingStudentScores,
     getWorkingStudentArchetype,
