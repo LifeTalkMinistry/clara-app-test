@@ -52,12 +52,15 @@ const DISPLAY_LABELS = {
   "Busy enough to justify small rewards": "Busy enough to reward myself",
   "Food, fare, and school extras": "Food, fare, school extras",
   "Social or reward spending": "Social/reward spending",
+  "Saving feels inconsistent": "Saving feels inconsistent",
   "I want independence but still rely on support": "Independence while supported",
   "I spend small amounts without noticing": "Small spending goes unnoticed",
   "I reward myself after effort": "I reward myself after effort",
   "I avoid strict tracking": "I avoid strict tracking",
   "I can pause when I plan early": "I can pause when prepared",
   "Build discipline before bigger responsibilities": "Build discipline early",
+  "Save small without guilt": "Save small without guilt",
+  "Control small leaks": "Control small leaks",
   "Use extra income with purpose": "Give extra income a purpose",
   "Keep rewards but set limits": "Keep rewards, set limits",
 
@@ -81,6 +84,7 @@ const DISPLAY_LABELS = {
   "Protect school continuity": "Protect school continuity",
   "Avoid debt from school pressure": "Avoid school-related debt",
   "Keep food and fare stable": "Keep food and fare stable",
+  "Finish school without burning out": "Finish school without burning out",
 
   "Part of my income goes home": "Part of income goes home",
   "I give when family needs appear": "I give when family needs appear",
@@ -90,6 +94,7 @@ const DISPLAY_LABELS = {
   "I feel responsible even when tired": "I feel responsible while tired",
   "Family requests change the week": "Family needs change the week",
   "I still try to keep school stable": "I try to keep school stable",
+  "Family contribution": "Family contribution",
   "Guilt when I protect my own money": "Guilt when I protect my money",
   "School costs competing with home needs": "School costs vs home needs",
   "Weak personal buffer": "Weak personal buffer",
@@ -97,6 +102,7 @@ const DISPLAY_LABELS = {
   "I delay my own needs": "I delay my own needs",
   "I hide money stress": "I hide money stress",
   "I try to set limits but feel guilty": "I set limits but feel guilty",
+  "Help family without losing stability": "Help family without losing stability",
   "Set a support boundary": "Set a support boundary",
   "Protect school and daily needs": "Protect school and daily needs",
   "Build a personal safety buffer": "Build a personal safety buffer",
@@ -160,6 +166,7 @@ const DISPLAY_LABELS = {
   "Create a simple money rhythm": "Create a simple money rhythm",
   "Protect future goals slowly": "Protect future goals slowly",
   "Choose one priority first": "Choose one priority first",
+  "Control micro-spending": "Control micro-spending",
 
   "Money arrives after expenses are due": "Money arrives after bills are due",
   "I borrow then repay repeatedly": "I borrow, then repay repeatedly",
@@ -184,35 +191,14 @@ const DISPLAY_LABELS = {
 };
 
 const CONTEXT_COPY = {
-  "Mostly supported, trying to earn extra": [
-    "Supported independence",
-    "CLARA sees support in your environment, but also a chance to build discipline early. This path should watch small leaks, social pressure, and how extra income disappears before it becomes useful.",
-  ],
-  "Working mainly to continue school": [
-    "School protection path",
-    "CLARA sees school continuity as the anchor. The goal is not strict saving first; it is protecting tuition, projects, food, fare, and deadlines so school does not get interrupted.",
-  ],
-  "Helping family while studying": [
-    "Shared responsibility path",
-    "CLARA sees a student role and a support role happening together. This path needs care, but also boundaries so family help does not quietly weaken school stability.",
-  ],
-  "Trying to survive school mostly alone": [
-    "Self-support survival path",
-    "CLARA sees limited backup and smaller room for mistakes. The first protection is food, fare, school needs, and a tiny buffer before aggressive goals.",
-  ],
-  "Balancing school, work, and exhaustion": [
-    "Energy-pressure path",
-    "CLARA sees time and energy turning into money pressure. This path should watch convenience spending, missed tracking, and recovery needs without blaming the user.",
-  ],
-  "Building a future while financially unstable": [
-    "Future-builder path",
-    "CLARA sees ambition with unstable rhythm. This path is not crisis by default; it needs one clear priority, small repeatable wins, and protection from micro-spending.",
-  ],
-  "Trying to recover from constant financial pressure": [
-    "Recovery path",
-    "CLARA sees pressure carrying over from previous weeks. This path should lower the repair-mode feeling through repayment rhythm, no-new-debt rules, and a tiny food/fare buffer.",
-  ],
-  "Control is still available": ["Control signal", "CLARA sees this as a good moment to build rhythm before pressure grows. The user still has room to choose, not just react."],
+  "Mostly supported, trying to earn extra": ["Supported independence", "CLARA sees support in your environment, but also a chance to build discipline early. This path should watch small leaks, social pressure, and how extra income disappears before it becomes useful."],
+  "Working mainly to continue school": ["School protection path", "CLARA sees school continuity as the anchor. The goal is not strict saving first; it is protecting tuition, projects, food, fare, and deadlines so school does not get interrupted."],
+  "Helping family while studying": ["Shared responsibility path", "CLARA sees a student role and a support role happening together. This path needs care, but also boundaries so family help does not quietly weaken school stability."],
+  "Trying to survive school mostly alone": ["Self-support survival path", "CLARA sees limited backup and smaller room for mistakes. The first protection is food, fare, school needs, and a tiny buffer before aggressive goals."],
+  "Balancing school, work, and exhaustion": ["Energy-pressure path", "CLARA sees time and energy turning into money pressure. This path should watch convenience spending, missed tracking, and recovery needs without blaming the user."],
+  "Building a future while financially unstable": ["Future-builder path", "CLARA sees ambition with unstable rhythm. This path is not crisis by default; it needs one clear priority, small repeatable wins, and protection from micro-spending."],
+  "Trying to recover from constant financial pressure": ["Recovery path", "CLARA sees pressure carrying over from previous weeks. This path should lower the repair-mode feeling through repayment rhythm, no-new-debt rules, and a tiny food/fare buffer."],
+  "Enough control if I plan early": ["Control signal", "CLARA sees this as a good moment to build rhythm before pressure grows. The user still has room to choose, not just react."],
   "I can pause when I plan early": ["Planning control", "CLARA sees a protective habit: when the user prepares early, spending decisions become calmer and less reactive."],
   "Finish school without burning out": ["Graduation with recovery", "CLARA should protect both the school goal and the user's energy. Finishing should not require breaking down."],
   "Build the smallest emergency buffer": ["Tiny buffer first", "CLARA should start with the smallest realistic protection layer. For this path, even food/fare backup can create emotional relief."],
@@ -224,136 +210,52 @@ const CONTEXT_COPY = {
 const BRANCHES = {
   "Mostly supported, trying to earn extra": {
     rhythm: ["Allowance is the base, work is extra", "Fixed part-time pay for personal needs", "Occasional side income when available", "Extra income disappears into small spending"],
-    workload: {
-      default: ["Manageable but inconsistent", "Busy during exam or work weeks", "Social and school costs overlap", "Enough control if I plan early"],
-      "Extra income disappears into small spending": ["Manageable but leak-prone", "Busy enough to justify small rewards", "Social and school costs overlap", "Enough control if I plan early"],
-    },
-    pressure: {
-      default: ["Food, fare, and school extras", "Social or reward spending", "Saving feels inconsistent", "I want independence but still rely on support"],
-      "Social and school costs overlap": ["Food, fare, and school extras", "Social spending pressure", "Small rewards after school/work", "Saving feels inconsistent"],
-    },
-    coping: {
-      default: ["I spend small amounts without noticing", "I reward myself after effort", "I avoid strict tracking", "I can pause when I plan early"],
-      "Small rewards after school/work": ["I reward myself after effort", "I spend small amounts without noticing", "I avoid strict tracking", "I can pause when I plan early"],
-    },
-    goal: {
-      default: ["Build discipline before bigger responsibilities", "Save small without guilt", "Control small leaks", "Use extra income with purpose"],
-      "I reward myself after effort": ["Control small leaks", "Keep rewards but set limits", "Save small without guilt", "Use extra income with purpose"],
-    },
+    workload: { default: ["Manageable but inconsistent", "Busy during exam or work weeks", "Social and school costs overlap", "Enough control if I plan early"], "Extra income disappears into small spending": ["Manageable but leak-prone", "Busy enough to justify small rewards", "Social and school costs overlap", "Enough control if I plan early"] },
+    pressure: { default: ["Food, fare, and school extras", "Social or reward spending", "Saving feels inconsistent", "I want independence but still rely on support"], "Social and school costs overlap": ["Food, fare, and school extras", "Social spending pressure", "Small rewards after school/work", "Saving feels inconsistent"] },
+    coping: { default: ["I spend small amounts without noticing", "I reward myself after effort", "I avoid strict tracking", "I can pause when I plan early"], "Small rewards after school/work": ["I reward myself after effort", "I spend small amounts without noticing", "I avoid strict tracking", "I can pause when I plan early"] },
+    goal: { default: ["Build discipline before bigger responsibilities", "Save small without guilt", "Control small leaks", "Use extra income with purpose"], "I reward myself after effort": ["Control small leaks", "Keep rewards but set limits", "Save small without guilt", "Use extra income with purpose"] },
   },
   "Working mainly to continue school": {
     rhythm: ["Fixed work income for tuition", "Irregular income for school requirements", "Project/seasonal work before deadlines", "Allowance is not enough for school costs"],
-    workload: {
-      default: ["Class and work are both required", "School deadlines create work pressure", "Little room when fees are near", "I keep going even when tired"],
-      "Project/seasonal work before deadlines": ["Income waves around school deadlines", "School deadlines create work pressure", "Little room when fees are near", "I keep going even when tired"],
-    },
-    pressure: {
-      default: ["Tuition and school payments", "Projects, printing, and materials", "Daily fare and food while attending", "Fear of stopping school"],
-      "Little room when fees are near": ["Tuition and school payments", "Fear of stopping school", "Daily fare and food while attending", "Projects, printing, and materials"],
-    },
-    coping: {
-      default: ["I cut personal needs to pay school costs", "I delay non-school payments", "I take extra work even when tired", "I avoid spending on myself"],
-      "Fear of stopping school": ["I take extra work even when tired", "I cut personal needs to pay school costs", "I delay non-school payments", "I avoid spending on myself"],
-    },
-    goal: {
-      default: ["Protect school continuity", "Avoid debt from school pressure", "Keep food and fare stable", "Finish school without burning out"],
-      "I take extra work even when tired": ["Finish school without burning out", "Protect school continuity", "Keep food and fare stable", "Avoid debt from school pressure"],
-    },
+    workload: { default: ["Class and work are both required", "School deadlines create work pressure", "Little room when fees are near", "I keep going even when tired"], "Project/seasonal work before deadlines": ["Income waves around school deadlines", "School deadlines create work pressure", "Little room when fees are near", "I keep going even when tired"] },
+    pressure: { default: ["Tuition and school payments", "Projects, printing, and materials", "Daily fare and food while attending", "Fear of stopping school"], "Little room when fees are near": ["Tuition and school payments", "Fear of stopping school", "Daily fare and food while attending", "Projects, printing, and materials"] },
+    coping: { default: ["I cut personal needs to pay school costs", "I delay non-school payments", "I take extra work even when tired", "I avoid spending on myself"], "Fear of stopping school": ["I take extra work even when tired", "I cut personal needs to pay school costs", "I delay non-school payments", "I avoid spending on myself"] },
+    goal: { default: ["Protect school continuity", "Avoid debt from school pressure", "Keep food and fare stable", "Finish school without burning out"], "I take extra work even when tired": ["Finish school without burning out", "Protect school continuity", "Keep food and fare stable", "Avoid debt from school pressure"] },
   },
   "Helping family while studying": {
     rhythm: ["Part of my income goes home", "I give when family needs appear", "Allowance/work money gets shared", "I earn extra to support family"],
-    workload: {
-      default: ["School, work, and home needs overlap", "I feel responsible even when tired", "Family requests change the week", "I still try to keep school stable"],
-      "I give when family needs appear": ["Family requests change the week", "I feel responsible even when tired", "School, work, and home needs overlap", "I still try to keep school stable"],
-    },
-    pressure: {
-      default: ["Family contribution", "Guilt when I protect my own money", "School costs competing with home needs", "Weak personal buffer"],
-      "Family requests change the week": ["Family contribution", "Weak personal buffer", "Guilt when I protect my own money", "School costs competing with home needs"],
-    },
-    coping: {
-      default: ["I give even when my budget is tight", "I delay my own needs", "I hide money stress", "I try to set limits but feel guilty"],
-      "Guilt when I protect my own money": ["I try to set limits but feel guilty", "I give even when my budget is tight", "I delay my own needs", "I hide money stress"],
-    },
-    goal: {
-      default: ["Help family without losing stability", "Set a support boundary", "Protect school and daily needs", "Build a personal safety buffer"],
-      "I give even when my budget is tight": ["Set a support boundary", "Help family without losing stability", "Protect school and daily needs", "Build a personal safety buffer"],
-    },
+    workload: { default: ["School, work, and home needs overlap", "I feel responsible even when tired", "Family requests change the week", "I still try to keep school stable"], "I give when family needs appear": ["Family requests change the week", "I feel responsible even when tired", "School, work, and home needs overlap", "I still try to keep school stable"] },
+    pressure: { default: ["Family contribution", "Guilt when I protect my own money", "School costs competing with home needs", "Weak personal buffer"], "Family requests change the week": ["Family contribution", "Weak personal buffer", "Guilt when I protect my own money", "School costs competing with home needs"] },
+    coping: { default: ["I give even when my budget is tight", "I delay my own needs", "I hide money stress", "I try to set limits but feel guilty"], "Guilt when I protect my own money": ["I try to set limits but feel guilty", "I give even when my budget is tight", "I delay my own needs", "I hide money stress"] },
+    goal: { default: ["Help family without losing stability", "Set a support boundary", "Protect school and daily needs", "Build a personal safety buffer"], "I give even when my budget is tight": ["Set a support boundary", "Help family without losing stability", "Protect school and daily needs", "Build a personal safety buffer"] },
   },
   "Trying to survive school mostly alone": {
     rhythm: ["Fixed low-income work", "Irregular side hustle survival income", "Borrowing between pay cycles", "Project/seasonal income with gaps"],
-    workload: {
-      default: ["School and survival costs compete daily", "Food and fare need careful planning", "No room for surprise expenses", "I am tired but have to continue"],
-      "Borrowing between pay cycles": ["No room for surprise expenses", "Food and fare need careful planning", "School and survival costs compete daily", "I am tired but have to continue"],
-    },
-    pressure: {
-      default: ["Food and transport survival", "Tuition or school deadlines", "No emergency margin", "Borrowing risk when timing fails"],
-      "No room for surprise expenses": ["No emergency margin", "Borrowing risk when timing fails", "Food and transport survival", "Tuition or school deadlines"],
-    },
-    coping: {
-      default: ["I cut meals or needs to stretch money", "I avoid checking when money is low", "I borrow to survive the gap", "I overwork when pressure hits"],
-      "Borrowing risk when timing fails": ["I borrow to survive the gap", "I avoid checking when money is low", "I cut meals or needs to stretch money", "I overwork when pressure hits"],
-    },
-    goal: {
-      default: ["Build the smallest emergency buffer", "Finish school safely", "Stop survival borrowing", "Protect food and fare first"],
-      "I borrow to survive the gap": ["Stop survival borrowing", "Build the smallest emergency buffer", "Protect food and fare first", "Finish school safely"],
-    },
+    workload: { default: ["School and survival costs compete daily", "Food and fare need careful planning", "No room for surprise expenses", "I am tired but have to continue"], "Borrowing between pay cycles": ["No room for surprise expenses", "Food and fare need careful planning", "School and survival costs compete daily", "I am tired but have to continue"] },
+    pressure: { default: ["Food and transport survival", "Tuition or school deadlines", "No emergency margin", "Borrowing risk when timing fails"], "No room for surprise expenses": ["No emergency margin", "Borrowing risk when timing fails", "Food and transport survival", "Tuition or school deadlines"] },
+    coping: { default: ["I cut meals or needs to stretch money", "I avoid checking when money is low", "I borrow to survive the gap", "I overwork when pressure hits"], "Borrowing risk when timing fails": ["I borrow to survive the gap", "I avoid checking when money is low", "I cut meals or needs to stretch money", "I overwork when pressure hits"] },
+    goal: { default: ["Build the smallest emergency buffer", "Finish school safely", "Stop survival borrowing", "Protect food and fare first"], "I borrow to survive the gap": ["Stop survival borrowing", "Build the smallest emergency buffer", "Protect food and fare first", "Finish school safely"] },
   },
   "Balancing school, work, and exhaustion": {
     rhythm: ["Fixed pay but low recovery", "Irregular income plus heavy schedule", "Work shifts disrupt school rhythm", "Extra work happens when deadlines hit"],
-    workload: {
-      default: ["Heavy school-work overlap", "Little time to rest", "Commute drains energy", "Deadlines and shifts collide"],
-      "Work shifts disrupt school rhythm": ["Deadlines and shifts collide", "Little time to rest", "Commute drains energy", "Heavy school-work overlap"],
-    },
-    pressure: {
-      default: ["Convenience spending from exhaustion", "Rushed food and transport", "Missed tracking because I am tired", "Work-school schedule conflict"],
-      "Little time to rest": ["Convenience spending from exhaustion", "Missed tracking because I am tired", "Rushed food and transport", "Work-school schedule conflict"],
-    },
-    coping: {
-      default: ["I buy comfort after hard days", "I choose convenience to save energy", "I forget to track expenses", "I push rest aside"],
-      "Convenience spending from exhaustion": ["I choose convenience to save energy", "I buy comfort after hard days", "I forget to track expenses", "I push rest aside"],
-    },
-    goal: {
-      default: ["Finish school without burning out", "Create low-energy money rules", "Reduce convenience leaks", "Protect rest as part of budgeting"],
-      "I choose convenience to save energy": ["Create low-energy money rules", "Reduce convenience leaks", "Finish school without burning out", "Protect rest as part of budgeting"],
-    },
+    workload: { default: ["Heavy school-work overlap", "Little time to rest", "Commute drains energy", "Deadlines and shifts collide"], "Work shifts disrupt school rhythm": ["Deadlines and shifts collide", "Little time to rest", "Commute drains energy", "Heavy school-work overlap"] },
+    pressure: { default: ["Convenience spending from exhaustion", "Rushed food and transport", "Missed tracking because I am tired", "Work-school schedule conflict"], "Little time to rest": ["Convenience spending from exhaustion", "Missed tracking because I am tired", "Rushed food and transport", "Work-school schedule conflict"] },
+    coping: { default: ["I buy comfort after hard days", "I choose convenience to save energy", "I forget to track expenses", "I push rest aside"], "Convenience spending from exhaustion": ["I choose convenience to save energy", "I buy comfort after hard days", "I forget to track expenses", "I push rest aside"] },
+    goal: { default: ["Finish school without burning out", "Create low-energy money rules", "Reduce convenience leaks", "Protect rest as part of budgeting"], "I choose convenience to save energy": ["Create low-energy money rules", "Reduce convenience leaks", "Finish school without burning out", "Protect rest as part of budgeting"] },
   },
   "Building a future while financially unstable": {
     rhythm: ["Income changes month to month", "Side hustle income is growing slowly", "Support and work income both fluctuate", "Some weeks are strong, some are tight"],
-    workload: {
-      default: ["I am ambitious but stretched", "My routine changes often", "I am learning while earning", "Future pressure makes me anxious"],
-      "Some weeks are strong, some are tight": ["My routine changes often", "Future pressure makes me anxious", "I am ambitious but stretched", "I am learning while earning"],
-    },
-    pressure: {
-      default: ["Unstable income rhythm", "Repeated small expenses", "Future goals feel far", "I do not know what to prioritize first"],
-      "Future pressure makes me anxious": ["Future goals feel far", "I do not know what to prioritize first", "Unstable income rhythm", "Repeated small expenses"],
-    },
-    coping: {
-      default: ["I switch plans often", "I spend when I feel stuck", "I start saving then stop", "I need clearer priorities"],
-      "I do not know what to prioritize first": ["I need clearer priorities", "I switch plans often", "I start saving then stop", "I spend when I feel stuck"],
-    },
-    goal: {
-      default: ["Create a simple money rhythm", "Protect future goals slowly", "Control micro-spending", "Choose one priority first"],
-      "I need clearer priorities": ["Choose one priority first", "Create a simple money rhythm", "Protect future goals slowly", "Control micro-spending"],
-    },
+    workload: { default: ["I am ambitious but stretched", "My routine changes often", "I am learning while earning", "Future pressure makes me anxious"], "Some weeks are strong, some are tight": ["My routine changes often", "Future pressure makes me anxious", "I am ambitious but stretched", "I am learning while earning"] },
+    pressure: { default: ["Unstable income rhythm", "Repeated small expenses", "Future goals feel far", "I do not know what to prioritize first"], "Future pressure makes me anxious": ["Future goals feel far", "I do not know what to prioritize first", "Unstable income rhythm", "Repeated small expenses"] },
+    coping: { default: ["I switch plans often", "I spend when I feel stuck", "I start saving then stop", "I need clearer priorities"], "I do not know what to prioritize first": ["I need clearer priorities", "I switch plans often", "I start saving then stop", "I spend when I feel stuck"] },
+    goal: { default: ["Create a simple money rhythm", "Protect future goals slowly", "Control micro-spending", "Choose one priority first"], "I need clearer priorities": ["Choose one priority first", "Create a simple money rhythm", "Protect future goals slowly", "Control micro-spending"] },
   },
   "Trying to recover from constant financial pressure": {
     rhythm: ["Money arrives after expenses are due", "I borrow then repay repeatedly", "Income is unstable and pressure carries over", "Debt or delayed payments affect the week"],
-    workload: {
-      default: ["The month feels like repair mode", "Old pressure affects current choices", "I feel tired from catching up", "There is little room to reset"],
-      "I borrow then repay repeatedly": ["Old pressure affects current choices", "The month feels like repair mode", "I feel tired from catching up", "There is little room to reset"],
-    },
-    pressure: {
-      default: ["Repayment pressure", "Cash-flow timing mismatch", "Borrowing again before the next income", "Avoiding money because it feels heavy"],
-      "Old pressure affects current choices": ["Repayment pressure", "Borrowing again before the next income", "Cash-flow timing mismatch", "Avoiding money because it feels heavy"],
-    },
-    coping: {
-      default: ["I delay payments to survive", "I avoid checking the full picture", "I borrow again when daily costs hit", "I cut needs too much"],
-      "Borrowing again before the next income": ["I borrow again when daily costs hit", "I delay payments to survive", "I avoid checking the full picture", "I cut needs too much"],
-    },
-    goal: {
-      default: ["Stop pressure from stacking", "Build a no-new-debt rule", "Create a repayment rhythm", "Protect a tiny food/fare buffer"],
-      "I delay payments to survive": ["Create a repayment rhythm", "Stop pressure from stacking", "Build a no-new-debt rule", "Protect a tiny food/fare buffer"],
-    },
+    workload: { default: ["The month feels like repair mode", "Old pressure affects current choices", "I feel tired from catching up", "There is little room to reset"], "I borrow then repay repeatedly": ["Old pressure affects current choices", "The month feels like repair mode", "I feel tired from catching up", "There is little room to reset"] },
+    pressure: { default: ["Repayment pressure", "Cash-flow timing mismatch", "Borrowing again before the next income", "Avoiding money because it feels heavy"], "Old pressure affects current choices": ["Repayment pressure", "Borrowing again before the next income", "Cash-flow timing mismatch", "Avoiding money because it feels heavy"] },
+    coping: { default: ["I delay payments to survive", "I avoid checking the full picture", "I borrow again when daily costs hit", "I cut needs too much"], "Borrowing again before the next income": ["I borrow again when daily costs hit", "I delay payments to survive", "I avoid checking the full picture", "I cut needs too much"] },
+    goal: { default: ["Stop pressure from stacking", "Build a no-new-debt rule", "Create a repayment rhythm", "Protect a tiny food/fare buffer"], "I delay payments to survive": ["Create a repayment rhythm", "Stop pressure from stacking", "Build a no-new-debt rule", "Protect a tiny food/fare buffer"] },
   },
 };
 
@@ -388,7 +290,7 @@ function writeAndNotify(key, value) {
 }
 
 function getButtonLabel(button) {
-  return clean(button?.querySelector?.("span")?.textContent || button?.innerText || button?.textContent);
+  return clean(button?.dataset?.claraBranchOption || button?.querySelector?.("span")?.textContent || button?.innerText || button?.textContent);
 }
 
 function branchFor(setup) {
@@ -442,8 +344,7 @@ function detectStepSection() {
 }
 
 function isWorkingStudentFlowActive() {
-  const headings = Array.from(document.querySelectorAll("h2, h3, p, button"));
-  return headings.some((node) => clean(node.textContent).startsWith("Working Student")) || clean(readJson(BRANCH_DRAFT_KEY).stage) === "Working Student";
+  return Array.from(document.querySelectorAll("h2, h3, p, button")).some((node) => clean(node.textContent).startsWith("Working Student")) || clean(readJson(BRANCH_DRAFT_KEY).stage) === "Working Student";
 }
 
 function setButtonText(button, text) {
@@ -451,19 +352,13 @@ function setButtonText(button, text) {
   if (label && clean(label.textContent) !== text) label.textContent = text;
 }
 
-function styleSelected(button, active) {
+function clearRuntimeActiveStyle(button) {
   if (!button) return;
-  if (active) {
-    button.dataset.claraBranchSelected = "true";
-    button.style.borderColor = "rgba(103, 248, 255, 0.42)";
-    button.style.background = "linear-gradient(135deg, rgba(45,212,191,.16), rgba(59,130,246,.12) 48%, rgba(91,63,209,.16))";
-    button.style.color = "rgba(240,253,255,.96)";
-  } else if (button.dataset.claraBranchSelected === "true") {
-    delete button.dataset.claraBranchSelected;
-    button.style.borderColor = "";
-    button.style.background = "";
-    button.style.color = "";
-  }
+  delete button.dataset.claraBranchSelected;
+  button.style.borderColor = "";
+  button.style.background = "";
+  button.style.color = "";
+  button.style.boxShadow = "";
 }
 
 function findContextBoard() {
@@ -475,8 +370,7 @@ function findContextBoard() {
 }
 
 function patchContextBoard(stored, key) {
-  const value = clean(stored?.[key]);
-  const copy = CONTEXT_COPY[value];
+  const copy = CONTEXT_COPY[clean(stored?.[key])];
   if (!copy) return;
   const { title, summary } = findContextBoard();
   if (!title || !summary) return;
@@ -496,6 +390,7 @@ function patchCurrentOptions() {
   const buttons = Array.from(section.querySelectorAll("button"));
   buttons.forEach((button, index) => {
     const option = options[index];
+    clearRuntimeActiveStyle(button);
     if (!option) {
       button.style.display = "none";
       return;
@@ -503,7 +398,6 @@ function patchCurrentOptions() {
     button.style.display = "";
     button.dataset.claraBranchOption = option;
     setButtonText(button, displayFor(option));
-    styleSelected(button, clean(stored[key]) === option);
   });
 
   patchContextBoard(stored, key);
@@ -524,8 +418,8 @@ function saveFinalBranchProfileSoon() {
 
 function install() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (window.__CLARA_WORKING_STUDENT_BRANCH_SESSION_V2__) return;
-  window.__CLARA_WORKING_STUDENT_BRANCH_SESSION_V2__ = true;
+  if (window.__CLARA_WORKING_STUDENT_BRANCH_SESSION_V3__) return;
+  window.__CLARA_WORKING_STUDENT_BRANCH_SESSION_V3__ = true;
 
   let scheduled = false;
   const schedulePatch = () => {
@@ -542,7 +436,7 @@ function install() {
     (event) => {
       const button = event.target?.closest?.("button");
       if (!button) return;
-      const value = clean(button.dataset.claraBranchOption || getButtonLabel(button));
+      const value = getButtonLabel(button);
 
       if (value === "Working Student") {
         const base = completeDraft({ stage: "Working Student", setup: ROOT_OPTIONS[0] });
@@ -552,8 +446,9 @@ function install() {
       }
 
       const { key } = detectStepSection();
-      if (key && optionsFor(completeDraft(readJson(BRANCH_DRAFT_KEY)), key).includes(value)) {
-        rememberSelection(key, value);
+      const branchOption = clean(button.dataset.claraBranchOption);
+      if (key && branchOption && optionsFor(completeDraft(readJson(BRANCH_DRAFT_KEY)), key).includes(branchOption)) {
+        rememberSelection(key, branchOption);
         window.setTimeout(schedulePatch, 30);
         window.setTimeout(schedulePatch, 120);
         return;
