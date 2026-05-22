@@ -84,6 +84,8 @@ function installStyle() {
     #${DIAGNOSIS_ID} .story-card[data-kind="opening"][data-clean-working-student-opening="true"] {
       gap: clamp(16px, 2.4svh, 24px) !important;
     }
+    #${DIAGNOSIS_ID}[data-canonical-working-student="true"] .story-card .eyebrow,
+    #${DIAGNOSIS_ID}[data-canonical-working-student="true"] .story-card .supporting,
     #${DIAGNOSIS_ID} .story-card[data-kind="opening"][data-clean-working-student-opening="true"] .eyebrow,
     #${DIAGNOSIS_ID} .story-card[data-kind="opening"][data-clean-working-student-opening="true"] .supporting {
       display: none !important;
