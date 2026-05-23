@@ -66,6 +66,10 @@ function findTextNodes(card) {
   return { title, body };
 }
 
+function findHeartNode(card) {
+  return card?.querySelector("svg")?.closest("div") || null;
+}
+
 function getCopy(signalId, mode) {
   const copy = SIGNAL_CARD_COPY[signalId] || SIGNAL_CARD_COPY.tired;
   if (mode === "guidance") return { title: copy.guidanceTitle, body: copy.guidanceBody };
@@ -86,23 +90,33 @@ function applyImportantStyle(node, styles) {
 }
 
 function prepareCardLayout(card, title, body) {
-  const inner = card.querySelector(":scope > div") || title.parentElement;
+  const row = card.querySelector(":scope > div") || title.parentElement;
+  const textColumn = title.parentElement;
+  const heart = findHeartNode(card);
 
-  applyImportantStyle(card, {
-    overflow: "hidden",
+  applyImportantStyle(card, { overflow: "hidden" });
+
+  applyImportantStyle(row, {
+    display: "flex",
+    "flex-direction": "row",
+    "align-items": "center",
+    "justify-content": "space-between",
+    gap: "12px",
+    height: "100%",
+    "min-height": "100%",
   });
 
-  applyImportantStyle(inner, {
+  applyImportantStyle(textColumn, {
+    flex: "1 1 auto",
+    "min-width": "0",
     display: "flex",
     "flex-direction": "column",
     "justify-content": "center",
-    "min-height": "100%",
-    "padding-top": "2px",
-    "padding-bottom": "2px",
+    "align-items": "stretch",
   });
 
   applyImportantStyle(title, {
-    "max-width": "calc(100% - 66px)",
+    "max-width": "100%",
     "font-size": "13.5px",
     "line-height": "1.13",
     margin: "0 0 7px",
@@ -113,7 +127,7 @@ function prepareCardLayout(card, title, body) {
   });
 
   applyImportantStyle(body, {
-    "max-width": "calc(100% - 66px)",
+    "max-width": "100%",
     "font-size": "10.8px",
     "line-height": "1.34",
     margin: "0",
@@ -127,12 +141,24 @@ function prepareCardLayout(card, title, body) {
     "-webkit-box-orient": "unset",
   });
 
-  const heart = card.querySelector("button");
   if (heart) {
+    heart.dataset.claraHeartCta = "true";
+    heart.setAttribute("role", "button");
+    heart.setAttribute("tabindex", "0");
     applyImportantStyle(heart, {
-      right: "14px",
-      top: "50%",
-      transform: "translateY(-50%)",
+      position: "relative",
+      right: "auto",
+      top: "auto",
+      transform: "none",
+      flex: "0 0 56px",
+      width: "56px",
+      height: "56px",
+      "min-width": "56px",
+      "min-height": "56px",
+      margin: "0",
+      "align-self": "center",
+      display: "grid",
+      "place-items": "center",
     });
   }
 }
@@ -153,7 +179,7 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
   card.dataset.claraSelectedSignal = signalId;
   card.dataset.claraSignalMode = mode;
 
-  const heart = card.querySelector("button");
+  const heart = findHeartNode(card);
   if (heart) {
     heart.title = mode === "guidance" ? "Showing gentle guidance" : "Show gentle guidance";
     heart.setAttribute("aria-label", heart.title);
@@ -220,12 +246,8 @@ function handleSignalClick(event) {
 }
 
 function handleHeartClick(event) {
-  const card = findSupportCard();
-  if (!card || !STATE.signalId) return;
-
-  const button = event.target?.closest?.("button");
-  if (!button || !card.contains(button)) return;
-  if (event.target?.closest?.("[data-clara-pressure-signal]")) return;
+  const heart = event.target?.closest?.("[data-clara-heart-cta='true']");
+  if (!heart || !STATE.signalId) return;
 
   event.preventDefault();
   event.stopPropagation();
