@@ -204,7 +204,7 @@ function applyYoungProLayout(container, support, dock) {
 
   applyImportantStyle(container, {
     display: "grid",
-    "grid-template-rows": "minmax(214px, clamp(214px, 34svh, 252px)) 92px 42px 218px",
+    "grid-template-rows": "minmax(226px, clamp(226px, 34.5svh, 250px)) 124px 46px 208px",
     gap: "0",
     "align-content": "start",
     overflow: "hidden",
@@ -223,12 +223,12 @@ function applyYoungProLayout(container, support, dock) {
   applyImportantStyle(support, {
     position: "relative",
     "z-index": "14",
-    height: "92px",
-    "min-height": "92px",
-    "max-height": "92px",
+    height: "124px",
+    "min-height": "124px",
+    "max-height": "124px",
     width: "calc(100% - 4px)",
-    margin: "0 auto",
-    padding: "13px 15px",
+    margin: "-8px auto 0",
+    padding: "16px 15px",
     flex: "none",
     "align-self": "start",
     transform: "none",
@@ -239,11 +239,11 @@ function applyYoungProLayout(container, support, dock) {
     applyImportantStyle(dock, {
       position: "relative",
       "z-index": "12",
-      height: "42px",
-      "min-height": "42px",
-      "max-height": "42px",
-      margin: "1px auto 0",
-      padding: "5px 8px",
+      height: "46px",
+      "min-height": "46px",
+      "max-height": "46px",
+      margin: "5px auto 0",
+      padding: "6px 8px",
       flex: "none",
       "align-self": "start",
       transform: "none",
@@ -254,10 +254,10 @@ function applyYoungProLayout(container, support, dock) {
     applyImportantStyle(snapshot, {
       position: "relative",
       "z-index": "4",
-      height: "218px",
-      "min-height": "218px",
-      "max-height": "218px",
-      margin: "0",
+      height: "208px",
+      "min-height": "208px",
+      "max-height": "208px",
+      margin: "6px 0 0",
       flex: "none",
       "align-self": "start",
       transform: "none",
@@ -383,13 +383,31 @@ function installStyles() {
   style.id = "clara-young-pro-signal-style";
   style.textContent = `
     #root [data-clara-young-pro-layout="true"] > section[data-clara-young-pro-signal-card="true"] {
-      margin-top: 0 !important;
+      margin-top: -8px !important;
       transform: none !important;
     }
 
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p {
       transition: opacity 160ms ease, transform 160ms ease !important;
+    }
+
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 {
+      margin: 0 0 8px !important;
+      max-width: 16rem !important;
+      font-size: 13.4px !important;
+      line-height: 1.12 !important;
+      letter-spacing: -0.022em !important;
+    }
+
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 3 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+      max-width: 16.2rem !important;
+      font-size: 10.7px !important;
+      line-height: 1.36 !important;
     }
 
     #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signals="true"] {
