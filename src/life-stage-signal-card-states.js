@@ -29,7 +29,24 @@ const SIGNAL_CARD_COPY = {
     guidanceTitle: "Prepare one thing early.",
     guidanceBody: "Pick one repeated pressure point and prepare it before the rush begins.",
   },
+  moneyTiming: {
+    awarenessTitle: "Money timing can create pressure.",
+    awarenessBody: "When allowance, salary, or side income arrives late, small costs can feel heavier before money comes in.",
+    guidanceTitle: "Protect the waiting period.",
+    guidanceBody: "List what must survive before the next money arrives: fare, food, load, and school needs first.",
+  },
+  commute: {
+    awarenessTitle: "Commute pressure affects spending.",
+    awarenessBody: "Long travel, traffic, and rushed movement can quietly add fare, food, drinks, or convenience costs.",
+    guidanceTitle: "Plan the travel cost early.",
+    guidanceBody: "Set aside fare and one travel buffer before the day starts so movement does not break the budget.",
+  },
 };
+
+const EXTRA_SIGNAL_ICONS = [
+  { id: "moneyTiming", icon: "💸", label: "Money Timing" },
+  { id: "commute", icon: "🚌", label: "Commute Pressure" },
+];
 
 const STATE = { signalId: null, mode: "awareness" };
 
@@ -86,6 +103,22 @@ function applyImportantStyle(node, styles) {
   if (!node) return;
   Object.entries(styles).forEach(([property, value]) => {
     node.style.setProperty(property, value, "important");
+  });
+}
+
+function ensureExtraSignalIcons() {
+  document.querySelectorAll("[data-clara-pressure-signals='true'] .clara-pressure-track").forEach((track) => {
+    EXTRA_SIGNAL_ICONS.forEach((signal) => {
+      if (track.querySelector(`[data-clara-pressure-signal='${signal.id}']`)) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "clara-pressure-chip";
+      button.dataset.claraPressureSignal = signal.id;
+      button.setAttribute("aria-label", `Show ${signal.label} awareness`);
+      button.title = signal.label;
+      button.innerHTML = `<span aria-hidden="true">${signal.icon}</span><strong>${signal.label}</strong>`;
+      track.appendChild(button);
+    });
   });
 }
 
@@ -260,6 +293,7 @@ function handleHeartClick(event) {
 
 function maintainState() {
   installStyles();
+  ensureExtraSignalIcons();
   if (STATE.signalId) {
     setActiveIcon(STATE.signalId);
     applyCardState(STATE.signalId, STATE.mode, false);
