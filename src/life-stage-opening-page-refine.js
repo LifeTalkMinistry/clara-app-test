@@ -143,7 +143,35 @@ function stripInternalSnapshotText(value) {
     .trim();
 }
 
+function riskLabelFromValue(value) {
+  const number = Number(String(value || "").replace(/[^0-9.]/g, "")) || 0;
+  if (number >= 30) return "High Risk";
+  if (number >= 22) return "High Risk";
+  if (number >= 14) return "Moderate Risk";
+  if (number >= 8) return "Low Risk";
+  return "Low Risk";
+}
+
+function convertRiskStatusText(value) {
+  const text = clean(value);
+  if (/^(dominant|heavy presence|growing pressure|emerging pattern|minor presence)$/i.test(text)) return null;
+  return text;
+}
+
+function updateVisibleRiskStatuses(root = document) {
+  Array.from(root.querySelectorAll("p")).forEach((node) => {
+    const text = clean(node.textContent);
+    if (!/^(dominant|heavy presence|growing pressure|emerging pattern|minor presence)$/i.test(text)) return;
+
+    const parent = node.closest("button,[data-clara-modal-insight='true'],.absolute,section,div") || node.parentElement;
+    const percentNode = Array.from(parent?.querySelectorAll?.("p") || []).find((item) => /^\d+(\.\d+)?%$/.test(clean(item.textContent)));
+    node.textContent = riskLabelFromValue(percentNode?.textContent);
+  });
+}
+
 function cleanSnapshotDetailCards() {
+  updateVisibleRiskStatuses(document);
+
   const modal = Array.from(document.querySelectorAll(".absolute")).find((node) => {
     const text = clean(node.textContent);
     return text.includes("Behavioral distribution share") || text.includes("100% Pressure Split") || text.includes("DATA STATUS");
@@ -161,6 +189,14 @@ function cleanSnapshotDetailCards() {
   Array.from(modal.querySelectorAll("p")).forEach((node) => {
     const text = clean(node.textContent);
     if (!text) return;
+
+    const converted = convertRiskStatusText(text);
+    if (converted === null) {
+      const parent = node.closest("div") || modal;
+      const percentNode = Array.from(parent.querySelectorAll("p") || []).find((item) => /^\d+(\.\d+)?%$/.test(clean(item.textContent))) || Array.from(modal.querySelectorAll("p") || []).find((item) => /^\d+(\.\d+)?%$/.test(clean(item.textContent)));
+      node.textContent = riskLabelFromValue(percentNode?.textContent);
+      return;
+    }
 
     const cleaned = stripInternalSnapshotText(text);
     if (cleaned !== text) {
