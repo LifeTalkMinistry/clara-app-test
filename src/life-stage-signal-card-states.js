@@ -139,9 +139,36 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "clara-signal-card-state-style";
   style.textContent = `
+    #root [data-clara-support-card="true"] {
+      min-height: clamp(132px, 17svh, 172px) !important;
+      padding: clamp(18px, 4.8vw, 24px) clamp(18px, 5vw, 24px) !important;
+      overflow: hidden !important;
+    }
     #root [data-clara-support-card="true"] h3,
     #root [data-clara-support-card="true"] h3 + p {
       transition: opacity 160ms ease, transform 160ms ease !important;
+    }
+    #root [data-clara-support-card="true"] h3 {
+      max-width: calc(100% - 64px) !important;
+      font-size: clamp(13px, 3.6vw, 16px) !important;
+      line-height: 1.16 !important;
+      margin-bottom: 6px !important;
+    }
+    #root [data-clara-support-card="true"] h3 + p {
+      max-width: calc(100% - 60px) !important;
+      font-size: clamp(10.5px, 2.85vw, 12px) !important;
+      line-height: 1.42 !important;
+      letter-spacing: -0.01em !important;
+      display: -webkit-box !important;
+      -webkit-box-orient: vertical !important;
+      -webkit-line-clamp: 5 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    #root [data-clara-support-card="true"] button {
+      right: clamp(14px, 4vw, 20px) !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
     }
     #root [data-clara-pressure-signal][data-active="true"] {
       border-color: rgba(165,243,252,.36) !important;
