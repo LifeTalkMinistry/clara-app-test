@@ -42,18 +42,9 @@ const SIGNAL_CARD_COPY = {
 };
 
 const STATE = { signalId: null, mode: "awareness" };
-const BODY_LIMIT = 142;
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function limitText(value, limit = BODY_LIMIT) {
-  const text = clean(value);
-  if (text.length <= limit) return text;
-  const sliced = text.slice(0, limit + 1);
-  const safe = sliced.slice(0, Math.max(sliced.lastIndexOf(" "), limit - 12)).trim();
-  return `${safe}…`;
 }
 
 function findLifeStageHero() {
@@ -88,11 +79,11 @@ function findTextNodes(card) {
 function getCopy(signalId, mode) {
   const copy = SIGNAL_CARD_COPY[signalId] || SIGNAL_CARD_COPY.tired;
   if (mode === "guidance") {
-    return { title: copy.guidanceTitle, body: limitText(copy.guidanceBody) };
+    return { title: copy.guidanceTitle, body: copy.guidanceBody };
   }
   return {
     title: copy.awarenessTitle,
-    body: limitText(`${copy.awarenessBody} Tap the heart for a gentle next step.`),
+    body: `${copy.awarenessBody} Tap the heart for a gentle next step.`,
   };
 }
 
@@ -102,11 +93,75 @@ function setActiveIcon(signalId) {
   });
 }
 
+function getSafeCardHeight() {
+  const height = window.innerHeight || 760;
+  if (height <= 680) return 108;
+  if (height <= 760) return 118;
+  return 126;
+}
+
+function applyImportantStyle(node, styles) {
+  if (!node) return;
+  Object.entries(styles).forEach(([property, value]) => {
+    node.style.setProperty(property, value, "important");
+  });
+}
+
+function prepareCardLayout(card, title, body) {
+  const height = getSafeCardHeight();
+  const compact = height <= 108;
+
+  applyImportantStyle(card, {
+    height: `${height}px`,
+    "min-height": `${height}px`,
+    "max-height": `${height}px`,
+    padding: compact ? "14px 16px" : "17px 18px",
+    overflow: "hidden",
+  });
+
+  applyImportantStyle(title, {
+    "max-width": "calc(100% - 66px)",
+    "font-size": compact ? "13px" : "14px",
+    "line-height": "1.15",
+    margin: "0 0 5px",
+    overflow: "visible",
+    "text-overflow": "clip",
+    "white-space": "normal",
+    display: "block",
+  });
+
+  applyImportantStyle(body, {
+    "max-width": "calc(100% - 66px)",
+    "font-size": compact ? "10px" : "11px",
+    "line-height": compact ? "1.28" : "1.34",
+    margin: "0",
+    overflow: "visible",
+    "text-overflow": "clip",
+    "white-space": "normal",
+    display: "block",
+    "max-height": "none",
+    "-webkit-line-clamp": "unset",
+    "line-clamp": "unset",
+    "-webkit-box-orient": "unset",
+  });
+
+  const heart = card.querySelector("button");
+  if (heart) {
+    applyImportantStyle(heart, {
+      right: compact ? "14px" : "16px",
+      top: "50%",
+      transform: "translateY(-50%)",
+    });
+  }
+}
+
 function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = false) {
   if (!signalId) return;
   const card = findSupportCard();
   const { title, body } = findTextNodes(card);
   if (!card || !title || !body) return;
+
+  prepareCardLayout(card, title, body);
 
   const copy = getCopy(signalId, mode);
   if (clean(title.textContent) === copy.title && clean(body.textContent) === copy.body) return;
@@ -125,6 +180,7 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
   const commit = () => {
     title.textContent = copy.title;
     body.textContent = copy.body;
+    prepareCardLayout(card, title, body);
     title.style.opacity = "1";
     body.style.opacity = "1";
     title.style.transform = "translateY(0)";
@@ -148,37 +204,9 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "clara-signal-card-state-style";
   style.textContent = `
-    #root [data-clara-support-card="true"] {
-      min-height: clamp(136px, 17.5svh, 168px) !important;
-      padding: clamp(18px, 4.8vw, 23px) clamp(18px, 5vw, 24px) !important;
-      overflow: hidden !important;
-    }
     #root [data-clara-support-card="true"] h3,
     #root [data-clara-support-card="true"] h3 + p {
       transition: opacity 160ms ease, transform 160ms ease !important;
-    }
-    #root [data-clara-support-card="true"] h3 {
-      max-width: calc(100% - 64px) !important;
-      font-size: clamp(13px, 3.5vw, 15px) !important;
-      line-height: 1.15 !important;
-      margin-bottom: 6px !important;
-    }
-    #root [data-clara-support-card="true"] h3 + p {
-      max-width: calc(100% - 60px) !important;
-      font-size: clamp(10.25px, 2.72vw, 11.5px) !important;
-      line-height: 1.36 !important;
-      letter-spacing: -0.01em !important;
-      display: block !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
-      white-space: normal !important;
-      -webkit-line-clamp: unset !important;
-      -webkit-box-orient: unset !important;
-    }
-    #root [data-clara-support-card="true"] button {
-      right: clamp(14px, 4vw, 20px) !important;
-      top: 50% !important;
-      transform: translateY(-50%) !important;
     }
     #root [data-clara-pressure-signal][data-active="true"] {
       border-color: rgba(165,243,252,.36) !important;
@@ -241,6 +269,7 @@ function installSignalCardStates() {
 
   document.addEventListener("click", handleSignalClick, true);
   document.addEventListener("click", handleHeartClick, true);
+  window.addEventListener("resize", maintainState, { passive: true });
 
   let scheduled = false;
   const schedule = () => {
