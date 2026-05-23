@@ -2,10 +2,14 @@ import {
   getWorkingStudentDisplayLabel,
   getWorkingStudentOptionProfile,
 } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
+import {
+  LIVING_WITH_PARTNER_STAGE_KEY,
+  getLivingWithPartnerDisplayLabel,
+  getLivingWithPartnerOptionProfile,
+} from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
 
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
-const DRAFT_KEY = "clara_working_student_branch_draft_v1";
 
 const STEP_META = {
   "CURRENT SETUP": { key: "setup", label: "CURRENT SETUP", question: "Which setup feels closest to your real life right now?", index: 0 },
@@ -24,11 +28,11 @@ const loud = (value) => clean(value).toUpperCase();
 const isVisible = (node) => !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
 const getStepMeta = (text) => STEP_META[loud(text)] || null;
 
-function readJson(key) {
+function readProfile() {
   try {
-    return JSON.parse(window.localStorage.getItem(key) || "null");
+    return JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {};
   } catch {
-    return null;
+    return {};
   }
 }
 
@@ -130,47 +134,79 @@ function includesAny(value, terms) {
   return terms.some((term) => text.includes(term));
 }
 
-function conciseSelectionMeaning(selectedValue, activeKey, profile) {
+function currentStage() {
+  const profile = readProfile();
+  return clean(profile.stage);
+}
+
+function getStageLabelAndProfile(selectedValue, activeKey) {
+  const stage = currentStage();
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
+    return {
+      label: getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue,
+      profile: getLivingWithPartnerOptionProfile(selectedValue, activeKey),
+      stage,
+    };
+  }
+  return {
+    label: getWorkingStudentDisplayLabel(selectedValue) || selectedValue,
+    profile: getWorkingStudentOptionProfile(selectedValue, activeKey),
+    stage,
+  };
+}
+
+function conciseSelectionMeaning(selectedValue, activeKey, profile, stage) {
   const selected = clean(selectedValue);
   const text = selected.toLowerCase();
-  const label = getWorkingStudentDisplayLabel(selected) || selected;
+  const label = stage === LIVING_WITH_PARTNER_STAGE_KEY ? getLivingWithPartnerDisplayLabel(selected) || selected : getWorkingStudentDisplayLabel(selected) || selected;
 
   if (profile?.meaning && !profile.meaning.startsWith("Selecting")) {
     return profile.meaning;
   }
 
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
+    if (includesAny(text, ["uneven", "one income", "one person", "covers gaps", "mismatch"])) {
+      return `Choosing “${label}” usually means fairness is already part of the shared money story. CLARA should watch whether one person is silently carrying more than the other.`;
+    }
+    if (includesAny(text, ["family", "living with one family"])) {
+      return `Choosing “${label}” usually means family expectations may affect the couple’s budget too. This can make shared decisions feel heavier because outside needs enter the relationship rhythm.`;
+    }
+    if (includesAny(text, ["avoid", "argue", "communication", "sensitive", "talk"] )) {
+      return `Choosing “${label}” usually means the money conversation itself needs care. The issue may not only be the amount, but how safe it feels to talk about the amount.`;
+    }
+    if (includesAny(text, ["comfort", "spend together", "date", "food"])) {
+      return `Choosing “${label}” usually means spending may be acting as bonding or emotional relief. That can be healthy, but it needs a shared limit so connection does not weaken stability.`;
+    }
+    if (includesAny(text, ["future", "planning", "move", "savings", "emergency"])) {
+      return `Choosing “${label}” usually means the relationship is trying to protect a future direction. CLARA should help make that goal visible before daily spending absorbs the money.`;
+    }
+    return `Choosing “${label}” helps CLARA understand this shared-life setup. Money here connects bills, emotion, fairness, routine, and future direction together.`;
+  }
+
   if (includesAny(text, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "school continuity", "continue school", "protect school", "fear of stopping", "printing", "materials", "projects"])) {
     return `Choosing “${label}” usually means school is already claiming part of the budget before anything else. This can create pressure because requirements, tuition timing, fare, and materials may decide what is safe to spend.`;
   }
-
   if (includesAny(text, ["family", "home", "goes home", "shared", "give", "support boundary", "guilt"])) {
     return `Choosing “${label}” usually means your student money is connected to people at home, not only to yourself. That can make spending feel emotional because helping family and protecting your own school needs may happen at the same time.`;
   }
-
   if (includesAny(text, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "repair mode", "old pressure", "pressure carries", "no-new-debt"])) {
     return `Choosing “${label}” usually means money pressure may be carrying over instead of starting fresh. Borrowing, repayment, or delayed expenses can make the next income feel already spoken for.`;
   }
-
   if (includesAny(text, ["tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "push rest", "comfort after hard days"])) {
     return `Choosing “${label}” usually means energy is becoming part of the money pattern. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking just to survive the day.`;
   }
-
   if (includesAny(text, ["convenience", "rushed", "save energy", "missed tracking", "forget to track"])) {
     return `Choosing “${label}” usually means spending may be helping you save time or energy on rushed days. For working students, this often comes from exhaustion, not laziness.`;
   }
-
   if (includesAny(text, ["reward", "social", "small spending", "small rewards", "leaks", "micro", "stuck", "extra money leaks"])) {
     return `Choosing “${label}” usually means small spending may be acting as relief, reward, or a way to feel normal after effort. The risk is not one small purchase, but how often that pattern repeats.`;
   }
-
   if (includesAny(text, ["irregular", "unstable", "fluctuate", "income changes", "some weeks", "gaps", "seasonal", "side hustle", "money arrives after"])) {
     return `Choosing “${label}” usually means planning has to adjust around uneven money timing. This can make budgeting mentally tiring because the week can change before the plan is ready.`;
   }
-
   if (includesAny(text, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
     return `Choosing “${label}” usually means daily basics are taking up serious space in your decisions. Food, fare, school attendance, and small emergency costs can make even minor spending feel sensitive.`;
   }
-
   if (includesAny(text, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
     return `Choosing “${label}” usually means you are trying to build control instead of only reacting to pressure. Even one small clear rule can make student money feel less scattered.`;
   }
@@ -183,16 +219,15 @@ function conciseSelectionMeaning(selectedValue, activeKey, profile) {
     coping: "This shows how pressure may turn into behavior when the week gets heavy.",
     goal: "This shows what CLARA should help protect first before asking for stricter discipline.",
   };
-
   return `Choosing “${label}” helps CLARA understand this exact part of your working-student life. ${stepMeaning[activeKey] || "It connects school, work, money, and energy into one clearer picture."}`;
 }
 
 function getBoardFromConciseProfile(active) {
   const selectedValue = getSelectedOption(active.section);
-  const profile = getWorkingStudentOptionProfile(selectedValue, active.meta.key);
+  const { label, profile, stage } = getStageLabelAndProfile(selectedValue, active.meta.key);
   return {
-    title: profile?.title || getWorkingStudentDisplayLabel(selectedValue) || selectedValue,
-    body: conciseSelectionMeaning(selectedValue, active.meta.key, profile),
+    title: profile?.title || label || selectedValue,
+    body: conciseSelectionMeaning(selectedValue, active.meta.key, profile, stage),
   };
 }
 
@@ -202,7 +237,7 @@ function polishContextBoard() {
   if (!active || !header || !summary || !title) return;
   const selectedValue = getSelectedOption(active.section);
   const board = getBoardFromConciseProfile(active);
-  const signature = `${active.meta.key}:${selectedValue}:${board?.title}:${board?.body}`;
+  const signature = `${currentStage()}:${active.meta.key}:${selectedValue}:${board?.title}:${board?.body}`;
   updateSimpleProgress(header, active.meta.index);
   if (title.dataset.claraSimpleBoardSignature !== signature) {
     title.textContent = board?.title || selectedValue;
