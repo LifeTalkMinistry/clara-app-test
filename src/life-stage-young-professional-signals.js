@@ -110,6 +110,13 @@ function getSignal(signalId) {
   return YOUNG_PRO_SIGNALS.find((signal) => signal.id === signalId) || YOUNG_PRO_SIGNALS[0];
 }
 
+function applyImportantStyle(node, styles) {
+  if (!node) return;
+  Object.entries(styles).forEach(([property, value]) => {
+    node.style.setProperty(property, value, "important");
+  });
+}
+
 function findLifeStageHero() {
   return Array.from(document.querySelectorAll("section")).find((section) => {
     const heading = clean(section.querySelector("h2")?.textContent);
@@ -133,6 +140,10 @@ function findSupportCard() {
   return null;
 }
 
+function findSnapshot(container) {
+  return Array.from(container?.children || []).find((node) => node.matches?.("section[data-clara-trend-snapshot='true']")) || null;
+}
+
 function findTextNodes(card) {
   const title = card?.querySelector("h3");
   const body = title?.nextElementSibling?.tagName === "P" ? title.nextElementSibling : null;
@@ -152,10 +163,112 @@ function getCopy(signalId, mode) {
   };
 }
 
+function ensureYoungProDock() {
+  const support = findSupportCard();
+  const container = support?.parentElement || null;
+  if (!support || !container) return null;
+
+  let dock = Array.from(container.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
+  if (!dock) {
+    dock = document.createElement("div");
+    dock.dataset.claraPressureSignals = "true";
+    dock.dataset.claraYoungProDock = "true";
+    support.insertAdjacentElement("afterend", dock);
+  } else if (dock.previousElementSibling !== support) {
+    support.insertAdjacentElement("afterend", dock);
+  }
+
+  dock.dataset.claraYoungProDock = "true";
+  dock.dataset.pressureReady = "true";
+
+  let track = dock.querySelector(".clara-pressure-track");
+  if (!track) {
+    track = document.createElement("div");
+    track.className = "clara-pressure-track";
+    track.setAttribute("aria-label", "Young Professional pressure signals");
+    dock.replaceChildren(track);
+  }
+
+  applyYoungProLayout(container, support, dock);
+  return track;
+}
+
+function applyYoungProLayout(container, support, dock) {
+  const hero = findLifeStageHero();
+  const snapshot = findSnapshot(container);
+  if (!container || !support || !hero) return;
+
+  container.dataset.claraYoungProLayout = "true";
+  support.dataset.claraSupportCard = "true";
+  support.dataset.claraYoungProSignalCard = "true";
+
+  applyImportantStyle(container, {
+    display: "grid",
+    "grid-template-rows": "minmax(214px, clamp(214px, 34svh, 252px)) 92px 42px 218px",
+    gap: "0",
+    "align-content": "start",
+    overflow: "hidden",
+  });
+
+  applyImportantStyle(hero, {
+    position: "relative",
+    "z-index": "3",
+    height: "100%",
+    "min-height": "0",
+    flex: "none",
+    margin: "0",
+    transform: "none",
+  });
+
+  applyImportantStyle(support, {
+    position: "relative",
+    "z-index": "14",
+    height: "92px",
+    "min-height": "92px",
+    "max-height": "92px",
+    width: "calc(100% - 4px)",
+    margin: "0 auto",
+    padding: "13px 15px",
+    flex: "none",
+    "align-self": "start",
+    transform: "none",
+    overflow: "hidden",
+  });
+
+  if (dock) {
+    applyImportantStyle(dock, {
+      position: "relative",
+      "z-index": "12",
+      height: "42px",
+      "min-height": "42px",
+      "max-height": "42px",
+      margin: "1px auto 0",
+      padding: "5px 8px",
+      flex: "none",
+      "align-self": "start",
+      transform: "none",
+    });
+  }
+
+  if (snapshot) {
+    applyImportantStyle(snapshot, {
+      position: "relative",
+      "z-index": "4",
+      height: "218px",
+      "min-height": "218px",
+      "max-height": "218px",
+      margin: "0",
+      flex: "none",
+      "align-self": "start",
+      transform: "none",
+    });
+  }
+}
+
 function renderYoungProIcons() {
   if (!isYoungProfessionalStage(readStage())) return false;
 
-  const track = document.querySelector("[data-clara-pressure-signals='true'] .clara-pressure-track");
+  const track = ensureYoungProDock();
   if (!track) return false;
 
   const signature = YOUNG_PRO_SIGNALS.map((signal) => signal.id).join("|");
@@ -184,6 +297,10 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
   const card = findSupportCard();
   const { title, body } = findTextNodes(card);
   if (!card || !title || !body) return;
+
+  const container = card.parentElement;
+  const dock = Array.from(container?.children || []).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
+  applyYoungProLayout(container, card, dock);
 
   STATE.signalId = getSignal(signalId).id;
   STATE.mode = mode === "guidance" ? "guidance" : "awareness";
@@ -265,18 +382,71 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "clara-young-pro-signal-style";
   style.textContent = `
-    #root [data-clara-support-card="true"] h3,
-    #root [data-clara-support-card="true"] h3 + p {
+    #root [data-clara-young-pro-layout="true"] > section[data-clara-young-pro-signal-card="true"] {
+      margin-top: 0 !important;
+      transform: none !important;
+    }
+
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p {
       transition: opacity 160ms ease, transform 160ms ease !important;
     }
 
-    #root [data-clara-pressure-signal][data-active="true"] {
+    #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signals="true"] {
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.075) !important;
+      background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14) !important;
+      backdrop-filter: blur(22px) saturate(1.12) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+      overflow: hidden !important;
+      max-width: calc(100% - 18px) !important;
+    }
+
+    #root [data-clara-young-pro-layout="true"] .clara-pressure-track {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      height: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      padding: 0 2px !important;
+      scrollbar-width: none !important;
+    }
+
+    #root [data-clara-young-pro-layout="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
+
+    #root [data-clara-young-pro-layout="true"] .clara-pressure-chip {
+      flex: 0 0 32px !important;
+      display: grid !important;
+      place-items: center !important;
+      width: 32px !important;
+      min-width: 32px !important;
+      max-width: 32px !important;
+      height: 32px !important;
+      min-height: 32px !important;
+      max-height: 32px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      background: rgba(255,255,255,.045) !important;
+      color: rgba(255,255,255,.86) !important;
+      font-size: 15px !important;
+      line-height: 1 !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important;
+    }
+
+    #root [data-clara-young-pro-layout="true"] .clara-pressure-chip strong { display: none !important; }
+
+    #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signal][data-active="true"] {
       border-color: rgba(165,243,252,.36) !important;
       background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important;
     }
 
-    #root [data-clara-support-card="true"][data-clara-signal-mode="guidance"] {
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"][data-clara-signal-mode="guidance"] {
       box-shadow: 0 20px 54px rgba(0,0,0,.22), 0 0 24px rgba(244,114,182,.10), inset 0 1px 0 rgba(255,255,255,.07) !important;
     }
   `;
