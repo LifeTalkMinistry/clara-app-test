@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./assets/favicon-HV1kWBx1.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CLARA</title>
+
+    <!-- Prevent theme flicker before React mounts. -->
+    <script>
+      (() => {
+        try {
+          const key = localStorage.getItem("clara_global_theme") || "clara-hero-red-blue";
+          document.documentElement.dataset.theme = key;
+          document.documentElement.classList.add("dark");
+        } catch {}
+      })();
+    </script>
+
+    <style>
+      html, body, #root { min-height: 100%; margin: 0; background: #020617; }
+      #root { isolation: isolate; background: #020617; }
+      #clara-boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: white; font-family: sans-serif; }
+      @keyframes clara-loader-reveal { to { opacity: 1; } }
+      @keyframes clara-route-settle {
+        0% { opacity: 0.985; transform: translate3d(0, 4px, 0) scale(0.9985); filter: saturate(0.98); }
+        100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: saturate(1); }
+      }
+      .theme-page-shell:has(.animate-spin) { opacity: 0; animation: clara-loader-reveal 1ms linear 420ms forwards; }
+      body.clara-route-soft-settle .theme-page-shell main { animation: clara-route-settle 220ms cubic-bezier(.2,.8,.2,1) both; backface-visibility: hidden; will-change: transform, opacity, filter; }
+      body.clara-route-soft-settle .theme-page-shell:has(.animate-spin) { animation-delay: 560ms; }
+      .theme-page-shell:has(.animate-spin) > div { transform: translateZ(0); }
+      @media (prefers-reduced-motion: reduce) {
+        .theme-page-shell:has(.animate-spin), body.clara-route-soft-settle .theme-page-shell main { animation-delay: 0ms; animation-duration: 1ms; }
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-qTq0nEkE.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/react-vendor-DVG3ZxCM.js">
+    <link rel="modulepreload" crossorigin href="./assets/router-vendor-F_TATGrn.js">
+    <link rel="modulepreload" crossorigin href="./assets/query-vendor-Dwh_T3ys.js">
+    <link rel="modulepreload" crossorigin href="./assets/supabase-vendor-B8iMMjPO.js">
+    <link rel="modulepreload" crossorigin href="./assets/shared-vendor-mEfF7xMc.js">
+    <link rel="modulepreload" crossorigin href="./assets/ui-vendor-BNiy6XjK.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-B7zsor5a.css">
+  </head>
+
+  <body>
+    <div id="root"><div id="clara-boot">CLARA is starting...</div></div>
+
+    <script>
+      (() => {
+        let settleTimer = null;
+        const settleRoute = () => {
+          clearTimeout(settleTimer);
+          document.body.classList.remove("clara-route-soft-settle");
+          requestAnimationFrame(() => {
+            document.body.classList.add("clara-route-soft-settle");
+            settleTimer = setTimeout(() => document.body.classList.remove("clara-route-soft-settle"), 260);
+          });
+        };
+        window.addEventListener("hashchange", settleRoute);
+        window.addEventListener("popstate", settleRoute);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) settleRoute(); });
+      })();
+    </script>
+
+    <script>
+      (() => {
+        const copyRules = [
+          [/I[’']ll let AI interpret it and keep it as custom context for this session\./g, "I’ll use your answer to understand your situation better."],
+          [/Got it\. That answer is more specific, so I[’']ll treat it as your own pattern instead of forcing it into the buttons\./g, "Got it. That gives me a clearer picture of your situation."],
+          [/Thanks\. I captured (\d+) starter memory points for this session\./g, "Thanks. I’ve captured $1 personal details so far."],
+          [/Permanent save is the next system we[’']ll connect, but this guided flow now covers the full CLARA Behavioral Intelligence Framework(?: with personal details)?\./g, "Later, we’ll connect this to CLARA’s saved memory. For now, this helps me understand your situation more clearly."],
+          [/Here[’']s the latest captured context from this session:/g, "Here’s what I’ve understood from you so far:"],
+          [/Review captured context/g, "Review what CLARA understood"],
+          [/Permanent saving comes next when we connect the memory store\./g, "Once saving is connected, you’ll be able to keep this as part of your CLARA profile."],
+          [/No captured context yet\./g, "I haven’t captured anything yet."],
+          [/Analyzing that context\.\.\./g, "Understanding your answer..."],
+          [/custom context/g, "personal context"],
+          [/AI interpret/g, "understand"],
+          [/for this session/g, "while we talk"],
+        ];
+        const makeNatural = (value) => copyRules.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value);
+        const polishTextNode = (node) => { const next = makeNatural(node.nodeValue || ""); if (next !== node.nodeValue) node.nodeValue = next; };
+        const polishTree = (root = document.getElementById("root")) => {
+          if (!root) return;
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          let node = walker.nextNode();
+          while (node) { polishTextNode(node); node = walker.nextNode(); }
+        };
+        const observer = new MutationObserver((mutations) => {
+          for (const mutation of mutations) for (const node of mutation.addedNodes) {
+            if (node.nodeType === Node.TEXT_NODE) polishTextNode(node);
+            else if (node.nodeType === Node.ELEMENT_NODE) polishTree(node);
+          }
+        });
+        document.addEventListener("DOMContentLoaded", () => {
+          const root = document.getElementById("root");
+          polishTree(root);
+          if (root) observer.observe(root, { childList: true, subtree: true });
+        });
+      })();
+    </script>
+
+    <script>
+      (() => {
+        if (window.__claraBehavioralMemoryTrainingInstalled) return;
+        window.__claraBehavioralMemoryTrainingInstalled = true;
+
+        const memoryRules = `
+CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK:
+- Treat Talk to CLARA as a 4-layer understanding system for the future Me page, not as a plain questionnaire.
+- Layer 1 Core Identity: income pattern, living situation, responsibilities, work type, relationship status, dependents, current financial pressure, survival pressure, main goal, emotional trend.
+- Layer 2 Behavioral Spending Profile: emotional triggers, stress spending habits, reward system, impulse purchases, spending weakness, coping habits, motivation style, financial fear, guilt pattern, social pressure.
+- Layer 3 Life Pattern Intelligence: schedule, sleep, work exhaustion, social environment, relationship conflict, hobbies, energy trends, burnout signs.
+- Layer 4 Financial Infrastructure: wallets, budgets, emergency fund, savings goals, recurring expenses, debt, subscriptions, transfers, payday cycle.
+- When the user asks "you know me now?", "what do you remember about me?", or "what did CLARA understand?", summarize by these 4 layers in warm human language.
+- Never expose internal keys like burnoutIndicators.prevention, wallets.primary, schema IDs, tags, JSON, database, or session.
+- Translate raw answers into natural observations. Example: "GCash" becomes "GCash seems to be your main spending wallet."
+- If a later money decision connects to a known pattern, reference only ONE relevant pattern naturally, then help with the current decision.
+- If income cutoff dates are already known, do not ask the same payday cycle question again. Move to what happens after payday instead.
+- Keep CLARA curious, observant, emotionally aware, and practical.`;
+
+        const getVisibleClaraContext = () => {
+          try {
+            const text = String(document.getElementById("root")?.innerText || "").replace(/\n{3,}/g, "\n\n").trim();
+            return text ? text.slice(-6200) : "No visible Talk to CLARA context found.";
+          } catch { return "No visible Talk to CLARA context found."; }
+        };
+        const shouldPatchGemini = (input) => /generativelanguage\.googleapis\.com/i.test(typeof input === "string" ? input : input?.url || "") && /generateContent/i.test(typeof input === "string" ? input : input?.url || "");
+        const addMemoryTrainingToBody = (body) => {
+          if (!body?.contents?.[0]?.parts?.[0]?.text) return body;
+          const currentPrompt = String(body.contents[0].parts[0].text || "");
+          if (currentPrompt.includes("CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK") || !currentPrompt.includes("You are CLARA")) return body;
+          const addition = `\n\n${memoryRules}\n\nVISIBLE RECENT TALK TO CLARA CONTEXT, USE ONLY IF RELEVANT:\n${getVisibleClaraContext()}\n\nReminder: reply as CLARA in natural user-facing language, not system language.`;
+          return { ...body, contents: body.contents.map((content, index) => index !== 0 ? content : { ...content, parts: content.parts.map((part, partIndex) => partIndex === 0 && typeof part.text === "string" ? { ...part, text: `${part.text}${addition}` } : part) }) };
+        };
+        const originalFetch = window.fetch?.bind(window);
+        if (!originalFetch) return;
+        window.fetch = async (input, init = {}) => {
+          if (!shouldPatchGemini(input) || !init?.body || typeof init.body !== "string") return originalFetch(input, init);
+          try { return originalFetch(input, { ...init, body: JSON.stringify(addMemoryTrainingToBody(JSON.parse(init.body))) }); }
+          catch { return originalFetch(input, init); }
+        };
+      })();
+    </script>
+
+    <script>
+      (() => {
+        if (window.__claraFrameworkFlowGuardInstalled) return;
+        window.__claraFrameworkFlowGuardInstalled = true;
+        const rootText = () => String(document.getElementById("root")?.innerText || "");
+        const findButton = (label) => [...document.querySelectorAll("button")].find((button) => button.innerText.trim().toLowerCase() === label.toLowerCase());
+        const inferKnownPayday = (text) => {
+          if (!/What exact cutoff dates do you usually receive income\?/i.test(text)) return "";
+          if (/Every 10 and 25/i.test(text)) return "Every 10 and 25";
+          if (/15 and 30/i.test(text)) return "15 and 30";
+          if (/Weekly|every friday|other friday|every other friday/i.test(text)) return "Weekly";
+          if (/Irregular cutoff|irregular/i.test(text)) return "Irregular";
+          if (/End of month/i.test(text)) return "Once a month";
+          return "";
+        };
+        let lastAutoClick = 0;
+        const guardDuplicatePaydayQuestion = () => {
+          const text = rootText();
+          if (!/When is your usual payday cycle\?/i.test(text)) return;
+          if (/What usually happens to your spending right after payday\?/i.test(text)) return;
+          const known = inferKnownPayday(text);
+          if (!known || Date.now() - lastAutoClick < 1200) return;
+          const button = findButton(known);
+          if (!button) return;
+          lastAutoClick = Date.now();
+          setTimeout(() => button.click(), 250);
+        };
+        const observer = new MutationObserver(guardDuplicatePaydayQuestion);
+        document.addEventListener("DOMContentLoaded", () => {
+          const root = document.getElementById("root");
+          if (root) observer.observe(root, { childList: true, subtree: true, characterData: true });
+          guardDuplicatePaydayQuestion();
+        });
+      })();
+    </script>
+
+  </body>
+</html>
