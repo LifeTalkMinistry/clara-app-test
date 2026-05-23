@@ -13,6 +13,13 @@
   transform: scale(1.12) translate(5px, -2px) !important;
 }
 
+/* Match Working Student support-card overlap rhythm */
+#root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] + section {
+  margin-top: -18px !important;
+  position: relative !important;
+  z-index: 14 !important;
+}
+
 @media (max-height: 760px) {
   #root [data-clara-young-pro-layout="true"] > section:first-of-type img {
     object-position: center 20% !important;
@@ -22,11 +29,19 @@
     object-position: 54% 27% !important;
     transform: scale(1.12) translate(5px, -1px) !important;
   }
+
+  #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] + section {
+    margin-top: -16px !important;
+  }
 }
 
 @media (max-width: 420px) {
   #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
     object-position: 54% 27% !important;
     transform: scale(1.12) translate(5px, -1px) !important;
+  }
+
+  #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] + section {
+    margin-top: -17px !important;
   }
 }
