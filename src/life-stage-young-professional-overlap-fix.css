@@ -5,8 +5,28 @@
   object-position: center 20% !important;
 }
 
+/* Stronger override for the polished hero image layer.
+   Move the portrait slightly down from the previous crop, while keeping enough scale so no image edge appears inside the container. */
+#root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
+  object-fit: cover !important;
+  object-position: 54% 28% !important;
+  transform: scale(1.12) translate(5px, -2px) !important;
+}
+
 @media (max-height: 760px) {
   #root [data-clara-young-pro-layout="true"] > section:first-of-type img {
     object-position: center 20% !important;
+  }
+
+  #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
+    object-position: 54% 27% !important;
+    transform: scale(1.12) translate(5px, -1px) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
+    object-position: 54% 27% !important;
+    transform: scale(1.12) translate(5px, -1px) !important;
   }
 }
