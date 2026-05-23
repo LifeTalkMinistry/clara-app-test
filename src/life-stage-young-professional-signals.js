@@ -1,166 +1,79 @@
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 
 const YOUNG_PRO_SIGNALS = [
-  { id: "ypWorkStress", icon: "💼", label: "Work Stress", awarenessTitle: "Work pressure can affect spending.", guidanceTitle: "Create a workday boundary." },
-  { id: "ypBills", icon: "🧾", label: "Bills", awarenessTitle: "Bills can create quiet pressure.", guidanceTitle: "Protect the fixed costs first." },
-  { id: "ypLifestyle", icon: "🛋️", label: "Lifestyle", awarenessTitle: "Lifestyle pressure can grow quietly.", guidanceTitle: "Choose comfort with a limit." },
-  { id: "ypCareer", icon: "📈", label: "Career Pressure", awarenessTitle: "Career pressure can change choices.", guidanceTitle: "Invest without panic." },
-  { id: "ypBurnout", icon: "😵", label: "Burnout", awarenessTitle: "Burnout can weaken money control.", guidanceTitle: "Lower the decision load." },
-  { id: "ypPayday", icon: "💸", label: "Payday Timing", awarenessTitle: "Payday timing affects discipline.", guidanceTitle: "Assign money before spending." },
+  {
+    id: "ypWorkStress",
+    icon: "💼",
+    label: "Work Stress",
+    awarenessTitle: "Work pressure can affect spending.",
+    guidanceTitle: "Create a workday boundary.",
+    awarenessSeed: "Work stress can make convenience spending feel like recovery after a long shift.",
+    guidanceSeed: "Set one workday spending boundary before the pressure starts.",
+  },
+  {
+    id: "ypBills",
+    icon: "🧾",
+    label: "Bills",
+    awarenessTitle: "Bills can create quiet pressure.",
+    guidanceTitle: "Protect the fixed costs first.",
+    awarenessSeed: "Bills can make salary feel assigned before it arrives, especially when due dates stack close together.",
+    guidanceSeed: "Separate bill money first before spending on anything optional.",
+  },
+  {
+    id: "ypLifestyle",
+    icon: "🛋️",
+    label: "Lifestyle",
+    awarenessTitle: "Lifestyle pressure can grow quietly.",
+    guidanceTitle: "Choose comfort with a limit.",
+    awarenessSeed: "Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations.",
+    guidanceSeed: "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.",
+  },
+  {
+    id: "ypCareer",
+    icon: "📈",
+    label: "Career Pressure",
+    awarenessTitle: "Career pressure can change choices.",
+    guidanceTitle: "Invest without panic.",
+    awarenessSeed: "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent.",
+    guidanceSeed: "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.",
+  },
+  {
+    id: "ypBurnout",
+    icon: "😵",
+    label: "Burnout",
+    awarenessTitle: "Burnout can weaken money control.",
+    guidanceTitle: "Lower the decision load.",
+    awarenessSeed: "Burnout can turn spending into escape, convenience, or emotional recovery before you notice the routine.",
+    guidanceSeed: "Lower the decision load today. Keep one money rule simple enough to follow even while tired.",
+  },
+  {
+    id: "ypPayday",
+    icon: "💸",
+    label: "Payday Timing",
+    awarenessTitle: "Payday timing affects discipline.",
+    guidanceTitle: "Assign money before spending.",
+    awarenessSeed: "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned.",
+    guidanceSeed: "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.",
+  },
 ];
 
-const YOUNG_PRO_THEMES = {
-  ypWorkStress: {
-    awareness: [
-      "Work stress can make convenience spending feel like recovery after a long shift.",
-      "A pressured workday can make small rewards feel necessary, not optional.",
-      "When work drains your patience, spending can become a quick emotional reset.",
-      "After heavy meetings or calls, comfort purchases can feel more reasonable.",
-      "Work pressure can make you spend to feel in control again.",
-      "Stress from performance, deadlines, or bosses can quietly affect spending discipline.",
-      "A difficult workday can make delivery, rides, or treats feel deserved.",
-      "When work feels heavy, the wallet often absorbs the emotional load.",
-      "Work stress can turn small breaks into repeated spending moments.",
-      "Pressure at work can make budget checking feel like another task.",
-      "A stressful role can make lifestyle upgrades feel like compensation.",
-      "When your mind is full from work, money choices can become automatic.",
-      "Work tension can make quick comfort feel more urgent than planning.",
-      "After a draining shift, small purchases can feel like proof you survived.",
-      "Work pressure can make future goals feel less important in the moment.",
-      "A long workday can make boundaries feel harder to keep.",
-      "When your job demands a lot, spending may become a private reward system.",
-      "Work stress can hide inside coffee, snacks, delivery, rides, and online buys.",
-      "A packed workday can weaken the pause before purchase.",
-      "Professional pressure can make you pay for ease more often.",
-      "Work fatigue can make discipline feel unfair after effort.",
-      "When the day feels demanding, money can become a coping tool.",
-      "Work stress can make repeated small expenses look harmless.",
-      "A high-pressure work rhythm can blur need, reward, and escape.",
-      "When work is emotionally loud, spending can feel like silence.",
-      "Stress at work can make you avoid checking the real budget number.",
-      "Work pressure can make convenience feel like survival.",
-      "A difficult workday can trigger spending before you even notice the pattern.",
-      "When work drains energy, comfort spending becomes easier to justify.",
-      "Work stress is real, but it can quietly train the wallet if unchecked."
-    ],
-    guidance: [
-      "Set one workday spending boundary before the pressure starts.",
-      "Choose one affordable reward and stop there.",
-      "Delay comfort spending until after a short pause or walk.",
-      "Check if the purchase solves stress or only hides it for a moment.",
-      "Protect one future bill before buying workday comfort.",
-      "Use a fixed workday allowance for snacks, coffee, rides, or delivery.",
-      "After work, wait ten minutes before buying a reward.",
-      "Make the easiest safe option visible before the day gets heavy.",
-      "Name the work pressure first, then decide if spending is needed.",
-      "Use one simple rule: no second comfort purchase on the same workday.",
-      "Keep a small recovery budget separate from essentials.",
-      "Let rest be the first reward before money becomes the reward.",
-      "Decide your comfort limit while calm, not while drained.",
-      "Track only work-stress spending today to reveal the pattern.",
-      "Choose the lowest-cost version of convenience that still helps.",
-      "Avoid buying immediately after a stressful conversation.",
-      "Give yourself one allowed comfort, but keep it planned.",
-      "Protect transportation and food money before workday extras.",
-      "Turn the reward into a limit, not an open door.",
-      "Check your wallet once before the post-work purchase.",
-      "If the expense is emotional, make it smaller and intentional.",
-      "Create one no-spend recovery option after work.",
-      "Do not let one hard day rewrite the monthly plan.",
-      "Pause before spending to ask what kind of rest you actually need.",
-      "Use a workday cap so pressure does not choose the amount.",
-      "Write the purchase down before making it.",
-      "Save bigger rewards for planned dates, not stressful moments.",
-      "Reduce one repeated workday leak this week.",
-      "Keep the reward, but remove the repeat.",
-      "Let CLARA hold one boundary while work feels heavy."
-    ]
-  },
-  ypBills: {
-    awareness: [
-      "Bills can make salary feel assigned before it arrives.",
-      "Fixed costs can create pressure even when income looks stable.",
-      "Rent, utilities, subscriptions, and loans can crowd the same paycheck.",
-      "Bill pressure often feels quiet until due dates get close.",
-      "A young professional may earn more but still feel squeezed by obligations.",
-      "Bills can make optional spending riskier near due dates.",
-      "Recurring costs can hide because they feel normal.",
-      "Fixed expenses can reduce freedom before you notice it.",
-      "Bill timing can create stress even without overspending.",
-      "When due dates stack, small extras become heavier.",
-      "Automatic payments can make money disappear quietly.",
-      "Bills can make lifestyle spending feel more dangerous after payday.",
-      "A stable job does not always mean stable cash flow.",
-      "Monthly obligations can turn income into a passing visitor.",
-      "Bills can make the budget feel tight even after a good paycheck.",
-      "Due dates can create emotional pressure around spending.",
-      "Fixed costs can make unplanned buys more expensive later.",
-      "Bills often expose whether the paycheck already has too many promises.",
-      "Subscription costs can quietly weaken monthly breathing room.",
-      "Bill pressure grows when essentials and comfort spending mix together.",
-      "A salary can look large before bills are separated.",
-      "Fixed payments can make savings feel optional when they should be protected.",
-      "Bills can make you feel behind even while working hard.",
-      "A bill-heavy month can make reward spending riskier.",
-      "Due dates can quietly affect mood and money decisions.",
-      "Bills are not just numbers; they shape how safe money feels.",
-      "Recurring obligations can make impulsive spending more costly.",
-      "Bill pressure can make you avoid opening banking apps.",
-      "Fixed costs need space before lifestyle decisions begin.",
-      "Bills can turn payday excitement into pressure quickly."
-    ],
-    guidance: [
-      "Separate bill money first before spending on anything optional.",
-      "List the next three due dates and protect them today.",
-      "Move bill money out of your spending wallet immediately.",
-      "Cancel or pause one recurring cost you no longer value.",
-      "Check fixed costs before deciding on lifestyle spending.",
-      "Create a bill-first payday routine.",
-      "Protect rent, utilities, debt, and food before rewards.",
-      "Use separate wallets for bills and daily spending.",
-      "Do a quick subscription audit this week.",
-      "Assign every fixed cost before treating the paycheck as available.",
-      "Pay or reserve the nearest bill first.",
-      "Keep a small buffer beside bill money for timing mistakes.",
-      "Avoid big optional purchases within three days of major due dates.",
-      "Track bills as promises already made.",
-      "Review one fixed expense and ask if it still supports your life.",
-      "Make savings a fixed cost too, even if small.",
-      "Check if today’s purchase will touch a bill later.",
-      "Use payday to protect obligations before emotions get loud.",
-      "Build a mini calendar for recurring bills.",
-      "Separate needs, bills, and lifestyle before the weekend starts.",
-      "Freeze optional spending until the nearest bill is safe.",
-      "Name the bill pressure instead of avoiding the number.",
-      "Protect the first week after payday from careless spending.",
-      "Make one bill automatic only if the money is already reserved.",
-      "Cut one repeated cost that does not match your current goals.",
-      "Set a bill-safe balance you refuse to go below.",
-      "Before buying, ask what due date still needs money.",
-      "Do not let lifestyle money borrow from bill money.",
-      "Treat bill money as already gone once assigned.",
-      "Let fixed costs speak first, then decide what is free."
-    ]
-  },
-  ypLifestyle: {
-    awareness: Array.from({ length: 30 }, (_, index) => `Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations. Pattern ${index + 1} still matters when repeated.`),
-    guidance: Array.from({ length: 30 }, () => "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.")
-  },
-  ypCareer: {
-    awareness: Array.from({ length: 30 }, () => "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent. Not every upgrade has to happen today."),
-    guidance: Array.from({ length: 30 }, () => "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.")
-  },
-  ypBurnout: {
-    awareness: Array.from({ length: 30 }, () => "Burnout can turn spending into escape, convenience, or emotional recovery. The pattern deserves attention before it becomes routine."),
-    guidance: Array.from({ length: 30 }, () => "Lower the decision load today. Keep one money rule simple enough to follow even while tired.")
-  },
-  ypPayday: {
-    awareness: Array.from({ length: 30 }, () => "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned."),
-    guidance: Array.from({ length: 30 }, () => "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.")
-  }
-};
+const DAILY_VARIATIONS = [
+  "This pattern matters more when it repeats quietly across the week.",
+  "It may look small today, but it can shape your monthly breathing room.",
+  "CLARA is watching this because it connects emotion, routine, and money behavior.",
+  "This is not about guilt. It is about noticing the pressure before it chooses for you.",
+  "The goal is not perfection. The goal is to catch the pattern early.",
+  "A small boundary here can protect bigger goals later.",
+  "This signal usually becomes stronger when the day feels heavy or rushed.",
+  "When life feels busy, this is one of the first areas where discipline can soften.",
+  "This is where awareness can prevent a small leak from becoming normal.",
+  "A calm decision here can keep your next paycheck safer.",
+];
 
-const STATE = { signalId: YOUNG_PRO_SIGNALS[0].id, mode: "awareness" };
+const STATE = {
+  signalId: YOUNG_PRO_SIGNALS[0].id,
+  mode: "awareness",
+};
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -172,7 +85,7 @@ function normalizeStage(value) {
 
 function isYoungProfessionalStage(value) {
   const stage = normalizeStage(value);
-  return stage === "youngprofessional" || stage === "youngpro" || stage === "youngprofessionals";
+  return stage === "youngprofessional" || stage === "youngprofessionals" || stage === "youngpro";
 }
 
 function readStage() {
@@ -187,10 +100,10 @@ function signalOffset(signalId) {
   return String(signalId || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }
 
-function getDailyIndex(signalId, length = 30) {
+function getDailyIndex(signalId, length) {
   const now = new Date();
   const dayNumber = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
-  return (dayNumber + signalOffset(signalId)) % length;
+  return (dayNumber + signalOffset(signalId)) % Math.max(length || 1, 1);
 }
 
 function getSignal(signalId) {
@@ -230,44 +143,79 @@ function findHeartNode(card) {
   return card?.querySelector("svg")?.closest("div") || null;
 }
 
-function findSignalDock() {
-  return document.querySelector("[data-clara-pressure-signals='true'] .clara-pressure-track");
-}
-
 function applyImportantStyle(node, styles) {
   if (!node) return;
   Object.entries(styles).forEach(([property, value]) => node.style.setProperty(property, value, "important"));
 }
 
+function setSoftText(node, value) {
+  if (!node) return;
+  const next = String(value || "");
+
+  if (node.childNodes.length === 1 && node.firstChild?.nodeType === Node.TEXT_NODE) {
+    if (node.firstChild.nodeValue !== next) node.firstChild.nodeValue = next;
+    return;
+  }
+
+  if (node.textContent !== next) {
+    node.replaceChildren(document.createTextNode(next));
+  }
+}
+
 function getCopy(signalId, mode) {
   const signal = getSignal(signalId);
-  const bank = YOUNG_PRO_THEMES[signal.id] || YOUNG_PRO_THEMES.ypWorkStress;
-  const awareness = bank.awareness || [];
-  const guidance = bank.guidance || [];
-  const selectedBank = mode === "guidance" ? guidance : awareness;
-  const index = getDailyIndex(signal.id, selectedBank.length || 30);
+  const variation = DAILY_VARIATIONS[getDailyIndex(signal.id, DAILY_VARIATIONS.length)];
 
   return {
     title: mode === "guidance" ? signal.guidanceTitle : signal.awarenessTitle,
-    body: selectedBank[index] || selectedBank[0] || "CLARA is reading this pattern with your current life stage in mind.",
+    body: `${mode === "guidance" ? signal.guidanceSeed : signal.awarenessSeed} ${variation}`,
   };
 }
 
+function ensureYoungProDock() {
+  const support = findSupportCard();
+  const container = support?.parentElement;
+  if (!support || !container) return null;
+
+  let dock = Array.from(container.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
+
+  if (!dock) {
+    dock = document.createElement("div");
+    dock.dataset.claraPressureSignals = "true";
+    support.insertAdjacentElement("afterend", dock);
+  } else if (dock.previousElementSibling !== support) {
+    support.insertAdjacentElement("afterend", dock);
+  }
+
+  dock.dataset.claraYoungProDock = "true";
+  dock.dataset.pressureReady = "true";
+
+  let track = dock.querySelector(".clara-pressure-track");
+  if (!track) {
+    track = document.createElement("div");
+    track.className = "clara-pressure-track";
+    track.setAttribute("aria-label", "Young Professional pressure signals");
+    dock.replaceChildren(track);
+  }
+
+  return track;
+}
+
 function renderYoungProIcons() {
-  if (!isYoungProfessionalStage(readStage())) return;
+  const track = ensureYoungProDock();
+  if (!track) return false;
 
-  document.querySelectorAll("[data-clara-pressure-signals='true'] .clara-pressure-track").forEach((track) => {
-    const signature = YOUNG_PRO_SIGNALS.map((signal) => signal.id).join("|");
-    if (track.dataset.youngProSignature === signature && track.dataset.youngProActive === "true") return;
+  const signature = YOUNG_PRO_SIGNALS.map((signal) => signal.id).join("|");
+  if (track.dataset.youngProSignature === signature && track.dataset.youngProActive === "true") return true;
 
-    track.dataset.youngProSignature = signature;
-    track.dataset.youngProActive = "true";
-    track.innerHTML = YOUNG_PRO_SIGNALS.map((signal) => `
-      <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Show ${signal.label} awareness" title="${signal.label}">
-        <span aria-hidden="true">${signal.icon}</span><strong>${signal.label}</strong>
-      </button>
-    `).join("");
-  });
+  track.dataset.youngProSignature = signature;
+  track.dataset.youngProActive = "true";
+  track.innerHTML = YOUNG_PRO_SIGNALS.map((signal) => `
+    <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Show ${signal.label} awareness" title="${signal.label}">
+      <span aria-hidden="true">${signal.icon}</span><strong>${signal.label}</strong>
+    </button>
+  `).join("");
+  return true;
 }
 
 function setActiveIcon(signalId) {
@@ -355,10 +303,6 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
 
   STATE.signalId = getSignal(signalId).id;
   STATE.mode = mode === "guidance" ? "guidance" : "awareness";
-  prepareCardLayout(card, title, body);
-
-  const copy = getCopy(STATE.signalId, STATE.mode);
-  if (clean(title.textContent) === copy.title && clean(body.textContent) === copy.body) return;
 
   card.dataset.claraSupportCard = "true";
   card.dataset.claraSignalCardActive = "true";
@@ -366,15 +310,20 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
   card.dataset.claraSelectedSignal = STATE.signalId;
   card.dataset.claraSignalMode = STATE.mode;
 
+  prepareCardLayout(card, title, body);
+
   const heart = findHeartNode(card);
   if (heart) {
     heart.title = STATE.mode === "guidance" ? "Showing gentle guidance" : "Show gentle guidance";
     heart.setAttribute("aria-label", heart.title);
   }
 
+  const copy = getCopy(STATE.signalId, STATE.mode);
+  if (clean(title.textContent) === copy.title && clean(body.textContent) === copy.body) return;
+
   const commit = () => {
-    title.textContent = copy.title;
-    body.textContent = copy.body;
+    setSoftText(title, copy.title);
+    setSoftText(body, copy.body);
     prepareCardLayout(card, title, body);
     title.style.opacity = "1";
     body.style.opacity = "1";
@@ -432,6 +381,79 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "clara-young-pro-signal-style";
   style.textContent = `
+    #root [data-clara-pressure-signals="true"] {
+      position: relative !important;
+      z-index: 7 !important;
+      display: block !important;
+      width: auto !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      padding: 4px 8px !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.075) !important;
+      background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14), 0 0 18px rgba(45,212,191,.018) !important;
+      backdrop-filter: blur(22px) saturate(1.12) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+      justify-self: center !important;
+      max-width: calc(100% - 18px) !important;
+    }
+
+    #root [data-clara-pressure-signals="true"] .clara-pressure-track {
+      position: relative !important;
+      z-index: 2 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      height: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      padding: 0 2px !important;
+      scrollbar-width: none !important;
+    }
+
+    #root [data-clara-pressure-signals="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
+
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
+      flex: 0 0 32px !important;
+      display: grid !important;
+      place-items: center !important;
+      width: 32px !important;
+      min-width: 32px !important;
+      max-width: 32px !important;
+      height: 32px !important;
+      min-height: 32px !important;
+      max-height: 32px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      background: rgba(255,255,255,.045) !important;
+      color: rgba(255,255,255,.86) !important;
+      font-size: 15px !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease !important;
+    }
+
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip span {
+      display: block !important;
+      font-size: 15px !important;
+      line-height: 1 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip strong {
+      display: none !important;
+    }
+
     #root [data-clara-support-card="true"] h3,
     #root [data-clara-support-card="true"] h3 + p {
       transition: opacity 160ms ease, transform 160ms ease !important;
@@ -454,9 +476,7 @@ function maintainYoungProSignals() {
   installStyles();
   if (!isYoungProfessionalStage(readStage())) return;
 
-  renderYoungProIcons();
-
-  if (!findSignalDock()) return;
+  if (!renderYoungProIcons()) return;
 
   STATE.signalId = getSignal(STATE.signalId).id;
   setActiveIcon(STATE.signalId);
@@ -485,6 +505,8 @@ function installYoungProfessionalSignals() {
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, characterData: true });
   window.addEventListener("storage", schedule, { passive: true });
   document.addEventListener("click", () => window.setTimeout(schedule, 80), { passive: true });
+  window.setTimeout(schedule, 50);
+  window.setTimeout(schedule, 250);
   schedule();
 }
 
