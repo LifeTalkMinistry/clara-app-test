@@ -90,7 +90,7 @@ function getRhythm() {
       dockMargin: "1px auto 0",
       dockPadding: "4px 8px",
       snapshotHeight: "192px",
-      bodyClamp: "2",
+      bodyClamp: "none",
     };
   }
   if (height <= 760) {
@@ -103,7 +103,7 @@ function getRhythm() {
       dockMargin: "1px auto 0",
       dockPadding: "5px 8px",
       snapshotHeight: "204px",
-      bodyClamp: "2",
+      bodyClamp: "none",
     };
   }
   if (height >= 820) {
@@ -116,7 +116,7 @@ function getRhythm() {
       dockMargin: "1px auto 0",
       dockPadding: "6px 8px",
       snapshotHeight: "218px",
-      bodyClamp: "2",
+      bodyClamp: "none",
     };
   }
   return {
@@ -128,7 +128,7 @@ function getRhythm() {
     dockMargin: "1px auto 0",
     dockPadding: "6px 8px",
     snapshotHeight: "218px",
-    bodyClamp: "2",
+    bodyClamp: "none",
   };
 }
 
@@ -257,10 +257,9 @@ function setActive(id) {
 
 function copy(id, mode) {
   const item = signal(id);
-  const daily = DAILY[dayIndex(id, DAILY.length)];
   return {
     title: mode === "guidance" ? item.guidanceTitle : item.awarenessTitle,
-    body: `${mode === "guidance" ? item.guidance : item.awareness} ${daily}`,
+    body: mode === "guidance" ? item.guidance : item.awareness,
   };
 }
 
@@ -337,7 +336,7 @@ function installStyles() {
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { transition: opacity 160ms ease, transform 160ms ease !important; }
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 { margin: 0 0 8px !important; max-width: 15.9rem !important; font-size: 13.4px !important; line-height: 1.08 !important; letter-spacing: -0.022em !important; }
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; max-width: 16.2rem !important; font-size: 10.7px !important; line-height: 1.38 !important; }
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { display: block !important; -webkit-line-clamp: unset !important; line-clamp: unset !important; -webkit-box-orient: unset !important; overflow: visible !important; text-overflow: clip !important; white-space: normal !important; max-width: 14.7rem !important; font-size: 10.7px !important; line-height: 1.34 !important; }
     #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signal][data-active="true"] { border-color: rgba(165,243,252,.36) !important; background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important; }
   `;
   document.head.appendChild(style);
@@ -363,21 +362,18 @@ function install() {
   const schedule = () => {
     if (scheduled) return;
     scheduled = true;
-    window.requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
       scheduled = false;
       maintain();
     });
   };
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, characterData: true });
   window.addEventListener("storage", schedule, { passive: true });
-  document.addEventListener("click", () => window.setTimeout(schedule, 80), { passive: true });
-  window.setTimeout(schedule, 120);
-  window.setTimeout(schedule, 450);
   schedule();
 }
 
 try {
   install();
 } catch (error) {
-  console.warn("CLARA Young Professional signal bridge failed:", error);
+  console.warn("CLARA Young Professional signals failed:", error);
 }
