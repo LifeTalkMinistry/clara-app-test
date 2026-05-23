@@ -2,11 +2,11 @@
    Keeps the current hero/support/snapshot structure intact while preventing the portrait head from being clipped. */
 
 #root [data-clara-young-pro-layout="true"] > section:first-of-type img {
-  object-position: center 18% !important;
+  object-position: center 20% !important;
 }
 
 @media (max-height: 760px) {
   #root [data-clara-young-pro-layout="true"] > section:first-of-type img {
-    object-position: center 18% !important;
+    object-position: center 20% !important;
   }
 }
