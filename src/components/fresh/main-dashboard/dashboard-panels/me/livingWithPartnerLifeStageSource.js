@@ -3,7 +3,15 @@ export const LIVING_WITH_PARTNER_STAGE_KEY = "Living with Partner";
 export const LIVING_WITH_PARTNER_QUESTION_ORDER = ["setup", "rhythm", "workload", "pressure", "coping", "goal"];
 
 export const LIVING_WITH_PARTNER_FIELDS = {
-  setup: ["Newly living together", "Long-term live-in", "Living with one family", "Planning to move in", "One income supports both"],
+  setup: [
+    "Newly living together",
+    "Long-term live-in",
+    "Living with one family",
+    "Planning to move in",
+    "One income supports both",
+    "Sharing space but still adjusting",
+    "Committed relationship, finances still separate",
+  ],
   rhythm: ["Shared bills monthly", "Split expenses clearly", "Split expenses unevenly", "Income mismatch", "Still learning shared rhythm"],
   workload: ["Calm and cooperative", "Adjusting roles", "Money talks feel sensitive", "One person carries more", "Constant tension over decisions"],
   pressure: ["Rent and utilities", "Uneven contribution", "Future planning pressure", "Family boundaries", "Money communication"],
@@ -118,6 +126,8 @@ const OPTION_SIGNAL_WEIGHTS = {
   "Living with one family": { familyBoundaries: 22, fairness: 10, moneyTalks: 8 },
   "Planning to move in": { futurePlans: 20, sharedBills: 8, emergencyBuffer: 8 },
   "One income supports both": { fairness: 22, sharedBills: 12, emergencyBuffer: 10 },
+  "Sharing space but still adjusting": { moneyTalks: 18, sharedBills: 12, comfortSpending: 8 },
+  "Committed relationship, finances still separate": { futurePlans: 12, fairness: 10, moneyTalks: 10 },
 
   "Shared bills monthly": { sharedBills: 18, emergencyBuffer: 8 },
   "Split expenses clearly": { sharedBills: 8, futurePlans: 10, emergencyBuffer: 8 },
@@ -152,12 +162,61 @@ const OPTION_SIGNAL_WEIGHTS = {
 
 const FALLBACK_SIGNALS = { sharedBills: 16, moneyTalks: 12, fairness: 10, emergencyBuffer: 8 };
 
+const OPTION_MEANINGS = {
+  "Newly living together": {
+    title: "A new shared-life rhythm is forming.",
+    meaning: "Choosing “Newly living together” usually means the relationship is still learning how daily costs, routines, and emotional expectations fit inside one shared space.",
+  },
+  "Long-term live-in": {
+    title: "Shared life already has a rhythm.",
+    meaning: "Choosing “Long-term live-in” usually means the relationship already has patterns, but CLARA still needs to watch whether bills, comfort spending, and future plans are clear or just familiar.",
+  },
+  "Living with one family": {
+    title: "Family boundaries are part of the setup.",
+    meaning: "Choosing “Living with one family” usually means money decisions may include family expectations, household rules, privacy limits, and support pressure beyond the couple alone.",
+  },
+  "Planning to move in": {
+    title: "The shared-life system is being prepared.",
+    meaning: "Choosing “Planning to move in” usually means future costs are already forming before the shared routine begins. Deposits, furniture, bills, and expectations need a visible plan.",
+  },
+  "One income supports both": {
+    title: "One income is carrying shared stability.",
+    meaning: "Choosing “One income supports both” usually means fairness, safety, and pressure need extra clarity because one money source may be protecting two lives.",
+  },
+  "Sharing space but still adjusting": {
+    title: "The relationship is still adjusting to shared space.",
+    meaning: "Choosing “Sharing space but still adjusting” usually means routines, chores, bills, food, and personal boundaries are still settling into a workable rhythm.",
+  },
+  "Committed relationship, finances still separate": {
+    title: "The relationship is committed, but money is still separate.",
+    meaning: "Choosing “Committed relationship, finances still separate” usually means CLARA should watch the transition point between personal money, shared expectations, and future planning.",
+  },
+};
+
 export function cleanLivingWithPartnerValue(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 export function getLivingWithPartnerDisplayLabel(value) {
   return cleanLivingWithPartnerValue(value);
+}
+
+export function getLivingWithPartnerOptionProfile(value, key = "setup") {
+  const selected = cleanLivingWithPartnerValue(value);
+  const signals = OPTION_SIGNAL_WEIGHTS[selected] || FALLBACK_SIGNALS;
+  const dominantKey = Object.entries(signals).sort((a, b) => b[1] - a[1])[0]?.[0] || "sharedBills";
+  const dominant = LIVING_WITH_PARTNER_SIGNAL_DEFINITIONS[dominantKey] || LIVING_WITH_PARTNER_SIGNAL_DEFINITIONS.sharedBills;
+  const mapped = OPTION_MEANINGS[selected];
+  return {
+    title: mapped?.title || selected || "Shared-life signal",
+    meaning: mapped?.meaning || `Choosing “${selected}” helps CLARA understand this part of the shared-life setup. It connects to ${dominant.label.toLowerCase()} because ${dominant.insight.toLowerCase()}`,
+    signals,
+    tags: [key, dominantKey, dominant.category].filter(Boolean),
+    pressureType: dominant.category,
+    emotionalTone: dominant.label,
+    financialInterpretation: dominant.insight,
+    coachingDirection: dominant.action,
+  };
 }
 
 export function completeLivingWithPartnerDraft(profile = {}) {
