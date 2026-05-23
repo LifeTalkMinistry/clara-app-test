@@ -9,7 +9,7 @@ const YOUNG_PRO_SIGNALS = [
   { id: "ypPayday", icon: "💸", label: "Payday Timing", awarenessTitle: "Payday timing affects discipline.", guidanceTitle: "Assign money before spending." },
 ];
 
-const THEMES = {
+const YOUNG_PRO_THEMES = {
   ypWorkStress: {
     awareness: [
       "Work stress can make convenience spending feel like recovery after a long shift.",
@@ -143,41 +143,41 @@ const THEMES = {
     ]
   },
   ypLifestyle: {
-    awareness: Array.from({ length: 30 }, (_, i) => `Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations. Pattern ${i + 1} still matters when repeated.`),
-    guidance: Array.from({ length: 30 }, (_, i) => `Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.`)
+    awareness: Array.from({ length: 30 }, (_, index) => `Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations. Pattern ${index + 1} still matters when repeated.`),
+    guidance: Array.from({ length: 30 }, () => "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.")
   },
   ypCareer: {
-    awareness: Array.from({ length: 30 }, (_, i) => `Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent. Not every upgrade has to happen today.`),
-    guidance: Array.from({ length: 30 }, (_, i) => `Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.`)
+    awareness: Array.from({ length: 30 }, () => "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent. Not every upgrade has to happen today."),
+    guidance: Array.from({ length: 30 }, () => "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.")
   },
   ypBurnout: {
-    awareness: Array.from({ length: 30 }, (_, i) => `Burnout can turn spending into escape, convenience, or emotional recovery. The pattern deserves attention before it becomes routine.`),
-    guidance: Array.from({ length: 30 }, (_, i) => `Lower the decision load today. Keep one money rule simple enough to follow even while tired.`)
+    awareness: Array.from({ length: 30 }, () => "Burnout can turn spending into escape, convenience, or emotional recovery. The pattern deserves attention before it becomes routine."),
+    guidance: Array.from({ length: 30 }, () => "Lower the decision load today. Keep one money rule simple enough to follow even while tired.")
   },
   ypPayday: {
-    awareness: Array.from({ length: 30 }, (_, i) => `Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned.`),
-    guidance: Array.from({ length: 30 }, (_, i) => `Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.`)
+    awareness: Array.from({ length: 30 }, () => "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned."),
+    guidance: Array.from({ length: 30 }, () => "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.")
   }
 };
 
-const YOUNG_PRO_SIGNALS = [
-  { id: "ypWorkStress", icon: "💼", label: "Work Stress" },
-  { id: "ypBills", icon: "🧾", label: "Bills" },
-  { id: "ypLifestyle", icon: "🛋️", label: "Lifestyle" },
-  { id: "ypCareer", icon: "📈", label: "Career Pressure" },
-  { id: "ypBurnout", icon: "😵", label: "Burnout" },
-  { id: "ypPayday", icon: "💸", label: "Payday Timing" },
-];
-
-const STATE = { signalId: null, mode: "awareness" };
+const STATE = { signalId: YOUNG_PRO_SIGNALS[0].id, mode: "awareness" };
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeStage(value) {
+  return clean(value).toLowerCase().replace(/[\s_-]+/g, "");
+}
+
+function isYoungProfessionalStage(value) {
+  const stage = normalizeStage(value);
+  return stage === "youngprofessional" || stage === "youngpro" || stage === "youngprofessionals";
+}
+
 function readStage() {
   try {
-    return clean(JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}").stage);
+    return clean(JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "{}").stage);
   } catch {
     return "";
   }
@@ -193,6 +193,10 @@ function getDailyIndex(signalId, length = 30) {
   return (dayNumber + signalOffset(signalId)) % length;
 }
 
+function getSignal(signalId) {
+  return YOUNG_PRO_SIGNALS.find((signal) => signal.id === signalId) || YOUNG_PRO_SIGNALS[0];
+}
+
 function findLifeStageHero() {
   return Array.from(document.querySelectorAll("section")).find((section) => {
     const heading = clean(section.querySelector("h2")?.textContent);
@@ -203,6 +207,7 @@ function findLifeStageHero() {
 function findSupportCard() {
   const hero = findLifeStageHero();
   if (!hero) return null;
+
   let current = hero.nextElementSibling;
   while (current) {
     if (current.matches?.("[data-clara-pressure-signals='true']")) {
@@ -225,29 +230,38 @@ function findHeartNode(card) {
   return card?.querySelector("svg")?.closest("div") || null;
 }
 
+function findSignalDock() {
+  return document.querySelector("[data-clara-pressure-signals='true'] .clara-pressure-track");
+}
+
 function applyImportantStyle(node, styles) {
   if (!node) return;
   Object.entries(styles).forEach(([property, value]) => node.style.setProperty(property, value, "important"));
 }
 
 function getCopy(signalId, mode) {
-  const signal = YOUNG_PRO_SIGNALS.find((item) => item.id === signalId) || YOUNG_PRO_SIGNALS[0];
-  const copy = SIGNAL_CARD_COPY[signalId] || SIGNAL_CARD_COPY.ypWorkStress;
-  const bank = THEMES[signalId] || THEMES.ypWorkStress;
-  const index = getDailyIndex(signalId, 30);
+  const signal = getSignal(signalId);
+  const bank = YOUNG_PRO_THEMES[signal.id] || YOUNG_PRO_THEMES.ypWorkStress;
+  const awareness = bank.awareness || [];
+  const guidance = bank.guidance || [];
+  const selectedBank = mode === "guidance" ? guidance : awareness;
+  const index = getDailyIndex(signal.id, selectedBank.length || 30);
+
   return {
-    title: mode === "guidance" ? copy.guidanceTitle : copy.awarenessTitle,
-    body: mode === "guidance" ? bank.guidance[index] : bank.awareness[index],
-    label: signal.label,
+    title: mode === "guidance" ? signal.guidanceTitle : signal.awarenessTitle,
+    body: selectedBank[index] || selectedBank[0] || "CLARA is reading this pattern with your current life stage in mind.",
   };
 }
 
 function renderYoungProIcons() {
-  if (readStage() !== "Young Professional") return;
+  if (!isYoungProfessionalStage(readStage())) return;
+
   document.querySelectorAll("[data-clara-pressure-signals='true'] .clara-pressure-track").forEach((track) => {
     const signature = YOUNG_PRO_SIGNALS.map((signal) => signal.id).join("|");
-    if (track.dataset.youngProSignature === signature) return;
+    if (track.dataset.youngProSignature === signature && track.dataset.youngProActive === "true") return;
+
     track.dataset.youngProSignature = signature;
+    track.dataset.youngProActive = "true";
     track.innerHTML = YOUNG_PRO_SIGNALS.map((signal) => `
       <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Show ${signal.label} awareness" title="${signal.label}">
         <span aria-hidden="true">${signal.icon}</span><strong>${signal.label}</strong>
@@ -266,36 +280,98 @@ function prepareCardLayout(card, title, body) {
   const row = card.querySelector(":scope > div") || title.parentElement;
   const textColumn = title.parentElement;
   const heart = findHeartNode(card);
+
   applyImportantStyle(card, { overflow: "hidden" });
-  applyImportantStyle(row, { display: "flex", "flex-direction": "row", "align-items": "center", "justify-content": "space-between", gap: "12px", height: "100%", "min-height": "100%" });
-  applyImportantStyle(textColumn, { flex: "1 1 auto", "min-width": "0", display: "flex", "flex-direction": "column", "justify-content": "center", "align-items": "stretch" });
-  applyImportantStyle(title, { "max-width": "100%", "font-size": "13.5px", "line-height": "1.13", margin: "0 0 7px", overflow: "visible", "text-overflow": "clip", "white-space": "normal", display: "block" });
-  applyImportantStyle(body, { "max-width": "100%", "font-size": "10.8px", "line-height": "1.34", margin: "0", overflow: "visible", "text-overflow": "clip", "white-space": "normal", display: "block", "max-height": "none", "-webkit-line-clamp": "unset", "line-clamp": "unset", "-webkit-box-orient": "unset" });
+  applyImportantStyle(row, {
+    display: "flex",
+    "flex-direction": "row",
+    "align-items": "center",
+    "justify-content": "space-between",
+    gap: "12px",
+    height: "100%",
+    "min-height": "100%",
+  });
+  applyImportantStyle(textColumn, {
+    flex: "1 1 auto",
+    "min-width": "0",
+    display: "flex",
+    "flex-direction": "column",
+    "justify-content": "center",
+    "align-items": "stretch",
+  });
+  applyImportantStyle(title, {
+    "max-width": "100%",
+    "font-size": "13.5px",
+    "line-height": "1.13",
+    margin: "0 0 7px",
+    overflow: "visible",
+    "text-overflow": "clip",
+    "white-space": "normal",
+    display: "block",
+  });
+  applyImportantStyle(body, {
+    "max-width": "100%",
+    "font-size": "10.8px",
+    "line-height": "1.34",
+    margin: "0",
+    overflow: "visible",
+    "text-overflow": "clip",
+    "white-space": "normal",
+    display: "block",
+    "max-height": "none",
+    "-webkit-line-clamp": "unset",
+    "line-clamp": "unset",
+    "-webkit-box-orient": "unset",
+  });
+
   if (heart) {
     heart.dataset.claraYoungProHeartCta = "true";
     heart.setAttribute("role", "button");
     heart.setAttribute("tabindex", "0");
-    applyImportantStyle(heart, { position: "relative", right: "auto", top: "auto", transform: "none", flex: "0 0 56px", width: "56px", height: "56px", "min-width": "56px", "min-height": "56px", margin: "0", "align-self": "center", display: "grid", "place-items": "center" });
+    applyImportantStyle(heart, {
+      position: "relative",
+      right: "auto",
+      top: "auto",
+      transform: "none",
+      flex: "0 0 56px",
+      width: "56px",
+      height: "56px",
+      "min-width": "56px",
+      "min-height": "56px",
+      margin: "0",
+      "align-self": "center",
+      display: "grid",
+      "place-items": "center",
+    });
   }
 }
 
 function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = false) {
-  if (!signalId || readStage() !== "Young Professional") return;
+  if (!isYoungProfessionalStage(readStage())) return;
+
   const card = findSupportCard();
   const { title, body } = findTextNodes(card);
   if (!card || !title || !body) return;
+
+  STATE.signalId = getSignal(signalId).id;
+  STATE.mode = mode === "guidance" ? "guidance" : "awareness";
   prepareCardLayout(card, title, body);
-  const copy = getCopy(signalId, mode);
+
+  const copy = getCopy(STATE.signalId, STATE.mode);
   if (clean(title.textContent) === copy.title && clean(body.textContent) === copy.body) return;
+
   card.dataset.claraSupportCard = "true";
   card.dataset.claraSignalCardActive = "true";
-  card.dataset.claraSelectedSignal = signalId;
-  card.dataset.claraSignalMode = mode;
+  card.dataset.claraYoungProSignalCard = "true";
+  card.dataset.claraSelectedSignal = STATE.signalId;
+  card.dataset.claraSignalMode = STATE.mode;
+
   const heart = findHeartNode(card);
   if (heart) {
-    heart.title = mode === "guidance" ? "Showing gentle guidance" : "Show gentle guidance";
+    heart.title = STATE.mode === "guidance" ? "Showing gentle guidance" : "Show gentle guidance";
     heart.setAttribute("aria-label", heart.title);
   }
+
   const commit = () => {
     title.textContent = copy.title;
     body.textContent = copy.body;
@@ -305,7 +381,12 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
     title.style.transform = "translateY(0)";
     body.style.transform = "translateY(0)";
   };
-  if (!animate) return commit();
+
+  if (!animate) {
+    commit();
+    return;
+  }
+
   title.style.opacity = "0";
   body.style.opacity = "0";
   title.style.transform = "translateY(4px)";
@@ -314,25 +395,32 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
 }
 
 function handleSignalClick(event) {
-  if (readStage() !== "Young Professional") return;
+  if (!isYoungProfessionalStage(readStage())) return;
+
   const button = event.target?.closest?.("[data-clara-pressure-signal]");
-  if (!button || !YOUNG_PRO_SIGNALS.some((signal) => signal.id === button.dataset.claraPressureSignal)) return;
+  const signalId = button?.dataset?.claraPressureSignal;
+  if (!button || !YOUNG_PRO_SIGNALS.some((signal) => signal.id === signalId)) return;
+
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  STATE.signalId = button.dataset.claraPressureSignal;
+
+  STATE.signalId = signalId;
   STATE.mode = "awareness";
   setActiveIcon(STATE.signalId);
   applyCardState(STATE.signalId, "awareness", true);
 }
 
 function handleHeartClick(event) {
-  if (readStage() !== "Young Professional") return;
+  if (!isYoungProfessionalStage(readStage())) return;
+
   const heart = event.target?.closest?.("[data-clara-young-pro-heart-cta='true']");
-  if (!heart || !STATE.signalId) return;
+  if (!heart) return;
+
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+
   STATE.mode = "guidance";
   setActiveIcon(STATE.signalId);
   applyCardState(STATE.signalId, "guidance", true);
@@ -340,30 +428,50 @@ function handleHeartClick(event) {
 
 function installStyles() {
   if (document.getElementById("clara-young-pro-signal-style")) return;
+
   const style = document.createElement("style");
   style.id = "clara-young-pro-signal-style";
   style.textContent = `
     #root [data-clara-support-card="true"] h3,
-    #root [data-clara-support-card="true"] h3 + p { transition: opacity 160ms ease, transform 160ms ease !important; }
-    #root [data-clara-pressure-signal][data-active="true"] { border-color: rgba(165,243,252,.36) !important; background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important; }
+    #root [data-clara-support-card="true"] h3 + p {
+      transition: opacity 160ms ease, transform 160ms ease !important;
+    }
+
+    #root [data-clara-pressure-signal][data-active="true"] {
+      border-color: rgba(165,243,252,.36) !important;
+      background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-mode="guidance"] {
+      box-shadow: 0 20px 54px rgba(0,0,0,.22), 0 0 24px rgba(244,114,182,.10), inset 0 1px 0 rgba(255,255,255,.07) !important;
+    }
   `;
   document.head.appendChild(style);
 }
 
 function maintainYoungProSignals() {
   installStyles();
+  if (!isYoungProfessionalStage(readStage())) return;
+
   renderYoungProIcons();
-  if (STATE.signalId && readStage() === "Young Professional") {
-    setActiveIcon(STATE.signalId);
-    applyCardState(STATE.signalId, STATE.mode, false);
-  }
+
+  if (!findSignalDock()) return;
+
+  STATE.signalId = getSignal(STATE.signalId).id;
+  setActiveIcon(STATE.signalId);
+  applyCardState(STATE.signalId, STATE.mode, false);
 }
 
-if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_YOUNG_PRO_SIGNAL_STATES__) {
+function installYoungProfessionalSignals() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (window.__CLARA_YOUNG_PRO_SIGNAL_STATES__) return;
   window.__CLARA_YOUNG_PRO_SIGNAL_STATES__ = true;
+
   document.addEventListener("click", handleSignalClick, true);
   document.addEventListener("click", handleHeartClick, true);
   window.addEventListener("resize", maintainYoungProSignals, { passive: true });
+
   let scheduled = false;
   const schedule = () => {
     if (scheduled) return;
@@ -373,7 +481,15 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
       maintainYoungProSignals();
     });
   };
+
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, characterData: true });
   window.addEventListener("storage", schedule, { passive: true });
+  document.addEventListener("click", () => window.setTimeout(schedule, 80), { passive: true });
   schedule();
+}
+
+try {
+  installYoungProfessionalSignals();
+} catch (error) {
+  console.warn("CLARA Young Professional signal bridge failed:", error);
 }
