@@ -13,6 +13,7 @@ import "./life-stage-support-card";
 import "./life-stage-signal-card-states";
 import "./life-stage-young-professional-signals";
 import "./life-stage-living-with-partner-signals";
+import "./life-stage-living-with-partner-reveal";
 import "./life-stage-trend-snapshot";
 import "./life-stage-setup-flow-polish";
 import "./life-stage-apply-diagnosis";
