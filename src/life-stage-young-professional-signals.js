@@ -1,12 +1,12 @@
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 
 const SIGNALS = [
-  ["tired", "😴", "Tired", "Work exhaustion affects spending.", "Make tired workdays safer.", "After long work hours, convenience spending can feel like recovery instead of a choice.", "Set one low-effort boundary before the day gets heavy: food, fare, coffee, or delivery limit."],
-  ["stress", "🧠", "Stressed", "Stress may be asking for relief.", "Name the work pressure first.", "Career pressure, deadlines, and workplace tension can make small rewards feel necessary.", "Name the pressure before buying. If the purchase is only relief, choose a smaller planned version."],
-  ["sleepy", "🌙", "Sleepy", "Low sleep weakens control.", "Delay bigger decisions.", "Low sleep can make workday spending more automatic, especially coffee, snacks, rides, and online buys.", "Avoid bigger money decisions while tired. Keep only one simple rule active until your energy returns."],
-  ["hungry", "🍜", "Hungry", "Hunger can trigger impulse spending.", "Protect a food boundary.", "Busy workdays can delay meals and make food spending larger than planned.", "Plan the main meal first, then decide on drinks, snacks, or treats separately."],
-  ["pressure", "⏰", "Time Pressure", "Time pressure becomes money pressure.", "Prepare one thing early.", "Rushed mornings, deadlines, and last-minute work needs can make paying for speed feel normal.", "Prepare one predictable pressure point early so rushing does not choose the price for you."],
-  ["moneyTiming", "💸", "Money Timing", "Money timing can create pressure.", "Assign money before spending.", "Payday can create a false feeling of extra money before bills, savings, food, and transport are assigned.", "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains."],
+  ["ypWorkStress", "💼", "Work Stress", "Work pressure can affect spending.", "Create a workday boundary.", "Work pressure can make convenience spending feel like recovery after a long shift.", "Set one workday spending boundary before the pressure starts."],
+  ["ypBills", "🧾", "Bills", "Bills can create quiet pressure.", "Protect the fixed costs first.", "Bills can make salary feel assigned before it arrives, especially when due dates stack close together.", "Separate bill money first before spending on anything optional."],
+  ["ypLifestyle", "🛋️", "Lifestyle", "Lifestyle pressure can grow quietly.", "Choose comfort with a limit.", "Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations.", "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first."],
+  ["ypCareer", "📈", "Career Pressure", "Career pressure can change choices.", "Invest without panic.", "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent.", "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer."],
+  ["ypBurnout", "😵", "Burnout", "Burnout can weaken money control.", "Lower the decision load.", "Burnout can turn spending into escape, convenience, or emotional recovery before you notice the routine.", "Lower the decision load today. Keep one money rule simple enough to follow even while tired."],
+  ["moneyTiming", "💸", "Money Timing", "Money timing affects discipline.", "Assign money before spending.", "Payday can create a false feeling of extra money before bills, savings, food, and transport are assigned.", "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains."],
   ["commute", "🚌", "Commute Pressure", "Commute pressure affects spending.", "Plan the travel cost early.", "Daily travel can quietly add fare, food, drinks, and convenience costs to a professional routine.", "Separate commute money before lifestyle spending so movement pressure does not borrow from essentials."],
 ].map(([id, icon, label, awarenessTitle, guidanceTitle, awareness, guidance]) => ({ id, icon, label, awarenessTitle, guidanceTitle, awareness, guidance }));
 
@@ -20,7 +20,7 @@ const DAILY = [
   "This signal usually becomes stronger when the day feels heavy or rushed.",
 ];
 
-const STATE = { signalId: "tired", mode: "awareness" };
+const STATE = { signalId: "ypWorkStress", mode: "awareness" };
 
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const norm = (value) => clean(value).toLowerCase().replace(/[\s_-]+/g, "");
@@ -83,48 +83,52 @@ function getRhythm() {
   if (height <= 680) {
     return {
       rows: "minmax(186px, clamp(186px, 34.5svh, 222px)) 78px 40px 192px",
-      supportHeight: "78px",
+      supportHeight: "94px",
       supportMargin: "-14px auto 0",
-      supportPadding: "10px 15px",
+      supportPadding: "11px 15px",
       dockHeight: "40px",
       dockMargin: "1px auto 0",
       dockPadding: "4px 8px",
       snapshotHeight: "192px",
+      bodyClamp: "2",
     };
   }
   if (height <= 760) {
     return {
       rows: "minmax(214px, clamp(214px, 35.5svh, 260px)) 92px 42px 204px",
-      supportHeight: "92px",
+      supportHeight: "112px",
       supportMargin: "-22px auto 0",
-      supportPadding: "13px 15px",
+      supportPadding: "14px 15px",
       dockHeight: "42px",
       dockMargin: "1px auto 0",
       dockPadding: "5px 8px",
       snapshotHeight: "204px",
+      bodyClamp: "2",
     };
   }
   if (height >= 820) {
     return {
       rows: "minmax(248px, clamp(248px, 36.5svh, 292px)) 102px 46px 218px",
-      supportHeight: "102px",
+      supportHeight: "124px",
       supportMargin: "-28px auto 0",
-      supportPadding: "15px 15px",
+      supportPadding: "16px 15px",
       dockHeight: "46px",
       dockMargin: "1px auto 0",
       dockPadding: "6px 8px",
       snapshotHeight: "218px",
+      bodyClamp: "2",
     };
   }
   return {
     rows: "minmax(236px, clamp(236px, 37svh, 284px)) 102px 46px 218px",
-    supportHeight: "102px",
+    supportHeight: "124px",
     supportMargin: "-28px auto 0",
-    supportPadding: "15px 15px",
+    supportPadding: "16px 15px",
     dockHeight: "46px",
     dockMargin: "1px auto 0",
     dockPadding: "6px 8px",
     snapshotHeight: "218px",
+    bodyClamp: "2",
   };
 }
 
