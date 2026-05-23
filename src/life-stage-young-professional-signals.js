@@ -1,72 +1,16 @@
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 
-const YOUNG_PRO_SIGNALS = [
-  {
-    id: "ypWorkStress",
-    icon: "💼",
-    label: "Work Stress",
-    awarenessTitle: "Work pressure can affect spending.",
-    guidanceTitle: "Create a workday boundary.",
-    awareness: "Work stress can make convenience spending feel like recovery after a long shift.",
-    guidance: "Set one workday spending boundary before the pressure starts.",
-  },
-  {
-    id: "ypBills",
-    icon: "🧾",
-    label: "Bills",
-    awarenessTitle: "Bills can create quiet pressure.",
-    guidanceTitle: "Protect the fixed costs first.",
-    awareness: "Bills can make salary feel assigned before it arrives, especially when due dates stack close together.",
-    guidance: "Separate bill money first before spending on anything optional.",
-  },
-  {
-    id: "ypLifestyle",
-    icon: "🛋️",
-    label: "Lifestyle",
-    awarenessTitle: "Lifestyle pressure can grow quietly.",
-    guidanceTitle: "Choose comfort with a limit.",
-    awareness: "Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations.",
-    guidance: "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.",
-  },
-  {
-    id: "ypCareer",
-    icon: "📈",
-    label: "Career Pressure",
-    awarenessTitle: "Career pressure can change choices.",
-    guidanceTitle: "Invest without panic.",
-    awareness: "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent.",
-    guidance: "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.",
-  },
-  {
-    id: "ypBurnout",
-    icon: "😵",
-    label: "Burnout",
-    awarenessTitle: "Burnout can weaken money control.",
-    guidanceTitle: "Lower the decision load.",
-    awareness: "Burnout can turn spending into escape, convenience, or emotional recovery before you notice the routine.",
-    guidance: "Lower the decision load today. Keep one money rule simple enough to follow even while tired.",
-  },
-  {
-    id: "moneyTiming",
-    icon: "💸",
-    label: "Money Timing",
-    awarenessTitle: "Money timing affects discipline.",
-    guidanceTitle: "Assign money before spending.",
-    awareness: "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned.",
-    guidance: "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.",
-  },
-  {
-    id: "commute",
-    icon: "🚌",
-    label: "Commute Pressure",
-    awarenessTitle: "Commute pressure affects spending.",
-    guidanceTitle: "Plan the travel cost early.",
-    awareness: "Daily travel can quietly add fare, food, drinks, and convenience costs to a professional routine.",
-    guidance: "Separate commute money before lifestyle spending so movement pressure does not borrow from essentials.",
-  },
-];
+const SIGNALS = [
+  ["tired", "😴", "Tired", "Work exhaustion affects spending.", "Make tired workdays safer.", "After long work hours, convenience spending can feel like recovery instead of a choice.", "Set one low-effort boundary before the day gets heavy: food, fare, coffee, or delivery limit."],
+  ["stress", "🧠", "Stressed", "Stress may be asking for relief.", "Name the work pressure first.", "Career pressure, deadlines, and workplace tension can make small rewards feel necessary.", "Name the pressure before buying. If the purchase is only relief, choose a smaller planned version."],
+  ["sleepy", "🌙", "Sleepy", "Low sleep weakens control.", "Delay bigger decisions.", "Low sleep can make workday spending more automatic, especially coffee, snacks, rides, and online buys.", "Avoid bigger money decisions while tired. Keep only one simple rule active until your energy returns."],
+  ["hungry", "🍜", "Hungry", "Hunger can trigger impulse spending.", "Protect a food boundary.", "Busy workdays can delay meals and make food spending larger than planned.", "Plan the main meal first, then decide on drinks, snacks, or treats separately."],
+  ["pressure", "⏰", "Time Pressure", "Time pressure becomes money pressure.", "Prepare one thing early.", "Rushed mornings, deadlines, and last-minute work needs can make paying for speed feel normal.", "Prepare one predictable pressure point early so rushing does not choose the price for you."],
+  ["moneyTiming", "💸", "Money Timing", "Money timing can create pressure.", "Assign money before spending.", "Payday can create a false feeling of extra money before bills, savings, food, and transport are assigned.", "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains."],
+  ["commute", "🚌", "Commute Pressure", "Commute pressure affects spending.", "Plan the travel cost early.", "Daily travel can quietly add fare, food, drinks, and convenience costs to a professional routine.", "Separate commute money before lifestyle spending so movement pressure does not borrow from essentials."],
+].map(([id, icon, label, awarenessTitle, guidanceTitle, awareness, guidance]) => ({ id, icon, label, awarenessTitle, guidanceTitle, awareness, guidance }));
 
-const DAILY_VARIATIONS = [
+const DAILY = [
   "This pattern matters more when it repeats quietly across the week.",
   "It may look small today, but it can shape your monthly breathing room.",
   "CLARA is watching this because it connects emotion, routine, and money behavior.",
@@ -74,278 +18,178 @@ const DAILY_VARIATIONS = [
   "The goal is not perfection. The goal is to catch the pattern early.",
   "A small boundary here can protect bigger goals later.",
   "This signal usually becomes stronger when the day feels heavy or rushed.",
-  "When life feels busy, this is one of the first areas where discipline can soften.",
-  "This is where awareness can prevent a small leak from becoming normal.",
-  "A calm decision here can keep your next paycheck safer.",
 ];
 
-const STATE = {
-  signalId: YOUNG_PRO_SIGNALS[0].id,
-  mode: "awareness",
+const STATE = { signalId: "tired", mode: "awareness" };
+
+const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+const norm = (value) => clean(value).toLowerCase().replace(/[\s_-]+/g, "");
+const isYoungPro = () => {
+  try {
+    const stage = JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}").stage;
+    return ["youngprofessional", "youngprofessionals", "youngpro"].includes(norm(stage));
+  } catch {
+    return false;
+  }
 };
 
-function clean(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function normalizeStage(value) {
-  return clean(value).toLowerCase().replace(/[\s_-]+/g, "");
-}
-
-function isYoungProfessionalStage(value) {
-  const stage = normalizeStage(value);
-  return stage === "youngprofessional" || stage === "youngprofessionals" || stage === "youngpro";
-}
-
-function readStage() {
-  try {
-    return clean(JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "{}").stage);
-  } catch {
-    return "";
-  }
-}
-
-function signalOffset(signalId) {
-  return String(signalId || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
-}
-
-function getDailyIndex(signalId, length) {
+const signal = (id) => SIGNALS.find((item) => item.id === id) || SIGNALS[0];
+const dayIndex = (id, length) => {
   const now = new Date();
-  const dayNumber = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
-  return (dayNumber + signalOffset(signalId)) % Math.max(length || 1, 1);
-}
+  const day = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
+  const offset = String(id || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return (day + offset) % length;
+};
 
-function getSignal(signalId) {
-  return YOUNG_PRO_SIGNALS.find((signal) => signal.id === signalId) || YOUNG_PRO_SIGNALS[0];
-}
-
-function applyImportantStyle(node, styles) {
+function important(node, styles) {
   if (!node) return;
-  Object.entries(styles).forEach(([property, value]) => {
-    node.style.setProperty(property, value, "important");
-  });
+  Object.entries(styles).forEach(([key, value]) => node.style.setProperty(key, value, "important"));
 }
 
-function findLifeStageHero() {
+function hero() {
   return Array.from(document.querySelectorAll("section")).find((section) => {
     const heading = clean(section.querySelector("h2")?.textContent);
     return heading && section.querySelector("p")?.textContent?.toLowerCase?.().includes("your life stage");
   });
 }
 
-function findSupportCard() {
-  const hero = findLifeStageHero();
-  if (!hero) return null;
-
-  let current = hero.nextElementSibling;
-  while (current) {
-    if (current.matches?.("[data-clara-pressure-signals='true']")) {
-      current = current.nextElementSibling;
-      continue;
-    }
-    if (clean(current.querySelector?.("h3")?.textContent) || current.querySelector?.("svg")) return current;
-    current = current.nextElementSibling;
+function supportCard() {
+  let node = hero()?.nextElementSibling || null;
+  while (node) {
+    if (node.matches?.("[data-clara-pressure-signals='true']")) node = node.nextElementSibling;
+    else if (clean(node.querySelector?.("h3")?.textContent) || node.querySelector?.("svg")) return node;
+    else node = node.nextElementSibling;
   }
   return null;
 }
 
-function findSnapshot(container) {
-  return Array.from(container?.children || []).find((node) => node.matches?.("section[data-clara-trend-snapshot='true']")) || null;
+function snapshot(container) {
+  return Array.from(container?.children || []).find((node) => node.matches?.("section[data-clara-trend-snapshot='true']"));
 }
 
-function findTextNodes(card) {
+function textNodes(card) {
   const title = card?.querySelector("h3");
   const body = title?.nextElementSibling?.tagName === "P" ? title.nextElementSibling : null;
   return { title, body };
 }
 
-function findHeartNode(card) {
+function heartNode(card) {
   return card?.querySelector("svg")?.closest("div") || null;
 }
 
-function getCopy(signalId, mode) {
-  const signal = getSignal(signalId);
-  const variation = DAILY_VARIATIONS[getDailyIndex(signal.id, DAILY_VARIATIONS.length)];
-  return {
-    title: mode === "guidance" ? signal.guidanceTitle : signal.awarenessTitle,
-    body: `${mode === "guidance" ? signal.guidance : signal.awareness} ${variation}`,
-  };
-}
+function layout(card, dock) {
+  const wrap = card?.parentElement;
+  const heroCard = hero();
+  const snap = snapshot(wrap);
+  if (!wrap || !card || !heroCard) return;
 
-function ensureYoungProDock() {
-  const support = findSupportCard();
-  const container = support?.parentElement || null;
-  if (!support || !container) return null;
+  wrap.dataset.claraYoungProLayout = "true";
+  card.dataset.claraSupportCard = "true";
+  card.dataset.claraYoungProSignalCard = "true";
 
-  let dock = Array.from(container.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
-  if (!dock) {
-    dock = document.createElement("div");
-    dock.dataset.claraPressureSignals = "true";
-    dock.dataset.claraYoungProDock = "true";
-    support.insertAdjacentElement("afterend", dock);
-  } else if (dock.previousElementSibling !== support) {
-    support.insertAdjacentElement("afterend", dock);
-  }
-
-  dock.dataset.claraYoungProDock = "true";
-  dock.dataset.pressureReady = "true";
-
-  let track = dock.querySelector(".clara-pressure-track");
-  if (!track) {
-    track = document.createElement("div");
-    track.className = "clara-pressure-track";
-    track.setAttribute("aria-label", "Young Professional pressure signals");
-    dock.replaceChildren(track);
-  }
-
-  applyYoungProLayout(container, support, dock);
-  return track;
-}
-
-function applyYoungProLayout(container, support, dock) {
-  const hero = findLifeStageHero();
-  const snapshot = findSnapshot(container);
-  if (!container || !support || !hero) return;
-
-  container.dataset.claraYoungProLayout = "true";
-  support.dataset.claraSupportCard = "true";
-  support.dataset.claraYoungProSignalCard = "true";
-
-  applyImportantStyle(container, {
+  important(wrap, {
     display: "grid",
     "grid-template-rows": "minmax(226px, clamp(226px, 34.5svh, 250px)) 124px 46px 208px",
     gap: "0",
     "align-content": "start",
     overflow: "hidden",
   });
-
-  applyImportantStyle(hero, {
-    position: "relative",
-    "z-index": "3",
-    height: "100%",
-    "min-height": "0",
-    flex: "none",
-    margin: "0",
-    transform: "none",
-  });
-
-  applyImportantStyle(support, {
-    position: "relative",
-    "z-index": "14",
-    height: "124px",
-    "min-height": "124px",
-    "max-height": "124px",
-    width: "calc(100% - 4px)",
-    margin: "-8px auto 0",
-    padding: "16px 15px",
-    flex: "none",
-    "align-self": "start",
-    transform: "none",
-    overflow: "hidden",
-  });
-
-  if (dock) {
-    applyImportantStyle(dock, {
-      position: "relative",
-      "z-index": "12",
-      height: "46px",
-      "min-height": "46px",
-      "max-height": "46px",
-      margin: "5px auto 0",
-      padding: "6px 8px",
-      flex: "none",
-      "align-self": "start",
-      transform: "none",
-    });
-  }
-
-  if (snapshot) {
-    applyImportantStyle(snapshot, {
-      position: "relative",
-      "z-index": "4",
-      height: "208px",
-      "min-height": "208px",
-      "max-height": "208px",
-      margin: "6px 0 0",
-      flex: "none",
-      "align-self": "start",
-      transform: "none",
-    });
-  }
+  important(heroCard, { position: "relative", "z-index": "3", height: "100%", "min-height": "0", flex: "none", margin: "0", transform: "none" });
+  important(card, { position: "relative", "z-index": "14", height: "124px", "min-height": "124px", "max-height": "124px", width: "calc(100% - 4px)", margin: "-8px auto 0", padding: "16px 15px", flex: "none", "align-self": "start", transform: "none", overflow: "hidden" });
+  if (dock) important(dock, { position: "relative", "z-index": "12", height: "46px", "min-height": "46px", "max-height": "46px", margin: "5px auto 0", padding: "6px 8px", flex: "none", "align-self": "start", transform: "none" });
+  if (snap) important(snap, { position: "relative", "z-index": "4", height: "208px", "min-height": "208px", "max-height": "208px", margin: "6px 0 0", flex: "none", "align-self": "start", transform: "none" });
 }
 
-function renderYoungProIcons() {
-  if (!isYoungProfessionalStage(readStage())) return false;
+function dockTrack() {
+  const card = supportCard();
+  const wrap = card?.parentElement;
+  if (!card || !wrap) return null;
 
-  const track = ensureYoungProDock();
+  let dock = Array.from(wrap.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
+  if (!dock) {
+    dock = document.createElement("div");
+    dock.dataset.claraPressureSignals = "true";
+    card.insertAdjacentElement("afterend", dock);
+  } else if (dock.previousElementSibling !== card) {
+    card.insertAdjacentElement("afterend", dock);
+  }
+  dock.dataset.pressureReady = "true";
+  dock.dataset.claraYoungProDock = "true";
+
+  let track = dock.querySelector(".clara-pressure-track");
+  if (!track) {
+    track = document.createElement("div");
+    track.className = "clara-pressure-track";
+    dock.replaceChildren(track);
+  }
+
+  layout(card, dock);
+  return track;
+}
+
+function renderDock() {
+  if (!isYoungPro()) return false;
+  const track = dockTrack();
   if (!track) return false;
 
-  const signature = YOUNG_PRO_SIGNALS.map((signal) => signal.id).join("|");
-  if (track.dataset.youngProSignature === signature && track.dataset.youngProActive === "true") return true;
-
+  const signature = SIGNALS.map((item) => item.id).join("|");
+  if (track.dataset.youngProSignature === signature) return true;
   track.dataset.youngProSignature = signature;
-  track.dataset.youngProActive = "true";
-  track.innerHTML = YOUNG_PRO_SIGNALS.map((signal) => `
-    <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Show ${signal.label} awareness" title="${signal.label}">
-      <span aria-hidden="true">${signal.icon}</span><strong>${signal.label}</strong>
+  track.innerHTML = SIGNALS.map((item) => `
+    <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${item.id}" aria-label="Show ${item.label} awareness" title="${item.label}">
+      <span aria-hidden="true">${item.icon}</span><strong>${item.label}</strong>
     </button>
   `).join("");
-
   return true;
 }
 
-function setActiveIcon(signalId) {
+function setActive(id) {
   document.querySelectorAll("[data-clara-pressure-signal]").forEach((button) => {
-    button.dataset.active = button.dataset.claraPressureSignal === signalId ? "true" : "false";
+    button.dataset.active = button.dataset.claraPressureSignal === id ? "true" : "false";
   });
 }
 
-function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = false) {
-  if (!isYoungProfessionalStage(readStage())) return;
+function copy(id, mode) {
+  const item = signal(id);
+  const daily = DAILY[dayIndex(id, DAILY.length)];
+  return {
+    title: mode === "guidance" ? item.guidanceTitle : item.awarenessTitle,
+    body: `${mode === "guidance" ? item.guidance : item.awareness} ${daily}`,
+  };
+}
 
-  const card = findSupportCard();
-  const { title, body } = findTextNodes(card);
+function applyState(id = STATE.signalId, mode = STATE.mode, animate = false) {
+  if (!isYoungPro()) return;
+  const card = supportCard();
+  const { title, body } = textNodes(card);
   if (!card || !title || !body) return;
 
-  const container = card.parentElement;
-  const dock = Array.from(container?.children || []).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
-  applyYoungProLayout(container, card, dock);
-
-  STATE.signalId = getSignal(signalId).id;
+  layout(card, card.parentElement?.querySelector("[data-clara-pressure-signals='true']"));
+  STATE.signalId = signal(id).id;
   STATE.mode = mode === "guidance" ? "guidance" : "awareness";
 
   card.dataset.claraSupportCard = "true";
-  card.dataset.claraSignalCardActive = "true";
-  card.dataset.claraYoungProSignalCard = "true";
-  card.dataset.claraSelectedSignal = STATE.signalId;
   card.dataset.claraSignalMode = STATE.mode;
+  card.dataset.claraSelectedSignal = STATE.signalId;
+  card.dataset.claraYoungProSignalCard = "true";
 
-  const heart = findHeartNode(card);
+  const heart = heartNode(card);
   if (heart) {
     heart.dataset.claraYoungProHeartCta = "true";
     heart.setAttribute("role", "button");
     heart.setAttribute("tabindex", "0");
-    heart.title = STATE.mode === "guidance" ? "Showing gentle guidance" : "Show gentle guidance";
-    heart.setAttribute("aria-label", heart.title);
   }
 
-  const copy = getCopy(STATE.signalId, STATE.mode);
-  if (clean(title.textContent) === copy.title && clean(body.textContent) === copy.body) return;
-
+  const next = copy(STATE.signalId, STATE.mode);
   const commit = () => {
-    title.textContent = copy.title;
-    body.textContent = copy.body;
+    title.textContent = next.title;
+    body.textContent = next.body;
     title.style.opacity = "1";
     body.style.opacity = "1";
     title.style.transform = "translateY(0)";
     body.style.transform = "translateY(0)";
   };
-
-  if (!animate) {
-    commit();
-    return;
-  }
-
+  if (!animate) return commit();
   title.style.opacity = "0";
   body.style.opacity = "0";
   title.style.transform = "translateY(4px)";
@@ -354,150 +198,60 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
 }
 
 function handleSignalClick(event) {
-  if (!isYoungProfessionalStage(readStage())) return;
-
+  if (!isYoungPro()) return;
   const button = event.target?.closest?.("[data-clara-pressure-signal]");
-  const signalId = button?.dataset?.claraPressureSignal;
-  if (!button || !YOUNG_PRO_SIGNALS.some((signal) => signal.id === signalId)) return;
-
+  const id = button?.dataset?.claraPressureSignal;
+  if (!button || !SIGNALS.some((item) => item.id === id)) return;
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-
-  STATE.signalId = signalId;
+  STATE.signalId = id;
   STATE.mode = "awareness";
-  setActiveIcon(STATE.signalId);
-  applyCardState(STATE.signalId, "awareness", true);
+  setActive(id);
+  applyState(id, "awareness", true);
 }
 
 function handleHeartClick(event) {
-  if (!isYoungProfessionalStage(readStage())) return;
-
-  const heart = event.target?.closest?.("[data-clara-young-pro-heart-cta='true']");
+  if (!isYoungPro()) return;
+  const heart = event.target?.closest?.("[data-clara-young-pro-heart-cta='true'],[data-clara-heart-cta='true']");
   if (!heart) return;
-
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-
   STATE.mode = "guidance";
-  setActiveIcon(STATE.signalId);
-  applyCardState(STATE.signalId, "guidance", true);
+  setActive(STATE.signalId);
+  applyState(STATE.signalId, "guidance", true);
 }
 
 function installStyles() {
   if (document.getElementById("clara-young-pro-signal-style")) return;
-
   const style = document.createElement("style");
   style.id = "clara-young-pro-signal-style";
   style.textContent = `
-    #root [data-clara-young-pro-layout="true"] > section[data-clara-young-pro-signal-card="true"] {
-      margin-top: -8px !important;
-      transform: none !important;
-    }
-
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p {
-      transition: opacity 160ms ease, transform 160ms ease !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 {
-      margin: 0 0 8px !important;
-      max-width: 16rem !important;
-      font-size: 13.4px !important;
-      line-height: 1.12 !important;
-      letter-spacing: -0.022em !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p {
-      display: -webkit-box !important;
-      -webkit-line-clamp: 3 !important;
-      -webkit-box-orient: vertical !important;
-      overflow: hidden !important;
-      max-width: 16.2rem !important;
-      font-size: 10.7px !important;
-      line-height: 1.36 !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signals="true"] {
-      border-radius: 999px !important;
-      border: 1px solid rgba(255,255,255,.075) !important;
-      background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14) !important;
-      backdrop-filter: blur(22px) saturate(1.12) !important;
-      -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
-      overflow: hidden !important;
-      max-width: calc(100% - 18px) !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] .clara-pressure-track {
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 8px !important;
-      height: 100% !important;
-      overflow-x: auto !important;
-      overflow-y: hidden !important;
-      padding: 0 2px !important;
-      scrollbar-width: none !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
-
-    #root [data-clara-young-pro-layout="true"] .clara-pressure-chip {
-      flex: 0 0 32px !important;
-      display: grid !important;
-      place-items: center !important;
-      width: 32px !important;
-      min-width: 32px !important;
-      max-width: 32px !important;
-      height: 32px !important;
-      min-height: 32px !important;
-      max-height: 32px !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      border-radius: 999px !important;
-      border: 1px solid rgba(255,255,255,.10) !important;
-      background: rgba(255,255,255,.045) !important;
-      color: rgba(255,255,255,.86) !important;
-      font-size: 15px !important;
-      line-height: 1 !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] .clara-pressure-chip strong { display: none !important; }
-
-    #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signal][data-active="true"] {
-      border-color: rgba(165,243,252,.36) !important;
-      background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important;
-    }
-
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"][data-clara-signal-mode="guidance"] {
-      box-shadow: 0 20px 54px rgba(0,0,0,.22), 0 0 24px rgba(244,114,182,.10), inset 0 1px 0 rgba(255,255,255,.07) !important;
-    }
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { transition: opacity 160ms ease, transform 160ms ease !important; }
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 { margin: 0 0 8px !important; max-width: 16rem !important; font-size: 13.4px !important; line-height: 1.12 !important; letter-spacing: -0.022em !important; }
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; max-width: 16.2rem !important; font-size: 10.7px !important; line-height: 1.36 !important; }
+    #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signal][data-active="true"] { border-color: rgba(165,243,252,.36) !important; background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important; }
   `;
   document.head.appendChild(style);
 }
 
-function maintainYoungProSignals() {
+function maintain() {
   installStyles();
-  if (!isYoungProfessionalStage(readStage())) return;
-  if (!renderYoungProIcons()) return;
-
-  STATE.signalId = getSignal(STATE.signalId).id;
-  setActiveIcon(STATE.signalId);
-  applyCardState(STATE.signalId, STATE.mode, false);
+  if (!isYoungPro()) return;
+  if (!renderDock()) return;
+  setActive(STATE.signalId);
+  applyState(STATE.signalId, STATE.mode, false);
 }
 
-function installYoungProfessionalSignals() {
+function install() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_YOUNG_PRO_SIGNAL_STATES__) return;
   window.__CLARA_YOUNG_PRO_SIGNAL_STATES__ = true;
-
-  document.addEventListener("click", handleSignalClick, true);
-  document.addEventListener("click", handleHeartClick, true);
-  window.addEventListener("resize", maintainYoungProSignals, { passive: true });
+  window.addEventListener("click", handleSignalClick, true);
+  window.addEventListener("click", handleHeartClick, true);
+  window.addEventListener("resize", maintain, { passive: true });
 
   let scheduled = false;
   const schedule = () => {
@@ -505,10 +259,9 @@ function installYoungProfessionalSignals() {
     scheduled = true;
     window.requestAnimationFrame(() => {
       scheduled = false;
-      maintainYoungProSignals();
+      maintain();
     });
   };
-
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, characterData: true });
   window.addEventListener("storage", schedule, { passive: true });
   document.addEventListener("click", () => window.setTimeout(schedule, 80), { passive: true });
@@ -518,7 +271,7 @@ function installYoungProfessionalSignals() {
 }
 
 try {
-  installYoungProfessionalSignals();
+  install();
 } catch (error) {
   console.warn("CLARA Young Professional signal bridge failed:", error);
 }
