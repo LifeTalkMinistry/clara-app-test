@@ -7,8 +7,8 @@ const YOUNG_PRO_SIGNALS = [
     label: "Work Stress",
     awarenessTitle: "Work pressure can affect spending.",
     guidanceTitle: "Create a workday boundary.",
-    awarenessSeed: "Work stress can make convenience spending feel like recovery after a long shift.",
-    guidanceSeed: "Set one workday spending boundary before the pressure starts.",
+    awareness: "Work stress can make convenience spending feel like recovery after a long shift.",
+    guidance: "Set one workday spending boundary before the pressure starts.",
   },
   {
     id: "ypBills",
@@ -16,8 +16,8 @@ const YOUNG_PRO_SIGNALS = [
     label: "Bills",
     awarenessTitle: "Bills can create quiet pressure.",
     guidanceTitle: "Protect the fixed costs first.",
-    awarenessSeed: "Bills can make salary feel assigned before it arrives, especially when due dates stack close together.",
-    guidanceSeed: "Separate bill money first before spending on anything optional.",
+    awareness: "Bills can make salary feel assigned before it arrives, especially when due dates stack close together.",
+    guidance: "Separate bill money first before spending on anything optional.",
   },
   {
     id: "ypLifestyle",
@@ -25,8 +25,8 @@ const YOUNG_PRO_SIGNALS = [
     label: "Lifestyle",
     awarenessTitle: "Lifestyle pressure can grow quietly.",
     guidanceTitle: "Choose comfort with a limit.",
-    awarenessSeed: "Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations.",
-    guidanceSeed: "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.",
+    awareness: "Lifestyle pressure can show up through food, outfits, gadgets, events, or social expectations.",
+    guidance: "Choose one lifestyle limit for today. Keep the experience, but protect the budget boundary first.",
   },
   {
     id: "ypCareer",
@@ -34,8 +34,8 @@ const YOUNG_PRO_SIGNALS = [
     label: "Career Pressure",
     awarenessTitle: "Career pressure can change choices.",
     guidanceTitle: "Invest without panic.",
-    awarenessSeed: "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent.",
-    guidanceSeed: "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.",
+    awareness: "Career pressure can make courses, tools, clothes, networking, or upgrades feel urgent.",
+    guidance: "Pick one career investment that truly moves you forward, then delay the rest until the budget is safer.",
   },
   {
     id: "ypBurnout",
@@ -43,8 +43,8 @@ const YOUNG_PRO_SIGNALS = [
     label: "Burnout",
     awarenessTitle: "Burnout can weaken money control.",
     guidanceTitle: "Lower the decision load.",
-    awarenessSeed: "Burnout can turn spending into escape, convenience, or emotional recovery before you notice the routine.",
-    guidanceSeed: "Lower the decision load today. Keep one money rule simple enough to follow even while tired.",
+    awareness: "Burnout can turn spending into escape, convenience, or emotional recovery before you notice the routine.",
+    guidance: "Lower the decision load today. Keep one money rule simple enough to follow even while tired.",
   },
   {
     id: "ypPayday",
@@ -52,8 +52,8 @@ const YOUNG_PRO_SIGNALS = [
     label: "Payday Timing",
     awarenessTitle: "Payday timing affects discipline.",
     guidanceTitle: "Assign money before spending.",
-    awarenessSeed: "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned.",
-    guidanceSeed: "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.",
+    awareness: "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned.",
+    guidance: "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.",
   },
 ];
 
@@ -143,66 +143,19 @@ function findHeartNode(card) {
   return card?.querySelector("svg")?.closest("div") || null;
 }
 
-function applyImportantStyle(node, styles) {
-  if (!node) return;
-  Object.entries(styles).forEach(([property, value]) => node.style.setProperty(property, value, "important"));
-}
-
-function setSoftText(node, value) {
-  if (!node) return;
-  const next = String(value || "");
-
-  if (node.childNodes.length === 1 && node.firstChild?.nodeType === Node.TEXT_NODE) {
-    if (node.firstChild.nodeValue !== next) node.firstChild.nodeValue = next;
-    return;
-  }
-
-  if (node.textContent !== next) {
-    node.replaceChildren(document.createTextNode(next));
-  }
-}
-
 function getCopy(signalId, mode) {
   const signal = getSignal(signalId);
   const variation = DAILY_VARIATIONS[getDailyIndex(signal.id, DAILY_VARIATIONS.length)];
-
   return {
     title: mode === "guidance" ? signal.guidanceTitle : signal.awarenessTitle,
-    body: `${mode === "guidance" ? signal.guidanceSeed : signal.awarenessSeed} ${variation}`,
+    body: `${mode === "guidance" ? signal.guidance : signal.awareness} ${variation}`,
   };
 }
 
-function ensureYoungProDock() {
-  const support = findSupportCard();
-  const container = support?.parentElement;
-  if (!support || !container) return null;
-
-  let dock = Array.from(container.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
-
-  if (!dock) {
-    dock = document.createElement("div");
-    dock.dataset.claraPressureSignals = "true";
-    support.insertAdjacentElement("afterend", dock);
-  } else if (dock.previousElementSibling !== support) {
-    support.insertAdjacentElement("afterend", dock);
-  }
-
-  dock.dataset.claraYoungProDock = "true";
-  dock.dataset.pressureReady = "true";
-
-  let track = dock.querySelector(".clara-pressure-track");
-  if (!track) {
-    track = document.createElement("div");
-    track.className = "clara-pressure-track";
-    track.setAttribute("aria-label", "Young Professional pressure signals");
-    dock.replaceChildren(track);
-  }
-
-  return track;
-}
-
 function renderYoungProIcons() {
-  const track = ensureYoungProDock();
+  if (!isYoungProfessionalStage(readStage())) return false;
+
+  const track = document.querySelector("[data-clara-pressure-signals='true'] .clara-pressure-track");
   if (!track) return false;
 
   const signature = YOUNG_PRO_SIGNALS.map((signal) => signal.id).join("|");
@@ -215,6 +168,7 @@ function renderYoungProIcons() {
       <span aria-hidden="true">${signal.icon}</span><strong>${signal.label}</strong>
     </button>
   `).join("");
+
   return true;
 }
 
@@ -222,76 +176,6 @@ function setActiveIcon(signalId) {
   document.querySelectorAll("[data-clara-pressure-signal]").forEach((button) => {
     button.dataset.active = button.dataset.claraPressureSignal === signalId ? "true" : "false";
   });
-}
-
-function prepareCardLayout(card, title, body) {
-  const row = card.querySelector(":scope > div") || title.parentElement;
-  const textColumn = title.parentElement;
-  const heart = findHeartNode(card);
-
-  applyImportantStyle(card, { overflow: "hidden" });
-  applyImportantStyle(row, {
-    display: "flex",
-    "flex-direction": "row",
-    "align-items": "center",
-    "justify-content": "space-between",
-    gap: "12px",
-    height: "100%",
-    "min-height": "100%",
-  });
-  applyImportantStyle(textColumn, {
-    flex: "1 1 auto",
-    "min-width": "0",
-    display: "flex",
-    "flex-direction": "column",
-    "justify-content": "center",
-    "align-items": "stretch",
-  });
-  applyImportantStyle(title, {
-    "max-width": "100%",
-    "font-size": "13.5px",
-    "line-height": "1.13",
-    margin: "0 0 7px",
-    overflow: "visible",
-    "text-overflow": "clip",
-    "white-space": "normal",
-    display: "block",
-  });
-  applyImportantStyle(body, {
-    "max-width": "100%",
-    "font-size": "10.8px",
-    "line-height": "1.34",
-    margin: "0",
-    overflow: "visible",
-    "text-overflow": "clip",
-    "white-space": "normal",
-    display: "block",
-    "max-height": "none",
-    "-webkit-line-clamp": "unset",
-    "line-clamp": "unset",
-    "-webkit-box-orient": "unset",
-  });
-
-  if (heart) {
-    heart.dataset.claraYoungProHeartCta = "true";
-    heart.setAttribute("role", "button");
-    heart.setAttribute("tabindex", "0");
-    applyImportantStyle(heart, {
-      position: "relative",
-      right: "auto",
-      top: "auto",
-      transform: "none",
-      flex: "0 0 56px",
-      width: "56px",
-      height: "56px",
-      "min-width": "56px",
-      "min-height": "56px",
-      margin: "0",
-      "align-self": "center",
-      display: "grid",
-      "place-items": "center",
-    });
-  }
 }
 
 function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = false) {
@@ -310,10 +194,11 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
   card.dataset.claraSelectedSignal = STATE.signalId;
   card.dataset.claraSignalMode = STATE.mode;
 
-  prepareCardLayout(card, title, body);
-
   const heart = findHeartNode(card);
   if (heart) {
+    heart.dataset.claraYoungProHeartCta = "true";
+    heart.setAttribute("role", "button");
+    heart.setAttribute("tabindex", "0");
     heart.title = STATE.mode === "guidance" ? "Showing gentle guidance" : "Show gentle guidance";
     heart.setAttribute("aria-label", heart.title);
   }
@@ -322,9 +207,8 @@ function applyCardState(signalId = STATE.signalId, mode = STATE.mode, animate = 
   if (clean(title.textContent) === copy.title && clean(body.textContent) === copy.body) return;
 
   const commit = () => {
-    setSoftText(title, copy.title);
-    setSoftText(body, copy.body);
-    prepareCardLayout(card, title, body);
+    title.textContent = copy.title;
+    body.textContent = copy.body;
     title.style.opacity = "1";
     body.style.opacity = "1";
     title.style.transform = "translateY(0)";
@@ -381,79 +265,6 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = "clara-young-pro-signal-style";
   style.textContent = `
-    #root [data-clara-pressure-signals="true"] {
-      position: relative !important;
-      z-index: 7 !important;
-      display: block !important;
-      width: auto !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
-      padding: 4px 8px !important;
-      border-radius: 999px !important;
-      border: 1px solid rgba(255,255,255,.075) !important;
-      background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14), 0 0 18px rgba(45,212,191,.018) !important;
-      backdrop-filter: blur(22px) saturate(1.12) !important;
-      -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
-      overflow: hidden !important;
-      box-sizing: border-box !important;
-      justify-self: center !important;
-      max-width: calc(100% - 18px) !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-track {
-      position: relative !important;
-      z-index: 2 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 8px !important;
-      height: 100% !important;
-      overflow-x: auto !important;
-      overflow-y: hidden !important;
-      padding: 0 2px !important;
-      scrollbar-width: none !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
-      flex: 0 0 32px !important;
-      display: grid !important;
-      place-items: center !important;
-      width: 32px !important;
-      min-width: 32px !important;
-      max-width: 32px !important;
-      height: 32px !important;
-      min-height: 32px !important;
-      max-height: 32px !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      border-radius: 999px !important;
-      border: 1px solid rgba(255,255,255,.10) !important;
-      background: rgba(255,255,255,.045) !important;
-      color: rgba(255,255,255,.86) !important;
-      font-size: 15px !important;
-      font-weight: 900 !important;
-      line-height: 1 !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important;
-      backdrop-filter: blur(16px) !important;
-      -webkit-backdrop-filter: blur(16px) !important;
-      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip span {
-      display: block !important;
-      font-size: 15px !important;
-      line-height: 1 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip strong {
-      display: none !important;
-    }
-
     #root [data-clara-support-card="true"] h3,
     #root [data-clara-support-card="true"] h3 + p {
       transition: opacity 160ms ease, transform 160ms ease !important;
@@ -475,7 +286,6 @@ function installStyles() {
 function maintainYoungProSignals() {
   installStyles();
   if (!isYoungProfessionalStage(readStage())) return;
-
   if (!renderYoungProIcons()) return;
 
   STATE.signalId = getSignal(STATE.signalId).id;
@@ -505,8 +315,8 @@ function installYoungProfessionalSignals() {
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, characterData: true });
   window.addEventListener("storage", schedule, { passive: true });
   document.addEventListener("click", () => window.setTimeout(schedule, 80), { passive: true });
-  window.setTimeout(schedule, 50);
-  window.setTimeout(schedule, 250);
+  window.setTimeout(schedule, 120);
+  window.setTimeout(schedule, 450);
   schedule();
 }
 
