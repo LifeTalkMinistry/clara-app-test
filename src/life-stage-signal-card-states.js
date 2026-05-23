@@ -140,7 +140,7 @@ function installStyles() {
   style.id = "clara-signal-card-state-style";
   style.textContent = `
     #root [data-clara-support-card="true"] {
-      min-height: clamp(132px, 17svh, 172px) !important;
+      min-height: clamp(150px, 19svh, 190px) !important;
       padding: clamp(18px, 4.8vw, 24px) clamp(18px, 5vw, 24px) !important;
       overflow: hidden !important;
     }
@@ -150,20 +150,21 @@ function installStyles() {
     }
     #root [data-clara-support-card="true"] h3 {
       max-width: calc(100% - 64px) !important;
-      font-size: clamp(13px, 3.6vw, 16px) !important;
-      line-height: 1.16 !important;
+      font-size: clamp(13px, 3.5vw, 15px) !important;
+      line-height: 1.15 !important;
       margin-bottom: 6px !important;
     }
     #root [data-clara-support-card="true"] h3 + p {
-      max-width: calc(100% - 60px) !important;
-      font-size: clamp(10.5px, 2.85vw, 12px) !important;
-      line-height: 1.42 !important;
+      max-width: calc(100% - 58px) !important;
+      font-size: clamp(10px, 2.7vw, 11.5px) !important;
+      line-height: 1.36 !important;
       letter-spacing: -0.01em !important;
-      display: -webkit-box !important;
-      -webkit-box-orient: vertical !important;
-      -webkit-line-clamp: 5 !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
+      display: block !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      white-space: normal !important;
+      -webkit-line-clamp: unset !important;
+      -webkit-box-orient: unset !important;
     }
     #root [data-clara-support-card="true"] button {
       right: clamp(14px, 4vw, 20px) !important;
