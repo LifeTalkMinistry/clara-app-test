@@ -47,13 +47,22 @@ const YOUNG_PRO_SIGNALS = [
     guidance: "Lower the decision load today. Keep one money rule simple enough to follow even while tired.",
   },
   {
-    id: "ypPayday",
+    id: "moneyTiming",
     icon: "💸",
-    label: "Payday Timing",
-    awarenessTitle: "Payday timing affects discipline.",
+    label: "Money Timing",
+    awarenessTitle: "Money timing affects discipline.",
     guidanceTitle: "Assign money before spending.",
     awareness: "Payday can create a false feeling of extra money before bills, savings, and daily needs are assigned.",
     guidance: "Assign the paycheck first: bills, savings, food, transport, then lifestyle. Spend only from what remains.",
+  },
+  {
+    id: "commute",
+    icon: "🚌",
+    label: "Commute Pressure",
+    awarenessTitle: "Commute pressure affects spending.",
+    guidanceTitle: "Plan the travel cost early.",
+    awareness: "Daily travel can quietly add fare, food, drinks, and convenience costs to a professional routine.",
+    guidance: "Separate commute money before lifestyle spending so movement pressure does not borrow from essentials.",
   },
 ];
 
