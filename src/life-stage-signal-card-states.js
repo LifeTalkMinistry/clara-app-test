@@ -1,31 +1,31 @@
 const SIGNAL_CARD_COPY = {
   tired: {
     awarenessTitle: "Energy pressure is showing up.",
-    awarenessBody: "Tired days can lead to shortcuts, comfort spending, or skipped tracking.",
+    awarenessBody: "Tired days can lead to shortcuts, comfort spending, or skipped tracking when your energy is already low.",
     guidanceTitle: "Make tired days easier.",
-    guidanceBody: "Use one small rule: prepare fare, set a food limit, or do one quick budget check.",
+    guidanceBody: "Prepare one small routine before the day gets heavy: fare, food limit, or one quick budget check.",
   },
   stress: {
     awarenessTitle: "Stress may be asking for relief.",
-    awarenessBody: "Pressure can make spending feel like comfort, control, or a short break.",
+    awarenessBody: "Pressure can make spending feel like comfort, control, or a short break when school and work feel crowded.",
     guidanceTitle: "Name the pressure first.",
-    guidanceBody: "Before buying, name what feels heavy. Then set a small limit before spending.",
+    guidanceBody: "Before buying, name what feels heavy. Then set a small limit so relief does not become a pattern.",
   },
   sleepy: {
     awarenessTitle: "Low sleep weakens control.",
-    awarenessBody: "Sleepy weeks can make snacks, caffeine, rides, or shortcuts feel automatic.",
+    awarenessBody: "Sleepy weeks can make snacks, caffeine, rides, or shortcuts feel automatic instead of planned.",
     guidanceTitle: "Delay bigger decisions.",
-    guidanceBody: "Pause bigger purchases. Rest first, then check the budget with a clearer mind.",
+    guidanceBody: "Pause bigger purchases. Rest first if possible, then check the budget with a clearer mind.",
   },
   hungry: {
     awarenessTitle: "Hunger can trigger impulse spending.",
-    awarenessBody: "Delayed meals can make snacks, drinks, delivery, or treats feel urgent.",
+    awarenessBody: "Delayed meals can make snacks, drinks, delivery, or treats feel urgent instead of optional.",
     guidanceTitle: "Protect a small food buffer.",
-    guidanceBody: "Plan a small food amount early. Eating on time protects spending control.",
+    guidanceBody: "Plan a small food amount early. Eating on time protects both your body and spending control.",
   },
   pressure: {
     awarenessTitle: "Time pressure becomes money pressure.",
-    awarenessBody: "Rushed days can create extra transport, food, or last-minute school costs.",
+    awarenessBody: "Rushed days can create extra transport, food, forgotten school needs, or last-minute costs.",
     guidanceTitle: "Prepare one thing early.",
     guidanceBody: "Pick one repeated pressure point and prepare it before the rush begins.",
   },
@@ -86,18 +86,26 @@ function applyImportantStyle(node, styles) {
 }
 
 function prepareCardLayout(card, title, body) {
+  const inner = card.querySelector(":scope > div") || title.parentElement;
+
   applyImportantStyle(card, {
-    height: "",
-    "min-height": "",
-    "max-height": "",
     overflow: "hidden",
+  });
+
+  applyImportantStyle(inner, {
+    display: "flex",
+    "flex-direction": "column",
+    "justify-content": "center",
+    "min-height": "100%",
+    "padding-top": "2px",
+    "padding-bottom": "2px",
   });
 
   applyImportantStyle(title, {
     "max-width": "calc(100% - 66px)",
-    "font-size": "13px",
-    "line-height": "1.15",
-    margin: "0 0 4px",
+    "font-size": "13.5px",
+    "line-height": "1.13",
+    margin: "0 0 7px",
     overflow: "visible",
     "text-overflow": "clip",
     "white-space": "normal",
@@ -106,8 +114,8 @@ function prepareCardLayout(card, title, body) {
 
   applyImportantStyle(body, {
     "max-width": "calc(100% - 66px)",
-    "font-size": "10.5px",
-    "line-height": "1.28",
+    "font-size": "10.8px",
+    "line-height": "1.34",
     margin: "0",
     overflow: "visible",
     "text-overflow": "clip",
