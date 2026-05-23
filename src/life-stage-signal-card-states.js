@@ -1,43 +1,33 @@
 const SIGNAL_CARD_COPY = {
   tired: {
     awarenessTitle: "Energy pressure is showing up.",
-    awarenessBody:
-      "School, work, commute, and responsibility may be draining energy. Many working students spend more on shortcuts, comfort, or skipped tracking when tired.",
+    awarenessBody: "Tired days can lead to shortcuts, comfort spending, or skipped tracking.",
     guidanceTitle: "Make tired days easier.",
-    guidanceBody:
-      "Use one small rule before the day gets heavy: set a food limit, prepare fare, or do one quick budget check. Small structure can reduce stress spending.",
+    guidanceBody: "Use one small rule: prepare fare, set a food limit, or do one quick budget check.",
   },
   stress: {
     awarenessTitle: "Stress may be asking for relief.",
-    awarenessBody:
-      "School, work, family needs, or money timing may feel crowded. Spending can become a fast way to feel comfort, control, or a short break.",
+    awarenessBody: "Pressure can make spending feel like comfort, control, or a short break.",
     guidanceTitle: "Name the pressure first.",
-    guidanceBody:
-      "Before buying, name what is active: school, work, family, time, or money. Then set a small limit so relief does not become a repeated pattern.",
+    guidanceBody: "Before buying, name what feels heavy. Then set a small limit before spending.",
   },
   sleepy: {
     awarenessTitle: "Low sleep weakens control.",
-    awarenessBody:
-      "Sleepy weeks can make money discipline feel heavier. Spending may become automatic through snacks, caffeine, rides, or easy shortcuts.",
+    awarenessBody: "Sleepy weeks can make snacks, caffeine, rides, or shortcuts feel automatic.",
     guidanceTitle: "Delay bigger decisions.",
-    guidanceBody:
-      "When sleep is low, pause bigger purchases. Save the decision, rest if possible, then check your budget when your mind has more space.",
+    guidanceBody: "Pause bigger purchases. Rest first, then check the budget with a clearer mind.",
   },
   hungry: {
     awarenessTitle: "Hunger can trigger impulse spending.",
-    awarenessBody:
-      "Delayed meals can make spending feel urgent. Hunger often turns small food choices into bigger snack, drink, delivery, or treat spending.",
+    awarenessBody: "Delayed meals can make snacks, drinks, delivery, or treats feel urgent.",
     guidanceTitle: "Protect a small food buffer.",
-    guidanceBody:
-      "Plan a small food amount before the day gets long. Eating on time protects both your body and your spending control.",
+    guidanceBody: "Plan a small food amount early. Eating on time protects spending control.",
   },
   pressure: {
     awarenessTitle: "Time pressure becomes money pressure.",
-    awarenessBody:
-      "Rushed days often cost more. Working students may pay extra for transport, convenience food, forgotten school needs, or last-minute fixes.",
+    awarenessBody: "Rushed days can create extra transport, food, or last-minute school costs.",
     guidanceTitle: "Prepare one thing early.",
-    guidanceBody:
-      "Choose one repeated pressure point — fare, food, school materials, or timing — and prepare it earlier. One prepared area can reduce rushed spending.",
+    guidanceBody: "Pick one repeated pressure point and prepare it before the rush begins.",
   },
 };
 
@@ -78,26 +68,14 @@ function findTextNodes(card) {
 
 function getCopy(signalId, mode) {
   const copy = SIGNAL_CARD_COPY[signalId] || SIGNAL_CARD_COPY.tired;
-  if (mode === "guidance") {
-    return { title: copy.guidanceTitle, body: copy.guidanceBody };
-  }
-  return {
-    title: copy.awarenessTitle,
-    body: `${copy.awarenessBody} Tap the heart for a gentle next step.`,
-  };
+  if (mode === "guidance") return { title: copy.guidanceTitle, body: copy.guidanceBody };
+  return { title: copy.awarenessTitle, body: copy.awarenessBody };
 }
 
 function setActiveIcon(signalId) {
   document.querySelectorAll("[data-clara-pressure-signal]").forEach((button) => {
     button.dataset.active = button.dataset.claraPressureSignal === signalId ? "true" : "false";
   });
-}
-
-function getSafeCardHeight() {
-  const height = window.innerHeight || 760;
-  if (height <= 680) return 108;
-  if (height <= 760) return 118;
-  return 126;
 }
 
 function applyImportantStyle(node, styles) {
@@ -108,22 +86,18 @@ function applyImportantStyle(node, styles) {
 }
 
 function prepareCardLayout(card, title, body) {
-  const height = getSafeCardHeight();
-  const compact = height <= 108;
-
   applyImportantStyle(card, {
-    height: `${height}px`,
-    "min-height": `${height}px`,
-    "max-height": `${height}px`,
-    padding: compact ? "14px 16px" : "17px 18px",
+    height: "",
+    "min-height": "",
+    "max-height": "",
     overflow: "hidden",
   });
 
   applyImportantStyle(title, {
     "max-width": "calc(100% - 66px)",
-    "font-size": compact ? "13px" : "14px",
+    "font-size": "13px",
     "line-height": "1.15",
-    margin: "0 0 5px",
+    margin: "0 0 4px",
     overflow: "visible",
     "text-overflow": "clip",
     "white-space": "normal",
@@ -132,8 +106,8 @@ function prepareCardLayout(card, title, body) {
 
   applyImportantStyle(body, {
     "max-width": "calc(100% - 66px)",
-    "font-size": compact ? "10px" : "11px",
-    "line-height": compact ? "1.28" : "1.34",
+    "font-size": "10.5px",
+    "line-height": "1.28",
     margin: "0",
     overflow: "visible",
     "text-overflow": "clip",
@@ -148,7 +122,7 @@ function prepareCardLayout(card, title, body) {
   const heart = card.querySelector("button");
   if (heart) {
     applyImportantStyle(heart, {
-      right: compact ? "14px" : "16px",
+      right: "14px",
       top: "50%",
       transform: "translateY(-50%)",
     });
