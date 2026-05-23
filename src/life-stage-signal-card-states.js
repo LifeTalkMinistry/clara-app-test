@@ -2,49 +2,58 @@ const SIGNAL_CARD_COPY = {
   tired: {
     awarenessTitle: "Energy pressure is showing up.",
     awarenessBody:
-      "Many working students spend differently when school, work, commute, and responsibility are already draining energy. Convenience spending, skipped tracking, or small comfort purchases can become easier than planning.",
-    guidanceTitle: "Make the plan easier on tired days.",
+      "School, work, commute, and responsibility may be draining energy. Many working students spend more on shortcuts, comfort, or skipped tracking when tired.",
+    guidanceTitle: "Make tired days easier.",
     guidanceBody:
-      "Try reducing the number of decisions you need to make when your energy is low. A simple food limit, prepared fare plan, or one quick budget check can lower stress spending without requiring a perfect routine.",
+      "Use one small rule before the day gets heavy: set a food limit, prepare fare, or do one quick budget check. Small structure can reduce stress spending.",
   },
   stress: {
     awarenessTitle: "Stress may be asking for relief.",
     awarenessBody:
-      "This signal often appears when school pressure, work expectations, family needs, or money timing feels mentally crowded. Spending can become a quick way to feel control, comfort, or a small break.",
-    guidanceTitle: "Separate pressure from purchase.",
+      "School, work, family needs, or money timing may feel crowded. Spending can become a fast way to feel comfort, control, or a short break.",
+    guidanceTitle: "Name the pressure first.",
     guidanceBody:
-      "Before buying, name the active pressure first: school, work, family, time, or money timing. Once the pressure is clear, even a small spending limit can stop relief from becoming a repeated pattern.",
+      "Before buying, name what is active: school, work, family, time, or money. Then set a small limit so relief does not become a repeated pattern.",
   },
   sleepy: {
     awarenessTitle: "Low sleep weakens control.",
     awarenessBody:
-      "Sleepy weeks can make financial discipline feel heavier than usual. Working students may spend automatically on caffeine, snacks, rides, or shortcuts because the mind has less energy to pause.",
+      "Sleepy weeks can make money discipline feel heavier. Spending may become automatic through snacks, caffeine, rides, or easy shortcuts.",
     guidanceTitle: "Delay bigger decisions.",
     guidanceBody:
-      "When sleep is low, save bigger purchase decisions for later. Rest first when possible, then check the budget when your mind has more room to compare what feels good with what is safe.",
+      "When sleep is low, pause bigger purchases. Save the decision, rest if possible, then check your budget when your mind has more space.",
   },
   hungry: {
     awarenessTitle: "Hunger can trigger impulse spending.",
     awarenessBody:
-      "When meals are delayed by class, commute, or work, spending can become emotional and urgent. Hunger often turns small food choices into bigger snack, drink, delivery, or treat spending.",
+      "Delayed meals can make spending feel urgent. Hunger often turns small food choices into bigger snack, drink, delivery, or treat spending.",
     guidanceTitle: "Protect a small food buffer.",
     guidanceBody:
-      "A small planned food amount can prevent bigger unplanned spending later. Eating on time is not just physical care; it also protects decision control during long student-work days.",
+      "Plan a small food amount before the day gets long. Eating on time protects both your body and your spending control.",
   },
   pressure: {
     awarenessTitle: "Time pressure becomes money pressure.",
     awarenessBody:
-      "When the day is rushed, people often pay more just to keep moving. For working students, this can show up through transport, convenience food, forgotten school materials, or last-minute costs.",
-    guidanceTitle: "Prepare one pressure early.",
+      "Rushed days often cost more. Working students may pay extra for transport, convenience food, forgotten school needs, or last-minute fixes.",
+    guidanceTitle: "Prepare one thing early.",
     guidanceBody:
-      "Choose one repeated pressure point — fare, food, school materials, or work-day timing — and prepare it earlier than usual. Even one prepared area can reduce rushed spending.",
+      "Choose one repeated pressure point — fare, food, school materials, or timing — and prepare it earlier. One prepared area can reduce rushed spending.",
   },
 };
 
 const STATE = { signalId: null, mode: "awareness" };
+const BODY_LIMIT = 142;
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function limitText(value, limit = BODY_LIMIT) {
+  const text = clean(value);
+  if (text.length <= limit) return text;
+  const sliced = text.slice(0, limit + 1);
+  const safe = sliced.slice(0, Math.max(sliced.lastIndexOf(" "), limit - 12)).trim();
+  return `${safe}…`;
 }
 
 function findLifeStageHero() {
@@ -79,11 +88,11 @@ function findTextNodes(card) {
 function getCopy(signalId, mode) {
   const copy = SIGNAL_CARD_COPY[signalId] || SIGNAL_CARD_COPY.tired;
   if (mode === "guidance") {
-    return { title: copy.guidanceTitle, body: copy.guidanceBody };
+    return { title: copy.guidanceTitle, body: limitText(copy.guidanceBody) };
   }
   return {
     title: copy.awarenessTitle,
-    body: `${copy.awarenessBody} Press the heart to see small ways to protect yourself from this.`,
+    body: limitText(`${copy.awarenessBody} Tap the heart for a gentle next step.`),
   };
 }
 
@@ -140,8 +149,8 @@ function installStyles() {
   style.id = "clara-signal-card-state-style";
   style.textContent = `
     #root [data-clara-support-card="true"] {
-      min-height: clamp(150px, 19svh, 190px) !important;
-      padding: clamp(18px, 4.8vw, 24px) clamp(18px, 5vw, 24px) !important;
+      min-height: clamp(136px, 17.5svh, 168px) !important;
+      padding: clamp(18px, 4.8vw, 23px) clamp(18px, 5vw, 24px) !important;
       overflow: hidden !important;
     }
     #root [data-clara-support-card="true"] h3,
@@ -155,8 +164,8 @@ function installStyles() {
       margin-bottom: 6px !important;
     }
     #root [data-clara-support-card="true"] h3 + p {
-      max-width: calc(100% - 58px) !important;
-      font-size: clamp(10px, 2.7vw, 11.5px) !important;
+      max-width: calc(100% - 60px) !important;
+      font-size: clamp(10.25px, 2.72vw, 11.5px) !important;
       line-height: 1.36 !important;
       letter-spacing: -0.01em !important;
       display: block !important;
