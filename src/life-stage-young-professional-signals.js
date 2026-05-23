@@ -24,6 +24,7 @@ const STATE = { signalId: "tired", mode: "awareness" };
 
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const norm = (value) => clean(value).toLowerCase().replace(/[\s_-]+/g, "");
+
 const isYoungPro = () => {
   try {
     const stage = JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}").stage;
@@ -77,27 +78,128 @@ function heartNode(card) {
   return card?.querySelector("svg")?.closest("div") || null;
 }
 
+function getRhythm() {
+  const height = window.innerHeight || document.documentElement.clientHeight || 800;
+  if (height <= 680) {
+    return {
+      rows: "minmax(186px, clamp(186px, 34.5svh, 222px)) 78px 40px 192px",
+      supportHeight: "78px",
+      supportMargin: "-14px auto 0",
+      supportPadding: "10px 15px",
+      dockHeight: "40px",
+      dockMargin: "1px auto 0",
+      dockPadding: "4px 8px",
+      snapshotHeight: "192px",
+    };
+  }
+  if (height <= 760) {
+    return {
+      rows: "minmax(214px, clamp(214px, 35.5svh, 260px)) 92px 42px 204px",
+      supportHeight: "92px",
+      supportMargin: "-22px auto 0",
+      supportPadding: "13px 15px",
+      dockHeight: "42px",
+      dockMargin: "1px auto 0",
+      dockPadding: "5px 8px",
+      snapshotHeight: "204px",
+    };
+  }
+  if (height >= 820) {
+    return {
+      rows: "minmax(248px, clamp(248px, 36.5svh, 292px)) 102px 46px 218px",
+      supportHeight: "102px",
+      supportMargin: "-28px auto 0",
+      supportPadding: "15px 15px",
+      dockHeight: "46px",
+      dockMargin: "1px auto 0",
+      dockPadding: "6px 8px",
+      snapshotHeight: "218px",
+    };
+  }
+  return {
+    rows: "minmax(236px, clamp(236px, 37svh, 284px)) 102px 46px 218px",
+    supportHeight: "102px",
+    supportMargin: "-28px auto 0",
+    supportPadding: "15px 15px",
+    dockHeight: "46px",
+    dockMargin: "1px auto 0",
+    dockPadding: "6px 8px",
+    snapshotHeight: "218px",
+  };
+}
+
 function layout(card, dock) {
   const wrap = card?.parentElement;
   const heroCard = hero();
   const snap = snapshot(wrap);
   if (!wrap || !card || !heroCard) return;
 
+  const rhythm = getRhythm();
   wrap.dataset.claraYoungProLayout = "true";
   card.dataset.claraSupportCard = "true";
   card.dataset.claraYoungProSignalCard = "true";
 
   important(wrap, {
     display: "grid",
-    "grid-template-rows": "minmax(226px, clamp(226px, 34.5svh, 250px)) 124px 46px 208px",
+    "grid-template-rows": rhythm.rows,
     gap: "0",
     "align-content": "start",
     overflow: "hidden",
   });
-  important(heroCard, { position: "relative", "z-index": "3", height: "100%", "min-height": "0", flex: "none", margin: "0", transform: "none" });
-  important(card, { position: "relative", "z-index": "14", height: "124px", "min-height": "124px", "max-height": "124px", width: "calc(100% - 4px)", margin: "-8px auto 0", padding: "16px 15px", flex: "none", "align-self": "start", transform: "none", overflow: "hidden" });
-  if (dock) important(dock, { position: "relative", "z-index": "12", height: "46px", "min-height": "46px", "max-height": "46px", margin: "5px auto 0", padding: "6px 8px", flex: "none", "align-self": "start", transform: "none" });
-  if (snap) important(snap, { position: "relative", "z-index": "4", height: "208px", "min-height": "208px", "max-height": "208px", margin: "6px 0 0", flex: "none", "align-self": "start", transform: "none" });
+
+  important(heroCard, {
+    position: "relative",
+    "z-index": "3",
+    height: "100%",
+    "min-height": "0",
+    flex: "none",
+    margin: "0",
+    transform: "none",
+  });
+
+  important(card, {
+    position: "relative",
+    "z-index": "14",
+    height: rhythm.supportHeight,
+    "min-height": rhythm.supportHeight,
+    "max-height": rhythm.supportHeight,
+    width: "calc(100% - 4px)",
+    margin: rhythm.supportMargin,
+    padding: rhythm.supportPadding,
+    flex: "none",
+    "align-self": "start",
+    transform: "none",
+    overflow: "hidden",
+  });
+
+  if (dock) {
+    important(dock, {
+      position: "relative",
+      "z-index": "12",
+      height: rhythm.dockHeight,
+      "min-height": rhythm.dockHeight,
+      "max-height": rhythm.dockHeight,
+      margin: rhythm.dockMargin,
+      padding: rhythm.dockPadding,
+      flex: "none",
+      "align-self": "start",
+      transform: "none",
+    });
+  }
+
+  if (snap) {
+    important(snap, {
+      position: "relative",
+      "z-index": "4",
+      height: rhythm.snapshotHeight,
+      "min-height": rhythm.snapshotHeight,
+      "max-height": rhythm.snapshotHeight,
+      margin: "0",
+      flex: "none",
+      "align-self": "start",
+      transform: "none",
+    });
+  }
 }
 
 function dockTrack() {
@@ -230,8 +332,8 @@ function installStyles() {
   style.textContent = `
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
     #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { transition: opacity 160ms ease, transform 160ms ease !important; }
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 { margin: 0 0 8px !important; max-width: 16rem !important; font-size: 13.4px !important; line-height: 1.12 !important; letter-spacing: -0.022em !important; }
-    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; max-width: 16.2rem !important; font-size: 10.7px !important; line-height: 1.36 !important; }
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 { margin: 0 0 8px !important; max-width: 15.9rem !important; font-size: 13.4px !important; line-height: 1.08 !important; letter-spacing: -0.022em !important; }
+    #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p { display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; max-width: 16.2rem !important; font-size: 10.7px !important; line-height: 1.38 !important; }
     #root [data-clara-young-pro-layout="true"] [data-clara-pressure-signal][data-active="true"] { border-color: rgba(165,243,252,.36) !important; background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important; }
   `;
   document.head.appendChild(style);
