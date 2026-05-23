@@ -1,0 +1,2 @@
+Trigger GitHub Pages deployment after reverting main to d6230e7e187f6a71b58b868b512954f42a44f19a.
+App source remains at the requested Young Professional portrait crop state.
