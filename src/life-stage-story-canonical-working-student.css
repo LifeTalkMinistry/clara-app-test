@@ -45,17 +45,26 @@
 }
 
 #root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p {
+  display: block !important;
+  max-width: min(14.7rem, calc(100vw - 156px)) !important;
+  max-height: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
   font-size: 0 !important;
   line-height: 0 !important;
   color: transparent !important;
 }
 
 #root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p::after {
-  content: "Many working students quietly build their future while managing school costs and commute pressure. Tap any signal below that feels true, then press the heart for a solution." !important;
+  content: "Tap any signal below that feels true. Then press the heart for a solution." !important;
   display: block !important;
-  max-width: min(14.85rem, calc(100vw - 164px)) !important;
+  max-width: 100% !important;
   color: rgba(248, 253, 255, 0.72) !important;
-  font-size: 10.8px !important;
-  line-height: 1.34 !important;
-  font-weight: 600 !important;
+  font-size: 10.7px !important;
+  line-height: 1.32 !important;
+  font-weight: 650 !important;
 }
