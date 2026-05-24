@@ -71,6 +71,15 @@
   filter: saturate(1.06) contrast(1.14) brightness(0.98) !important;
 }
 
+/* Living with Partner only:
+   Move the couple image slightly lower so the heads/faces are not visually cut. */
+#root section[class*="rounded-b-[30px]"]
+  > div[class*="right-0"][class*="w-[56%]"]
+  img[alt="Living with Partner stage background"] {
+  object-position: 54% 42% !important;
+  transform: scale(1.12) translate(4px, 3px) !important;
+}
+
 /* Image readability layer: clipped to the image area, no floating top rectangle. */
 #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"]::before {
   content: "" !important;
@@ -134,6 +143,14 @@
   #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
     object-position: 54% 34% !important;
     transform: scale(1.13) translate(5px, -8px) !important;
+  }
+
+  /* Living with Partner mobile crop adjustment */
+  #root section[class*="rounded-b-[30px]"]
+    > div[class*="right-0"][class*="w-[56%]"]
+    img[alt="Living with Partner stage background"] {
+    object-position: 54% 40% !important;
+    transform: scale(1.13) translate(5px, 2px) !important;
   }
 
   #root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"][class*="max-w"] {
