@@ -48,6 +48,8 @@ const WORKING_STUDENT_GUIDANCE_COPY = {
   },
 };
 
+let lastGuidanceTriggerAt = 0;
+
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -97,7 +99,44 @@ function findTextNodes(card) {
 }
 
 function findHeartNode(card) {
-  return card?.querySelector("svg")?.closest("div") || null;
+  if (!card) return null;
+  const explicit = card.querySelector("[data-clara-heart-cta='true']");
+  if (explicit) return explicit;
+  const svg = card.querySelector("svg");
+  if (!svg) return null;
+  return svg.closest("button,[role='button'],div") || svg;
+}
+
+function isInsideHeartArea(event, card, heart) {
+  if (!card) return false;
+  const target = event.target;
+  if (heart?.contains?.(target)) return true;
+  if (target?.closest?.("[data-clara-heart-cta='true']")) return true;
+
+  const x = event.clientX ?? event.changedTouches?.[0]?.clientX;
+  const y = event.clientY ?? event.changedTouches?.[0]?.clientY;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+
+  const rect = card.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+
+  const insideCard = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  if (!insideCard) return false;
+
+  const heartRect = heart?.getBoundingClientRect?.();
+  if (heartRect?.width && heartRect?.height) {
+    const padded = 18;
+    const insidePaddedHeart =
+      x >= heartRect.left - padded &&
+      x <= heartRect.right + padded &&
+      y >= heartRect.top - padded &&
+      y <= heartRect.bottom + padded;
+    if (insidePaddedHeart) return true;
+  }
+
+  const relativeX = (x - rect.left) / rect.width;
+  const relativeY = (y - rect.top) / rect.height;
+  return relativeX >= 0.70 && relativeY >= 0.16 && relativeY <= 0.86;
 }
 
 function detectSignalFromText(titleText = "", bodyText = "") {
@@ -112,6 +151,7 @@ function detectSignalFromText(titleText = "", bodyText = "") {
   for (const [key, copy] of Object.entries(WORKING_STUDENT_GUIDANCE_COPY)) {
     if (key === "default") continue;
     if (title === clean(copy.awarenessTitle).toLowerCase()) return key;
+    if (title === clean(copy.guidanceTitle).toLowerCase()) return key;
   }
 
   if (all.includes("commute") || all.includes("route") || all.includes("fare") || all.includes("travel")) return "commute";
@@ -131,26 +171,44 @@ function markActiveSignal(signalId) {
   });
 }
 
-function applyWorkingStudentGuidance(event) {
+function applyImportantStyle(node, styles) {
+  if (!node) return;
+  Object.entries(styles).forEach(([property, value]) => node.style.setProperty(property, value, "important"));
+}
+
+function prepareHeartForWorkingStudent() {
   if (!isWorkingStudent()) return;
   const card = findSupportCard();
   const heart = findHeartNode(card);
-  if (!card || !heart || !heart.contains(event.target)) return;
+  if (!card || !heart) return;
 
-  const { title, body } = findTextNodes(card);
-  if (!title || !body) return;
+  heart.dataset.claraHeartCta = "true";
+  heart.setAttribute("role", "button");
+  heart.setAttribute("tabindex", "0");
+  if (clean(card.dataset.claraSignalMode) !== "guidance") {
+    heart.setAttribute("aria-label", "Show guidance");
+    heart.title = "Show guidance";
+  }
 
-  const signalId = detectSignalFromText(title.textContent, body.textContent);
+  applyImportantStyle(heart, {
+    cursor: "pointer",
+    "pointer-events": "auto",
+    "touch-action": "manipulation",
+  });
+
+  heart.querySelectorAll("*").forEach((child) => {
+    child.style.setProperty("pointer-events", "auto", "important");
+  });
+}
+
+function writeGuidance(card, heart, title, body, signalId) {
   const copy = WORKING_STUDENT_GUIDANCE_COPY[signalId] || WORKING_STUDENT_GUIDANCE_COPY.default;
-
-  event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation?.();
 
   card.dataset.claraSupportCard = "true";
   card.dataset.claraSignalCardActive = "true";
   card.dataset.claraSelectedSignal = signalId;
   card.dataset.claraSignalMode = "guidance";
+
   heart.dataset.claraHeartCta = "true";
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
@@ -170,32 +228,46 @@ function applyWorkingStudentGuidance(event) {
     title.style.transform = "translateY(0)";
     body.style.transform = "translateY(0)";
     markActiveSignal(signalId);
-  }, 90);
+    prepareHeartForWorkingStudent();
+  }, 70);
 }
 
-function prepareHeartForWorkingStudent() {
+function applyWorkingStudentGuidance(event) {
   if (!isWorkingStudent()) return;
+
+  const now = Date.now();
+  if (now - lastGuidanceTriggerAt < 260) return;
+
   const card = findSupportCard();
   const heart = findHeartNode(card);
-  if (!card || !heart) return;
-  heart.dataset.claraHeartCta = "true";
-  heart.setAttribute("role", "button");
-  heart.setAttribute("tabindex", "0");
-  if (clean(card.dataset.claraSignalMode) !== "guidance") {
-    heart.setAttribute("aria-label", "Show guidance");
-    heart.title = "Show guidance";
-  }
+  if (!card || !heart || !isInsideHeartArea(event, card, heart)) return;
+
+  const { title, body } = findTextNodes(card);
+  if (!title || !body) return;
+
+  const signalId = detectSignalFromText(title.textContent, body.textContent);
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  lastGuidanceTriggerAt = now;
+
+  writeGuidance(card, heart, title, body, signalId);
 }
 
 function installWorkingStudentHeartGuidanceBridge() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (window.__CLARA_WORKING_STUDENT_HEART_GUIDANCE_BRIDGE__) return;
-  window.__CLARA_WORKING_STUDENT_HEART_GUIDANCE_BRIDGE__ = true;
+  if (window.__CLARA_WORKING_STUDENT_HEART_GUIDANCE_BRIDGE_V2__) return;
+  window.__CLARA_WORKING_STUDENT_HEART_GUIDANCE_BRIDGE_V2__ = true;
 
   window.addEventListener("click", applyWorkingStudentGuidance, true);
+  window.addEventListener("pointerup", applyWorkingStudentGuidance, true);
+  window.addEventListener("touchend", applyWorkingStudentGuidance, true);
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
-    applyWorkingStudentGuidance(event);
+    const card = findSupportCard();
+    const heart = findHeartNode(card);
+    if (heart && document.activeElement === heart) applyWorkingStudentGuidance(event);
   }, true);
 
   let scheduled = false;
