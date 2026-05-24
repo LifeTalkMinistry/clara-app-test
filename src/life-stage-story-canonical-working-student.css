@@ -60,7 +60,7 @@
 }
 
 #root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p::after {
-  content: "Tap any signal below that feels true. Then press the heart for a solution." !important;
+  content: "Many working students quietly manage school, commute, tiredness, and money pressure at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution." !important;
   display: block !important;
   max-width: 100% !important;
   color: rgba(248, 253, 255, 0.72) !important;
