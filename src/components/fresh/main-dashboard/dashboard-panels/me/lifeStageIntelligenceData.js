@@ -6,6 +6,13 @@ import {
   getWorkingStudentOptions,
   getWorkingStudentSnapshot,
 } from "./workingStudentLifeStageSource";
+import {
+  LIVING_WITH_PARTNER_STAGE_KEY,
+  LIVING_WITH_PARTNER_ROOTS,
+  completeLivingWithPartnerDraft,
+  getLivingWithPartnerOptions,
+  getLivingWithPartnerSnapshot,
+} from "./livingWithPartnerLifeStageSource";
 
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 export const WORKING_STUDENT_BRANCH_DRAFT_KEY = "clara_working_student_branch_draft_v1";
@@ -13,7 +20,7 @@ export const WORKING_STUDENT_BRANCH_DRAFT_KEY = "clara_working_student_branch_dr
 export const STAGES = [
   "Young Professional",
   WORKING_STUDENT_STAGE_KEY,
-  "Living with Partner",
+  LIVING_WITH_PARTNER_STAGE_KEY,
   "Family Household",
   "Single Parent",
   "Full-Time Earner",
@@ -84,6 +91,34 @@ function getWorkingStudentDefinition(profile = {}) {
   };
 }
 
+function getLivingWithPartnerFields(profile = {}) {
+  const draft = completeLivingWithPartnerDraft({ stage: LIVING_WITH_PARTNER_STAGE_KEY, ...profile });
+  return {
+    setup: LIVING_WITH_PARTNER_ROOTS,
+    rhythm: getLivingWithPartnerOptions(draft, "rhythm"),
+    workload: getLivingWithPartnerOptions(draft, "workload"),
+    pressure: getLivingWithPartnerOptions(draft, "pressure"),
+    coping: getLivingWithPartnerOptions(draft, "coping"),
+    goal: getLivingWithPartnerOptions(draft, "goal"),
+  };
+}
+
+function getLivingWithPartnerDefinition(profile = {}) {
+  const snapshot = getLivingWithPartnerSnapshot(profile);
+  return {
+    identity: {
+      title: snapshot.title,
+      caption: snapshot.caption,
+      overview: snapshot.overview,
+    },
+    fields: getLivingWithPartnerFields(profile),
+    indicators: snapshot.indicators,
+    struggles: snapshot.struggles,
+    recommendations: snapshot.recommendations,
+    talkPrompt: "Tell CLARA what feels unclear, unfair, or emotional about money in your shared setup.",
+  };
+}
+
 export const LIFE_STAGE_INTELLIGENCE = {
   "Young Professional": stage(
     "Building independence",
@@ -110,28 +145,7 @@ export const LIFE_STAGE_INTELLIGENCE = {
 
   [WORKING_STUDENT_STAGE_KEY]: getWorkingStudentDefinition(),
 
-  "Living with Partner": stage(
-    "Shared-life season",
-    "Shared routines, emotional expectations, bills, boundaries, and future plans shape money decisions.",
-    "Living with a partner means financial decisions are no longer purely personal; CLARA needs to understand contribution fairness, communication style, shared pressure, and comfort-spending patterns.",
-    {
-      setup: ["Newly living together", "Long-term live-in", "Living with one family", "Planning to move in", "One income supports both"],
-      rhythm: ["Shared bills monthly", "Split expenses clearly", "Split expenses unevenly", "Income mismatch", "Still learning shared rhythm"],
-      workload: ["Calm and cooperative", "Adjusting roles", "Money talks feel sensitive", "One person carries more", "Constant tension over decisions"],
-      pressure: ["Rent and utilities", "Uneven contribution", "Future planning pressure", "Family boundaries", "Money communication"],
-      coping: ["We avoid money talks", "We comfort-spend together", "One partner covers gaps", "We argue then ignore it", "We review money together"],
-      goal: ["Set shared money rules", "Build savings together", "Emergency fund first", "Plan our future", "Reduce money conflict"],
-    },
-    [
-      card("pressure", "Shared Expense Pressure", 70, "Shared routines can make spending feel normal faster than expected."),
-      card("stability", "Relationship Stability", 62, "Financial stability depends partly on communication, fairness, and shared expectations."),
-      card("energy", "Emotional Load", 66, "Money can become emotional when future plans and responsibilities are involved."),
-      card("growth", "Future Building Potential", 74, "A shared setup can build stronger habits when both people agree on direction."),
-    ],
-    ["shared expenses", "uneven contribution", "future planning pressure", "comfort spending together", "money communication", "family boundaries"],
-    ["Shared Money Rules", "Emergency Fund", "Future Planning", "Spending Communication"],
-    "Tell CLARA what feels unclear, unfair, or emotional about money in your shared setup."
-  ),
+  [LIVING_WITH_PARTNER_STAGE_KEY]: getLivingWithPartnerDefinition(),
 
   "Family Household": stage(
     "Home-centered season",
@@ -253,6 +267,9 @@ export function getStageDefinition(stageName, profile = {}) {
   const normalized = normalizeLifeStage(stageName);
   if (normalized === WORKING_STUDENT_STAGE_KEY) {
     return getWorkingStudentDefinition(profile);
+  }
+  if (normalized === LIVING_WITH_PARTNER_STAGE_KEY) {
+    return getLivingWithPartnerDefinition(profile);
   }
   return LIFE_STAGE_INTELLIGENCE[normalized] || LIFE_STAGE_INTELLIGENCE[DEFAULT_STAGE.stage];
 }
