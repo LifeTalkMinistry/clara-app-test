@@ -1,0 +1,11 @@
+/* CLARA Living with Partner story cleanup
+   Removes the small section labels and extra supporting captions from the unified reveal story only for this stage. */
+
+#clara-life-stage-diagnosis-reveal[data-canonical-living-partner="true"] .eyebrow,
+#clara-life-stage-diagnosis-reveal[data-canonical-living-partner="true"] .supporting {
+  display: none !important;
+}
+
+#clara-life-stage-diagnosis-reveal[data-canonical-living-partner="true"] .story-card {
+  gap: clamp(14px, 2.25svh, 22px) !important;
+}
