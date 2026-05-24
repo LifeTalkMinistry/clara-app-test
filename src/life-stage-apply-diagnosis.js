@@ -1,19 +1,35 @@
 import { WORKING_STUDENT_STAGE_KEY } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
 import { buildWorkingStudentReveal } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentRevealEngine";
+import { LIVING_WITH_PARTNER_STAGE_KEY } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
+import { buildLivingWithPartnerReveal } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerRevealEngine";
 
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 const DIAGNOSIS_ID = "clara-life-stage-diagnosis-reveal";
 
+const REACTION_LABELS = {
+  opening: "Yeah… show me what you noticed.",
+  chips: "That actually feels true.",
+  distribution: "Show me the pressure split.",
+  strongestSignal: "What does that mean?",
+  commonPattern: "Okay… keep going.",
+  rhythm: "Okay… keep going.",
+  trigger: "Hmm… I needed to hear that.",
+  meter: "Let’s protect that first.",
+  final: "Bring me back to Me",
+};
+
+const ALIASES = {
+  "Young Earner": "Young Professional",
+  "Fresh Graduate": "Young Professional",
+  Breadwinner: "Family Household",
+  "OFW Family": "Family Household",
+  "Unemployed Adult": "Family Household",
+  "First-Time Parent": "Single Parent",
+  "Freelance / Gig Worker": "Freelance Season",
+  Freelancer: "Freelance Season",
+};
+
 const STAGE_COPY = {
-  "Working Student": {
-    openingTitle: "You’re carrying a lot at once.",
-    openingBody: "I can see why money may feel tied to school, work, rest, and pressure right now.",
-    pressureTitle: "It’s not just spending.",
-    pressure: "It looks like school, money, time, and emotional energy are all sharing the same week.",
-    rhythmTitle: "Your week feels stretched.",
-    rhythmBody: "Money may be moving around class days, work days, tired days, and the days you still need to feel okay.",
-    landing: "You do not need to fix everything at once. Start by protecting the part of your week that keeps everything else steady.",
-  },
   "Young Professional": {
     openingTitle: "You’re trying to stand on your own.",
     openingBody: "I can see independence, pressure, and future-building all showing up in your answers.",
@@ -22,15 +38,6 @@ const STAGE_COPY = {
     rhythmTitle: "Your salary needs breathing room.",
     rhythmBody: "Money may feel stable on paper, but small choices can quietly carry the weight of independence.",
     landing: "You do not need to perfect adulthood overnight. Start by protecting the rhythm that keeps your independence steady.",
-  },
-  "Living with Partner": {
-    openingTitle: "You’re not deciding alone anymore.",
-    openingBody: "I can see how money may now carry emotion, fairness, timing, and trust.",
-    pressureTitle: "It’s not just bills.",
-    pressure: "Money decisions are now connected to fairness, routines, emotion, and how safe both people feel.",
-    rhythmTitle: "Your shared rhythm needs care.",
-    rhythmBody: "A small money issue can feel bigger when it touches peace, trust, or expectations at home.",
-    landing: "Shared money becomes lighter when the rules are clear. Start with the part that protects peace, fairness, and trust.",
   },
   "Family Household": {
     openingTitle: "You’re holding more than your own needs.",
@@ -79,39 +86,12 @@ const STAGE_COPY = {
   },
 };
 
-const ALIASES = {
-  "Young Earner": "Young Professional",
-  "Fresh Graduate": "Young Professional",
-  Breadwinner: "Family Household",
-  "OFW Family": "Family Household",
-  "Unemployed Adult": "Family Household",
-  "First-Time Parent": "Single Parent",
-  "Freelance / Gig Worker": "Freelance Season",
-  Freelancer: "Freelance Season",
-};
-
-const REACTION_LABELS = {
-  opening: "Yeah… show me what you noticed.",
-  chips: "That actually feels true.",
-  rhythm: "Okay… keep going.",
-  trigger: "Hmm… I needed to hear that.",
-  meter: "Let’s protect that first.",
-  final: "Bring me back to Me",
-};
-
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const lower = (value) => {
   const text = clean(value);
   return text ? text[0].toLowerCase() + text.slice(1) : "";
 };
-const safe = (value) =>
-  clean(value).replace(/[&<>'"]/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;",
-  }[char]));
+const safe = (value) => clean(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 
 function readProfile() {
   try {
@@ -121,104 +101,40 @@ function readProfile() {
   }
 }
 
-function stageKey(stage) {
+function normalizedStage(stage) {
   const next = ALIASES[clean(stage)] || clean(stage);
-  return STAGE_COPY[next] ? next : "Young Professional";
+  return next || "Young Professional";
 }
 
 function isWorkingStudentProfile(profile) {
   return clean(profile?.stage) === WORKING_STUDENT_STAGE_KEY;
 }
 
-function buildInsightChips(profile, copy) {
-  const chips = [];
-  const setup = clean(profile.setup).toLowerCase();
-  const rhythm = clean(profile.rhythm).toLowerCase();
-  const workload = clean(profile.workload).toLowerCase();
-  const pressure = clean(profile.pressure).toLowerCase();
-
-  if (setup.includes("supported") || setup.includes("allowance")) chips.push("You’re trying to earn while still depending on support.");
-  if (rhythm.includes("part-time") || rhythm.includes("extra") || rhythm.includes("irregular")) chips.push("Your income helps, but it may not always feel steady.");
-  if (workload.includes("inconsistent") || workload.includes("manageable") || workload.includes("heavy")) chips.push("Some weeks feel under control. Some weeks feel heavier than expected.");
-  if (pressure.includes("school") || pressure.includes("fare") || pressure.includes("food")) chips.push("Daily essentials are quietly carrying most of the pressure.");
-
-  if (!chips.length) {
-    chips.push(copy.pressure);
-    chips.push("The real issue is the rhythm underneath the expenses.");
-    chips.push("CLARA is looking for the part that needs protection first.");
-  }
-
-  return chips.slice(0, 3);
+function isLivingWithPartnerProfile(profile) {
+  return clean(profile?.stage) === LIVING_WITH_PARTNER_STAGE_KEY;
 }
 
-function titleFromResponse(coping) {
-  const value = clean(coping).toLowerCase();
-  if (value.includes("reward") || value.includes("comfort") || value.includes("convenience") || value.includes("small")) return "Maybe this is your breathing room.";
-  if (value.includes("avoid")) return "Maybe the numbers feel hard to face.";
-  if (value.includes("borrow") || value.includes("delay") || value.includes("debt")) return "Some pressure may be carrying over.";
-  if (value.includes("cut")) return "You may be sacrificing too much.";
-  return "Your response makes sense.";
-}
-
-function triggerBody(coping) {
-  const value = clean(coping) || "the way you respond when things feel heavy";
-  return `When life feels full, ${lower(value)} may be your way of trying to stay okay.`;
-}
-
-function buildSlides(profile) {
-  if (isWorkingStudentProfile(profile)) return buildWorkingStudentReveal(profile);
-
-  const stage = stageKey(profile.stage);
-  const copy = STAGE_COPY[stage];
-  const pressure = clean(profile.pressure).replace(/\bTution\b/gi, "Tuition") || "current financial pressure";
+function buildGenericSlides(profile = {}) {
+  const stage = normalizedStage(profile.stage);
+  const copy = STAGE_COPY[stage] || STAGE_COPY["Young Professional"];
+  const pressure = clean(profile.pressure) || "current financial pressure";
   const coping = clean(profile.coping) || "current response pattern";
   const goal = clean(profile.goal) || "protect stability";
 
   return [
-    {
-      kind: "opening",
-      eyebrow: "CLARA Life Snapshot",
-      title: copy.openingTitle,
-      body: copy.openingBody,
-      supporting: "I’m not judging it. I’m trying to understand it with you.",
-    },
-    {
-      kind: "chips",
-      eyebrow: "What’s underneath",
-      title: copy.pressureTitle,
-      body: copy.pressure,
-      chips: buildInsightChips(profile, copy),
-    },
-    {
-      kind: "rhythm",
-      eyebrow: "Your rhythm",
-      title: copy.rhythmTitle,
-      body: copy.rhythmBody,
-      supporting: "So the plan has to feel realistic, not strict.",
-    },
-    {
-      kind: "trigger",
-      eyebrow: "The softer truth",
-      title: titleFromResponse(coping),
-      body: triggerBody(coping),
-      supporting: "That is not weakness. It is a signal worth listening to.",
-    },
-    {
-      kind: "meter",
-      eyebrow: "First protection",
-      title: "Let’s protect the part that breaks first.",
-      body: `Right now, ${lower(pressure)} needs the most care.`,
-      supporting: `Protecting this moves you closer to ${lower(goal)}.`,
-      meterLabel: pressure,
-    },
-    {
-      kind: "final",
-      eyebrow: "Next small step",
-      title: "Start small. Stay steady.",
-      body: copy.landing,
-      supporting: "One protected decision is enough to begin.",
-    },
+    { kind: "opening", eyebrow: "CLARA Life Snapshot", title: copy.openingTitle, body: copy.openingBody, supporting: "I’m not judging it. I’m trying to understand it with you." },
+    { kind: "chips", eyebrow: "What’s underneath", title: copy.pressureTitle, body: copy.pressure, supporting: "These are the context points CLARA is remembering from your path.", chips: [copy.pressure, "The real issue is the rhythm underneath the expenses.", "CLARA is looking for the part that needs protection first."] },
+    { kind: "rhythm", eyebrow: "Your rhythm", title: copy.rhythmTitle, body: copy.rhythmBody, supporting: "So the plan has to feel realistic, not strict." },
+    { kind: "trigger", eyebrow: "The softer truth", title: "Your response makes sense.", body: `When life feels full, ${lower(coping)} may be your way of trying to stay okay.`, supporting: "That is not weakness. It is a signal worth listening to." },
+    { kind: "meter", eyebrow: "First protection", title: "Let’s protect the part that breaks first.", body: `Right now, ${lower(pressure)} needs the most care.`, supporting: `Protecting this moves you closer to ${lower(goal)}.`, meterLabel: pressure },
+    { kind: "final", eyebrow: "Next small step", title: "Start small. Stay steady.", body: copy.landing, supporting: "One protected decision is enough to begin." },
   ];
+}
+
+function buildSlides(profile = {}) {
+  if (isWorkingStudentProfile(profile)) return buildWorkingStudentReveal(profile);
+  if (isLivingWithPartnerProfile(profile)) return buildLivingWithPartnerReveal(profile);
+  return buildGenericSlides(profile);
 }
 
 function chipHtml(items = []) {
@@ -226,11 +142,13 @@ function chipHtml(items = []) {
 }
 
 function slideVisual(slide, index, total) {
-  if (slide.kind === "chips") return `<div class="chip-grid">${chipHtml(slide.chips)}</div>`;
+  if (slide.kind === "chips") return `<div class="chip-grid">${chipHtml(slide.chips || [])}</div>`;
+  if (slide.kind === "distribution") return `<div class="distribution-box"><p>Current split</p><strong>${safe(slide.body)}</strong></div>`;
+  if (slide.kind === "strongestSignal") return `<div class="signal-orb"><span>${index + 1}</span><small>strongest</small></div>`;
+  if (slide.kind === "commonPattern" || slide.kind === "trigger") return `<div class="pulse-visual" aria-hidden="true"><span></span><span></span><span></span><strong>${slide.kind === "trigger" ? "pressure response" : "quiet pattern"}</strong></div>`;
   if (slide.kind === "rhythm") return `<div class="rhythm-visual" aria-hidden="true"><span></span><span></span><span></span><small>steady control</small></div>`;
-  if (slide.kind === "trigger") return `<div class="pulse-visual" aria-hidden="true"><span></span><span></span><span></span><strong>pressure response</strong></div>`;
   if (slide.kind === "meter") return `<div class="protection-meter"><div><p>Protection focus</p><strong>${safe(slide.meterLabel)}</strong></div><span>1st</span></div>`;
-  if (slide.kind === "final") return `<div class="final-orb"><span>✓</span><small>protected start</small></div>`;
+  if (slide.kind === "final") return `<div class="final-orb"><span>✓</span><small>${slide.interpretationLayer ? "context memory" : "protected start"}</small></div>`;
   return `<div class="story-orb"><span>${index + 1}</span><small>of ${total}</small></div>`;
 }
 
@@ -239,8 +157,8 @@ function renderSlide(slide, index, total) {
     <div class="story-card" data-kind="${safe(slide.kind)}">
       <p class="eyebrow">${safe(slide.eyebrow)}</p>
       <h1>${safe(slide.title)}</h1>
-      <p class="story-body">${safe(slide.body)}</p>
-      ${slide.supporting ? `<p class="supporting">${safe(slide.supporting)}</p>` : ""}
+      <p class="story-body">${safe(slide.kind === "distribution" ? slide.supporting : slide.body)}</p>
+      ${slide.kind !== "distribution" && slide.supporting ? `<p class="supporting">${safe(slide.supporting)}</p>` : ""}
       ${slideVisual(slide, index, total)}
     </div>
   `;
@@ -249,6 +167,7 @@ function renderSlide(slide, index, total) {
 function show(profile) {
   if (!profile?.stage) return;
   document.getElementById(DIAGNOSIS_ID)?.remove();
+  document.getElementById("clara-living-with-partner-reveal")?.remove();
 
   const slides = buildSlides(profile);
   let activeIndex = 0;
@@ -258,19 +177,15 @@ function show(profile) {
   const el = document.createElement("div");
   el.id = DIAGNOSIS_ID;
   if (isWorkingStudentProfile(profile)) el.dataset.canonicalWorkingStudent = "true";
+  if (isLivingWithPartnerProfile(profile)) el.dataset.canonicalLivingPartner = "true";
   el.innerHTML = `
     <section class="story-shell" aria-label="CLARA Life Snapshot story">
       <div class="story-panel">
-        <div class="progress-bars" aria-hidden="true">
-          ${slides.map((_, index) => `<span class="progress-track"><i data-progress="${index}"></i></span>`).join("")}
-        </div>
+        <div class="progress-bars" aria-hidden="true">${slides.map((_, index) => `<span class="progress-track"><i data-progress="${index}"></i></span>`).join("")}</div>
         <div class="story-stage" role="group" aria-live="polite"></div>
         <div class="tap-zone tap-left" aria-hidden="true"></div>
         <div class="tap-zone tap-right" aria-hidden="true"></div>
-        <div class="story-footer">
-          <button type="button" class="back-button">Back</button>
-          <button type="button" class="next-button">Next</button>
-        </div>
+        <div class="story-footer"><button type="button" class="back-button">Back</button><button type="button" class="next-button">Next</button></div>
       </div>
     </section>
   `;
@@ -289,9 +204,7 @@ function show(profile) {
     #${DIAGNOSIS_ID} .story-card { position: relative; min-height: min(640px, calc(100svh - 130px)); height: 100%; display: flex; flex-direction: column; justify-content: center; gap: clamp(12px, 2.05svh, 20px); overflow: hidden; border-radius: 28px; border: 1px solid rgba(255,255,255,.085); padding: clamp(24px, 5.6svh, 38px) clamp(18px, 5vw, 24px); background: radial-gradient(circle at 18% 12%, rgba(125,211,252,.12), transparent 33%), radial-gradient(circle at 88% 88%, rgba(168,85,247,.16), transparent 38%), rgba(3,10,31,.34); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 54px rgba(2,8,23,.20); animation: claraStoryIn .22s ease-out; }
     #${DIAGNOSIS_ID} .story-card:before { content: ""; position: absolute; inset: auto -20% -30% auto; width: 70%; height: 48%; border-radius: 999px; background: radial-gradient(circle, rgba(125,211,252,.12), transparent 66%); filter: blur(6px); pointer-events: none; }
     #${DIAGNOSIS_ID} .story-card[data-kind="chips"] { justify-content: flex-start; padding-top: clamp(70px, 12.5svh, 100px); }
-    #${DIAGNOSIS_ID} .story-card[data-kind="rhythm"] { justify-content: space-between; }
-    #${DIAGNOSIS_ID} .story-card[data-kind="trigger"] { background: radial-gradient(circle at 20% 14%, rgba(196,181,253,.14), transparent 34%), radial-gradient(circle at 88% 84%, rgba(45,212,191,.10), transparent 40%), rgba(3,10,31,.34); }
-    #${DIAGNOSIS_ID} .story-card[data-kind="meter"] { justify-content: space-around; }
+    #${DIAGNOSIS_ID} .story-card[data-kind="distribution"], #${DIAGNOSIS_ID} .story-card[data-kind="meter"] { justify-content: space-around; }
     #${DIAGNOSIS_ID} .eyebrow, #${DIAGNOSIS_ID} h1, #${DIAGNOSIS_ID} .story-body, #${DIAGNOSIS_ID} .supporting { position: relative; z-index: 1; margin: 0; }
     #${DIAGNOSIS_ID} .eyebrow { color: rgba(186,230,253,.66); font-size: 9.4px; font-weight: 760; letter-spacing: .19em; text-transform: uppercase; }
     #${DIAGNOSIS_ID} h1 { max-width: 315px; font-size: clamp(29px, 8.9vw, 39px); line-height: 1.045; letter-spacing: -.038em; font-weight: 780; text-shadow: 0 10px 30px rgba(0,0,0,.30); }
@@ -299,39 +212,28 @@ function show(profile) {
     #${DIAGNOSIS_ID} .supporting { margin-top: -2px; max-width: 300px; color: rgba(186,230,253,.62); font-size: clamp(11.8px, 2.95vw, 13px); line-height: 1.45; font-weight: 620; letter-spacing: -.004em; }
     #${DIAGNOSIS_ID} .chip-grid { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 9px; margin-top: 5px; }
     #${DIAGNOSIS_ID} .story-chip { max-width: 100%; border-radius: 999px; border: 1px solid rgba(165,243,252,.14); background: rgba(255,255,255,.05); padding: 9px 12px; color: rgba(240,253,255,.82); font-size: 10.8px; line-height: 1.2; font-weight: 680; letter-spacing: -.01em; box-shadow: 0 10px 24px rgba(2,8,23,.14), inset 0 1px 0 rgba(255,255,255,.045); }
-    #${DIAGNOSIS_ID} .chip-2, #${DIAGNOSIS_ID} .chip-4 { background: rgba(196,181,253,.07); border-color: rgba(196,181,253,.14); }
-    #${DIAGNOSIS_ID} .story-orb { position: relative; z-index: 1; margin-top: 8px; display: grid; place-items: center; align-self: flex-end; width: clamp(104px, 29vw, 132px); height: clamp(104px, 29vw, 132px); border-radius: 999px; border: 1px solid rgba(165,243,252,.16); background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.16), transparent 28%), radial-gradient(circle at 50% 56%, rgba(103,232,249,.14), rgba(124,58,237,.13)); box-shadow: 0 0 44px rgba(34,211,238,.10), inset 0 1px 0 rgba(255,255,255,.07); }
-    #${DIAGNOSIS_ID} .story-orb span { font-size: 34px; line-height: 1; font-weight: 760; }
-    #${DIAGNOSIS_ID} .story-orb small { margin-top: -18px; color: rgba(224,242,254,.54); font-size: 9px; font-weight: 680; letter-spacing: .12em; text-transform: uppercase; }
-    #${DIAGNOSIS_ID} .rhythm-visual { position: relative; z-index: 1; display: grid; gap: 10px; width: min(310px, 100%); margin-top: auto; padding: 18px; border-radius: 25px; border: 1px solid rgba(125,211,252,.13); background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.022)); box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 48px rgba(2,8,23,.18); }
-    #${DIAGNOSIS_ID} .rhythm-visual span { display: block; height: 9px; border-radius: 999px; background: linear-gradient(90deg, rgba(103,232,249,.88), rgba(165,180,252,.24)); box-shadow: 0 0 24px rgba(125,211,252,.14); }
-    #${DIAGNOSIS_ID} .rhythm-visual span:nth-child(2) { width: 78%; opacity: .72; }
-    #${DIAGNOSIS_ID} .rhythm-visual span:nth-child(3) { width: 55%; opacity: .48; }
-    #${DIAGNOSIS_ID} .rhythm-visual small, #${DIAGNOSIS_ID} .pulse-visual strong { color: rgba(186,230,253,.54); font-size: 9px; font-weight: 720; letter-spacing: .14em; text-transform: uppercase; }
-    #${DIAGNOSIS_ID} .pulse-visual { position: relative; z-index: 1; align-self: center; display: grid; place-items: center; width: 150px; height: 150px; margin-top: 12px; }
-    #${DIAGNOSIS_ID} .pulse-visual span { position: absolute; inset: 0; border-radius: 999px; border: 1px solid rgba(196,181,253,.20); background: radial-gradient(circle, rgba(196,181,253,.14), transparent 58%); box-shadow: 0 0 34px rgba(168,85,247,.10); }
-    #${DIAGNOSIS_ID} .pulse-visual span:nth-child(2) { inset: 18px; opacity: .74; }
-    #${DIAGNOSIS_ID} .pulse-visual span:nth-child(3) { inset: 38px; opacity: .55; }
-    #${DIAGNOSIS_ID} .pulse-visual strong { position: relative; max-width: 90px; text-align: center; line-height: 1.3; }
-    #${DIAGNOSIS_ID} .protection-meter { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-radius: 24px; border: 1px solid rgba(153,246,228,.14); background: radial-gradient(circle at 8% 0%, rgba(45,212,191,.12), transparent 40%), rgba(255,255,255,.04); padding: 15px; box-shadow: 0 18px 44px rgba(2,8,23,.16), 0 0 38px rgba(45,212,191,.06); }
-    #${DIAGNOSIS_ID} .protection-meter p { margin: 0; color: rgba(153,246,228,.66); font-size: 9px; font-weight: 720; letter-spacing: .16em; text-transform: uppercase; }
-    #${DIAGNOSIS_ID} .protection-meter strong { display: block; margin-top: 6px; color: rgba(248,253,255,.86); font-size: 14px; line-height: 1.22; font-weight: 680; letter-spacing: -.01em; }
-    #${DIAGNOSIS_ID} .protection-meter span { display: grid; place-items: center; flex: 0 0 auto; width: 68px; height: 68px; border-radius: 999px; background: linear-gradient(135deg, rgba(103,232,249,.92), rgba(165,180,252,.92)); color: #06101f; font-size: 18px; font-weight: 780; box-shadow: 0 16px 34px rgba(45,212,191,.16); }
-    #${DIAGNOSIS_ID} .final-orb { position: relative; z-index: 1; display: grid; place-items: center; align-self: center; width: 132px; height: 132px; border-radius: 999px; border: 1px solid rgba(165,243,252,.16); background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.22), transparent 28%), linear-gradient(135deg, rgba(103,232,249,.20), rgba(124,58,237,.16)); box-shadow: 0 0 54px rgba(34,211,238,.12), inset 0 1px 0 rgba(255,255,255,.07); }
-    #${DIAGNOSIS_ID} .final-orb span { margin-top: 4px; font-size: 40px; line-height: 1; font-weight: 720; color: rgba(224,242,254,.92); }
-    #${DIAGNOSIS_ID} .final-orb small { max-width: 78px; margin-top: -12px; text-align: center; color: rgba(224,242,254,.54); font-size: 8.6px; font-weight: 700; letter-spacing: .11em; line-height: 1.25; text-transform: uppercase; }
-    #${DIAGNOSIS_ID} .tap-zone { position: absolute; z-index: 3; top: 44px; bottom: 86px; width: 34%; }
-    #${DIAGNOSIS_ID} .tap-left { left: 0; }
-    #${DIAGNOSIS_ID} .tap-right { right: 0; }
+    #${DIAGNOSIS_ID} .distribution-box, #${DIAGNOSIS_ID} .protection-meter { position: relative; z-index: 1; padding: 16px; border-radius: 24px; border: 1px solid rgba(165,243,252,.14); background: rgba(255,255,255,.055); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 44px rgba(2,8,23,.16); }
+    #${DIAGNOSIS_ID} .distribution-box p, #${DIAGNOSIS_ID} .protection-meter p { margin: 0 0 7px; color: rgba(165,243,252,.70); font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    #${DIAGNOSIS_ID} .distribution-box strong, #${DIAGNOSIS_ID} .protection-meter strong { display: block; color: rgba(248,253,255,.86); font-size: 12px; line-height: 1.6; font-weight: 680; }
+    #${DIAGNOSIS_ID} .story-orb, #${DIAGNOSIS_ID} .signal-orb, #${DIAGNOSIS_ID} .final-orb { position: relative; z-index: 1; display: grid; place-items: center; align-self: center; width: 132px; height: 132px; border-radius: 999px; border: 1px solid rgba(165,243,252,.16); background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.16), transparent 28%), radial-gradient(circle at 50% 56%, rgba(103,232,249,.14), rgba(124,58,237,.13)); box-shadow: 0 0 44px rgba(34,211,238,.10), inset 0 1px 0 rgba(255,255,255,.07); }
+    #${DIAGNOSIS_ID} .story-orb span, #${DIAGNOSIS_ID} .signal-orb span, #${DIAGNOSIS_ID} .final-orb span { font-size: 34px; line-height: 1; font-weight: 760; }
+    #${DIAGNOSIS_ID} .story-orb small, #${DIAGNOSIS_ID} .signal-orb small, #${DIAGNOSIS_ID} .final-orb small { margin-top: -18px; color: rgba(224,242,254,.54); font-size: 9px; font-weight: 680; letter-spacing: .12em; text-transform: uppercase; text-align: center; }
+    #${DIAGNOSIS_ID} .pulse-visual, #${DIAGNOSIS_ID} .rhythm-visual { position: relative; z-index: 1; align-self: center; display: grid; place-items: center; width: 150px; height: 150px; margin-top: 12px; }
+    #${DIAGNOSIS_ID} .pulse-visual span { position: absolute; inset: 0; border-radius: 999px; border: 1px solid rgba(196,181,253,.20); background: radial-gradient(circle, rgba(196,181,253,.14), transparent 58%); }
+    #${DIAGNOSIS_ID} .pulse-visual span:nth-child(2) { inset: 18px; opacity: .74; } #${DIAGNOSIS_ID} .pulse-visual span:nth-child(3) { inset: 38px; opacity: .55; }
+    #${DIAGNOSIS_ID} .pulse-visual strong, #${DIAGNOSIS_ID} .rhythm-visual small { position: relative; max-width: 90px; text-align: center; color: rgba(186,230,253,.54); font-size: 9px; font-weight: 720; letter-spacing: .14em; line-height: 1.3; text-transform: uppercase; }
+    #${DIAGNOSIS_ID} .rhythm-visual { width: min(310px, 100%); height: auto; display: grid; place-items: stretch; gap: 10px; padding: 18px; border-radius: 25px; border: 1px solid rgba(125,211,252,.13); background: rgba(255,255,255,.04); }
+    #${DIAGNOSIS_ID} .rhythm-visual span { display: block; height: 9px; border-radius: 999px; background: linear-gradient(90deg, rgba(103,232,249,.88), rgba(165,180,252,.24)); }
+    #${DIAGNOSIS_ID} .rhythm-visual span:nth-child(2) { width: 78%; opacity: .72; } #${DIAGNOSIS_ID} .rhythm-visual span:nth-child(3) { width: 55%; opacity: .48; }
+    #${DIAGNOSIS_ID} .tap-zone { position: absolute; z-index: 3; top: 44px; bottom: 86px; width: 34%; } #${DIAGNOSIS_ID} .tap-left { left: 0; } #${DIAGNOSIS_ID} .tap-right { right: 0; }
     #${DIAGNOSIS_ID} .story-footer { position: relative; z-index: 5; display: flex; gap: 10px; }
     #${DIAGNOSIS_ID} button { font-family: inherit; border: 0; cursor: pointer; }
     #${DIAGNOSIS_ID} .back-button, #${DIAGNOSIS_ID} .next-button { min-height: 48px; border-radius: 999px; font-size: 12px; line-height: 1.18; font-weight: 760; letter-spacing: -.012em; transition: transform .12s ease, opacity .12s ease; }
-    #${DIAGNOSIS_ID} .back-button { width: 31%; border: 1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.045); color: rgba(240,253,255,.66); }
-    #${DIAGNOSIS_ID} .back-button[disabled] { opacity: 0; pointer-events: none; }
+    #${DIAGNOSIS_ID} .back-button { width: 31%; border: 1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.045); color: rgba(240,253,255,.66); } #${DIAGNOSIS_ID} .back-button[disabled] { opacity: 0; pointer-events: none; }
     #${DIAGNOSIS_ID} .next-button { flex: 1; padding: 0 18px; border: 1px solid rgba(255,255,255,.18); background: radial-gradient(circle at 18% 18%, rgba(255,255,255,.30), transparent 25%), linear-gradient(135deg, #67e8f9, #7dd3fc 46%, #a5b4fc); color: #06101f; box-shadow: 0 16px 34px rgba(45,212,191,.16), 0 0 30px rgba(125,211,252,.10), inset 0 1px 0 rgba(255,255,255,.34); }
     #${DIAGNOSIS_ID} button:active { transform: scale(.98); }
     @keyframes claraStoryIn { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    @media (max-height: 720px) { #${DIAGNOSIS_ID} .story-panel { gap: 8px; padding: 12px 15px 13px; border-radius: 29px; } #${DIAGNOSIS_ID} .story-card { min-height: calc(100svh - 112px); border-radius: 24px; padding: 18px 16px; gap: 10px; } #${DIAGNOSIS_ID} .story-card[data-kind="chips"] { padding-top: 46px; } #${DIAGNOSIS_ID} h1 { font-size: clamp(26px, 8.3vw, 34px); line-height: 1.06; } #${DIAGNOSIS_ID} .story-body { font-size: 12.4px; line-height: 1.42; font-weight: 540; } #${DIAGNOSIS_ID} .supporting { font-size: 11.4px; } #${DIAGNOSIS_ID} .story-orb { width: 92px; height: 92px; } #${DIAGNOSIS_ID} .pulse-visual { width: 118px; height: 118px; } #${DIAGNOSIS_ID} .final-orb { width: 104px; height: 104px; } #${DIAGNOSIS_ID} .story-footer button { min-height: 42px; font-size: 11px; } }
+    @media (max-height: 720px) { #${DIAGNOSIS_ID} .story-panel { gap: 8px; padding: 12px 15px 13px; border-radius: 29px; } #${DIAGNOSIS_ID} .story-card { min-height: calc(100svh - 112px); border-radius: 24px; padding: 18px 16px; gap: 10px; } #${DIAGNOSIS_ID} .story-card[data-kind="chips"] { padding-top: 46px; } #${DIAGNOSIS_ID} h1 { font-size: clamp(26px, 8.3vw, 34px); line-height: 1.06; } #${DIAGNOSIS_ID} .story-body { font-size: 12.4px; line-height: 1.42; font-weight: 540; } #${DIAGNOSIS_ID} .supporting { font-size: 11.4px; } #${DIAGNOSIS_ID} .story-orb, #${DIAGNOSIS_ID} .signal-orb, #${DIAGNOSIS_ID} .final-orb { width: 104px; height: 104px; } #${DIAGNOSIS_ID} .pulse-visual { width: 118px; height: 118px; } #${DIAGNOSIS_ID} .story-footer button { min-height: 42px; font-size: 11px; } }
   `;
 
   el.appendChild(style);
@@ -345,8 +247,7 @@ function show(profile) {
   const rightZone = el.querySelector(".tap-right");
 
   const close = () => {
-    const setupClose = document.querySelector('button[aria-label="Close life stage setup"]');
-    if (setupClose) setupClose.click();
+    document.querySelector('button[aria-label="Close life stage setup"]')?.click();
     el.remove();
     document.body.style.overflow = oldOverflow || "";
   };
@@ -364,10 +265,7 @@ function show(profile) {
   };
 
   const go = (direction) => {
-    if (direction > 0 && activeIndex >= slides.length - 1) {
-      close();
-      return;
-    }
+    if (direction > 0 && activeIndex >= slides.length - 1) return close();
     activeIndex = Math.max(0, Math.min(slides.length - 1, activeIndex + direction));
     render();
   };
