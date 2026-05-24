@@ -13,6 +13,7 @@ import "./life-stage-support-card";
 import "./life-stage-signal-card-states";
 import "./life-stage-young-professional-signals";
 import "./life-stage-living-with-partner-signals";
+import "./life-stage-working-student-heart-default-guard";
 import "./life-stage-living-with-partner-reveal";
 import "./life-stage-trend-snapshot";
 import "./life-stage-setup-flow-polish";
@@ -119,57 +120,69 @@ const installClaraSupportComposerEnhancer = () => {
         current.querySelector("select") &&
         current.querySelector("textarea")
       ) {
-        return { page: current, heading };
+        return current;
       }
       current = current.parentElement;
     }
 
-    return { page: null, heading: null };
+    return null;
   };
 
   const enhance = () => {
-    const { page } = getSupportPage();
+    const page = getSupportPage();
     if (!page || page.dataset.claraSupportComposerEnhanced === "true") return;
-    page.dataset.claraSupportComposerEnhanced = "true";
-
     const select = page.querySelector("select");
     const textarea = page.querySelector("textarea");
-    if (!select || !textarea) return;
+    const sendButton = Array.from(page.querySelectorAll("button")).find((button) => /send/i.test(clean(button.textContent)));
+    if (!select || !textarea || !sendButton) return;
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = "Prepare email";
-    button.className = "mt-3 w-full rounded-2xl bg-cyan-300/90 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_14px_34px_rgba(34,211,238,.18)] active:scale-[0.98]";
-    button.addEventListener("click", () => {
-      const subject = encodeURIComponent(`CLARA Support - ${clean(select.value) || "General concern"}`);
-      const body = encodeURIComponent(refineDraft(select.value, textarea.value));
-      window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+    page.dataset.claraSupportComposerEnhanced = "true";
+
+    const helper = document.createElement("p");
+    helper.className = "text-[10px] leading-relaxed text-slate-400/80 px-1";
+    helper.textContent = "CLARA can help refine your message before sending it.";
+
+    const refineButton = document.createElement("button");
+    refineButton.type = "button";
+    refineButton.className = "rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 active:scale-[0.98] transition";
+    refineButton.textContent = "Refine message";
+
+    const row = document.createElement("div");
+    row.className = "flex items-center justify-between gap-2";
+    row.appendChild(helper);
+    row.appendChild(refineButton);
+
+    textarea.insertAdjacentElement("afterend", row);
+
+    refineButton.addEventListener("click", () => {
+      const refined = refineDraft(select.value, textarea.value);
+      if (!refined) return;
+      textarea.value = refined;
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
     });
-
-    textarea.insertAdjacentElement("afterend", button);
   };
 
   const observer = new MutationObserver(enhance);
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
   enhance();
 };
 
 try {
   installClaraSupportComposerEnhancer();
 } catch (error) {
-  console.warn("CLARA support composer failed to init:", error);
+  console.warn("CLARA support composer enhancer failed:", error);
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <HashRouter>
-      <QueryClientProvider client={queryClientInstance}>
-        <AuthProvider>
-          <ThemeProvider>
+    <QueryClientProvider client={queryClientInstance}>
+      <AuthProvider>
+        <ThemeProvider>
+          <HashRouter>
             <App />
-          </ThemeProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </HashRouter>
+          </HashRouter>
+        </ThemeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   </React.StrictMode>
 );
