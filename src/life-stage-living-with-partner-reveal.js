@@ -176,18 +176,102 @@ function applyImportantStyle(node, styles) {
   Object.entries(styles).forEach(([property, value]) => node.style.setProperty(property, value, "important"));
 }
 
+function installHeartHintStyles() {
+  if (document.getElementById("clara-working-student-heart-hint-style")) return;
+  const style = document.createElement("style");
+  style.id = "clara-working-student-heart-hint-style";
+  style.textContent = `
+    #root [data-clara-heart-cta="true"] {
+      position: relative !important;
+      isolation: isolate !important;
+    }
+
+    #root [data-clara-heart-cta="true"][data-clara-heart-hint="true"] {
+      animation: claraHeartBreath 1.65s ease-in-out infinite !important;
+      box-shadow:
+        0 0 0 1px rgba(244, 114, 182, .22),
+        0 0 22px rgba(244, 114, 182, .34),
+        0 0 38px rgba(125, 211, 252, .14),
+        inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+    }
+
+    #root [data-clara-heart-cta="true"][data-clara-heart-hint="true"]::before {
+      content: "" !important;
+      position: absolute !important;
+      inset: -10px !important;
+      z-index: -1 !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(244, 114, 182, .28) !important;
+      background: radial-gradient(circle, rgba(244,114,182,.18), rgba(125,211,252,.06) 52%, transparent 72%) !important;
+      animation: claraHeartHalo 1.65s ease-in-out infinite !important;
+      pointer-events: none !important;
+    }
+
+    #root [data-clara-heart-cta="true"][data-clara-heart-hint="true"]::after {
+      content: "Tap for solution" !important;
+      position: absolute !important;
+      right: 0 !important;
+      top: -27px !important;
+      z-index: 3 !important;
+      white-space: nowrap !important;
+      padding: 5px 8px !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.14) !important;
+      background: linear-gradient(135deg, rgba(8, 20, 44, .92), rgba(63, 34, 112, .88)) !important;
+      color: rgba(240, 253, 255, .88) !important;
+      font-size: 8.5px !important;
+      font-weight: 850 !important;
+      letter-spacing: .04em !important;
+      line-height: 1 !important;
+      box-shadow: 0 10px 24px rgba(0,0,0,.24), 0 0 18px rgba(244,114,182,.16) !important;
+      pointer-events: none !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-mode="guidance"] [data-clara-heart-cta="true"] {
+      animation: none !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-mode="guidance"] [data-clara-heart-cta="true"]::before,
+    #root [data-clara-support-card="true"][data-clara-signal-mode="guidance"] [data-clara-heart-cta="true"]::after {
+      content: none !important;
+      display: none !important;
+    }
+
+    @keyframes claraHeartBreath {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.045); }
+    }
+
+    @keyframes claraHeartHalo {
+      0%, 100% { opacity: .42; transform: scale(.96); }
+      50% { opacity: .96; transform: scale(1.08); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #root [data-clara-heart-cta="true"][data-clara-heart-hint="true"],
+      #root [data-clara-heart-cta="true"][data-clara-heart-hint="true"]::before {
+        animation: none !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function prepareHeartForWorkingStudent() {
   if (!isWorkingStudent()) return;
+  installHeartHintStyles();
   const card = findSupportCard();
   const heart = findHeartNode(card);
   if (!card || !heart) return;
 
+  const isGuidance = clean(card.dataset.claraSignalMode) === "guidance";
   heart.dataset.claraHeartCta = "true";
+  heart.dataset.claraHeartHint = isGuidance ? "false" : "true";
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
-  if (clean(card.dataset.claraSignalMode) !== "guidance") {
-    heart.setAttribute("aria-label", "Show guidance");
-    heart.title = "Show guidance";
+  if (!isGuidance) {
+    heart.setAttribute("aria-label", "Tap for solution");
+    heart.title = "Tap for solution";
   }
 
   applyImportantStyle(heart, {
@@ -210,6 +294,7 @@ function writeGuidance(card, heart, title, body, signalId) {
   card.dataset.claraSignalMode = "guidance";
 
   heart.dataset.claraHeartCta = "true";
+  heart.dataset.claraHeartHint = "false";
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
   heart.setAttribute("aria-label", "Showing guidance");
