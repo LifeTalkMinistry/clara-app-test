@@ -20,7 +20,8 @@
   display: none !important;
 }
 
-/* Keep only a bottom fade, where the hero meets the next card. */
+/* Softer bottom fade.
+   This removes the heavy blurred/dark band near the support card area. */
 #root section[class*="rounded-b-[30px]"]::after {
   content: "" !important;
   position: absolute !important;
@@ -29,9 +30,14 @@
   bottom: 0 !important;
   top: auto !important;
   z-index: 6 !important;
-  height: 26% !important;
+  height: 14% !important;
   pointer-events: none !important;
-  background: linear-gradient(180deg, transparent 0%, rgba(2, 8, 23, 0.68) 72%, #020817 100%) !important;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(2, 8, 23, 0.18) 62%,
+    rgba(2, 8, 23, 0.42) 100%
+  ) !important;
 }
 
 /* Remove the component's full-card haze. It was flattening the top area. */
@@ -40,14 +46,15 @@
   display: none !important;
 }
 
-/* Keep the original lower fade subtle and only at the bottom. */
+/* Keep the original lower fade, but make it much lighter and shorter. */
 #root section[class*="rounded-b-[30px]"] > div[class*="bottom-0"][class*="h-[62%]"] {
-  height: 48% !important;
-  opacity: 0.58 !important;
+  height: 34% !important;
+  opacity: 0.32 !important;
 }
 
 #root section[class*="rounded-b-[30px]"] > div[class*="bottom-0"][class*="h-12"] {
-  opacity: 0.82 !important;
+  height: 18px !important;
+  opacity: 0.18 !important;
 }
 
 /* Image layer: inserted from the top, not hanging below a blank slab. */
@@ -72,7 +79,7 @@
 }
 
 /* Living with Partner only:
-   Move the couple image lower so the guy's head is fully visible. */
+   Keep the couple image lower so the guy's head is fully visible. */
 #root section[class*="rounded-b-[30px]"]
   > div[class*="right-0"][class*="w-[56%]"]
   img[alt="Living with Partner stage background"] {
@@ -80,7 +87,8 @@
   transform: scale(1.12) translate(4px, 10px) !important;
 }
 
-/* Image readability layer: clipped to the image area, no floating top rectangle. */
+/* Image readability layer:
+   Keep left-side text readable, but remove the heavy bottom haze. */
 #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"]::before {
   content: "" !important;
   position: absolute !important;
@@ -90,7 +98,7 @@
   opacity: 1 !important;
   background:
     linear-gradient(90deg, rgba(2, 8, 23, 0.74) 0%, rgba(2, 8, 23, 0.28) 36%, rgba(2, 8, 23, 0.03) 76%),
-    linear-gradient(180deg, transparent 0%, transparent 54%, rgba(2, 8, 23, 0.24) 100%) !important;
+    linear-gradient(180deg, transparent 0%, transparent 68%, rgba(2, 8, 23, 0.08) 100%) !important;
 }
 
 #root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"][class*="max-w"] {
