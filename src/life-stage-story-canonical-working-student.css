@@ -16,3 +16,14 @@
   content: none !important;
   display: none !important;
 }
+
+/* Living with Partner uses the same unified story renderer now.
+   Hide the extra micro-labels and secondary helper captions Max marked for removal. */
+#clara-life-stage-diagnosis-reveal[data-canonical-living-partner="true"] .eyebrow,
+#clara-life-stage-diagnosis-reveal[data-canonical-living-partner="true"] .supporting {
+  display: none !important;
+}
+
+#clara-life-stage-diagnosis-reveal[data-canonical-living-partner="true"] .story-card {
+  gap: clamp(14px, 2.25svh, 22px) !important;
+}
