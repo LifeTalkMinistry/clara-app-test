@@ -360,6 +360,7 @@ export const LIVING_WITH_PARTNER_SIGNAL_DEFINITIONS = {
 };
 
 const FALLBACK_SIGNALS = { sharedBills: 16, moneyTalks: 12, fairness: 10, emergencyBuffer: 8 };
+const LIVING_WITH_PARTNER_DOCK_SIGNAL_ORDER = ["sharedBills", "moneyTalks", "fairness", "futurePlans", "emergencyBuffer"];
 
 export function cleanLivingWithPartnerValue(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -555,7 +556,9 @@ export function getLivingWithPartnerSupportCopy(profile = {}) {
 }
 
 export function getLivingWithPartnerSignals() {
-  return Object.values(LIVING_WITH_PARTNER_SIGNAL_DEFINITIONS);
+  return LIVING_WITH_PARTNER_DOCK_SIGNAL_ORDER
+    .map((key) => LIVING_WITH_PARTNER_SIGNAL_DEFINITIONS[key])
+    .filter(Boolean);
 }
 
 export function getLivingWithPartnerSignalCopy(id, mode = "awareness") {
