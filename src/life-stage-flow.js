@@ -4,6 +4,18 @@ import livingWithPartnerSource, { LIVING_WITH_PARTNER_STAGE_KEY, LIVING_WITH_PAR
 import youngProfessionalSource, { YOUNG_PROFESSIONAL_STAGE_KEY, YOUNG_PROFESSIONAL_QUESTION_ORDER, YOUNG_PROFESSIONAL_ROOTS, YOUNG_PROFESSIONAL_BRANCHES, YOUNG_PROFESSIONAL_RESET_AFTER, YOUNG_PROFESSIONAL_DISPLAY_LABELS, getYoungProfessionalOptions, resetYoungProfessionalAfter, completeYoungProfessionalDraft, getYoungProfessionalQuestionContext } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
 
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
+export const DEFAULT_LIFE_STAGE_SELECTION = WORKING_STUDENT_STAGE_KEY;
+
+export const LIFE_STAGE_SELECTION_ORDER = [
+  WORKING_STUDENT_STAGE_KEY,
+  YOUNG_PROFESSIONAL_STAGE_KEY,
+  LIVING_WITH_PARTNER_STAGE_KEY,
+  "Family Household",
+  "Single Parent",
+  "Full-Time Earner",
+  "Freelance Season",
+  "Business Builder",
+];
 
 const STANDARD_RESET_AFTER = {
   setup: ["rhythm", "workload", "pressure", "coping", "goal"],
@@ -58,7 +70,7 @@ function compact(value) {
 
 export function normalizeLifeStageKey(stageKey) {
   const raw = String(stageKey || "").trim();
-  if (!raw) return DEFAULT_STAGE.stage;
+  if (!raw) return DEFAULT_LIFE_STAGE_SELECTION;
   const aliased = STAGE_ALIASES[compact(raw)] || raw;
   return normalizeLifeStage(aliased);
 }
@@ -85,7 +97,7 @@ export function saveSelectedLifeStageProfile(profile = {}) {
 }
 
 export function getSelectedLifeStageKey() {
-  return readSelectedLifeStageProfile()?.stage || DEFAULT_STAGE.stage;
+  return readSelectedLifeStageProfile()?.stage || DEFAULT_LIFE_STAGE_SELECTION;
 }
 
 function resetAfterKey(draft = {}, key) {
@@ -108,8 +120,13 @@ function fallbackQuestionSet(stageKey) {
   };
 }
 
+const ORDERED_STAGES = [
+  ...LIFE_STAGE_SELECTION_ORDER,
+  ...STAGES.filter((stageKey) => !LIFE_STAGE_SELECTION_ORDER.includes(normalizeLifeStageKey(stageKey))),
+];
+
 export const LIFE_STAGE_FLOW = {
-  stages: STAGES.map((stageKey) => {
+  stages: ORDERED_STAGES.map((stageKey) => {
     const key = normalizeLifeStageKey(stageKey);
     return {
       key,
@@ -163,7 +180,7 @@ export const LIFE_STAGE_FLOW = {
   },
 };
 
-STAGES.forEach((stageKey) => {
+ORDERED_STAGES.forEach((stageKey) => {
   const normalized = normalizeLifeStageKey(stageKey);
   if (!LIFE_STAGE_FLOW.questions[normalized]) LIFE_STAGE_FLOW.questions[normalized] = fallbackQuestionSet(normalized);
   if (!LIFE_STAGE_FLOW.summaries[normalized]) LIFE_STAGE_FLOW.summaries[normalized] = {};
@@ -175,7 +192,7 @@ export function getLifeStageFlow() {
 
 export function getLifeStageQuestions(stageKey = getSelectedLifeStageKey()) {
   const normalized = normalizeLifeStageKey(stageKey);
-  return LIFE_STAGE_FLOW.questions[normalized] || LIFE_STAGE_FLOW.questions[DEFAULT_STAGE.stage] || fallbackQuestionSet(normalized);
+  return LIFE_STAGE_FLOW.questions[normalized] || LIFE_STAGE_FLOW.questions[DEFAULT_LIFE_STAGE_SELECTION] || fallbackQuestionSet(normalized);
 }
 
 export function getLifeStageSelectionList() {
