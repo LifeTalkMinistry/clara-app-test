@@ -216,75 +216,118 @@ function titleFor(stage, selectedValue) {
 }
 
 function youngProfessionalMeaning(selectedValue, label) {
-  if (includesAny(selectedValue, ["first stable job", "first salary", "adjusting", "adult responsibilities", "work-life balance", "cutoff week"])) {
+  const text = `${selectedValue} ${label}`;
+  if (includesAny(text, ["first stable job", "first salary", "adjusting", "adult responsibilities", "work-life balance", "cutoff week"])) {
     return `This usually means income is becoming more stable, but adult responsibility still feels new. Payday may feel exciting while bills, commute, food, and personal choices are still finding their rhythm.`;
   }
-  if (includesAny(selectedValue, ["independent", "bills", "rent", "utilities", "living costs", "food and commute", "fixed bills", "one-month buffer"])) {
+  if (includesAny(text, ["independent", "bills", "rent", "utilities", "living costs", "food and commute", "fixed bills", "one-month buffer"])) {
     return `This usually means independence now has real monthly pressure attached to it. Rent, bills, food, and commute can make every spending choice feel more serious.`;
   }
-  if (includesAny(selectedValue, ["career + family", "family", "goes home", "support", "contribution", "guilt", "support limit", "home needs"])) {
+  if (includesAny(text, ["career + family", "family", "goes home", "support", "contribution", "guilt", "support limit", "home needs"])) {
     return `This usually means your salary is not only for your own progress. Family support may affect how much room you have for savings, career growth, and personal stability.`;
   }
-  if (includesAny(selectedValue, ["career", "promotion", "courses", "tools", "professional image", "networking", "growth", "invest", "compare", "behind others"])) {
+  if (includesAny(text, ["career", "promotion", "courses", "tools", "professional image", "networking", "growth", "invest", "compare", "behind others"])) {
     return `This usually means ambition is adding pressure to your money decisions. Career costs may feel necessary, but they can also come from comparison, urgency, or the fear of falling behind.`;
   }
-  if (includesAny(selectedValue, ["salary feels stable", "salary disappears", "disappears", "payday feels strong", "lifestyle", "installments", "subscriptions", "salary leaks", "overspend early", "cutoff survival"])) {
+  if (includesAny(text, ["salary feels stable", "salary disappears", "disappears", "payday feels strong", "lifestyle", "installments", "subscriptions", "salary leaks", "overspend early", "cutoff survival"])) {
     return `This usually means the salary is there, but it does not stay long enough to feel secure. Small repeated costs, subscriptions, installments, or early-month spending may be quietly taking space.`;
   }
-  if (includesAny(selectedValue, ["shift", "bpo", "night shift", "sleep", "long calls", "ot", "comfort after shifts", "convenience", "recovery spending"])) {
+  if (includesAny(text, ["shift", "bpo", "night shift", "sleep", "long calls", "ot", "comfort after shifts", "convenience", "recovery spending"])) {
     return `This usually means your work schedule affects your spending pattern. When sleep, calls, commute, or shifting routines drain you, convenience and comfort can become harder to resist.`;
   }
-  if (includesAny(selectedValue, ["debt", "pay-later", "pay later", "minimum", "repayment", "old shortfalls", "borrow", "no-new-debt", "repair mode", "old choices", "little room to reset", "catching up", "cash-flow timing"] )) {
+  if (includesAny(text, ["debt", "pay-later", "pay later", "minimum", "repayment", "old shortfalls", "borrow", "no-new-debt", "repair mode", "old choices", "little room to reset", "catching up", "cash-flow timing"] )) {
     return `This usually means your income is being used to fix old pressure instead of building a fresh month. It can make payday feel less freeing because past obligations are still taking space.`;
   }
-  if (includesAny(selectedValue, ["reward", "social", "comparison", "image", "prepared", "spending", "payday", "lifestyle pressure"])) {
+  if (includesAny(text, ["reward", "social", "comparison", "image", "prepared", "spending", "payday", "lifestyle pressure"])) {
     return `This usually means spending may be tied to identity, belonging, or recovery after work. Enjoyment is part of life, but the pressure can grow when it happens without a clear limit.`;
   }
   return `This usually describes a real young professional pressure point. It shows how salary, responsibility, lifestyle, growth, and recovery can affect everyday money choices.`;
 }
 
 function workingStudentMeaning(selectedValue, label) {
-  if (includesAny(selectedValue, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "continue school", "protect school", "fear of stopping", "printing", "materials", "projects"])) {
-    return `This usually means school is already taking space in the budget before anything else. Tuition timing, requirements, fare, food, and materials can make spending feel sensitive.`;
+  const text = `${selectedValue} ${label}`;
+
+  if (includesAny(text, ["supported, learning independence", "supported independence", "mostly supported", "learning independence"])) {
+    return `This usually means support still exists, but independence is starting to become real. The pressure is learning how to handle personal money before bigger responsibilities arrive.`;
   }
-  if (includesAny(selectedValue, ["family", "home", "goes home", "shared", "give", "support boundary", "guilt"])) {
+  if (includesAny(text, ["working to protect school", "working mainly to continue school", "protect school continuity", "continue school"])) {
+    return `This usually means work is closely tied to staying in school. Money decisions may feel heavier because income is connected to tuition, requirements, fare, and attendance.`;
+  }
+  if (includesAny(text, ["studying while helping family", "helping family while studying", "family", "goes home", "shared", "give", "support boundary", "guilt"])) {
     return `This usually means student money is connected to people at home, not only personal needs. Helping family can feel meaningful and heavy at the same time.`;
   }
-  if (includesAny(selectedValue, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "repair mode", "old pressure", "pressure carries", "no-new-debt"])) {
-    return `This usually means money pressure is carrying over instead of starting fresh. Borrowing, repayment, or delayed expenses can make the next income feel already spoken for.`;
+  if (includesAny(text, ["mostly self-supporting", "survive school mostly alone", "self-supporting", "survival income"])) {
+    return `This usually means school and daily survival are being carried with limited support. Food, fare, school costs, and timing gaps can make every peso feel important.`;
   }
-  if (includesAny(selectedValue, ["tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "comfort after hard days"])) {
+  if (includesAny(text, ["exhausted by school-work overlap", "balancing school, work, and exhaustion", "tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "comfort after hard days"])) {
     return `This usually means energy is part of the money problem. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking.`;
   }
-  if (includesAny(selectedValue, ["reward", "social", "small spending", "small rewards", "leaks", "micro", "extra money leaks"])) {
+  if (includesAny(text, ["building with unstable income", "building a future while financially unstable", "income changes", "unstable income", "some weeks are strong", "some weeks are tight"])) {
+    return `This usually means ambition is present, but the money rhythm is not fully steady yet. Planning can feel hard when future goals are clear but income still changes.`;
+  }
+  if (includesAny(text, ["recovering from money pressure", "constant financial pressure", "money pressure", "pressure carries", "old pressure"])) {
+    return `This usually means past money stress is still affecting the current season. Even new income can feel less free when old pressure, delayed needs, or recovery spending is still present.`;
+  }
+  if (includesAny(text, ["allowance base + extra work", "allowance is the base", "work is extra"])) {
+    return `This usually means allowance may cover the basics while work income gives extra breathing room. The challenge is making the extra money intentional instead of letting it disappear.`;
+  }
+  if (includesAny(text, ["fixed part-time pay", "fixed part-time"])) {
+    return `This usually means income is more predictable, but still limited. A fixed part-time rhythm can help planning, but small leaks can still quickly reduce what is left.`;
+  }
+  if (includesAny(text, ["occasional side income", "side income when available"])) {
+    return `This usually means money comes in sometimes, but not always when needed. Planning may feel flexible and uncertain at the same time.`;
+  }
+  if (includesAny(text, ["extra money leaks fast", "extra income disappears", "money leaks"])) {
+    return `This usually means extra income is arriving, but it is being absorbed by small spending. The pressure is not one big purchase, but repeated little choices that reduce the extra.`;
+  }
+  if (includesAny(text, ["money feels like repair mode", "repair mode"])) {
+    return `This usually means money is being used to fix old pressure instead of starting fresh. It can make the current week feel like recovery before progress even begins.`;
+  }
+  if (includesAny(text, ["old choices affect current peace", "old choices"])) {
+    return `This usually means earlier money decisions are still affecting the present. Even when income arrives, the emotional weight of catching up may still be there.`;
+  }
+  if (includesAny(text, ["i feel tired from catching up", "tired from catching up", "catching up"])) {
+    return `This usually means recovery itself is becoming exhausting. Constantly trying to catch up can make budgeting feel heavy before the next decision even starts.`;
+  }
+  if (includesAny(text, ["there is little room to reset", "little room to reset", "no room to reset"])) {
+    return `This usually means there is very little space between old pressure and new needs. A small surprise can feel bigger when there is no clear reset point yet.`;
+  }
+  if (includesAny(text, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "fear of stopping", "printing", "materials", "projects"])) {
+    return `This usually means school is already taking space in the budget before anything else. Tuition timing, requirements, fare, food, and materials can make spending feel sensitive.`;
+  }
+  if (includesAny(text, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "no-new-debt"])) {
+    return `This usually means money pressure is carrying over instead of starting fresh. Borrowing, repayment, or delayed expenses can make the next income feel already spoken for.`;
+  }
+  if (includesAny(text, ["reward", "social", "small spending", "small rewards", "leaks", "micro"])) {
     return `This usually means small spending may be acting as relief or reward after effort. The pressure is not one purchase, but how often that pattern repeats.`;
   }
-  if (includesAny(selectedValue, ["irregular", "unstable", "fluctuate", "income changes", "some weeks", "gaps", "seasonal", "side hustle"] )) {
+  if (includesAny(text, ["irregular", "unstable", "fluctuate", "gaps", "seasonal", "side hustle"] )) {
     return `This usually means planning has to adjust around uneven money timing. It can make budgeting feel tiring because the week changes before the plan feels settled.`;
   }
-  if (includesAny(selectedValue, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
+  if (includesAny(text, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
     return `This usually means daily basics are taking up serious space. Food, fare, school attendance, and small emergency costs can make even minor spending feel important.`;
   }
-  if (includesAny(selectedValue, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
+  if (includesAny(text, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
     return `This usually means you are trying to build control instead of only reacting to pressure. One small clear rule can make student money feel less scattered.`;
   }
-  return `This usually describes one real part of working-student life. It shows how school, work, energy, and money pressure can affect daily decisions.`;
+  return `This selection points to one specific part of working-student life. It shows what feels most active right now in school, work, money, or energy.`;
 }
 
 function livingWithPartnerMeaning(selectedValue, label) {
-  if (includesAny(selectedValue, ["uneven", "one income", "one person", "covers gaps", "mismatch", "fairness", "one partner carries"])) {
+  const text = `${selectedValue} ${label}`;
+  if (includesAny(text, ["uneven", "one income", "one person", "covers gaps", "mismatch", "fairness", "one partner carries"])) {
     return `This usually means fairness is already part of the shared money story. One person may be carrying more, even when both people care about making the setup work.`;
   }
-  if (includesAny(selectedValue, ["family", "living with one family", "household", "support requests"])) {
+  if (includesAny(text, ["family", "living with one family", "household", "support requests"])) {
     return `This usually means family expectations may affect the couple’s budget too. Shared money can feel heavier when outside needs enter the relationship rhythm.`;
   }
-  if (includesAny(selectedValue, ["avoid", "argue", "communication", "sensitive", "talk", "awkward"])) {
+  if (includesAny(text, ["avoid", "argue", "communication", "sensitive", "talk", "awkward"])) {
     return `This usually means the money conversation itself needs care. The pressure may not only be the amount, but how safe it feels to talk about the amount.`;
   }
-  if (includesAny(selectedValue, ["comfort", "spend together", "date", "food", "bonding"])) {
+  if (includesAny(text, ["comfort", "spend together", "date", "food", "bonding"])) {
     return `This usually means spending may be acting as bonding or emotional relief. That can feel good, but it may also make shared stability harder to protect.`;
   }
-  if (includesAny(selectedValue, ["future", "planning", "move", "savings", "emergency", "shared goal"])) {
+  if (includesAny(text, ["future", "planning", "move", "savings", "emergency", "shared goal"])) {
     return `This usually means the relationship is trying to protect a future direction. Daily spending may feel different when a shared plan is starting to matter.`;
   }
   return `This usually describes one real part of shared-life money. Bills, emotion, fairness, routine, and future direction can all affect the way decisions feel.`;
