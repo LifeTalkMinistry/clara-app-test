@@ -174,31 +174,44 @@ function inferStepFromLabel(label) {
 }
 
 function humanStageName(stage) {
-  return clean(stage).replace(/-/g, " ");
+  return clean(stage).replace(/-/g, " ").toLowerCase();
+}
+
+function stageOpening(stage) {
+  const normalized = humanStageName(stage);
+  if (stage === WORKING_STUDENT_STAGE_KEY) return "As a working student";
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) return "As a young professional";
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) return "When you're building life with someone";
+  if (normalized.includes("family")) return "Inside a family household";
+  if (normalized.includes("single parent")) return "As a single parent";
+  if (normalized.includes("full-time")) return "With full-time income";
+  if (normalized.includes("freelance")) return "In a freelance season";
+  if (normalized.includes("business")) return "When building a business";
+  return "In this season";
 }
 
 function sentenceForSetup(stage, label) {
-  return `Choosing “${label}” usually means this is the main life setup shaping the money situation in the ${humanStageName(stage)} stage. It describes the environment around responsibility, support, stability, or pressure right now.`;
+  return `Hmm, I see. “${label}” sounds like the setup that is shaping your money right now. ${stageOpening(stage)}, that can affect how much pressure, support, or responsibility you carry before budgeting even starts.`;
 }
 
 function sentenceForRhythm(stage, label) {
-  return `Choosing “${label}” usually means this is how money tends to arrive, move, or disappear in the ${humanStageName(stage)} stage. The timing and reliability of that money can change how safe planning feels.`;
+  return `Hmm, I see. “${label}” shows how money tends to move around your week or month. When the rhythm feels like this, the budget can feel calm in one moment and tight in another.`;
 }
 
 function sentenceForWorkload(stage, label) {
-  return `Choosing “${label}” usually means time, energy, or routine is affecting the way money decisions feel. When the week is stretched, even simple choices can feel heavier than they look.`;
+  return `Hmm, I see. “${label}” says a lot about the weight behind your routine. When time or energy is stretched, even small money decisions can feel heavier than they look.`;
 }
 
 function sentenceForPressure(stage, label) {
-  return `Choosing “${label}” usually means this pressure is taking the most financial or emotional space right now. It can make normal spending feel more sensitive because the concern is already active.`;
+  return `Hmm, I see. “${label}” is taking space right now. It may not look huge from the outside, but once it keeps showing up, the whole budget can start to feel tighter.`;
 }
 
 function sentenceForCoping(stage, label) {
-  return `Choosing “${label}” usually means this is the response that tends to appear when pressure gets heavy. It shows how the situation can turn into real behavior during stressful days.`;
+  return `Hmm, I see. “${label}” looks like the kind of response that can appear when pressure gets heavy. It may be less about one decision and more about what stress does to your energy in the moment.`;
 }
 
 function sentenceForGoal(stage, label) {
-  return `Choosing “${label}” usually means this is the part of life the user wants to protect most. It shows what stability would feel like before bigger changes or stricter discipline are introduced.`;
+  return `Hmm, I see. “${label}” feels like the stability you are trying to protect. That says something important about what would make this season feel safer and less scattered.`;
 }
 
 const STEP_MEANING_BUILDERS = {
@@ -212,22 +225,22 @@ const STEP_MEANING_BUILDERS = {
 
 const BESPOKE_MEANINGS = {
   [WORKING_STUDENT_STAGE_KEY]: {
-    "Supported, learning independence": "Choosing “Supported, learning independence” usually means support still exists, but independence is starting to become real. The pressure is learning how to handle personal money before bigger responsibilities arrive.",
-    "Working to protect school": "Choosing “Working to protect school” usually means work is closely tied to staying in school. Money decisions may feel heavier because income is connected to tuition, requirements, fare, and attendance.",
-    "Studying while helping family": "Choosing “Studying while helping family” usually means student money is connected to people at home, not only personal needs. Helping family can feel meaningful and heavy at the same time.",
-    "Mostly self-supporting": "Choosing “Mostly self-supporting” usually means school and daily survival are being carried with limited support. Food, fare, school costs, and timing gaps can make every peso feel important.",
-    "Exhausted by school-work overlap": "Choosing “Exhausted by school-work overlap” usually means energy is part of the money problem. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking.",
-    "Building with unstable income": "Choosing “Building with unstable income” usually means ambition is present, but the money rhythm is not fully steady yet. Planning can feel hard when future goals are clear but income still changes.",
-    "Recovering from money pressure": "Choosing “Recovering from money pressure” usually means past money stress is still affecting the current season. Even new income can feel less free when old pressure, delayed needs, or recovery spending is still present.",
+    "Supported, learning independence": "Hmm, I see. Support is still there, but you are already learning what it feels like to handle money on your own. This is that in-between season where independence is growing before bigger responsibilities fully arrive.",
+    "Working to protect school": "Hmm, I see. Work is not just extra effort here; it is connected to keeping school moving. Tuition, requirements, fare, and attendance can make money decisions feel heavier than they look.",
+    "Studying while helping family": "Hmm, I see. Your money is not only about your own needs. Helping family while studying can feel meaningful, but it can also make every personal budget decision carry more emotion.",
+    "Mostly self-supporting": "Hmm, I see. You are carrying school and daily survival with limited support. Food, fare, school costs, and timing gaps can make even small amounts feel important.",
+    "Exhausted by school-work overlap": "Hmm, I see. This is not only a money issue; energy is part of it too. When school, work, and rest collide, spending can turn into shortcuts, comfort, or skipped tracking just to get through the day.",
+    "Building with unstable income": "Hmm, I see. The ambition is there, but the money rhythm still shifts. That can make planning feel hard because the future is clear, while the income is not always steady yet.",
+    "Recovering from money pressure": "Hmm, I see. Past money stress is still touching the current season. Even new income can feel less free when old pressure, delayed needs, or recovery spending is still present.",
   },
   [YOUNG_PROFESSIONAL_STAGE_KEY]: {
-    "First stable job": "Choosing “First stable job” usually means income is becoming steadier, but the full rhythm of adult responsibility is still forming. Bills, commute, food, and personal choices may feel new because this stage is still adjusting.",
-    "Independent with bills": "Choosing “Independent with bills” usually means independence now has real monthly obligations attached to it. Rent, utilities, food, and commute can make every spending choice feel more serious.",
-    "Career + family support": "Choosing “Career + family support” usually means salary is carrying both personal growth and family responsibility. Progress can feel slower when home support and career needs compete for the same income.",
-    "Career growth pressure": "Choosing “Career growth pressure” usually means ambition is affecting money decisions. Courses, tools, image, or networking may feel important because career progress feels urgent.",
-    "Salary disappears fast": "Choosing “Salary disappears fast” usually means income looks stable at first but does not stay long enough to feel secure. Repeated costs, lifestyle upgrades, or automatic payments may be quietly taking space.",
-    "Shift/BPO routine": "Choosing “Shift/BPO routine” usually means schedule and energy are part of the money pattern. Sleep, commute, calls, and recovery time can strongly affect food, transport, and comfort spending.",
-    "Debt/pay-later recovery": "Choosing “Debt/pay-later recovery” usually means old obligations are still entering the current salary. Payday may feel less free when past balances or repayments are already waiting.",
+    "First stable job": "Hmm, I see. The income is becoming steadier, but the rhythm of adult responsibility is still forming. Bills, commute, food, and personal choices can feel new because this season is still adjusting.",
+    "Independent with bills": "Hmm, I see. Independence now comes with real monthly obligations. Rent, utilities, food, and commute can make each spending choice feel more serious than before.",
+    "Career + family support": "Hmm, I see. Your salary is carrying both personal growth and family responsibility. Progress can feel slower when home support and career needs compete for the same income.",
+    "Career growth pressure": "Hmm, I see. Ambition is starting to affect money decisions. Courses, tools, image, or networking may feel important because career progress feels urgent.",
+    "Salary disappears fast": "Hmm, I see. The salary looks stable when it arrives, but it does not stay long enough to feel secure. Repeated costs, lifestyle upgrades, or automatic payments may be quietly taking space.",
+    "Shift/BPO routine": "Hmm, I see. Your schedule and energy are part of the money pattern. Sleep, commute, calls, and recovery time can strongly affect food, transport, and comfort spending.",
+    "Debt/pay-later recovery": "Hmm, I see. Old obligations are still entering the current salary. Payday can feel less free when past balances or repayments are already waiting.",
   },
 };
 
