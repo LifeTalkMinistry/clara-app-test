@@ -1,5 +1,6 @@
 import { getStageDefinition } from "./components/fresh/main-dashboard/dashboard-panels/me/lifeStageIntelligenceData";
 import { getWorkingStudentBehaviorProfile } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
+import { YOUNG_PROFESSIONAL_STAGE_KEY, getYoungProfessionalBehaviorProfile } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
 import { getSelectedLifeStageKey, normalizeLifeStageKey } from "./life-stage-flow";
 
 export const LIFE_STAGE_SNAPSHOT = {
@@ -8,8 +9,8 @@ export const LIFE_STAGE_SNAPSHOT = {
     subtitle: "100% split of your current Working Student pressure.",
     cards: [],
   },
-  "Young Professional": {
-    model: "young-professional-static-engine",
+  [YOUNG_PROFESSIONAL_STAGE_KEY]: {
+    model: "young-professional-canonical-engine",
     subtitle: "100% split of your current Young Professional pressure.",
     cards: [],
   },
@@ -57,6 +58,15 @@ export function getLifeStageSnapshot(stageKey = getSelectedLifeStageKey(), profi
     return {
       model: "working-student-canonical-engine",
       subtitle: "100% split of your current Working Student pressure.",
+      cards: behavior.snapshotDistribution || [],
+    };
+  }
+
+  if (normalized === YOUNG_PROFESSIONAL_STAGE_KEY) {
+    const behavior = getYoungProfessionalBehaviorProfile(profile || {});
+    return {
+      model: "young-professional-canonical-engine",
+      subtitle: "100% split of your current Young Professional pressure.",
       cards: behavior.snapshotDistribution || [],
     };
   }
