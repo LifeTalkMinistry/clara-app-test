@@ -1,1 +1,0 @@
-export const FINANCIAL_CLIMATE_UNIVERSAL_CHECK = true;
