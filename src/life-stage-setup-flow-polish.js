@@ -4,6 +4,9 @@ import {
 } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
 import {
   YOUNG_PROFESSIONAL_STAGE_KEY,
+  YOUNG_PROFESSIONAL_ROOTS,
+  YOUNG_PROFESSIONAL_BRANCHES,
+  YOUNG_PROFESSIONAL_DISPLAY_LABELS,
   getYoungProfessionalDisplayLabel,
   getYoungProfessionalQuestionContext,
 } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
@@ -33,6 +36,26 @@ const loud = (value) => clean(value).toUpperCase();
 const isVisible = (node) => !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
 const getStepMeta = (text) => STEP_META[loud(text)] || null;
 
+function collectBranchOptions(branches = {}) {
+  const values = [];
+  Object.values(branches || {}).forEach((branch) => {
+    Object.values(branch || {}).forEach((entry) => {
+      if (Array.isArray(entry)) values.push(...entry);
+      else if (entry && typeof entry === "object") Object.values(entry).forEach((list) => Array.isArray(list) && values.push(...list));
+    });
+  });
+  return values;
+}
+
+const YOUNG_PROFESSIONAL_OPTION_LABELS = new Set(
+  [
+    ...YOUNG_PROFESSIONAL_ROOTS,
+    ...Object.keys(YOUNG_PROFESSIONAL_DISPLAY_LABELS),
+    ...Object.values(YOUNG_PROFESSIONAL_DISPLAY_LABELS),
+    ...collectBranchOptions(YOUNG_PROFESSIONAL_BRANCHES),
+  ].map(loud)
+);
+
 function readProfile() {
   try {
     return JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {};
@@ -50,6 +73,16 @@ function getSelectedOption(section) {
   const buttons = Array.from(section?.querySelectorAll("button") || []);
   const selected = buttons.find(isSelectedButton) || buttons[0];
   return clean(selected?.innerText || selected?.textContent || "");
+}
+
+function getVisibleOptions(section) {
+  return Array.from(section?.querySelectorAll("button") || []).map((button) => clean(button.innerText || button.textContent)).filter(Boolean);
+}
+
+function inferStageFromActiveSection(active) {
+  const options = getVisibleOptions(active?.section);
+  if (options.some((option) => YOUNG_PROFESSIONAL_OPTION_LABELS.has(loud(option)))) return YOUNG_PROFESSIONAL_STAGE_KEY;
+  return "";
 }
 
 function findActiveQuestionSection() {
@@ -139,7 +172,9 @@ function includesAny(value, terms) {
   return terms.some((term) => text.includes(term));
 }
 
-function currentStage() {
+function currentStage(active = null) {
+  const inferred = inferStageFromActiveSection(active);
+  if (inferred) return inferred;
   const profile = readProfile();
   return clean(profile.stage);
 }
@@ -150,8 +185,8 @@ function getDisplayLabelForStage(stage, selectedValue) {
   return getWorkingStudentDisplayLabel(selectedValue) || selectedValue;
 }
 
-function getStageLabelAndProfile(selectedValue, activeKey) {
-  const stage = currentStage();
+function getStageLabelAndProfile(selectedValue, activeKey, active = null) {
+  const stage = currentStage(active);
   if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
     return {
       label: getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue,
@@ -275,7 +310,7 @@ function conciseSelectionMeaning(selectedValue, activeKey, profile, stage) {
 
 function getBoardFromConciseProfile(active) {
   const selectedValue = getSelectedOption(active.section);
-  const { label, profile, stage } = getStageLabelAndProfile(selectedValue, active.meta.key);
+  const { label, profile, stage } = getStageLabelAndProfile(selectedValue, active.meta.key, active);
   return {
     title: profile?.title || label || selectedValue,
     body: conciseSelectionMeaning(selectedValue, active.meta.key, profile, stage),
@@ -288,7 +323,7 @@ function polishContextBoard() {
   if (!active || !header || !summary || !title) return;
   const selectedValue = getSelectedOption(active.section);
   const board = getBoardFromConciseProfile(active);
-  const signature = `${currentStage()}:${active.meta.key}:${selectedValue}:${board?.title}:${board?.body}`;
+  const signature = `${currentStage(active)}:${active.meta.key}:${selectedValue}:${board?.title}:${board?.body}`;
   updateSimpleProgress(header, active.meta.index);
   if (title.dataset.claraSimpleBoardSignature !== signature) {
     title.textContent = board?.title || selectedValue;
