@@ -17,6 +17,7 @@ import "./life-stage-working-student-heart-default-guard";
 import "./life-stage-living-with-partner-reveal";
 import "./life-stage-trend-snapshot";
 import "./life-stage-setup-flow-polish";
+import "./life-stage-young-professional-setup-board-polish";
 import "./life-stage-working-student-identity-context";
 import "./life-stage-apply-diagnosis";
 import App from "./App.jsx";
@@ -124,47 +125,47 @@ const installClaraSupportComposerEnhancer = () => {
       }
       current = current.parentElement;
     }
-
     return null;
   };
 
-  const enhance = () => {
+  const polishSupportPage = () => {
     const page = getSupportPage();
-    if (!page || page.dataset.claraSupportComposerEnhanced === "true") return;
-    const select = page.querySelector("select");
+    if (!page || page.dataset.claraSupportComposeReady === "true") return;
+    page.dataset.claraSupportComposeReady = "true";
+
     const textarea = page.querySelector("textarea");
-    const sendButton = Array.from(page.querySelectorAll("button")).find((button) => /send/i.test(clean(button.textContent)));
-    if (!select || !textarea || !sendButton) return;
+    const select = page.querySelector("select");
+    const sendButton = Array.from(page.querySelectorAll("button")).find((button) => clean(button.textContent).toLowerCase().includes("send"));
+    if (!textarea || !select || !sendButton) return;
 
-    page.dataset.claraSupportComposerEnhanced = "true";
+    const preview = document.createElement("div");
+    preview.className = "clara-support-preview";
+    preview.innerHTML = `
+      <p class="clara-support-preview-label">Email preview</p>
+      <div class="clara-support-preview-body">Write your concern above and CLARA will format it into a clear support email.</div>
+    `;
+    textarea.parentElement?.insertAdjacentElement("afterend", preview);
 
-    const helper = document.createElement("p");
-    helper.className = "text-[10px] leading-relaxed text-slate-400/80 px-1";
-    helper.textContent = "CLARA can help refine your message before sending it.";
+    const previewBody = preview.querySelector(".clara-support-preview-body");
+    const updatePreview = () => {
+      const draft = refineDraft(select.value, textarea.value);
+      previewBody.textContent = draft || "Write your concern above and CLARA will format it into a clear support email.";
+    };
 
-    const refineButton = document.createElement("button");
-    refineButton.type = "button";
-    refineButton.className = "rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 active:scale-[0.98] transition";
-    refineButton.textContent = "Refine message";
+    textarea.addEventListener("input", updatePreview);
+    select.addEventListener("change", updatePreview);
 
-    const row = document.createElement("div");
-    row.className = "flex items-center justify-between gap-2";
-    row.appendChild(helper);
-    row.appendChild(refineButton);
-
-    textarea.insertAdjacentElement("afterend", row);
-
-    refineButton.addEventListener("click", () => {
-      const refined = refineDraft(select.value, textarea.value);
-      if (!refined) return;
-      textarea.value = refined;
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    sendButton.addEventListener("click", (event) => {
+      const draft = refineDraft(select.value, textarea.value);
+      if (!draft) return;
+      event.preventDefault();
+      window.location.href = `mailto:${supportEmail}?subject=${encodeURIComponent(`CLARA Support - ${clean(select.value) || "Concern"}`)}&body=${encodeURIComponent(draft)}`;
+    }, true);
   };
 
-  const observer = new MutationObserver(enhance);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  enhance();
+  const observer = new MutationObserver(polishSupportPage);
+  observer.observe(document.body, { childList: true, subtree: true });
+  polishSupportPage();
 };
 
 try {
