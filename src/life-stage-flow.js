@@ -1,6 +1,7 @@
 import { DEFAULT_STAGE, STAGES, normalizeLifeStage, getStageDefinition } from "./components/fresh/main-dashboard/dashboard-panels/me/lifeStageIntelligenceData";
 import { WORKING_STUDENT_STAGE_KEY, WORKING_STUDENT_QUESTION_ORDER, WORKING_STUDENT_ROOTS, WORKING_STUDENT_BRANCHES, WORKING_STUDENT_RESET_AFTER, WORKING_STUDENT_DISPLAY_LABELS, WORKING_STUDENT_LIFE_STAGE_SOURCE, getWorkingStudentOptions, resetWorkingStudentAfter, completeWorkingStudentDraft, getWorkingStudentQuestionContext } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
 import livingWithPartnerSource, { LIVING_WITH_PARTNER_STAGE_KEY, LIVING_WITH_PARTNER_ROOTS, LIVING_WITH_PARTNER_BRANCHES, LIVING_WITH_PARTNER_QUESTION_ORDER, getLivingWithPartnerOptions, completeLivingWithPartnerDraft, getLivingWithPartnerDisplayLabel } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
+import youngProfessionalSource, { YOUNG_PROFESSIONAL_STAGE_KEY, YOUNG_PROFESSIONAL_QUESTION_ORDER, YOUNG_PROFESSIONAL_ROOTS, YOUNG_PROFESSIONAL_BRANCHES, YOUNG_PROFESSIONAL_RESET_AFTER, YOUNG_PROFESSIONAL_DISPLAY_LABELS, getYoungProfessionalOptions, resetYoungProfessionalAfter, completeYoungProfessionalDraft, getYoungProfessionalQuestionContext } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
 
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 
@@ -14,9 +15,9 @@ const STANDARD_RESET_AFTER = {
 };
 
 export const STAGE_ALIASES = {
-  youngprofessional: "Young Professional",
-  youngprofessionals: "Young Professional",
-  youngpro: "Young Professional",
+  youngprofessional: YOUNG_PROFESSIONAL_STAGE_KEY,
+  youngprofessionals: YOUNG_PROFESSIONAL_STAGE_KEY,
+  youngpro: YOUNG_PROFESSIONAL_STAGE_KEY,
   workingstudent: WORKING_STUDENT_STAGE_KEY,
   livingwithpartner: LIVING_WITH_PARTNER_STAGE_KEY,
   familyhousehold: "Family Household",
@@ -30,7 +31,7 @@ export const STAGE_ALIASES = {
 };
 
 export const LIFE_STAGE_ICONS = {
-  "Young Professional": "briefcase",
+  [YOUNG_PROFESSIONAL_STAGE_KEY]: "briefcase",
   [WORKING_STUDENT_STAGE_KEY]: "graduation-cap",
   [LIVING_WITH_PARTNER_STAGE_KEY]: "heart",
   "Family Household": "users",
@@ -41,7 +42,7 @@ export const LIFE_STAGE_ICONS = {
 };
 
 export const LIFE_STAGE_CONTEXT_BOARD = {
-  "Young Professional": "People in this stage are building independence while balancing salary rhythm, career pressure, lifestyle upgrades, and future stability.",
+  [YOUNG_PROFESSIONAL_STAGE_KEY]: "People in this stage are building independence while balancing salary rhythm, career pressure, lifestyle upgrades, and future stability.",
   [WORKING_STUDENT_STAGE_KEY]: "People in this stage are balancing classes, work hours, assignments, commute, and limited money while trying to build their future.",
   [LIVING_WITH_PARTNER_STAGE_KEY]: "People in this stage are learning how shared life, shared costs, boundaries, and emotional responsibility affect money decisions.",
   "Family Household": "People in this stage are balancing home contribution, family requests, shared bills, and personal boundaries.",
@@ -79,9 +80,7 @@ export function saveSelectedLifeStageProfile(profile = {}) {
   try {
     window.localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new Event("clara:life-stage-profile-updated"));
-  } catch {
-    // Life stage persistence should never block the UI.
-  }
+  } catch {}
   return next;
 }
 
@@ -120,6 +119,18 @@ export const LIFE_STAGE_FLOW = {
     };
   }),
   questions: {
+    [YOUNG_PROFESSIONAL_STAGE_KEY]: {
+      order: YOUNG_PROFESSIONAL_QUESTION_ORDER,
+      roots: YOUNG_PROFESSIONAL_ROOTS,
+      branches: YOUNG_PROFESSIONAL_BRANCHES,
+      resetAfter: YOUNG_PROFESSIONAL_RESET_AFTER,
+      displayLabels: YOUNG_PROFESSIONAL_DISPLAY_LABELS,
+      source: youngProfessionalSource,
+      getOptions: getYoungProfessionalOptions,
+      completeDraft: completeYoungProfessionalDraft,
+      resetAfterKey: resetYoungProfessionalAfter,
+      getQuestionContext: getYoungProfessionalQuestionContext,
+    },
     [WORKING_STUDENT_STAGE_KEY]: {
       order: WORKING_STUDENT_QUESTION_ORDER,
       roots: WORKING_STUDENT_ROOTS,
@@ -146,6 +157,7 @@ export const LIFE_STAGE_FLOW = {
     },
   },
   summaries: {
+    [YOUNG_PROFESSIONAL_STAGE_KEY]: {},
     [WORKING_STUDENT_STAGE_KEY]: {},
     [LIVING_WITH_PARTNER_STAGE_KEY]: {},
   },
