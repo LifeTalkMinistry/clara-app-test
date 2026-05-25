@@ -1,6 +1,5 @@
-import { getWorkingStudentBehaviorProfile, WORKING_STUDENT_STAGE_KEY } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
-
-const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
+import { getLifeStageSnapshot } from "./life-stage-snapshot";
+import { readSelectedLifeStageProfile, getSelectedLifeStageKey } from "./life-stage-flow";
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -10,15 +9,6 @@ function setText(node, value) {
   if (!node) return;
   const next = String(value || "");
   if (node.textContent !== next) node.textContent = next;
-}
-
-function readLifeStageProfile() {
-  if (typeof window === "undefined") return null;
-  try {
-    return JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "null");
-  } catch {
-    return null;
-  }
 }
 
 const TREND_PATHS = {
@@ -66,8 +56,8 @@ function applyDistributionToCards(section, distribution) {
     item.card.dataset.claraSnapshotLabel = data.label;
     item.card.dataset.claraSnapshotValue = String(data.value);
     item.card.dataset.claraSnapshotStatus = data.status;
-    item.card.dataset.claraSnapshotNote = data.note || "This card reflects part of the current Working Student pressure distribution.";
-    item.card.dataset.claraSnapshotInsight = data.insight || "This pattern is part of the student's current behavioral reality.";
+    item.card.dataset.claraSnapshotNote = data.note || "This card reflects part of the current life stage pressure distribution.";
+    item.card.dataset.claraSnapshotInsight = data.insight || "This pattern is part of the current behavioral reality.";
     item.card.dataset.claraSnapshotAction = data.action || "Choose one smaller next step before pressure gets heavier.";
     item.card.dataset.claraSnapshotTrend = data.trendType || "wave";
     item.card.dataset.claraSnapshotCategory = data.category || "stability";
@@ -78,9 +68,9 @@ function applyDistributionToCards(section, distribution) {
   });
 }
 
-function updateSnapshotSubtitle(section) {
+function updateSnapshotSubtitle(section, subtitleText) {
   const subtitle = Array.from(section.querySelectorAll("p")).find((node) => clean(node.textContent) === "Swipe the stage cards." || clean(node.textContent).includes("100% split"));
-  if (subtitle) setText(subtitle, "100% split of your current Working Student pressure.");
+  if (subtitle) setText(subtitle, subtitleText);
 }
 
 function rememberClickedCard(event) {
@@ -88,7 +78,7 @@ function rememberClickedCard(event) {
   if (!section) return;
   const card = event.target?.closest?.("button[data-clara-snapshot-label]");
   if (!card || !section.contains(card)) return;
-  window.__CLARA_LAST_WORKING_STUDENT_SNAPSHOT__ = {
+  window.__CLARA_LAST_LIFE_STAGE_SNAPSHOT__ = {
     label: card.dataset.claraSnapshotLabel,
     value: card.dataset.claraSnapshotValue,
     status: card.dataset.claraSnapshotStatus,
@@ -159,7 +149,7 @@ function enhanceOpenedTrendModal() {
     return text === "Source direction" || text === "SOURCE DIRECTION" || text === "Source detection" || text === "Sources" || text === "Snapshot basis";
   });
   const modal = sourceHeading?.closest(".absolute");
-  const snapshot = window.__CLARA_LAST_WORKING_STUDENT_SNAPSHOT__;
+  const snapshot = window.__CLARA_LAST_LIFE_STAGE_SNAPSHOT__;
   if (!sourceHeading || !modal || !snapshot) return;
 
   const title = modal.querySelector("h4");
@@ -185,20 +175,20 @@ function enhanceOpenedTrendModal() {
 }
 
 function enhanceTrendSnapshot() {
-  const profile = readLifeStageProfile();
+  const profile = readSelectedLifeStageProfile() || {};
+  const stage = profile.stage || getSelectedLifeStageKey();
   const section = findTrendSnapshotSection();
-  if (!section || profile?.stage !== WORKING_STUDENT_STAGE_KEY) return;
-
-  const behavior = getWorkingStudentBehaviorProfile(profile);
+  if (!section) return;
+  const snapshot = getLifeStageSnapshot(stage, profile);
   section.dataset.claraTrendSnapshot = "true";
-  section.dataset.claraSnapshotModel = "working-student-canonical-engine";
-  applyDistributionToCards(section, behavior.snapshotDistribution || []);
-  updateSnapshotSubtitle(section);
+  section.dataset.claraSnapshotModel = snapshot.model;
+  applyDistributionToCards(section, snapshot.cards || []);
+  updateSnapshotSubtitle(section, snapshot.subtitle);
   enhanceOpenedTrendModal();
 }
 
-if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_WORKING_STUDENT_CANONICAL_SNAPSHOT__) {
-  window.__CLARA_WORKING_STUDENT_CANONICAL_SNAPSHOT__ = true;
+if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_LIFE_STAGE_CANONICAL_SNAPSHOT__) {
+  window.__CLARA_LIFE_STAGE_CANONICAL_SNAPSHOT__ = true;
   let scheduled = false;
   const scheduleEnhance = () => {
     if (scheduled) return;
@@ -216,5 +206,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
     window.setTimeout(scheduleEnhance, 80);
   }, { passive: true, capture: true });
   window.addEventListener("storage", scheduleEnhance);
+  window.addEventListener("clara:life-stage-profile-updated", scheduleEnhance, { passive: true });
   window.requestAnimationFrame(scheduleEnhance);
 }
