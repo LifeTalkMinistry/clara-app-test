@@ -1,45 +1,6 @@
-const PRESSURE_SIGNALS = [
-  {
-    id: "tired",
-    icon: "😴",
-    label: "Tired",
-    title: "Tired decisions get expensive.",
-    watch: "Watch for food delivery, rides, small treats, or skipped tracking when your body is asking for recovery.",
-    tip: "Before spending, pause for one cheaper recovery move first: water, food, 10 minutes of rest, or checking your remaining budget.",
-  },
-  {
-    id: "stress",
-    icon: "🧠",
-    label: "Stressed",
-    title: "Stress can make relief feel urgent.",
-    watch: "Watch for buying something just to feel in control after school, work, commute, deadlines, or family pressure.",
-    tip: "Name the pressure first. If the purchase is only for relief, set a small limit before you buy.",
-  },
-  {
-    id: "sleepy",
-    icon: "🌙",
-    label: "Sleepy",
-    title: "Low sleep weakens money control.",
-    watch: "Watch for automatic spending, missed budget checks, caffeine runs, and convenience choices because planning feels too heavy.",
-    tip: "Do not make big money decisions while sleepy. Save it, sleep first, then decide when your brain is clearer.",
-  },
-  {
-    id: "hungry",
-    icon: "🍜",
-    label: "Hungry",
-    title: "Hunger can turn into impulse spending.",
-    watch: "Watch for overspending on meals, snacks, drinks, or treats because you waited too long to eat.",
-    tip: "Protect a small food buffer. Eating on time is not weakness; it prevents bigger emotional spending later.",
-  },
-  {
-    id: "pressure",
-    icon: "⏰",
-    label: "Time Pressure",
-    title: "Time pressure becomes money pressure.",
-    watch: "Watch for paying more because you are rushing: transport, convenience food, forgotten supplies, or last-minute school costs.",
-    tip: "Pick one predictable pressure today and prepare it early, even if the plan is small.",
-  },
-];
+import { getLifeStageSignals, getLifeStageSignal } from "./life-stage-signals";
+import { getLifeStageGuidance } from "./life-stage-guidance";
+import { readSelectedLifeStageProfile, getSelectedLifeStageKey } from "./life-stage-flow";
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -71,8 +32,52 @@ function findSnapshot(container) {
   return Array.from(container?.children || []).find((node) => node.matches?.("section[data-clara-trend-snapshot='true']")) || null;
 }
 
-function findSignal(id) {
-  return PRESSURE_SIGNALS.find((signal) => signal.id === id) || PRESSURE_SIGNALS[0];
+function setText(node, value) {
+  if (!node) return;
+  const next = String(value || "");
+  if (node.textContent !== next) node.textContent = next;
+}
+
+function getProfile() {
+  return readSelectedLifeStageProfile() || {};
+}
+
+function getStage() {
+  return getProfile().stage || getSelectedLifeStageKey();
+}
+
+function getMode(card) {
+  return card?.dataset?.claraSignalMode === "guidance" ? "guidance" : "awareness";
+}
+
+function applySupportCopy(card, signalId, mode = "awareness") {
+  const profile = getProfile();
+  const stage = profile.stage || getSelectedLifeStageKey();
+  const copy = getLifeStageGuidance(stage, { signalId, mode, profile });
+  const title = card?.querySelector("h3");
+  const body = title?.nextElementSibling;
+  if (!card || !title || !body) return;
+  card.dataset.claraSupportCard = "true";
+  card.dataset.claraSelectedSignal = signalId || "default";
+  card.dataset.claraSignalMode = mode;
+  card.dataset.claraSignalCardActive = signalId ? "true" : "false";
+  setText(title, copy.title);
+  setText(body, copy.body);
+}
+
+function markHeart(card) {
+  const heart = card?.querySelector("[data-clara-heart-cta='true']") || card?.querySelector("svg")?.closest("button,[role='button'],div");
+  if (!heart) return;
+  heart.dataset.claraHeartCta = "true";
+  heart.setAttribute("role", "button");
+  heart.setAttribute("tabindex", "0");
+  heart.setAttribute("aria-label", "Show guidance for selected signal");
+}
+
+function setActiveIcon(signalId) {
+  document.querySelectorAll("[data-clara-pressure-signal]").forEach((button) => {
+    button.dataset.active = button.dataset.claraPressureSignal === signalId ? "true" : "false";
+  });
 }
 
 function ensureStyles() {
@@ -80,230 +85,40 @@ function ensureStyles() {
   const style = document.createElement("style");
   style.id = "clara-pressure-signals-bridge-styles";
   style.textContent = `
-    #root [data-clara-pressure-signals="true"] {
-      position: relative !important;
-      z-index: 7 !important;
-      display: block !important;
-      width: auto !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
-      padding: 4px 8px !important;
-      border-radius: 999px !important;
-      border: 1px solid rgba(255,255,255,.075) !important;
-      background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14), 0 0 18px rgba(45,212,191,.018) !important;
-      backdrop-filter: blur(22px) saturate(1.12) !important;
-      -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
-      overflow: hidden !important;
-      box-sizing: border-box !important;
-      justify-self: center !important;
-      max-width: calc(100% - 18px) !important;
-    }
-
-    #root [data-clara-pressure-signals="true"]::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: linear-gradient(115deg, rgba(255,255,255,.040), transparent 36%, rgba(255,255,255,.014));
-      opacity: .72;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-track {
-      position: relative !important;
-      z-index: 2 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 8px !important;
-      height: 100% !important;
-      overflow-x: auto !important;
-      overflow-y: hidden !important;
-      padding: 0 2px !important;
-      scrollbar-width: none !important;
-    }
-
+    #root [data-clara-pressure-signals="true"] { position: relative !important; z-index: 7 !important; display: block !important; width: auto !important; margin-left: auto !important; margin-right: auto !important; padding: 4px 8px !important; border-radius: 999px !important; border: 1px solid rgba(255,255,255,.075) !important; background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14), 0 0 18px rgba(45,212,191,.018) !important; backdrop-filter: blur(22px) saturate(1.12) !important; -webkit-backdrop-filter: blur(22px) saturate(1.12) !important; overflow: hidden !important; box-sizing: border-box !important; justify-self: center !important; max-width: calc(100% - 18px) !important; }
+    #root [data-clara-pressure-signals="true"]::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,.040), transparent 36%, rgba(255,255,255,.014)); opacity: .72; }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-track { position: relative !important; z-index: 2 !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; height: 100% !important; overflow-x: auto !important; overflow-y: hidden !important; padding: 0 2px !important; scrollbar-width: none !important; }
     #root [data-clara-pressure-signals="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
-      flex: 0 0 32px !important;
-      display: grid !important;
-      place-items: center !important;
-      width: 32px !important;
-      min-width: 32px !important;
-      max-width: 32px !important;
-      height: 32px !important;
-      min-height: 32px !important;
-      max-height: 32px !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      border-radius: 999px !important;
-      border: 1px solid rgba(255,255,255,.10) !important;
-      background: rgba(255,255,255,.045) !important;
-      color: rgba(255,255,255,.86) !important;
-      font-size: 15px !important;
-      font-weight: 900 !important;
-      line-height: 1 !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important;
-      backdrop-filter: blur(16px) !important;
-      -webkit-backdrop-filter: blur(16px) !important;
-      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip:active {
-      transform: scale(.92) !important;
-      border-color: rgba(165,243,252,.28) !important;
-      background: rgba(125,211,252,.075) !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip span {
-      display: block !important;
-      width: auto !important;
-      height: auto !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      border-radius: 0 !important;
-      background: transparent !important;
-      font-size: 15px !important;
-      line-height: 1 !important;
-      box-shadow: none !important;
-    }
-
-    #root [data-clara-pressure-signals="true"] .clara-pressure-chip strong,
-    #root [data-clara-pressure-signals="true"] .clara-pressure-label {
-      display: none !important;
-    }
-
-    #root [data-clara-pressure-tip-panel="true"] {
-      position: absolute;
-      left: 14px;
-      right: 14px;
-      bottom: 18px;
-      z-index: 95;
-      overflow: hidden;
-      border-radius: 28px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: radial-gradient(circle at 8% 0%, rgba(45,212,191,.13), transparent 34%), radial-gradient(circle at 96% 12%, rgba(167,139,250,.18), transparent 38%), rgba(4,9,24,.94);
-      box-shadow: 0 26px 80px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.08);
-      backdrop-filter: blur(30px) saturate(1.18);
-      -webkit-backdrop-filter: blur(30px) saturate(1.18);
-    }
-
-    #root [data-clara-pressure-tip-panel="true"] .clara-pressure-tip-inner { padding: 16px; }
-    #root [data-clara-pressure-tip-panel="true"] .clara-pressure-tip-icon {
-      display: grid;
-      place-items: center;
-      width: 42px;
-      height: 42px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.055);
-      font-size: 20px;
-    }
-    #root [data-clara-pressure-tip-panel="true"] .clara-pressure-tip-kicker {
-      margin: 0;
-      color: rgba(165,243,252,.52);
-      font-size: 8px;
-      font-weight: 1000;
-      letter-spacing: .18em;
-      text-transform: uppercase;
-    }
-    #root [data-clara-pressure-tip-panel="true"] h4 {
-      margin: 6px 0 0;
-      color: rgba(255,255,255,.96);
-      font-size: 17px;
-      font-weight: 1000;
-      line-height: 1.08;
-      letter-spacing: -.035em;
-    }
-    #root [data-clara-pressure-tip-panel="true"] .clara-pressure-tip-box {
-      margin-top: 12px;
-      padding: 12px;
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,.075);
-      background: rgba(255,255,255,.035);
-    }
-    #root [data-clara-pressure-tip-panel="true"] .clara-pressure-tip-box p:first-child {
-      margin: 0;
-      color: rgba(255,255,255,.38);
-      font-size: 8px;
-      font-weight: 1000;
-      letter-spacing: .16em;
-      text-transform: uppercase;
-    }
-    #root [data-clara-pressure-tip-panel="true"] .clara-pressure-tip-box p:last-child {
-      margin: 6px 0 0;
-      color: rgba(255,255,255,.68);
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.55;
-    }
-    #root [data-clara-pressure-close="true"] {
-      display: grid;
-      place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.05);
-      color: rgba(255,255,255,.68);
-      font-size: 18px;
-      font-weight: 900;
-    }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip { flex: 0 0 32px !important; display: grid !important; place-items: center !important; width: 32px !important; min-width: 32px !important; max-width: 32px !important; height: 32px !important; min-height: 32px !important; max-height: 32px !important; padding: 0 !important; margin: 0 !important; border-radius: 999px !important; border: 1px solid rgba(255,255,255,.10) !important; background: rgba(255,255,255,.045) !important; color: rgba(255,255,255,.86) !important; font-size: 15px !important; font-weight: 900 !important; line-height: 1 !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; transition: transform 160ms ease, border-color 160ms ease, background 160ms ease !important; }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip:active { transform: scale(.92) !important; border-color: rgba(165,243,252,.28) !important; background: rgba(125,211,252,.075) !important; }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip[data-active="true"] { border-color: rgba(165,243,252,.36) !important; background: radial-gradient(circle at 50% 0%, rgba(125,211,252,.20), rgba(255,255,255,.06)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 0 18px rgba(34,211,238,.16) !important; }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip span { display: block !important; width: auto !important; height: auto !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; background: transparent !important; font-size: 15px !important; line-height: 1 !important; box-shadow: none !important; }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip strong, #root [data-clara-pressure-signals="true"] .clara-pressure-label { display: none !important; }
   `;
   document.head.appendChild(style);
 }
 
 function renderSignals(section) {
-  const signature = PRESSURE_SIGNALS.map((signal) => signal.id).join("|");
+  const stage = getStage();
+  const signals = getLifeStageSignals(stage);
+  const signature = `${stage}|${signals.map((signal) => signal.id).join("|")}`;
   if (section.dataset.pressureSignature === signature) return;
   section.dataset.pressureSignature = signature;
   section.innerHTML = `
     <div class="clara-pressure-track" aria-label="Today pressure signals">
-      ${PRESSURE_SIGNALS.map(
-        (signal) => `
-          <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Open ${signal.label} tips" title="${signal.label}">
-            <span aria-hidden="true">${signal.icon}</span>
-            <strong>${signal.label}</strong>
-          </button>
-        `
-      ).join("")}
+      ${signals.map((signal) => `
+        <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="${signal.ariaLabel || signal.label}" title="${signal.label}">
+          <span aria-hidden="true">${signal.icon}</span>
+          <strong>${signal.label}</strong>
+        </button>
+      `).join("")}
     </div>
   `;
-}
-
-function closeTip(container) {
-  container?.querySelectorAll?.("[data-clara-pressure-tip-panel='true']").forEach((node) => node.remove());
-}
-
-function openTip(container, signal) {
-  closeTip(container);
-  const panel = document.createElement("div");
-  panel.dataset.claraPressureTipPanel = "true";
-  panel.innerHTML = `
-    <div class="clara-pressure-tip-inner">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-        <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-          <div class="clara-pressure-tip-icon">${signal.icon}</div>
-          <div style="min-width:0;">
-            <p class="clara-pressure-tip-kicker">Pressure signal</p>
-            <h4>${signal.title}</h4>
-          </div>
-        </div>
-        <button type="button" data-clara-pressure-close="true" aria-label="Close pressure tip">×</button>
-      </div>
-      <div class="clara-pressure-tip-box"><p>Watch out for</p><p>${signal.watch}</p></div>
-      <div class="clara-pressure-tip-box"><p>CLARA tip</p><p>${signal.tip}</p></div>
-    </div>
-  `;
-  panel.querySelector("[data-clara-pressure-close='true']")?.addEventListener("click", () => closeTip(container));
-  container.appendChild(panel);
 }
 
 function normalizeDockElement(container) {
   const existing = Array.from(container.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
   if (!existing || existing.tagName !== "SECTION") return existing;
-
   const replacement = document.createElement("div");
   replacement.dataset.claraPressureSignals = "true";
   replacement.dataset.pressureSignature = existing.dataset.pressureSignature || "";
@@ -315,7 +130,6 @@ function normalizeDockElement(container) {
 
 function enhanceSignals() {
   ensureStyles();
-
   const hero = findLifeStageHero();
   const support = findSupportCard(hero);
   const container = support?.parentElement || hero?.parentElement || null;
@@ -331,6 +145,7 @@ function enhanceSignals() {
     support.insertAdjacentElement("afterend", dock);
   }
 
+  markHeart(support);
   renderSignals(dock);
 
   if (dock.dataset.pressureReady === "true") return;
@@ -338,13 +153,29 @@ function enhanceSignals() {
   dock.addEventListener("click", (event) => {
     const button = event.target?.closest?.("[data-clara-pressure-signal]");
     if (!button) return;
-    openTip(container, findSignal(button.dataset.claraPressureSignal));
+    event.preventDefault();
+    event.stopPropagation();
+    const signalId = button.dataset.claraPressureSignal;
+    setActiveIcon(signalId);
+    applySupportCopy(support, signalId, "awareness");
   });
+}
+
+function handleHeart(event) {
+  const heart = event.target?.closest?.("[data-clara-heart-cta='true']");
+  if (!heart) return;
+  const hero = findLifeStageHero();
+  const card = findSupportCard(hero);
+  if (!card || !card.contains(heart)) return;
+  const signalId = clean(card.dataset.claraSelectedSignal) || getLifeStageSignal(getStage())?.id;
+  if (!signalId || signalId === "default") return;
+  event.preventDefault();
+  event.stopPropagation();
+  applySupportCopy(card, signalId, getMode(card) === "guidance" ? "awareness" : "guidance");
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_LIFE_PRESSURE_SIGNALS__) {
   window.__CLARA_LIFE_PRESSURE_SIGNALS__ = true;
-
   let scheduled = false;
   const schedule = () => {
     if (scheduled) return;
@@ -354,10 +185,11 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
       enhanceSignals();
     });
   };
-
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true });
   window.addEventListener("storage", schedule, { passive: true });
+  window.addEventListener("clara:life-stage-profile-updated", schedule, { passive: true });
+  document.addEventListener("click", handleHeart, true);
   document.addEventListener("click", () => window.setTimeout(schedule, 80), { passive: true });
   schedule();
 }
