@@ -17,7 +17,6 @@ import "./life-stage-working-student-heart-default-guard";
 import "./life-stage-living-with-partner-reveal";
 import "./life-stage-trend-snapshot";
 import "./life-stage-setup-flow-polish";
-import "./life-stage-young-professional-setup-board-polish";
 import "./life-stage-working-student-identity-context";
 import "./life-stage-apply-diagnosis";
 import App from "./App.jsx";
