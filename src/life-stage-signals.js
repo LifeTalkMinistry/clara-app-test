@@ -1,5 +1,6 @@
 import { getSelectedLifeStageKey, normalizeLifeStageKey } from "./life-stage-flow";
 import { LIVING_WITH_PARTNER_STAGE_KEY, getLivingWithPartnerSignals } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
+import { YOUNG_PROFESSIONAL_STAGE_KEY, getYoungProfessionalSignals } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
 
 export const LIFE_STAGE_SIGNAL_REGISTRY = {
   "Working Student": [
@@ -11,15 +12,12 @@ export const LIFE_STAGE_SIGNAL_REGISTRY = {
     { id: "moneyTiming", icon: "💸", label: "Money Timing", ariaLabel: "Money Timing" },
     { id: "commute", icon: "🚌", label: "Commute Pressure", ariaLabel: "Commute Pressure" }
   ],
-  "Young Professional": [
-    { id: "ypWorkStress", icon: "💼", label: "Work Stress", ariaLabel: "Work Stress" },
-    { id: "ypBills", icon: "🧾", label: "Bills", ariaLabel: "Bills" },
-    { id: "ypLifestyle", icon: "🛋️", label: "Lifestyle", ariaLabel: "Lifestyle" },
-    { id: "ypCareer", icon: "📈", label: "Career Pressure", ariaLabel: "Career Pressure" },
-    { id: "ypBurnout", icon: "😵", label: "Burnout", ariaLabel: "Burnout" },
-    { id: "moneyTiming", icon: "💸", label: "Money Timing", ariaLabel: "Money Timing" },
-    { id: "commute", icon: "🚌", label: "Commute Pressure", ariaLabel: "Commute Pressure" }
-  ],
+  [YOUNG_PROFESSIONAL_STAGE_KEY]: getYoungProfessionalSignals().map((signal) => ({
+    id: signal.key,
+    icon: signal.icon,
+    label: signal.label,
+    ariaLabel: signal.label,
+  })),
   [LIVING_WITH_PARTNER_STAGE_KEY]: getLivingWithPartnerSignals().map((signal) => ({
     id: signal.key,
     icon: signal.icon,
