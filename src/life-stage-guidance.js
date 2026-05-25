@@ -1,5 +1,6 @@
 import { getStageDefinition } from "./components/fresh/main-dashboard/dashboard-panels/me/lifeStageIntelligenceData";
 import { getSelectedLifeStageKey, normalizeLifeStageKey } from "./life-stage-flow";
+import { LIVING_WITH_PARTNER_STAGE_KEY, getLivingWithPartnerSupportCopy, getLivingWithPartnerSignalCopy } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -140,7 +141,10 @@ export function getLifeStageGuidance(stageKey = getSelectedLifeStageKey(), optio
   const { signalId = null, mode = "awareness", profile = null } = options;
   const normalized = normalizeLifeStageKey(stageKey);
   const stage = LIFE_STAGE_GUIDANCE[normalized] || getGenericStageGuidance(normalized);
+
   if (normalized === "Working Student" && !signalId && mode !== "guidance") return getWorkingStudentSupportCopy(profile || {});
+  if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && signalId) return getLivingWithPartnerSignalCopy(signalId, mode);
+  if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && mode !== "guidance") return getLivingWithPartnerSupportCopy(profile || {});
   if (signalId && stage.signals?.[signalId]) return stage.signals[signalId][mode] || stage.signals[signalId].awareness;
   if (mode === "guidance") return stage.defaultGuidance || stage.defaultAwareness;
   return stage.defaultAwareness;
