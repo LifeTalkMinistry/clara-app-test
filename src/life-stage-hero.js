@@ -23,13 +23,15 @@ function hero(stageKey, mood, shortDescription) {
 export const LIFE_STAGE_HERO = {
   "Young Professional": hero("Young Professional", "career-building", "Early independence, career identity, lifestyle pressure, and first real money systems are forming."),
   "Working Student": hero("Working Student", "night-study", "There is still planning capacity, boundary-setting, or a strength-based control signal."),
-  "Living With Partner": hero("Living With Partner", "shared-life", "Shared life, shared costs, and emotional boundaries are shaping money decisions."),
+  "Living with Partner": hero("Living with Partner", "shared-life", "Shared life, shared costs, and emotional boundaries are shaping money decisions."),
   "Family Household": hero("Family Household", "home-responsibility", "Home routines, contribution expectations, family needs, and personal boundaries influence money behavior."),
   "Single Parent": hero("Single Parent", "protective-season", "Child-centered essentials, time pressure, emotional energy, and emergency safety need careful protection."),
   "Full-Time Earner": hero("Full-Time Earner", "routine-earning", "Stable work, salary cycles, family responsibility, fatigue, and lifestyle creep become the quiet patterns to watch."),
   "Freelance Season": hero("Freelance Season", "flexible-income", "Income timing, client flow, dry months, boundaries, and buffers matter more than perfect planning."),
   "Business Builder": hero("Business Builder", "building-season", "Operating costs, reinvestment, sales swings, personal income, and decision pressure can easily mix."),
 };
+
+LIFE_STAGE_HERO["Living With Partner"] = LIFE_STAGE_HERO["Living with Partner"];
 
 export function getLifeStageHero(stageKey = getSelectedLifeStageKey()) {
   const normalized = normalizeLifeStageKey(stageKey);
