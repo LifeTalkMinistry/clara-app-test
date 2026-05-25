@@ -1,6 +1,9 @@
 import {
+  WORKING_STUDENT_STAGE_KEY,
+  WORKING_STUDENT_ROOTS,
+  WORKING_STUDENT_BRANCHES,
+  WORKING_STUDENT_DISPLAY_LABELS,
   getWorkingStudentDisplayLabel,
-  getWorkingStudentOptionProfile,
 } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
 import {
   YOUNG_PROFESSIONAL_STAGE_KEY,
@@ -8,12 +11,12 @@ import {
   YOUNG_PROFESSIONAL_BRANCHES,
   YOUNG_PROFESSIONAL_DISPLAY_LABELS,
   getYoungProfessionalDisplayLabel,
-  getYoungProfessionalQuestionContext,
 } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
 import {
   LIVING_WITH_PARTNER_STAGE_KEY,
+  LIVING_WITH_PARTNER_ROOTS,
+  LIVING_WITH_PARTNER_BRANCHES,
   getLivingWithPartnerDisplayLabel,
-  getLivingWithPartnerOptionProfile,
 } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
 
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
@@ -30,9 +33,20 @@ const STEP_META = {
   "WHAT TO PROTECT": { key: "goal", label: "WHAT TO PROTECT", question: "What are you trying to protect most right now?", index: 5 },
 };
 
-const STAGE_NAMES = ["Working Student", "Young Professional", "Living with Partner", "Family Household", "Single Parent", "Full-Time Earner", "Freelance Season", "Business Builder"];
+const STAGE_NAMES = [
+  WORKING_STUDENT_STAGE_KEY,
+  YOUNG_PROFESSIONAL_STAGE_KEY,
+  LIVING_WITH_PARTNER_STAGE_KEY,
+  "Family Household",
+  "Single Parent",
+  "Full-Time Earner",
+  "Freelance Season",
+  "Business Builder",
+];
+
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const loud = (value) => clean(value).toUpperCase();
+const lower = (value) => clean(value).toLowerCase();
 const isVisible = (node) => !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
 const getStepMeta = (text) => STEP_META[loud(text)] || null;
 
@@ -41,20 +55,32 @@ function collectBranchOptions(branches = {}) {
   Object.values(branches || {}).forEach((branch) => {
     Object.values(branch || {}).forEach((entry) => {
       if (Array.isArray(entry)) values.push(...entry);
-      else if (entry && typeof entry === "object") Object.values(entry).forEach((list) => Array.isArray(list) && values.push(...list));
+      else if (entry && typeof entry === "object") {
+        Object.values(entry).forEach((list) => {
+          if (Array.isArray(list)) values.push(...list);
+        });
+      }
     });
   });
   return values;
 }
 
-const YOUNG_PROFESSIONAL_OPTION_LABELS = new Set(
-  [
-    ...YOUNG_PROFESSIONAL_ROOTS,
-    ...Object.keys(YOUNG_PROFESSIONAL_DISPLAY_LABELS),
-    ...Object.values(YOUNG_PROFESSIONAL_DISPLAY_LABELS),
-    ...collectBranchOptions(YOUNG_PROFESSIONAL_BRANCHES),
-  ].map(loud)
-);
+function makeOptionSet(roots = [], branches = {}, displayLabels = {}) {
+  return new Set(
+    [
+      ...roots,
+      ...collectBranchOptions(branches),
+      ...Object.keys(displayLabels),
+      ...Object.values(displayLabels),
+    ].map(loud)
+  );
+}
+
+const STAGE_OPTION_SETS = {
+  [WORKING_STUDENT_STAGE_KEY]: makeOptionSet(WORKING_STUDENT_ROOTS, WORKING_STUDENT_BRANCHES, WORKING_STUDENT_DISPLAY_LABELS),
+  [YOUNG_PROFESSIONAL_STAGE_KEY]: makeOptionSet(YOUNG_PROFESSIONAL_ROOTS, YOUNG_PROFESSIONAL_BRANCHES, YOUNG_PROFESSIONAL_DISPLAY_LABELS),
+  [LIVING_WITH_PARTNER_STAGE_KEY]: makeOptionSet(LIVING_WITH_PARTNER_ROOTS, LIVING_WITH_PARTNER_BRANCHES),
+};
 
 function readProfile() {
   try {
@@ -76,13 +102,24 @@ function getSelectedOption(section) {
 }
 
 function getVisibleOptions(section) {
-  return Array.from(section?.querySelectorAll("button") || []).map((button) => clean(button.innerText || button.textContent)).filter(Boolean);
+  return Array.from(section?.querySelectorAll("button") || [])
+    .map((button) => clean(button.innerText || button.textContent))
+    .filter(Boolean);
 }
 
 function inferStageFromActiveSection(active) {
-  const options = getVisibleOptions(active?.section);
-  if (options.some((option) => YOUNG_PROFESSIONAL_OPTION_LABELS.has(loud(option)))) return YOUNG_PROFESSIONAL_STAGE_KEY;
-  return "";
+  const options = getVisibleOptions(active?.section).map(loud);
+  const candidates = Object.entries(STAGE_OPTION_SETS)
+    .map(([stage, set]) => ({ stage, score: options.filter((option) => set.has(option)).length }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return candidates[0]?.stage || "";
+}
+
+function currentStage(active = null) {
+  const inferred = inferStageFromActiveSection(active);
+  if (inferred) return inferred;
+  return clean(readProfile().stage) || WORKING_STUDENT_STAGE_KEY;
 }
 
 function findActiveQuestionSection() {
@@ -168,152 +205,106 @@ function polishQuestionCards() {
 }
 
 function includesAny(value, terms) {
-  const text = clean(value).toLowerCase();
+  const text = lower(value);
   return terms.some((term) => text.includes(term));
 }
 
-function currentStage(active = null) {
-  const inferred = inferStageFromActiveSection(active);
-  if (inferred) return inferred;
-  const profile = readProfile();
-  return clean(profile.stage);
-}
-
-function getDisplayLabelForStage(stage, selectedValue) {
-  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) return getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue;
+function titleFor(stage, selectedValue) {
   if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) return getYoungProfessionalDisplayLabel(selectedValue) || selectedValue;
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) return getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue;
   return getWorkingStudentDisplayLabel(selectedValue) || selectedValue;
 }
 
-function getStageLabelAndProfile(selectedValue, activeKey, active = null) {
-  const stage = currentStage(active);
-  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
-    return {
-      label: getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue,
-      profile: getLivingWithPartnerOptionProfile(selectedValue, activeKey),
-      stage,
-    };
+function youngProfessionalMeaning(selectedValue, label) {
+  if (includesAny(selectedValue, ["first stable job", "first salary", "adjusting", "adult responsibilities", "work-life balance", "cutoff week"])) {
+    return `This usually means income is becoming more stable, but adult responsibility still feels new. Payday may feel exciting while bills, commute, food, and personal choices are still finding their rhythm.`;
   }
-  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) {
-    const label = getYoungProfessionalDisplayLabel(selectedValue) || selectedValue;
-    const context = getYoungProfessionalQuestionContext(activeKey, selectedValue, { ...readProfile(), stage });
-    return {
-      label,
-      profile: {
-        title: context?.title || label,
-        meaning: context?.summary || context?.body || "",
-      },
-      stage,
-    };
+  if (includesAny(selectedValue, ["independent", "bills", "rent", "utilities", "living costs", "food and commute", "fixed bills", "one-month buffer"])) {
+    return `This usually means independence now has real monthly pressure attached to it. Rent, bills, food, and commute can make every spending choice feel more serious.`;
   }
-  return {
-    label: getWorkingStudentDisplayLabel(selectedValue) || selectedValue,
-    profile: getWorkingStudentOptionProfile(selectedValue, activeKey),
-    stage,
-  };
+  if (includesAny(selectedValue, ["career + family", "family", "goes home", "support", "contribution", "guilt", "support limit", "home needs"])) {
+    return `This usually means your salary is not only for your own progress. Family support may affect how much room you have for savings, career growth, and personal stability.`;
+  }
+  if (includesAny(selectedValue, ["career", "promotion", "courses", "tools", "professional image", "networking", "growth", "invest", "compare", "behind others"])) {
+    return `This usually means ambition is adding pressure to your money decisions. Career costs may feel necessary, but they can also come from comparison, urgency, or the fear of falling behind.`;
+  }
+  if (includesAny(selectedValue, ["salary feels stable", "salary disappears", "disappears", "payday feels strong", "lifestyle", "installments", "subscriptions", "salary leaks", "overspend early", "cutoff survival"])) {
+    return `This usually means the salary is there, but it does not stay long enough to feel secure. Small repeated costs, subscriptions, installments, or early-month spending may be quietly taking space.`;
+  }
+  if (includesAny(selectedValue, ["shift", "bpo", "night shift", "sleep", "long calls", "ot", "comfort after shifts", "convenience", "recovery spending"])) {
+    return `This usually means your work schedule affects your spending pattern. When sleep, calls, commute, or shifting routines drain you, convenience and comfort can become harder to resist.`;
+  }
+  if (includesAny(selectedValue, ["debt", "pay-later", "pay later", "minimum", "repayment", "old shortfalls", "borrow", "no-new-debt", "repair mode", "old choices", "little room to reset", "catching up", "cash-flow timing"] )) {
+    return `This usually means your income is being used to fix old pressure instead of building a fresh month. It can make payday feel less freeing because past obligations are still taking space.`;
+  }
+  if (includesAny(selectedValue, ["reward", "social", "comparison", "image", "prepared", "spending", "payday", "lifestyle pressure"])) {
+    return `This usually means spending may be tied to identity, belonging, or recovery after work. Enjoyment is part of life, but the pressure can grow when it happens without a clear limit.`;
+  }
+  return `This usually describes a real young professional pressure point. It shows how salary, responsibility, lifestyle, growth, and recovery can affect everyday money choices.`;
 }
 
-function conciseSelectionMeaning(selectedValue, activeKey, profile, stage) {
-  const selected = clean(selectedValue);
-  const text = selected.toLowerCase();
-  const label = getDisplayLabelForStage(stage, selected);
-
-  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) {
-    if (includesAny(text, ["first stable job", "first salary", "adjusting", "adult responsibilities", "work-life balance", "cutoff week"])) {
-      return `Choosing “${label}” usually means income is becoming more stable, but adult responsibilities are still new. CLARA should watch how payday, bills, commute, food, and early rewards start shaping the first real money rhythm.`;
-    }
-    if (includesAny(text, ["independent", "bills", "rent", "utilities", "living costs", "food and commute", "fixed bills", "one-month buffer"])) {
-      return `Choosing “${label}” usually means independence is no longer just emotional — it now has bills, food, rent, commute, and timing pressure attached to it. CLARA should help protect fixed costs before lifestyle spending starts moving.`;
-    }
-    if (includesAny(text, ["family", "goes home", "support", "contribution", "guilt", "support limit", "home needs"])) {
-      return `Choosing “${label}” usually means your salary is connected to family responsibility, not just personal progress. This can make spending decisions emotional because career growth, home support, and your own buffer may compete in the same month.`;
-    }
-    if (includesAny(text, ["career", "promotion", "courses", "tools", "professional image", "networking", "growth", "invest", "compare", "behind others"])) {
-      return `Choosing “${label}” usually means ambition is creating real pressure. Career spending can be helpful, but CLARA should separate true investment from panic, comparison, or the need to look ready before you actually have the budget for it.`;
-    }
-    if (includesAny(text, ["salary feels stable", "disappears", "payday feels strong", "lifestyle", "installments", "subscriptions", "salary leaks", "overspend early", "cutoff survival"])) {
-      return `Choosing “${label}” usually means the salary is present, but the system around it may be leaking. CLARA should watch repeated small costs, subscriptions, installments, and payday confidence before they quietly erase the month.`;
-    }
-    if (includesAny(text, ["shift", "bpo", "night shift", "sleep", "long calls", "ot", "comfort after shifts", "convenience", "recovery spending"])) {
-      return `Choosing “${label}” usually means energy and schedule are part of the money pattern. When sleep, calls, commute, or shifting routines drain recovery, spending can become comfort, convenience, or a way to feel human again after work.`;
-    }
-    if (includesAny(text, ["debt", "pay-later", "pay later", "minimum", "repayment", "old shortfalls", "borrow", "no-new-debt"])) {
-      return `Choosing “${label}” usually means old money pressure may still be entering the current salary. CLARA should help stop new debt first, protect essentials, and make repayment predictable instead of letting every cutoff feel like repair mode.`;
-    }
-    if (includesAny(text, ["reward", "social", "comparison", "image", "prepared", "spending", "payday", "lifestyle pressure"])) {
-      return `Choosing “${label}” usually means spending may be connected to identity, belonging, or recovery after work. CLARA should keep enjoyment visible, but set the amount before emotion, social pressure, or payday confidence decides for you.`;
-    }
-    return profile?.meaning || `Choosing “${label}” helps CLARA understand this Young Professional reality. This stage connects income, bills, growth pressure, lifestyle choices, recovery, and responsibility into one clearer money pattern.`;
+function workingStudentMeaning(selectedValue, label) {
+  if (includesAny(selectedValue, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "continue school", "protect school", "fear of stopping", "printing", "materials", "projects"])) {
+    return `This usually means school is already taking space in the budget before anything else. Tuition timing, requirements, fare, food, and materials can make spending feel sensitive.`;
   }
-
-  if (profile?.meaning && !profile.meaning.startsWith("Selecting")) {
-    return profile.meaning;
+  if (includesAny(selectedValue, ["family", "home", "goes home", "shared", "give", "support boundary", "guilt"])) {
+    return `This usually means student money is connected to people at home, not only personal needs. Helping family can feel meaningful and heavy at the same time.`;
   }
-
-  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
-    if (includesAny(text, ["uneven", "one income", "one person", "covers gaps", "mismatch"])) {
-      return `Choosing “${label}” usually means fairness is already part of the shared money story. CLARA should watch whether one person is silently carrying more than the other.`;
-    }
-    if (includesAny(text, ["family", "living with one family"])) {
-      return `Choosing “${label}” usually means family expectations may affect the couple’s budget too. This can make shared decisions feel heavier because outside needs enter the relationship rhythm.`;
-    }
-    if (includesAny(text, ["avoid", "argue", "communication", "sensitive", "talk"] )) {
-      return `Choosing “${label}” usually means the money conversation itself needs care. The issue may not only be the amount, but how safe it feels to talk about the amount.`;
-    }
-    if (includesAny(text, ["comfort", "spend together", "date", "food"])) {
-      return `Choosing “${label}” usually means spending may be acting as bonding or emotional relief. That can be healthy, but it needs a shared limit so connection does not weaken stability.`;
-    }
-    if (includesAny(text, ["future", "planning", "move", "savings", "emergency"])) {
-      return `Choosing “${label}” usually means the relationship is trying to protect a future direction. CLARA should help make that goal visible before daily spending absorbs the money.`;
-    }
-    return `Choosing “${label}” helps CLARA understand this shared-life setup. Money here connects bills, emotion, fairness, routine, and future direction together.`;
+  if (includesAny(selectedValue, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "repair mode", "old pressure", "pressure carries", "no-new-debt"])) {
+    return `This usually means money pressure is carrying over instead of starting fresh. Borrowing, repayment, or delayed expenses can make the next income feel already spoken for.`;
   }
-
-  if (includesAny(text, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "school continuity", "continue school", "protect school", "fear of stopping", "printing", "materials", "projects"])) {
-    return `Choosing “${label}” usually means school is already claiming part of the budget before anything else. This can create pressure because requirements, tuition timing, fare, and materials may decide what is safe to spend.`;
+  if (includesAny(selectedValue, ["tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "comfort after hard days"])) {
+    return `This usually means energy is part of the money problem. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking.`;
   }
-  if (includesAny(text, ["family", "home", "goes home", "shared", "give", "support boundary", "guilt"])) {
-    return `Choosing “${label}” usually means your student money is connected to people at home, not only to yourself. That can make spending feel emotional because helping family and protecting your own school needs may happen at the same time.`;
+  if (includesAny(selectedValue, ["reward", "social", "small spending", "small rewards", "leaks", "micro", "extra money leaks"])) {
+    return `This usually means small spending may be acting as relief or reward after effort. The pressure is not one purchase, but how often that pattern repeats.`;
   }
-  if (includesAny(text, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "repair mode", "old pressure", "pressure carries", "no-new-debt"])) {
-    return `Choosing “${label}” usually means money pressure may be carrying over instead of starting fresh. Borrowing, repayment, or delayed expenses can make the next income feel already spoken for.`;
+  if (includesAny(selectedValue, ["irregular", "unstable", "fluctuate", "income changes", "some weeks", "gaps", "seasonal", "side hustle"] )) {
+    return `This usually means planning has to adjust around uneven money timing. It can make budgeting feel tiring because the week changes before the plan feels settled.`;
   }
-  if (includesAny(text, ["tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "push rest", "comfort after hard days"])) {
-    return `Choosing “${label}” usually means energy is becoming part of the money pattern. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking just to survive the day.`;
+  if (includesAny(selectedValue, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
+    return `This usually means daily basics are taking up serious space. Food, fare, school attendance, and small emergency costs can make even minor spending feel important.`;
   }
-  if (includesAny(text, ["convenience", "rushed", "save energy", "missed tracking", "forget to track"])) {
-    return `Choosing “${label}” usually means spending may be helping you save time or energy on rushed days. For working students, this often comes from exhaustion, not laziness.`;
+  if (includesAny(selectedValue, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
+    return `This usually means you are trying to build control instead of only reacting to pressure. One small clear rule can make student money feel less scattered.`;
   }
-  if (includesAny(text, ["reward", "social", "small spending", "small rewards", "leaks", "micro", "stuck", "extra money leaks"])) {
-    return `Choosing “${label}” usually means small spending may be acting as relief, reward, or a way to feel normal after effort. The risk is not one small purchase, but how often that pattern repeats.`;
-  }
-  if (includesAny(text, ["irregular", "unstable", "fluctuate", "income changes", "some weeks", "gaps", "seasonal", "side hustle", "money arrives after"])) {
-    return `Choosing “${label}” usually means planning has to adjust around uneven money timing. This can make budgeting mentally tiring because the week can change before the plan is ready.`;
-  }
-  if (includesAny(text, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
-    return `Choosing “${label}” usually means daily basics are taking up serious space in your decisions. Food, fare, school attendance, and small emergency costs can make even minor spending feel sensitive.`;
-  }
-  if (includesAny(text, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
-    return `Choosing “${label}” usually means you are trying to build control instead of only reacting to pressure. Even one small clear rule can make student money feel less scattered.`;
-  }
-
-  const stepMeaning = {
-    setup: "This is the environment CLARA should understand before reading the money behavior.",
-    rhythm: "This shows how money usually enters the week, which affects how safe or unstable planning feels.",
-    workload: "This shows how much energy the week is already using before budgeting even starts.",
-    pressure: "This shows what currently needs the most protection in the budget.",
-    coping: "This shows how pressure may turn into behavior when the week gets heavy.",
-    goal: "This shows what CLARA should help protect first before asking for stricter discipline.",
-  };
-  return `Choosing “${label}” helps CLARA understand this exact part of your working-student life. ${stepMeaning[activeKey] || "It connects school, work, money, and energy into one clearer picture."}`;
+  return `This usually describes one real part of working-student life. It shows how school, work, energy, and money pressure can affect daily decisions.`;
 }
 
-function getBoardFromConciseProfile(active) {
+function livingWithPartnerMeaning(selectedValue, label) {
+  if (includesAny(selectedValue, ["uneven", "one income", "one person", "covers gaps", "mismatch", "fairness", "one partner carries"])) {
+    return `This usually means fairness is already part of the shared money story. One person may be carrying more, even when both people care about making the setup work.`;
+  }
+  if (includesAny(selectedValue, ["family", "living with one family", "household", "support requests"])) {
+    return `This usually means family expectations may affect the couple’s budget too. Shared money can feel heavier when outside needs enter the relationship rhythm.`;
+  }
+  if (includesAny(selectedValue, ["avoid", "argue", "communication", "sensitive", "talk", "awkward"])) {
+    return `This usually means the money conversation itself needs care. The pressure may not only be the amount, but how safe it feels to talk about the amount.`;
+  }
+  if (includesAny(selectedValue, ["comfort", "spend together", "date", "food", "bonding"])) {
+    return `This usually means spending may be acting as bonding or emotional relief. That can feel good, but it may also make shared stability harder to protect.`;
+  }
+  if (includesAny(selectedValue, ["future", "planning", "move", "savings", "emergency", "shared goal"])) {
+    return `This usually means the relationship is trying to protect a future direction. Daily spending may feel different when a shared plan is starting to matter.`;
+  }
+  return `This usually describes one real part of shared-life money. Bills, emotion, fairness, routine, and future direction can all affect the way decisions feel.`;
+}
+
+function getSelectionMeaning(stage, selectedValue, label) {
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) return youngProfessionalMeaning(selectedValue, label);
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) return livingWithPartnerMeaning(selectedValue, label);
+  return workingStudentMeaning(selectedValue, label);
+}
+
+function getBoardFromCurrentSelection(active) {
   const selectedValue = getSelectedOption(active.section);
-  const { label, profile, stage } = getStageLabelAndProfile(selectedValue, active.meta.key, active);
+  const stage = currentStage(active);
+  const label = titleFor(stage, selectedValue);
   return {
-    title: profile?.title || label || selectedValue,
-    body: conciseSelectionMeaning(selectedValue, active.meta.key, profile, stage),
+    stage,
+    selectedValue,
+    title: label || selectedValue,
+    body: getSelectionMeaning(stage, selectedValue, label),
   };
 }
 
@@ -321,20 +312,19 @@ function polishContextBoard() {
   const active = findActiveQuestionSection();
   const { header, summary, title } = findStageBoard();
   if (!active || !header || !summary || !title) return;
-  const selectedValue = getSelectedOption(active.section);
-  const board = getBoardFromConciseProfile(active);
-  const signature = `${currentStage(active)}:${active.meta.key}:${selectedValue}:${board?.title}:${board?.body}`;
+  const board = getBoardFromCurrentSelection(active);
+  const signature = `${board.stage}:${active.meta.key}:${board.selectedValue}:${board.title}:${board.body}`;
   updateSimpleProgress(header, active.meta.index);
   if (title.dataset.claraSimpleBoardSignature !== signature) {
-    title.textContent = board?.title || selectedValue;
+    title.textContent = board.title;
     title.dataset.claraSimpleBoardSignature = signature;
   }
   if (summary.dataset.claraSimpleBoardSignature !== signature) {
-    summary.textContent = board?.body || "";
+    summary.textContent = board.body;
     summary.dataset.claraSimpleBoardSignature = signature;
     summary.classList.add("clara-flow-board-summary");
-    summary.style.setProperty("white-space", "pre-line", "important");
-    summary.style.setProperty("line-height", "1.55", "important");
+    summary.style.setProperty("white-space", "normal", "important");
+    summary.style.setProperty("line-height", "1.5", "important");
   }
 }
 
