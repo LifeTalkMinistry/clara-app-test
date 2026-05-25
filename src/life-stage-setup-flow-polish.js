@@ -34,13 +34,20 @@ const STEP_META = {
   "WHAT TO PROTECT": { key: "goal", label: "WHAT TO PROTECT", question: "What are you trying to protect most right now?", index: 5 },
 };
 
-const STAGE_NAMES = Array.from(new Set([WORKING_STUDENT_STAGE_KEY, YOUNG_PROFESSIONAL_STAGE_KEY, LIVING_WITH_PARTNER_STAGE_KEY, ...STAGES]));
-
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const loud = (value) => clean(value).toUpperCase();
 const lower = (value) => clean(value).toLowerCase();
 const isVisible = (node) => !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
 const getStepMeta = (text) => STEP_META[loud(text)] || null;
+
+const STAGE_NAMES = Array.from(
+  new Set([
+    WORKING_STUDENT_STAGE_KEY,
+    YOUNG_PROFESSIONAL_STAGE_KEY,
+    LIVING_WITH_PARTNER_STAGE_KEY,
+    ...STAGES,
+  ].filter(Boolean))
+);
 
 function collectBranchOptions(branches = {}) {
   const values = [];
@@ -57,6 +64,15 @@ function collectBranchOptions(branches = {}) {
   return values;
 }
 
+function branchStepOptions(branch, key) {
+  const entry = branch?.[key];
+  if (Array.isArray(entry)) return entry;
+  if (entry && typeof entry === "object") {
+    return Object.values(entry).flatMap((list) => (Array.isArray(list) ? list : []));
+  }
+  return [];
+}
+
 function collectFieldOptions(fields = {}) {
   return Object.values(fields || {}).flatMap((value) => (Array.isArray(value) ? value : []));
 }
@@ -68,7 +84,7 @@ function makeOptionSet({ roots = [], branches = {}, fields = {}, displayLabels =
     ...collectFieldOptions(fields),
     ...Object.keys(displayLabels),
     ...Object.values(displayLabels),
-  ].map(loud));
+  ].filter(Boolean).map(loud));
 }
 
 const STAGE_OPTION_SETS = STAGE_NAMES.reduce((sets, stage) => {
@@ -82,109 +98,164 @@ STAGE_OPTION_SETS[WORKING_STUDENT_STAGE_KEY] = makeOptionSet({
   fields: LIFE_STAGE_INTELLIGENCE[WORKING_STUDENT_STAGE_KEY]?.fields || {},
   displayLabels: WORKING_STUDENT_DISPLAY_LABELS,
 });
+
 STAGE_OPTION_SETS[YOUNG_PROFESSIONAL_STAGE_KEY] = makeOptionSet({
   roots: YOUNG_PROFESSIONAL_ROOTS,
   branches: YOUNG_PROFESSIONAL_BRANCHES,
   fields: LIFE_STAGE_INTELLIGENCE[YOUNG_PROFESSIONAL_STAGE_KEY]?.fields || {},
   displayLabels: YOUNG_PROFESSIONAL_DISPLAY_LABELS,
 });
+
 STAGE_OPTION_SETS[LIVING_WITH_PARTNER_STAGE_KEY] = makeOptionSet({
   roots: LIVING_WITH_PARTNER_ROOTS,
   branches: LIVING_WITH_PARTNER_BRANCHES,
   fields: LIFE_STAGE_INTELLIGENCE[LIVING_WITH_PARTNER_STAGE_KEY]?.fields || {},
 });
 
-function branchStepOptions(branch, key) {
-  const entry = branch?.[key];
-  if (Array.isArray(entry)) return entry;
-  if (entry && typeof entry === "object") return Object.values(entry).flatMap((list) => (Array.isArray(list) ? list : []));
-  return [];
+function getDisplayLabel(stage, raw) {
+  if (stage === WORKING_STUDENT_STAGE_KEY) return getWorkingStudentDisplayLabel(raw) || raw;
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) return getYoungProfessionalDisplayLabel(raw) || raw;
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) return getLivingWithPartnerDisplayLabel(raw) || raw;
+  return raw;
 }
 
-function collectWorkingStudentOptionsByStep() {
+function collectSourceRows(stage) {
   const rows = [];
-  WORKING_STUDENT_ROOTS.forEach((raw) => rows.push({ raw, step: "setup" }));
-  Object.values(WORKING_STUDENT_BRANCHES || {}).forEach((branch) => {
-    (branch.rhythm || []).forEach((raw) => rows.push({ raw, step: "rhythm" }));
-    ["workload", "pressure", "coping", "goal"].forEach((step) => {
-      branchStepOptions(branch, step).forEach((raw) => rows.push({ raw, step }));
+  if (stage === WORKING_STUDENT_STAGE_KEY) {
+    WORKING_STUDENT_ROOTS.forEach((raw) => rows.push({ stage, raw, step: "setup" }));
+    Object.values(WORKING_STUDENT_BRANCHES || {}).forEach((branch) => {
+      (branch.rhythm || []).forEach((raw) => rows.push({ stage, raw, step: "rhythm" }));
+      ["workload", "pressure", "coping", "goal"].forEach((step) => {
+        branchStepOptions(branch, step).forEach((raw) => rows.push({ stage, raw, step }));
+      });
     });
+    Object.values(WORKING_STUDENT_DISPLAY_LABELS || {}).forEach((raw) => rows.push({ stage, raw, step: inferStepFromLabel(raw) }));
+    return rows;
+  }
+
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) {
+    YOUNG_PROFESSIONAL_ROOTS.forEach((raw) => rows.push({ stage, raw, step: "setup" }));
+    Object.values(YOUNG_PROFESSIONAL_BRANCHES || {}).forEach((branch) => {
+      (branch.rhythm || []).forEach((raw) => rows.push({ stage, raw, step: "rhythm" }));
+      ["workload", "pressure", "coping", "goal"].forEach((step) => {
+        branchStepOptions(branch, step).forEach((raw) => rows.push({ stage, raw, step }));
+      });
+    });
+    Object.values(YOUNG_PROFESSIONAL_DISPLAY_LABELS || {}).forEach((raw) => rows.push({ stage, raw, step: inferStepFromLabel(raw) }));
+    return rows;
+  }
+
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
+    LIVING_WITH_PARTNER_ROOTS.forEach((raw) => rows.push({ stage, raw, step: "setup" }));
+    Object.values(LIVING_WITH_PARTNER_BRANCHES || {}).forEach((branch) => {
+      (branch.rhythm || []).forEach((raw) => rows.push({ stage, raw, step: "rhythm" }));
+      ["workload", "pressure", "coping", "goal"].forEach((step) => {
+        branchStepOptions(branch, step).forEach((raw) => rows.push({ stage, raw, step }));
+      });
+    });
+    return rows;
+  }
+
+  const fields = LIFE_STAGE_INTELLIGENCE[stage]?.fields || {};
+  Object.entries(fields).forEach(([step, options]) => {
+    if (Array.isArray(options)) options.forEach((raw) => rows.push({ stage, raw, step }));
   });
   return rows;
 }
 
-function inferWorkingStudentStepFromLabel(label) {
+function inferStepFromLabel(label) {
   const text = lower(label);
-  if (["save", "protect", "build", "create", "control", "reduce", "avoid debt", "set a", "finish", "choose", "stop pressure", "repayment rhythm", "buffer"].some((term) => text.includes(term))) return "goal";
-  if (["i ", "borrow", "avoid", "delay", "cut", "reward", "pause", "overwork", "forget", "push", "spend when", "switch plans", "start saving"].some((term) => text.includes(term))) return "coping";
-  if (["pressure", "cost", "debt", "tuition", "fare", "food", "family contribution", "weak", "margin", "goals feel", "priority"].some((term) => text.includes(term))) return "pressure";
-  if (["tired", "busy", "heavy", "routine", "workload", "deadlines", "commute", "little time", "stretched", "overlap", "learning while earning"].some((term) => text.includes(term))) return "workload";
-  if (["income", "pay", "allowance", "money", "salary", "side", "part-time", "support", "waves"].some((term) => text.includes(term))) return "rhythm";
+  if (["save", "protect", "build", "create", "control", "reduce", "avoid debt", "buffer", "rule", "goal", "rhythm", "automatic"].some((term) => text.includes(term))) return "goal";
+  if (["i ", "borrow", "avoid", "delay", "cut", "reward", "pause", "overwork", "forget", "push", "spend", "move money", "set aside"].some((term) => text.includes(term))) return "coping";
+  if (["pressure", "cost", "debt", "bill", "rent", "food", "fare", "family", "buffer", "margin", "gap", "emergency"].some((term) => text.includes(term))) return "pressure";
+  if (["tired", "busy", "heavy", "routine", "workload", "deadline", "commute", "rest", "shift", "sleep", "burnout", "schedule"].some((term) => text.includes(term))) return "workload";
+  if (["income", "pay", "allowance", "money", "salary", "side", "part-time", "cutoff", "commission", "cash-flow"].some((term) => text.includes(term))) return "rhythm";
   return "setup";
 }
 
-function workingStudentMeaningFor(label, step) {
-  const text = lower(label);
-
-  // Hard-coded Working Student meanings (truncated for brevity here). Keep them unchanged.
-  if (text.includes("supported, learning independence"))
-    return "Choosing “Supported, learning independence” usually means support still exists, but independence is starting to become real. The pressure is learning how to handle personal money before bigger responsibilities arrive.";
-  if (text.includes("working to protect school"))
-    return "Choosing “Working to protect school” usually means work is closely tied to staying in school. Money decisions may feel heavier because income is connected to tuition, requirements, fare, and attendance.";
-  if (text.includes("studying while helping family"))
-    return "Choosing “Studying while helping family” usually means student money is connected to people at home, not only personal needs. Helping family can feel meaningful and heavy at the same time.";
-  if (text.includes("mostly self-supporting"))
-    return "Choosing “Mostly self-supporting” usually means school and daily survival are being carried with limited support. Food, fare, school costs, and timing gaps can make every peso feel important.";
-  if (text.includes("exhausted by school-work overlap"))
-    return "Choosing “Exhausted by school-work overlap” usually means energy is part of the money problem. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking.";
-  if (text.includes("building with unstable income"))
-    return "Choosing “Building with unstable income” usually means ambition is present, but the money rhythm is not fully steady yet. Planning can feel hard when future goals are clear but income still changes.";
-  if (text.includes("recovering from money pressure"))
-    return "Choosing “Recovering from money pressure” usually means past money stress is still affecting the current season. Even new income can feel less free when old pressure, delayed needs, or recovery spending is still present.";
-  // Many more conditions are defined here for Working Student...
-  // (See the original source for the full list)
-
-  // Generic fallback for Working Student if specific meaning is missing:
-  const stepCopy = {
-    setup: `Choosing “${label}” usually means this is the starting situation shaping student money. It describes the main environment around school, work, support, or recovery right now.`,
-    rhythm: `Choosing “${label}” usually means this is how money normally enters or slips through the week. The amount, timing, and reliability of that money can shape whether planning feels calm or uncertain.`,
-    workload: `Choosing “${label}” usually means this is the weekly load affecting energy and focus. The situation may influence spending because tired or crowded weeks change how decisions feel.`,
-    pressure: `Choosing “${label}” usually means this is the pressure taking the most space right now. It can make ordinary money choices feel heavier because this pressure is already active.`,
-    coping: `Choosing “${label}” usually means this is the response that tends to appear when pressure gets heavy. It shows how stress may turn into behavior during real student weeks.`,
-    goal: `Choosing “${label}” usually means this is the part of life the user wants to protect most. It shows what stability would feel like in the current working-student season.`,
-  };
-  return stepCopy[step] || `Choosing “${label}” usually means this is one active part of the working-student situation. It reflects what feels present in school, work, money, or energy right now.`;
+function humanStageName(stage) {
+  return clean(stage).replace(/-/g, " ");
 }
 
-function buildWorkingStudentSelectionMeanings() {
-  const meanings = new Map();
-  collectWorkingStudentOptionsByStep().forEach(({ raw, step }) => {
-    const label = getWorkingStudentDisplayLabel(raw) || clean(raw);
-    const body = workingStudentMeaningFor(label, step);
-    meanings.set(loud(raw), body);
-    meanings.set(loud(label), body);
-  });
-  Object.values(WORKING_STUDENT_DISPLAY_LABELS).forEach((label) => {
-    const normalized = loud(label);
-    if (!meanings.has(normalized))
-      meanings.set(normalized, workingStudentMeaningFor(label, inferWorkingStudentStepFromLabel(label)));
+function sentenceForSetup(stage, label) {
+  return `Choosing “${label}” usually means this is the main life setup shaping the money situation in the ${humanStageName(stage)} stage. It describes the environment around responsibility, support, stability, or pressure right now.`;
+}
+
+function sentenceForRhythm(stage, label) {
+  return `Choosing “${label}” usually means this is how money tends to arrive, move, or disappear in the ${humanStageName(stage)} stage. The timing and reliability of that money can change how safe planning feels.`;
+}
+
+function sentenceForWorkload(stage, label) {
+  return `Choosing “${label}” usually means time, energy, or routine is affecting the way money decisions feel. When the week is stretched, even simple choices can feel heavier than they look.`;
+}
+
+function sentenceForPressure(stage, label) {
+  return `Choosing “${label}” usually means this pressure is taking the most financial or emotional space right now. It can make normal spending feel more sensitive because the concern is already active.`;
+}
+
+function sentenceForCoping(stage, label) {
+  return `Choosing “${label}” usually means this is the response that tends to appear when pressure gets heavy. It shows how the situation can turn into real behavior during stressful days.`;
+}
+
+function sentenceForGoal(stage, label) {
+  return `Choosing “${label}” usually means this is the part of life the user wants to protect most. It shows what stability would feel like before bigger changes or stricter discipline are introduced.`;
+}
+
+const STEP_MEANING_BUILDERS = {
+  setup: sentenceForSetup,
+  rhythm: sentenceForRhythm,
+  workload: sentenceForWorkload,
+  pressure: sentenceForPressure,
+  coping: sentenceForCoping,
+  goal: sentenceForGoal,
+};
+
+const BESPOKE_MEANINGS = {
+  [WORKING_STUDENT_STAGE_KEY]: {
+    "Supported, learning independence": "Choosing “Supported, learning independence” usually means support still exists, but independence is starting to become real. The pressure is learning how to handle personal money before bigger responsibilities arrive.",
+    "Working to protect school": "Choosing “Working to protect school” usually means work is closely tied to staying in school. Money decisions may feel heavier because income is connected to tuition, requirements, fare, and attendance.",
+    "Studying while helping family": "Choosing “Studying while helping family” usually means student money is connected to people at home, not only personal needs. Helping family can feel meaningful and heavy at the same time.",
+    "Mostly self-supporting": "Choosing “Mostly self-supporting” usually means school and daily survival are being carried with limited support. Food, fare, school costs, and timing gaps can make every peso feel important.",
+    "Exhausted by school-work overlap": "Choosing “Exhausted by school-work overlap” usually means energy is part of the money problem. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking.",
+    "Building with unstable income": "Choosing “Building with unstable income” usually means ambition is present, but the money rhythm is not fully steady yet. Planning can feel hard when future goals are clear but income still changes.",
+    "Recovering from money pressure": "Choosing “Recovering from money pressure” usually means past money stress is still affecting the current season. Even new income can feel less free when old pressure, delayed needs, or recovery spending is still present.",
+  },
+  [YOUNG_PROFESSIONAL_STAGE_KEY]: {
+    "First stable job": "Choosing “First stable job” usually means income is becoming steadier, but the full rhythm of adult responsibility is still forming. Bills, commute, food, and personal choices may feel new because this stage is still adjusting.",
+    "Independent with bills": "Choosing “Independent with bills” usually means independence now has real monthly obligations attached to it. Rent, utilities, food, and commute can make every spending choice feel more serious.",
+    "Career + family support": "Choosing “Career + family support” usually means salary is carrying both personal growth and family responsibility. Progress can feel slower when home support and career needs compete for the same income.",
+    "Career growth pressure": "Choosing “Career growth pressure” usually means ambition is affecting money decisions. Courses, tools, image, or networking may feel important because career progress feels urgent.",
+    "Salary disappears fast": "Choosing “Salary disappears fast” usually means income looks stable at first but does not stay long enough to feel secure. Repeated costs, lifestyle upgrades, or automatic payments may be quietly taking space.",
+    "Shift/BPO routine": "Choosing “Shift/BPO routine” usually means schedule and energy are part of the money pattern. Sleep, commute, calls, and recovery time can strongly affect food, transport, and comfort spending.",
+    "Debt/pay-later recovery": "Choosing “Debt/pay-later recovery” usually means old obligations are still entering the current salary. Payday may feel less free when past balances or repayments are already waiting.",
+  },
+};
+
+function createMeaning(stage, step, label) {
+  const bespoke = BESPOKE_MEANINGS[stage]?.[label];
+  if (bespoke) return bespoke;
+  const builder = STEP_MEANING_BUILDERS[step] || sentenceForSetup;
+  return builder(stage, label);
+}
+
+function buildLifeStageSelectionMeanings() {
+  const meanings = {};
+  STAGE_NAMES.forEach((stage) => {
+    meanings[stage] = new Map();
+    collectSourceRows(stage).forEach(({ raw, step }) => {
+      const label = getDisplayLabel(stage, clean(raw));
+      const body = createMeaning(stage, step, label);
+      meanings[stage].set(loud(raw), body);
+      meanings[stage].set(loud(label), body);
+    });
+    Object.entries(BESPOKE_MEANINGS[stage] || {}).forEach(([label, body]) => {
+      meanings[stage].set(loud(label), body);
+    });
   });
   return meanings;
 }
 
-const WORKING_STUDENT_SELECTION_MEANINGS = buildWorkingStudentSelectionMeanings();
-
-const EXACT_SELECTION_MEANINGS = new Map(
-  Object.entries({
-    "First stable job": "This usually means income is becoming more stable, but adult responsibility still feels new. Payday may feel exciting while bills, commute, food, and personal choices are still finding their rhythm.",
-    "Independent with bills": "This usually means independence now has real monthly pressure attached to it. Rent, bills, food, and commute can make every spending choice feel more serious.",
-    "Career + family support": "This usually means your salary is not only for your own progress. Family support may affect how much room you have for savings, career growth, and personal stability.",
-    "Career growth pressure": "This usually means ambition is adding pressure to your money decisions. Career costs may feel necessary, but they can also come from comparison, urgency, or the fear of falling behind.",
-    "Salary disappears fast": "This usually means the salary is there, but it does not stay long enough to feel secure. Small repeated costs, subscriptions, installments, or early-month spending may be quietly taking space.",
-    "Shift/BPO routine": "This usually means your work schedule affects your spending pattern. When sleep, calls, commute, or shifting routines drain you, convenience and comfort can become harder to resist.",
-    "Debt/pay-later recovery": "This usually means income is being used to fix old pressure instead of building a fresh month. It can make payday feel less freeing because past obligations are still taking space.",
-  }).map(([key, value]) => [loud(key), value])
-);
+const LIFE_STAGE_SELECTION_MEANINGS = buildLifeStageSelectionMeanings();
 
 function readProfile() {
   try {
@@ -230,8 +301,7 @@ function findActiveQuestionSection() {
   for (const label of Array.from(document.querySelectorAll("section p"))) {
     const meta = getStepMeta(label.textContent);
     const section = label.closest("section");
-    if (meta && section && isVisible(section) && section.querySelector("button"))
-      return { label, section, meta };
+    if (meta && section && isVisible(section) && section.querySelector("button")) return { label, section, meta };
   }
   return null;
 }
@@ -310,66 +380,13 @@ function polishQuestionCards() {
 }
 
 function titleFor(stage, selectedValue) {
-  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY)
-    return getYoungProfessionalDisplayLabel(selectedValue) || selectedValue;
-  if (stage === LIVING_WITH_PARTNER_STAGE_KEY)
-    return getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue;
-  if (stage === WORKING_STUDENT_STAGE_KEY)
-    return getWorkingStudentDisplayLabel(selectedValue) || selectedValue;
-  return selectedValue;
-}
-
-function fallbackMeaning(stage, step, label) {
-  const stageText = stage ? `in this ${stage} stage` : "in this life stage";
-  const stepCopy = {
-    setup: `This usually means “${label}” is the life setup shaping the money situation ${stageText}. It gives context to why the budget may feel light, heavy, stable, or pressured.`,
-    rhythm: `This usually means “${label}” describes how money tends to arrive, move, or disappear ${stageText}. The timing of money can affect how safe planning feels.`,
-    workload: `This usually means “${label}” is affecting the energy behind money decisions ${stageText}. When time or energy is stretched, even simple choices can feel harder.`,
-    pressure: `This usually means “${label}” is taking the most financial or emotional space right now. It can make normal spending feel heavier because this pressure is already active.`,
-    coping: `This usually means “${label}” is a common response when pressure becomes heavy. It shows how the situation may turn into real behavior during stressful days.`,
-    goal: `This usually means “${label}” is the stability being protected first. It shows what matters most before asking for stricter discipline or bigger changes.`,
-  };
-  return stepCopy[step] || `This usually means “${label}” is one real part of the current life situation. It helps explain what feels active in money, time, energy, or responsibility.`;
-}
-
-// The keywordMeaning function existed previously. We no longer call it,
-// so it remains here but unused. Keeping it helps avoid breaking other scripts.
-function keywordMeaning(stage, selectedValue, label) {
-  const text = `${selectedValue} ${label}`;
-  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
-    if (includesAny(text, ["uneven", "one income", "one person", "covers gaps", "mismatch", "fairness", "one partner carries"]))
-      return "This usually means fairness is already part of the shared money story. One person may be carrying more, even when both people care about making the setup work.";
-    if (includesAny(text, ["family", "living with one family", "household", "support requests"]))
-      return "This usually means family expectations may affect the couple’s budget too. Shared money can feel heavier when outside needs enter the relationship rhythm.";
-    if (includesAny(text, ["avoid", "argue", "communication", "sensitive", "talk", "awkward"]))
-      return "This usually means the money conversation itself needs care. The pressure may not only be the amount, but how safe it feels to talk about the amount.";
-    if (includesAny(text, ["comfort", "spend together", "date", "food", "bonding"]))
-      return "This usually means spending may be acting as bonding or emotional relief. That can feel good, but it may also make shared stability harder to protect.";
-    if (includesAny(text, ["future", "planning", "move", "savings", "emergency", "shared goal"]))
-      return "This usually means the relationship is trying to protect a future direction. Daily spending may feel different when a shared plan is starting to matter.";
-  }
-  // Generic keyword heuristics removed from use in getSelectionMeaning.
-  return "";
+  return getDisplayLabel(stage, selectedValue) || selectedValue;
 }
 
 function getSelectionMeaning(stage, step, selectedValue, label) {
-  // Working Student retains its own option-level meanings. If an exact match is not found
-  // in the precomputed map, fall back to a clear debugging message so missing mappings are obvious.
-  if (stage === WORKING_STUDENT_STAGE_KEY) {
-    return (
-      WORKING_STUDENT_SELECTION_MEANINGS.get(loud(selectedValue)) ||
-      WORKING_STUDENT_SELECTION_MEANINGS.get(loud(label)) ||
-      `This Working Student answer still needs a dedicated meaning: “${label}”.`
-    );
-  }
-  // Always use explicit exact meanings first. These cover a handful of cross-stage answers that
-  // have bespoke context. If no exact meaning is defined, fall back to the generic
-  // explanation for the current step and label. Keyword-based heuristics have been
-  // removed to prevent cumulative or generic interpretations. This ensures each answer
-  // produces a short, current-selection explanation without mixing in other factors.
-  const exact = EXACT_SELECTION_MEANINGS.get(loud(selectedValue)) || EXACT_SELECTION_MEANINGS.get(loud(label));
-  if (exact) return exact;
-  return fallbackMeaning(stage, step, label);
+  return LIFE_STAGE_SELECTION_MEANINGS[stage]?.get(loud(selectedValue))
+    || LIFE_STAGE_SELECTION_MEANINGS[stage]?.get(loud(label))
+    || `This ${stage} answer still needs a dedicated meaning: “${label}”.`;
 }
 
 function getBoardFromCurrentSelection(active) {
