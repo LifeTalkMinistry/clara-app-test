@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
-import FinancialClimateScreen from "./FinancialClimateScreen";
+import FinancialClimateScreen from "./FinancialClimateUniversalScreen";
 
 export default function DashboardMeLifePanel() {
   const [signals, setSignals] = useState(() => readEnvironmentSignals());
