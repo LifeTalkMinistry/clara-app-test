@@ -1,8 +1,17 @@
 import { DEFAULT_STAGE, STAGES, normalizeLifeStage, getStageDefinition } from "./components/fresh/main-dashboard/dashboard-panels/me/lifeStageIntelligenceData";
 import { WORKING_STUDENT_STAGE_KEY, WORKING_STUDENT_QUESTION_ORDER, WORKING_STUDENT_ROOTS, WORKING_STUDENT_BRANCHES, WORKING_STUDENT_RESET_AFTER, WORKING_STUDENT_DISPLAY_LABELS, WORKING_STUDENT_LIFE_STAGE_SOURCE, getWorkingStudentOptions, resetWorkingStudentAfter, completeWorkingStudentDraft, getWorkingStudentQuestionContext } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
-import { LIVING_WITH_PARTNER_STAGE_KEY, LIVING_WITH_PARTNER_ROOTS, LIVING_WITH_PARTNER_BRANCHES, LIVING_WITH_PARTNER_RESET_AFTER, LIVING_WITH_PARTNER_DISPLAY_LABELS, LIVING_WITH_PARTNER_LIFE_STAGE_SOURCE, getLivingWithPartnerOptions, resetLivingWithPartnerAfter, completeLivingWithPartnerDraft } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
+import livingWithPartnerSource, { LIVING_WITH_PARTNER_STAGE_KEY, LIVING_WITH_PARTNER_ROOTS, LIVING_WITH_PARTNER_BRANCHES, LIVING_WITH_PARTNER_QUESTION_ORDER, getLivingWithPartnerOptions, completeLivingWithPartnerDraft, getLivingWithPartnerDisplayLabel } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
 
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
+
+const STANDARD_RESET_AFTER = {
+  setup: ["rhythm", "workload", "pressure", "coping", "goal"],
+  rhythm: ["workload", "pressure", "coping", "goal"],
+  workload: ["pressure", "coping", "goal"],
+  pressure: ["coping", "goal"],
+  coping: ["goal"],
+  goal: [],
+};
 
 export const STAGE_ALIASES = {
   youngprofessional: "Young Professional",
@@ -71,6 +80,7 @@ export function saveSelectedLifeStageProfile(profile = {}) {
     window.localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new Event("clara:life-stage-profile-updated"));
   } catch {
+    // Life stage persistence should never block the UI.
   }
   return next;
 }
@@ -79,29 +89,23 @@ export function getSelectedLifeStageKey() {
   return readSelectedLifeStageProfile()?.stage || DEFAULT_STAGE.stage;
 }
 
+function resetAfterKey(draft = {}, key) {
+  const next = { ...draft };
+  (STANDARD_RESET_AFTER[key] || []).forEach((item) => delete next[item]);
+  return next;
+}
+
 function fallbackQuestionSet(stageKey) {
   const definition = getStageDefinition(stageKey, readSelectedLifeStageProfile() || {});
-  const resetAfter = {
-    setup: ["rhythm", "workload", "pressure", "coping", "goal"],
-    rhythm: ["workload", "pressure", "coping", "goal"],
-    workload: ["pressure", "coping", "goal"],
-    pressure: ["coping", "goal"],
-    coping: ["goal"],
-    goal: [],
-  };
   return {
     order: ["setup", "rhythm", "workload", "pressure", "coping", "goal"],
     roots: definition.fields?.setup || [],
     branches: {},
-    resetAfter,
+    resetAfter: STANDARD_RESET_AFTER,
     fields: definition.fields || {},
     getOptions: (draft = {}, key) => definition.fields?.[key] || [],
     completeDraft: (draft = {}) => ({ stage: normalizeLifeStageKey(stageKey), ...draft }),
-    resetAfterKey: (draft = {}, key) => {
-      const next = { ...draft };
-      (resetAfter[key] || []).forEach((item) => delete next[item]);
-      return next;
-    },
+    resetAfterKey,
   };
 }
 
@@ -129,15 +133,16 @@ export const LIFE_STAGE_FLOW = {
       getQuestionContext: getWorkingStudentQuestionContext,
     },
     [LIVING_WITH_PARTNER_STAGE_KEY]: {
-      order: ["setup", "rhythm", "workload", "pressure", "coping", "goal"],
+      order: LIVING_WITH_PARTNER_QUESTION_ORDER,
       roots: LIVING_WITH_PARTNER_ROOTS,
       branches: LIVING_WITH_PARTNER_BRANCHES,
-      resetAfter: LIVING_WITH_PARTNER_RESET_AFTER,
-      displayLabels: LIVING_WITH_PARTNER_DISPLAY_LABELS,
-      source: LIVING_WITH_PARTNER_LIFE_STAGE_SOURCE,
+      resetAfter: STANDARD_RESET_AFTER,
+      displayLabels: {},
+      source: livingWithPartnerSource,
       getOptions: getLivingWithPartnerOptions,
       completeDraft: completeLivingWithPartnerDraft,
-      resetAfterKey: resetLivingWithPartnerAfter,
+      resetAfterKey,
+      getQuestionContext: (key, value) => ({ title: getLivingWithPartnerDisplayLabel(value), body: getLivingWithPartnerDisplayLabel(value), summary: getLivingWithPartnerDisplayLabel(value) }),
     },
   },
   summaries: {
