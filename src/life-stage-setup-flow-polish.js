@@ -3,6 +3,11 @@ import {
   getWorkingStudentOptionProfile,
 } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
 import {
+  YOUNG_PROFESSIONAL_STAGE_KEY,
+  getYoungProfessionalDisplayLabel,
+  getYoungProfessionalQuestionContext,
+} from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
+import {
   LIVING_WITH_PARTNER_STAGE_KEY,
   getLivingWithPartnerDisplayLabel,
   getLivingWithPartnerOptionProfile,
@@ -139,12 +144,30 @@ function currentStage() {
   return clean(profile.stage);
 }
 
+function getDisplayLabelForStage(stage, selectedValue) {
+  if (stage === LIVING_WITH_PARTNER_STAGE_KEY) return getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue;
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) return getYoungProfessionalDisplayLabel(selectedValue) || selectedValue;
+  return getWorkingStudentDisplayLabel(selectedValue) || selectedValue;
+}
+
 function getStageLabelAndProfile(selectedValue, activeKey) {
   const stage = currentStage();
   if (stage === LIVING_WITH_PARTNER_STAGE_KEY) {
     return {
       label: getLivingWithPartnerDisplayLabel(selectedValue) || selectedValue,
       profile: getLivingWithPartnerOptionProfile(selectedValue, activeKey),
+      stage,
+    };
+  }
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) {
+    const label = getYoungProfessionalDisplayLabel(selectedValue) || selectedValue;
+    const context = getYoungProfessionalQuestionContext(activeKey, selectedValue, { ...readProfile(), stage });
+    return {
+      label,
+      profile: {
+        title: context?.title || label,
+        meaning: context?.summary || context?.body || "",
+      },
       stage,
     };
   }
@@ -158,7 +181,35 @@ function getStageLabelAndProfile(selectedValue, activeKey) {
 function conciseSelectionMeaning(selectedValue, activeKey, profile, stage) {
   const selected = clean(selectedValue);
   const text = selected.toLowerCase();
-  const label = stage === LIVING_WITH_PARTNER_STAGE_KEY ? getLivingWithPartnerDisplayLabel(selected) || selected : getWorkingStudentDisplayLabel(selected) || selected;
+  const label = getDisplayLabelForStage(stage, selected);
+
+  if (stage === YOUNG_PROFESSIONAL_STAGE_KEY) {
+    if (includesAny(text, ["first stable job", "first salary", "adjusting", "adult responsibilities", "work-life balance", "cutoff week"])) {
+      return `Choosing “${label}” usually means income is becoming more stable, but adult responsibilities are still new. CLARA should watch how payday, bills, commute, food, and early rewards start shaping the first real money rhythm.`;
+    }
+    if (includesAny(text, ["independent", "bills", "rent", "utilities", "living costs", "food and commute", "fixed bills", "one-month buffer"])) {
+      return `Choosing “${label}” usually means independence is no longer just emotional — it now has bills, food, rent, commute, and timing pressure attached to it. CLARA should help protect fixed costs before lifestyle spending starts moving.`;
+    }
+    if (includesAny(text, ["family", "goes home", "support", "contribution", "guilt", "support limit", "home needs"])) {
+      return `Choosing “${label}” usually means your salary is connected to family responsibility, not just personal progress. This can make spending decisions emotional because career growth, home support, and your own buffer may compete in the same month.`;
+    }
+    if (includesAny(text, ["career", "promotion", "courses", "tools", "professional image", "networking", "growth", "invest", "compare", "behind others"])) {
+      return `Choosing “${label}” usually means ambition is creating real pressure. Career spending can be helpful, but CLARA should separate true investment from panic, comparison, or the need to look ready before you actually have the budget for it.`;
+    }
+    if (includesAny(text, ["salary feels stable", "disappears", "payday feels strong", "lifestyle", "installments", "subscriptions", "salary leaks", "overspend early", "cutoff survival"])) {
+      return `Choosing “${label}” usually means the salary is present, but the system around it may be leaking. CLARA should watch repeated small costs, subscriptions, installments, and payday confidence before they quietly erase the month.`;
+    }
+    if (includesAny(text, ["shift", "bpo", "night shift", "sleep", "long calls", "ot", "comfort after shifts", "convenience", "recovery spending"])) {
+      return `Choosing “${label}” usually means energy and schedule are part of the money pattern. When sleep, calls, commute, or shifting routines drain recovery, spending can become comfort, convenience, or a way to feel human again after work.`;
+    }
+    if (includesAny(text, ["debt", "pay-later", "pay later", "minimum", "repayment", "old shortfalls", "borrow", "no-new-debt"])) {
+      return `Choosing “${label}” usually means old money pressure may still be entering the current salary. CLARA should help stop new debt first, protect essentials, and make repayment predictable instead of letting every cutoff feel like repair mode.`;
+    }
+    if (includesAny(text, ["reward", "social", "comparison", "image", "prepared", "spending", "payday", "lifestyle pressure"])) {
+      return `Choosing “${label}” usually means spending may be connected to identity, belonging, or recovery after work. CLARA should keep enjoyment visible, but set the amount before emotion, social pressure, or payday confidence decides for you.`;
+    }
+    return profile?.meaning || `Choosing “${label}” helps CLARA understand this Young Professional reality. This stage connects income, bills, growth pressure, lifestyle choices, recovery, and responsibility into one clearer money pattern.`;
+  }
 
   if (profile?.meaning && !profile.meaning.startsWith("Selecting")) {
     return profile.meaning;
