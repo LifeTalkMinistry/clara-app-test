@@ -1,4 +1,5 @@
 import { getSelectedLifeStageKey, normalizeLifeStageKey } from "./life-stage-flow";
+import { LIVING_WITH_PARTNER_STAGE_KEY, getLivingWithPartnerSignals } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
 
 export const LIFE_STAGE_SIGNAL_REGISTRY = {
   "Working Student": [
@@ -18,7 +19,13 @@ export const LIFE_STAGE_SIGNAL_REGISTRY = {
     { id: "ypBurnout", icon: "😵", label: "Burnout", ariaLabel: "Burnout" },
     { id: "moneyTiming", icon: "💸", label: "Money Timing", ariaLabel: "Money Timing" },
     { id: "commute", icon: "🚌", label: "Commute Pressure", ariaLabel: "Commute Pressure" }
-  ]
+  ],
+  [LIVING_WITH_PARTNER_STAGE_KEY]: getLivingWithPartnerSignals().map((signal) => ({
+    id: signal.key,
+    icon: signal.icon,
+    label: signal.label,
+    ariaLabel: signal.label,
+  }))
 };
 
 export const DEFAULT_LIFE_STAGE_SIGNALS = [
