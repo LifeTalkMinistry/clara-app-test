@@ -168,6 +168,60 @@ function getSingleParentSupportCopy(profile = {}) {
   return { title: "You’re carrying a protective role.", body: "Single-parent money decisions often carry both practical and emotional weight because the margin for mistakes can feel small." };
 }
 
+const SINGLE_PARENT_SIGNAL_COPY = {
+  childEssentials: {
+    awarenessTitle: "Child essentials are pulling first.",
+    guidanceTitle: "Protect the basics first.",
+    awareness: "Food, school needs, health, transport, and daily care can make every money decision feel urgent.",
+    guidance: "Separate the child’s essentials first before flexible spending or optional purchases enter the budget.",
+  },
+  timePressure: {
+    awarenessTitle: "Time pressure affects money decisions.",
+    guidanceTitle: "Simplify the next move.",
+    awareness: "Busy days can lead to quick spending because planning energy is already stretched.",
+    guidance: "Choose one simple rule for today: protect food, transport, school needs, or emergency money first.",
+  },
+  emotionalEnergy: {
+    awarenessTitle: "Emotional energy is part of the budget.",
+    guidanceTitle: "Lower the decision load.",
+    awareness: "Parenting pressure can make spending feel like relief, convenience, or a way to keep the day moving.",
+    guidance: "Pick one low-effort money boundary so tiredness does not decide the next purchase for you.",
+  },
+  emergencyRisk: {
+    awarenessTitle: "Emergency risk can feel heavy.",
+    guidanceTitle: "Start with a small safety layer.",
+    awareness: "One surprise cost can affect the whole month when the margin is already small.",
+    guidance: "Protect even a tiny emergency amount before waiting for a perfect savings plan.",
+  },
+  schoolCare: {
+    awarenessTitle: "School and care costs need visibility.",
+    guidanceTitle: "List the next child-related cost.",
+    awareness: "School, childcare, supplies, activities, or health needs can appear before the budget is ready.",
+    guidance: "Write down the next expected child-related cost and give it a place before optional spending.",
+  },
+  personalSacrifice: {
+    awarenessTitle: "Personal sacrifice can become invisible.",
+    guidanceTitle: "Protect one need for yourself.",
+    awareness: "Single parents often delay their own needs so the child’s needs stay protected.",
+    guidance: "Choose one small personal need to protect this week, because your stability also protects the household.",
+  },
+  futureProtection: {
+    awarenessTitle: "Future protection is quietly important.",
+    guidanceTitle: "Fund one small future step.",
+    awareness: "Long-term goals can feel far away when daily survival needs take most of the attention.",
+    guidance: "Set aside even a small amount for one future goal so today’s pressure does not erase tomorrow’s protection.",
+  },
+};
+
+function getSingleParentSignalCopy(signalId, mode = "awareness") {
+  const signal = SINGLE_PARENT_SIGNAL_COPY[signalId] || SINGLE_PARENT_SIGNAL_COPY.childEssentials;
+
+  return {
+    title: mode === "guidance" ? signal.guidanceTitle : signal.awarenessTitle,
+    body: mode === "guidance" ? signal.guidance : signal.awareness,
+  };
+}
+
 function getFullTimeEarnerSupportCopy(profile = {}) {
   const text = combineProfileText(profile);
   if (hasAny(text, ["payday", "cutoff", "salary", "bills arrive", "strong then fades"])) {
@@ -273,6 +327,7 @@ export function getLifeStageGuidance(stageKey = getSelectedLifeStageKey(), optio
   if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && signalId) return getLivingWithPartnerSignalCopy(signalId, mode);
   if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && mode !== "guidance") return getLivingWithPartnerSupportCopy(profile || {});
   if (normalized === "Family Household" && signalId) return getFamilyHouseholdSignalCopy(signalId, mode);
+  if (normalized === "Single Parent" && signalId) return getSingleParentSignalCopy(signalId, mode);
   if (signalId && stage.signals?.[signalId]) return stage.signals[signalId][mode] || stage.signals[signalId].awareness;
   if (mode === "guidance") return stage.defaultGuidance || stage.defaultAwareness;
   return stage.defaultAwareness;
