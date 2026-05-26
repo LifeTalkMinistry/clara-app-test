@@ -88,7 +88,7 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
   "Freelance Season": {
     title: "Flexible income needs a buffer.",
-    body: "Client timing, dry weeks, project pressure, work costs, and rest can all affect the same cash flow. Tap the signal below that feels closest, then press the heart for a solution.",
+    body: "Many freelancers quietly manage irregular income, client timing, dry weeks, project pressure, work costs, rest, and cash-flow buffers at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
   },
   "Business Builder": {
     title: "Growth needs boundaries.",
