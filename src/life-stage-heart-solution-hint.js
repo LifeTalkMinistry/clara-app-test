@@ -37,6 +37,17 @@ function findHeart(card) {
     || card?.querySelector?.("svg")?.closest?.("button,[role='button'],div");
 }
 
+function removeHint(card) {
+  card?.querySelector?.("[data-clara-solution-hint='true']")?.remove?.();
+}
+
+function hasSelectedSignal(card) {
+  const selectedSignal = clean(card?.dataset?.claraSelectedSignal);
+  const activeFlag = clean(card?.dataset?.claraSignalCardActive) === "true";
+  const activeIcon = document.querySelector("[data-clara-pressure-signal][data-active='true']");
+  return activeFlag && selectedSignal && selectedSignal !== "default" && !!activeIcon;
+}
+
 function ensureStyles() {
   if (document.getElementById("clara-life-stage-heart-solution-hint-styles")) return;
   const style = document.createElement("style");
@@ -109,6 +120,11 @@ function ensureHint() {
   heart.setAttribute("tabindex", "0");
   heart.setAttribute("aria-label", "Show solution for selected signal");
 
+  if (!hasSelectedSignal(card)) {
+    removeHint(card);
+    return;
+  }
+
   let hint = card.querySelector("[data-clara-solution-hint='true']");
   if (!hint) {
     hint = document.createElement("span");
@@ -137,7 +153,7 @@ function installLifeStageHeartSolutionHint() {
   };
 
   const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-clara-signal-mode", "data-clara-selected-signal"] });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-clara-signal-mode", "data-clara-selected-signal", "data-clara-signal-card-active", "data-active"] });
 
   document.addEventListener("click", () => {
     schedule();
