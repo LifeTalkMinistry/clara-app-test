@@ -64,8 +64,8 @@
   content: "Your independence is forming." !important;
   display: block !important;
   color: rgba(255, 255, 255, 0.96) !important;
-  font-size: clamp(12.2px, 3.2vw, 13.4px) !important;
-  line-height: 1.08 !important;
+  font-size: clamp(13px, 3.38vw, 14.1px) !important;
+  line-height: 1.12 !important;
   letter-spacing: -0.022em !important;
 }
 
@@ -74,10 +74,10 @@
   content: "Many young professionals quietly manage salary rhythm, bills, commute, lifestyle pressure, career growth, and family expectations at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution." !important;
   display: block !important;
   max-width: 100% !important;
-  color: rgba(248, 253, 255, 0.72) !important;
-  font-size: clamp(9px, 2.42vw, 10px) !important;
-  font-weight: 650 !important;
-  line-height: 1.25 !important;
+  color: rgba(248, 253, 255, 0.74) !important;
+  font-size: clamp(9.7px, 2.62vw, 10.7px) !important;
+  font-weight: 700 !important;
+  line-height: 1.31 !important;
 }
 
 #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"][data-clara-signal-card-active="true"][data-clara-signal-mode="awareness"] h3::after,
@@ -143,14 +143,14 @@
 @media (max-height: 760px) {
   #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3::after,
   #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3::after {
-    font-size: clamp(11.8px, 3.05vw, 12.8px) !important;
-    line-height: 1.08 !important;
+    font-size: clamp(12.6px, 3.24vw, 13.6px) !important;
+    line-height: 1.1 !important;
   }
 
   #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3 + p::after,
   #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p::after {
-    font-size: clamp(8.65px, 2.34vw, 9.35px) !important;
-    line-height: 1.18 !important;
+    font-size: clamp(9.35px, 2.5vw, 10.25px) !important;
+    line-height: 1.25 !important;
   }
 
   #root div:has(> [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]) section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img,
