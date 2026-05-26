@@ -24,6 +24,11 @@ export const LIFE_STAGE_SNAPSHOT = {
     subtitle: "100% split of your current Living With Partner pressure.",
     cards: [],
   },
+  "Family Household": {
+    model: "family-household-canonical-engine",
+    subtitle: "100% split of your current Family Household pressure.",
+    cards: [],
+  },
 };
 
 const LIVING_WITH_PARTNER_SNAPSHOT_KEYS = [
@@ -40,6 +45,65 @@ const LIVING_WITH_PARTNER_BASE_WEIGHTS = {
   fairness: 20,
   comfortSpending: 16,
   emergencyBuffer: 14,
+};
+
+const FAMILY_HOUSEHOLD_SNAPSHOT_KEYS = [
+  "homeBills",
+  "foodNeeds",
+  "supportRequests",
+  "boundaries",
+  "emergencyGaps",
+];
+
+const FAMILY_HOUSEHOLD_BASE_WEIGHTS = {
+  homeBills: 28,
+  foodNeeds: 23,
+  supportRequests: 20,
+  boundaries: 16,
+  emergencyGaps: 13,
+};
+
+const FAMILY_HOUSEHOLD_DEFINITIONS = {
+  homeBills: {
+    label: "Home Bills",
+    category: "pressure",
+    trendType: "wave",
+    note: "Rent, utilities, shared bills, and household contribution are taking real space in the month.",
+    insight: "Home stability can look normal on the outside while quietly using the money meant for personal progress.",
+    action: "List the fixed home costs first before deciding what can still be flexible.",
+  },
+  foodNeeds: {
+    label: "Food Needs",
+    category: "essentials",
+    trendType: "stable",
+    note: "Food, groceries, and daily household needs may be shaping most weekly decisions.",
+    insight: "When food needs are not planned, small store runs can become the hidden leak of the household budget.",
+    action: "Set one weekly food amount and separate it from flexible spending.",
+  },
+  supportRequests: {
+    label: "Support Requests",
+    category: "family",
+    trendType: "spike",
+    note: "Family requests or sudden home needs can interrupt the original money plan.",
+    insight: "Helping matters, but unplanned support can make one person carry pressure that belongs to the whole household.",
+    action: "Decide the safe support limit before requests appear.",
+  },
+  boundaries: {
+    label: "Boundaries",
+    category: "stability",
+    trendType: "volatile",
+    note: "Personal limits may be hard to protect when home needs feel urgent or emotional.",
+    insight: "Without a clear boundary, guilt can become the system that decides where money goes.",
+    action: "Protect one personal need or savings amount before giving extra support.",
+  },
+  emergencyGaps: {
+    label: "Emergency Gaps",
+    category: "protection",
+    trendType: "upward",
+    note: "Unexpected medical, school, repair, or household costs may have no protected buffer yet.",
+    insight: "A weak emergency layer can turn one family need into debt, delay, or personal sacrifice.",
+    action: "Start a small household emergency buffer even if the first amount is tiny.",
+  },
 };
 
 function toKey(value, index = 0) {
@@ -111,6 +175,52 @@ function buildLivingWithPartnerSnapshotCards(profile = {}) {
     }));
 }
 
+function familyHouseholdText(profile = {}) {
+  return [profile.setup, profile.rhythm, profile.workload, profile.pressure, profile.coping, profile.goal]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function familyHouseholdSignalScores(profile = {}) {
+  const text = familyHouseholdText(profile);
+  const scores = { ...FAMILY_HOUSEHOLD_BASE_WEIGHTS };
+  const add = (key, amount) => {
+    scores[key] = (scores[key] || 0) + amount;
+  };
+
+  if (/bill|bills|rent|utilit|contribution|shared|household|home/.test(text)) add("homeBills", 22);
+  if (/food|grocery|groceries|daily|essential|needs/.test(text)) add("foodNeeds", 18);
+  if (/request|support|help|relative|parents|family|medical|education/.test(text)) add("supportRequests", 22);
+  if (/boundary|boundaries|guilt|delay|tight|personal|hide|limit|limits/.test(text)) add("boundaries", 20);
+  if (/emergency|emergencies|buffer|surprise|rescue|stability|protect/.test(text)) add("emergencyGaps", 18);
+
+  return scores;
+}
+
+function buildFamilyHouseholdSnapshotCards(profile = {}) {
+  const scores = familyHouseholdSignalScores(profile || {});
+  const rows = FAMILY_HOUSEHOLD_SNAPSHOT_KEYS.map((key) => ({
+    key,
+    raw: scores[key] || FAMILY_HOUSEHOLD_BASE_WEIGHTS[key] || 12,
+    ...FAMILY_HOUSEHOLD_DEFINITIONS[key],
+  }));
+
+  return normalizeRows(rows)
+    .sort((a, b) => b.value - a.value || FAMILY_HOUSEHOLD_SNAPSHOT_KEYS.indexOf(a.key) - FAMILY_HOUSEHOLD_SNAPSHOT_KEYS.indexOf(b.key))
+    .map((row, index) => ({
+      key: row.key,
+      label: row.label,
+      value: row.value,
+      status: pressureStatus(row.value, index),
+      trendType: row.trendType,
+      category: row.category,
+      note: row.note,
+      insight: row.insight,
+      action: row.action,
+    }));
+}
+
 function fromDefinition(stageKey) {
   const definition = getStageDefinition(stageKey, {});
   const cards = (definition?.indicators || []).map((item, index) => ({
@@ -158,6 +268,14 @@ export function getLifeStageSnapshot(stageKey = getSelectedLifeStageKey(), profi
       model: "living-with-partner-canonical-engine",
       subtitle: "100% split of your current Living With Partner pressure.",
       cards: buildLivingWithPartnerSnapshotCards(profile || {}),
+    };
+  }
+
+  if (normalized === "Family Household") {
+    return {
+      model: "family-household-canonical-engine",
+      subtitle: "100% split of your current Family Household pressure.",
+      cards: buildFamilyHouseholdSnapshotCards(profile || {}),
     };
   }
 
