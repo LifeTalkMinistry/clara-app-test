@@ -21,8 +21,8 @@
   text-overflow: clip !important;
   white-space: normal !important;
   color: rgba(255, 255, 255, 0.95) !important;
-  font-size: clamp(12.1px, 3.18vw, 13.25px) !important;
-  line-height: 1.08 !important;
+  font-size: clamp(13px, 3.38vw, 14.1px) !important;
+  line-height: 1.12 !important;
   letter-spacing: -0.022em !important;
 }
 
@@ -39,28 +39,28 @@
   -webkit-line-clamp: unset !important;
   line-clamp: unset !important;
   -webkit-box-orient: unset !important;
-  color: rgba(248, 253, 255, 0.70) !important;
-  font-size: clamp(9.25px, 2.48vw, 10.05px) !important;
-  font-weight: 650 !important;
-  line-height: 1.25 !important;
+  color: rgba(248, 253, 255, 0.74) !important;
+  font-size: clamp(9.7px, 2.62vw, 10.7px) !important;
+  font-weight: 700 !important;
+  line-height: 1.31 !important;
   letter-spacing: -0.01em !important;
   word-break: normal !important;
   overflow-wrap: normal !important;
   hyphens: none !important;
 }
 
-/* Make Young Professional speak with the same depth as Working Student. */
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3,
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3 + p,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p {
+/* Idle-state copy only. Once a signal is active, real JS rotating copy must show. */
+#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]:not([data-clara-signal-card-active="true"]) h3,
+#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]:not([data-clara-signal-card-active="true"]) h3 + p,
+#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"]:not([data-clara-signal-card-active="true"]) h3,
+#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"]:not([data-clara-signal-card-active="true"]) h3 + p {
   font-size: 0 !important;
   line-height: 0 !important;
   color: transparent !important;
 }
 
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3::after,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3::after {
+#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]:not([data-clara-signal-card-active="true"]) h3::after,
+#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"]:not([data-clara-signal-card-active="true"]) h3::after {
   content: "Your independence is forming." !important;
   display: block !important;
   color: rgba(255, 255, 255, 0.96) !important;
@@ -69,8 +69,8 @@
   letter-spacing: -0.022em !important;
 }
 
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3 + p::after,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p::after {
+#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]:not([data-clara-signal-card-active="true"]) h3 + p::after,
+#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"]:not([data-clara-signal-card-active="true"]) h3 + p::after {
   content: "Many young professionals quietly manage salary rhythm, bills, commute, lifestyle pressure, career growth, and family expectations at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution." !important;
   display: block !important;
   max-width: 100% !important;
@@ -78,26 +78,6 @@
   font-size: clamp(9.7px, 2.62vw, 10.7px) !important;
   font-weight: 700 !important;
   line-height: 1.31 !important;
-}
-
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"][data-clara-signal-card-active="true"][data-clara-signal-mode="awareness"] h3::after,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"][data-clara-signal-mode="awareness"] h3::after {
-  content: "This pressure is shaping your money rhythm." !important;
-}
-
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"][data-clara-signal-card-active="true"][data-clara-signal-mode="awareness"] h3 + p::after,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"][data-clara-signal-mode="awareness"] h3 + p::after {
-  content: "This stage is not only about earning. It is about learning how salary, bills, lifestyle, career identity, and recovery pressure pull from the same income. Press the heart to see how CLARA can help protect this area." !important;
-}
-
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"][data-clara-signal-card-active="true"][data-clara-signal-mode="guidance"] h3::after,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"][data-clara-signal-mode="guidance"] h3::after {
-  content: "Protect the salary rhythm first." !important;
-}
-
-#root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"][data-clara-signal-card-active="true"][data-clara-signal-mode="guidance"] h3 + p::after,
-#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"][data-clara-signal-mode="guidance"] h3 + p::after {
-  content: "Before pressure decides for you, assign money in order: bills, food, commute, savings, then lifestyle. A simple payday order keeps independence from becoming silent financial pressure." !important;
 }
 
 #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] [data-clara-heart-cta="true"],
@@ -141,14 +121,18 @@
 }
 
 @media (max-height: 760px) {
-  #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3::after,
-  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3::after {
+  #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3,
+  #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]:not([data-clara-signal-card-active="true"]) h3::after,
+  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3,
+  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"]:not([data-clara-signal-card-active="true"]) h3::after {
     font-size: clamp(12.6px, 3.24vw, 13.6px) !important;
     line-height: 1.1 !important;
   }
 
-  #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3 + p::after,
-  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p::after {
+  #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"] h3 + p,
+  #root [data-clara-support-card="true"][data-clara-signal-stage="Young Professional"]:not([data-clara-signal-card-active="true"]) h3 + p::after,
+  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] h3 + p,
+  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"]:not([data-clara-signal-card-active="true"]) h3 + p::after {
     font-size: clamp(9.35px, 2.5vw, 10.25px) !important;
     line-height: 1.25 !important;
   }
