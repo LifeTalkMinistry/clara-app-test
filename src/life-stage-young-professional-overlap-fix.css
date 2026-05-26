@@ -45,3 +45,66 @@
     margin-top: -17px !important;
   }
 }
+
+/* Phase 1 final text-fit guard.
+   This file is imported after the older Me-page adaptive CSS, so this is the safest place
+   to neutralize legacy line-clamp rules without changing copy, signal logic, or card design. */
+#root [data-clara-support-card="true"] h3 + p {
+  display: block !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  max-height: none !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  font-size: clamp(8.9px, 2.46vw, 9.9px) !important;
+  line-height: 1.22 !important;
+}
+
+#root [data-clara-support-card="true"] h3 {
+  margin-bottom: 4px !important;
+  font-size: clamp(11.8px, 3.14vw, 13.1px) !important;
+  line-height: 1.08 !important;
+}
+
+#root [data-clara-support-card="true"] > div {
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+#root [data-clara-support-card="true"] [data-clara-heart-cta="true"],
+#root [data-clara-support-card="true"] [data-clara-young-pro-heart-cta="true"],
+#root [data-clara-support-card="true"] [data-clara-living-partner-heart-cta="true"] {
+  flex: 0 0 46px !important;
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  min-height: 46px !important;
+  margin-left: 2px !important;
+}
+
+#root section[data-clara-support-card="true"] {
+  min-height: 102px !important;
+  height: auto !important;
+  max-height: none !important;
+  padding-top: 13px !important;
+  padding-bottom: 13px !important;
+}
+
+@media (max-height: 760px) {
+  #root [data-clara-support-card="true"] h3 + p {
+    font-size: clamp(8.55px, 2.34vw, 9.35px) !important;
+    line-height: 1.18 !important;
+  }
+
+  #root [data-clara-support-card="true"] h3 {
+    font-size: clamp(11.3px, 3vw, 12.5px) !important;
+  }
+
+  #root section[data-clara-support-card="true"] {
+    min-height: 96px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+}
