@@ -76,7 +76,7 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
   "Family Household": {
     title: "Home support needs structure.",
-    body: "Food, bills, requests, shared needs, and personal goals can all pull from the same income. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Many family households quietly manage home bills, shared needs, support requests, personal boundaries, and family expectations at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
   },
   "Single Parent": {
     title: "Your priority is protection.",
