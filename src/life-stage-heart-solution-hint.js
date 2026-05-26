@@ -2,7 +2,7 @@ import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStagePr
 
 let lastManualSignalClick = null;
 
-const SOLUTION_HINT_TEXTS = new Set(["Tap for solution", "Solution shown"]);
+const SOLUTION_HINT_TEXTS = new Set(["Tap for solution", "Solution shown", "Reveal guidance", "Guidance ready"]);
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -156,7 +156,7 @@ function ensureHint() {
   heart.dataset.claraHeartCta = "true";
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
-  heart.setAttribute("aria-label", "Show solution for selected signal");
+  heart.setAttribute("aria-label", "Show guidance for selected signal");
   removeEmbeddedSolutionLabels(heart);
 
   if (!hasManualSignalSelection(card)) {
@@ -175,7 +175,7 @@ function ensureHint() {
   removeDuplicateHints(card, hint);
 
   const mode = clean(card.dataset.claraSignalMode) === "guidance" ? "guidance" : "awareness";
-  const nextText = mode === "guidance" ? "Solution shown" : "Tap for solution";
+  const nextText = mode === "guidance" ? "Guidance ready" : "Reveal guidance";
   if (hint.textContent !== nextText) hint.textContent = nextText;
 }
 
