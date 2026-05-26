@@ -93,3 +93,10 @@ if (typeof window !== "undefined" && !window.__CLARA_LOAD_PRESSURE_SIGNALS__) {
     console.warn("CLARA pressure signals failed to load:", error);
   });
 }
+
+if (typeof window !== "undefined" && !window.__CLARA_LOAD_BUSINESS_STAGE_SIGNALS__) {
+  window.__CLARA_LOAD_BUSINESS_STAGE_SIGNALS__ = true;
+  import("./life-stage-business-builder-signals.js").catch((error) => {
+    console.warn("CLARA business stage signals failed to load:", error);
+  });
+}
