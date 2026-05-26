@@ -43,6 +43,15 @@ function sanitizeClaraReply(text) {
     .trim();
 }
 
+function isIncompleteClaraReply(text = "") {
+  const reply = sanitizeClaraReply(text);
+  if (!reply) return true;
+  if (reply.length < 35) return true;
+  if (/[,:;\-–—]$/.test(reply)) return true;
+  if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around)$/i.test(reply)) return true;
+  return false;
+}
+
 function buildConversationHistory(messages = []) {
   return (Array.isArray(messages) ? messages : [])
     .slice(-8)
@@ -104,7 +113,10 @@ Monthly spent: ${money(finance.monthlySpent)}
 Purchase amount detected: ${money(decision.purchaseAmount)}
 Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
 
-Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it. Reply naturally as CLARA in 2-5 conversational sentences.`;
+Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it.
+For purchase, budget, savings, debt, payday, or emergency questions: give a complete recommendation, one short reason, and one next step.
+Never stop mid-sentence. End with a complete sentence.
+Reply naturally as CLARA in 3-5 conversational sentences.`;
 }
 
 async function requestGeminiContent({ apiKey, model, prompt, signal }) {
@@ -115,9 +127,9 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.6,
-        topP: 0.88,
-        maxOutputTokens: 220
+        temperature: 0.55,
+        topP: 0.86,
+        maxOutputTokens: 520
       }
     })
   });
@@ -155,9 +167,11 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
           .join(" ")
       );
 
-      if (text) {
+      if (text && !isIncompleteClaraReply(text)) {
         return text;
       }
+
+      lastError = new Error("Gemini returned an incomplete CLARA reply.");
     } catch (error) {
       lastError = error;
     }
