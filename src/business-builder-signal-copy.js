@@ -1,4 +1,9 @@
+import { getRotatingSignalCopy } from "./life-stage-signal-rotation-copy";
+
 export function getBusinessBuilderSignalCopy(signalId, mode = "awareness") {
+  const rotatingCopy = getRotatingSignalCopy("Business Builder", signalId, mode);
+  if (rotatingCopy) return rotatingCopy;
+
   const copy = {
     cashFlow: ["Cash flow needs protection.", "Separate timing from profit.", "Sales can look strong while available money stays tight because expenses, inventory, and payments do not always move together.", "Track money already available separately from money still waiting on sales, clients, or collections."],
     reinvestment: ["Reinvestment can pull hard.", "Reinvest with a limit.", "Growth often asks for tools, inventory, ads, supplies, or upgrades before profit feels fully stable.", "Set a reinvestment limit first so growth does not quietly consume money meant for stability."],
