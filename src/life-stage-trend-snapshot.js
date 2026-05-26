@@ -26,6 +26,7 @@ const SOURCE_REFERENCES = [
     badge: "BSP",
     name: "Bangko Sentral ng Pilipinas",
     url: "https://www.bsp.gov.ph/",
+    logoSrc: "",
     terms: ["budget", "discipline", "salary", "payday", "cutoff", "saving", "savings", "cash", "spending", "bill", "bills", "debt", "borrow", "borrowing", "financial", "money"],
   },
   {
@@ -33,6 +34,7 @@ const SOURCE_REFERENCES = [
     badge: "PSA",
     name: "Philippine Statistics Authority",
     url: "https://psa.gov.ph/",
+    logoSrc: "",
     terms: ["household", "family", "income", "food", "transport", "commute", "rent", "living cost", "living costs", "essential", "essentials", "child", "home"],
   },
   {
@@ -40,6 +42,7 @@ const SOURCE_REFERENCES = [
     badge: "DOF",
     name: "Department of Finance",
     url: "https://www.dof.gov.ph/",
+    logoSrc: "",
     terms: ["tax", "finance", "repayment", "obligation", "debt", "pay-later", "installment", "installments"],
   },
   {
@@ -47,6 +50,7 @@ const SOURCE_REFERENCES = [
     badge: "NEDA",
     name: "National Economic and Development Authority",
     url: "https://neda.gov.ph/",
+    logoSrc: "",
     terms: ["planning", "future", "growth", "development", "protection", "welfare", "stability", "career", "goals", "goal"],
   },
   {
@@ -54,6 +58,7 @@ const SOURCE_REFERENCES = [
     badge: "DTI",
     name: "Department of Trade and Industry",
     url: "https://www.dti.gov.ph/",
+    logoSrc: "",
     terms: ["business", "sales", "operating", "owner", "inventory", "consumer", "trade", "client", "freelance", "entrepreneur", "tools", "course", "courses"],
   },
 ];
@@ -71,9 +76,32 @@ function getSnapshotSources(snapshot = {}) {
   return matched.length ? matched : [SOURCE_REFERENCES[0]];
 }
 
+function makeSourceTextBadge(source) {
+  const fallback = document.createElement("span");
+  fallback.dataset.claraSourceTextBadge = "true";
+  fallback.textContent = source.badge;
+  fallback.style.cssText = "display:grid;place-items:center;width:100%;height:100%;font-size:9px;font-weight:950;letter-spacing:.04em;color:rgba(255,255,255,.90);line-height:1;";
+  return fallback;
+}
+
+function makeSourceLogoImage(source) {
+  if (!source.logoSrc) return null;
+  const image = document.createElement("img");
+  image.src = source.logoSrc;
+  image.alt = source.name;
+  image.loading = "lazy";
+  image.decoding = "async";
+  image.style.cssText = "display:block;max-width:28px;max-height:22px;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.20));";
+  image.addEventListener("error", () => {
+    const fallback = makeSourceTextBadge(source);
+    image.replaceWith(fallback);
+  }, { once: true });
+  return image;
+}
+
 function renderSnapshotSourceLinks(sourceBox, snapshot = {}) {
   const sources = getSnapshotSources(snapshot);
-  const signature = sources.map((source) => source.id).join("|");
+  const signature = sources.map((source) => `${source.id}:${source.url}:${source.logoSrc || "text"}`).join("|");
   if (sourceBox.dataset.claraSnapshotSourceSignature === signature) return;
   sourceBox.dataset.claraSnapshotSourceSignature = signature;
 
@@ -90,8 +118,12 @@ function renderSnapshotSourceLinks(sourceBox, snapshot = {}) {
     link.rel = "noopener noreferrer";
     link.title = source.name;
     link.setAttribute("aria-label", `Open ${source.name}`);
-    link.textContent = source.badge;
-    link.style.cssText = `display:grid;place-items:center;min-width:44px;width:44px;height:34px;border-radius:14px;border:1px solid ${index === 0 ? "rgba(165,243,252,.34)" : "rgba(255,255,255,.10)"};background:${index === 0 ? "rgba(125,211,252,.14)" : "rgba(255,255,255,.045)"};color:rgba(255,255,255,.90);font-size:9px;font-weight:950;letter-spacing:.04em;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 18px rgba(0,0,0,.12);pointer-events:auto;`;
+    link.dataset.claraSourceId = source.id;
+    link.dataset.claraSourceLogo = source.logoSrc || "fallback-text";
+    link.style.cssText = `display:grid;place-items:center;min-width:44px;width:44px;height:34px;border-radius:14px;border:1px solid ${index === 0 ? "rgba(165,243,252,.34)" : "rgba(255,255,255,.10)"};background:${source.logoSrc ? "rgba(255,255,255,.075)" : index === 0 ? "rgba(125,211,252,.14)" : "rgba(255,255,255,.045)"};color:rgba(255,255,255,.90);font-size:9px;font-weight:950;letter-spacing:.04em;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 18px rgba(0,0,0,.12);pointer-events:auto;overflow:hidden;`;
+
+    const logo = makeSourceLogoImage(source);
+    link.appendChild(logo || makeSourceTextBadge(source));
     row.appendChild(link);
   });
 
