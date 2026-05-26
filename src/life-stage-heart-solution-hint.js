@@ -1,6 +1,7 @@
 import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStageProfile } from "./life-stage-flow";
 
 const WORKING_STUDENT_STAGE_KEY = "Working Student";
+let lastManualSignalClick = null;
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -43,11 +44,19 @@ function removeHint(card) {
   card?.querySelector?.("[data-clara-solution-hint='true']")?.remove?.();
 }
 
-function hasSelectedSignal(card) {
-  const selectedSignal = clean(card?.dataset?.claraSelectedSignal);
-  const activeFlag = clean(card?.dataset?.claraSignalCardActive) === "true";
-  const activeIcon = document.querySelector("[data-clara-pressure-signal][data-active='true']");
-  return activeFlag && selectedSignal && selectedSignal !== "default" && !!activeIcon;
+function getSelectedSignal(card) {
+  return clean(card?.dataset?.claraSelectedSignal)
+    || clean(document.querySelector("[data-clara-pressure-signal][data-active='true']")?.dataset?.claraPressureSignal);
+}
+
+function hasManualSignalSelection(card) {
+  const stage = getStage();
+  const selectedSignal = getSelectedSignal(card);
+  return !!lastManualSignalClick
+    && lastManualSignalClick.stage === stage
+    && selectedSignal
+    && selectedSignal !== "default"
+    && lastManualSignalClick.signalId === selectedSignal;
 }
 
 function ensureStyles() {
@@ -129,7 +138,9 @@ function ensureHint() {
   heart.setAttribute("tabindex", "0");
   heart.setAttribute("aria-label", "Show solution for selected signal");
 
-  if (!hasSelectedSignal(card)) {
+  // Do not show the hint just because a stage has a preselected/default active signal.
+  // The label appears only after the user manually taps a signal icon in this session.
+  if (!hasManualSignalSelection(card)) {
     removeHint(card);
     return;
   }
@@ -164,14 +175,27 @@ function installLifeStageHeartSolutionHint() {
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-clara-signal-mode", "data-clara-selected-signal", "data-clara-signal-card-active", "data-active"] });
 
-  document.addEventListener("click", () => {
+  document.addEventListener("click", (event) => {
+    const signal = event.target?.closest?.("[data-clara-pressure-signal]");
+    if (signal) {
+      lastManualSignalClick = {
+        stage: getStage(),
+        signalId: clean(signal.dataset.claraPressureSignal),
+      };
+    }
     schedule();
     window.setTimeout(ensureHint, 80);
     window.setTimeout(ensureHint, 180);
   }, true);
 
-  window.addEventListener("clara:life-stage-profile-updated", schedule, { passive: true });
-  window.addEventListener("storage", schedule, { passive: true });
+  window.addEventListener("clara:life-stage-profile-updated", () => {
+    lastManualSignalClick = null;
+    schedule();
+  }, { passive: true });
+  window.addEventListener("storage", () => {
+    lastManualSignalClick = null;
+    schedule();
+  }, { passive: true });
   schedule();
 }
 
