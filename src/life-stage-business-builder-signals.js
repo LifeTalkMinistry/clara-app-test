@@ -88,6 +88,12 @@ function applyBusinessBuilderCopy(signalId, mode = "awareness") {
   setActiveIcon(signalId);
 }
 
+function queueBusinessBuilderCopy(signalId, mode = "awareness") {
+  window.setTimeout(() => applyBusinessBuilderCopy(signalId, mode), 0);
+  window.setTimeout(() => applyBusinessBuilderCopy(signalId, mode), 80);
+  window.setTimeout(() => applyBusinessBuilderCopy(signalId, mode), 180);
+}
+
 function getCardSignal(card) {
   const selected = clean(card?.dataset?.claraSelectedSignal);
   if (selected && selected !== "default") return selected;
@@ -101,8 +107,7 @@ function handleClick(event) {
   const signalButton = event.target?.closest?.("[data-clara-pressure-signal]");
   if (signalButton) {
     const signalId = signalButton.dataset.claraPressureSignal;
-    window.setTimeout(() => applyBusinessBuilderCopy(signalId, "awareness"), 0);
-    window.setTimeout(() => applyBusinessBuilderCopy(signalId, "awareness"), 80);
+    queueBusinessBuilderCopy(signalId, "awareness");
     return;
   }
 
@@ -113,13 +118,13 @@ function handleClick(event) {
   const signalId = getCardSignal(card);
   const currentMode = card.dataset.claraSignalMode === "guidance" ? "guidance" : "awareness";
   const nextMode = currentMode === "guidance" ? "awareness" : "guidance";
-  window.setTimeout(() => applyBusinessBuilderCopy(signalId, nextMode), 0);
-  window.setTimeout(() => applyBusinessBuilderCopy(signalId, nextMode), 80);
+  queueBusinessBuilderCopy(signalId, nextMode);
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_BUSINESS_BUILDER_SIGNALS__) {
   window.__CLARA_BUSINESS_BUILDER_SIGNALS__ = true;
-  document.addEventListener("click", handleClick, false);
+  window.addEventListener("click", handleClick, true);
+  document.addEventListener("click", handleClick, true);
   const observer = new MutationObserver(() => window.requestAnimationFrame(fitDefaultBusinessBuilderCard));
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
   window.setTimeout(fitDefaultBusinessBuilderCard, 80);
