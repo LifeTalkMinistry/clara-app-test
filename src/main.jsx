@@ -10,7 +10,6 @@ import "./clara-memory-bridge";
 import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
-import "./life-stage-working-student-signal-fit";
 import "./life-stage-heart-solution-hint";
 import "./life-stage-living-with-partner-signals";
 import "./life-stage-working-student-heart-default-guard";
@@ -46,7 +45,6 @@ import "./life-stage-diagnosis-cleanup.css";
 import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
 import "./me-support-dock-gap-fix.css";
-import "./life-stage-working-student-signal-fit.css";
 import "./life-stage-young-professional-overlap-fix.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
