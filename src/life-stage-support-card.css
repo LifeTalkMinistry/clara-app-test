@@ -96,3 +96,93 @@
     font-size: 9.6px !important;
   }
 }
+
+/* Phase 1 text-fit polish.
+   The life-stage card is now stage-aware; this layer only prevents visual clipping.
+   It intentionally keeps the card compact, glassy, and mobile-first. */
+#root [data-clara-support-card="true"] {
+  --clara-support-heart-space: clamp(58px, 15.6vw, 68px);
+}
+
+#root [data-clara-support-card="true"] > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: clamp(8px, 2.6vw, 12px) !important;
+  min-width: 0 !important;
+}
+
+#root [data-clara-support-card="true"] h3,
+#root [data-clara-support-card="true"] h3 + p {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  max-height: none !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+}
+
+#root [data-clara-support-card="true"] h3 {
+  max-width: min(100%, calc(100vw - 150px)) !important;
+  margin: 0 0 5px !important;
+  font-size: clamp(12.4px, 3.34vw, 13.6px) !important;
+  line-height: 1.1 !important;
+}
+
+#root [data-clara-support-card="true"] h3 + p {
+  display: block !important;
+  width: auto !important;
+  max-width: min(100%, calc(100vw - 154px)) !important;
+  margin: 0 !important;
+  color: rgba(248, 253, 255, 0.68) !important;
+  font-size: clamp(9.35px, 2.72vw, 10.35px) !important;
+  line-height: 1.26 !important;
+  font-weight: 650 !important;
+}
+
+#root [data-clara-support-card="true"] h3:not(:only-child) {
+  flex: 0 0 auto !important;
+}
+
+#root [data-clara-support-card="true"] h3,
+#root [data-clara-support-card="true"] h3 + p,
+#root [data-clara-support-card="true"] h3 + p::after {
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
+}
+
+#root [data-clara-support-card="true"] h3:has(+ p),
+#root [data-clara-support-card="true"] h3 + p {
+  min-width: 0 !important;
+}
+
+#root [data-clara-support-card="true"] h3 + p + * {
+  max-width: calc(100% - var(--clara-support-heart-space)) !important;
+}
+
+#root [data-clara-support-card="true"] [data-clara-heart-cta="true"],
+#root [data-clara-support-card="true"] [data-clara-young-pro-heart-cta="true"],
+#root [data-clara-support-card="true"] [data-clara-living-partner-heart-cta="true"] {
+  flex: 0 0 clamp(48px, 13.4vw, 56px) !important;
+  width: clamp(48px, 13.4vw, 56px) !important;
+  height: clamp(48px, 13.4vw, 56px) !important;
+  min-width: clamp(48px, 13.4vw, 56px) !important;
+  min-height: clamp(48px, 13.4vw, 56px) !important;
+  align-self: center !important;
+}
+
+@media (max-width: 390px) {
+  #root [data-clara-support-card="true"] h3 {
+    max-width: min(100%, calc(100vw - 142px)) !important;
+    margin-bottom: 4px !important;
+    font-size: clamp(12px, 3.18vw, 13px) !important;
+  }
+
+  #root [data-clara-support-card="true"] h3 + p {
+    max-width: min(100%, calc(100vw - 148px)) !important;
+    font-size: clamp(9.05px, 2.56vw, 9.8px) !important;
+    line-height: 1.24 !important;
+  }
+}
