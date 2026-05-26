@@ -28,23 +28,23 @@
   gap: clamp(14px, 2.25svh, 22px) !important;
 }
 
-/* Working Student support-card idle state:
-   Before the user taps a signal, keep the heart quiet and make the card tell them what to do next.
-   Once a signal is selected, data-clara-signal-card-active="true" is added by the signal bridge, so the glowing CTA returns. */
-#root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"] {
+/* Working Student support-card idle state only.
+   This must never run globally because the text below is Working Student-specific.
+   Non-Working Student stages now get their default card copy from life-stage-guidance.js. */
+#root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"] {
   animation: none !important;
   box-shadow:
     0 10px 24px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
 
-#root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"]::before,
-#root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"]::after {
+#root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"]::before,
+#root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"]::after {
   content: none !important;
   display: none !important;
 }
 
-#root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p {
+#root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p {
   display: block !important;
   max-width: min(14.7rem, calc(100vw - 156px)) !important;
   max-height: none !important;
@@ -59,7 +59,7 @@
   color: transparent !important;
 }
 
-#root [data-clara-support-card="true"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p::after {
+#root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p::after {
   content: "Many working students quietly manage school, commute, tiredness, and money pressure at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution." !important;
   display: block !important;
   max-width: 100% !important;
