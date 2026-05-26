@@ -29,6 +29,11 @@ export const LIFE_STAGE_SNAPSHOT = {
     subtitle: "100% split of your current Family Household pressure.",
     cards: [],
   },
+  "Single Parent": {
+    model: "single-parent-canonical-engine",
+    subtitle: "100% split of your current Single Parent pressure.",
+    cards: [],
+  },
 };
 
 const LIVING_WITH_PARTNER_SNAPSHOT_KEYS = [
@@ -106,6 +111,65 @@ const FAMILY_HOUSEHOLD_DEFINITIONS = {
   },
 };
 
+const SINGLE_PARENT_SNAPSHOT_KEYS = [
+  "childEssentials",
+  "timePressure",
+  "emergencyRisk",
+  "personalSacrifice",
+  "futureProtection",
+];
+
+const SINGLE_PARENT_BASE_WEIGHTS = {
+  childEssentials: 30,
+  timePressure: 22,
+  emergencyRisk: 20,
+  personalSacrifice: 16,
+  futureProtection: 12,
+};
+
+const SINGLE_PARENT_DEFINITIONS = {
+  childEssentials: {
+    label: "Child Essentials",
+    category: "essentials",
+    trendType: "stable",
+    note: "Food, school, childcare, health, and daily needs may be taking priority before everything else.",
+    insight: "When essentials are heavy, one missed plan can affect both the child’s stability and the parent’s peace.",
+    action: "Separate the child-essential amount first before any flexible spending starts.",
+  },
+  timePressure: {
+    label: "Time Pressure",
+    category: "energy",
+    trendType: "downward",
+    note: "Work, caregiving, errands, and limited rest may be reducing the energy available for planning.",
+    insight: "When time is tight, convenience spending can become a survival tool instead of a choice.",
+    action: "Choose one repeatable routine that saves time without quietly draining money.",
+  },
+  emergencyRisk: {
+    label: "Emergency Risk",
+    category: "protection",
+    trendType: "spike",
+    note: "Unexpected health, school, transport, or home costs can disrupt the whole month quickly.",
+    insight: "A small emergency can feel bigger when one income or one person carries most of the recovery.",
+    action: "Build a tiny emergency layer before chasing a perfect savings target.",
+  },
+  personalSacrifice: {
+    label: "Personal Sacrifice",
+    category: "pressure",
+    trendType: "volatile",
+    note: "Personal needs may be delayed because the child’s needs feel more urgent and non-negotiable.",
+    insight: "Sacrifice can protect the child short term, but repeated self-neglect can weaken the parent’s stability.",
+    action: "Protect one small personal need as part of the family stability plan.",
+  },
+  futureProtection: {
+    label: "Future Protection",
+    category: "growth",
+    trendType: "upward",
+    note: "Education, safety, insurance, and long-term security may be important but hard to fund consistently.",
+    insight: "Future protection grows through small protected actions, not one perfect big plan.",
+    action: "Assign even a small fixed amount toward the child’s future or protection goal.",
+  },
+};
+
 function toKey(value, index = 0) {
   return String(value || `snapshot-${index}`).replace(/[^a-z0-9]+/gi, "");
 }
@@ -175,7 +239,7 @@ function buildLivingWithPartnerSnapshotCards(profile = {}) {
     }));
 }
 
-function familyHouseholdText(profile = {}) {
+function stageText(profile = {}) {
   return [profile.setup, profile.rhythm, profile.workload, profile.pressure, profile.coping, profile.goal]
     .filter(Boolean)
     .join(" ")
@@ -183,7 +247,7 @@ function familyHouseholdText(profile = {}) {
 }
 
 function familyHouseholdSignalScores(profile = {}) {
-  const text = familyHouseholdText(profile);
+  const text = stageText(profile);
   const scores = { ...FAMILY_HOUSEHOLD_BASE_WEIGHTS };
   const add = (key, amount) => {
     scores[key] = (scores[key] || 0) + amount;
@@ -208,6 +272,45 @@ function buildFamilyHouseholdSnapshotCards(profile = {}) {
 
   return normalizeRows(rows)
     .sort((a, b) => b.value - a.value || FAMILY_HOUSEHOLD_SNAPSHOT_KEYS.indexOf(a.key) - FAMILY_HOUSEHOLD_SNAPSHOT_KEYS.indexOf(b.key))
+    .map((row, index) => ({
+      key: row.key,
+      label: row.label,
+      value: row.value,
+      status: pressureStatus(row.value, index),
+      trendType: row.trendType,
+      category: row.category,
+      note: row.note,
+      insight: row.insight,
+      action: row.action,
+    }));
+}
+
+function singleParentSignalScores(profile = {}) {
+  const text = stageText(profile);
+  const scores = { ...SINGLE_PARENT_BASE_WEIGHTS };
+  const add = (key, amount) => {
+    scores[key] = (scores[key] || 0) + amount;
+  };
+
+  if (/child|school|childcare|food|daily|essential|essentials|health|education/.test(text)) add("childEssentials", 24);
+  if (/time|busy|care|work|overlap|limited|always|exhausted|support/.test(text)) add("timePressure", 20);
+  if (/emergency|health|urgent|borrow|debt|unexpected|risk|cost/.test(text)) add("emergencyRisk", 22);
+  if (/sacrifice|guilt|personal|own needs|avoid|comfort|stretch/.test(text)) add("personalSacrifice", 18);
+  if (/future|protect|stability|buffer|secure|insurance|safety/.test(text)) add("futureProtection", 18);
+
+  return scores;
+}
+
+function buildSingleParentSnapshotCards(profile = {}) {
+  const scores = singleParentSignalScores(profile || {});
+  const rows = SINGLE_PARENT_SNAPSHOT_KEYS.map((key) => ({
+    key,
+    raw: scores[key] || SINGLE_PARENT_BASE_WEIGHTS[key] || 12,
+    ...SINGLE_PARENT_DEFINITIONS[key],
+  }));
+
+  return normalizeRows(rows)
+    .sort((a, b) => b.value - a.value || SINGLE_PARENT_SNAPSHOT_KEYS.indexOf(a.key) - SINGLE_PARENT_SNAPSHOT_KEYS.indexOf(b.key))
     .map((row, index) => ({
       key: row.key,
       label: row.label,
@@ -276,6 +379,14 @@ export function getLifeStageSnapshot(stageKey = getSelectedLifeStageKey(), profi
       model: "family-household-canonical-engine",
       subtitle: "100% split of your current Family Household pressure.",
       cards: buildFamilyHouseholdSnapshotCards(profile || {}),
+    };
+  }
+
+  if (normalized === "Single Parent") {
+    return {
+      model: "single-parent-canonical-engine",
+      subtitle: "100% split of your current Single Parent pressure.",
+      cards: buildSingleParentSnapshotCards(profile || {}),
     };
   }
 
