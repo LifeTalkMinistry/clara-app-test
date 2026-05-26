@@ -2,6 +2,7 @@ import { buildClaraFinanceSnapshot } from "./clara-local-brain";
 import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine";
 import { summarizeLifeProfileForClara } from "./clara-life-profile";
 import { buildClaraBehavioralContextForPrompt, getClaraBehavioralRiskLabel } from "./clara-behavioral-intelligence";
+import { buildClaraLifeStagePromptBlock, withClaraLifeStageAiContext } from "./clara-life-stage-ai-context";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -50,9 +51,11 @@ function buildConversationHistory(messages = []) {
 }
 
 function buildPrompt({ message, context, mode, conversationHistory = [] }) {
-  const finance = buildClaraFinanceSnapshot(context || {});
-  const decision = buildContextForGeminiPrompt({ message, financeContext: context || {} });
-  const life = summarizeLifeProfileForClara(context?.lifeProfile || context?.profile?.lifeProfile || context?.profile || {});
+  const enrichedContext = withClaraLifeStageAiContext(context || {});
+  const finance = buildClaraFinanceSnapshot(enrichedContext);
+  const decision = buildContextForGeminiPrompt({ message, financeContext: enrichedContext });
+  const life = summarizeLifeProfileForClara(enrichedContext?.lifeProfile || enrichedContext?.profile?.lifeProfile || enrichedContext?.profile || {});
+  const lifeStageBlock = buildClaraLifeStagePromptBlock(enrichedContext.lifeStageContext);
   const behavioralMemory = buildClaraBehavioralContextForPrompt(message);
   const behavioralRisk = getClaraBehavioralRiskLabel(message);
 
@@ -74,6 +77,8 @@ ${buildConversationHistory(conversationHistory)}
 
 Current user message:
 ${message}
+
+${lifeStageBlock}
 
 Life Profile:
 Income rhythm: ${life.incomeRhythm || "not set"}
@@ -99,7 +104,7 @@ Monthly spent: ${money(finance.monthlySpent)}
 Purchase amount detected: ${money(decision.purchaseAmount)}
 Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
 
-Reply naturally as CLARA in 2-5 conversational sentences.`;
+Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it. Reply naturally as CLARA in 2-5 conversational sentences.`;
 }
 
 async function requestGeminiContent({ apiKey, model, prompt, signal }) {
