@@ -53,6 +53,15 @@ export const LIFE_STAGE_SIGNAL_REGISTRY = {
     { id: "lifestyleCreep", icon: "✨", label: "Lifestyle Creep", ariaLabel: "Lifestyle Creep" },
     { id: "paydayLeak", icon: "💸", label: "Payday Leak", ariaLabel: "Payday Leak" },
     { id: "futureGoals", icon: "📈", label: "Future Goals", ariaLabel: "Future Goals" }
+  ],
+  "Freelance Season": [
+    { id: "incomeVariability", icon: "💸", label: "Income Variability", ariaLabel: "Income Variability" },
+    { id: "clientTiming", icon: "⏳", label: "Client Timing", ariaLabel: "Client Timing" },
+    { id: "dryWeeks", icon: "🏜️", label: "Dry Weeks", ariaLabel: "Dry Weeks" },
+    { id: "projectPressure", icon: "🧠", label: "Project Pressure", ariaLabel: "Project Pressure" },
+    { id: "workCosts", icon: "🧾", label: "Work Costs", ariaLabel: "Work Costs" },
+    { id: "restRisk", icon: "🌙", label: "Rest Risk", ariaLabel: "Rest Risk" },
+    { id: "cashFlowBuffer", icon: "🛟", label: "Cash-Flow Buffer", ariaLabel: "Cash-Flow Buffer" }
   ]
 };
 
