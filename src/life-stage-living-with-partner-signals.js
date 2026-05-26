@@ -116,21 +116,7 @@ function enhanceModal() {
   if (valueNode) valueNode.textContent = `${snapshot.value}%`;
   if (statusNode) statusNode.textContent = snapshot.status;
 
-  let panel = modal.querySelector("[data-clara-living-partner-insight='true']");
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.dataset.claraLivingPartnerInsight = "true";
-    panel.style.cssText = "margin:16px 0 12px;padding:15px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg, rgba(255,255,255,.060), rgba(255,255,255,.028));";
-    sourceHeading?.closest("div")?.parentElement?.insertBefore(panel, sourceHeading.closest("div"));
-  }
-
-  panel.innerHTML = `
-    <div style="display:grid;gap:9px;">
-      <div><p style="margin:0 0 5px;font-size:9px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);">Meaning</p><p style="margin:0;font-size:12px;line-height:1.55;color:rgba(255,255,255,.86);">${snapshot.note}</p></div>
-      <div><p style="margin:0 0 5px;font-size:9px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);">Why it matters</p><p style="margin:0;font-size:12px;line-height:1.55;color:rgba(255,255,255,.86);">${snapshot.insight}</p></div>
-      <div><p style="margin:0 0 5px;font-size:9px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);">Next move</p><p style="margin:0;font-size:12px;line-height:1.55;color:rgba(255,255,255,.86);">${snapshot.action}</p></div>
-    </div>
-  `;
+  modal.querySelector("[data-clara-living-partner-insight='true']")?.remove?.();
 }
 
 function maintain() {
