@@ -29,15 +29,15 @@ export const LIFE_STAGE_GUIDANCE = {
     },
     signals: {
       tired: {
-        awareness: { title: "Energy pressure is showing up.", body: "A heavy day can make shortcuts, comfort buys, or skipped tracking feel more reasonable than usual." },
-        guidance: { title: "Make tired days easier.", body: "Choose one low-effort rule: fare ready, food limit set, or one quick expense check." },
+        awareness: { title: "Energy pressure is showing up.", body: "Heavy days can trigger shortcuts, comfort buys, or skipped tracking." },
+        guidance: { title: "Make tired days easier.", body: "Use one low-effort rule: fare ready, food limit, or one quick check." },
       },
       stress: {
-        awareness: { title: "Stress may be asking for relief.", body: "Buying can feel like control when school, work, commute, deadlines, or family needs crowd the mind." },
-        guidance: { title: "Name the pressure first.", body: "Separate the feeling from the purchase, then set a small limit if you still need relief." },
+        awareness: { title: "Stress may be asking for relief.", body: "Buying can feel like control when school, work, commute, and deadlines stack up." },
+        guidance: { title: "Name the pressure first.", body: "Separate the feeling from the purchase, then set a small relief limit." },
       },
       sleepy: {
-        awareness: { title: "Low sleep weakens control.", body: "Sleepy days can increase automatic spending, caffeine runs, and convenience choices." },
+        awareness: { title: "Low sleep weakens control.", body: "Sleepy days can trigger caffeine runs, auto-spending, and convenience choices." },
         guidance: { title: "Delay bigger decisions.", body: "Save the decision, rest first, then choose when your mind is clearer." },
       },
       hungry: {
@@ -45,11 +45,11 @@ export const LIFE_STAGE_GUIDANCE = {
         guidance: { title: "Protect a small food buffer.", body: "Eat on time when possible so hunger does not decide the price later." },
       },
       pressure: {
-        awareness: { title: "Time pressure becomes money pressure.", body: "Rushing can increase transport, food, forgotten supplies, and last-minute school costs." },
-        guidance: { title: "Prepare one thing early.", body: "Pick one predictable pressure today and prepare it before the rush begins." },
+        awareness: { title: "Time pressure becomes money pressure.", body: "Rushing can add fare, food, supplies, and last-minute school costs." },
+        guidance: { title: "Prepare one thing early.", body: "Pick one predictable pressure and prepare it before the rush begins." },
       },
       moneyTiming: {
-        awareness: { title: "Money timing can create pressure.", body: "When money arrives late, even small costs feel heavier." },
+        awareness: { title: "Money timing can create pressure.", body: "Late money can make food, fare, load, and school costs feel heavier." },
         guidance: { title: "Protect the waiting period.", body: "Protect fare, food, load, and school needs until the next money comes." },
       },
       commute: {
