@@ -1,0 +1,16 @@
+#clara-life-stage-diagnosis-reveal .story-card > .eyebrow,
+#clara-life-stage-diagnosis-reveal .story-card > .supporting {
+  display: none !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card {
+  gap: clamp(14px, 2.35svh, 22px) !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card h1 {
+  margin-top: 0 !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card .story-body {
+  margin-top: 0 !important;
+}
