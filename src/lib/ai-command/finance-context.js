@@ -9,6 +9,7 @@ import {
   getWalletTransactions,
 } from "@/lib/financeRepository";
 import { readClaraDevIdentityOverride } from "@/lib/clara-dev-simulator";
+import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
 
 const DEFAULT_CATEGORIES = [
   "food",
@@ -212,6 +213,8 @@ export async function loadFinanceSnapshot(user) {
     transfers: normalizedTransfers,
   };
 
+  const lifeStageContext = buildClaraLifeStageAiContext();
+
   return {
     ...snapshot,
     categories: Array.from(
@@ -222,12 +225,22 @@ export async function loadFinanceSnapshot(user) {
       ])
     ),
     summary: computeFinanceSummary(snapshot),
+    lifeStageContext,
+    lifeStageAiContext: lifeStageContext,
+    meLifeStageProfile: lifeStageContext,
   };
 }
 
 export function compactFinanceSnapshot(snapshot = {}) {
+  const lifeStageContext =
+    snapshot.lifeStageContext ||
+    snapshot.lifeStageAiContext ||
+    snapshot.meLifeStageProfile ||
+    buildClaraLifeStageAiContext();
+
   return {
     summary: snapshot.summary || computeFinanceSummary(snapshot),
+    lifeStageContext,
     wallets: (snapshot.wallets || []).map((wallet) => ({
       id: wallet.id,
       name: wallet.name || wallet.wallet_name || "Wallet",
