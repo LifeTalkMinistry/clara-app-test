@@ -43,6 +43,7 @@ import "./life-stage-question-compact-mobile.css";
 import "./life-stage-progress-indicator-fix.css";
 import "./life-stage-story-canonical-working-student.css";
 import "./life-stage-story-canonical-young-professional.css";
+import "./life-stage-freelance-season-support-fit.css";
 import "./life-stage-diagnosis-cleanup.css";
 import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
