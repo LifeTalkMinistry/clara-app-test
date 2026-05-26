@@ -34,6 +34,11 @@ export const LIFE_STAGE_SNAPSHOT = {
     subtitle: "100% split of your current Single Parent pressure.",
     cards: [],
   },
+  "Full-Time Earner": {
+    model: "full-time-earner-canonical-engine",
+    subtitle: "100% split of your current Full-Time Earner pressure.",
+    cards: [],
+  },
 };
 
 const LIVING_WITH_PARTNER_SNAPSHOT_KEYS = [
@@ -167,6 +172,65 @@ const SINGLE_PARENT_DEFINITIONS = {
     note: "Education, safety, insurance, and long-term security may be important but hard to fund consistently.",
     insight: "Future protection grows through small protected actions, not one perfect big plan.",
     action: "Assign even a small fixed amount toward the child’s future or protection goal.",
+  },
+};
+
+const FULL_TIME_EARNER_SNAPSHOT_KEYS = [
+  "salaryCycle",
+  "billsPressure",
+  "paydayLeak",
+  "workFatigue",
+  "futureGoals",
+];
+
+const FULL_TIME_EARNER_BASE_WEIGHTS = {
+  salaryCycle: 28,
+  billsPressure: 24,
+  paydayLeak: 20,
+  workFatigue: 16,
+  futureGoals: 12,
+};
+
+const FULL_TIME_EARNER_DEFINITIONS = {
+  salaryCycle: {
+    label: "Salary Cycle",
+    category: "stability",
+    trendType: "wave",
+    note: "Salary timing, cutoff rhythm, and payday habits may be shaping the whole month.",
+    insight: "A stable income can still feel unstable when the salary is not assigned before spending begins.",
+    action: "Create a simple payday split before the first flexible purchase happens.",
+  },
+  billsPressure: {
+    label: "Bills Pressure",
+    category: "pressure",
+    trendType: "stable",
+    note: "Bills, subscriptions, installments, and fixed obligations may be stacking quietly.",
+    insight: "Predictable bills become heavy when they are remembered only after lifestyle spending starts.",
+    action: "List every fixed bill and separate that amount immediately after payday.",
+  },
+  paydayLeak: {
+    label: "Payday Leak",
+    category: "spending",
+    trendType: "spike",
+    note: "Reward spending, small upgrades, and convenience purchases may be strongest after payday.",
+    insight: "The leak often happens when payday feels like freedom before the month’s real limits are visible.",
+    action: "Delay one reward purchase until bills, savings, and food money are already protected.",
+  },
+  workFatigue: {
+    label: "Work Fatigue",
+    category: "energy",
+    trendType: "downward",
+    note: "Long work hours, shift rhythm, commute, or routine burnout may be affecting spending choices.",
+    insight: "When energy is low, spending can become the easiest shortcut for comfort, food, or convenience.",
+    action: "Choose one low-cost recovery option before the work week drains your discipline.",
+  },
+  futureGoals: {
+    label: "Future Goals",
+    category: "growth",
+    trendType: "upward",
+    note: "Savings, emergency fund, debt freedom, or long-term plans may need stronger protection.",
+    insight: "Stable income creates opportunity only when future money is separated before lifestyle pressure grows.",
+    action: "Automate or manually move a small goal amount every payday before optional spending.",
   },
 };
 
@@ -324,6 +388,45 @@ function buildSingleParentSnapshotCards(profile = {}) {
     }));
 }
 
+function fullTimeEarnerSignalScores(profile = {}) {
+  const text = stageText(profile);
+  const scores = { ...FULL_TIME_EARNER_BASE_WEIGHTS };
+  const add = (key, amount) => {
+    scores[key] = (scores[key] || 0) + amount;
+  };
+
+  if (/salary|cutoff|payday|fixed|monthly|stable|income|routine/.test(text)) add("salaryCycle", 22);
+  if (/bill|bills|subscription|subscriptions|installment|installments|debt|obligation|family|support/.test(text)) add("billsPressure", 22);
+  if (/reward|spending|convenience|lifestyle|leak|upgrade|small|fades/.test(text)) add("paydayLeak", 20);
+  if (/fatigue|tired|shift|work|hours|burnout|commute|stress/.test(text)) add("workFatigue", 18);
+  if (/save|savings|emergency|future|goal|goals|automation|control/.test(text)) add("futureGoals", 18);
+
+  return scores;
+}
+
+function buildFullTimeEarnerSnapshotCards(profile = {}) {
+  const scores = fullTimeEarnerSignalScores(profile || {});
+  const rows = FULL_TIME_EARNER_SNAPSHOT_KEYS.map((key) => ({
+    key,
+    raw: scores[key] || FULL_TIME_EARNER_BASE_WEIGHTS[key] || 12,
+    ...FULL_TIME_EARNER_DEFINITIONS[key],
+  }));
+
+  return normalizeRows(rows)
+    .sort((a, b) => b.value - a.value || FULL_TIME_EARNER_SNAPSHOT_KEYS.indexOf(a.key) - FULL_TIME_EARNER_SNAPSHOT_KEYS.indexOf(b.key))
+    .map((row, index) => ({
+      key: row.key,
+      label: row.label,
+      value: row.value,
+      status: pressureStatus(row.value, index),
+      trendType: row.trendType,
+      category: row.category,
+      note: row.note,
+      insight: row.insight,
+      action: row.action,
+    }));
+}
+
 function fromDefinition(stageKey) {
   const definition = getStageDefinition(stageKey, {});
   const cards = (definition?.indicators || []).map((item, index) => ({
@@ -387,6 +490,14 @@ export function getLifeStageSnapshot(stageKey = getSelectedLifeStageKey(), profi
       model: "single-parent-canonical-engine",
       subtitle: "100% split of your current Single Parent pressure.",
       cards: buildSingleParentSnapshotCards(profile || {}),
+    };
+  }
+
+  if (normalized === "Full-Time Earner") {
+    return {
+      model: "full-time-earner-canonical-engine",
+      subtitle: "100% split of your current Full-Time Earner pressure.",
+      cards: buildFullTimeEarnerSnapshotCards(profile || {}),
     };
   }
 
