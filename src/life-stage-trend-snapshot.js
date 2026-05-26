@@ -20,6 +20,84 @@ const TREND_PATHS = {
   upward: "M2 28 C12 24 17 24 26 20 C36 15 42 17 51 13 C62 8 68 12 77 9 C84 6 88 7 90 5",
 };
 
+const SOURCE_REFERENCES = [
+  {
+    id: "bsp",
+    badge: "BSP",
+    name: "Bangko Sentral ng Pilipinas",
+    url: "https://www.bsp.gov.ph/",
+    terms: ["budget", "discipline", "salary", "payday", "cutoff", "saving", "savings", "cash", "spending", "bill", "bills", "debt", "borrow", "borrowing", "financial", "money"],
+  },
+  {
+    id: "psa",
+    badge: "PSA",
+    name: "Philippine Statistics Authority",
+    url: "https://psa.gov.ph/",
+    terms: ["household", "family", "income", "food", "transport", "commute", "rent", "living cost", "living costs", "essential", "essentials", "child", "home"],
+  },
+  {
+    id: "dof",
+    badge: "DOF",
+    name: "Department of Finance",
+    url: "https://www.dof.gov.ph/",
+    terms: ["tax", "finance", "repayment", "obligation", "debt", "pay-later", "installment", "installments"],
+  },
+  {
+    id: "neda",
+    badge: "NEDA",
+    name: "National Economic and Development Authority",
+    url: "https://neda.gov.ph/",
+    terms: ["planning", "future", "growth", "development", "protection", "welfare", "stability", "career", "goals", "goal"],
+  },
+  {
+    id: "dti",
+    badge: "DTI",
+    name: "Department of Trade and Industry",
+    url: "https://www.dti.gov.ph/",
+    terms: ["business", "sales", "operating", "owner", "inventory", "consumer", "trade", "client", "freelance", "entrepreneur", "tools", "course", "courses"],
+  },
+];
+
+function sourceText(snapshot = {}) {
+  return [snapshot.label, snapshot.status, snapshot.note, snapshot.insight, snapshot.action]
+    .map(clean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function getSnapshotSources(snapshot = {}) {
+  const text = sourceText(snapshot);
+  const matched = SOURCE_REFERENCES.filter((source) => source.terms.some((term) => text.includes(term))).slice(0, 3);
+  return matched.length ? matched : [SOURCE_REFERENCES[0]];
+}
+
+function renderSnapshotSourceLinks(sourceBox, snapshot = {}) {
+  const sources = getSnapshotSources(snapshot);
+  const signature = sources.map((source) => source.id).join("|");
+  if (sourceBox.dataset.claraSnapshotSourceSignature === signature) return;
+  sourceBox.dataset.claraSnapshotSourceSignature = signature;
+
+  sourceBox.querySelector("[data-clara-snapshot-source-links='true']")?.remove?.();
+
+  const row = document.createElement("div");
+  row.dataset.claraSnapshotSourceLinks = "true";
+  row.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:10px;overflow-x:auto;padding:0 0 2px;scrollbar-width:none;";
+
+  sources.forEach((source, index) => {
+    const link = document.createElement("a");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.title = source.name;
+    link.setAttribute("aria-label", `Open ${source.name}`);
+    link.textContent = source.badge;
+    link.style.cssText = `display:grid;place-items:center;min-width:44px;width:44px;height:34px;border-radius:14px;border:1px solid ${index === 0 ? "rgba(165,243,252,.34)" : "rgba(255,255,255,.10)"};background:${index === 0 ? "rgba(125,211,252,.14)" : "rgba(255,255,255,.045)"};color:rgba(255,255,255,.90);font-size:9px;font-weight:950;letter-spacing:.04em;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 18px rgba(0,0,0,.12);pointer-events:auto;`;
+    row.appendChild(link);
+  });
+
+  sourceBox.appendChild(row);
+}
+
 function findTrendSnapshotSection() {
   return Array.from(document.querySelectorAll("section")).find((section) => clean(section.querySelector("h3")?.textContent) === "Life Stage Trend Snapshot");
 }
@@ -131,7 +209,7 @@ function upsertInsightPanel(modal, snapshot) {
   `;
 }
 
-function compactSources(modal) {
+function compactSources(modal, snapshot) {
   const sourceHeading = Array.from(modal.querySelectorAll("p")).find((node) => clean(node.textContent).toLowerCase().includes("source") || clean(node.textContent).toLowerCase().includes("basis"));
   const sourceBox = sourceHeading?.closest("div");
   if (!sourceBox) return;
@@ -141,6 +219,7 @@ function compactSources(modal) {
     node.hidden = true;
     node.style.display = "none";
   });
+  renderSnapshotSourceLinks(sourceBox, snapshot);
 }
 
 function enhanceOpenedTrendModal() {
@@ -171,7 +250,7 @@ function enhanceOpenedTrendModal() {
   setText(valueNode, `${snapshot.value}%`);
   setText(statusNode, snapshot.status);
   upsertInsightPanel(modal, snapshot);
-  compactSources(modal);
+  compactSources(modal, snapshot);
 }
 
 function enhanceTrendSnapshot() {
