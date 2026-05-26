@@ -360,7 +360,15 @@ export const LIVING_WITH_PARTNER_SIGNAL_DEFINITIONS = {
 };
 
 const FALLBACK_SIGNALS = { sharedBills: 16, moneyTalks: 12, fairness: 10, emergencyBuffer: 8 };
-const LIVING_WITH_PARTNER_DOCK_SIGNAL_ORDER = ["sharedBills", "moneyTalks", "fairness", "futurePlans", "emergencyBuffer"];
+const LIVING_WITH_PARTNER_DOCK_SIGNAL_ORDER = [
+  "sharedBills",
+  "moneyTalks",
+  "fairness",
+  "comfortSpending",
+  "familyBoundaries",
+  "futurePlans",
+  "emergencyBuffer",
+];
 
 export function cleanLivingWithPartnerValue(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
