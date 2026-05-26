@@ -12,6 +12,7 @@ import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-signal-card-states";
 import "./life-stage-signal-card-stage-guard";
+import "./life-stage-default-support-card-guard";
 import "./life-stage-heart-solution-hint";
 import "./life-stage-young-professional-signals";
 import "./life-stage-living-with-partner-signals";
