@@ -1,4 +1,5 @@
 import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
+import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
 
 function formatMoney(value) {
   const number = Number(value);
@@ -58,6 +59,75 @@ function isBalanceQuestion(text = "") {
   );
 }
 
+function isExpenseLoggingPrompt(text = "") {
+  return /\b(i spent|spent|i bought|bought|log|logged|record|add expense|expense of)\b/.test(text) && /\d/.test(text);
+}
+
+function isLifeStageAdviceQuestion(text = "") {
+  if (isExpenseLoggingPrompt(text)) return false;
+
+  return /\b(should i|can i|is it okay|okay to|safe to|afford|buy|purchase|spend on|money advice|spending advice|budget advice|next best move|plan my spending|spending plan|budget fixer|savings plan|save more|debt|utang|loan|bills|payday|emergency fund|overspend|overspending|prioritize|priority)\b/.test(text);
+}
+
+function getLifeStageContext(context = {}) {
+  return (
+    context?.lifeStageContext ||
+    context?.lifeStageAiContext ||
+    context?.meLifeStageProfile ||
+    buildClaraLifeStageAiContext()
+  );
+}
+
+function signalText(lifeStageContext = {}) {
+  const signals = (Array.isArray(lifeStageContext.snapshotTopSignals) ? lifeStageContext.snapshotTopSignals : [])
+    .map((signal) => signal?.label)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (!signals.length) return "";
+  return ` with ${signals.join(" and ")} active`;
+}
+
+function firstRecommendedMove(lifeStageContext = {}) {
+  return (Array.isArray(lifeStageContext.recommendedNextMoves) ? lifeStageContext.recommendedNextMoves : [])
+    .filter(Boolean)[0] || "protect essentials first before optional spending";
+}
+
+function buildLifeStageAdviceReply(prompt = "", context = {}) {
+  const text = normalizeText(prompt);
+  if (!isLifeStageAdviceQuestion(text)) return "";
+
+  const lifeStageContext = getLifeStageContext(context);
+  const snapshot = buildClaraFinanceSnapshot(context || {});
+  const available = formatMoney(snapshot.availableMoney ?? snapshot.totalWalletBalance ?? snapshot.totalBalance);
+  const dominant = lifeStageContext?.dominantPressure || "your main pressure";
+  const nextMove = firstRecommendedMove(lifeStageContext);
+
+  if (!lifeStageContext?.hasProfile) {
+    const moneyLine = available ? ` I can see ${available} available, so use that as the temporary boundary.` : "";
+    return `I can give sharper guidance after you complete your Me profile, because then I can connect this advice to your real life stage and pressure patterns.${moneyLine} For now, protect bills, essentials, savings, and emergency buffer before saying yes to optional spending.`;
+  }
+
+  if (/\b(afford|buy|purchase|should i|can i|safe to|okay to|spend on)\b/.test(text)) {
+    const moneyLine = available ? ` You currently have ${available} visible, but the safer question is whether this still protects bills, essentials, savings, and your emergency buffer.` : "";
+    return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, I’d protect ${dominant} first before deciding on this purchase.${moneyLine} Next safest move: ${nextMove}`;
+  }
+
+  if (/\b(save|savings|emergency fund)\b/.test(text)) {
+    return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, your savings advice should protect ${dominant} first. Start with one small protected amount before flexible spending. Next safest move: ${nextMove}`;
+  }
+
+  if (/\b(budget|plan my spending|spending plan|budget fixer|payday|bills|overspend|overspending)\b/.test(text)) {
+    return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, build the plan around ${dominant} first. Protect fixed bills and essentials before flexible spending, then use the remaining money as the safe zone. Next safest move: ${nextMove}`;
+  }
+
+  if (/\b(debt|utang|loan|prioritize|priority|next best move)\b/.test(text)) {
+    return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, prioritize the move that lowers ${dominant} without weakening essentials. Next safest move: ${nextMove}`;
+  }
+
+  return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, I’d use ${dominant} as the main filter for this money decision. Next safest move: ${nextMove}`;
+}
+
 function findRequestedWallet(prompt = "", wallets = []) {
   const text = normalizeText(prompt);
   const compact = compactKey(prompt);
@@ -81,6 +151,10 @@ export function buildContextualFinanceReply(prompt, context) {
   const text = normalizeText(prompt);
 
   if (text.includes("talk to clara context mode is active")) return "";
+
+  const lifeStageAdvice = buildLifeStageAdviceReply(prompt, context);
+  if (lifeStageAdvice) return lifeStageAdvice;
+
   if (!isBalanceQuestion(text)) return "";
 
   const snapshot = buildClaraFinanceSnapshot(context || {});
