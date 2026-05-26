@@ -152,8 +152,10 @@ export function buildContextualFinanceReply(prompt, context) {
 
   if (text.includes("talk to clara context mode is active")) return "";
 
-  const lifeStageAdvice = buildLifeStageAdviceReply(prompt, context);
-  if (lifeStageAdvice) return lifeStageAdvice;
+  if (context?.allowDirectLifeStageAdvice === true) {
+    const lifeStageAdvice = buildLifeStageAdviceReply(prompt, context);
+    if (lifeStageAdvice) return lifeStageAdvice;
+  }
 
   if (!isBalanceQuestion(text)) return "";
 
