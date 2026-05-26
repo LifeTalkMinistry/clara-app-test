@@ -35,6 +35,15 @@ export const LIFE_STAGE_SIGNAL_REGISTRY = {
     { id: "boundaries", icon: "🛡️", label: "Boundaries", ariaLabel: "Boundaries" },
     { id: "personalGoals", icon: "🎯", label: "Personal Goals", ariaLabel: "Personal Goals" },
     { id: "emergencyGaps", icon: "🚨", label: "Emergency Gaps", ariaLabel: "Emergency Gaps" }
+  ],
+  "Single Parent": [
+    { id: "childEssentials", icon: "🧒", label: "Child Essentials", ariaLabel: "Child Essentials" },
+    { id: "timePressure", icon: "⏰", label: "Time Pressure", ariaLabel: "Time Pressure" },
+    { id: "emotionalEnergy", icon: "🧠", label: "Emotional Energy", ariaLabel: "Emotional Energy" },
+    { id: "emergencyRisk", icon: "🚨", label: "Emergency Risk", ariaLabel: "Emergency Risk" },
+    { id: "schoolCare", icon: "🎒", label: "School / Care", ariaLabel: "School / Care" },
+    { id: "personalSacrifice", icon: "🛡️", label: "Personal Sacrifice", ariaLabel: "Personal Sacrifice" },
+    { id: "futureProtection", icon: "🌱", label: "Future Protection", ariaLabel: "Future Protection" }
   ]
 };
 
