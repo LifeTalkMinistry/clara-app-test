@@ -4,6 +4,7 @@ import {
   getTransactionDate,
   sortByNewestDate,
 } from "@/utils/dashboard/dashboardHelpers";
+import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
 
 const safeArray = (value) => (Array.isArray(value) ? value : []);
 const safeObject = (value) =>
@@ -109,6 +110,7 @@ export default function useDashboardClaraAssistantContext({
     const safeTransfers = safeArray(transfers);
     const safePendingExpenses = safeArray(pendingExpenses);
     const safeEmergencyFund = safeObject(emergencyFund);
+    const lifeStageContext = buildClaraLifeStageAiContext();
     const currentMonthKey = getPHMonthKey();
 
     const currentMonthExpenses = safeExpenses.filter((expense) => {
@@ -179,6 +181,10 @@ export default function useDashboardClaraAssistantContext({
       user,
       profile: profileData,
       userId: user?.id || user?.user_id || profileData?.user_id || profileData?.id || null,
+
+      lifeStageContext,
+      lifeStageAiContext: lifeStageContext,
+      meLifeStageProfile: lifeStageContext,
 
       wallets: safeWallets,
       expenses: safeExpenses,
