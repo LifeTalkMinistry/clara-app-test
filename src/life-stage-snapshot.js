@@ -39,6 +39,11 @@ export const LIFE_STAGE_SNAPSHOT = {
     subtitle: "100% split of your current Full-Time Earner pressure.",
     cards: [],
   },
+  "Freelance Season": {
+    model: "freelance-season-canonical-engine",
+    subtitle: "100% split of your current Freelance Season pressure.",
+    cards: [],
+  },
 };
 
 const LIVING_WITH_PARTNER_SNAPSHOT_KEYS = [
@@ -231,6 +236,65 @@ const FULL_TIME_EARNER_DEFINITIONS = {
     note: "Savings, emergency fund, debt freedom, or long-term plans may need stronger protection.",
     insight: "Stable income creates opportunity only when future money is separated before lifestyle pressure grows.",
     action: "Automate or manually move a small goal amount every payday before optional spending.",
+  },
+};
+
+const FREELANCE_SEASON_SNAPSHOT_KEYS = [
+  "incomeVariability",
+  "clientTiming",
+  "dryWeeks",
+  "projectPressure",
+  "cashFlowBuffer",
+];
+
+const FREELANCE_SEASON_BASE_WEIGHTS = {
+  incomeVariability: 30,
+  clientTiming: 24,
+  dryWeeks: 18,
+  projectPressure: 16,
+  cashFlowBuffer: 12,
+};
+
+const FREELANCE_SEASON_DEFINITIONS = {
+  incomeVariability: {
+    label: "Income Variability",
+    category: "income",
+    trendType: "volatile",
+    note: "Income can shift by client, project, week, or season instead of arriving in one predictable rhythm.",
+    insight: "Freelance money feels strong during paid weeks but risky when the next payment is unclear.",
+    action: "Base spending on the lowest safe income estimate, not the best recent payment.",
+  },
+  clientTiming: {
+    label: "Client Timing",
+    category: "timing",
+    trendType: "wave",
+    note: "Client approvals, invoices, delayed payments, or project starts may be shaping cash flow.",
+    insight: "The work may be real, but timing gaps can still make the month feel unstable.",
+    action: "Track expected payment dates and keep spending conservative until money actually arrives.",
+  },
+  dryWeeks: {
+    label: "Dry Weeks",
+    category: "protection",
+    trendType: "downward",
+    note: "Low-client weeks or no-project gaps can pressure bills, food, and personal needs quickly.",
+    insight: "Dry weeks are easier to survive when they are expected as part of the system, not treated as failure.",
+    action: "Build a small dry-week fund from every paid project before flexible spending.",
+  },
+  projectPressure: {
+    label: "Project Pressure",
+    category: "energy",
+    trendType: "spike",
+    note: "Deadlines, revisions, unstable workload, and client demands may affect money choices and rest.",
+    insight: "When pressure is high, overworking or underpricing can feel like the only way to stay safe.",
+    action: "Set one boundary around pricing, deadline, or revision scope before accepting more work.",
+  },
+  cashFlowBuffer: {
+    label: "Cash Flow Buffer",
+    category: "stability",
+    trendType: "upward",
+    note: "A buffer can separate business survival, personal bills, and future dry weeks.",
+    insight: "Freelance freedom becomes safer when each payment protects both today and the next gap.",
+    action: "Split each payment into bills, tax/ops, buffer, and personal spending before using it.",
   },
 };
 
@@ -427,6 +491,45 @@ function buildFullTimeEarnerSnapshotCards(profile = {}) {
     }));
 }
 
+function freelanceSeasonSignalScores(profile = {}) {
+  const text = stageText(profile);
+  const scores = { ...FREELANCE_SEASON_BASE_WEIGHTS };
+  const add = (key, amount) => {
+    scores[key] = (scores[key] || 0) + amount;
+  };
+
+  if (/irregular|income|variability|variable|feast|famine|strong weeks|no fixed|payment/.test(text)) add("incomeVariability", 24);
+  if (/client|clients|late|delay|delayed|invoice|approval|timing|recurring/.test(text)) add("clientTiming", 22);
+  if (/dry|gap|buffer|emergency|risk|survive|low-client/.test(text)) add("dryWeeks", 20);
+  if (/project|deadline|revision|overwork|overworked|underprice|scope|pressure|anxious/.test(text)) add("projectPressure", 18);
+  if (/cash flow|cashflow|personal|business|mixing|stability|split|tax|ops|freedom/.test(text)) add("cashFlowBuffer", 18);
+
+  return scores;
+}
+
+function buildFreelanceSeasonSnapshotCards(profile = {}) {
+  const scores = freelanceSeasonSignalScores(profile || {});
+  const rows = FREELANCE_SEASON_SNAPSHOT_KEYS.map((key) => ({
+    key,
+    raw: scores[key] || FREELANCE_SEASON_BASE_WEIGHTS[key] || 12,
+    ...FREELANCE_SEASON_DEFINITIONS[key],
+  }));
+
+  return normalizeRows(rows)
+    .sort((a, b) => b.value - a.value || FREELANCE_SEASON_SNAPSHOT_KEYS.indexOf(a.key) - FREELANCE_SEASON_SNAPSHOT_KEYS.indexOf(b.key))
+    .map((row, index) => ({
+      key: row.key,
+      label: row.label,
+      value: row.value,
+      status: pressureStatus(row.value, index),
+      trendType: row.trendType,
+      category: row.category,
+      note: row.note,
+      insight: row.insight,
+      action: row.action,
+    }));
+}
+
 function fromDefinition(stageKey) {
   const definition = getStageDefinition(stageKey, {});
   const cards = (definition?.indicators || []).map((item, index) => ({
@@ -498,6 +601,14 @@ export function getLifeStageSnapshot(stageKey = getSelectedLifeStageKey(), profi
       model: "full-time-earner-canonical-engine",
       subtitle: "100% split of your current Full-Time Earner pressure.",
       cards: buildFullTimeEarnerSnapshotCards(profile || {}),
+    };
+  }
+
+  if (normalized === "Freelance Season") {
+    return {
+      model: "freelance-season-canonical-engine",
+      subtitle: "100% split of your current Freelance Season pressure.",
+      cards: buildFreelanceSeasonSnapshotCards(profile || {}),
     };
   }
 
