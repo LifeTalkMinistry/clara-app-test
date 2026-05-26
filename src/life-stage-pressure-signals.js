@@ -84,13 +84,53 @@ function resetSupportCardForStage(card, stage) {
   card.dataset.claraSignalCardActive = "false";
 }
 
+function findHeart(card) {
+  return card?.querySelector("[data-clara-heart-cta='true']")
+    || card?.querySelector("svg")?.closest("button,[role='button'],div")
+    || null;
+}
+
 function markHeart(card) {
-  const heart = card?.querySelector("[data-clara-heart-cta='true']") || card?.querySelector("svg")?.closest("button,[role='button'],div");
+  const heart = findHeart(card);
   if (!heart) return;
   heart.dataset.claraHeartCta = "true";
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
   heart.setAttribute("aria-label", "Show guidance for selected signal");
+}
+
+function getEventPoint(event) {
+  const touch = event?.changedTouches?.[0] || event?.touches?.[0];
+  const x = touch?.clientX ?? event?.clientX;
+  const y = touch?.clientY ?? event?.clientY;
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+function isInsideExpandedHeart(event, heart) {
+  const point = getEventPoint(event);
+  const rect = heart?.getBoundingClientRect?.();
+  if (!point || !rect) return false;
+  const pad = 26;
+  return point.x >= rect.left - pad
+    && point.x <= rect.right + pad
+    && point.y >= rect.top - pad
+    && point.y <= rect.bottom + pad;
+}
+
+function resolveHeartTarget(event, card) {
+  const direct = event.target?.closest?.("[data-clara-heart-cta='true']");
+  if (direct && card?.contains?.(direct)) return direct;
+  const heart = findHeart(card);
+  if (isInsideExpandedHeart(event, heart)) return heart;
+  return null;
+}
+
+function getSelectedSignalId(card) {
+  const cardSignal = clean(card?.dataset?.claraSelectedSignal);
+  if (cardSignal && cardSignal !== "default") return cardSignal;
+  const activeSignal = clean(document.querySelector("[data-clara-pressure-signal][data-active='true']")?.dataset?.claraPressureSignal);
+  if (activeSignal && activeSignal !== "default") return activeSignal;
+  return clean(getLifeStageSignal(getStage())?.id);
 }
 
 function setActiveIcon(signalId) {
@@ -193,15 +233,20 @@ function enhanceSignals() {
 }
 
 function handleHeart(event) {
-  const heart = event.target?.closest?.("[data-clara-heart-cta='true']");
-  if (!heart) return;
   const hero = findLifeStageHero();
   const card = findSupportCard(hero);
-  if (!card || !card.contains(heart)) return;
-  const signalId = clean(card.dataset.claraSelectedSignal) || getLifeStageSignal(getStage())?.id;
+  if (!card) return;
+
+  markHeart(card);
+  const heart = resolveHeartTarget(event, card);
+  if (!heart) return;
+
+  const signalId = getSelectedSignalId(card);
   if (!signalId || signalId === "default") return;
+
   event.preventDefault();
   event.stopPropagation();
+  event.stopImmediatePropagation?.();
   applySupportCopy(card, signalId, getMode(card) === "guidance" ? "awareness" : "guidance");
 }
 
