@@ -72,7 +72,7 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
   "Living with Partner": {
     title: "Shared life needs shared clarity.",
-    body: "Bills, food, comfort spending, family boundaries, and future plans can sit inside the same relationship rhythm. Tap the signal below that feels closest, then press the heart for a solution.",
+    body: "Many couples quietly manage rent, food, fairness, family pressure, and future plans at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
   },
   "Family Household": {
     title: "Home support needs structure.",
@@ -130,6 +130,7 @@ function applyDefaultSupportCard({ force = false } = {}) {
   if (shouldKeepManualSignal) return false;
 
   card.dataset.claraSupportCard = "true";
+  card.dataset.claraSignalStage = stage;
   clearSupportSignalState(card);
 
   setText(title, copy.title);
