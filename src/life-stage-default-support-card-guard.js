@@ -1,6 +1,8 @@
 import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStageProfile } from "./life-stage-flow";
 
 const WORKING_STUDENT_STAGE_KEY = "Working Student";
+let lastStageKey = "";
+let lastManualSignal = null;
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -45,14 +47,22 @@ function setText(node, value) {
   if (node && node.textContent !== next) node.textContent = next;
 }
 
-function isManualSignalState(card) {
-  return clean(card?.dataset?.claraManualSignalSelected) === "true";
-}
-
 function clearActiveSignals() {
   document.querySelectorAll("[data-clara-pressure-signal]").forEach((button) => {
-    if (button.dataset.active === "true") button.dataset.active = "false";
+    button.dataset.active = "false";
   });
+}
+
+function clearSupportSignalState(card) {
+  if (!card) return;
+  card.dataset.claraSignalMode = "idle";
+  card.dataset.claraSelectedSignal = "default";
+  card.dataset.claraSignalCardActive = "false";
+  card.dataset.claraStageDefaultCard = "true";
+  card.dataset.claraManualSignalSelected = "false";
+  delete card.dataset.claraStageAwareSignal;
+  card.querySelector?.("[data-clara-solution-hint='true']")?.remove?.();
+  clearActiveSignals();
 }
 
 const DEFAULT_STAGE_SUPPORT_COPY = {
@@ -86,26 +96,41 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
 };
 
-function applyDefaultSupportCard() {
+function isFreshManualSignalForStage(stage) {
+  return !!lastManualSignal
+    && lastManualSignal.stage === stage
+    && Date.now() - lastManualSignal.at < 1000 * 60 * 30;
+}
+
+function hasWorkingStudentLeak(card) {
+  const text = clean(card?.textContent).toLowerCase();
+  return text.includes("many working students")
+    || text.includes("school, commute, tiredness")
+    || text.includes("your effort has direction")
+    || text.includes("work pressure can affect spending");
+}
+
+function applyDefaultSupportCard({ force = false } = {}) {
   const stage = getStage();
   const card = findSupportCard();
   const { title, body } = getTextNodes(card);
   if (!stage || stage === WORKING_STUDENT_STAGE_KEY || !card || !title || !body) return false;
 
-  if (isManualSignalState(card)) return false;
-
   const copy = DEFAULT_STAGE_SUPPORT_COPY[stage];
   if (!copy) return false;
 
-  card.dataset.claraSupportCard = "true";
-  card.dataset.claraSignalMode = "idle";
-  card.dataset.claraSelectedSignal = "default";
-  card.dataset.claraSignalCardActive = "false";
-  card.dataset.claraStageDefaultCard = "true";
-  delete card.dataset.claraStageAwareSignal;
+  const stageChanged = stage !== lastStageKey;
+  if (stageChanged) {
+    lastStageKey = stage;
+    lastManualSignal = null;
+    clearSupportSignalState(card);
+  }
 
-  clearActiveSignals();
-  card.querySelector?.("[data-clara-solution-hint='true']")?.remove?.();
+  const shouldKeepManualSignal = isFreshManualSignalForStage(stage) && !force && !hasWorkingStudentLeak(card);
+  if (shouldKeepManualSignal) return false;
+
+  card.dataset.claraSupportCard = "true";
+  clearSupportSignalState(card);
 
   setText(title, copy.title);
   setText(body, copy.body);
@@ -113,20 +138,26 @@ function applyDefaultSupportCard() {
 }
 
 function markManualSignal(event) {
+  const stage = getStage();
   const signal = event.target?.closest?.("[data-clara-pressure-signal]");
   const heart = event.target?.closest?.("[data-clara-heart-cta='true']");
   if (!signal && !heart) return;
 
   const card = findSupportCard();
-  if (!card) return;
+  if (!card || stage === WORKING_STUDENT_STAGE_KEY) return;
 
   if (signal) {
+    lastManualSignal = {
+      stage,
+      signalId: clean(signal.dataset.claraPressureSignal),
+      at: Date.now(),
+    };
     card.dataset.claraManualSignalSelected = "true";
     card.dataset.claraStageDefaultCard = "false";
     return;
   }
 
-  if (heart && clean(card.dataset.claraSelectedSignal) && clean(card.dataset.claraSelectedSignal) !== "default") {
+  if (heart && isFreshManualSignalForStage(stage)) {
     card.dataset.claraManualSignalSelected = "true";
     card.dataset.claraStageDefaultCard = "false";
   }
@@ -138,40 +169,41 @@ function installLifeStageDefaultSupportCardGuard() {
   window.__CLARA_LIFE_STAGE_DEFAULT_SUPPORT_GUARD__ = true;
 
   let scheduled = false;
-  const schedule = () => {
-    if (scheduled) return;
+  const schedule = (options = {}) => {
+    if (scheduled && !options.force) return;
     scheduled = true;
     window.requestAnimationFrame(() => {
       scheduled = false;
-      applyDefaultSupportCard();
+      applyDefaultSupportCard(options);
     });
   };
 
-  const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-clara-selected-signal", "data-clara-signal-mode", "data-clara-signal-card-active"] });
+  const observer = new MutationObserver(() => schedule());
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: ["class", "style", "data-clara-selected-signal", "data-clara-signal-mode", "data-clara-signal-card-active", "data-active"] });
 
   document.addEventListener("click", (event) => {
     markManualSignal(event);
-    window.setTimeout(schedule, 160);
+    window.setTimeout(() => schedule(), 160);
   }, true);
 
-  window.addEventListener("clara:life-stage-profile-updated", () => {
+  const resetStage = () => {
+    lastManualSignal = null;
     const card = findSupportCard();
-    if (card) delete card.dataset.claraManualSignalSelected;
-    schedule();
-    window.setTimeout(applyDefaultSupportCard, 100);
-    window.setTimeout(applyDefaultSupportCard, 220);
-  }, { passive: true });
+    if (card) clearSupportSignalState(card);
+    schedule({ force: true });
+    window.setTimeout(() => applyDefaultSupportCard({ force: true }), 80);
+    window.setTimeout(() => applyDefaultSupportCard({ force: true }), 180);
+    window.setTimeout(() => applyDefaultSupportCard({ force: true }), 420);
+    window.setTimeout(() => applyDefaultSupportCard({ force: true }), 900);
+  };
 
-  window.addEventListener("storage", () => {
-    const card = findSupportCard();
-    if (card) delete card.dataset.claraManualSignalSelected;
-    schedule();
-  }, { passive: true });
+  window.addEventListener("clara:life-stage-profile-updated", resetStage, { passive: true });
+  window.addEventListener("storage", resetStage, { passive: true });
 
-  schedule();
-  window.setTimeout(applyDefaultSupportCard, 120);
-  window.setTimeout(applyDefaultSupportCard, 350);
+  schedule({ force: true });
+  window.setTimeout(() => applyDefaultSupportCard({ force: true }), 120);
+  window.setTimeout(() => applyDefaultSupportCard({ force: true }), 350);
+  window.setTimeout(() => applyDefaultSupportCard({ force: true }), 850);
 }
 
 try {
