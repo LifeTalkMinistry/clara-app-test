@@ -1,7 +1,8 @@
 import { getStageDefinition } from "./components/fresh/main-dashboard/dashboard-panels/me/lifeStageIntelligenceData";
 import { getSelectedLifeStageKey, normalizeLifeStageKey } from "./life-stage-flow";
 import { LIVING_WITH_PARTNER_STAGE_KEY, getLivingWithPartnerSupportCopy, getLivingWithPartnerSignalCopy } from "./components/fresh/main-dashboard/dashboard-panels/me/livingWithPartnerLifeStageSource";
-import { YOUNG_PROFESSIONAL_STAGE_KEY, getYoungProfessionalSupportCopy, getYoungProfessionalSignalCopy } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
+import { YOUNG_PROFESSIONAL_STAGE_KEY, getYoungProfessionalSupportCopy } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
+import { getYoungProfessionalRotatingSignalCopy } from "./young-professional-signal-copy";
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -213,7 +214,7 @@ export function getLifeStageGuidance(stageKey = getSelectedLifeStageKey(), optio
   const stage = LIFE_STAGE_GUIDANCE[normalized] || getGenericStageGuidance(normalized, profile || {});
 
   if (normalized === "Working Student" && !signalId && mode !== "guidance") return getWorkingStudentSupportCopy(profile || {});
-  if (normalized === YOUNG_PROFESSIONAL_STAGE_KEY && signalId) return getYoungProfessionalSignalCopy(signalId, mode);
+  if (normalized === YOUNG_PROFESSIONAL_STAGE_KEY && signalId) return getYoungProfessionalRotatingSignalCopy(signalId, mode);
   if (normalized === YOUNG_PROFESSIONAL_STAGE_KEY && mode !== "guidance") return getYoungProfessionalSupportCopy(profile || {});
   if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && signalId) return getLivingWithPartnerSignalCopy(signalId, mode);
   if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && mode !== "guidance") return getLivingWithPartnerSupportCopy(profile || {});
