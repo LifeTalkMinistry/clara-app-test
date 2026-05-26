@@ -100,6 +100,60 @@ function getFamilyHouseholdSupportCopy(profile = {}) {
   return { title: "Home support needs structure.", body: "Family household money can feel shared before it feels personal, so clear limits help support stay sustainable." };
 }
 
+const FAMILY_HOUSEHOLD_SIGNAL_COPY = {
+  homeBills: {
+    awarenessTitle: "Home bills are pulling first.",
+    guidanceTitle: "Protect fixed costs first.",
+    awareness: "Rent, utilities, internet, and household basics can quietly decide how much freedom the rest of the month has.",
+    guidance: "Separate the next home bill first before flexible spending or family requests enter the budget.",
+  },
+  foodNeeds: {
+    awarenessTitle: "Food needs can shift the week.",
+    guidanceTitle: "Give food a clear lane.",
+    awareness: "Groceries, meals, shared food, and daily needs can grow fast when everyone pulls from the same household rhythm.",
+    guidance: "Set one food amount for the week so meals stay protected without quietly draining other priorities.",
+  },
+  supportRequests: {
+    awarenessTitle: "Support requests can change the month.",
+    guidanceTitle: "Help with a boundary.",
+    awareness: "Family requests often come from real need, but they can quickly affect bills, food, savings, and your own stability.",
+    guidance: "Choose one safe support limit before saying yes, so helping does not empty the money meant to protect the home.",
+  },
+  familyExpectations: {
+    awarenessTitle: "Expectations can become pressure.",
+    guidanceTitle: "Name what is realistic.",
+    awareness: "Household expectations can make money feel shared before your own needs and limits are clearly seen.",
+    guidance: "Clarify one realistic contribution instead of trying to carry every expectation silently.",
+  },
+  boundaries: {
+    awarenessTitle: "Boundaries protect the household too.",
+    guidanceTitle: "Set one kind limit.",
+    awareness: "Without boundaries, care can turn into pressure and support can quietly weaken your own stability.",
+    guidance: "Create one kind but clear rule around what you can give, delay, or protect this week.",
+  },
+  personalGoals: {
+    awarenessTitle: "Personal goals can get pushed back.",
+    guidanceTitle: "Keep one goal visible.",
+    awareness: "When home needs feel urgent, savings, growth, rest, and personal plans can disappear from the budget.",
+    guidance: "Protect even a small amount for one personal goal so home support does not erase your future direction.",
+  },
+  emergencyGaps: {
+    awarenessTitle: "Emergency gaps create stress fast.",
+    guidanceTitle: "Build a small safety layer.",
+    awareness: "One surprise cost can affect the whole household when bills, food, and family needs are already connected.",
+    guidance: "Start with a tiny emergency buffer before waiting for the perfect amount to save.",
+  },
+};
+
+function getFamilyHouseholdSignalCopy(signalId, mode = "awareness") {
+  const signal = FAMILY_HOUSEHOLD_SIGNAL_COPY[signalId] || FAMILY_HOUSEHOLD_SIGNAL_COPY.homeBills;
+
+  return {
+    title: mode === "guidance" ? signal.guidanceTitle : signal.awarenessTitle,
+    body: mode === "guidance" ? signal.guidance : signal.awareness,
+  };
+}
+
 function getSingleParentSupportCopy(profile = {}) {
   const text = combineProfileText(profile);
   if (hasAny(text, ["child essentials", "school", "childcare", "child needs", "child stability", "future"])) {
@@ -218,6 +272,7 @@ export function getLifeStageGuidance(stageKey = getSelectedLifeStageKey(), optio
   if (normalized === YOUNG_PROFESSIONAL_STAGE_KEY && mode !== "guidance") return getYoungProfessionalSupportCopy(profile || {});
   if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && signalId) return getLivingWithPartnerSignalCopy(signalId, mode);
   if (normalized === LIVING_WITH_PARTNER_STAGE_KEY && mode !== "guidance") return getLivingWithPartnerSupportCopy(profile || {});
+  if (normalized === "Family Household" && signalId) return getFamilyHouseholdSignalCopy(signalId, mode);
   if (signalId && stage.signals?.[signalId]) return stage.signals[signalId][mode] || stage.signals[signalId].awareness;
   if (mode === "guidance") return stage.defaultGuidance || stage.defaultAwareness;
   return stage.defaultAwareness;
