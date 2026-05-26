@@ -26,7 +26,16 @@ export const LIFE_STAGE_SIGNAL_REGISTRY = {
     icon: signal.icon,
     label: signal.label,
     ariaLabel: signal.label,
-  }))
+  })),
+  "Family Household": [
+    { id: "homeBills", icon: "🧾", label: "Home Bills", ariaLabel: "Home Bills" },
+    { id: "foodNeeds", icon: "🍚", label: "Food Needs", ariaLabel: "Food Needs" },
+    { id: "supportRequests", icon: "🤝", label: "Support Requests", ariaLabel: "Support Requests" },
+    { id: "familyExpectations", icon: "🏠", label: "Family Expectations", ariaLabel: "Family Expectations" },
+    { id: "boundaries", icon: "🛡️", label: "Boundaries", ariaLabel: "Boundaries" },
+    { id: "personalGoals", icon: "🎯", label: "Personal Goals", ariaLabel: "Personal Goals" },
+    { id: "emergencyGaps", icon: "🚨", label: "Emergency Gaps", ariaLabel: "Emergency Gaps" }
+  ]
 };
 
 export const DEFAULT_LIFE_STAGE_SIGNALS = [
