@@ -92,7 +92,7 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
   "Business Builder": {
     title: "Growth needs boundaries.",
-    body: "Sales timing, operating costs, reinvestment, owner pay, and personal stability can pull from the same money. Tap the signal below that feels closest, then press the heart for a solution.",
+    body: "Many business builders quietly manage sales timing, cash flow, reinvestment, operating costs, owner pay, growth pressure, and personal stability at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
   },
 };
 
