@@ -10,6 +10,7 @@ import "./clara-memory-bridge";
 import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
+import "./life-stage-default-support-card-guard";
 import "./life-stage-heart-solution-hint";
 import "./life-stage-living-with-partner-signals";
 import "./life-stage-working-student-heart-default-guard";
