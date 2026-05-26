@@ -1,0 +1,39 @@
+/* Freelance Season support-card idle state only.
+   This mirrors the completed default support-card text-fit behavior without touching signal/guidance states. */
+#root [data-clara-support-card="true"][data-clara-signal-stage="Freelance Season"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"] {
+  animation: none !important;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+#root [data-clara-support-card="true"][data-clara-signal-stage="Freelance Season"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"]::before,
+#root [data-clara-support-card="true"][data-clara-signal-stage="Freelance Season"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) [data-clara-heart-cta="true"]::after {
+  content: none !important;
+  display: none !important;
+}
+
+#root [data-clara-support-card="true"][data-clara-signal-stage="Freelance Season"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p {
+  display: block !important;
+  max-width: min(14.7rem, calc(100vw - 156px)) !important;
+  max-height: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+}
+
+#root [data-clara-support-card="true"][data-clara-signal-stage="Freelance Season"]:has([data-clara-heart-cta="true"]):not([data-clara-signal-card-active="true"]) h3 + p::after {
+  content: "Many freelancers quietly manage irregular income, client timing, dry weeks, project pressure, work costs, rest, and cash-flow buffers at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution." !important;
+  display: block !important;
+  max-width: 100% !important;
+  color: rgba(248, 253, 255, 0.72) !important;
+  font-size: 10.7px !important;
+  line-height: 1.32 !important;
+  font-weight: 650 !important;
+}
