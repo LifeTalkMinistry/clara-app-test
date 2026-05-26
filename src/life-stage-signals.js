@@ -44,6 +44,15 @@ export const LIFE_STAGE_SIGNAL_REGISTRY = {
     { id: "schoolCare", icon: "🎒", label: "School / Care", ariaLabel: "School / Care" },
     { id: "personalSacrifice", icon: "🛡️", label: "Personal Sacrifice", ariaLabel: "Personal Sacrifice" },
     { id: "futureProtection", icon: "🌱", label: "Future Protection", ariaLabel: "Future Protection" }
+  ],
+  "Full-Time Earner": [
+    { id: "salaryCycle", icon: "💼", label: "Salary Cycle", ariaLabel: "Salary Cycle" },
+    { id: "billsPressure", icon: "🧾", label: "Bills Pressure", ariaLabel: "Bills Pressure" },
+    { id: "workFatigue", icon: "🧠", label: "Work Fatigue", ariaLabel: "Work Fatigue" },
+    { id: "familyObligations", icon: "🤝", label: "Family Obligations", ariaLabel: "Family Obligations" },
+    { id: "lifestyleCreep", icon: "✨", label: "Lifestyle Creep", ariaLabel: "Lifestyle Creep" },
+    { id: "paydayLeak", icon: "💸", label: "Payday Leak", ariaLabel: "Payday Leak" },
+    { id: "futureGoals", icon: "📈", label: "Future Goals", ariaLabel: "Future Goals" }
   ]
 };
 
