@@ -1,5 +1,7 @@
 import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStageProfile } from "./life-stage-flow";
 
+const WORKING_STUDENT_STAGE_KEY = "Working Student";
+
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -113,6 +115,13 @@ function ensureHint() {
   const card = findSupportCard();
   const heart = findHeart(card);
   if (!stage || !card || !heart) return;
+
+  // Working Student already has its own canonical cue from the Working Student CSS layer.
+  // The shared hint must not add a second duplicate label on top of it.
+  if (stage === WORKING_STUDENT_STAGE_KEY) {
+    removeHint(card);
+    return;
+  }
 
   card.dataset.claraSupportCard = "true";
   heart.dataset.claraHeartCta = "true";
