@@ -84,7 +84,7 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
   "Full-Time Earner": {
     title: "Your salary needs direction.",
-    body: "Bills, cutoff timing, fatigue, obligations, and reward spending can quietly stretch stable income. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Many full-time earners quietly manage salary cycles, bills, fatigue, obligations, lifestyle creep, and future goals at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
   },
   "Freelance Season": {
     title: "Flexible income needs a buffer.",
