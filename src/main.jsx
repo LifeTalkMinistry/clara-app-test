@@ -11,6 +11,7 @@ import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-signal-card-states";
+import "./life-stage-signal-card-stage-guard";
 import "./life-stage-young-professional-signals";
 import "./life-stage-living-with-partner-signals";
 import "./life-stage-working-student-heart-default-guard";
