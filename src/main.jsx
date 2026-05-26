@@ -46,6 +46,7 @@ import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
 import "./me-support-dock-gap-fix.css";
 import "./life-stage-young-professional-overlap-fix.css";
+import "./life-stage-support-card-text-fit.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
