@@ -56,13 +56,32 @@ function applySupportCopy(card, signalId, mode = "awareness") {
   const copy = getLifeStageGuidance(stage, { signalId, mode, profile });
   const title = card?.querySelector("h3");
   const body = title?.nextElementSibling;
-  if (!card || !title || !body) return;
+  if (!card || !title || !body || !copy?.title || !copy?.body) return;
   card.dataset.claraSupportCard = "true";
+  card.dataset.claraSignalStage = stage;
   card.dataset.claraSelectedSignal = signalId || "default";
   card.dataset.claraSignalMode = mode;
   card.dataset.claraSignalCardActive = signalId ? "true" : "false";
   setText(title, copy.title);
   setText(body, copy.body);
+}
+
+function resetSupportCardForStage(card, stage) {
+  if (!card || !stage) return;
+  if (card.dataset.claraSignalStage === stage && card.dataset.claraStageResetReady === "true") return;
+
+  card.dataset.claraSupportCard = "true";
+  card.dataset.claraSignalStage = stage;
+  card.dataset.claraSelectedSignal = "default";
+  card.dataset.claraSignalMode = "idle";
+  card.dataset.claraSignalCardActive = "false";
+  card.dataset.claraStageResetReady = "true";
+  card.querySelector?.("[data-clara-solution-hint='true']")?.remove?.();
+  setActiveIcon(null);
+  applySupportCopy(card, null, "awareness");
+  card.dataset.claraSignalMode = "idle";
+  card.dataset.claraSelectedSignal = "default";
+  card.dataset.claraSignalCardActive = "false";
 }
 
 function markHeart(card) {
@@ -76,7 +95,7 @@ function markHeart(card) {
 
 function setActiveIcon(signalId) {
   document.querySelectorAll("[data-clara-pressure-signal]").forEach((button) => {
-    button.dataset.active = button.dataset.claraPressureSignal === signalId ? "true" : "false";
+    button.dataset.active = signalId && button.dataset.claraPressureSignal === signalId ? "true" : "false";
   });
 }
 
@@ -98,11 +117,14 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
-function renderSignals(section) {
+function renderSignals(section, support) {
   const stage = getStage();
   const signals = getLifeStageSignals(stage);
   const signature = `${stage}|${signals.map((signal) => signal.id).join("|")}`;
-  if (section.dataset.pressureSignature === signature) return;
+  const changed = section.dataset.pressureSignature !== signature;
+
+  if (!changed) return false;
+
   section.dataset.pressureSignature = signature;
   section.innerHTML = `
     <div class="clara-pressure-track" aria-label="Today pressure signals">
@@ -114,6 +136,10 @@ function renderSignals(section) {
       `).join("")}
     </div>
   `;
+
+  section.dataset.pressureStage = stage;
+  resetSupportCardForStage(support, stage);
+  return true;
 }
 
 function normalizeDockElement(container) {
@@ -146,7 +172,12 @@ function enhanceSignals() {
   }
 
   markHeart(support);
-  renderSignals(dock);
+  renderSignals(dock, support);
+
+  const stage = getStage();
+  if (support.dataset.claraSignalStage !== stage) {
+    resetSupportCardForStage(support, stage);
+  }
 
   if (dock.dataset.pressureReady === "true") return;
   dock.dataset.pressureReady = "true";
