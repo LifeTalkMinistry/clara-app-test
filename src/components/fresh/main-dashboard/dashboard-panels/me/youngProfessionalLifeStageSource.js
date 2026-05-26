@@ -222,6 +222,57 @@ export const YOUNG_PROFESSIONAL_SIGNALS = [
   { key: "socialLifestylePressure", icon: "✨", label: "Lifestyle" },
 ];
 
+const YOUNG_PROFESSIONAL_SNAPSHOT_DEFINITIONS = {
+  salaryLeak: {
+    label: "Salary Leak",
+    category: "spending",
+    note: "Small daily expenses can quietly weaken the salary before major goals are protected.",
+    insight: "This often happens when payday feels safe, but spending is not assigned before the week starts.",
+    action: "Separate bills, savings, and daily spending before lifestyle money becomes available.",
+    trendType: "spike",
+  },
+  billsPressure: {
+    label: "Bills Pressure",
+    category: "pressure",
+    note: "Fixed costs like rent, utilities, food, commute, and subscriptions are taking real space.",
+    insight: "Young professionals can feel stable on payday but pressured once due dates and essentials arrive.",
+    action: "Move bill money first so the remaining balance is the only spendable amount.",
+    trendType: "wave",
+  },
+  workFatigue: {
+    label: "Work Fatigue",
+    category: "energy",
+    note: "Workload, commute, or shift rhythm may be draining the energy needed for money discipline.",
+    insight: "When recovery is low, convenience spending can feel like the easiest form of rest.",
+    action: "Create one tired-day rule for food, transport, or comfort spending.",
+    trendType: "downward",
+  },
+  careerPressure: {
+    label: "Career Pressure",
+    category: "growth",
+    note: "Career upgrades, image, skills, tools, and comparison can create spending pressure.",
+    insight: "Growth spending helps only when it is planned, not when it reacts to insecurity.",
+    action: "Use a career fund before buying courses, tools, or image upgrades.",
+    trendType: "upward",
+  },
+  socialLifestyle: {
+    label: "Social Lifestyle",
+    category: "spending",
+    note: "Social plans, dates, image, and barkada pressure can quietly become a budget category.",
+    insight: "Connection matters, but saying yes without a limit can weaken savings and bills.",
+    action: "Choose the social spending amount before the invite or plan starts.",
+    trendType: "spike",
+  },
+};
+
+const YOUNG_PROFESSIONAL_SNAPSHOT_BASE_WEIGHTS = {
+  salaryLeak: 28,
+  billsPressure: 24,
+  workFatigue: 18,
+  careerPressure: 16,
+  socialLifestyle: 14,
+};
+
 const OPTION_SIGNALS = [
   { options: ["First stable job, still adjusting", "First salary rhythm", "Twice-a-month cutoff", "Living costs are becoming real", "Build a salary rhythm"], signals: { independencePressure: 24, budgetDiscipline: 8 } },
   { options: ["Living independently with bills", "Bills are due before payday", "Rent and utilities monthly", "Rent, utilities, and food", "Protect fixed bills first"], signals: { independencePressure: 28, budgetDiscipline: 8 } },
@@ -257,6 +308,76 @@ function signalsForOption(option) {
 
 function topSignalKey(signals = {}) {
   return Object.entries(signals).sort((a, b) => b[1] - a[1])[0]?.[0] || "budgetDiscipline";
+}
+
+function scoreOf(scores = {}, key) {
+  return Math.max(0, Number(scores[key]) || 0);
+}
+
+function normalizeSnapshotRows(rows = []) {
+  const safeRows = rows.map((row, index) => ({ ...row, index, raw: Math.max(1, Number(row.raw) || 1) }));
+  const total = safeRows.reduce((sum, row) => sum + row.raw, 0) || 1;
+  const mapped = safeRows.map((row) => {
+    const exact = (row.raw / total) * 100;
+    return { ...row, value: Math.floor(exact), rest: exact - Math.floor(exact) };
+  });
+  let left = 100 - mapped.reduce((sum, row) => sum + row.value, 0);
+  mapped.slice().sort((a, b) => b.rest - a.rest || a.index - b.index).forEach((row) => {
+    if (left <= 0) return;
+    row.value += 1;
+    left -= 1;
+  });
+  return mapped.map(({ raw, rest, index, ...row }) => row);
+}
+
+function snapshotStatus(value, index = 0) {
+  if (index === 0 || value >= 28) return "Dominant";
+  if (value >= 22) return "Heavy Presence";
+  if (value >= 16) return "Growing Pressure";
+  if (value >= 10) return "Supporting";
+  return "Watch";
+}
+
+function buildYoungProfessionalSnapshotDistribution(signalScores = {}) {
+  const rows = [
+    {
+      key: "salaryLeak",
+      raw: YOUNG_PROFESSIONAL_SNAPSHOT_BASE_WEIGHTS.salaryLeak + scoreOf(signalScores, "salaryLeak") + scoreOf(signalScores, "debtCarryover") * 0.25 + scoreOf(signalScores, "socialLifestylePressure") * 0.18,
+    },
+    {
+      key: "billsPressure",
+      raw: YOUNG_PROFESSIONAL_SNAPSHOT_BASE_WEIGHTS.billsPressure + scoreOf(signalScores, "independencePressure") * 0.8 + scoreOf(signalScores, "familySupportPressure") * 0.25 + scoreOf(signalScores, "debtCarryover") * 0.2,
+    },
+    {
+      key: "workFatigue",
+      raw: YOUNG_PROFESSIONAL_SNAPSHOT_BASE_WEIGHTS.workFatigue + scoreOf(signalScores, "burnoutRisk") + scoreOf(signalScores, "salaryLeak") * 0.1,
+    },
+    {
+      key: "careerPressure",
+      raw: YOUNG_PROFESSIONAL_SNAPSHOT_BASE_WEIGHTS.careerPressure + scoreOf(signalScores, "careerPressure") + scoreOf(signalScores, "budgetDiscipline") * 0.12,
+    },
+    {
+      key: "socialLifestyle",
+      raw: YOUNG_PROFESSIONAL_SNAPSHOT_BASE_WEIGHTS.socialLifestyle + scoreOf(signalScores, "socialLifestylePressure") + scoreOf(signalScores, "careerPressure") * 0.12 + scoreOf(signalScores, "salaryLeak") * 0.08,
+    },
+  ];
+
+  return normalizeSnapshotRows(rows)
+    .sort((a, b) => b.value - a.value || a.index - b.index)
+    .map((row, index) => {
+      const definition = YOUNG_PROFESSIONAL_SNAPSHOT_DEFINITIONS[row.key];
+      return {
+        key: row.key,
+        label: definition.label,
+        value: row.value,
+        status: snapshotStatus(row.value, index),
+        trendType: definition.trendType,
+        category: definition.category,
+        note: definition.note,
+        insight: definition.insight,
+        action: definition.action,
+      };
+    });
 }
 
 export function getYoungProfessionalDisplayLabel(value) {
@@ -338,27 +459,8 @@ export function getYoungProfessionalBehaviorProfile(profile = {}) {
   const signalScores = {};
   YOUNG_PROFESSIONAL_QUESTION_ORDER.forEach((key) => addSignals(signalScores, signalsForOption(draft[key])));
   addSignals(signalScores, { budgetDiscipline: 8 });
-  const entries = Object.entries(signalScores)
-    .filter(([key]) => YOUNG_PROFESSIONAL_SIGNAL_DEFINITIONS[key])
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
-  const total = entries.reduce((sum, [, value]) => sum + value, 0) || 1;
-  const snapshotDistribution = entries.map(([key, value], index) => {
-    const definition = YOUNG_PROFESSIONAL_SIGNAL_DEFINITIONS[key];
-    const percent = Math.max(12, Math.round((value / total) * 100));
-    return {
-      key,
-      label: definition.label,
-      value: percent,
-      status: index === 0 ? "Dominant" : percent >= 25 ? "Active" : "Supporting",
-      trendType: definition.trendType,
-      category: definition.category,
-      note: definition.note,
-      insight: definition.insight,
-      action: definition.action,
-    };
-  });
-  const primary = snapshotDistribution[0] || { label: "Independence Pressure" };
+  const snapshotDistribution = buildYoungProfessionalSnapshotDistribution(signalScores);
+  const primary = snapshotDistribution[0] || { label: "Salary Leak" };
   return {
     draft,
     signalScores,
