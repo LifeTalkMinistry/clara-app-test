@@ -80,7 +80,7 @@ const DEFAULT_STAGE_SUPPORT_COPY = {
   },
   "Single Parent": {
     title: "Your priority is protection.",
-    body: "Child needs, essentials, time pressure, emergencies, and your own energy can meet in the same budget. Tap the signal below that feels closest, then press the heart for a solution.",
+    body: "Many single parents quietly manage child needs, essentials, time pressure, emergencies, emotional energy, and future protection at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
   },
   "Full-Time Earner": {
     title: "Your salary needs direction.",
