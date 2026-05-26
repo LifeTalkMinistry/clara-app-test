@@ -1,6 +1,5 @@
 import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStageProfile } from "./life-stage-flow";
 
-const WORKING_STUDENT_STAGE_KEY = "Working Student";
 let lastManualSignalClick = null;
 
 function clean(value) {
@@ -125,21 +124,12 @@ function ensureHint() {
   const heart = findHeart(card);
   if (!stage || !card || !heart) return;
 
-  // Working Student already has its own canonical cue from the Working Student CSS layer.
-  // The shared hint must not add a second duplicate label on top of it.
-  if (stage === WORKING_STUDENT_STAGE_KEY) {
-    removeHint(card);
-    return;
-  }
-
   card.dataset.claraSupportCard = "true";
   heart.dataset.claraHeartCta = "true";
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
   heart.setAttribute("aria-label", "Show solution for selected signal");
 
-  // Do not show the hint just because a stage has a preselected/default active signal.
-  // The label appears only after the user manually taps a signal icon in this session.
   if (!hasManualSignalSelection(card)) {
     removeHint(card);
     return;
