@@ -2,6 +2,8 @@ import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStagePr
 
 let lastManualSignalClick = null;
 
+const SOLUTION_HINT_TEXTS = new Set(["Tap for solution", "Solution shown"]);
+
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -40,7 +42,24 @@ function findHeart(card) {
 }
 
 function removeHint(card) {
-  card?.querySelector?.("[data-clara-solution-hint='true']")?.remove?.();
+  card?.querySelectorAll?.("[data-clara-solution-hint='true']")?.forEach((hint) => hint.remove?.());
+}
+
+function removeDuplicateHints(card, keepHint) {
+  card?.querySelectorAll?.("[data-clara-solution-hint='true']")?.forEach((hint) => {
+    if (hint !== keepHint) hint.remove?.();
+  });
+}
+
+function removeEmbeddedSolutionLabels(heart) {
+  if (!heart) return;
+
+  heart.querySelectorAll?.("[data-clara-solution-hint='true']")?.forEach((hint) => hint.remove?.());
+
+  Array.from(heart.querySelectorAll?.("span,strong,small,em,b,i") || []).forEach((node) => {
+    if (node.querySelector?.("svg")) return;
+    if (SOLUTION_HINT_TEXTS.has(clean(node.textContent))) node.remove?.();
+  });
 }
 
 function getSelectedSignal(card) {
@@ -69,29 +88,33 @@ function ensureStyles() {
 
     #root [data-clara-solution-hint="true"] {
       position: absolute !important;
-      right: clamp(18px, 6.2vw, 28px) !important;
-      top: clamp(16px, 2.1svh, 22px) !important;
+      right: clamp(19px, 6.4vw, 29px) !important;
+      top: clamp(15px, 2svh, 21px) !important;
       z-index: 12 !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
       width: auto !important;
-      max-width: 118px !important;
-      min-height: 18px !important;
-      padding: 3px 9px !important;
+      max-width: 106px !important;
+      min-height: 17px !important;
+      padding: 3px 8px !important;
       border-radius: 999px !important;
       border: 1px solid rgba(255, 255, 255, 0.14) !important;
       background:
         radial-gradient(circle at 20% 0%, rgba(125, 211, 252, 0.24), transparent 42%),
         linear-gradient(135deg, rgba(124, 58, 237, 0.42), rgba(15, 23, 42, 0.50)) !important;
       color: rgba(248, 253, 255, 0.88) !important;
-      font-size: 7.6px !important;
+      font-family: inherit !important;
+      font-size: 7.2px !important;
       line-height: 1 !important;
       font-weight: 900 !important;
-      letter-spacing: 0.045em !important;
+      letter-spacing: 0.035em !important;
       text-transform: none !important;
       white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
       pointer-events: none !important;
+      user-select: none !important;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.16),
         0 8px 20px rgba(0, 0, 0, 0.22),
@@ -112,6 +135,11 @@ function ensureStyles() {
       position: relative !important;
       z-index: 11 !important;
     }
+
+    #root [data-clara-support-card="true"] [data-clara-heart-cta="true"]::after {
+      content: none !important;
+      display: none !important;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -129,6 +157,7 @@ function ensureHint() {
   heart.setAttribute("role", "button");
   heart.setAttribute("tabindex", "0");
   heart.setAttribute("aria-label", "Show solution for selected signal");
+  removeEmbeddedSolutionLabels(heart);
 
   if (!hasManualSignalSelection(card)) {
     removeHint(card);
@@ -139,8 +168,11 @@ function ensureHint() {
   if (!hint) {
     hint = document.createElement("span");
     hint.dataset.claraSolutionHint = "true";
+    hint.setAttribute("aria-hidden", "true");
     card.appendChild(hint);
   }
+
+  removeDuplicateHints(card, hint);
 
   const mode = clean(card.dataset.claraSignalMode) === "guidance" ? "guidance" : "awareness";
   const nextText = mode === "guidance" ? "Solution shown" : "Tap for solution";
