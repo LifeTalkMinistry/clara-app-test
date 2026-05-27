@@ -7,6 +7,13 @@ const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2";
 const SCHEDULE_LEGACY_KEY = "clara_lifeos_schedule_events_v1";
 const LOCATION_CONTEXT_KEYS = ["CLARA_LOCATION_CONTEXT", "clara_location_context", "clara_user_location_v1"];
 const WEATHER_CONTEXT_KEYS = ["CLARA_WEATHER_CONTEXT", "clara_weather_context", "clara_current_weather_v1"];
+const CONVERSATION_MEMORY_KEYS = [
+  "CLARA_PREVIOUS_CONVERSATION_MEMORY",
+  "clara_previous_conversation_memory",
+  "clara_conversation_memory_v1",
+  "clara_chat_memory_v1",
+  "clara_memory_v1",
+];
 
 function safeText(value = "") {
   return String(value || "").trim();
@@ -48,6 +55,45 @@ function summarizeMessages(messages = [], limit = 12) {
       text: safeText(message.text),
       source: message.source || null,
     }));
+}
+
+function summarizeStoredMemory(value = null) {
+  if (!value) return [];
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : Array.isArray(value.memories)
+      ? value.memories
+      : Array.isArray(value.items)
+        ? value.items
+        : Array.isArray(value.messages)
+          ? value.messages
+          : Array.isArray(value.recentMessages)
+            ? value.recentMessages
+            : [];
+
+  return rawItems
+    .filter(Boolean)
+    .slice(-12)
+    .map((item, index) => ({
+      id: safeText(item.id) || `memory-${index}`,
+      role: safeText(item.role || item.type || item.category || "memory"),
+      text: safeText(item.text || item.message || item.summary || item.value || item.content),
+      updatedAt: safeText(item.updatedAt || item.createdAt || item.date),
+      source: item.source || value.source || "local_memory_storage",
+    }))
+    .filter((item) => item.text);
+}
+
+function readStoredConversationMemory() {
+  const stored = readJsonFromLocalStorage(CONVERSATION_MEMORY_KEYS);
+  const records = summarizeStoredMemory(stored);
+
+  return {
+    source: stored?.source || "local_memory_reader",
+    records,
+    hasStoredMemory: records.length > 0,
+  };
 }
 
 function seedScheduleEvents() {
@@ -296,16 +342,23 @@ export function buildClaraBridgeLifeStageContext() {
 
 export function buildClaraBridgeConversationContext(messages = []) {
   const recentMessages = summarizeMessages(messages);
+  const storedMemory = readStoredConversationMemory();
 
   return {
     userMessageHistory: recentMessages,
-    previousConversationMemory: recentMessages.length
-      ? {
-          recentMessageCount: recentMessages.length,
-          recentMessages,
-          note: "Current overlay session memory only. Persistent cross-session memory is not connected yet.",
-        }
-      : null,
+    previousConversationMemory: {
+      connected: true,
+      source: storedMemory.source,
+      currentSessionMessageCount: recentMessages.length,
+      currentSessionMessages: recentMessages,
+      storedMemoryCount: storedMemory.records.length,
+      storedMemoryRecords: storedMemory.records,
+      hasStoredMemory: storedMemory.hasStoredMemory,
+      persistentMemoryEnabled: storedMemory.hasStoredMemory,
+      note: storedMemory.hasStoredMemory
+        ? "Previous conversation memory reader is connected and found stored local memory."
+        : "Previous conversation memory reader is connected. No saved persistent conversation memory is stored yet, so only current-session bridge messages are available when provided.",
+    },
   };
 }
 
