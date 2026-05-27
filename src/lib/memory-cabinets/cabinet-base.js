@@ -28,6 +28,7 @@ function readEntries(cabinetKey) {
 function writeEntries(cabinetKey, entries) {
   const next = (Array.isArray(entries) ? entries : [])
     .filter((entry) => clean(entry?.summary))
+    .sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")))
     .slice(0, LIMIT);
 
   if (typeof window !== "undefined") {
@@ -81,8 +82,24 @@ export function createMemoryCabinet(cabinetName) {
       const entry = normalizeEntry(cabinet, input);
       if (!entry) return null;
       const current = readEntries(cabinet.key);
-      writeEntries(cabinet.key, [entry, ...current]);
+      const duplicateIndex = current.findIndex((item) => clean(item.summary).toLowerCase() === entry.summary.toLowerCase());
+      const next = duplicateIndex >= 0
+        ? current.map((item, index) => index === duplicateIndex ? { ...item, ...entry, id: item.id, createdAt: item.createdAt || entry.createdAt } : item)
+        : [entry, ...current];
+      writeEntries(cabinet.key, next);
       return entry;
+    },
+    update(id, patch = {}) {
+      const current = readEntries(cabinet.key);
+      const next = current.map((item) => item.id === id ? { ...item, ...patch, id: item.id, createdAt: item.createdAt, updatedAt: now() } : item);
+      writeEntries(cabinet.key, next);
+      return next.find((item) => item.id === id) || null;
+    },
+    remove(id) {
+      const current = readEntries(cabinet.key);
+      const next = current.filter((item) => item.id !== id);
+      writeEntries(cabinet.key, next);
+      return next.length !== current.length;
     },
     search(query = "", limit = 5) {
       return readEntries(cabinet.key)
