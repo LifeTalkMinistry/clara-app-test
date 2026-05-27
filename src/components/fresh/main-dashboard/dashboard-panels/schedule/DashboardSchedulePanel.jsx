@@ -328,6 +328,8 @@ function getEventIcon(event) {
 
   if (type === "payday" || text.includes("payday") || text.includes("salary")) return "💰";
   if (type === "bill" || text.includes("bill") || text.includes("payment")) return "🧾";
+  if (text.includes("church") || text.includes("ministry") || text.includes("service")) return "⛪";
+  if (text.includes("outing") || text.includes("beach") || text.includes("resort")) return "🏖️";
   if (text.includes("rent") || text.includes("house") || text.includes("home")) return "🏠";
   if (text.includes("grocery") || text.includes("groceries") || text.includes("market")) return "🛒";
   if (type === "health" || text.includes("doctor") || text.includes("checkup") || text.includes("medicine")) return "🩺";
@@ -371,6 +373,83 @@ function impactMessage(event) {
 function holidayMessage(holiday) {
   if (!holiday) return "This is marked as a Philippine holiday.";
   return `${holiday.type}. ${holiday.note}`;
+}
+
+function sentenceCase(value) {
+  const clean = String(value || "").replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  return `${clean.charAt(0).toUpperCase()}${clean.slice(1)}`.replace(/([.!?])?$/, ".");
+}
+
+function refineEventDescription(form) {
+  const raw = `${form.note || form.title || ""}`
+    .replace(/[₱$]?\s*\d+(?:,\d{3})*(?:\.\d+)?/g, "")
+    .replace(/\b(maybe|probably|around|estimate|estimated|budget|cost|costs|expense|expenses|spend|spending)\b/gi, "")
+    .replace(/\b(food|snacks|coffee|fare|gas|transport|transportation|contribution|offering|entrance fee|fee|payment)\b/gi, "")
+    .replace(/\s+(and|or)\s*$/i, "")
+    .replace(/[,.]\s*$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const fallback = form.title || form.type || "Personal schedule";
+  return sentenceCase(raw || fallback);
+}
+
+function parseAmount(text) {
+  const matches = String(text || "").replace(/,/g, "").match(/\d+(?:\.\d+)?/g);
+  if (!matches?.length) return 0;
+  return Math.round(Number(matches[matches.length - 1]) || 0);
+}
+
+function isNoAnswer(text) {
+  return /\b(no|none|wala|nothing|nope|not really|skip)\b/i.test(String(text || ""));
+}
+
+function getRecommendedCap(total) {
+  if (total <= 0) return 0;
+  return Math.ceil((total + Math.min(Math.max(total * 0.1, 50), 300)) / 50) * 50;
+}
+
+function buildImpactSteps(form) {
+  const text = `${form.title || ""} ${form.type || ""} ${form.note || ""}`.toLowerCase();
+  const steps = [];
+
+  const add = (key, label, question) => steps.push({ key, label, question });
+
+  if (text.includes("church") || text.includes("ministry") || text.includes("service")) {
+    add("transport", "Transportation", "Can you tell me your possible transportation expense for this church event?");
+    add("food", "Food or snacks", "Will you possibly buy food, snacks, or drinks before or after the event? How much should we set?");
+    add("contribution", "Contribution or offering", "Is there any contribution, offering, registration, or shared payment expected? How much?");
+  } else if (text.includes("outing") || text.includes("beach") || text.includes("resort") || text.includes("trip")) {
+    add("transport", "Transportation", "How much do you expect to spend on fare, gas, parking, or travel for this outing?");
+    add("food", "Food and drinks", "How much should we set for food, drinks, or shared meals?");
+    add("activity", "Entrance or activity fee", "Is there any entrance fee, activity fee, cottage fee, or shared payment? How much?");
+  } else if (String(form.type || "").toLowerCase() === "bill" || text.includes("bill") || text.includes("payment")) {
+    add("bill", "Main payment", "How much is the main bill or payment for this day?");
+    add("fee", "Extra fees", "Any convenience fee, transfer fee, fare, or small extra cost connected to this payment?");
+  } else if (String(form.type || "").toLowerCase() === "work" || text.includes("work") || text.includes("office") || text.includes("meeting")) {
+    add("transport", "Transportation", "How much do you expect to spend on transportation for this work schedule?");
+    add("food", "Meals or coffee", "How much should we set for meals, snacks, coffee, or convenience spending?");
+    add("extra", "Work extras", "Any office contribution, supplies, or work-related extra expense?");
+  } else if (String(form.type || "").toLowerCase() === "health" || text.includes("doctor") || text.includes("medicine") || text.includes("checkup")) {
+    add("medical", "Medical cost", "How much should we set for consultation, medicine, lab, or health-related cost?");
+    add("transport", "Transportation", "How much will transportation possibly cost for this health schedule?");
+  } else if (String(form.type || "").toLowerCase() === "family" || text.includes("family") || text.includes("birthday") || text.includes("fiesta")) {
+    add("gift", "Gift or contribution", "Is there a gift, contribution, or family share expected? How much?");
+    add("transport", "Transportation", "How much should we set for transportation?");
+    add("food", "Food", "Will you spend on food, snacks, or shared meals? How much?");
+  } else if (String(form.type || "").toLowerCase() === "relationship" || text.includes("date") || text.includes("partner")) {
+    add("transport", "Transportation", "How much do you expect to spend on transportation?");
+    add("food", "Food or date activity", "How much should we set for food, drinks, movie, or activity?");
+    add("gift", "Gift or extra", "Any gift, surprise, or extra spending you want to include?");
+  } else {
+    add("transport", "Transportation", "Can you tell me the possible transportation expense for this schedule?");
+    add("food", "Food or snacks", "Will there be food, snacks, drinks, or convenience spending? How much should we set?");
+    add("shared", "Contribution or fee", "Any contribution, fee, payment, or shared expense expected? How much?");
+  }
+
+  add("missed", "Possible overlooked spending", "Before we lock this in, is there anything else you might buy or any possible spending reason we may have missed?");
+  return steps;
 }
 
 function buildMonthCells(monthDate) {
@@ -666,7 +745,7 @@ function MonthlyInsightCard({ insight }) {
   );
 }
 
-function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
+function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, onRefineDescription, onStartImpact }) {
   useEffect(() => {
     if (!mode) return undefined;
 
@@ -711,7 +790,7 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
         </div>
 
         {adding ? (
-          <form onSubmit={onSave} className="mt-5 space-y-3">
+          <form onSubmit={onStartImpact} className="mt-5 space-y-3">
             <input
               value={form.title}
               onChange={(eventChange) => setForm((current) => ({ ...current, title: eventChange.target.value }))}
@@ -741,22 +820,38 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
                 {TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
               <input
-                value={form.amount}
-                onChange={(eventChange) => setForm((current) => ({ ...current, amount: eventChange.target.value }))}
-                inputMode="numeric"
-                placeholder="₱ impact"
-                className="w-full rounded-2xl border border-white/10 bg-white/[.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32"
+                value={form.amount ? `₱${form.amount}` : ""}
+                readOnly
+                placeholder="AI will calculate"
+                className="w-full rounded-2xl border border-white/10 bg-white/[.025] px-4 py-3 text-sm font-bold text-cyan-50 outline-none placeholder:text-white/30"
               />
             </div>
-            <textarea
-              value={form.note}
-              onChange={(eventChange) => setForm((current) => ({ ...current, note: eventChange.target.value }))}
-              placeholder="Details CLARA should consider"
-              rows={3}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-white/[.035] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32"
-            />
-            <button type="submit" className="w-full rounded-2xl border border-cyan-300/22 bg-cyan-300/[.09] px-4 py-3 text-sm font-black text-cyan-50">
-              Save schedule
+
+            <div className="rounded-[22px] border border-white/8 bg-white/[.025] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-[.16em] text-white/35">Description</span>
+                <button
+                  type="button"
+                  onClick={onRefineDescription}
+                  className="rounded-full border border-cyan-300/18 bg-cyan-300/[.055] px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-cyan-100/72"
+                >
+                  Refine with CLARA
+                </button>
+              </div>
+              <textarea
+                value={form.note}
+                onChange={(eventChange) => setForm((current) => ({ ...current, note: eventChange.target.value }))}
+                placeholder="Describe only the event. Example: Church outing after service with the youth group."
+                rows={3}
+                className="w-full resize-none rounded-2xl border border-white/10 bg-white/[.035] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32"
+              />
+            </div>
+
+            <button type="submit" className="w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[.10] px-4 py-3 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">
+              Calculate money impact
+            </button>
+            <button type="button" onClick={onSave} className="w-full rounded-2xl border border-white/10 bg-white/[.025] px-4 py-3 text-xs font-black uppercase tracking-[.14em] text-white/38">
+              Save without impact
             </button>
           </form>
         ) : (
@@ -785,6 +880,95 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
   );
 }
 
+function ImpactAssistantModal({ session, input, setInput, onSend, onSave, onClose }) {
+  if (!session) return null;
+  const recommendedCap = getRecommendedCap(session.total);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/65 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[86svh] w-full max-w-[520px] flex-col overflow-hidden rounded-[30px] border border-cyan-300/18 bg-[#071026]/98 shadow-[0_22px_90px_rgba(0,0,0,.62),0_0_42px_rgba(34,211,238,.12)] backdrop-blur-2xl"
+        onClick={(clickEvent) => clickEvent.stopPropagation()}
+      >
+        <div className="border-b border-white/8 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[.22em] text-cyan-100/70">CLARA impact coach</p>
+              <h3 className="mt-3 text-xl font-black leading-tight text-white">Calculate money impact</h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[.04] text-white/60"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-4 rounded-[22px] border border-cyan-300/14 bg-cyan-300/[.055] px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100/56">Running estimate</p>
+            <p className="mt-1 text-2xl font-black text-white">₱{session.total.toLocaleString()}</p>
+            {session.complete && recommendedCap ? (
+              <p className="mt-1 text-xs font-bold text-white/48">Suggested cap: ₱{recommendedCap.toLocaleString()}</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          {session.messages.map((message, index) => (
+            <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[84%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 ${message.role === "user" ? "bg-cyan-300/[.12] text-cyan-50" : "border border-white/8 bg-white/[.035] text-white/64"}`}>
+                {message.text}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-white/8 p-4">
+          {session.items.length ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {session.items.map((item) => (
+                <span key={`${item.label}-${item.amount}-${item.note}`} className="rounded-full border border-white/10 bg-white/[.035] px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-white/44">
+                  {item.label}: ₱{item.amount.toLocaleString()}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {session.complete ? (
+            <button
+              type="button"
+              onClick={() => onSave(recommendedCap || session.total)}
+              className="w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[.11] px-4 py-3 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.09)]"
+            >
+              Save schedule with ₱{(recommendedCap || session.total).toLocaleString()} impact
+            </button>
+          ) : (
+            <form onSubmit={onSend} className="flex gap-2">
+              <input
+                value={input}
+                onChange={(eventChange) => setInput(eventChange.target.value)}
+                placeholder="Reply with amount or details..."
+                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32"
+              />
+              <button
+                type="submit"
+                className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[.09] px-4 py-3 text-sm font-black text-cyan-50"
+              >
+                Send
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardSchedulePanel() {
   const { user } = useUserRole() || {};
   const today = toDateKey(new Date());
@@ -794,6 +978,8 @@ export default function DashboardSchedulePanel() {
   const [lastDateTap, setLastDateTap] = useState({ date: "", time: 0 });
   const [mode, setMode] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [impactSession, setImpactSession] = useState(null);
+  const [impactInput, setImpactInput] = useState("");
   const [form, setForm] = useState({ title: "", date: today, time: "", type: "Personal", amount: "", note: "" });
 
   useEffect(() => setEvents(readEvents(user)), [user?.id, user?.email]);
@@ -826,6 +1012,8 @@ export default function DashboardSchedulePanel() {
   const openAdd = (date = selectedDate) => {
     setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "" });
     setSelectedEvent(null);
+    setImpactSession(null);
+    setImpactInput("");
     setMode("add");
   };
 
@@ -852,10 +1040,12 @@ export default function DashboardSchedulePanel() {
   const close = () => {
     setMode(null);
     setSelectedEvent(null);
+    setImpactSession(null);
+    setImpactInput("");
   };
 
   const save = (submitEvent) => {
-    submitEvent.preventDefault();
+    submitEvent?.preventDefault?.();
     const title = form.title.trim();
     if (!title) return;
 
@@ -874,9 +1064,106 @@ export default function DashboardSchedulePanel() {
     close();
   };
 
+  const saveWithImpact = (impactAmount) => {
+    const cleanImpact = cleanMoney(impactAmount);
+    setForm((current) => ({ ...current, amount: cleanImpact }));
+
+    const title = form.title.trim();
+    if (!title) return;
+
+    setEvents((current) => [
+      ...current,
+      {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        title,
+        date: form.date || selectedDate,
+        time: form.time,
+        type: form.type,
+        amount: cleanImpact,
+        note: form.note.trim(),
+      },
+    ]);
+    close();
+  };
+
   const remove = (id) => {
     setEvents((current) => current.filter((event) => event.id !== id));
     close();
+  };
+
+  const refineDescription = () => {
+    setForm((current) => ({ ...current, note: refineEventDescription(current) }));
+  };
+
+  const startImpact = (submitEvent) => {
+    submitEvent.preventDefault();
+    const title = form.title.trim();
+    if (!title) return;
+
+    const steps = buildImpactSteps(form);
+    const eventLabel = form.note || form.title;
+    const firstQuestion = steps[0]?.question || "What possible spending should we include for this day?";
+
+    setImpactInput("");
+    setImpactSession({
+      steps,
+      currentStep: 0,
+      items: [],
+      total: 0,
+      complete: false,
+      messages: [
+        {
+          role: "assistant",
+          text: `Hi ${user?.display_name || user?.user_metadata?.full_name || "there"}! So you have ${eventLabel} — sounds good. Let's talk about the possible spending so you can set a clear limit for that day.`,
+        },
+        { role: "assistant", text: firstQuestion },
+      ],
+    });
+  };
+
+  const sendImpactReply = (submitEvent) => {
+    submitEvent.preventDefault();
+    const reply = impactInput.trim();
+    if (!reply || !impactSession) return;
+
+    const step = impactSession.steps[impactSession.currentStep];
+    const amount = parseAmount(reply);
+    const shouldAdd = amount > 0 && !isNoAnswer(reply);
+    const nextItems = shouldAdd
+      ? [...impactSession.items, { label: step?.label || "Extra", amount, note: reply }]
+      : impactSession.items;
+    const nextTotal = nextItems.reduce((sum, item) => sum + item.amount, 0);
+    const nextStepIndex = impactSession.currentStep + 1;
+    const isComplete = nextStepIndex >= impactSession.steps.length;
+    const messages = [...impactSession.messages, { role: "user", text: reply }];
+
+    if (shouldAdd) {
+      messages.push({ role: "assistant", text: `Noted — ₱${amount.toLocaleString()} for ${step?.label?.toLowerCase() || "this part"}.` });
+    } else {
+      messages.push({ role: "assistant", text: `Got it — we will not add an amount for ${step?.label?.toLowerCase() || "that part"}.` });
+    }
+
+    if (isComplete) {
+      const cap = getRecommendedCap(nextTotal);
+      messages.push({
+        role: "assistant",
+        text: cap
+          ? `So far, your planned impact is ₱${nextTotal.toLocaleString()}. I recommend setting the final spending cap at ₱${cap.toLocaleString()} so you have a small buffer without going too loose.`
+          : "No amount has been added yet. You can still close this and enter a manual impact later.",
+      });
+    } else {
+      messages.push({ role: "assistant", text: impactSession.steps[nextStepIndex].question });
+    }
+
+    setImpactSession({
+      ...impactSession,
+      currentStep: nextStepIndex,
+      items: nextItems,
+      total: nextTotal,
+      complete: isComplete,
+      messages,
+    });
+    setImpactInput("");
   };
 
   return (
@@ -897,7 +1184,25 @@ export default function DashboardSchedulePanel() {
         onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
       />
       <MonthlyInsightCard insight={monthlyInsight} />
-      <Sheet event={selectedEvent} mode={mode} form={form} setForm={setForm} onSave={save} onRemove={remove} onClose={close} />
+      <Sheet
+        event={selectedEvent}
+        mode={mode}
+        form={form}
+        setForm={setForm}
+        onSave={save}
+        onRemove={remove}
+        onClose={close}
+        onRefineDescription={refineDescription}
+        onStartImpact={startImpact}
+      />
+      <ImpactAssistantModal
+        session={impactSession}
+        input={impactInput}
+        setInput={setImpactInput}
+        onSend={sendImpactReply}
+        onSave={saveWithImpact}
+        onClose={() => setImpactSession(null)}
+      />
     </div>
   );
 }
