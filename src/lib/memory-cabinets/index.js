@@ -21,6 +21,16 @@ export function saveMemoryToCabinet(cabinetName, entry) {
   return cabinet ? cabinet.save(entry) : null;
 }
 
+export function updateMemoryInCabinet(cabinetName, id, patch = {}) {
+  const cabinet = getMemoryCabinet(cabinetName);
+  return cabinet ? cabinet.update(id, patch) : null;
+}
+
+export function removeMemoryFromCabinet(cabinetName, id) {
+  const cabinet = getMemoryCabinet(cabinetName);
+  return cabinet ? cabinet.remove(id) : false;
+}
+
 export function searchMemoryCabinet(cabinetName, query = "", limit = 5) {
   const cabinet = getMemoryCabinet(cabinetName);
   return cabinet ? cabinet.search(query, limit) : [];
