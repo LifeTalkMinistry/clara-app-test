@@ -80,3 +80,25 @@ try {
 } catch (error) {
   console.warn("CLARA sound system failed to init:", error);
 }
+
+const installClaraSupportComposerEnhancer = () => {};
+
+try {
+  installClaraSupportComposerEnhancer();
+} catch (error) {
+  console.warn("CLARA support composer enhancer failed:", error);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <QueryClientProvider client={queryClientInstance}>
+      <AuthProvider>
+        <ThemeProvider>
+          <HashRouter>
+            <App />
+          </HashRouter>
+        </ThemeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </React.StrictMode>
+);
