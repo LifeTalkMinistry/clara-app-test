@@ -15,20 +15,16 @@ export default function DashboardTopNav({
     <div className={`relative z-30 shrink-0 ${dashboardScale.headerOuter}`}>
       <div className="mx-auto w-full max-w-[430px] overflow-visible">
         <div
-          className={`relative w-full overflow-hidden border backdrop-blur-2xl ${dashboardScale.headerPanel}`}
+          className={`relative w-full overflow-hidden border backdrop-blur-xl ${dashboardScale.headerPanel}`}
           style={themeQuickActionPanelStyle}
         >
           <div
-            className="pointer-events-none absolute inset-0 rounded-[inherit]"
+            className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-70"
             style={themeQuickActionGlowStyle}
           />
-          <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(11,148,156,0.22)_0%,rgba(13,43,85,0.28)_44%,rgba(74,42,142,0.30)_100%)]" />
-          <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.14] blur-[54px]" />
-          <div className="pointer-events-none absolute -right-14 -bottom-20 h-48 w-48 rounded-full bg-violet-400/[0.18] blur-[58px]" />
-          <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.105),transparent_38%,rgba(0,0,0,0.16))]" />
-          <div className="pointer-events-none absolute inset-[1px] rounded-[calc(1.5rem-1px)] border border-white/[0.055]" />
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-emerald-200/20 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.065),transparent_42%,rgba(0,0,0,0.14))]" />
+          <div className="pointer-events-none absolute inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-white/28 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
           <div className="relative grid grid-cols-4 gap-1.5 sm:gap-2">
             {headerQuickActions.map((item, index) => {
@@ -50,16 +46,20 @@ export default function DashboardTopNav({
                       : "group-hover:shadow-[0_0_22px_rgba(255,255,255,0.10)]";
 
               const activeItemClass = themeIsLight
-                ? "border-emerald-400/35 bg-white/78 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.90),0_12px_28px_rgba(15,23,42,0.12),0_0_24px_rgba(20,184,166,0.14)]"
-                : "border-emerald-100/20 bg-[linear-gradient(135deg,rgba(20,184,166,0.20)_0%,rgba(13,41,80,0.36)_48%,rgba(91,46,154,0.34)_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_30px_rgba(45,212,191,0.14),0_14px_28px_rgba(0,0,0,0.22)]";
+                ? "border-emerald-400/45 bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(236,253,245,0.82)_42%,rgba(237,233,254,0.82)_100%)] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_12px_28px_rgba(15,23,42,0.12),0_0_26px_rgba(20,184,166,0.16)]"
+                : "border-emerald-100/24 bg-[linear-gradient(135deg,rgba(10,126,128,0.50)_0%,rgba(17,44,85,0.62)_46%,rgba(82,45,147,0.66)_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_34px_rgba(45,212,191,0.16),0_16px_32px_rgba(0,0,0,0.26)]";
 
               const inactiveItemClass = themeIsLight
                 ? "border-transparent text-slate-700 hover:border-slate-300/40 hover:bg-white/48 hover:text-slate-950"
                 : "border-transparent text-white/76 hover:border-white/[0.09] hover:bg-white/[0.055] hover:text-white";
 
               const activeIconClass = themeIsLight
-                ? "border-emerald-400/40 bg-emerald-500/12 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_0_24px_rgba(16,185,129,0.16)]"
-                : "border-emerald-100/30 bg-emerald-300/[0.17] text-emerald-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_24px_rgba(94,234,212,0.24)]";
+                ? "border-emerald-500/55 bg-emerald-500/14 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_0_24px_rgba(16,185,129,0.18)]"
+                : "border-emerald-100/45 bg-emerald-400/[0.18] text-emerald-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_26px_rgba(94,234,212,0.28)]";
+
+              const checkClass = themeIsLight
+                ? "border-emerald-500/35 bg-emerald-500 text-white shadow-[0_0_18px_rgba(16,185,129,0.22)]"
+                : "border-emerald-100/35 bg-[#71f0bd] text-[#06271f] shadow-[0_0_22px_rgba(113,240,189,0.42)]";
 
               return (
                 <button
@@ -75,9 +75,13 @@ export default function DashboardTopNav({
                   >
                     {isActive ? (
                       <>
-                        <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_24%_18%,rgba(125,255,218,0.20),transparent_42%),radial-gradient(circle_at_82%_74%,rgba(168,85,247,0.22),transparent_48%)]" />
-                        <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/45 to-transparent" />
-                        <div className="pointer-events-none absolute bottom-1.5 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full bg-emerald-200/75 shadow-[0_0_14px_rgba(110,231,183,0.52)]" />
+                        <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_18%_28%,rgba(94,234,212,0.24),transparent_44%),radial-gradient(circle_at_88%_54%,rgba(168,85,247,0.24),transparent_50%)]" />
+                        <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/50 to-transparent" />
+                        <span
+                          className={`pointer-events-none absolute right-2.5 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-black leading-none ${checkClass}`}
+                        >
+                          ✓
+                        </span>
                       </>
                     ) : (
                       <div className={`pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.14),transparent_58%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_58%)]"}`} />
