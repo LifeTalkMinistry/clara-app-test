@@ -49,6 +49,7 @@ import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
 import "./me-support-dock-gap-fix.css";
 import "./life-stage-young-professional-overlap-fix.css";
+import "./clara-adaptive-background.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
@@ -79,25 +80,3 @@ try {
 } catch (error) {
   console.warn("CLARA sound system failed to init:", error);
 }
-
-const installClaraSupportComposerEnhancer = () => {};
-
-try {
-  installClaraSupportComposerEnhancer();
-} catch (error) {
-  console.warn("CLARA support composer enhancer failed:", error);
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClientInstance}>
-      <AuthProvider>
-        <ThemeProvider>
-          <HashRouter>
-            <App />
-          </HashRouter>
-        </ThemeProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </React.StrictMode>
-);
