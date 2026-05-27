@@ -7,6 +7,7 @@ const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2";
 const SCHEDULE_LEGACY_KEY = "clara_lifeos_schedule_events_v1";
 const LOCATION_CONTEXT_KEYS = ["CLARA_LOCATION_CONTEXT", "clara_location_context", "clara_user_location_v1"];
 const WEATHER_CONTEXT_KEYS = ["CLARA_WEATHER_CONTEXT", "clara_weather_context", "clara_current_weather_v1"];
+const LIVE_USER_MESSAGE_HISTORY_KEY = "CLARA_LIVE_USER_MESSAGE_HISTORY";
 const CONVERSATION_MEMORY_KEYS = [
   "CLARA_PREVIOUS_CONVERSATION_MEMORY",
   "clara_previous_conversation_memory",
@@ -44,6 +45,28 @@ function readJsonFromLocalStorage(keys = []) {
   }
 
   return null;
+}
+
+function readLiveUserMessageHistory() {
+  if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") return [];
+
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(LIVE_USER_MESSAGE_HISTORY_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((message) => safeText(message?.text))
+          .slice(-20)
+          .map((message, index) => ({
+            id: safeText(message.id) || `live-user-${index}`,
+            role: "user",
+            text: safeText(message.text),
+            source: message.source || "clara_overlay_live_session",
+            capturedAt: safeText(message.capturedAt),
+          }))
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function summarizeMessages(messages = [], limit = 12) {
@@ -341,7 +364,9 @@ export function buildClaraBridgeLifeStageContext() {
 }
 
 export function buildClaraBridgeConversationContext(messages = []) {
-  const recentMessages = summarizeMessages(messages);
+  const bridgeMessages = summarizeMessages(messages);
+  const liveMessages = readLiveUserMessageHistory();
+  const recentMessages = liveMessages.length ? liveMessages : bridgeMessages;
   const storedMemory = readStoredConversationMemory();
 
   return {
