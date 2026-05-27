@@ -57,10 +57,6 @@ export default function DashboardTopNav({
                 ? "border-emerald-500/55 bg-emerald-500/14 text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_0_24px_rgba(16,185,129,0.18)]"
                 : "border-emerald-100/45 bg-emerald-400/[0.18] text-emerald-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_26px_rgba(94,234,212,0.28)]";
 
-              const checkClass = themeIsLight
-                ? "border-emerald-500/35 bg-emerald-500 text-white shadow-[0_0_18px_rgba(16,185,129,0.22)]"
-                : "border-emerald-100/35 bg-[#71f0bd] text-[#06271f] shadow-[0_0_22px_rgba(113,240,189,0.42)]";
-
               return (
                 <button
                   key={item.key}
@@ -77,11 +73,6 @@ export default function DashboardTopNav({
                       <>
                         <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_18%_28%,rgba(94,234,212,0.24),transparent_44%),radial-gradient(circle_at_88%_54%,rgba(168,85,247,0.24),transparent_50%)]" />
                         <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/50 to-transparent" />
-                        <span
-                          className={`pointer-events-none absolute right-2.5 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-black leading-none ${checkClass}`}
-                        >
-                          ✓
-                        </span>
                       </>
                     ) : (
                       <div className={`pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.14),transparent_58%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_58%)]"}`} />
