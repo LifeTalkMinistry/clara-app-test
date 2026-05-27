@@ -12,13 +12,14 @@ import {
   reloadForDevIdentityChange,
   writeClaraDevIdentityOverride,
 } from "@/lib/clara-dev-simulator";
-import { clearClaraDemoAccount, seedClaraDemoAccount } from "@/lib/clara-demo-account";
+import { buildClaraDemoAccountRecords, clearClaraDemoAccount, seedClaraDemoAccount } from "@/lib/clara-demo-account";
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
 const DEV_EYE_DOUBLE_TAP_WINDOW = 460;
 const DEMO_INTRO_SEEN_KEY = "clara_demo_intro_seen_at_v1";
 const CLARA_DEMO_LOCAL_USER_ID = "clara-demo-user";
+const CLARA_AI_USE_DEMO_CONTEXT_KEY = "CLARA_AI_USE_DEMO_CONTEXT";
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-ai-environment-active [data-clara-ai-background="true"] {
@@ -101,6 +102,16 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
 function getLocalUserId(user) {
   const value = user?.id || user?.email || "local-user";
   return String(value || "local-user").trim() || "local-user";
+}
+
+function isAiDemoContextEnabled() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.localStorage?.getItem(CLARA_AI_USE_DEMO_CONTEXT_KEY) === "true" || window.localStorage?.getItem(CLARA_AI_USE_DEMO_CONTEXT_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 function getStoredDemoIntroSeenAt() {
@@ -289,13 +300,8 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, isApplyingScenario, 
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[13px] font-black text-white">
-                        {scenario.label}
-                      </p>
-
-                      <p className="mt-1 text-[11px] leading-5 text-slate-300/62">
-                        {scenario.description}
-                      </p>
+                      <p className="text-[13px] font-black text-white">{scenario.name}</p>
+                      <p className="mt-1 text-[11.5px] leading-5 text-slate-300/70">{scenario.description}</p>
                     </div>
 
                     {active ? (
@@ -346,18 +352,34 @@ export default function ClaraAiEnvironmentBridge() {
   const demoIntroSeenToken = currentOverride?.appliedAt || "demo_user";
 
   const claraAssistantContext = useMemo(
-    () => ({
-      user,
-      expenses,
-      wallets,
-      walletTransactions,
-      transfers,
-      budgets,
-      savingsGoals,
-      emergencyFund,
-      loading,
-      refreshing,
-    }),
+    () => {
+      const baseContext = {
+        user,
+        expenses,
+        wallets,
+        walletTransactions,
+        transfers,
+        budgets,
+        savingsGoals,
+        emergencyFund,
+        loading,
+        refreshing,
+      };
+
+      if (!isAiDemoContextEnabled()) return baseContext;
+
+      const demoContext = buildClaraDemoAccountRecords("clara-ai-demo-context");
+
+      return {
+        ...baseContext,
+        ...demoContext,
+        user,
+        loading,
+        refreshing,
+        aiOnlyDemoContext: true,
+        aiOnlyDemoContextLabel: "CLARA AI demo context only — dashboard and storage unchanged",
+      };
+    },
     [
       user,
       expenses,
