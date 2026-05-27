@@ -19,6 +19,24 @@ const KNOWN_GEMINI_MODELS = [
   "gemini-1.5-flash-latest",
 ];
 const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
+const BLOCKED_MODEL_KEYWORDS = [
+  "image",
+  "vision",
+  "tts",
+  "audio",
+  "speech",
+  "robotics",
+  "embedding",
+  "embed",
+  "aqa",
+  "deep-research",
+  "computer-use",
+  "imagen",
+  "veo",
+  "lyria",
+  "native-audio",
+  "thinking-exp",
+];
 
 function getLocalDebugFlag() {
   try {
@@ -33,12 +51,24 @@ function shouldDebugClaraAi() {
   return import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true" || import.meta.env.VITE_CLARA_DEBUG_AI === "1" || getLocalDebugFlag();
 }
 
+function normalizeModelName(model = "") {
+  return String(model || "").trim().replace(/^models\//, "");
+}
+
 function uniqueModels(models = []) {
   return models
-    .map((model) => String(model || "").trim())
-    .map((model) => model.replace(/^models\//, ""))
+    .map(normalizeModelName)
     .filter(Boolean)
     .filter((model, index, list) => list.indexOf(model) === index);
+}
+
+function isTextChatGeminiModel(model = "") {
+  const value = normalizeModelName(model).toLowerCase();
+  if (!value) return false;
+  if (!value.includes("gemini")) return false;
+  if (BLOCKED_MODEL_KEYWORDS.some((keyword) => value.includes(keyword))) return false;
+
+  return value.includes("flash") || value.includes("pro");
 }
 
 function getGeminiApiKey() {
@@ -50,12 +80,14 @@ function getConfiguredGeminiModel() {
 }
 
 function getFallbackGeminiModelCandidates() {
-  return uniqueModels([getConfiguredGeminiModel(), DEFAULT_GEMINI_MODEL, ...KNOWN_GEMINI_MODELS]);
+  return uniqueModels([getConfiguredGeminiModel(), DEFAULT_GEMINI_MODEL, ...KNOWN_GEMINI_MODELS]).filter(isTextChatGeminiModel);
 }
 
 function rankGeminiModel(model = "") {
-  const value = String(model || "").toLowerCase();
-  if (value === getConfiguredGeminiModel().toLowerCase()) return 0;
+  const value = normalizeModelName(model).toLowerCase();
+  const configured = normalizeModelName(getConfiguredGeminiModel()).toLowerCase();
+
+  if (configured && value === configured && isTextChatGeminiModel(value)) return 0;
   if (value.includes("2.5") && value.includes("flash") && !value.includes("lite")) return 1;
   if (value.includes("2.5") && value.includes("flash") && value.includes("lite")) return 2;
   if (value.includes("2.0") && value.includes("flash") && !value.includes("lite")) return 3;
@@ -83,18 +115,23 @@ async function discoverGeminiModelCandidates({ apiKey, signal } = {}) {
       return fallbackModels;
     }
 
-    const discoveredModels = (Array.isArray(data?.models) ? data.models : [])
+    const allGenerateContentModels = (Array.isArray(data?.models) ? data.models : [])
       .filter((model) => (model?.supportedGenerationMethods || []).includes("generateContent"))
-      .map((model) => model?.name)
-      .filter(Boolean)
-      .map((name) => String(name).replace(/^models\//, ""));
+      .map((model) => normalizeModelName(model?.name))
+      .filter(Boolean);
+
+    const discoveredModels = allGenerateContentModels.filter(isTextChatGeminiModel);
+    const blockedModels = allGenerateContentModels.filter((model) => !isTextChatGeminiModel(model));
+    const configuredModel = normalizeModelName(getConfiguredGeminiModel());
+    const configuredModelCandidate = isTextChatGeminiModel(configuredModel) ? configuredModel : "";
 
     const orderedDiscoveredModels = uniqueModels(discoveredModels).sort((a, b) => rankGeminiModel(a) - rankGeminiModel(b));
-    const candidates = uniqueModels([getConfiguredGeminiModel(), ...orderedDiscoveredModels, ...fallbackModels]);
+    const candidates = uniqueModels([configuredModelCandidate, ...orderedDiscoveredModels, ...fallbackModels]).filter(isTextChatGeminiModel);
 
     if (shouldDebugClaraAi()) {
-      console.log("[CLARA Gemini] Available generateContent models", orderedDiscoveredModels);
-      console.log("[CLARA Gemini] Final model candidates", candidates);
+      console.log("[CLARA Gemini] Available text generateContent models", orderedDiscoveredModels);
+      console.log("[CLARA Gemini] Blocked non-chat models", blockedModels);
+      console.log("[CLARA Gemini] Final text model candidates", candidates);
     }
 
     return candidates;
