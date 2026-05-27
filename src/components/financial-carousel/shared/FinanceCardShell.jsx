@@ -8,11 +8,13 @@ export default function FinanceCardShell({
   expanded = false,
   ringClass = "",
   roundedClass = "rounded-[30px]",
-  shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_42px_rgba(0,255,220,0.10),0_0_62px_rgba(126,34,206,0.12)]",
+  shadowClass = "",
   surfaceClassName = "",
   glowLayerClassNames = FINANCE_CARD_GLOW_LAYERS,
   children,
 }) {
+  const cleanGlowLayers = FINANCE_CARD_GLOW_LAYERS;
+
   return (
     <div
       data-finance-card={cardKey}
@@ -22,15 +24,16 @@ export default function FinanceCardShell({
         `clara-finance-bubble-${cardKey}`,
         FINANCE_CARD_SURFACE_CLASS,
         roundedClass,
-        shadowClass,
         ringClass,
         surfaceClassName,
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      {glowLayerClassNames.map((className, index) => (
-        <div key={`${cardKey}-glow-${index}`} className={className} />
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(135deg,#062638_0%,#071430_48%,#171342_100%)]" />
+
+      {cleanGlowLayers.map((className, index) => (
+        <div key={`${cardKey}-clean-glow-${index}`} className={className} />
       ))}
 
       {children}
