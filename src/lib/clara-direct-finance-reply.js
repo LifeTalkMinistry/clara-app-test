@@ -1,5 +1,6 @@
 import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
 import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
+import { buildClaraDiagnosticDirectReply } from "@/lib/clara-diagnostic-direct-reply";
 
 function formatMoney(value) {
   const number = Number(value);
@@ -153,6 +154,9 @@ export function buildContextualFinanceReply(prompt, context) {
   const text = normalizeText(prompt);
 
   if (text.includes("talk to clara context mode is active")) return "";
+
+  const diagnosticReply = buildClaraDiagnosticDirectReply(prompt, context);
+  if (diagnosticReply) return diagnosticReply;
 
   // Purchase and affordability decisions must reach Gemini/Central Brain.
   // This file should only answer quick factual wallet/balance questions.
