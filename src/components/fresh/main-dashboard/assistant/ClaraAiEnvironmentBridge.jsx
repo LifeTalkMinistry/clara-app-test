@@ -13,6 +13,7 @@ import {
   writeClaraDevIdentityOverride,
 } from "@/lib/clara-dev-simulator";
 import { buildClaraDemoAccountRecords, clearClaraDemoAccount, seedClaraDemoAccount } from "@/lib/clara-demo-account";
+import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
@@ -284,7 +285,7 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, isApplyingScenario, 
 
           <div className="space-y-2">
             {scenarios.map((scenario) => {
-              const active = activeScenarioId === scenario.id;
+              const active = activeDevScenario === scenario.id;
 
               return (
                 <button
@@ -353,6 +354,10 @@ export default function ClaraAiEnvironmentBridge() {
 
   const claraAssistantContext = useMemo(
     () => {
+      const bridgeReadableContext = buildClaraBridgeReadableContext({
+        messages: claraAiEnvironment.messages,
+      });
+
       const baseContext = {
         user,
         expenses,
@@ -364,6 +369,7 @@ export default function ClaraAiEnvironmentBridge() {
         emergencyFund,
         loading,
         refreshing,
+        ...bridgeReadableContext,
       };
 
       if (!isAiDemoContextEnabled()) return baseContext;
@@ -373,6 +379,7 @@ export default function ClaraAiEnvironmentBridge() {
       return {
         ...baseContext,
         ...demoContext,
+        ...bridgeReadableContext,
         user,
         loading,
         refreshing,
@@ -391,6 +398,7 @@ export default function ClaraAiEnvironmentBridge() {
       emergencyFund,
       loading,
       refreshing,
+      claraAiEnvironment.messages,
     ]
   );
 
