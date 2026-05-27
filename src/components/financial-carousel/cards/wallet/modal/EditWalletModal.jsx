@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { Check, Eye, EyeOff, ShieldCheck, Sparkles, Star, X } from "lucide-react";
+import { Check, ShieldCheck, X } from "lucide-react";
 import {
   fmt,
   toNumber,
@@ -49,45 +49,6 @@ function getWalletTypeDetail(type) {
   return walletTypeDetails[type] || walletTypeDetails.custom;
 }
 
-function ToggleShell({ icon: Icon, title, helper, active = false, disabled = false }) {
-  return (
-    <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.045] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/72">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[13px] font-bold tracking-[-0.01em] text-white/88">
-              {title}
-            </p>
-            <p className="mt-0.5 text-[11px] leading-4 text-white/45">
-              {helper}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          disabled={disabled}
-          aria-pressed={active}
-          className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
-            active
-              ? "border-emerald-200/30 bg-emerald-300/20 shadow-[0_0_22px_rgba(52,211,153,0.15)]"
-              : "border-white/10 bg-black/20"
-          } ${disabled ? "cursor-not-allowed opacity-60" : "hover:border-white/20"}`}
-        >
-          <span
-            className={`absolute top-1 h-5 w-5 rounded-full border border-white/20 bg-white/80 shadow-lg transition ${
-              active ? "left-5" : "left-1"
-            }`}
-          />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function EditWalletModal({
   editingWallet,
   editForm,
@@ -103,24 +64,6 @@ export default function EditWalletModal({
   const currentIcon = walletIcons[currentType] || "💰";
   const currentName = editForm.name.trim() || editingWallet?.name || "Untitled wallet";
   const currentBalance = fmt(toNumber(editingWallet?.balance));
-  const hasPrimarySupport =
-    editingWallet?.is_primary !== undefined ||
-    editingWallet?.primary !== undefined ||
-    editingWallet?.isPrimary !== undefined;
-  const isPrimary = Boolean(
-    editingWallet?.is_primary || editingWallet?.primary || editingWallet?.isPrimary
-  );
-  const hasDashboardVisibilitySupport =
-    editingWallet?.show_on_dashboard !== undefined ||
-    editingWallet?.visible_on_dashboard !== undefined ||
-    editingWallet?.is_visible !== undefined;
-  const isVisibleOnDashboard = hasDashboardVisibilitySupport
-    ? Boolean(
-        editingWallet?.show_on_dashboard ??
-          editingWallet?.visible_on_dashboard ??
-          editingWallet?.is_visible
-      )
-    : !editingWallet?.is_archived;
 
   const modalContent = (
     <div className="fixed inset-0 z-[2147483647] flex h-[100dvh] w-screen justify-center overflow-hidden bg-black/82 text-white backdrop-blur-xl">
@@ -129,28 +72,21 @@ export default function EditWalletModal({
         <div className="pointer-events-none absolute -right-24 top-20 h-64 w-64 rounded-full bg-emerald-300/[0.09] blur-[82px]" />
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_34%,rgba(0,0,0,0.15))]" />
 
-        <div className="relative shrink-0 border-b border-white/[0.08] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+18px)] sm:pt-5">
+        <div className="relative shrink-0 border-b border-white/[0.08] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+24px)] sm:pt-6">
           <button
             type="button"
             onClick={closeEditWallet}
             disabled={isSavingWalletEdit}
-            className="absolute right-4 top-[calc(env(safe-area-inset-top)+16px)] flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-50 sm:top-4"
+            className="absolute right-4 top-[calc(env(safe-area-inset-top)+16px)] flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-50 sm:top-5"
             aria-label="Close edit wallet"
           >
             <X className="h-4 w-4" />
           </button>
 
           <div className="pr-12">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200/15 bg-cyan-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/85">
-              <Sparkles className="h-3 w-3" />
-              Identity editor
-            </div>
-            <h3 className="text-[22px] font-black tracking-[-0.035em] text-white">
+            <h3 className="text-[24px] font-black tracking-[-0.04em] text-white">
               Edit wallet
             </h3>
-            <p className="mt-1.5 text-[13px] leading-5 text-white/58">
-              Update this wallet’s identity without changing its balance history.
-            </p>
           </div>
         </div>
 
@@ -178,11 +114,6 @@ export default function EditWalletModal({
                       <span className="rounded-full border border-white/10 bg-white/[0.07] px-2.5 py-1 text-[11px] font-bold text-white/70">
                         {currentTypeDetail.label}
                       </span>
-                      {isPrimary ? (
-                        <span className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-bold text-emerald-50/85">
-                          Primary
-                        </span>
-                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -216,14 +147,9 @@ export default function EditWalletModal({
             </div>
 
             <div className="space-y-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/42">
-                  Wallet type
-                </p>
-                <p className="mt-1 text-[12px] leading-5 text-white/45">
-                  Choose the identity that best describes how this wallet is used.
-                </p>
-              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/42">
+                Wallet type
+              </p>
 
               <div className="grid grid-cols-2 gap-2.5">
                 {walletTypes.map((type) => {
@@ -277,43 +203,6 @@ export default function EditWalletModal({
                   );
                 })}
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/42">
-                  Wallet settings
-                </p>
-                <p className="mt-1 text-[12px] leading-5 text-white/45">
-                  These controls are ready for the wallet schema, but safe from changing unsupported data today.
-                </p>
-              </div>
-
-              {/* TODO: Wire this once the wallet schema exposes editable primary-wallet persistence. */}
-              <ToggleShell
-                icon={Star}
-                title="Make primary wallet"
-                helper={
-                  hasPrimarySupport
-                    ? "Primary status is detected but not editable here yet."
-                    : "Coming soon once primary wallet support is added."
-                }
-                active={isPrimary}
-                disabled
-              />
-
-              {/* TODO: Wire this once dashboard visibility is a dedicated wallet setting. */}
-              <ToggleShell
-                icon={isVisibleOnDashboard ? Eye : EyeOff}
-                title="Show on dashboard"
-                helper={
-                  hasDashboardVisibilitySupport
-                    ? "Visibility status is detected but not editable here yet."
-                    : "Inactive wallet hiding can be connected later."
-                }
-                active={isVisibleOnDashboard}
-                disabled
-              />
             </div>
 
             <div className="rounded-[24px] border border-emerald-100/[0.13] bg-emerald-300/[0.055] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
