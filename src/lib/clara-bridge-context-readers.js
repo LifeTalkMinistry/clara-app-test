@@ -1,6 +1,7 @@
 import { getRegisteredFinancialCards } from "@/components/financial-carousel/logic/FinancialCardRegistry";
 import { learningHubData } from "@/components/fresh/main-dashboard/learning-hub/logic/learningHubData";
 import { getFallbackTipForDate } from "@/lib/daily-tip-utils";
+import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
 
 function safeText(value = "") {
   return String(value || "").trim();
@@ -84,6 +85,31 @@ export function buildClaraBridgeTimeContext() {
   };
 }
 
+export function buildClaraBridgeLifeStageContext() {
+  const lifeStageContext = buildClaraLifeStageAiContext();
+  const profileAnswers = lifeStageContext?.profileAnswers || {};
+  const snapshotTopSignals = lifeStageContext?.snapshotTopSignals || [];
+
+  return {
+    lifeStageContext,
+    lifeStageAiContext: lifeStageContext,
+    meLifeStageProfile: lifeStageContext,
+    Me_summary_profile: {
+      connected: true,
+      hasProfile: Boolean(lifeStageContext?.hasProfile),
+      profileStatus: lifeStageContext?.profileStatus || "missing",
+      lifeStage: lifeStageContext?.lifeStage || "not set",
+      profileAnswers,
+      note: lifeStageContext?.hasProfile
+        ? "Me/Life Stage profile is readable."
+        : "Me/Life Stage reader is connected, but no completed profile answers are saved yet.",
+    },
+    life_stage_snapshot_signals: snapshotTopSignals,
+    dominant_pressure: lifeStageContext?.dominantPressure || "",
+    recommended_next_moves: lifeStageContext?.recommendedNextMoves || [],
+  };
+}
+
 export function buildClaraBridgeConversationContext(messages = []) {
   const recentMessages = summarizeMessages(messages);
 
@@ -101,6 +127,7 @@ export function buildClaraBridgeConversationContext(messages = []) {
 
 export function buildClaraBridgeReadableContext({ messages = [] } = {}) {
   const conversation = buildClaraBridgeConversationContext(messages);
+  const lifeStage = buildClaraBridgeLifeStageContext();
 
   return {
     dailyMoneyTip: buildClaraBridgeDailyMoneyTip(),
@@ -109,5 +136,6 @@ export function buildClaraBridgeReadableContext({ messages = [] } = {}) {
     currentTime: buildClaraBridgeTimeContext(),
     previousConversationMemory: conversation.previousConversationMemory,
     userMessageHistory: conversation.userMessageHistory,
+    ...lifeStage,
   };
 }
