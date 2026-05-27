@@ -1,0 +1,113 @@
+import { getRegisteredFinancialCards } from "@/components/financial-carousel/logic/FinancialCardRegistry";
+import { learningHubData } from "@/components/fresh/main-dashboard/learning-hub/logic/learningHubData";
+import { getFallbackTipForDate } from "@/lib/daily-tip-utils";
+
+function safeText(value = "") {
+  return String(value || "").trim();
+}
+
+function summarizeMessages(messages = [], limit = 12) {
+  return (Array.isArray(messages) ? messages : [])
+    .filter((message) => safeText(message?.text))
+    .slice(-limit)
+    .map((message) => ({
+      role: message.role || "unknown",
+      text: safeText(message.text),
+      source: message.source || null,
+    }));
+}
+
+export function buildClaraBridgeDailyMoneyTip() {
+  const tip = getFallbackTipForDate(new Date());
+
+  return {
+    id: tip.id,
+    title: tip.title || "Daily Money Tip",
+    text: tip.text,
+    category: tip.category || "money",
+    source: tip.source || "fallback",
+    note: "Fallback daily tip is readable. Admin/Supabase daily tip can be connected later.",
+  };
+}
+
+export function buildClaraBridgeLearningHubProgress() {
+  const materials = (Array.isArray(learningHubData) ? learningHubData : []).map((material) => ({
+    id: material.id,
+    title: material.title,
+    subtitle: material.subtitle,
+    type: material.type,
+    pageCount: Array.isArray(material.pages) ? material.pages.length : 0,
+  }));
+
+  return {
+    totalMaterials: materials.length,
+    totalPages: materials.reduce((sum, item) => sum + Number(item.pageCount || 0), 0),
+    materials,
+    progressTracking: "not_connected_yet",
+    note: "Learning Hub content is readable. User read-progress tracking is not connected yet.",
+  };
+}
+
+export function buildClaraBridgeDashboardCardsCarousel() {
+  const cards = getRegisteredFinancialCards({ includeLocked: true }).map((card) => ({
+    key: card.key,
+    type: card.type,
+    label: card.label,
+    detailKey: card.detailKey,
+    minimumPlan: card.minimumPlan,
+    featureFlag: card.featureFlag,
+    enabled: card.enabled !== false,
+    locked: Boolean(card.locked),
+  }));
+
+  return {
+    totalCards: cards.length,
+    cards,
+    note: "Dashboard financial card registry is readable. Live card values come from wallet, budget, savings, emergency, investment, and debt readers.",
+  };
+}
+
+export function buildClaraBridgeTimeContext() {
+  const now = new Date();
+
+  return {
+    iso: now.toISOString(),
+    localLabel: now.toLocaleString(undefined, {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown",
+  };
+}
+
+export function buildClaraBridgeConversationContext(messages = []) {
+  const recentMessages = summarizeMessages(messages);
+
+  return {
+    userMessageHistory: recentMessages,
+    previousConversationMemory: recentMessages.length
+      ? {
+          recentMessageCount: recentMessages.length,
+          recentMessages,
+          note: "Current overlay session memory only. Persistent cross-session memory is not connected yet.",
+        }
+      : null,
+  };
+}
+
+export function buildClaraBridgeReadableContext({ messages = [] } = {}) {
+  const conversation = buildClaraBridgeConversationContext(messages);
+
+  return {
+    dailyMoneyTip: buildClaraBridgeDailyMoneyTip(),
+    learningHubProgress: buildClaraBridgeLearningHubProgress(),
+    dashboardCardsCarousel: buildClaraBridgeDashboardCardsCarousel(),
+    currentTime: buildClaraBridgeTimeContext(),
+    previousConversationMemory: conversation.previousConversationMemory,
+    userMessageHistory: conversation.userMessageHistory,
+  };
+}
