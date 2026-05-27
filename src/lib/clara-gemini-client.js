@@ -11,8 +11,12 @@ import {
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-const FALLBACK_GEMINI_MODELS = [DEFAULT_GEMINI_MODEL, "gemini-2.0-flash", "gemini-1.5-flash"];
+const FALLBACK_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
+
+function shouldDebugClaraAi() {
+  return import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true" || import.meta.env.VITE_CLARA_DEBUG_AI === "1";
+}
 
 function getGeminiApiKey() {
   return import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_API_KEY || import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY || import.meta.env.VITE_CLARA_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || "";
@@ -65,7 +69,7 @@ function buildConversationHistory(messages = []) {
 }
 
 function logCentralContextDiagnostics({ message, enrichedContext, conversationHistory }) {
-  if (!import.meta.env.DEV) return;
+  if (!shouldDebugClaraAi()) return;
 
   try {
     const centralContextInput = {
@@ -166,7 +170,11 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data?.error?.message || "Gemini request failed.");
+    const error = new Error(data?.error?.message || `Gemini request failed for ${model}.`);
+    error.status = response.status;
+    error.model = model;
+    error.payload = data;
+    throw error;
   }
 
   return data;
@@ -188,6 +196,8 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
 
   for (const model of getGeminiModelCandidates()) {
     try {
+      if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying model", model);
+
       const data = await requestGeminiContent({ apiKey, model, prompt, signal });
 
       const text = sanitizeClaraReply(
@@ -197,11 +207,14 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       );
 
       if (text && !isIncompleteClaraReply(text)) {
+        if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded", model);
         return text;
       }
 
-      lastError = new Error("Gemini returned an incomplete CLARA reply.");
+      lastError = new Error(`Gemini returned an incomplete CLARA reply using ${model}.`);
+      lastError.model = model;
     } catch (error) {
+      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
       lastError = error;
     }
   }
