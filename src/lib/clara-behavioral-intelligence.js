@@ -186,11 +186,16 @@ function buildCabinetMemorySummary(message = "") {
   const memories = searchMultipleMemoryCabinets(cabinets, message, 5);
 
   if (!memories.length) {
-    return "No routed memory cabinet summaries found yet.";
+    return "No long-term pattern summaries found yet.";
   }
 
   return memories
-    .map((memory) => `- ${memory.cabinet}: ${memory.summary}`)
+    .map((memory) => {
+      const count = Number(memory.occurrenceCount || 1);
+      const strength = memory.patternStrength || (count >= 3 ? "repeated" : count >= 2 ? "emerging" : "new");
+      const recurrence = count > 1 ? ` (${strength} pattern, noticed ${count} times)` : "";
+      return `- ${memory.summary}${recurrence}`;
+    })
     .join("\n");
 }
 
@@ -213,8 +218,12 @@ export function buildClaraBehavioralContextForPrompt(message = "") {
     return `CLARA BEHAVIORAL INTELLIGENCE MEMORY:
 No saved Talk to CLARA behavioral memory yet.
 
-Routed memory cabinet summaries:
-${cabinetSummary}`;
+Long-term pattern summaries:
+${cabinetSummary}
+
+Memory wording rules:
+- Never say "your spending memory shows", "your emotional memory shows", "cabinet", "database", or "stored memory" to the user.
+- Translate memory into natural human wording like "I’m noticing a pattern..." or "It looks like...".`;
   }
 
   const signals = detectBehavioralSignals(message, snapshot.items);
@@ -226,7 +235,7 @@ Last updated: ${snapshot.updatedAt || "not available"}
 4-layer memory summary:
 ${snapshot.summary}
 
-Routed memory cabinet summaries:
+Long-term pattern summaries:
 ${cabinetSummary}
 
 Detected behavioral signals for this message:
@@ -235,8 +244,9 @@ ${signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : "- No str
 Behavioral response rules:
 - Use this memory to reason, not to recite.
 - Mention at most one or two relevant patterns naturally.
-- Do not expose keys, field names, JSON, localStorage, database, layers, cabinets, routing, or internal scoring.
-- If the user asks what CLARA knows, summarize warmly by the four human areas: life situation, spending behavior, life patterns, and financial setup.
+- Never say "your spending memory shows", "your emotional memory shows", "cabinet", "database", "stored memory", "routing", or "internal scoring" to the user.
+- Prefer natural phrases like "I’m noticing a pattern...", "It looks like...", "This may be connected to...", or "A safer way to handle that pattern is...".
+- If the user asks what CLARA knows, summarize warmly by human areas: life situation, spending behavior, life patterns, and financial setup.
 - Adjust tone based on motivation style when present.
 - If the user is making a spending decision, connect the advice to goal protection, pressure, emotion, energy, or payday timing when relevant.`;
 }
