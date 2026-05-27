@@ -1,4 +1,4 @@
-import dashboardTopNavVisual from "@/assets/dashboard-card-visuals/dashboard-topnav.png";
+import dashboardTopNavVisual from "@/assets/dashboard-card-visuals/dashboard-topnav-super-clean.png";
 
 const claraBrandNavPanelStyle = {
   background:
