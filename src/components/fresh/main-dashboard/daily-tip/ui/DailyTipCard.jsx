@@ -1,5 +1,5 @@
 import { useState } from "react";
-import DashboardCardIllustration from "@/components/fresh/main-dashboard/visuals/DashboardCardIllustration";
+import dailyTipLightbulbImage from "@/assets/dashboard-card-visuals/daily-tip-lightbulb.png";
 import useDailyTip from "../logic/useDailyTip";
 
 export default function DailyTipCard() {
@@ -24,6 +24,7 @@ export default function DailyTipCard() {
         onClick={handleFlip}
         className="group relative h-[150px] w-full cursor-pointer bg-transparent text-left transition-transform duration-300 active:scale-[0.98]"
         style={{ perspective: "1500px", WebkitTapHighlightColor: "transparent" }}
+        aria-label={flipped ? "Daily money tip" : "Tap to flip daily money tip"}
       >
         <div
           className="clara-preserve-flip-motion absolute inset-0 rounded-2xl transition-transform duration-700 will-change-transform"
@@ -36,27 +37,22 @@ export default function DailyTipCard() {
           }}
         >
           <div
-            className="clara-preserve-flip-face absolute inset-0 isolate overflow-hidden rounded-2xl border border-cyan-100/12 bg-[linear-gradient(135deg,#062638_0%,#061936_48%,#1d1550_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.22)]"
+            className="clara-preserve-flip-face absolute inset-0 isolate overflow-hidden rounded-2xl border border-cyan-100/12 bg-[#061936] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.22)]"
             style={{
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               transform: "translateZ(1px)",
             }}
           >
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(0,232,255,0.055),transparent_44%,rgba(128,70,255,0.07)_100%)]" />
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.16)_100%)]" />
-            <DashboardCardIllustration variant="money-tip" />
-
-            <div className="relative z-10 flex h-full items-center justify-start p-5 pr-[42%] text-left text-white">
-              <div>
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.24)]">
-                  Daily Money Tip
-                </div>
-                <div className="text-sm font-semibold text-white/82">
-                  Tap to flip
-                </div>
-              </div>
-            </div>
+            <img
+              src={dailyTipLightbulbImage}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+              draggable="false"
+            />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_48%,rgba(0,0,0,0.08)_100%)]" />
+            <span className="sr-only">Daily Money Tip. Tap to flip.</span>
           </div>
 
           <div
@@ -67,7 +63,14 @@ export default function DailyTipCard() {
               WebkitBackfaceVisibility: "hidden",
             }}
           >
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(128,70,255,0.045),transparent_46%,rgba(0,232,255,0.045)_100%)]" />
+            <img
+              src={dailyTipLightbulbImage}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill opacity-30 blur-[1px]"
+              draggable="false"
+            />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(2,6,23,0.78),rgba(5,15,46,0.74)_48%,rgba(6,38,56,0.78)_100%)]" />
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%,rgba(0,0,0,0.18)_100%)]" />
 
             <div className="relative z-10 flex h-full items-center justify-center p-5 text-center text-white">
