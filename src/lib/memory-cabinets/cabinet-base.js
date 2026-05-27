@@ -2,6 +2,7 @@ import { getCabinetDefinition } from "./cabinet-registry";
 
 const PREFIX = "CLARA_MEMORY_CABINET_V1";
 const LIMIT = 80;
+const MERGE_SIMILARITY_THRESHOLD = 0.46;
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -28,7 +29,12 @@ function readEntries(cabinetKey) {
 function writeEntries(cabinetKey, entries) {
   const next = (Array.isArray(entries) ? entries : [])
     .filter((entry) => clean(entry?.summary))
-    .sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")))
+    .sort((left, right) => {
+      const rightScore = Number(right.relevanceScore || 0) + Number(right.occurrenceCount || 1) * 0.015;
+      const leftScore = Number(left.relevanceScore || 0) + Number(left.occurrenceCount || 1) * 0.015;
+      if (rightScore !== leftScore) return rightScore - leftScore;
+      return String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""));
+    })
     .slice(0, LIMIT);
 
   if (typeof window !== "undefined") {
@@ -41,32 +47,122 @@ function writeEntries(cabinetKey, entries) {
   return next;
 }
 
+function makeList(value) {
+  return Array.isArray(value) ? value.map(clean).filter(Boolean) : [];
+}
+
+function normalizeWords(value = "") {
+  const stopWords = new Set(["the", "and", "that", "this", "with", "from", "because", "after", "before", "your", "you", "user", "clara", "money", "memory"]);
+  return clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9ñáéíóúü\s]/gi, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !stopWords.has(word));
+}
+
+function signature(value = "") {
+  return [...new Set(normalizeWords(value))].sort().slice(0, 12).join("-");
+}
+
+function similarity(left = "", right = "") {
+  const a = new Set(normalizeWords(left));
+  const b = new Set(normalizeWords(right));
+  if (!a.size || !b.size) return 0;
+  const shared = [...a].filter((word) => b.has(word)).length;
+  return shared / Math.max(a.size, b.size);
+}
+
+function uniqueList(...lists) {
+  return [...new Set(lists.flat().map(clean).filter(Boolean))].slice(0, 16);
+}
+
+function strengthLabel(count = 1) {
+  if (count >= 5) return "strong";
+  if (count >= 3) return "repeated";
+  if (count >= 2) return "emerging";
+  return "new";
+}
+
 function normalizeEntry(cabinet, input = {}) {
   const summary = clean(input.summary || input.text || input.content || input.value);
   if (!summary) return null;
+
+  const timestamp = now();
+  const count = Math.max(1, Number(input.occurrenceCount || input.reinforcementCount || 1));
 
   return {
     id: clean(input.id) || `${cabinet.key}-${Date.now()}`,
     cabinet: cabinet.name,
     cabinetKey: cabinet.key,
     summary,
-    signals: Array.isArray(input.signals) ? input.signals.map(clean).filter(Boolean) : [],
+    pattern_key: clean(input.pattern_key || input.patternKey) || signature(summary),
+    signals: makeList(input.signals),
     emotional_tone: clean(input.emotional_tone || input.emotionalTone),
     financial_relevance: clean(input.financial_relevance || input.financialRelevance),
-    should_use_when: Array.isArray(input.should_use_when) ? input.should_use_when.map(clean).filter(Boolean) : [],
-    createdAt: clean(input.createdAt) || now(),
-    updatedAt: now(),
+    should_use_when: makeList(input.should_use_when || input.shouldUseWhen),
+    createdAt: clean(input.createdAt) || timestamp,
+    firstSeenAt: clean(input.firstSeenAt || input.createdAt) || timestamp,
+    lastSeenAt: clean(input.lastSeenAt) || timestamp,
+    updatedAt: timestamp,
+    occurrenceCount: count,
+    patternStrength: clean(input.patternStrength) || strengthLabel(count),
     relevanceScore: Math.max(0, Math.min(1, Number(input.relevanceScore ?? input.score ?? 0.65))),
     source: clean(input.source) || "clara_memory_cabinet",
   };
 }
 
+function findMergeIndex(entries = [], entry = {}) {
+  const incomingKey = clean(entry.pattern_key);
+  const exactKeyIndex = entries.findIndex((item) => incomingKey && clean(item.pattern_key) === incomingKey);
+  if (exactKeyIndex >= 0) return exactKeyIndex;
+
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  entries.forEach((item, index) => {
+    const score = similarity(item.summary, entry.summary);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  return bestScore >= MERGE_SIMILARITY_THRESHOLD ? bestIndex : -1;
+}
+
+function mergeEntries(existing = {}, incoming = {}) {
+  const occurrenceCount = Math.max(1, Number(existing.occurrenceCount || 1)) + 1;
+  const summary = incoming.summary.length > existing.summary.length ? incoming.summary : existing.summary;
+  const relevanceScore = Math.min(1, Math.max(Number(existing.relevanceScore || 0.65), Number(incoming.relevanceScore || 0.65)) + 0.06);
+
+  return {
+    ...existing,
+    ...incoming,
+    id: existing.id,
+    createdAt: existing.createdAt || incoming.createdAt,
+    firstSeenAt: existing.firstSeenAt || existing.createdAt || incoming.firstSeenAt,
+    lastSeenAt: now(),
+    updatedAt: now(),
+    summary,
+    signals: uniqueList(existing.signals, incoming.signals),
+    should_use_when: uniqueList(existing.should_use_when, incoming.should_use_when),
+    emotional_tone: incoming.emotional_tone || existing.emotional_tone,
+    financial_relevance: incoming.financial_relevance || existing.financial_relevance,
+    occurrenceCount,
+    patternStrength: strengthLabel(occurrenceCount),
+    relevanceScore,
+    mergedFromSimilarMemory: true,
+  };
+}
+
 function searchScore(entry, query) {
-  const words = clean(query).toLowerCase().split(/\s+/).filter((word) => word.length >= 3);
-  if (!words.length) return Number(entry.relevanceScore || 0.45);
+  const words = normalizeWords(query);
+  const recurrenceBoost = Math.min(0.16, Math.max(0, Number(entry.occurrenceCount || 1) - 1) * 0.04);
+  if (!words.length) return Math.min(1, Number(entry.relevanceScore || 0.45) + recurrenceBoost);
+
   const text = [entry.summary, ...(entry.signals || []), entry.emotional_tone, entry.financial_relevance, ...(entry.should_use_when || [])].join(" ").toLowerCase();
   const hits = words.reduce((sum, word) => sum + (text.includes(word) ? 1 : 0), 0);
-  return Math.max(0, Math.min(1, Number(entry.relevanceScore || 0.45) * 0.35 + (hits / words.length) * 0.65));
+  return Math.max(0, Math.min(1, Number(entry.relevanceScore || 0.45) * 0.35 + (hits / words.length) * 0.55 + recurrenceBoost));
 }
 
 export function createMemoryCabinet(cabinetName) {
@@ -82,12 +178,12 @@ export function createMemoryCabinet(cabinetName) {
       const entry = normalizeEntry(cabinet, input);
       if (!entry) return null;
       const current = readEntries(cabinet.key);
-      const duplicateIndex = current.findIndex((item) => clean(item.summary).toLowerCase() === entry.summary.toLowerCase());
-      const next = duplicateIndex >= 0
-        ? current.map((item, index) => index === duplicateIndex ? { ...item, ...entry, id: item.id, createdAt: item.createdAt || entry.createdAt } : item)
+      const mergeIndex = findMergeIndex(current, entry);
+      const next = mergeIndex >= 0
+        ? current.map((item, index) => index === mergeIndex ? mergeEntries(item, entry) : item)
         : [entry, ...current];
-      writeEntries(cabinet.key, next);
-      return entry;
+      const saved = writeEntries(cabinet.key, next);
+      return mergeIndex >= 0 ? saved.find((item) => item.id === current[mergeIndex].id) || entry : entry;
     },
     update(id, patch = {}) {
       const current = readEntries(cabinet.key);
