@@ -4,36 +4,13 @@ import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/B
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 
 const BUDGET_GLOW_LAYERS = [
-  "pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_45%,rgba(0,0,0,0.14)_100%)]",
+  "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-teal-300/[0.085] blur-[78px]",
+  "pointer-events-none absolute -right-[132px] -top-[72px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-500/[0.055] blur-[86px]",
+  "pointer-events-none absolute bottom-[-212px] right-[-132px] z-[1] h-[310px] w-[310px] rounded-full bg-indigo-700/[0.10] blur-[94px]",
+  "pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,0.125),transparent_31%),radial-gradient(circle_at_86%_98%,rgba(79,70,229,0.115),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.052),rgba(255,255,255,0.012)_36%,rgba(0,0,0,0.18)_100%)]",
+  "pointer-events-none absolute inset-x-0 top-0 z-[3] h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.058),rgba(255,255,255,0.012)_42%,transparent)]",
+  "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-teal-100/[0.055]",
 ];
-
-const BUDGET_CLEAN_CARD_CSS = `
-  .clara-finance-bubble-card.clara-finance-bubble-budget {
-    border-color: rgba(103, 232, 249, 0.14) !important;
-    background: linear-gradient(135deg, #062638 0%, #071430 48%, #171342 100%) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.08),
-      0 22px 55px rgba(0,0,0,0.36),
-      0 0 22px rgba(0,232,255,0.05),
-      0 0 34px rgba(128,70,255,0.06) !important;
-  }
-
-  .clara-finance-bubble-card.clara-finance-bubble-budget::before,
-  .clara-finance-bubble-card.clara-finance-bubble-budget::after,
-  .clara-performance-mode .clara-finance-bubble-card.clara-finance-bubble-budget::before,
-  .clara-performance-mode .clara-finance-bubble-card.clara-finance-bubble-budget::after {
-    width: 0 !important;
-    height: 0 !important;
-    opacity: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .clara-performance-mode .clara-finance-bubble-card.clara-finance-bubble-budget > .pointer-events-none.absolute {
-    opacity: 1 !important;
-    background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 45%, rgba(0,0,0,0.14)) !important;
-  }
-`;
 
 export default function BudgetCard({
   activeBudget = null,
@@ -89,45 +66,41 @@ export default function BudgetCard({
   };
 
   return (
-    <>
-      <style>{BUDGET_CLEAN_CARD_CSS}</style>
-
-      <FinanceCardShell
-        cardKey="budget"
+    <FinanceCardShell
+      cardKey="budget"
+      expanded={expanded}
+      ringClass={status.ring}
+      roundedClass="rounded-3xl"
+      glowLayerClassNames={BUDGET_GLOW_LAYERS}
+      surfaceClassName="!border-teal-100/[0.07] !bg-[linear-gradient(135deg,rgba(3,37,43,0.91),rgba(5,17,39,0.955)_44%,rgba(19,13,56,0.915))]"
+      shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.47),0_0_28px_rgba(45,212,191,0.058),0_0_54px_rgba(79,70,229,0.085)]"
+    >
+      <BudgetCardContent
         expanded={expanded}
-        ringClass={status.ring}
-        roundedClass="rounded-3xl"
-        glowLayerClassNames={BUDGET_GLOW_LAYERS}
-        surfaceClassName="!border-cyan-300/[0.14] !bg-[linear-gradient(135deg,#062638_0%,#071430_48%,#171342_100%)]"
-        shadowClass="shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_22px_55px_rgba(0,0,0,0.36),0_0_22px_rgba(0,232,255,0.05),0_0_34px_rgba(128,70,255,0.06)]"
-      >
-        <BudgetCardContent
-          expanded={expanded}
-          onToggleDetails={onToggleDetails}
-          financeActionLoading={financeActionLoading}
-          onSaveBudget={openBudgetPlanPage}
-          onEditBudgetCategory={openBudgetCategoryOnPlanPage}
-          onDeleteBudgetCategory={onDeleteBudgetCategory}
-          categories={categories}
-          declared={declared}
-          allocated={allocated}
-          spent={spent}
-          remaining={remaining}
-          unallocated={unallocated}
-          progress={progress}
-          hasDeclaredBudget={hasDeclaredBudget}
-          planIsComplete={planIsComplete}
-          unplannedSpent={unplannedSpent}
-          undocumentedSpent={undocumentedSpent}
-          status={status}
-          message={message}
-          remainingAmountColor={remainingAmountColor}
-          monthKey={monthKey}
-          badgeLabel={badgeLabel}
-          budgetPace={budgetPace}
-          openBudgetModal={openBudgetPlanPage}
-        />
-      </FinanceCardShell>
-    </>
+        onToggleDetails={onToggleDetails}
+        financeActionLoading={financeActionLoading}
+        onSaveBudget={openBudgetPlanPage}
+        onEditBudgetCategory={openBudgetCategoryOnPlanPage}
+        onDeleteBudgetCategory={onDeleteBudgetCategory}
+        categories={categories}
+        declared={declared}
+        allocated={allocated}
+        spent={spent}
+        remaining={remaining}
+        unallocated={unallocated}
+        progress={progress}
+        hasDeclaredBudget={hasDeclaredBudget}
+        planIsComplete={planIsComplete}
+        unplannedSpent={unplannedSpent}
+        undocumentedSpent={undocumentedSpent}
+        status={status}
+        message={message}
+        remainingAmountColor={remainingAmountColor}
+        monthKey={monthKey}
+        badgeLabel={badgeLabel}
+        budgetPace={budgetPace}
+        openBudgetModal={openBudgetPlanPage}
+      />
+    </FinanceCardShell>
   );
 }
