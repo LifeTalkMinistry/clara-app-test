@@ -138,6 +138,38 @@ function makeFieldHidden(element, hidden, helper) {
   });
 }
 
+function makeCreateWalletStartingBalanceField(element) {
+  if (!isValidElement(element)) return element;
+
+  const inputElement = findFirstElement(
+    element,
+    (node) => node.type === "input" && node.props?.type === "number"
+  );
+
+  if (!inputElement) return element;
+
+  const styledInput = cloneElement(inputElement, {
+    placeholder: "0",
+    className:
+      "min-h-[62px] w-full rounded-[24px] border border-white/[0.12] bg-white/[0.045] py-4 pl-11 pr-5 text-[18px] font-semibold text-white outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_34px_rgba(0,0,0,0.12)] transition placeholder:text-white/32 focus:border-emerald-300/35 focus:bg-white/[0.06] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_0_3px_rgba(16,185,129,0.10),0_18px_34px_rgba(0,0,0,0.14)]",
+  });
+
+  return cloneElement(
+    element,
+    {
+      label: "Starting balance",
+      helper: "",
+    },
+    <div className="relative">
+      <span className="pointer-events-none absolute left-5 top-1/2 z-10 -translate-y-1/2 text-sm font-black text-emerald-100/72">
+        ₱
+      </span>
+
+      {styledInput}
+    </div>
+  );
+}
+
 function setWalletNameInput(formElement, value) {
   const input = formElement?.querySelector?.('input[type="text"]');
   if (!input) return;
@@ -271,15 +303,17 @@ export default function FinanceActionModal({
             );
           }
 
+          if (child.props?.label === "Starting balance") {
+            return makeCreateWalletStartingBalanceField(child);
+          }
+
           if (child.props?.label !== "Wallet type") return child;
 
           return cloneElement(
             child,
             {
               label: "Choose wallet identity",
-              helper: showWalletName
-                ? "Custom wallets need a name before creating."
-                : "CLARA will name this wallet automatically from your selection.",
+              helper: showWalletName ? "Custom wallets need a name before creating." : "",
             },
             <WalletProviderPicker
               selectedProviderKey={selectedValue}
@@ -389,29 +423,71 @@ export default function FinanceActionModal({
 
   if (!open) return null;
 
+  const modalShellClassName = isCreateWalletModal
+    ? "relative z-[200] flex max-h-[calc(100svh-1rem)] w-full max-w-[430px] overflow-visible rounded-[38px] border border-cyan-100/[0.16] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,0.18),transparent_42%),radial-gradient(circle_at_100%_3%,rgba(129,140,248,0.16),transparent_38%),linear-gradient(140deg,rgba(5,28,48,0.99),rgba(7,16,44,0.995)_48%,rgba(34,15,73,0.995))] shadow-[0_32px_100px_rgba(0,0,0,0.68),0_0_0_1px_rgba(255,255,255,0.07),0_0_70px_rgba(34,211,238,0.12)]"
+    : "relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]";
+
+  const formClassName = isCreateWalletModal
+    ? "flex max-h-[calc(100svh-1rem)] min-h-0 w-full flex-col overflow-visible"
+    : "flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible";
+
   const headerClassName = isBudgetSetupModal
     ? "shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3"
-    : "shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5";
+    : isCreateWalletModal
+      ? "shrink-0 border-b border-white/[0.07] bg-[linear-gradient(135deg,rgba(20,184,166,0.10),rgba(99,102,241,0.10))] px-5 pb-5 pt-6"
+      : "shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5";
 
   const titleClassName = isBudgetSetupModal
     ? "text-[22px] font-black leading-[1.05] tracking-[-0.035em] text-white"
-    : "text-[28px] font-black tracking-[-0.04em] text-white";
+    : isCreateWalletModal
+      ? "max-w-[310px] text-[34px] font-black leading-[0.98] tracking-[-0.055em] text-white drop-shadow-[0_2px_18px_rgba(255,255,255,0.08)]"
+      : "text-[28px] font-black tracking-[-0.04em] text-white";
+
+  const descriptionClassName = isCreateWalletModal
+    ? "mt-3 max-w-[295px] text-[14px] font-semibold leading-6 text-cyan-50/64"
+    : "mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64";
 
   const closeButtonClassName = isBudgetSetupModal
     ? "mt-0.5 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/70 transition hover:bg-white/10 hover:text-white"
-    : "mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white";
+    : isCreateWalletModal
+      ? "mt-0.5 shrink-0 rounded-full border border-white/15 bg-white/[0.07] p-3 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_30px_rgba(0,0,0,0.20)] transition hover:bg-white/10 hover:text-white active:scale-95"
+      : "mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white";
 
   const scrollBodyClassName = isBudgetSetupModal
     ? "relative z-[220] min-h-0 max-h-[calc(100svh-8rem)] space-y-2.5 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-2.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    : "relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+    : isCreateWalletModal
+      ? "relative z-[220] min-h-0 max-h-[calc(100svh-14rem)] space-y-4 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-4 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_label>span]:text-[11px] [&_label>span]:font-black [&_label>span]:uppercase [&_label>span]:tracking-[0.18em] [&_label>span]:text-white/58 [&_label>p]:text-[11px] [&_label>p]:font-semibold [&_label>p]:text-white/50"
+      : "relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+  const footerClassName = isCreateWalletModal
+    ? "shrink-0 border-t border-white/[0.06] bg-[#050c1c]/80 px-5 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl"
+    : "shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl";
+
+  const submitButtonClassName = `w-full transition disabled:cursor-not-allowed disabled:opacity-55 ${
+    isCreateWalletModal
+      ? `rounded-[24px] px-5 py-4 text-[16px] font-black text-white shadow-[0_18px_48px_rgba(16,185,129,0.26),0_0_32px_rgba(45,212,191,0.18)] ${
+          danger
+            ? "bg-gradient-to-r from-rose-500 to-red-600"
+            : submitDisabled
+              ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none"
+              : "bg-gradient-to-r from-emerald-300 via-emerald-400 to-green-600 hover:shadow-[0_20px_54px_rgba(16,185,129,0.34),0_0_36px_rgba(45,212,191,0.22)] active:scale-[0.985]"
+        }`
+      : `rounded-2xl px-4 py-3 text-base font-semibold text-white ${
+          danger
+            ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
+            : submitDisabled
+              ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none"
+              : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+        }`
+  }`;
 
   return (
     <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
-      <div className="relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
+      <div className={modalShellClassName}>
         <form
           ref={formRef}
           onSubmit={onSubmit}
-          className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible"
+          className={formClassName}
         >
           <div className={headerClassName}>
             <div className="flex items-start justify-between gap-4">
@@ -425,7 +501,7 @@ export default function FinanceActionModal({
                 <h3 className={titleClassName}>{displayTitle}</h3>
 
                 {displayDescription ? (
-                  <p className="mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64">
+                  <p className={descriptionClassName}>
                     {displayDescription}
                   </p>
                 ) : null}
@@ -462,17 +538,11 @@ export default function FinanceActionModal({
             ) : null}
           </div>
 
-          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl">
+          <div className={footerClassName}>
             <button
               type="submit"
               disabled={submitDisabled || loading}
-              className={`w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                danger
-                  ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
-                  : submitDisabled
-                    ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none"
-                    : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
-              }`}
+              className={submitButtonClassName}
             >
               {loading ? "Saving..." : submitDisabled ? "Insufficient Funds" : submitLabel}
             </button>
