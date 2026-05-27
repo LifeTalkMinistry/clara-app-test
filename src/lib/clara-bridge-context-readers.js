@@ -5,6 +5,8 @@ import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context"
 
 const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2";
 const SCHEDULE_LEGACY_KEY = "clara_lifeos_schedule_events_v1";
+const LOCATION_CONTEXT_KEYS = ["CLARA_LOCATION_CONTEXT", "clara_location_context", "clara_user_location_v1"];
+const WEATHER_CONTEXT_KEYS = ["CLARA_WEATHER_CONTEXT", "clara_weather_context", "clara_current_weather_v1"];
 
 function safeText(value = "") {
   return String(value || "").trim();
@@ -18,6 +20,23 @@ function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function readJsonFromLocalStorage(keys = []) {
+  if (typeof window === "undefined") return null;
+
+  for (const key of keys) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return { ...parsed, source: key };
+    } catch {
+      // Ignore invalid optional context.
+    }
+  }
+
+  return null;
 }
 
 function summarizeMessages(messages = [], limit = 12) {
@@ -185,6 +204,50 @@ export function buildClaraBridgeTimeContext() {
   };
 }
 
+export function buildClaraBridgeLocationContext() {
+  const storedLocation = readJsonFromLocalStorage(LOCATION_CONTEXT_KEYS);
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown";
+  const locale = typeof navigator !== "undefined" ? navigator.language || "unknown" : "unknown";
+
+  if (storedLocation) {
+    return {
+      connected: true,
+      ...storedLocation,
+      timezone: storedLocation.timezone || timezone,
+      locale: storedLocation.locale || locale,
+      note: "Location context reader is connected and found stored location context.",
+    };
+  }
+
+  return {
+    connected: true,
+    timezone,
+    locale,
+    preciseLocationAvailable: false,
+    permissionStatus: "not_requested_by_reader",
+    note: "Location context reader is connected. Precise location is empty until CLARA adds a permission-based location capture or stored location context.",
+  };
+}
+
+export function buildClaraBridgeWeatherContext() {
+  const storedWeather = readJsonFromLocalStorage(WEATHER_CONTEXT_KEYS);
+
+  if (storedWeather) {
+    return {
+      connected: true,
+      ...storedWeather,
+      note: "Weather context reader is connected and found stored weather context.",
+    };
+  }
+
+  return {
+    connected: true,
+    currentWeatherAvailable: false,
+    source: "not_configured",
+    note: "Weather context reader is connected. Live weather remains empty until a weather provider or stored weather context is added.",
+  };
+}
+
 export function buildClaraBridgeScheduleEvents() {
   const { events, source } = readScheduleEventsFromStorage();
   const nowKey = toDateKey(new Date());
@@ -255,6 +318,8 @@ export function buildClaraBridgeReadableContext({ messages = [] } = {}) {
     learningHubProgress: buildClaraBridgeLearningHubProgress(),
     dashboardCardsCarousel: buildClaraBridgeDashboardCardsCarousel(),
     currentTime: buildClaraBridgeTimeContext(),
+    location: buildClaraBridgeLocationContext(),
+    weather: buildClaraBridgeWeatherContext(),
     scheduleEvents: buildClaraBridgeScheduleEvents(),
     previousConversationMemory: conversation.previousConversationMemory,
     userMessageHistory: conversation.userMessageHistory,
