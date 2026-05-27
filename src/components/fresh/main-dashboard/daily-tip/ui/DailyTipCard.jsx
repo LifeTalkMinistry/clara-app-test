@@ -35,14 +35,15 @@ export default function DailyTipCard() {
           }}
         >
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(0,232,255,0.10),rgba(15,23,42,0.48)_48%,rgba(128,70,255,0.10))]"
+            className="clara-preserve-flip-face absolute inset-0 isolate overflow-hidden rounded-2xl border border-cyan-100/12 bg-[linear-gradient(135deg,#062638_0%,#061936_48%,#1d1550_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.22)]"
             style={{
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               transform: "translateZ(1px)",
             }}
           >
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),transparent_44%,rgba(255,255,255,0.025)_100%)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(0,232,255,0.045),transparent_46%,rgba(128,70,255,0.045)_100%)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.16)_100%)]" />
 
             <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
               <div>
@@ -57,14 +58,15 @@ export default function DailyTipCard() {
           </div>
 
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(99,102,241,0.12),rgba(2,6,23,0.72)_48%,rgba(0,232,255,0.08))]"
+            className="clara-preserve-flip-face absolute inset-0 isolate overflow-hidden rounded-2xl border border-cyan-100/14 bg-[linear-gradient(135deg,#11194d_0%,#050f2e_48%,#062638_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.22)]"
             style={{
               transform: "rotateY(180deg) translateZ(1px)",
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
             }}
           >
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.04),transparent_44%,rgba(255,255,255,0.025)_100%)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(128,70,255,0.045),transparent_46%,rgba(0,232,255,0.045)_100%)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%,rgba(0,0,0,0.18)_100%)]" />
 
             <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
               <div className="space-y-3">
