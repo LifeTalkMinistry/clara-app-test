@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Check, Eye, EyeOff, ShieldCheck, Sparkles, Star, X } from "lucide-react";
 import {
   fmt,
@@ -121,19 +122,19 @@ export default function EditWalletModal({
       )
     : !editingWallet?.is_archived;
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/72 px-3 py-3 backdrop-blur-md sm:items-center sm:px-4 sm:py-5">
-      <div className="relative flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-cyan-100/[0.14] bg-[linear-gradient(145deg,rgba(4,14,34,0.98),rgba(5,32,47,0.98)_42%,rgba(24,18,58,0.97)_100%)] text-white shadow-[0_30px_90px_rgba(0,0,0,0.72),0_0_50px_rgba(34,211,238,0.11),0_0_70px_rgba(16,185,129,0.08)]">
+  const modalContent = (
+    <div className="fixed inset-0 z-[2147483647] flex h-[100dvh] w-screen justify-center overflow-hidden bg-black/82 text-white backdrop-blur-xl">
+      <div className="relative flex h-[100dvh] w-full max-w-none flex-col overflow-hidden rounded-none border-0 border-cyan-100/[0.14] bg-[linear-gradient(145deg,rgba(4,14,34,0.99),rgba(5,32,47,0.985)_42%,rgba(24,18,58,0.98)_100%)] text-white shadow-[0_30px_90px_rgba(0,0,0,0.72),0_0_50px_rgba(34,211,238,0.11),0_0_70px_rgba(16,185,129,0.08)] sm:my-5 sm:h-[calc(100dvh-40px)] sm:max-w-md sm:rounded-[32px] sm:border">
         <div className="pointer-events-none absolute -left-24 -top-28 h-60 w-60 rounded-full bg-cyan-300/[0.12] blur-[74px]" />
         <div className="pointer-events-none absolute -right-24 top-20 h-64 w-64 rounded-full bg-emerald-300/[0.09] blur-[82px]" />
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_34%,rgba(0,0,0,0.15))]" />
 
-        <div className="relative shrink-0 border-b border-white/[0.08] px-5 pb-4 pt-5">
+        <div className="relative shrink-0 border-b border-white/[0.08] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+18px)] sm:pt-5">
           <button
             type="button"
             onClick={closeEditWallet}
             disabled={isSavingWalletEdit}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-50"
+            className="absolute right-4 top-[calc(env(safe-area-inset-top)+16px)] flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-50 sm:top-4"
             aria-label="Close edit wallet"
           >
             <X className="h-4 w-4" />
@@ -153,7 +154,7 @@ export default function EditWalletModal({
           </div>
         </div>
 
-        <div className="relative flex-1 overflow-y-auto px-5 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative flex-1 overflow-y-auto px-5 py-5 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="space-y-5">
             <div
               className="relative overflow-hidden rounded-[28px] border border-cyan-100/[0.14] bg-[linear-gradient(135deg,rgba(34,211,238,0.12),rgba(255,255,255,0.055)_42%,rgba(16,185,129,0.10))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_38px_rgba(0,0,0,0.22)]"
@@ -338,7 +339,7 @@ export default function EditWalletModal({
           </div>
         </div>
 
-        <div className="relative shrink-0 border-t border-white/[0.08] bg-slate-950/18 px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 backdrop-blur-xl">
+        <div className="relative shrink-0 border-t border-white/[0.08] bg-slate-950/30 px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 backdrop-blur-xl">
           <div className="grid grid-cols-1 gap-2.5">
             <button
               type="button"
@@ -362,4 +363,8 @@ export default function EditWalletModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return modalContent;
+
+  return createPortal(modalContent, document.body);
 }
