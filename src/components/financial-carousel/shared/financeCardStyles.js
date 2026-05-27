@@ -2,12 +2,9 @@ export const FINANCE_CARD_SURFACE_CLASS =
   "relative flex h-full min-h-[inherit] flex-col overflow-hidden border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(6,48,66,0.96),rgba(7,20,48,0.94)_48%,rgba(37,13,74,0.94))] backdrop-blur-2xl transition-all duration-200";
 
 export const FINANCE_CARD_GLOW_LAYERS = [
-  "pointer-events-none absolute -left-28 -top-32 h-72 w-72 rounded-full bg-cyan-300/25 blur-[86px]",
-  "pointer-events-none absolute -right-28 -top-28 h-72 w-72 rounded-full bg-purple-500/25 blur-[92px]",
-  "pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-blue-500/12 blur-[84px]",
-  "pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,255,220,0.30),transparent_34%),radial-gradient(circle_at_top_right,rgba(126,34,206,0.28),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.00)_38%,rgba(255,255,255,0.04)_100%)]",
-  "pointer-events-none absolute inset-0 bg-gradient-to-b from-black/12 via-black/8 to-black/26",
-  "pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.04)_35%,transparent_100%)]",
+  "pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,232,255,0.08),transparent_36%,rgba(128,70,255,0.08)_100%)]",
+  "pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 via-black/8 to-black/26",
+  "pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.12),rgba(255,255,255,0.025)_38%,transparent_100%)]",
   "pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10",
 ];
 
