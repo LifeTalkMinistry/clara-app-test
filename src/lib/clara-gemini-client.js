@@ -11,7 +11,13 @@ import {
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-const FALLBACK_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+const KNOWN_GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+];
 const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
 
 function getLocalDebugFlag() {
@@ -27,19 +33,75 @@ function shouldDebugClaraAi() {
   return import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true" || import.meta.env.VITE_CLARA_DEBUG_AI === "1" || getLocalDebugFlag();
 }
 
+function uniqueModels(models = []) {
+  return models
+    .map((model) => String(model || "").trim())
+    .map((model) => model.replace(/^models\//, ""))
+    .filter(Boolean)
+    .filter((model, index, list) => list.indexOf(model) === index);
+}
+
 function getGeminiApiKey() {
   return import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_API_KEY || import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY || import.meta.env.VITE_CLARA_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || "";
 }
 
-function getGeminiModel() {
-  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+function getConfiguredGeminiModel() {
+  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || "";
 }
 
-function getGeminiModelCandidates() {
-  return [getGeminiModel(), ...FALLBACK_GEMINI_MODELS]
-    .map((model) => String(model || "").trim())
-    .filter(Boolean)
-    .filter((model, index, models) => models.indexOf(model) === index);
+function getFallbackGeminiModelCandidates() {
+  return uniqueModels([getConfiguredGeminiModel(), DEFAULT_GEMINI_MODEL, ...KNOWN_GEMINI_MODELS]);
+}
+
+function rankGeminiModel(model = "") {
+  const value = String(model || "").toLowerCase();
+  if (value === getConfiguredGeminiModel().toLowerCase()) return 0;
+  if (value.includes("2.5") && value.includes("flash") && !value.includes("lite")) return 1;
+  if (value.includes("2.5") && value.includes("flash") && value.includes("lite")) return 2;
+  if (value.includes("2.0") && value.includes("flash") && !value.includes("lite")) return 3;
+  if (value.includes("1.5") && value.includes("flash")) return 4;
+  if (value.includes("flash")) return 5;
+  if (value.includes("pro")) return 6;
+  return 9;
+}
+
+async function discoverGeminiModelCandidates({ apiKey, signal } = {}) {
+  const fallbackModels = getFallbackGeminiModelCandidates();
+
+  try {
+    const response = await fetch(`${GEMINI_ENDPOINT_BASE}?key=${encodeURIComponent(apiKey)}`, { signal });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (shouldDebugClaraAi()) {
+        console.warn("[CLARA Gemini] Model discovery failed", {
+          status: response.status,
+          message: data?.error?.message,
+          payload: data,
+        });
+      }
+      return fallbackModels;
+    }
+
+    const discoveredModels = (Array.isArray(data?.models) ? data.models : [])
+      .filter((model) => (model?.supportedGenerationMethods || []).includes("generateContent"))
+      .map((model) => model?.name)
+      .filter(Boolean)
+      .map((name) => String(name).replace(/^models\//, ""));
+
+    const orderedDiscoveredModels = uniqueModels(discoveredModels).sort((a, b) => rankGeminiModel(a) - rankGeminiModel(b));
+    const candidates = uniqueModels([getConfiguredGeminiModel(), ...orderedDiscoveredModels, ...fallbackModels]);
+
+    if (shouldDebugClaraAi()) {
+      console.log("[CLARA Gemini] Available generateContent models", orderedDiscoveredModels);
+      console.log("[CLARA Gemini] Final model candidates", candidates);
+    }
+
+    return candidates;
+  } catch (error) {
+    if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model discovery crashed", error);
+    return fallbackModels;
+  }
 }
 
 function money(value) {
@@ -200,10 +262,11 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
   }
 
   const prompt = buildPrompt({ message, context, mode, conversationHistory });
+  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
 
   let lastError = null;
 
-  for (const model of getGeminiModelCandidates()) {
+  for (const model of modelCandidates) {
     try {
       if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying model", model);
 
