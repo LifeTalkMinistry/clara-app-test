@@ -52,11 +52,24 @@
 }
 
 /* CLARA AI overlay chat positioning
-   Short chats sit near the input. Long reports stay readable and scroll from the top. */
+   This cancels the earlier fixed bottom-box override that clipped long reports.
+   The native overlay scroll handles long diagnostic reports, while short replies
+   are pushed down by the first bubble's auto margin. */
 body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"] {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: auto !important;
+  max-height: none !important;
+  min-height: 100% !important;
+  overflow: visible !important;
   justify-content: flex-start !important;
+  z-index: auto !important;
   padding-top: 0.75rem !important;
   padding-bottom: 7rem !important;
+  scrollbar-width: none;
 }
 
 body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"] > div:first-child {
