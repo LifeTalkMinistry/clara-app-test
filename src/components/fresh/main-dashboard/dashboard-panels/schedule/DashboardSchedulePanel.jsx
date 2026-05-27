@@ -13,122 +13,25 @@ import useUserRole from "@/hooks/useUserRole";
 const STORAGE_PREFIX = "clara_schedule_events_v2";
 const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const PH_HOLIDAY_START_YEAR = 2026;
+const PH_HOLIDAY_LOOKAHEAD_YEARS = 10;
 
-const PH_HOLIDAYS_2026 = {
-  "2026-01-01": {
-    title: "New Year's Day",
-    type: "Regular holiday",
-    icon: "🎆",
-    note: "Start clean. Keep celebration spending intentional so the year begins with breathing room.",
-  },
-  "2026-02-17": {
-    title: "Chinese New Year",
-    type: "Special non-working day",
-    icon: "🐉",
-    note: "A holiday can invite food, travel, and family spending. Decide the limit before the celebration starts.",
-  },
-  "2026-02-25": {
-    title: "EDSA People Power Revolution Anniversary",
-    type: "Special working day",
-    icon: "🕊️",
-    note: "A national remembrance day. Keep the calendar aware, but treat it differently from non-working holidays.",
-  },
-  "2026-04-02": {
-    title: "Maundy Thursday",
-    type: "Regular holiday",
-    icon: "✝️",
-    note: "Holy Week can affect travel, food, and family plans. Prepare early and avoid last-minute spending pressure.",
-  },
-  "2026-04-03": {
-    title: "Good Friday",
-    type: "Regular holiday",
-    icon: "✝️",
-    note: "A quiet holiday. Keep spending simple and protect money meant for essentials after the break.",
-  },
-  "2026-04-04": {
-    title: "Black Saturday",
-    type: "Special non-working day",
-    icon: "🕯️",
-    note: "Part of the long Holy Week pause. Watch convenience spending during travel or family gatherings.",
-  },
-  "2026-04-09": {
-    title: "Araw ng Kagitingan",
-    type: "Regular holiday",
-    icon: "🎖️",
-    note: "A national holiday that may change routines. Plan meals, transport, or errands before the day arrives.",
-  },
-  "2026-05-01": {
-    title: "Labor Day",
-    type: "Regular holiday",
-    icon: "🛠️",
-    note: "A work-related holiday. Rest well, but keep reward spending aligned with your budget.",
-  },
-  "2026-06-12": {
-    title: "Independence Day",
-    type: "Regular holiday",
-    icon: "🇵🇭",
-    note: "A national celebration. Enjoy it without letting celebration spending quietly take over the month.",
-  },
-  "2026-08-21": {
-    title: "Ninoy Aquino Day",
-    type: "Special non-working day",
-    icon: "🎗️",
-    note: "A pause in the month can shift plans. Keep optional spending intentional.",
-  },
-  "2026-08-31": {
-    title: "National Heroes Day",
-    type: "Regular holiday",
-    icon: "🏅",
-    note: "A long-weekend type of holiday for many people. Prepare before food, travel, or leisure spending increases.",
-  },
-  "2026-11-01": {
-    title: "All Saints' Day",
-    type: "Special non-working day",
-    icon: "🕯️",
-    note: "Family visits and memorial traditions can involve transport, food, and flowers. Plan the spending ahead.",
-  },
-  "2026-11-02": {
-    title: "All Souls' Day",
-    type: "Special non-working day",
-    icon: "🕯️",
-    note: "A family-centered holiday. Keep meaningful spending prepared, not rushed.",
-  },
-  "2026-11-30": {
-    title: "Bonifacio Day",
-    type: "Regular holiday",
-    icon: "⚔️",
-    note: "A national holiday that may create a long-weekend mood. Check your budget before saying yes to plans.",
-  },
-  "2026-12-08": {
-    title: "Feast of the Immaculate Conception of Mary",
-    type: "Special non-working day",
-    icon: "🙏",
-    note: "December spending can build quickly. Use this reminder to keep gifts, food, and travel within plan.",
-  },
-  "2026-12-24": {
-    title: "Christmas Eve",
-    type: "Special non-working day",
-    icon: "🎄",
-    note: "The most tempting spending window of the year. Pause before extra purchases and protect January money.",
-  },
-  "2026-12-25": {
-    title: "Christmas Day",
-    type: "Regular holiday",
-    icon: "🎁",
-    note: "Celebrate warmly, but do not let generosity become financial pressure you carry into next month.",
-  },
-  "2026-12-30": {
-    title: "Rizal Day",
-    type: "Regular holiday",
-    icon: "🖋️",
-    note: "A year-end national holiday. Review your money before the New Year mood begins.",
-  },
-  "2026-12-31": {
-    title: "Last Day of the Year",
-    type: "Special non-working day",
-    icon: "🎆",
-    note: "Year-end spending can feel emotional. Decide your celebration limit before the countdown.",
-  },
+const CHINESE_NEW_YEAR_BY_YEAR = {
+  2026: "02-17",
+  2027: "02-06",
+  2028: "01-26",
+  2029: "02-13",
+  2030: "02-03",
+  2031: "01-23",
+  2032: "02-11",
+  2033: "01-31",
+  2034: "02-19",
+  2035: "02-08",
+  2036: "01-28",
+  2037: "02-15",
+  2038: "02-04",
+  2039: "01-24",
+  2040: "02-12",
 };
 
 function toDateKey(date) {
@@ -147,6 +50,177 @@ function addDays(date, days) {
   return next;
 }
 
+function dateKeyFromParts(year, monthDay) {
+  return `${year}-${monthDay}`;
+}
+
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+  return new Date(year, month - 1, day);
+}
+
+function getLastMondayOfAugust(year) {
+  const date = new Date(year, 7, 31);
+
+  while (date.getDay() !== 1) {
+    date.setDate(date.getDate() - 1);
+  }
+
+  return date;
+}
+
+function addHoliday(map, dateKey, holiday) {
+  map[dateKey] = holiday;
+}
+
+function buildPhilippineHolidayMap() {
+  const currentYear = new Date().getFullYear();
+  const endYear = Math.max(currentYear + PH_HOLIDAY_LOOKAHEAD_YEARS, 2036);
+  const holidays = {};
+
+  for (let year = PH_HOLIDAY_START_YEAR; year <= endYear; year += 1) {
+    addHoliday(holidays, dateKeyFromParts(year, "01-01"), {
+      title: "New Year's Day",
+      type: "Regular holiday",
+      icon: "🎆",
+      note: "Start clean. Keep celebration spending intentional so the year begins with breathing room.",
+    });
+
+    if (CHINESE_NEW_YEAR_BY_YEAR[year]) {
+      addHoliday(holidays, dateKeyFromParts(year, CHINESE_NEW_YEAR_BY_YEAR[year]), {
+        title: "Chinese New Year",
+        type: "Special non-working day",
+        icon: "🐉",
+        note: "A holiday can invite food, travel, and family spending. Decide the limit before the celebration starts.",
+      });
+    }
+
+    addHoliday(holidays, dateKeyFromParts(year, "02-25"), {
+      title: "EDSA People Power Revolution Anniversary",
+      type: "Common national observance",
+      icon: "🕊️",
+      note: "A national remembrance day. Keep the calendar aware, but treat it differently from non-working holidays unless officially declared.",
+    });
+
+    const easterSunday = getEasterSunday(year);
+    addHoliday(holidays, toDateKey(addDays(easterSunday, -3)), {
+      title: "Maundy Thursday",
+      type: "Regular holiday",
+      icon: "✝️",
+      note: "Holy Week can affect travel, food, and family plans. Prepare early and avoid last-minute spending pressure.",
+    });
+    addHoliday(holidays, toDateKey(addDays(easterSunday, -2)), {
+      title: "Good Friday",
+      type: "Regular holiday",
+      icon: "✝️",
+      note: "A quiet holiday. Keep spending simple and protect money meant for essentials after the break.",
+    });
+    addHoliday(holidays, toDateKey(addDays(easterSunday, -1)), {
+      title: "Black Saturday",
+      type: "Special non-working day",
+      icon: "🕯️",
+      note: "Part of the long Holy Week pause. Watch convenience spending during travel or family gatherings.",
+    });
+
+    addHoliday(holidays, dateKeyFromParts(year, "04-09"), {
+      title: "Araw ng Kagitingan",
+      type: "Regular holiday",
+      icon: "🎖️",
+      note: "A national holiday that may change routines. Plan meals, transport, or errands before the day arrives.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "05-01"), {
+      title: "Labor Day",
+      type: "Regular holiday",
+      icon: "🛠️",
+      note: "A work-related holiday. Rest well, but keep reward spending aligned with your budget.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "06-12"), {
+      title: "Independence Day",
+      type: "Regular holiday",
+      icon: "🇵🇭",
+      note: "A national celebration. Enjoy it without letting celebration spending quietly take over the month.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "08-21"), {
+      title: "Ninoy Aquino Day",
+      type: "Special non-working day",
+      icon: "🎗️",
+      note: "A pause in the month can shift plans. Keep optional spending intentional.",
+    });
+    addHoliday(holidays, toDateKey(getLastMondayOfAugust(year)), {
+      title: "National Heroes Day",
+      type: "Regular holiday",
+      icon: "🏅",
+      note: "A long-weekend type of holiday for many people. Prepare before food, travel, or leisure spending increases.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "11-01"), {
+      title: "All Saints' Day",
+      type: "Special non-working day",
+      icon: "🕯️",
+      note: "Family visits and memorial traditions can involve transport, food, and flowers. Plan the spending ahead.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "11-02"), {
+      title: "All Souls' Day",
+      type: "Special non-working day",
+      icon: "🕯️",
+      note: "A family-centered holiday. Keep meaningful spending prepared, not rushed.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "11-30"), {
+      title: "Bonifacio Day",
+      type: "Regular holiday",
+      icon: "⚔️",
+      note: "A national holiday that may create a long-weekend mood. Check your budget before saying yes to plans.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "12-08"), {
+      title: "Feast of the Immaculate Conception of Mary",
+      type: "Special non-working day",
+      icon: "🙏",
+      note: "December spending can build quickly. Use this reminder to keep gifts, food, and travel within plan.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "12-24"), {
+      title: "Christmas Eve",
+      type: "Special non-working day",
+      icon: "🎄",
+      note: "The most tempting spending window of the year. Pause before extra purchases and protect January money.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "12-25"), {
+      title: "Christmas Day",
+      type: "Regular holiday",
+      icon: "🎁",
+      note: "Celebrate warmly, but do not let generosity become financial pressure you carry into next month.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "12-30"), {
+      title: "Rizal Day",
+      type: "Regular holiday",
+      icon: "🖋️",
+      note: "A year-end national holiday. Review your money before the New Year mood begins.",
+    });
+    addHoliday(holidays, dateKeyFromParts(year, "12-31"), {
+      title: "Last Day of the Year",
+      type: "Special non-working day",
+      icon: "🎆",
+      note: "Year-end spending can feel emotional. Decide your celebration limit before the countdown.",
+    });
+  }
+
+  return holidays;
+}
+
+const PH_HOLIDAYS = buildPhilippineHolidayMap();
+
 function formatMonth(date) {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
@@ -164,11 +238,11 @@ function getStorageKey(user) {
 }
 
 function getHoliday(key) {
-  return PH_HOLIDAYS_2026[key] || null;
+  return PH_HOLIDAYS[key] || null;
 }
 
 function getHolidaysForMonth(monthDate) {
-  return Object.entries(PH_HOLIDAYS_2026)
+  return Object.entries(PH_HOLIDAYS)
     .filter(([dateKey]) => {
       const date = fromDateKey(dateKey);
       return date.getFullYear() === monthDate.getFullYear() && date.getMonth() === monthDate.getMonth();
