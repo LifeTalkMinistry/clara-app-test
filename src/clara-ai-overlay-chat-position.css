@@ -1,0 +1,16 @@
+/* CLARA AI overlay chat positioning
+   Keeps short conversations near the input bar like a normal mobile chat,
+   without touching the overlay component logic. */
+
+body.clara-ai-environment-active div[class*="z-[240]"][class*="max-w-[430px]"] > div[class*="overflow-y-auto"][class*="flex-col"] > div[class*="space-y-3.5"] {
+  margin-top: auto;
+  width: 100%;
+}
+
+body.clara-ai-environment-active div[class*="z-[240]"][class*="max-w-[430px]"] > div[class*="overflow-y-auto"][class*="flex-col"]:has(> div[class*="space-y-3.5"]) {
+  justify-content: flex-end;
+}
+
+body.clara-ai-environment-active div[class*="z-[240]"][class*="max-w-[430px]"] > div[class*="overflow-y-auto"][class*="flex-col"] > div[class*="space-y-3.5"] + div[class*="grid"] {
+  display: none;
+}
