@@ -55,50 +55,36 @@ export const ensureClaraVisualPerformanceStyles = () => {
     .clara-performance-mode .clara-preserve-flip-face {
       backface-visibility: hidden !important;
       -webkit-backface-visibility: hidden !important;
-    }
-
-    .clara-performance-mode .clara-preserve-flip-face {
       isolation: isolate !important;
-      border-color: rgba(103,232,249,0.22) !important;
-      background:
-        radial-gradient(circle at -18% -26%, rgba(20,184,166,0.26) 0%, rgba(20,184,166,0.12) 30%, transparent 54%),
-        radial-gradient(circle at 78% 118%, rgba(99,102,241,0.22) 0%, rgba(79,70,229,0.13) 34%, transparent 64%),
-        linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96)) !important;
-      box-shadow: 0 18px 46px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10) !important;
+      border-color: rgba(103,232,249,0.18) !important;
+      background: linear-gradient(135deg, #062638 0%, #071430 48%, #171342 100%) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.30), 0 0 18px rgba(0,232,255,0.04), 0 0 28px rgba(128,70,255,0.05) !important;
     }
 
     .clara-performance-mode .clara-preserve-flip-face > .pointer-events-none.absolute {
+      opacity: 1 !important;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 45%, rgba(0,0,0,0.14)) !important;
+    }
+
+    .clara-performance-mode .clara-preserve-flip-face::before,
+    .clara-performance-mode .clara-preserve-flip-face::after,
+    .clara-performance-mode .clara-finance-bubble-card::before,
+    .clara-performance-mode .clara-finance-bubble-card::after,
+    .clara-performance-mode [data-emergency-card="true"]::before,
+    .clara-performance-mode [data-emergency-card="true"]::after,
+    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::before,
+    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::after {
+      width: 0 !important;
+      height: 0 !important;
       opacity: 0 !important;
       background: transparent !important;
-    }
-
-    .clara-performance-mode .clara-preserve-flip-face::before {
-      content: "" !important;
-      position: absolute !important;
-      left: -128px !important;
-      top: -148px !important;
-      width: 220px !important;
-      height: 220px !important;
-      border-radius: 999px !important;
-      background: rgba(45,212,191,0.11) !important;
+      box-shadow: none !important;
       pointer-events: none !important;
-      z-index: 0 !important;
     }
 
-    .clara-performance-mode .clara-preserve-flip-face::after {
-      content: "" !important;
-      position: absolute !important;
-      right: -86px !important;
-      bottom: -132px !important;
-      width: 238px !important;
-      height: 238px !important;
-      border-radius: 999px !important;
-      background: rgba(99,102,241,0.13) !important;
-      pointer-events: none !important;
-      z-index: 0 !important;
-    }
-
-    .clara-performance-mode .clara-preserve-flip-face > * {
+    .clara-performance-mode .clara-preserve-flip-face > *,
+    .clara-performance-mode .clara-finance-bubble-card > *,
+    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child > * {
       position: relative;
       z-index: 2;
     }
@@ -108,76 +94,18 @@ export const ensureClaraVisualPerformanceStyles = () => {
     .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child {
       position: relative !important;
       isolation: isolate !important;
-      border-color: rgba(103,232,249,0.22) !important;
-      background:
-        radial-gradient(circle at -16% -22%, rgba(20,184,166,0.32) 0%, rgba(20,184,166,0.16) 24%, rgba(20,184,166,0.05) 40%, transparent 55%),
-        radial-gradient(circle at 68% 118%, rgba(99,102,241,0.26) 0%, rgba(79,70,229,0.18) 32%, rgba(88,28,135,0.12) 48%, transparent 66%),
-        linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96)) !important;
-      box-shadow: 0 20px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(255,255,255,0.04) !important;
+      border-color: rgba(103,232,249,0.14) !important;
+      background: linear-gradient(135deg, #062638 0%, #071430 48%, #171342 100%) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 22px 55px rgba(0,0,0,0.36), 0 0 22px rgba(0,232,255,0.05), 0 0 34px rgba(128,70,255,0.06) !important;
     }
 
     .clara-performance-mode .clara-finance-bubble-card > .pointer-events-none.absolute,
     .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child > .pointer-events-none.absolute,
     .clara-performance-mode [data-emergency-card="true"] > .absolute.inset-0,
     .clara-performance-mode [data-emergency-card="true"] > .pointer-events-none.absolute.inset-0 {
-      opacity: 0 !important;
-      background: transparent !important;
+      opacity: 1 !important;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 45%, rgba(0,0,0,0.14)) !important;
     }
-
-    .clara-performance-mode .clara-finance-bubble-card::before,
-    .clara-performance-mode [data-emergency-card="true"]::before,
-    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::before {
-      content: "" !important;
-      position: absolute !important;
-      left: -130px !important;
-      top: -150px !important;
-      width: 230px !important;
-      height: 230px !important;
-      border-radius: 999px !important;
-      background: rgba(45,212,191,0.14) !important;
-      box-shadow: inset -18px -24px 60px rgba(1,10,24,0.18) !important;
-      pointer-events: none !important;
-      z-index: 1 !important;
-    }
-
-    .clara-performance-mode .clara-finance-bubble-card::after,
-    .clara-performance-mode [data-emergency-card="true"]::after,
-    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::after {
-      content: "" !important;
-      position: absolute !important;
-      left: 38% !important;
-      bottom: -166px !important;
-      width: 248px !important;
-      height: 248px !important;
-      border-radius: 999px !important;
-      background: rgba(99,102,241,0.17) !important;
-      box-shadow: inset 24px 28px 76px rgba(255,255,255,0.04) !important;
-      pointer-events: none !important;
-      z-index: 1 !important;
-    }
-
-    .clara-performance-mode .clara-finance-bubble-wallet::before {
-      left: -152px !important;
-      top: -162px !important;
-      width: 236px !important;
-      height: 236px !important;
-      background: rgba(45,212,191,0.12) !important;
-    }
-    .clara-performance-mode .clara-finance-bubble-wallet::after {
-      left: 39% !important;
-      bottom: -170px !important;
-      width: 250px !important;
-      height: 250px !important;
-      background: rgba(59,130,246,0.16) !important;
-    }
-    .clara-performance-mode [data-emergency-card="true"]::before { background: rgba(16,185,129,0.14) !important; }
-    .clara-performance-mode [data-emergency-card="true"]::after { background: rgba(20,184,166,0.14) !important; }
-    .clara-performance-mode .clara-finance-bubble-savings-shell > div:first-child::before { background: rgba(52,211,153,0.13) !important; }
-    .clara-performance-mode .clara-finance-bubble-savings-shell > div:first-child::after { background: rgba(34,211,238,0.13) !important; }
-    .clara-performance-mode .clara-finance-bubble-investment::before { background: rgba(251,191,36,0.13) !important; }
-    .clara-performance-mode .clara-finance-bubble-investment::after { background: rgba(124,58,237,0.14) !important; }
-    .clara-performance-mode .clara-finance-bubble-debt::before { background: rgba(34,211,238,0.14) !important; }
-    .clara-performance-mode .clara-finance-bubble-debt::after { background: rgba(124,58,237,0.14) !important; }
 
     .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]),
     .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"]),
@@ -190,10 +118,7 @@ export const ensureClaraVisualPerformanceStyles = () => {
       overflow: hidden !important;
       border: 1px solid rgba(103,232,249,0.16) !important;
       border-radius: 999px !important;
-      background:
-        radial-gradient(circle at -18% -42%, rgba(20,184,166,0.22), transparent 48%),
-        radial-gradient(circle at 108% 132%, rgba(99,102,241,0.16), transparent 54%),
-        linear-gradient(135deg, rgba(6,48,66,0.72), rgba(7,20,48,0.78) 48%, rgba(37,13,74,0.70)) !important;
+      background: linear-gradient(135deg, rgba(6,48,66,0.72), rgba(7,20,48,0.78) 48%, rgba(37,13,74,0.70)) !important;
       box-shadow: 0 12px 34px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
