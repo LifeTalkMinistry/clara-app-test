@@ -1,0 +1,94 @@
+/* CLARA adaptive uploaded background
+   Uses the uploaded PNG as the whole-app background while preserving
+   CLARA's dark glass readability and mobile-first layout behavior. */
+
+:root {
+  --clara-app-background-image: url("./assets/dashboard-card-visuals/dashboard-card-bg.png");
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: #040b18 !important;
+}
+
+body {
+  position: relative;
+  margin: 0;
+  color: #f8fbff;
+  background-image:
+    linear-gradient(135deg, rgba(2, 8, 20, 0.62), rgba(5, 16, 36, 0.46) 42%, rgba(20, 8, 42, 0.58)),
+    var(--clara-app-background-image) !important;
+  background-size: cover, cover !important;
+  background-position: center center, center center !important;
+  background-repeat: no-repeat, no-repeat !important;
+  background-attachment: fixed, fixed !important;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.36)),
+    radial-gradient(circle at 8% 6%, rgba(0, 232, 255, 0.22), transparent 38%),
+    radial-gradient(circle at 92% 0%, rgba(128, 70, 255, 0.20), transparent 42%),
+    radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.12), transparent 46%);
+  mix-blend-mode: screen;
+  opacity: 0.68;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.48), transparent 24%, transparent 76%, rgba(2, 6, 23, 0.42)),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.18), transparent 26%, rgba(2, 6, 23, 0.58));
+  opacity: 0.88;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  background: transparent !important;
+}
+
+#root > div,
+.theme-page-shell,
+.theme-page-shell main {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+@supports (min-height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    background-size: cover, cover !important;
+    background-position: center top, center top !important;
+    background-attachment: scroll, scroll !important;
+  }
+
+  body::before,
+  body::after {
+    position: fixed;
+  }
+}
+
+@media (min-width: 768px) {
+  body {
+    background-position: center center, center center !important;
+  }
+}
