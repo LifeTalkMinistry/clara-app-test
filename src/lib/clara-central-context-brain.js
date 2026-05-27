@@ -68,10 +68,33 @@ function getPath(source, path) {
   }, source);
 }
 
+function hasPath(source, path) {
+  if (!source || !path) return false;
+
+  const parts = path.split(".");
+  let current = source;
+
+  for (const key of parts) {
+    if (current === undefined || current === null) return false;
+    if (!Object.prototype.hasOwnProperty.call(Object(current), key)) return false;
+    current = current[key];
+  }
+
+  return true;
+}
+
 function firstPath(source, paths = []) {
   for (const path of paths) {
     const value = getPath(source, path);
     if (value !== undefined && value !== null && value !== "") return value;
+  }
+
+  return undefined;
+}
+
+function firstExistingPath(source, paths = []) {
+  for (const path of paths) {
+    if (hasPath(source, path)) return getPath(source, path);
   }
 
   return undefined;
@@ -220,6 +243,56 @@ export function collectClaraAvailableContext(context = {}) {
     "messages",
   ]);
 
+  const explicitMeSummaryProfile = firstExistingPath(source, [
+    "Me_summary_profile",
+    "meSummaryProfile",
+    "me_summary_profile",
+    "profile.Me_summary_profile",
+    "profile.meSummaryProfile",
+  ]);
+
+  const explicitSnapshotSignals = firstExistingPath(source, [
+    "life_stage_snapshot_signals",
+    "lifeStageSnapshotSignals",
+    "lifeStageContext.snapshotTopSignals",
+    "lifeStageAiContext.snapshotTopSignals",
+    "meLifeStageProfile.snapshotTopSignals",
+  ]);
+
+  const explicitDominantPressure = firstExistingPath(source, [
+    "dominant_pressure",
+    "dominantPressure",
+    "lifeStageContext.dominantPressure",
+    "lifeStageAiContext.dominantPressure",
+    "meLifeStageProfile.dominantPressure",
+  ]);
+
+  const explicitRecommendedNextMoves = firstExistingPath(source, [
+    "recommended_next_moves",
+    "recommendedNextMoves",
+    "lifeStageContext.recommendedNextMoves",
+    "lifeStageAiContext.recommendedNextMoves",
+    "meLifeStageProfile.recommendedNextMoves",
+  ]);
+
+  const meSummaryProfile = explicitMeSummaryProfile !== undefined
+    ? explicitMeSummaryProfile
+    : lifeStageContext?.hasProfile
+      ? lifeStageContext.profileAnswers
+      : null;
+
+  const lifeStageSnapshotSignals = explicitSnapshotSignals !== undefined
+    ? explicitSnapshotSignals
+    : lifeStageContext?.snapshotTopSignals || [];
+
+  const dominantPressure = explicitDominantPressure !== undefined
+    ? explicitDominantPressure
+    : lifeStageContext?.dominantPressure || null;
+
+  const recommendedNextMoves = explicitRecommendedNextMoves !== undefined
+    ? explicitRecommendedNextMoves
+    : lifeStageContext?.recommendedNextMoves || [];
+
   return {
     CLARA_core_identity: contextEntry(getClaraCoreIdentity()),
     daily_money_tip: contextEntry(dailyMoneyTip),
@@ -279,10 +352,10 @@ export function collectClaraAvailableContext(context = {}) {
     income: contextEntry(snapshot.income !== null ? { amount: snapshot.income, amountText: shortMoney(snapshot.income) } : null),
     wallet_transactions: contextEntry(snapshot.walletTransactions),
     transfers: contextEntry(snapshot.transfers),
-    Me_summary_profile: contextEntry(lifeStageContext?.hasProfile ? lifeStageContext.profileAnswers : null),
-    life_stage_snapshot_signals: contextEntry(lifeStageContext?.snapshotTopSignals || []),
-    dominant_pressure: contextEntry(lifeStageContext?.dominantPressure || null),
-    recommended_next_moves: contextEntry(lifeStageContext?.recommendedNextMoves || []),
+    Me_summary_profile: contextEntry(meSummaryProfile),
+    life_stage_snapshot_signals: contextEntry(lifeStageSnapshotSignals),
+    dominant_pressure: contextEntry(dominantPressure),
+    recommended_next_moves: contextEntry(recommendedNextMoves),
     schedule_events: contextEntry(scheduleEvents),
     weather: contextEntry(firstPath(source, ["weather", "currentWeather", "weatherContext"])),
     current_time: contextEntry(firstPath(source, ["currentTime", "current_time", "timeContext"])),
