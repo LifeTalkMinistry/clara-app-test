@@ -35,14 +35,14 @@ export default function DailyTipCard() {
           }}
         >
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10"
+            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(0,232,255,0.10),rgba(15,23,42,0.48)_48%,rgba(128,70,255,0.10))]"
             style={{
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               transform: "translateZ(1px)",
             }}
           >
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.045),transparent_44%,rgba(255,255,255,0.025)_100%)]" />
 
             <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
               <div>
@@ -57,14 +57,14 @@ export default function DailyTipCard() {
           </div>
 
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10"
+            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(99,102,241,0.12),rgba(2,6,23,0.72)_48%,rgba(0,232,255,0.08))]"
             style={{
               transform: "rotateY(180deg) translateZ(1px)",
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
             }}
           >
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.04),transparent_44%,rgba(255,255,255,0.025)_100%)]" />
 
             <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
               <div className="space-y-3">
