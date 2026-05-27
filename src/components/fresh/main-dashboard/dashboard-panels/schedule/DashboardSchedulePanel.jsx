@@ -322,6 +322,30 @@ function isMoneyEvent(event) {
   return Boolean(event?.amount) || type === "bill" || type === "payday" || type === "money";
 }
 
+function getEventIcon(event) {
+  const type = String(event?.type || "").toLowerCase();
+  const text = `${event?.title || ""} ${event?.note || ""}`.toLowerCase();
+
+  if (type === "payday" || text.includes("payday") || text.includes("salary")) return "💰";
+  if (type === "bill" || text.includes("bill") || text.includes("payment")) return "🧾";
+  if (text.includes("rent") || text.includes("house") || text.includes("home")) return "🏠";
+  if (text.includes("grocery") || text.includes("groceries") || text.includes("market")) return "🛒";
+  if (type === "health" || text.includes("doctor") || text.includes("checkup") || text.includes("medicine")) return "🩺";
+  if (type === "work" || text.includes("work") || text.includes("meeting") || text.includes("office") || text.includes("shift")) return "💼";
+  if (type === "family" || text.includes("family") || text.includes("parent") || text.includes("sibling")) return "👨‍👩‍👧";
+  if (type === "relationship" || text.includes("date") || text.includes("partner") || text.includes("relationship")) return "💞";
+  if (text.includes("school") || text.includes("study") || text.includes("class")) return "📚";
+  if (text.includes("travel") || text.includes("trip") || text.includes("commute")) return "🚗";
+  if (isMoneyEvent(event)) return "💸";
+  if (type === "personal") return "⭐";
+
+  return "📅";
+}
+
+function getPrimaryCalendarEvent(events) {
+  return events.find(isMoneyEvent) || events[0] || null;
+}
+
 function displayTitle(event) {
   const title = String(event?.title || "Schedule").trim();
   const lower = title.toLowerCase();
@@ -384,9 +408,10 @@ function getSelectedAgenda({ selectedDate, todayKey, events, holiday }) {
       label: isToday ? "Today impact" : "Money impact",
       dateLabel,
       badge: holiday ? holiday.icon : "Watch",
-      title: displayTitle(moneyEvent),
+      title: `${getEventIcon(moneyEvent)} ${displayTitle(moneyEvent)}`,
       body: holiday ? `${impactMessage(moneyEvent)} Also: ${holiday.title}.` : impactMessage(moneyEvent),
       icon: CreditCard,
+      emoji: getEventIcon(moneyEvent),
       clickable: true,
     };
   }
@@ -411,9 +436,10 @@ function getSelectedAgenda({ selectedDate, todayKey, events, holiday }) {
       label: isToday ? "Today agenda" : "Selected agenda",
       dateLabel,
       badge: "Planned",
-      title: displayTitle(firstEvent),
+      title: `${getEventIcon(firstEvent)} ${displayTitle(firstEvent)}`,
       body: "This schedule has no money impact yet. Add a ₱ impact if CLARA should watch it financially.",
       icon: CalendarDays,
+      emoji: getEventIcon(firstEvent),
       clickable: true,
     };
   }
@@ -563,12 +589,15 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           if (!cell) return <div key={`empty-${index}`} className="min-h-0" />;
 
           const events = byDate[cell.key] || [];
+          const primaryEvent = getPrimaryCalendarEvent(events);
+          const eventIcon = primaryEvent ? getEventIcon(primaryEvent) : "";
           const holiday = getHoliday(cell.key);
           const hasHoliday = Boolean(holiday);
           const hasMoney = events.some(isMoneyEvent);
           const hasAny = events.length > 0;
           const selected = cell.key === selectedDate;
           const today = cell.key === todayKey;
+          const displayIcon = eventIcon || holiday?.icon || "";
 
           return (
             <button
@@ -588,18 +617,21 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
                           ? "border-white/8 bg-white/[.03] text-white/58"
                           : "border-white/6 bg-white/[.022] text-white/36 hover:bg-white/[.035] hover:text-white/56"
               }`}
-              aria-label={`Select ${cell.key}${holiday ? `, ${holiday.title}` : ""}. Double tap to add a schedule.`}
-              title={holiday ? `${holiday.title} • ${holiday.type}` : "Double tap to add a schedule"}
+              aria-label={`Select ${cell.key}${primaryEvent ? `, ${displayTitle(primaryEvent)}` : holiday ? `, ${holiday.title}` : ""}. Double tap to add a schedule.`}
+              title={primaryEvent ? `${displayTitle(primaryEvent)} • Double tap to add another schedule` : holiday ? `${holiday.title} • ${holiday.type}` : "Double tap to add a schedule"}
             >
               {selected ? (
                 <span className="pointer-events-none absolute inset-[-1px] rounded-[inherit] border border-cyan-100/14" />
               ) : null}
-              {hasHoliday ? (
+              {displayIcon ? (
                 <>
                   <span className="absolute left-1.5 top-1 text-[8.5px] font-black leading-none text-white/38">{cell.day}</span>
                   <span className="relative z-10 text-[clamp(0.95rem,4.4vw,1.12rem)] leading-none" aria-hidden="true">
-                    {holiday.icon}
+                    {displayIcon}
                   </span>
+                  {eventIcon && hasHoliday ? (
+                    <span className="absolute right-1.5 top-1 text-[8px] leading-none" aria-hidden="true">{holiday.icon}</span>
+                  ) : null}
                 </>
               ) : (
                 <span className="relative z-10">{cell.day}</span>
@@ -666,7 +698,7 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
               {adding ? "Schedule" : event?.type}
             </p>
             <h3 className="mt-3 text-2xl font-black leading-tight text-white">
-              {adding ? "Add schedule" : displayTitle(event)}
+              {adding ? "Add schedule" : `${getEventIcon(event)} ${displayTitle(event)}`}
             </h3>
           </div>
           <button
