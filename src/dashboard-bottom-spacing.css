@@ -50,3 +50,15 @@
     overflow-y: visible !important;
   }
 }
+
+/* CLARA AI overlay chat positioning
+   Short chats sit near the input. Long reports stay readable and scroll from the top. */
+body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"] {
+  justify-content: flex-start !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 7rem !important;
+}
+
+body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"] > div:first-child {
+  margin-top: auto !important;
+}
