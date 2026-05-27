@@ -120,25 +120,23 @@ body::after {
 }
 
 /* CLARA AI overlay chat positioning */
-body.clara-ai-environment-active div[class*="z-[240]"][class*="max-w-[430px]"] > div[class*="overflow-y-auto"][class*="flex-col"] > div[class*="space-y-3.5"] {
+body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"] {
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: calc(116px + env(safe-area-inset-bottom)) !important;
+  bottom: calc(112px + env(safe-area-inset-bottom)) !important;
   transform: translateX(-50%) !important;
-  width: min(calc(100vw - 24px), 406px) !important;
-  max-height: min(68vh, 560px) !important;
+  width: min(calc(100vw - 32px), 398px) !important;
+  max-height: min(62vh, 500px) !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
-  z-index: 250 !important;
-  margin-top: 0 !important;
+  justify-content: flex-end !important;
+  z-index: 260 !important;
+  padding-top: 0 !important;
   padding-bottom: 0.5rem !important;
   scrollbar-width: none;
 }
 
-body.clara-ai-environment-active div[class*="z-[240]"][class*="max-w-[430px]"] > div[class*="overflow-y-auto"][class*="flex-col"] > div[class*="space-y-3.5"]::-webkit-scrollbar {
-  display: none;
-}
-
-body.clara-ai-environment-active div[class*="z-[240]"][class*="max-w-[430px]"] > div[class*="overflow-y-auto"][class*="flex-col"] > div[class*="space-y-3.5"] + div[class*="grid"] {
+body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"]::-webkit-scrollbar {
   display: none;
 }
