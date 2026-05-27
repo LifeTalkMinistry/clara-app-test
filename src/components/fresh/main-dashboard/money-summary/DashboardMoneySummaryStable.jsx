@@ -141,19 +141,19 @@ export default function DashboardMoneySummaryStable({
     [stopOrbEvent]
   );
 
-  const bubbleSurface = {
+  const summarySurface = {
     background:
-      "radial-gradient(circle at -18% -30%, rgba(20,184,166,0.30) 0%, rgba(20,184,166,0.14) 25%, rgba(20,184,166,0.04) 42%, transparent 58%), radial-gradient(circle at 77% 118%, rgba(99,102,241,0.22), rgba(79,70,229,0.14) 34%, rgba(88,28,135,0.08) 50%, transparent 68%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
+      "linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.97) 48%, rgba(37,13,74,0.97))",
   };
 
   const moneyCellSurface = {
     background:
-      "radial-gradient(circle at -34% -55%, rgba(45,212,191,0.20), transparent 58%), linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))",
+      "linear-gradient(135deg, rgba(255,255,255,0.042), rgba(255,255,255,0.014))",
   };
 
   const expenseCellSurface = {
     background:
-      "radial-gradient(circle at 105% 122%, rgba(99,102,241,0.18), transparent 56%), linear-gradient(135deg, rgba(255,255,255,0.026), rgba(255,255,255,0.012))",
+      "linear-gradient(135deg, rgba(255,255,255,0.024), rgba(255,255,255,0.012))",
   };
 
   return (
@@ -162,7 +162,7 @@ export default function DashboardMoneySummaryStable({
         dashboardScale.summaryGrid || "rounded-[26px]"
       }`}
       style={{
-        ...bubbleSurface,
+        ...summarySurface,
         borderColor: selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.22)",
         boxShadow: themeIsLight
           ? "0 18px 44px rgba(15,23,42,0.10)"
