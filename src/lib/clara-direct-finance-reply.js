@@ -66,68 +66,14 @@ function isExpenseLoggingPrompt(text = "") {
 function isPurchaseDecisionQuestion(text = "") {
   if (isExpenseLoggingPrompt(text)) return false;
 
-  return /\b(can i buy|should i buy|can i afford|afford|is it okay to buy|okay to buy|safe to buy|safe to spend|purchase|buy|spend on)\b/.test(text) && /\d/.test(text);
-}
-
-function extractPurchaseAmount(prompt = "") {
-  const raw = String(prompt || "");
-  const pesoMatch = raw.match(/(?:₱|php|p\s*)\s*([0-9][0-9,]*(?:\.\d+)?)/i);
-  const fallbackMatch = raw.match(/\b([0-9][0-9,]*(?:\.\d+)?)\b/);
-  const value = pesoMatch?.[1] || fallbackMatch?.[1] || "";
-  const number = Number(String(value).replace(/,/g, ""));
-
-  return Number.isFinite(number) && number > 0 ? number : null;
-}
-
-function buildDirectAffordabilityReply(prompt = "", context = {}) {
-  const text = normalizeText(prompt);
-  if (!isPurchaseDecisionQuestion(text)) return "";
-
-  const snapshot = buildClaraFinanceSnapshot(context || {});
-  const amount = extractPurchaseAmount(prompt);
-  const available = Number(snapshot.availableMoney ?? snapshot.totalWalletBalance ?? snapshot.totalBalance);
-  const amountText = formatMoney(amount);
-  const availableText = formatMoney(available);
-
-  if (!amountText) {
-    return "I can help you check that purchase, but I need the exact amount first. Tell me the price, then I’ll compare it with your available money and budget pressure.";
-  }
-
-  if (!availableText) {
-    return `For ${amountText}, I need your wallet balance first before I can give a safe yes or no. Add or refresh your wallet, then ask me again before buying.`;
-  }
-
-  const remainingAfterPurchase = available - amount;
-  const remainingText = formatMoney(remainingAfterPurchase);
-  const ratio = available > 0 ? amount / available : 1;
-
-  if (remainingAfterPurchase < 0) {
-    return `No — I would not buy it right now. The item costs ${amountText}, but you only have ${availableText} visible, so you would be short by ${formatMoney(Math.abs(remainingAfterPurchase))}.
-
-Next step: delay the purchase or lower the amount until it fits your wallet without touching essentials.`;
-  }
-
-  if (ratio >= 0.4) {
-    return `Be careful — I would not treat this as an easy yes. The item costs ${amountText}, and you have ${availableText} visible, which means you would have about ${remainingText} left after buying.
-
-Reason: this purchase takes a big portion of your available money. Next step: only buy it if bills, food, savings, and emergency buffer are already protected.`;
-  }
-
-  if (ratio >= 0.2) {
-    return `Maybe, but only if this is already planned. The item costs ${amountText}, and you have ${availableText} visible, so you would have about ${remainingText} left after buying.
-
-Reason: it is affordable on wallet balance, but it can still pressure your budget if it is unplanned. Next step: check your budget category first before saying yes.`;
-  }
-
-  return `Yes, it looks affordable based on your visible wallet money. The item costs ${amountText}, and you have ${availableText} available, so you would still have about ${remainingText} left after buying.
-
-Next step: buy it only if it is planned and it will not reduce money reserved for bills, food, savings, or emergency needs.`;
+  return /\b(can i buy|should i buy|can i afford|afford|is it okay to buy|okay to buy|safe to buy|safe to spend|purchase|buy|spend on)\b/.test(text);
 }
 
 function isLifeStageAdviceQuestion(text = "") {
   if (isExpenseLoggingPrompt(text)) return false;
+  if (isPurchaseDecisionQuestion(text)) return false;
 
-  return /\b(should i|can i|is it okay|okay to|safe to|afford|buy|purchase|spend on|money advice|spending advice|budget advice|next best move|plan my spending|spending plan|budget fixer|savings plan|save more|debt|utang|loan|bills|payday|emergency fund|overspend|overspending|prioritize|priority)\b/.test(text);
+  return /\b(money advice|spending advice|budget advice|next best move|plan my spending|spending plan|budget fixer|savings plan|save more|debt|utang|loan|bills|payday|emergency fund|overspend|overspending|prioritize|priority)\b/.test(text);
 }
 
 function getLifeStageContext(context = {}) {
@@ -169,11 +115,6 @@ function buildLifeStageAdviceReply(prompt = "", context = {}) {
     return `I can give sharper guidance after you complete your Me profile, because then I can connect this advice to your real life stage and pressure patterns.${moneyLine} For now, protect bills, essentials, savings, and emergency buffer before saying yes to optional spending.`;
   }
 
-  if (/\b(afford|buy|purchase|should i|can i|safe to|okay to|spend on)\b/.test(text)) {
-    const moneyLine = available ? ` You currently have ${available} visible, but the safer question is whether this still protects bills, essentials, savings, and your emergency buffer.` : "";
-    return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, I’d protect ${dominant} first before deciding on this purchase.${moneyLine} Next safest move: ${nextMove}`;
-  }
-
   if (/\b(save|savings|emergency fund)\b/.test(text)) {
     return `Since your current Me profile shows ${lifeStageContext.lifeStage}${signalText(lifeStageContext)}, your savings advice should protect ${dominant} first. Start with one small protected amount before flexible spending. Next safest move: ${nextMove}`;
   }
@@ -213,8 +154,9 @@ export function buildContextualFinanceReply(prompt, context) {
 
   if (text.includes("talk to clara context mode is active")) return "";
 
-  const affordabilityReply = buildDirectAffordabilityReply(prompt, context);
-  if (affordabilityReply) return affordabilityReply;
+  // Purchase and affordability decisions must reach Gemini/Central Brain.
+  // This file should only answer quick factual wallet/balance questions.
+  if (isPurchaseDecisionQuestion(text)) return "";
 
   if (context?.allowDirectLifeStageAdvice === true) {
     const lifeStageAdvice = buildLifeStageAdviceReply(prompt, context);
