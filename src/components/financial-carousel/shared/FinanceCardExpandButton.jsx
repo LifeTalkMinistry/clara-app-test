@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
+import DashboardCardIllustration from "@/components/fresh/main-dashboard/visuals/DashboardCardIllustration";
 import { FINANCE_CARD_EXPAND_BUTTON_CLASS } from "./financeCardStyles";
 
 export default function FinanceCardExpandButton({
@@ -8,6 +9,7 @@ export default function FinanceCardExpandButton({
   className = "",
   collapsedLabel = "Show details",
   expandedLabel = "Hide details",
+  visualVariant = "",
 }) {
   const handleClick = (event) => {
     event.preventDefault();
@@ -22,12 +24,23 @@ export default function FinanceCardExpandButton({
     <button
       type="button"
       onClick={handleClick}
-      className={[FINANCE_CARD_EXPAND_BUTTON_CLASS, className].filter(Boolean).join(" ")}
+      className={[
+        FINANCE_CARD_EXPAND_BUTTON_CLASS,
+        "relative isolate overflow-hidden",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
-      <span className="font-medium">
+      {visualVariant ? <DashboardCardIllustration variant={visualVariant} /> : null}
+      <span className="relative z-10 font-medium">
         {expanded ? expandedLabel : collapsedLabel}
       </span>
-      {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      {expanded ? (
+        <ChevronUp className="relative z-10 h-4 w-4" />
+      ) : (
+        <ChevronDown className="relative z-10 h-4 w-4" />
+      )}
     </button>
   );
 }
