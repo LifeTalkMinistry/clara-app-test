@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DashboardCardIllustration from "@/components/fresh/main-dashboard/visuals/DashboardCardIllustration";
 import useDailyTip from "../logic/useDailyTip";
 
 export default function DailyTipCard() {
@@ -42,15 +43,16 @@ export default function DailyTipCard() {
               transform: "translateZ(1px)",
             }}
           >
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(0,232,255,0.045),transparent_46%,rgba(128,70,255,0.045)_100%)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(0,232,255,0.055),transparent_44%,rgba(128,70,255,0.07)_100%)]" />
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.16)_100%)]" />
+            <DashboardCardIllustration variant="money-tip" />
 
-            <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
+            <div className="relative z-10 flex h-full items-center justify-start p-5 pr-[42%] text-left text-white">
               <div>
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.24)]">
                   Daily Money Tip
                 </div>
-                <div className="text-sm font-semibold text-white/75">
+                <div className="text-sm font-semibold text-white/82">
                   Tap to flip
                 </div>
               </div>
@@ -68,7 +70,7 @@ export default function DailyTipCard() {
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(128,70,255,0.045),transparent_46%,rgba(0,232,255,0.045)_100%)]" />
             <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%,rgba(0,0,0,0.18)_100%)]" />
 
-            <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
+            <div className="relative z-10 flex h-full items-center justify-center p-5 text-center text-white">
               <div className="space-y-3">
                 <div className="text-sm font-semibold leading-relaxed text-white/90">
                   {tip}
