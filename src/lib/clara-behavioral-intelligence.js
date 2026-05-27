@@ -1,3 +1,5 @@
+import { searchMultipleMemoryCabinets } from "./memory-cabinets";
+
 const CLARA_MEMORY_KEY = "clara_behavioral_memory_v1";
 
 const LAYERS = {
@@ -47,6 +49,20 @@ const CATEGORY_HINTS = {
   paydayCycle: "payday cycle",
   "paydayCycle.spendingShift": "after-payday behavior",
 };
+
+const CABINET_ROUTING_HINTS = [
+  { terms: ["spend", "spent", "buy", "order", "food", "shopping", "expense", "gastos"], cabinets: ["Spending Memory", "Decision Memory"] },
+  { terms: ["budget", "limit", "allocation", "category", "left"], cabinets: ["Budget Memory"] },
+  { terms: ["wallet", "cash", "gcash", "maya", "bank", "balance"], cabinets: ["Wallet Memory"] },
+  { terms: ["goal", "save", "saving", "target", "ipon"], cabinets: ["Goal Memory"] },
+  { terms: ["emergency", "buffer", "survival", "safety"], cabinets: ["Emergency Memory"] },
+  { terms: ["debt", "utang", "loan", "payable", "obligation"], cabinets: ["Debt Memory"] },
+  { terms: ["schedule", "shift", "work", "after work", "payday", "routine", "sleep", "night"], cabinets: ["Schedule Memory"] },
+  { terms: ["stress", "sad", "tired", "emotion", "lonely", "burnout", "drained", "reward"], cabinets: ["Emotional Memory"] },
+  { terms: ["lifestyle", "habit", "routine", "family", "partner", "friends", "social"], cabinets: ["Lifestyle Memory", "Relationship Memory"] },
+  { terms: ["learn", "lesson", "understand", "explain"], cabinets: ["Learning Memory"] },
+  { terms: ["prefer", "tone", "style", "remind", "guidance"], cabinets: ["Preference Memory"] },
+];
 
 function safeText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -146,6 +162,38 @@ function buildNaturalMemorySummary(items = []) {
     .join("\n");
 }
 
+function selectCabinetsForMessage(message = "") {
+  const text = normalize(message);
+  const selected = new Set();
+
+  CABINET_ROUTING_HINTS.forEach((hint) => {
+    if (hint.terms.some((term) => text.includes(term))) {
+      hint.cabinets.forEach((cabinet) => selected.add(cabinet));
+    }
+  });
+
+  if (!selected.size) {
+    selected.add("Spending Memory");
+    selected.add("Emotional Memory");
+    selected.add("Decision Memory");
+  }
+
+  return Array.from(selected).slice(0, 5);
+}
+
+function buildCabinetMemorySummary(message = "") {
+  const cabinets = selectCabinetsForMessage(message);
+  const memories = searchMultipleMemoryCabinets(cabinets, message, 5);
+
+  if (!memories.length) {
+    return "No routed memory cabinet summaries found yet.";
+  }
+
+  return memories
+    .map((memory) => `- ${memory.cabinet}: ${memory.summary}`)
+    .join("\n");
+}
+
 export function getClaraBehavioralMemorySnapshot() {
   const memory = readBehavioralMemory();
   const items = Object.values(memory.items || {}).filter((item) => safeText(item?.value));
@@ -159,8 +207,14 @@ export function getClaraBehavioralMemorySnapshot() {
 
 export function buildClaraBehavioralContextForPrompt(message = "") {
   const snapshot = getClaraBehavioralMemorySnapshot();
+  const cabinetSummary = buildCabinetMemorySummary(message);
+
   if (!snapshot.count) {
-    return `No saved Talk to CLARA behavioral memory yet.`;
+    return `CLARA BEHAVIORAL INTELLIGENCE MEMORY:
+No saved Talk to CLARA behavioral memory yet.
+
+Routed memory cabinet summaries:
+${cabinetSummary}`;
   }
 
   const signals = detectBehavioralSignals(message, snapshot.items);
@@ -172,13 +226,16 @@ Last updated: ${snapshot.updatedAt || "not available"}
 4-layer memory summary:
 ${snapshot.summary}
 
+Routed memory cabinet summaries:
+${cabinetSummary}
+
 Detected behavioral signals for this message:
 ${signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : "- No strong behavioral signal detected from this message. Use memory lightly only if relevant."}
 
 Behavioral response rules:
 - Use this memory to reason, not to recite.
 - Mention at most one or two relevant patterns naturally.
-- Do not expose keys, field names, JSON, localStorage, database, layers, or internal scoring.
+- Do not expose keys, field names, JSON, localStorage, database, layers, cabinets, routing, or internal scoring.
 - If the user asks what CLARA knows, summarize warmly by the four human areas: life situation, spending behavior, life patterns, and financial setup.
 - Adjust tone based on motivation style when present.
 - If the user is making a spending decision, connect the advice to goal protection, pressure, emotion, energy, or payday timing when relevant.`;
