@@ -131,13 +131,10 @@ export default function BudgetCardContent(props) {
   if (!expanded) {
     return (
       <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,232,255,0.055),transparent_40%,rgba(128,70,255,0.06)_100%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
-        </div>
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.018),transparent_34%,rgba(0,0,0,0.14)_100%)]" />
 
         <div className="relative flex min-h-0 flex-col gap-4">
-          <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+          <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.12] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
             <BudgetHeader monthKey={monthKey} badgeLabel={badgeLabel} status={status} cycleLabel={cycleLabel} />
 
             <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
@@ -172,9 +169,7 @@ export default function BudgetCardContent(props) {
 
   return (
     <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-      <div className="pointer-events-none absolute inset-0 opacity-[0.34]">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,232,255,0.045),transparent_42%,rgba(128,70,255,0.055)_100%)]" />
-      </div>
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.014),transparent_40%,rgba(0,0,0,0.16)_100%)]" />
 
       <div className="relative flex min-h-0 flex-1 flex-col gap-4">
         <div className="shrink-0">
