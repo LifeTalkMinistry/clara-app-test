@@ -8,6 +8,10 @@ import {
   buildContextSelectorPrompt,
   collectClaraAvailableContext,
 } from "./clara-central-context-brain";
+import {
+  buildClaraPurchaseCategoryGuide,
+  formatClaraPurchaseCategoryGuideForPrompt,
+} from "./clara-purchase-category-guide";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -276,6 +280,10 @@ function logCentralContextDiagnostics({ message, enrichedContext, conversationHi
   }
 }
 
+function budgetName(budget = {}) {
+  return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
+}
+
 function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const enrichedContext = withClaraLifeStageAiContext(context || {});
   const finance = buildClaraFinanceSnapshot(enrichedContext);
@@ -290,6 +298,7 @@ function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const wallets = Array.isArray(finance.wallets) ? finance.wallets : [];
   const budgets = Array.isArray(finance.budgets) ? finance.budgets : [];
   const goals = Array.isArray(finance.savingsGoals) ? finance.savingsGoals : [];
+  const purchaseCategoryGuide = buildClaraPurchaseCategoryGuide(message, budgets);
 
   return `You are CLARA, an emotionally-aware behavioral money coach.
 
@@ -322,7 +331,10 @@ Budget:
 Allocated: ${money(finance.budgetAllocated)}
 Spent: ${money(finance.budgetSpent)}
 Left: ${money(finance.budgetRemaining)}
-Rows: ${list(budgets, (budget) => `${budget.name || budget.category || "Budget"}: left ${money(budget.remaining)} of ${money(budget.allocated)}`)}
+Rows: ${list(budgets, (budget) => `${budgetName(budget)}: left ${money(budget.remaining)} of ${money(budget.allocated)}`)}
+
+Purchase category guide:
+${formatClaraPurchaseCategoryGuideForPrompt(purchaseCategoryGuide)}
 
 Savings:
 ${list(goals, (goal) => `${goal.name || "Goal"}: ${money(goal.saved)} of ${money(goal.target)}`)}
