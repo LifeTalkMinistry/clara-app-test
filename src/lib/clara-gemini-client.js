@@ -37,6 +37,55 @@ const BLOCKED_MODEL_KEYWORDS = [
   "native-audio",
   "thinking-exp",
 ];
+const DANGLING_REPLY_ENDINGS = [
+  "and",
+  "but",
+  "because",
+  "so",
+  "while",
+  "with",
+  "for",
+  "to",
+  "if",
+  "unless",
+  "before",
+  "after",
+  "about",
+  "around",
+  "in",
+  "on",
+  "at",
+  "of",
+  "from",
+  "into",
+  "onto",
+  "by",
+  "as",
+  "than",
+  "through",
+  "within",
+  "without",
+  "between",
+  "under",
+  "over",
+  "the",
+  "a",
+  "an",
+  "your",
+  "my",
+  "our",
+  "their",
+  "this",
+  "that",
+  "these",
+  "those",
+  "any",
+  "some",
+  "right",
+  "currently",
+  "available",
+  "visible",
+];
 
 function getLocalDebugFlag() {
   try {
@@ -160,13 +209,42 @@ function sanitizeClaraReply(text) {
     .trim();
 }
 
+function lastWord(text = "") {
+  const words = sanitizeClaraReply(text).toLowerCase().match(/[a-z]+(?:'[a-z]+)?|₱?\d[\d,]*/g) || [];
+  return words[words.length - 1] || "";
+}
+
+function hasSentenceEnding(text = "") {
+  return /[.!?)]$/.test(sanitizeClaraReply(text));
+}
+
 function isIncompleteClaraReply(text = "") {
   const reply = sanitizeClaraReply(text);
   if (!reply) return true;
   if (reply.length < 35) return true;
   if (/[,:;\-–—]$/.test(reply)) return true;
-  if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around)$/i.test(reply)) return true;
+  if (DANGLING_REPLY_ENDINGS.includes(lastWord(reply))) return true;
+  if (/₱\s*\d[\d,]*\s+(in|on|at|of|for|with|from|to)$/i.test(reply)) return true;
+  if (/\b(CLARA sees|you have|you currently have|right now,|right now)\s*₱?\d*[\d,]*\s*(in|on|at|of|for|with|from|to)?$/i.test(reply)) return true;
+  if (!hasSentenceEnding(reply) && reply.length < 170) return true;
   return false;
+}
+
+function buildCompletionRetryPrompt({ originalPrompt = "", incompleteReply = "" } = {}) {
+  return `${originalPrompt}
+
+IMPORTANT COMPLETION REPAIR:
+The previous response was incomplete and must not be shown to the user:
+"${sanitizeClaraReply(incompleteReply)}"
+
+Write a new complete CLARA reply from scratch.
+Rules:
+- Do not continue the broken sentence.
+- Do not stop mid-sentence.
+- Use 2-4 complete conversational sentences.
+- For money decisions, include a clear recommendation, one short reason, and one next step.
+- If wallet or budget data is missing, say that clearly and ask one helpful next question.
+- End with a complete sentence and punctuation.`;
 }
 
 function buildConversationHistory(messages = []) {
@@ -288,6 +366,19 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
   return data;
 }
 
+function extractGeminiText(data = {}) {
+  return sanitizeClaraReply(
+    (data?.candidates?.[0]?.content?.parts || [])
+      .map((part) => part?.text || "")
+      .join(" ")
+  );
+}
+
+async function requestGeminiText({ apiKey, model, prompt, signal }) {
+  const data = await requestGeminiContent({ apiKey, model, prompt, signal });
+  return extractGeminiText(data);
+}
+
 export function hasGeminiConfig() {
   return Boolean(getGeminiApiKey());
 }
@@ -307,21 +398,28 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     try {
       if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying model", model);
 
-      const data = await requestGeminiContent({ apiKey, model, prompt, signal });
-
-      const text = sanitizeClaraReply(
-        (data?.candidates?.[0]?.content?.parts || [])
-          .map((part) => part?.text || "")
-          .join(" ")
-      );
+      const text = await requestGeminiText({ apiKey, model, prompt, signal });
 
       if (text && !isIncompleteClaraReply(text)) {
         if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded", model);
         return text;
       }
 
-      lastError = new Error(`Gemini returned an incomplete CLARA reply using ${model}.`);
+      if (shouldDebugClaraAi()) {
+        console.warn("[CLARA Gemini] Incomplete reply detected, retrying", { model, text });
+      }
+
+      const retryPrompt = buildCompletionRetryPrompt({ originalPrompt: prompt, incompleteReply: text });
+      const retryText = await requestGeminiText({ apiKey, model, prompt: retryPrompt, signal });
+
+      if (retryText && !isIncompleteClaraReply(retryText)) {
+        if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded after completion retry", model);
+        return retryText;
+      }
+
+      lastError = new Error(`Gemini returned incomplete CLARA replies using ${model}.`);
       lastError.model = model;
+      lastError.partialReply = retryText || text;
     } catch (error) {
       if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
       lastError = error;
