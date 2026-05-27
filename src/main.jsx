@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import "./clara-memory-bridge";
+import "./clara-memory-cabinet-autosave";
 import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
