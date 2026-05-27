@@ -3,6 +3,11 @@ import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine"
 import { summarizeLifeProfileForClara } from "./clara-life-profile";
 import { buildClaraBehavioralContextForPrompt, getClaraBehavioralRiskLabel } from "./clara-behavioral-intelligence";
 import { buildClaraLifeStagePromptBlock, withClaraLifeStageAiContext } from "./clara-life-stage-ai-context";
+import {
+  buildClaraContextDiagnostics,
+  buildContextSelectorPrompt,
+  collectClaraAvailableContext,
+} from "./clara-central-context-brain";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -59,6 +64,28 @@ function buildConversationHistory(messages = []) {
     .join("\n");
 }
 
+function logCentralContextDiagnostics({ message, enrichedContext, conversationHistory }) {
+  if (!import.meta.env.DEV) return;
+
+  try {
+    const centralContextInput = {
+      ...(enrichedContext || {}),
+      userMessageHistory: conversationHistory,
+      conversationHistory,
+    };
+
+    const availableContext = collectClaraAvailableContext(centralContextInput);
+    const diagnostics = buildClaraContextDiagnostics(centralContextInput);
+    const selectorPrompt = buildContextSelectorPrompt(message, centralContextInput);
+
+    console.log("[CLARA Central Context] Available Context", availableContext);
+    console.log("[CLARA Central Context] Diagnostics", diagnostics);
+    console.log("[CLARA Central Context] Selector Prompt", selectorPrompt);
+  } catch (error) {
+    console.warn("[CLARA Central Context] Diagnostics failed", error);
+  }
+}
+
 function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const enrichedContext = withClaraLifeStageAiContext(context || {});
   const finance = buildClaraFinanceSnapshot(enrichedContext);
@@ -67,6 +94,8 @@ function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const lifeStageBlock = buildClaraLifeStagePromptBlock(enrichedContext.lifeStageContext);
   const behavioralMemory = buildClaraBehavioralContextForPrompt(message);
   const behavioralRisk = getClaraBehavioralRiskLabel(message);
+
+  logCentralContextDiagnostics({ message, enrichedContext, conversationHistory });
 
   const wallets = Array.isArray(finance.wallets) ? finance.wallets : [];
   const budgets = Array.isArray(finance.budgets) ? finance.budgets : [];
