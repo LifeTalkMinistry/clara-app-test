@@ -15,6 +15,7 @@ const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Pe
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PH_HOLIDAY_START_YEAR = 2026;
 const PH_HOLIDAY_LOOKAHEAD_YEARS = 10;
+const DOUBLE_TAP_DELAY_MS = 380;
 
 const CHINESE_NEW_YEAR_BY_YEAR = {
   2026: "02-17",
@@ -530,7 +531,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 
         <div className="text-center">
           <p className="text-[clamp(0.82rem,3.5vw,0.92rem)] font-black text-white/88">{formatMonth(monthDate)}</p>
-          <p className="mt-0.5 text-[9px] font-bold text-white/30">Tap a day to view or add</p>
+          <p className="mt-0.5 text-[9px] font-bold text-white/30">Tap to view • double tap to add</p>
         </div>
 
         <div className="flex gap-2">
@@ -574,7 +575,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               key={cell.key}
               type="button"
               onClick={() => onSelect(cell.key)}
-              className={`relative flex h-full min-h-0 flex-col items-center justify-center rounded-[clamp(0.78rem,3.5vw,1rem)] border text-[clamp(0.74rem,3.7vw,0.92rem)] font-black transition duration-200 active:scale-[.97] ${
+              className={`relative flex h-full min-h-0 touch-manipulation flex-col items-center justify-center rounded-[clamp(0.78rem,3.5vw,1rem)] border text-[clamp(0.74rem,3.7vw,0.92rem)] font-black transition duration-200 active:scale-[.97] ${
                 selected
                   ? "z-10 scale-[1.025] border-cyan-100/28 bg-cyan-200/[.075] text-white shadow-[0_0_0_1px_rgba(103,232,249,.10),0_0_18px_rgba(34,211,238,.12),inset_0_0_14px_rgba(34,211,238,.055)]"
                   : today
@@ -587,8 +588,8 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
                           ? "border-white/8 bg-white/[.03] text-white/58"
                           : "border-white/6 bg-white/[.022] text-white/36 hover:bg-white/[.035] hover:text-white/56"
               }`}
-              aria-label={`Select ${cell.key}${holiday ? `, ${holiday.title}` : ""}`}
-              title={holiday ? `${holiday.title} • ${holiday.type}` : undefined}
+              aria-label={`Select ${cell.key}${holiday ? `, ${holiday.title}` : ""}. Double tap to add a schedule.`}
+              title={holiday ? `${holiday.title} • ${holiday.type}` : "Double tap to add a schedule"}
             >
               {selected ? (
                 <span className="pointer-events-none absolute inset-[-1px] rounded-[inherit] border border-cyan-100/14" />
@@ -758,6 +759,7 @@ export default function DashboardSchedulePanel() {
   const [events, setEvents] = useState(() => readEvents(user));
   const [monthDate, setMonthDate] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
+  const [lastDateTap, setLastDateTap] = useState({ date: "", time: 0 });
   const [mode, setMode] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [form, setForm] = useState({ title: "", date: today, time: "", type: "Personal", amount: "", note: "" });
@@ -793,6 +795,21 @@ export default function DashboardSchedulePanel() {
     setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "" });
     setSelectedEvent(null);
     setMode("add");
+  };
+
+  const handleDateSelect = (date) => {
+    const now = Date.now();
+    const isDoubleTap = lastDateTap.date === date && now - lastDateTap.time <= DOUBLE_TAP_DELAY_MS;
+
+    setSelectedDate(date);
+
+    if (isDoubleTap) {
+      setLastDateTap({ date: "", time: 0 });
+      openAdd(date);
+      return;
+    }
+
+    setLastDateTap({ date, time: now });
   };
 
   const openEvent = (event) => {
@@ -842,7 +859,7 @@ export default function DashboardSchedulePanel() {
         selectedDate={selectedDate}
         todayKey={today}
         byDate={byDate}
-        onSelect={setSelectedDate}
+        onSelect={handleDateSelect}
         onAdd={() => openAdd(selectedDate)}
         onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
         onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
