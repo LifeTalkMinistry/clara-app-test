@@ -1,4 +1,4 @@
-import dashboardTopNavVisual from "@/assets/dashboard-card-visuals/daily-tip-lightbulb.png";
+import dashboardTopNavVisual from "@/assets/dashboard-card-visuals/dashboard-topnav.png";
 
 const claraBrandNavPanelStyle = {
   background:
@@ -25,7 +25,7 @@ export default function DashboardTopNav({
             src={dashboardTopNavVisual}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-full w-full -translate-x-1/2 -translate-y-1/2 scale-[1.34] select-none object-fill opacity-100"
+            className="pointer-events-none absolute inset-0 z-0 h-full w-full select-none object-fill opacity-100"
             draggable="false"
           />
 
