@@ -131,9 +131,8 @@ export default function BudgetCardContent(props) {
   if (!expanded) {
     return (
       <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
-          <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
-          <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,232,255,0.055),transparent_40%,rgba(128,70,255,0.06)_100%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
         </div>
 
@@ -173,9 +172,8 @@ export default function BudgetCardContent(props) {
 
   return (
     <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-      <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
-        <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
-        <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-violet-500/[0.10] blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.34]">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,232,255,0.045),transparent_42%,rgba(128,70,255,0.055)_100%)]" />
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col gap-4">
