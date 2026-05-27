@@ -14,8 +14,17 @@ const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const FALLBACK_GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
 
+function getLocalDebugFlag() {
+  try {
+    if (typeof window === "undefined") return false;
+    return window.localStorage?.getItem("CLARA_DEBUG_AI") === "true" || window.localStorage?.getItem("CLARA_DEBUG_AI") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function shouldDebugClaraAi() {
-  return import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true" || import.meta.env.VITE_CLARA_DEBUG_AI === "1";
+  return import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true" || import.meta.env.VITE_CLARA_DEBUG_AI === "1" || getLocalDebugFlag();
 }
 
 function getGeminiApiKey() {
