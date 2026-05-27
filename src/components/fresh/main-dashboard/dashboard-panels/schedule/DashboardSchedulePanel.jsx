@@ -14,6 +14,123 @@ const STORAGE_PREFIX = "clara_schedule_events_v2";
 const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const PH_HOLIDAYS_2026 = {
+  "2026-01-01": {
+    title: "New Year's Day",
+    type: "Regular holiday",
+    icon: "🎆",
+    note: "Start clean. Keep celebration spending intentional so the year begins with breathing room.",
+  },
+  "2026-02-17": {
+    title: "Chinese New Year",
+    type: "Special non-working day",
+    icon: "🐉",
+    note: "A holiday can invite food, travel, and family spending. Decide the limit before the celebration starts.",
+  },
+  "2026-02-25": {
+    title: "EDSA People Power Revolution Anniversary",
+    type: "Special working day",
+    icon: "🕊️",
+    note: "A national remembrance day. Keep the calendar aware, but treat it differently from non-working holidays.",
+  },
+  "2026-04-02": {
+    title: "Maundy Thursday",
+    type: "Regular holiday",
+    icon: "✝️",
+    note: "Holy Week can affect travel, food, and family plans. Prepare early and avoid last-minute spending pressure.",
+  },
+  "2026-04-03": {
+    title: "Good Friday",
+    type: "Regular holiday",
+    icon: "✝️",
+    note: "A quiet holiday. Keep spending simple and protect money meant for essentials after the break.",
+  },
+  "2026-04-04": {
+    title: "Black Saturday",
+    type: "Special non-working day",
+    icon: "🕯️",
+    note: "Part of the long Holy Week pause. Watch convenience spending during travel or family gatherings.",
+  },
+  "2026-04-09": {
+    title: "Araw ng Kagitingan",
+    type: "Regular holiday",
+    icon: "🎖️",
+    note: "A national holiday that may change routines. Plan meals, transport, or errands before the day arrives.",
+  },
+  "2026-05-01": {
+    title: "Labor Day",
+    type: "Regular holiday",
+    icon: "🛠️",
+    note: "A work-related holiday. Rest well, but keep reward spending aligned with your budget.",
+  },
+  "2026-06-12": {
+    title: "Independence Day",
+    type: "Regular holiday",
+    icon: "🇵🇭",
+    note: "A national celebration. Enjoy it without letting celebration spending quietly take over the month.",
+  },
+  "2026-08-21": {
+    title: "Ninoy Aquino Day",
+    type: "Special non-working day",
+    icon: "🎗️",
+    note: "A pause in the month can shift plans. Keep optional spending intentional.",
+  },
+  "2026-08-31": {
+    title: "National Heroes Day",
+    type: "Regular holiday",
+    icon: "🏅",
+    note: "A long-weekend type of holiday for many people. Prepare before food, travel, or leisure spending increases.",
+  },
+  "2026-11-01": {
+    title: "All Saints' Day",
+    type: "Special non-working day",
+    icon: "🕯️",
+    note: "Family visits and memorial traditions can involve transport, food, and flowers. Plan the spending ahead.",
+  },
+  "2026-11-02": {
+    title: "All Souls' Day",
+    type: "Special non-working day",
+    icon: "🕯️",
+    note: "A family-centered holiday. Keep meaningful spending prepared, not rushed.",
+  },
+  "2026-11-30": {
+    title: "Bonifacio Day",
+    type: "Regular holiday",
+    icon: "⚔️",
+    note: "A national holiday that may create a long-weekend mood. Check your budget before saying yes to plans.",
+  },
+  "2026-12-08": {
+    title: "Feast of the Immaculate Conception of Mary",
+    type: "Special non-working day",
+    icon: "🙏",
+    note: "December spending can build quickly. Use this reminder to keep gifts, food, and travel within plan.",
+  },
+  "2026-12-24": {
+    title: "Christmas Eve",
+    type: "Special non-working day",
+    icon: "🎄",
+    note: "The most tempting spending window of the year. Pause before extra purchases and protect January money.",
+  },
+  "2026-12-25": {
+    title: "Christmas Day",
+    type: "Regular holiday",
+    icon: "🎁",
+    note: "Celebrate warmly, but do not let generosity become financial pressure you carry into next month.",
+  },
+  "2026-12-30": {
+    title: "Rizal Day",
+    type: "Regular holiday",
+    icon: "🖋️",
+    note: "A year-end national holiday. Review your money before the New Year mood begins.",
+  },
+  "2026-12-31": {
+    title: "Last Day of the Year",
+    type: "Special non-working day",
+    icon: "🎆",
+    note: "Year-end spending can feel emotional. Decide your celebration limit before the countdown.",
+  },
+};
+
 function toDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -44,6 +161,20 @@ function formatDate(key) {
 
 function getStorageKey(user) {
   return `${STORAGE_PREFIX}_${user?.id || user?.email || "guest"}`;
+}
+
+function getHoliday(key) {
+  return PH_HOLIDAYS_2026[key] || null;
+}
+
+function getHolidaysForMonth(monthDate) {
+  return Object.entries(PH_HOLIDAYS_2026)
+    .filter(([dateKey]) => {
+      const date = fromDateKey(dateKey);
+      return date.getFullYear() === monthDate.getFullYear() && date.getMonth() === monthDate.getMonth();
+    })
+    .map(([date, holiday]) => ({ ...holiday, date }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function seedEvents() {
@@ -138,6 +269,11 @@ function impactMessage(event) {
   return `${displayTitle(event)} is scheduled on ${formatDate(event.date)}.${amountText} Prepare before it affects optional spending.`;
 }
 
+function holidayMessage(holiday) {
+  if (!holiday) return "This is marked as a Philippine holiday.";
+  return `${holiday.type}. ${holiday.note}`;
+}
+
 function buildMonthCells(monthDate) {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -161,7 +297,7 @@ function isSameMonth(event, monthDate) {
   return eventDate.getFullYear() === monthDate.getFullYear() && eventDate.getMonth() === monthDate.getMonth();
 }
 
-function getSelectedAgenda({ selectedDate, todayKey, events }) {
+function getSelectedAgenda({ selectedDate, todayKey, events, holiday }) {
   const moneyEvent = events.find(isMoneyEvent);
   const firstEvent = events[0];
   const isToday = selectedDate === todayKey;
@@ -172,11 +308,25 @@ function getSelectedAgenda({ selectedDate, todayKey, events }) {
       event: moneyEvent,
       label: isToday ? "Today impact" : "Money impact",
       dateLabel,
-      badge: "Watch",
+      badge: holiday ? holiday.icon : "Watch",
       title: displayTitle(moneyEvent),
-      body: impactMessage(moneyEvent),
+      body: holiday ? `${impactMessage(moneyEvent)} Also: ${holiday.title}.` : impactMessage(moneyEvent),
       icon: CreditCard,
       clickable: true,
+    };
+  }
+
+  if (holiday) {
+    return {
+      event: null,
+      label: "Philippine holiday",
+      dateLabel,
+      badge: holiday.type.includes("working") ? "Workday" : "Holiday",
+      title: `${holiday.icon} ${holiday.title}`,
+      body: holidayMessage(holiday),
+      icon: CalendarDays,
+      emoji: holiday.icon,
+      clickable: false,
     };
   }
 
@@ -211,6 +361,8 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
   const monthEvents = sortedEvents.filter((event) => isSameMonth(event, monthDate));
   const moneyEvents = monthEvents.filter(isMoneyEvent);
   const nextMoneyEvent = sortedEvents.find((event) => event.date >= todayKey && isMoneyEvent(event));
+  const monthHolidays = getHolidaysForMonth(monthDate);
+  const nextHoliday = monthHolidays.find((holiday) => holiday.date >= todayKey) || monthHolidays[0];
   const paydayEvent = monthEvents.find((event) => String(event?.type || "").toLowerCase() === "payday");
   const relationshipEvent = monthEvents.find((event) => {
     const text = `${event?.title || ""} ${event?.type || ""} ${event?.note || ""}`.toLowerCase();
@@ -223,6 +375,10 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
 
   if (nextMoneyEvent) {
     return `Next pressure: ${displayTitle(nextMoneyEvent)} on ${formatDate(nextMoneyEvent.date)}. Keep it in mind before casual spending.`;
+  }
+
+  if (nextHoliday) {
+    return `${nextHoliday.icon} ${nextHoliday.title} is marked this month. Holidays can trigger reward spending, travel, food, or family costs.`;
   }
 
   if (paydayEvent) {
@@ -259,7 +415,11 @@ function AgendaCard({ agenda, onOpen }) {
 
       <div className="relative flex h-full w-full items-center gap-3.5">
         <div className="flex h-[clamp(40px,6.2svh,48px)] w-[clamp(40px,6.2svh,48px)] shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
-          <Icon className="h-5 w-5" />
+          {agenda.emoji ? (
+            <span className="text-xl leading-none" aria-hidden="true">{agenda.emoji}</span>
+          ) : (
+            <Icon className="h-5 w-5" />
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -328,6 +488,8 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           if (!cell) return <div key={`empty-${index}`} className="min-h-0" />;
 
           const events = byDate[cell.key] || [];
+          const holiday = getHoliday(cell.key);
+          const hasHoliday = Boolean(holiday);
           const hasMoney = events.some(isMoneyEvent);
           const hasAny = events.length > 0;
           const selected = cell.key === selectedDate;
@@ -343,18 +505,30 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
                   ? "z-10 scale-[1.025] border-cyan-100/28 bg-cyan-200/[.075] text-white shadow-[0_0_0_1px_rgba(103,232,249,.10),0_0_18px_rgba(34,211,238,.12),inset_0_0_14px_rgba(34,211,238,.055)]"
                   : today
                     ? "border-cyan-200/16 bg-cyan-300/[.035] text-white/72"
-                    : hasMoney
-                      ? "border-fuchsia-200/14 bg-fuchsia-300/[.03] text-white/66"
-                      : hasAny
-                        ? "border-white/8 bg-white/[.03] text-white/58"
-                        : "border-white/6 bg-white/[.022] text-white/36 hover:bg-white/[.035] hover:text-white/56"
+                    : hasHoliday
+                      ? "border-amber-200/18 bg-amber-300/[.035] text-white/80 hover:bg-amber-300/[.055]"
+                      : hasMoney
+                        ? "border-fuchsia-200/14 bg-fuchsia-300/[.03] text-white/66"
+                        : hasAny
+                          ? "border-white/8 bg-white/[.03] text-white/58"
+                          : "border-white/6 bg-white/[.022] text-white/36 hover:bg-white/[.035] hover:text-white/56"
               }`}
-              aria-label={`Select ${cell.key}`}
+              aria-label={`Select ${cell.key}${holiday ? `, ${holiday.title}` : ""}`}
+              title={holiday ? `${holiday.title} • ${holiday.type}` : undefined}
             >
               {selected ? (
                 <span className="pointer-events-none absolute inset-[-1px] rounded-[inherit] border border-cyan-100/14" />
               ) : null}
-              <span className="relative z-10">{cell.day}</span>
+              {hasHoliday ? (
+                <>
+                  <span className="absolute left-1.5 top-1 text-[8.5px] font-black leading-none text-white/38">{cell.day}</span>
+                  <span className="relative z-10 text-[clamp(0.95rem,4.4vw,1.12rem)] leading-none" aria-hidden="true">
+                    {holiday.icon}
+                  </span>
+                </>
+              ) : (
+                <span className="relative z-10">{cell.day}</span>
+              )}
               {selected ? (
                 <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/50 shadow-[0_0_8px_rgba(103,232,249,.25)]" />
               ) : null}
@@ -366,7 +540,8 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         })}
       </div>
 
-      <div className="relative z-10 mt-[clamp(0.45rem,1.15svh,0.75rem)] flex shrink-0 items-center gap-3 text-[9.5px] font-bold text-white/30">
+      <div className="relative z-10 mt-[clamp(0.45rem,1.15svh,0.75rem)] flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-[9.5px] font-bold text-white/30">
+        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-200/70" /> Holiday</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200/65" /> Money impact</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/55" /> Schedule</span>
       </div>
@@ -530,9 +705,10 @@ export default function DashboardSchedulePanel() {
 
   const cells = useMemo(() => buildMonthCells(monthDate), [monthDate]);
   const selectedEvents = byDate[selectedDate] || [];
+  const selectedHoliday = getHoliday(selectedDate);
   const selectedAgenda = useMemo(
-    () => getSelectedAgenda({ selectedDate, todayKey: today, events: selectedEvents }),
-    [selectedDate, selectedEvents, today]
+    () => getSelectedAgenda({ selectedDate, todayKey: today, events: selectedEvents, holiday: selectedHoliday }),
+    [selectedDate, selectedEvents, selectedHoliday, today]
   );
   const monthlyInsight = useMemo(
     () => getMonthlyInsight({ sortedEvents: sorted, monthDate, todayKey: today }),
