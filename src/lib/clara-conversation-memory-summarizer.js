@@ -2,6 +2,7 @@ import { requestGeminiJson, hasGeminiJsonConfig } from "@/lib/clara-gemini-json-
 import { getAvailableCabinetNames, normalizeCabinetName, saveMemoryToCabinet, readMemoryCabinet } from "@/lib/memory-cabinets";
 
 const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
+const MAX_BULLETS_PER_SECTION = 8;
 
 const FIXED_STORY_SECTIONS = [
   "Identity",
@@ -95,54 +96,89 @@ function isTemporaryOrLiveFactBullet(value = "") {
   if (/\b(balance across all wallets|money left right now|remaining right now|currently has|currently have)\b/i.test(text)) return true;
   if (/\b(is asking|asked|checking their wallet|checking his wallet|checking her wallet|see if they can afford|recent improvement in spending habits)\b/i.test(text)) return true;
   if (/\b(today|right now|currently|this exact moment)\b.*\b(balance|wallet|amount|remaining|left)\b/i.test(text)) return true;
+  if (/^no strong pattern saved yet\.?$/i.test(text)) return true;
   return false;
 }
 
-function normalizeStory(story = {}) {
+function getSectionBullets(section = {}) {
+  const source = Array.isArray(section.bullets) ? section.bullets : section.items || section.memories || [];
+  return source.map(normalizeBullet).filter((bullet) => bullet && !isTemporaryOrLiveFactBullet(bullet));
+}
+
+function storyToSectionMap(story = {}) {
+  const map = new Map();
   const sections = Array.isArray(story.sections) ? story.sections : [];
-  const merged = new Map();
 
   sections.forEach((section) => {
     const title = titleToFixedCategory(section.title || section.name || section.category || "Lifestyle");
-    const bullets = (Array.isArray(section.bullets) ? section.bullets : section.items || section.memories || [])
-      .map(normalizeBullet)
-      .filter((bullet) => bullet && !isTemporaryOrLiveFactBullet(bullet))
-      .slice(0, 8);
-    if (!bullets.length) return;
-
-    const existing = merged.get(title);
-    merged.set(title, {
+    const existing = map.get(title) || {
       id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
       title,
       type: "fixed",
-      bullets: [...new Set([...(existing?.bullets || []), ...bullets])].slice(0, 8),
-      createdAt: existing?.createdAt || clean(section.createdAt) || now(),
-      updatedAt: now(),
+      bullets: [],
+      createdAt: clean(section.createdAt) || now(),
+      updatedAt: clean(section.updatedAt) || now(),
+    };
+
+    getSectionBullets(section).forEach((bullet) => {
+      if (!existing.bullets.some((saved) => saved.toLowerCase() === bullet.toLowerCase())) {
+        existing.bullets.push(bullet);
+      }
     });
+
+    existing.bullets = existing.bullets.slice(0, MAX_BULLETS_PER_SECTION);
+    existing.updatedAt = clean(section.updatedAt) || existing.updatedAt || now();
+    if (existing.bullets.length) map.set(title, existing);
   });
 
-  const ordered = FIXED_STORY_SECTIONS.map((title) => merged.get(title)).filter(Boolean);
+  return map;
+}
+
+function sectionMapToStory(map = new Map(), meta = {}) {
+  const sections = FIXED_STORY_SECTIONS
+    .map((title) => map.get(title))
+    .filter((section) => section?.bullets?.length)
+    .map((section) => ({
+      id: section.id || section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      title: section.title,
+      type: "fixed",
+      bullets: [...new Set((section.bullets || []).map(normalizeBullet).filter(Boolean))].slice(0, MAX_BULLETS_PER_SECTION),
+      createdAt: clean(section.createdAt) || clean(meta.createdAt) || now(),
+      updatedAt: clean(section.updatedAt) || now(),
+    }))
+    .filter((section) => section.bullets.length);
 
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 4,
-    sections: ordered,
-    createdAt: clean(story.createdAt) || now(),
-    updatedAt: clean(story.updatedAt) || now(),
-    sectionCount: ordered.length,
-    bulletCount: ordered.reduce((sum, section) => sum + section.bullets.length, 0),
+    schemaVersion: 5,
+    sections,
+    createdAt: clean(meta.createdAt) || now(),
+    updatedAt: clean(meta.updatedAt) || now(),
+    sectionCount: sections.length,
+    bulletCount: sections.reduce((sum, section) => sum + section.bullets.length, 0),
     source: "clara_user_context_story",
   };
 }
 
-function readUserContextStory() {
-  if (typeof window === "undefined") return normalizeStory({});
+function normalizeStory(story = {}) {
+  return sectionMapToStory(storyToSectionMap(story), {
+    createdAt: clean(story.createdAt) || now(),
+    updatedAt: clean(story.updatedAt) || now(),
+  });
+}
+
+function readRawUserContextStory() {
+  if (typeof window === "undefined") return {};
   try {
-    return normalizeStory(JSON.parse(window.localStorage.getItem(USER_CONTEXT_STORY_KEY) || "{}"));
+    return JSON.parse(window.localStorage.getItem(USER_CONTEXT_STORY_KEY) || "{}");
   } catch {
-    return normalizeStory({});
+    return {};
   }
+}
+
+function readUserContextStory() {
+  return normalizeStory(readRawUserContextStory());
 }
 
 function writeUserContextStory(story = {}) {
@@ -162,27 +198,64 @@ function formatStory(story = readUserContextStory()) {
   return normalized.sections.map((section) => `${section.title}\n${section.bullets.map((bullet) => `- ${bullet}`).join("\n")}`).join("\n\n");
 }
 
-function mergeStoryPatch(baseStory = {}, patchStory = {}) {
-  const base = normalizeStory(baseStory);
-  const patch = normalizeStory(patchStory);
-  return normalizeStory({
-    ...base,
-    updatedAt: now(),
-    sections: [...(base.sections || []), ...(patch.sections || [])],
-  });
-}
-
 function addPatch(sectionMap, title, bullet) {
   const fixedTitle = titleToFixedCategory(title);
   const cleaned = normalizeBullet(bullet);
   if (!cleaned || isTemporaryOrLiveFactBullet(cleaned)) return;
 
-  const existing = sectionMap.get(fixedTitle) || { title: fixedTitle, bullets: [] };
+  const existing = sectionMap.get(fixedTitle) || {
+    id: fixedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+    title: fixedTitle,
+    type: "fixed",
+    bullets: [],
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
   if (!existing.bullets.some((item) => item.toLowerCase() === cleaned.toLowerCase())) {
     existing.bullets.push(cleaned);
   }
-  existing.bullets = existing.bullets.slice(0, 8);
+
+  existing.bullets = existing.bullets.slice(0, MAX_BULLETS_PER_SECTION);
+  existing.updatedAt = now();
   sectionMap.set(fixedTitle, existing);
+}
+
+function patchSectionsToStory(sections = []) {
+  const map = new Map();
+  (Array.isArray(sections) ? sections : []).forEach((section) => {
+    const title = titleToFixedCategory(section.title || section.name || section.category || "Lifestyle");
+    getSectionBullets(section).forEach((bullet) => addPatch(map, title, bullet));
+  });
+  return sectionMapToStory(map, { createdAt: now(), updatedAt: now() });
+}
+
+function normalizePatchStory(patch = {}) {
+  if (Array.isArray(patch.sections)) return patchSectionsToStory(patch.sections);
+
+  const map = new Map();
+  Object.entries(patch || {}).forEach(([title, bullets]) => {
+    if (!Array.isArray(bullets)) return;
+    bullets.forEach((bullet) => addPatch(map, title, bullet));
+  });
+  return sectionMapToStory(map, { createdAt: now(), updatedAt: now() });
+}
+
+function mergeStoryPatch(existingStory = {}, ...patchStories) {
+  const base = normalizeStory(existingStory);
+  const merged = storyToSectionMap(base);
+
+  patchStories.forEach((patchStory) => {
+    const patch = normalizePatchStory(patchStory);
+    (patch.sections || []).forEach((section) => {
+      getSectionBullets(section).forEach((bullet) => addPatch(merged, section.title, bullet));
+    });
+  });
+
+  return sectionMapToStory(merged, {
+    createdAt: base.createdAt || now(),
+    updatedAt: now(),
+  });
 }
 
 function deterministicSectionsFromMemory(memory = {}) {
@@ -194,86 +267,35 @@ function deterministicSectionsFromMemory(memory = {}) {
 
   const ageMatch = text.match(/\b(?:i'?m|i am|age[:\s])\s*(\d{1,3})\b/i);
   if (ageMatch) addPatch(patch, "Identity", `Age: ${ageMatch[1]}`);
-  if (/\b(young adult|student|professional|creator|life stage|role|location)\b/i.test(lower)) {
-    addPatch(patch, "Identity", "User is defining their current life stage and personal direction.");
-  }
+  if (/\b(young adult|student|professional|creator|life stage|role|location)\b/i.test(lower)) addPatch(patch, "Identity", "User is defining their current life stage and personal direction.");
 
-  if (/\b(work|job|shift|after work|long shift|office|bpo|career)\b/i.test(lower)) {
-    addPatch(patch, "Work", "Work schedule and after-work conditions can affect the user's decisions.");
-  }
-  if (/\b(mentally exhausted|exhausting work|work exhaustion|drained after work)\b/i.test(lower)) {
-    addPatch(patch, "Work", "Work-related mental exhaustion can influence the user's spending behavior.");
-  }
+  if (/\b(work|job|shift|after work|long shift|office|bpo|career)\b/i.test(lower)) addPatch(patch, "Work", "Work schedule and after-work conditions can affect the user's decisions.");
+  if (/\b(mentally exhausted|exhausting work|work exhaustion|drained after work)\b/i.test(lower)) addPatch(patch, "Work", "Work-related mental exhaustion can influence the user's spending behavior.");
 
-  if (/\b(save|saving|budget|money|spending|spend|expense|debt|bill|bills|impulsive purchase|trying to save)\b/i.test(lower)) {
-    addPatch(patch, "Money", "User is working on stronger financial discipline and spending awareness.");
-  }
-  if (/\b(friends|family|social pressure|invite|invited|eat out|food delivery|cravings|convenience meals)\b/i.test(lower) && /\b(save|saving|budget|spend|spending|money)\b/i.test(lower)) {
-    addPatch(patch, "Money", "Social plans and food cravings can affect the user's saving discipline.");
-  }
+  if (/\b(save|saving|budget|money|spending|spend|expense|debt|bill|bills|impulsive purchase|trying to save)\b/i.test(lower)) addPatch(patch, "Money", "User is working on stronger financial discipline and spending awareness.");
+  if (/\b(friends|family|social pressure|invite|invited|eat out|food delivery|cravings|convenience meals)\b/i.test(lower) && /\b(save|saving|budget|spend|spending|money)\b/i.test(lower)) addPatch(patch, "Money", "Social plans and food cravings can affect the user's saving discipline.");
 
-  if (/\b(stress|stressed|exhausted|tired|boredom|bored|pressure|emotionally|guilt|anxiety|drained|mentally exhausted)\b/i.test(lower)) {
-    addPatch(patch, "Emotional", "Stress, exhaustion, boredom, or pressure can influence the user's spending behavior.");
-  }
-  if (/\b(basketball|exercise|gym|jogging|fitness)\b/i.test(lower) && /\b(stress|cope|reset|emotionally|balanced)\b/i.test(lower)) {
-    addPatch(patch, "Emotional", "Healthy activities like basketball can help the user regulate stress.");
-  }
+  if (/\b(stress|stressed|exhausted|tired|boredom|bored|pressure|emotionally|guilt|anxiety|drained|mentally exhausted)\b/i.test(lower)) addPatch(patch, "Emotional", "Stress, exhaustion, boredom, or pressure can influence the user's spending behavior.");
+  if (/\b(basketball|exercise|gym|jogging|fitness)\b/i.test(lower) && /\b(stress|cope|reset|emotionally|balanced)\b/i.test(lower)) addPatch(patch, "Emotional", "Healthy activities like basketball can help the user regulate stress.");
 
-  if (/\b(sleep|energy|health|exercise|basketball|sports|gym|jogging|fitness)\b/i.test(lower)) {
-    addPatch(patch, "Health", "User wants better physical energy and healthier coping patterns.");
-  }
-  if (/\b(basketball|sports|exercise|gym|jogging|fitness)\b/i.test(lower)) {
-    addPatch(patch, "Health", "Basketball or physical activity supports healthier stress release.");
-  }
+  if (/\b(sleep|energy|health|exercise|basketball|sports|gym|jogging|fitness)\b/i.test(lower)) addPatch(patch, "Health", "User wants better physical energy and healthier coping patterns.");
+  if (/\b(basketball|sports|exercise|gym|jogging|fitness)\b/i.test(lower)) addPatch(patch, "Health", "Basketball or physical activity supports healthier stress release.");
 
-  if (/\b(routine|after work|after-work|night|nighttime|late-night|weekend|payday|rhythm|rest first|planning properly|prepare myself|before spending)\b/i.test(lower)) {
-    addPatch(patch, "Routine", "After-work, nighttime, or payday periods can become higher-risk spending windows.");
-  }
-  if (/\b(rest first|pause first|planning properly|prepare myself|avoid rushing)\b/i.test(lower)) {
-    addPatch(patch, "Routine", "User wants a routine that includes pausing or resting before spending decisions.");
-  }
+  if (/\b(routine|after work|after-work|night|nighttime|late-night|weekend|payday|rhythm|rest first|planning properly|prepare myself|before spending)\b/i.test(lower)) addPatch(patch, "Routine", "After-work, nighttime, or payday periods can become higher-risk spending windows.");
+  if (/\b(rest first|pause first|planning properly|prepare myself|avoid rushing)\b/i.test(lower)) addPatch(patch, "Routine", "User wants a routine that includes pausing or resting before spending decisions.");
 
-  if (/\b(friends|family|partner|coworker|social pressure|invite|invited|join plans|eat out)\b/i.test(lower)) {
-    addPatch(patch, "Relationships", "Social invitations from friends or family can create spending pressure.");
-  }
-
-  if (/\b(home|household|shared expenses|shared responsibilities|living situation|rent|household needs)\b/i.test(lower)) {
-    addPatch(patch, "Home", "Shared responsibilities and household needs can affect budgeting priorities.");
-  }
-
-  if (/\b(food|craving|cravings|delivery|convenience food|convenience meals|eat out|groceries|meal|takeout|order food|hungry|hunger)\b/i.test(lower)) {
-    addPatch(patch, "Food", "Food delivery, cravings, and convenience meals are recurring spending temptations.");
-  }
-
-  if (/\b(hobby|hobbies|basketball|entertainment|shopping|travel|social life|eat out|join plans)\b/i.test(lower)) {
-    addPatch(patch, "Lifestyle", "User wants healthier hobbies and lifestyle choices instead of spending to cope.");
-  }
-
-  if (/\b(improve|self-improvement|discipline|disciplined|better habits|stable future|growth|faith|goals)\b/i.test(lower)) {
-    addPatch(patch, "Growth", "User is building discipline and better habits over time.");
-  }
-
-  if (/\b(pause first|pause|avoid rushing|before spending|better decisions|decision|decisions|tempted|impulsive)\b/i.test(lower)) {
-    addPatch(patch, "Decision Style", "Pausing before spending helps the user make better choices.");
-  }
-
-  if (/\b(calm guidance|supportive guidance|guidance|understood|guilt|harsh correction|reminders|accountability|tone)\b/i.test(lower)) {
-    addPatch(patch, "Support Style", "User responds better to calm, supportive guidance than guilt-based correction.");
-  }
-
-  if (/\b(trigger|triggers|hunger|hungry|boredom|bored|social pressure|late-night|nighttime|exhaustion|tempted|temptation|stress spending|reward spending)\b/i.test(lower)) {
-    addPatch(patch, "Triggers", "Hunger, boredom, social pressure, stress, or late-night exhaustion can trigger impulse spending.");
-  }
-  if (/\b(friends|family|invite|invited|eat out|food delivery|convenience meals)\b/i.test(lower)) {
-    addPatch(patch, "Triggers", "Social invitations and convenience food can become spending triggers.");
-  }
-
-  if (/\b(emergency fund|boundaries|boundary|safety plan|protection|unexpected expenses|stable future|financial risk|shared expenses)\b/i.test(lower)) {
-    addPatch(patch, "Protection", "User wants stronger boundaries and financial protection from unexpected expenses.");
-  }
+  if (/\b(friends|family|partner|coworker|social pressure|invite|invited|join plans|eat out)\b/i.test(lower)) addPatch(patch, "Relationships", "Social invitations from friends or family can create spending pressure.");
+  if (/\b(home|household|shared expenses|shared responsibilities|living situation|rent|household needs)\b/i.test(lower)) addPatch(patch, "Home", "Shared responsibilities and household needs can affect budgeting priorities.");
+  if (/\b(food|craving|cravings|delivery|convenience food|convenience meals|eat out|groceries|meal|takeout|order food|hungry|hunger)\b/i.test(lower)) addPatch(patch, "Food", "Food delivery, cravings, and convenience meals are recurring spending temptations.");
+  if (/\b(hobby|hobbies|basketball|entertainment|shopping|travel|social life|eat out|join plans)\b/i.test(lower)) addPatch(patch, "Lifestyle", "User wants healthier hobbies and lifestyle choices instead of spending to cope.");
+  if (/\b(improve|self-improvement|discipline|disciplined|better habits|stable future|growth|faith|goals)\b/i.test(lower)) addPatch(patch, "Growth", "User is building discipline and better habits over time.");
+  if (/\b(pause first|pause|avoid rushing|before spending|better decisions|decision|decisions|tempted|impulsive)\b/i.test(lower)) addPatch(patch, "Decision Style", "Pausing before spending helps the user make better choices.");
+  if (/\b(calm guidance|supportive guidance|guidance|understood|guilt|harsh correction|reminders|accountability|tone)\b/i.test(lower)) addPatch(patch, "Support Style", "User responds better to calm, supportive guidance than guilt-based correction.");
+  if (/\b(trigger|triggers|hunger|hungry|boredom|bored|social pressure|late-night|nighttime|exhaustion|tempted|temptation|stress spending|reward spending)\b/i.test(lower)) addPatch(patch, "Triggers", "Hunger, boredom, social pressure, stress, or late-night exhaustion can trigger impulse spending.");
+  if (/\b(friends|family|invite|invited|eat out|food delivery|convenience meals)\b/i.test(lower)) addPatch(patch, "Triggers", "Social invitations and convenience food can become spending triggers.");
+  if (/\b(emergency fund|boundaries|boundary|safety plan|protection|unexpected expenses|stable future|financial risk|shared expenses)\b/i.test(lower)) addPatch(patch, "Protection", "User wants stronger boundaries and financial protection from unexpected expenses.");
 
   if (!patch.size) addPatch(patch, "Lifestyle", text);
-
   return FIXED_STORY_SECTIONS.map((title) => patch.get(title)).filter(Boolean);
 }
 
@@ -352,31 +374,44 @@ function normalizeCabinetDocumentJson(json = {}, fallbackMemory = {}) {
 }
 
 function fallbackStoryFromMemory(memory = {}) {
-  const current = readUserContextStory();
-  return writeUserContextStory(mergeStoryPatch(current, { sections: deterministicSectionsFromMemory(memory) }));
+  const existingStory = readUserContextStory();
+  const deterministicPatch = { sections: deterministicSectionsFromMemory(memory) };
+  const mergedStory = mergeStoryPatch(existingStory, deterministicPatch);
+  console.log("Existing memory:", existingStory);
+  console.log("Incoming patch:", deterministicPatch);
+  console.log("Merged memory:", mergedStory);
+  return writeUserContextStory(mergedStory);
 }
 
 async function updateUserContextStoryWithAi(memory = {}) {
-  const currentStory = readUserContextStory();
+  const existingStory = readUserContextStory();
   const deterministicPatch = { sections: deterministicSectionsFromMemory(memory) };
 
   if (!hasGeminiJsonConfig()) {
-    return writeUserContextStory(mergeStoryPatch(currentStory, deterministicPatch));
+    const mergedStory = mergeStoryPatch(existingStory, deterministicPatch);
+    console.log("Existing memory:", existingStory);
+    console.log("Incoming patch:", deterministicPatch);
+    console.log("Merged memory:", mergedStory);
+    return writeUserContextStory(mergedStory);
   }
 
   const prompt = `You are CLARA's User Context Story Editor.
 
 Update the user's ONE readable memory story using STRICT FIXED CATEGORIES ONLY.
 
-IMPORTANT:
+IMPORTANT PATCH MODE:
 - You are NOT rewriting the whole profile.
-- Return ONLY the sections that should be added or improved from the new memory.
-- Existing sections not related to the new memory must be omitted from your response so the app can preserve them.
+- Return ONLY affected category patches from the NEW memory.
+- DO NOT include untouched categories.
+- DO NOT return empty arrays.
+- DO NOT remove previous memory.
+- DO NOT regenerate the entire memory object.
+- Existing categories not related to the new memory will be preserved by the app.
 
-Current story:
-${formatStory(currentStory)}
+Current story for reference only:
+${formatStory(existingStory)}
 
-New memory:
+New memory to convert into patches:
 ${memory.summary}
 
 Fixed categories and meanings:
@@ -394,23 +429,29 @@ Rules:
 - NEVER create a new category.
 - Use only the fixed category titles exactly as written.
 - One memory may affect multiple categories.
-- If the memory says basketball, sports, gym, jogging, exercise, or fitness, place it under Health, Routine, Triggers, Money, or Lifestyle depending on meaning. Do NOT create Sports or Fitness.
-- If the memory mentions after-work rhythm, night routine, payday weekends, resting first, planning properly, or preparing before spending, update Routine.
+- Preserve stable user identity and long-term context by not touching it unless the new memory directly updates it.
 - Do NOT save exact wallet balances, current amounts, current remaining budget, one-time affordability checks, or temporary app states.
 - Save long-term behavior patterns, preferences, triggers, routines, emotional patterns, and stable life context only.
-- Improve related bullets instead of duplicating them.
-- Maximum 8 bullets per returned section.
 - Keep bullets concise and human-readable.
 
 JSON shape:
-{"sections":[{"title":"Routine","bullets":[]}]}`;
+{"sections":[{"title":"Routine","bullets":["..."]}]}`;
 
   try {
     const result = await requestGeminiJson({ prompt, temperature: 0.12, maxOutputTokens: 1300, label: "CLARA User Context Story Editor" });
-    const aiPatch = normalizeStory(result.json || {});
-    return writeUserContextStory(mergeStoryPatch(currentStory, mergeStoryPatch(deterministicPatch, aiPatch)));
+    const aiPatch = normalizePatchStory(result.json || {});
+    const combinedPatch = mergeStoryPatch({ sections: [] }, deterministicPatch, aiPatch);
+    const mergedStory = mergeStoryPatch(existingStory, combinedPatch);
+    console.log("Existing memory:", existingStory);
+    console.log("Incoming patch:", combinedPatch);
+    console.log("Merged memory:", mergedStory);
+    return writeUserContextStory(mergedStory);
   } catch {
-    return writeUserContextStory(mergeStoryPatch(currentStory, deterministicPatch));
+    const mergedStory = mergeStoryPatch(existingStory, deterministicPatch);
+    console.log("Existing memory:", existingStory);
+    console.log("Incoming patch:", deterministicPatch);
+    console.log("Merged memory:", mergedStory);
+    return writeUserContextStory(mergedStory);
   }
 }
 
