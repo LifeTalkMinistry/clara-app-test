@@ -39,28 +39,26 @@ const STORY_CATEGORY_GUIDE = {
   Protection: "emergency fund, boundaries, safety plans, financial risk prevention",
 };
 
-const CATEGORY_ALIASES = new Map(
-  [
-    ["spending", "Money"],
-    ["budget", "Money"],
-    ["wallet", "Money"],
-    ["goals", "Money"],
-    ["goal", "Money"],
-    ["emergency", "Protection"],
-    ["debt", "Money"],
-    ["bills", "Money"],
-    ["bill", "Money"],
-    ["schedule", "Routine"],
-    ["decision", "Decision Style"],
-    ["learning", "Growth"],
-    ["preference", "Support Style"],
-    ["relationship", "Relationships"],
-    ["sports", "Health"],
-    ["sport", "Health"],
-    ["fitness", "Health"],
-    ["exercise", "Health"],
-  ].map(([from, to]) => [from, to])
-);
+const CATEGORY_ALIASES = new Map([
+  ["spending", "Money"],
+  ["budget", "Money"],
+  ["wallet", "Money"],
+  ["goals", "Money"],
+  ["goal", "Money"],
+  ["emergency", "Protection"],
+  ["debt", "Money"],
+  ["bills", "Money"],
+  ["bill", "Money"],
+  ["schedule", "Routine"],
+  ["decision", "Decision Style"],
+  ["learning", "Growth"],
+  ["preference", "Support Style"],
+  ["relationship", "Relationships"],
+  ["sports", "Health"],
+  ["sport", "Health"],
+  ["fitness", "Health"],
+  ["exercise", "Health"],
+]);
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -75,19 +73,14 @@ function now() {
 }
 
 function normalizeTitleKey(value = "") {
-  return clean(value)
-    .replace(/memory$/i, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+  return clean(value).replace(/memory$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function titleToFixedCategory(value = "") {
   const key = normalizeTitleKey(value);
   if (!key) return "Lifestyle";
   const direct = FIXED_STORY_SECTIONS.find((title) => title.toLowerCase() === key);
-  if (direct) return direct;
-  return CATEGORY_ALIASES.get(key) || "Lifestyle";
+  return direct || CATEGORY_ALIASES.get(key) || "Lifestyle";
 }
 
 function normalizeBullet(value = "") {
@@ -133,7 +126,7 @@ function normalizeStory(story = {}) {
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 3,
+    schemaVersion: 4,
     sections: ordered,
     createdAt: clean(story.createdAt) || now(),
     updatedAt: clean(story.updatedAt) || now(),
@@ -169,12 +162,48 @@ function formatStory(story = readUserContextStory()) {
   return normalized.sections.map((section) => `${section.title}\n${section.bullets.map((bullet) => `- ${bullet}`).join("\n")}`).join("\n\n");
 }
 
+function mergeStoryPatch(baseStory = {}, patchStory = {}) {
+  const base = normalizeStory(baseStory);
+  const patch = normalizeStory(patchStory);
+  return normalizeStory({
+    ...base,
+    updatedAt: now(),
+    sections: [...(base.sections || []), ...(patch.sections || [])],
+  });
+}
+
+function deterministicSectionsFromMemory(memory = {}) {
+  const text = clean(memory.summary);
+  if (!text || isTemporaryOrLiveFactBullet(text)) return [];
+
+  const sections = [];
+  const add = (title, bullet) => sections.push({ title, bullets: [bullet] });
+
+  if (/\b(name|age|gender|life stage|i'?m \d+|i am \d+|role|location)\b/i.test(text)) add("Identity", text);
+  if (/\b(work|job|shift|career|income pattern|after work|bpo|office|long shift)\b/i.test(text)) add("Work", text);
+  if (/\b(spend|spending|budget|wallet|save|saving|debt|bill|bills|money|expense|impulsive purchase)\b/i.test(text)) add("Money", text);
+  if (/\b(stress|exhaust|tired|anxiety|guilt|motivation|confidence|emotion|mentally|balanced|drained)\b/i.test(text)) add("Emotional", text);
+  if (/\b(sleep|energy|exercise|basketball|sport|sports|gym|jogging|fitness|health)\b/i.test(text)) add("Health", text);
+  if (/\b(routine|after-work|after work|night|nighttime|weekend|payday|daily|rhythm|rest first|planning properly|prepare myself)\b/i.test(text)) add("Routine", text);
+  if (/\b(family|partner|friends|coworker|dependent|social pressure|relationship)\b/i.test(text)) add("Relationships", text);
+  if (/\b(home|rent|household|living situation|shared expenses)\b/i.test(text)) add("Home", text);
+  if (/\b(food|craving|delivery|convenience food|groceries|meal|takeout|order food|hungry)\b/i.test(text)) add("Food", text);
+  if (/\b(hobby|entertainment|shopping|travel|social life|basketball|simple hobbies)\b/i.test(text)) add("Lifestyle", text);
+  if (/\b(learning|goal|discipline|faith|self-improvement|improve|growth|better habits|stable future)\b/i.test(text)) add("Growth", text);
+  if (/\b(decide|decision|hesitation|impulsive|risk tolerance|pause|tempted|avoid rushing decisions)\b/i.test(text)) add("Decision Style", text);
+  if (/\b(guidance|reminder|tone|accountability|supportive|guilt|harsh correction|understood)\b/i.test(text)) add("Support Style", text);
+  if (/\b(trigger|temptation|avoidance|reward|risk window|lowers resistance|exhaustion|hunger|late-night boredom)\b/i.test(text)) add("Triggers", text);
+  if (/\b(emergency fund|boundary|boundaries|safety plan|protection|financial risk|unexpected expenses)\b/i.test(text)) add("Protection", text);
+
+  return sections.length ? sections : [{ title: "Lifestyle", bullets: [text] }];
+}
+
 function isUsefulMemoryText(text = "") {
   const value = clean(text).toLowerCase();
   if (!value || value.length < 10) return false;
   if (/^(hi|hello|hey|okay|ok|thanks|thank you|salamat|run context diagnostic)$/i.test(value)) return false;
   if (/context diagnostic|source:|debug|test only/i.test(value)) return false;
-  return /(spend|spent|buy|budget|wallet|save|goal|debt|utang|stress|tired|work|shift|family|partner|habit|routine|decision|prefer|feel|emotion|pressure|payday|bill|expense|gastos|ipon|takeout|delivery|order|food|basketball|sport|sports|jogging|gym|exercise|fitness|sleep|health|rent|home|faith|growth|support|trigger|emergency)/i.test(value);
+  return /(spend|spent|buy|budget|wallet|save|goal|debt|utang|stress|tired|work|shift|family|partner|habit|routine|decision|prefer|feel|emotion|pressure|payday|bill|expense|gastos|ipon|takeout|delivery|order|food|basketball|sport|sports|jogging|gym|exercise|fitness|sleep|health|rent|home|faith|growth|support|trigger|emergency|energy|after work)/i.test(value);
 }
 
 function normalizeMemoryJson(json = {}) {
@@ -206,7 +235,7 @@ function fallbackSummaryFromMessages(messages = []) {
   if (/wallet|cash|gcash|maya|bank/i.test(combined)) cabinets.push("Wallet Memory");
   if (/goal|save|ipon|target/i.test(combined)) cabinets.push("Goal Memory");
   if (/debt|utang|loan/i.test(combined)) cabinets.push("Debt Memory");
-  if (/work|shift|schedule|routine|sleep|payday/i.test(combined)) cabinets.push("Schedule Memory");
+  if (/work|shift|schedule|routine|sleep|payday|after work/i.test(combined)) cabinets.push("Schedule Memory");
   if (/stress|tired|feel|emotion|sad|happy|burnout|pressure|drained|exhausted/i.test(combined)) cabinets.push("Emotional Memory");
   if (/family|partner|friend|relationship|coworker/i.test(combined)) cabinets.push("Relationship Memory");
   if (/sport|sports|basketball|jogging|gym|exercise|fitness/i.test(combined)) cabinets.push("Lifestyle Memory");
@@ -245,29 +274,28 @@ function normalizeCabinetDocumentJson(json = {}, fallbackMemory = {}) {
 
 function fallbackStoryFromMemory(memory = {}) {
   const current = readUserContextStory();
-  const sections = [...(current.sections || [])];
-  const text = clean(memory.summary);
-  if (!text || isTemporaryOrLiveFactBullet(text)) return current;
-
-  if (/basketball|sport|sports|jogging|gym|exercise|fitness/i.test(text)) sections.push({ title: "Health", bullets: [text] });
-  else if (/stress|tired|emotion|exhaust|anxious|guilt/i.test(text)) sections.push({ title: "Emotional", bullets: [text] });
-  else if (/work|shift|career|income/i.test(text)) sections.push({ title: "Work", bullets: [text] });
-  else if (/food|craving|delivery|grocer|meal/i.test(text)) sections.push({ title: "Food", bullets: [text] });
-  else if (/spend|budget|wallet|save|debt|bill|money|expense/i.test(text)) sections.push({ title: "Money", bullets: [text] });
-  else sections.push({ title: "Lifestyle", bullets: [text] });
-
-  return writeUserContextStory({ ...current, sections });
+  return writeUserContextStory(mergeStoryPatch(current, { sections: deterministicSectionsFromMemory(memory) }));
 }
 
 async function updateUserContextStoryWithAi(memory = {}) {
-  if (!hasGeminiJsonConfig()) return fallbackStoryFromMemory(memory);
+  const currentStory = readUserContextStory();
+  const deterministicPatch = { sections: deterministicSectionsFromMemory(memory) };
+
+  if (!hasGeminiJsonConfig()) {
+    return writeUserContextStory(mergeStoryPatch(currentStory, deterministicPatch));
+  }
 
   const prompt = `You are CLARA's User Context Story Editor.
 
 Update the user's ONE readable memory story using STRICT FIXED CATEGORIES ONLY.
 
+IMPORTANT:
+- You are NOT rewriting the whole profile.
+- Return ONLY the sections that should be added or improved from the new memory.
+- Existing sections not related to the new memory must be omitted from your response so the app can preserve them.
+
 Current story:
-${formatStory()}
+${formatStory(currentStory)}
 
 New memory:
 ${memory.summary}
@@ -279,20 +307,23 @@ Rules:
 - Return JSON only.
 - NEVER create a new category.
 - Use only the fixed category titles exactly as written.
+- One memory may affect multiple categories.
 - If the memory says basketball, sports, gym, jogging, exercise, or fitness, place it under Health, Routine, Triggers, Money, or Lifestyle depending on meaning. Do NOT create Sports or Fitness.
+- If the memory mentions after-work rhythm, night routine, payday weekends, resting first, planning properly, or preparing before spending, update Routine.
 - Do NOT save exact wallet balances, current amounts, current remaining budget, one-time affordability checks, or temporary app states.
 - Save long-term behavior patterns, preferences, triggers, routines, emotional patterns, and stable life context only.
 - Improve related bullets instead of duplicating them.
-- Maximum 8 bullets per section.
+- Maximum 8 bullets per returned section.
 
 JSON shape:
-{"sections":[{"title":"Money","bullets":[]}]}`;
+{"sections":[{"title":"Routine","bullets":[]}]}`;
 
   try {
     const result = await requestGeminiJson({ prompt, temperature: 0.12, maxOutputTokens: 1300, label: "CLARA User Context Story Editor" });
-    return writeUserContextStory(result.json || {});
+    const aiPatch = normalizeStory(result.json || {});
+    return writeUserContextStory(mergeStoryPatch(currentStory, mergeStoryPatch(deterministicPatch, aiPatch)));
   } catch {
-    return fallbackStoryFromMemory(memory);
+    return writeUserContextStory(mergeStoryPatch(currentStory, deterministicPatch));
   }
 }
 
