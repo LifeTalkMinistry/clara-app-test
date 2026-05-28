@@ -26,6 +26,16 @@ const READ_INTENTS = new Set([
   AI_INTENTS.DECISION_GUIDANCE,
 ]);
 
+const STATIC_READ_INTENTS = new Set([
+  AI_INTENTS.GET_LAST_EXPENSE,
+  AI_INTENTS.CHECK_BALANCE,
+  AI_INTENTS.READ_SPENDING,
+  AI_INTENTS.READ_WALLET_HISTORY,
+  AI_INTENTS.READ_BUDGET_STATUS,
+  AI_INTENTS.READ_SAVINGS_STATUS,
+  AI_INTENTS.EMERGENCY_FUND_PLAN,
+]);
+
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -77,6 +87,18 @@ function isPureSmallTalk(text) {
   return /^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta|how are you|thanks|thank you)$/.test(input);
 }
 
+function isReflectiveMemoryMessage(text) {
+  const input = normalizeText(text);
+
+  if (!input) return false;
+
+  const reflectiveSignal = /\b(i'?ve been|i have been|i noticed|lately|recently|because|helps me|helped me|trying to|i feel|i think|i realize|i realized|become more|improve|improving|better|balanced|discipline|disciplined|stress|emotionally|routine|habit|pattern|after work|sleep|energy|basketball|exercise|gym|jogging|fitness)\b/i.test(input);
+  const explicitFinanceRead = /\b(how much|what'?s my balance|what is my balance|show my balance|check my balance|wallet balance|money left|available balance|latest transaction|last transaction|budget remaining|budget left|how much did i spend)\b/i.test(input);
+  const explicitWrite = /\b(log|i spent|spent \d|paid \d|bought|add money|deposit|transfer|move money|create budget|set budget)\b/i.test(input);
+
+  return reflectiveSignal && !explicitFinanceRead && !explicitWrite;
+}
+
 function buildConversationalFallback(text, user) {
   const input = normalizeText(text);
   const name = getDisplayName(user);
@@ -89,6 +111,7 @@ function buildConversationalFallback(text, user) {
 }
 
 function isBalanceQuestion(text) {
+  if (isReflectiveMemoryMessage(text)) return false;
   const input = normalizeText(text);
   return (
     /\b(how much|what'?s|what is|show|check)\b.*\b(money|balance|wallet|cash|funds|have)\b/.test(input) ||
@@ -97,6 +120,7 @@ function isBalanceQuestion(text) {
 }
 
 function isLastTransactionRequest(text) {
+  if (isReflectiveMemoryMessage(text)) return false;
   const input = normalizeText(text);
   return /\b(last|latest|recent|previous)\b.*\b(transaction|activity|wallet activity|movement)\b/.test(input);
 }
@@ -111,15 +135,17 @@ function buildLatestTransactionMessage(snapshot = {}) {
   return `Your latest wallet activity is ${type} of ${formatPeso(latest.amount)} in ${walletName}${note}.`;
 }
 
-function shouldExecuteImmediately(command) {
+function shouldExecuteImmediately(command, input = "") {
   if (!command?.canExecute) return false;
   if (command.status === "awaiting_confirmation") return false;
   if (WRITE_INTENTS.has(command.intent)) return false;
+  if (isReflectiveMemoryMessage(input) && STATIC_READ_INTENTS.has(command.intent)) return false;
   return command.status === "ready_to_execute" || READ_INTENTS.has(command.intent);
 }
 
-function shouldPreferLocalCommand(command) {
+function shouldPreferLocalCommand(command, input = "") {
   if (!command || command.intent === AI_INTENTS.UNKNOWN) return false;
+  if (isReflectiveMemoryMessage(input) && READ_INTENTS.has(command.intent)) return false;
   if (WRITE_INTENTS.has(command.intent)) return true;
   if (READ_INTENTS.has(command.intent)) return true;
   return Number(command.confidence || 0) >= 0.78;
@@ -127,7 +153,7 @@ function shouldPreferLocalCommand(command) {
 
 async function understandInput({ text, session, financeSnapshot }) {
   const localCommand = parseCommand(text, session?.currentCommand || null);
-  if (shouldPreferLocalCommand(localCommand)) return localCommand;
+  if (shouldPreferLocalCommand(localCommand, text)) return localCommand;
 
   try {
     const geminiCommand = await askGeminiForUnderstanding({ text, session, financeSnapshot });
@@ -212,7 +238,7 @@ export async function processAssistantTurn({ text, session, user }) {
 
   const command = await understandInput({ text: input, session, financeSnapshot, userKey: getUserKey(activeUser), user: activeUser });
 
-  if (shouldExecuteImmediately(command)) {
+  if (shouldExecuteImmediately(command, input)) {
     const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
     return {
       command: { ...command, status: result.success ? "executed" : "error" },
