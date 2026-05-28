@@ -1,5 +1,6 @@
 import { searchMultipleMemoryCabinets } from "./memory-cabinets";
 import { formatUniversalMemoryProfileForPrompt, readUniversalMemoryProfile } from "./clara-universal-memory-profile";
+import { formatUserContextStoryForPrompt, readUserContextStory } from "./clara-user-context-story";
 
 const CLARA_MEMORY_KEY = "clara_behavioral_memory_v1";
 
@@ -206,6 +207,28 @@ function buildUniversalMemorySummary() {
   return formatUniversalMemoryProfileForPrompt(profile);
 }
 
+function buildUserContextStorySummary() {
+  const story = readUserContextStory();
+  const text = formatUserContextStoryForPrompt(story);
+  if (!story?.bulletCount && !story?.essay) return "No user context story saved yet.";
+  return text;
+}
+
+function buildUserContextStoryPromptBlock() {
+  const storySummary = buildUserContextStorySummary();
+  if (storySummary === "No user context story saved yet.") return storySummary;
+
+  return `By the way, below is the user's broader life story and personal context.
+
+This is NOT meant to be repeated directly to the user.
+Use it quietly to better understand the user emotionally, behaviorally, and personally.
+Do NOT mention "context story".
+Do NOT expose these bullets directly.
+Do NOT sound robotic or analytical.
+
+${storySummary}`;
+}
+
 export function getClaraBehavioralMemorySnapshot() {
   const memory = readBehavioralMemory();
   const items = Object.values(memory.items || {}).filter((item) => safeText(item?.value));
@@ -221,6 +244,7 @@ export function buildClaraBehavioralContextForPrompt(message = "") {
   const snapshot = getClaraBehavioralMemorySnapshot();
   const cabinetSummary = buildCabinetMemorySummary(message);
   const universalSummary = buildUniversalMemorySummary();
+  const userContextStory = buildUserContextStoryPromptBlock();
 
   if (!snapshot.count) {
     return `CLARA BEHAVIORAL INTELLIGENCE MEMORY:
@@ -229,11 +253,14 @@ No saved Talk to CLARA behavioral memory yet.
 Universal memory profile:
 ${universalSummary}
 
+User context story:
+${userContextStory}
+
 Long-term pattern summaries:
 ${cabinetSummary}
 
 Memory wording rules:
-- Never say "your spending memory shows", "your emotional memory shows", "cabinet", "database", or "stored memory" to the user.
+- Never say "your spending memory shows", "your emotional memory shows", "cabinet", "database", "stored memory", or "context story" to the user.
 - Translate memory into natural human wording like "I’m noticing a pattern..." or "It looks like...".`;
   }
 
@@ -249,6 +276,9 @@ ${snapshot.summary}
 Universal memory profile:
 ${universalSummary}
 
+User context story:
+${userContextStory}
+
 Long-term pattern summaries:
 ${cabinetSummary}
 
@@ -258,7 +288,7 @@ ${signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : "- No str
 Behavioral response rules:
 - Use this memory to reason, not to recite.
 - Mention at most one or two relevant patterns naturally.
-- Never say "your spending memory shows", "your emotional memory shows", "cabinet", "database", "stored memory", "routing", or "internal scoring" to the user.
+- Never say "your spending memory shows", "your emotional memory shows", "cabinet", "database", "stored memory", "routing", "internal scoring", or "context story" to the user.
 - Prefer natural phrases like "I’m noticing a pattern...", "It looks like...", "This may be connected to...", or "A safer way to handle that pattern is...".
 - If the user asks what CLARA knows, summarize warmly by human areas: life situation, spending behavior, life patterns, and financial setup.
 - Adjust tone based on motivation style when present.
