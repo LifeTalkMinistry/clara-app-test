@@ -96,6 +96,7 @@ function isTemporaryOrLiveFactBullet(value = "") {
   if (/\b(balance across all wallets|money left right now|remaining right now|currently has|currently have)\b/i.test(text)) return true;
   if (/\b(is asking|asked|checking their wallet|checking his wallet|checking her wallet|see if they can afford|recent improvement in spending habits)\b/i.test(text)) return true;
   if (/\b(today|right now|currently|this exact moment)\b.*\b(balance|wallet|amount|remaining|left)\b/i.test(text)) return true;
+  if (/\b(is considering|considering purchasing|wants to buy|planning to buy)\b/i.test(text)) return true;
   if (/^no strong pattern saved yet\.?$/i.test(text)) return true;
   return false;
 }
@@ -151,7 +152,7 @@ function sectionMapToStory(map = new Map(), meta = {}) {
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 5,
+    schemaVersion: 6,
     sections,
     createdAt: clean(meta.createdAt) || now(),
     updatedAt: clean(meta.updatedAt) || now(),
@@ -254,6 +255,94 @@ function mergeStoryPatch(existingStory = {}, ...patchStories) {
 
   return sectionMapToStory(merged, {
     createdAt: base.createdAt || now(),
+    updatedAt: now(),
+  });
+}
+
+function semanticKey(title = "", bullet = "") {
+  const text = clean(bullet).toLowerCase();
+  if (/social pressure|invite|invited|friends|family|eat out/.test(text) && /spend|money|saving|budget|pressure/.test(text)) return `${title}:social-pressure-spending`;
+  if (/food delivery|convenience food|convenience meals|craving|cravings|takeout|order food/.test(text)) return `${title}:convenience-food-temptation`;
+  if (/boredom|bored/.test(text)) return `${title}:boredom-trigger`;
+  if (/hunger|hungry/.test(text)) return `${title}:hunger-trigger`;
+  if (/late-night|nighttime|at night/.test(text) && /exhaust|tired|spend|food|impulse|trigger/.test(text)) return `${title}:late-night-risk`;
+  if (/pause|pausing|avoid rushing/.test(text) && /spend|decision|choice/.test(text)) return `${title}:pause-before-spending`;
+  if (/supportive|calm guidance|guilt/.test(text)) return `${title}:supportive-guidance`;
+  if (/emergency fund|unexpected expenses|financial protection|boundaries/.test(text)) return `${title}:financial-protection`;
+  if (/work|shift|after-work|after work/.test(text) && /exhaust|stress|condition|schedule|decision|fatigue/.test(text)) return `${title}:work-fatigue`;
+  return `${title}:${text.replace(/[^a-z0-9]+/g, " ").trim().slice(0, 90)}`;
+}
+
+function expandTagLikeBullet(title = "", bullet = "") {
+  const raw = normalizeBullet(bullet);
+  const text = raw.toLowerCase().replace(/[.!?]+$/g, "").trim();
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const isTagLike = wordCount <= 4 && !/\b(user|after|during|because|when|helps|wants|prefers|experiences|can|becomes)\b/i.test(raw);
+
+  if (!isTagLike) return raw;
+
+  if (title === "Food" && /food delivery|delivery|convenience food|convenience meals|takeout|order food/.test(text)) {
+    return "Food delivery and convenience meals are recurring temptations during tired or late-night periods.";
+  }
+  if (title === "Food" && /craving|cravings|hunger|hungry/.test(text)) {
+    return "Food cravings become harder to manage during hunger, stress, or low-energy moments.";
+  }
+  if (title === "Triggers" && /boredom|bored/.test(text)) {
+    return "Late-night boredom can increase impulsive spending.";
+  }
+  if (title === "Triggers" && /hunger|hungry/.test(text)) {
+    return "Hunger can make convenience food spending more tempting.";
+  }
+  if (title === "Triggers" && /social pressure/.test(text)) {
+    return "Social pressure can trigger spending even when the user is trying to save.";
+  }
+  if (title === "Lifestyle" && /basketball|hobby|hobbies/.test(text)) {
+    return "Healthier hobbies like basketball can support stress relief without relying on spending.";
+  }
+  if (title === "Routine" && /night|late-night|after work|after-work/.test(text)) {
+    return "Late-night and after-work routines can influence spending discipline.";
+  }
+
+  return raw;
+}
+
+function isWrongCategoryBullet(title = "", bullet = "") {
+  const text = clean(bullet).toLowerCase();
+
+  if (title === "Work") {
+    const socialOnly = /social pressure|friends|family|invite|invited|eat out/.test(text);
+    const workRelevant = /work schedule|shift|job|career|work-related|mental exhaustion|after-work conditions|after-work fatigue|work stress|workload/.test(text);
+    if (socialOnly && !workRelevant) return true;
+  }
+
+  if (title === "Health" && /merchandise|jersey|ball|purchas|buy/.test(text)) return true;
+  if (title === "Money" && /^food delivery\.?$|^convenience food\.?$|^boredom\.?$/i.test(text)) return true;
+
+  return false;
+}
+
+function polishMemoryStory(story = {}) {
+  const normalized = normalizeStory(story);
+  const polishedMap = new Map();
+
+  (normalized.sections || []).forEach((section) => {
+    const seen = new Set();
+    const title = titleToFixedCategory(section.title);
+
+    getSectionBullets(section).forEach((bullet) => {
+      if (isWrongCategoryBullet(title, bullet)) return;
+      const polished = expandTagLikeBullet(title, bullet);
+      if (!polished || isTemporaryOrLiveFactBullet(polished)) return;
+
+      const key = semanticKey(title, polished);
+      if (seen.has(key)) return;
+      seen.add(key);
+      addPatch(polishedMap, title, polished);
+    });
+  });
+
+  return sectionMapToStory(polishedMap, {
+    createdAt: normalized.createdAt || now(),
     updatedAt: now(),
   });
 }
@@ -377,10 +466,13 @@ function fallbackStoryFromMemory(memory = {}) {
   const existingStory = readUserContextStory();
   const deterministicPatch = { sections: deterministicSectionsFromMemory(memory) };
   const mergedStory = mergeStoryPatch(existingStory, deterministicPatch);
+  const polishedStory = polishMemoryStory(mergedStory);
   console.log("Existing memory:", existingStory);
   console.log("Incoming patch:", deterministicPatch);
   console.log("Merged memory:", mergedStory);
-  return writeUserContextStory(mergedStory);
+  console.log("Memory before polish:", mergedStory);
+  console.log("Memory after polish:", polishedStory);
+  return writeUserContextStory(polishedStory);
 }
 
 async function updateUserContextStoryWithAi(memory = {}) {
@@ -389,10 +481,13 @@ async function updateUserContextStoryWithAi(memory = {}) {
 
   if (!hasGeminiJsonConfig()) {
     const mergedStory = mergeStoryPatch(existingStory, deterministicPatch);
+    const polishedStory = polishMemoryStory(mergedStory);
     console.log("Existing memory:", existingStory);
     console.log("Incoming patch:", deterministicPatch);
     console.log("Merged memory:", mergedStory);
-    return writeUserContextStory(mergedStory);
+    console.log("Memory before polish:", mergedStory);
+    console.log("Memory after polish:", polishedStory);
+    return writeUserContextStory(polishedStory);
   }
 
   const prompt = `You are CLARA's User Context Story Editor.
@@ -424,6 +519,12 @@ Routing examples:
 - "Pause first before spending" -> Decision Style, Money, Growth.
 - "Basketball helps me cope" -> Health, Lifestyle, Emotional, Routine, Triggers.
 
+Quality rules:
+- Do not return tag-like bullets such as "Food delivery" or "Boredom".
+- Write full behavioral insights, not labels.
+- Keep Work focused on schedule, shift fatigue, work stress, or after-work exhaustion.
+- Put social pressure primarily under Relationships, Triggers, or Money.
+
 Rules:
 - Return JSON only.
 - NEVER create a new category.
@@ -442,16 +543,22 @@ JSON shape:
     const aiPatch = normalizePatchStory(result.json || {});
     const combinedPatch = mergeStoryPatch({ sections: [] }, deterministicPatch, aiPatch);
     const mergedStory = mergeStoryPatch(existingStory, combinedPatch);
+    const polishedStory = polishMemoryStory(mergedStory);
     console.log("Existing memory:", existingStory);
     console.log("Incoming patch:", combinedPatch);
     console.log("Merged memory:", mergedStory);
-    return writeUserContextStory(mergedStory);
+    console.log("Memory before polish:", mergedStory);
+    console.log("Memory after polish:", polishedStory);
+    return writeUserContextStory(polishedStory);
   } catch {
     const mergedStory = mergeStoryPatch(existingStory, deterministicPatch);
+    const polishedStory = polishMemoryStory(mergedStory);
     console.log("Existing memory:", existingStory);
     console.log("Incoming patch:", deterministicPatch);
     console.log("Merged memory:", mergedStory);
-    return writeUserContextStory(mergedStory);
+    console.log("Memory before polish:", mergedStory);
+    console.log("Memory after polish:", polishedStory);
+    return writeUserContextStory(polishedStory);
   }
 }
 
