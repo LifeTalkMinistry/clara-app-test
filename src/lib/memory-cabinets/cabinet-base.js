@@ -2,7 +2,7 @@ import { getCabinetDefinition } from "./cabinet-registry";
 
 const PREFIX = "CLARA_MEMORY_CABINET_V1";
 const LIMIT = 80;
-const MERGE_SIMILARITY_THRESHOLD = 0.46;
+const MERGE_SIMILARITY_THRESHOLD = 0.38;
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -16,7 +16,7 @@ function keyFor(cabinetKey) {
   return `${PREFIX}:${cabinetKey}`;
 }
 
-function readEntries(cabinetKey) {
+function readRawEntries(cabinetKey) {
   if (typeof window === "undefined") return [];
   try {
     const parsed = JSON.parse(window.localStorage.getItem(keyFor(cabinetKey)) || "[]");
@@ -52,7 +52,10 @@ function makeList(value) {
 }
 
 function normalizeWords(value = "") {
-  const stopWords = new Set(["the", "and", "that", "this", "with", "from", "because", "after", "before", "your", "you", "user", "clara", "money", "memory"]);
+  const stopWords = new Set([
+    "the", "and", "that", "this", "with", "from", "because", "after", "before", "your", "you", "user", "clara", "money", "memory",
+    "tend", "tends", "feel", "feeling", "indicating", "identified", "habit", "linked", "frequently", "recurring", "pattern",
+  ]);
   return clean(value)
     .toLowerCase()
     .replace(/[^a-z0-9ñáéíóúü\s]/gi, " ")
@@ -69,7 +72,7 @@ function similarity(left = "", right = "") {
   const b = new Set(normalizeWords(right));
   if (!a.size || !b.size) return 0;
   const shared = [...a].filter((word) => b.has(word)).length;
-  return shared / Math.max(a.size, b.size);
+  return shared / Math.min(a.size, b.size);
 }
 
 function uniqueList(...lists) {
@@ -102,12 +105,13 @@ function normalizeEntry(cabinet, input = {}) {
     should_use_when: makeList(input.should_use_when || input.shouldUseWhen),
     createdAt: clean(input.createdAt) || timestamp,
     firstSeenAt: clean(input.firstSeenAt || input.createdAt) || timestamp,
-    lastSeenAt: clean(input.lastSeenAt) || timestamp,
-    updatedAt: timestamp,
+    lastSeenAt: clean(input.lastSeenAt || input.updatedAt) || timestamp,
+    updatedAt: clean(input.updatedAt) || timestamp,
     occurrenceCount: count,
     patternStrength: clean(input.patternStrength) || strengthLabel(count),
     relevanceScore: Math.max(0, Math.min(1, Number(input.relevanceScore ?? input.score ?? 0.65))),
     source: clean(input.source) || "clara_memory_cabinet",
+    mergedFromSimilarMemory: Boolean(input.mergedFromSimilarMemory),
   };
 }
 
@@ -131,7 +135,9 @@ function findMergeIndex(entries = [], entry = {}) {
 }
 
 function mergeEntries(existing = {}, incoming = {}) {
-  const occurrenceCount = Math.max(1, Number(existing.occurrenceCount || 1)) + 1;
+  const existingCount = Math.max(1, Number(existing.occurrenceCount || 1));
+  const incomingCount = Math.max(1, Number(incoming.occurrenceCount || 1));
+  const occurrenceCount = existingCount + incomingCount;
   const summary = incoming.summary.length > existing.summary.length ? incoming.summary : existing.summary;
   const relevanceScore = Math.min(1, Math.max(Number(existing.relevanceScore || 0.65), Number(incoming.relevanceScore || 0.65)) + 0.06);
 
@@ -140,10 +146,11 @@ function mergeEntries(existing = {}, incoming = {}) {
     ...incoming,
     id: existing.id,
     createdAt: existing.createdAt || incoming.createdAt,
-    firstSeenAt: existing.firstSeenAt || existing.createdAt || incoming.firstSeenAt,
-    lastSeenAt: now(),
+    firstSeenAt: [existing.firstSeenAt, existing.createdAt, incoming.firstSeenAt, incoming.createdAt].filter(Boolean).sort()[0] || now(),
+    lastSeenAt: [existing.lastSeenAt, existing.updatedAt, incoming.lastSeenAt, incoming.updatedAt].filter(Boolean).sort().slice(-1)[0] || now(),
     updatedAt: now(),
     summary,
+    pattern_key: existing.pattern_key || incoming.pattern_key || signature(summary),
     signals: uniqueList(existing.signals, incoming.signals),
     should_use_when: uniqueList(existing.should_use_when, incoming.should_use_when),
     emotional_tone: incoming.emotional_tone || existing.emotional_tone,
@@ -153,6 +160,17 @@ function mergeEntries(existing = {}, incoming = {}) {
     relevanceScore,
     mergedFromSimilarMemory: true,
   };
+}
+
+function consolidateEntries(cabinet, entries = []) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => normalizeEntry(cabinet, entry))
+    .filter(Boolean)
+    .reduce((merged, entry) => {
+      const mergeIndex = findMergeIndex(merged, entry);
+      if (mergeIndex < 0) return [entry, ...merged];
+      return merged.map((item, index) => index === mergeIndex ? mergeEntries(item, entry) : item);
+    }, []);
 }
 
 function searchScore(entry, query) {
@@ -169,36 +187,45 @@ export function createMemoryCabinet(cabinetName) {
   const cabinet = getCabinetDefinition(cabinetName);
   if (!cabinet) throw new Error(`Unknown CLARA memory cabinet: ${cabinetName}`);
 
+  function readConsolidatedEntries() {
+    const raw = readRawEntries(cabinet.key);
+    const consolidated = consolidateEntries(cabinet, raw);
+    if (consolidated.length !== raw.length || consolidated.some((entry, index) => entry.pattern_key !== raw[index]?.pattern_key || entry.occurrenceCount !== raw[index]?.occurrenceCount)) {
+      return writeEntries(cabinet.key, consolidated);
+    }
+    return consolidated;
+  }
+
   return {
     cabinet,
     readAll() {
-      return readEntries(cabinet.key);
+      return readConsolidatedEntries();
     },
     save(input = {}) {
       const entry = normalizeEntry(cabinet, input);
       if (!entry) return null;
-      const current = readEntries(cabinet.key);
+      const current = readConsolidatedEntries();
       const mergeIndex = findMergeIndex(current, entry);
       const next = mergeIndex >= 0
         ? current.map((item, index) => index === mergeIndex ? mergeEntries(item, entry) : item)
         : [entry, ...current];
-      const saved = writeEntries(cabinet.key, next);
+      const saved = writeEntries(cabinet.key, consolidateEntries(cabinet, next));
       return mergeIndex >= 0 ? saved.find((item) => item.id === current[mergeIndex].id) || entry : entry;
     },
     update(id, patch = {}) {
-      const current = readEntries(cabinet.key);
+      const current = readConsolidatedEntries();
       const next = current.map((item) => item.id === id ? { ...item, ...patch, id: item.id, createdAt: item.createdAt, updatedAt: now() } : item);
-      writeEntries(cabinet.key, next);
+      writeEntries(cabinet.key, consolidateEntries(cabinet, next));
       return next.find((item) => item.id === id) || null;
     },
     remove(id) {
-      const current = readEntries(cabinet.key);
+      const current = readConsolidatedEntries();
       const next = current.filter((item) => item.id !== id);
       writeEntries(cabinet.key, next);
       return next.length !== current.length;
     },
     search(query = "", limit = 5) {
-      return readEntries(cabinet.key)
+      return readConsolidatedEntries()
         .map((item) => ({ ...item, relevanceScore: searchScore(item, query) }))
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .slice(0, limit);
