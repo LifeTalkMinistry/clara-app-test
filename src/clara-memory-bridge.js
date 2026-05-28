@@ -2,6 +2,7 @@ import "./life-stage-progressive-flow";
 import "./life-stage-selection-explanations";
 import "./life-stage-hide-stage-picker-progress";
 import "./life-stage-progressive-flow.css";
+import "./clara-assistant-memory-tab";
 
 const CLARA_MEMORY_KEY = "clara_behavioral_memory_v1";
 const CLARA_MEMORY_DB = "clara_behavioral_memory_db";
