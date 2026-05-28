@@ -37,6 +37,7 @@ const SECTION_ALIASES = new Map([
   ["decision", "Decision Style"],
   ["learning", "Growth"],
   ["relationship", "Relationships"],
+  ["relationships", "Relationships"],
   ["sports", "Health"],
   ["sport", "Health"],
   ["fitness", "Health"],
@@ -48,6 +49,7 @@ const MEMORY_EDIT_FOLLOW_UP = "Anything else you want to add, move, remove, or c
 
 let memoryEditMessages = [];
 let memoryEditProcessing = false;
+let pendingMemoryEditClarification = null;
 
 function safeParseStorage(key) {
   try {
@@ -132,7 +134,7 @@ function categoryForBullet(bullet = "", fallbackTitle = "Lifestyle") {
   if (/\b(stress|exhaust|tired|anxiety|guilt|motivation|confidence|emotion|mental|reward-spending|drained)\b/i.test(text)) return "Emotional";
   if (/\b(sleep|energy|exercise|basketball|sport|sports|gym|jogging|fitness|sickness|medication|food discipline)\b/i.test(text)) return "Health";
   if (/\b(routine|commute|after-work|after work|weekend|nighttime|night|daily|payday rhythm|low energy periods)\b/i.test(text)) return "Routine";
-  if (/\b(family|partner|friend|coworker|dependent|social pressure|relationship)\b/i.test(text)) return "Relationships";
+  if (/\b(family|partner|friend|coworker|dependent|social pressure|relationship|girlfriend|boyfriend|wife|husband)\b/i.test(text)) return "Relationships";
   if (/\b(home|rent|household|living situation|shared expenses)\b/i.test(text)) return "Home";
   if (/\b(food|craving|delivery|convenience food|groceries|meal|takeout|order food)\b/i.test(text)) return "Food";
   if (/\b(hobby|entertainment|shopping|travel|social life|basketball)\b/i.test(text)) return "Lifestyle";
@@ -186,12 +188,12 @@ function normalizeSections(value, { includeEmpty = true, trustSavedTitles = fals
     .filter(Boolean);
 }
 
-function buildNormalizedStory(rawStory) {
+function buildNormalizedStory(rawStory = {}) {
   const sections = normalizeSections(rawStory, { includeEmpty: false, trustSavedTitles: true });
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 7,
+    schemaVersion: 8,
     sections: sections.map((section) => ({
       id: section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
       title: section.title,
@@ -216,7 +218,7 @@ function migrateStoredStoryIfNeeded(rawStory) {
   const after = JSON.stringify(normalized.sections || []);
   const usesOnlyFixed = normalized.sections.every((section) => FIXED_MEMORY_SECTIONS.includes(section.title));
 
-  if (before !== after || Number(rawStory.schemaVersion || 0) < 7 || !usesOnlyFixed) {
+  if (before !== after || Number(rawStory.schemaVersion || 0) < 8 || !usesOnlyFixed) {
     try {
       window.localStorage.setItem(USER_CONTEXT_STORY_KEY, JSON.stringify(normalized));
       window.dispatchEvent(new CustomEvent("clara-user-context-story-updated", { detail: normalized }));
@@ -257,9 +259,7 @@ function createSectionHtml(section) {
   return `
     <section class="clara-memory-section ${section.bullets.length ? "" : "is-empty"}">
       <h4>${escapeHtml(section.title)}</h4>
-      <ul>
-        ${items}
-      </ul>
+      <ul>${items}</ul>
     </section>
   `;
 }
@@ -326,6 +326,44 @@ function normalizePatchUpdates(updates = []) {
     .filter(Boolean);
 }
 
+function normalizeMemoryEditResult(json = {}, fallbackReply = "") {
+  const status = ["needs_clarification", "ready_to_update", "no_change"].includes(json?.status)
+    ? json.status
+    : normalizePatchUpdates(json?.updates || []).length
+      ? "ready_to_update"
+      : "needs_clarification";
+
+  const updates = normalizePatchUpdates(json?.updates || []);
+  const clarifyingQuestion = clean(json?.clarifying_question || json?.clarifyingQuestion || "");
+  const assistantReply = clean(json?.assistant_reply || json?.assistantReply || fallbackReply || "");
+
+  if (status === "ready_to_update" && !updates.length) {
+    return {
+      status: "needs_clarification",
+      updates: [],
+      clarifying_question: clarifyingQuestion || "What exactly should I add, move, remove, or correct?",
+      assistant_reply: assistantReply || clarifyingQuestion || "What exactly should I add, move, remove, or correct?",
+    };
+  }
+
+  if (status === "needs_clarification") {
+    const question = clarifyingQuestion || assistantReply || "What should CLARA change on your memory board?";
+    return {
+      status,
+      updates: [],
+      clarifying_question: question,
+      assistant_reply: assistantReply || question,
+    };
+  }
+
+  return {
+    status,
+    updates,
+    clarifying_question: clarifyingQuestion,
+    assistant_reply: assistantReply || (status === "ready_to_update" ? `Got it — I updated your memory board. ${MEMORY_EDIT_FOLLOW_UP}` : "No changes made yet."),
+  };
+}
+
 function matchBulletForRemoval(savedBullet = "", removal = "") {
   const saved = clean(savedBullet).toLowerCase();
   const target = clean(removal).toLowerCase();
@@ -382,7 +420,7 @@ function applyMemoryBoardPatch(existingStory = readUserContextStory(), updates =
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 7,
+    schemaVersion: 8,
     sections: nextSections,
     createdAt: existingStory?.createdAt || now(),
     updatedAt: now(),
@@ -394,104 +432,153 @@ function applyMemoryBoardPatch(existingStory = readUserContextStory(), updates =
 
 function isExitMemoryEditText(value = "") {
   const text = clean(value).toLowerCase().replace(/[.!?]+$/g, "");
-  return /^(no|no thanks|that'?s all|thats all|done|exit|exit edit mode|stop|okay na|tapos na)$/i.test(text);
+  return /^(no|no thanks|that'?s all|thats all|done|exit|exit edit mode|stop|okay na|tapos na|all set|all set for now|nothing else|good for now|i'?m good|im good|we'?re good|were good)$/i.test(text);
 }
 
 function buildMemoryEditPrompt(userMessage = "") {
+  const pendingBlock = pendingMemoryEditClarification
+    ? `\nPrevious unclear message:\n"${pendingMemoryEditClarification.originalUserMessage}"\n\nClarifying question CLARA already asked:\n"${pendingMemoryEditClarification.clarifyingQuestion}"\n\nUser's new answer:\n"${clean(userMessage)}"\n\nUse the previous unclear message, the clarifying question, and the user's new answer together. If the answer now makes the edit clear, return ready_to_update. If it is still unclear, ask one more specific follow-up and do not update yet.`
+    : `\nUser correction:\n"${clean(userMessage)}"`;
+
   return `You are CLARA’s Memory Board Editor.
 
-The user is editing CLARA’s memory board.
+You are not just a command parser. You are a conversational memory editor.
+Your job is to understand whether the user gave enough information to safely update CLARA's memory board.
 
 Current memory board:
 ${buildMemoryBoardText()}
+${pendingBlock}
 
-User correction:
-"${clean(userMessage)}"
+Return JSON only with this exact shape:
+{
+  "status": "needs_clarification" | "ready_to_update" | "no_change",
+  "clarifying_question": "",
+  "updates": [
+    { "category": "Relationships", "remove": [], "add": ["User is in a relationship."] }
+  ],
+  "assistant_reply": ""
+}
 
-Your task:
-Return a PATCH only.
-
-Rules:
-- You may edit multiple fixed categories if needed.
-- You may add, revise, move, or remove bullets.
-- Do NOT create new categories.
-- Do NOT rewrite unrelated categories.
-- Do NOT remove existing memory unless user clearly asks.
+Core rules:
+- If the user's instruction is clear, return status "ready_to_update" and a PATCH only.
+- If the user's instruction is unclear, incomplete, too vague, or references "that" without a clear target, return "needs_clarification" and ask one natural follow-up question.
+- Do NOT update memory when status is "needs_clarification".
+- Never pretend an update happened if it did not.
+- If the user asks a normal question during edit mode, answer briefly in assistant_reply and connect it back to memory editing. Use status "no_change" unless they also request an edit.
 - Treat user correction as higher authority than AI-generated memory.
-- Keep bullets concise, human-readable, and stable.
+- Preserve unrelated categories.
+- Do not rewrite the whole board.
+- Use only fixed categories. Never create custom categories.
+- May update multiple categories only when the user's meaning is clear.
 - Never save live balances, temporary amounts, one-time affordability checks, or “user is asking/checking…”
-- Return JSON only.
+- Keep bullets concise, human-readable, and stable.
 
 Fixed categories only:
 ${FIXED_MEMORY_SECTIONS.join(", ")}
 
-Return shape:
-{
-  "updates": [
-    {
-      "category": "Money",
-      "remove": ["Food delivery, cravings, and convenience meals are recurring spending temptations."],
-      "add": []
-    },
-    {
-      "category": "Food",
-      "remove": [],
-      "add": ["Food delivery and convenience meals are recurring temptations during tired or late-night periods."]
-    }
-  ],
-  "assistant_reply": "Got it. I updated your memory board. Anything else you want to add, move, remove, or correct?"
-}`;
+When to ask clarification:
+- "I have a girlfriend" -> Ask whether to save simply under Relationships or also as emotional/future money context.
+- "Move that to Lifestyle" -> Ask which memory they mean.
+- "On lifestyle" -> Ask what they want to add or correct under Lifestyle.
+- "Fix this" -> Ask what should be changed and where.
+
+Good replies:
+- "Got it — I added your girlfriend under Relationships. Since you only mentioned the relationship detail, I didn’t add anything to Money or Emotional yet. ${MEMORY_EDIT_FOLLOW_UP}"
+- "I’m not sure what you want added under Lifestyle yet. What should CLARA remember — a hobby, habit, preference, or spending pattern?"
+- "Which memory do you want me to move to Lifestyle — the basketball coping habit or the healthier hobbies note?"`;
 }
 
-function fallbackPatchFromEditText(userMessage = "") {
+function fallbackMemoryEditResult(userMessage = "") {
   const text = clean(userMessage);
   const lower = text.toLowerCase();
   const updates = [];
   const categoryPattern = FIXED_MEMORY_SECTIONS.map((item) => item.replace(/\s+/g, "\\s+")).join("|");
+
+  if (pendingMemoryEditClarification) {
+    const targetCategory = fixedTitleFromSection(pendingMemoryEditClarification.possibleTargetCategory || "");
+    if (FIXED_MEMORY_SECTIONS.includes(targetCategory) && text.length > 4) {
+      updates.push({ category: targetCategory, remove: [], add: [text] });
+      return normalizeMemoryEditResult({
+        status: "ready_to_update",
+        updates,
+        assistant_reply: `Got it — I added that under ${targetCategory}. ${MEMORY_EDIT_FOLLOW_UP}`,
+      });
+    }
+  }
+
   const moveMatch = lower.match(new RegExp(`move\\s+(.+?)\\s+from\\s+(${categoryPattern})\\s+to\\s+(${categoryPattern})`, "i"));
   if (moveMatch) {
     const phrase = clean(moveMatch[1]);
     updates.push({ category: fixedTitleFromSection(moveMatch[2]), remove: [phrase], add: [] });
     updates.push({ category: fixedTitleFromSection(moveMatch[3]), remove: [], add: [phrase] });
-    return { updates, assistant_reply: `Got it. I moved that memory. ${MEMORY_EDIT_FOLLOW_UP}` };
+    return normalizeMemoryEditResult({ status: "ready_to_update", updates, assistant_reply: `Got it — I moved that memory. ${MEMORY_EDIT_FOLLOW_UP}` });
   }
 
-  const addMatch = text.match(new RegExp(`(?:add|save|put)\\s+(?:this\\s+)?(?:to|under|in)\\s+(${categoryPattern})[:\\s-]+(.+)`, "i"));
+  const addMatch = text.match(new RegExp(`(?:add|save|put)\\s+(?:this\\s+)?(?:to|under|in|on)\\s+(${categoryPattern})[:\\s-]+(.+)`, "i"));
   if (addMatch) {
-    updates.push({ category: fixedTitleFromSection(addMatch[1]), remove: [], add: [clean(addMatch[2])] });
-    return { updates, assistant_reply: `Got it. I updated your ${fixedTitleFromSection(addMatch[1])} memory. ${MEMORY_EDIT_FOLLOW_UP}` };
+    const category = fixedTitleFromSection(addMatch[1]);
+    updates.push({ category, remove: [], add: [clean(addMatch[2])] });
+    return normalizeMemoryEditResult({ status: "ready_to_update", updates, assistant_reply: `Got it — I added that under ${category}. ${MEMORY_EDIT_FOLLOW_UP}` });
   }
 
-  const removeMatch = text.match(new RegExp(`(?:remove|delete)\\s+(.+?)\\s+(?:from|under|in)\\s+(${categoryPattern})`, "i"));
-  if (removeMatch) {
-    updates.push({ category: fixedTitleFromSection(removeMatch[2]), remove: [clean(removeMatch[1])], add: [] });
-    return { updates, assistant_reply: `Got it. I removed that memory if it matched. ${MEMORY_EDIT_FOLLOW_UP}` };
+  const relationshipAdd = /\b(add|save|remember|put)\b/i.test(text) && /\b(relationship|relationships|girlfriend|boyfriend|partner)\b/i.test(text);
+  if (relationshipAdd) {
+    updates.push({ category: "Relationships", remove: [], add: [text.replace(/^no,?\s*/i, "")] });
+    return normalizeMemoryEditResult({
+      status: "ready_to_update",
+      updates,
+      assistant_reply: `Got it — I added that under Relationships. Since you only mentioned the relationship detail, I didn’t add anything to Money or Emotional yet. ${MEMORY_EDIT_FOLLOW_UP}`,
+    });
   }
 
-  return {
-    updates: [],
-    assistant_reply: "I’m ready to edit, but I need the category or action more clearly. Try: ‘Move the food delivery note from Money to Food’ or ‘Add to Lifestyle: basketball helps me reset.’",
-  };
+  if (/^on\s+/.test(lower) || /^under\s+/.test(lower) || /^in\s+/.test(lower)) {
+    const category = FIXED_MEMORY_SECTIONS.find((item) => lower.includes(item.toLowerCase()));
+    const target = category || "that category";
+    return normalizeMemoryEditResult({
+      status: "needs_clarification",
+      clarifying_question: `What would you like me to add or correct under ${target}?`,
+      assistant_reply: `What would you like me to add or correct under ${target}?`,
+    });
+  }
+
+  if (/\b(that|this|it)\b/i.test(text) && /\b(move|remove|delete|change|fix)\b/i.test(text)) {
+    return normalizeMemoryEditResult({
+      status: "needs_clarification",
+      clarifying_question: "Which memory do you mean, and what category should I update?",
+      assistant_reply: "Which memory do you mean, and what category should I update?",
+    });
+  }
+
+  if (/\b(girlfriend|boyfriend|partner)\b/i.test(text) && !/\b(add|save|remember|put)\b/i.test(text)) {
+    return normalizeMemoryEditResult({
+      status: "needs_clarification",
+      clarifying_question: "Do you want me to save this simply under Relationships, or should I also remember that your relationship may affect emotional support or future money decisions?",
+      assistant_reply: "Got it. Do you want me to save this simply under Relationships, or should I also remember that your relationship may affect emotional support or future money decisions?",
+    });
+  }
+
+  return normalizeMemoryEditResult({
+    status: "needs_clarification",
+    clarifying_question: "What exactly should I add, move, remove, or correct on your memory board?",
+    assistant_reply: "What exactly should I add, move, remove, or correct on your memory board?",
+  });
 }
 
-async function getMemoryBoardEditPatch(userMessage = "") {
-  if (!hasGeminiJsonConfig()) return fallbackPatchFromEditText(userMessage);
+async function getMemoryBoardEditResult(userMessage = "") {
+  if (!hasGeminiJsonConfig()) return fallbackMemoryEditResult(userMessage);
 
   try {
     const result = await requestGeminiJson({
       prompt: buildMemoryEditPrompt(userMessage),
-      temperature: 0.12,
-      maxOutputTokens: 1100,
-      label: "CLARA Memory Board Editor",
+      temperature: 0.22,
+      maxOutputTokens: 1300,
+      label: "CLARA Conversational Memory Board Editor",
     });
 
-    return {
-      updates: normalizePatchUpdates(result.json?.updates || []),
-      assistant_reply: clean(result.json?.assistant_reply) || `Got it. I updated your memory board. ${MEMORY_EDIT_FOLLOW_UP}`,
-    };
+    return normalizeMemoryEditResult(result.json || {});
   } catch (error) {
-    console.warn("[CLARA Memory Edit] Gemini failed, using fallback patch.", error);
-    return fallbackPatchFromEditText(userMessage);
+    console.warn("[CLARA Memory Edit] Gemini failed, using conversational fallback.", error);
+    return fallbackMemoryEditResult(userMessage);
   }
 }
 
@@ -524,12 +611,12 @@ function buildMemoryEditPanelHtml() {
         <main class="clara-memory-edit-body">
           <div class="clara-memory-edit-note">
             <p>Edit Memory Board</p>
-            <span>Tell CLARA what to add, move, remove, or correct. It can update multiple fixed categories at once.</span>
+            <span>Tell CLARA what to add, move, remove, or correct. If something is unclear, CLARA should ask before changing memory.</span>
           </div>
 
           <div class="clara-memory-edit-messages" data-memory-edit-messages="true">
             ${memoryEditMessages.map(createMemoryEditMessageHtml).join("")}
-            ${memoryEditProcessing ? `<div class="clara-memory-edit-message assistant">CLARA is updating your memory...</div>` : ""}
+            ${memoryEditProcessing ? `<div class="clara-memory-edit-message assistant">CLARA is thinking through your edit...</div>` : ""}
           </div>
         </main>
 
@@ -544,6 +631,10 @@ function buildMemoryEditPanelHtml() {
 
 function removeMemoryEditPanel() {
   document.getElementById(MEMORY_EDIT_PANEL_ID)?.remove();
+}
+
+function removeMemoryPanel() {
+  document.getElementById(MEMORY_PANEL_ID)?.remove();
 }
 
 function showMemoryEditPanel() {
@@ -561,6 +652,12 @@ function showMemoryEditPanel() {
   });
 }
 
+function showMemoryPanel() {
+  removeMemoryPanel();
+  removeMemoryEditPanel();
+  document.body.insertAdjacentHTML("beforeend", buildMemoryPanelHtml());
+}
+
 async function submitMemoryEditText(userMessage = "") {
   const text = clean(userMessage);
   if (!text || memoryEditProcessing) return;
@@ -568,9 +665,10 @@ async function submitMemoryEditText(userMessage = "") {
   memoryEditMessages.push({ role: "user", text });
 
   if (isExitMemoryEditText(text)) {
-    memoryEditMessages.push({ role: "assistant", text: "Done. I closed Memory Edit Mode and kept your latest memory board saved." });
+    pendingMemoryEditClarification = null;
+    memoryEditMessages.push({ role: "assistant", text: "All set — I kept your memory board saved." });
     showMemoryEditPanel();
-    window.setTimeout(() => showMemoryPanel(), 520);
+    window.setTimeout(() => showMemoryPanel(), 620);
     return;
   }
 
@@ -578,25 +676,33 @@ async function submitMemoryEditText(userMessage = "") {
   showMemoryEditPanel();
 
   try {
-    const patch = await getMemoryBoardEditPatch(text);
-    const updates = normalizePatchUpdates(patch.updates || []);
+    const result = await getMemoryBoardEditResult(text);
 
-    if (updates.length) {
-      const existingStory = readUserContextStory();
-      const nextStory = applyMemoryBoardPatch(existingStory, updates);
-      writeUserContextStory(nextStory);
+    if (result.status === "ready_to_update") {
+      const updates = normalizePatchUpdates(result.updates || []);
+      if (updates.length) {
+        const existingStory = readUserContextStory();
+        const nextStory = applyMemoryBoardPatch(existingStory, updates);
+        writeUserContextStory(nextStory);
+      }
+      pendingMemoryEditClarification = null;
+      memoryEditMessages.push({ role: "assistant", text: result.assistant_reply || `Got it — I updated your memory board. ${MEMORY_EDIT_FOLLOW_UP}` });
+    } else if (result.status === "needs_clarification") {
+      pendingMemoryEditClarification = {
+        originalUserMessage: pendingMemoryEditClarification?.originalUserMessage || text,
+        clarifyingQuestion: result.clarifying_question || result.assistant_reply,
+        possibleTargetCategory: result.possible_target_category || result.possibleTargetCategory || "",
+        possibleAction: result.possible_action || result.possibleAction || "",
+        createdAt: now(),
+      };
+      memoryEditMessages.push({ role: "assistant", text: result.assistant_reply || result.clarifying_question || "What should I clarify before updating memory?" });
+    } else {
+      pendingMemoryEditClarification = null;
+      memoryEditMessages.push({ role: "assistant", text: result.assistant_reply || `No memory change made yet. ${MEMORY_EDIT_FOLLOW_UP}` });
     }
-
-    memoryEditMessages.push({
-      role: "assistant",
-      text: patch.assistant_reply || `Got it. I updated your memory board. ${MEMORY_EDIT_FOLLOW_UP}`,
-    });
   } catch (error) {
     console.error("[CLARA Memory Edit] Failed to update memory board.", error);
-    memoryEditMessages.push({
-      role: "assistant",
-      text: "I couldn’t update that memory yet. Please try again with the category and action clearly stated.",
-    });
+    memoryEditMessages.push({ role: "assistant", text: "I couldn’t update that memory yet. Tell me the category and what to add, move, remove, or correct." });
   } finally {
     memoryEditProcessing = false;
     showMemoryEditPanel();
@@ -852,16 +958,6 @@ function findAssistantTabButtons() {
   });
 }
 
-function removeMemoryPanel() {
-  document.getElementById(MEMORY_PANEL_ID)?.remove();
-}
-
-function showMemoryPanel() {
-  removeMemoryPanel();
-  removeMemoryEditPanel();
-  document.body.insertAdjacentHTML("beforeend", buildMemoryPanelHtml());
-}
-
 function relabelTalkButton() {
   findAssistantTabButtons().forEach((button) => {
     if (clean(button.textContent) === "Talk to CLARA") {
@@ -882,6 +978,7 @@ function installClickCapture() {
     const closeEdit = event.target?.closest?.("[data-close-clara-memory-edit]");
     if (closeEdit) {
       removeMemoryEditPanel();
+      pendingMemoryEditClarification = null;
       return;
     }
 
@@ -897,6 +994,7 @@ function installClickCapture() {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
+      pendingMemoryEditClarification = null;
       memoryEditMessages = [{ role: "assistant", text: MEMORY_EDIT_INTRO }];
       showMemoryEditPanel();
       return;
@@ -917,6 +1015,7 @@ function installClickCapture() {
     if (label === "Core Features" || label === "Smart Actions") {
       removeMemoryPanel();
       removeMemoryEditPanel();
+      pendingMemoryEditClarification = null;
     }
   }, true);
 }
