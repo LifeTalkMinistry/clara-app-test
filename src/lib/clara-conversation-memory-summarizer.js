@@ -1,12 +1,17 @@
 import { requestGeminiJson, hasGeminiJsonConfig } from "@/lib/clara-gemini-json-utils";
-import { getAvailableCabinetNames, normalizeCabinetName, saveMemoryToCabinet } from "@/lib/memory-cabinets";
+import {
+  getAvailableCabinetNames,
+  normalizeCabinetName,
+  saveMemoryToCabinet,
+  readMemoryCabinet,
+} from "@/lib/memory-cabinets";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function cleanList(value) {
-  return Array.isArray(value) ? value.map(clean).filter(Boolean).slice(0, 12) : [];
+function cleanList(value, limit = 12) {
+  return Array.isArray(value) ? value.map(clean).filter(Boolean).slice(0, limit) : [];
 }
 
 function isUsefulMemoryText(text = "") {
@@ -14,7 +19,7 @@ function isUsefulMemoryText(text = "") {
   if (!value || value.length < 18) return false;
   if (/^(hi|hello|hey|okay|ok|thanks|thank you|salamat|run context diagnostic)$/i.test(value)) return false;
   if (/context diagnostic|source:|debug|test only/i.test(value)) return false;
-  return /(spend|spent|buy|budget|wallet|save|goal|debt|utang|stress|tired|work|shift|family|partner|habit|routine|decision|prefer|feel|emotion|pressure|payday|bill|expense|gastos|ipon)/i.test(value);
+  return /(spend|spent|buy|budget|wallet|save|goal|debt|utang|stress|tired|work|shift|family|partner|habit|routine|decision|prefer|feel|emotion|pressure|payday|bill|expense|gastos|ipon|takeout|delivery|order|food)/i.test(value);
 }
 
 function normalizeMemoryJson(json = {}) {
@@ -29,10 +34,10 @@ function normalizeMemoryJson(json = {}) {
     should_save: Boolean(json.should_save) && Boolean(summary) && cabinetNames.length > 0,
     summary,
     cabinet_names: cabinetNames,
-    signals: cleanList(json.signals),
+    signals: cleanList(json.signals, 16),
     emotional_tone: clean(json.emotional_tone || json.emotionalTone),
     financial_relevance: clean(json.financial_relevance || json.financialRelevance),
-    should_use_when: cleanList(json.should_use_when || json.shouldUseWhen),
+    should_use_when: cleanList(json.should_use_when || json.shouldUseWhen, 16),
   };
 }
 
@@ -49,13 +54,13 @@ function fallbackSummaryFromMessages(messages = []) {
   const combined = usefulMessages.join(" | ");
   const cabinets = [];
 
-  if (/spend|spent|buy|expense|gastos|food|order|shopping/i.test(combined)) cabinets.push("Spending Memory");
+  if (/spend|spent|buy|expense|gastos|food|order|shopping|takeout|delivery/i.test(combined)) cabinets.push("Spending Memory");
   if (/budget|limit|allocation/i.test(combined)) cabinets.push("Budget Memory");
   if (/wallet|cash|gcash|maya|bank/i.test(combined)) cabinets.push("Wallet Memory");
   if (/goal|save|ipon|target/i.test(combined)) cabinets.push("Goal Memory");
   if (/debt|utang|loan/i.test(combined)) cabinets.push("Debt Memory");
   if (/work|shift|schedule|routine|sleep|payday/i.test(combined)) cabinets.push("Schedule Memory");
-  if (/stress|tired|feel|emotion|sad|happy|burnout|pressure/i.test(combined)) cabinets.push("Emotional Memory");
+  if (/stress|tired|feel|emotion|sad|happy|burnout|pressure|drained|exhausted/i.test(combined)) cabinets.push("Emotional Memory");
   if (/family|partner|friend|relationship|coworker/i.test(combined)) cabinets.push("Relationship Memory");
   if (/prefer|style|tone|remind/i.test(combined)) cabinets.push("Preference Memory");
 
@@ -68,6 +73,83 @@ function fallbackSummaryFromMessages(messages = []) {
     financial_relevance: "Saved because the user shared a money, behavior, routine, preference, or emotional spending signal.",
     should_use_when: ["When the user asks about similar spending behavior, pressure, habits, routines, or decisions."],
   });
+}
+
+function normalizeCabinetDocumentJson(json = {}, fallbackMemory = {}) {
+  const bullets = cleanList(json.bullets || json.document_bullets || json.documentBullets, 12);
+
+  if (!bullets.length) {
+    return {
+      bullets: [clean(fallbackMemory.summary)].filter(Boolean),
+      signals: cleanList(fallbackMemory.signals, 16),
+      emotional_tone: clean(fallbackMemory.emotional_tone),
+      financial_relevance: clean(fallbackMemory.financial_relevance),
+      should_use_when: cleanList(fallbackMemory.should_use_when, 16),
+    };
+  }
+
+  return {
+    bullets,
+    signals: cleanList(json.signals || fallbackMemory.signals, 16),
+    emotional_tone: clean(json.emotional_tone || json.emotionalTone || fallbackMemory.emotional_tone),
+    financial_relevance: clean(json.financial_relevance || json.financialRelevance || fallbackMemory.financial_relevance),
+    should_use_when: cleanList(json.should_use_when || json.shouldUseWhen || fallbackMemory.should_use_when, 16),
+  };
+}
+
+async function updateCabinetBulletsWithAi({ cabinetName, memory } = {}) {
+  const currentDocument = readMemoryCabinet(cabinetName)?.[0] || null;
+  const currentBullets = cleanList(currentDocument?.document_bullets, 12);
+
+  if (!hasGeminiJsonConfig()) {
+    return normalizeCabinetDocumentJson({}, memory);
+  }
+
+  const prompt = `You are CLARA's Cabinet Memory Editor.
+
+Update ONE cabinet's living memory document.
+
+Cabinet:
+${cabinetName}
+
+Current bullet memory document:
+${currentBullets.length ? currentBullets.map((bullet) => `- ${bullet}`).join("\n") : "No saved bullets yet."}
+
+New memory to incorporate:
+${memory.summary}
+
+New signals:
+${(memory.signals || []).map((signal) => `- ${signal}`).join("\n") || "none"}
+
+Rules:
+- Return JSON only.
+- Keep one concise bullet document for this cabinet.
+- If the new memory is related to an existing bullet, improve that existing bullet instead of adding a duplicate.
+- Add a new bullet only when the behavior is meaningfully different.
+- Keep 3 to 8 bullets when possible, maximum 12.
+- Each bullet should be one human-readable behavior insight.
+- Do not mention cabinets, JSON, databases, or internal memory.
+
+JSON shape:
+{
+  "bullets": [],
+  "signals": [],
+  "emotional_tone": "",
+  "financial_relevance": "",
+  "should_use_when": []
+}`;
+
+  try {
+    const result = await requestGeminiJson({
+      prompt,
+      temperature: 0.16,
+      maxOutputTokens: 760,
+      label: "CLARA Cabinet Memory Editor",
+    });
+    return normalizeCabinetDocumentJson(result.json, memory);
+  } catch {
+    return normalizeCabinetDocumentJson({}, memory);
+  }
 }
 
 export async function summarizeClaraConversationForMemory({ messages = [] } = {}) {
@@ -140,19 +222,25 @@ export async function saveClaraConversationMemory({ messages = [], clearLiveSess
     return { saved: false, memory, savedEntries: [] };
   }
 
-  const entry = {
-    summary: memory.summary,
-    signals: memory.signals,
-    emotional_tone: memory.emotional_tone,
-    financial_relevance: memory.financial_relevance,
-    should_use_when: memory.should_use_when,
-    relevanceScore: 0.72,
-    source: "clara_overlay_conversation_summary",
-  };
+  const savedEntries = [];
 
-  const savedEntries = memory.cabinet_names
-    .map((cabinetName) => saveMemoryToCabinet(cabinetName, entry))
-    .filter(Boolean);
+  for (const cabinetName of memory.cabinet_names) {
+    const cabinetDocument = await updateCabinetBulletsWithAi({ cabinetName, memory });
+    const entry = {
+      summary: cabinetDocument.bullets.map((bullet) => `- ${bullet}`).join("\n"),
+      document_bullets: cabinetDocument.bullets,
+      signals: cabinetDocument.signals,
+      emotional_tone: cabinetDocument.emotional_tone,
+      financial_relevance: cabinetDocument.financial_relevance,
+      should_use_when: cabinetDocument.should_use_when,
+      occurrenceCount: 1,
+      relevanceScore: 0.72,
+      source: "clara_overlay_conversation_summary",
+    };
+
+    const saved = saveMemoryToCabinet(cabinetName, entry);
+    if (saved) savedEntries.push(saved);
+  }
 
   if (clearLiveSession && typeof window !== "undefined") {
     window.CLARA_BEHAVIORAL_MEMORY?.clearLiveUserMessageHistory?.();
