@@ -1,5 +1,4 @@
 const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
-const UNIVERSAL_MEMORY_KEY = "CLARA_UNIVERSAL_MEMORY_PROFILE_V1";
 const MEMORY_PANEL_ID = "clara-assistant-memory-panel";
 
 function safeParseStorage(key) {
@@ -67,11 +66,8 @@ function createSectionHtml(section) {
 
 function buildMemoryPanelHtml() {
   const userStory = safeParseStorage(USER_CONTEXT_STORY_KEY);
-  const universalProfile = safeParseStorage(UNIVERSAL_MEMORY_KEY);
-  const storySections = normalizeSections(userStory);
-  const universalSections = normalizeSections(universalProfile);
-  const sections = storySections.length ? storySections : universalSections;
-  const updatedAt = userStory?.updatedAt || universalProfile?.updatedAt || userStory?.createdAt || universalProfile?.createdAt || "";
+  const sections = normalizeSections(userStory);
+  const updatedAt = userStory?.updatedAt || userStory?.createdAt || "";
 
   return `
     <div id="${MEMORY_PANEL_ID}" class="clara-memory-review-shell" role="dialog" aria-label="CLARA Memory Review">
@@ -89,7 +85,7 @@ function buildMemoryPanelHtml() {
         <main class="clara-memory-review-list">
           <div class="clara-memory-context-intro">
             <p>What CLARA understands so far</p>
-            <span>This is the readable context CLARA uses quietly to make future guidance feel personal.</span>
+            <span>This is the single readable context CLARA uses quietly to make future guidance feel personal.</span>
           </div>
 
           ${sections.length ? sections.map(createSectionHtml).join("") : createEmptyMemoryPanel()}
@@ -302,12 +298,19 @@ function installObserver() {
   relabelTalkButton();
 }
 
+function installStoryRefresh() {
+  window.addEventListener("clara-user-context-story-updated", () => {
+    if (document.getElementById(MEMORY_PANEL_ID)) showMemoryPanel();
+  });
+}
+
 function installClaraAssistantMemoryTab() {
   if (typeof window === "undefined" || window.__CLARA_ASSISTANT_MEMORY_TAB_INSTALLED__) return;
   window.__CLARA_ASSISTANT_MEMORY_TAB_INSTALLED__ = true;
   ensureMemoryStyles();
   installClickCapture();
   installObserver();
+  installStoryRefresh();
 }
 
 installClaraAssistantMemoryTab();
