@@ -79,16 +79,6 @@ function categoryPayload({ title, amount, order, user, cycle }) {
   };
 }
 
-function cloneCategoryPayload(item, order, user, cycle) {
-  return categoryPayload({
-    title: item?.title || item?.name || item?.category,
-    amount: firstValidNumber(item?.allocated, item?.allocated_amount, item?.amount),
-    order,
-    user,
-    cycle,
-  });
-}
-
 function Tile({ label, value, accent }) {
   return <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-2 py-2 text-center"><p className={`truncate text-xs font-black ${accent ? "text-emerald-200" : "text-white/82"}`}>{value}</p><p className="mt-1 text-[7px] font-black uppercase tracking-[0.14em] text-white/34">{label}</p></div>;
 }
@@ -152,25 +142,27 @@ export default function MonthlyBudgetPlan() {
     const amount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
     if (amount <= 0) return setNotice("Please enter your new budget amount first.");
     if (typeof window !== "undefined") {
-      const ok = window.confirm("Reset budget cycle? Old expenses stay in Transaction Hub, but the Budget Card and Watch Zone start clean from this exact moment.");
+      const ok = window.confirm("Reset budget cycle? Old expenses stay in Transaction Hub, but the Budget Card, Watch Zone, and categories start clean from this exact moment.");
       if (!ok) return;
     }
     try {
       setSaving(true);
       setNotice("");
       const resetCycleWindow = getResetCycleWindow(cycleType, cycleEnd);
-      const categoryPayloads = budgetOptions.map((item, index) => cloneCategoryPayload(item, index, user, resetCycleWindow));
       await resetMonthlyBudgetCycle({
         budgets,
-        headerPayload: headerPayload({ amount, done: categoryPayloads.length > 0, user, cycle: resetCycleWindow }),
-        categoryPayloads,
+        headerPayload: headerPayload({ amount, done: false, user, cycle: resetCycleWindow }),
+        categoryPayloads: [],
         addBudget,
         updateBudget,
       });
       await refresh();
       setCycleStart(resetCycleWindow.start);
       setCycleEnd(resetCycleWindow.end || cycleEnd);
-      setNotice("Budget cycle reset. Old spending stayed in Transaction Hub, and the Budget Card now starts clean from this exact moment.");
+      setCategoryName("");
+      setCategoryAmount("");
+      navigate("/budget-plan", { replace: true });
+      setNotice("Budget cycle reset. Old spending stayed in Transaction Hub, and the Budget Card, Watch Zone, and categories now start clean.");
     } catch (e) {
       setNotice(e?.message || "CLARA could not reset this budget cycle yet.");
     } finally {
@@ -198,7 +190,7 @@ export default function MonthlyBudgetPlan() {
         <p className={`${hint} mt-2.5 ${isActiveBudget ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-50" : ""}`}>{helper}</p>
       </section>
 
-      {isActiveBudget ? <section className={`${card} border-amber-300/14 bg-amber-400/[0.055]`}><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-amber-50">Reset cycle</p><p className="mt-1 text-xs font-semibold leading-5 text-amber-50/60">Starts a fresh budget from now. Old expenses stay in Transaction Hub, but Watch Zone and category spending reset.</p></div><button type="button" onClick={resetCycle} disabled={busy} className="shrink-0 rounded-2xl border border-amber-300/25 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50">Reset</button></div></section> : null}
+      {isActiveBudget ? <section className={`${card} border-amber-300/14 bg-amber-400/[0.055]`}><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-amber-50">Reset cycle</p><p className="mt-1 text-xs font-semibold leading-5 text-amber-50/60">Starts a fresh budget from now. Old expenses stay in Transaction Hub, but Watch Zone and categories reset.</p></div><button type="button" onClick={resetCycle} disabled={busy} className="shrink-0 rounded-2xl border border-amber-300/25 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50">Reset</button></div></section> : null}
 
       <section className={card}>
         <div className="flex items-center justify-between gap-3">
