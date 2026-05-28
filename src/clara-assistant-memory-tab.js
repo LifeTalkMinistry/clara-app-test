@@ -111,8 +111,9 @@ function ensureMemoryStyles() {
       z-index: 520;
       display: flex;
       justify-content: center;
-      align-items: flex-end;
+      align-items: stretch;
       color: white;
+      padding: 0;
     }
     .clara-memory-review-backdrop {
       position: absolute;
@@ -123,13 +124,18 @@ function ensureMemoryStyles() {
     .clara-memory-review-panel {
       position: relative;
       width: min(430px, 100vw);
-      max-height: 90vh;
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
       overflow: hidden;
-      border-radius: 32px 32px 0 0;
+      border-radius: 0;
       border: 1px solid rgba(255,255,255,.12);
-      background: linear-gradient(145deg, rgba(3,12,22,.96), rgba(24,28,72,.92));
+      background: radial-gradient(circle at 18% 0%, rgba(45,212,191,.22), transparent 34%), radial-gradient(circle at 84% 10%, rgba(124,58,237,.24), transparent 38%), linear-gradient(145deg, rgba(3,12,22,.97), rgba(24,28,72,.94));
       box-shadow: 0 -22px 90px rgba(0,0,0,.54), inset 0 1px 0 rgba(255,255,255,.10);
       backdrop-filter: blur(24px);
+      display: flex;
+      flex-direction: column;
+      padding-top: max(env(safe-area-inset-top), 18px);
     }
     .clara-memory-review-header {
       display: flex;
@@ -137,6 +143,7 @@ function ensureMemoryStyles() {
       gap: 16px;
       padding: 20px 20px 14px;
       border-bottom: 1px solid rgba(255,255,255,.08);
+      flex: 0 0 auto;
     }
     .clara-memory-review-header p {
       margin: 0 0 6px;
@@ -164,11 +171,13 @@ function ensureMemoryStyles() {
       background: rgba(255,255,255,.06);
       color: white;
       font-size: 24px;
+      flex: 0 0 auto;
     }
     .clara-memory-review-list {
-      max-height: 70vh;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
-      padding: 14px 14px 22px;
+      padding: 14px 14px max(24px, env(safe-area-inset-bottom));
       scrollbar-width: none;
     }
     .clara-memory-review-list::-webkit-scrollbar { display: none; }
