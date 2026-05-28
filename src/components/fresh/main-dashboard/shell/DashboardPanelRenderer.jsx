@@ -1,6 +1,6 @@
 import { MessageCircle, Newspaper } from "lucide-react";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
-import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
+import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPanel";
 
 function SettingsSocialCommunityShortcuts() {
   const shortcutClass =
