@@ -284,14 +284,14 @@ function budgetName(budget = {}) {
   return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
 }
 
-function buildPrompt({ message, context, mode, conversationHistory = [] }) {
+async function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const enrichedContext = withClaraLifeStageAiContext(context || {});
   const finance = buildClaraFinanceSnapshot(enrichedContext);
   const decision = buildContextForGeminiPrompt({ message, financeContext: enrichedContext });
   const life = summarizeLifeProfileForClara(enrichedContext?.lifeProfile || enrichedContext?.profile?.lifeProfile || enrichedContext?.profile || {});
   const lifeStageBlock = buildClaraLifeStagePromptBlock(enrichedContext.lifeStageContext);
-  const behavioralMemory = buildClaraBehavioralContextForPrompt(message);
-  const behavioralRisk = getClaraBehavioralRiskLabel(message);
+  const behavioralMemory = await buildClaraBehavioralContextForPrompt(message);
+  const behavioralRisk = await getClaraBehavioralRiskLabel(message);
 
   logCentralContextDiagnostics({ message, enrichedContext, conversationHistory });
 
@@ -401,7 +401,7 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     throw new Error("Gemini API key is not configured.");
   }
 
-  const prompt = buildPrompt({ message, context, mode, conversationHistory });
+  const prompt = await buildPrompt({ message, context, mode, conversationHistory });
   const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
 
   let lastError = null;
