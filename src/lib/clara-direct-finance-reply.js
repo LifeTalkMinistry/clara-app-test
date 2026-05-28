@@ -82,24 +82,47 @@ function isLifeStageAdviceQuestion(text = "") {
   return /\b(money advice|spending advice|budget advice|next best move|plan my spending|spending plan|budget fixer|savings plan|save more|debt|utang|loan|bills|payday|emergency fund|overspend|overspending|prioritize|priority)\b/.test(text);
 }
 
-function isBudgetQuestion(text = "") {
-  return /\b(budget|budgeting|category budget|categories|allocation|allocated|unallocated|overspending|overspend)\b/.test(text);
+function getBudgetCategoryNamesFromContext(context = {}) {
+  const snapshot = buildClaraBudgetSnapshot(context || {});
+  return (Array.isArray(snapshot.categories) ? snapshot.categories : [])
+    .map((category) => normalizeText(category.name || category.title || category.category || category.label || ""))
+    .filter(Boolean);
 }
 
-function isBudgetRemainingQuestion(text = "") {
-  return isBudgetQuestion(text) && /\b(left|remaining|remain|available|have left|show|what is my budget|how much budget)\b/.test(text);
+function isCategoryMoneyQuestion(text = "", context = {}) {
+  if (!/\b(left|remaining|remain|available|spent|spend|used|use)\b/.test(text)) return false;
+  if (!/\b(for|from|in|under)\b/.test(text)) return false;
+
+  const names = getBudgetCategoryNamesFromContext(context);
+  if (!names.length) {
+    return /\b(food|bill|bills|fun|rent|transport|transportation|grocery|groceries|sports|coffee|savings|something)\b/.test(text);
+  }
+
+  return names.some((name) => {
+    if (!name) return false;
+    const words = text.split(" ");
+    return text.includes(name) || words.includes(name);
+  });
+}
+
+function isBudgetQuestion(text = "", context = {}) {
+  return /\b(budget|budgeting|category budget|categories|allocation|allocated|unallocated|overspending|overspend)\b/.test(text) || isCategoryMoneyQuestion(text, context);
+}
+
+function isBudgetRemainingQuestion(text = "", context = {}) {
+  return isBudgetQuestion(text, context) && /\b(left|remaining|remain|available|have left|show|what is my budget|how much budget|how much money)\b/.test(text);
 }
 
 function isBudgetOverspendingQuestion(text = "") {
   return /\b(overspending|overspend|over budget|overbudget|spending too much)\b/.test(text);
 }
 
-function isBudgetCategoryQuestion(text = "") {
-  return isBudgetQuestion(text) && /\b(category|categories|food|transport|transportation|grocery|groceries|bills|least|most|rank|from my|do i have)\b/.test(text);
+function isBudgetCategoryQuestion(text = "", context = {}) {
+  return isBudgetQuestion(text, context) && /\b(category|categories|food|transport|transportation|grocery|groceries|bills|bill|fun|rent|sports|coffee|savings|something|least|most|rank|from my|do i have|for|from|in|under)\b/.test(text);
 }
 
-function isBudgetSpentQuestion(text = "") {
-  return isBudgetQuestion(text) && /\b(spent|spend|used|use|expense|expenses)\b/.test(text);
+function isBudgetSpentQuestion(text = "", context = {}) {
+  return isBudgetQuestion(text, context) && /\b(spent|spend|used|use|expense|expenses)\b/.test(text);
 }
 
 function getLifeStageContext(context = {}) {
@@ -178,8 +201,9 @@ function findRequestedWallet(prompt = "", wallets = []) {
 function extractRequestedBudgetCategory(prompt = "") {
   const normalized = normalizeText(prompt);
   const patterns = [
-    /(?:from|in|under) my ([a-z0-9\s]+?) budget\b/,
-    /(?:from|in|under) ([a-z0-9\s]+?) budget\b/,
+    /(?:from|in|under|for) my ([a-z0-9\s]+?) budget\b/,
+    /(?:from|in|under|for) ([a-z0-9\s]+?) budget\b/,
+    /(?:from|in|under|for) ([a-z0-9\s]+?)(?: this month| today| now|$)/,
     /do i have (?:a |an )?([a-z0-9\s]+?) budget\b/,
     /my ([a-z0-9\s]+?) budget\b/,
   ];
@@ -187,10 +211,10 @@ function extractRequestedBudgetCategory(prompt = "") {
   for (const pattern of patterns) {
     const match = normalized.match(pattern);
     const value = String(match?.[1] || "").trim();
-    if (value && !["remaining", "monthly", "overall", "active", "current"].includes(value)) return value;
+    if (value && !["remaining", "monthly", "overall", "active", "current", "food this month"].includes(value)) return value.replace(/\bthis month\b|\btoday\b|\bnow\b/g, "").trim();
   }
 
-  const knownTerms = ["food", "transportation", "transport", "groceries", "grocery", "bills", "rent", "sports", "coffee"];
+  const knownTerms = ["food", "transportation", "transport", "groceries", "grocery", "bills", "bill", "fun", "rent", "sports", "coffee", "savings", "something"];
   return knownTerms.find((term) => normalized.split(" ").includes(term)) || "";
 }
 
@@ -206,7 +230,7 @@ function findBudgetCategory(categories = [], requested = "") {
 
 function buildBudgetDirectReply(prompt = "", context = {}) {
   const text = normalizeText(prompt);
-  if (!isBudgetQuestion(text)) return "";
+  if (!isBudgetQuestion(text, context)) return "";
 
   const budget = buildClaraBudgetSnapshot(context || {});
   const declared = formatMoney(budget.declaredBudget) || "₱0";
@@ -226,7 +250,7 @@ function buildBudgetDirectReply(prompt = "", context = {}) {
     return `Not yet. You’ve spent ${spent} out of your ${declared} monthly budget, so you still have ${remaining} left.`;
   }
 
-  if (isBudgetCategoryQuestion(text)) {
+  if (isBudgetCategoryQuestion(text, context)) {
     const requestedCategory = extractRequestedBudgetCategory(prompt);
     const matchedCategory = findBudgetCategory(categories, requestedCategory);
 
@@ -255,11 +279,11 @@ function buildBudgetDirectReply(prompt = "", context = {}) {
     return `Your budget categories are: ${categories.map((category) => category.name || category.title || category.category).filter(Boolean).join(", ")}. Overall monthly budget remaining: ${remaining}.`;
   }
 
-  if (isBudgetSpentQuestion(text)) {
+  if (isBudgetSpentQuestion(text, context)) {
     return `You’ve spent ${spent} from your ${declared} monthly budget so far. You still have ${remaining} left.${budget.hasBudgetCategories ? "" : " You haven’t created budget categories yet, so this is overall budget tracking."}`;
   }
 
-  if (isBudgetRemainingQuestion(text)) {
+  if (isBudgetRemainingQuestion(text, context)) {
     if (/\bshow\b/.test(text)) {
       return `Remaining monthly budget: ${remaining}. Declared budget: ${declared}. Spent so far: ${spent}. Category allocation is still ${budget.hasBudgetCategories ? "active" : "empty, so no category-level budget is active yet"}.`;
     }
