@@ -1,4 +1,5 @@
 import { searchMultipleMemoryCabinets } from "./memory-cabinets";
+import { formatUniversalMemoryProfileForPrompt, readUniversalMemoryProfile } from "./clara-universal-memory-profile";
 
 const CLARA_MEMORY_KEY = "clara_behavioral_memory_v1";
 
@@ -199,6 +200,12 @@ function buildCabinetMemorySummary(message = "") {
     .join("\n");
 }
 
+function buildUniversalMemorySummary() {
+  const profile = readUniversalMemoryProfile();
+  if (!profile.bulletCount) return "No universal memory profile saved yet.";
+  return formatUniversalMemoryProfileForPrompt(profile);
+}
+
 export function getClaraBehavioralMemorySnapshot() {
   const memory = readBehavioralMemory();
   const items = Object.values(memory.items || {}).filter((item) => safeText(item?.value));
@@ -213,10 +220,14 @@ export function getClaraBehavioralMemorySnapshot() {
 export function buildClaraBehavioralContextForPrompt(message = "") {
   const snapshot = getClaraBehavioralMemorySnapshot();
   const cabinetSummary = buildCabinetMemorySummary(message);
+  const universalSummary = buildUniversalMemorySummary();
 
   if (!snapshot.count) {
     return `CLARA BEHAVIORAL INTELLIGENCE MEMORY:
 No saved Talk to CLARA behavioral memory yet.
+
+Universal memory profile:
+${universalSummary}
 
 Long-term pattern summaries:
 ${cabinetSummary}
@@ -234,6 +245,9 @@ Last updated: ${snapshot.updatedAt || "not available"}
 
 4-layer memory summary:
 ${snapshot.summary}
+
+Universal memory profile:
+${universalSummary}
 
 Long-term pattern summaries:
 ${cabinetSummary}
