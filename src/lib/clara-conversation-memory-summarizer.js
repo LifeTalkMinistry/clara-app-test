@@ -5,6 +5,13 @@ import {
   saveMemoryToCabinet,
   readMemoryCabinet,
 } from "@/lib/memory-cabinets";
+import {
+  DEFAULT_UNIVERSAL_MEMORY_SECTIONS,
+  formatUniversalMemoryProfileForPrompt,
+  normalizeUniversalMemoryProfile,
+  readUniversalMemoryProfile,
+  writeUniversalMemoryProfile,
+} from "@/lib/clara-universal-memory-profile";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -95,6 +102,82 @@ function normalizeCabinetDocumentJson(json = {}, fallbackMemory = {}) {
     financial_relevance: clean(json.financial_relevance || json.financialRelevance || fallbackMemory.financial_relevance),
     should_use_when: cleanList(json.should_use_when || json.shouldUseWhen || fallbackMemory.should_use_when, 16),
   };
+}
+
+function normalizeUniversalProfileJson(json = {}, fallbackMemory = {}) {
+  const sections = Array.isArray(json.sections) ? json.sections : [];
+
+  if (!sections.length) {
+    return normalizeUniversalMemoryProfile({
+      sections: fallbackMemory.cabinet_names.map((cabinetName) => ({
+        title: cabinetName.replace(/ Memory$/, ""),
+        bullets: [fallbackMemory.summary],
+      })),
+    });
+  }
+
+  return normalizeUniversalMemoryProfile({ sections });
+}
+
+async function updateUniversalMemoryProfileWithAi(memory = {}) {
+  const currentProfile = readUniversalMemoryProfile();
+  const currentProfileText = formatUniversalMemoryProfileForPrompt(currentProfile);
+
+  if (!hasGeminiJsonConfig()) {
+    return writeUniversalMemoryProfile(normalizeUniversalProfileJson({}, memory));
+  }
+
+  const prompt = `You are CLARA's Universal Memory Profile Editor.
+
+Update CLARA's ONE universal memory profile.
+
+Current profile:
+${currentProfileText}
+
+New memory to incorporate:
+${memory.summary}
+
+Suggested default categories from the summarizer:
+${memory.cabinet_names.join(", ") || "none"}
+
+Signals:
+${(memory.signals || []).map((signal) => `- ${signal}`).join("\n") || "none"}
+
+Default category options:
+${DEFAULT_UNIVERSAL_MEMORY_SECTIONS.map((section) => `- ${section}`).join("\n")}
+
+Rules:
+- Return JSON only.
+- Keep the profile organized by section title.
+- Use default categories when they fit.
+- You MAY create a better custom category if the memory reveals a more specific life pattern.
+- If the new memory relates to an existing bullet, improve that bullet instead of adding a duplicate.
+- Add a new bullet only when it is a meaningfully different insight.
+- Keep each section concise, human-readable, and behavior-focused.
+- Maximum 18 sections, maximum 8 bullets per section.
+- Do not mention cabinets, JSON, database, or internal memory.
+
+JSON shape:
+{
+  "sections": [
+    {
+      "title": "Spending",
+      "bullets": []
+    }
+  ]
+}`;
+
+  try {
+    const result = await requestGeminiJson({
+      prompt,
+      temperature: 0.17,
+      maxOutputTokens: 1300,
+      label: "CLARA Universal Memory Profile Editor",
+    });
+    return writeUniversalMemoryProfile(normalizeUniversalProfileJson(result.json, memory));
+  } catch {
+    return writeUniversalMemoryProfile(normalizeUniversalProfileJson({}, memory));
+  }
 }
 
 async function updateCabinetBulletsWithAi({ cabinetName, memory } = {}) {
@@ -219,9 +302,10 @@ export async function saveClaraConversationMemory({ messages = [], clearLiveSess
   const memory = await summarizeClaraConversationForMemory({ messages });
 
   if (!memory.should_save) {
-    return { saved: false, memory, savedEntries: [] };
+    return { saved: false, memory, savedEntries: [], universalProfile: readUniversalMemoryProfile() };
   }
 
+  const universalProfile = await updateUniversalMemoryProfileWithAi(memory);
   const savedEntries = [];
 
   for (const cabinetName of memory.cabinet_names) {
@@ -246,5 +330,5 @@ export async function saveClaraConversationMemory({ messages = [], clearLiveSess
     window.CLARA_BEHAVIORAL_MEMORY?.clearLiveUserMessageHistory?.();
   }
 
-  return { saved: savedEntries.length > 0, memory, savedEntries };
+  return { saved: savedEntries.length > 0 || universalProfile.bulletCount > 0, memory, savedEntries, universalProfile };
 }
