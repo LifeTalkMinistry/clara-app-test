@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import "./clara-memory-bridge";
 import "./clara-memory-cabinet-autosave";
+import "./clara-memory-review-panel";
 import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
