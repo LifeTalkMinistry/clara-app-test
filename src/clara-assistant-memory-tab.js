@@ -1,6 +1,43 @@
 const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
 const MEMORY_PANEL_ID = "clara-assistant-memory-panel";
 
+const FIXED_MEMORY_SECTIONS = [
+  "Identity",
+  "Work",
+  "Money",
+  "Emotional",
+  "Health",
+  "Routine",
+  "Relationships",
+  "Home",
+  "Food",
+  "Lifestyle",
+  "Growth",
+  "Decision Style",
+  "Support Style",
+  "Triggers",
+  "Protection",
+];
+
+const SECTION_ALIASES = new Map([
+  ["spending", "Money"],
+  ["budget", "Money"],
+  ["wallet", "Money"],
+  ["goals", "Money"],
+  ["goal", "Money"],
+  ["emergency", "Protection"],
+  ["debt", "Money"],
+  ["bills", "Money"],
+  ["schedule", "Routine"],
+  ["preference", "Support Style"],
+  ["decision", "Decision Style"],
+  ["learning", "Growth"],
+  ["relationship", "Relationships"],
+  ["sports", "Health"],
+  ["sport", "Health"],
+  ["fitness", "Health"],
+]);
+
 function safeParseStorage(key) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -12,6 +49,10 @@ function safeParseStorage(key) {
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function now() {
+  return new Date().toISOString();
 }
 
 function formatDate(value = "") {
@@ -29,19 +70,126 @@ function formatDate(value = "") {
   }
 }
 
+function normalizeTitleKey(value = "") {
+  return clean(value)
+    .replace(/memory$/i, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function fixedTitleFromSection(value = "") {
+  const key = normalizeTitleKey(value);
+  const direct = FIXED_MEMORY_SECTIONS.find((title) => title.toLowerCase() === key);
+  return direct || SECTION_ALIASES.get(key) || "Lifestyle";
+}
+
+function cleanBullet(value = "") {
+  return clean(value)
+    .replace(/^[•\-*]\s*/, "")
+    .replace(/^\d+[.)]\s*/, "")
+    .trim();
+}
+
+function isTemporaryOrLiveFact(value = "") {
+  const text = clean(value).toLowerCase();
+  if (!text) return true;
+  if (/[₱$€£]\s?\d|\b\d+[,.]?\d*\s?(php|peso|pesos)\b/i.test(text)) return true;
+  if (/\b(available|current|total)\s+(balance|wallet balance|amount|money)\b/i.test(text)) return true;
+  if (/\b(balance across all wallets|money left right now|remaining right now|currently has|currently have)\b/i.test(text)) return true;
+  if (/\b(is asking|asked|checking their wallet|checking his wallet|checking her wallet|see if they can afford|recent improvement in spending habits)\b/i.test(text)) return true;
+  if (/\b(today|right now|currently|this exact moment)\b.*\b(balance|wallet|amount|remaining|left)\b/i.test(text)) return true;
+  return false;
+}
+
+function categoryForBullet(bullet = "", fallbackTitle = "Lifestyle") {
+  const text = clean(bullet).toLowerCase();
+
+  if (/\b(name|age|gender|life stage|role|location|student|professional|creator)\b/i.test(text)) return "Identity";
+  if (/\b(work|job|shift|career|income pattern|payday|after work|bpo|office)\b/i.test(text)) return "Work";
+  if (/\b(spend|spending|budget|wallet|save|saving|debt|bill|bills|gastos|ipon|afford|purchase|money|expense)\b/i.test(text)) return "Money";
+  if (/\b(stress|exhaust|tired|anxiety|guilt|motivation|confidence|emotion|mental|reward-spending|drained)\b/i.test(text)) return "Emotional";
+  if (/\b(sleep|energy|exercise|basketball|sport|sports|gym|jogging|fitness|sickness|medication|food discipline)\b/i.test(text)) return "Health";
+  if (/\b(routine|commute|after-work|after work|weekend|nighttime|night|daily|payday rhythm|low energy periods)\b/i.test(text)) return "Routine";
+  if (/\b(family|partner|friend|coworker|dependent|social pressure|relationship)\b/i.test(text)) return "Relationships";
+  if (/\b(home|rent|household|living situation|shared expenses)\b/i.test(text)) return "Home";
+  if (/\b(food|craving|delivery|convenience food|groceries|meal|takeout|order food)\b/i.test(text)) return "Food";
+  if (/\b(hobby|entertainment|shopping|travel|social life|basketball)\b/i.test(text)) return "Lifestyle";
+  if (/\b(learning|goals|discipline|faith|self-improvement|improve|growth)\b/i.test(text)) return "Growth";
+  if (/\b(decide|decision|hesitation|impulsive|risk tolerance|pause-before-spending|pause before spending)\b/i.test(text)) return "Decision Style";
+  if (/\b(guidance|reminder|tone|accountability|responds better|supportive|guilt)\b/i.test(text)) return "Support Style";
+  if (/\b(trigger|cause|temptation|avoidance|reward behavior|risk window|lowers resistance)\b/i.test(text)) return "Triggers";
+  if (/\b(emergency fund|boundary|boundaries|safety plan|protection|financial risk)\b/i.test(text)) return "Protection";
+
+  return fallbackTitle;
+}
+
 function normalizeSections(value) {
   if (!value || typeof value !== "object") return [];
   const sections = Array.isArray(value.sections) ? value.sections : [];
+  const merged = new Map();
 
-  return sections
-    .map((section) => ({
-      title: clean(section.title || section.name || section.category || "Memory"),
-      bullets: (Array.isArray(section.bullets) ? section.bullets : section.items || section.memories || [])
-        .map(clean)
-        .filter(Boolean)
-        .slice(0, 12),
-    }))
-    .filter((section) => section.title && section.bullets.length);
+  sections.forEach((section) => {
+    const fallbackTitle = fixedTitleFromSection(section.title || section.name || section.category || "Lifestyle");
+    const bullets = Array.isArray(section.bullets) ? section.bullets : section.items || section.memories || [];
+
+    bullets.map(cleanBullet).filter(Boolean).forEach((bullet) => {
+      if (isTemporaryOrLiveFact(bullet)) return;
+      const title = categoryForBullet(bullet, fallbackTitle);
+      const existing = merged.get(title) || {
+        title,
+        bullets: [],
+      };
+      if (!existing.bullets.some((item) => item.toLowerCase() === bullet.toLowerCase())) {
+        existing.bullets.push(bullet);
+      }
+      existing.bullets = existing.bullets.slice(0, 12);
+      merged.set(title, existing);
+    });
+  });
+
+  return FIXED_MEMORY_SECTIONS.map((title) => merged.get(title)).filter(Boolean);
+}
+
+function buildNormalizedStory(rawStory) {
+  const sections = normalizeSections(rawStory);
+  return {
+    id: "clara-user-context-story",
+    type: "user_context_story",
+    schemaVersion: 3,
+    sections: sections.map((section) => ({
+      id: section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      title: section.title,
+      type: "fixed",
+      bullets: section.bullets,
+      createdAt: rawStory?.createdAt || now(),
+      updatedAt: now(),
+    })),
+    createdAt: rawStory?.createdAt || now(),
+    updatedAt: now(),
+    sectionCount: sections.length,
+    bulletCount: sections.reduce((sum, section) => sum + section.bullets.length, 0),
+    source: "clara_user_context_story",
+  };
+}
+
+function migrateStoredStoryIfNeeded(rawStory) {
+  if (!rawStory || typeof rawStory !== "object") return rawStory;
+
+  const normalized = buildNormalizedStory(rawStory);
+  const before = JSON.stringify(rawStory.sections || []);
+  const after = JSON.stringify(normalized.sections || []);
+  const usesOnlyFixed = normalized.sections.every((section) => FIXED_MEMORY_SECTIONS.includes(section.title));
+
+  if (before !== after || rawStory.schemaVersion !== 3 || !usesOnlyFixed) {
+    try {
+      window.localStorage.setItem(USER_CONTEXT_STORY_KEY, JSON.stringify(normalized));
+      window.dispatchEvent(new CustomEvent("clara-user-context-story-updated", { detail: normalized }));
+    } catch {}
+    return normalized;
+  }
+
+  return rawStory;
 }
 
 function createEmptyMemoryPanel() {
@@ -65,7 +213,8 @@ function createSectionHtml(section) {
 }
 
 function buildMemoryPanelHtml() {
-  const userStory = safeParseStorage(USER_CONTEXT_STORY_KEY);
+  const rawStory = safeParseStorage(USER_CONTEXT_STORY_KEY);
+  const userStory = migrateStoredStoryIfNeeded(rawStory);
   const sections = normalizeSections(userStory);
   const updatedAt = userStory?.updatedAt || userStory?.createdAt || "";
 
