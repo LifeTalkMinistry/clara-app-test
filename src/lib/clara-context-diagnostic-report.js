@@ -63,12 +63,14 @@ const CONTEXT_GROUPS = [
     sources: ["schedule_events", "weather", "current_time", "location"],
   },
   {
-    title: "Conversation memory",
-    sources: ["previous_conversation_memory", "user_message_history"],
-  },
-  {
-    title: "Long-term intelligence",
-    sources: ["universal_memory_profile", "user_context_story"],
+    title: "Memory intelligence",
+    sources: [
+      "live_conversation_history",
+      "conversation_memory_summarizer",
+      "memory_cabinet_router",
+      "routed_memory_cabinets",
+      "user_context_story",
+    ],
   },
 ];
 
