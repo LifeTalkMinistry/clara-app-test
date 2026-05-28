@@ -172,30 +172,109 @@ function mergeStoryPatch(baseStory = {}, patchStory = {}) {
   });
 }
 
+function addPatch(sectionMap, title, bullet) {
+  const fixedTitle = titleToFixedCategory(title);
+  const cleaned = normalizeBullet(bullet);
+  if (!cleaned || isTemporaryOrLiveFactBullet(cleaned)) return;
+
+  const existing = sectionMap.get(fixedTitle) || { title: fixedTitle, bullets: [] };
+  if (!existing.bullets.some((item) => item.toLowerCase() === cleaned.toLowerCase())) {
+    existing.bullets.push(cleaned);
+  }
+  existing.bullets = existing.bullets.slice(0, 8);
+  sectionMap.set(fixedTitle, existing);
+}
+
 function deterministicSectionsFromMemory(memory = {}) {
   const text = clean(memory.summary);
+  const lower = text.toLowerCase();
   if (!text || isTemporaryOrLiveFactBullet(text)) return [];
 
-  const sections = [];
-  const add = (title, bullet) => sections.push({ title, bullets: [bullet] });
+  const patch = new Map();
 
-  if (/\b(name|age|gender|life stage|i'?m \d+|i am \d+|role|location)\b/i.test(text)) add("Identity", text);
-  if (/\b(work|job|shift|career|income pattern|after work|bpo|office|long shift)\b/i.test(text)) add("Work", text);
-  if (/\b(spend|spending|budget|wallet|save|saving|debt|bill|bills|money|expense|impulsive purchase)\b/i.test(text)) add("Money", text);
-  if (/\b(stress|exhaust|tired|anxiety|guilt|motivation|confidence|emotion|mentally|balanced|drained)\b/i.test(text)) add("Emotional", text);
-  if (/\b(sleep|energy|exercise|basketball|sport|sports|gym|jogging|fitness|health)\b/i.test(text)) add("Health", text);
-  if (/\b(routine|after-work|after work|night|nighttime|weekend|payday|daily|rhythm|rest first|planning properly|prepare myself)\b/i.test(text)) add("Routine", text);
-  if (/\b(family|partner|friends|coworker|dependent|social pressure|relationship)\b/i.test(text)) add("Relationships", text);
-  if (/\b(home|rent|household|living situation|shared expenses)\b/i.test(text)) add("Home", text);
-  if (/\b(food|craving|delivery|convenience food|groceries|meal|takeout|order food|hungry)\b/i.test(text)) add("Food", text);
-  if (/\b(hobby|entertainment|shopping|travel|social life|basketball|simple hobbies)\b/i.test(text)) add("Lifestyle", text);
-  if (/\b(learning|goal|discipline|faith|self-improvement|improve|growth|better habits|stable future)\b/i.test(text)) add("Growth", text);
-  if (/\b(decide|decision|hesitation|impulsive|risk tolerance|pause|tempted|avoid rushing decisions)\b/i.test(text)) add("Decision Style", text);
-  if (/\b(guidance|reminder|tone|accountability|supportive|guilt|harsh correction|understood)\b/i.test(text)) add("Support Style", text);
-  if (/\b(trigger|temptation|avoidance|reward|risk window|lowers resistance|exhaustion|hunger|late-night boredom)\b/i.test(text)) add("Triggers", text);
-  if (/\b(emergency fund|boundary|boundaries|safety plan|protection|financial risk|unexpected expenses)\b/i.test(text)) add("Protection", text);
+  const ageMatch = text.match(/\b(?:i'?m|i am|age[:\s])\s*(\d{1,3})\b/i);
+  if (ageMatch) addPatch(patch, "Identity", `Age: ${ageMatch[1]}`);
+  if (/\b(young adult|student|professional|creator|life stage|role|location)\b/i.test(lower)) {
+    addPatch(patch, "Identity", "User is defining their current life stage and personal direction.");
+  }
 
-  return sections.length ? sections : [{ title: "Lifestyle", bullets: [text] }];
+  if (/\b(work|job|shift|after work|long shift|office|bpo|career)\b/i.test(lower)) {
+    addPatch(patch, "Work", "Work schedule and after-work conditions can affect the user's decisions.");
+  }
+  if (/\b(mentally exhausted|exhausting work|work exhaustion|drained after work)\b/i.test(lower)) {
+    addPatch(patch, "Work", "Work-related mental exhaustion can influence the user's spending behavior.");
+  }
+
+  if (/\b(save|saving|budget|money|spending|spend|expense|debt|bill|bills|impulsive purchase|trying to save)\b/i.test(lower)) {
+    addPatch(patch, "Money", "User is working on stronger financial discipline and spending awareness.");
+  }
+  if (/\b(friends|family|social pressure|invite|invited|eat out|food delivery|cravings|convenience meals)\b/i.test(lower) && /\b(save|saving|budget|spend|spending|money)\b/i.test(lower)) {
+    addPatch(patch, "Money", "Social plans and food cravings can affect the user's saving discipline.");
+  }
+
+  if (/\b(stress|stressed|exhausted|tired|boredom|bored|pressure|emotionally|guilt|anxiety|drained|mentally exhausted)\b/i.test(lower)) {
+    addPatch(patch, "Emotional", "Stress, exhaustion, boredom, or pressure can influence the user's spending behavior.");
+  }
+  if (/\b(basketball|exercise|gym|jogging|fitness)\b/i.test(lower) && /\b(stress|cope|reset|emotionally|balanced)\b/i.test(lower)) {
+    addPatch(patch, "Emotional", "Healthy activities like basketball can help the user regulate stress.");
+  }
+
+  if (/\b(sleep|energy|health|exercise|basketball|sports|gym|jogging|fitness)\b/i.test(lower)) {
+    addPatch(patch, "Health", "User wants better physical energy and healthier coping patterns.");
+  }
+  if (/\b(basketball|sports|exercise|gym|jogging|fitness)\b/i.test(lower)) {
+    addPatch(patch, "Health", "Basketball or physical activity supports healthier stress release.");
+  }
+
+  if (/\b(routine|after work|after-work|night|nighttime|late-night|weekend|payday|rhythm|rest first|planning properly|prepare myself|before spending)\b/i.test(lower)) {
+    addPatch(patch, "Routine", "After-work, nighttime, or payday periods can become higher-risk spending windows.");
+  }
+  if (/\b(rest first|pause first|planning properly|prepare myself|avoid rushing)\b/i.test(lower)) {
+    addPatch(patch, "Routine", "User wants a routine that includes pausing or resting before spending decisions.");
+  }
+
+  if (/\b(friends|family|partner|coworker|social pressure|invite|invited|join plans|eat out)\b/i.test(lower)) {
+    addPatch(patch, "Relationships", "Social invitations from friends or family can create spending pressure.");
+  }
+
+  if (/\b(home|household|shared expenses|shared responsibilities|living situation|rent|household needs)\b/i.test(lower)) {
+    addPatch(patch, "Home", "Shared responsibilities and household needs can affect budgeting priorities.");
+  }
+
+  if (/\b(food|craving|cravings|delivery|convenience food|convenience meals|eat out|groceries|meal|takeout|order food|hungry|hunger)\b/i.test(lower)) {
+    addPatch(patch, "Food", "Food delivery, cravings, and convenience meals are recurring spending temptations.");
+  }
+
+  if (/\b(hobby|hobbies|basketball|entertainment|shopping|travel|social life|eat out|join plans)\b/i.test(lower)) {
+    addPatch(patch, "Lifestyle", "User wants healthier hobbies and lifestyle choices instead of spending to cope.");
+  }
+
+  if (/\b(improve|self-improvement|discipline|disciplined|better habits|stable future|growth|faith|goals)\b/i.test(lower)) {
+    addPatch(patch, "Growth", "User is building discipline and better habits over time.");
+  }
+
+  if (/\b(pause first|pause|avoid rushing|before spending|better decisions|decision|decisions|tempted|impulsive)\b/i.test(lower)) {
+    addPatch(patch, "Decision Style", "Pausing before spending helps the user make better choices.");
+  }
+
+  if (/\b(calm guidance|supportive guidance|guidance|understood|guilt|harsh correction|reminders|accountability|tone)\b/i.test(lower)) {
+    addPatch(patch, "Support Style", "User responds better to calm, supportive guidance than guilt-based correction.");
+  }
+
+  if (/\b(trigger|triggers|hunger|hungry|boredom|bored|social pressure|late-night|nighttime|exhaustion|tempted|temptation|stress spending|reward spending)\b/i.test(lower)) {
+    addPatch(patch, "Triggers", "Hunger, boredom, social pressure, stress, or late-night exhaustion can trigger impulse spending.");
+  }
+  if (/\b(friends|family|invite|invited|eat out|food delivery|convenience meals)\b/i.test(lower)) {
+    addPatch(patch, "Triggers", "Social invitations and convenience food can become spending triggers.");
+  }
+
+  if (/\b(emergency fund|boundaries|boundary|safety plan|protection|unexpected expenses|stable future|financial risk|shared expenses)\b/i.test(lower)) {
+    addPatch(patch, "Protection", "User wants stronger boundaries and financial protection from unexpected expenses.");
+  }
+
+  if (!patch.size) addPatch(patch, "Lifestyle", text);
+
+  return FIXED_STORY_SECTIONS.map((title) => patch.get(title)).filter(Boolean);
 }
 
 function isUsefulMemoryText(text = "") {
@@ -203,7 +282,7 @@ function isUsefulMemoryText(text = "") {
   if (!value || value.length < 10) return false;
   if (/^(hi|hello|hey|okay|ok|thanks|thank you|salamat|run context diagnostic)$/i.test(value)) return false;
   if (/context diagnostic|source:|debug|test only/i.test(value)) return false;
-  return /(spend|spent|buy|budget|wallet|save|goal|debt|utang|stress|tired|work|shift|family|partner|habit|routine|decision|prefer|feel|emotion|pressure|payday|bill|expense|gastos|ipon|takeout|delivery|order|food|basketball|sport|sports|jogging|gym|exercise|fitness|sleep|health|rent|home|faith|growth|support|trigger|emergency|energy|after work)/i.test(value);
+  return /(spend|spent|buy|budget|wallet|save|goal|debt|utang|stress|tired|work|shift|family|partner|habit|routine|decision|prefer|feel|emotion|pressure|payday|bill|expense|gastos|ipon|takeout|delivery|order|food|basketball|sport|sports|jogging|gym|exercise|fitness|sleep|health|rent|home|faith|growth|support|trigger|emergency|energy|after work|friends|household|hunger|boredom)/i.test(value);
 }
 
 function normalizeMemoryJson(json = {}) {
@@ -303,6 +382,13 @@ ${memory.summary}
 Fixed categories and meanings:
 ${FIXED_STORY_SECTIONS.map((section) => `- ${section}: ${STORY_CATEGORY_GUIDE[section]}`).join("\n")}
 
+Routing examples:
+- "Friends invite me to eat out" -> Relationships, Food, Money, Triggers, Lifestyle.
+- "Shared expenses and household needs" -> Home, Money, Protection.
+- "Late-night hunger, boredom, and food delivery" -> Food, Triggers, Routine, Emotional, Money.
+- "Pause first before spending" -> Decision Style, Money, Growth.
+- "Basketball helps me cope" -> Health, Lifestyle, Emotional, Routine, Triggers.
+
 Rules:
 - Return JSON only.
 - NEVER create a new category.
@@ -314,6 +400,7 @@ Rules:
 - Save long-term behavior patterns, preferences, triggers, routines, emotional patterns, and stable life context only.
 - Improve related bullets instead of duplicating them.
 - Maximum 8 bullets per returned section.
+- Keep bullets concise and human-readable.
 
 JSON shape:
 {"sections":[{"title":"Routine","bullets":[]}]}`;
