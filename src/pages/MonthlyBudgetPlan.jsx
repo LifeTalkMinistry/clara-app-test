@@ -11,7 +11,8 @@ import { firstValidNumber, getPHMonthKey, normalizeString } from "@/utils/dashbo
 
 const fmt = (v = 0) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(firstValidNumber(v));
 const today = () => new Date().toISOString().slice(0, 10);
-const addDays = (date, days) => { const d = new Date(`${date}T00:00:00`); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
+const nowIso = () => new Date().toISOString();
+const addDays = (date, days) => { const d = new Date(`${String(date || today()).slice(0, 10)}T00:00:00`); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
 const card = "rounded-[26px] border border-cyan-100/12 bg-white/[0.05] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_14px_36px_rgba(0,0,0,0.16)] backdrop-blur-2xl";
 const input = "w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-[15px] font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35";
 const btn = "rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
@@ -35,14 +36,15 @@ function getCycleWindow(type, start, end) {
   const safeStart = start || today();
   if (safeType === "weekly") return { start: safeStart, end: addDays(safeStart, 6), label: "Weekly" };
   if (safeType === "biweekly") return { start: safeStart, end: addDays(safeStart, 13), label: "Bi-weekly" };
-  if (safeType === "custom") return { start: safeStart, end: end || safeStart, label: "Custom" };
+  if (safeType === "custom") return { start: safeStart, end: end || String(safeStart).slice(0, 10), label: "Custom" };
   const month = getPHMonthKey();
   return { start: `${month}-01`, end: "", label: "Monthly" };
 }
 
 function getResetCycleWindow(type, end) {
+  const resetStart = nowIso();
   const base = getCycleWindow(type, today(), end);
-  return { ...base, start: today() };
+  return { ...base, start: resetStart, reset_start_at: resetStart };
 }
 
 function headerPayload({ amount, done, user, cycle }) {
@@ -54,6 +56,7 @@ function headerPayload({ amount, done, user, cycle }) {
     type: "monthly_budget", plan_type: "monthly_budget", is_plan_header: true,
     budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
     cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
+    reset_start_at: cycle.reset_start_at || null,
     declared_amount: amount, declared_budget: amount, monthly_budget_amount: amount,
     total_declared_budget: amount, total_budget: amount, amount,
     is_complete: Boolean(done), status: done ? "active" : "draft", is_active: true, active: true,
@@ -70,6 +73,7 @@ function categoryPayload({ title, amount, order, user, cycle }) {
     budget_amount: amount, total_budget: amount, amount, sort_order: order, display_order: order, position: order,
     budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
     cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
+    reset_start_at: cycle.reset_start_at || null,
     is_active: true, active: true, status: "active", updated_at: now,
     created_by: user?.email || null, email: user?.email || null, user_id: user?.id || null,
   };
@@ -148,7 +152,7 @@ export default function MonthlyBudgetPlan() {
     const amount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
     if (amount <= 0) return setNotice("Please enter your new budget amount first.");
     if (typeof window !== "undefined") {
-      const ok = window.confirm("Reset budget cycle? Old expenses stay in Transaction Hub, but the Budget Card and Watch Zone start clean from today.");
+      const ok = window.confirm("Reset budget cycle? Old expenses stay in Transaction Hub, but the Budget Card and Watch Zone start clean from this exact moment.");
       if (!ok) return;
     }
     try {
@@ -166,7 +170,7 @@ export default function MonthlyBudgetPlan() {
       await refresh();
       setCycleStart(resetCycleWindow.start);
       setCycleEnd(resetCycleWindow.end || cycleEnd);
-      setNotice("Budget cycle reset. Old spending stayed in Transaction Hub, and the Budget Card now starts clean from today.");
+      setNotice("Budget cycle reset. Old spending stayed in Transaction Hub, and the Budget Card now starts clean from this exact moment.");
     } catch (e) {
       setNotice(e?.message || "CLARA could not reset this budget cycle yet.");
     } finally {
@@ -194,14 +198,14 @@ export default function MonthlyBudgetPlan() {
         <p className={`${hint} mt-2.5 ${isActiveBudget ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-50" : ""}`}>{helper}</p>
       </section>
 
-      {isActiveBudget ? <section className={`${card} border-amber-300/14 bg-amber-400/[0.055]`}><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-amber-50">Reset cycle</p><p className="mt-1 text-xs font-semibold leading-5 text-amber-50/60">Starts a fresh budget from today. Old expenses stay in Transaction Hub, but Watch Zone and category spending reset.</p></div><button type="button" onClick={resetCycle} disabled={busy} className="shrink-0 rounded-2xl border border-amber-300/25 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50">Reset</button></div></section> : null}
+      {isActiveBudget ? <section className={`${card} border-amber-300/14 bg-amber-400/[0.055]`}><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-amber-50">Reset cycle</p><p className="mt-1 text-xs font-semibold leading-5 text-amber-50/60">Starts a fresh budget from now. Old expenses stay in Transaction Hub, but Watch Zone and category spending reset.</p></div><button type="button" onClick={resetCycle} disabled={busy} className="shrink-0 rounded-2xl border border-amber-300/25 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50">Reset</button></div></section> : null}
 
       <section className={card}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">Cycle</p>
-          <p className="text-[11px] font-semibold text-white/42">{cycle.start}{cycle.end ? ` → ${cycle.end}` : ""}</p>
+          <p className="text-[11px] font-semibold text-white/42">{String(cycle.start || "").slice(0, 10)}{cycle.end ? ` → ${cycle.end}` : ""}</p>
         </div>
-        <div className="mt-3 grid grid-cols-4 gap-1.5">{[["weekly","Weekly"],["biweekly","2 Weeks"],["monthly","Monthly"],["custom","Custom"]].map(([key,label])=><button key={key} type="button" onClick={()=>setCycleType(key)} className={`rounded-2xl border px-2 py-2 text-[11px] font-bold ${cycleType===key?"border-emerald-300/30 bg-emerald-400/15 text-emerald-100":"border-white/8 bg-white/[0.035] text-white/50"}`}>{label}</button>)}</div>{cycleType!=="monthly"?<div className="mt-2.5 grid grid-cols-2 gap-2"><input type="date" value={cycleStart} onChange={(e)=>setCycleStart(e.target.value)} className={input}/>{cycleType==="custom"?<input type="date" value={cycleEnd} onChange={(e)=>setCycleEnd(e.target.value)} className={input}/>:<div className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3 text-sm font-semibold text-white/55">Ends {cycle.end}</div>}</div>:null}</section>
+        <div className="mt-3 grid grid-cols-4 gap-1.5">{[["weekly","Weekly"],["biweekly","2 Weeks"],["monthly","Monthly"],["custom","Custom"]].map(([key,label])=><button key={key} type="button" onClick={()=>setCycleType(key)} className={`rounded-2xl border px-2 py-2 text-[11px] font-bold ${cycleType===key?"border-emerald-300/30 bg-emerald-400/15 text-emerald-100":"border-white/8 bg-white/[0.035] text-white/50"}`}>{label}</button>)}</div>{cycleType!=="monthly"?<div className="mt-2.5 grid grid-cols-2 gap-2"><input type="date" value={String(cycleStart || "").slice(0,10)} onChange={(e)=>setCycleStart(e.target.value)} className={input}/>{cycleType==="custom"?<input type="date" value={cycleEnd} onChange={(e)=>setCycleEnd(e.target.value)} className={input}/>:<div className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3 text-sm font-semibold text-white/55">Ends {cycle.end}</div>}</div>:null}</section>
 
       <section className={card}><div className="mb-3 flex items-start justify-between gap-3"><div><p className="text-sm font-bold">{editing ? "Edit category" : "Add category"}</p><p className="mt-0.5 text-xs leading-5 text-white/48">Food, bills, rent, transport, savings.</p></div>{editing?<button type="button" onClick={()=>navigate("/budget-plan",{replace:true})} className="rounded-full border border-white/8 bg-white/[0.045] px-3 py-1 text-xs font-semibold text-white/58">Cancel</button>:null}</div><div className="space-y-2.5"><input type="text" value={categoryName} onChange={(e)=>{setCategoryName(e.target.value);setNotice("");}} placeholder="Example: Food" className={input}/><input type="number" min="0" value={categoryAmount} onChange={(e)=>{setCategoryAmount(e.target.value);setNotice("");}} placeholder="Amount to assign" className={input}/><button type="button" onClick={addCategory} disabled={busy} className={`${btn} flex w-full items-center justify-center gap-2 border border-emerald-300/25 bg-emerald-500/15 text-emerald-50`}><Plus className="h-4 w-4"/>{editing?"Update Category":"Add Category"}</button></div></section>
       {notice?<div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-50">{notice}</div>:null}
