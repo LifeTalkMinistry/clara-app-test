@@ -24,6 +24,10 @@ function lower(value = "") {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function hasTime(value) {
+  return /T\d{2}:\d{2}/.test(String(value || ""));
+}
+
 function getPath(source, path) {
   return String(path || "").split(".").reduce((current, key) => current?.[key], source);
 }
@@ -55,38 +59,57 @@ function toDateOnly(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function toTime(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  const time = parsed.getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
 function currentMonthRange() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
   const start = new Date(year, month, 1).toISOString().slice(0, 10);
   const end = new Date(year, month + 1, 0).toISOString().slice(0, 10);
-  return { start, end };
+  return { start, end, hasTimestampStart: false };
 }
 
 function getCycleRange(header = {}) {
   const fallback = currentMonthRange();
+  const start = header?.reset_start_at || header?.cycle_start || header?.budget_cycle_start || header?.period_start || header?.range_start || header?.tracking_start_date;
+  const end = header?.cycle_end || header?.budget_cycle_end || header?.period_end || header?.range_end;
   return {
-    start: toDateOnly(header?.cycle_start || header?.budget_cycle_start || header?.period_start || header?.range_start || header?.tracking_start_date) || fallback.start,
-    end: toDateOnly(header?.cycle_end || header?.budget_cycle_end || header?.period_end || header?.range_end) || fallback.end,
+    start: start || fallback.start,
+    end: end || fallback.end,
+    hasTimestampStart: hasTime(start),
   };
 }
 
-function isInRange(dateValue, range) {
+function getExpenseComparableDate(expense = {}, range = {}) {
+  if (range?.hasTimestampStart) {
+    return textFrom(expense.created_at, expense.createdAt, expense.logged_at, expense.spent_at, expense.transaction_date, expense.transactionDate, expense.date);
+  }
+  return textFrom(expense.date, expense.created_at, expense.createdAt, expense.spent_at, expense.logged_at, expense.transaction_date, expense.transactionDate);
+}
+
+function isInRange(expense = {}, range = {}) {
+  const dateValue = getExpenseComparableDate(expense, range);
+
+  if (range?.hasTimestampStart) {
+    const expenseTime = toTime(dateValue);
+    const startTime = toTime(range.start);
+    const endTime = toTime(range.end);
+    if (startTime !== null && (expenseTime === null || expenseTime < startTime)) return false;
+    if (endTime !== null && expenseTime !== null && expenseTime > endTime) return false;
+    return true;
+  }
+
   const date = toDateOnly(dateValue);
   if (!date) return true;
-  if (range?.start && date < range.start) return false;
-  if (range?.end && date > range.end) return false;
+  if (range?.start && date < toDateOnly(range.start)) return false;
+  if (range?.end && date > toDateOnly(range.end)) return false;
   return true;
-}
-
-function isBudgetHeader(row = {}) {
-  const category = String(row?.category || row?.budget_category || "").trim();
-  return row?.is_plan_header === true || row?.plan_type === "monthly_budget" || category === "__monthly_budget__" || lower(row?.type) === "monthly budget" || lower(category) === "monthly budget" || lower(category) === "monthly spending plan";
-}
-
-function isInactive(row = {}) {
-  return row?.is_active === false || row?.active === false || ["inactive", "archived", "deleted", "closed"].includes(lower(row?.status));
 }
 
 function expenseDate(expense = {}) {
@@ -128,6 +151,15 @@ function categoryId(row = {}) {
 
 function categoryAllocated(row = {}) {
   return numberFrom(row.allocated, row.allocated_amount, row.amount, row.limit, row.total, row.total_budget, row.budget_amount, row.budget) ?? 0;
+}
+
+function isBudgetHeader(row = {}) {
+  const category = String(row?.category || row?.budget_category || "").trim();
+  return row?.is_plan_header === true || row?.plan_type === "monthly_budget" || category === "__monthly_budget__" || lower(row?.type) === "monthly budget" || lower(category) === "monthly budget" || lower(category) === "monthly spending plan";
+}
+
+function isInactive(row = {}) {
+  return row?.is_active === false || row?.active === false || ["inactive", "archived", "deleted", "closed"].includes(lower(row?.status));
 }
 
 function normalizeCategory(row = {}, activeExpenses = []) {
@@ -189,7 +221,7 @@ export function buildClaraBudgetSnapshot(context = {}) {
   const plan = source.monthlyBudgetPlan || source.budgetPlan || source.monthly_budget_plan || {};
   const range = plan.monthRange || getCycleRange(getHeader(source));
   const expenses = firstArray(source, ["expenses", "monthlyExpensesList", "recentExpenses", "finance.expenses", "dashboardSnapshot.expenses"]);
-  const activeExpenses = expenses.filter((expense) => isInRange(expenseDate(expense), range));
+  const activeExpenses = expenses.filter((expense) => isInRange(expense, range));
   const categories = getRawCategories(source).filter((row) => row && !isBudgetHeader(row) && !isInactive(row)).map((row) => normalizeCategory(row, activeExpenses));
   const allocatedBudget = firstNumber(plan, ["allocated", "allocated_total", "totalAllocated"]) ?? firstNumber(source, ["budgetAllocated", "totalBudgetAllocated", "budgetSummary.allocatedBudget"]) ?? sum(categories.map((category) => category.allocated));
   const declaredBudget = getDeclaredBudget(source, allocatedBudget);
