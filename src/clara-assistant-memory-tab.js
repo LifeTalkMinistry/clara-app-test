@@ -38,6 +38,8 @@ const SECTION_ALIASES = new Map([
   ["fitness", "Health"],
 ]);
 
+const EMPTY_CATEGORY_TEXT = "No strong pattern saved yet.";
+
 function safeParseStorage(key) {
   try {
     const raw = window.localStorage.getItem(key);
@@ -124,10 +126,11 @@ function categoryForBullet(bullet = "", fallbackTitle = "Lifestyle") {
   return fallbackTitle;
 }
 
-function normalizeSections(value) {
-  if (!value || typeof value !== "object") return [];
-  const sections = Array.isArray(value.sections) ? value.sections : [];
+function collectSectionMap(value) {
   const merged = new Map();
+  if (!value || typeof value !== "object") return merged;
+
+  const sections = Array.isArray(value.sections) ? value.sections : [];
 
   sections.forEach((section) => {
     const fallbackTitle = fixedTitleFromSection(section.title || section.name || section.category || "Lifestyle");
@@ -136,27 +139,37 @@ function normalizeSections(value) {
     bullets.map(cleanBullet).filter(Boolean).forEach((bullet) => {
       if (isTemporaryOrLiveFact(bullet)) return;
       const title = categoryForBullet(bullet, fallbackTitle);
-      const existing = merged.get(title) || {
-        title,
-        bullets: [],
-      };
+      const existing = merged.get(title) || { title, bullets: [] };
+
       if (!existing.bullets.some((item) => item.toLowerCase() === bullet.toLowerCase())) {
         existing.bullets.push(bullet);
       }
+
       existing.bullets = existing.bullets.slice(0, 12);
       merged.set(title, existing);
     });
   });
 
-  return FIXED_MEMORY_SECTIONS.map((title) => merged.get(title)).filter(Boolean);
+  return merged;
+}
+
+function normalizeSections(value, { includeEmpty = true } = {}) {
+  const merged = collectSectionMap(value);
+
+  return FIXED_MEMORY_SECTIONS
+    .map((title) => {
+      const existing = merged.get(title);
+      return existing || (includeEmpty ? { title, bullets: [], isEmpty: true } : null);
+    })
+    .filter(Boolean);
 }
 
 function buildNormalizedStory(rawStory) {
-  const sections = normalizeSections(rawStory);
+  const sections = normalizeSections(rawStory, { includeEmpty: false });
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 3,
+    schemaVersion: 4,
     sections: sections.map((section) => ({
       id: section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
       title: section.title,
@@ -181,7 +194,7 @@ function migrateStoredStoryIfNeeded(rawStory) {
   const after = JSON.stringify(normalized.sections || []);
   const usesOnlyFixed = normalized.sections.every((section) => FIXED_MEMORY_SECTIONS.includes(section.title));
 
-  if (before !== after || rawStory.schemaVersion !== 3 || !usesOnlyFixed) {
+  if (before !== after || Number(rawStory.schemaVersion || 0) < 4 || !usesOnlyFixed) {
     try {
       window.localStorage.setItem(USER_CONTEXT_STORY_KEY, JSON.stringify(normalized));
       window.dispatchEvent(new CustomEvent("clara-user-context-story-updated", { detail: normalized }));
@@ -202,11 +215,15 @@ function createEmptyMemoryPanel() {
 }
 
 function createSectionHtml(section) {
+  const items = section.bullets.length
+    ? section.bullets.map((bullet) => `<li>${bullet}</li>`).join("")
+    : `<li class="clara-memory-section-empty-line">${EMPTY_CATEGORY_TEXT}</li>`;
+
   return `
-    <section class="clara-memory-section">
+    <section class="clara-memory-section ${section.bullets.length ? "" : "is-empty"}">
       <h4>${section.title}</h4>
       <ul>
-        ${section.bullets.map((bullet) => `<li>${bullet}</li>`).join("")}
+        ${items}
       </ul>
     </section>
   `;
@@ -215,7 +232,7 @@ function createSectionHtml(section) {
 function buildMemoryPanelHtml() {
   const rawStory = safeParseStorage(USER_CONTEXT_STORY_KEY);
   const userStory = migrateStoredStoryIfNeeded(rawStory);
-  const sections = normalizeSections(userStory);
+  const sections = normalizeSections(userStory, { includeEmpty: true });
   const updatedAt = userStory?.updatedAt || userStory?.createdAt || "";
 
   return `
@@ -234,7 +251,7 @@ function buildMemoryPanelHtml() {
         <main class="clara-memory-review-list">
           <div class="clara-memory-context-intro">
             <p>What CLARA understands so far</p>
-            <span>This is the single readable context CLARA uses quietly to make future guidance feel personal.</span>
+            <span>This fixed life context board shows all master categories. Empty cards mean CLARA has no strong saved pattern there yet.</span>
           </div>
 
           ${sections.length ? sections.map(createSectionHtml).join("") : createEmptyMemoryPanel()}
@@ -352,6 +369,10 @@ function ensureMemoryStyles() {
       padding: 14px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
     }
+    .clara-memory-section.is-empty {
+      background: rgba(255,255,255,.032);
+      border-style: dashed;
+    }
     .clara-memory-section h4 {
       margin: 0 0 10px;
       font: 950 14px/1 system-ui, sans-serif;
@@ -366,6 +387,12 @@ function ensureMemoryStyles() {
     .clara-memory-section li {
       color: rgba(248,250,252,.90);
       font: 700 12.5px/1.55 system-ui, sans-serif;
+    }
+    .clara-memory-section-empty-line {
+      color: rgba(203,213,225,.48) !important;
+      font-style: italic !important;
+      list-style-type: none;
+      margin-left: -18px;
     }
     .clara-memory-empty {
       border: 1px dashed rgba(255,255,255,.14);
