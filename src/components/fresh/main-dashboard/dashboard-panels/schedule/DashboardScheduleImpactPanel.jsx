@@ -75,7 +75,7 @@ Rules:
 - Think about the event context and ask the next most useful money-impact question.
 - Ask only one question at a time.
 - Keep it short, warm, and conversational.
-- If the user reply is vague like "hmm", ask a helpful clarifying question instead of marking it zero.
+- If the user reply is vague like "hi" or "hmm", ask a helpful clarifying question instead of marking it zero.
 - If the user gives an amount, acknowledge it and naturally move to the next likely expense.
 - For church events, consider transport, food, offering/contribution, group share, and after-event spending only when relevant.
 - Do not claim anything was saved.
@@ -266,12 +266,10 @@ export default function DashboardScheduleImpactPanel() {
   };
 
   useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return undefined;
-
     const onClick = (event) => {
+      const root = rootRef.current;
       const button = event.target?.closest?.("button");
-      if (!button || !root.contains(button)) return;
+      if (!root || !button || !root.contains(button)) return;
 
       const label = cleanText(button.textContent).toLowerCase();
       if (!label.includes("calculate money impact")) return;
@@ -280,12 +278,27 @@ export default function DashboardScheduleImpactPanel() {
       event.stopPropagation();
       event.stopImmediatePropagation?.();
 
-      const form = readForm(root);
-      startImpactChat(form);
+      startImpactChat(readForm(root));
     };
 
-    root.addEventListener("click", onClick, true);
-    return () => root.removeEventListener("click", onClick, true);
+    const onSubmit = (event) => {
+      const root = rootRef.current;
+      if (!root || !root.contains(event.target)) return;
+      const submitterText = cleanText(event.submitter?.textContent).toLowerCase();
+      if (!submitterText.includes("calculate money impact")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      startImpactChat(readForm(root));
+    };
+
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("submit", onSubmit, true);
+
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("submit", onSubmit, true);
+    };
   }, []);
 
   return (
