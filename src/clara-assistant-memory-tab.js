@@ -1,5 +1,9 @@
+import { hasGeminiJsonConfig, requestGeminiJson } from "@/lib/clara-gemini-json-utils";
+
 const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
 const MEMORY_PANEL_ID = "clara-assistant-memory-panel";
+const MEMORY_EDIT_PANEL_ID = "clara-assistant-memory-edit-panel";
+const MAX_BULLETS_PER_SECTION = 8;
 
 const FIXED_MEMORY_SECTIONS = [
   "Identity",
@@ -39,6 +43,11 @@ const SECTION_ALIASES = new Map([
 ]);
 
 const EMPTY_CATEGORY_TEXT = "No strong pattern saved yet.";
+const MEMORY_EDIT_INTRO = "You’re editing CLARA’s memory board. Tell me what you want to add, move, remove, or correct. For example: ‘Move the food delivery note from Money to Food.’";
+const MEMORY_EDIT_FOLLOW_UP = "Anything else you want to add, move, remove, or correct?";
+
+let memoryEditMessages = [];
+let memoryEditProcessing = false;
 
 function safeParseStorage(key) {
   try {
@@ -55,6 +64,15 @@ function clean(value = "") {
 
 function now() {
   return new Date().toISOString();
+}
+
+function escapeHtml(value = "") {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function formatDate(value = "") {
@@ -101,6 +119,7 @@ function isTemporaryOrLiveFact(value = "") {
   if (/\b(balance across all wallets|money left right now|remaining right now|currently has|currently have)\b/i.test(text)) return true;
   if (/\b(is asking|asked|checking their wallet|checking his wallet|checking her wallet|see if they can afford|recent improvement in spending habits)\b/i.test(text)) return true;
   if (/\b(today|right now|currently|this exact moment)\b.*\b(balance|wallet|amount|remaining|left)\b/i.test(text)) return true;
+  if (/^no strong pattern saved yet\.?$/i.test(text)) return true;
   return false;
 }
 
@@ -126,11 +145,14 @@ function categoryForBullet(bullet = "", fallbackTitle = "Lifestyle") {
   return fallbackTitle;
 }
 
-function collectSectionMap(value) {
+function collectSectionMap(value, options = {}) {
+  const { trustSavedTitles = false } = options;
   const merged = new Map();
   if (!value || typeof value !== "object") return merged;
 
   const sections = Array.isArray(value.sections) ? value.sections : [];
+  const schemaVersion = Number(value.schemaVersion || 0);
+  const shouldTrustTitles = trustSavedTitles || schemaVersion >= 5;
 
   sections.forEach((section) => {
     const fallbackTitle = fixedTitleFromSection(section.title || section.name || section.category || "Lifestyle");
@@ -138,14 +160,14 @@ function collectSectionMap(value) {
 
     bullets.map(cleanBullet).filter(Boolean).forEach((bullet) => {
       if (isTemporaryOrLiveFact(bullet)) return;
-      const title = categoryForBullet(bullet, fallbackTitle);
+      const title = shouldTrustTitles ? fallbackTitle : categoryForBullet(bullet, fallbackTitle);
       const existing = merged.get(title) || { title, bullets: [] };
 
       if (!existing.bullets.some((item) => item.toLowerCase() === bullet.toLowerCase())) {
         existing.bullets.push(bullet);
       }
 
-      existing.bullets = existing.bullets.slice(0, 12);
+      existing.bullets = existing.bullets.slice(0, MAX_BULLETS_PER_SECTION);
       merged.set(title, existing);
     });
   });
@@ -153,8 +175,8 @@ function collectSectionMap(value) {
   return merged;
 }
 
-function normalizeSections(value, { includeEmpty = true } = {}) {
-  const merged = collectSectionMap(value);
+function normalizeSections(value, { includeEmpty = true, trustSavedTitles = false } = {}) {
+  const merged = collectSectionMap(value, { trustSavedTitles });
 
   return FIXED_MEMORY_SECTIONS
     .map((title) => {
@@ -165,11 +187,11 @@ function normalizeSections(value, { includeEmpty = true } = {}) {
 }
 
 function buildNormalizedStory(rawStory) {
-  const sections = normalizeSections(rawStory, { includeEmpty: false });
+  const sections = normalizeSections(rawStory, { includeEmpty: false, trustSavedTitles: true });
   return {
     id: "clara-user-context-story",
     type: "user_context_story",
-    schemaVersion: 4,
+    schemaVersion: 7,
     sections: sections.map((section) => ({
       id: section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
       title: section.title,
@@ -194,7 +216,7 @@ function migrateStoredStoryIfNeeded(rawStory) {
   const after = JSON.stringify(normalized.sections || []);
   const usesOnlyFixed = normalized.sections.every((section) => FIXED_MEMORY_SECTIONS.includes(section.title));
 
-  if (before !== after || Number(rawStory.schemaVersion || 0) < 4 || !usesOnlyFixed) {
+  if (before !== after || Number(rawStory.schemaVersion || 0) < 7 || !usesOnlyFixed) {
     try {
       window.localStorage.setItem(USER_CONTEXT_STORY_KEY, JSON.stringify(normalized));
       window.dispatchEvent(new CustomEvent("clara-user-context-story-updated", { detail: normalized }));
@@ -203,6 +225,19 @@ function migrateStoredStoryIfNeeded(rawStory) {
   }
 
   return rawStory;
+}
+
+function readUserContextStory() {
+  return migrateStoredStoryIfNeeded(safeParseStorage(USER_CONTEXT_STORY_KEY) || {}) || buildNormalizedStory({});
+}
+
+function writeUserContextStory(story = {}) {
+  const normalized = buildNormalizedStory({ ...story, updatedAt: now() });
+  try {
+    window.localStorage.setItem(USER_CONTEXT_STORY_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent("clara-user-context-story-updated", { detail: normalized }));
+  } catch {}
+  return normalized;
 }
 
 function createEmptyMemoryPanel() {
@@ -216,12 +251,12 @@ function createEmptyMemoryPanel() {
 
 function createSectionHtml(section) {
   const items = section.bullets.length
-    ? section.bullets.map((bullet) => `<li>${bullet}</li>`).join("")
+    ? section.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")
     : `<li class="clara-memory-section-empty-line">${EMPTY_CATEGORY_TEXT}</li>`;
 
   return `
     <section class="clara-memory-section ${section.bullets.length ? "" : "is-empty"}">
-      <h4>${section.title}</h4>
+      <h4>${escapeHtml(section.title)}</h4>
       <ul>
         ${items}
       </ul>
@@ -230,9 +265,8 @@ function createSectionHtml(section) {
 }
 
 function buildMemoryPanelHtml() {
-  const rawStory = safeParseStorage(USER_CONTEXT_STORY_KEY);
-  const userStory = migrateStoredStoryIfNeeded(rawStory);
-  const sections = normalizeSections(userStory, { includeEmpty: true });
+  const userStory = readUserContextStory();
+  const sections = normalizeSections(userStory, { includeEmpty: true, trustSavedTitles: true });
   const updatedAt = userStory?.updatedAt || userStory?.createdAt || "";
 
   return `
@@ -245,7 +279,10 @@ function buildMemoryPanelHtml() {
             <h2>Memory Review</h2>
             <span>Last updated: ${formatDate(updatedAt)}</span>
           </div>
-          <button type="button" data-close-clara-context-memory="true" aria-label="Close memory review">×</button>
+          <div class="clara-memory-header-actions">
+            <button type="button" data-open-clara-memory-edit="true" aria-label="Edit memory board" title="Edit memory board">✎</button>
+            <button type="button" data-close-clara-context-memory="true" aria-label="Close memory review">×</button>
+          </div>
         </header>
 
         <main class="clara-memory-review-list">
@@ -254,11 +291,316 @@ function buildMemoryPanelHtml() {
             <span>This fixed life context board shows all master categories. Empty cards mean CLARA has no strong saved pattern there yet.</span>
           </div>
 
+          <div class="clara-memory-context-disclaimer">
+            <p>CLARA is still learning you.</p>
+            <span>Some memories may be incomplete or misunderstood. Tap the pen above to add, move, remove, or correct anything.</span>
+          </div>
+
           ${sections.length ? sections.map(createSectionHtml).join("") : createEmptyMemoryPanel()}
         </main>
       </section>
     </div>
   `;
+}
+
+function buildMemoryBoardText(story = readUserContextStory()) {
+  const sections = normalizeSections(story, { includeEmpty: true, trustSavedTitles: true });
+  return sections
+    .map((section) => {
+      const bullets = section.bullets.length ? section.bullets.map((bullet) => `- ${bullet}`).join("\n") : "- No saved memory.";
+      return `${section.title}\n${bullets}`;
+    })
+    .join("\n\n");
+}
+
+function normalizePatchUpdates(updates = []) {
+  return (Array.isArray(updates) ? updates : [])
+    .map((update) => {
+      const category = fixedTitleFromSection(update?.category || update?.title || update?.section || "");
+      const remove = Array.isArray(update?.remove) ? update.remove.map(cleanBullet).filter(Boolean) : [];
+      const add = Array.isArray(update?.add) ? update.add.map(cleanBullet).filter((item) => item && !isTemporaryOrLiveFact(item)) : [];
+      if (!FIXED_MEMORY_SECTIONS.includes(category)) return null;
+      if (!remove.length && !add.length) return null;
+      return { category, remove, add };
+    })
+    .filter(Boolean);
+}
+
+function matchBulletForRemoval(savedBullet = "", removal = "") {
+  const saved = clean(savedBullet).toLowerCase();
+  const target = clean(removal).toLowerCase();
+  if (!saved || !target) return false;
+  if (saved === target) return true;
+  if (saved.includes(target) || target.includes(saved)) return true;
+
+  const savedWords = new Set(saved.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length > 3));
+  const targetWords = target.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length > 3);
+  if (!savedWords.size || !targetWords.length) return false;
+  const hits = targetWords.filter((word) => savedWords.has(word)).length;
+  return hits >= Math.min(3, targetWords.length);
+}
+
+function applyMemoryBoardPatch(existingStory = readUserContextStory(), updates = []) {
+  const normalizedUpdates = normalizePatchUpdates(updates);
+  const currentSections = normalizeSections(existingStory, { includeEmpty: false, trustSavedTitles: true });
+  const map = new Map(currentSections.map((section) => [section.title, { ...section, bullets: [...section.bullets] }]));
+
+  normalizedUpdates.forEach((update) => {
+    const existing = map.get(update.category) || { title: update.category, bullets: [] };
+    let bullets = [...existing.bullets];
+
+    if (update.remove.length) {
+      bullets = bullets.filter((bullet) => !update.remove.some((removal) => matchBulletForRemoval(bullet, removal)));
+    }
+
+    update.add.forEach((bullet) => {
+      if (!bullet || isTemporaryOrLiveFact(bullet)) return;
+      if (!bullets.some((saved) => saved.toLowerCase() === bullet.toLowerCase())) {
+        bullets.push(bullet);
+      }
+    });
+
+    bullets = bullets.map(cleanBullet).filter((bullet) => bullet && !isTemporaryOrLiveFact(bullet)).slice(0, MAX_BULLETS_PER_SECTION);
+
+    if (bullets.length) map.set(update.category, { title: update.category, bullets });
+    else map.delete(update.category);
+  });
+
+  const nextSections = FIXED_MEMORY_SECTIONS
+    .map((title) => map.get(title))
+    .filter((section) => section?.bullets?.length)
+    .map((section) => ({
+      id: section.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      title: section.title,
+      type: "fixed",
+      bullets: section.bullets.slice(0, MAX_BULLETS_PER_SECTION),
+      createdAt: existingStory?.createdAt || now(),
+      updatedAt: now(),
+      source: "user_corrected",
+    }));
+
+  return {
+    id: "clara-user-context-story",
+    type: "user_context_story",
+    schemaVersion: 7,
+    sections: nextSections,
+    createdAt: existingStory?.createdAt || now(),
+    updatedAt: now(),
+    sectionCount: nextSections.length,
+    bulletCount: nextSections.reduce((sum, section) => sum + section.bullets.length, 0),
+    source: "clara_user_context_story",
+  };
+}
+
+function isExitMemoryEditText(value = "") {
+  const text = clean(value).toLowerCase().replace(/[.!?]+$/g, "");
+  return /^(no|no thanks|that'?s all|thats all|done|exit|exit edit mode|stop|okay na|tapos na)$/i.test(text);
+}
+
+function buildMemoryEditPrompt(userMessage = "") {
+  return `You are CLARA’s Memory Board Editor.
+
+The user is editing CLARA’s memory board.
+
+Current memory board:
+${buildMemoryBoardText()}
+
+User correction:
+"${clean(userMessage)}"
+
+Your task:
+Return a PATCH only.
+
+Rules:
+- You may edit multiple fixed categories if needed.
+- You may add, revise, move, or remove bullets.
+- Do NOT create new categories.
+- Do NOT rewrite unrelated categories.
+- Do NOT remove existing memory unless user clearly asks.
+- Treat user correction as higher authority than AI-generated memory.
+- Keep bullets concise, human-readable, and stable.
+- Never save live balances, temporary amounts, one-time affordability checks, or “user is asking/checking…”
+- Return JSON only.
+
+Fixed categories only:
+${FIXED_MEMORY_SECTIONS.join(", ")}
+
+Return shape:
+{
+  "updates": [
+    {
+      "category": "Money",
+      "remove": ["Food delivery, cravings, and convenience meals are recurring spending temptations."],
+      "add": []
+    },
+    {
+      "category": "Food",
+      "remove": [],
+      "add": ["Food delivery and convenience meals are recurring temptations during tired or late-night periods."]
+    }
+  ],
+  "assistant_reply": "Got it. I updated your memory board. Anything else you want to add, move, remove, or correct?"
+}`;
+}
+
+function fallbackPatchFromEditText(userMessage = "") {
+  const text = clean(userMessage);
+  const lower = text.toLowerCase();
+  const updates = [];
+  const categoryPattern = FIXED_MEMORY_SECTIONS.map((item) => item.replace(/\s+/g, "\\s+")).join("|");
+  const moveMatch = lower.match(new RegExp(`move\\s+(.+?)\\s+from\\s+(${categoryPattern})\\s+to\\s+(${categoryPattern})`, "i"));
+  if (moveMatch) {
+    const phrase = clean(moveMatch[1]);
+    updates.push({ category: fixedTitleFromSection(moveMatch[2]), remove: [phrase], add: [] });
+    updates.push({ category: fixedTitleFromSection(moveMatch[3]), remove: [], add: [phrase] });
+    return { updates, assistant_reply: `Got it. I moved that memory. ${MEMORY_EDIT_FOLLOW_UP}` };
+  }
+
+  const addMatch = text.match(new RegExp(`(?:add|save|put)\\s+(?:this\\s+)?(?:to|under|in)\\s+(${categoryPattern})[:\\s-]+(.+)`, "i"));
+  if (addMatch) {
+    updates.push({ category: fixedTitleFromSection(addMatch[1]), remove: [], add: [clean(addMatch[2])] });
+    return { updates, assistant_reply: `Got it. I updated your ${fixedTitleFromSection(addMatch[1])} memory. ${MEMORY_EDIT_FOLLOW_UP}` };
+  }
+
+  const removeMatch = text.match(new RegExp(`(?:remove|delete)\\s+(.+?)\\s+(?:from|under|in)\\s+(${categoryPattern})`, "i"));
+  if (removeMatch) {
+    updates.push({ category: fixedTitleFromSection(removeMatch[2]), remove: [clean(removeMatch[1])], add: [] });
+    return { updates, assistant_reply: `Got it. I removed that memory if it matched. ${MEMORY_EDIT_FOLLOW_UP}` };
+  }
+
+  return {
+    updates: [],
+    assistant_reply: "I’m ready to edit, but I need the category or action more clearly. Try: ‘Move the food delivery note from Money to Food’ or ‘Add to Lifestyle: basketball helps me reset.’",
+  };
+}
+
+async function getMemoryBoardEditPatch(userMessage = "") {
+  if (!hasGeminiJsonConfig()) return fallbackPatchFromEditText(userMessage);
+
+  try {
+    const result = await requestGeminiJson({
+      prompt: buildMemoryEditPrompt(userMessage),
+      temperature: 0.12,
+      maxOutputTokens: 1100,
+      label: "CLARA Memory Board Editor",
+    });
+
+    return {
+      updates: normalizePatchUpdates(result.json?.updates || []),
+      assistant_reply: clean(result.json?.assistant_reply) || `Got it. I updated your memory board. ${MEMORY_EDIT_FOLLOW_UP}`,
+    };
+  } catch (error) {
+    console.warn("[CLARA Memory Edit] Gemini failed, using fallback patch.", error);
+    return fallbackPatchFromEditText(userMessage);
+  }
+}
+
+function createMemoryEditMessageHtml(message, index) {
+  const role = message.role === "user" ? "user" : "assistant";
+  return `
+    <div class="clara-memory-edit-message ${role}" data-memory-edit-message-index="${index}">
+      ${escapeHtml(message.text).replace(/\n/g, "<br>")}
+    </div>
+  `;
+}
+
+function buildMemoryEditPanelHtml() {
+  return `
+    <div id="${MEMORY_EDIT_PANEL_ID}" class="clara-memory-review-shell clara-memory-edit-shell" role="dialog" aria-label="CLARA Memory Edit Mode">
+      <div class="clara-memory-review-backdrop" data-close-clara-memory-edit="true"></div>
+      <section class="clara-memory-review-panel clara-memory-edit-panel">
+        <header class="clara-memory-review-header">
+          <div>
+            <p>CLARA Memory</p>
+            <h2>Edit Mode</h2>
+            <span>Fixed categories only • User corrections are trusted</span>
+          </div>
+          <div class="clara-memory-header-actions">
+            <button type="button" data-open-clara-memory-review="true" aria-label="Back to memory review">←</button>
+            <button type="button" data-close-clara-memory-edit="true" aria-label="Close memory edit">×</button>
+          </div>
+        </header>
+
+        <main class="clara-memory-edit-body">
+          <div class="clara-memory-edit-note">
+            <p>Edit Memory Board</p>
+            <span>Tell CLARA what to add, move, remove, or correct. It can update multiple fixed categories at once.</span>
+          </div>
+
+          <div class="clara-memory-edit-messages" data-memory-edit-messages="true">
+            ${memoryEditMessages.map(createMemoryEditMessageHtml).join("")}
+            ${memoryEditProcessing ? `<div class="clara-memory-edit-message assistant">CLARA is updating your memory...</div>` : ""}
+          </div>
+        </main>
+
+        <form class="clara-memory-edit-form" data-memory-edit-form="true">
+          <input name="memoryEditText" ${memoryEditProcessing ? "disabled" : ""} autocomplete="off" placeholder="Add, move, remove, or correct memory..." />
+          <button type="submit" ${memoryEditProcessing ? "disabled" : ""}>↑</button>
+        </form>
+      </section>
+    </div>
+  `;
+}
+
+function removeMemoryEditPanel() {
+  document.getElementById(MEMORY_EDIT_PANEL_ID)?.remove();
+}
+
+function showMemoryEditPanel() {
+  removeMemoryPanel();
+  removeMemoryEditPanel();
+  if (!memoryEditMessages.length) {
+    memoryEditMessages = [{ role: "assistant", text: MEMORY_EDIT_INTRO }];
+  }
+  document.body.insertAdjacentHTML("beforeend", buildMemoryEditPanelHtml());
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`#${MEMORY_EDIT_PANEL_ID} input[name="memoryEditText"]`);
+    const messages = document.querySelector(`#${MEMORY_EDIT_PANEL_ID} [data-memory-edit-messages]`);
+    input?.focus?.();
+    messages?.scrollTo?.({ top: messages.scrollHeight, behavior: "smooth" });
+  });
+}
+
+async function submitMemoryEditText(userMessage = "") {
+  const text = clean(userMessage);
+  if (!text || memoryEditProcessing) return;
+
+  memoryEditMessages.push({ role: "user", text });
+
+  if (isExitMemoryEditText(text)) {
+    memoryEditMessages.push({ role: "assistant", text: "Done. I closed Memory Edit Mode and kept your latest memory board saved." });
+    showMemoryEditPanel();
+    window.setTimeout(() => showMemoryPanel(), 520);
+    return;
+  }
+
+  memoryEditProcessing = true;
+  showMemoryEditPanel();
+
+  try {
+    const patch = await getMemoryBoardEditPatch(text);
+    const updates = normalizePatchUpdates(patch.updates || []);
+
+    if (updates.length) {
+      const existingStory = readUserContextStory();
+      const nextStory = applyMemoryBoardPatch(existingStory, updates);
+      writeUserContextStory(nextStory);
+    }
+
+    memoryEditMessages.push({
+      role: "assistant",
+      text: patch.assistant_reply || `Got it. I updated your memory board. ${MEMORY_EDIT_FOLLOW_UP}`,
+    });
+  } catch (error) {
+    console.error("[CLARA Memory Edit] Failed to update memory board.", error);
+    memoryEditMessages.push({
+      role: "assistant",
+      text: "I couldn’t update that memory yet. Please try again with the category and action clearly stated.",
+    });
+  } finally {
+    memoryEditProcessing = false;
+    showMemoryEditPanel();
+  }
 }
 
 function ensureMemoryStyles() {
@@ -325,16 +667,25 @@ function ensureMemoryStyles() {
       color: rgba(226,232,240,.68);
       font: 750 12px/1.4 system-ui, sans-serif;
     }
-    .clara-memory-review-header button {
+    .clara-memory-header-actions {
+      display: inline-flex;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+    .clara-memory-review-header button,
+    .clara-memory-edit-form button {
       width: 40px;
       height: 40px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.16);
       background: rgba(255,255,255,.06);
       color: white;
-      font-size: 24px;
+      font-size: 20px;
       flex: 0 0 auto;
+      transition: transform .16s ease, background .16s ease;
     }
+    .clara-memory-review-header button:active,
+    .clara-memory-edit-form button:active { transform: scale(.96); }
     .clara-memory-review-list {
       flex: 1 1 auto;
       min-height: 0;
@@ -342,20 +693,31 @@ function ensureMemoryStyles() {
       padding: 14px 14px max(24px, env(safe-area-inset-bottom));
       scrollbar-width: none;
     }
-    .clara-memory-review-list::-webkit-scrollbar { display: none; }
-    .clara-memory-context-intro {
+    .clara-memory-review-list::-webkit-scrollbar,
+    .clara-memory-edit-messages::-webkit-scrollbar { display: none; }
+    .clara-memory-context-intro,
+    .clara-memory-context-disclaimer,
+    .clara-memory-edit-note {
       border: 1px solid rgba(255,255,255,.09);
       border-radius: 24px;
       background: rgba(255,255,255,.045);
       padding: 14px;
       margin-bottom: 12px;
     }
-    .clara-memory-context-intro p {
+    .clara-memory-context-disclaimer {
+      border-color: rgba(125,211,252,.16);
+      background: rgba(125,211,252,.065);
+    }
+    .clara-memory-context-intro p,
+    .clara-memory-context-disclaimer p,
+    .clara-memory-edit-note p {
       margin: 0;
       font: 950 15px/1.2 system-ui, sans-serif;
       color: rgba(255,255,255,.94);
     }
-    .clara-memory-context-intro span {
+    .clara-memory-context-intro span,
+    .clara-memory-context-disclaimer span,
+    .clara-memory-edit-note span {
       display: block;
       margin-top: 8px;
       color: rgba(203,213,225,.68);
@@ -412,6 +774,72 @@ function ensureMemoryStyles() {
       font: 650 12px/1.55 system-ui, sans-serif;
       color: rgba(203,213,225,0.76);
     }
+    .clara-memory-edit-panel { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+    .clara-memory-edit-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 0;
+    }
+    .clara-memory-edit-messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 12px;
+      scrollbar-width: none;
+    }
+    .clara-memory-edit-message {
+      max-width: 92%;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 22px;
+      padding: 11px 13px;
+      font: 700 12.5px/1.55 system-ui, sans-serif;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .clara-memory-edit-message.assistant {
+      align-self: flex-start;
+      background: rgba(255,255,255,.055);
+      color: rgba(248,250,252,.88);
+    }
+    .clara-memory-edit-message.user {
+      align-self: flex-end;
+      background: rgba(110,231,183,.18);
+      border-color: rgba(110,231,183,.22);
+      color: white;
+    }
+    .clara-memory-edit-form {
+      margin: 0 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 22px;
+      background: rgba(255,255,255,.055);
+      padding: 8px;
+      flex: 0 0 auto;
+    }
+    .clara-memory-edit-form input {
+      min-width: 0;
+      flex: 1 1 auto;
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: white;
+      outline: none;
+      font: 700 13px/1 system-ui, sans-serif;
+    }
+    .clara-memory-edit-form input::placeholder { color: rgba(203,213,225,.46); }
+    .clara-memory-edit-form button {
+      background: linear-gradient(135deg, rgba(110,231,183,.95), rgba(34,211,238,.78));
+      color: rgba(2,6,23,.95);
+      font-weight: 950;
+    }
+    .clara-memory-edit-form button:disabled,
+    .clara-memory-edit-form input:disabled { opacity: .55; }
   `;
   document.head.appendChild(style);
 }
@@ -430,6 +858,7 @@ function removeMemoryPanel() {
 
 function showMemoryPanel() {
   removeMemoryPanel();
+  removeMemoryEditPanel();
   document.body.insertAdjacentHTML("beforeend", buildMemoryPanelHtml());
 }
 
@@ -444,9 +873,32 @@ function relabelTalkButton() {
 
 function installClickCapture() {
   document.addEventListener("click", (event) => {
-    const close = event.target?.closest?.("[data-close-clara-context-memory]");
-    if (close) {
+    const closeMemory = event.target?.closest?.("[data-close-clara-context-memory]");
+    if (closeMemory) {
       removeMemoryPanel();
+      return;
+    }
+
+    const closeEdit = event.target?.closest?.("[data-close-clara-memory-edit]");
+    if (closeEdit) {
+      removeMemoryEditPanel();
+      return;
+    }
+
+    const backToReview = event.target?.closest?.("[data-open-clara-memory-review]");
+    if (backToReview) {
+      event.preventDefault();
+      showMemoryPanel();
+      return;
+    }
+
+    const openEdit = event.target?.closest?.("[data-open-clara-memory-edit]");
+    if (openEdit) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      memoryEditMessages = [{ role: "assistant", text: MEMORY_EDIT_INTRO }];
+      showMemoryEditPanel();
       return;
     }
 
@@ -464,7 +916,23 @@ function installClickCapture() {
 
     if (label === "Core Features" || label === "Smart Actions") {
       removeMemoryPanel();
+      removeMemoryEditPanel();
     }
+  }, true);
+}
+
+function installSubmitCapture() {
+  document.addEventListener("submit", (event) => {
+    const form = event.target?.closest?.("[data-memory-edit-form]");
+    if (!form) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const input = form.querySelector('input[name="memoryEditText"]');
+    const value = clean(input?.value);
+    if (!value) return;
+    input.value = "";
+    submitMemoryEditText(value);
   }, true);
 }
 
@@ -485,6 +953,7 @@ function installClaraAssistantMemoryTab() {
   window.__CLARA_ASSISTANT_MEMORY_TAB_INSTALLED__ = true;
   ensureMemoryStyles();
   installClickCapture();
+  installSubmitCapture();
   installObserver();
   installStoryRefresh();
 }
