@@ -66,6 +66,10 @@ const CONTEXT_GROUPS = [
     title: "Conversation memory",
     sources: ["previous_conversation_memory", "user_message_history"],
   },
+  {
+    title: "Long-term intelligence",
+    sources: ["universal_memory_profile", "user_context_story"],
+  },
 ];
 
 function statusLabel(status = "not_available") {
