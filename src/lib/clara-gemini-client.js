@@ -22,7 +22,6 @@ const KNOWN_GEMINI_MODELS = [
   "gemini-1.5-flash",
   "gemini-1.5-flash-latest",
 ];
-const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
 const BLOCKED_MODEL_KEYWORDS = [
   "image",
   "vision",
@@ -109,18 +108,13 @@ function normalizeModelName(model = "") {
 }
 
 function uniqueModels(models = []) {
-  return models
-    .map(normalizeModelName)
-    .filter(Boolean)
-    .filter((model, index, list) => list.indexOf(model) === index);
+  return models.map(normalizeModelName).filter(Boolean).filter((model, index, list) => list.indexOf(model) === index);
 }
 
 function isTextChatGeminiModel(model = "") {
   const value = normalizeModelName(model).toLowerCase();
-  if (!value) return false;
-  if (!value.includes("gemini")) return false;
+  if (!value || !value.includes("gemini")) return false;
   if (BLOCKED_MODEL_KEYWORDS.some((keyword) => value.includes(keyword))) return false;
-
   return value.includes("flash") || value.includes("pro");
 }
 
@@ -139,7 +133,6 @@ function getFallbackGeminiModelCandidates() {
 function rankGeminiModel(model = "") {
   const value = normalizeModelName(model).toLowerCase();
   const configured = normalizeModelName(getConfiguredGeminiModel()).toLowerCase();
-
   if (configured && value === configured && isTextChatGeminiModel(value)) return 0;
   if (value.includes("2.5") && value.includes("flash") && !value.includes("lite")) return 1;
   if (value.includes("2.5") && value.includes("flash") && value.includes("lite")) return 2;
@@ -152,41 +145,25 @@ function rankGeminiModel(model = "") {
 
 async function discoverGeminiModelCandidates({ apiKey, signal } = {}) {
   const fallbackModels = getFallbackGeminiModelCandidates();
-
   try {
     const response = await fetch(`${GEMINI_ENDPOINT_BASE}?key=${encodeURIComponent(apiKey)}`, { signal });
     const data = await response.json().catch(() => ({}));
-
     if (!response.ok) {
-      if (shouldDebugClaraAi()) {
-        console.warn("[CLARA Gemini] Model discovery failed", {
-          status: response.status,
-          message: data?.error?.message,
-          payload: data,
-        });
-      }
+      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model discovery failed", { status: response.status, message: data?.error?.message, payload: data });
       return fallbackModels;
     }
-
-    const allGenerateContentModels = (Array.isArray(data?.models) ? data.models : [])
-      .filter((model) => (model?.supportedGenerationMethods || []).includes("generateContent"))
-      .map((model) => normalizeModelName(model?.name))
-      .filter(Boolean);
-
+    const allGenerateContentModels = (Array.isArray(data?.models) ? data.models : []).filter((model) => (model?.supportedGenerationMethods || []).includes("generateContent")).map((model) => normalizeModelName(model?.name)).filter(Boolean);
     const discoveredModels = allGenerateContentModels.filter(isTextChatGeminiModel);
     const blockedModels = allGenerateContentModels.filter((model) => !isTextChatGeminiModel(model));
     const configuredModel = normalizeModelName(getConfiguredGeminiModel());
     const configuredModelCandidate = isTextChatGeminiModel(configuredModel) ? configuredModel : "";
-
     const orderedDiscoveredModels = uniqueModels(discoveredModels).sort((a, b) => rankGeminiModel(a) - rankGeminiModel(b));
     const candidates = uniqueModels([configuredModelCandidate, ...orderedDiscoveredModels, ...fallbackModels]).filter(isTextChatGeminiModel);
-
     if (shouldDebugClaraAi()) {
       console.log("[CLARA Gemini] Available text generateContent models", orderedDiscoveredModels);
       console.log("[CLARA Gemini] Blocked non-chat models", blockedModels);
       console.log("[CLARA Gemini] Final text model candidates", candidates);
     }
-
     return candidates;
   } catch (error) {
     if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model discovery crashed", error);
@@ -208,9 +185,7 @@ function list(items = [], formatter, empty = "none loaded") {
 }
 
 function sanitizeClaraReply(text) {
-  return String(text || "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return String(text || "").replace(/\s+/g, " ").trim();
 }
 
 function lastWord(text = "") {
@@ -252,29 +227,16 @@ Rules:
 }
 
 function buildConversationHistory(messages = []) {
-  return (Array.isArray(messages) ? messages : [])
-    .slice(-8)
-    .map((message) => `${message.role === "user" ? "User" : "CLARA"}: ${String(message.text || "").trim()}`)
-    .join("\n");
+  return (Array.isArray(messages) ? messages : []).slice(-8).map((message) => `${message.role === "user" ? "User" : "CLARA"}: ${String(message.text || "").trim()}`).join("\n");
 }
 
 function logCentralContextDiagnostics({ message, enrichedContext, conversationHistory }) {
   if (!shouldDebugClaraAi()) return;
-
   try {
-    const centralContextInput = {
-      ...(enrichedContext || {}),
-      userMessageHistory: conversationHistory,
-      conversationHistory,
-    };
-
-    const availableContext = collectClaraAvailableContext(centralContextInput);
-    const diagnostics = buildClaraContextDiagnostics(centralContextInput);
-    const selectorPrompt = buildContextSelectorPrompt(message, centralContextInput);
-
-    console.log("[CLARA Central Context] Available Context", availableContext);
-    console.log("[CLARA Central Context] Diagnostics", diagnostics);
-    console.log("[CLARA Central Context] Selector Prompt", selectorPrompt);
+    const centralContextInput = { ...(enrichedContext || {}), userMessageHistory: conversationHistory, conversationHistory };
+    console.log("[CLARA Central Context] Available Context", collectClaraAvailableContext(centralContextInput));
+    console.log("[CLARA Central Context] Diagnostics", buildClaraContextDiagnostics(centralContextInput));
+    console.log("[CLARA Central Context] Selector Prompt", buildContextSelectorPrompt(message, centralContextInput));
   } catch (error) {
     console.warn("[CLARA Central Context] Diagnostics failed", error);
   }
@@ -282,6 +244,12 @@ function logCentralContextDiagnostics({ message, enrichedContext, conversationHi
 
 function budgetName(budget = {}) {
   return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
+}
+
+function buildBudgetRowsForPrompt(budgetPlan = {}) {
+  const categories = Array.isArray(budgetPlan.categories) ? budgetPlan.categories : [];
+  if (!categories.length) return "No budget categories created yet.";
+  return list(categories, (budget) => `${budgetName(budget)}: allocated ${money(budget.allocated)}, spent ${money(budget.spent)}, left ${money(budget.remaining)}`);
 }
 
 async function buildPrompt({ message, context, mode, conversationHistory = [] }) {
@@ -297,6 +265,7 @@ async function buildPrompt({ message, context, mode, conversationHistory = [] })
 
   const wallets = Array.isArray(finance.wallets) ? finance.wallets : [];
   const budgets = Array.isArray(finance.budgets) ? finance.budgets : [];
+  const budgetPlan = finance.budgetPlan || {};
   const goals = Array.isArray(finance.savingsGoals) ? finance.savingsGoals : [];
   const purchaseCategoryGuide = buildClaraPurchaseCategoryGuide(message, budgets);
 
@@ -328,10 +297,18 @@ Visible wallet money: ${money(finance.availableMoney)}
 Wallets: ${list(wallets, (wallet) => `${wallet.name || "Wallet"}: ${money(wallet.balance)}`)}
 
 Budget:
-Allocated: ${money(finance.budgetAllocated)}
-Spent: ${money(finance.budgetSpent)}
-Left: ${money(finance.budgetRemaining)}
-Rows: ${list(budgets, (budget) => `${budgetName(budget)}: left ${money(budget.remaining)} of ${money(budget.allocated)}`)}
+Declared monthly budget: ${money(budgetPlan.declaredBudget)}
+Allocated into categories: ${money(budgetPlan.allocatedBudget)}
+Unallocated: ${money(budgetPlan.unallocatedBudget)}
+Spent so far: ${money(budgetPlan.spentTotal)}
+Planned spent: ${money(budgetPlan.plannedSpent)}
+Unplanned spent: ${money(budgetPlan.unplannedSpent)}
+Undocumented spent: ${money(budgetPlan.undocumentedSpent)}
+Remaining spendable budget: ${money(budgetPlan.remainingSpendableBudget)}
+Category count: ${Number.isFinite(Number(budgetPlan.categoryCount)) ? budgetPlan.categoryCount : 0}
+Budget status: ${budgetPlan.budgetStatus || "unknown"}
+Explanation: ${budgetPlan.budgetExplanation || "Budget state is unclear."}
+Rows: ${buildBudgetRowsForPrompt(budgetPlan)}
 
 Purchase category guide:
 ${formatClaraPurchaseCategoryGuideForPrompt(purchaseCategoryGuide)}
@@ -343,6 +320,14 @@ Spending signal:
 Monthly spent: ${money(finance.monthlySpent)}
 Purchase amount detected: ${money(decision.purchaseAmount)}
 Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
+
+Rules for budget answers:
+- For budget questions, answer from the Budget section, not the Wallet truth section.
+- If the user asks about category budget but no category exists, say no category exists yet.
+- Do not answer budget questions with wallet balance.
+- Distinguish wallet money from monthly budget remaining.
+- Remaining spendable budget means declared monthly budget minus spent so far.
+- Unallocated means declared monthly budget minus category allocations; it is not the same as spendable remaining.
 
 Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it.
 For purchase, budget, savings, debt, payday, or emergency questions: give a complete recommendation, one short reason, and one next step.
@@ -357,16 +342,10 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
     signal,
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.55,
-        topP: 0.86,
-        maxOutputTokens: 520
-      }
+      generationConfig: { temperature: 0.55, topP: 0.86, maxOutputTokens: 520 }
     })
   });
-
   const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     const error = new Error(data?.error?.message || `Gemini request failed for ${model}.`);
     error.status = response.status;
@@ -374,16 +353,11 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
     error.payload = data;
     throw error;
   }
-
   return data;
 }
 
 function extractGeminiText(data = {}) {
-  return sanitizeClaraReply(
-    (data?.candidates?.[0]?.content?.parts || [])
-      .map((part) => part?.text || "")
-      .join(" ")
-  );
+  return sanitizeClaraReply((data?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(" "));
 }
 
 async function requestGeminiText({ apiKey, model, prompt, signal }) {
@@ -397,38 +371,25 @@ export function hasGeminiConfig() {
 
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
   const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    throw new Error("Gemini API key is not configured.");
-  }
-
+  if (!apiKey) throw new Error("Gemini API key is not configured.");
   const prompt = await buildPrompt({ message, context, mode, conversationHistory });
   const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
-
   let lastError = null;
-
   for (const model of modelCandidates) {
     try {
       if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying model", model);
-
       const text = await requestGeminiText({ apiKey, model, prompt, signal });
-
       if (text && !isIncompleteClaraReply(text)) {
         if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded", model);
         return text;
       }
-
-      if (shouldDebugClaraAi()) {
-        console.warn("[CLARA Gemini] Incomplete reply detected, retrying", { model, text });
-      }
-
+      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Incomplete reply detected, retrying", { model, text });
       const retryPrompt = buildCompletionRetryPrompt({ originalPrompt: prompt, incompleteReply: text });
       const retryText = await requestGeminiText({ apiKey, model, prompt: retryPrompt, signal });
-
       if (retryText && !isIncompleteClaraReply(retryText)) {
         if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded after completion retry", model);
         return retryText;
       }
-
       lastError = new Error(`Gemini returned incomplete CLARA replies using ${model}.`);
       lastError.model = model;
       lastError.partialReply = retryText || text;
@@ -437,7 +398,6 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       lastError = error;
     }
   }
-
   throw lastError || new Error("Gemini request failed.");
 }
 
