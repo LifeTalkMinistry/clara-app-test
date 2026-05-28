@@ -1,5 +1,7 @@
 import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
 import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
+import { readUniversalMemoryProfile } from "@/lib/clara-universal-memory-profile";
+import { readUserContextStory } from "@/lib/clara-user-context-story";
 
 const CONTEXT_SOURCE_NAMES = [
   "CLARA_core_identity",
@@ -30,6 +32,8 @@ const CONTEXT_SOURCE_NAMES = [
   "location",
   "previous_conversation_memory",
   "user_message_history",
+  "universal_memory_profile",
+  "user_context_story",
 ];
 
 function isPlainObject(value) {
@@ -53,6 +57,12 @@ function contextEntry(value) {
   }
 
   return { status: "available", value };
+}
+
+function memoryContextEntry(value) {
+  if (!value) return contextEntry(null);
+  if (Number(value.bulletCount || 0) > 0 || value.essay || Number(value.sectionCount || 0) > 0) return contextEntry(value);
+  return { status: "empty", value };
 }
 
 function firstAvailable(...values) {
@@ -275,6 +285,21 @@ export function collectClaraAvailableContext(context = {}) {
     "meLifeStageProfile.recommendedNextMoves",
   ]);
 
+  const explicitUniversalMemoryProfile = firstExistingPath(source, [
+    "universal_memory_profile",
+    "universalMemoryProfile",
+    "memory.universal_memory_profile",
+    "memory.universalMemoryProfile",
+  ]);
+
+  const explicitUserContextStory = firstExistingPath(source, [
+    "user_context_story",
+    "userContextStory",
+    "contextStory",
+    "story.user_context_story",
+    "memory.user_context_story",
+  ]);
+
   const meSummaryProfile = explicitMeSummaryProfile !== undefined
     ? explicitMeSummaryProfile
     : lifeStageContext?.hasProfile
@@ -292,6 +317,14 @@ export function collectClaraAvailableContext(context = {}) {
   const recommendedNextMoves = explicitRecommendedNextMoves !== undefined
     ? explicitRecommendedNextMoves
     : lifeStageContext?.recommendedNextMoves || [];
+
+  const universalMemoryProfile = explicitUniversalMemoryProfile !== undefined
+    ? explicitUniversalMemoryProfile
+    : readUniversalMemoryProfile();
+
+  const userContextStory = explicitUserContextStory !== undefined
+    ? explicitUserContextStory
+    : readUserContextStory();
 
   return {
     CLARA_core_identity: contextEntry(getClaraCoreIdentity()),
@@ -362,6 +395,8 @@ export function collectClaraAvailableContext(context = {}) {
     location: contextEntry(firstPath(source, ["location", "userLocation", "locationContext"])),
     previous_conversation_memory: contextEntry(previousConversationMemory),
     user_message_history: contextEntry(userMessageHistory),
+    universal_memory_profile: memoryContextEntry(universalMemoryProfile),
+    user_context_story: memoryContextEntry(userContextStory),
   };
 }
 
@@ -443,7 +478,9 @@ Rules:
 - emotional_mode means how CLARA should emotionally respond.
 - empathy_style means the exact kind of empathy CLARA should show.
 - decision_mode should be one of: ask_follow_up, answer_with_guidance, warn_user, reassure_user, explain, log_or_confirm_action.
-- response_style should describe final tone and length.`;
+- response_style should describe final tone and length.
+- Include user_context_story whenever the message involves behavior, emotion, repeated patterns, decisions, motivation, relationships, or life pressure.
+- Use universal_memory_profile when categorized long-term memory can improve personalization.`;
 }
 
 export function buildFinalClaraPrompt(userMessage = "", selectorResult = {}, selectedContext = {}) {
