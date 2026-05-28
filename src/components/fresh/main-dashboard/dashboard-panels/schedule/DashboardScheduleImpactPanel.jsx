@@ -36,20 +36,43 @@ function readForm(root) {
 
 function stretchImpactCoach(root) {
   const dialogs = Array.from(root.querySelectorAll('[role="dialog"]'));
-  for (const dialog of dialogs) {
-    const text = cleanText(dialog.textContent).toLowerCase();
-    if (!text.includes("clara impact coach")) continue;
+  const impactDialog = dialogs.find((dialog) =>
+    cleanText(dialog.textContent).toLowerCase().includes("clara impact coach")
+  );
 
+  dialogs.forEach((dialog) => {
+    if (!impactDialog) {
+      dialog.style.display = "";
+      return;
+    }
+
+    if (dialog !== impactDialog) {
+      dialog.style.display = "none";
+      return;
+    }
+
+    dialog.style.display = "flex";
     dialog.classList.remove("items-end", "px-4");
     dialog.classList.add("items-stretch", "px-0");
+    dialog.style.padding = "0";
     dialog.style.paddingBottom = "0";
+    dialog.style.background = "#020617";
+    dialog.style.backdropFilter = "none";
+    dialog.style.zIndex = "120";
 
     const panel = dialog.firstElementChild;
-    if (!panel) continue;
+    if (!panel) return;
 
     panel.classList.remove("rounded-[30px]", "max-h-[86svh]");
     panel.classList.add("rounded-none", "h-[100dvh]", "max-h-[100dvh]");
-  }
+    panel.style.width = "100%";
+    panel.style.maxWidth = "520px";
+    panel.style.margin = "0 auto";
+    panel.style.background = "#071026";
+    panel.style.borderRadius = "0";
+    panel.style.borderTop = "0";
+    panel.style.borderBottom = "0";
+  });
 }
 
 export default function DashboardScheduleImpactPanel() {
