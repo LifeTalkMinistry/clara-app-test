@@ -1,7 +1,7 @@
 import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
 import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
-import { readUniversalMemoryProfile } from "@/lib/clara-universal-memory-profile";
 import { readUserContextStory } from "@/lib/clara-user-context-story";
+import { getAvailableCabinetNames, searchMultipleMemoryCabinets } from "@/lib/memory-cabinets";
 
 const CONTEXT_SOURCE_NAMES = [
   "CLARA_core_identity",
@@ -30,10 +30,27 @@ const CONTEXT_SOURCE_NAMES = [
   "weather",
   "current_time",
   "location",
-  "previous_conversation_memory",
-  "user_message_history",
-  "universal_memory_profile",
+  "live_conversation_history",
+  "conversation_memory_summarizer",
+  "memory_cabinet_router",
+  "routed_memory_cabinets",
   "user_context_story",
+];
+
+const DIAGNOSTIC_CABINET_HINTS = [
+  { terms: ["spend", "spent", "buy", "bili", "order", "food", "coffee", "shopping", "gastos", "expense", "leak"], cabinets: ["Spending Memory", "Decision Memory"] },
+  { terms: ["budget", "limit", "allocation", "category", "left"], cabinets: ["Budget Memory"] },
+  { terms: ["wallet", "cash", "gcash", "maya", "bank", "balance"], cabinets: ["Wallet Memory"] },
+  { terms: ["goal", "save", "saving", "target", "ipon"], cabinets: ["Goal Memory"] },
+  { terms: ["emergency", "buffer", "survival", "safety"], cabinets: ["Emergency Memory"] },
+  { terms: ["debt", "utang", "loan", "payable", "obligation"], cabinets: ["Debt Memory"] },
+  { terms: ["schedule", "shift", "work", "after work", "payday", "routine", "sleep", "night"], cabinets: ["Schedule Memory"] },
+  { terms: ["stress", "sad", "tired", "emotion", "lonely", "burnout", "drained", "happy", "reward"], cabinets: ["Emotional Memory"] },
+  { terms: ["lifestyle", "habit", "routine", "family", "partner", "friends", "social"], cabinets: ["Lifestyle Memory", "Relationship Memory"] },
+  { terms: ["decide", "decision", "should i", "can i", "afford", "choose"], cabinets: ["Decision Memory"] },
+  { terms: ["learn", "lesson", "understand", "teach", "explain"], cabinets: ["Learning Memory"] },
+  { terms: ["prefer", "tone", "style", "remind", "guidance"], cabinets: ["Preference Memory"] },
+  { terms: ["relationship", "partner", "family", "coworker", "friend", "conflict"], cabinets: ["Relationship Memory"] },
 ];
 
 function isPlainObject(value) {
@@ -63,6 +80,19 @@ function memoryContextEntry(value) {
   if (!value) return contextEntry(null);
   if (Number(value.bulletCount || 0) > 0 || value.essay || Number(value.sectionCount || 0) > 0) return contextEntry(value);
   return { status: "empty", value };
+}
+
+function connectedContextEntry(value = {}) {
+  return { status: "available", value };
+}
+
+function routedMemoryContextEntry(value = {}) {
+  if (Number(value.memoryCount || 0) > 0) return contextEntry(value);
+  return { status: "empty", value };
+}
+
+function cleanText(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function firstAvailable(...values) {
@@ -108,6 +138,83 @@ function firstExistingPath(source, paths = []) {
   }
 
   return undefined;
+}
+
+function readLiveConversationHistoryFromWindow() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const bridgeMessages = window.CLARA_BEHAVIORAL_MEMORY?.readLiveUserMessageHistory?.() || [];
+    if (Array.isArray(bridgeMessages) && bridgeMessages.length) return bridgeMessages;
+  } catch {}
+
+  try {
+    const parsed = JSON.parse(window.sessionStorage?.getItem("CLARA_LIVE_USER_MESSAGE_HISTORY") || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function lastUserMessageFromHistory(messages = []) {
+  if (!Array.isArray(messages)) return "";
+
+  const last = [...messages]
+    .reverse()
+    .find((message) => cleanText(message?.text || message?.content || message?.message));
+
+  return cleanText(last?.text || last?.content || last?.message);
+}
+
+function selectDiagnosticCabinetsForMessage(message = "") {
+  const text = cleanText(message).toLowerCase();
+  const selected = new Set();
+
+  DIAGNOSTIC_CABINET_HINTS.forEach((hint) => {
+    if (hint.terms.some((term) => text.includes(term))) {
+      hint.cabinets.forEach((cabinet) => selected.add(cabinet));
+    }
+  });
+
+  if (!selected.size) {
+    selected.add("Spending Memory");
+    selected.add("Emotional Memory");
+    selected.add("Decision Memory");
+  }
+
+  return Array.from(selected).slice(0, 5);
+}
+
+function buildRoutedMemoryCabinetContext(userConcern = "") {
+  const concern = cleanText(userConcern);
+  const openCabinets = selectDiagnosticCabinetsForMessage(concern);
+
+  try {
+    const memories = searchMultipleMemoryCabinets(openCabinets, concern, 5);
+
+    return {
+      connected: true,
+      route: {
+        open_cabinets: openCabinets,
+        reason: concern
+          ? "Diagnostic routed memory cabinets from the current user concern."
+          : "No current concern was available, so CLARA used the safe default memory route.",
+      },
+      memories,
+      memoryCount: memories.length,
+      note: memories.length
+        ? "CLARA can pull relevant summaries from the routed memory cabinets."
+        : "Memory cabinet routing is connected, but no saved cabinet summaries matched this concern yet.",
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      route: { open_cabinets: openCabinets, reason: "Memory cabinet search failed during diagnostic." },
+      memories: [],
+      memoryCount: 0,
+      error: cleanText(error?.message),
+    };
+  }
 }
 
 function shortMoney(value) {
@@ -239,19 +346,28 @@ export function collectClaraAvailableContext(context = {}) {
     "schedule.items",
   ]);
 
-  const previousConversationMemory = firstPath(source, [
-    "previousConversationMemory",
-    "previous_conversation_memory",
-    "conversationMemory",
-    "memory.previousConversation",
-  ]);
-
-  const userMessageHistory = firstPath(source, [
+  const explicitLiveConversationHistory = firstExistingPath(source, [
+    "live_conversation_history",
+    "liveConversationHistory",
     "userMessageHistory",
     "user_message_history",
     "conversationHistory",
     "messages",
   ]);
+
+  const liveConversationHistory = explicitLiveConversationHistory !== undefined
+    ? explicitLiveConversationHistory
+    : readLiveConversationHistoryFromWindow();
+
+  const currentUserMessage = firstPath(source, [
+    "currentUserMessage",
+    "userMessage",
+    "message",
+    "prompt",
+    "current_message",
+  ]) || lastUserMessageFromHistory(liveConversationHistory);
+
+  const routedMemoryCabinets = buildRoutedMemoryCabinetContext(currentUserMessage);
 
   const explicitMeSummaryProfile = firstExistingPath(source, [
     "Me_summary_profile",
@@ -285,13 +401,6 @@ export function collectClaraAvailableContext(context = {}) {
     "meLifeStageProfile.recommendedNextMoves",
   ]);
 
-  const explicitUniversalMemoryProfile = firstExistingPath(source, [
-    "universal_memory_profile",
-    "universalMemoryProfile",
-    "memory.universal_memory_profile",
-    "memory.universalMemoryProfile",
-  ]);
-
   const explicitUserContextStory = firstExistingPath(source, [
     "user_context_story",
     "userContextStory",
@@ -317,10 +426,6 @@ export function collectClaraAvailableContext(context = {}) {
   const recommendedNextMoves = explicitRecommendedNextMoves !== undefined
     ? explicitRecommendedNextMoves
     : lifeStageContext?.recommendedNextMoves || [];
-
-  const universalMemoryProfile = explicitUniversalMemoryProfile !== undefined
-    ? explicitUniversalMemoryProfile
-    : readUniversalMemoryProfile();
 
   const userContextStory = explicitUserContextStory !== undefined
     ? explicitUserContextStory
@@ -393,9 +498,18 @@ export function collectClaraAvailableContext(context = {}) {
     weather: contextEntry(firstPath(source, ["weather", "currentWeather", "weatherContext"])),
     current_time: contextEntry(firstPath(source, ["currentTime", "current_time", "timeContext"])),
     location: contextEntry(firstPath(source, ["location", "userLocation", "locationContext"])),
-    previous_conversation_memory: contextEntry(previousConversationMemory),
-    user_message_history: contextEntry(userMessageHistory),
-    universal_memory_profile: memoryContextEntry(universalMemoryProfile),
+    live_conversation_history: contextEntry(liveConversationHistory),
+    conversation_memory_summarizer: connectedContextEntry({
+      connected: true,
+      note: "CLARA can summarize live conversations into stable long-term memory after the assistant session closes.",
+      saves_to: ["user_context_story", "routed memory cabinets"],
+    }),
+    memory_cabinet_router: connectedContextEntry({
+      connected: true,
+      available_cabinets: getAvailableCabinetNames(),
+      note: "CLARA can choose the most relevant memory cabinets before retrieving long-term memory.",
+    }),
+    routed_memory_cabinets: routedMemoryContextEntry(routedMemoryCabinets),
     user_context_story: memoryContextEntry(userContextStory),
   };
 }
@@ -434,7 +548,10 @@ export function buildClaraContextDiagnostics(context = {}) {
 }
 
 export function buildContextSelectorPrompt(userMessage = "", context = {}) {
-  const diagnostics = buildClaraContextDiagnostics(context);
+  const diagnostics = buildClaraContextDiagnostics({
+    ...(context || {}),
+    currentUserMessage: userMessage,
+  });
 
   return `You are CLARA’s Context + Emotion Selector.
 
@@ -479,8 +596,10 @@ Rules:
 - empathy_style means the exact kind of empathy CLARA should show.
 - decision_mode should be one of: ask_follow_up, answer_with_guidance, warn_user, reassure_user, explain, log_or_confirm_action.
 - response_style should describe final tone and length.
+- Use live_conversation_history for the current active chat when available.
+- Use memory_cabinet_router and routed_memory_cabinets when saved long-term patterns can improve the answer.
 - Include user_context_story whenever the message involves behavior, emotion, repeated patterns, decisions, motivation, relationships, or life pressure.
-- Use universal_memory_profile when categorized long-term memory can improve personalization.`;
+- Do not request universal_memory_profile. It is retired and replaced by user_context_story plus routed memory cabinets.`;
 }
 
 export function buildFinalClaraPrompt(userMessage = "", selectorResult = {}, selectedContext = {}) {
