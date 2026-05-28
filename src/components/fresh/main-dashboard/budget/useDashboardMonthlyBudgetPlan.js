@@ -9,6 +9,10 @@ import {
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
 
+function hasTime(value) {
+  return /T\d{2}:\d{2}/.test(String(value || ""));
+}
+
 function toDateOnly(value) {
   if (!value) return "";
   const parsed = new Date(value);
@@ -16,26 +20,68 @@ function toDateOnly(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function toTime(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  const time = parsed.getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+function getComparableExpenseDate(expense = {}, startValue = "") {
+  if (hasTime(startValue)) {
+    return (
+      expense?.created_at ||
+      expense?.createdAt ||
+      expense?.logged_at ||
+      expense?.spent_at ||
+      expense?.transaction_date ||
+      expense?.transactionDate ||
+      expense?.date ||
+      getTransactionDate(expense)
+    );
+  }
+
+  return getTransactionDate(expense);
+}
+
 function getBudgetCycleRange(monthlyBudgetHeader = null) {
   const fallbackRange = getPHMonthRange();
-  const start = toDateOnly(
+  const rawStart =
+    monthlyBudgetHeader?.reset_start_at ||
     monthlyBudgetHeader?.cycle_start ||
-      monthlyBudgetHeader?.budget_cycle_start ||
-      monthlyBudgetHeader?.period_start ||
-      monthlyBudgetHeader?.range_start ||
-      monthlyBudgetHeader?.tracking_start_date
-  );
-  const end = toDateOnly(
+    monthlyBudgetHeader?.budget_cycle_start ||
+    monthlyBudgetHeader?.period_start ||
+    monthlyBudgetHeader?.range_start ||
+    monthlyBudgetHeader?.tracking_start_date;
+  const rawEnd =
     monthlyBudgetHeader?.cycle_end ||
-      monthlyBudgetHeader?.budget_cycle_end ||
-      monthlyBudgetHeader?.period_end ||
-      monthlyBudgetHeader?.range_end
-  );
+    monthlyBudgetHeader?.budget_cycle_end ||
+    monthlyBudgetHeader?.period_end ||
+    monthlyBudgetHeader?.range_end;
 
   return {
-    start: start || fallbackRange.start,
-    end: end || fallbackRange.end,
+    start: rawStart || fallbackRange.start,
+    end: rawEnd || fallbackRange.end,
+    hasTimestampStart: hasTime(rawStart),
   };
+}
+
+function isInBudgetCycle(expense = {}, monthRange = {}) {
+  if (monthRange.hasTimestampStart) {
+    const startTime = toTime(monthRange.start);
+    const endTime = toTime(monthRange.end);
+    const expenseTime = toTime(getComparableExpenseDate(expense, monthRange.start));
+
+    if (startTime !== null && (expenseTime === null || expenseTime < startTime)) return false;
+    if (endTime !== null && expenseTime !== null && expenseTime > endTime) return false;
+    return true;
+  }
+
+  return isInPHRange(
+    getComparableExpenseDate(expense, monthRange.start),
+    toDateOnly(monthRange.start),
+    toDateOnly(monthRange.end)
+  );
 }
 
 function getExpenseBudgetCategory(expense = {}) {
@@ -88,8 +134,7 @@ export default function useDashboardMonthlyBudgetPlan({
       ? manualExpenseBudgetOptions
       : [];
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
-    const inActiveRange = (expense) =>
-      isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end);
+    const inActiveRange = (expense) => isInBudgetCycle(expense, monthRange);
 
     const categories = safeBudgetOptions.map((item) => {
       const itemId = normalizeString(item?.id || item?.key || "");
