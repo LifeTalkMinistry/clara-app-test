@@ -323,11 +323,6 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
               <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>
                 {compactCurrency(totalDebt)}
               </p>
-              <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">
-                {hasActiveDebt
-                  ? `Total active obligations${activeDebtCount > 0 ? ` (${activeDebtCount})` : ""}.`
-                  : "No active debt recorded."}
-              </p>
             </div>
 
             <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
