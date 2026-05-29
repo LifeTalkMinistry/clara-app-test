@@ -1,4 +1,4 @@
-import { Plus, WalletCards } from "lucide-react";
+import { MoreHorizontal, Plus, WalletCards } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
@@ -17,6 +17,15 @@ const INCOME_HUB_GLOW_LAYERS = [
   "pointer-events-none absolute inset-x-0 top-0 z-[3] h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.06),rgba(255,255,255,0.012)_42%,transparent)]",
   "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-white/[0.055]",
 ];
+
+const toIncomeNumber = (value) => {
+  const number = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
+  return Number.isFinite(number) ? number : 0;
+};
+
+const getSourceIn = (source) => toIncomeNumber(source?.totalMoneyIn ?? source?.total_money_in);
+const getSourceOut = (source) => toIncomeNumber(source?.totalMoneyOut ?? source?.total_money_out);
+const getSourceNet = (source) => toIncomeNumber(source?.currentBalance ?? source?.current_balance ?? getSourceIn(source) - getSourceOut(source));
 
 function IncomeHubHeader({ title, statusLabel, tone }) {
   return (
@@ -110,40 +119,44 @@ function EmptyIncomeSources({ onOpenIncomeHub }) {
   );
 }
 
-function ActiveIncomeSources({ readiness, onOpenIncomeHub }) {
-  const topSourceName = readiness?.topSourceName || "No source yet";
-  const sourceCount = readiness?.sourceCount || 0;
-  const totalGenerated = readiness?.totalGenerated || 0;
-  const totalOut = readiness?.totalOut || 0;
-  const netGenerated = readiness?.netGenerated || 0;
+function IncomeSourceRow({ source }) {
+  const net = getSourceNet(source);
+  const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="absolute left-0 top-3 h-[calc(100%-24px)] w-[3px] rounded-full bg-emerald-300/70" />
+      <div className="flex items-center gap-3 pl-1.5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          {initial}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black leading-tight text-white">{source.name}</p>
+          <p className="mt-1 text-[11px] font-bold leading-none text-white/66">Net: {fmt(net)}</p>
+        </div>
+
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/35 bg-white/[0.035] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          aria-label={`Open ${source.name} income source`}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ActiveIncomeSources({ sources, onOpenIncomeHub }) {
+  const visibleSources = Array.isArray(sources) ? sources.slice(0, 3) : [];
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-white/[0.055] bg-white/[0.035] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Top source</p>
-            <p className="mt-1 truncate text-sm font-black text-white/88">{topSourceName}</p>
-          </div>
-          <span className="shrink-0 rounded-full border border-cyan-300/18 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-black text-cyan-100">
-            {sourceCount} source{sourceCount > 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-white/[0.055] bg-black/[0.08] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-        <div className="px-2 py-3">
-          <p className="truncate text-[12px] font-black text-emerald-200">{fmt(totalGenerated)}</p>
-          <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Money in</p>
-        </div>
-        <div className="border-x border-white/[0.055] px-2 py-3">
-          <p className="truncate text-[12px] font-black text-rose-200">{fmt(totalOut)}</p>
-          <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Money out</p>
-        </div>
-        <div className="px-2 py-3">
-          <p className="truncate text-[12px] font-black text-white/88">{fmt(netGenerated)}</p>
-          <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Net</p>
-        </div>
+      <div className="space-y-2.5">
+        {visibleSources.map((source) => (
+          <IncomeSourceRow key={source.id} source={source} />
+        ))}
       </div>
 
       <button
@@ -168,6 +181,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     statusLabel,
     mainLabel,
     readiness,
+    incomeSources,
     statOneLabel,
     statOneValue,
     statTwoLabel,
@@ -242,7 +256,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                   {sourceCount === 0 ? (
                     <EmptyIncomeSources onOpenIncomeHub={openIncomeHub} />
                   ) : (
-                    <ActiveIncomeSources readiness={readiness} onOpenIncomeHub={openIncomeHub} />
+                    <ActiveIncomeSources sources={incomeSources} onOpenIncomeHub={openIncomeHub} />
                   )}
                 </div>
 
