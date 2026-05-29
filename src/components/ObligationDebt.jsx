@@ -1,5 +1,4 @@
 import {
-  Brain,
   CheckCircle2,
   Edit3,
   Loader2,
@@ -26,9 +25,6 @@ import {
 
 const fieldClass =
   "w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-3 py-2.5 text-sm font-bold text-white outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] transition placeholder:text-white/30 focus:border-cyan-300/30 focus:ring-2 focus:ring-cyan-300/10";
-
-const premiumActionClass =
-  "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
@@ -194,7 +190,7 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
     statusLabel,
     payoffMonths,
   } = computed;
-  const { handleAskClara, handleToggleDetails, reloadDebtObligations } = handlers;
+  const { handleToggleDetails, reloadDebtObligations } = handlers;
 
   const localUserId = String(user?.id || user?.email || "local-user");
   const actionLoading = saving || savingDebt;
@@ -267,7 +263,7 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
       const refreshed = await reloadDebtObligations();
       notifyDebtChanged(refreshed || []);
 
-      setNotice(form.id ? "Obligation updated." : "New obligation added.");
+      setNotice("");
       closeForm();
     } catch (error) {
       console.error("Unable to save obligation:", error);
@@ -351,24 +347,15 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 pt-1.5">
+                <div className="pt-1.5">
                   <button
                     type="button"
                     disabled={actionLoading}
                     onClick={openCreateForm}
-                    className="flex min-h-[46px] items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-3 py-3 text-sm font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13] disabled:opacity-45"
+                    className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-3 py-3 text-sm font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13] disabled:opacity-45"
                   >
                     <Plus className="h-4 w-4" />
                     New Obligation
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAskClara}
-                    className="flex min-h-[46px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.09] px-3 py-3 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-400/[0.13]"
-                  >
-                    <Brain className="h-4 w-4" />
-                    Ask CLARA
                   </button>
                 </div>
 
@@ -452,6 +439,12 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
                         </div>
                       </div>
                     </div>
+
+                    {notice ? (
+                      <p className="mt-3 text-[11px] font-semibold leading-5 text-white/58">
+                        {notice}
+                      </p>
+                    ) : null}
 
                     <button
                       type="button"
@@ -555,21 +548,6 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
                     </div>
                   )}
                 </div>
-
-                {notice ? (
-                  <p className="text-[11px] font-semibold leading-5 text-white/58">
-                    {notice}
-                  </p>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={handleAskClara}
-                  className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
-                >
-                  <Brain className="h-4 w-4" />
-                  Review with CLARA
-                </button>
 
                 <div aria-hidden="true" className="h-5 shrink-0" />
               </FinanceCardExpandedPanel>
