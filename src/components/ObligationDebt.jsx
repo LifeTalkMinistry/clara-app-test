@@ -46,12 +46,7 @@ function MiniLabel({ children, htmlFor }) {
   );
 }
 
-const compactCurrency = (value) => {
-  const safe = Number(value) || 0;
-  if (safe >= 1000000) return `₱${(safe / 1000000).toFixed(1)}M`;
-  if (safe >= 1000) return `₱${(safe / 1000).toFixed(1)}K`;
-  return fmt(safe);
-};
+const compactCurrency = (value) => fmt(Number(value) || 0);
 
 const getBalance = (record) => toDebtNumber(record?.totalDebt ?? record?.balance ?? record?.amount ?? 0);
 const getMonthly = (record) => toDebtNumber(record?.monthlyDebt ?? record?.monthlyPayment ?? record?.monthly_payment ?? 0);
