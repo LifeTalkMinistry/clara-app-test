@@ -846,15 +846,16 @@ export default function Dashboard() {
         financeModalRendererProps={{
           financeModal, closeFinanceModal, createWalletInline, financeActionLoading,
           financeForm, setFinanceForm, deleteWalletInline, addMoneyInline, fmt,
-          transferMoneyInline, wallets, saveManualExpenseInline, manualExpenseCanSubmit,
-          manualExpenseBudgetListItems, showFinanceNotice, setManualExpenseBudgetListKey,
-          manualExpenseIsUnplanned, manualExpenseIsUndocumented, selectedManualExpenseBudget,
-          handleBudgetModalClose, monthlyBudgetPlan, budgetExitConfirm, saveBudgetInline,
-          setBudgetExitConfirm, budgetFormDeclaredAmount, budgetProjectedAllocated,
-          budgetProjectedUnallocated, budgetFinishHelper, openBudgetModal,
-          openDeleteBudgetCategoryModal, budgetCanFinish, deleteBudgetCategoryInline,
-          resetBudgetInline, saveSavingsGoalInline, deleteSavingsGoalInline, addSavingsInline,
-          dashboardShellReady, showAiAssistant, setShowAiAssistant, claraAssistantContext,
+          transferMoneyInline, openTransferMoneyModal, wallets, saveManualExpenseInline,
+          manualExpenseCanSubmit, manualExpenseBudgetListItems, showFinanceNotice,
+          setManualExpenseBudgetListKey, manualExpenseIsUnplanned, manualExpenseIsUndocumented,
+          selectedManualExpenseBudget, handleBudgetModalClose, monthlyBudgetPlan,
+          budgetExitConfirm, saveBudgetInline, setBudgetExitConfirm, budgetFormDeclaredAmount,
+          budgetProjectedAllocated, budgetProjectedUnallocated, budgetFinishHelper,
+          openBudgetModal, openDeleteBudgetCategoryModal, budgetCanFinish,
+          deleteBudgetCategoryInline, resetBudgetInline, saveSavingsGoalInline,
+          deleteSavingsGoalInline, addSavingsInline, dashboardShellReady, showAiAssistant,
+          setShowAiAssistant, claraAssistantContext,
         }}
       />
     </DashboardShell>
