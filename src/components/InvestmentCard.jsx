@@ -1,4 +1,4 @@
-import { CheckCircle2, Sparkles, TrendingUp, Target } from "lucide-react";
+import { CheckCircle2, PauseCircle, ShieldAlert, Sparkles, TrendingUp, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
@@ -6,6 +6,7 @@ import FinanceCardExpandButton from "@/components/financial-carousel/shared/Fina
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 import useInvestmentCardLogic, {
   fmt,
+  INVESTMENT_READINESS,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 
 const premiumActionClass =
@@ -33,11 +34,9 @@ function InvestmentHeader({ title, subtitle, statusLabel, tone }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-base font-semibold tracking-tight text-white">
-              {title}
-            </p>
+            <p className="text-base font-semibold tracking-tight text-white">{title}</p>
             <p className="mt-0.5 text-[11px] font-medium text-white/76">
-              {subtitle || "Decide before you invest"}
+              {subtitle || "Decide before you invest."}
             </p>
           </div>
 
@@ -50,18 +49,22 @@ function InvestmentHeader({ title, subtitle, statusLabel, tone }) {
   );
 }
 
-function InvestmentSummaryStats({ mainLabel, canSafelyInvest, safeToInvest, selectedType, tone }) {
+function InvestmentSummaryStats({ mainLabel, readinessStatus, safeToInvest, selectedType, tone }) {
+  const isReady = readinessStatus === INVESTMENT_READINESS.READY_TO_TEST;
+  const isActive = readinessStatus === INVESTMENT_READINESS.ACTIVE_TEST;
+  const isPaused = readinessStatus === INVESTMENT_READINESS.PAUSE_INVESTING;
+
   const summaryTiles = [
     {
-      label: "Safe Range",
-      value: canSafelyInvest ? fmt(safeToInvest) : "₱0",
-      valueClassName: canSafelyInvest ? "text-emerald-200" : tone.value,
+      label: "Safe test range",
+      value: isReady ? fmt(safeToInvest) : "₱0",
+      valueClassName: isReady ? "text-emerald-200" : tone.value,
     },
-    { label: "Type", value: selectedType },
+    { label: "Plan type", value: selectedType },
     {
       label: "Status",
-      value: canSafelyInvest ? "Ready" : "Wait",
-      valueClassName: canSafelyInvest ? "text-emerald-200" : tone.value,
+      value: isActive ? "Active" : isPaused ? "Pause" : isReady ? "Ready" : "Wait",
+      valueClassName: isReady || isActive ? "text-emerald-200" : tone.value,
     },
   ];
 
@@ -72,7 +75,7 @@ function InvestmentSummaryStats({ mainLabel, canSafelyInvest, safeToInvest, sele
           {mainLabel}
         </p>
         <p className="mt-2 text-sm font-semibold leading-tight text-white/76">
-          {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
+          {isReady ? "Start small. Protect the base." : isActive ? "Track calmly. Review first." : "Build protection first."}
         </p>
       </div>
 
@@ -114,6 +117,18 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
+function ReadinessIcon({ readinessStatus }) {
+  if (readinessStatus === INVESTMENT_READINESS.PAUSE_INVESTING) {
+    return <PauseCircle className="h-4 w-4" />;
+  }
+
+  if (readinessStatus === INVESTMENT_READINESS.READY_TO_TEST || readinessStatus === INVESTMENT_READINESS.ACTIVE_TEST) {
+    return <CheckCircle2 className="h-4 w-4" />;
+  }
+
+  return <ShieldAlert className="h-4 w-4" />;
+}
+
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const navigate = useNavigate();
   const { state, computed, handlers } = useInvestmentCardLogic({
@@ -129,33 +144,63 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     subtitle,
     statusLabel,
     mainLabel,
-    canSafelyInvest,
     safeToInvest,
+    safeRangeMin,
     selectedType,
     amountStatus,
+    readinessStatus,
+    statusMeta,
+    readiness,
   } = computed;
-  const { handleAskClara, handleToggleDetails } = handlers;
+  const { handleAskClara, handlePlanInvestment, handleToggleDetails } = handlers;
 
-  const explanationTitle = canSafelyInvest ? "Why this amount?" : "Why not yet?";
-  const explanationText = canSafelyInvest
-    ? `CLARA looked at your budget flow, wallet money, and secured emergency fund. ${fmt(safeToInvest)} is a cautious starter range — not your full available money.`
-    : "CLARA will suggest a starter range after your emergency protection is secured and there is extra wallet room beyond it.";
+  const isReady = readinessStatus === INVESTMENT_READINESS.READY_TO_TEST;
+  const isActive = readinessStatus === INVESTMENT_READINESS.ACTIVE_TEST;
+  const isPaused = readinessStatus === INVESTMENT_READINESS.PAUSE_INVESTING;
 
-  const recognitionTitle = canSafelyInvest ? "Protection secured" : "Protection first";
-  const recognitionText = canSafelyInvest
-    ? "You earned room to plan a careful risk. Start small, think clearly, and let CLARA help you test the idea before committing more."
-    : "Build your emergency layer first so investing does not become pressure money.";
+  const explanationTitle = isReady ? "Why this range?" : isActive ? "Why review?" : isPaused ? "Why pause?" : "Why this status?";
+  const explanationHeading = isReady
+    ? "Protected surplus only"
+    : isActive
+      ? "Controlled test, not gambling"
+      : isPaused
+        ? "Your base changed"
+        : "Emergency protection comes first";
+  const explanationText = isReady
+    ? `CLARA found ${safeRangeMin > 0 ? `${fmt(safeRangeMin)}–` : ""}${fmt(safeToInvest)} as a cautious test range. This excludes emergency protection and essential money.`
+    : isActive
+      ? "Keep this as a measured experiment. Review results before adding more money."
+      : isPaused
+        ? "CLARA detected pressure on your base. Pause this plan until your protection layer is stable again."
+        : "Emergency protection comes first. CLARA will suggest a starter range after your emergency layer is secured and there is extra wallet room beyond it.";
+
+  const recognitionTitle = isReady ? "Ready to test" : isActive ? "Track calmly" : isPaused ? "Protect the base" : "Protection first";
+  const recognitionText = isReady
+    ? "Start small, test only from surplus, and keep emergency money untouched."
+    : isActive
+      ? "Review before adding more. Do not chase. Measure the result."
+      : isPaused
+        ? "Pause before pressure grows. This idea can stay saved while your base recovers."
+        : "Build your emergency layer first so investing does not become pressure money.";
 
   const openInvestmentPlan = () => {
     navigate("/investment-plan", {
       state: {
         safeToInvest,
+        safeRangeMin,
         selectedType,
-        canSafelyInvest,
+        canSafelyInvest: isReady,
+        readinessStatus,
+        blockers: readiness?.blockers || [],
         source: "investment-card",
       },
     });
   };
+
+  const primaryLabel = isReady ? "Start Investment Plan" : isActive ? "Review with CLARA" : isPaused ? "Review my finances first" : "Ask CLARA First";
+  const secondaryLabel = isReady ? "Ask CLARA First" : isActive ? "Pause Plan" : isPaused ? "Keep idea saved" : "Save as Future Plan";
+  const primaryAction = isReady ? openInvestmentPlan : handleAskClara;
+  const secondaryAction = isReady ? handleAskClara : isActive ? handlePlanInvestment : openInvestmentPlan;
 
   return (
     <FinanceCardShell
@@ -177,17 +222,12 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
           <div className="relative flex min-h-0 flex-col gap-4">
             <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-              <InvestmentHeader
-                title={title}
-                subtitle={subtitle}
-                statusLabel={statusLabel}
-                tone={tone}
-              />
+              <InvestmentHeader title={title} subtitle={subtitle} statusLabel={statusLabel} tone={tone} />
 
               <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
                 <InvestmentSummaryStats
                   mainLabel={mainLabel}
-                  canSafelyInvest={canSafelyInvest}
+                  readinessStatus={readinessStatus}
                   safeToInvest={safeToInvest}
                   selectedType={selectedType}
                   tone={tone}
@@ -207,11 +247,9 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
           <div className="relative flex min-h-0 flex-1 flex-col gap-4">
             <div className="shrink-0">
-              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>
-                {mainLabel}
-              </p>
+              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
               <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">
-                {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
+                {statusMeta?.subtitle || "Decide before you invest."}
               </p>
             </div>
 
@@ -221,54 +259,39 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
                 <div className="relative overflow-hidden rounded-2xl border border-cyan-300/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(14,165,233,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(14,165,233,0.035)]">
                   <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-cyan-300/[0.06] blur-2xl" />
-                  <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/46">
-                    {explanationTitle}
-                  </p>
-                  <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">
-                    {canSafelyInvest ? "Start small, not all-in" : "Emergency protection comes first"}
-                  </p>
-                  <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">
-                    {explanationText}
-                  </p>
+                  <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/46">{explanationTitle}</p>
+                  <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">{explanationHeading}</p>
+                  <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">{explanationText}</p>
                 </div>
 
-                <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(16,185,129,0.035)]">
-                  <div className="pointer-events-none absolute -right-10 -bottom-14 h-28 w-28 rounded-full bg-emerald-300/[0.06] blur-2xl" />
+                <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="relative flex items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)]">
-                      {canSafelyInvest ? <CheckCircle2 className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                      <ReadinessIcon readinessStatus={readinessStatus} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black leading-tight text-white/92">
-                        {recognitionTitle}
-                      </p>
-                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">
-                        {recognitionText}
-                      </p>
+                      <p className="text-sm font-black leading-tight text-white/92">{recognitionTitle}</p>
+                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">{recognitionText}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">
-                      Current setup
-                    </span>
-                    <span className={`text-[11px] font-black ${canSafelyInvest ? "text-emerald-200" : tone.value}`}>
-                      {canSafelyInvest ? "Ready" : "Wait"}
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span>
+                    <span className={`text-[11px] font-black ${isReady || isActive ? "text-emerald-200" : tone.value}`}>
+                      {statusMeta?.statusValue || "Wait"}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58">
                     <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                      <p className="text-white/34">Investment type</p>
+                      <p className="text-white/34">Plan type</p>
                       <p className="mt-1.5 text-sm font-black text-white/84">{selectedType}</p>
                     </div>
                     <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                      <p className="text-white/34">Safe range</p>
-                      <p className="mt-1.5 text-sm font-black text-white/84">
-                        {canSafelyInvest ? fmt(safeToInvest) : "₱0"}
-                      </p>
+                      <p className="text-white/34">Safe test range</p>
+                      <p className="mt-1.5 text-sm font-black text-white/84">{isReady ? fmt(safeToInvest) : "₱0"}</p>
                     </div>
                   </div>
 
@@ -280,20 +303,24 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                 <div className="grid grid-cols-1 gap-2.5 pt-1.5">
                   <button
                     type="button"
-                    onClick={openInvestmentPlan}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.09] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-400/[0.13]"
+                    onClick={primaryAction}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-black transition ${
+                      isReady
+                        ? "border-cyan-300/18 bg-cyan-400/[0.09] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] hover:bg-cyan-400/[0.13]"
+                        : premiumActionClass
+                    }`}
                   >
-                    <Target className="h-4 w-4" />
-                    Start Investment Plan
+                    {isReady ? <Target className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                    {primaryLabel}
                   </button>
 
                   <button
                     type="button"
-                    onClick={handleAskClara}
+                    onClick={secondaryAction}
                     className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
                   >
                     <Sparkles className="h-4 w-4" />
-                    Ask CLARA First
+                    {secondaryLabel}
                   </button>
                 </div>
 
