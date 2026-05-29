@@ -46,6 +46,17 @@ function getIncomeSourceBalance(source) {
   return totalMoneyIn - totalMoneyOut;
 }
 
+function getWalletBalance(wallet = {}) {
+  return toIncomeHubNumber(
+    wallet?.balance ??
+      wallet?.currentBalance ??
+      wallet?.current_balance ??
+      wallet?.availableBalance ??
+      wallet?.available_balance ??
+      0
+  );
+}
+
 function formatFallbackMoney(value) {
   return `₱${toIncomeHubNumber(value).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
@@ -91,7 +102,6 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     setFinanceForm,
     fmt,
     showFinanceNotice,
-    openTransferMoneyModal,
   } = props;
 
   const { user: authUser } = useAuth();
@@ -100,6 +110,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const [incomeSources, setIncomeSources] = useState([]);
   const [incomeSourcesLoading, setIncomeSourcesLoading] = useState(false);
   const [savingWallet, setSavingWallet] = useState(false);
+  const [protectedTransferWallet, setProtectedTransferWallet] = useState(null);
 
   const createWalletOpen = financeModal?.type === "create_wallet";
   const deleteWalletOpen = financeModal?.type === "delete_wallet";
@@ -107,9 +118,21 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const protectedDeleteOpen = deleteWalletOpen && walletHasProtectedEmergencyMoney(walletBeingDeleted);
   const protectedAmount = getWalletProtectedAmount(walletBeingDeleted);
   const protectedWalletName = getWalletName(walletBeingDeleted);
+  const protectedTransferOpen = Boolean(protectedTransferWallet);
+  const protectedTransferAmount = getWalletProtectedAmount(protectedTransferWallet);
+  const protectedTransferWalletName = getWalletName(protectedTransferWallet);
+  const safeWallets = Array.isArray(props.wallets) ? props.wallets : [];
   const formatMoney = useCallback(
     (value) => (typeof fmt === "function" ? fmt(value) : formatFallbackMoney(value)),
     [fmt]
+  );
+
+  const protectedTransferDestinationWallets = useMemo(
+    () =>
+      safeWallets.filter(
+        (wallet) => String(wallet.id) !== String(protectedTransferWallet?.id)
+      ),
+    [protectedTransferWallet?.id, safeWallets]
   );
 
   const selectedIncomeSource = useMemo(
@@ -174,6 +197,118 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
       window.removeEventListener("clara-income-hub-updated", loadIncomeSources);
     };
   }, [createWalletOpen, loadIncomeSources]);
+
+  const openProtectedWalletTransferModal = useCallback(
+    (wallet) => {
+      const sourceWallet = wallet || null;
+      const amount = getWalletProtectedAmount(sourceWallet);
+      const destinationWallets = safeWallets.filter(
+        (item) => String(item.id) !== String(sourceWallet?.id)
+      );
+
+      if (!destinationWallets.length) {
+        showFinanceNotice?.("Create another wallet first before transferring protected money.");
+        return;
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        showFinanceNotice?.("No protected Emergency Fund amount was found for this wallet.");
+        return;
+      }
+
+      setFinanceForm((prev) => ({
+        ...prev,
+        protectedTransferDestinationWalletId: String(destinationWallets[0]?.id || ""),
+        protectedTransferAmount: String(amount),
+        amount: String(amount),
+      }));
+      setProtectedTransferWallet(sourceWallet);
+    },
+    [safeWallets, setFinanceForm, showFinanceNotice]
+  );
+
+  const closeProtectedWalletTransferModal = useCallback(() => {
+    setProtectedTransferWallet(null);
+    setFinanceForm((prev) => ({
+      ...prev,
+      protectedTransferDestinationWalletId: "",
+      protectedTransferAmount: "",
+      amount: "",
+    }));
+  }, [setFinanceForm]);
+
+  const transferProtectedWalletMoney = useCallback(async () => {
+    const sourceWallet = protectedTransferWallet;
+    const destinationWallet = safeWallets.find(
+      (wallet) => String(wallet.id) === String(financeForm.protectedTransferDestinationWalletId)
+    );
+    const lockedAmount = getWalletProtectedAmount(sourceWallet);
+    const fallbackAmount = toIncomeHubNumber(
+      financeForm.protectedTransferAmount ?? financeForm.amount ?? 0
+    );
+    const amount = lockedAmount > 0 ? lockedAmount : fallbackAmount;
+
+    if (!sourceWallet?.id) {
+      showFinanceNotice?.("Please select a valid source wallet.");
+      return;
+    }
+
+    if (!destinationWallet?.id) {
+      showFinanceNotice?.("Please select a valid destination wallet.");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showFinanceNotice?.("No protected Emergency Fund amount was found for this wallet.");
+      return;
+    }
+
+    if (getWalletBalance(sourceWallet) < amount) {
+      showFinanceNotice?.("Insufficient balance in the source wallet.");
+      return;
+    }
+
+    try {
+      setSavingWallet(true);
+      await financial.transferBetweenWallets?.({
+        from_wallet_id: sourceWallet.id,
+        to_wallet_id: destinationWallet.id,
+        amount,
+        user_id: effectiveUser?.id || null,
+        user_email: effectiveUser?.email || null,
+        created_by: effectiveUser?.email || null,
+      });
+
+      await financial.refreshData?.();
+      dispatchClaraEvent("clara-finance-updated");
+      setProtectedTransferWallet(null);
+      setFinanceForm((prev) => ({
+        ...prev,
+        protectedTransferDestinationWalletId: "",
+        protectedTransferAmount: "",
+        amount: "",
+      }));
+      closeFinanceModal?.();
+      showFinanceNotice?.("Protected Emergency Fund money transferred.", "success");
+    } catch (error) {
+      console.warn("CLARA protected Emergency Fund transfer failed:", error);
+      showFinanceNotice?.(error?.message || "Failed to transfer protected Emergency Fund money.");
+    } finally {
+      setSavingWallet(false);
+    }
+  }, [
+    closeFinanceModal,
+    effectiveUser?.email,
+    effectiveUser?.id,
+    financeForm.amount,
+    financeForm.protectedTransferAmount,
+    financeForm.protectedTransferDestinationWalletId,
+    financial,
+    protectedTransferWallet,
+    safeWallets,
+    setFinanceForm,
+    showFinanceNotice,
+  ]);
 
   const createWalletFromIncomeSource = useCallback(async () => {
     const name = normalizeString(financeForm.name);
@@ -296,6 +431,65 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     showFinanceNotice,
   ]);
 
+  if (protectedTransferOpen) {
+    const lockedAmount = protectedTransferAmount;
+
+    return (
+      <FinanceActionModal
+        open={protectedTransferOpen}
+        title="Transfer Emergency Fund"
+        description="Move the protected Emergency Fund money before deleting this wallet."
+        onClose={closeProtectedWalletTransferModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          transferProtectedWalletMoney();
+        }}
+        submitLabel="Transfer Protected Money"
+        loading={financeActionLoading || savingWallet}
+      >
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/12 bg-white/[0.055] px-4 py-3 text-sm leading-6 text-white/75">
+            <span className="text-white/50">From:</span>{" "}
+            <strong className="font-black text-white">{protectedTransferWalletName}</strong>
+          </div>
+
+          <FinanceField label="Destination wallet">
+            <select
+              value={financeForm.protectedTransferDestinationWalletId || ""}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  protectedTransferDestinationWalletId: event.target.value,
+                  amount: String(lockedAmount),
+                  protectedTransferAmount: String(lockedAmount),
+                }))
+              }
+              className={financeInputClassName}
+            >
+              {protectedTransferDestinationWallets.map((wallet) => (
+                <option key={wallet.id} value={String(wallet.id)}>
+                  {getWalletName(wallet)} • {formatMoney(getWalletBalance(wallet))}
+                </option>
+              ))}
+            </select>
+          </FinanceField>
+
+          <div className="rounded-3xl border border-cyan-300/18 bg-cyan-400/[0.08] p-4 shadow-[0_16px_40px_rgba(34,211,238,0.08)]">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/70">
+              Amount to transfer
+            </p>
+            <p className="mt-2 text-3xl font-black tracking-tight text-cyan-50">
+              {formatMoney(lockedAmount)}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-cyan-50/72">
+              This amount is locked because it is protected Emergency Fund money.
+            </p>
+          </div>
+        </div>
+      </FinanceActionModal>
+    );
+  }
+
   if (protectedDeleteOpen) {
     return (
       <FinanceActionModal
@@ -324,12 +518,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
           <button
             type="button"
-            onClick={() =>
-              openTransferMoneyModal?.({
-                ...walletBeingDeleted,
-                protectedDeleteTransfer: true,
-              })
-            }
+            onClick={() => openProtectedWalletTransferModal(walletBeingDeleted)}
             className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
           >
             Transfer Funds
