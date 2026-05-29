@@ -1,6 +1,6 @@
 import { ArrowLeft, Brain, CheckCircle2, Pencil, Plus, Trash2, WalletCards } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
 import useFinancialData from "@/hooks/useFinancialData";
@@ -38,6 +38,17 @@ const emptyFlowForm = {
   date: getTodayDate(),
   notes: "",
 };
+
+const FLOW_ACTION_ALIASES = {
+  add_money: "money_in",
+  money_in: "money_in",
+  transfer_wallet: "transfer_wallet",
+  transfer_to_wallet: "transfer_wallet",
+  money_out: "money_out",
+  add_cost: "money_out",
+};
+
+const normalizeFlowAction = (action) => FLOW_ACTION_ALIASES[String(action || "").trim()] || null;
 
 const getSourceMoneyIn = (source) => toIncomeHubNumber(source?.totalMoneyIn ?? source?.total_money_in);
 const getSourceMoneyOut = (source) => toIncomeHubNumber(source?.totalMoneyOut ?? source?.total_money_out);
@@ -94,11 +105,46 @@ function getWalletName(wallet) {
   return wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet";
 }
 
+function getFlowCopy(flowType) {
+  if (flowType === "transfer_wallet") {
+    return {
+      title: "Transfer to Wallet",
+      helper: "Move available money from this income source into one of your wallets.",
+      notesPlaceholder: "Example: moved salary to main wallet",
+      saveLabel: "Transfer",
+      panelClass: "border-cyan-300/16 bg-cyan-400/[0.06]",
+      buttonClass: "border-cyan-300/25 bg-cyan-400/10 text-cyan-100",
+    };
+  }
+
+  if (flowType === "money_out") {
+    return {
+      title: "Add Cost",
+      helper: "Record a cost connected to this source, like materials, subscriptions, or fees.",
+      notesPlaceholder: "Example: inventory, materials, subscription",
+      saveLabel: "Save Cost",
+      panelClass: "border-rose-300/16 bg-rose-400/[0.06]",
+      buttonClass: "border-rose-300/25 bg-rose-400/10 text-rose-100",
+    };
+  }
+
+  return {
+    title: "Add Money",
+    helper: "Increase the available money tracked inside this income source first.",
+    notesPlaceholder: "Example: payday, client payment",
+    saveLabel: "Save Money",
+    panelClass: "border-emerald-300/16 bg-emerald-400/[0.06]",
+    buttonClass: "border-emerald-300/25 bg-emerald-400/10 text-emerald-100",
+  };
+}
+
 export default function InvestmentPlan() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const financial = useFinancialData(user);
   const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
+  const routeActionHandledRef = useRef("");
 
   const [sources, setSources] = useState([]);
   const [loadingSources, setLoadingSources] = useState(true);
@@ -190,12 +236,41 @@ export default function InvestmentPlan() {
   };
 
   const startFlow = (source, type) => {
-    setActiveFlow({ sourceId: source.id, type });
+    const normalizedType = normalizeFlowAction(type) || "money_in";
+
+    setActiveFlow({ sourceId: source.id, type: normalizedType });
     setFlowForm({ ...emptyFlowForm, date: getTodayDate() });
     setShowSourceForm(false);
     setConfirmDeleteId(null);
     setFeedback(null);
   };
+
+  useEffect(() => {
+    if (loadingSources || sources.length === 0) return;
+
+    const routeState = location.state || {};
+    const sourceId = routeState.incomeSourceId;
+    const action = normalizeFlowAction(routeState.action);
+
+    if (!sourceId || !action) return;
+
+    const actionKey = `${sourceId}:${action}:${routeState.source || ""}`;
+    if (routeActionHandledRef.current === actionKey) return;
+
+    const source = sources.find((candidate) => String(candidate.id) === String(sourceId));
+    if (!source) return;
+
+    routeActionHandledRef.current = actionKey;
+    startFlow(source, action);
+
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        const target = document.getElementById(`income-source-${source.id}`);
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingSources, sources, location.state]);
 
   const saveSource = async () => {
     const name = sourceForm.name.trim();
@@ -249,7 +324,8 @@ export default function InvestmentPlan() {
   const saveFlow = async () => {
     const amount = toIncomeHubNumber(flowForm.amount);
     const selectedSource = sources.find((source) => String(source.id) === String(activeFlow?.sourceId));
-    const flowType = activeFlow?.type || "money_in";
+    const flowType = normalizeFlowAction(activeFlow?.type) || "money_in";
+    const isTransferToWallet = flowType === "transfer_wallet";
 
     if (!selectedSource) {
       setFeedback({ tone: "amber", message: "Choose an income source first." });
@@ -261,18 +337,28 @@ export default function InvestmentPlan() {
       return;
     }
 
-    if (flowType === "money_in" && !flowForm.walletId) {
+    if (isTransferToWallet && !flowForm.walletId) {
       setFeedback({ tone: "amber", message: "Choose which wallet receives this money." });
+      return;
+    }
+
+    const currentIn = getSourceMoneyIn(selectedSource);
+    const currentOut = getSourceMoneyOut(selectedSource);
+    const currentBalance = getSourceNet(selectedSource);
+
+    if (isTransferToWallet && amount > currentBalance) {
+      setFeedback({
+        tone: "amber",
+        message: `You only have ${fmt(currentBalance)} available in ${selectedSource.name}. Add money first or transfer a smaller amount.`,
+      });
       return;
     }
 
     setSaving(true);
 
     try {
-      const currentIn = getSourceMoneyIn(selectedSource);
-      const currentOut = getSourceMoneyOut(selectedSource);
       const nextIn = flowType === "money_in" ? currentIn + amount : currentIn;
-      const nextOut = flowType === "money_out" ? currentOut + amount : currentOut;
+      const nextOut = flowType === "money_out" || isTransferToWallet ? currentOut + amount : currentOut;
       const nextBalance = nextIn - nextOut;
 
       await upsertIncomeSource(localUserId, {
@@ -283,19 +369,21 @@ export default function InvestmentPlan() {
         lastActivityAt: new Date().toISOString(),
       });
 
-      if (flowType === "money_in" && typeof financial.addIncome === "function") {
+      if (isTransferToWallet && typeof financial.addIncome === "function") {
         await financial.addIncome({
           amount,
           wallet_id: flowForm.walletId,
           walletId: flowForm.walletId,
           source_type: selectedSource.name,
           source: selectedSource.name,
-          notes: flowForm.notes.trim() || selectedSource.name,
+          notes: flowForm.notes.trim() || `Transfer from ${selectedSource.name}`,
           date: flowForm.date,
           transaction_date: flowForm.date,
           type: "income",
           income_source_id: selectedSource.id,
           incomeSourceId: selectedSource.id,
+          income_flow_type: "income_source_transfer",
+          incomeFlowType: "income_source_transfer",
         });
         await refreshFinance();
       }
@@ -304,7 +392,12 @@ export default function InvestmentPlan() {
       resetFlowForm();
       setFeedback({
         tone: flowType === "money_in" ? "emerald" : "cyan",
-        message: flowType === "money_in" ? "Money added from source and sent to wallet." : "Source cost recorded.",
+        message:
+          flowType === "money_in"
+            ? "Money added to this income source."
+            : isTransferToWallet
+              ? "Money transferred from source to wallet."
+              : "Source cost recorded.",
       });
     } catch (error) {
       console.error("CLARA income flow save error:", error);
@@ -390,13 +483,22 @@ export default function InvestmentPlan() {
   );
 
   const renderFlowForm = (source) => {
-    const isMoneyIn = activeFlow?.type === "money_in";
+    const flowType = normalizeFlowAction(activeFlow?.type) || "money_in";
+    const isTransferToWallet = flowType === "transfer_wallet";
+    const sourceBalance = getSourceNet(source);
+    const copy = getFlowCopy(flowType);
 
     return (
-      <div className="mt-3 space-y-3 rounded-2xl border border-cyan-300/16 bg-cyan-400/[0.06] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <p className="text-xs font-black text-white">
-          {isMoneyIn ? "Add Money" : "Add Cost"} • {source.name}
-        </p>
+      <div className={`mt-3 space-y-3 rounded-2xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${copy.panelClass}`}>
+        <div>
+          <p className="text-xs font-black text-white">
+            {copy.title} • {source.name}
+          </p>
+          <p className="mt-1 text-[11px] font-semibold leading-5 text-white/58">{copy.helper}</p>
+          {isTransferToWallet ? (
+            <p className="mt-1 text-[11px] font-black text-cyan-100/80">Available: {fmt(sourceBalance)}</p>
+          ) : null}
+        </div>
 
         <div className="grid grid-cols-2 gap-2.5">
           <div>
@@ -424,7 +526,7 @@ export default function InvestmentPlan() {
           </div>
         </div>
 
-        {isMoneyIn ? (
+        {isTransferToWallet ? (
           <div>
             <FieldLabel htmlFor={`flow-wallet-${source.id}`}>Send to wallet</FieldLabel>
             <SelectField
@@ -434,7 +536,8 @@ export default function InvestmentPlan() {
               options={walletOptions}
               placeholder="Choose wallet"
             />
-            {wallets.length === 0 ? <p className="mt-2 text-[11px] font-semibold text-amber-200">Create a wallet first before adding money.</p> : null}
+            {wallets.length === 0 ? <p className="mt-2 text-[11px] font-semibold text-amber-200">Create a wallet first before transferring money.</p> : null}
+            {wallets.length > 0 && sourceBalance <= 0 ? <p className="mt-2 text-[11px] font-semibold text-amber-200">Add money to this source first before transferring.</p> : null}
           </div>
         ) : null}
 
@@ -444,7 +547,7 @@ export default function InvestmentPlan() {
             id={`flow-notes-${source.id}`}
             value={flowForm.notes}
             onChange={(event) => setFlowForm((prev) => ({ ...prev, notes: event.target.value }))}
-            placeholder={isMoneyIn ? "Example: payday, client payment" : "Example: inventory, materials, subscription"}
+            placeholder={copy.notesPlaceholder}
             className={controlClass}
           />
         </div>
@@ -460,11 +563,11 @@ export default function InvestmentPlan() {
           <button
             type="button"
             onClick={saveFlow}
-            disabled={saving || (isMoneyIn && wallets.length === 0)}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-100 disabled:opacity-55"
+            disabled={saving || (isTransferToWallet && (wallets.length === 0 || sourceBalance <= 0))}
+            className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black disabled:opacity-55 ${copy.buttonClass}`}
           >
             <CheckCircle2 className="h-4 w-4" />
-            Save
+            {copy.saveLabel}
           </button>
         </div>
       </div>
@@ -539,7 +642,11 @@ export default function InvestmentPlan() {
                 const sourceNet = getSourceNet(source);
 
                 return (
-                  <div key={source.id} className="rounded-2xl border border-white/10 bg-black/15 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div
+                    key={source.id}
+                    id={`income-source-${source.id}`}
+                    className="rounded-2xl border border-white/10 bg-black/15 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black text-white">{source.name}</p>
@@ -566,14 +673,21 @@ export default function InvestmentPlan() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => startFlow(source, "money_out")}
-                        className="rounded-2xl border border-rose-300/20 bg-rose-400/10 px-3 py-2.5 text-xs font-black text-rose-100"
+                        onClick={() => startFlow(source, "transfer_wallet")}
+                        className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2.5 text-xs font-black text-cyan-100"
                       >
-                        Add Cost
+                        Transfer to Wallet
                       </button>
                     </div>
 
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startFlow(source, "money_out")}
+                        className="flex min-h-[38px] items-center justify-center rounded-2xl border border-rose-300/15 bg-rose-400/[0.08] px-3 py-2 text-xs font-black text-rose-100"
+                      >
+                        Add Cost
+                      </button>
                       <button
                         type="button"
                         onClick={() => startEditSource(source)}
