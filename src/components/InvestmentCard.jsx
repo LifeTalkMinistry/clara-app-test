@@ -17,6 +17,9 @@ const incomeMenuButtonClass =
 const incomeMenuActionClass =
   "flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-white/94 transition hover:bg-white/[0.10] disabled:opacity-50";
 
+const glassPanel =
+  "border border-cyan-100/15 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_24px_rgba(0,255,220,0.045)] backdrop-blur-sm";
+
 const INCOME_HUB_GLOW_LAYERS = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-400/[0.07] blur-[78px]",
   "pointer-events-none absolute -right-[132px] -top-[72px] z-[1] h-[270px] w-[270px] rounded-full bg-sky-500/[0.09] blur-[86px]",
@@ -34,6 +37,66 @@ const toIncomeNumber = (value) => {
 const getSourceIn = (source) => toIncomeNumber(source?.totalMoneyIn ?? source?.total_money_in);
 const getSourceOut = (source) => toIncomeNumber(source?.totalMoneyOut ?? source?.total_money_out);
 const getSourceNet = (source) => toIncomeNumber(source?.currentBalance ?? source?.current_balance ?? getSourceIn(source) - getSourceOut(source));
+const getSourceActivityDate = (source) =>
+  source?.lastActivityAt || source?.last_activity_at || source?.updatedAt || source?.updated_at || source?.createdAt || source?.created_at || null;
+
+function formatIncomeActivityDate(value) {
+  if (!value) return "Just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Just now";
+
+  return date.toLocaleString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function buildIncomeActivityItems(sources = []) {
+  return (Array.isArray(sources) ? sources : [])
+    .map((source) => {
+      const moneyIn = getSourceIn(source);
+      const moneyOut = getSourceOut(source);
+      const date = getSourceActivityDate(source);
+      const wasUpdated = source?.updatedAt || source?.updated_at;
+
+      if (moneyOut > 0) {
+        return {
+          id: `${source.id}-out`,
+          title: "Transfer to Wallet",
+          date,
+          amount: moneyOut,
+          prefix: "-",
+          amountClassName: "text-rose-100",
+        };
+      }
+
+      if (moneyIn > 0) {
+        return {
+          id: `${source.id}-in`,
+          title: "Added Money",
+          date,
+          amount: moneyIn,
+          prefix: "+",
+          amountClassName: "text-emerald-100",
+        };
+      }
+
+      return {
+        id: `${source.id}-source`,
+        title: wasUpdated ? "Updated Source" : "Created Source",
+        date,
+        amount: null,
+        prefix: "",
+        amountClassName: "text-white/70",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
+    .slice(0, 3);
+}
 
 function stopIncomeSourceGesture(event) {
   event?.stopPropagation?.();
@@ -126,14 +189,7 @@ function EmptyIncomeSources({ onOpenIncomeHub }) {
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenIncomeHub}
-        className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3 text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/[0.07]"
-      >
-        <Plus className="h-4 w-4" />
-        Create Income Source
-      </button>
+      <IncomeSourceCreateButton onOpenIncomeHub={onOpenIncomeHub} />
     </div>
   );
 }
@@ -195,7 +251,7 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
 
               <button
                 type="button"
-                onClick={(event) => handleMenuAction(event, "transfer_wallet")}
+                onClick={(event) => handleMenuAction(event, "transfer_money")}
                 className={incomeMenuActionClass}
               >
                 <Repeat2 className="h-3.5 w-3.5 text-sky-200" />
@@ -206,6 +262,53 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function IncomeRecentActivity({ sources = [] }) {
+  const items = buildIncomeActivityItems(sources);
+
+  return (
+    <div className={`rounded-2xl p-3 ${glassPanel}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Recent activity</p>
+
+      {items.length ? (
+        <div className="mt-3 space-y-2">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.045] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{item.title}</p>
+                <p className="mt-1 text-xs text-white/45">{formatIncomeActivityDate(item.date)}</p>
+              </div>
+
+              {item.amount !== null ? (
+                <p className={`shrink-0 text-sm font-bold ${item.amountClassName}`}>
+                  {item.prefix}{fmt(item.amount || 0)}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-xl border border-white/8 bg-white/[0.045] px-3 py-3">
+          <p className="text-sm font-medium text-white">No income activity yet</p>
+          <p className="mt-1 text-xs leading-5 text-white/45">Add money or transfer from a source to begin.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IncomeSourceCreateButton({ onOpenIncomeHub }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpenIncomeHub}
+      className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3 text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/[0.07]"
+    >
+      <Plus className="h-4 w-4" />
+      Create Income Source
+    </button>
   );
 }
 
@@ -226,13 +329,8 @@ function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenIncomeHub}
-        className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3 text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/[0.07]"
-      >
-        Open Income Hub
-      </button>
+      <IncomeRecentActivity sources={sources} />
+      <IncomeSourceCreateButton onOpenIncomeHub={onOpenIncomeHub} />
     </div>
   );
 }
@@ -267,8 +365,8 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   const handleSourceAction = (source, action) => {
     setOpenMenuId(null);
 
-    if (action === "add_money") {
-      setIncomeSourceModal({ type: "add_money", source });
+    if (action === "add_money" || action === "transfer_money") {
+      setIncomeSourceModal({ type: action, source });
       return;
     }
 
@@ -360,7 +458,8 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
       </FinanceCardShell>
 
       <IncomeSourceAddMoneyModal
-        open={incomeSourceModal.type === "add_money"}
+        open={incomeSourceModal.type === "add_money" || incomeSourceModal.type === "transfer_money"}
+        mode={incomeSourceModal.type}
         source={incomeSourceModal.source}
         onClose={() => setIncomeSourceModal({ type: null, source: null })}
       />
