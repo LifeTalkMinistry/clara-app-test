@@ -1,13 +1,10 @@
-import { ArrowRight, Landmark, Plus, Sparkles, TrendingUp, WalletCards } from "lucide-react";
+import { Plus, WalletCards } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 import useInvestmentCardLogic, { fmt } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
-
-const premiumActionClass =
-  "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
@@ -86,6 +83,80 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
+function EmptyIncomeSources({ onOpenIncomeHub }) {
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-white/[0.055] bg-white/[0.035] px-3.5 py-3 text-center text-[12px] font-semibold text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        Create an income source to start tracking money coming in.
+      </div>
+
+      <div className="flex min-h-[164px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.10] bg-white/[0.035] px-5 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <WalletCards className="h-8 w-8 text-white/30" />
+        <p className="mt-4 text-sm font-black text-white/88">No income sources yet</p>
+        <p className="mt-2 max-w-[230px] text-[12px] font-semibold leading-5 text-white/66">
+          Add Salary, Business, Side Hustle, Allowance, or Freelance as your source of money.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpenIncomeHub}
+        className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3 text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/[0.07]"
+      >
+        <Plus className="h-4 w-4" />
+        Create Income Source
+      </button>
+    </div>
+  );
+}
+
+function ActiveIncomeSources({ readiness, onOpenIncomeHub }) {
+  const topSourceName = readiness?.topSourceName || "No source yet";
+  const sourceCount = readiness?.sourceCount || 0;
+  const totalGenerated = readiness?.totalGenerated || 0;
+  const totalOut = readiness?.totalOut || 0;
+  const netGenerated = readiness?.netGenerated || 0;
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-white/[0.055] bg-white/[0.035] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Top source</p>
+            <p className="mt-1 truncate text-sm font-black text-white/88">{topSourceName}</p>
+          </div>
+          <span className="shrink-0 rounded-full border border-cyan-300/18 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-black text-cyan-100">
+            {sourceCount} source{sourceCount > 1 ? "s" : ""}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-white/[0.055] bg-black/[0.08] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <div className="px-2 py-3">
+          <p className="truncate text-[12px] font-black text-emerald-200">{fmt(totalGenerated)}</p>
+          <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Money in</p>
+        </div>
+        <div className="border-x border-white/[0.055] px-2 py-3">
+          <p className="truncate text-[12px] font-black text-rose-200">{fmt(totalOut)}</p>
+          <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Money out</p>
+        </div>
+        <div className="px-2 py-3">
+          <p className="truncate text-[12px] font-black text-white/88">{fmt(netGenerated)}</p>
+          <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Net</p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpenIncomeHub}
+        className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3 text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/[0.07]"
+      >
+        Open Income Hub
+      </button>
+    </div>
+  );
+}
+
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const navigate = useNavigate();
   const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
@@ -96,8 +167,6 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     title,
     statusLabel,
     mainLabel,
-    amountStatus,
-    statusMeta,
     readiness,
     statOneLabel,
     statOneValue,
@@ -106,16 +175,13 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     statThreeLabel,
     statThreeValue,
   } = computed;
-  const { handleAskClara, handlePlanInvestment, handleToggleDetails } = handlers;
+  const { handleToggleDetails } = handlers;
 
   const openIncomeHub = () => {
     navigate("/investment-plan", { state: { source: "income-hub-card" } });
   };
 
   const sourceCount = readiness?.sourceCount || 0;
-  const monthlyGenerated = readiness?.monthlyGenerated || 0;
-  const topSourceName = readiness?.topSourceName || "No source yet";
-  const mainSourceShare = Math.round(readiness?.mainSourceShare || 0);
 
   return (
     <FinanceCardShell
@@ -171,82 +237,13 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
             <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
 
             <div className="min-h-0 flex-1 overflow-hidden pt-1">
-              <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
-                <div className="relative overflow-hidden rounded-2xl border border-cyan-300/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(14,165,233,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(14,165,233,0.035)]">
-                  <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-cyan-300/[0.06] blur-2xl" />
-                  <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/46">Income map</p>
-                  <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">Money source before wallet</p>
-                  <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">
-                    Income Hub tracks salary, business, side hustle, allowance, and freelance income before it enters your wallets.
-                  </p>
-                </div>
-
-                <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div className="relative flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)]">
-                      <TrendingUp className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-black leading-tight text-white/92">{sourceCount ? `${sourceCount} source${sourceCount > 1 ? "s" : ""} tracked` : "Start with your first source"}</p>
-                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">
-                        {sourceCount
-                          ? `This month, tracked money in is ${fmt(monthlyGenerated)}. Top source: ${topSourceName}.`
-                          : "Add Salary, Business, Side Hustle, Allowance, or Freelance first."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span>
-                    <span className={`text-[11px] font-black ${tone.value}`}>{statusMeta?.statusValue || "Income"}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58">
-                    <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                      <p className="text-white/34">Top source</p>
-                      <p className="mt-1.5 truncate text-sm font-black text-white/84">{topSourceName}</p>
-                    </div>
-                    <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                      <p className="text-white/34">Dependency</p>
-                      <p className="mt-1.5 text-sm font-black text-white/84">{mainSourceShare}%</p>
-                    </div>
-                  </div>
-
-                  <p className="mt-3 rounded-xl border border-white/[0.035] bg-black/[0.08] px-3 py-2.5 text-[11.5px] font-semibold leading-5 text-white/54">
-                    {amountStatus}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2.5 pt-1.5">
-                  <button
-                    type="button"
-                    onClick={openIncomeHub}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.09] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-400/[0.13]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Open Income Hub
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAskClara}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Ask CLARA About Income
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handlePlanInvestment}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
-                  >
-                    <Landmark className="h-4 w-4" />
-                    Review Income Sources
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+              <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
+                <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                  {sourceCount === 0 ? (
+                    <EmptyIncomeSources onOpenIncomeHub={openIncomeHub} />
+                  ) : (
+                    <ActiveIncomeSources readiness={readiness} onOpenIncomeHub={openIncomeHub} />
+                  )}
                 </div>
 
                 <div aria-hidden="true" className="h-5 shrink-0" />
