@@ -171,7 +171,7 @@ function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabe
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
-    <div className="mt-1 shrink-0 border-t border-white/[0.035] pt-4">
+    <div className="shrink-0 border-t border-white/[0.035] pt-3">
       <FinanceCardExpandButton
         detailKey="investmentFund"
         expanded={expanded}
@@ -413,7 +413,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
             </div>
 
-            <div className="relative flex min-h-0 flex-col gap-5">
+            <div className="relative flex min-h-0 flex-col gap-4">
               <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
                 <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
 
