@@ -110,27 +110,24 @@ function stopIncomeSourceAction(event) {
   event?.nativeEvent?.stopImmediatePropagation?.();
 }
 
-function IncomeHubHeader({ title, statusLabel, tone }) {
+function IncomeHubHeader({ title }) {
   return (
-    <div className="mb-3 flex items-start gap-3">
+    <div className="mb-4 flex items-start gap-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm">
         <WalletCards className="h-4 w-4" />
       </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 truncate text-base font-semibold tracking-tight text-white">{title}</p>
-
-          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
-            {statusLabel}
-          </span>
-        </div>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="min-w-0 truncate text-base font-semibold leading-tight tracking-tight text-white">{title}</p>
+        <p className="mt-1 text-[11px] font-semibold leading-none text-cyan-50/55">
+          Track where your money comes from.
+        </p>
       </div>
     </div>
   );
 }
 
-function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabel, statTwoValue, statThreeLabel, statThreeValue, tone }) {
+function IncomeSummaryStats({ mainLabel, sourceStatusLabel, statOneLabel, statOneValue, statTwoLabel, statTwoValue, statThreeLabel, statThreeValue, tone }) {
   const summaryTiles = [
     { label: statOneLabel, value: statOneValue, valueClassName: "text-emerald-200" },
     { label: statTwoLabel, value: statTwoValue },
@@ -139,8 +136,17 @@ function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabe
 
   return (
     <>
-      <div className="mb-3">
-        <p className={`text-[31px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={`truncate text-[31px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Income Sources</p>
+        </div>
+
+        {sourceStatusLabel ? (
+          <span className={`mt-0.5 shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
+            {sourceStatusLabel}
+          </span>
+        ) : null}
       </div>
 
       <div className="mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
@@ -162,7 +168,7 @@ function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabe
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
-    <div className="shrink-0 border-t border-white/[0.035] pt-3">
+    <div className="mt-1 shrink-0 border-t border-white/[0.035] pt-4">
       <FinanceCardExpandButton
         detailKey="investmentFund"
         expanded={expanded}
@@ -404,13 +410,14 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
             </div>
 
-            <div className="relative flex min-h-0 flex-col gap-4">
+            <div className="relative flex min-h-0 flex-col gap-5">
               <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-                <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
+                <IncomeHubHeader title={title} />
 
                 <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
                   <IncomeSummaryStats
                     mainLabel={mainLabel}
+                    sourceStatusLabel={statusLabel}
                     statOneLabel={statOneLabel}
                     statOneValue={statOneValue}
                     statTwoLabel={statTwoLabel}
