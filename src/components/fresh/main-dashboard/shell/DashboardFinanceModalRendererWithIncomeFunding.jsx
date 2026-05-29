@@ -53,6 +53,35 @@ function formatFallbackMoney(value) {
   })}`;
 }
 
+function getWalletName(wallet = {}) {
+  return (
+    normalizeString(wallet?.name) ||
+    normalizeString(wallet?.wallet_name) ||
+    normalizeString(wallet?.title) ||
+    normalizeString(wallet?.label) ||
+    "this wallet"
+  );
+}
+
+function getWalletProtectedAmount(wallet = {}) {
+  return toIncomeHubNumber(
+    wallet?.emergencyProtectedAmount ??
+      wallet?.emergency_protected_amount ??
+      wallet?.protectedEmergencyAmount ??
+      wallet?.protected_emergency_amount ??
+      0
+  );
+}
+
+function walletHasProtectedEmergencyMoney(wallet = {}) {
+  return (
+    getWalletProtectedAmount(wallet) > 0 ||
+    wallet?.hasEmergencyFundAllocation === true ||
+    wallet?.has_emergency_fund_allocation === true ||
+    Boolean(wallet?.emergencyFundLinkedWalletId || wallet?.emergency_fund_linked_wallet_id)
+  );
+}
+
 export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const {
     financeModal,
@@ -72,6 +101,11 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const [savingWallet, setSavingWallet] = useState(false);
 
   const createWalletOpen = financeModal?.type === "create_wallet";
+  const deleteWalletOpen = financeModal?.type === "delete_wallet";
+  const walletBeingDeleted = financeModal?.payload || null;
+  const protectedDeleteOpen = deleteWalletOpen && walletHasProtectedEmergencyMoney(walletBeingDeleted);
+  const protectedAmount = getWalletProtectedAmount(walletBeingDeleted);
+  const protectedWalletName = getWalletName(walletBeingDeleted);
   const formatMoney = useCallback(
     (value) => (typeof fmt === "function" ? fmt(value) : formatFallbackMoney(value)),
     [fmt]
@@ -260,6 +294,60 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     props.wallets,
     showFinanceNotice,
   ]);
+
+  if (protectedDeleteOpen) {
+    return (
+      <FinanceActionModal
+        open={protectedDeleteOpen}
+        title="Wallet contains protected money"
+        description={`${protectedWalletName} currently protects ${formatMoney(protectedAmount)} for your Emergency Fund.`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          props.deleteWalletInline?.();
+        }}
+        submitLabel="Delete Anyway"
+        loading={financeActionLoading}
+        danger
+      >
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] p-4 text-sm font-semibold leading-6 text-amber-50/88">
+            This wallet is currently linked to your Emergency Fund.
+            <br />
+            <br />
+            Deleting this wallet will remove the Emergency Fund allocation attached to it.
+            <br />
+            <br />
+            You may want to transfer or relink your Emergency Fund before continuing.
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                closeFinanceModal?.();
+                showFinanceNotice?.("Open the Emergency Fund card and relink this allocation before deleting the wallet.");
+              }}
+              className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/[0.13]"
+            >
+              Relink Emergency Fund
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                closeFinanceModal?.();
+                showFinanceNotice?.("Transfer funds first, then return to delete this wallet if needed.");
+              }}
+              className="rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
+            >
+              Transfer Funds
+            </button>
+          </div>
+        </div>
+      </FinanceActionModal>
+    );
+  }
 
   if (!createWalletOpen) {
     return <DashboardFinanceModalRenderer {...props} />;
