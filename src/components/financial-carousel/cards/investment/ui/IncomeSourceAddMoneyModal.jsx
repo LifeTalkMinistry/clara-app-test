@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useAuth } from "@/context/AuthContext";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
@@ -74,7 +75,7 @@ export default function IncomeSourceAddMoneyModal({ source = null, open = false,
     }
   };
 
-  return (
+  const modal = (
     <FinanceActionModal
       open={open}
       title="Add money"
@@ -85,7 +86,7 @@ export default function IncomeSourceAddMoneyModal({ source = null, open = false,
         saveMoney();
       }}
       submitLabel="Add money"
-      submitDisabled={amount <= 0}
+      submitDisabled={false}
       loading={saving}
     >
       <FinanceField
@@ -104,4 +105,8 @@ export default function IncomeSourceAddMoneyModal({ source = null, open = false,
       </FinanceField>
     </FinanceActionModal>
   );
+
+  if (typeof document === "undefined") return modal;
+
+  return createPortal(modal, document.body);
 }
