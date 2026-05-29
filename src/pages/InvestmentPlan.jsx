@@ -1,4 +1,4 @@
-import { ArrowLeft, Brain, CheckCircle2, ShieldCheck, TrendingUp } from "lucide-react";
+import { ArrowLeft, Brain, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -120,7 +120,6 @@ export default function InvestmentPlan() {
   const hasIdea = idea.trim().length > 0;
   const isAboveSafeRange = Boolean(safeToInvest && plannedNumber > safeToInvest);
   const canStartActivePlan = canSafelyInvest && hasAmount && hasIdea && !isAboveSafeRange;
-  const compactSafeRange = canSafelyInvest ? `${safeRangeMin ? `${fmt(safeRangeMin)}–` : ""}${fmt(safeToInvest)}` : "Idea-only mode";
 
   const amountStatus = useMemo(() => {
     if (!canSafelyInvest) return "Save this as an idea for now. CLARA does not recommend funding it yet.";
@@ -228,29 +227,14 @@ export default function InvestmentPlan() {
   return (
     <div className="theme-page-shell min-h-[100dvh] overflow-y-auto text-white">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4 pb-[calc(env(safe-area-inset-bottom,0px)+28px)] pt-[calc(env(safe-area-inset-top,0px)+14px)]">
-        <div className="mb-3 flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-
-          <section className="relative min-w-0 flex-1 overflow-hidden rounded-[1.35rem] border border-cyan-300/18 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.22),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.2),transparent_46%),linear-gradient(135deg,rgba(6,48,66,0.92),rgba(7,20,48,0.9)_50%,rgba(37,13,74,0.92))] px-3.5 py-3 shadow-[0_16px_42px_rgba(0,0,0,0.28),0_0_24px_rgba(0,255,220,0.06)] backdrop-blur-xl">
-            <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-cyan-300/10 blur-2xl" />
-            <div className="relative flex items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.1)]">
-                <TrendingUp className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[9.5px] font-black uppercase tracking-[0.2em] text-cyan-100/72">CLARA Investment Readiness</p>
-                <p className="mt-0.5 truncate text-[11px] font-bold leading-4 text-white/62">{compactSafeRange}</p>
-              </div>
-            </div>
-          </section>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mb-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
 
         <section className="space-y-3.5 rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
           <div>
