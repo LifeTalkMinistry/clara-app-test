@@ -51,11 +51,11 @@ export const FINANCIAL_CARD_REGISTRY = [
   {
     key: "investmentFund",
     type: "investmentFund",
-    label: "Investment Fund",
+    label: "Income Hub",
     enabled: true,
     order: 4,
     detailKey: "investmentFund",
-    tone: "gold",
+    tone: "cyan",
     minimumPlan: "lifeos",
     featureFlag: "investmentFund",
   },
