@@ -318,32 +318,19 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
             Deleting this wallet will remove the Emergency Fund allocation attached to it.
             <br />
             <br />
-            You may want to transfer or relink your Emergency Fund before continuing.
+            Transfer the funds first if you want to keep the money protected before deleting this wallet.
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                closeFinanceModal?.();
-                showFinanceNotice?.("Open the Emergency Fund card and relink this allocation before deleting the wallet.");
-              }}
-              className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/[0.13]"
-            >
-              Relink Emergency Fund
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                closeFinanceModal?.();
-                showFinanceNotice?.("Transfer funds first, then return to delete this wallet if needed.");
-              }}
-              className="rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
-            >
-              Transfer Funds
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              closeFinanceModal?.();
+              showFinanceNotice?.("Transfer funds first, then return to delete this wallet if needed.");
+            }}
+            className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
+          >
+            Transfer Funds
+          </button>
         </div>
       </FinanceActionModal>
     );
