@@ -250,6 +250,7 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
       readinessStatus: readiness.readinessStatus,
       statusMeta,
       readiness,
+      incomeSources,
     },
     handlers: {
       setInvestmentType: () => {},
