@@ -20,6 +20,16 @@ const menuButton =
 const actionButton =
   'flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-white/94 transition hover:bg-white/[0.10] disabled:opacity-50';
 
+function toWalletNumber(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === '') continue;
+    const number = typeof value === 'number' ? value : Number(String(value).replace(/[₱,\s]/g, ''));
+    if (Number.isFinite(number)) return number;
+  }
+
+  return 0;
+}
+
 function stopWalletGesture(event) {
   event?.stopPropagation?.();
   event?.nativeEvent?.stopImmediatePropagation?.();
@@ -60,6 +70,30 @@ export default function WalletListItem({
   const [showMenu, setShowMenu] = useState(false);
   const walletId = wallet?.id ?? wallet?.wallet_id ?? wallet?.local_id;
   const provider = getWalletProviderFromWallet(wallet);
+  const walletBalance = toWalletNumber(
+    wallet?.balance,
+    wallet?.derived_balance,
+    wallet?.current_balance,
+    wallet?.wallet_balance,
+    wallet?.available_balance,
+    wallet?.starting_balance
+  );
+  const emergencyProtectedAmount = toWalletNumber(
+    wallet?.emergencyProtectedAmount,
+    wallet?.emergency_protected_amount,
+    wallet?.protectedEmergencyAmount,
+    wallet?.protected_emergency_amount
+  );
+  const hasEmergencyAllocation = emergencyProtectedAmount > 0;
+  const spendableBalance = hasEmergencyAllocation
+    ? toWalletNumber(
+        wallet?.spendableBalance,
+        wallet?.spendable_balance,
+        wallet?.walletSpendableBalance,
+        wallet?.wallet_spendable_balance,
+        Math.max(walletBalance - emergencyProtectedAmount, 0)
+      )
+    : walletBalance;
 
   const handleAction = (event, action) => {
     stopWalletAction(event);
@@ -94,9 +128,31 @@ export default function WalletListItem({
             <p className='mt-1 text-[12px] font-bold leading-none text-white/58'>
               Balance:{' '}
               <span className='text-[14px] font-black tracking-[-0.025em] text-emerald-200'>
-                {fmt(wallet.balance || 0)}
+                {fmt(walletBalance)}
               </span>
             </p>
+
+            {hasEmergencyAllocation ? (
+              <div className='mt-2 rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.065] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]'>
+                <div className='flex items-center gap-2'>
+                  <span className='h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.75)]' />
+                  <span className='text-[10px] font-black uppercase tracking-[0.15em] text-emerald-100/78'>
+                    Includes Emergency Fund
+                  </span>
+                </div>
+
+                <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-white/58'>
+                  <span>
+                    Protected:{' '}
+                    <span className='text-emerald-100'>{fmt(emergencyProtectedAmount)}</span>
+                  </span>
+                  <span>
+                    Spendable:{' '}
+                    <span className='text-cyan-100'>{fmt(spendableBalance)}</span>
+                  </span>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
