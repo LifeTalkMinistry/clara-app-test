@@ -125,7 +125,7 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
   const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+    <div className="relative overflow-visible rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="absolute left-0 top-3 h-[calc(100%-24px)] w-[3px] rounded-full bg-emerald-300/70" />
       <div className="flex items-center gap-3 pl-1.5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -137,34 +137,39 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
           <p className="mt-1 text-[11px] font-bold leading-none text-white/66">Net: {fmt(net)}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onToggleMenu(source.id)}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/35 bg-white/[0.035] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-          aria-label={`Open ${source.name} income source actions`}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      </div>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => onToggleMenu(source.id)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-white/[0.035] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+            aria-expanded={menuOpen}
+            aria-label={`Open ${source.name} income source actions`}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
 
-      {menuOpen ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 pl-1.5">
-          <button
-            type="button"
-            onClick={() => onAction(source, "add_money")}
-            className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2.5 text-xs font-black text-emerald-100"
-          >
-            Add Money
-          </button>
-          <button
-            type="button"
-            onClick={() => onAction(source, "transfer_wallet")}
-            className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2.5 text-xs font-black text-cyan-100"
-          >
-            Transfer to Wallet
-          </button>
+          {menuOpen ? (
+            <div className="absolute right-0 top-11 z-[160] w-48 rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-xl ring-1 ring-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => onAction(source, "add_money")}
+                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left text-xs font-black text-white/94 transition hover:bg-white/[0.10]"
+              >
+                <Plus className="h-3.5 w-3.5 text-emerald-200" />
+                Add Money
+              </button>
+              <button
+                type="button"
+                onClick={() => onAction(source, "transfer_wallet")}
+                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left text-xs font-black text-white/94 transition hover:bg-white/[0.10]"
+              >
+                <WalletCards className="h-3.5 w-3.5 text-cyan-200" />
+                Transfer Money
+              </button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
