@@ -198,7 +198,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   };
 
   const primaryLabel = isReady ? "Start Investment Plan" : isActive ? "Review with CLARA" : isPaused ? "Review my finances first" : "Ask CLARA First";
-  const secondaryLabel = isReady ? "Ask CLARA First" : isActive ? "Pause Plan" : isPaused ? "Keep idea saved" : "Save as Future Plan";
+  const secondaryLabel = isReady ? "Ask CLARA First" : isActive ? "Pause Plan" : isPaused ? "Keep idea saved" : "Add Investment Plan Idea";
   const primaryAction = isReady ? openInvestmentPlan : handleAskClara;
   const secondaryAction = isReady ? handleAskClara : isActive ? handlePlanInvestment : openInvestmentPlan;
 
