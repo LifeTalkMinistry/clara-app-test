@@ -6,6 +6,7 @@ import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCard
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 import useInvestmentCardLogic, { fmt } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
+import IncomeSourceAddMoneyModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceAddMoneyModal";
 
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
@@ -239,6 +240,7 @@ function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const navigate = useNavigate();
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [incomeSourceModal, setIncomeSourceModal] = useState({ type: null, source: null });
   const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
 
   const { isExpanded } = state;
@@ -264,6 +266,12 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
   const handleSourceAction = (source, action) => {
     setOpenMenuId(null);
+
+    if (action === "add_money") {
+      setIncomeSourceModal({ type: "add_money", source });
+      return;
+    }
+
     openIncomeHub({
       action,
       incomeSourceId: source.id,
@@ -274,80 +282,88 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   const sourceCount = readiness?.sourceCount || 0;
 
   return (
-    <FinanceCardShell
-      cardKey="investmentFund"
-      expanded={isExpanded}
-      ringClass="shadow-[0_0_24px_rgba(34,211,238,0.08),0_0_46px_rgba(88,28,135,0.07)]"
-      roundedClass="rounded-3xl"
-      glowLayerClassNames={INCOME_HUB_GLOW_LAYERS}
-      surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]"
-      shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]"
-    >
-      {!isExpanded ? (
-        <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-          <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
-            <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
-            <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
+    <>
+      <FinanceCardShell
+        cardKey="investmentFund"
+        expanded={isExpanded}
+        ringClass="shadow-[0_0_24px_rgba(34,211,238,0.08),0_0_46px_rgba(88,28,135,0.07)]"
+        roundedClass="rounded-3xl"
+        glowLayerClassNames={INCOME_HUB_GLOW_LAYERS}
+        surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]"
+        shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]"
+      >
+        {!isExpanded ? (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
+              <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
+              <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
+            </div>
+
+            <div className="relative flex min-h-0 flex-col gap-4">
+              <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+                <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
+
+                <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+                  <IncomeSummaryStats
+                    mainLabel={mainLabel}
+                    statOneLabel={statOneLabel}
+                    statOneValue={statOneValue}
+                    statTwoLabel={statTwoLabel}
+                    statTwoValue={statTwoValue}
+                    statThreeLabel={statThreeLabel}
+                    statThreeValue={statThreeValue}
+                    tone={tone}
+                  />
+                </div>
+              </div>
+
+              <ExpandButtonRow expanded={false} onToggleDetails={handleToggleDetails} />
+            </div>
           </div>
+        ) : (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
+              <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
+              <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-violet-500/[0.10] blur-3xl" />
+            </div>
 
-          <div className="relative flex min-h-0 flex-col gap-4">
-            <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-              <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
+            <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+              <div className="shrink-0">
+                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
+              </div>
 
-              <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
-                <IncomeSummaryStats
-                  mainLabel={mainLabel}
-                  statOneLabel={statOneLabel}
-                  statOneValue={statOneValue}
-                  statTwoLabel={statTwoLabel}
-                  statTwoValue={statTwoValue}
-                  statThreeLabel={statThreeLabel}
-                  statThreeValue={statThreeValue}
-                  tone={tone}
-                />
+              <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
+
+              <div className="min-h-0 flex-1 overflow-hidden pt-1">
+                <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
+                  <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                    {sourceCount === 0 ? (
+                      <EmptyIncomeSources onOpenIncomeHub={() => openIncomeHub()} />
+                    ) : (
+                      <ActiveIncomeSources
+                        sources={incomeSources}
+                        openMenuId={openMenuId}
+                        onToggleMenu={(sourceId) => setOpenMenuId((current) => (current === sourceId ? null : sourceId))}
+                        onSourceAction={handleSourceAction}
+                        onOpenIncomeHub={() => openIncomeHub()}
+                      />
+                    )}
+                  </div>
+
+                  <div aria-hidden="true" className="h-5 shrink-0" />
+                </FinanceCardExpandedPanel>
               </div>
             </div>
-
-            <ExpandButtonRow expanded={false} onToggleDetails={handleToggleDetails} />
           </div>
-        </div>
-      ) : (
-        <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-          <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
-            <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
-            <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-violet-500/[0.10] blur-3xl" />
-          </div>
+        )}
+      </FinanceCardShell>
 
-          <div className="relative flex min-h-0 flex-1 flex-col gap-4">
-            <div className="shrink-0">
-              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
-            </div>
-
-            <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
-
-            <div className="min-h-0 flex-1 overflow-hidden pt-1">
-              <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
-                <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-                  {sourceCount === 0 ? (
-                    <EmptyIncomeSources onOpenIncomeHub={() => openIncomeHub()} />
-                  ) : (
-                    <ActiveIncomeSources
-                      sources={incomeSources}
-                      openMenuId={openMenuId}
-                      onToggleMenu={(sourceId) => setOpenMenuId((current) => (current === sourceId ? null : sourceId))}
-                      onSourceAction={handleSourceAction}
-                      onOpenIncomeHub={() => openIncomeHub()}
-                    />
-                  )}
-                </div>
-
-                <div aria-hidden="true" className="h-5 shrink-0" />
-              </FinanceCardExpandedPanel>
-            </div>
-          </div>
-        </div>
-      )}
-    </FinanceCardShell>
+      <IncomeSourceAddMoneyModal
+        open={incomeSourceModal.type === "add_money"}
+        source={incomeSourceModal.source}
+        onClose={() => setIncomeSourceModal({ type: null, source: null })}
+      />
+    </>
   );
 }
