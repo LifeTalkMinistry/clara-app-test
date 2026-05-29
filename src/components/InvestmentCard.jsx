@@ -1,4 +1,5 @@
 import { MoreHorizontal, Plus, WalletCards } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
@@ -119,7 +120,7 @@ function EmptyIncomeSources({ onOpenIncomeHub }) {
   );
 }
 
-function IncomeSourceRow({ source }) {
+function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
   const net = getSourceNet(source);
   const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
 
@@ -138,24 +139,50 @@ function IncomeSourceRow({ source }) {
 
         <button
           type="button"
+          onClick={() => onToggleMenu(source.id)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/35 bg-white/[0.035] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-          aria-label={`Open ${source.name} income source`}
+          aria-label={`Open ${source.name} income source actions`}
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
+
+      {menuOpen ? (
+        <div className="mt-3 grid grid-cols-2 gap-2 pl-1.5">
+          <button
+            type="button"
+            onClick={() => onAction(source, "add_money")}
+            className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2.5 text-xs font-black text-emerald-100"
+          >
+            Add Money
+          </button>
+          <button
+            type="button"
+            onClick={() => onAction(source, "transfer_wallet")}
+            className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2.5 text-xs font-black text-cyan-100"
+          >
+            Transfer to Wallet
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function ActiveIncomeSources({ sources, onOpenIncomeHub }) {
+function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction, onOpenIncomeHub }) {
   const visibleSources = Array.isArray(sources) ? sources.slice(0, 3) : [];
 
   return (
     <div className="space-y-3">
       <div className="space-y-2.5">
         {visibleSources.map((source) => (
-          <IncomeSourceRow key={source.id} source={source} />
+          <IncomeSourceRow
+            key={source.id}
+            source={source}
+            menuOpen={openMenuId === source.id}
+            onToggleMenu={onToggleMenu}
+            onAction={onSourceAction}
+          />
         ))}
       </div>
 
@@ -172,6 +199,7 @@ function ActiveIncomeSources({ sources, onOpenIncomeHub }) {
 
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const navigate = useNavigate();
+  const [openMenuId, setOpenMenuId] = useState(null);
   const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
 
   const { isExpanded } = state;
@@ -191,8 +219,17 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   } = computed;
   const { handleToggleDetails } = handlers;
 
-  const openIncomeHub = () => {
-    navigate("/investment-plan", { state: { source: "income-hub-card" } });
+  const openIncomeHub = (extraState = {}) => {
+    navigate("/investment-plan", { state: { source: "income-hub-card", ...extraState } });
+  };
+
+  const handleSourceAction = (source, action) => {
+    setOpenMenuId(null);
+    openIncomeHub({
+      action,
+      incomeSourceId: source.id,
+      incomeSourceName: source.name,
+    });
   };
 
   const sourceCount = readiness?.sourceCount || 0;
@@ -254,9 +291,15 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
                 <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                   {sourceCount === 0 ? (
-                    <EmptyIncomeSources onOpenIncomeHub={openIncomeHub} />
+                    <EmptyIncomeSources onOpenIncomeHub={() => openIncomeHub()} />
                   ) : (
-                    <ActiveIncomeSources sources={incomeSources} onOpenIncomeHub={openIncomeHub} />
+                    <ActiveIncomeSources
+                      sources={incomeSources}
+                      openMenuId={openMenuId}
+                      onToggleMenu={(sourceId) => setOpenMenuId((current) => (current === sourceId ? null : sourceId))}
+                      onSourceAction={handleSourceAction}
+                      onOpenIncomeHub={() => openIncomeHub()}
+                    />
                   )}
                 </div>
 
