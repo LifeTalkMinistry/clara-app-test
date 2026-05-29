@@ -3,6 +3,19 @@ import {
   FINANCE_CARD_SURFACE_CLASS,
 } from "./financeCardStyles";
 
+const FINANCE_CARD_BOTTOM_ACTION_ALIGNMENT_CSS = `
+  .clara-finance-bubble-investmentFund[data-expanded="false"] > div.relative.z-10 > div.relative.flex,
+  .clara-finance-bubble-savingsGoals[data-expanded="false"] > div.relative.z-10 > div.relative.flex {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .clara-finance-bubble-investmentFund[data-expanded="false"] > div.relative.z-10 > div.relative.flex > div:last-child,
+  .clara-finance-bubble-savingsGoals[data-expanded="false"] > div.relative.z-10 > div.relative.flex > div:last-child {
+    margin-top: auto;
+  }
+`;
+
 export default function FinanceCardShell({
   cardKey = "finance",
   expanded = false,
@@ -29,6 +42,8 @@ export default function FinanceCardShell({
         .filter(Boolean)
         .join(" ")}
     >
+      <style>{FINANCE_CARD_BOTTOM_ACTION_ALIGNMENT_CSS}</style>
+
       {glowLayerClassNames.map((className, index) => (
         <div key={`${cardKey}-glow-${index}`} className={className} />
       ))}
