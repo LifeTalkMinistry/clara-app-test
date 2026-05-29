@@ -297,7 +297,7 @@ export default function useEmergencyFundCard({
 
   const linkedWalletIdFromFund = getLinkedWalletId(emergencyFund);
   const linkedWalletNameFromFund = getLinkedWalletName(emergencyFund);
-  const emergencySavedAmount = getSavedEmergencyAmount(emergencyFund);
+  const storedSavedAmount = getSavedEmergencyAmount(emergencyFund);
   const emergencyTargetMonths = toNumber(firstValue(emergencyFund, ["targetMonths", "target_months", "months_target"], 3)) || 3;
   const emergencySurvivalExpense = toNumber(firstValue(emergencyFund, ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"], survivalExpense));
   const emergencyWallpaper = firstValue(emergencyFund, ["wallpaper", "background", "image"], "") || "";
@@ -306,6 +306,12 @@ export default function useEmergencyFundCard({
   const safeWallets = useMemo(() => (Array.isArray(wallets) ? wallets.map(normalizeWallet).filter((wallet) => wallet.id && !wallet.deletedAt && !wallet.deleted_at) : []), [wallets]);
   const incomeRows = useMemo(() => [...(Array.isArray(walletTransactions) ? walletTransactions : []), ...(Array.isArray(incomes) ? incomes : [])], [walletTransactions, incomes]);
   const linkedWallet = useMemo(() => safeWallets.find((wallet) => wallet.id === linkedWalletIdFromFund) || safeWallets.find((wallet) => linkedWalletNameFromFund && wallet.name === linkedWalletNameFromFund) || null, [safeWallets, linkedWalletIdFromFund, linkedWalletNameFromFund]);
+  const hasWallets = safeWallets.length > 0;
+  const hasStoredEmergencyMoney = storedSavedAmount > 0;
+  const hasLinkedWalletReference = Boolean(linkedWalletIdFromFund || linkedWalletNameFromFund);
+  const sourceWalletMissing = hasStoredEmergencyMoney && (!hasWallets || !linkedWallet || !hasLinkedWalletReference);
+  const needsWallet = !hasWallets;
+  const effectiveSavedAmount = sourceWalletMissing ? 0 : storedSavedAmount;
 
   const isExpanded = Boolean(expanded);
   const [editing, setEditing] = useState(false);
@@ -347,25 +353,40 @@ export default function useEmergencyFundCard({
   }, []);
 
   const effectiveExpense = emergencySurvivalExpense || toNumber(survivalExpense);
-  const safeMoneyLeft = emergencySavedAmount;
-  const target = useMemo(() => effectiveExpense * targetMonths, [effectiveExpense, targetMonths]);
-  const months = useMemo(() => (effectiveExpense > 0 ? safeMoneyLeft / effectiveExpense : 0), [safeMoneyLeft, effectiveExpense]);
-  const pct = useMemo(() => (target > 0 ? Math.min((safeMoneyLeft / target) * 100, 100) : 0), [safeMoneyLeft, target]);
+  const safeMoneyLeft = effectiveSavedAmount;
+  const target = useMemo(() => (sourceWalletMissing ? 0 : effectiveExpense * targetMonths), [effectiveExpense, targetMonths, sourceWalletMissing]);
+  const months = useMemo(() => (sourceWalletMissing || effectiveExpense <= 0 ? 0 : safeMoneyLeft / effectiveExpense), [safeMoneyLeft, effectiveExpense, sourceWalletMissing]);
+  const pct = useMemo(() => (sourceWalletMissing || target <= 0 ? 0 : Math.min((safeMoneyLeft / target) * 100, 100)), [safeMoneyLeft, target, sourceWalletMissing]);
   const amountNeeded = Math.max(target - safeMoneyLeft, 0);
   const emergencyAdvisor = useMemo(() => buildEmergencyAdvisor({ incomeRows, effectiveExpense, amountNeeded, targetMonths }), [incomeRows, effectiveExpense, amountNeeded, targetMonths]);
 
   const selectedWallet = useMemo(() => safeWallets.find((wallet) => wallet.id === topUpWalletId), [topUpWalletId, safeWallets]);
   const selectedWalletBalance = walletBalance(selectedWallet);
   const selectedWalletIsLinked = Boolean(selectedWallet?.id && selectedWallet.id === (linkedWallet?.id || linkedWalletIdFromFund));
-  const selectedWalletProtected = selectedWalletIsLinked ? safeMoneyLeft : toNumber(selectedWallet?.emergencyProtectedAmount ?? selectedWallet?.emergency_protected_amount);
+  const selectedWalletProtected = selectedWalletIsLinked ? storedSavedAmount : toNumber(selectedWallet?.emergencyProtectedAmount ?? selectedWallet?.emergency_protected_amount);
   const selectedWalletSpendableBalance = Math.max(selectedWalletBalance - Math.min(selectedWalletProtected, selectedWalletBalance), 0);
   const linkedWalletName = linkedWallet?.name || linkedWalletNameFromFund || "Not linked yet";
   const linkedWalletId = linkedWallet?.id || linkedWalletIdFromFund || "";
 
-  const status = getStatus(months, targetMonths);
-  const progression = getProgression(months, targetMonths);
+  const rawStatus = getStatus(months, targetMonths);
+  const status = sourceWalletMissing
+    ? {
+        label: needsWallet ? "Needs wallet" : "Source missing",
+        text: "text-amber-200",
+        badge: "bg-amber-400/12 text-amber-100 border border-amber-300/18",
+        bar: "from-amber-400 to-orange-300",
+        ring: "shadow-[0_0_24px_rgba(251,191,36,0.12)]",
+      }
+    : rawStatus;
+  const progression = sourceWalletMissing ? "Create or link a wallet first." : getProgression(months, targetMonths);
   const milestone = MILESTONES.find((m) => m.months === targetMonths);
   const themeClasses = getEmergencyThemeClasses(theme);
+  const emergencyWarningTitle = sourceWalletMissing ? (needsWallet ? "Create or link a wallet first" : "Source wallet missing") : "";
+  const emergencyWarningMessage = sourceWalletMissing
+    ? needsWallet
+      ? "Old Emergency Fund data exists, but no wallet is available to hold it. Create a wallet first before CLARA counts it."
+      : "Old Emergency Fund data exists, but its source wallet is missing. Relink it to an existing wallet before CLARA counts it."
+    : "";
 
   useEffect(() => {
     if (autoPromptTimeoutRef.current) {
@@ -504,17 +525,24 @@ export default function useEmergencyFundCard({
   const openTopUpModal = async () => {
     setTopUpAmount("");
     setTopUpError("");
-    if (linkedWalletId) setTopUpWalletId(linkedWalletId);
+    if (!safeWallets.length) {
+      setTopUpError("Create or link a wallet first.");
+      setShowTopUpModal(true);
+      return;
+    }
+    if (linkedWalletId && linkedWallet) setTopUpWalletId(linkedWalletId);
     if (!safeWallets.length) await refreshData?.();
     setShowTopUpModal(true);
   };
 
   const handleTopUpSave = async () => {
     const amount = toNumber(topUpAmount);
+    if (!hasWallets) return setTopUpError("Create or link a wallet first.");
     if (amount <= 0) return setTopUpError("Enter a valid amount.");
     if (!topUpWalletId) return setTopUpError("Choose one source wallet first.");
     if (!selectedWallet) return setTopUpError("This source wallet was not found. Refresh and try again.");
-    if (safeMoneyLeft > 0 && linkedWalletId && topUpWalletId !== linkedWalletId) return setTopUpError(`Emergency Fund is already protected inside ${linkedWalletName}. Use that wallet or reset first.`);
+    if (storedSavedAmount > 0 && linkedWalletId && linkedWallet && topUpWalletId !== linkedWalletId) return setTopUpError(`Emergency Fund is already protected inside ${linkedWalletName}. Use that wallet or reset first.`);
+    if (sourceWalletMissing && storedSavedAmount > 0) return setTopUpError("Old Emergency Fund data is not linked to this wallet. Reset or relink before adding more.");
     if (selectedWalletSpendableBalance < amount) return setTopUpError("This wallet does not have enough spendable balance after protected money.");
     if (typeof updateEmergencyFund !== "function") return setTopUpError("Emergency protection is not ready yet. Try again after refresh.");
 
@@ -621,7 +649,7 @@ export default function useEmergencyFundCard({
 
   return {
     state: { isExpanded, editing, showModal, targetMonths, wallpaper, wallpaperOpacity, showWallpaperModal, draftWallpaper, draftOpacity, showTopUpModal, topUpAmount, topUpWalletId, topUpError, saving },
-    computed: { safeWallets, effectiveExpense, safeMoneyLeft, target, months, pct, selectedWallet, selectedWalletBalance, selectedWalletSpendableBalance, linkedWallet, linkedWalletId, linkedWalletName, status, progression, milestone, themeClasses, resolvedWallpaperOpacity, retentionRate, emergencyAdvisor, validTargetMonths: VALID_TARGET_MONTHS },
+    computed: { safeWallets, effectiveExpense, safeMoneyLeft, storedSavedAmount, effectiveSavedAmount, sourceWalletMissing, needsWallet, emergencyWarningTitle, emergencyWarningMessage, target, months, pct, selectedWallet, selectedWalletBalance, selectedWalletSpendableBalance, linkedWallet, linkedWalletId, linkedWalletName, status, progression, milestone, themeClasses, resolvedWallpaperOpacity, retentionRate, emergencyAdvisor, validTargetMonths: VALID_TARGET_MONTHS },
     handlers: { setEditing, setShowModal, setShowWallpaperModal, setDraftWallpaper, setDraftOpacity, setShowTopUpModal, setTopUpAmount, setTopUpWalletId, setTopUpError, handleSaved, changeTargetMonths, handleOrbPointerDown, handleOrbPointerUp, handleOrbPointerCancel, handleOrbClick, openWallpaperModal, handleWallpaperUpload, handleWallpaperSave, handleWallpaperRemove, openTopUpModal, handleTopUpSave },
     refs: { hasPrompted, autoPromptTimeoutRef, longPressTimeoutRef, longPressTriggeredRef, orbTapTimeoutRef, orbTapCountRef },
   };
