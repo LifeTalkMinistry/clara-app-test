@@ -1,5 +1,5 @@
 import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
-import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer";
+import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRendererWithIncomeFunding";
 import DashboardFinanceExpandedSheetLayer from "@/components/fresh/main-dashboard/shell/DashboardFinanceExpandedSheetLayer";
 import DashboardProgramOnboardingModal from "@/components/fresh/main-dashboard/onboarding/DashboardProgramOnboardingModal";
 import EmergencyReserveExpenseGuard from "@/components/fresh/main-dashboard/finance-content/EmergencyReserveExpenseGuard";
