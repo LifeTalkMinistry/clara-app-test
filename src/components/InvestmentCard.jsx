@@ -414,7 +414,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
             </div>
 
             <div className="relative flex min-h-0 flex-col gap-4">
-              <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+              <div className="min-h-[244px] rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
                 <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
 
                 <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
