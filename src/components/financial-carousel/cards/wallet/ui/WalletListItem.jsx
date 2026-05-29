@@ -127,6 +127,15 @@ export default function WalletListItem({
             >
               <button
                 type='button'
+                onClick={(event) => handleAction(event, () => openEditWallet?.(wallet))}
+                className={actionButton}
+              >
+                <Edit3 className='h-3.5 w-3.5 text-cyan-200' />
+                Edit / Rename
+              </button>
+
+              <button
+                type='button'
                 onClick={(event) => handleAction(event, () => onAddMoney?.(wallet))}
                 className={actionButton}
               >
@@ -140,7 +149,41 @@ export default function WalletListItem({
                 className={actionButton}
               >
                 <Repeat2 className='h-3.5 w-3.5 text-sky-200' />
-                Transfer Money
+                Transfer
+              </button>
+
+              <div className='my-1 h-px bg-white/12' />
+
+              <button
+                type='button'
+                disabled={!walletId}
+                onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, -1))}
+                className={actionButton}
+              >
+                <ArrowUp className='h-3.5 w-3.5 text-amber-200' />
+                Move Up
+              </button>
+
+              <button
+                type='button'
+                disabled={!walletId}
+                onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, 1))}
+                className={actionButton}
+              >
+                <ArrowDown className='h-3.5 w-3.5 text-amber-200' />
+                Move Down
+              </button>
+
+              <div className='my-1 h-px bg-white/12' />
+
+              <button
+                type='button'
+                disabled={!walletId}
+                onClick={(event) => handleAction(event, () => onDeleteWallet?.(walletId))}
+                className='flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-rose-100 transition hover:bg-rose-500/14 disabled:opacity-50'
+              >
+                <Trash2 className='h-3.5 w-3.5 text-rose-200' />
+                Delete Wallet
               </button>
             </div>
           ) : null}
