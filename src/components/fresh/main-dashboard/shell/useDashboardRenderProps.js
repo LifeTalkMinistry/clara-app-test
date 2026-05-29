@@ -286,6 +286,7 @@ export default function useDashboardRenderProps({
     addMoneyInline,
     fmt,
     transferMoneyInline,
+    openTransferMoneyModal,
     wallets,
     saveManualExpenseInline,
     manualExpenseCanSubmit,
