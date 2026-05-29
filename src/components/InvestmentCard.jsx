@@ -123,8 +123,8 @@ function IncomeHubHeader({ title, statusLabel, tone }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="min-w-0 truncate text-base font-semibold leading-tight tracking-tight text-white">{title}</p>
-            <p className="mt-1 text-[11px] font-semibold leading-none text-cyan-50/55">
-              Track where your money comes from.
+            <p className="mt-1 truncate whitespace-nowrap text-[10.5px] font-semibold leading-none text-cyan-50/55">
+              Where your money comes from
             </p>
           </div>
 
