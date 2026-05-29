@@ -107,6 +107,67 @@ const removeDeletedRows = (rows) =>
     (row) => !row?.deletedAt && !row?.deleted_at
   );
 
+const readEmergencyNumber = (emergencyFund, keys = []) => {
+  for (const key of keys) {
+    const value = emergencyFund?.[key];
+    if (value !== undefined && value !== null && value !== "") return toNumber(value);
+  }
+  return 0;
+};
+
+const readEmergencyText = (emergencyFund, keys = []) => {
+  for (const key of keys) {
+    const value = emergencyFund?.[key];
+    if (value !== undefined && value !== null && value !== "") return String(value).trim();
+  }
+  return "";
+};
+
+const getEmergencyProtectedAmount = (emergencyFund) =>
+  readEmergencyNumber(emergencyFund, [
+    "protectedBalance",
+    "protected_balance",
+    "reserveBalance",
+    "reserve_balance",
+    "savedAmount",
+    "saved_amount",
+    "currentAmount",
+    "current_amount",
+    "amount",
+    "balance",
+    "moneyLeft",
+  ]);
+
+const getEmergencyLinkedWalletId = (emergencyFund) =>
+  readEmergencyText(emergencyFund, [
+    "linkedWalletId",
+    "linked_wallet_id",
+    "reserveWalletId",
+    "reserve_wallet_id",
+    "sourceWalletId",
+    "source_wallet_id",
+    "walletId",
+    "wallet_id",
+  ]);
+
+const getEmergencyLinkedWalletName = (emergencyFund) =>
+  readEmergencyText(emergencyFund, [
+    "linkedWalletName",
+    "linked_wallet_name",
+    "reserveWalletName",
+    "reserve_wallet_name",
+    "sourceWalletName",
+    "source_wallet_name",
+    "walletName",
+    "wallet_name",
+  ]);
+
+const getWalletIdentity = (wallet) =>
+  String(wallet?.id || wallet?.wallet_id || wallet?.walletId || wallet?.local_id || "").trim();
+
+const getWalletName = (wallet) =>
+  String(wallet?.name || wallet?.wallet_name || wallet?.title || wallet?.label || "").trim();
+
 const createEmptyFinancialCache = (key = null) => ({
   key,
   loaded: false,
@@ -201,6 +262,9 @@ function useFinancialData(user) {
       const safeTransfers = sortByNewest(removeDeletedRows(rawTransfers));
       const safeBudgets = sortByNewest(removeDeletedRows(rawBudgets));
       const safeSavingsGoals = sortByOldest(removeDeletedRows(rawSavingsGoals));
+      const emergencyProtectedAmount = getEmergencyProtectedAmount(rawEmergencyFund);
+      const emergencyLinkedWalletId = getEmergencyLinkedWalletId(rawEmergencyFund);
+      const emergencyLinkedWalletName = getEmergencyLinkedWalletName(rawEmergencyFund);
 
       const normalizedWallets = sortByOldest(removeDeletedRows(rawWallets)).map(
         (wallet) => {
@@ -209,11 +273,35 @@ function useFinancialData(user) {
             safeWalletTransactions,
             safeTransfers
           );
+          const walletId = getWalletIdentity(wallet);
+          const walletName = getWalletName(wallet);
+          const isEmergencyLinkedWallet =
+            emergencyProtectedAmount > 0 &&
+            ((emergencyLinkedWalletId && walletId === emergencyLinkedWalletId) ||
+              (!emergencyLinkedWalletId && emergencyLinkedWalletName && walletName === emergencyLinkedWalletName));
+          const protectedAmount = isEmergencyLinkedWallet
+            ? Math.min(emergencyProtectedAmount, Math.max(balance, 0))
+            : 0;
+          const spendableBalance = Math.max(balance - protectedAmount, 0);
 
           return {
             ...wallet,
             balance,
             derived_balance: balance,
+            emergencyProtectedAmount: protectedAmount,
+            emergency_protected_amount: protectedAmount,
+            protectedEmergencyAmount: protectedAmount,
+            protected_emergency_amount: protectedAmount,
+            spendableBalance,
+            spendable_balance: spendableBalance,
+            walletSpendableBalance: spendableBalance,
+            wallet_spendable_balance: spendableBalance,
+            hasEmergencyFundAllocation: protectedAmount > 0,
+            has_emergency_fund_allocation: protectedAmount > 0,
+            emergencyFundLinkedWalletId: protectedAmount > 0 ? emergencyLinkedWalletId || walletId : null,
+            emergency_fund_linked_wallet_id: protectedAmount > 0 ? emergencyLinkedWalletId || walletId : null,
+            emergencyFundLabel: protectedAmount > 0 ? "Includes Emergency Fund" : "",
+            emergency_fund_label: protectedAmount > 0 ? "Includes Emergency Fund" : "",
           };
         }
       );
@@ -659,6 +747,39 @@ function useFinancialData(user) {
     [safeWallets]
   );
 
+  const totalEmergencyProtected = useMemo(
+    () =>
+      safeWallets.reduce(
+        (sum, wallet) => sum + toNumber(wallet.emergencyProtectedAmount ?? wallet.emergency_protected_amount),
+        0
+      ),
+    [safeWallets]
+  );
+
+  const totalSpendableWalletBalance = useMemo(
+    () =>
+      safeWallets.reduce((sum, wallet) => {
+        const spendable =
+          wallet.spendableBalance ??
+          wallet.spendable_balance ??
+          wallet.walletSpendableBalance ??
+          wallet.wallet_spendable_balance;
+
+        if (spendable !== undefined && spendable !== null) return sum + toNumber(spendable);
+
+        const value =
+          wallet.derived_balance ??
+          wallet.balance ??
+          wallet.current_balance ??
+          wallet.wallet_balance ??
+          wallet.starting_balance ??
+          0;
+
+        return sum + toNumber(value);
+      }, 0),
+    [safeWallets]
+  );
+
   const retentionRate = useMemo(() => {
     if (totalIncome <= 0) return 0;
     return ((totalIncome - totalExpenses) / totalIncome) * 100;
@@ -681,6 +802,8 @@ function useFinancialData(user) {
     totalExpenses,
     totalIncome,
     totalWalletBalance,
+    totalSpendableWalletBalance,
+    totalEmergencyProtected,
     retentionRate,
 
     refreshData,
