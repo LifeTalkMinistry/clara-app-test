@@ -1,14 +1,18 @@
-import { ArrowLeft, Brain, CheckCircle2, Pencil, ShieldCheck, Trash2 } from "lucide-react";
+import { ArrowLeft, Brain, CheckCircle2, Pencil, Plus, Trash2, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
+import useFinancialData from "@/hooks/useFinancialData";
 import {
-  deleteInvestmentPlan,
-  getInvestmentPlanLocalUserId,
-  getInvestmentPlans,
-  upsertInvestmentPlan,
-} from "@/lib/investmentPlanRepository";
+  INCOME_SOURCE_CATEGORIES,
+  INCOME_SOURCE_STABILITY,
+  deleteIncomeSource,
+  getIncomeHubLocalUserId,
+  getIncomeSources,
+  toIncomeHubNumber,
+  upsertIncomeSource,
+} from "@/lib/incomeHubRepository";
 
 const fmt = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -17,41 +21,26 @@ const fmt = (value) =>
     minimumFractionDigits: 0,
   }).format(Number(value) || 0);
 
-const investmentTypes = [
-  "Business",
-  "Skill / Education",
-  "Equipment",
-  "Side hustle",
-  "Digital product",
-  "Stocks / Funds",
-  "Crypto",
-  "Time deposit",
-  "Other",
-];
-const riskLevels = ["Low", "Medium", "High"];
-const timeHorizons = ["1 month", "3–6 months", "6–12 months", "1 year+"];
+const getTodayDate = () => new Date().toISOString().split("T")[0];
 
 const controlClass =
   "w-full rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm font-bold text-white outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition placeholder:text-white/38 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/15";
 
-const normalizePlanType = (value) =>
-  String(value || "Business")
-    .trim()
-    .toLowerCase()
-    .replace(/\s*\/\s*/g, "_")
-    .replace(/\s+/g, "_");
-
-const formatStatus = (value) => {
-  const normalized = String(value || "idea_only").replace(/_/g, " ");
-  return normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
+const emptySourceForm = {
+  name: "",
+  category: "Salary",
+  stability: "Stable",
+  notes: "",
 };
 
-const cleanPlanTypeLabel = (plan = {}) =>
-  plan.planTypeLabel ||
-  plan.plan_type_label ||
-  String(plan.planType || plan.plan_type || "Business")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const emptyFlowForm = {
+  sourceId: "",
+  type: "money_in",
+  amount: "",
+  walletId: "",
+  date: getTodayDate(),
+  notes: "",
+};
 
 function FieldLabel({ children, htmlFor }) {
   return (
@@ -61,7 +50,7 @@ function FieldLabel({ children, htmlFor }) {
   );
 }
 
-function SelectField({ id, value, onChange, options }) {
+function SelectField({ id, value, onChange, options, placeholder = "Select" }) {
   return (
     <select
       id={id}
@@ -69,290 +58,269 @@ function SelectField({ id, value, onChange, options }) {
       onChange={(event) => onChange(event.target.value)}
       className={`${controlClass} appearance-none pr-9 backdrop-blur-xl`}
     >
+      {placeholder ? (
+        <option value="" className="bg-slate-950 text-white">
+          {placeholder}
+        </option>
+      ) : null}
       {options.map((option) => (
-        <option key={option} value={option} className="bg-slate-950 text-white">
-          {option}
+        <option key={option.value || option} value={option.value || option} className="bg-slate-950 text-white">
+          {option.label || option}
         </option>
       ))}
     </select>
   );
 }
 
-function GuidanceCard({ canSafelyInvest, isAboveSafeRange, safeToInvest }) {
-  const title = canSafelyInvest
-    ? isAboveSafeRange
-      ? "Lower the test amount"
-      : "Protected surplus only"
-    : "Save as an idea first";
-  const body = canSafelyInvest
-    ? isAboveSafeRange
-      ? `Above your ${fmt(safeToInvest)} safe test range. Lower the amount or wait until your protection base improves.`
-      : "This can be reviewed as a small controlled test. Keep emergency and bill money untouched."
-    : "Write the idea now. CLARA will not recommend funding it until your protection base is ready.";
-  const toneClass = canSafelyInvest
-    ? isAboveSafeRange
-      ? "border-amber-300/20 bg-amber-400/10 text-amber-100"
-      : "border-emerald-300/18 bg-emerald-400/10 text-emerald-100"
-    : "border-cyan-300/16 bg-cyan-400/[0.07] text-cyan-100";
+function StatTile({ label, value, tone = "white" }) {
+  const toneClass = {
+    emerald: "text-emerald-200",
+    rose: "text-rose-200",
+    cyan: "text-cyan-100",
+    white: "text-white",
+  }[tone];
 
   return (
-    <div className={`rounded-[1.35rem] border px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${toneClass}`}>
-      <div className="grid grid-cols-[34px_minmax(0,1fr)] items-start gap-3">
-        <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/16 text-current shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <ShieldCheck className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[13px] font-black leading-4 text-white">{title}</p>
-          <p className="mt-1 text-[11.5px] font-semibold leading-[1.45] text-white/66">{body}</p>
-        </div>
-      </div>
+    <div className="rounded-2xl border border-white/10 bg-black/15 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">{label}</p>
+      <p className={`mt-1 text-sm font-black leading-5 ${toneClass}`}>{value}</p>
     </div>
   );
 }
 
+function getWalletName(wallet) {
+  return wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet";
+}
+
 export default function InvestmentPlan() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuth();
-  const safeToInvest = Number(location.state?.safeToInvest || 0);
-  const safeRangeMin = Number(location.state?.safeRangeMin || 0);
-  const canSafelyInvest = Boolean(location.state?.canSafelyInvest);
-  const readinessStatus = location.state?.readinessStatus || (canSafelyInvest ? "ready_to_test" : "not_ready");
-  const blockers = Array.isArray(location.state?.blockers) ? location.state.blockers : [];
-  const initialType = location.state?.selectedType || "Business";
+  const financial = useFinancialData(user);
+  const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
 
-  const [investmentType, setInvestmentType] = useState(initialType);
-  const [plannedAmount, setPlannedAmount] = useState(canSafelyInvest && safeToInvest ? String(safeToInvest) : "");
-  const [riskLevel, setRiskLevel] = useState("Low");
-  const [timeHorizon, setTimeHorizon] = useState("3–6 months");
-  const [idea, setIdea] = useState("");
-  const [existingPlan, setExistingPlan] = useState(null);
-  const [isEditingPlan, setIsEditingPlan] = useState(true);
-  const [loadingPlan, setLoadingPlan] = useState(true);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [sources, setSources] = useState([]);
+  const [loadingSources, setLoadingSources] = useState(true);
+  const [sourceForm, setSourceForm] = useState(emptySourceForm);
+  const [flowForm, setFlowForm] = useState(emptyFlowForm);
+  const [editingSource, setEditingSource] = useState(null);
+  const [showSourceForm, setShowSourceForm] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const localUserId = useMemo(() => getInvestmentPlanLocalUserId(user), [user]);
+  const wallets = useMemo(() => (Array.isArray(financial.wallets) ? financial.wallets : []), [financial.wallets]);
 
-  const plannedNumber = Number(plannedAmount) || 0;
-  const hasAmount = plannedNumber > 0;
-  const hasIdea = idea.trim().length > 0;
-  const isAboveSafeRange = Boolean(safeToInvest && plannedNumber > safeToInvest);
-  const canStartActivePlan = canSafelyInvest && hasAmount && hasIdea && !isAboveSafeRange;
+  const sourceOptions = useMemo(
+    () => sources.map((source) => ({ value: source.id, label: source.name })),
+    [sources]
+  );
 
-  const hydrateFormFromPlan = (plan) => {
-    if (!plan) return;
+  const walletOptions = useMemo(
+    () => wallets.map((wallet) => ({ value: String(wallet.id), label: getWalletName(wallet) })),
+    [wallets]
+  );
 
-    const label = cleanPlanTypeLabel(plan);
-    setInvestmentType(investmentTypes.includes(label) ? label : "Other");
-    setPlannedAmount(String(plan.requestedAmount ?? plan.requested_amount ?? ""));
-    setRiskLevel(plan.riskLevel || plan.risk_level || "Low");
-    setTimeHorizon(plan.timeHorizon || plan.time_horizon || "3–6 months");
-    setIdea(plan.ideaReason || plan.idea_reason || "");
-  };
+  const totals = useMemo(() => {
+    const totalIn = sources.reduce((sum, source) => sum + toIncomeHubNumber(source.totalMoneyIn ?? source.total_money_in), 0);
+    const totalOut = sources.reduce((sum, source) => sum + toIncomeHubNumber(source.totalMoneyOut ?? source.total_money_out), 0);
+    const net = sources.reduce((sum, source) => sum + toIncomeHubNumber(source.currentBalance ?? source.current_balance), 0);
+    const topSource = [...sources].sort(
+      (a, b) => toIncomeHubNumber(b.currentBalance ?? b.current_balance) - toIncomeHubNumber(a.currentBalance ?? a.current_balance)
+    )[0];
 
-  const resetForm = () => {
-    setInvestmentType(initialType);
-    setPlannedAmount(canSafelyInvest && safeToInvest ? String(safeToInvest) : "");
-    setRiskLevel("Low");
-    setTimeHorizon("3–6 months");
-    setIdea("");
+    return { totalIn, totalOut, net, topSource };
+  }, [sources]);
+
+  const loadSources = async () => {
+    setLoadingSources(true);
+    try {
+      const records = await getIncomeSources(localUserId);
+      setSources(records);
+      if (!flowForm.sourceId && records?.[0]?.id) {
+        setFlowForm((prev) => ({ ...prev, sourceId: records[0].id }));
+      }
+    } catch (error) {
+      console.error("CLARA income hub load error:", error);
+      setFeedback({ tone: "rose", message: "CLARA could not load your income sources yet." });
+    } finally {
+      setLoadingSources(false);
+    }
   };
 
   useEffect(() => {
-    let alive = true;
-
-    async function loadSinglePlan() {
-      setLoadingPlan(true);
-
-      try {
-        const plans = await getInvestmentPlans(localUserId);
-        const currentPlan = plans?.[0] || null;
-
-        if (!alive) return;
-
-        setExistingPlan(currentPlan);
-        setConfirmingDelete(false);
-
-        if (currentPlan) {
-          hydrateFormFromPlan(currentPlan);
-          setIsEditingPlan(false);
-        } else {
-          setIsEditingPlan(true);
-        }
-      } catch (error) {
-        console.error("CLARA investment plan load error:", error);
-        if (alive) {
-          setFeedback({ tone: "rose", message: "CLARA could not load your investment idea yet." });
-        }
-      } finally {
-        if (alive) setLoadingPlan(false);
-      }
-    }
-
-    loadSinglePlan();
-
-    return () => {
-      alive = false;
-    };
+    loadSources();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localUserId]);
 
-  const amountStatus = useMemo(() => {
-    if (!canSafelyInvest) return "Save this as an idea for now. CLARA does not recommend funding it yet.";
-    if (!hasAmount) return "Enter the amount you want to test.";
-    if (isAboveSafeRange) return "This is above your current safe test range. Consider lowering the amount or waiting.";
-    return "This fits your current test range. Keep your emergency fund untouched.";
-  }, [canSafelyInvest, hasAmount, isAboveSafeRange]);
+  const refreshFinance = async () => {
+    if (typeof financial.refreshData === "function") {
+      await financial.refreshData();
+    }
 
-  const amountStatusClass = !canSafelyInvest
-    ? "text-rose-200"
-    : isAboveSafeRange
-      ? "text-amber-200"
-      : hasAmount
-        ? "text-emerald-200"
-        : "text-white/56";
+    window.dispatchEvent(new Event("clara-finance-updated"));
+    window.dispatchEvent(new Event("clara-wallets-updated"));
+    window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
+  };
 
-  const buildPlanPayload = (status, planToUpdate = existingPlan) => ({
-    ...(planToUpdate || {}),
-    id: planToUpdate?.id,
-    status,
-    readinessStatus,
-    planType: normalizePlanType(investmentType),
-    planTypeLabel: investmentType,
-    requestedAmount: plannedNumber,
-    approvedTestAmount: status === "active_test" ? Math.min(plannedNumber, safeToInvest) : 0,
-    safeRangeMin,
-    safeRangeMax: safeToInvest,
-    riskLevel,
-    timeHorizon,
-    ideaReason: idea.trim(),
-    startDate: status === "active_test" ? planToUpdate?.startDate || planToUpdate?.start_date || new Date().toISOString() : null,
-    reviewDate: status === "active_test" ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
-    claraWarnings: [
-      ...blockers,
-      ...(!canSafelyInvest ? ["Save as idea only until protection base is ready."] : []),
-      ...(isAboveSafeRange ? ["Requested amount is above current safe test range."] : []),
-      ...(investmentType === "Crypto" ? ["Only test what you can afford to lose. Do not use emergency or bill money."] : []),
-      ...(riskLevel === "High" ? ["High risk needs a stronger base and slower review."] : []),
-    ],
-    claraRecommendation: canStartActivePlan
-      ? "This can be reviewed as a small controlled test from protected surplus."
-      : "Keep this as a future idea until CLARA confirms the protection base is ready.",
-  });
+  const resetSourceForm = () => {
+    setSourceForm(emptySourceForm);
+    setEditingSource(null);
+    setShowSourceForm(false);
+  };
 
-  const savePlan = async (status) => {
-    if (!hasIdea) {
-      setFeedback({
-        tone: "amber",
-        message: "Add a short idea or reason first so CLARA knows what you are testing.",
-      });
+  const startEditSource = (source) => {
+    setEditingSource(source);
+    setSourceForm({
+      name: source.name || "",
+      category: source.category || "Other Income",
+      stability: source.stability || "Irregular",
+      notes: source.notes || "",
+    });
+    setShowSourceForm(true);
+    setFeedback(null);
+  };
+
+  const saveSource = async () => {
+    const name = sourceForm.name.trim();
+
+    if (!name) {
+      setFeedback({ tone: "amber", message: "Add a clear source name first, like Salary, Online Selling, or Freelance." });
       return;
     }
 
-    if (status === "active_test" && !canStartActivePlan) {
-      setFeedback({
-        tone: "amber",
-        message: "CLARA saved this as an idea for now. Your protection base needs to be stronger before funding it.",
+    setSaving(true);
+
+    try {
+      const saved = await upsertIncomeSource(localUserId, {
+        ...(editingSource || {}),
+        id: editingSource?.id,
+        name,
+        category: sourceForm.category,
+        stability: sourceForm.stability,
+        notes: sourceForm.notes.trim(),
       });
-      status = "idea_only";
+
+      await loadSources();
+      setFlowForm((prev) => ({ ...prev, sourceId: prev.sourceId || saved.id }));
+      resetSourceForm();
+      setFeedback({ tone: "cyan", message: editingSource ? "Income source updated." : "Income source added." });
+    } catch (error) {
+      console.error("CLARA income source save error:", error);
+      setFeedback({ tone: "rose", message: "CLARA could not save this income source yet." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteSource = async (sourceId) => {
+    if (!sourceId) return;
+
+    setSaving(true);
+
+    try {
+      await deleteIncomeSource(localUserId, sourceId);
+      await loadSources();
+      setConfirmDeleteId(null);
+      if (flowForm.sourceId === sourceId) {
+        setFlowForm((prev) => ({ ...prev, sourceId: "" }));
+      }
+      setFeedback({ tone: "cyan", message: "Income source deleted." });
+    } catch (error) {
+      console.error("CLARA income source delete error:", error);
+      setFeedback({ tone: "rose", message: "CLARA could not delete this income source yet." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveFlow = async () => {
+    const amount = toIncomeHubNumber(flowForm.amount);
+    const selectedSource = sources.find((source) => String(source.id) === String(flowForm.sourceId));
+
+    if (!selectedSource) {
+      setFeedback({ tone: "amber", message: "Choose an income source first." });
+      return;
+    }
+
+    if (amount <= 0) {
+      setFeedback({ tone: "amber", message: "Enter an amount greater than zero." });
+      return;
+    }
+
+    if (flowForm.type === "money_in" && !flowForm.walletId) {
+      setFeedback({ tone: "amber", message: "Choose which wallet receives this money." });
+      return;
     }
 
     setSaving(true);
 
     try {
-      const plans = await getInvestmentPlans(localUserId);
-      const planToUpdate = existingPlan || plans?.[0] || null;
-      const savedPlan = await upsertInvestmentPlan(localUserId, buildPlanPayload(status, planToUpdate));
+      const currentIn = toIncomeHubNumber(selectedSource.totalMoneyIn ?? selectedSource.total_money_in);
+      const currentOut = toIncomeHubNumber(selectedSource.totalMoneyOut ?? selectedSource.total_money_out);
+      const nextIn = flowForm.type === "money_in" ? currentIn + amount : currentIn;
+      const nextOut = flowForm.type === "money_out" ? currentOut + amount : currentOut;
+      const nextBalance = nextIn - nextOut;
 
-      setExistingPlan(savedPlan);
-      setIsEditingPlan(false);
-      setConfirmingDelete(false);
+      await upsertIncomeSource(localUserId, {
+        ...selectedSource,
+        totalMoneyIn: nextIn,
+        totalMoneyOut: nextOut,
+        currentBalance: nextBalance,
+        lastActivityAt: new Date().toISOString(),
+      });
+
+      if (flowForm.type === "money_in" && typeof financial.addIncome === "function") {
+        await financial.addIncome({
+          amount,
+          wallet_id: flowForm.walletId,
+          walletId: flowForm.walletId,
+          source_type: selectedSource.name,
+          source: selectedSource.name,
+          notes: flowForm.notes.trim() || selectedSource.name,
+          date: flowForm.date,
+          transaction_date: flowForm.date,
+          type: "income",
+          income_source_id: selectedSource.id,
+          incomeSourceId: selectedSource.id,
+        });
+        await refreshFinance();
+      }
+
+      await loadSources();
+      setFlowForm((prev) => ({ ...emptyFlowForm, sourceId: prev.sourceId, walletId: prev.walletId, date: getTodayDate() }));
       setFeedback({
-        tone: status === "active_test" ? "emerald" : "cyan",
+        tone: flowForm.type === "money_in" ? "emerald" : "cyan",
         message:
-          status === "active_test"
-            ? "Investment test saved. Keep it small, controlled, and reviewed."
-            : planToUpdate
-              ? "Investment idea updated. CLARA will keep this as your only current idea."
-              : "Future investment idea saved. Delete it first before adding a new idea.",
+          flowForm.type === "money_in"
+            ? "Money in recorded and sent to wallet."
+            : "Money out recorded as source cost.",
       });
     } catch (error) {
-      console.error("CLARA investment plan save error:", error);
-      setFeedback({
-        tone: "rose",
-        message: "CLARA could not save this plan yet. Please try again.",
-      });
+      console.error("CLARA income flow save error:", error);
+      setFeedback({ tone: "rose", message: "CLARA could not record this income flow yet." });
     } finally {
       setSaving(false);
     }
-  };
-
-  const deleteCurrentPlan = async () => {
-    if (!existingPlan?.id || saving) return;
-
-    setSaving(true);
-
-    try {
-      await deleteInvestmentPlan(localUserId, existingPlan.id);
-      setExistingPlan(null);
-      resetForm();
-      setIsEditingPlan(true);
-      setConfirmingDelete(false);
-      setFeedback({ tone: "cyan", message: "Investment idea deleted. You can now create a new one." });
-    } catch (error) {
-      console.error("CLARA investment plan delete error:", error);
-      setFeedback({ tone: "rose", message: "CLARA could not delete this idea yet. Please try again." });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const startEditingExistingPlan = () => {
-    hydrateFormFromPlan(existingPlan);
-    setConfirmingDelete(false);
-    setFeedback(null);
-    setIsEditingPlan(true);
-  };
-
-  const cancelEditingExistingPlan = () => {
-    hydrateFormFromPlan(existingPlan);
-    setIsEditingPlan(false);
-    setFeedback(null);
   };
 
   const openClara = () => {
-    const planLabel = isEditingPlan ? investmentType : cleanPlanTypeLabel(existingPlan || {});
-    const planAmount = isEditingPlan
-      ? plannedNumber
-      : Number(existingPlan?.requestedAmount ?? existingPlan?.requested_amount ?? plannedNumber) || 0;
-    const planRisk = isEditingPlan ? riskLevel : existingPlan?.riskLevel || existingPlan?.risk_level || riskLevel;
-    const planHorizon = isEditingPlan ? timeHorizon : existingPlan?.timeHorizon || existingPlan?.time_horizon || timeHorizon;
-    const planIdea = isEditingPlan ? idea : existingPlan?.ideaReason || existingPlan?.idea_reason || idea;
-
     window.dispatchEvent(
       new CustomEvent("clara:open-ai-chat", {
         detail: {
-          source: "investment-plan-page",
-          prompt: `Help me review this investment idea as a behavioral money coach. Type: ${planLabel}. Amount I want to test: ${planAmount ? fmt(planAmount) : "not set"}. Risk level: ${planRisk}. Time horizon: ${planHorizon}. Idea: ${planIdea || "not described yet"}. CLARA readiness status: ${readinessStatus}. Safe test range: ${safeRangeMin ? `${fmt(safeRangeMin)}–` : ""}${fmt(safeToInvest)}. Do not recommend specific assets or guarantee returns. Help me decide if this should stay as an idea, be lowered, paused, or reviewed again later.`,
-          investmentContext: {
-            readinessStatus,
-            safeRange: { min: safeRangeMin, max: safeToInvest },
-            selectedInvestmentType: planLabel,
-            amountUserWantsToTest: planAmount,
-            riskLevel: planRisk,
-            timeHorizon: planHorizon,
-            ideaReason: planIdea,
-            warningsTriggered: blockers,
-            recommendedAction: canStartActivePlan ? "Review as small test" : "Save as idea only",
+          source: "income-hub-page",
+          prompt: `Review my Income Hub as a behavioral money coach. I have ${sources.length} income sources. Total money in is ${fmt(totals.totalIn)}, money out or source cost is ${fmt(totals.totalOut)}, and net income source balance is ${fmt(totals.net)}. My top source is ${totals.topSource?.name || "not set"}. Help me understand income dependency, stability, and what source I should protect or grow next.`,
+          incomeHubContext: {
+            sourceCount: sources.length,
+            totalMoneyIn: totals.totalIn,
+            totalMoneyOut: totals.totalOut,
+            netIncomeSourceBalance: totals.net,
+            topSource: totals.topSource || null,
+            sources,
           },
         },
       })
     );
   };
-
-  const showForm = !loadingPlan && (!existingPlan || isEditingPlan);
-  const showCurrentPlan = !loadingPlan && existingPlan && !isEditingPlan;
 
   return (
     <div className="theme-page-shell min-h-[100dvh] overflow-y-auto text-white">
@@ -366,161 +334,254 @@ export default function InvestmentPlan() {
           <ArrowLeft className="h-4 w-4" />
         </button>
 
-        {loadingPlan ? (
-          <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 text-sm font-bold text-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-            Loading investment idea…
+        <section className="relative overflow-hidden rounded-[1.85rem] border border-cyan-300/18 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.18),transparent_46%),rgba(255,255,255,0.045)] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+          <div className="relative flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-100">
+              <WalletCards className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/60">Income Hub</p>
+              <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.05em] text-white">Where your money comes from.</h1>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/64">
+                Add salary, business, side hustle, allowance, or freelance sources before money enters your wallets.
+              </p>
+            </div>
           </div>
-        ) : null}
 
-        {showCurrentPlan ? (
-          <section className="space-y-3 rounded-[1.75rem] border border-cyan-300/18 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-            <div className="rounded-2xl border border-cyan-300/16 bg-cyan-400/[0.07] p-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/58">Current Investment Idea</p>
-              <h1 className="mt-1 text-lg font-black leading-6 text-white">{cleanPlanTypeLabel(existingPlan)}</h1>
-              <p className="mt-2 text-xs font-semibold leading-5 text-white/62">
-                CLARA allows one investment idea at a time. Edit this idea or delete it before creating a new one.
-              </p>
+          <div className="relative mt-4 grid grid-cols-3 gap-2">
+            <StatTile label="Sources" value={sources.length} tone="cyan" />
+            <StatTile label="Money in" value={fmt(totals.totalIn)} tone="emerald" />
+            <StatTile label="Net" value={fmt(totals.net)} tone={totals.net >= 0 ? "white" : "rose"} />
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/46">Income sources</p>
+              <p className="mt-1 text-xs font-semibold text-white/58">Create every place where money comes from.</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSourceForm((value) => !value);
+                setEditingSource(null);
+                setSourceForm(emptySourceForm);
+              }}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-100"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Amount</p>
-                <p className="mt-1 text-sm font-black text-white">{fmt(existingPlan.requestedAmount ?? existingPlan.requested_amount)}</p>
+          {showSourceForm ? (
+            <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3">
+              <div>
+                <FieldLabel htmlFor="source-name">Source name</FieldLabel>
+                <input
+                  id="source-name"
+                  value={sourceForm.name}
+                  onChange={(event) => setSourceForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Example: UnifyCX Salary, Online Selling, Freelance"
+                  className={controlClass}
+                />
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Status</p>
-                <p className="mt-1 text-sm font-black text-white">{formatStatus(existingPlan.status)}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Risk</p>
-                <p className="mt-1 text-sm font-black text-white">{existingPlan.riskLevel || existingPlan.risk_level || "Low"}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Horizon</p>
-                <p className="mt-1 text-sm font-black text-white">{existingPlan.timeHorizon || existingPlan.time_horizon || "3–6 months"}</p>
-              </div>
-            </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Idea / reason</p>
-              <p className="mt-1.5 text-xs font-semibold leading-5 text-white/68">
-                {existingPlan.ideaReason || existingPlan.idea_reason || "No reason added yet."}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={startEditingExistingPlan}
-                disabled={saving}
-                className="flex min-h-[46px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                <Pencil className="h-4 w-4" />
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(true)}
-                disabled={saving}
-                className="flex min-h-[46px] items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </button>
-            </div>
-
-            {confirmingDelete ? (
-              <div className="rounded-2xl border border-rose-300/20 bg-rose-400/10 p-3">
-                <p className="text-xs font-black text-rose-100">Delete this investment idea?</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/62">
-                  After deleting, CLARA will allow you to create a new investment idea.
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingDelete(false)}
-                    disabled={saving}
-                    className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-xs font-black text-white/74 disabled:opacity-55"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={deleteCurrentPlan}
-                    disabled={saving}
-                    className="rounded-xl border border-rose-300/25 bg-rose-400/15 px-3 py-2 text-xs font-black text-rose-100 disabled:opacity-55"
-                  >
-                    Delete Idea
-                  </button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <FieldLabel htmlFor="source-category">Category</FieldLabel>
+                  <SelectField id="source-category" value={sourceForm.category} onChange={(value) => setSourceForm((prev) => ({ ...prev, category: value }))} options={INCOME_SOURCE_CATEGORIES} placeholder="" />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="source-stability">Stability</FieldLabel>
+                  <SelectField id="source-stability" value={sourceForm.stability} onChange={(value) => setSourceForm((prev) => ({ ...prev, stability: value }))} options={INCOME_SOURCE_STABILITY} placeholder="" />
                 </div>
               </div>
-            ) : null}
-          </section>
-        ) : null}
 
-        {showForm ? (
-          <section className="space-y-3.5 rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-            {existingPlan ? (
-              <div className="rounded-2xl border border-cyan-300/16 bg-cyan-400/[0.07] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/58">Editing current idea</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/62">
-                  Updating will preserve this same plan. CLARA will not create a duplicate investment idea.
-                </p>
+              <div>
+                <FieldLabel htmlFor="source-notes">Notes</FieldLabel>
+                <input
+                  id="source-notes"
+                  value={sourceForm.notes}
+                  onChange={(event) => setSourceForm((prev) => ({ ...prev, notes: event.target.value }))}
+                  placeholder="Optional details"
+                  className={controlClass}
+                />
               </div>
-            ) : null}
 
-            <div>
-              <FieldLabel htmlFor="investment-type">Plan type</FieldLabel>
-              <SelectField id="investment-type" value={investmentType} onChange={setInvestmentType} options={investmentTypes} />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={resetSourceForm}
+                  className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-black text-white/72"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveSource}
+                  disabled={saving}
+                  className="rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-100 disabled:opacity-55"
+                >
+                  {editingSource ? "Update Source" : "Add Source"}
+                </button>
+              </div>
             </div>
+          ) : null}
 
+          <div className="mt-4 space-y-2.5">
+            {loadingSources ? (
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-4 text-sm font-bold text-white/56">Loading income sources…</div>
+            ) : sources.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                <p className="text-sm font-black text-white">No income source yet.</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-white/58">Start with your salary, business, allowance, or side hustle.</p>
+              </div>
+            ) : (
+              sources.map((source) => (
+                <div key={source.id} className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-white">{source.name}</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-white/44">
+                        {source.category} • {source.stability}
+                      </p>
+                    </div>
+                    <p className={`shrink-0 text-sm font-black ${toIncomeHubNumber(source.currentBalance ?? source.current_balance) >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                      {fmt(source.currentBalance ?? source.current_balance)}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <StatTile label="In" value={fmt(source.totalMoneyIn ?? source.total_money_in)} tone="emerald" />
+                    <StatTile label="Out" value={fmt(source.totalMoneyOut ?? source.total_money_out)} tone="rose" />
+                    <StatTile label="Net" value={fmt(source.currentBalance ?? source.current_balance)} tone="white" />
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEditSource(source)}
+                      className="flex min-h-[40px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-100"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(source.id)}
+                      className="flex min-h-[40px] items-center justify-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-xs font-black text-rose-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
+                  </div>
+
+                  {confirmDeleteId === source.id ? (
+                    <div className="mt-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-3">
+                      <p className="text-xs font-black text-rose-100">Delete this income source?</p>
+                      <p className="mt-1 text-[11px] font-semibold text-white/58">This removes it from Income Hub tracking.</p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-xs font-black text-white/70">
+                          Cancel
+                        </button>
+                        <button type="button" onClick={() => deleteSource(source.id)} disabled={saving} className="rounded-xl border border-rose-300/25 bg-rose-400/15 px-3 py-2 text-xs font-black text-rose-100 disabled:opacity-55">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="mt-4 space-y-3.5 rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/46">Money flow</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-white/58">Record money in from a source, then send it to a wallet. Record money out as source cost.</p>
+          </div>
+
+          <div>
+            <FieldLabel htmlFor="flow-source">Income source</FieldLabel>
+            <SelectField id="flow-source" value={flowForm.sourceId} onChange={(value) => setFlowForm((prev) => ({ ...prev, sourceId: value }))} options={sourceOptions} placeholder="Choose source" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setFlowForm((prev) => ({ ...prev, type: "money_in" }))}
+              className={`rounded-2xl border px-4 py-3 text-sm font-black ${flowForm.type === "money_in" ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100" : "border-white/10 bg-black/15 text-white/58"}`}
+            >
+              Money In
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlowForm((prev) => ({ ...prev, type: "money_out" }))}
+              className={`rounded-2xl border px-4 py-3 text-sm font-black ${flowForm.type === "money_out" ? "border-rose-300/25 bg-rose-400/10 text-rose-100" : "border-white/10 bg-black/15 text-white/58"}`}
+            >
+              Money Out
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <FieldLabel htmlFor="planned-amount">Amount you want to test</FieldLabel>
+              <FieldLabel htmlFor="flow-amount">Amount</FieldLabel>
               <input
-                id="planned-amount"
+                id="flow-amount"
                 type="number"
                 inputMode="decimal"
                 min="0"
-                value={plannedAmount}
-                onChange={(event) => setPlannedAmount(event.target.value)}
+                value={flowForm.amount}
+                onChange={(event) => setFlowForm((prev) => ({ ...prev, amount: event.target.value }))}
                 placeholder="0"
-                aria-describedby="planned-amount-status"
                 className={controlClass}
               />
-              <p id="planned-amount-status" className={`mt-2 text-[11px] font-semibold leading-5 ${amountStatusClass}`}>
-                {amountStatus}
-              </p>
             </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <FieldLabel htmlFor="risk-level">Risk level</FieldLabel>
-                <SelectField id="risk-level" value={riskLevel} onChange={setRiskLevel} options={riskLevels} />
-              </div>
-              <div>
-                <FieldLabel htmlFor="time-horizon">Time horizon</FieldLabel>
-                <SelectField id="time-horizon" value={timeHorizon} onChange={setTimeHorizon} options={timeHorizons} />
-              </div>
-            </div>
-
             <div>
-              <FieldLabel htmlFor="investment-idea">Idea / reason</FieldLabel>
-              <textarea
-                id="investment-idea"
-                value={idea}
-                onChange={(event) => setIdea(event.target.value)}
-                placeholder="Example: I want to test a small food business, buy supplies, enroll in a skill course, or invest a small starter amount…"
-                className={`${controlClass} min-h-[104px] resize-none leading-6`}
+              <FieldLabel htmlFor="flow-date">Date</FieldLabel>
+              <input
+                id="flow-date"
+                type="date"
+                value={flowForm.date}
+                onChange={(event) => setFlowForm((prev) => ({ ...prev, date: event.target.value }))}
+                className={controlClass}
               />
             </div>
-          </section>
-        ) : null}
+          </div>
 
-        <section className="mt-3.5 grid gap-3">
-          {showForm ? (
-            <GuidanceCard canSafelyInvest={canSafelyInvest} isAboveSafeRange={isAboveSafeRange} safeToInvest={safeToInvest} />
+          {flowForm.type === "money_in" ? (
+            <div>
+              <FieldLabel htmlFor="flow-wallet">Send to wallet</FieldLabel>
+              <SelectField id="flow-wallet" value={flowForm.walletId} onChange={(value) => setFlowForm((prev) => ({ ...prev, walletId: value }))} options={walletOptions} placeholder="Choose wallet" />
+              {wallets.length === 0 ? <p className="mt-2 text-[11px] font-semibold text-amber-200">Create a wallet first before recording money in.</p> : null}
+            </div>
           ) : null}
 
+          <div>
+            <FieldLabel htmlFor="flow-notes">Notes</FieldLabel>
+            <input
+              id="flow-notes"
+              value={flowForm.notes}
+              onChange={(event) => setFlowForm((prev) => ({ ...prev, notes: event.target.value }))}
+              placeholder={flowForm.type === "money_in" ? "Example: payday, client payment" : "Example: inventory, materials, subscription"}
+              className={controlClass}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={saveFlow}
+            disabled={saving || sources.length === 0 || (flowForm.type === "money_in" && wallets.length === 0)}
+            className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {flowForm.type === "money_in" ? "Record Money In" : "Record Money Out"}
+          </button>
+        </section>
+
+        <section className="mt-3.5 grid gap-3">
           {feedback ? (
             <div
               className={`rounded-2xl border px-4 py-3 text-[12px] font-bold leading-5 ${
@@ -533,48 +594,18 @@ export default function InvestmentPlan() {
                       : "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
               }`}
             >
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{feedback.message}</span>
-              </div>
+              {feedback.message}
             </div>
           ) : null}
 
-          {showForm ? (
-            <div className="grid gap-2.5">
-              <button
-                type="button"
-                onClick={() => savePlan(canStartActivePlan ? "active_test" : "idea_only")}
-                disabled={saving}
-                className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {existingPlan ? "Update Investment Idea" : canStartActivePlan ? "Start Investment Plan" : "Save as Future Plan"}
-              </button>
-
-              {existingPlan ? (
-                <button
-                  type="button"
-                  onClick={cancelEditingExistingPlan}
-                  disabled={saving}
-                  className="flex min-h-[46px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-black text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.07] disabled:opacity-55"
-                >
-                  Cancel Edit
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {!loadingPlan ? (
-            <button
-              type="button"
-              onClick={openClara}
-              className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-black text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
-            >
-              <Brain className="h-4 w-4" />
-              Ask CLARA to Review This Plan
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={openClara}
+            className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-black text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
+          >
+            <Brain className="h-4 w-4" />
+            Ask CLARA About My Income
+          </button>
         </section>
       </div>
     </div>
