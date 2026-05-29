@@ -64,22 +64,6 @@ function SelectField({ id, value, onChange, options }) {
   );
 }
 
-function StatusTile({ label, value, tone = "slate" }) {
-  const toneClass = {
-    emerald: "border-emerald-300/18 bg-emerald-400/10 text-emerald-200",
-    amber: "border-amber-300/18 bg-amber-400/10 text-amber-100",
-    rose: "border-rose-300/18 bg-rose-400/10 text-rose-100",
-    slate: "border-white/10 bg-white/[0.055] text-white",
-  }[tone];
-
-  return (
-    <div className={`rounded-2xl border px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${toneClass}`}>
-      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
-      <p className="mt-1 text-base font-black leading-none tracking-[-0.03em]">{value}</p>
-    </div>
-  );
-}
-
 function GuidanceCard({ canSafelyInvest, isAboveSafeRange, safeToInvest }) {
   const title = canSafelyInvest
     ? isAboveSafeRange
@@ -88,19 +72,24 @@ function GuidanceCard({ canSafelyInvest, isAboveSafeRange, safeToInvest }) {
     : "Save as an idea first";
   const body = canSafelyInvest
     ? isAboveSafeRange
-      ? `This amount is above your current ${fmt(safeToInvest)} safe test range. Consider lowering it or waiting.`
-      : "This can be reviewed as a small controlled test, but your emergency fund should stay untouched."
-    : "You can write the idea now, but CLARA will not recommend funding it until your protection base is ready.";
+      ? `Above your ${fmt(safeToInvest)} safe test range. Lower the amount or wait until your protection base improves.`
+      : "This can be reviewed as a small controlled test. Keep emergency and bill money untouched."
+    : "Write the idea now. CLARA will not recommend funding it until your protection base is ready.";
+  const toneClass = canSafelyInvest
+    ? isAboveSafeRange
+      ? "border-amber-300/20 bg-amber-400/10 text-amber-100"
+      : "border-emerald-300/18 bg-emerald-400/10 text-emerald-100"
+    : "border-cyan-300/16 bg-cyan-400/[0.07] text-cyan-100";
 
   return (
-    <div className="rounded-[1.5rem] border border-emerald-300/18 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_40%),rgba(16,185,129,0.07)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-200">
+    <div className={`rounded-[1.35rem] border px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${toneClass}`}>
+      <div className="grid grid-cols-[34px_minmax(0,1fr)] items-start gap-3">
+        <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/16 text-current shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           <ShieldCheck className="h-4 w-4" />
         </div>
-        <div>
-          <p className="text-sm font-black text-white">{title}</p>
-          <p className="mt-1.5 text-xs font-semibold leading-5 text-white/64">{body}</p>
+        <div className="min-w-0">
+          <p className="text-[13px] font-black leading-4 text-white">{title}</p>
+          <p className="mt-1 text-[11.5px] font-semibold leading-[1.45] text-white/66">{body}</p>
         </div>
       </div>
     </div>
@@ -131,6 +120,7 @@ export default function InvestmentPlan() {
   const hasIdea = idea.trim().length > 0;
   const isAboveSafeRange = Boolean(safeToInvest && plannedNumber > safeToInvest);
   const canStartActivePlan = canSafelyInvest && hasAmount && hasIdea && !isAboveSafeRange;
+  const compactSafeRange = canSafelyInvest ? `${safeRangeMin ? `${fmt(safeRangeMin)}–` : ""}${fmt(safeToInvest)}` : "Idea-only mode";
 
   const amountStatus = useMemo(() => {
     if (!canSafelyInvest) return "Save this as an idea for now. CLARA does not recommend funding it yet.";
@@ -238,45 +228,31 @@ export default function InvestmentPlan() {
   return (
     <div className="theme-page-shell min-h-[100dvh] overflow-y-auto text-white">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4 pb-[calc(env(safe-area-inset-bottom,0px)+28px)] pt-[calc(env(safe-area-inset-top,0px)+14px)]">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
+        <div className="mb-3 flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/35"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
 
-        <section className="relative overflow-hidden rounded-[2rem] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.24),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.22),transparent_46%),linear-gradient(135deg,rgba(6,48,66,0.98),rgba(7,20,48,0.96)_48%,rgba(37,13,74,0.96))] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)]">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 left-10 h-56 w-56 rounded-full bg-violet-400/10 blur-3xl" />
-
-          <div className="relative flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
-              <TrendingUp className="h-5 w-5" />
+          <section className="relative min-w-0 flex-1 overflow-hidden rounded-[1.35rem] border border-cyan-300/18 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.22),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.2),transparent_46%),linear-gradient(135deg,rgba(6,48,66,0.92),rgba(7,20,48,0.9)_50%,rgba(37,13,74,0.92))] px-3.5 py-3 shadow-[0_16px_42px_rgba(0,0,0,0.28),0_0_24px_rgba(0,255,220,0.06)] backdrop-blur-xl">
+            <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-cyan-300/10 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.1)]">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[9.5px] font-black uppercase tracking-[0.2em] text-cyan-100/72">CLARA Investment Readiness</p>
+                <p className="mt-0.5 truncate text-[11px] font-bold leading-4 text-white/62">{compactSafeRange}</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/58">CLARA Investment Readiness</p>
-              <h1 className="mt-1.5 text-[clamp(1.65rem,7vw,2rem)] font-black leading-[0.95] tracking-[-0.055em] text-cyan-50">
-                Decide before you invest.
-              </h1>
-              <p className="mt-2 text-[13px] font-semibold leading-5 text-white/72">
-                Write the idea, test only from protected surplus, and keep emergency money untouched.
-              </p>
-            </div>
-          </div>
+          </section>
+        </div>
 
-          <div className="relative mt-4 grid grid-cols-2 gap-2">
-            <StatusTile
-              label="Safe test range"
-              value={canSafelyInvest ? `${safeRangeMin ? `${fmt(safeRangeMin)}–` : ""}${fmt(safeToInvest)}` : "₱0"}
-              tone={canSafelyInvest ? "emerald" : "amber"}
-            />
-            <StatusTile label="Readiness" value={canSafelyInvest ? "Ready" : "Idea only"} tone={canSafelyInvest ? "emerald" : "amber"} />
-          </div>
-        </section>
-
-        <section className="mt-4 space-y-3.5 rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+        <section className="space-y-3.5 rounded-[1.75rem] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
           <div>
             <FieldLabel htmlFor="investment-type">Plan type</FieldLabel>
             <SelectField id="investment-type" value={investmentType} onChange={setInvestmentType} options={investmentTypes} />
@@ -323,7 +299,7 @@ export default function InvestmentPlan() {
           </div>
         </section>
 
-        <section className="mt-4 grid gap-3">
+        <section className="mt-3.5 grid gap-3">
           <GuidanceCard canSafelyInvest={canSafelyInvest} isAboveSafeRange={isAboveSafeRange} safeToInvest={safeToInvest} />
 
           {feedback ? (
@@ -361,10 +337,6 @@ export default function InvestmentPlan() {
             <Brain className="h-4 w-4" />
             Ask CLARA to Review This Plan
           </button>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-[11px] font-semibold leading-5 text-white/48">
-            CLARA can help you think, compare risks, and slow down impulsive decisions, but it is not a licensed financial advisor. For major investments or financial decisions, consult a qualified professional.
-          </div>
         </section>
       </div>
     </div>
