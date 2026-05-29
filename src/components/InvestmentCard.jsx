@@ -7,6 +7,7 @@ import FinanceCardExpandButton from "@/components/financial-carousel/shared/Fina
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 import useInvestmentCardLogic, { fmt } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 import IncomeSourceAddMoneyModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceAddMoneyModal";
+import IncomeSourceCreateModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModal";
 
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
@@ -174,7 +175,7 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
-function EmptyIncomeSources({ onOpenIncomeHub }) {
+function EmptyIncomeSources({ onCreateIncomeSource }) {
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-white/[0.055] bg-white/[0.035] px-3.5 py-3 text-center text-[12px] font-semibold text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
@@ -189,7 +190,7 @@ function EmptyIncomeSources({ onOpenIncomeHub }) {
         </p>
       </div>
 
-      <IncomeSourceCreateButton onOpenIncomeHub={onOpenIncomeHub} />
+      <IncomeSourceCreateButton onCreateIncomeSource={onCreateIncomeSource} />
     </div>
   );
 }
@@ -299,20 +300,19 @@ function IncomeRecentActivity({ sources = [] }) {
   );
 }
 
-function IncomeSourceCreateButton({ onOpenIncomeHub }) {
+function IncomeSourceCreateButton({ onCreateIncomeSource }) {
   return (
     <button
       type="button"
-      onClick={onOpenIncomeHub}
+      onClick={onCreateIncomeSource}
       className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3 text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/[0.07]"
     >
-      <Plus className="h-4 w-4" />
-      Create Income Source
+      + Create Income Source
     </button>
   );
 }
 
-function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction, onOpenIncomeHub }) {
+function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction, onCreateIncomeSource }) {
   const visibleSources = Array.isArray(sources) ? sources.slice(0, 3) : [];
 
   return (
@@ -330,7 +330,7 @@ function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction
       </div>
 
       <IncomeRecentActivity sources={sources} />
-      <IncomeSourceCreateButton onOpenIncomeHub={onOpenIncomeHub} />
+      <IncomeSourceCreateButton onCreateIncomeSource={onCreateIncomeSource} />
     </div>
   );
 }
@@ -339,6 +339,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   const navigate = useNavigate();
   const [openMenuId, setOpenMenuId] = useState(null);
   const [incomeSourceModal, setIncomeSourceModal] = useState({ type: null, source: null });
+  const [createIncomeSourceOpen, setCreateIncomeSourceOpen] = useState(false);
   const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
 
   const { isExpanded } = state;
@@ -360,6 +361,11 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
   const openIncomeHub = (extraState = {}) => {
     navigate("/investment-plan", { state: { source: "income-hub-card", ...extraState } });
+  };
+
+  const openCreateIncomeSourceModal = () => {
+    setOpenMenuId(null);
+    setCreateIncomeSourceOpen(true);
   };
 
   const handleSourceAction = (source, action) => {
@@ -437,14 +443,14 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                 <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
                   <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
                     {sourceCount === 0 ? (
-                      <EmptyIncomeSources onOpenIncomeHub={() => openIncomeHub()} />
+                      <EmptyIncomeSources onCreateIncomeSource={openCreateIncomeSourceModal} />
                     ) : (
                       <ActiveIncomeSources
                         sources={incomeSources}
                         openMenuId={openMenuId}
                         onToggleMenu={(sourceId) => setOpenMenuId((current) => (current === sourceId ? null : sourceId))}
                         onSourceAction={handleSourceAction}
-                        onOpenIncomeHub={() => openIncomeHub()}
+                        onCreateIncomeSource={openCreateIncomeSourceModal}
                       />
                     )}
                   </div>
@@ -462,6 +468,11 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
         mode={incomeSourceModal.type}
         source={incomeSourceModal.source}
         onClose={() => setIncomeSourceModal({ type: null, source: null })}
+      />
+
+      <IncomeSourceCreateModal
+        open={createIncomeSourceOpen}
+        onClose={() => setCreateIncomeSourceOpen(false)}
       />
     </>
   );
