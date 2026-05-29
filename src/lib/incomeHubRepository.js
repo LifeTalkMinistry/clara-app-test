@@ -38,6 +38,11 @@ export const toIncomeHubNumber = (value) => {
 
 const nowIso = () => new Date().toISOString();
 
+const emitIncomeHubUpdated = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("clara-income-hub-updated"));
+};
+
 const createId = () => {
   if (globalThis?.crypto?.randomUUID) {
     return `income_source_${globalThis.crypto.randomUUID()}`;
@@ -124,7 +129,9 @@ export async function getIncomeSources(localUserId) {
 }
 
 export async function upsertIncomeSource(localUserId, source) {
-  return upsertLocalRecord(STORE_NAME, normalizeIncomeSource(source), localUserId);
+  const savedSource = await upsertLocalRecord(STORE_NAME, normalizeIncomeSource(source), localUserId);
+  emitIncomeHubUpdated();
+  return savedSource;
 }
 
 export async function updateIncomeSource(localUserId, id, patch = {}) {
@@ -148,5 +155,7 @@ export async function updateIncomeSource(localUserId, id, patch = {}) {
 
 export async function deleteIncomeSource(localUserId, id) {
   if (!id) throw new Error("Income source id is required.");
-  return softDeleteLocalRecord(STORE_NAME, id, localUserId);
+  const deletedSource = await softDeleteLocalRecord(STORE_NAME, id, localUserId);
+  emitIncomeHubUpdated();
+  return deletedSource;
 }
