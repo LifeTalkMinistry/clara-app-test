@@ -324,7 +324,12 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
           <button
             type="button"
-            onClick={() => openTransferMoneyModal?.(walletBeingDeleted)}
+            onClick={() =>
+              openTransferMoneyModal?.({
+                ...walletBeingDeleted,
+                protectedDeleteTransfer: true,
+              })
+            }
             className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
           >
             Transfer Funds
