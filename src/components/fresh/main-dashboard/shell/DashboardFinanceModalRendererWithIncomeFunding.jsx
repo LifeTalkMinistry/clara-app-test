@@ -91,6 +91,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     setFinanceForm,
     fmt,
     showFinanceNotice,
+    openTransferMoneyModal,
   } = props;
 
   const { user: authUser } = useAuth();
@@ -323,10 +324,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
           <button
             type="button"
-            onClick={() => {
-              closeFinanceModal?.();
-              showFinanceNotice?.("Transfer funds first, then return to delete this wallet if needed.");
-            }}
+            onClick={() => openTransferMoneyModal?.(walletBeingDeleted)}
             className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
           >
             Transfer Funds
