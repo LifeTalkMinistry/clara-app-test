@@ -30,19 +30,10 @@ const WALLET_TYPES = [
 
 function getIncomeSourceBalance(source) {
   if (!source) return 0;
-
-  const totalMoneyIn = toIncomeHubNumber(
-    source.totalMoneyIn ?? source.total_money_in ?? source.moneyIn ?? source.money_in
-  );
-  const totalMoneyOut = toIncomeHubNumber(
-    source.totalMoneyOut ?? source.total_money_out ?? source.moneyOut ?? source.money_out
-  );
+  const totalMoneyIn = toIncomeHubNumber(source.totalMoneyIn ?? source.total_money_in ?? source.moneyIn ?? source.money_in);
+  const totalMoneyOut = toIncomeHubNumber(source.totalMoneyOut ?? source.total_money_out ?? source.moneyOut ?? source.money_out);
   const explicitBalance = source.currentBalance ?? source.current_balance ?? source.balance;
-
-  if (explicitBalance !== undefined && explicitBalance !== null && explicitBalance !== "") {
-    return toIncomeHubNumber(explicitBalance);
-  }
-
+  if (explicitBalance !== undefined && explicitBalance !== null && explicitBalance !== "") return toIncomeHubNumber(explicitBalance);
   return totalMoneyIn - totalMoneyOut;
 }
 
@@ -84,6 +75,18 @@ function getWalletProtectedAmount(wallet = {}) {
   );
 }
 
+function getEmergencyActivityLog(emergencyFund = {}) {
+  const source =
+    emergencyFund?.emergencyActivityLog ||
+    emergencyFund?.emergency_activity_log ||
+    emergencyFund?.activityLog ||
+    emergencyFund?.activity_log ||
+    emergencyFund?.usageLog ||
+    emergencyFund?.usage_log ||
+    [];
+  return Array.isArray(source) ? source.filter(Boolean) : [];
+}
+
 function walletHasProtectedEmergencyMoney(wallet = {}) {
   return (
     getWalletProtectedAmount(wallet) > 0 ||
@@ -122,58 +125,34 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const protectedTransferAmount = getWalletProtectedAmount(protectedTransferWallet);
   const protectedTransferWalletName = getWalletName(protectedTransferWallet);
   const safeWallets = Array.isArray(props.wallets) ? props.wallets : [];
-  const formatMoney = useCallback(
-    (value) => (typeof fmt === "function" ? fmt(value) : formatFallbackMoney(value)),
-    [fmt]
-  );
+  const formatMoney = useCallback((value) => (typeof fmt === "function" ? fmt(value) : formatFallbackMoney(value)), [fmt]);
 
   const protectedTransferDestinationWallets = useMemo(
-    () =>
-      safeWallets.filter(
-        (wallet) => String(wallet.id) !== String(protectedTransferWallet?.id)
-      ),
+    () => safeWallets.filter((wallet) => String(wallet.id) !== String(protectedTransferWallet?.id)),
     [protectedTransferWallet?.id, safeWallets]
   );
 
   const selectedIncomeSource = useMemo(
-    () =>
-      incomeSources.find(
-        (source) => String(source.id) === String(financeForm.incomeSourceId || "")
-      ) || null,
+    () => incomeSources.find((source) => String(source.id) === String(financeForm.incomeSourceId || "")) || null,
     [financeForm.incomeSourceId, incomeSources]
   );
 
-  const selectedIncomeSourceBalance = useMemo(
-    () => getIncomeSourceBalance(selectedIncomeSource),
-    [selectedIncomeSource]
-  );
+  const selectedIncomeSourceBalance = useMemo(() => getIncomeSourceBalance(selectedIncomeSource), [selectedIncomeSource]);
 
   const loadIncomeSources = useCallback(async () => {
     if (!createWalletOpen) return;
-
     try {
       setIncomeSourcesLoading(true);
       const localUserId = getIncomeHubLocalUserId(effectiveUser);
       const sources = await getIncomeSources(localUserId);
       const cleanSources = Array.isArray(sources) ? sources : [];
-
       setIncomeSources(cleanSources);
       setFinanceForm((prev) => {
         const currentId = String(prev?.incomeSourceId || "");
-        const hasCurrentSource = cleanSources.some(
-          (source) => String(source.id) === currentId
-        );
-
-        if (!cleanSources.length) {
-          return { ...prev, incomeSourceId: "" };
-        }
-
+        const hasCurrentSource = cleanSources.some((source) => String(source.id) === currentId);
+        if (!cleanSources.length) return { ...prev, incomeSourceId: "" };
         if (hasCurrentSource) return prev;
-
-        return {
-          ...prev,
-          incomeSourceId: String(cleanSources[0]?.id || ""),
-        };
+        return { ...prev, incomeSourceId: String(cleanSources[0]?.id || "") };
       });
     } catch (error) {
       console.warn("CLARA income source load failed:", error);
@@ -186,25 +165,17 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
   useEffect(() => {
     if (!createWalletOpen) return undefined;
-
     loadIncomeSources();
-
     if (typeof window === "undefined") return undefined;
-
     window.addEventListener("clara-income-hub-updated", loadIncomeSources);
-
-    return () => {
-      window.removeEventListener("clara-income-hub-updated", loadIncomeSources);
-    };
+    return () => window.removeEventListener("clara-income-hub-updated", loadIncomeSources);
   }, [createWalletOpen, loadIncomeSources]);
 
   const openProtectedWalletTransferModal = useCallback(
     (wallet) => {
       const sourceWallet = wallet || null;
       const amount = getWalletProtectedAmount(sourceWallet);
-      const destinationWallets = safeWallets.filter(
-        (item) => String(item.id) !== String(sourceWallet?.id)
-      );
+      const destinationWallets = safeWallets.filter((item) => String(item.id) !== String(sourceWallet?.id));
 
       if (!destinationWallets.length) {
         showFinanceNotice?.("Create another wallet first before transferring protected money.");
@@ -239,30 +210,23 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
   const transferProtectedWalletMoney = useCallback(async () => {
     const sourceWallet = protectedTransferWallet;
-    const destinationWallet = safeWallets.find(
-      (wallet) => String(wallet.id) === String(financeForm.protectedTransferDestinationWalletId)
-    );
+    const destinationWallet = safeWallets.find((wallet) => String(wallet.id) === String(financeForm.protectedTransferDestinationWalletId));
     const lockedAmount = getWalletProtectedAmount(sourceWallet);
-    const fallbackAmount = toIncomeHubNumber(
-      financeForm.protectedTransferAmount ?? financeForm.amount ?? 0
-    );
+    const fallbackAmount = toIncomeHubNumber(financeForm.protectedTransferAmount ?? financeForm.amount ?? 0);
     const amount = lockedAmount > 0 ? lockedAmount : fallbackAmount;
 
     if (!sourceWallet?.id) {
       showFinanceNotice?.("Please select a valid source wallet.");
       return;
     }
-
     if (!destinationWallet?.id) {
       showFinanceNotice?.("Please select a valid destination wallet.");
       return;
     }
-
     if (!Number.isFinite(amount) || amount <= 0) {
       showFinanceNotice?.("No protected Emergency Fund amount was found for this wallet.");
       return;
     }
-
     if (getWalletBalance(sourceWallet) < amount) {
       showFinanceNotice?.("Insufficient balance in the source wallet.");
       return;
@@ -270,6 +234,28 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
     try {
       setSavingWallet(true);
+      const now = new Date().toISOString();
+      const destinationWalletName = getWalletName(destinationWallet);
+      const nextActivity = [
+        {
+          id: `emergency_storage_transfer_${Date.now()}`,
+          type: "storage_wallet_transfer",
+          amount,
+          title: "Protected Emergency Fund moved",
+          reason: "Emergency Fund Storage Wallet Transfer",
+          note: `Moved from ${getWalletName(sourceWallet)} to ${destinationWalletName}`,
+          sourceWalletId: sourceWallet.id,
+          source_wallet_id: sourceWallet.id,
+          storageWalletId: destinationWallet.id,
+          storage_wallet_id: destinationWallet.id,
+          storageWalletName: destinationWalletName,
+          storage_wallet_name: destinationWalletName,
+          createdAt: now,
+          created_at: now,
+        },
+        ...getEmergencyActivityLog(financial.emergencyFund),
+      ].slice(0, 60);
+
       await financial.transferBetweenWallets?.({
         from_wallet_id: sourceWallet.id,
         to_wallet_id: destinationWallet.id,
@@ -277,6 +263,32 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         user_id: effectiveUser?.id || null,
         user_email: effectiveUser?.email || null,
         created_by: effectiveUser?.email || null,
+      });
+
+      await financial.updateEmergencyFund?.({
+        ...(financial.emergencyFund || {}),
+        linkedWalletId: destinationWallet.id,
+        linked_wallet_id: destinationWallet.id,
+        reserveWalletId: destinationWallet.id,
+        reserve_wallet_id: destinationWallet.id,
+        storageWalletId: destinationWallet.id,
+        storage_wallet_id: destinationWallet.id,
+        linkedWalletName: destinationWalletName,
+        linked_wallet_name: destinationWalletName,
+        reserveWalletName: destinationWalletName,
+        reserve_wallet_name: destinationWalletName,
+        storageWalletName: destinationWalletName,
+        storage_wallet_name: destinationWalletName,
+        emergencyActivityLog: nextActivity,
+        emergency_activity_log: nextActivity,
+        activityLog: nextActivity,
+        activity_log: nextActivity,
+        lastReserveTransferAt: now,
+        last_reserve_transfer_at: now,
+        lastStorageWalletChangedAt: now,
+        last_storage_wallet_changed_at: now,
+        updatedAt: now,
+        updated_at: now,
       });
 
       await financial.refreshData?.();
@@ -314,37 +326,17 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     const name = normalizeString(financeForm.name);
     const selectedWalletType = normalizeString(financeForm.type) || "cash";
     const customWalletType = normalizeString(financeForm.customWalletType);
-    const walletType =
-      selectedWalletType === "custom" ? customWalletType || "other" : selectedWalletType;
+    const walletType = selectedWalletType === "custom" ? customWalletType || "other" : selectedWalletType;
     const incomeSourceId = String(financeForm.incomeSourceId || "");
     const rawAmount = String(financeForm.amount ?? "").trim();
     const amount = rawAmount === "" ? 0 : toIncomeHubNumber(rawAmount);
     const shouldFundFromIncomeSource = amount > 0;
 
-    if (!name) {
-      showFinanceNotice?.("Please enter a wallet name.");
-      return;
-    }
-
-    if (!walletType) {
-      showFinanceNotice?.("Please enter a wallet type.");
-      return;
-    }
-
-    if (!Number.isFinite(amount) || amount < 0) {
-      showFinanceNotice?.("Please enter a valid amount, or leave it at 0.");
-      return;
-    }
-
-    if (shouldFundFromIncomeSource && !incomeSources.length) {
-      showFinanceNotice?.("Create an income source first before funding a wallet.");
-      return;
-    }
-
-    if (shouldFundFromIncomeSource && !incomeSourceId) {
-      showFinanceNotice?.("Please select an income source.");
-      return;
-    }
+    if (!name) return showFinanceNotice?.("Please enter a wallet name.");
+    if (!walletType) return showFinanceNotice?.("Please enter a wallet type.");
+    if (!Number.isFinite(amount) || amount < 0) return showFinanceNotice?.("Please enter a valid amount, or leave it at 0.");
+    if (shouldFundFromIncomeSource && !incomeSources.length) return showFinanceNotice?.("Create an income source first before funding a wallet.");
+    if (shouldFundFromIncomeSource && !incomeSourceId) return showFinanceNotice?.("Please select an income source.");
 
     try {
       setSavingWallet(true);
@@ -354,25 +346,13 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
       if (shouldFundFromIncomeSource) {
         const latestSources = await getIncomeSources(localUserId);
-        selectedSource = latestSources.find(
-          (source) => String(source.id) === incomeSourceId
-        );
-
-        if (!selectedSource) {
-          showFinanceNotice?.("Please select an income source.");
-          return;
-        }
-
+        selectedSource = latestSources.find((source) => String(source.id) === incomeSourceId);
+        if (!selectedSource) return showFinanceNotice?.("Please select an income source.");
         currentBalance = getIncomeSourceBalance(selectedSource);
-
-        if (currentBalance < amount) {
-          showFinanceNotice?.("Insufficient balance in the selected income source.");
-          return;
-        }
+        if (currentBalance < amount) return showFinanceNotice?.("Insufficient balance in the selected income source.");
       }
 
       const nowIso = new Date().toISOString();
-
       await financial.addWallet?.({
         name,
         type: walletType,
@@ -385,30 +365,23 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
       });
 
       if (shouldFundFromIncomeSource && selectedSource) {
-        const totalMoneyIn = toIncomeHubNumber(
-          selectedSource.totalMoneyIn ?? selectedSource.total_money_in
-        );
-        const nextTotalMoneyOut =
-          toIncomeHubNumber(selectedSource.totalMoneyOut ?? selectedSource.total_money_out) + amount;
-        const nextCurrentBalance = totalMoneyIn - nextTotalMoneyOut;
-
+        const totalMoneyIn = toIncomeHubNumber(selectedSource.totalMoneyIn ?? selectedSource.total_money_in);
+        const nextTotalMoneyOut = toIncomeHubNumber(selectedSource.totalMoneyOut ?? selectedSource.total_money_out) + amount;
         await updateIncomeSource(localUserId, selectedSource.id, {
           totalMoneyOut: nextTotalMoneyOut,
           total_money_out: nextTotalMoneyOut,
-          currentBalance: nextCurrentBalance,
-          current_balance: nextCurrentBalance,
+          currentBalance: totalMoneyIn - nextTotalMoneyOut,
+          current_balance: totalMoneyIn - nextTotalMoneyOut,
           lastActivityAt: nowIso,
           last_activity_at: nowIso,
           updatedAt: nowIso,
           updated_at: nowIso,
         });
-
         dispatchClaraEvent("clara-income-hub-updated");
       }
 
       dispatchClaraEvent("clara-finance-updated");
       await financial.refreshData?.();
-
       closeFinanceModal?.();
       showFinanceNotice?.("Wallet created successfully.", "success");
     } catch (error) {
@@ -417,23 +390,10 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     } finally {
       setSavingWallet(false);
     }
-  }, [
-    closeFinanceModal,
-    effectiveUser,
-    financeForm.amount,
-    financeForm.customWalletType,
-    financeForm.incomeSourceId,
-    financeForm.name,
-    financeForm.type,
-    financial,
-    incomeSources.length,
-    props.wallets,
-    showFinanceNotice,
-  ]);
+  }, [closeFinanceModal, effectiveUser, financeForm.amount, financeForm.customWalletType, financeForm.incomeSourceId, financeForm.name, financeForm.type, financial, incomeSources.length, props.wallets, showFinanceNotice]);
 
   if (protectedTransferOpen) {
     const lockedAmount = protectedTransferAmount;
-
     return (
       <FinanceActionModal
         open={protectedTransferOpen}
@@ -449,41 +409,23 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
       >
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/12 bg-white/[0.055] px-4 py-3 text-sm leading-6 text-white/75">
-            <span className="text-white/50">From:</span>{" "}
-            <strong className="font-black text-white">{protectedTransferWalletName}</strong>
+            <span className="text-white/50">From:</span> <strong className="font-black text-white">{protectedTransferWalletName}</strong>
           </div>
-
           <FinanceField label="Destination wallet">
             <select
               value={financeForm.protectedTransferDestinationWalletId || ""}
-              onChange={(event) =>
-                setFinanceForm((prev) => ({
-                  ...prev,
-                  protectedTransferDestinationWalletId: event.target.value,
-                  amount: String(lockedAmount),
-                  protectedTransferAmount: String(lockedAmount),
-                }))
-              }
+              onChange={(event) => setFinanceForm((prev) => ({ ...prev, protectedTransferDestinationWalletId: event.target.value, amount: String(lockedAmount), protectedTransferAmount: String(lockedAmount) }))}
               className={financeInputClassName}
             >
               {protectedTransferDestinationWallets.map((wallet) => (
-                <option key={wallet.id} value={String(wallet.id)}>
-                  {getWalletName(wallet)} • {formatMoney(getWalletBalance(wallet))}
-                </option>
+                <option key={wallet.id} value={String(wallet.id)}>{getWalletName(wallet)} • {formatMoney(getWalletBalance(wallet))}</option>
               ))}
             </select>
           </FinanceField>
-
           <div className="rounded-3xl border border-cyan-300/18 bg-cyan-400/[0.08] p-4 shadow-[0_16px_40px_rgba(34,211,238,0.08)]">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/70">
-              Amount to transfer
-            </p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-cyan-50">
-              {formatMoney(lockedAmount)}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-cyan-50/72">
-              This amount is locked because it is protected Emergency Fund money.
-            </p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/70">Amount to transfer</p>
+            <p className="mt-2 text-3xl font-black tracking-tight text-cyan-50">{formatMoney(lockedAmount)}</p>
+            <p className="mt-2 text-xs leading-5 text-cyan-50/72">This amount is locked because it is protected Emergency Fund money. The destination wallet also becomes the new Emergency Fund storage wallet.</p>
           </div>
         </div>
       </FinanceActionModal>
@@ -508,33 +450,19 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         <div className="space-y-3">
           <div className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] p-4 text-sm font-semibold leading-6 text-amber-50/88">
             This wallet is currently linked to your Emergency Fund.
-            <br />
-            <br />
-            Deleting this wallet will remove the Emergency Fund allocation attached to it.
-            <br />
-            <br />
-            Transfer the funds first if you want to keep the money protected before deleting this wallet.
+            <br /><br />
+            Transfer the protected money or change the Emergency Fund storage wallet before deleting this wallet.
           </div>
-
-          <button
-            type="button"
-            onClick={() => openProtectedWalletTransferModal(walletBeingDeleted)}
-            className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]"
-          >
-            Transfer Funds
-          </button>
+          <button type="button" onClick={() => openProtectedWalletTransferModal(walletBeingDeleted)} className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/[0.13]">Transfer Protected Money</button>
+          <button type="button" onClick={closeFinanceModal} className="w-full rounded-2xl border border-white/12 bg-white/[0.055] px-4 py-3 text-sm font-black text-white/75 transition hover:bg-white/[0.08]">Cancel</button>
         </div>
       </FinanceActionModal>
     );
   }
 
-  if (!createWalletOpen) {
-    return <DashboardFinanceModalRenderer {...props} />;
-  }
+  if (!createWalletOpen) return <DashboardFinanceModalRenderer {...props} />;
 
-  const sourceHelper = incomeSources.length
-    ? "Optional. Choose an income source only if you want to fund this wallet now."
-    : "Optional. You can create the wallet with ₱0 and add money later.";
+  const sourceHelper = incomeSources.length ? "Optional. Choose an income source only if you want to fund this wallet now." : "Optional. You can create the wallet with ₱0 and add money later.";
   const loading = financeActionLoading || savingWallet;
 
   return (
@@ -552,101 +480,23 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
       loading={loading}
     >
       <FinanceField label="Wallet name">
-        <input
-          type="text"
-          value={financeForm.name}
-          onChange={(event) =>
-            setFinanceForm((prev) => ({ ...prev, name: event.target.value }))
-          }
-          placeholder="e.g. GCash, Cash, Payroll"
-          className={financeInputClassName}
-        />
+        <input type="text" value={financeForm.name} onChange={(event) => setFinanceForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="e.g. GCash, Cash, Payroll" className={financeInputClassName} />
       </FinanceField>
-
-      <FinanceField
-        label="Wallet type"
-        helper="Choose the closest type so CLARA can organize your money clearly."
-      >
+      <FinanceField label="Wallet type" helper="Choose the closest type so CLARA can organize your money clearly.">
         <div className="space-y-3">
-          <select
-            value={financeForm.type}
-            onChange={(event) =>
-              setFinanceForm((prev) => ({
-                ...prev,
-                type: event.target.value,
-                customWalletType:
-                  event.target.value === "custom" ? prev.customWalletType : "",
-              }))
-            }
-            className={financeInputClassName}
-          >
-            {WALLET_TYPES.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+          <select value={financeForm.type} onChange={(event) => setFinanceForm((prev) => ({ ...prev, type: event.target.value, customWalletType: event.target.value === "custom" ? prev.customWalletType : "" }))} className={financeInputClassName}>
+            {WALLET_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
-
-          {financeForm.type === "custom" ? (
-            <input
-              type="text"
-              value={financeForm.customWalletType}
-              onChange={(event) =>
-                setFinanceForm((prev) => ({
-                  ...prev,
-                  customWalletType: event.target.value,
-                }))
-              }
-              placeholder="e.g. Loan Wallet, Travel Fund, Side Hustle"
-              className={financeInputClassName}
-            />
-          ) : null}
+          {financeForm.type === "custom" ? <input type="text" value={financeForm.customWalletType} onChange={(event) => setFinanceForm((prev) => ({ ...prev, customWalletType: event.target.value }))} placeholder="e.g. Loan Wallet, Travel Fund, Side Hustle" className={financeInputClassName} /> : null}
         </div>
       </FinanceField>
-
       <FinanceField label="Add money from" helper={sourceHelper}>
-        <select
-          value={financeForm.incomeSourceId || ""}
-          disabled={!incomeSources.length || incomeSourcesLoading || loading}
-          onChange={(event) =>
-            setFinanceForm((prev) => ({
-              ...prev,
-              incomeSourceId: event.target.value,
-            }))
-          }
-          className={financeInputClassName}
-        >
-          {incomeSources.length ? (
-            incomeSources.map((source) => (
-              <option key={source.id} value={String(source.id)}>
-                {source.name} • {formatMoney(getIncomeSourceBalance(source))}
-              </option>
-            ))
-          ) : (
-            <option value="">No income sources yet</option>
-          )}
+        <select value={financeForm.incomeSourceId || ""} disabled={!incomeSources.length || incomeSourcesLoading || loading} onChange={(event) => setFinanceForm((prev) => ({ ...prev, incomeSourceId: event.target.value }))} className={financeInputClassName}>
+          {incomeSources.length ? incomeSources.map((source) => <option key={source.id} value={String(source.id)}>{source.name} • {formatMoney(getIncomeSourceBalance(source))}</option>) : <option value="">No income sources yet</option>}
         </select>
       </FinanceField>
-
-      <FinanceField
-        label="Starting amount optional"
-        helper={
-          selectedIncomeSource
-            ? `Optional. Available if funding now: ${formatMoney(selectedIncomeSourceBalance)}`
-            : "Leave this as 0 if you want to add money later."
-        }
-      >
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={financeForm.amount}
-          onChange={(event) =>
-            setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
-          }
-          placeholder="0"
-          className={financeInputClassName}
-        />
+      <FinanceField label="Starting amount optional" helper={selectedIncomeSource ? `Optional. Available if funding now: ${formatMoney(selectedIncomeSourceBalance)}` : "Leave this as 0 if you want to add money later."}>
+        <input type="number" min="0" step="0.01" value={financeForm.amount} onChange={(event) => setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))} placeholder="0" className={financeInputClassName} />
       </FinanceField>
     </FinanceActionModal>
   );
