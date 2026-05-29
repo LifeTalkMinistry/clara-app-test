@@ -21,7 +21,7 @@ const INCOME_HUB_GLOW_LAYERS = [
   "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-white/[0.055]",
 ];
 
-function IncomeHubHeader({ title, subtitle, statusLabel, tone }) {
+function IncomeHubHeader({ title, statusLabel, tone }) {
   return (
     <div className="mb-3 flex items-start gap-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm">
@@ -30,10 +30,7 @@ function IncomeHubHeader({ title, subtitle, statusLabel, tone }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-base font-semibold tracking-tight text-white">{title}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-white/76">{subtitle}</p>
-          </div>
+          <p className="min-w-0 truncate text-base font-semibold tracking-tight text-white">{title}</p>
 
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
             {statusLabel}
@@ -54,8 +51,7 @@ function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabe
   return (
     <>
       <div className="mb-3">
-        <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
-        <p className="mt-2 text-sm font-semibold leading-tight text-white/76">Track where money is created before it reaches your wallets.</p>
+        <p className={`text-[31px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
       </div>
 
       <div className="mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
@@ -98,7 +94,6 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   const {
     tone,
     title,
-    subtitle,
     statusLabel,
     mainLabel,
     amountStatus,
@@ -142,7 +137,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
           <div className="relative flex min-h-0 flex-col gap-4">
             <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-              <IncomeHubHeader title={title} subtitle={subtitle} statusLabel={statusLabel} tone={tone} />
+              <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
 
               <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
                 <IncomeSummaryStats
@@ -171,9 +166,6 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
           <div className="relative flex min-h-0 flex-1 flex-col gap-4">
             <div className="shrink-0">
               <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
-              <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">
-                {statusMeta?.subtitle || "Where your money comes from before it enters your wallets."}
-              </p>
             </div>
 
             <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
