@@ -12,6 +12,11 @@ import {
   buildClaraPurchaseCategoryGuide,
   formatClaraPurchaseCategoryGuideForPrompt,
 } from "./clara-purchase-category-guide";
+import {
+  getDebtObligations,
+  getDebtTitle,
+  summarizeDebtObligations,
+} from "./debtObligationStore";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -252,6 +257,45 @@ function buildBudgetRowsForPrompt(budgetPlan = {}) {
   return list(categories, (budget) => `${budgetName(budget)}: allocated ${money(budget.allocated)}, spent ${money(budget.spent)}, left ${money(budget.remaining)}`);
 }
 
+function getContextLocalUserId(context = {}) {
+  const user = context?.user || context?.authUser || {};
+  return String(user?.id || user?.email || context?.localUserId || "local-user").trim() || "local-user";
+}
+
+function debtTypeLabel(record = {}) {
+  return String(record?.debtType || record?.type || "obligation")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function debtBalance(record = {}) {
+  return Number(record?.totalDebt ?? record?.balance ?? record?.amount ?? record?.debt_balance ?? 0) || 0;
+}
+
+function debtMonthly(record = {}) {
+  return Number(record?.monthlyDebt ?? record?.monthlyPayment ?? record?.monthly_payment ?? record?.payment ?? 0) || 0;
+}
+
+function buildDebtRowsForPrompt(records = []) {
+  return list(
+    records,
+    (record) => `${getDebtTitle(record)} (${debtTypeLabel(record)}): balance ${money(debtBalance(record))}, monthly ${money(debtMonthly(record))}`,
+    "No debt obligation records loaded."
+  );
+}
+
+async function resolveDebtRecordsForPrompt(context = {}) {
+  const provided = context?.debtObligations || context?.debts || context?.obligations || context?.finance?.debtObligations;
+  if (Array.isArray(provided)) return provided;
+
+  try {
+    return await getDebtObligations(getContextLocalUserId(context));
+  } catch (error) {
+    if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Unable to load debt obligations", error);
+    return [];
+  }
+}
+
 async function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const enrichedContext = withClaraLifeStageAiContext(context || {});
   const finance = buildClaraFinanceSnapshot(enrichedContext);
@@ -260,6 +304,8 @@ async function buildPrompt({ message, context, mode, conversationHistory = [] })
   const lifeStageBlock = buildClaraLifeStagePromptBlock(enrichedContext.lifeStageContext);
   const behavioralMemory = await buildClaraBehavioralContextForPrompt(message);
   const behavioralRisk = await getClaraBehavioralRiskLabel(message);
+  const debtRecords = await resolveDebtRecordsForPrompt(enrichedContext);
+  const debtSummary = summarizeDebtObligations(debtRecords, { income: finance.income });
 
   logCentralContextDiagnostics({ message, enrichedContext, conversationHistory });
 
@@ -310,6 +356,14 @@ Budget status: ${budgetPlan.budgetStatus || "unknown"}
 Explanation: ${budgetPlan.budgetExplanation || "Budget state is unclear."}
 Rows: ${buildBudgetRowsForPrompt(budgetPlan)}
 
+Debt / Obligations:
+Source: local CLARA Debt/Obligations store.
+Active obligation count: ${Number(debtSummary.activeCount || 0)}
+Total owed: ${money(debtSummary.totalDebt)}
+Total monthly payment: ${money(debtSummary.monthlyDebt)}
+Debt ratio: ${Number.isFinite(Number(debtSummary.debtRatio)) ? `${Math.round(debtSummary.debtRatio)}%` : "unknown"}
+Rows: ${buildDebtRowsForPrompt(debtRecords)}
+
 Purchase category guide:
 ${formatClaraPurchaseCategoryGuideForPrompt(purchaseCategoryGuide)}
 
@@ -328,6 +382,12 @@ Rules for budget answers:
 - Distinguish wallet money from monthly budget remaining.
 - Remaining spendable budget means declared monthly budget minus spent so far.
 - Unallocated means declared monthly budget minus category allocations; it is not the same as spendable remaining.
+
+Rules for debt answers:
+- For debt, obligation, utang, loan, credit, payable, or "what I owe" questions, answer from the Debt / Obligations section.
+- If debt rows are loaded, use the exact obligation names shown in Rows.
+- Never invent debt names such as Student Loan or Credit Card when they are not in the Debt / Obligations rows.
+- If no debt rows are loaded, say debt records are not loaded instead of guessing.
 
 Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it.
 For purchase, budget, savings, debt, payday, or emergency questions: give a complete recommendation, one short reason, and one next step.
