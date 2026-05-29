@@ -1,7 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
-import useFinancialData from "@/hooks/useFinancialData";
+import {
+  getIncomeHubLocalUserId,
+  getIncomeSources,
+  toIncomeHubNumber,
+} from "@/lib/incomeHubRepository";
 
 export const fmt = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -10,18 +14,7 @@ export const fmt = (value) =>
     minimumFractionDigits: 0,
   }).format(Number(value) || 0);
 
-export const toNumber = (value) => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[₱,\s]/g, "");
-    const num = Number(cleaned);
-    return Number.isFinite(num) ? num : 0;
-  }
-
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-};
+export const toNumber = (value) => toIncomeHubNumber(value);
 
 export const clampProgress = (value) => Math.max(0, Math.min(Number(value) || 0, 100));
 
@@ -47,51 +40,33 @@ export const getInvestmentToneClasses = () => ({
     "radial-gradient(circle at -16% -22%, rgba(20,184,166,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(99,102,241,0.20), transparent 58%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
 });
 
-const getRecordDate = (record) =>
-  new Date(record?.date || record?.transaction_date || record?.created_at || record?.createdAt || record?.updatedAt || 0);
+const getSourceMoneyIn = (source) => toIncomeHubNumber(source?.totalMoneyIn ?? source?.total_money_in);
+const getSourceMoneyOut = (source) => toIncomeHubNumber(source?.totalMoneyOut ?? source?.total_money_out);
+const getSourceNet = (source) =>
+  toIncomeHubNumber(source?.currentBalance ?? source?.current_balance ?? getSourceMoneyIn(source) - getSourceMoneyOut(source));
 
-const isThisMonth = (record) => {
-  const date = getRecordDate(record);
-  if (Number.isNaN(date.getTime())) return false;
-
-  const now = new Date();
-  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-};
-
-const isIncomeTransaction = (txn) => {
-  const type = String(txn?.type || txn?.transaction_type || "").toLowerCase();
-  return ["income", "add", "cash_in", "add_income", "add_funds"].includes(type);
-};
-
-const getIncomeSourceName = (txn) =>
-  String(txn?.source_type || txn?.source || txn?.notes || "Income").trim() || "Income";
-
-export function buildInvestmentReadiness({ transactions = [], totalIncome = 0 } = {}) {
-  const incomeTransactions = (Array.isArray(transactions) ? transactions : []).filter(
-    (txn) => !txn?.deletedAt && !txn?.deleted_at && isIncomeTransaction(txn)
+export function buildInvestmentReadiness({ sources = [] } = {}) {
+  const incomeSources = (Array.isArray(sources) ? sources : []).filter(
+    (source) => !source?.deletedAt && !source?.deleted_at
   );
-  const monthlyIncomeTransactions = incomeTransactions.filter(isThisMonth);
-  const sourceTotals = new Map();
 
-  incomeTransactions.forEach((txn) => {
-    const name = getIncomeSourceName(txn);
-    const existing = sourceTotals.get(name) || 0;
-    sourceTotals.set(name, existing + toNumber(txn?.amount));
-  });
-
-  const sourceCount = sourceTotals.size;
-  const monthlyGenerated = monthlyIncomeTransactions.reduce((sum, txn) => sum + toNumber(txn?.amount), 0);
-  const totalGenerated = incomeTransactions.reduce((sum, txn) => sum + toNumber(txn?.amount), 0) || toNumber(totalIncome);
-  const topSource = [...sourceTotals.entries()].sort((a, b) => b[1] - a[1])[0] || null;
-  const mainSourceShare = topSource && totalGenerated > 0 ? clampProgress((topSource[1] / totalGenerated) * 100) : 0;
+  const sourceCount = incomeSources.length;
+  const totalGenerated = incomeSources.reduce((sum, source) => sum + getSourceMoneyIn(source), 0);
+  const totalOut = incomeSources.reduce((sum, source) => sum + getSourceMoneyOut(source), 0);
+  const netGenerated = incomeSources.reduce((sum, source) => sum + getSourceNet(source), 0);
+  const topSource = [...incomeSources].sort((a, b) => getSourceMoneyIn(b) - getSourceMoneyIn(a))[0] || null;
+  const topSourceAmount = topSource ? getSourceMoneyIn(topSource) : 0;
+  const mainSourceShare = topSource && totalGenerated > 0 ? clampProgress((topSourceAmount / totalGenerated) * 100) : 0;
 
   return {
     readinessStatus: INVESTMENT_READINESS.READY_TO_TEST,
     sourceCount,
-    monthlyGenerated,
+    monthlyGenerated: totalGenerated,
     totalGenerated,
-    topSourceName: topSource?.[0] || "No source yet",
-    topSourceAmount: topSource?.[1] || 0,
+    totalOut,
+    netGenerated,
+    topSourceName: topSource?.name || "No source yet",
+    topSourceAmount,
     mainSourceShare,
     blockers: [],
   };
@@ -138,12 +113,42 @@ const getStatusMeta = (sourceCount) => {
 
 export default function useInvestmentCardLogic({ item = null, expanded = false, onToggleDetails } = {}) {
   const [localExpanded, setLocalExpanded] = useState(false);
+  const [incomeSources, setIncomeSources] = useState([]);
 
   const isControlled = typeof onToggleDetails === "function";
   const isExpanded = isControlled ? expanded : localExpanded;
 
   const { user } = useAuth();
-  const { totalIncome = 0, walletTransactions = [] } = useFinancialData(user);
+  const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadIncomeHubSources() {
+      try {
+        const sources = await getIncomeSources(localUserId);
+        if (alive) setIncomeSources(sources);
+      } catch (error) {
+        console.error("CLARA Income Hub card load error:", error);
+        if (alive) setIncomeSources([]);
+      }
+    }
+
+    loadIncomeHubSources();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("clara-income-hub-updated", loadIncomeHubSources);
+      window.addEventListener("clara-finance-updated", loadIncomeHubSources);
+    }
+
+    return () => {
+      alive = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("clara-income-hub-updated", loadIncomeHubSources);
+        window.removeEventListener("clara-finance-updated", loadIncomeHubSources);
+      }
+    };
+  }, [localUserId]);
 
   const data = item?.data || {};
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "cyan");
@@ -153,20 +158,19 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
   const readiness = useMemo(
     () =>
       buildInvestmentReadiness({
-        transactions: walletTransactions,
-        totalIncome,
+        sources: incomeSources,
       }),
-    [walletTransactions, totalIncome]
+    [incomeSources]
   );
 
   const statusMeta = getStatusMeta(readiness.sourceCount);
   const readinessProgress = readiness.sourceCount > 0 ? 100 : 20;
   const selectedType = readiness.topSourceName;
-  const safeToInvest = readiness.monthlyGenerated;
+  const safeToInvest = readiness.totalGenerated;
   const safeRangeMin = 0;
   const amountStatus =
     readiness.sourceCount > 0
-      ? `Top source: ${readiness.topSourceName}. This source represents about ${Math.round(readiness.mainSourceShare)}% of tracked income.`
+      ? `Top source: ${readiness.topSourceName}. This source represents about ${Math.round(readiness.mainSourceShare)}% of Income Hub money in.`
       : "Add your salary, business, side hustle, allowance, or freelance source first.";
 
   const dispatchInvestmentPrompt = (prompt, extra = {}) => {
@@ -179,11 +183,13 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
           prompt,
           incomeHubContext: {
             sourceCount: readiness.sourceCount,
-            monthlyGenerated: readiness.monthlyGenerated,
-            totalGenerated: readiness.totalGenerated,
+            totalMoneyIn: readiness.totalGenerated,
+            totalMoneyOut: readiness.totalOut,
+            netIncome: readiness.netGenerated,
             topSourceName: readiness.topSourceName,
             topSourceAmount: readiness.topSourceAmount,
             mainSourceShare: readiness.mainSourceShare,
+            sources: incomeSources,
             ...extra,
           },
         },
@@ -193,14 +199,14 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
 
   const handlePlanInvestment = () => {
     dispatchInvestmentPrompt(
-      `Review my income sources as a behavioral money coach. I have ${readiness.sourceCount} tracked income sources. This month, tracked money in is ${fmt(readiness.monthlyGenerated)}. My top source is ${readiness.topSourceName}. Help me understand income dependency and what source I should protect or grow next.`,
+      `Review my Income Hub as a behavioral money coach. I have ${readiness.sourceCount} tracked income sources. Income Hub money in is ${fmt(readiness.totalGenerated)}, money out is ${fmt(readiness.totalOut)}, and net is ${fmt(readiness.netGenerated)}. My top source is ${readiness.topSourceName}. Help me understand income dependency and what source I should protect or grow next.`,
       { action: "review_income_hub" }
     );
   };
 
   const handleAskClara = () => {
     dispatchInvestmentPrompt(
-      `Help me understand where my money comes from. Check my income source pattern, whether I depend too much on one source, and what I should track next.`,
+      `Help me understand where my money comes from based only on my Income Hub sources. Check whether I depend too much on one source and what I should track next.`,
       { action: "ask_income_hub" }
     );
   };
@@ -235,8 +241,8 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
       safeRangeMin,
       selectedType,
       amountStatus,
-      statOneLabel: data.statOneLabel || "This month",
-      statOneValue: data.statOneValue || fmt(readiness.monthlyGenerated),
+      statOneLabel: data.statOneLabel || "Money in",
+      statOneValue: data.statOneValue || fmt(readiness.totalGenerated),
       statTwoLabel: data.statTwoLabel || "Top source",
       statTwoValue: data.statTwoValue || readiness.topSourceName,
       statThreeLabel: data.statThreeLabel || "Status",
