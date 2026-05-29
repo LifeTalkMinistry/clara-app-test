@@ -150,7 +150,6 @@ function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabe
     <>
       <div className="mb-3">
         <p className={`truncate text-[31px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
-        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Income Sources</p>
       </div>
 
       <div className="mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
@@ -357,7 +356,6 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     tone,
     title,
     statusLabel,
-    mainLabel,
     readiness,
     incomeSources,
     statOneLabel,
@@ -394,6 +392,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   };
 
   const sourceCount = readiness?.sourceCount || 0;
+  const incomeSourceTitle = `${sourceCount} Income Source${sourceCount === 1 ? "" : "s"}`;
 
   return (
     <>
@@ -420,7 +419,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
                 <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
                   <IncomeSummaryStats
-                    mainLabel={mainLabel}
+                    mainLabel={incomeSourceTitle}
                     statOneLabel={statOneLabel}
                     statOneValue={statOneValue}
                     statTwoLabel={statTwoLabel}
@@ -444,7 +443,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
             <div className="relative flex min-h-0 flex-1 flex-col gap-4">
               <div className="shrink-0">
-                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
+                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{incomeSourceTitle}</p>
               </div>
 
               <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
