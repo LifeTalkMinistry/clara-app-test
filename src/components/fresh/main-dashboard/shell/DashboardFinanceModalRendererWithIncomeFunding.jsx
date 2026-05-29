@@ -147,7 +147,9 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     const walletType =
       selectedWalletType === "custom" ? customWalletType || "other" : selectedWalletType;
     const incomeSourceId = String(financeForm.incomeSourceId || "");
-    const amount = toIncomeHubNumber(financeForm.amount);
+    const rawAmount = String(financeForm.amount ?? "").trim();
+    const amount = rawAmount === "" ? 0 : toIncomeHubNumber(rawAmount);
+    const shouldFundFromIncomeSource = amount > 0;
 
     if (!name) {
       showFinanceNotice?.("Please enter a wallet name.");
@@ -159,39 +161,44 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
       return;
     }
 
-    if (!incomeSources.length) {
+    if (!Number.isFinite(amount) || amount < 0) {
+      showFinanceNotice?.("Please enter a valid amount, or leave it at 0.");
+      return;
+    }
+
+    if (shouldFundFromIncomeSource && !incomeSources.length) {
       showFinanceNotice?.("Create an income source first before funding a wallet.");
       return;
     }
 
-    if (!incomeSourceId) {
+    if (shouldFundFromIncomeSource && !incomeSourceId) {
       showFinanceNotice?.("Please select an income source.");
-      return;
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showFinanceNotice?.("Please enter a valid funding amount.");
       return;
     }
 
     try {
       setSavingWallet(true);
       const localUserId = getIncomeHubLocalUserId(effectiveUser);
-      const latestSources = await getIncomeSources(localUserId);
-      const selectedSource = latestSources.find(
-        (source) => String(source.id) === incomeSourceId
-      );
+      let selectedSource = null;
+      let currentBalance = 0;
 
-      if (!selectedSource) {
-        showFinanceNotice?.("Please select an income source.");
-        return;
-      }
+      if (shouldFundFromIncomeSource) {
+        const latestSources = await getIncomeSources(localUserId);
+        selectedSource = latestSources.find(
+          (source) => String(source.id) === incomeSourceId
+        );
 
-      const currentBalance = getIncomeSourceBalance(selectedSource);
+        if (!selectedSource) {
+          showFinanceNotice?.("Please select an income source.");
+          return;
+        }
 
-      if (currentBalance < amount) {
-        showFinanceNotice?.("Insufficient balance in the selected income source.");
-        return;
+        currentBalance = getIncomeSourceBalance(selectedSource);
+
+        if (currentBalance < amount) {
+          showFinanceNotice?.("Insufficient balance in the selected income source.");
+          return;
+        }
       }
 
       const nowIso = new Date().toISOString();
@@ -207,25 +214,28 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         created_by: effectiveUser?.email || null,
       });
 
-      const totalMoneyIn = toIncomeHubNumber(
-        selectedSource.totalMoneyIn ?? selectedSource.total_money_in
-      );
-      const nextTotalMoneyOut =
-        toIncomeHubNumber(selectedSource.totalMoneyOut ?? selectedSource.total_money_out) + amount;
-      const nextCurrentBalance = totalMoneyIn - nextTotalMoneyOut;
+      if (shouldFundFromIncomeSource && selectedSource) {
+        const totalMoneyIn = toIncomeHubNumber(
+          selectedSource.totalMoneyIn ?? selectedSource.total_money_in
+        );
+        const nextTotalMoneyOut =
+          toIncomeHubNumber(selectedSource.totalMoneyOut ?? selectedSource.total_money_out) + amount;
+        const nextCurrentBalance = totalMoneyIn - nextTotalMoneyOut;
 
-      await updateIncomeSource(localUserId, selectedSource.id, {
-        totalMoneyOut: nextTotalMoneyOut,
-        total_money_out: nextTotalMoneyOut,
-        currentBalance: nextCurrentBalance,
-        current_balance: nextCurrentBalance,
-        lastActivityAt: nowIso,
-        last_activity_at: nowIso,
-        updatedAt: nowIso,
-        updated_at: nowIso,
-      });
+        await updateIncomeSource(localUserId, selectedSource.id, {
+          totalMoneyOut: nextTotalMoneyOut,
+          total_money_out: nextTotalMoneyOut,
+          currentBalance: nextCurrentBalance,
+          current_balance: nextCurrentBalance,
+          lastActivityAt: nowIso,
+          last_activity_at: nowIso,
+          updatedAt: nowIso,
+          updated_at: nowIso,
+        });
 
-      dispatchClaraEvent("clara-income-hub-updated");
+        dispatchClaraEvent("clara-income-hub-updated");
+      }
+
       dispatchClaraEvent("clara-finance-updated");
       await financial.refreshData?.();
 
@@ -256,8 +266,8 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   }
 
   const sourceHelper = incomeSources.length
-    ? "Choose which real income source will fund this wallet."
-    : "Create an income source first before funding a wallet.";
+    ? "Optional. Choose an income source only if you want to fund this wallet now."
+    : "Optional. You can create the wallet with ₱0 and add money later.";
   const loading = financeActionLoading || savingWallet;
 
   return (
@@ -271,7 +281,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         createWalletFromIncomeSource();
       }}
       submitLabel="Create wallet →"
-      submitDisabled={!incomeSources.length || incomeSourcesLoading}
+      submitDisabled={incomeSourcesLoading}
       loading={loading}
     >
       <FinanceField label="Wallet name">
@@ -352,11 +362,11 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
       </FinanceField>
 
       <FinanceField
-        label="Amount"
+        label="Starting amount optional"
         helper={
           selectedIncomeSource
-            ? `Available: ${formatMoney(selectedIncomeSourceBalance)}`
-            : ""
+            ? `Optional. Available if funding now: ${formatMoney(selectedIncomeSourceBalance)}`
+            : "Leave this as 0 if you want to add money later."
         }
       >
         <input
