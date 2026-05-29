@@ -1,4 +1,4 @@
-import { MoreHorizontal, Plus, WalletCards } from "lucide-react";
+import { MoreHorizontal, Plus, Repeat2, WalletCards } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +9,12 @@ import useInvestmentCardLogic, { fmt } from "@/components/financial-carousel/car
 
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
+
+const incomeMenuButtonClass =
+  "relative z-[120] flex h-9 w-9 items-center justify-center rounded-full border border-white/18 bg-white/[0.055] text-white/78 transition hover:border-white/28 hover:bg-white/[0.10] hover:text-white disabled:opacity-50";
+
+const incomeMenuActionClass =
+  "flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-white/94 transition hover:bg-white/[0.10] disabled:opacity-50";
 
 const INCOME_HUB_GLOW_LAYERS = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-400/[0.07] blur-[78px]",
@@ -27,6 +33,17 @@ const toIncomeNumber = (value) => {
 const getSourceIn = (source) => toIncomeNumber(source?.totalMoneyIn ?? source?.total_money_in);
 const getSourceOut = (source) => toIncomeNumber(source?.totalMoneyOut ?? source?.total_money_out);
 const getSourceNet = (source) => toIncomeNumber(source?.currentBalance ?? source?.current_balance ?? getSourceIn(source) - getSourceOut(source));
+
+function stopIncomeSourceGesture(event) {
+  event?.stopPropagation?.();
+  event?.nativeEvent?.stopImmediatePropagation?.();
+}
+
+function stopIncomeSourceAction(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.nativeEvent?.stopImmediatePropagation?.();
+}
 
 function IncomeHubHeader({ title, statusLabel, tone }) {
   return (
@@ -124,8 +141,13 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
   const net = getSourceNet(source);
   const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
 
+  const handleMenuAction = (event, action) => {
+    stopIncomeSourceAction(event);
+    onAction(source, action);
+  };
+
   return (
-    <div className="relative overflow-visible rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+    <div className={`relative overflow-visible rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${menuOpen ? "z-[90]" : "z-0"}`}>
       <div className="absolute left-0 top-3 h-[calc(100%-24px)] w-[3px] rounded-full bg-emerald-300/70" />
       <div className="flex items-center gap-3 pl-1.5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -140,30 +162,42 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
         <div className="relative shrink-0">
           <button
             type="button"
-            onClick={() => onToggleMenu(source.id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/35 bg-white/[0.035] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+            onPointerDownCapture={stopIncomeSourceGesture}
+            onMouseDownCapture={stopIncomeSourceGesture}
+            onTouchStartCapture={stopIncomeSourceGesture}
+            onClick={(event) => {
+              stopIncomeSourceAction(event);
+              onToggleMenu(source.id);
+            }}
+            className={incomeMenuButtonClass}
             aria-expanded={menuOpen}
             aria-label={`Open ${source.name} income source actions`}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal className="h-4.5 w-4.5" />
           </button>
 
           {menuOpen ? (
-            <div className="absolute right-0 top-11 z-[160] w-48 rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-xl ring-1 ring-white/[0.06]">
+            <div
+              className="absolute right-0 top-10 z-[140] w-48 rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-xl ring-1 ring-white/[0.06]"
+              onPointerDownCapture={stopIncomeSourceGesture}
+              onMouseDownCapture={stopIncomeSourceGesture}
+              onTouchStartCapture={stopIncomeSourceGesture}
+            >
               <button
                 type="button"
-                onClick={() => onAction(source, "add_money")}
-                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left text-xs font-black text-white/94 transition hover:bg-white/[0.10]"
+                onClick={(event) => handleMenuAction(event, "add_money")}
+                className={incomeMenuActionClass}
               >
                 <Plus className="h-3.5 w-3.5 text-emerald-200" />
                 Add Money
               </button>
+
               <button
                 type="button"
-                onClick={() => onAction(source, "transfer_wallet")}
-                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2.5 text-left text-xs font-black text-white/94 transition hover:bg-white/[0.10]"
+                onClick={(event) => handleMenuAction(event, "transfer_wallet")}
+                className={incomeMenuActionClass}
               >
-                <WalletCards className="h-3.5 w-3.5 text-cyan-200" />
+                <Repeat2 className="h-3.5 w-3.5 text-sky-200" />
                 Transfer Money
               </button>
             </div>
