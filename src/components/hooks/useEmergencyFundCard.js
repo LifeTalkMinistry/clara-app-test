@@ -23,11 +23,9 @@ export const VALID_TARGET_MONTHS = [3, 6, 12];
 const ORB_LONG_PRESS_MS = 520;
 const ORB_DOUBLE_TAP_DELAY_MS = 340;
 const INCOME_LOOKBACK_DAYS = 90;
-
 const MOTION_TRANSITION_KEY = "clara_motion_transition_origin";
 const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
 const MOTION_TARGET_KEY = "clara_motion_target_path";
-
 const INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
 
 export function clampOpacity(value) {
@@ -37,8 +35,7 @@ export function clampOpacity(value) {
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
-    const cleaned = value.replace(/[₱,\s]/g, "");
-    const parsed = Number(cleaned);
+    const parsed = Number(value.replace(/[₱,\s]/g, ""));
     return Number.isFinite(parsed) ? parsed : 0;
   }
   const parsed = Number(value);
@@ -55,8 +52,15 @@ function getFinanceIdentityMode() {
 
 function getLocalUserId(user) {
   if (getFinanceIdentityMode() === "demo_user") return CLARA_DEMO_LOCAL_USER_ID;
-  const value = user?.id || user?.email || "local-user";
-  return String(value || "local-user").trim() || "local-user";
+  return String(user?.id || user?.email || "local-user").trim() || "local-user";
+}
+
+function firstValue(source, keys = [], fallback = "") {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return fallback;
 }
 
 function getEmergencyActivityLog(emergencyFund) {
@@ -68,22 +72,93 @@ function getEmergencyActivityLog(emergencyFund) {
     emergencyFund?.usageLog ||
     emergencyFund?.usage_log ||
     [];
-
   return Array.isArray(source) ? source.filter(Boolean) : [];
 }
 
-function getEmergencyValue(emergencyFund, keys, fallback = 0) {
-  for (const key of keys) {
-    const value = emergencyFund?.[key];
-    if (value !== undefined && value !== null && value !== "") return value;
-  }
-  return fallback;
+function getSavedEmergencyAmount(emergencyFund) {
+  return toNumber(
+    firstValue(emergencyFund, [
+      "protectedBalance",
+      "protected_balance",
+      "reserveBalance",
+      "reserve_balance",
+      "savedAmount",
+      "saved_amount",
+      "currentAmount",
+      "current_amount",
+      "amount",
+      "balance",
+      "moneyLeft",
+    ], 0)
+  );
 }
 
-function getRecordDate(row) {
-  const value = row?.createdAt || row?.created_at || row?.created_date || row?.date || row?.transaction_date || row?.updatedAt || row?.updated_at;
-  const parsed = new Date(value || 0);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+function getLinkedWalletId(emergencyFund) {
+  return String(
+    firstValue(emergencyFund, [
+      "linkedWalletId",
+      "linked_wallet_id",
+      "reserveWalletId",
+      "reserve_wallet_id",
+      "sourceWalletId",
+      "source_wallet_id",
+      "walletId",
+      "wallet_id",
+    ], "") || ""
+  ).trim();
+}
+
+function getLinkedWalletName(emergencyFund) {
+  return String(
+    firstValue(emergencyFund, [
+      "linkedWalletName",
+      "linked_wallet_name",
+      "reserveWalletName",
+      "reserve_wallet_name",
+      "sourceWalletName",
+      "source_wallet_name",
+      "walletName",
+      "wallet_name",
+    ], "") || ""
+  ).trim();
+}
+
+function walletId(wallet) {
+  return String(wallet?.id || wallet?.wallet_id || wallet?.walletId || wallet?.uuid || "").trim();
+}
+
+function walletName(wallet) {
+  return String(wallet?.name || wallet?.title || wallet?.wallet_name || wallet?.label || "Wallet").trim() || "Wallet";
+}
+
+function walletBalance(wallet) {
+  return toNumber(
+    wallet?.derived_balance ??
+      wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.amount ??
+      wallet?.money ??
+      0
+  );
+}
+
+function normalizeWallet(wallet = {}) {
+  const id = walletId(wallet);
+  const balance = walletBalance(wallet);
+  const protectedAmount = toNumber(wallet?.emergencyProtectedAmount ?? wallet?.emergency_protected_amount ?? 0);
+  return {
+    ...wallet,
+    id,
+    wallet_id: id,
+    name: walletName(wallet),
+    balance,
+    emergencyProtectedAmount: protectedAmount,
+    emergency_protected_amount: protectedAmount,
+    spendableBalance: Math.max(balance - Math.min(protectedAmount, balance), 0),
+    spendable_balance: Math.max(balance - Math.min(protectedAmount, balance), 0),
+  };
 }
 
 function isIncomeRecord(row) {
@@ -91,6 +166,12 @@ function isIncomeRecord(row) {
   const category = String(row?.category || row?.category_name || "").trim().toLowerCase();
   const sourceType = String(row?.source_type || row?.sourceType || "").trim().toLowerCase();
   return INCOME_TYPES.has(type) || INCOME_TYPES.has(sourceType) || category.includes("income") || category.includes("salary") || sourceType.includes("salary");
+}
+
+function getRecordDate(row) {
+  const value = row?.createdAt || row?.created_at || row?.created_date || row?.date || row?.transaction_date || row?.updatedAt || row?.updated_at;
+  const parsed = new Date(value || 0);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function standardDeviation(values = []) {
@@ -108,31 +189,6 @@ function roundFriendly(value) {
   return Math.round(amount / 500) * 500;
 }
 
-function normalizeWallet(wallet = {}) {
-  const id = String(wallet?.id || wallet?.wallet_id || wallet?.walletId || wallet?.uuid || "");
-  const balance = toNumber(
-    wallet?.balance ??
-      wallet?.current_balance ??
-      wallet?.amount ??
-      wallet?.wallet_balance ??
-      wallet?.money ??
-      0
-  );
-
-  return {
-    ...wallet,
-    id,
-    wallet_id: id,
-    name:
-      wallet?.name ||
-      wallet?.title ||
-      wallet?.wallet_name ||
-      wallet?.label ||
-      "Wallet",
-    balance,
-  };
-}
-
 function buildEmergencyAdvisor({ incomeRows = [], effectiveExpense = 0, amountNeeded = 0, targetMonths = 3 } = {}) {
   const now = Date.now();
   const startTime = now - INCOME_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
@@ -141,15 +197,10 @@ function buildEmergencyAdvisor({ incomeRows = [], effectiveExpense = 0, amountNe
   let count = 0;
 
   (Array.isArray(incomeRows) ? incomeRows : []).forEach((row) => {
-    if (!row || row.deletedAt || row.deleted_at) return;
-    if (!isIncomeRecord(row)) return;
-
+    if (!row || row.deletedAt || row.deleted_at || !isIncomeRecord(row)) return;
     const amount = toNumber(row.amount ?? row.value ?? row.total ?? row.income_amount);
-    if (amount <= 0) return;
-
     const date = getRecordDate(row);
-    if (!date || date.getTime() < startTime || date.getTime() > now) return;
-
+    if (amount <= 0 || !date || date.getTime() < startTime || date.getTime() > now) return;
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     buckets.set(key, (buckets.get(key) || 0) + amount);
     total += amount;
@@ -157,46 +208,28 @@ function buildEmergencyAdvisor({ incomeRows = [], effectiveExpense = 0, amountNe
   });
 
   const monthlyValues = Array.from(buckets.values()).filter((value) => value > 0);
-  const activeMonths = monthlyValues.length;
-  const averageMonthlyIncome = total > 0 ? total / Math.min(3, Math.max(activeMonths, 1)) : 0;
-  const deviation = standardDeviation(monthlyValues);
-  const variationRatio = averageMonthlyIncome > 0 ? deviation / averageMonthlyIncome : 0;
-  const stability =
-    count < 2 || averageMonthlyIncome <= 0
-      ? "unknown"
-      : variationRatio <= 0.25
-        ? "stable"
-        : variationRatio <= 0.55
-          ? "mixed"
-          : "irregular";
-
+  const averageMonthlyIncome = total > 0 ? total / Math.min(3, Math.max(monthlyValues.length, 1)) : 0;
+  const variationRatio = averageMonthlyIncome > 0 ? standardDeviation(monthlyValues) / averageMonthlyIncome : 0;
+  const stability = count < 2 || averageMonthlyIncome <= 0 ? "unknown" : variationRatio <= 0.25 ? "stable" : variationRatio <= 0.55 ? "mixed" : "irregular";
   const rate = stability === "stable" ? 0.15 : stability === "mixed" ? 0.1 : stability === "irregular" ? 0.07 : 0.05;
   const monthlyRoomAfterSurvival = Math.max(averageMonthlyIncome - toNumber(effectiveExpense), 0);
-  const incomeBased = averageMonthlyIncome * rate;
-  const pressureBased = monthlyRoomAfterSurvival * 0.35;
-  const conservative = Math.min(incomeBased, pressureBased > 0 ? pressureBased : incomeBased);
+  const conservative = Math.min(averageMonthlyIncome * rate, monthlyRoomAfterSurvival > 0 ? monthlyRoomAfterSurvival * 0.35 : averageMonthlyIncome * rate);
   const recommendedMonthlyAmount = Math.min(Math.max(toNumber(amountNeeded), 0), roundFriendly(conservative));
-  const estimatedMonthsToTarget = recommendedMonthlyAmount > 0 && amountNeeded > 0 ? Math.ceil(amountNeeded / recommendedMonthlyAmount) : 0;
-
-  let tone = "CLARA needs more income history before giving a precise pace.";
-  if (stability === "stable") tone = "Your income pattern looks stable enough for a consistent protection pace.";
-  if (stability === "mixed") tone = "Your income pattern moves a bit, so CLARA is keeping this pace flexible.";
-  if (stability === "irregular") tone = "Your income changes often, so CLARA is choosing a gentler protection pace.";
 
   return {
     lookbackDays: INCOME_LOOKBACK_DAYS,
     incomeEntryCount: count,
-    activeIncomeMonths: activeMonths,
+    activeIncomeMonths: monthlyValues.length,
     averageMonthlyIncome,
     monthlyIncomeValues: monthlyValues,
     stability,
     variationRatio,
     monthlyRoomAfterSurvival,
     recommendedMonthlyAmount,
-    estimatedMonthsToTarget,
+    estimatedMonthsToTarget: recommendedMonthlyAmount > 0 && amountNeeded > 0 ? Math.ceil(amountNeeded / recommendedMonthlyAmount) : 0,
     selectedTargetMonths: targetMonths,
     hasIncomeSignal: averageMonthlyIncome > 0 && count > 0,
-    tone,
+    tone: stability === "stable" ? "Your income pattern looks stable enough for a consistent protection pace." : stability === "mixed" ? "Your income pattern moves a bit, so CLARA is keeping this pace flexible." : stability === "irregular" ? "Your income changes often, so CLARA is choosing a gentler protection pace." : "CLARA needs more income history before giving a precise pace.",
   };
 }
 
@@ -215,15 +248,9 @@ function storeAnalyticsTransitionOrigin(element) {
 }
 
 export function getStatus(months, targetMonths) {
-  if (months >= targetMonths) {
-    return { label: "Secure", text: "text-emerald-300", badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25", bar: "from-emerald-400 to-green-300", ring: "shadow-[0_0_24px_rgba(52,211,153,0.18)]" };
-  }
-  if (months >= targetMonths * 0.66) {
-    return { label: "Stable", text: "text-emerald-300", badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25", bar: "from-emerald-400 to-green-300", ring: "shadow-[0_0_24px_rgba(52,211,153,0.18)]" };
-  }
-  if (months >= targetMonths * 0.33) {
-    return { label: "Building", text: "text-amber-300", badge: "bg-amber-500/15 text-amber-300 border border-amber-400/25", bar: "from-amber-400 to-yellow-300", ring: "shadow-[0_0_24px_rgba(251,191,36,0.16)]" };
-  }
+  if (months >= targetMonths) return { label: "Secure", text: "text-emerald-300", badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25", bar: "from-emerald-400 to-green-300", ring: "shadow-[0_0_24px_rgba(52,211,153,0.18)]" };
+  if (months >= targetMonths * 0.66) return { label: "Stable", text: "text-emerald-300", badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25", bar: "from-emerald-400 to-green-300", ring: "shadow-[0_0_24px_rgba(52,211,153,0.18)]" };
+  if (months >= targetMonths * 0.33) return { label: "Building", text: "text-amber-300", badge: "bg-amber-500/15 text-amber-300 border border-amber-400/25", bar: "from-amber-400 to-yellow-300", ring: "shadow-[0_0_24px_rgba(251,191,36,0.16)]" };
   return { label: "At Risk", text: "text-rose-300", badge: "bg-rose-500/15 text-rose-300 border border-rose-400/25", bar: "from-rose-400 to-pink-300", ring: "shadow-[0_0_24px_rgba(244,63,94,0.16)]" };
 }
 
@@ -266,34 +293,26 @@ export default function useEmergencyFundCard({
   const navigate = useNavigate();
   const { user } = useAuth();
   const localUserId = getLocalUserId(user);
-  const {
-    emergencyFund,
-    wallets = [],
-    walletTransactions = [],
-    incomes = [],
-    updateEmergencyFund,
-    updateWallet,
-    refreshData,
-  } = useFinancialData(user);
+  const { emergencyFund, wallets = [], walletTransactions = [], incomes = [], updateEmergencyFund, refreshData } = useFinancialData(user);
 
-  const safeWallets = useMemo(
-    () => (Array.isArray(wallets) ? wallets.map(normalizeWallet).filter((wallet) => wallet.id && !wallet.deletedAt && !wallet.deleted_at) : []),
-    [wallets]
-  );
-  const incomeRows = useMemo(
-    () => [
-      ...(Array.isArray(walletTransactions) ? walletTransactions : []),
-      ...(Array.isArray(incomes) ? incomes : []),
-    ],
-    [walletTransactions, incomes]
-  );
+  const linkedWalletIdFromFund = getLinkedWalletId(emergencyFund);
+  const linkedWalletNameFromFund = getLinkedWalletName(emergencyFund);
+  const emergencySavedAmount = getSavedEmergencyAmount(emergencyFund);
+  const emergencyTargetMonths = toNumber(firstValue(emergencyFund, ["targetMonths", "target_months", "months_target"], 3)) || 3;
+  const emergencySurvivalExpense = toNumber(firstValue(emergencyFund, ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"], survivalExpense));
+  const emergencyWallpaper = firstValue(emergencyFund, ["wallpaper", "background", "image"], "") || "";
+  const emergencyWallpaperOpacity = clampOpacity(firstValue(emergencyFund, ["wallpaperOpacity", "wallpaper_opacity", "backgroundOpacity"], 0.3));
+
+  const safeWallets = useMemo(() => (Array.isArray(wallets) ? wallets.map(normalizeWallet).filter((wallet) => wallet.id && !wallet.deletedAt && !wallet.deleted_at) : []), [wallets]);
+  const incomeRows = useMemo(() => [...(Array.isArray(walletTransactions) ? walletTransactions : []), ...(Array.isArray(incomes) ? incomes : [])], [walletTransactions, incomes]);
+  const linkedWallet = useMemo(() => safeWallets.find((wallet) => wallet.id === linkedWalletIdFromFund) || safeWallets.find((wallet) => linkedWalletNameFromFund && wallet.name === linkedWalletNameFromFund) || null, [safeWallets, linkedWalletIdFromFund, linkedWalletNameFromFund]);
 
   const isExpanded = Boolean(expanded);
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [targetMonths, setTargetMonths] = useState(3);
-  const [wallpaper, setWallpaper] = useState("");
-  const [wallpaperOpacity, setWallpaperOpacity] = useState(0.3);
+  const [targetMonths, setTargetMonths] = useState(VALID_TARGET_MONTHS.includes(emergencyTargetMonths) ? emergencyTargetMonths : 3);
+  const [wallpaper, setWallpaper] = useState(emergencyWallpaper);
+  const [wallpaperOpacity, setWallpaperOpacity] = useState(emergencyWallpaperOpacity);
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
   const [draftWallpaper, setDraftWallpaper] = useState("");
   const [draftOpacity, setDraftOpacity] = useState(0.3);
@@ -310,12 +329,6 @@ export default function useEmergencyFundCard({
   const orbTapTimeoutRef = useRef(null);
   const orbTapCountRef = useRef(0);
 
-  const emergencyTargetMonths = Number(getEmergencyValue(emergencyFund, ["targetMonths", "target_months", "months_target"], 3));
-  const emergencySavedAmount = Number(getEmergencyValue(emergencyFund, ["protectedBalance", "protected_balance", "reserveBalance", "reserve_balance", "savedAmount", "saved_amount", "amount", "balance", "moneyLeft"], 0));
-  const emergencySurvivalExpense = Number(getEmergencyValue(emergencyFund, ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"], survivalExpense));
-  const emergencyWallpaper = getEmergencyValue(emergencyFund, ["wallpaper", "background", "image"], "") || "";
-  const emergencyWallpaperOpacity = clampOpacity(getEmergencyValue(emergencyFund, ["wallpaperOpacity", "wallpaper_opacity", "backgroundOpacity"], 0.3));
-
   useEffect(() => {
     setTargetMonths(VALID_TARGET_MONTHS.includes(emergencyTargetMonths) ? emergencyTargetMonths : 3);
     setWallpaper(emergencyWallpaper);
@@ -323,100 +336,81 @@ export default function useEmergencyFundCard({
   }, [emergencyTargetMonths, emergencyWallpaper, emergencyWallpaperOpacity]);
 
   useEffect(() => {
-    if (!topUpWalletId && safeWallets.length > 0) {
-      setTopUpWalletId(String(safeWallets[0]?.id || safeWallets[0]?.wallet_id || ""));
-    }
-  }, [topUpWalletId, safeWallets]);
+    if (!topUpWalletId && linkedWallet?.id) setTopUpWalletId(linkedWallet.id);
+    else if (!topUpWalletId && safeWallets.length) setTopUpWalletId(safeWallets[0].id);
+  }, [topUpWalletId, linkedWallet, safeWallets]);
 
-  useEffect(() => {
-    return () => {
-      if (autoPromptTimeoutRef.current) window.clearTimeout(autoPromptTimeoutRef.current);
-      if (longPressTimeoutRef.current) window.clearTimeout(longPressTimeoutRef.current);
-      if (orbTapTimeoutRef.current) window.clearTimeout(orbTapTimeoutRef.current);
-    };
+  useEffect(() => () => {
+    if (autoPromptTimeoutRef.current) window.clearTimeout(autoPromptTimeoutRef.current);
+    if (longPressTimeoutRef.current) window.clearTimeout(longPressTimeoutRef.current);
+    if (orbTapTimeoutRef.current) window.clearTimeout(orbTapTimeoutRef.current);
   }, []);
 
-  const propExpense = Number(survivalExpense) || 0;
-  const effectiveExpense = emergencySurvivalExpense || propExpense;
-  const safeMoneyLeft = Number(emergencySavedAmount) || 0;
-
-  useEffect(() => {
-    if (autoPromptTimeoutRef.current) {
-      window.clearTimeout(autoPromptTimeoutRef.current);
-      autoPromptTimeoutRef.current = null;
-    }
-    if (!canAutoPrompt) return;
-    if (hasPrompted.current) return;
-
-    const hasValue = effectiveExpense > 0;
-    const alreadySetup = hasSurvivalSetup || hasValue;
-    if (alreadySetup) {
-      hasPrompted.current = true;
-      return;
-    }
-
-    autoPromptTimeoutRef.current = window.setTimeout(() => {
-      if (hasPrompted.current) return;
-      setShowModal(true);
-      hasPrompted.current = true;
-      autoPromptTimeoutRef.current = null;
-    }, 350);
-
-    return () => {
-      if (autoPromptTimeoutRef.current) {
-        window.clearTimeout(autoPromptTimeoutRef.current);
-        autoPromptTimeoutRef.current = null;
-      }
-    };
-  }, [canAutoPrompt, hasSurvivalSetup, effectiveExpense]);
-
+  const effectiveExpense = emergencySurvivalExpense || toNumber(survivalExpense);
+  const safeMoneyLeft = emergencySavedAmount;
   const target = useMemo(() => effectiveExpense * targetMonths, [effectiveExpense, targetMonths]);
   const months = useMemo(() => (effectiveExpense > 0 ? safeMoneyLeft / effectiveExpense : 0), [safeMoneyLeft, effectiveExpense]);
   const pct = useMemo(() => (target > 0 ? Math.min((safeMoneyLeft / target) * 100, 100) : 0), [safeMoneyLeft, target]);
   const amountNeeded = Math.max(target - safeMoneyLeft, 0);
-  const emergencyAdvisor = useMemo(
-    () => buildEmergencyAdvisor({ incomeRows, effectiveExpense, amountNeeded, targetMonths }),
-    [incomeRows, effectiveExpense, amountNeeded, targetMonths]
-  );
+  const emergencyAdvisor = useMemo(() => buildEmergencyAdvisor({ incomeRows, effectiveExpense, amountNeeded, targetMonths }), [incomeRows, effectiveExpense, amountNeeded, targetMonths]);
 
-  const selectedWallet = useMemo(
-    () => safeWallets.find((wallet) => String(wallet?.id || wallet?.wallet_id || "") === String(topUpWalletId)),
-    [topUpWalletId, safeWallets]
-  );
-  const selectedWalletBalance = Number(selectedWallet?.balance ?? selectedWallet?.current_balance ?? selectedWallet?.amount ?? 0);
+  const selectedWallet = useMemo(() => safeWallets.find((wallet) => wallet.id === topUpWalletId), [topUpWalletId, safeWallets]);
+  const selectedWalletBalance = walletBalance(selectedWallet);
+  const selectedWalletIsLinked = Boolean(selectedWallet?.id && selectedWallet.id === (linkedWallet?.id || linkedWalletIdFromFund));
+  const selectedWalletProtected = selectedWalletIsLinked ? safeMoneyLeft : toNumber(selectedWallet?.emergencyProtectedAmount ?? selectedWallet?.emergency_protected_amount);
+  const selectedWalletSpendableBalance = Math.max(selectedWalletBalance - Math.min(selectedWalletProtected, selectedWalletBalance), 0);
+  const linkedWalletName = linkedWallet?.name || linkedWalletNameFromFund || "Not linked yet";
+  const linkedWalletId = linkedWallet?.id || linkedWalletIdFromFund || "";
 
   const status = getStatus(months, targetMonths);
   const progression = getProgression(months, targetMonths);
   const milestone = MILESTONES.find((m) => m.months === targetMonths);
   const themeClasses = getEmergencyThemeClasses(theme);
 
+  useEffect(() => {
+    if (autoPromptTimeoutRef.current) {
+      window.clearTimeout(autoPromptTimeoutRef.current);
+      autoPromptTimeoutRef.current = null;
+    }
+    if (!canAutoPrompt || hasPrompted.current) return;
+    if (hasSurvivalSetup || effectiveExpense > 0) {
+      hasPrompted.current = true;
+      return;
+    }
+    autoPromptTimeoutRef.current = window.setTimeout(() => {
+      if (hasPrompted.current) return;
+      setShowModal(true);
+      hasPrompted.current = true;
+      autoPromptTimeoutRef.current = null;
+    }, 350);
+  }, [canAutoPrompt, hasSurvivalSetup, effectiveExpense]);
+
   const persistEmergencyFund = async (patch) => {
     if (typeof updateEmergencyFund !== "function") return;
     setSaving(true);
     try {
       await updateEmergencyFund({ ...(emergencyFund || {}), ...patch });
-      if (typeof refreshData === "function") await refreshData();
-    } catch (error) {
-      console.error("Unable to update emergency fund:", error);
-      throw error;
+      await refreshData?.();
     } finally {
       setSaving(false);
     }
   };
 
   const handleSaved = async (val) => {
-    const num = Number(val) || 0;
+    const num = toNumber(val);
+    const nextTarget = num * targetMonths;
     setEditing(false);
     setShowModal(false);
     hasPrompted.current = true;
-    await persistEmergencyFund({ survivalExpense: num, survival_expense: num, monthlyExpense: num, monthly_expense: num });
+    await persistEmergencyFund({ survivalExpense: num, survival_expense: num, monthlyExpense: num, monthly_expense: num, targetAmount: nextTarget, target_amount: nextTarget, target: nextTarget });
     onSurvivalSaved?.(num);
   };
 
   const changeTargetMonths = async (next) => {
     if (!VALID_TARGET_MONTHS.includes(next)) return;
     setTargetMonths(next);
-    await persistEmergencyFund({ targetMonths: next, target_months: next, months_target: next });
+    const nextTarget = effectiveExpense * next;
+    await persistEmergencyFund({ targetMonths: next, target_months: next, months_target: next, targetAmount: nextTarget, target_amount: nextTarget, target: nextTarget });
   };
 
   const clearOrbTapTimer = () => {
@@ -425,38 +419,31 @@ export default function useEmergencyFundCard({
       orbTapTimeoutRef.current = null;
     }
   };
-
   const resetOrbTapState = () => {
     orbTapCountRef.current = 0;
     clearOrbTapTimer();
   };
-
   const openQuickExpense = () => {
     resetOrbTapState();
     if (typeof onQuickExpense === "function") return onQuickExpense();
     window.dispatchEvent(new CustomEvent("clara:open-manual-expense"));
   };
-
   const openQuickAI = () => {
     resetOrbTapState();
     if (typeof onQuickAI === "function") return onQuickAI();
     window.dispatchEvent(new CustomEvent("clara:open-ai-chat"));
   };
-
   const openAnalytics = (event) => {
-    const sourceElement = event?.currentTarget || event?.target || null;
     resetOrbTapState();
-    storeAnalyticsTransitionOrigin(sourceElement);
+    storeAnalyticsTransitionOrigin(event?.currentTarget || event?.target || null);
     navigate("/analytics");
   };
-
   const clearLongPressTimer = () => {
     if (longPressTimeoutRef.current) {
       window.clearTimeout(longPressTimeoutRef.current);
       longPressTimeoutRef.current = null;
     }
   };
-
   const handleOrbPointerDown = () => {
     longPressTriggeredRef.current = false;
     clearLongPressTimer();
@@ -466,13 +453,11 @@ export default function useEmergencyFundCard({
       clearLongPressTimer();
     }, ORB_LONG_PRESS_MS);
   };
-
   const handleOrbPointerUp = () => clearLongPressTimer();
   const handleOrbPointerCancel = () => {
     clearLongPressTimer();
     resetOrbTapState();
   };
-
   const handleOrbClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -492,24 +477,18 @@ export default function useEmergencyFundCard({
   };
 
   const resolvedWallpaperOpacity = clampOpacity(wallpaperOpacity);
-
   const openWallpaperModal = () => {
     setDraftWallpaper(wallpaper || "");
     setDraftOpacity(clampOpacity(wallpaperOpacity));
     setShowWallpaperModal(true);
   };
-
   const handleWallpaperUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") setDraftWallpaper(result);
-    };
+    reader.onload = () => typeof reader.result === "string" && setDraftWallpaper(reader.result);
     reader.readAsDataURL(file);
   };
-
   const handleWallpaperSave = async () => {
     const safeOpacity = clampOpacity(draftOpacity);
     setWallpaper(draftWallpaper || "");
@@ -517,7 +496,6 @@ export default function useEmergencyFundCard({
     await persistEmergencyFund({ wallpaper: draftWallpaper || "", background: draftWallpaper || "", image: draftWallpaper || "", wallpaperOpacity: safeOpacity, wallpaper_opacity: safeOpacity, backgroundOpacity: safeOpacity });
     setShowWallpaperModal(false);
   };
-
   const handleWallpaperRemove = () => {
     setDraftWallpaper("");
     setDraftOpacity(0.3);
@@ -526,53 +504,32 @@ export default function useEmergencyFundCard({
   const openTopUpModal = async () => {
     setTopUpAmount("");
     setTopUpError("");
-    if (!safeWallets.length && typeof refreshData === "function") {
-      try {
-        await refreshData();
-      } catch (error) {
-        console.warn("Unable to refresh wallets before emergency top-up:", error);
-      }
-    }
+    if (linkedWalletId) setTopUpWalletId(linkedWalletId);
+    if (!safeWallets.length) await refreshData?.();
     setShowTopUpModal(true);
   };
 
   const handleTopUpSave = async () => {
-    const amount = Number(topUpAmount);
-    if (!amount || amount <= 0) {
-      setTopUpError("Enter a valid amount.");
-      return;
-    }
-    if (!topUpWalletId) {
-      setTopUpError("Choose one source wallet first.");
-      return;
-    }
-    if (!selectedWallet) {
-      setTopUpError("This source wallet was not found. Refresh and try again.");
-      return;
-    }
-    if (typeof updateWallet !== "function" || typeof updateEmergencyFund !== "function") {
-      setTopUpError("Emergency reserve transfer is not ready yet. Try again after refresh.");
-      return;
-    }
-    if (selectedWalletBalance < amount) {
-      setTopUpError("This wallet does not have enough spendable balance.");
-      return;
-    }
+    const amount = toNumber(topUpAmount);
+    if (amount <= 0) return setTopUpError("Enter a valid amount.");
+    if (!topUpWalletId) return setTopUpError("Choose one source wallet first.");
+    if (!selectedWallet) return setTopUpError("This source wallet was not found. Refresh and try again.");
+    if (safeMoneyLeft > 0 && linkedWalletId && topUpWalletId !== linkedWalletId) return setTopUpError(`Emergency Fund is already protected inside ${linkedWalletName}. Use that wallet or reset first.`);
+    if (selectedWalletSpendableBalance < amount) return setTopUpError("This wallet does not have enough spendable balance after protected money.");
+    if (typeof updateEmergencyFund !== "function") return setTopUpError("Emergency protection is not ready yet. Try again after refresh.");
 
-    const nextWalletBalance = Math.max(selectedWalletBalance - amount, 0);
     const nextSavedAmount = safeMoneyLeft + amount;
     const now = new Date().toISOString();
-    const reserveWalletName = selectedWallet?.name || selectedWallet?.title || "Wallet";
-    const activityId = `emergency_deposit_${Date.now()}`;
-    const emergencyActivityLog = getEmergencyActivityLog(emergencyFund);
+    const reserveWalletName = walletName(selectedWallet);
+    const activityId = `emergency_allocation_${Date.now()}`;
     const nextActivity = [
       {
         id: activityId,
-        type: "deposit",
+        type: "allocation",
         amount,
-        reason: "Emergency Fund Deposit",
-        title: "Emergency Fund Deposit",
-        note: `Moved from ${reserveWalletName}`,
+        reason: "Emergency Fund Allocation",
+        title: "Emergency Fund Allocation",
+        note: `Protected inside ${reserveWalletName}`,
         sourceWalletId: topUpWalletId,
         source_wallet_id: topUpWalletId,
         sourceWalletName: reserveWalletName,
@@ -582,36 +539,23 @@ export default function useEmergencyFundCard({
         createdAt: now,
         created_at: now,
       },
-      ...emergencyActivityLog,
+      ...getEmergencyActivityLog(emergencyFund),
     ].slice(0, 60);
 
     setSaving(true);
     try {
-      await updateWallet(topUpWalletId, {
-        balance: nextWalletBalance,
-        current_balance: nextWalletBalance,
-        wallet_balance: nextWalletBalance,
-        available_balance: nextWalletBalance,
-        updatedAt: now,
-        updated_at: now,
-        lastProtectedReserveAmount: amount,
-        last_protected_reserve_amount: amount,
-        lastProtectedReserveAt: now,
-        last_protected_reserve_at: now,
-      });
-
       await insertWalletTransaction(localUserId, {
         id: activityId,
         wallet_id: topUpWalletId,
         walletId: topUpWalletId,
         amount,
-        type: "emergency_reserve_deposit",
+        type: "emergency_reserve_allocation",
         category: "Emergency Fund",
-        source_type: "emergency_fund_deposit",
-        sourceType: "emergency_fund_deposit",
+        source_type: "emergency_fund_allocation",
+        sourceType: "emergency_fund_allocation",
         tag: "protected_reserve",
-        notes: `Moved ${fmt(amount)} from ${reserveWalletName} into Emergency Fund.`,
-        note: `Moved from ${reserveWalletName}`,
+        notes: `Protected ${fmt(amount)} inside ${reserveWalletName} as Emergency Fund. Wallet total was not changed.`,
+        note: `Protected inside ${reserveWalletName}`,
         emergency_fund_transaction_id: activityId,
         emergencyFundTransactionId: activityId,
         emergency_fund_id: emergencyFund?.id || `emergency_fund:${localUserId}`,
@@ -629,6 +573,8 @@ export default function useEmergencyFundCard({
         ...(emergencyFund || {}),
         savedAmount: nextSavedAmount,
         saved_amount: nextSavedAmount,
+        currentAmount: nextSavedAmount,
+        current_amount: nextSavedAmount,
         amount: nextSavedAmount,
         balance: nextSavedAmount,
         moneyLeft: nextSavedAmount,
@@ -636,6 +582,13 @@ export default function useEmergencyFundCard({
         protected_balance: nextSavedAmount,
         reserveBalance: nextSavedAmount,
         reserve_balance: nextSavedAmount,
+        targetAmount: target,
+        target_amount: target,
+        target,
+        linkedWalletId: topUpWalletId,
+        linked_wallet_id: topUpWalletId,
+        linkedWalletName: reserveWalletName,
+        linked_wallet_name: reserveWalletName,
         reserveWalletId: topUpWalletId,
         reserve_wallet_id: topUpWalletId,
         reserveWalletName,
@@ -648,19 +601,19 @@ export default function useEmergencyFundCard({
         last_top_up_amount: amount,
         lastTopUpWalletId: topUpWalletId,
         last_top_up_wallet_id: topUpWalletId,
-        lastReserveTransferAt: now,
-        last_reserve_transfer_at: now,
+        lastReserveAllocationAt: now,
+        last_reserve_allocation_at: now,
         updatedAt: now,
         updated_at: now,
       });
 
-      if (typeof refreshData === "function") await refreshData();
+      await refreshData?.();
       setShowTopUpModal(false);
       setTopUpAmount("");
       setTopUpError("");
     } catch (error) {
-      console.error("Unable to reserve emergency fund top-up:", error);
-      setTopUpError("CLARA could not move this money into protected reserve yet. Try again.");
+      console.error("Unable to protect emergency fund allocation:", error);
+      setTopUpError("CLARA could not protect this amount yet. Try again.");
     } finally {
       setSaving(false);
     }
@@ -668,7 +621,7 @@ export default function useEmergencyFundCard({
 
   return {
     state: { isExpanded, editing, showModal, targetMonths, wallpaper, wallpaperOpacity, showWallpaperModal, draftWallpaper, draftOpacity, showTopUpModal, topUpAmount, topUpWalletId, topUpError, saving },
-    computed: { safeWallets, effectiveExpense, safeMoneyLeft, target, months, pct, selectedWallet, selectedWalletBalance, status, progression, milestone, themeClasses, resolvedWallpaperOpacity, retentionRate, emergencyAdvisor, validTargetMonths: VALID_TARGET_MONTHS },
+    computed: { safeWallets, effectiveExpense, safeMoneyLeft, target, months, pct, selectedWallet, selectedWalletBalance, selectedWalletSpendableBalance, linkedWallet, linkedWalletId, linkedWalletName, status, progression, milestone, themeClasses, resolvedWallpaperOpacity, retentionRate, emergencyAdvisor, validTargetMonths: VALID_TARGET_MONTHS },
     handlers: { setEditing, setShowModal, setShowWallpaperModal, setDraftWallpaper, setDraftOpacity, setShowTopUpModal, setTopUpAmount, setTopUpWalletId, setTopUpError, handleSaved, changeTargetMonths, handleOrbPointerDown, handleOrbPointerUp, handleOrbPointerCancel, handleOrbClick, openWallpaperModal, handleWallpaperUpload, handleWallpaperSave, handleWallpaperRemove, openTopUpModal, handleTopUpSave },
     refs: { hasPrompted, autoPromptTimeoutRef, longPressTimeoutRef, longPressTriggeredRef, orbTapTimeoutRef, orbTapCountRef },
   };
