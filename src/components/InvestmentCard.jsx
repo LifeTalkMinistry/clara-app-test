@@ -1,13 +1,10 @@
-import { CheckCircle2, PauseCircle, ShieldAlert, Sparkles, TrendingUp, Target } from "lucide-react";
+import { ArrowRight, Landmark, Plus, Sparkles, TrendingUp, WalletCards } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
-import useInvestmentCardLogic, {
-  fmt,
-  INVESTMENT_READINESS,
-} from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
+import useInvestmentCardLogic, { fmt } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 
 const premiumActionClass =
   "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
@@ -15,7 +12,7 @@ const premiumActionClass =
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
-const INVESTMENT_GLOW_LAYERS = [
+const INCOME_HUB_GLOW_LAYERS = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-400/[0.07] blur-[78px]",
   "pointer-events-none absolute -right-[132px] -top-[72px] z-[1] h-[270px] w-[270px] rounded-full bg-sky-500/[0.09] blur-[86px]",
   "pointer-events-none absolute bottom-[-210px] right-[-130px] z-[1] h-[310px] w-[310px] rounded-full bg-purple-700/[0.14] blur-[92px]",
@@ -24,20 +21,18 @@ const INVESTMENT_GLOW_LAYERS = [
   "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-white/[0.055]",
 ];
 
-function InvestmentHeader({ title, subtitle, statusLabel, tone }) {
+function IncomeHubHeader({ title, subtitle, statusLabel, tone }) {
   return (
     <div className="mb-3 flex items-start gap-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm">
-        <TrendingUp className="h-4 w-4" />
+        <WalletCards className="h-4 w-4" />
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-base font-semibold tracking-tight text-white">{title}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-white/76">
-              {subtitle || "Decide before you invest."}
-            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-white/76">{subtitle}</p>
           </div>
 
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
@@ -49,34 +44,18 @@ function InvestmentHeader({ title, subtitle, statusLabel, tone }) {
   );
 }
 
-function InvestmentSummaryStats({ mainLabel, readinessStatus, safeToInvest, selectedType, tone }) {
-  const isReady = readinessStatus === INVESTMENT_READINESS.READY_TO_TEST;
-  const isActive = readinessStatus === INVESTMENT_READINESS.ACTIVE_TEST;
-  const isPaused = readinessStatus === INVESTMENT_READINESS.PAUSE_INVESTING;
-
+function IncomeSummaryStats({ mainLabel, statOneLabel, statOneValue, statTwoLabel, statTwoValue, statThreeLabel, statThreeValue, tone }) {
   const summaryTiles = [
-    {
-      label: "Safe test range",
-      value: isReady ? fmt(safeToInvest) : "₱0",
-      valueClassName: isReady ? "text-emerald-200" : tone.value,
-    },
-    { label: "Plan type", value: selectedType },
-    {
-      label: "Status",
-      value: isActive ? "Active" : isPaused ? "Pause" : isReady ? "Ready" : "Wait",
-      valueClassName: isReady || isActive ? "text-emerald-200" : tone.value,
-    },
+    { label: statOneLabel, value: statOneValue, valueClassName: "text-emerald-200" },
+    { label: statTwoLabel, value: statTwoValue },
+    { label: statThreeLabel, value: statThreeValue, valueClassName: tone.value },
   ];
 
   return (
     <>
       <div className="mb-3">
-        <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>
-          {mainLabel}
-        </p>
-        <p className="mt-2 text-sm font-semibold leading-tight text-white/76">
-          {isReady ? "Start small. Protect the base." : isActive ? "Track calmly. Review first." : "Build protection first."}
-        </p>
+        <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
+        <p className="mt-2 text-sm font-semibold leading-tight text-white/76">Track where money is created before it reaches your wallets.</p>
       </div>
 
       <div className="mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
@@ -84,16 +63,10 @@ function InvestmentSummaryStats({ mainLabel, readinessStatus, safeToInvest, sele
           {summaryTiles.map((tile) => (
             <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
               <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent" />
-              <p
-                className={`flex min-h-[1rem] items-center justify-center truncate text-[13px] font-black leading-none tracking-[-0.03em] ${
-                  tile.valueClassName || "text-white/88"
-                }`}
-              >
+              <p className={`flex min-h-[1rem] items-center justify-center truncate text-[13px] font-black leading-none tracking-[-0.03em] ${tile.valueClassName || "text-white/88"}`}>
                 {tile.value}
               </p>
-              <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
-                {tile.label}
-              </p>
+              <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">{tile.label}</p>
             </div>
           ))}
         </div>
@@ -109,33 +82,17 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
         detailKey="investmentFund"
         expanded={expanded}
         onToggleDetails={onToggleDetails}
-        collapsedLabel="View investment details"
-        expandedLabel="Hide investment details"
+        collapsedLabel="View income sources"
+        expandedLabel="Hide income sources"
         className={expandButtonClass}
       />
     </div>
   );
 }
 
-function ReadinessIcon({ readinessStatus }) {
-  if (readinessStatus === INVESTMENT_READINESS.PAUSE_INVESTING) {
-    return <PauseCircle className="h-4 w-4" />;
-  }
-
-  if (readinessStatus === INVESTMENT_READINESS.READY_TO_TEST || readinessStatus === INVESTMENT_READINESS.ACTIVE_TEST) {
-    return <CheckCircle2 className="h-4 w-4" />;
-  }
-
-  return <ShieldAlert className="h-4 w-4" />;
-}
-
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const navigate = useNavigate();
-  const { state, computed, handlers } = useInvestmentCardLogic({
-    item,
-    expanded,
-    onToggleDetails,
-  });
+  const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
 
   const { isExpanded } = state;
   const {
@@ -144,63 +101,26 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     subtitle,
     statusLabel,
     mainLabel,
-    safeToInvest,
-    safeRangeMin,
-    selectedType,
     amountStatus,
-    readinessStatus,
     statusMeta,
     readiness,
+    statOneLabel,
+    statOneValue,
+    statTwoLabel,
+    statTwoValue,
+    statThreeLabel,
+    statThreeValue,
   } = computed;
   const { handleAskClara, handlePlanInvestment, handleToggleDetails } = handlers;
 
-  const isReady = readinessStatus === INVESTMENT_READINESS.READY_TO_TEST;
-  const isActive = readinessStatus === INVESTMENT_READINESS.ACTIVE_TEST;
-  const isPaused = readinessStatus === INVESTMENT_READINESS.PAUSE_INVESTING;
-
-  const explanationTitle = isReady ? "Why this range?" : isActive ? "Why review?" : isPaused ? "Why pause?" : "Why this status?";
-  const explanationHeading = isReady
-    ? "Protected surplus only"
-    : isActive
-      ? "Controlled test, not gambling"
-      : isPaused
-        ? "Your base changed"
-        : "Emergency protection comes first";
-  const explanationText = isReady
-    ? `CLARA found ${safeRangeMin > 0 ? `${fmt(safeRangeMin)}–` : ""}${fmt(safeToInvest)} as a cautious test range. This excludes emergency protection and essential money.`
-    : isActive
-      ? "Keep this as a measured experiment. Review results before adding more money."
-      : isPaused
-        ? "CLARA detected pressure on your base. Pause this plan until your protection layer is stable again."
-        : "Emergency protection comes first. CLARA will suggest a starter range after your emergency layer is secured and there is extra wallet room beyond it.";
-
-  const recognitionTitle = isReady ? "Ready to test" : isActive ? "Track calmly" : isPaused ? "Protect the base" : "Protection first";
-  const recognitionText = isReady
-    ? "Start small, test only from surplus, and keep emergency money untouched."
-    : isActive
-      ? "Review before adding more. Do not chase. Measure the result."
-      : isPaused
-        ? "Pause before pressure grows. This idea can stay saved while your base recovers."
-        : "Build your emergency layer first so investing does not become pressure money.";
-
-  const openInvestmentPlan = () => {
-    navigate("/investment-plan", {
-      state: {
-        safeToInvest,
-        safeRangeMin,
-        selectedType,
-        canSafelyInvest: isReady,
-        readinessStatus,
-        blockers: readiness?.blockers || [],
-        source: "investment-card",
-      },
-    });
+  const openIncomeHub = () => {
+    navigate("/investment-plan", { state: { source: "income-hub-card" } });
   };
 
-  const primaryLabel = isReady ? "Start Investment Plan" : isActive ? "Review with CLARA" : isPaused ? "Review my finances first" : "Ask CLARA First";
-  const secondaryLabel = isReady ? "Ask CLARA First" : isActive ? "Pause Plan" : isPaused ? "Keep idea saved" : "Add Investment Plan Idea";
-  const primaryAction = isReady ? openInvestmentPlan : handleAskClara;
-  const secondaryAction = isReady ? handleAskClara : isActive ? handlePlanInvestment : openInvestmentPlan;
+  const sourceCount = readiness?.sourceCount || 0;
+  const monthlyGenerated = readiness?.monthlyGenerated || 0;
+  const topSourceName = readiness?.topSourceName || "No source yet";
+  const mainSourceShare = Math.round(readiness?.mainSourceShare || 0);
 
   return (
     <FinanceCardShell
@@ -208,7 +128,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
       expanded={isExpanded}
       ringClass="shadow-[0_0_24px_rgba(34,211,238,0.08),0_0_46px_rgba(88,28,135,0.07)]"
       roundedClass="rounded-3xl"
-      glowLayerClassNames={INVESTMENT_GLOW_LAYERS}
+      glowLayerClassNames={INCOME_HUB_GLOW_LAYERS}
       surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]"
       shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]"
     >
@@ -222,14 +142,17 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
           <div className="relative flex min-h-0 flex-col gap-4">
             <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-              <InvestmentHeader title={title} subtitle={subtitle} statusLabel={statusLabel} tone={tone} />
+              <IncomeHubHeader title={title} subtitle={subtitle} statusLabel={statusLabel} tone={tone} />
 
               <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
-                <InvestmentSummaryStats
+                <IncomeSummaryStats
                   mainLabel={mainLabel}
-                  readinessStatus={readinessStatus}
-                  safeToInvest={safeToInvest}
-                  selectedType={selectedType}
+                  statOneLabel={statOneLabel}
+                  statOneValue={statOneValue}
+                  statTwoLabel={statTwoLabel}
+                  statTwoValue={statTwoValue}
+                  statThreeLabel={statThreeLabel}
+                  statThreeValue={statThreeValue}
                   tone={tone}
                 />
               </div>
@@ -249,7 +172,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
             <div className="shrink-0">
               <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{mainLabel}</p>
               <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">
-                {statusMeta?.subtitle || "Decide before you invest."}
+                {statusMeta?.subtitle || "Where your money comes from before it enters your wallets."}
               </p>
             </div>
 
@@ -259,19 +182,25 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
                 <div className="relative overflow-hidden rounded-2xl border border-cyan-300/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(14,165,233,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(14,165,233,0.035)]">
                   <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-cyan-300/[0.06] blur-2xl" />
-                  <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/46">{explanationTitle}</p>
-                  <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">{explanationHeading}</p>
-                  <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">{explanationText}</p>
+                  <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/46">Income map</p>
+                  <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">Money source before wallet</p>
+                  <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">
+                    Income Hub tracks salary, business, side hustle, allowance, and freelance income before it enters your wallets.
+                  </p>
                 </div>
 
                 <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="relative flex items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)]">
-                      <ReadinessIcon readinessStatus={readinessStatus} />
+                      <TrendingUp className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black leading-tight text-white/92">{recognitionTitle}</p>
-                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">{recognitionText}</p>
+                      <p className="text-sm font-black leading-tight text-white/92">{sourceCount ? `${sourceCount} source${sourceCount > 1 ? "s" : ""} tracked` : "Start with your first source"}</p>
+                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">
+                        {sourceCount
+                          ? `This month, tracked money in is ${fmt(monthlyGenerated)}. Top source: ${topSourceName}.`
+                          : "Add Salary, Business, Side Hustle, Allowance, or Freelance first."}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -279,19 +208,17 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                 <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span>
-                    <span className={`text-[11px] font-black ${isReady || isActive ? "text-emerald-200" : tone.value}`}>
-                      {statusMeta?.statusValue || "Wait"}
-                    </span>
+                    <span className={`text-[11px] font-black ${tone.value}`}>{statusMeta?.statusValue || "Income"}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58">
                     <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                      <p className="text-white/34">Plan type</p>
-                      <p className="mt-1.5 text-sm font-black text-white/84">{selectedType}</p>
+                      <p className="text-white/34">Top source</p>
+                      <p className="mt-1.5 truncate text-sm font-black text-white/84">{topSourceName}</p>
                     </div>
                     <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                      <p className="text-white/34">Safe test range</p>
-                      <p className="mt-1.5 text-sm font-black text-white/84">{isReady ? fmt(safeToInvest) : "₱0"}</p>
+                      <p className="text-white/34">Dependency</p>
+                      <p className="mt-1.5 text-sm font-black text-white/84">{mainSourceShare}%</p>
                     </div>
                   </div>
 
@@ -303,24 +230,30 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                 <div className="grid grid-cols-1 gap-2.5 pt-1.5">
                   <button
                     type="button"
-                    onClick={primaryAction}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-black transition ${
-                      isReady
-                        ? "border-cyan-300/18 bg-cyan-400/[0.09] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] hover:bg-cyan-400/[0.13]"
-                        : premiumActionClass
-                    }`}
+                    onClick={openIncomeHub}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.09] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-400/[0.13]"
                   >
-                    {isReady ? <Target className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                    {primaryLabel}
+                    <Plus className="h-4 w-4" />
+                    Open Income Hub
                   </button>
 
                   <button
                     type="button"
-                    onClick={secondaryAction}
+                    onClick={handleAskClara}
                     className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
                   >
                     <Sparkles className="h-4 w-4" />
-                    {secondaryLabel}
+                    Ask CLARA About Income
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePlanInvestment}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
+                  >
+                    <Landmark className="h-4 w-4" />
+                    Review Income Sources
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
 
