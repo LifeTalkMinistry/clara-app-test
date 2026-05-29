@@ -28,6 +28,10 @@ function getWalletName(wallet = {}) {
   return String(wallet?.name || wallet?.wallet_name || wallet?.title || wallet?.label || "Wallet").trim() || "Wallet";
 }
 
+function getWalletId(wallet = {}) {
+  return String(wallet?.id || wallet?.wallet_id || wallet?.walletId || "").trim();
+}
+
 function getWalletBalance(wallet = {}) {
   return toNumber(
     wallet?.derived_balance,
@@ -78,29 +82,38 @@ function getEmergencyFundAmount(emergencyFund = {}) {
   );
 }
 
-function getEmergencyFundWalletName(emergencyFund = {}, wallets = []) {
-  const linkedId = String(
-    emergencyFund?.linkedWalletId ||
-      emergencyFund?.linked_wallet_id ||
-      emergencyFund?.reserveWalletId ||
-      emergencyFund?.reserve_wallet_id ||
-      ""
-  );
-  const linkedName = String(
-    emergencyFund?.linkedWalletName ||
-      emergencyFund?.linked_wallet_name ||
-      emergencyFund?.reserveWalletName ||
-      emergencyFund?.reserve_wallet_name ||
-      ""
-  );
+function getEmergencyLink(emergencyFund = {}) {
+  return {
+    id: String(
+      emergencyFund?.linkedWalletId ||
+        emergencyFund?.linked_wallet_id ||
+        emergencyFund?.reserveWalletId ||
+        emergencyFund?.reserve_wallet_id ||
+        ""
+    ).trim(),
+    name: String(
+      emergencyFund?.linkedWalletName ||
+        emergencyFund?.linked_wallet_name ||
+        emergencyFund?.reserveWalletName ||
+        emergencyFund?.reserve_wallet_name ||
+        ""
+    ).trim(),
+  };
+}
 
-  const wallet = (Array.isArray(wallets) ? wallets : []).find(
+function findLinkedEmergencyWallet(emergencyFund = {}, wallets = []) {
+  const link = getEmergencyLink(emergencyFund);
+  return (Array.isArray(wallets) ? wallets : []).find(
     (item) =>
-      String(item?.id || item?.wallet_id || item?.walletId || "") === linkedId ||
-      (linkedName && getWalletName(item) === linkedName)
-  );
+      (link.id && getWalletId(item) === link.id) ||
+      (link.name && getWalletName(item) === link.name)
+  ) || null;
+}
 
-  return wallet ? getWalletName(wallet) : linkedName || "an existing wallet";
+function getEmergencyFundWalletName(emergencyFund = {}, wallets = []) {
+  const link = getEmergencyLink(emergencyFund);
+  const wallet = findLinkedEmergencyWallet(emergencyFund, wallets);
+  return wallet ? getWalletName(wallet) : link.name || "an existing wallet";
 }
 
 function getSnapshot(context = {}) {
@@ -108,7 +121,11 @@ function getSnapshot(context = {}) {
   const emergencyFund = context.emergencyFund || context.emergency_fund || {};
   const walletTotal = wallets.reduce((sum, wallet) => sum + getWalletBalance(wallet), 0);
   const protectedTotalFromWallets = wallets.reduce((sum, wallet) => sum + getWalletProtected(wallet), 0);
-  const emergencyAmount = Math.max(protectedTotalFromWallets, getEmergencyFundAmount(emergencyFund));
+  const storedEmergencyAmount = getEmergencyFundAmount(emergencyFund);
+  const linkedWallet = findLinkedEmergencyWallet(emergencyFund, wallets);
+  const hasLink = Boolean(getEmergencyLink(emergencyFund).id || getEmergencyLink(emergencyFund).name);
+  const orphanedEmergencyFund = storedEmergencyAmount > 0 && (!wallets.length || !linkedWallet || !hasLink);
+  const emergencyAmount = orphanedEmergencyFund ? 0 : Math.max(protectedTotalFromWallets, storedEmergencyAmount);
   const spendableTotal = Math.max(walletTotal - emergencyAmount, 0);
   const linkedWalletName = getEmergencyFundWalletName(emergencyFund, wallets);
   const protectedWallet = wallets.find((wallet) => getWalletProtected(wallet) > 0);
@@ -117,6 +134,8 @@ function getSnapshot(context = {}) {
     wallets,
     emergencyFund,
     walletTotal,
+    storedEmergencyAmount,
+    orphanedEmergencyFund,
     emergencyAmount,
     spendableTotal,
     linkedWalletName: protectedWallet ? getWalletName(protectedWallet) : linkedWalletName,
@@ -147,6 +166,10 @@ export function buildContextualFinanceReply(prompt = "", context = {}) {
   const snapshot = getSnapshot(context);
   const amount = purchaseAmount(text);
   const canUseEmergency = explicitlyUsingEmergencyFund(text);
+
+  if (snapshot.orphanedEmergencyFund) {
+    return `I see old Emergency Fund data showing ${money(snapshot.storedEmergencyAmount)}, but it is not linked to an existing wallet yet. I will treat that as unavailable for now, so your spendable wallet money is ${money(snapshot.spendableTotal)}. Create or link a wallet first before CLARA counts that emergency fund.`;
+  }
 
   if (amount !== null && !canUseEmergency) {
     if (amount > snapshot.spendableTotal) {
