@@ -1,1 +1,1 @@
-export { default } from "@/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWallet";
+export { default } from "@/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWalletSynced";
