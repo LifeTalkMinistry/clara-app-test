@@ -99,77 +99,122 @@ function isActiveWallet(wallet) {
   );
 }
 
-function syncEmergencyProtection({ rows = [], allWallets = [], emergencyFund = null }) {
+function isActiveGoal(goal) {
+  return Boolean(goal && !goal?.deletedAt && !goal?.deleted_at);
+}
+
+function getGoalWalletId(goal) {
+  return String(
+    goal?.wallet_id ||
+      goal?.walletId ||
+      goal?.savedInWalletId ||
+      goal?.saved_in_wallet_id ||
+      goal?.storageWalletId ||
+      goal?.storage_wallet_id ||
+      ''
+  ).trim();
+}
+
+function getGoalSavedAmount(goal) {
+  return toNumber(
+    goal?.saved_amount,
+    goal?.savedAmount,
+    goal?.current_amount,
+    goal?.currentAmount,
+    goal?.amount,
+    goal?.balance
+  );
+}
+
+function getSavingsProtectedAmountForWallet(wallet, savingsGoals = []) {
+  const walletId = getWalletId(wallet);
+  if (!walletId) return 0;
+
+  return (Array.isArray(savingsGoals) ? savingsGoals : [])
+    .filter(isActiveGoal)
+    .filter((goal) => getGoalWalletId(goal) === walletId)
+    .reduce((sum, goal) => sum + getGoalSavedAmount(goal), 0);
+}
+
+function syncProtectedAllocations({ rows = [], allWallets = [], emergencyFund = null, savingsGoals = [] }) {
   const activeWallets = (Array.isArray(allWallets) ? allWallets : []).filter(isActiveWallet);
-  const protectedAmount = getEmergencyAmount(emergencyFund);
+  const emergencyAmount = getEmergencyAmount(emergencyFund);
   const storageWalletId = getEmergencyStorageWalletId(emergencyFund);
   const storageWalletName = getEmergencyStorageWalletName(emergencyFund);
-  const storageWallet =
+  const emergencyWallet =
     activeWallets.find((wallet) => getWalletId(wallet) === storageWalletId) ||
     (!storageWalletId && storageWalletName
       ? activeWallets.find((wallet) => getWalletName(wallet) === storageWalletName)
       : null);
-  const activeStorageId = storageWallet ? getWalletId(storageWallet) : '';
-  const activeStorageName = storageWallet ? getWalletName(storageWallet) : '';
+  const emergencyWalletId = emergencyWallet ? getWalletId(emergencyWallet) : '';
+  const emergencyWalletName = emergencyWallet ? getWalletName(emergencyWallet) : '';
 
   return (Array.isArray(rows) ? rows : []).map((wallet) => {
     const walletId = getWalletId(wallet);
     const walletName = getWalletName(wallet);
-    const isStorageWallet =
-      protectedAmount > 0 &&
-      Boolean(storageWallet) &&
-      (walletId === activeStorageId || (!walletId && activeStorageName && walletName === activeStorageName));
     const walletBalance = getWalletBalance(wallet);
-    const derivedProtectedAmount = isStorageWallet
-      ? Math.min(protectedAmount, Math.max(walletBalance, 0))
+    const isEmergencyStorageWallet =
+      emergencyAmount > 0 &&
+      Boolean(emergencyWallet) &&
+      (walletId === emergencyWalletId || (!walletId && emergencyWalletName && walletName === emergencyWalletName));
+    const emergencyProtectedAmount = isEmergencyStorageWallet
+      ? Math.min(emergencyAmount, Math.max(walletBalance, 0))
       : 0;
-    const spendableBalance = Math.max(walletBalance - derivedProtectedAmount, 0);
+    const rawSavingsProtectedAmount = getSavingsProtectedAmountForWallet(wallet, savingsGoals);
+    const savingsProtectedAmount = Math.min(rawSavingsProtectedAmount, Math.max(walletBalance - emergencyProtectedAmount, 0));
+    const totalProtectedAmount = emergencyProtectedAmount + savingsProtectedAmount;
+    const spendableBalance = Math.max(walletBalance - totalProtectedAmount, 0);
 
     return {
       ...wallet,
-      emergencyProtectedAmount: derivedProtectedAmount,
-      emergency_protected_amount: derivedProtectedAmount,
-      protectedEmergencyAmount: derivedProtectedAmount,
-      protected_emergency_amount: derivedProtectedAmount,
+      emergencyProtectedAmount,
+      emergency_protected_amount: emergencyProtectedAmount,
+      protectedEmergencyAmount: emergencyProtectedAmount,
+      protected_emergency_amount: emergencyProtectedAmount,
+      savingsProtectedAmount,
+      savings_protected_amount: savingsProtectedAmount,
+      protectedSavingsAmount: savingsProtectedAmount,
+      protected_savings_amount: savingsProtectedAmount,
+      totalProtectedAmount,
+      total_protected_amount: totalProtectedAmount,
       spendableBalance,
       spendable_balance: spendableBalance,
       walletSpendableBalance: spendableBalance,
       wallet_spendable_balance: spendableBalance,
-      hasEmergencyFundAllocation: derivedProtectedAmount > 0,
-      has_emergency_fund_allocation: derivedProtectedAmount > 0,
-      emergencyFundLinkedWalletId: derivedProtectedAmount > 0 ? activeStorageId : null,
-      emergency_fund_linked_wallet_id: derivedProtectedAmount > 0 ? activeStorageId : null,
-      emergencyFundLabel: derivedProtectedAmount > 0 ? 'Includes Emergency Fund' : '',
-      emergency_fund_label: derivedProtectedAmount > 0 ? 'Includes Emergency Fund' : '',
+      hasEmergencyFundAllocation: emergencyProtectedAmount > 0,
+      has_emergency_fund_allocation: emergencyProtectedAmount > 0,
+      hasSavingsGoalAllocation: savingsProtectedAmount > 0,
+      has_savings_goal_allocation: savingsProtectedAmount > 0,
+      emergencyFundLinkedWalletId: emergencyProtectedAmount > 0 ? emergencyWalletId : null,
+      emergency_fund_linked_wallet_id: emergencyProtectedAmount > 0 ? emergencyWalletId : null,
+      emergencyFundLabel: emergencyProtectedAmount > 0 ? 'Includes Emergency Fund' : '',
+      emergency_fund_label: emergencyProtectedAmount > 0 ? 'Includes Emergency Fund' : '',
+      savingsGoalLabel: savingsProtectedAmount > 0 ? 'Includes Savings Goals' : '',
+      savings_goal_label: savingsProtectedAmount > 0 ? 'Includes Savings Goals' : '',
     };
   });
 }
 
 export default function WalletCardContentSynced(props) {
   const { user } = useAuth();
-  const { emergencyFund, refreshData } = useFinancialData(user);
+  const { emergencyFund, savingsGoals, refreshData } = useFinancialData(user);
 
   useEffect(() => {
     if (typeof refreshData !== 'function') return undefined;
-
     refreshData();
-
     if (!props.expanded) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      refreshData();
-    }, 900);
-
+    const intervalId = window.setInterval(() => refreshData(), 900);
     return () => window.clearInterval(intervalId);
   }, [props.expanded, refreshData]);
 
   const syncedVisibleWallets = useMemo(
-    () => syncEmergencyProtection({
+    () => syncProtectedAllocations({
       rows: props.visibleWallets,
       allWallets: props.wallets,
       emergencyFund,
+      savingsGoals,
     }),
-    [props.visibleWallets, props.wallets, emergencyFund]
+    [props.visibleWallets, props.wallets, emergencyFund, savingsGoals]
   );
 
   return <WalletCardContent {...props} visibleWallets={syncedVisibleWallets} />;
