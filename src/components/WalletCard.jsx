@@ -1,6 +1,6 @@
 import useWalletCardLogic from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
 import EditWalletModal from '@/components/financial-carousel/cards/wallet/modal/EditWalletModal';
-import WalletCardContent from '@/components/financial-carousel/cards/wallet/ui/WalletCardContent';
+import WalletCardContent from '@/components/financial-carousel/cards/wallet/ui/WalletCardContentSynced';
 import FinanceCardShell from '@/components/financial-carousel/shared/FinanceCardShell';
 
 const WALLET_GLOW_LAYERS = [
