@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import useFinancialData from '@/hooks/useFinancialData';
 import WalletCardContent from '@/components/financial-carousel/cards/wallet/ui/WalletCardContent';
@@ -147,7 +147,22 @@ function syncEmergencyProtection({ rows = [], allWallets = [], emergencyFund = n
 
 export default function WalletCardContentSynced(props) {
   const { user } = useAuth();
-  const { emergencyFund } = useFinancialData(user);
+  const { emergencyFund, refreshData } = useFinancialData(user);
+
+  useEffect(() => {
+    if (typeof refreshData !== 'function') return undefined;
+
+    refreshData();
+
+    if (!props.expanded) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      refreshData();
+    }, 900);
+
+    return () => window.clearInterval(intervalId);
+  }, [props.expanded, refreshData]);
+
   const syncedVisibleWallets = useMemo(
     () => syncEmergencyProtection({
       rows: props.visibleWallets,
