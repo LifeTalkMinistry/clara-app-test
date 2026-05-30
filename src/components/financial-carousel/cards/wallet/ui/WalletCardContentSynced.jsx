@@ -111,6 +111,8 @@ function getGoalWalletId(goal) {
       goal?.saved_in_wallet_id ||
       goal?.storageWalletId ||
       goal?.storage_wallet_id ||
+      goal?.linkedWalletId ||
+      goal?.linked_wallet_id ||
       ''
   ).trim();
 }
@@ -119,21 +121,30 @@ function getGoalSavedAmount(goal) {
   return toNumber(
     goal?.saved_amount,
     goal?.savedAmount,
+    goal?.current_saved_amount,
+    goal?.currentSavedAmount,
     goal?.current_amount,
     goal?.currentAmount,
+    goal?.saved,
+    goal?.amount_saved,
+    goal?.amountSaved,
     goal?.amount,
     goal?.balance
   );
 }
 
-function getSavingsProtectedAmountForWallet(wallet, savingsGoals = []) {
+function getSavingsGoalStatsForWallet(wallet, savingsGoals = []) {
   const walletId = getWalletId(wallet);
-  if (!walletId) return 0;
+  if (!walletId) return { amount: 0, count: 0 };
 
-  return (Array.isArray(savingsGoals) ? savingsGoals : [])
+  const assignedGoals = (Array.isArray(savingsGoals) ? savingsGoals : [])
     .filter(isActiveGoal)
-    .filter((goal) => getGoalWalletId(goal) === walletId)
-    .reduce((sum, goal) => sum + getGoalSavedAmount(goal), 0);
+    .filter((goal) => getGoalWalletId(goal) === walletId);
+
+  return {
+    amount: assignedGoals.reduce((sum, goal) => sum + getGoalSavedAmount(goal), 0),
+    count: assignedGoals.length,
+  };
 }
 
 function syncProtectedAllocations({ rows = [], allWallets = [], emergencyFund = null, savingsGoals = [] }) {
@@ -160,8 +171,10 @@ function syncProtectedAllocations({ rows = [], allWallets = [], emergencyFund = 
     const emergencyProtectedAmount = isEmergencyStorageWallet
       ? Math.min(emergencyAmount, Math.max(walletBalance, 0))
       : 0;
-    const rawSavingsProtectedAmount = getSavingsProtectedAmountForWallet(wallet, savingsGoals);
+    const savingsGoalStats = getSavingsGoalStatsForWallet(wallet, savingsGoals);
+    const rawSavingsProtectedAmount = savingsGoalStats.amount;
     const savingsProtectedAmount = Math.min(rawSavingsProtectedAmount, Math.max(walletBalance - emergencyProtectedAmount, 0));
+    const hasSavingsGoalAssignment = savingsGoalStats.count > 0;
     const totalProtectedAmount = emergencyProtectedAmount + savingsProtectedAmount;
     const spendableBalance = Math.max(walletBalance - totalProtectedAmount, 0);
 
@@ -175,6 +188,8 @@ function syncProtectedAllocations({ rows = [], allWallets = [], emergencyFund = 
       savings_protected_amount: savingsProtectedAmount,
       protectedSavingsAmount: savingsProtectedAmount,
       protected_savings_amount: savingsProtectedAmount,
+      savingsGoalCount: savingsGoalStats.count,
+      savings_goal_count: savingsGoalStats.count,
       totalProtectedAmount,
       total_protected_amount: totalProtectedAmount,
       spendableBalance,
@@ -183,14 +198,14 @@ function syncProtectedAllocations({ rows = [], allWallets = [], emergencyFund = 
       wallet_spendable_balance: spendableBalance,
       hasEmergencyFundAllocation: emergencyProtectedAmount > 0,
       has_emergency_fund_allocation: emergencyProtectedAmount > 0,
-      hasSavingsGoalAllocation: savingsProtectedAmount > 0,
-      has_savings_goal_allocation: savingsProtectedAmount > 0,
+      hasSavingsGoalAllocation: hasSavingsGoalAssignment,
+      has_savings_goal_allocation: hasSavingsGoalAssignment,
       emergencyFundLinkedWalletId: emergencyProtectedAmount > 0 ? emergencyWalletId : null,
       emergency_fund_linked_wallet_id: emergencyProtectedAmount > 0 ? emergencyWalletId : null,
       emergencyFundLabel: emergencyProtectedAmount > 0 ? 'Includes Emergency Fund' : '',
       emergency_fund_label: emergencyProtectedAmount > 0 ? 'Includes Emergency Fund' : '',
-      savingsGoalLabel: savingsProtectedAmount > 0 ? 'Includes Savings Goals' : '',
-      savings_goal_label: savingsProtectedAmount > 0 ? 'Includes Savings Goals' : '',
+      savingsGoalLabel: hasSavingsGoalAssignment ? 'Includes Savings Goals' : '',
+      savings_goal_label: hasSavingsGoalAssignment ? 'Includes Savings Goals' : '',
     };
   });
 }
