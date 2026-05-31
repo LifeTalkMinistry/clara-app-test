@@ -1,0 +1,80 @@
+name: Repair schedule impact
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply source repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx')
+          s = p.read_text()
+          s = s.replace('function isClearMoneyReply(value) {\n  const text = cleanText(value).toLowerCase();\n  if (!text) return false;\n  if (isQuantityOnlyReply(text)) return false;\n  if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text) && parseAmount(text) > 0) return true;\n  return /^\\d+(?:\\.\\d+)?$/.test(text) && parseAmount(text) > 0;\n}', 'function parseSingleAmount(text) {\n  const source = String(text || "").replace(/,/g, "");\n  const explicitMatches = [\n    ...source.matchAll(/(?:₱|php\\s*)\\s*(\\d+(?:\\.\\d+)?)/gi),\n    ...source.matchAll(/\\b(\\d+(?:\\.\\d+)?)\\s*(?:pesos?|php|fare|pamasahe|cost|spend|budget)\\b/gi),\n  ];\n  if (explicitMatches.length) return Math.max(0, Math.round(Number(explicitMatches.at(-1)?.[1] || 0)));\n  const numberMatches = [...source.matchAll(/\\b(\\d+(?:\\.\\d+)?)\\b/g)];\n  if (!numberMatches.length) return 0;\n  return Math.max(0, Math.round(Number(numberMatches.at(-1)?.[1] || 0)));\n}\n\nfunction isClearMoneyReply(value) {\n  const text = cleanText(value).toLowerCase();\n  if (!text) return false;\n  if (isQuantityOnlyReply(text)) return false;\n  if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text) && parseSingleAmount(text) > 0) return true;\n  return /^\\d+(?:\\.\\d+)?$/.test(text) && parseSingleAmount(text) > 0;\n}\n\nfunction isReadyToMoveOn(value) {\n  return /\\b(ready|next|none|nothing else|wala na|move on|go ahead|continue|proceed|yes|yeah|yep|sure|ok|okay|sige)\\b/i.test(cleanText(value));\n}\n\nfunction isTransportTotalCorrection(value, activeCategory = "") {\n  const text = cleanText(value).toLowerCase();\n  if (!text || !isClearMoneyReply(text)) return false;\n  const hasTransportTerm = /(transportation|transport|pamasahe|fare|back and forth|balikan|round trip|both ways|going there and going back|going back and forth|whole transportation|total transportation|transportation total|already the whole)/i.test(text);\n  const hasTotalTerm = /\\b(total|overall|all in|already|back and forth|balikan|round trip|both ways)\\b/i.test(text);\n  return hasTransportTerm || (activeCategory === "transport" && hasTotalTerm);\n}')
+          insert_after = '''function getCategoryTotal(path = [], categoryKey = "") {
+  const category = normalizeExpensePath(path).find((item) => item.category === categoryKey);
+  return category ? category.sub_items.reduce((sum, subItem) => sum + Number(subItem.amount || 0), 0) : 0;
+}
+'''
+          helper = '''
+function reconcileCategoryTotal(path, categoryKey, totalAmount) {
+  const normalized = normalizeExpensePath(path);
+  const targetCategory = normalized.find((category) => category.category === categoryKey);
+  if (!targetCategory) return normalized;
+  const amount = Math.max(0, Math.round(Number(totalAmount || 0)));
+  if (categoryKey === "transport") {
+    const split = Math.round(amount / 2);
+    const remainder = amount - split;
+    return normalized.map((category) => {
+      if (category.category !== categoryKey) return category;
+      return {
+        ...category,
+        sub_items: category.sub_items.map((item) => {
+          if (item.key === "transport_going_there") return { ...item, amount: split, status: amount > 0 ? "completed" : "skipped" };
+          if (item.key === "transport_going_home") return { ...item, amount: remainder, status: amount > 0 ? "completed" : "skipped" };
+          if (item.key === "transport_extra_stop") return item.status === "pending" ? { ...item, amount: 0, status: "skipped" } : item;
+          return item;
+        }),
+      };
+    });
+  }
+  return normalized;
+}
+'''
+          if 'function reconcileCategoryTotal' not in s:
+            s = s.replace(insert_after, insert_after + helper)
+          marker = 'function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategory, activeSubItem }) {\n  const path = normalizeExpensePath(expensePath);'
+          s = s.replace(marker, marker + '\n  const activeCategoryKey = cleanText(activeCategory);')
+          s = s.replace('const amount = sameReply ? previousAmount : hasClearCost ? parseAmount(reply) : 0;', 'const amount = sameReply ? previousAmount : hasClearCost ? parseSingleAmount(reply) : 0;')
+          local_hook = '''\n    if (isTransportTotalCorrection(reply, category?.category || activeCategoryKey)) {\n      const correctedAmount = parseSingleAmount(reply);\n      const correctedPath = reconcileCategoryTotal(path, "transport", correctedAmount);\n      const nextTotal = sumPath(correctedPath);\n      if (category?.category === "transport") {\n        return { stage: "category_summary", total: nextTotal, expensePath: correctedPath, activeCategory: "transport", activeSubItem: "", message: `Got it, Max. I’ll treat ${formatPeso(correctedAmount)} as your total transportation estimate. Anything else for transportation, or are we ready to move to food and drinks?` };\n      }\n      return { stage: "category_assessment", total: nextTotal, expensePath: correctedPath, activeCategory: "food", activeSubItem: "food_personal", message: `Got it, Max. I corrected transportation to ${formatPeso(correctedAmount)} total. Now we can continue with food and drinks. ${getLocalPromptForSubItem("food_personal", correctedPath)}` };\n    }\n'''
+          if 'I’ll treat ${formatPeso(correctedAmount)} as your total transportation estimate' not in s:
+            s = s.replace('''    const previousAmount = item.key === "transport_going_home" ? findSubItem(path, "transport_going_there").item?.amount || 0 : 0;''', local_hook + '''\n    const previousAmount = item.key === "transport_going_home" ? findSubItem(path, "transport_going_there").item?.amount || 0 : 0;''')
+          summary_block = '''\n  if (stage === "category_summary") {\n    if (isTransportTotalCorrection(reply, activeCategoryKey)) {\n      const correctedAmount = parseSingleAmount(reply);\n      const correctedPath = reconcileCategoryTotal(path, "transport", correctedAmount);\n      const nextTotal = sumPath(correctedPath);\n      return { stage: "category_assessment", total: nextTotal, expensePath: correctedPath, activeCategory: "food", activeSubItem: "food_personal", message: `Got it, Max. I corrected transportation to ${formatPeso(correctedAmount)} total. Now we can continue with food and drinks. ${getLocalPromptForSubItem("food_personal", correctedPath)}` };\n    }\n    if (isReadyToMoveOn(reply) || isNegativeOrFree(reply)) {\n      const first = getFirstPending(path);\n      if (!first.subItem) return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSummaryMessage(total, path) };\n      return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: getLocalPromptForSubItem(first.subItem, path) };\n    }\n    return { stage: "category_summary", total, expensePath: path, activeCategory: activeCategoryKey, activeSubItem: "", message: "Anything else for transportation, or are we ready to move to food and drinks?" };\n  }\n'''
+          if 'stage === "category_summary"' not in s:
+            s = s.replace('''\n  if (stage === "category_assessment") {''', summary_block + '''\n  if (stage === "category_assessment") {''')
+          bypass = '''    const shouldBypassGeminiForLocalCorrection =\n      currentStage === "category_summary" ||\n      (currentStage === "category_assessment" && isTransportTotalCorrection(reply, session.activeCategory));\n'''
+          if 'shouldBypassGeminiForLocalCorrection' not in s:
+            s = s.replace('''    const optimisticMessages = [...(session.messages || []), nextUserMessage];\n\n    setInput("");''', '''    const optimisticMessages = [...(session.messages || []), nextUserMessage];\n''' + bypass + '''\n    setInput("");''')
+            s = s.replace('''    try {\n      const ai = await askGeminiForScheduleImpact''', '''    try {\n      if (shouldBypassGeminiForLocalCorrection) {\n        const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem });\n        setSession((current) => ({ ...current, stage: local.stage, total: local.total, expensePath: local.expensePath, activeCategory: local.activeCategory, activeSubItem: local.activeSubItem, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));\n        return;\n      }\n\n      const ai = await askGeminiForScheduleImpact''')
+          p.write_text(s)
+
+          q = Path('src/lib/ai-command/schedule-impact-service.js')
+          t = q.read_text()
+          t = t.replace('temperature: 0.45', 'temperature: 0.2')
+          if 'Do not include trailing commas.' not in t:
+            t = t.replace('Return JSON only.\n', 'Return JSON only.\n- Return valid JSON only.\n- Do not wrap JSON in markdown.\n- Do not include comments.\n- Do not include trailing commas.\n- assistant_message must be a plain string.\n- expense_path must be a valid JSON array.\n- If unsure, return a safe JSON object using the required shape.\n')
+          q.write_text(t)
+          PY
+      - name: Commit source repair
+        run: |
+          rm -f .github/workflows/repair-schedule-impact.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "Fix schedule impact transport total reconciliation" && git push)
