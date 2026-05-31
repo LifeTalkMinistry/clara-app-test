@@ -192,8 +192,6 @@ const DEFAULT_EXPENSE_PATH = [
   },
 ];
 
-const CATEGORY_ORDER = DEFAULT_EXPENSE_PATH.map((category) => category.category);
-
 function clonePath(path = DEFAULT_EXPENSE_PATH) {
   return path.map((category) => ({ ...category, sub_items: category.sub_items.map((item) => ({ ...item })) }));
 }
@@ -241,17 +239,6 @@ function getCategoryTotal(path = [], categoryKey = "") {
   return category ? category.sub_items.reduce((sum, subItem) => sum + Number(subItem.amount || 0), 0) : 0;
 }
 
-function getNextCategoryAfter(path = [], categoryKey = "") {
-  const normalized = normalizeExpensePath(path);
-  const currentIndex = normalized.findIndex((category) => category.category === categoryKey);
-  if (currentIndex === -1) return null;
-  for (let index = currentIndex + 1; index < normalized.length; index += 1) {
-    const pending = normalized[index].sub_items.find((item) => item.status === "pending");
-    if (pending) return { category: normalized[index], item: pending };
-  }
-  return null;
-}
-
 function updatePathSubItem(path = [], subItemKey = "", amount = 0, status = "completed") {
   const normalized = normalizeExpensePath(path);
   return normalized.map((category) => ({
@@ -279,11 +266,6 @@ function getLocalPromptForSubItem(subItemKey, path = []) {
   if (item.key === "fees_venue") return "Any venue, entrance, table, or reservation fee?";
   if (item.key === "buffer_emergency") return "Last one: do you want to add a small emergency buffer just in case?";
   return `For ${category?.label || "this category"}, how much should I estimate for ${item.label}?`;
-}
-
-function getFirstSubItem(categoryKey = "transport", path = []) {
-  const category = normalizeExpensePath(path).find((item) => item.category === categoryKey);
-  return category?.sub_items?.[0]?.key || "";
 }
 
 function buildSummaryMessage(total, path = []) {
@@ -393,25 +375,6 @@ function useBodyScrollLock(locked) {
   }, [locked]);
 }
 
-function ExpensePathSummary({ path }) {
-  const categories = normalizeExpensePath(path);
-  if (!categories.length) return null;
-
-  return (
-    <div className="mt-3 rounded-[20px] border border-white/8 bg-white/[0.025] px-3 py-3">
-      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Expense path</p>
-      <div className="mt-2 space-y-1.5">
-        {categories.map((category) => (
-          <div key={category.category} className="flex items-center justify-between gap-3 text-[11px] font-bold text-white/48">
-            <span className="truncate">{category.label}</span>
-            <span>{formatPeso(getCategoryTotal(categories, category.category))}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {
   if (!session) return null;
 
@@ -435,7 +398,6 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Running estimate</p>
               <p className="mt-1 text-2xl font-black text-white">{formatPeso(session.total)}</p>
             </div>
-            <ExpensePathSummary path={session.expensePath} />
           </header>
 
           <main className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
