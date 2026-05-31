@@ -75,6 +75,22 @@ function normalizeStage(value, fallback = "confirm_intent") {
   return allowed.has(stage) ? stage : fallback;
 }
 
+function normalizeCostCategory(value) {
+  const category = cleanText(value).toLowerCase();
+  if (category.includes("transport")) return "transport";
+  if (category.includes("food") || category.includes("drink")) return "food";
+  if (category.includes("fee") || category.includes("contribution") || category.includes("ticket") || category.includes("offering")) return "fees";
+  if (category.includes("share") || category.includes("gift") || category.includes("group") || category.includes("extra")) return "shared";
+  if (category.includes("buffer") || category.includes("emergency")) return "buffer";
+  return "";
+}
+
+function normalizeConfirmedCost(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount < 0) return 0;
+  return Math.round(amount);
+}
+
 function buildPrompt({ form = {}, messages = [], stage = "confirm_intent", total = 0, breakdown = {}, latestUserReply = "" } = {}) {
   const conversation = (Array.isArray(messages) ? messages : [])
     .slice(-12)
@@ -122,6 +138,13 @@ Stage rules:
 - buffer: Ask for optional emergency buffer.
 - complete: Summarize total and ask if it looks right.
 
+Money confirmation contract:
+- The frontend will update the running estimate ONLY when should_add_cost is true.
+- Set should_add_cost true ONLY when the user clearly provides a peso cost for the current spending category.
+- Set confirmed_cost to the exact peso amount only when should_add_cost is true.
+- Set cost_category to one of: transport, food, fees, shared, buffer.
+- If the user gives a quantity/count but not a peso cost, should_add_cost must be false, confirmed_cost must be 0, and the stage should stay on the same category.
+
 Money interpretation rules:
 - Do NOT treat counts, quantities, or number of rides/people/items as peso amounts.
 - Examples that are NOT money amounts: "2 rides", "two rides", "one jeep", "3 friends", "2 tickets maybe", "tricycle and one jeep".
@@ -144,7 +167,10 @@ Conversation rules:
 Return this JSON shape:
 {
   "assistant_message": "short conversational reply",
-  "stage": "confirm_intent | clarify_intent | ask_permission | transport | food | fees | shared | buffer | complete"
+  "stage": "confirm_intent | clarify_intent | ask_permission | transport | food | fees | shared | buffer | complete",
+  "should_add_cost": false,
+  "confirmed_cost": 0,
+  "cost_category": "transport | food | fees | shared | buffer |"
 }`;
 }
 
@@ -199,10 +225,16 @@ export async function askGeminiForScheduleImpact({ form, messages, stage, total,
         .filter(Boolean)
         .join("\n") || "";
     const parsed = extractJson(textPayload);
+    const shouldAddCost = Boolean(parsed?.should_add_cost);
+    const confirmedCost = normalizeConfirmedCost(parsed?.confirmed_cost);
+    const costCategory = normalizeCostCategory(parsed?.cost_category);
 
     return {
       assistant_message: cleanText(parsed?.assistant_message),
       stage: normalizeStage(parsed?.stage, stage),
+      should_add_cost: shouldAddCost && Boolean(costCategory),
+      confirmed_cost: shouldAddCost ? confirmedCost : 0,
+      cost_category: shouldAddCost ? costCategory : "",
       meta: { source: "gemini", model },
     };
   } catch (error) {
