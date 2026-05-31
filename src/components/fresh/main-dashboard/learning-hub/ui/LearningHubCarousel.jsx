@@ -128,24 +128,27 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         onClick={showComingSoonMessage}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
-        className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/58 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
+        className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/52 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
         style={learningHubToggleSurface}
       >
         <span className="pointer-events-none absolute -left-12 -top-14 z-0 h-24 w-24 rounded-full bg-cyan-300/[0.08]" />
         <span className="pointer-events-none absolute -bottom-14 right-0 z-0 h-24 w-24 rounded-full bg-blue-400/[0.08]" />
         <span className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.05] via-transparent to-black/8 backdrop-blur-[1px]" />
 
-        <BookOpen size={16} className="relative z-10 text-cyan-100/58" />
-        <span className="relative z-10 blur-[0.25px]">Learning Hub</span>
-        <span className="relative z-10 rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[9px] font-black tracking-[0.18em] text-cyan-100/70">
+        <BookOpen size={16} className="relative z-10 text-cyan-100/35" />
+        <span className="relative z-10 text-white/35">Learning Hub</span>
+        <ChevronDown size={15} className="relative z-10 text-cyan-100/25" />
+        <span className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[inherit] bg-[#061427]/18 text-[10px] font-black tracking-[0.26em] text-cyan-50/90 backdrop-blur-[1px]">
           SOON
         </span>
-        <ChevronDown size={15} className="relative z-10 text-cyan-100/35" />
       </button>
 
       {soonMessageVisible ? (
-        <div className="mx-auto mt-2 w-fit max-w-[92%] rounded-full border border-cyan-100/15 bg-[#061427]/88 px-3.5 py-2 text-center text-[11px] font-semibold text-cyan-50/75 shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          {COMING_SOON_MESSAGE}
+        <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/18 px-6 backdrop-blur-[1px]" onClick={() => setSoonMessageVisible(false)}>
+          <div className="max-w-[300px] rounded-[24px] border border-cyan-100/16 bg-[#061427]/94 px-5 py-4 text-center shadow-[0_22px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/58">Learning Hub</p>
+            <p className="mt-2 text-sm font-semibold leading-5 text-white/82">{COMING_SOON_MESSAGE}</p>
+          </div>
         </div>
       ) : null}
 
