@@ -18,7 +18,7 @@ function makeTitle(value, type = "Personal") {
   const lower = text.toLowerCase();
 
   if (!text) return `${type || "Personal"} schedule`;
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "After-church outing";
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "After-church fellowship";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Mama’s birthday plan";
   if (/birthday/.test(lower) && /papa|dad|father|tatay/.test(lower)) return "Papa’s birthday plan";
   if (/birthday/.test(lower)) return "Birthday preparation";
@@ -26,7 +26,7 @@ function makeTitle(value, type = "Personal") {
   if (/renew/.test(lower) && /license|licence/.test(lower)) return "License renewal";
   if (/buy|bili|gift|regalo/.test(lower)) return "Gift buying errand";
   if (/team/.test(lower) && /outing|gala|trip/.test(lower)) return "Team outing";
-  if (/church/.test(lower) && /outing/.test(lower)) return "Church outing";
+  if (/church/.test(lower) && /outing/.test(lower)) return "Church fellowship";
   if (/church|service|simbahan|ministry/.test(lower)) return "Church event";
   if (/outing|beach|resort|trip|gala|lakad|alis|labas/.test(lower)) return "Personal outing";
   if (/meeting|office|shift|work/.test(lower)) return "Work meeting";
@@ -34,6 +34,21 @@ function makeTitle(value, type = "Personal") {
 
   const shortText = text.split(" ").filter(Boolean).slice(0, 4).join(" ");
   return toTitleCase(shortText) || `${type || "Personal"} schedule`;
+}
+
+function makeDescription(value, title = "") {
+  const source = cleanText(value || title);
+  const lower = source.toLowerCase();
+
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) {
+    return "Simple fellowship with churchmates after the church service.";
+  }
+  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Preparation for my mother’s birthday celebration.";
+  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Health appointment or checkup that may include travel and medical-related costs.";
+  if (/renew/.test(lower) && /license|licence/.test(lower)) return "License renewal errand that may include fees and transportation.";
+  if (/buy|bili|gift|regalo/.test(lower)) return "Gift-buying errand that may affect today’s spending plan.";
+  if (/meeting|office|shift|work/.test(lower)) return "Work-related schedule that may involve transportation or meal spending.";
+  return source || "Schedule that may affect money or plans.";
 }
 
 function getNativeValueSetter(element) {
@@ -74,6 +89,29 @@ function readForm(root) {
   };
 }
 
+function applyScheduleSuggestions(root, ai = {}) {
+  const form = root ? readForm(root) : null;
+  if (!form) return {};
+
+  const suggestedTitle = cleanText(ai?.suggested_title);
+  const suggestedDescription = cleanText(ai?.suggested_description);
+  const currentTitle = cleanText(form.elements.titleInput?.value);
+  const currentNote = cleanText(form.elements.noteInput?.value);
+
+  if (suggestedTitle && (!currentTitle || currentTitle === makeTitle(currentNote, form.type) || /gala after church/i.test(currentTitle))) {
+    updateControlledField(form.elements.titleInput, suggestedTitle);
+  }
+
+  if (suggestedDescription && (!currentNote || currentNote.length < 28 || /gala after church/i.test(currentNote))) {
+    updateControlledField(form.elements.noteInput, suggestedDescription);
+  }
+
+  return {
+    title: suggestedTitle || form.title,
+    note: suggestedDescription || form.note,
+  };
+}
+
 function parseAmount(text) {
   const match = String(text || "").replace(/,/g, "").match(/(?:₱|php\s*)?\s*(\d+(?:\.\d+)?)/i);
   if (!match) return 0;
@@ -106,7 +144,8 @@ function getEventPhrase(form) {
   const source = cleanText(form.note || form.title);
   const lower = source.toLowerCase();
 
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "go somewhere after church";
+  if (/fellowship/.test(lower) && /church|service|simbahan/.test(lower)) return "have a simple fellowship after church service";
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "have a simple fellowship after church service";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "prepare for your mother’s birthday";
   if (/birthday/.test(lower)) return "prepare for a birthday plan";
   if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "attend a health checkup";
@@ -153,16 +192,11 @@ function buildSummaryMessage(total, breakdown = {}) {
 
 function getLocalReplyForStage({ stage, reply, total, breakdown, form }) {
   if (stage === "confirm_intent") {
-    if (isAffirmative(reply)) {
-      return { stage: "ask_permission", total, breakdown, message: "Great! That sounds exciting. Let’s assess the possible spending for this plan. Ready to start?" };
-    }
+    if (isAffirmative(reply)) return { stage: "ask_permission", total, breakdown, message: "Great! I’ll treat this as your confirmed schedule. Before saving, let’s assess possible spending for it. Ready to start?" };
     return { stage: "clarify_intent", total, breakdown, message: "No worries. What do you really want this schedule to mean?" };
   }
 
-  if (stage === "clarify_intent") {
-    return { stage: "ask_permission", total, breakdown, message: "Got it. I’ll use that as the context. Ready to start checking the possible spending?" };
-  }
-
+  if (stage === "clarify_intent") return { stage: "ask_permission", total, breakdown, message: "Got it. I’ll use that as the context. Ready to start checking the possible spending?" };
   if (stage === "ask_permission") {
     if (isAffirmative(reply)) return { stage: "transport", total, breakdown, message: IMPACT_STEPS.transport.question };
     return { stage: "ask_permission", total, breakdown, message: "Sure. Reply “Start” whenever you’re ready, and we’ll go one spending area at a time." };
@@ -175,9 +209,7 @@ function getLocalReplyForStage({ stage, reply, total, breakdown, form }) {
     const amount = hasClearCost ? parseAmount(reply) : 0;
 
     if (!hasClearCost && !hasClearZero) {
-      const quantityPrompt = isQuantityOnlyReply(reply)
-        ? `Got it. For ${step.label}, how much do you think that might cost in total?`
-        : `For ${step.label}, how much should I estimate? You can reply with an amount like 100, or say none/free.`;
+      const quantityPrompt = isQuantityOnlyReply(reply) ? `Got it. For ${step.label}, how much do you think that might cost in total?` : `For ${step.label}, how much should I estimate? You can reply with an amount like 100, or say none/free.`;
       return { stage, total, breakdown, message: quantityPrompt };
     }
 
@@ -186,10 +218,7 @@ function getLocalReplyForStage({ stage, reply, total, breakdown, form }) {
     const nextStage = getNextStep(stage);
     const acknowledge = amount > 0 ? `Got it — adding ${formatPeso(amount)} for ${step.label}.` : `Got it — ${formatPeso(0)} for ${step.label}.`;
 
-    if (nextStage === "summary") {
-      return { stage: "complete", total: nextTotal, breakdown: nextBreakdown, message: `${acknowledge}\n\n${buildSummaryMessage(nextTotal, nextBreakdown)}` };
-    }
-
+    if (nextStage === "summary") return { stage: "complete", total: nextTotal, breakdown: nextBreakdown, message: `${acknowledge}\n\n${buildSummaryMessage(nextTotal, nextBreakdown)}` };
     return { stage: nextStage, total: nextTotal, breakdown: nextBreakdown, message: `${acknowledge}\n\n${IMPACT_STEPS[nextStage].question}` };
   }
 
@@ -218,7 +247,6 @@ function applyConfirmedCost({ ai, currentStage, currentBreakdown = {}, currentTo
   const amount = Math.max(0, Number(ai?.confirmed_cost || 0));
 
   if (!shouldAdd) return { breakdown: currentBreakdown, total: currentTotal, costWasAdded: false };
-
   const targetCategory = category || currentStage;
   const nextBreakdown = { ...currentBreakdown, [targetCategory]: Math.round(amount) };
   return { breakdown: nextBreakdown, total: sumBreakdown(nextBreakdown), costWasAdded: true };
@@ -254,6 +282,7 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/62">CLARA Impact Coach</p>
                 <h2 className="mt-2 text-xl font-black leading-tight text-white">Calculate money impact</h2>
                 <p className="mt-1 truncate text-xs font-semibold text-white/44">{session.form.title}</p>
+                {session.form.note ? <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/30">{session.form.note}</p> : null}
               </div>
               <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close impact coach">×</button>
             </div>
@@ -307,9 +336,10 @@ export default function DashboardScheduleImpactPortalPanel() {
 
   const startImpactChat = async (form) => {
     const cleanTitle = cleanText(form.title) || makeTitle(form.note, form.type);
-    const preparedForm = { ...form, title: cleanTitle };
+    const preparedForm = { ...form, title: cleanTitle, note: cleanText(form.note) || makeDescription(form.note, cleanTitle) };
 
     if (form.elements?.titleInput && !cleanText(form.elements.titleInput.value)) updateControlledField(form.elements.titleInput, cleanTitle);
+    if (form.elements?.noteInput && !cleanText(form.elements.noteInput.value)) updateControlledField(form.elements.noteInput, preparedForm.note);
 
     const baseSession = { form: preparedForm, total: 0, breakdown: {}, stage: "confirm_intent", messages: [] };
     setInput("");
@@ -318,7 +348,9 @@ export default function DashboardScheduleImpactPortalPanel() {
 
     try {
       const ai = await askGeminiForScheduleImpact({ form: preparedForm, messages: [], stage: "confirm_intent", total: 0, breakdown: {}, latestUserReply: "" });
-      setSession({ ...baseSession, stage: normalizeGeminiStage(ai.stage, "confirm_intent"), messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(preparedForm) }] });
+      const suggestions = applyScheduleSuggestions(rootRef.current, ai);
+      const nextForm = { ...preparedForm, ...suggestions };
+      setSession({ ...baseSession, form: nextForm, stage: normalizeGeminiStage(ai.stage, "confirm_intent"), messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(nextForm) }] });
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI unavailable, using local safety reply:", error);
       setSession({ ...baseSession, messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
@@ -342,11 +374,13 @@ export default function DashboardScheduleImpactPortalPanel() {
 
     try {
       const ai = await askGeminiForScheduleImpact({ form: session.form, messages: optimisticMessages, stage: currentStage, total: session.total, breakdown: session.breakdown || {}, latestUserReply: reply });
+      const suggestions = applyScheduleSuggestions(rootRef.current, ai);
       const applied = applyConfirmedCost({ ai, currentStage, currentBreakdown: session.breakdown || {}, currentTotal: session.total });
       const nextStage = getStageAfterGemini({ currentStage, geminiStage: ai.stage, reply, costWasAdded: applied.costWasAdded });
 
       setSession((current) => ({
         ...current,
+        form: { ...(current?.form || session.form), ...suggestions },
         stage: nextStage,
         total: applied.total,
         breakdown: applied.breakdown,
@@ -383,9 +417,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       const button = event.target?.closest?.("button");
       if (!root || !button || !root.contains(button)) return;
       const label = cleanText(button.textContent).toLowerCase();
-      if (label.includes("refine with clara")) {
-        event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); return;
-      }
+      if (label.includes("refine with clara")) { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); return; }
       if (!label.includes("calculate money impact")) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
       startImpactChat(readForm(root));
