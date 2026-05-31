@@ -1,7 +1,45 @@
 import React, { useEffect, useRef, useState } from "react";
-import { askGeminiForUnderstanding } from "@/lib/ai-command/gemini-service";
 import { askGeminiForScheduleRefinement } from "@/lib/ai-command/schedule-refinement-service";
 import OriginalDashboardSchedulePanel from "./DashboardSchedulePanel.jsx";
+
+const DEFAULT_IMPACT_CATEGORIES = [
+  {
+    key: "transportation",
+    title: "Transportation",
+    intro: "Think about going there, going back home, jeep/tricycle/ride-hailing, parking, or any fare related to the trip.",
+    prompt: "Type the total transportation amount now.",
+  },
+  {
+    key: "food",
+    title: "Food",
+    intro: "Think about meals, snacks, shared food, or anything you might buy to eat.",
+    prompt: "Type your estimated food amount.",
+  },
+  {
+    key: "drinks_snacks",
+    title: "Drinks/snacks",
+    intro: "Think about coffee, bottled water, dessert, small cravings, or quick snacks during or after the activity.",
+    prompt: "Type your estimated drinks or snacks amount.",
+  },
+  {
+    key: "contribution_gift",
+    title: "Contribution/gift",
+    intro: "Think about offering, gift, shared contribution, group share, or any amount connected to the event.",
+    prompt: "Type your estimated contribution or gift amount.",
+  },
+  {
+    key: "extra_stop",
+    title: "Extra stop or side trip",
+    intro: "Think about side trips, quick errands, extra rides, or unplanned stops after the activity.",
+    prompt: "Type your estimated extra stop or side trip amount.",
+  },
+  {
+    key: "other",
+    title: "Other",
+    intro: "Think about anything not covered yet, like load, small fees, parking, or emergency buffer.",
+    prompt: "Type any other estimated amount, or type skip.",
+  },
+];
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -42,6 +80,7 @@ function readForm(root) {
       titleInput,
       typeInput,
       noteInput,
+      amountInput,
     },
   };
 }
@@ -92,60 +131,299 @@ function parseAmount(text) {
   return Math.round(Number(match[1]) || 0);
 }
 
-function isGeminiFallback(result) {
-  const message = cleanText(result?.assistantMessage).toLowerCase();
-  return (
-    result?.meta?.source === "local_fallback" ||
-    message.includes("trouble reaching gemini") ||
-    message.includes("expense, wallet update, or budget action")
-  );
+function hasAmountText(text) {
+  return /\d/.test(String(text || ""));
 }
 
-async function askScheduleImpactAI({ form, messages, total, userReply }) {
-  const history = messages.map((message) => ({
-    role: message.role === "assistant" ? "assistant" : "user",
-    content: message.text,
-  }));
+function isYes(text) {
+  return /\b(yes|yep|yeah|sure|ok|okay|ready|go|start|continue|confirm|finalize|final|oo|opo|sige)\b/i.test(String(text || ""));
+}
 
-  const result = await askGeminiForUnderstanding({
-    text: `You are CLARA's Schedule Impact Coach inside the Schedule page.
+function isNo(text) {
+  return /\b(no|nope|not yet|hindi|di muna|wait)\b/i.test(String(text || ""));
+}
 
-Your task is to have a natural AI conversation about possible expenses for this exact event.
+function isSkip(text) {
+  return /\b(skip|none|wala|no amount|zero|0)\b/i.test(String(text || ""));
+}
 
-Event:
-${JSON.stringify(form, null, 2)}
+function formatPeso(value) {
+  return `₱${Math.max(0, Number(value) || 0).toLocaleString()}`;
+}
 
-Running estimate so far: PHP ${total}
-Latest user reply: ${userReply || "The user just opened the impact coach."}
+function suggestImpactCategories(form) {
+  const text = `${form?.title || ""} ${form?.note || ""} ${form?.type || ""}`.toLowerCase();
+  const categories = [...DEFAULT_IMPACT_CATEGORIES];
 
-Rules:
-- Do not use a fixed checklist.
-- Think about the event context and ask the next most useful money-impact question.
-- Ask only one question at a time.
-- Keep it short, warm, and conversational.
-- If the user reply is vague like "hi" or "hmm", ask a helpful clarifying question instead of marking it zero.
-- If the user gives an amount, acknowledge it and naturally move to the next likely expense.
-- For church events, consider transport, food, offering/contribution, group share, and after-event spending only when relevant.
-- Do not claim anything was saved.
-- Do not say you cannot help with schedules.
-- Do not ask generic wallet/budget commands.
-- Reply as CLARA in one short assistantMessage.`,
-    session: {
-      history,
-      currentCommand: {
-        screen: "schedule",
-        action: "ai_schedule_impact_chat",
-        runningEstimate: total,
+  if (/work|office|meeting|shift|interview/.test(text)) {
+    return [
+      categories[0],
+      categories[1],
+      categories[2],
+      {
+        key: "work_needs",
+        title: "Work needs",
+        intro: "Think about printing, documents, load, internet, supplies, or anything needed for work.",
+        prompt: "Type your estimated work-related amount.",
       },
-    },
-    financeSnapshot: {},
-  });
-
-  if (isGeminiFallback(result)) {
-    throw new Error(result?.meta?.errorMessage || "Gemini is unavailable for schedule impact chat.");
+      categories[4],
+      categories[5],
+    ];
   }
 
-  return cleanText(result?.assistantMessage) || "What other possible spending should we include for this schedule?";
+  if (/family|birthday|fiesta|celebration|party/.test(text)) {
+    return [
+      categories[0],
+      categories[1],
+      categories[2],
+      {
+        key: "gift_share",
+        title: "Gift/shared contribution",
+        intro: "Think about gifts, ambag, shared food, or any contribution expected from you.",
+        prompt: "Type your estimated gift or contribution amount.",
+      },
+      categories[4],
+      categories[5],
+    ];
+  }
+
+  return categories;
+}
+
+function buildCategoryList(categories) {
+  return categories.map((category) => `- ${category.title}`).join("\n");
+}
+
+function buildIntroMessage(form, categories) {
+  return `Got it. For ${form.title}, here are possible spending areas we should estimate:\n\n${buildCategoryList(categories)}\n\nReady to estimate?`;
+}
+
+function buildCategoryPrompt(category, index) {
+  const label = index === 0 ? "First spending" : "Next spending";
+  return `${label}: ${category.title}.\n${category.intro}\n${category.prompt}`;
+}
+
+function buildFinalMessage(answers, categories) {
+  const rows = categories.map((category) => {
+    const answer = answers.find((item) => item.key === category.key);
+    if (!answer || answer.skipped || !answer.amount) return `- ${category.title}: skipped`;
+    return `- ${category.title}: ${formatPeso(answer.amount)}`;
+  });
+  const total = answers.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  return `All set. Here is your estimate:\n\n${rows.join("\n")}\n\nTotal estimated impact: ${formatPeso(total)}\n\nYou can tap “Use ${formatPeso(total)} Estimate” when you're ready.`;
+}
+
+function replaceAnswer(answers, nextAnswer) {
+  const filtered = answers.filter((answer) => answer.key !== nextAnswer.key);
+  return [...filtered, nextAnswer];
+}
+
+function advanceAfterAnswer(session, answer) {
+  const answers = replaceAnswer(session.answers || [], answer);
+  const nextIndex = session.currentIndex + 1;
+  const total = answers.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  if (nextIndex >= session.categories.length) {
+    return {
+      ...session,
+      total,
+      answers,
+      currentIndex: nextIndex,
+      stage: "done",
+      pendingAmount: null,
+      messages: [
+        ...session.messages,
+        {
+          role: "assistant",
+          text: buildFinalMessage(answers, session.categories),
+        },
+      ],
+    };
+  }
+
+  return {
+    ...session,
+    total,
+    answers,
+    currentIndex: nextIndex,
+    stage: "amount",
+    pendingAmount: null,
+    messages: [
+      ...session.messages,
+      {
+        role: "assistant",
+        text: `Great. ${buildCategoryPrompt(session.categories[nextIndex], nextIndex)}`,
+      },
+    ],
+  };
+}
+
+function buildNextImpactSession(session, reply) {
+  const userMessage = { role: "user", text: reply };
+  const currentCategory = session.categories[session.currentIndex];
+  const baseSession = {
+    ...session,
+    messages: [...session.messages, userMessage],
+  };
+
+  if (session.stage === "intro") {
+    if (isYes(reply) || hasAmountText(reply)) {
+      return {
+        ...baseSession,
+        stage: "amount",
+        messages: [
+          ...baseSession.messages,
+          {
+            role: "assistant",
+            text: `Please think of all possible spending before entering the amount so we can make the forecast closer to reality.\n\n${buildCategoryPrompt(session.categories[0], 0)}`,
+          },
+        ],
+      };
+    }
+
+    if (isNo(reply)) {
+      return {
+        ...baseSession,
+        messages: [
+          ...baseSession.messages,
+          {
+            role: "assistant",
+            text: "No problem. Reply yes when you're ready to estimate this schedule.",
+          },
+        ],
+      };
+    }
+
+    return {
+      ...baseSession,
+      messages: [
+        ...baseSession.messages,
+        {
+          role: "assistant",
+          text: "Reply yes when you're ready. I will guide you one spending area at a time.",
+        },
+      ],
+    };
+  }
+
+  if (session.stage === "amount") {
+    if (!currentCategory) return baseSession;
+
+    if (isSkip(reply)) {
+      return advanceAfterAnswer(baseSession, {
+        key: currentCategory.key,
+        title: currentCategory.title,
+        amount: 0,
+        skipped: true,
+      });
+    }
+
+    const amount = parseAmount(reply);
+    if (!hasAmountText(reply) || amount <= 0) {
+      return {
+        ...baseSession,
+        messages: [
+          ...baseSession.messages,
+          {
+            role: "assistant",
+            text: `Please type the estimated amount for ${currentCategory.title}, or type skip if this does not apply.`,
+          },
+        ],
+      };
+    }
+
+    return {
+      ...baseSession,
+      stage: "confirm",
+      pendingAmount: amount,
+      messages: [
+        ...baseSession.messages,
+        {
+          role: "assistant",
+          text: `You want me to finalize ${currentCategory.title} as ${formatPeso(amount)} total?`,
+        },
+      ],
+    };
+  }
+
+  if (session.stage === "confirm") {
+    if (!currentCategory) return baseSession;
+
+    if (isYes(reply)) {
+      return advanceAfterAnswer(baseSession, {
+        key: currentCategory.key,
+        title: currentCategory.title,
+        amount: session.pendingAmount || 0,
+        skipped: false,
+      });
+    }
+
+    if (isNo(reply)) {
+      return {
+        ...baseSession,
+        stage: "amount",
+        pendingAmount: null,
+        messages: [
+          ...baseSession.messages,
+          {
+            role: "assistant",
+            text: `No problem. Type the corrected amount for ${currentCategory.title}, or type skip.`,
+          },
+        ],
+      };
+    }
+
+    if (isSkip(reply)) {
+      return advanceAfterAnswer(baseSession, {
+        key: currentCategory.key,
+        title: currentCategory.title,
+        amount: 0,
+        skipped: true,
+      });
+    }
+
+    const amount = parseAmount(reply);
+    if (hasAmountText(reply) && amount > 0) {
+      return {
+        ...baseSession,
+        pendingAmount: amount,
+        messages: [
+          ...baseSession.messages,
+          {
+            role: "assistant",
+            text: `Got it. Finalize ${currentCategory.title} as ${formatPeso(amount)} total?`,
+          },
+        ],
+      };
+    }
+
+    return {
+      ...baseSession,
+      messages: [
+        ...baseSession.messages,
+        {
+          role: "assistant",
+          text: `Please reply yes to finalize ${currentCategory.title} as ${formatPeso(session.pendingAmount)}, or no to change it.`,
+        },
+      ],
+    };
+  }
+
+  if (session.stage === "done") {
+    return {
+      ...baseSession,
+      messages: [
+        ...baseSession.messages,
+        {
+          role: "assistant",
+          text: `The forecast is already complete. Tap “Use ${formatPeso(session.total)} Estimate” to apply it to this schedule.`,
+        },
+      ],
+    };
+  }
+
+  return baseSession;
 }
 
 function ScheduleRefinementPanel({ session, input, setInput, thinking, onSend, onClose }) {
@@ -230,7 +508,7 @@ function ScheduleRefinementPanel({ session, input, setInput, thinking, onSend, o
 
               {session.messages?.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[84%] rounded-[20px] px-4 py-3 text-sm font-semibold leading-6 ${message.role === "user" ? "bg-cyan-300/[.12] text-cyan-50" : "border border-white/8 bg-white/[.035] text-white/64"}`}>
+                  <div className={`max-w-[84%] whitespace-pre-line rounded-[20px] px-4 py-3 text-sm font-semibold leading-6 ${message.role === "user" ? "bg-cyan-300/[.12] text-cyan-50" : "border border-white/8 bg-white/[.035] text-white/64"}`}>
                     {message.text}
                   </div>
                 </div>
@@ -270,7 +548,7 @@ function ScheduleRefinementPanel({ session, input, setInput, thinking, onSend, o
   );
 }
 
-function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose }) {
+function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {
   if (!session) return null;
 
   return (
@@ -295,7 +573,7 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
 
           <div className="mt-4 rounded-[22px] border border-cyan-200/25 bg-cyan-300/[0.07] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Running estimate</p>
-            <p className="mt-1 text-2xl font-black text-white">₱{session.total.toLocaleString()}</p>
+            <p className="mt-1 text-2xl font-black text-white">{formatPeso(session.total)}</p>
           </div>
         </header>
 
@@ -303,7 +581,7 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
           {session.messages.map((message, index) => (
             <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[84%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${
+                className={`max-w-[84%] whitespace-pre-line rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${
                   message.role === "user"
                     ? "bg-cyan-300/[0.12] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
                     : "border border-white/12 bg-white/[0.035] text-white/76"
@@ -324,6 +602,16 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
         </main>
 
         <footer className="shrink-0 border-t border-white/10 bg-[#071026]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
+          {session.stage === "done" && session.total > 0 ? (
+            <button
+              type="button"
+              onClick={onUseEstimate}
+              className="mb-3 flex w-full items-center justify-center rounded-2xl border border-cyan-200/60 bg-cyan-300/[0.10] px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.10)] active:scale-[0.99]"
+            >
+              Use {formatPeso(session.total)} Estimate
+            </button>
+          ) : null}
+
           <form onSubmit={onSend} className="flex gap-2">
             <input
               value={input}
@@ -355,43 +643,27 @@ export default function DashboardScheduleImpactPanel() {
   const [refineInput, setRefineInput] = useState("");
   const [refineThinking, setRefineThinking] = useState(false);
 
-  const startImpactChat = async (form) => {
+  const startImpactChat = (form) => {
+    const categories = suggestImpactCategories(form);
     const baseSession = {
       form,
+      categories,
+      currentIndex: 0,
+      stage: "intro",
+      pendingAmount: null,
+      answers: [],
       total: 0,
-      messages: [],
+      messages: [
+        {
+          role: "assistant",
+          text: buildIntroMessage(form, categories),
+        },
+      ],
     };
 
     setSession(baseSession);
     setInput("");
-    setThinking(true);
-
-    try {
-      const firstMessage = await askScheduleImpactAI({
-        form,
-        messages: [],
-        total: 0,
-        userReply: "",
-      });
-
-      setSession({
-        ...baseSession,
-        messages: [{ role: "assistant", text: firstMessage }],
-      });
-    } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI unavailable:", error);
-      setSession({
-        ...baseSession,
-        messages: [
-          {
-            role: "assistant",
-            text: "I can't reach CLARA's AI brain right now. Please check the Gemini setup for this build, then try the impact coach again.",
-          },
-        ],
-      });
-    } finally {
-      setThinking(false);
-    }
+    setThinking(false);
   };
 
   const startRefinement = async (button = null) => {
@@ -483,48 +755,23 @@ export default function DashboardScheduleImpactPanel() {
     }
   };
 
-  const sendReply = async (event) => {
+  const sendReply = (event) => {
     event.preventDefault();
     const reply = cleanText(input);
     if (!reply || !session || thinking) return;
 
-    const amount = parseAmount(reply);
-    const nextTotal = amount > 0 ? session.total + amount : session.total;
-    const nextMessages = [...session.messages, { role: "user", text: reply }];
-
-    setSession({ ...session, total: nextTotal, messages: nextMessages });
+    setSession((current) => buildNextImpactSession(current, reply));
     setInput("");
-    setThinking(true);
+    setThinking(false);
+  };
 
-    try {
-      const aiMessage = await askScheduleImpactAI({
-        form: session.form,
-        messages: nextMessages,
-        total: nextTotal,
-        userReply: reply,
-      });
+  const useImpactEstimate = () => {
+    const root = rootRef.current;
+    if (!root || !session || session.total <= 0) return;
 
-      setSession((current) => ({
-        ...current,
-        total: nextTotal,
-        messages: [...nextMessages, { role: "assistant", text: aiMessage }],
-      }));
-    } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI unavailable:", error);
-      setSession((current) => ({
-        ...current,
-        total: nextTotal,
-        messages: [
-          ...nextMessages,
-          {
-            role: "assistant",
-            text: "I can't reach CLARA's AI brain right now, so I don't want to pretend this is an AI-guided estimate. Please check Gemini, then try again.",
-          },
-        ],
-      }));
-    } finally {
-      setThinking(false);
-    }
+    const form = readForm(root);
+    updateControlledField(form.elements.amountInput, String(session.total));
+    setSession(null);
   };
 
   useEffect(() => {
@@ -582,6 +829,7 @@ export default function DashboardScheduleImpactPanel() {
         thinking={thinking}
         onSend={sendReply}
         onClose={() => setSession(null)}
+        onUseEstimate={useImpactEstimate}
       />
       <ScheduleRefinementPanel
         session={refineSession}
