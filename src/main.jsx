@@ -22,7 +22,6 @@ import "./life-stage-setup-flow-polish";
 import "./life-stage-working-student-identity-context";
 import "./life-stage-apply-diagnosis";
 import "./life-stage-working-student-signal-fit";
-import "./savings-goal-overfill-guard";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
