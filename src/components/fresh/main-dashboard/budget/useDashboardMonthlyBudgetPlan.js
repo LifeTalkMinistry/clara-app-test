@@ -44,26 +44,68 @@ function getComparableExpenseDate(expense = {}, startValue = "") {
   return getTransactionDate(expense);
 }
 
-function getBudgetCycleRange(monthlyBudgetHeader = null) {
+function getBudgetCycleSource(monthlyBudgetHeader = null, safeBudgetOptions = []) {
+  if (monthlyBudgetHeader) return monthlyBudgetHeader;
+
+  const option = safeBudgetOptions.find((item) => {
+    const budget = item?.budget || item;
+    return Boolean(
+      budget?.budget_cycle ||
+        budget?.cycle_type ||
+        budget?.budget_rhythm ||
+        budget?.period_type ||
+        budget?.cycle_start ||
+        budget?.cycle_end ||
+        budget?.period_start ||
+        budget?.period_end
+    );
+  });
+
+  return option?.budget || option || null;
+}
+
+function getBudgetCycleRange(budgetCycleSource = null) {
   const fallbackRange = getPHMonthRange();
   const rawStart =
-    monthlyBudgetHeader?.reset_start_at ||
-    monthlyBudgetHeader?.cycle_start ||
-    monthlyBudgetHeader?.budget_cycle_start ||
-    monthlyBudgetHeader?.period_start ||
-    monthlyBudgetHeader?.range_start ||
-    monthlyBudgetHeader?.tracking_start_date;
+    budgetCycleSource?.reset_start_at ||
+    budgetCycleSource?.cycle_start ||
+    budgetCycleSource?.budget_cycle_start ||
+    budgetCycleSource?.period_start ||
+    budgetCycleSource?.range_start ||
+    budgetCycleSource?.tracking_start_date;
   const rawEnd =
-    monthlyBudgetHeader?.cycle_end ||
-    monthlyBudgetHeader?.budget_cycle_end ||
-    monthlyBudgetHeader?.period_end ||
-    monthlyBudgetHeader?.range_end;
+    budgetCycleSource?.cycle_end ||
+    budgetCycleSource?.budget_cycle_end ||
+    budgetCycleSource?.period_end ||
+    budgetCycleSource?.range_end;
 
   return {
     start: rawStart || fallbackRange.start,
     end: rawEnd || fallbackRange.end,
     hasTimestampStart: hasTime(rawStart),
   };
+}
+
+function getBudgetCycleType(budgetCycleSource = null) {
+  const raw = normalizeLower(
+    budgetCycleSource?.budget_cycle ||
+      budgetCycleSource?.cycle_type ||
+      budgetCycleSource?.budget_rhythm ||
+      budgetCycleSource?.period_type ||
+      "monthly"
+  );
+
+  if (raw.includes("week") && !raw.includes("bi")) return "weekly";
+  if (raw.includes("bi") || raw.includes("2")) return "biweekly";
+  if (raw.includes("custom")) return "custom";
+  return "monthly";
+}
+
+function getBudgetCycleLabel(type = "monthly") {
+  if (type === "weekly") return "Weekly";
+  if (type === "biweekly") return "Bi-weekly";
+  if (type === "custom") return "Custom";
+  return "Monthly";
 }
 
 function isInBudgetCycle(expense = {}, monthRange = {}) {
@@ -128,12 +170,20 @@ export default function useDashboardMonthlyBudgetPlan({
   monthlyBudgetHeader = null,
 } = {}) {
   return useMemo(() => {
-    const monthKey = getPHMonthKey();
-    const monthRange = getBudgetCycleRange(monthlyBudgetHeader);
     const safeBudgetOptions = Array.isArray(manualExpenseBudgetOptions)
       ? manualExpenseBudgetOptions
       : [];
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const budgetCycleSource = getBudgetCycleSource(monthlyBudgetHeader, safeBudgetOptions);
+    const monthKey = normalizeString(
+      budgetCycleSource?.month ||
+        budgetCycleSource?.budget_month ||
+        budgetCycleSource?.month_key ||
+        getPHMonthKey()
+    );
+    const monthRange = getBudgetCycleRange(budgetCycleSource);
+    const cycleType = getBudgetCycleType(budgetCycleSource);
+    const cycleLabel = getBudgetCycleLabel(cycleType);
     const inActiveRange = (expense) => isInBudgetCycle(expense, monthRange);
 
     const categories = safeBudgetOptions.map((item) => {
@@ -202,7 +252,17 @@ export default function useDashboardMonthlyBudgetPlan({
     return {
       monthKey,
       month_key: monthKey,
+      month: monthKey,
       monthRange,
+      budget_cycle: cycleType,
+      cycle_type: cycleType,
+      budget_rhythm: cycleType,
+      period_type: cycleType,
+      cycle_label: cycleLabel,
+      cycle_start: monthRange.start,
+      cycle_end: monthRange.end,
+      period_start: monthRange.start,
+      period_end: monthRange.end,
       declared_budget: declaredBudget,
       declaredBudget,
       declaredAmount: declaredBudget,
