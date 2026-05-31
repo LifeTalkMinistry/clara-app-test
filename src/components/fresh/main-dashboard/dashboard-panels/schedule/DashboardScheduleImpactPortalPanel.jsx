@@ -346,22 +346,17 @@ function ScheduleRefinementInline({ target, session, input, setInput, thinking, 
   const result = session.result || {};
   const questions = Array.isArray(result.next_questions) ? result.next_questions : [];
   const missing = Array.isArray(result.missing_details) ? result.missing_details : [];
+  const refinementLabel = session.error || result.source === "local_title_suggestion" ? "Quick suggestion" : "AI refinement";
 
   return (
     <InlinePortal target={target}>
       <div className="rounded-[20px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(168,85,247,0.07))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100/62">CLARA refinement</p>
+          <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100/62">{refinementLabel}</p>
           <button type="button" onClick={onClose} className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[10px] font-black text-white/42">×</button>
         </div>
 
         <div className="space-y-2.5">
-          {session.error ? (
-            <p className="rounded-2xl border border-amber-300/18 bg-amber-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-amber-50/82">
-              CLARA AI is unavailable right now, but I added a local title suggestion so you can continue.
-            </p>
-          ) : null}
-
           <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
             <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/34">Refined intention</p>
             <p className="mt-1 text-xs font-bold leading-5 text-white/82">{result.refined_intention || "CLARA is clarifying this schedule."}</p>
