@@ -128,6 +128,16 @@ Latest user reply: ${cleanText(latestUserReply) || "None yet."}
 Recent conversation:
 ${JSON.stringify(conversation, null, 2)}
 
+Schedule understanding contract:
+- Always maintain a polished schedule title and description.
+- suggested_title must be short and useful for the schedule title field.
+- suggested_description must be a clear one-sentence description of the real schedule.
+- Do NOT simply repeat vague user text like "gala after church".
+- Translate vague notes into a more accurate schedule meaning.
+- If the user corrects your understanding, pause the spending flow, update suggested_title and suggested_description, restate the corrected schedule, ask for confirmation, then resume the previous spending category after confirmation.
+- Example: raw note "gala after church" can become title "After-church fellowship" and description "Simple fellowship with churchmates after the church service."
+- If the user says it is not an outing but a simple fellowship, suggested_title should become "After-church fellowship" and suggested_description should mention simple fellowship, not gala or outing.
+
 Stage rules:
 - confirm_intent: Validate what the user meant. Do NOT ask for money yet.
 - ask_permission: Ask if the user is ready to start assessing spending. Do NOT ask for money yet.
@@ -158,7 +168,7 @@ Conversation rules:
 - Be natural, warm, and short.
 - Do not sound like a static checklist.
 - Use the event description/title/context.
-- If the event note is "gala after church", first validate like: "Hi Max, so you want to go somewhere after church. Am I understanding that correctly?"
+- If the event note is "gala after church", first validate like: "Hi Max, so you mean a simple fellowship with churchmates after the church service. Am I understanding that correctly?"
 - If the user confirms intent, ask permission to start spending assessment.
 - If the user is ready, start with transportation.
 - Do not claim anything was saved.
@@ -168,6 +178,8 @@ Return this JSON shape:
 {
   "assistant_message": "short conversational reply",
   "stage": "confirm_intent | clarify_intent | ask_permission | transport | food | fees | shared | buffer | complete",
+  "suggested_title": "short polished title",
+  "suggested_description": "clear one-sentence schedule description",
   "should_add_cost": false,
   "confirmed_cost": 0,
   "cost_category": "transport | food | fees | shared | buffer |"
@@ -203,7 +215,7 @@ export async function askGeminiForScheduleImpact({ form, messages, stage, total,
           temperature: 0.78,
           topP: 0.9,
           topK: 40,
-          maxOutputTokens: 700,
+          maxOutputTokens: 900,
           responseMimeType: "application/json",
         },
       }),
@@ -232,6 +244,8 @@ export async function askGeminiForScheduleImpact({ form, messages, stage, total,
     return {
       assistant_message: cleanText(parsed?.assistant_message),
       stage: normalizeStage(parsed?.stage, stage),
+      suggested_title: cleanText(parsed?.suggested_title),
+      suggested_description: cleanText(parsed?.suggested_description),
       should_add_cost: shouldAddCost && Boolean(costCategory),
       confirmed_cost: shouldAddCost ? confirmedCost : 0,
       cost_category: shouldAddCost ? costCategory : "",
