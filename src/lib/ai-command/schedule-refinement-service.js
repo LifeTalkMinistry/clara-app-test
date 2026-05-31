@@ -1,5 +1,16 @@
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_TIMEOUT_MS = 18000;
+const DEPRECATED_MODELS = new Set(["gemini-1.5-flash", "gemini-2.0-flash"]);
+
+function cleanText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeModelName(value) {
+  const model = cleanText(value);
+  if (!model || DEPRECATED_MODELS.has(model)) return DEFAULT_MODEL;
+  return model;
+}
 
 function getGeminiConfig() {
   return {
@@ -7,12 +18,8 @@ function getGeminiConfig() {
       import.meta.env.VITE_GEMINI_API_KEY ||
       import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
       "",
-    model: import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL,
+    model: normalizeModelName(import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL),
   };
-}
-
-function cleanText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function safeJsonParse(value) {
