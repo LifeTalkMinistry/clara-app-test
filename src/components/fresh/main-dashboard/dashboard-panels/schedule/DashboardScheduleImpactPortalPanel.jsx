@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { askGeminiForUnderstanding } from "@/lib/ai-command/gemini-service";
-import { askGeminiForScheduleRefinement } from "@/lib/ai-command/schedule-refinement-service";
 import OriginalDashboardSchedulePanel from "./DashboardSchedulePanel.jsx";
 
 function cleanText(value) {
@@ -14,7 +12,7 @@ function toTitleCase(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function makeTitle(value, type) {
+function makeTitle(value, type = "Personal") {
   const text = cleanText(value).replace(/[.!?]+$/g, "");
   const lower = text.toLowerCase();
 
@@ -37,111 +35,6 @@ function makeTitle(value, type) {
   return toTitleCase(shortText) || `${type || "Personal"} schedule`;
 }
 
-function makeRefinedIntention(value, type) {
-  const text = cleanText(value);
-  const lower = text.toLowerCase();
-
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) {
-    return "I am planning to go out after church.";
-  }
-  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) {
-    return "I want to prepare for my mother’s birthday celebration.";
-  }
-  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) {
-    return "I need to attend a health or doctor checkup.";
-  }
-  if (/renew/.test(lower) && /license|licence/.test(lower)) {
-    return "I need to renew my license.";
-  }
-  if (/buy|bili|gift|regalo/.test(lower)) {
-    return "I need to buy a gift before this schedule.";
-  }
-  if (/meeting|office|shift|work/.test(lower)) {
-    return "I have a work-related schedule to prepare for.";
-  }
-  if (/gala|lakad|alis|labas|outing|trip|hangout/.test(lower)) {
-    return "I am planning to go out for a personal activity.";
-  }
-
-  return `I want to add this ${String(type || "personal").toLowerCase()} schedule clearly.`;
-}
-
-function guessRefinementCategory(value, currentType = "Personal") {
-  const lower = cleanText(value).toLowerCase();
-  if (/church|service|simbahan|ministry/.test(lower)) return "Ministry";
-  if (/meeting|office|shift|work/.test(lower)) return "Work";
-  if (/family|birthday|mama|papa|nanay|tatay|sibling/.test(lower)) return "Family";
-  if (/doctor|checkup|clinic|hospital|medicine|medical/.test(lower)) return "Health";
-  if (/renew|license|permit|government|appointment|errand|bili|buy/.test(lower)) return "Errand";
-  if (/team|friends|gala|outing|hangout/.test(lower)) return "Social";
-  return currentType || "Personal";
-}
-
-function buildLocalRefinement(form) {
-  const source = cleanText(form.note || form.title);
-  const category = guessRefinementCategory(source, form.type);
-  const lower = source.toLowerCase();
-  const moneyRelevant = /gala|outing|birthday|buy|bili|gift|doctor|checkup|renew|license|trip|church|food|fare|pamasahe|bayad|fee|contribution/.test(lower);
-  const missing = ["time", "location"];
-  if (moneyRelevant) missing.push("cost");
-  if (/church|team|family|birthday|outing|gala/.test(lower)) missing.push("people involved");
-
-  const questions = [
-    {
-      key: "time",
-      question: "What time will this happen?",
-      reason: "Needed so CLARA can place it clearly on your schedule.",
-    },
-    {
-      key: "location",
-      question: "Where will this happen?",
-      reason: "Location helps CLARA understand travel and preparation needs.",
-    },
-  ];
-
-  if (moneyRelevant) {
-    questions.push({
-      key: "cost",
-      question: "Will this involve food, fare, fees, or contribution?",
-      reason: "This helps CLARA decide if money impact should be calculated.",
-    });
-  }
-
-  return {
-    refined_intention: makeRefinedIntention(source, form.type),
-    suggested_title: makeTitle(source, form.type),
-    suggested_category: category,
-    detected_money_relevance: moneyRelevant,
-    missing_details: missing.slice(0, 4),
-    next_questions: questions.slice(0, 3),
-    confidence: source ? "medium" : "low",
-    ready_to_save: false,
-    source: "local_title_suggestion",
-  };
-}
-
-function readForm(root) {
-  const dialog = root.querySelector('[role="dialog"]');
-  const titleInput = dialog?.querySelector('input[placeholder="Schedule title"]');
-  const noteInput = dialog?.querySelector("textarea");
-  const typeInput = dialog?.querySelector("select");
-  const dateInput = dialog?.querySelector('input[type="date"]');
-  const timeInput = dialog?.querySelector('input[type="time"]');
-  const amountInput = dialog?.querySelector('input[placeholder="AI will calculate"]');
-  const note = cleanText(noteInput?.value);
-  const type = cleanText(typeInput?.value) || "Personal";
-
-  return {
-    title: cleanText(titleInput?.value) || makeTitle(note, type),
-    note,
-    type,
-    date: dateInput?.value || "",
-    time: timeInput?.value || "",
-    amount: amountInput?.value || "",
-    elements: { titleInput, noteInput, typeInput, amountInput },
-  };
-}
-
 function getNativeValueSetter(element) {
   if (!element) return null;
   const prototype = Object.getPrototypeOf(element);
@@ -157,30 +50,27 @@ function updateControlledField(element, value) {
   element.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function mapToScheduleType(category) {
-  const raw = cleanText(category).toLowerCase();
-  if (raw.includes("work")) return "Work";
-  if (raw.includes("family")) return "Family";
-  if (raw.includes("health")) return "Health";
-  if (raw.includes("relationship")) return "Relationship";
-  if (raw.includes("bill")) return "Bill";
-  if (raw.includes("payday")) return "Payday";
-  return "Personal";
-}
+function readForm(root) {
+  const dialog = root?.querySelector?.('[role="dialog"]');
+  const titleInput = dialog?.querySelector('input[placeholder="Schedule title"]');
+  const noteInput = dialog?.querySelector("textarea");
+  const typeInput = dialog?.querySelector("select");
+  const dateInput = dialog?.querySelector('input[type="date"]');
+  const timeInput = dialog?.querySelector('input[type="time"]');
+  const amountInput = dialog?.querySelector('input[placeholder="AI will calculate"]');
+  const note = cleanText(noteInput?.value);
+  const type = cleanText(typeInput?.value) || "Personal";
+  const title = cleanText(titleInput?.value) || makeTitle(note, type);
 
-function applyRefinementToForm(root, result, options = {}) {
-  const form = readForm(root);
-  const suggestedTitle = cleanText(result?.suggested_title);
-  const suggestedType = mapToScheduleType(result?.suggested_category);
-  const shouldOverwriteTitle = Boolean(options.forceTitle) || !cleanText(form.elements.titleInput?.value);
-
-  if (suggestedTitle && shouldOverwriteTitle) {
-    updateControlledField(form.elements.titleInput, suggestedTitle);
-  }
-
-  if (suggestedType && form.elements.typeInput) {
-    updateControlledField(form.elements.typeInput, suggestedType);
-  }
+  return {
+    title,
+    note,
+    type,
+    date: dateInput?.value || "",
+    time: timeInput?.value || "",
+    amount: amountInput?.value || "",
+    elements: { titleInput, noteInput, typeInput, amountInput },
+  };
 }
 
 function parseAmount(text) {
@@ -189,13 +79,174 @@ function parseAmount(text) {
   return Math.round(Number(match[1]) || 0);
 }
 
-function isGeminiFallback(result) {
-  const message = cleanText(result?.assistantMessage).toLowerCase();
-  return (
-    result?.meta?.source === "local_fallback" ||
-    message.includes("trouble reaching gemini") ||
-    message.includes("expense, wallet update, or budget action")
-  );
+function isAffirmative(value) {
+  return /\b(yes|yeah|yep|yup|correct|tama|oo|opo|sure|sige|go|start|okay|ok|alright)\b/i.test(cleanText(value));
+}
+
+function isNegativeOrFree(value) {
+  return /\b(no|none|wala|free|libre|zero|0|not really|hindi|skip)\b/i.test(cleanText(value));
+}
+
+function getEventPhrase(form) {
+  const source = cleanText(form.note || form.title);
+  const lower = source.toLowerCase();
+
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) {
+    return "go somewhere after church";
+  }
+  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) {
+    return "prepare for your mother’s birthday";
+  }
+  if (/birthday/.test(lower)) return "prepare for a birthday plan";
+  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "attend a health checkup";
+  if (/renew/.test(lower) && /license|licence/.test(lower)) return "renew your license";
+  if (/buy|bili|gift|regalo/.test(lower)) return "buy a gift";
+  if (/meeting|office|shift|work/.test(lower)) return "handle a work-related schedule";
+  if (/team/.test(lower) && /outing|gala|trip/.test(lower)) return "join a team outing";
+  if (/gala|lakad|alis|labas|outing|trip|hangout/.test(lower)) return "go out for a personal activity";
+
+  return `work through “${source || form.title || "this schedule"}”`;
+}
+
+function getOpeningMessage(form) {
+  return `Hi Max, so you want to ${getEventPhrase(form)}. Am I understanding that correctly?`;
+}
+
+const IMPACT_STEPS = {
+  transport: {
+    key: "transport",
+    label: "transportation",
+    question: "Alright. First, let’s estimate transportation. How much do you think you might spend on fare, gas, parking, or ride booking?",
+  },
+  food: {
+    key: "food",
+    label: "food and drinks",
+    question: "Next, food and drinks. How much might you spend for snacks, meals, or drinks?",
+  },
+  fees: {
+    key: "fees",
+    label: "fees or contributions",
+    question: "Will there be any contribution, entrance fee, ticket, offering, or shared payment for this plan?",
+  },
+  shared: {
+    key: "shared",
+    label: "shared or extra group costs",
+    question: "Any gift, group share, or extra spending you might need to prepare for?",
+  },
+  buffer: {
+    key: "buffer",
+    label: "emergency buffer",
+    question: "Last one: do you want to add a small emergency buffer just in case something unexpected comes up?",
+  },
+};
+
+const STEP_ORDER = ["transport", "food", "fees", "shared", "buffer"];
+
+function getNextStep(stage) {
+  const index = STEP_ORDER.indexOf(stage);
+  return STEP_ORDER[index + 1] || "summary";
+}
+
+function formatPeso(value) {
+  return `₱${Math.max(0, Number(value || 0)).toLocaleString()}`;
+}
+
+function buildSummaryMessage(total, breakdown = {}) {
+  const lines = STEP_ORDER
+    .map((key) => `${IMPACT_STEPS[key].label}: ${formatPeso(breakdown[key] || 0)}`)
+    .join("\n");
+
+  return `Here’s the estimated money impact for this schedule:\n${lines}\n\nEstimated total: ${formatPeso(total)}. Does this look right?`;
+}
+
+function getReplyForStage({ stage, reply, total, breakdown }) {
+  if (stage === "confirm_intent") {
+    if (isAffirmative(reply)) {
+      return {
+        stage: "ask_permission",
+        total,
+        breakdown,
+        message: "Great! That sounds exciting. Let’s assess the possible spending for this plan. Ready to start?",
+      };
+    }
+
+    return {
+      stage: "clarify_intent",
+      total,
+      breakdown,
+      message: "No worries. What do you really want this schedule to mean?",
+    };
+  }
+
+  if (stage === "clarify_intent") {
+    return {
+      stage: "ask_permission",
+      total,
+      breakdown,
+      message: "Got it. I’ll use that as the context. Ready to start checking the possible spending?",
+    };
+  }
+
+  if (stage === "ask_permission") {
+    if (isAffirmative(reply)) {
+      return {
+        stage: "transport",
+        total,
+        breakdown,
+        message: IMPACT_STEPS.transport.question,
+      };
+    }
+
+    return {
+      stage: "ask_permission",
+      total,
+      breakdown,
+      message: "Sure. Reply “Start” whenever you’re ready, and we’ll go one spending area at a time.",
+    };
+  }
+
+  if (STEP_ORDER.includes(stage)) {
+    const step = IMPACT_STEPS[stage];
+    const amount = parseAmount(reply);
+    const hasClearZero = isNegativeOrFree(reply);
+
+    if (amount <= 0 && !hasClearZero) {
+      return {
+        stage,
+        total,
+        breakdown,
+        message: `For ${step.label}, how much should I estimate? You can reply with an amount like 100, or say none/free.`,
+      };
+    }
+
+    const nextBreakdown = { ...breakdown, [step.key]: amount };
+    const nextTotal = Object.values(nextBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
+    const nextStage = getNextStep(stage);
+    const acknowledge = amount > 0 ? `Got it — adding ${formatPeso(amount)} for ${step.label}.` : `Got it — ${formatPeso(0)} for ${step.label}.`;
+
+    if (nextStage === "summary") {
+      return {
+        stage: "complete",
+        total: nextTotal,
+        breakdown: nextBreakdown,
+        message: `${acknowledge}\n\n${buildSummaryMessage(nextTotal, nextBreakdown)}`,
+      };
+    }
+
+    return {
+      stage: nextStage,
+      total: nextTotal,
+      breakdown: nextBreakdown,
+      message: `${acknowledge}\n\n${IMPACT_STEPS[nextStage].question}`,
+    };
+  }
+
+  return {
+    stage: "complete",
+    total,
+    breakdown,
+    message: `Your current estimated impact is ${formatPeso(total)}. You can use this estimate or adjust the details before saving.`,
+  };
 }
 
 function Portal({ children }) {
@@ -203,25 +254,6 @@ function Portal({ children }) {
   useEffect(() => setMounted(true), []);
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(children, document.body);
-}
-
-function InlinePortal({ target, children }) {
-  if (!target || typeof document === "undefined") return null;
-  return createPortal(children, target);
-}
-
-function ensureRefinementTarget(root) {
-  const textarea = root?.querySelector('[role="dialog"] textarea');
-  if (!textarea) return null;
-
-  let target = root.querySelector("[data-clara-schedule-refinement-inline]");
-  if (target) return target;
-
-  target = document.createElement("div");
-  target.setAttribute("data-clara-schedule-refinement-inline", "true");
-  target.className = "mt-3";
-  textarea.insertAdjacentElement("afterend", target);
-  return target;
 }
 
 function useBodyScrollLock(locked) {
@@ -233,52 +265,6 @@ function useBodyScrollLock(locked) {
       document.body.style.overflow = previousOverflow;
     };
   }, [locked]);
-}
-
-async function askScheduleImpactAI({ form, messages, total, userReply }) {
-  const history = messages.map((message) => ({
-    role: message.role === "assistant" ? "assistant" : "user",
-    content: message.text,
-  }));
-
-  const result = await askGeminiForUnderstanding({
-    text: `You are CLARA's Schedule Impact Coach inside the Schedule page.
-
-Your task is to have a natural AI conversation about possible expenses for this exact event.
-
-Event:
-${JSON.stringify({ title: form.title, note: form.note, type: form.type, date: form.date, time: form.time }, null, 2)}
-
-Running estimate so far: PHP ${total}
-Latest user reply: ${userReply || "The user just opened the impact coach."}
-
-Rules:
-- Do not use a fixed checklist.
-- Think about the event context and ask the next most useful money-impact question.
-- Ask only one question at a time.
-- Keep it short, warm, and conversational.
-- If the user gives an amount, acknowledge it and naturally move to the next likely expense.
-- For church events, consider transport, food, offering/contribution, group share, and after-event spending only when relevant.
-- Do not claim anything was saved.
-- Do not say you cannot help with schedules.
-- Do not ask generic wallet/budget commands.
-- Reply as CLARA in one short assistantMessage.`,
-    session: {
-      history,
-      currentCommand: {
-        screen: "schedule",
-        action: "ai_schedule_impact_chat",
-        runningEstimate: total,
-      },
-    },
-    financeSnapshot: {},
-  });
-
-  if (isGeminiFallback(result)) {
-    throw new Error(result?.meta?.errorMessage || "Gemini is unavailable for schedule impact chat.");
-  }
-
-  return cleanText(result?.assistantMessage) || "What other possible spending should we include for this schedule?";
 }
 
 function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {
@@ -303,14 +289,14 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
 
             <div className="mt-4 rounded-[22px] border border-cyan-200/20 bg-cyan-300/[0.07] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_24px_rgba(34,211,238,0.06)]">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Running estimate</p>
-              <p className="mt-1 text-2xl font-black text-white">₱{session.total.toLocaleString()}</p>
+              <p className="mt-1 text-2xl font-black text-white">{formatPeso(session.total)}</p>
             </div>
           </header>
 
           <main className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {session.messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[84%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${message.role === "user" ? "bg-cyan-300/[0.12] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.08)]" : "border border-white/12 bg-white/[0.035] text-white/76"}`}>
+                <div className={`max-w-[84%] whitespace-pre-line rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${message.role === "user" ? "bg-cyan-300/[0.12] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.08)]" : "border border-white/12 bg-white/[0.035] text-white/76"}`}>
                   {message.text}
                 </div>
               </div>
@@ -326,7 +312,7 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
           <footer className="shrink-0 border-t border-white/10 bg-[#071026]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur-2xl">
             {session.total > 0 ? (
               <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">
-                Use ₱{session.total.toLocaleString()} estimate
+                Use {formatPeso(session.total)} estimate
               </button>
             ) : null}
             <form onSubmit={onSend} className="flex gap-2">
@@ -340,70 +326,15 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
   );
 }
 
-function ScheduleRefinementInline({ target, session, input, setInput, thinking, onSend, onClose }) {
-  if (!session || !target) return null;
-
-  const result = session.result || {};
-  const questions = Array.isArray(result.next_questions) ? result.next_questions : [];
-  const missing = Array.isArray(result.missing_details) ? result.missing_details : [];
-  const refinementLabel = session.error || result.source === "local_title_suggestion" ? "Quick suggestion" : "AI refinement";
-
-  return (
-    <InlinePortal target={target}>
-      <div className="rounded-[20px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(168,85,247,0.07))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100/62">{refinementLabel}</p>
-          <button type="button" onClick={onClose} className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[10px] font-black text-white/42">×</button>
-        </div>
-
-        <div className="space-y-2.5">
-          <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
-            <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/34">Refined intention</p>
-            <p className="mt-1 text-xs font-bold leading-5 text-white/82">{result.refined_intention || "CLARA is clarifying this schedule."}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Suggested title</p>
-              <p className="mt-1 truncate text-[11px] font-bold text-white/74">{result.suggested_title || "Schedule plan"}</p>
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Category</p>
-              <p className="mt-1 truncate text-[11px] font-bold text-white/68">{result.suggested_category || "Personal"}</p>
-            </div>
-          </div>
-
-          {missing.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {missing.map((item) => (
-                <span key={item} className="rounded-full border border-white/10 bg-white/[.035] px-2.5 py-1 text-[9px] font-black uppercase tracking-[.09em] text-white/44">{item}</span>
-              ))}
-            </div>
-          ) : null}
-
-          {questions.length ? (
-            <div className="space-y-1.5">
-              {questions.map((item, index) => (
-                <div key={`${item.key}-${index}`} className="rounded-2xl border border-white/8 bg-white/[.028] px-3 py-2">
-                  <p className="text-xs font-black leading-5 text-white/82">{index + 1}. {item.question}</p>
-                  {item.reason ? <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/38">{item.reason}</p> : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-emerald-50/82">This schedule looks clear now. Ready to save?</p>
-          )}
-
-          {thinking ? <p className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2 text-xs font-bold text-white/50">CLARA is refining…</p> : null}
-
-          <form onSubmit={onSend} className="flex gap-2">
-            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Answer CLARA…" disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2.5 text-xs font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
-            <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-3 py-2.5 text-xs font-black text-cyan-50 disabled:opacity-50">Send</button>
-          </form>
-        </div>
-      </div>
-    </InlinePortal>
-  );
+function hideRefineButtons(root) {
+  if (!root) return;
+  root.querySelectorAll("button").forEach((button) => {
+    const label = cleanText(button.textContent).toLowerCase();
+    if (!label.includes("refine with clara")) return;
+    button.style.display = "none";
+    button.setAttribute("aria-hidden", "true");
+    button.setAttribute("tabindex", "-1");
+  });
 }
 
 export default function DashboardScheduleImpactPortalPanel() {
@@ -411,132 +342,73 @@ export default function DashboardScheduleImpactPortalPanel() {
   const [session, setSession] = useState(null);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [refineSession, setRefineSession] = useState(null);
-  const [refineTarget, setRefineTarget] = useState(null);
-  const [refineInput, setRefineInput] = useState("");
-  const [refineThinking, setRefineThinking] = useState(false);
 
   useBodyScrollLock(Boolean(session));
 
-  const startImpactChat = async (form) => {
-    const baseSession = { form, total: 0, messages: [] };
-    setSession(baseSession);
+  const startImpactChat = (form) => {
+    const cleanTitle = cleanText(form.title) || makeTitle(form.note, form.type);
+    const preparedForm = { ...form, title: cleanTitle };
+
+    if (form.elements?.titleInput && !cleanText(form.elements.titleInput.value)) {
+      updateControlledField(form.elements.titleInput, cleanTitle);
+    }
+
     setInput("");
-    setThinking(true);
-
-    try {
-      const firstMessage = await askScheduleImpactAI({ form, messages: [], total: 0, userReply: "" });
-      setSession({ ...baseSession, messages: [{ role: "assistant", text: firstMessage }] });
-    } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI unavailable:", error);
-      setSession({ ...baseSession, messages: [{ role: "assistant", text: "I can't reach CLARA's AI brain right now. Please check the Gemini setup for this build, then try the impact coach again." }] });
-    } finally {
-      setThinking(false);
-    }
+    setThinking(false);
+    setSession({
+      form: preparedForm,
+      total: 0,
+      breakdown: {},
+      stage: "confirm_intent",
+      messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }],
+    });
   };
 
-  const startRefinement = async (button = null) => {
-    const root = rootRef.current;
-    if (!root || refineThinking) return;
-
-    const form = readForm(root);
-    if (!cleanText(form.note || form.title)) return;
-
-    const target = ensureRefinementTarget(root);
-    const localResult = buildLocalRefinement(form);
-
-    setRefineTarget(target);
-    setRefineInput("");
-    setRefineThinking(true);
-    setRefineSession({ form, result: localResult, error: false });
-    applyRefinementToForm(root, localResult);
-
-    const originalLabel = button?.textContent || "Refine with CLARA";
-    if (button) {
-      button.disabled = true;
-      button.textContent = "CLARA is refining…";
-      button.classList.add("cursor-wait", "opacity-70");
-    }
-
-    try {
-      const result = await askGeminiForScheduleRefinement({ form, conversation: [] });
-      applyRefinementToForm(root, result);
-      setRefineSession({ form, result, error: false });
-    } catch (error) {
-      console.warn("[CLARA Schedule] Refinement unavailable, keeping local suggestion:", error);
-      setRefineSession({ form, result: localResult, error: true });
-    } finally {
-      setRefineThinking(false);
-      if (button) {
-        button.disabled = false;
-        button.textContent = cleanText(originalLabel) || "Refine with CLARA";
-        button.classList.remove("cursor-wait", "opacity-70");
-      }
-    }
-  };
-
-  const sendRefineReply = async (event) => {
-    event.preventDefault();
-    const reply = cleanText(refineInput);
-    const root = rootRef.current;
-    if (!reply || !root || !refineSession || refineThinking) return;
-
-    const currentForm = readForm(root);
-    const localResult = buildLocalRefinement({ ...currentForm, note: `${currentForm.note} ${reply}` });
-    setRefineInput("");
-    setRefineThinking(true);
-    setRefineSession({ form: currentForm, result: localResult, error: false });
-    applyRefinementToForm(root, localResult);
-
-    try {
-      const result = await askGeminiForScheduleRefinement({
-        form: currentForm,
-        conversation: [
-          { role: "assistant", content: refineSession.result?.refined_intention || "" },
-          { role: "user", content: reply },
-        ],
-        latestAnswer: reply,
-      });
-      applyRefinementToForm(root, result);
-      setRefineSession({ form: currentForm, result, error: false });
-    } catch (error) {
-      console.warn("[CLARA Schedule] Follow-up refinement unavailable, keeping local suggestion:", error);
-      setRefineSession({ form: currentForm, result: localResult, error: true });
-    } finally {
-      setRefineThinking(false);
-    }
-  };
-
-  const sendReply = async (event) => {
+  const sendReply = (event) => {
     event.preventDefault();
     const reply = cleanText(input);
     if (!reply || !session || thinking) return;
 
-    const amount = parseAmount(reply);
-    const nextTotal = amount > 0 ? session.total + amount : session.total;
-    const nextMessages = [...session.messages, { role: "user", text: reply }];
+    const nextUserMessage = { role: "user", text: reply };
+    const nextState = getReplyForStage({
+      stage: session.stage,
+      reply,
+      total: session.total,
+      breakdown: session.breakdown || {},
+    });
 
-    setSession({ ...session, total: nextTotal, messages: nextMessages });
     setInput("");
-    setThinking(true);
-
-    try {
-      const aiMessage = await askScheduleImpactAI({ form: session.form, messages: nextMessages, total: nextTotal, userReply: reply });
-      setSession((current) => ({ ...current, total: nextTotal, messages: [...nextMessages, { role: "assistant", text: aiMessage }] }));
-    } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI unavailable:", error);
-      setSession((current) => ({ ...current, total: nextTotal, messages: [...nextMessages, { role: "assistant", text: "I can't reach CLARA's AI brain right now, so I don't want to pretend this is an AI-guided estimate. Please check Gemini, then try again." }] }));
-    } finally {
-      setThinking(false);
-    }
+    setThinking(false);
+    setSession((current) => ({
+      ...current,
+      stage: nextState.stage,
+      total: nextState.total,
+      breakdown: nextState.breakdown,
+      messages: [
+        ...(current?.messages || []),
+        nextUserMessage,
+        { role: "assistant", text: nextState.message },
+      ],
+    }));
   };
 
   const useEstimate = (amount) => {
     const root = rootRef.current;
     const form = root ? readForm(root) : null;
-    if (form?.elements?.amountInput) updateControlledField(form.elements.amountInput, `₱${amount}`);
+    if (form?.elements?.amountInput) updateControlledField(form.elements.amountInput, formatPeso(amount));
     setSession(null);
   };
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof MutationObserver === "undefined") return undefined;
+
+    hideRefineButtons(root);
+    const observer = new MutationObserver(() => hideRefineButtons(root));
+    observer.observe(root, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const onClick = (event) => {
@@ -545,11 +417,10 @@ export default function DashboardScheduleImpactPortalPanel() {
       if (!root || !button || !root.contains(button)) return;
 
       const label = cleanText(button.textContent).toLowerCase();
-      if (label.includes("refine with clara") || label.includes("clara is refining")) {
+      if (label.includes("refine with clara")) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation?.();
-        startRefinement(button);
         return;
       }
 
@@ -577,13 +448,12 @@ export default function DashboardScheduleImpactPortalPanel() {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("submit", onSubmit, true);
     };
-  }, [refineThinking, session, thinking]);
+  }, [session, thinking]);
 
   return (
     <div ref={rootRef} className="contents">
       <OriginalDashboardSchedulePanel />
       <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={() => setSession(null)} onUseEstimate={useEstimate} />
-      <ScheduleRefinementInline target={refineTarget} session={refineSession} input={refineInput} setInput={setRefineInput} thinking={refineThinking} onSend={sendRefineReply} onClose={() => setRefineSession(null)} />
     </div>
   );
 }
