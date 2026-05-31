@@ -172,6 +172,14 @@ Money rules:
 - cost_mode must be one of: single_sub_item, combined_total, category_total, skip.
 - If reply says "same" for a return trip, use the previous related sub-item amount only if known.
 
+Category transition rule:
+- Before moving from one spending category to another, ask the user for confirmation first.
+- After finishing a category like Transportation, Food, Fees, Shared, or Buffer, do not immediately continue to the next category.
+- Instead, summarize the completed category and ask: "Anything else for [category], or are we ready to move to [next category]?"
+- Example: "Got it, Max. Transportation total is ₱60. Anything else for transportation, or are we ready to move to food and drinks?"
+- Only proceed to the next category when the user says ready, next, none, nothing else, move on, go ahead, or yes.
+- If the user adds another expense, keep it inside the current category first.
+
 Critical round-trip / combined-total rule:
 - Detect phrases like "going there and going back home", "round trip", "balikan", "total", "all in", "overall", "both ways".
 - If latest reply gives a combined/round-trip/category total, do NOT add it blindly as the current sub-item cost.
