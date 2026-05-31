@@ -1,0 +1,8 @@
+/* Finance modal copy polish: remove tutorial-style labels from the custom money keypad. */
+div[class*="rounded-[22px]"] > div:first-child > span:first-child {
+  display: none !important;
+}
+
+div[class*="rounded-[22px]"] > div:first-child {
+  justify-content: flex-end !important;
+}
