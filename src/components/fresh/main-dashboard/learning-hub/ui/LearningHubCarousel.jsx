@@ -7,6 +7,7 @@ const AUTO_SCROLL_DELAY = 4200;
 const RESUME_AFTER_TOUCH = 7000;
 const SWIPE_THRESHOLD = 34;
 const LEARNING_HUB_STAGE_HEIGHT = 244;
+const COMING_SOON_MESSAGE = "Lessons and guides are being prepared.";
 
 const learningHubToggleSurface = {
   background:
@@ -22,10 +23,23 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
   const [headerTouchStartY, setHeaderTouchStartY] = useState(null);
+  const [soonMessageVisible, setSoonMessageVisible] = useState(false);
   const resumeTimerRef = useRef(null);
+  const soonMessageTimerRef = useRef(null);
 
   const safeMaterials = useMemo(() => materials.filter(Boolean), [materials]);
   const total = safeMaterials.length;
+
+  const showComingSoonMessage = () => {
+    setIsExpanded(false);
+    setSoonMessageVisible(true);
+
+    if (soonMessageTimerRef.current) clearTimeout(soonMessageTimerRef.current);
+
+    soonMessageTimerRef.current = setTimeout(() => {
+      setSoonMessageVisible(false);
+    }, 2600);
+  };
 
   const pauseCarousel = () => {
     setIsPaused(true);
@@ -64,8 +78,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
     if (headerTouchStartY === null) return;
     const diff = e.changedTouches[0].clientY - headerTouchStartY;
 
-    if (diff > SWIPE_THRESHOLD) setIsExpanded(true);
-    if (diff < -SWIPE_THRESHOLD) setIsExpanded(false);
+    if (Math.abs(diff) > SWIPE_THRESHOLD) showComingSoonMessage();
 
     setHeaderTouchStartY(null);
   };
@@ -98,6 +111,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   useEffect(() => {
     return () => {
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      if (soonMessageTimerRef.current) clearTimeout(soonMessageTimerRef.current);
     };
   }, []);
 
@@ -109,30 +123,35 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
       <button
         type="button"
-        aria-expanded={isExpanded}
-        onClick={() => setIsExpanded((current) => !current)}
+        aria-expanded="false"
+        aria-label="Learning Hub coming soon"
+        onClick={showComingSoonMessage}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
-        className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/72 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
+        className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/58 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
         style={learningHubToggleSurface}
       >
         <span className="pointer-events-none absolute -left-12 -top-14 z-0 h-24 w-24 rounded-full bg-cyan-300/[0.08]" />
         <span className="pointer-events-none absolute -bottom-14 right-0 z-0 h-24 w-24 rounded-full bg-blue-400/[0.08]" />
-        <span className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.05] via-transparent to-black/8" />
+        <span className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.05] via-transparent to-black/8 backdrop-blur-[1px]" />
 
-        <BookOpen size={16} className="relative z-10 text-cyan-100/78" />
-        <span className="relative z-10">Learning Hub</span>
-        <ChevronDown
-          size={15}
-          className={`relative z-10 text-cyan-100/60 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
-        />
+        <BookOpen size={16} className="relative z-10 text-cyan-100/58" />
+        <span className="relative z-10 blur-[0.25px]">Learning Hub</span>
+        <span className="relative z-10 rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[9px] font-black tracking-[0.18em] text-cyan-100/70">
+          SOON
+        </span>
+        <ChevronDown size={15} className="relative z-10 text-cyan-100/35" />
       </button>
 
+      {soonMessageVisible ? (
+        <div className="mx-auto mt-2 w-fit max-w-[92%] rounded-full border border-cyan-100/15 bg-[#061427]/88 px-3.5 py-2 text-center text-[11px] font-semibold text-cyan-50/75 shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+          {COMING_SOON_MESSAGE}
+        </div>
+      ) : null}
+
       <div
-        data-learning-hub-expanded={isExpanded ? "true" : "false"}
-        className={`clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
-          isExpanded ? "mt-0 mb-0 grid-rows-[244px] opacity-100" : "mt-0 mb-0 grid-rows-[0px] opacity-0"
-        }`}
+        data-learning-hub-expanded="false"
+        className="clara-learning-hub-expanded clara-learning-motion grid grid-rows-[0px] opacity-0 transition-[grid-template-rows,opacity,margin] duration-500 ease-out"
       >
         <div className="clara-learning-hub-clip min-h-0 overflow-visible">
           <div
