@@ -164,8 +164,12 @@ function getEventPhrase(form) {
   return `work through “${source || form.title || "this schedule"}”`;
 }
 
+function getScheduleTitleForImpact(form) {
+  return cleanText(form?.title) || makeTitle(form?.note, form?.type) || "this schedule";
+}
+
 function getOpeningMessage(form) {
-  return `Hi Max, so you want to ${getEventPhrase(form)}. Am I understanding that correctly?`;
+  return `Hi Max, I’ll assess the money impact for this schedule: ${getScheduleTitleForImpact(form)}. Is that correct?`;
 }
 
 const DEFAULT_EXPENSE_PATH = [
@@ -289,7 +293,7 @@ function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategor
   const path = normalizeExpensePath(expensePath);
 
   if (stage === "confirm_intent") {
-    if (isAffirmative(reply)) return { stage: "ask_permission", total, expensePath: path, activeCategory, activeSubItem, message: "Great! I’ll treat this as your confirmed schedule. Before saving, let’s assess possible spending for it. Ready to start?" };
+    if (isAffirmative(reply)) return { stage: "ask_permission", total, expensePath: path, activeCategory, activeSubItem, message: "Great. Before saving, let’s estimate possible expenses one part at a time. Ready to start?" };
     return { stage: "clarify_intent", total, expensePath: path, activeCategory, activeSubItem, message: "No worries. What do you really want this schedule to mean?" };
   }
 
@@ -331,6 +335,10 @@ function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategor
     }
 
     return { stage: "category_assessment", total: nextTotal, expensePath: updatedPath, activeCategory: next.category, activeSubItem: next.subItem, message: `${acknowledge}\n\n${getLocalPromptForSubItem(next.subItem, updatedPath)}` };
+  }
+
+  if (stage === "complete" && isAffirmative(reply) && total > 0) {
+    return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: `Wonderful, Max. Your schedule and estimated money impact of ${formatPeso(total)} have been saved successfully.` };
   }
 
   return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSummaryMessage(total, path) };
@@ -420,11 +428,11 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
           </main>
 
           <footer className="shrink-0 border-t border-white/10 bg-[#071026]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur-2xl">
-            {session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}
-            <form onSubmit={onSend} className="flex gap-2">
+            {!session.autoClosing && session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}
+            {!session.autoClosing ? <form onSubmit={onSend} className="flex gap-2">
               <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Reply with amount or details..." disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
               <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50">Send</button>
-            </form>
+            </form> : null}
           </footer>
         </div>
       </div>
@@ -445,11 +453,16 @@ function hideRefineButtons(root) {
 
 export default function DashboardScheduleImpactPortalPanel() {
   const rootRef = useRef(null);
+  const autoCloseTimerRef = useRef(null);
   const [session, setSession] = useState(null);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
 
   useBodyScrollLock(Boolean(session));
+
+  useEffect(() => () => {
+    if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
+  }, []);
 
   const startImpactChat = async (form) => {
     const cleanTitle = shouldReplaceTitle(form.title, form.note, form.type) ? makeTitle(form.note, form.type) : cleanText(form.title);
@@ -478,6 +491,19 @@ export default function DashboardScheduleImpactPortalPanel() {
     }
   };
 
+  const applyEstimateToSchedule = (amount) => {
+    const form = rootRef.current ? readForm(rootRef.current) : null;
+    if (form?.elements?.amountInput) updateControlledField(form.elements.amountInput, formatPeso(amount));
+  };
+
+  const closeImpactChat = () => {
+    if (autoCloseTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    setSession(null);
+  };
+
   const sendReply = async (event) => {
     event.preventDefault();
     const reply = cleanText(input);
@@ -498,6 +524,8 @@ export default function DashboardScheduleImpactPortalPanel() {
       const finalPending = getFirstPending(applied.expensePath);
       const normalizedStage = normalizeGeminiStage(ai.stage, currentStage);
       const nextStage = finalPending.subItem ? (normalizedStage === "confirm_intent" || normalizedStage === "ask_permission" || normalizedStage === "clarify_intent" ? normalizedStage : "category_assessment") : "complete";
+      const assistantText = cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem }).message;
+      const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && applied.total > 0;
 
       setSession((current) => ({
         ...current,
@@ -507,22 +535,39 @@ export default function DashboardScheduleImpactPortalPanel() {
         expensePath: applied.expensePath,
         activeCategory: applied.activeCategory,
         activeSubItem: applied.activeSubItem,
-        messages: [...optimisticMessages, { role: "assistant", text: cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem }).message }],
+        autoClosing: shouldAutoApplyEstimate,
+        messages: [...optimisticMessages, { role: "assistant", text: assistantText }],
       }));
+
+      if (shouldAutoApplyEstimate) {
+        applyEstimateToSchedule(applied.total);
+        if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = window.setTimeout(() => {
+          setSession(null);
+          autoCloseTimerRef.current = null;
+        }, 1000);
+      }
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI reply unavailable, using local safety reply:", error);
       const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem });
-      setSession((current) => ({ ...current, stage: local.stage, total: local.total, expensePath: local.expensePath, activeCategory: local.activeCategory, activeSubItem: local.activeSubItem, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));
+      const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && local.total > 0;
+      setSession((current) => ({ ...current, stage: local.stage, total: local.total, expensePath: local.expensePath, activeCategory: local.activeCategory, activeSubItem: local.activeSubItem, autoClosing: shouldAutoApplyEstimate, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));
+      if (shouldAutoApplyEstimate) {
+        applyEstimateToSchedule(local.total);
+        if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = window.setTimeout(() => {
+          setSession(null);
+          autoCloseTimerRef.current = null;
+        }, 1000);
+      }
     } finally {
       setThinking(false);
     }
   };
 
   const useEstimate = (amount) => {
-    const root = rootRef.current;
-    const form = root ? readForm(root) : null;
-    if (form?.elements?.amountInput) updateControlledField(form.elements.amountInput, formatPeso(amount));
-    setSession(null);
+    applyEstimateToSchedule(amount);
+    closeImpactChat();
   };
 
   useEffect(() => {
@@ -566,7 +611,7 @@ export default function DashboardScheduleImpactPortalPanel() {
   return (
     <div ref={rootRef} className="contents">
       <OriginalDashboardSchedulePanel />
-      <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={() => setSession(null)} onUseEstimate={useEstimate} />
+      <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={closeImpactChat} onUseEstimate={useEstimate} />
     </div>
   );
 }
