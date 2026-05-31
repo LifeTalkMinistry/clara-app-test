@@ -13,11 +13,14 @@ function toTitleCase(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const AUTO_TITLE_PATTERN = /^(after-church fellowship|church fellowship|church event|personal outing|work meeting|personal schedule|family schedule|team outing|gift buying errand|license renewal|doctor checkup|birthday preparation|mama’s birthday plan|papa’s birthday plan)$/i;
+
 function makeTitle(value, type = "Personal") {
   const text = cleanText(value).replace(/[.!?]+$/g, "");
   const lower = text.toLowerCase();
 
   if (!text) return `${type || "Personal"} schedule`;
+  if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "Eat out after work";
   if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "After-church fellowship";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Mama’s birthday plan";
   if (/birthday/.test(lower) && /papa|dad|father|tatay/.test(lower)) return "Papa’s birthday plan";
@@ -29,10 +32,10 @@ function makeTitle(value, type = "Personal") {
   if (/church/.test(lower) && /outing/.test(lower)) return "Church fellowship";
   if (/church|service|simbahan|ministry/.test(lower)) return "Church event";
   if (/outing|beach|resort|trip|gala|lakad|alis|labas/.test(lower)) return "Personal outing";
-  if (/meeting|office|shift|work/.test(lower)) return "Work meeting";
+  if (/meeting|office|shift|work/.test(lower)) return "Work schedule";
   if (/family|fiesta|mama|papa|nanay|tatay/.test(lower)) return "Family schedule";
 
-  const shortText = text.split(" ").filter(Boolean).slice(0, 4).join(" ");
+  const shortText = text.split(" ").filter(Boolean).slice(0, 5).join(" ");
   return toTitleCase(shortText) || `${type || "Personal"} schedule`;
 }
 
@@ -40,6 +43,7 @@ function makeDescription(value, title = "") {
   const source = cleanText(value || title);
   const lower = source.toLowerCase();
 
+  if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "Eat out after work with a workmate or group.";
   if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "Simple fellowship with churchmates after the church service.";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Preparation for my mother’s birthday celebration.";
   if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Health appointment or checkup that may include travel and medical-related costs.";
@@ -64,6 +68,15 @@ function updateControlledField(element, value) {
   element.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function shouldReplaceTitle(currentTitle, note, type) {
+  const current = cleanText(currentTitle);
+  const noteTitle = makeTitle(note, type);
+  if (!current) return true;
+  if (!cleanText(note)) return false;
+  if (current === noteTitle) return false;
+  return AUTO_TITLE_PATTERN.test(current) || /gala after church/i.test(current);
+}
+
 function readForm(root) {
   const dialog = root?.querySelector?.('[role="dialog"]');
   const titleInput = dialog?.querySelector('input[placeholder="Schedule title"]');
@@ -74,7 +87,8 @@ function readForm(root) {
   const amountInput = dialog?.querySelector('input[placeholder="AI will calculate"]');
   const note = cleanText(noteInput?.value);
   const type = cleanText(typeInput?.value) || "Personal";
-  const title = cleanText(titleInput?.value) || makeTitle(note, type);
+  const rawTitle = cleanText(titleInput?.value);
+  const title = shouldReplaceTitle(rawTitle, note, type) ? makeTitle(note, type) : rawTitle;
 
   return {
     title,
@@ -96,13 +110,8 @@ function applyScheduleSuggestions(root, ai = {}) {
   const currentTitle = cleanText(form.elements.titleInput?.value);
   const currentNote = cleanText(form.elements.noteInput?.value);
 
-  if (suggestedTitle && (!currentTitle || currentTitle === makeTitle(currentNote, form.type) || /gala after church/i.test(currentTitle))) {
-    updateControlledField(form.elements.titleInput, suggestedTitle);
-  }
-
-  if (suggestedDescription && (!currentNote || currentNote.length < 28 || /gala after church/i.test(currentNote))) {
-    updateControlledField(form.elements.noteInput, suggestedDescription);
-  }
+  if (suggestedTitle && shouldReplaceTitle(currentTitle, currentNote, form.type)) updateControlledField(form.elements.titleInput, suggestedTitle);
+  if (suggestedDescription && (!currentNote || currentNote.length < 28 || /gala after church/i.test(currentNote))) updateControlledField(form.elements.noteInput, suggestedDescription);
 
   return { title: suggestedTitle || form.title, note: suggestedDescription || form.note };
 }
@@ -140,6 +149,7 @@ function getEventPhrase(form) {
   const source = cleanText(form.note || form.title);
   const lower = source.toLowerCase();
 
+  if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "eat out after work";
   if (/fellowship/.test(lower) && /church|service|simbahan/.test(lower)) return "have a simple fellowship after church service";
   if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "have a simple fellowship after church service";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "prepare for your mother’s birthday";
@@ -163,7 +173,7 @@ const DEFAULT_EXPENSE_PATH = [
     category: "transport",
     label: "Transportation",
     sub_items: [
-      { key: "transport_going_there", label: "Going to the fellowship", status: "pending", amount: 0 },
+      { key: "transport_going_there", label: "Going to the event", status: "pending", amount: 0 },
       { key: "transport_going_home", label: "Going back home", status: "pending", amount: 0 },
       { key: "transport_extra_stop", label: "Extra stop or side trip", status: "pending", amount: 0 },
     ],
@@ -256,13 +266,13 @@ function formatPeso(value) {
 function getLocalPromptForSubItem(subItemKey, path = []) {
   const { category, item } = findSubItem(path, subItemKey);
   if (!item) return "How much should I estimate for this part?";
-  if (item.key === "transport_going_there") return "Let’s start with transportation. First, how much might you spend going to the fellowship?";
+  if (item.key === "transport_going_there") return "Let’s start with transportation. First, how much might you spend going there?";
   if (item.key === "transport_going_home") return "How about going back home? Will you spend the same amount, more, less, or none?";
-  if (item.key === "transport_extra_stop") return "Any extra stop or side trip after the fellowship?";
+  if (item.key === "transport_extra_stop") return "Any extra stop or side trip?";
   if (item.key === "food_personal") return "Next, food and drinks. How much might you spend for your own food or drinks?";
   if (item.key === "food_treat_someone") return "Will you treat someone or pay for another person’s food?";
   if (item.key === "food_group_share") return "Will there be any shared food contribution with the group?";
-  if (item.key === "fees_church_group") return "Will there be any church or group contribution for this fellowship?";
+  if (item.key === "fees_church_group") return "Will there be any group contribution for this schedule?";
   if (item.key === "fees_venue") return "Any venue, entrance, table, or reservation fee?";
   if (item.key === "buffer_emergency") return "Last one: do you want to add a small emergency buffer just in case?";
   return `For ${category?.label || "this category"}, how much should I estimate for ${item.label}?`;
@@ -442,11 +452,11 @@ export default function DashboardScheduleImpactPortalPanel() {
   useBodyScrollLock(Boolean(session));
 
   const startImpactChat = async (form) => {
-    const cleanTitle = cleanText(form.title) || makeTitle(form.note, form.type);
+    const cleanTitle = shouldReplaceTitle(form.title, form.note, form.type) ? makeTitle(form.note, form.type) : cleanText(form.title);
     const preparedForm = { ...form, title: cleanTitle, note: cleanText(form.note) || makeDescription(form.note, cleanTitle) };
     const basePath = clonePath(DEFAULT_EXPENSE_PATH);
 
-    if (form.elements?.titleInput && !cleanText(form.elements.titleInput.value)) updateControlledField(form.elements.titleInput, cleanTitle);
+    if (form.elements?.titleInput && shouldReplaceTitle(form.elements.titleInput.value, form.note, form.type)) updateControlledField(form.elements.titleInput, cleanTitle);
     if (form.elements?.noteInput && !cleanText(form.elements.noteInput.value)) updateControlledField(form.elements.noteInput, preparedForm.note);
 
     const baseSession = { form: preparedForm, total: 0, expensePath: basePath, stage: "confirm_intent", activeCategory: "", activeSubItem: "", messages: [] };
