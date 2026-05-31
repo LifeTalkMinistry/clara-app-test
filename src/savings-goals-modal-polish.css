@@ -1,23 +1,41 @@
-/* Savings Goals modal polish: keep the close button from feeling clipped/crowded. */
-body:has([role="dialog"] h2) [role="dialog"] > button {
-  top: 1rem !important;
-  right: 1rem !important;
-  width: 2.25rem !important;
-  height: 2.25rem !important;
+/* Savings Goals modal polish: keep Radix/shadcn dialog close buttons from feeling clipped/crowded. */
+[role="dialog"] > button {
+  top: 1.125rem !important;
+  right: 1.125rem !important;
+  width: 2.35rem !important;
+  height: 2.35rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   border-radius: 9999px !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.085) !important;
   color: rgba(255, 255, 255, 0.78) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 26px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(12px) !important;
-  z-index: 20 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 28px rgba(0, 0, 0, 0.24) !important;
+  backdrop-filter: blur(14px) !important;
+  z-index: 50 !important;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
-body:has([role="dialog"] h2) [role="dialog"] > button:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+[role="dialog"] > button:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
   color: rgba(255, 255, 255, 0.96) !important;
 }
 
-body:has([role="dialog"] h2) [role="dialog"] header {
-  padding-right: 4rem !important;
+[role="dialog"] > button svg {
+  width: 1rem !important;
+  height: 1rem !important;
+}
+
+[role="dialog"] header,
+[role="dialog"] [class*="DialogHeader"] {
+  padding-right: 4.5rem !important;
+}
+
+@media (max-width: 480px) {
+  [role="dialog"] > button {
+    top: 1.2rem !important;
+    right: 1.2rem !important;
+  }
 }
