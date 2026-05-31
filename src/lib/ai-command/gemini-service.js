@@ -1,7 +1,7 @@
 import { AI_INTENTS, normalizeGeminiCommand } from "@/lib/ai-command/command-parser";
 import { compactFinanceSnapshot } from "@/lib/ai-command/finance-context";
 
-const DEFAULT_MODEL = "gemini-1.5-flash";
+const DEFAULT_MODEL = "gemini-2.0-flash";
 const DEFAULT_TIMEOUT_MS = 18000;
 const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
 
