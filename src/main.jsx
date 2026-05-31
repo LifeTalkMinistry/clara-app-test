@@ -52,6 +52,7 @@ import "./me-hero-support-bond.css";
 import "./me-support-dock-gap-fix.css";
 import "./life-stage-young-professional-overlap-fix.css";
 import "./savings-goals-modal-polish.css";
+import "./finance-action-modal-copy-polish.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
