@@ -88,6 +88,20 @@ function isNegativeOrFree(value) {
   return /\b(no|none|wala|free|libre|zero|0|not really|hindi|skip)\b/i.test(cleanText(value));
 }
 
+function isQuantityOnlyReply(value) {
+  const text = cleanText(value).toLowerCase();
+  if (!text) return false;
+  return /\b(ride|rides|jeep|jeepney|tricycle|bus|train|taxi|grab|angkas|people|person|persons|friend|friends|churchmate|churchmates|ticket|tickets|item|items|piece|pieces|times|pax)\b/.test(text) && !/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate)/i.test(text);
+}
+
+function isClearMoneyReply(value) {
+  const text = cleanText(value).toLowerCase();
+  if (!text) return false;
+  if (isQuantityOnlyReply(text)) return false;
+  if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate)/i.test(text) && parseAmount(text) > 0) return true;
+  return /^\d+(?:\.\d+)?$/.test(text) && parseAmount(text) > 0;
+}
+
 function getEventPhrase(form) {
   const source = cleanText(form.note || form.title);
   const lower = source.toLowerCase();
@@ -110,31 +124,11 @@ function getOpeningMessage(form) {
 }
 
 const IMPACT_STEPS = {
-  transport: {
-    key: "transport",
-    label: "transportation",
-    question: "Alright. First, let’s estimate transportation. How much do you think you might spend on fare, gas, parking, or ride booking?",
-  },
-  food: {
-    key: "food",
-    label: "food and drinks",
-    question: "Next, food and drinks. How much might you spend for snacks, meals, or drinks?",
-  },
-  fees: {
-    key: "fees",
-    label: "fees or contributions",
-    question: "Will there be any contribution, entrance fee, ticket, offering, or shared payment for this plan?",
-  },
-  shared: {
-    key: "shared",
-    label: "shared or extra group costs",
-    question: "Any gift, group share, or extra spending you might need to prepare for?",
-  },
-  buffer: {
-    key: "buffer",
-    label: "emergency buffer",
-    question: "Last one: do you want to add a small emergency buffer just in case something unexpected comes up?",
-  },
+  transport: { key: "transport", label: "transportation", question: "Alright. First, let’s estimate transportation. How much do you think you might spend on fare, gas, parking, or ride booking?" },
+  food: { key: "food", label: "food and drinks", question: "Next, food and drinks. How much might you spend for snacks, meals, or drinks?" },
+  fees: { key: "fees", label: "fees or contributions", question: "Will there be any contribution, entrance fee, ticket, offering, or shared payment for this plan?" },
+  shared: { key: "shared", label: "shared or extra group costs", question: "Any gift, group share, or extra spending you might need to prepare for?" },
+  buffer: { key: "buffer", label: "emergency buffer", question: "Last one: do you want to add a small emergency buffer just in case something unexpected comes up?" },
 };
 
 const STEP_ORDER = ["transport", "food", "fees", "shared", "buffer"];
@@ -148,102 +142,58 @@ function formatPeso(value) {
   return `₱${Math.max(0, Number(value || 0)).toLocaleString()}`;
 }
 
-function buildSummaryMessage(total, breakdown = {}) {
-  const lines = STEP_ORDER
-    .map((key) => `${IMPACT_STEPS[key].label}: ${formatPeso(breakdown[key] || 0)}`)
-    .join("\n");
+function sumBreakdown(breakdown = {}) {
+  return Object.values(breakdown || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+}
 
+function buildSummaryMessage(total, breakdown = {}) {
+  const lines = STEP_ORDER.map((key) => `${IMPACT_STEPS[key].label}: ${formatPeso(breakdown[key] || 0)}`).join("\n");
   return `Here’s the estimated money impact for this schedule:\n${lines}\n\nEstimated total: ${formatPeso(total)}. Does this look right?`;
 }
 
 function getLocalReplyForStage({ stage, reply, total, breakdown, form }) {
   if (stage === "confirm_intent") {
     if (isAffirmative(reply)) {
-      return {
-        stage: "ask_permission",
-        total,
-        breakdown,
-        message: "Great! That sounds exciting. Let’s assess the possible spending for this plan. Ready to start?",
-      };
+      return { stage: "ask_permission", total, breakdown, message: "Great! That sounds exciting. Let’s assess the possible spending for this plan. Ready to start?" };
     }
-
-    return {
-      stage: "clarify_intent",
-      total,
-      breakdown,
-      message: "No worries. What do you really want this schedule to mean?",
-    };
+    return { stage: "clarify_intent", total, breakdown, message: "No worries. What do you really want this schedule to mean?" };
   }
 
   if (stage === "clarify_intent") {
-    return {
-      stage: "ask_permission",
-      total,
-      breakdown,
-      message: "Got it. I’ll use that as the context. Ready to start checking the possible spending?",
-    };
+    return { stage: "ask_permission", total, breakdown, message: "Got it. I’ll use that as the context. Ready to start checking the possible spending?" };
   }
 
   if (stage === "ask_permission") {
-    if (isAffirmative(reply)) {
-      return {
-        stage: "transport",
-        total,
-        breakdown,
-        message: IMPACT_STEPS.transport.question,
-      };
-    }
-
-    return {
-      stage: "ask_permission",
-      total,
-      breakdown,
-      message: "Sure. Reply “Start” whenever you’re ready, and we’ll go one spending area at a time.",
-    };
+    if (isAffirmative(reply)) return { stage: "transport", total, breakdown, message: IMPACT_STEPS.transport.question };
+    return { stage: "ask_permission", total, breakdown, message: "Sure. Reply “Start” whenever you’re ready, and we’ll go one spending area at a time." };
   }
 
   if (STEP_ORDER.includes(stage)) {
     const step = IMPACT_STEPS[stage];
-    const amount = parseAmount(reply);
     const hasClearZero = isNegativeOrFree(reply);
+    const hasClearCost = isClearMoneyReply(reply);
+    const amount = hasClearCost ? parseAmount(reply) : 0;
 
-    if (amount <= 0 && !hasClearZero) {
-      return {
-        stage,
-        total,
-        breakdown,
-        message: `For ${step.label}, how much should I estimate? You can reply with an amount like 100, or say none/free.`,
-      };
+    if (!hasClearCost && !hasClearZero) {
+      const quantityPrompt = isQuantityOnlyReply(reply)
+        ? `Got it. For ${step.label}, how much do you think that might cost in total?`
+        : `For ${step.label}, how much should I estimate? You can reply with an amount like 100, or say none/free.`;
+      return { stage, total, breakdown, message: quantityPrompt };
     }
 
     const nextBreakdown = { ...breakdown, [step.key]: amount };
-    const nextTotal = Object.values(nextBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
+    const nextTotal = sumBreakdown(nextBreakdown);
     const nextStage = getNextStep(stage);
     const acknowledge = amount > 0 ? `Got it — adding ${formatPeso(amount)} for ${step.label}.` : `Got it — ${formatPeso(0)} for ${step.label}.`;
 
     if (nextStage === "summary") {
-      return {
-        stage: "complete",
-        total: nextTotal,
-        breakdown: nextBreakdown,
-        message: `${acknowledge}\n\n${buildSummaryMessage(nextTotal, nextBreakdown)}`,
-      };
+      return { stage: "complete", total: nextTotal, breakdown: nextBreakdown, message: `${acknowledge}\n\n${buildSummaryMessage(nextTotal, nextBreakdown)}` };
     }
 
-    return {
-      stage: nextStage,
-      total: nextTotal,
-      breakdown: nextBreakdown,
-      message: `${acknowledge}\n\n${IMPACT_STEPS[nextStage].question}`,
-    };
+    return { stage: nextStage, total: nextTotal, breakdown: nextBreakdown, message: `${acknowledge}\n\n${IMPACT_STEPS[nextStage].question}` };
   }
 
-  return {
-    stage: "complete",
-    total,
-    breakdown,
-    message: `Your current estimated impact for ${form?.title || "this schedule"} is ${formatPeso(total)}. You can use this estimate or adjust the details before saving.`,
-  };
+  return { stage: "complete", total, breakdown, message: `Your current estimated impact for ${form?.title || "this schedule"} is ${formatPeso(total)}. You can use this estimate or adjust the details before saving.` };
 }
 
 function normalizeGeminiStage(value, fallback) {
@@ -252,14 +202,26 @@ function normalizeGeminiStage(value, fallback) {
   return allowed.has(stage) ? stage : fallback;
 }
 
-function getStageAfterGemini({ currentStage, geminiStage, reply }) {
+function getStageAfterGemini({ currentStage, geminiStage, reply, costWasAdded }) {
   const normalized = normalizeGeminiStage(geminiStage, currentStage);
-
   if (currentStage === "confirm_intent" && isAffirmative(reply)) return "ask_permission";
   if (currentStage === "ask_permission" && isAffirmative(reply)) return "transport";
-  if (STEP_ORDER.includes(currentStage)) return getNextStep(currentStage) === "summary" ? "complete" : getNextStep(currentStage);
-
+  if (STEP_ORDER.includes(currentStage) && costWasAdded) return getNextStep(currentStage) === "summary" ? "complete" : getNextStep(currentStage);
+  if (STEP_ORDER.includes(currentStage) && !costWasAdded && !isNegativeOrFree(reply)) return currentStage;
   return normalized;
+}
+
+function applyConfirmedCost({ ai, currentStage, currentBreakdown = {}, currentTotal = 0 }) {
+  const category = cleanText(ai?.cost_category || "");
+  const isValidCategory = STEP_ORDER.includes(category);
+  const shouldAdd = Boolean(ai?.should_add_cost) && isValidCategory;
+  const amount = Math.max(0, Number(ai?.confirmed_cost || 0));
+
+  if (!shouldAdd) return { breakdown: currentBreakdown, total: currentTotal, costWasAdded: false };
+
+  const targetCategory = category || currentStage;
+  const nextBreakdown = { ...currentBreakdown, [targetCategory]: Math.round(amount) };
+  return { breakdown: nextBreakdown, total: sumBreakdown(nextBreakdown), costWasAdded: true };
 }
 
 function Portal({ children }) {
@@ -274,9 +236,7 @@ function useBodyScrollLock(locked) {
     if (!locked || typeof document === "undefined") return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => { document.body.style.overflow = previousOverflow; };
   }, [locked]);
 }
 
@@ -295,9 +255,7 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
                 <h2 className="mt-2 text-xl font-black leading-tight text-white">Calculate money impact</h2>
                 <p className="mt-1 truncate text-xs font-semibold text-white/44">{session.form.title}</p>
               </div>
-              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close impact coach">
-                ×
-              </button>
+              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close impact coach">×</button>
             </div>
 
             <div className="mt-4 rounded-[22px] border border-cyan-200/20 bg-cyan-300/[0.07] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_24px_rgba(34,211,238,0.06)]">
@@ -309,25 +267,14 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
           <main className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {session.messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[84%] whitespace-pre-line rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${message.role === "user" ? "bg-cyan-300/[0.12] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.08)]" : "border border-white/12 bg-white/[0.035] text-white/76"}`}>
-                  {message.text}
-                </div>
+                <div className={`max-w-[84%] whitespace-pre-line rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${message.role === "user" ? "bg-cyan-300/[0.12] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.08)]" : "border border-white/12 bg-white/[0.035] text-white/76"}`}>{message.text}</div>
               </div>
             ))}
-
-            {thinking ? (
-              <div className="flex justify-start">
-                <div className="rounded-[22px] border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/54">CLARA is thinking…</div>
-              </div>
-            ) : null}
+            {thinking ? <div className="flex justify-start"><div className="rounded-[22px] border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/54">CLARA is thinking…</div></div> : null}
           </main>
 
           <footer className="shrink-0 border-t border-white/10 bg-[#071026]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur-2xl">
-            {session.total > 0 ? (
-              <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">
-                Use {formatPeso(session.total)} estimate
-              </button>
-            ) : null}
+            {session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}
             <form onSubmit={onSend} className="flex gap-2">
               <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Reply with amount or details..." disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
               <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50">Send</button>
@@ -362,43 +309,19 @@ export default function DashboardScheduleImpactPortalPanel() {
     const cleanTitle = cleanText(form.title) || makeTitle(form.note, form.type);
     const preparedForm = { ...form, title: cleanTitle };
 
-    if (form.elements?.titleInput && !cleanText(form.elements.titleInput.value)) {
-      updateControlledField(form.elements.titleInput, cleanTitle);
-    }
+    if (form.elements?.titleInput && !cleanText(form.elements.titleInput.value)) updateControlledField(form.elements.titleInput, cleanTitle);
 
-    const baseSession = {
-      form: preparedForm,
-      total: 0,
-      breakdown: {},
-      stage: "confirm_intent",
-      messages: [],
-    };
-
+    const baseSession = { form: preparedForm, total: 0, breakdown: {}, stage: "confirm_intent", messages: [] };
     setInput("");
     setThinking(true);
     setSession(baseSession);
 
     try {
-      const ai = await askGeminiForScheduleImpact({
-        form: preparedForm,
-        messages: [],
-        stage: "confirm_intent",
-        total: 0,
-        breakdown: {},
-        latestUserReply: "",
-      });
-
-      setSession({
-        ...baseSession,
-        stage: normalizeGeminiStage(ai.stage, "confirm_intent"),
-        messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(preparedForm) }],
-      });
+      const ai = await askGeminiForScheduleImpact({ form: preparedForm, messages: [], stage: "confirm_intent", total: 0, breakdown: {}, latestUserReply: "" });
+      setSession({ ...baseSession, stage: normalizeGeminiStage(ai.stage, "confirm_intent"), messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(preparedForm) }] });
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI unavailable, using local safety reply:", error);
-      setSession({
-        ...baseSession,
-        messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }],
-      });
+      setSession({ ...baseSession, messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
     } finally {
       setThinking(false);
     }
@@ -409,77 +332,30 @@ export default function DashboardScheduleImpactPortalPanel() {
     const reply = cleanText(input);
     if (!reply || !session || thinking) return;
 
-    const amount = parseAmount(reply);
     const currentStage = session.stage;
     const nextUserMessage = { role: "user", text: reply };
     const optimisticMessages = [...(session.messages || []), nextUserMessage];
 
-    let nextBreakdown = { ...(session.breakdown || {}) };
-    let nextTotal = session.total;
-
-    if (STEP_ORDER.includes(currentStage)) {
-      const step = IMPACT_STEPS[currentStage];
-      if (amount > 0 || isNegativeOrFree(reply)) {
-        nextBreakdown = { ...nextBreakdown, [step.key]: amount };
-        nextTotal = Object.values(nextBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
-      }
-    }
-
     setInput("");
     setThinking(true);
-    setSession((current) => ({
-      ...current,
-      total: nextTotal,
-      breakdown: nextBreakdown,
-      messages: optimisticMessages,
-    }));
+    setSession((current) => ({ ...current, messages: optimisticMessages }));
 
     try {
-      const ai = await askGeminiForScheduleImpact({
-        form: session.form,
-        messages: optimisticMessages,
-        stage: currentStage,
-        total: nextTotal,
-        breakdown: nextBreakdown,
-        latestUserReply: reply,
-      });
-
-      const nextStage = getStageAfterGemini({
-        currentStage,
-        geminiStage: ai.stage,
-        reply,
-      });
+      const ai = await askGeminiForScheduleImpact({ form: session.form, messages: optimisticMessages, stage: currentStage, total: session.total, breakdown: session.breakdown || {}, latestUserReply: reply });
+      const applied = applyConfirmedCost({ ai, currentStage, currentBreakdown: session.breakdown || {}, currentTotal: session.total });
+      const nextStage = getStageAfterGemini({ currentStage, geminiStage: ai.stage, reply, costWasAdded: applied.costWasAdded });
 
       setSession((current) => ({
         ...current,
         stage: nextStage,
-        total: nextTotal,
-        breakdown: nextBreakdown,
-        messages: [
-          ...optimisticMessages,
-          {
-            role: "assistant",
-            text: cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, breakdown: session.breakdown || {}, form: session.form }).message,
-          },
-        ],
+        total: applied.total,
+        breakdown: applied.breakdown,
+        messages: [...optimisticMessages, { role: "assistant", text: cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, breakdown: session.breakdown || {}, form: session.form }).message }],
       }));
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI reply unavailable, using local safety reply:", error);
-      const local = getLocalReplyForStage({
-        stage: currentStage,
-        reply,
-        total: session.total,
-        breakdown: session.breakdown || {},
-        form: session.form,
-      });
-
-      setSession((current) => ({
-        ...current,
-        stage: local.stage,
-        total: local.total,
-        breakdown: local.breakdown,
-        messages: [...optimisticMessages, { role: "assistant", text: local.message }],
-      }));
+      const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, breakdown: session.breakdown || {}, form: session.form });
+      setSession((current) => ({ ...current, stage: local.stage, total: local.total, breakdown: local.breakdown, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));
     } finally {
       setThinking(false);
     }
@@ -495,11 +371,9 @@ export default function DashboardScheduleImpactPortalPanel() {
   useEffect(() => {
     const root = rootRef.current;
     if (!root || typeof MutationObserver === "undefined") return undefined;
-
     hideRefineButtons(root);
     const observer = new MutationObserver(() => hideRefineButtons(root));
     observer.observe(root, { childList: true, subtree: true });
-
     return () => observer.disconnect();
   }, []);
 
@@ -508,19 +382,12 @@ export default function DashboardScheduleImpactPortalPanel() {
       const root = rootRef.current;
       const button = event.target?.closest?.("button");
       if (!root || !button || !root.contains(button)) return;
-
       const label = cleanText(button.textContent).toLowerCase();
       if (label.includes("refine with clara")) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-        return;
+        event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); return;
       }
-
       if (!label.includes("calculate money impact")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
       startImpactChat(readForm(root));
     };
 
@@ -529,9 +396,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       if (!root || !root.contains(event.target)) return;
       const submitterText = cleanText(event.submitter?.textContent).toLowerCase();
       if (!submitterText.includes("calculate money impact")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
       startImpactChat(readForm(root));
     };
 
