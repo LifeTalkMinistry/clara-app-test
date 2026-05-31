@@ -131,6 +131,8 @@ export default function BudgetCardContent(props) {
   const outsidePlanSpent = Number(unplannedSpent || 0) + Number(undocumentedSpent || 0);
   const driftState = getBudgetDriftState({ outsidePlanSpent, spent, declared });
   const cycleLabel = budgetPace?.cycleLabel || "Monthly";
+  const cycleRange = budgetPace?.cycleRange || null;
+  const cycleDisplayLabel = budgetPace?.cycleDisplayLabel || "";
 
   if (!expanded) {
     return (
@@ -148,7 +150,14 @@ export default function BudgetCardContent(props) {
             <div className="pointer-events-none absolute inset-[1px] rounded-[27px] border border-white/[0.035]" />
 
             <div className="relative">
-              <BudgetHeader monthKey={monthKey} badgeLabel={badgeLabel} status={status} cycleLabel={cycleLabel} />
+              <BudgetHeader
+                monthKey={monthKey}
+                badgeLabel={badgeLabel}
+                status={status}
+                cycleLabel={cycleLabel}
+                cycleRange={cycleRange}
+                cycleDisplayLabel={cycleDisplayLabel}
+              />
 
               <div className="mt-3 rounded-[24px] border border-white/[0.045] bg-black/[0.095] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm">
                 <BudgetSummaryStats
