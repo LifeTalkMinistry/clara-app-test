@@ -8,15 +8,116 @@ function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function toTitleCase(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function makeTitle(value, type) {
   const text = cleanText(value).replace(/[.!?]+$/g, "");
-  if (/church/i.test(text) && /outing/i.test(text)) return "Church outing";
-  if (/church/i.test(text)) return "Church event";
-  if (/outing|beach|resort|trip/i.test(text)) return "Outing";
-  if (/meeting|office|shift|work/i.test(text)) return "Work schedule";
-  if (/family|birthday|fiesta/i.test(text)) return "Family schedule";
+  const lower = text.toLowerCase();
+
+  if (!text) return `${type || "Personal"} schedule`;
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "After-church outing";
+  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Mama’s birthday plan";
+  if (/birthday/.test(lower) && /papa|dad|father|tatay/.test(lower)) return "Papa’s birthday plan";
+  if (/birthday/.test(lower)) return "Birthday preparation";
+  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Doctor checkup";
+  if (/renew/.test(lower) && /license|licence/.test(lower)) return "License renewal";
+  if (/buy|bili|gift|regalo/.test(lower)) return "Gift buying errand";
+  if (/team/.test(lower) && /outing|gala|trip/.test(lower)) return "Team outing";
+  if (/church/.test(lower) && /outing/.test(lower)) return "Church outing";
+  if (/church|service|simbahan|ministry/.test(lower)) return "Church event";
+  if (/outing|beach|resort|trip|gala|lakad|alis|labas/.test(lower)) return "Personal outing";
+  if (/meeting|office|shift|work/.test(lower)) return "Work meeting";
+  if (/family|fiesta|mama|papa|nanay|tatay/.test(lower)) return "Family schedule";
+
   const shortText = text.split(" ").filter(Boolean).slice(0, 4).join(" ");
-  return shortText || `${type || "Personal"} schedule`;
+  return toTitleCase(shortText) || `${type || "Personal"} schedule`;
+}
+
+function makeRefinedIntention(value, type) {
+  const text = cleanText(value);
+  const lower = text.toLowerCase();
+
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) {
+    return "I am planning to go out after church.";
+  }
+  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) {
+    return "I want to prepare for my mother’s birthday celebration.";
+  }
+  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) {
+    return "I need to attend a health or doctor checkup.";
+  }
+  if (/renew/.test(lower) && /license|licence/.test(lower)) {
+    return "I need to renew my license.";
+  }
+  if (/buy|bili|gift|regalo/.test(lower)) {
+    return "I need to buy a gift before this schedule.";
+  }
+  if (/meeting|office|shift|work/.test(lower)) {
+    return "I have a work-related schedule to prepare for.";
+  }
+  if (/gala|lakad|alis|labas|outing|trip|hangout/.test(lower)) {
+    return "I am planning to go out for a personal activity.";
+  }
+
+  return `I want to add this ${String(type || "personal").toLowerCase()} schedule clearly.`;
+}
+
+function guessRefinementCategory(value, currentType = "Personal") {
+  const lower = cleanText(value).toLowerCase();
+  if (/church|service|simbahan|ministry/.test(lower)) return "Ministry";
+  if (/meeting|office|shift|work/.test(lower)) return "Work";
+  if (/family|birthday|mama|papa|nanay|tatay|sibling/.test(lower)) return "Family";
+  if (/doctor|checkup|clinic|hospital|medicine|medical/.test(lower)) return "Health";
+  if (/renew|license|permit|government|appointment|errand|bili|buy/.test(lower)) return "Errand";
+  if (/team|friends|gala|outing|hangout/.test(lower)) return "Social";
+  return currentType || "Personal";
+}
+
+function buildLocalRefinement(form) {
+  const source = cleanText(form.note || form.title);
+  const category = guessRefinementCategory(source, form.type);
+  const lower = source.toLowerCase();
+  const moneyRelevant = /gala|outing|birthday|buy|bili|gift|doctor|checkup|renew|license|trip|church|food|fare|pamasahe|bayad|fee|contribution/.test(lower);
+  const missing = ["time", "location"];
+  if (moneyRelevant) missing.push("cost");
+  if (/church|team|family|birthday|outing|gala/.test(lower)) missing.push("people involved");
+
+  const questions = [
+    {
+      key: "time",
+      question: "What time will this happen?",
+      reason: "Needed so CLARA can place it clearly on your schedule.",
+    },
+    {
+      key: "location",
+      question: "Where will this happen?",
+      reason: "Location helps CLARA understand travel and preparation needs.",
+    },
+  ];
+
+  if (moneyRelevant) {
+    questions.push({
+      key: "cost",
+      question: "Will this involve food, fare, fees, or contribution?",
+      reason: "This helps CLARA decide if money impact should be calculated.",
+    });
+  }
+
+  return {
+    refined_intention: makeRefinedIntention(source, form.type),
+    suggested_title: makeTitle(source, form.type),
+    suggested_category: category,
+    detected_money_relevance: moneyRelevant,
+    missing_details: missing.slice(0, 4),
+    next_questions: questions.slice(0, 3),
+    confidence: source ? "medium" : "low",
+    ready_to_save: false,
+    source: "local_title_suggestion",
+  };
 }
 
 function readForm(root) {
@@ -67,12 +168,13 @@ function mapToScheduleType(category) {
   return "Personal";
 }
 
-function applyRefinementToForm(root, result) {
+function applyRefinementToForm(root, result, options = {}) {
   const form = readForm(root);
   const suggestedTitle = cleanText(result?.suggested_title);
   const suggestedType = mapToScheduleType(result?.suggested_category);
+  const shouldOverwriteTitle = Boolean(options.forceTitle) || !cleanText(form.elements.titleInput?.value);
 
-  if (suggestedTitle && !cleanText(form.elements.titleInput?.value)) {
+  if (suggestedTitle && shouldOverwriteTitle) {
     updateControlledField(form.elements.titleInput, suggestedTitle);
   }
 
@@ -253,57 +355,57 @@ function ScheduleRefinementInline({ target, session, input, setInput, thinking, 
           <button type="button" onClick={onClose} className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[10px] font-black text-white/42">×</button>
         </div>
 
-        {session.error ? (
-          <p className="rounded-2xl border border-rose-300/18 bg-rose-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-rose-50/82">
-            CLARA couldn’t refine this yet. You can still save manually.
-          </p>
-        ) : (
-          <div className="space-y-2.5">
-            <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
-              <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/34">Refined intention</p>
-              <p className="mt-1 text-xs font-bold leading-5 text-white/82">{result.refined_intention || "CLARA is clarifying this schedule."}</p>
-            </div>
+        <div className="space-y-2.5">
+          {session.error ? (
+            <p className="rounded-2xl border border-amber-300/18 bg-amber-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-amber-50/82">
+              CLARA AI is unavailable right now, but I added a local title suggestion so you can continue.
+            </p>
+          ) : null}
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
-                <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Title</p>
-                <p className="mt-1 truncate text-[11px] font-bold text-white/68">{result.suggested_title || "Schedule plan"}</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
-                <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Category</p>
-                <p className="mt-1 truncate text-[11px] font-bold text-white/68">{result.suggested_category || "Personal"}</p>
-              </div>
-            </div>
-
-            {missing.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {missing.map((item) => (
-                  <span key={item} className="rounded-full border border-white/10 bg-white/[.035] px-2.5 py-1 text-[9px] font-black uppercase tracking-[.09em] text-white/44">{item}</span>
-                ))}
-              </div>
-            ) : null}
-
-            {questions.length ? (
-              <div className="space-y-1.5">
-                {questions.map((item, index) => (
-                  <div key={`${item.key}-${index}`} className="rounded-2xl border border-white/8 bg-white/[.028] px-3 py-2">
-                    <p className="text-xs font-black leading-5 text-white/82">{index + 1}. {item.question}</p>
-                    {item.reason ? <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/38">{item.reason}</p> : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-emerald-50/82">This schedule looks clear now. Ready to save?</p>
-            )}
-
-            {thinking ? <p className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2 text-xs font-bold text-white/50">CLARA is refining…</p> : null}
-
-            <form onSubmit={onSend} className="flex gap-2">
-              <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Answer CLARA…" disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2.5 text-xs font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
-              <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-3 py-2.5 text-xs font-black text-cyan-50 disabled:opacity-50">Send</button>
-            </form>
+          <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
+            <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/34">Refined intention</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-white/82">{result.refined_intention || "CLARA is clarifying this schedule."}</p>
           </div>
-        )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
+              <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Suggested title</p>
+              <p className="mt-1 truncate text-[11px] font-bold text-white/74">{result.suggested_title || "Schedule plan"}</p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
+              <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Category</p>
+              <p className="mt-1 truncate text-[11px] font-bold text-white/68">{result.suggested_category || "Personal"}</p>
+            </div>
+          </div>
+
+          {missing.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {missing.map((item) => (
+                <span key={item} className="rounded-full border border-white/10 bg-white/[.035] px-2.5 py-1 text-[9px] font-black uppercase tracking-[.09em] text-white/44">{item}</span>
+              ))}
+            </div>
+          ) : null}
+
+          {questions.length ? (
+            <div className="space-y-1.5">
+              {questions.map((item, index) => (
+                <div key={`${item.key}-${index}`} className="rounded-2xl border border-white/8 bg-white/[.028] px-3 py-2">
+                  <p className="text-xs font-black leading-5 text-white/82">{index + 1}. {item.question}</p>
+                  {item.reason ? <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/38">{item.reason}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-emerald-50/82">This schedule looks clear now. Ready to save?</p>
+          )}
+
+          {thinking ? <p className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2 text-xs font-bold text-white/50">CLARA is refining…</p> : null}
+
+          <form onSubmit={onSend} className="flex gap-2">
+            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Answer CLARA…" disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2.5 text-xs font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
+            <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-3 py-2.5 text-xs font-black text-cyan-50 disabled:opacity-50">Send</button>
+          </form>
+        </div>
       </div>
     </InlinePortal>
   );
@@ -346,10 +448,13 @@ export default function DashboardScheduleImpactPortalPanel() {
     if (!cleanText(form.note || form.title)) return;
 
     const target = ensureRefinementTarget(root);
+    const localResult = buildLocalRefinement(form);
+
     setRefineTarget(target);
     setRefineInput("");
     setRefineThinking(true);
-    setRefineSession({ form, result: null, error: false });
+    setRefineSession({ form, result: localResult, error: false });
+    applyRefinementToForm(root, localResult);
 
     const originalLabel = button?.textContent || "Refine with CLARA";
     if (button) {
@@ -363,8 +468,8 @@ export default function DashboardScheduleImpactPortalPanel() {
       applyRefinementToForm(root, result);
       setRefineSession({ form, result, error: false });
     } catch (error) {
-      console.warn("[CLARA Schedule] Refinement unavailable:", error);
-      setRefineSession({ form, result: null, error: true });
+      console.warn("[CLARA Schedule] Refinement unavailable, keeping local suggestion:", error);
+      setRefineSession({ form, result: localResult, error: true });
     } finally {
       setRefineThinking(false);
       if (button) {
@@ -382,8 +487,11 @@ export default function DashboardScheduleImpactPortalPanel() {
     if (!reply || !root || !refineSession || refineThinking) return;
 
     const currentForm = readForm(root);
+    const localResult = buildLocalRefinement({ ...currentForm, note: `${currentForm.note} ${reply}` });
     setRefineInput("");
     setRefineThinking(true);
+    setRefineSession({ form: currentForm, result: localResult, error: false });
+    applyRefinementToForm(root, localResult);
 
     try {
       const result = await askGeminiForScheduleRefinement({
@@ -397,8 +505,8 @@ export default function DashboardScheduleImpactPortalPanel() {
       applyRefinementToForm(root, result);
       setRefineSession({ form: currentForm, result, error: false });
     } catch (error) {
-      console.warn("[CLARA Schedule] Follow-up refinement unavailable:", error);
-      setRefineSession((current) => ({ ...current, error: true }));
+      console.warn("[CLARA Schedule] Follow-up refinement unavailable, keeping local suggestion:", error);
+      setRefineSession({ form: currentForm, result: localResult, error: true });
     } finally {
       setRefineThinking(false);
     }
