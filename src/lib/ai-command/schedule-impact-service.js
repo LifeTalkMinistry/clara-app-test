@@ -1,7 +1,10 @@
+import { normalizeScheduleImpactSessionMemory, normalizeExpensePath as normalizeSessionExpensePath } from "./schedule-impact-session-memory";
+
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_TIMEOUT_MS = 18000;
 const DEPRECATED_MODELS = new Set(["gemini-1.5-flash", "gemini-2.0-flash"]);
 const VALID_CATEGORIES = new Set(["transport", "food", "fees", "shared", "buffer"]);
+const VALID_COST_MODES = new Set(["single_sub_item", "combined_total", "category_total", "skip"]);
 const VALID_STAGES = new Set([
   "confirm_intent",
   "clarify_intent",
@@ -9,7 +12,6 @@ const VALID_STAGES = new Set([
   "category_assessment",
   "category_summary",
   "complete",
-  // Backward-compatible stage values from older responses.
   "transport",
   "food",
   "fees",
@@ -95,34 +97,38 @@ function normalizeConfirmedCost(value) {
   return Math.round(amount);
 }
 
+function normalizeCostMode(value) {
+  const mode = cleanText(value).toLowerCase();
+  return VALID_COST_MODES.has(mode) ? mode : "skip";
+}
+
 function normalizeExpensePath(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((category) => {
-      const categoryKey = normalizeCategory(category?.category);
-      if (!categoryKey) return null;
-      const subItems = (Array.isArray(category?.sub_items) ? category.sub_items : [])
-        .map((item) => {
-          const status = ["pending", "completed", "skipped"].includes(cleanText(item?.status).toLowerCase())
-            ? cleanText(item?.status).toLowerCase()
-            : "pending";
-          return {
-            key: cleanText(item?.key),
-            label: cleanText(item?.label),
-            status,
-            amount: normalizeConfirmedCost(item?.amount),
-          };
-        })
-        .filter((item) => item.key && item.label)
-        .slice(0, 20);
-      return {
-        category: categoryKey,
-        label: cleanText(category?.label) || categoryKey,
-        sub_items: subItems,
-      };
-    })
+  return normalizeSessionExpensePath(value, []);
+}
+
+function normalizeScheduleUpdates(parsed = {}) {
+  const source = parsed?.schedule_updates || {};
+  return {
+    title: cleanText(source.title || parsed?.suggested_title),
+    description: cleanText(source.description || parsed?.suggested_description),
+    confirmed: typeof source.confirmed === "boolean" ? source.confirmed : undefined,
+  };
+}
+
+function normalizeConfirmedFactsUpdates(value = {}) {
+  const source = value || {};
+  return {
+    eventType: cleanText(source.eventType),
+    eventMeaningLocked: typeof source.eventMeaningLocked === "boolean" ? source.eventMeaningLocked : undefined,
+    transportationExists: typeof source.transportationExists === "boolean" ? source.transportationExists : undefined,
+  };
+}
+
+function normalizeAffectedSubItems(value = []) {
+  return (Array.isArray(value) ? value : [])
+    .map(cleanText)
     .filter(Boolean)
-    .slice(0, 8);
+    .slice(0, 12);
 }
 
 function buildPrompt({
@@ -132,16 +138,17 @@ function buildPrompt({
   activeCategory = "",
   activeSubItem = "",
   expensePath = [],
-  total = 0,
   latestUserReply = "",
+  sessionMemory = null,
 } = {}) {
-  const conversation = (Array.isArray(messages) ? messages : [])
-    .slice(-12)
-    .map((message) => ({
-      role: message?.role === "assistant" ? "assistant" : "user",
-      text: cleanText(message?.text || message?.content).slice(0, 1200),
-    }))
-    .filter((message) => message.text);
+  const memory = normalizeScheduleImpactSessionMemory(sessionMemory || {}, {
+    form,
+    messages,
+    stage,
+    activeCategory,
+    activeSubItem,
+    expensePath,
+  });
 
   return `You are CLARA, a warm personal money coach and schedule impact coach for a Philippine user named Max.
 
@@ -151,37 +158,27 @@ Your job is to guide the user conversationally and estimate possible spending.
 
 Return JSON only.
 
-Event context:
-${JSON.stringify(
-  {
-    title: cleanText(form.title),
-    description: cleanText(form.note),
-    category: cleanText(form.type),
-    date: cleanText(form.date),
-    time: cleanText(form.time),
-  },
-  null,
-  2
-)}
+Full Schedule Impact Session Memory, highest priority after system instructions:
+${JSON.stringify(memory, null, 2)}
 
-Current stage: ${cleanText(stage)}
-Active category: ${cleanText(activeCategory)}
-Active sub-item: ${cleanText(activeSubItem)}
-Running estimate: PHP ${Number(total || 0)}
-Current expense path:
-${JSON.stringify(normalizeExpensePath(expensePath), null, 2)}
 Latest user reply: ${cleanText(latestUserReply) || "None yet."}
-Recent conversation:
-${JSON.stringify(conversation, null, 2)}
+
+Memory priority contract:
+- Use confirmedFacts as higher priority than the latest user message.
+- If confirmedFacts.eventMeaningLocked is true, do not reinterpret the event from one new casual reply unless the user clearly corrects the schedule meaning.
+- Running estimate must come from sessionMemory.expensePath, not from raw parsing of the latest reply.
+- Conversation history contains previous assistant/user messages; use it before deciding what a number means.
+- Expense path contains the source of truth for confirmed sub-item amounts.
 
 Schedule understanding contract:
 - Always maintain a polished schedule title and description.
-- suggested_title must be short and useful for the schedule title field.
-- suggested_description must be a clear one-sentence description of the real schedule.
+- schedule_updates.title must be short and useful for the schedule title field.
+- schedule_updates.description must be a clear one-sentence description of the real schedule.
 - Do NOT simply repeat vague user text like "gala after church".
 - Translate vague notes into a more accurate schedule meaning.
 - Example: raw note "gala after church" can become title "After-church fellowship" and description "Simple fellowship with churchmates after the church service."
-- If the user corrects your understanding, pause the spending flow, update suggested_title and suggested_description, restate the corrected schedule, ask for confirmation, then resume the previous active sub-item after confirmation.
+- Once the user confirms schedule identity, set schedule_updates.confirmed true and confirmed_facts_updates.eventMeaningLocked true.
+- If the user corrects the event meaning after it was locked, pause spending flow, update schedule title/description, ask final confirmation, and only resume spending after confirmation.
 
 Sub-item expense path contract:
 - After the schedule identity is confirmed, build or maintain an event-specific expense_path.
@@ -214,13 +211,24 @@ Stage rules:
 - complete: Summarize total and ask if it looks right.
 
 Money confirmation contract:
-- The frontend will update the running estimate ONLY when should_add_cost is true.
-- Set should_add_cost true ONLY when the user clearly provides a peso cost for the active sub-item.
+- The frontend will update the running estimate from expense_path ONLY.
+- Set should_add_cost true ONLY when the user clearly provides a peso cost.
 - Set confirmed_cost to the exact peso amount only when should_add_cost is true.
 - Set cost_category to one of: transport, food, fees, shared, buffer.
-- Set cost_sub_item to the exact active sub-item key that the cost belongs to.
-- If the user gives a quantity/count but not a peso cost, should_add_cost must be false, confirmed_cost must be 0, and the active_sub_item should stay the same.
+- Set cost_sub_item when the cost belongs to one exact sub-item.
+- Set cost_mode to: single_sub_item, combined_total, category_total, or skip.
+- If the user gives a quantity/count but not a peso cost, should_add_cost must be false, confirmed_cost must be 0, cost_mode must be skip, and the active_sub_item should stay the same.
 - If the user says "same" for a return trip, you may set should_add_cost true only if the previous related sub-item has a known amount.
+
+Combined total / round-trip calculation rule:
+- If the latest reply mentions a total/combined amount for multiple sub-items, do NOT add it blindly.
+- Detect phrases like: "going there and going back home", "round trip", "balikan", "total", "all in", "overall", "both ways".
+- When latest user reply mentions a total/combined amount for multiple sub-items, reconcile the category total against already completed sub-items.
+- Example existing expense_path has transport_going_there = 30 completed.
+- User says: "60 pesos going there and going back home".
+- Correct JSON: should_add_cost true, confirmed_cost 60, cost_mode "combined_total", affected_sub_items ["transport_going_there", "transport_going_home"].
+- Meaning: transport_going_there stays 30, transport_going_home becomes 30, transport total becomes 60.
+- Incorrect: adding 60 as return-home cost and making total 90.
 
 Money interpretation rules:
 - Do NOT treat counts, quantities, or number of rides/people/items as peso amounts.
@@ -244,9 +252,17 @@ Conversation rules:
 Return this JSON shape:
 {
   "assistant_message": "short conversational reply",
+  "schedule_updates": {
+    "title": "short polished title",
+    "description": "clear one-sentence schedule description",
+    "confirmed": true
+  },
+  "confirmed_facts_updates": {
+    "eventType": "after_church_fellowship",
+    "eventMeaningLocked": true,
+    "transportationExists": true
+  },
   "stage": "confirm_intent | clarify_intent | ask_permission | category_assessment | category_summary | complete",
-  "suggested_title": "short polished title",
-  "suggested_description": "clear one-sentence schedule description",
   "active_category": "transport | food | fees | shared | buffer |",
   "active_sub_item": "transport_going_there | transport_going_home | transport_extra_stop | transport_fees | food_personal | food_treat_someone | food_group_share | fees_church_group | fees_venue | buffer_emergency |",
   "expense_path": [
@@ -262,6 +278,8 @@ Return this JSON shape:
   "confirmed_cost": 0,
   "cost_category": "transport | food | fees | shared | buffer |",
   "cost_sub_item": "transport_going_there | transport_going_home | transport_extra_stop | transport_fees | food_personal | food_treat_someone | food_group_share | fees_church_group | fees_venue | buffer_emergency |",
+  "cost_mode": "single_sub_item | combined_total | category_total | skip",
+  "affected_sub_items": ["transport_going_there", "transport_going_home"],
   "should_skip_sub_item": false,
   "skipped_sub_item": ""
 }`;
@@ -276,6 +294,7 @@ export async function askGeminiForScheduleImpact({
   expensePath,
   total,
   latestUserReply,
+  sessionMemory,
 } = {}) {
   const { apiKey, model } = getGeminiConfig();
   if (!apiKey) {
@@ -284,18 +303,27 @@ export async function askGeminiForScheduleImpact({
     });
   }
 
+  const normalizedMemory = normalizeScheduleImpactSessionMemory(sessionMemory || {}, {
+    form,
+    messages,
+    stage,
+    activeCategory,
+    activeSubItem,
+    expensePath,
+  });
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const prompt = buildPrompt({ form, messages, stage, activeCategory, activeSubItem, expensePath, total, latestUserReply });
+  const prompt = buildPrompt({ form, messages, stage, activeCategory, activeSubItem, expensePath, total, latestUserReply, sessionMemory: normalizedMemory });
   const timeout = withTimeout();
 
   try {
     console.info("[CLARA Schedule Impact] Gemini request started:", {
       model,
-      stage,
-      activeCategory,
-      activeSubItem,
-      hasNote: Boolean(cleanText(form?.note || form?.title)),
-      messageCount: Array.isArray(messages) ? messages.length : 0,
+      stage: normalizedMemory.currentFlow.stage,
+      activeCategory: normalizedMemory.currentFlow.activeCategory,
+      activeSubItem: normalizedMemory.currentFlow.activeSubItem,
+      hasNote: Boolean(cleanText(normalizedMemory.schedule.description || normalizedMemory.schedule.title)),
+      messageCount: Array.isArray(normalizedMemory.conversationHistory) ? normalizedMemory.conversationHistory.length : 0,
+      runningEstimate: normalizedMemory.runningEstimate,
     });
 
     const response = await fetch(endpoint, {
@@ -304,10 +332,10 @@ export async function askGeminiForScheduleImpact({
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.72,
+          temperature: 0.45,
           topP: 0.9,
           topK: 40,
-          maxOutputTokens: 1200,
+          maxOutputTokens: 1500,
           responseMimeType: "application/json",
         },
       }),
@@ -331,22 +359,32 @@ export async function askGeminiForScheduleImpact({
     const parsed = extractJson(textPayload);
     const shouldAddCost = Boolean(parsed?.should_add_cost);
     const confirmedCost = normalizeConfirmedCost(parsed?.confirmed_cost);
-    const costCategory = normalizeCategory(parsed?.cost_category);
+    const costCategory = normalizeCategory(parsed?.cost_category || parsed?.active_category);
     const activeCategoryOut = normalizeCategory(parsed?.active_category);
     const expensePathOut = normalizeExpensePath(parsed?.expense_path);
+    const costMode = normalizeCostMode(parsed?.cost_mode || (shouldAddCost ? "single_sub_item" : "skip"));
+    const affectedSubItems = normalizeAffectedSubItems(parsed?.affected_sub_items);
+    const costSubItem = cleanText(parsed?.cost_sub_item);
+    const hasCostTarget = Boolean(costSubItem) || (["combined_total", "category_total"].includes(costMode) && affectedSubItems.length > 0);
+    const scheduleUpdates = normalizeScheduleUpdates(parsed);
+    const confirmedFactsUpdates = normalizeConfirmedFactsUpdates(parsed?.confirmed_facts_updates);
 
     return {
       assistant_message: cleanText(parsed?.assistant_message),
-      stage: normalizeStage(parsed?.stage, stage),
-      suggested_title: cleanText(parsed?.suggested_title),
-      suggested_description: cleanText(parsed?.suggested_description),
+      stage: normalizeStage(parsed?.stage, normalizedMemory.currentFlow.stage),
+      suggested_title: scheduleUpdates.title,
+      suggested_description: scheduleUpdates.description,
+      schedule_updates: scheduleUpdates,
+      confirmed_facts_updates: confirmedFactsUpdates,
       active_category: activeCategoryOut,
       active_sub_item: cleanText(parsed?.active_sub_item),
       expense_path: expensePathOut,
-      should_add_cost: shouldAddCost && Boolean(costCategory) && Boolean(cleanText(parsed?.cost_sub_item)),
+      should_add_cost: shouldAddCost && confirmedCost > 0 && hasCostTarget,
       confirmed_cost: shouldAddCost ? confirmedCost : 0,
       cost_category: shouldAddCost ? costCategory : "",
-      cost_sub_item: shouldAddCost ? cleanText(parsed?.cost_sub_item) : "",
+      cost_sub_item: shouldAddCost ? costSubItem : "",
+      cost_mode: shouldAddCost ? costMode : "skip",
+      affected_sub_items: shouldAddCost ? affectedSubItems : [],
       should_skip_sub_item: Boolean(parsed?.should_skip_sub_item) && Boolean(cleanText(parsed?.skipped_sub_item)),
       skipped_sub_item: Boolean(parsed?.should_skip_sub_item) ? cleanText(parsed?.skipped_sub_item) : "",
       meta: { source: "gemini", model },
