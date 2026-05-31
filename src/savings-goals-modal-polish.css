@@ -1,0 +1,23 @@
+/* Savings Goals modal polish: keep the close button from feeling clipped/crowded. */
+body:has([role="dialog"] h2) [role="dialog"] > button {
+  top: 1rem !important;
+  right: 1rem !important;
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 26px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(12px) !important;
+  z-index: 20 !important;
+}
+
+body:has([role="dialog"] h2) [role="dialog"] > button:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+
+body:has([role="dialog"] h2) [role="dialog"] header {
+  padding-right: 4rem !important;
+}
