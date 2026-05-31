@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { askGeminiForScheduleImpact } from "@/lib/ai-command/schedule-impact-service";
 import OriginalDashboardSchedulePanel from "./DashboardSchedulePanel.jsx";
 
 function cleanText(value) {
@@ -91,12 +92,8 @@ function getEventPhrase(form) {
   const source = cleanText(form.note || form.title);
   const lower = source.toLowerCase();
 
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) {
-    return "go somewhere after church";
-  }
-  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) {
-    return "prepare for your mother’s birthday";
-  }
+  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "go somewhere after church";
+  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "prepare for your mother’s birthday";
   if (/birthday/.test(lower)) return "prepare for a birthday plan";
   if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "attend a health checkup";
   if (/renew/.test(lower) && /license|licence/.test(lower)) return "renew your license";
@@ -159,7 +156,7 @@ function buildSummaryMessage(total, breakdown = {}) {
   return `Here’s the estimated money impact for this schedule:\n${lines}\n\nEstimated total: ${formatPeso(total)}. Does this look right?`;
 }
 
-function getReplyForStage({ stage, reply, total, breakdown }) {
+function getLocalReplyForStage({ stage, reply, total, breakdown, form }) {
   if (stage === "confirm_intent") {
     if (isAffirmative(reply)) {
       return {
@@ -245,8 +242,24 @@ function getReplyForStage({ stage, reply, total, breakdown }) {
     stage: "complete",
     total,
     breakdown,
-    message: `Your current estimated impact is ${formatPeso(total)}. You can use this estimate or adjust the details before saving.`,
+    message: `Your current estimated impact for ${form?.title || "this schedule"} is ${formatPeso(total)}. You can use this estimate or adjust the details before saving.`,
   };
+}
+
+function normalizeGeminiStage(value, fallback) {
+  const stage = cleanText(value).toLowerCase();
+  const allowed = new Set(["confirm_intent", "clarify_intent", "ask_permission", "transport", "food", "fees", "shared", "buffer", "complete"]);
+  return allowed.has(stage) ? stage : fallback;
+}
+
+function getStageAfterGemini({ currentStage, geminiStage, reply }) {
+  const normalized = normalizeGeminiStage(geminiStage, currentStage);
+
+  if (currentStage === "confirm_intent" && isAffirmative(reply)) return "ask_permission";
+  if (currentStage === "ask_permission" && isAffirmative(reply)) return "transport";
+  if (STEP_ORDER.includes(currentStage)) return getNextStep(currentStage) === "summary" ? "complete" : getNextStep(currentStage);
+
+  return normalized;
 }
 
 function Portal({ children }) {
@@ -345,7 +358,7 @@ export default function DashboardScheduleImpactPortalPanel() {
 
   useBodyScrollLock(Boolean(session));
 
-  const startImpactChat = (form) => {
+  const startImpactChat = async (form) => {
     const cleanTitle = cleanText(form.title) || makeTitle(form.note, form.type);
     const preparedForm = { ...form, title: cleanTitle };
 
@@ -353,43 +366,123 @@ export default function DashboardScheduleImpactPortalPanel() {
       updateControlledField(form.elements.titleInput, cleanTitle);
     }
 
-    setInput("");
-    setThinking(false);
-    setSession({
+    const baseSession = {
       form: preparedForm,
       total: 0,
       breakdown: {},
       stage: "confirm_intent",
-      messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }],
-    });
+      messages: [],
+    };
+
+    setInput("");
+    setThinking(true);
+    setSession(baseSession);
+
+    try {
+      const ai = await askGeminiForScheduleImpact({
+        form: preparedForm,
+        messages: [],
+        stage: "confirm_intent",
+        total: 0,
+        breakdown: {},
+        latestUserReply: "",
+      });
+
+      setSession({
+        ...baseSession,
+        stage: normalizeGeminiStage(ai.stage, "confirm_intent"),
+        messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(preparedForm) }],
+      });
+    } catch (error) {
+      console.warn("[CLARA Schedule] Impact AI unavailable, using local safety reply:", error);
+      setSession({
+        ...baseSession,
+        messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }],
+      });
+    } finally {
+      setThinking(false);
+    }
   };
 
-  const sendReply = (event) => {
+  const sendReply = async (event) => {
     event.preventDefault();
     const reply = cleanText(input);
     if (!reply || !session || thinking) return;
 
+    const amount = parseAmount(reply);
+    const currentStage = session.stage;
     const nextUserMessage = { role: "user", text: reply };
-    const nextState = getReplyForStage({
-      stage: session.stage,
-      reply,
-      total: session.total,
-      breakdown: session.breakdown || {},
-    });
+    const optimisticMessages = [...(session.messages || []), nextUserMessage];
+
+    let nextBreakdown = { ...(session.breakdown || {}) };
+    let nextTotal = session.total;
+
+    if (STEP_ORDER.includes(currentStage)) {
+      const step = IMPACT_STEPS[currentStage];
+      if (amount > 0 || isNegativeOrFree(reply)) {
+        nextBreakdown = { ...nextBreakdown, [step.key]: amount };
+        nextTotal = Object.values(nextBreakdown).reduce((sum, value) => sum + Number(value || 0), 0);
+      }
+    }
 
     setInput("");
-    setThinking(false);
+    setThinking(true);
     setSession((current) => ({
       ...current,
-      stage: nextState.stage,
-      total: nextState.total,
-      breakdown: nextState.breakdown,
-      messages: [
-        ...(current?.messages || []),
-        nextUserMessage,
-        { role: "assistant", text: nextState.message },
-      ],
+      total: nextTotal,
+      breakdown: nextBreakdown,
+      messages: optimisticMessages,
     }));
+
+    try {
+      const ai = await askGeminiForScheduleImpact({
+        form: session.form,
+        messages: optimisticMessages,
+        stage: currentStage,
+        total: nextTotal,
+        breakdown: nextBreakdown,
+        latestUserReply: reply,
+      });
+
+      const nextStage = getStageAfterGemini({
+        currentStage,
+        geminiStage: ai.stage,
+        reply,
+      });
+
+      setSession((current) => ({
+        ...current,
+        stage: nextStage,
+        total: nextTotal,
+        breakdown: nextBreakdown,
+        messages: [
+          ...optimisticMessages,
+          {
+            role: "assistant",
+            text: cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, breakdown: session.breakdown || {}, form: session.form }).message,
+          },
+        ],
+      }));
+    } catch (error) {
+      console.warn("[CLARA Schedule] Impact AI reply unavailable, using local safety reply:", error);
+      const local = getLocalReplyForStage({
+        stage: currentStage,
+        reply,
+        total: session.total,
+        breakdown: session.breakdown || {},
+        form: session.form,
+      });
+
+      setSession((current) => ({
+        ...current,
+        stage: local.stage,
+        total: local.total,
+        breakdown: local.breakdown,
+        messages: [...optimisticMessages, { role: "assistant", text: local.message }],
+      }));
+    } finally {
+      setThinking(false);
+    }
   };
 
   const useEstimate = (amount) => {
