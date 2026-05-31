@@ -98,13 +98,28 @@ function isGeminiFallback(result) {
 
 function Portal({ children }) {
   const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  useEffect(() => setMounted(true), []);
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(children, document.body);
+}
+
+function InlinePortal({ target, children }) {
+  if (!target || typeof document === "undefined") return null;
+  return createPortal(children, target);
+}
+
+function ensureRefinementTarget(root) {
+  const textarea = root?.querySelector('[role="dialog"] textarea');
+  if (!textarea) return null;
+
+  let target = root.querySelector("[data-clara-schedule-refinement-inline]");
+  if (target) return target;
+
+  target = document.createElement("div");
+  target.setAttribute("data-clara-schedule-refinement-inline", "true");
+  target.className = "mt-3";
+  textarea.insertAdjacentElement("afterend", target);
+  return target;
 }
 
 function useBodyScrollLock(locked) {
@@ -179,12 +194,7 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
                 <h2 className="mt-2 text-xl font-black leading-tight text-white">Calculate money impact</h2>
                 <p className="mt-1 truncate text-xs font-semibold text-white/44">{session.form.title}</p>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95"
-                aria-label="Close impact coach"
-              >
+              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close impact coach">
                 ×
               </button>
             </div>
@@ -206,38 +216,20 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
 
             {thinking ? (
               <div className="flex justify-start">
-                <div className="rounded-[22px] border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/54">
-                  CLARA is thinking…
-                </div>
+                <div className="rounded-[22px] border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/54">CLARA is thinking…</div>
               </div>
             ) : null}
           </main>
 
           <footer className="shrink-0 border-t border-white/10 bg-[#071026]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur-2xl">
             {session.total > 0 ? (
-              <button
-                type="button"
-                onClick={() => onUseEstimate(session.total)}
-                className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]"
-              >
+              <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">
                 Use ₱{session.total.toLocaleString()} estimate
               </button>
             ) : null}
             <form onSubmit={onSend} className="flex gap-2">
-              <input
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                placeholder="Reply with amount or details..."
-                disabled={thinking}
-                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60"
-              />
-              <button
-                type="submit"
-                disabled={thinking || !cleanText(input)}
-                className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50"
-              >
-                Send
-              </button>
+              <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Reply with amount or details..." disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
+              <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50">Send</button>
             </form>
           </footer>
         </div>
@@ -246,94 +238,74 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
   );
 }
 
-function ScheduleRefinementPanel({ session, input, setInput, thinking, onSend, onClose }) {
-  if (!session) return null;
+function ScheduleRefinementInline({ target, session, input, setInput, thinking, onSend, onClose }) {
+  if (!session || !target) return null;
 
   const result = session.result || {};
   const questions = Array.isArray(result.next_questions) ? result.next_questions : [];
   const missing = Array.isArray(result.missing_details) ? result.missing_details : [];
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[9990] isolate flex items-end justify-center overflow-hidden bg-black/75 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-md">
-        <div className="max-h-[86dvh] w-full max-w-[520px] overflow-hidden rounded-[30px] border border-cyan-300/18 bg-[#071026]/98 shadow-[0_22px_90px_rgba(0,0,0,.62),0_0_42px_rgba(34,211,238,.12)] backdrop-blur-2xl">
-          <div className="border-b border-white/8 p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-black uppercase tracking-[.22em] text-cyan-100/70">Refine with CLARA</p>
-                <h3 className="mt-2 text-xl font-black leading-tight text-white">Clear schedule intention</h3>
-              </div>
-              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[.04] text-white/60" aria-label="Close schedule refinement">
-                ×
-              </button>
-            </div>
-          </div>
+    <InlinePortal target={target}>
+      <div className="rounded-[20px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(168,85,247,0.07))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100/62">CLARA refinement</p>
+          <button type="button" onClick={onClose} className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[10px] font-black text-white/42">×</button>
+        </div>
 
-          <div className="max-h-[58dvh] space-y-3 overflow-y-auto p-4">
-            {session.error ? (
-              <div className="rounded-[22px] border border-rose-300/18 bg-rose-400/[.075] px-4 py-3 text-sm font-semibold leading-6 text-rose-50/82">
-                CLARA couldn’t refine this yet. You can still save manually.
+        {session.error ? (
+          <p className="rounded-2xl border border-rose-300/18 bg-rose-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-rose-50/82">
+            CLARA couldn’t refine this yet. You can still save manually.
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/34">Refined intention</p>
+              <p className="mt-1 text-xs font-bold leading-5 text-white/82">{result.refined_intention || "CLARA is clarifying this schedule."}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
+                <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Title</p>
+                <p className="mt-1 truncate text-[11px] font-bold text-white/68">{result.suggested_title || "Schedule plan"}</p>
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-white/[.025] px-3 py-2">
+                <p className="text-[8px] font-black uppercase tracking-[.12em] text-white/30">Category</p>
+                <p className="mt-1 truncate text-[11px] font-bold text-white/68">{result.suggested_category || "Personal"}</p>
+              </div>
+            </div>
+
+            {missing.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {missing.map((item) => (
+                  <span key={item} className="rounded-full border border-white/10 bg-white/[.035] px-2.5 py-1 text-[9px] font-black uppercase tracking-[.09em] text-white/44">{item}</span>
+                ))}
+              </div>
+            ) : null}
+
+            {questions.length ? (
+              <div className="space-y-1.5">
+                {questions.map((item, index) => (
+                  <div key={`${item.key}-${index}`} className="rounded-2xl border border-white/8 bg-white/[.028] px-3 py-2">
+                    <p className="text-xs font-black leading-5 text-white/82">{index + 1}. {item.question}</p>
+                    {item.reason ? <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/38">{item.reason}</p> : null}
+                  </div>
+                ))}
               </div>
             ) : (
-              <>
-                <div className="rounded-[22px] border border-cyan-300/16 bg-cyan-300/[.065] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,.045)]">
-                  <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100/56">Refined intention</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-white/82">{result.refined_intention || "CLARA is clarifying this schedule."}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
-                    <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/32">Suggested title</p>
-                    <p className="mt-1 text-xs font-bold text-white/76">{result.suggested_title || "Schedule plan"}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2.5">
-                    <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/32">Category</p>
-                    <p className="mt-1 text-xs font-bold text-white/76">{result.suggested_category || "Personal"}</p>
-                  </div>
-                </div>
-
-                {missing.length ? (
-                  <div className="rounded-[22px] border border-white/8 bg-white/[.025] px-4 py-3">
-                    <p className="text-[10px] font-black uppercase tracking-[.16em] text-white/38">Missing details</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {missing.map((item) => (
-                        <span key={item} className="rounded-full border border-white/10 bg-white/[.035] px-3 py-1 text-[10px] font-black uppercase tracking-[.11em] text-white/48">{item}</span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {questions.length ? (
-                  <div className="space-y-2">
-                    {questions.map((item, index) => (
-                      <div key={`${item.key}-${index}`} className="rounded-[20px] border border-white/8 bg-white/[.035] px-4 py-3">
-                        <p className="text-sm font-black leading-6 text-white/86">{index + 1}. {item.question}</p>
-                        {item.reason ? <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{item.reason}</p> : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-[22px] border border-emerald-300/18 bg-emerald-400/[.075] px-4 py-3 text-sm font-bold leading-6 text-emerald-50/82">
-                    This schedule looks clear now. Ready to save?
-                  </div>
-                )}
-              </>
+              <p className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[.075] px-3 py-2 text-xs font-bold leading-5 text-emerald-50/82">This schedule looks clear now. Ready to save?</p>
             )}
 
-            {thinking ? <div className="rounded-[22px] border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/54">CLARA is refining…</div> : null}
-          </div>
+            {thinking ? <p className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2 text-xs font-bold text-white/50">CLARA is refining…</p> : null}
 
-          {!session.error ? (
-            <div className="border-t border-white/8 p-4">
-              <form onSubmit={onSend} className="flex gap-2">
-                <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Answer CLARA’s question..." disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
-                <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50">Send</button>
-              </form>
-            </div>
-          ) : null}
-        </div>
+            <form onSubmit={onSend} className="flex gap-2">
+              <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Answer CLARA…" disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2.5 text-xs font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
+              <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-3 py-2.5 text-xs font-black text-cyan-50 disabled:opacity-50">Send</button>
+            </form>
+          </div>
+        )}
       </div>
-    </Portal>
+    </InlinePortal>
   );
 }
 
@@ -343,10 +315,11 @@ export default function DashboardScheduleImpactPortalPanel() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [refineSession, setRefineSession] = useState(null);
+  const [refineTarget, setRefineTarget] = useState(null);
   const [refineInput, setRefineInput] = useState("");
   const [refineThinking, setRefineThinking] = useState(false);
 
-  useBodyScrollLock(Boolean(session || refineSession));
+  useBodyScrollLock(Boolean(session));
 
   const startImpactChat = async (form) => {
     const baseSession = { form, total: 0, messages: [] };
@@ -359,15 +332,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       setSession({ ...baseSession, messages: [{ role: "assistant", text: firstMessage }] });
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI unavailable:", error);
-      setSession({
-        ...baseSession,
-        messages: [
-          {
-            role: "assistant",
-            text: "I can't reach CLARA's AI brain right now. Please check the Gemini setup for this build, then try the impact coach again.",
-          },
-        ],
-      });
+      setSession({ ...baseSession, messages: [{ role: "assistant", text: "I can't reach CLARA's AI brain right now. Please check the Gemini setup for this build, then try the impact coach again." }] });
     } finally {
       setThinking(false);
     }
@@ -380,6 +345,12 @@ export default function DashboardScheduleImpactPortalPanel() {
     const form = readForm(root);
     if (!cleanText(form.note || form.title)) return;
 
+    const target = ensureRefinementTarget(root);
+    setRefineTarget(target);
+    setRefineInput("");
+    setRefineThinking(true);
+    setRefineSession({ form, result: null, error: false });
+
     const originalLabel = button?.textContent || "Refine with CLARA";
     if (button) {
       button.disabled = true;
@@ -387,17 +358,13 @@ export default function DashboardScheduleImpactPortalPanel() {
       button.classList.add("cursor-wait", "opacity-70");
     }
 
-    setRefineInput("");
-    setRefineThinking(true);
-    setRefineSession({ form, result: null, messages: [], error: false });
-
     try {
       const result = await askGeminiForScheduleRefinement({ form, conversation: [] });
       applyRefinementToForm(root, result);
-      setRefineSession({ form, result, messages: [], error: false });
+      setRefineSession({ form, result, error: false });
     } catch (error) {
       console.warn("[CLARA Schedule] Refinement unavailable:", error);
-      setRefineSession({ form, result: null, messages: [], error: true });
+      setRefineSession({ form, result: null, error: true });
     } finally {
       setRefineThinking(false);
       if (button) {
@@ -415,19 +382,20 @@ export default function DashboardScheduleImpactPortalPanel() {
     if (!reply || !root || !refineSession || refineThinking) return;
 
     const currentForm = readForm(root);
-    const nextMessages = [...(refineSession.messages || []), { role: "user", text: reply }];
     setRefineInput("");
     setRefineThinking(true);
-    setRefineSession((current) => ({ ...current, form: currentForm, messages: nextMessages }));
 
     try {
       const result = await askGeminiForScheduleRefinement({
         form: currentForm,
-        conversation: nextMessages.map((message) => ({ role: message.role, content: message.text })),
+        conversation: [
+          { role: "assistant", content: refineSession.result?.refined_intention || "" },
+          { role: "user", content: reply },
+        ],
         latestAnswer: reply,
       });
       applyRefinementToForm(root, result);
-      setRefineSession({ form: currentForm, result, messages: nextMessages, error: false });
+      setRefineSession({ form: currentForm, result, error: false });
     } catch (error) {
       console.warn("[CLARA Schedule] Follow-up refinement unavailable:", error);
       setRefineSession((current) => ({ ...current, error: true }));
@@ -454,17 +422,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       setSession((current) => ({ ...current, total: nextTotal, messages: [...nextMessages, { role: "assistant", text: aiMessage }] }));
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI unavailable:", error);
-      setSession((current) => ({
-        ...current,
-        total: nextTotal,
-        messages: [
-          ...nextMessages,
-          {
-            role: "assistant",
-            text: "I can't reach CLARA's AI brain right now, so I don't want to pretend this is an AI-guided estimate. Please check Gemini, then try again.",
-          },
-        ],
-      }));
+      setSession((current) => ({ ...current, total: nextTotal, messages: [...nextMessages, { role: "assistant", text: "I can't reach CLARA's AI brain right now, so I don't want to pretend this is an AI-guided estimate. Please check Gemini, then try again." }] }));
     } finally {
       setThinking(false);
     }
@@ -522,7 +480,7 @@ export default function DashboardScheduleImpactPortalPanel() {
     <div ref={rootRef} className="contents">
       <OriginalDashboardSchedulePanel />
       <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={() => setSession(null)} onUseEstimate={useEstimate} />
-      <ScheduleRefinementPanel session={refineSession} input={refineInput} setInput={setRefineInput} thinking={refineThinking} onSend={sendRefineReply} onClose={() => setRefineSession(null)} />
+      <ScheduleRefinementInline target={refineTarget} session={refineSession} input={refineInput} setInput={setRefineInput} thinking={refineThinking} onSend={sendRefineReply} onClose={() => setRefineSession(null)} />
     </div>
   );
 }
