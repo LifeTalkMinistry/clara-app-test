@@ -5,6 +5,7 @@ import { askGeminiForScheduleImpact } from "@/lib/ai-command/schedule-impact-ser
 import OriginalDashboardSchedulePanel from "./DashboardSchedulePanel.jsx";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
+const SCHEDULE_DESCRIPTION_PLACEHOLDER = "Describe this schedule so CLARA can refine it and plan possible spending.";
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -405,12 +406,24 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
 
 function hideRefineButtons(root) {
   if (!root) return;
+
   root.querySelectorAll("button").forEach((button) => {
     const label = cleanText(button.textContent).toLowerCase();
     if (!label.includes("refine with clara")) return;
     button.style.display = "none";
     button.setAttribute("aria-hidden", "true");
     button.setAttribute("tabindex", "-1");
+  });
+
+  root.querySelectorAll("textarea").forEach((textarea) => {
+    const placeholder = cleanText(textarea.getAttribute("placeholder"));
+    const isScheduleDescriptionBox =
+      placeholder.includes("describe only the event") ||
+      placeholder.includes("church outing") ||
+      placeholder.includes("youth group");
+
+    if (!isScheduleDescriptionBox) return;
+    textarea.setAttribute("placeholder", SCHEDULE_DESCRIPTION_PLACEHOLDER);
   });
 }
 
