@@ -282,91 +282,91 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/65 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white backdrop-blur-md"
+        className="fixed inset-0 z-[100000] flex items-end justify-center bg-[#020617]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white backdrop-blur-2xl"
         onClick={onClose}
       >
         <div
-          className="flex max-h-[88svh] w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-cyan-300/18 bg-[#071026]/98 shadow-[0_24px_90px_rgba(0,0,0,.62),0_0_44px_rgba(34,211,238,.13)] backdrop-blur-2xl"
+          className="isolate flex max-h-[88svh] w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-cyan-200/24 bg-[#050b1f] shadow-[0_28px_100px_rgba(0,0,0,.78),0_0_48px_rgba(34,211,238,.14),inset_0_1px_0_rgba(255,255,255,.06)]"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="relative border-b border-white/10 p-5">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/[0.08] blur-3xl" />
-            <div className="pointer-events-none absolute -left-16 top-10 h-36 w-36 rounded-full bg-fuchsia-400/[0.08] blur-3xl" />
-            <div className="relative flex items-start justify-between gap-4">
+          <div className="relative border-b border-white/12 bg-[#050b1f] p-5">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/[0.06] blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 top-10 h-36 w-36 rounded-full bg-fuchsia-400/[0.055] blur-3xl" />
+            <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64">CLARA impact planner</p>
                 <h2 className="mt-2 text-2xl font-black leading-tight text-white">Plan possible spending</h2>
                 <p className="mt-1 truncate text-xs font-bold text-white/48">{session.form.title}</p>
                 {session.form.note ? <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/34">{session.form.note}</p> : null}
               </div>
-              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close planner">×</button>
+              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/66 active:scale-95" aria-label="Close planner">×</button>
             </div>
 
-            <div className="relative mt-4 rounded-[24px] border border-cyan-200/18 bg-cyan-300/[0.065] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_24px_rgba(34,211,238,0.06)]">
+            <div className="relative z-10 mt-4 rounded-[24px] border border-cyan-200/22 bg-[#0b1630] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_0_24px_rgba(34,211,238,0.08)]">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Estimated money impact</p>
                   <p className="mt-1 text-3xl font-black text-white">{formatPeso(total)}</p>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/46">
+                <span className="rounded-full border border-white/12 bg-[#101936] px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/50">
                   {session.loading ? "AI thinking" : session.source === "ai" ? "AI suggested" : "Smart starter"}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            <p className="text-xs font-semibold leading-5 text-white/46">Review the possible expenses, edit the names, then enter only the amounts you want CLARA to watch.</p>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#050b1f] px-4 py-4">
+            <p className="rounded-2xl border border-white/10 bg-[#0b1128] px-4 py-3 text-xs font-semibold leading-5 text-white/56">Review the possible expenses, edit the names, then enter only the amounts you want CLARA to watch.</p>
 
             {session.items.map((item, index) => (
-              <div key={item.id} className="rounded-[24px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+              <div key={item.id} className="rounded-[24px] border border-white/12 bg-[#0b1128] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_10px_26px_rgba(0,0,0,0.22)]">
                 <div className="flex items-center gap-2">
                   <input
                     value={item.name}
                     onChange={(event) => updateItem(item.id, { name: event.target.value })}
                     placeholder={`Expense ${index + 1}`}
-                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-black text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35"
+                    className="min-w-0 flex-1 rounded-2xl border border-white/12 bg-[#101936] px-4 py-3 text-sm font-black text-white outline-none placeholder:text-white/30 focus:border-cyan-300/40"
                   />
                   <button
                     type="button"
                     onClick={() => removeItem(item.id)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-white/42 active:scale-95"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/48 active:scale-95"
                     aria-label="Remove item"
                   >
                     ×
                   </button>
                 </div>
                 <label className="mt-3 block">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Amount</span>
-                  <div className="flex items-center rounded-2xl border border-white/10 bg-[#0b1128] px-4 py-3 focus-within:border-cyan-300/35">
-                    <span className="mr-2 text-sm font-black text-cyan-100/58">₱</span>
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-white/42">Amount</span>
+                  <div className="flex items-center rounded-2xl border border-white/12 bg-[#070d20] px-4 py-3 focus-within:border-cyan-300/40">
+                    <span className="mr-2 text-sm font-black text-cyan-100/62">₱</span>
                     <input
                       inputMode="decimal"
                       value={item.amount}
                       onChange={(event) => updateItem(item.id, { amount: cleanMoney(event.target.value) })}
                       placeholder="0"
-                      className="min-w-0 flex-1 bg-transparent text-sm font-black text-white outline-none placeholder:text-white/26"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-black text-white outline-none placeholder:text-white/28"
                     />
                   </div>
                 </label>
               </div>
             ))}
 
-            <button type="button" onClick={addItem} className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-300/[0.07] px-4 py-3 text-sm font-black text-cyan-50 active:scale-[0.99]">
+            <button type="button" onClick={addItem} className="w-full rounded-2xl border border-cyan-300/22 bg-[#0d2336] px-4 py-3 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.07)] active:scale-[0.99]">
               + Add item
             </button>
           </div>
 
-          <div className="shrink-0 border-t border-white/10 bg-[#071026]/98 p-4 backdrop-blur-2xl">
-            <div className="mb-3 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
-              <span className="text-xs font-black uppercase tracking-[0.14em] text-white/40">Total estimated impact</span>
+          <div className="shrink-0 border-t border-white/12 bg-[#050b1f] p-4 shadow-[0_-18px_38px_rgba(0,0,0,.35)]">
+            <div className="mb-3 flex items-center justify-between gap-4 rounded-2xl border border-white/12 bg-[#0b1128] px-4 py-3">
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-white/46">Total estimated impact</span>
               <span className="text-lg font-black text-white">{formatPeso(total)}</span>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button type="button" onClick={() => onSaveWithImpact(total)} className="rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.12] px-4 py-3 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.09)] active:scale-[0.99]">
+              <button type="button" onClick={() => onSaveWithImpact(total)} className="rounded-2xl border border-cyan-300/28 bg-[#0d2336] px-4 py-3 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.09)] active:scale-[0.99]">
                 Save with impact
               </button>
-              <button type="button" onClick={onSaveWithoutImpact} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-black text-white/52 active:scale-[0.99]">
+              <button type="button" onClick={onSaveWithoutImpact} className="rounded-2xl border border-white/12 bg-[#101936] px-4 py-3 text-sm font-black text-white/58 active:scale-[0.99]">
                 Save without impact
               </button>
             </div>
