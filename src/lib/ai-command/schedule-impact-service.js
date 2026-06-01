@@ -7,7 +7,7 @@ import {
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_TIMEOUT_MS = 18000;
 const DEPRECATED_MODELS = new Set(["gemini-1.5-flash", "gemini-2.0-flash"]);
-const VALID_CATEGORIES = new Set(["transport", "food", "fees", "shared", "buffer"]);
+const VALID_CATEGORIES = new Set(["transport", "food", "fees", "shared", "buffer", "medical", "dental", "coverage", "procedure", "medicine"]);
 const VALID_COST_MODES = new Set(["single_sub_item", "combined_total", "category_total", "skip"]);
 const VALID_STAGES = new Set([
   "confirm_intent",
@@ -22,6 +22,11 @@ const VALID_STAGES = new Set([
   "fees",
   "shared",
   "buffer",
+  "medical",
+  "dental",
+  "coverage",
+  "procedure",
+  "medicine",
 ]);
 
 function cleanText(value) {
@@ -75,6 +80,14 @@ function withTimeout(ms = DEFAULT_TIMEOUT_MS) {
   return { signal: controller.signal, clear: () => window.clearTimeout(timeoutId) };
 }
 
+function wait(ms = 600) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isRetryableGeminiStatus(status) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
 function normalizeStage(value, fallback = "confirm_intent") {
   const stage = cleanText(value).toLowerCase();
   return VALID_STAGES.has(stage) ? stage : fallback;
@@ -82,6 +95,11 @@ function normalizeStage(value, fallback = "confirm_intent") {
 
 function normalizeCategory(value) {
   const category = cleanText(value).toLowerCase();
+  if (category.includes("dent")) return "dental";
+  if (category.includes("medical") || category.includes("doctor") || category.includes("clinic") || category.includes("hospital")) return "medical";
+  if (category.includes("coverage") || category.includes("insurance") || category.includes("hmo") || category.includes("out-of-pocket")) return "coverage";
+  if (category.includes("procedure") || category.includes("consult")) return "procedure";
+  if (category.includes("medicine") || category.includes("medication") || category.includes("prescription")) return "medicine";
   if (category.includes("transport")) return "transport";
   if (category.includes("food") || category.includes("drink")) return "food";
   if (category.includes("fee") || category.includes("contribution") || category.includes("ticket") || category.includes("offering")) return "fees";
@@ -160,36 +178,58 @@ function buildPrompt({
 
   return `You are CLARA, a warm personal money coach and schedule impact coach for a Philippine user named Max.
 
-Return JSON only.
+Return JSON only. No markdown fences. No prose outside JSON.
 
 FULL SCHEDULE IMPACT SESSION MEMORY. This is the source of truth:
 ${JSON.stringify(memory, null, 2)}
 
 Latest user reply: ${cleanText(latestUserReply) || "None yet."}
 
-Core rules:
-- Use confirmed facts and the conversation history before deciding the next step.
-- Running estimate must come from the expense_path, not raw parsing.
-- Keep a warm, clear, coach-like tone.
-- Do not ask for spending amounts before the spending_area_preview stage is shown and the user replies Ready.
-- When the final estimate is confirmed, give a short saved confirmation only.
+PRIMARY ROLE:
+You are not a generic spending-category generator.
+You are a financial reasoning engine.
+Your job is to understand what kind of schedule this is, then identify realistic money-impact risks, including costs that may be covered, partially covered, delayed, hidden, or unexpected.
 
-Opening rules:
+CORE REASONING RULES:
+- Think about the actual event before listing costs.
+- Do not default to Transportation + Food + Buffer for every schedule.
+- For appointments, identify the appointment-specific financial risks first.
+- Consider whether the cost might be covered by HMO, insurance, company benefit, family support, or already prepaid.
+- Consider whether the user may still pay out-of-pocket if the limit is exceeded.
+- Consider follow-up expenses after the appointment, such as medicine, after-care, lab tests, parking, companion costs, or return visit.
+- Keep the list practical and not too long.
+- Ask/process one question at a time once the user replies Ready.
+
+DENTAL / MEDICAL EXAMPLES:
+If the schedule is dentist, dental, tooth, teeth, oral, cleaning, extraction, root canal, braces, pasta, bunot, doctor, clinic, checkup, medical, hospital, lab, or consultation:
+- The first possible areas should be procedure/consultation, HMO/insurance coverage, out-of-pocket balance if coverage is exceeded, medicine or after-care, transportation, and emergency buffer.
+- Do not make Food or drinks a main area unless the schedule description suggests eating, long waiting time, companion, or meal timing.
+- Do not ignore coverage just because the user did not mention insurance. Treat it as a possible question, not as a confirmed fact.
+
+OTHER EVENT EXAMPLES:
+- License renewal: government fee, photocopy/photo/requirements, transport, parking, extra processing, food only if timing suggests it.
+- Birthday preparation: gift, food/cake, contribution, delivery/transport, emergency buffer.
+- Church/fellowship: transport, food/drinks, shared contribution, offering/group share, extra stop, buffer.
+- Work schedule: commute, meal before/after shift, emergency buffer, optional coworker/social spending.
+
+OPENING RULES:
 - If stage is confirm_intent, confirm schedule identity only.
 - Opening confirmation format: “Hi Max, I’ll assess the money impact for this schedule: [schedule title]. Is that correct?”
 
-Spending-area preview rules:
-- If stage is spending_area_preview, analyze the schedule title, description/note, type, date, and time.
-- Generate likely spending areas for this exact schedule.
+SPENDING-AREA PREVIEW RULES:
+- If stage is spending_area_preview, generate the possible spending areas/questions based on schedule title, note/description, type, date, and time.
 - Do not ask for peso amounts in this stage.
+- Do not start the one-question-at-a-time spending flow in this stage.
 - assistant_message must show the list first, then end with: “Reply Ready when you want to start.”
 - spending_areas must match the concise list shown in assistant_message.
+- expense_path should also reflect the event-specific flow, not only the generic default. Use existing sub_item keys when possible, but you may add event-specific keys like dental_procedure, dental_coverage_gap, dental_medicine, medical_consultation, medical_coverage_gap, medical_medicine.
 
-Money rules:
-- Ask/process one sub-item at a time.
+MONEY RULES:
+- Running estimate must come from expense_path, not raw parsing.
 - Do not treat counts like rides, people, or tickets as peso amounts unless the user clearly gives money.
 - cost_mode must be one of: single_sub_item, combined_total, category_total, skip.
 - If the user gives a combined total, reconcile it into the related sub-items instead of double-counting.
+- When final estimate is confirmed, give a short saved confirmation only.
 
 Return this JSON shape:
 {
@@ -197,13 +237,13 @@ Return this JSON shape:
   "schedule_updates": { "title": "", "description": "", "confirmed": true },
   "confirmed_facts_updates": { "eventType": "", "eventMeaningLocked": true, "transportationExists": true },
   "stage": "confirm_intent | clarify_intent | spending_area_preview | ask_permission | category_assessment | category_summary | complete",
-  "spending_areas": ["Transportation", "Food or drinks", "Shared contribution", "Extra stop", "Emergency buffer"],
-  "active_category": "transport | food | fees | shared | buffer |",
-  "active_sub_item": "transport_going_there | transport_going_home | transport_extra_stop | food_personal | food_treat_someone | food_group_share | fees_church_group | fees_venue | buffer_emergency |",
+  "spending_areas": ["Procedure or consultation", "HMO/insurance coverage", "Out-of-pocket balance", "Medicine or after-care", "Transportation", "Emergency buffer"],
+  "active_category": "dental | medical | coverage | procedure | medicine | transport | food | fees | shared | buffer |",
+  "active_sub_item": "dental_procedure | dental_coverage_gap | dental_medicine | medical_consultation | medical_coverage_gap | medical_medicine | transport_going_there | transport_going_home | transport_extra_stop | food_personal | food_treat_someone | food_group_share | fees_church_group | fees_venue | buffer_emergency |",
   "expense_path": [],
   "should_add_cost": false,
   "confirmed_cost": 0,
-  "cost_category": "transport | food | fees | shared | buffer |",
+  "cost_category": "dental | medical | coverage | procedure | medicine | transport | food | fees | shared | buffer |",
   "cost_sub_item": "",
   "cost_mode": "single_sub_item | combined_total | category_total | skip",
   "affected_sub_items": [],
@@ -240,102 +280,122 @@ export async function askGeminiForScheduleImpact({
   });
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const prompt = buildPrompt({ form, messages, stage, activeCategory, activeSubItem, expensePath, total, latestUserReply, sessionMemory: normalizedMemory });
-  const timeout = withTimeout();
 
-  try {
-    console.info("[CLARA Schedule Impact] Gemini request started:", {
-      model,
-      stage: normalizedMemory.currentFlow.stage,
-      activeCategory: normalizedMemory.currentFlow.activeCategory,
-      activeSubItem: normalizedMemory.currentFlow.activeSubItem,
-      hasNote: Boolean(cleanText(normalizedMemory.schedule.description || normalizedMemory.schedule.title)),
-      messageCount: Array.isArray(normalizedMemory.conversationHistory) ? normalizedMemory.conversationHistory.length : 0,
-      runningEstimate: normalizedMemory.runningEstimate,
-    });
+  let lastError = null;
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.45,
-          topP: 0.9,
-          topK: 40,
-          maxOutputTokens: 1500,
-          responseMimeType: "application/json",
-        },
-      }),
-      signal: timeout.signal,
-    });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const timeout = withTimeout();
 
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw Object.assign(new Error(payload?.error?.message || "Gemini schedule impact request failed."), {
-        code: "GEMINI_FAILED",
-        status: response.status,
-        payload,
+    try {
+      console.info("[CLARA Schedule Impact] Gemini request started:", {
+        model,
+        attempt: attempt + 1,
+        stage: normalizedMemory.currentFlow.stage,
+        activeCategory: normalizedMemory.currentFlow.activeCategory,
+        activeSubItem: normalizedMemory.currentFlow.activeSubItem,
+        hasNote: Boolean(cleanText(normalizedMemory.schedule.description || normalizedMemory.schedule.title)),
+        messageCount: Array.isArray(normalizedMemory.conversationHistory) ? normalizedMemory.conversationHistory.length : 0,
+        runningEstimate: normalizedMemory.runningEstimate,
       });
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.55,
+            topP: 0.9,
+            topK: 40,
+            maxOutputTokens: 1800,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: timeout.signal,
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = Object.assign(new Error(payload?.error?.message || "Gemini schedule impact request failed."), {
+          code: "GEMINI_FAILED",
+          status: response.status,
+          payload,
+        });
+        if (isRetryableGeminiStatus(response.status) && attempt < 2) {
+          lastError = error;
+          timeout.clear();
+          await wait(650 * (attempt + 1));
+          continue;
+        }
+        throw error;
+      }
+
+      const textPayload =
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part) => part?.text || "")
+          .filter(Boolean)
+          .join("\n") || "";
+      const parsed = extractJson(textPayload);
+      const shouldAddCost = Boolean(parsed?.should_add_cost);
+      const confirmedCost = normalizeConfirmedCost(parsed?.confirmed_cost);
+      const costCategory = normalizeCategory(parsed?.cost_category || parsed?.active_category);
+      const activeCategoryOut = normalizeCategory(parsed?.active_category);
+      const costMode = normalizeCostMode(parsed?.cost_mode || (shouldAddCost ? "single_sub_item" : "skip"));
+      const affectedSubItems = normalizeAffectedSubItems(parsed?.affected_sub_items);
+      const costSubItem = cleanText(parsed?.cost_sub_item);
+      const isTotalMode = costMode === "combined_total" || costMode === "category_total";
+      const sourcePath = normalizeExpensePath(parsed?.expense_path).length ? normalizeExpensePath(parsed?.expense_path) : normalizedMemory.expensePath;
+      const expensePathOut = shouldAddCost && confirmedCost > 0 && isTotalMode
+        ? reconcileCombinedTotalIntoExpensePath({
+            path: sourcePath,
+            total: confirmedCost,
+            affectedSubItems,
+            activeSubItem: normalizedMemory.currentFlow.activeSubItem,
+            costSubItem,
+            costCategory,
+          })
+        : sourcePath;
+      const scheduleUpdates = normalizeScheduleUpdates(parsed);
+      const confirmedFactsUpdates = normalizeConfirmedFactsUpdates(parsed?.confirmed_facts_updates);
+      const shouldLetFrontendAddCost = shouldAddCost && confirmedCost > 0 && costMode === "single_sub_item" && Boolean(costSubItem);
+
+      return {
+        assistant_message: cleanText(parsed?.assistant_message),
+        stage: normalizeStage(parsed?.stage, normalizedMemory.currentFlow.stage),
+        spending_areas: normalizeSpendingAreas(parsed?.spending_areas),
+        suggested_title: scheduleUpdates.title,
+        suggested_description: scheduleUpdates.description,
+        schedule_updates: scheduleUpdates,
+        confirmed_facts_updates: confirmedFactsUpdates,
+        active_category: activeCategoryOut,
+        active_sub_item: cleanText(parsed?.active_sub_item),
+        expense_path: expensePathOut,
+        should_add_cost: shouldLetFrontendAddCost,
+        confirmed_cost: shouldLetFrontendAddCost ? confirmedCost : 0,
+        cost_category: shouldLetFrontendAddCost ? costCategory : "",
+        cost_sub_item: shouldLetFrontendAddCost ? costSubItem : "",
+        cost_mode: shouldAddCost ? costMode : "skip",
+        affected_sub_items: shouldAddCost ? affectedSubItems : [],
+        should_skip_sub_item: Boolean(parsed?.should_skip_sub_item) && Boolean(cleanText(parsed?.skipped_sub_item)),
+        skipped_sub_item: Boolean(parsed?.should_skip_sub_item) ? cleanText(parsed?.skipped_sub_item) : "",
+        meta: { source: "gemini", model, attempt: attempt + 1 },
+      };
+    } catch (error) {
+      lastError =
+        error?.name === "AbortError"
+          ? Object.assign(new Error("Gemini schedule impact request timed out."), { code: "GEMINI_TIMEOUT" })
+          : error;
+      if (attempt < 2 && (lastError?.code === "GEMINI_TIMEOUT" || isRetryableGeminiStatus(lastError?.status))) {
+        await wait(650 * (attempt + 1));
+        continue;
+      }
+      console.warn("[CLARA Schedule Impact] Gemini unavailable:", lastError);
+      throw lastError;
+    } finally {
+      timeout.clear();
     }
-
-    const textPayload =
-      payload?.candidates?.[0]?.content?.parts
-        ?.map((part) => part?.text || "")
-        .filter(Boolean)
-        .join("\n") || "";
-    const parsed = extractJson(textPayload);
-    const shouldAddCost = Boolean(parsed?.should_add_cost);
-    const confirmedCost = normalizeConfirmedCost(parsed?.confirmed_cost);
-    const costCategory = normalizeCategory(parsed?.cost_category || parsed?.active_category);
-    const activeCategoryOut = normalizeCategory(parsed?.active_category);
-    const costMode = normalizeCostMode(parsed?.cost_mode || (shouldAddCost ? "single_sub_item" : "skip"));
-    const affectedSubItems = normalizeAffectedSubItems(parsed?.affected_sub_items);
-    const costSubItem = cleanText(parsed?.cost_sub_item);
-    const isTotalMode = costMode === "combined_total" || costMode === "category_total";
-    const sourcePath = normalizeExpensePath(parsed?.expense_path).length ? normalizeExpensePath(parsed?.expense_path) : normalizedMemory.expensePath;
-    const expensePathOut = shouldAddCost && confirmedCost > 0 && isTotalMode
-      ? reconcileCombinedTotalIntoExpensePath({
-          path: sourcePath,
-          total: confirmedCost,
-          affectedSubItems,
-          activeSubItem: normalizedMemory.currentFlow.activeSubItem,
-          costSubItem,
-          costCategory,
-        })
-      : sourcePath;
-    const scheduleUpdates = normalizeScheduleUpdates(parsed);
-    const confirmedFactsUpdates = normalizeConfirmedFactsUpdates(parsed?.confirmed_facts_updates);
-    const shouldLetFrontendAddCost = shouldAddCost && confirmedCost > 0 && costMode === "single_sub_item" && Boolean(costSubItem);
-
-    return {
-      assistant_message: cleanText(parsed?.assistant_message),
-      stage: normalizeStage(parsed?.stage, normalizedMemory.currentFlow.stage),
-      spending_areas: normalizeSpendingAreas(parsed?.spending_areas),
-      suggested_title: scheduleUpdates.title,
-      suggested_description: scheduleUpdates.description,
-      schedule_updates: scheduleUpdates,
-      confirmed_facts_updates: confirmedFactsUpdates,
-      active_category: activeCategoryOut,
-      active_sub_item: cleanText(parsed?.active_sub_item),
-      expense_path: expensePathOut,
-      should_add_cost: shouldLetFrontendAddCost,
-      confirmed_cost: shouldLetFrontendAddCost ? confirmedCost : 0,
-      cost_category: shouldLetFrontendAddCost ? costCategory : "",
-      cost_sub_item: shouldLetFrontendAddCost ? costSubItem : "",
-      cost_mode: shouldAddCost ? costMode : "skip",
-      affected_sub_items: shouldAddCost ? affectedSubItems : [],
-      should_skip_sub_item: Boolean(parsed?.should_skip_sub_item) && Boolean(cleanText(parsed?.skipped_sub_item)),
-      skipped_sub_item: Boolean(parsed?.should_skip_sub_item) ? cleanText(parsed?.skipped_sub_item) : "",
-      meta: { source: "gemini", model },
-    };
-  } catch (error) {
-    const finalError =
-      error?.name === "AbortError"
-        ? Object.assign(new Error("Gemini schedule impact request timed out."), { code: "GEMINI_TIMEOUT" })
-        : error;
-    console.warn("[CLARA Schedule Impact] Gemini unavailable:", finalError);
-    throw finalError;
-  } finally {
-    timeout.clear();
   }
+
+  console.warn("[CLARA Schedule Impact] Gemini unavailable:", lastError);
+  throw lastError;
 }
