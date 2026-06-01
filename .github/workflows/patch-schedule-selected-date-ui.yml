@@ -1,4 +1,4 @@
-name: Patch Schedule Selected Date UI
+name: Patch Schedule AgendaCard Label
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Apply exact selected-day UI patch
+      - name: Remove AgendaCard label only
         run: |
           python <<'PY'
           from pathlib import Path
@@ -27,31 +27,25 @@ jobs:
           path = Path("src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx")
           text = path.read_text(encoding="utf-8")
 
-          old_class = 'z-10 scale-[1.025] border-cyan-100/28 bg-cyan-200/[.075] text-white shadow-[0_0_0_1px_rgba(103,232,249,.10),0_0_18px_rgba(34,211,238,.12),inset_0_0_14px_rgba(34,211,238,.055)]'
-          new_class = 'z-10 scale-[1.035] border-cyan-100/55 bg-cyan-100/[.16] text-white shadow-[0_0_0_1px_rgba(103,232,249,.24),0_0_24px_rgba(34,211,238,.22),inset_0_0_18px_rgba(34,211,238,.11)]'
-          old_block = '''              {selected ? (
-                <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/50 shadow-[0_0_8px_rgba(103,232,249,.25)]" />
-              ) : null}
-'''
+          old_line = '            <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/55">{agenda.label}</p>'
+          new_line = '            <span aria-hidden="true" />'
 
-          if old_class not in text:
-              raise SystemExit("Expected selected-day class was not found.")
-          if old_block not in text:
-              raise SystemExit("Expected selected-day top indicator block was not found.")
+          if old_line not in text:
+              raise SystemExit("Expected AgendaCard label line was not found.")
 
-          text = text.replace(old_class, new_class, 1)
-          text = text.replace(old_block, "", 1)
+          text = text.replace(old_line, new_line, 1)
           path.write_text(text, encoding="utf-8")
           PY
 
-      - name: Commit selected-day UI update
+      - name: Commit AgendaCard UI update and remove temporary workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx
+          git rm .github/workflows/patch-schedule-selected-date-ui.yml
           if git diff --cached --quiet; then
-            echo "No selected-day UI changes to commit."
+            echo "No AgendaCard UI changes to commit."
           else
-            git commit -m "Update schedule selected date UI"
+            git commit -m "Remove schedule agenda card label"
             git push
           fi
