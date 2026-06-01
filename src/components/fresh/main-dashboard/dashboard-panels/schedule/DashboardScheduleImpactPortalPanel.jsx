@@ -40,6 +40,24 @@ function readStoredEvents(user) {
   }
 }
 
+function readAllStoredScheduleEvents() {
+  if (typeof window === "undefined") return [];
+  const events = [];
+
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key || (!key.startsWith(STORAGE_PREFIX) && key !== "clara_lifeos_schedule_events_v1")) continue;
+      const parsed = JSON.parse(window.localStorage.getItem(key) || "[]");
+      if (Array.isArray(parsed)) events.push(...parsed);
+    }
+  } catch {
+    return events;
+  }
+
+  return events;
+}
+
 function writeStoredEvent(user, event) {
   if (typeof window === "undefined") return;
   const current = readStoredEvents(user).filter((item) => item?.id && item?.title && item?.date);
@@ -280,6 +298,96 @@ function isTopAgendaPreviewNode(node) {
   return Boolean(node?.closest?.("button"));
 }
 
+function normalizeTitle(value) {
+  return cleanText(value)
+    .replace(/^[^A-Za-z0-9]+/, "")
+    .toLowerCase();
+}
+
+function parsePesoAmount(text) {
+  const match = cleanText(text).match(/₱\s*([0-9,]+(?:\.\d+)?)/i);
+  return match ? Math.round(Number(cleanMoney(match[1])) || 0) : 0;
+}
+
+function roundBreakdownAmount(value) {
+  if (value <= 0) return 0;
+  if (value < 100) return Math.round(value / 10) * 10;
+  return Math.round(value / 50) * 50;
+}
+
+function allocateBreakdown(total, template) {
+  const amount = Math.max(0, Math.round(Number(total || 0)));
+  if (!amount || !Array.isArray(template) || !template.length) return [];
+
+  let used = 0;
+  return template.map((item, index) => {
+    const isLast = index === template.length - 1;
+    const itemAmount = isLast ? Math.max(0, amount - used) : roundBreakdownAmount(amount * item.weight);
+    used += itemAmount;
+    return { label: item.label, amount: itemAmount };
+  }).filter((item) => item.amount > 0);
+}
+
+function buildFallbackImpactBreakdown(context, amount) {
+  const source = cleanText(context).toLowerCase();
+
+  if (/dentist|dental|tooth|teeth|ngipin|oral|cleaning|extraction|root canal|braces|pasta|bunot/.test(source)) {
+    return allocateBreakdown(amount, [
+      { label: "Dental procedure or consultation", weight: 0.58 },
+      { label: "Out-of-pocket balance", weight: 0.22 },
+      { label: "Medicine or after-care", weight: 0.12 },
+      { label: "Transportation / buffer", weight: 0.08 },
+    ]);
+  }
+
+  if (/date|girlfriend|boyfriend|partner|relationship|jowa|crush|romantic/.test(source)) {
+    return allocateBreakdown(amount, [
+      { label: "Food or drinks", weight: 0.45 },
+      { label: "Transportation", weight: 0.22 },
+      { label: "Activity or reservation", weight: 0.23 },
+      { label: "Gift / extra buffer", weight: 0.10 },
+    ]);
+  }
+
+  if (/church|ministry|simbahan|service|fellowship|offering/.test(source)) {
+    return allocateBreakdown(amount, [
+      { label: "Transportation", weight: 0.28 },
+      { label: "Food or drinks", weight: 0.24 },
+      { label: "Contribution or offering", weight: 0.32 },
+      { label: "Extra stop / buffer", weight: 0.16 },
+    ]);
+  }
+
+  if (/bill|payment|due|installment|subscription/.test(source)) {
+    return allocateBreakdown(amount, [
+      { label: "Main payment", weight: 0.88 },
+      { label: "Transfer or convenience fee", weight: 0.06 },
+      { label: "Cash-in / processing buffer", weight: 0.06 },
+    ]);
+  }
+
+  return allocateBreakdown(amount, [
+    { label: "Primary schedule cost", weight: 0.50 },
+    { label: "Transportation", weight: 0.22 },
+    { label: "Food or extra stop", weight: 0.18 },
+    { label: "Emergency buffer", weight: 0.10 },
+  ]);
+}
+
+function findStoredImpactBreakdown(title, amount) {
+  const normalizedTitle = normalizeTitle(title);
+  const roundedAmount = Math.round(Number(amount || 0));
+  const match = readAllStoredScheduleEvents().find((event) => {
+    const eventAmount = Math.round(Number(cleanMoney(event?.amount)) || 0);
+    return normalizeTitle(event?.title) === normalizedTitle && (!roundedAmount || eventAmount === roundedAmount);
+  });
+
+  const breakdown = Array.isArray(match?.impactBreakdown) ? match.impactBreakdown : [];
+  return breakdown
+    .map((item) => ({ label: cleanText(item?.label || item?.name), amount: Math.round(Number(item?.amount || 0)) }))
+    .filter((item) => item.label && item.amount > 0);
+}
+
 function suppressLegacyImpactPlannerLabels(root = typeof document !== "undefined" ? document : null) {
   if (!root?.querySelectorAll) return;
   root.querySelectorAll("p, span, div").forEach((node) => {
@@ -323,6 +431,92 @@ function rewriteMoneyImpactMessages(root = typeof document !== "undefined" ? doc
   });
 }
 
+function renderDetailImpactBreakdowns(root = typeof document !== "undefined" ? document : null) {
+  if (!root?.querySelectorAll || typeof document === "undefined") return;
+
+  root.querySelectorAll("p, span").forEach((labelNode) => {
+    if (isTopAgendaPreviewNode(labelNode)) return;
+    if (cleanText(labelNode.textContent).toLowerCase() !== "money impact") return;
+
+    const card = labelNode.closest("div");
+    if (!card || card.dataset.claraImpactBreakdownReady === "true") return;
+
+    const dialog = card.closest('[role="dialog"]') || document;
+    const title = cleanText(dialog.querySelector("h3")?.textContent || "Schedule").replace(/^[^A-Za-z0-9]+/, "");
+    const detailText = cleanText(card.textContent);
+    const amount = parsePesoAmount(detailText) || parsePesoAmount(dialog.textContent);
+    if (!amount) return;
+
+    const storedBreakdown = findStoredImpactBreakdown(title, amount);
+    const breakdown = storedBreakdown.length ? storedBreakdown : buildFallbackImpactBreakdown(`${title} ${dialog.textContent}`, amount);
+    if (!breakdown.length) return;
+
+    const originalImpactText = cleanText(
+      Array.from(card.querySelectorAll("p"))
+        .map((node) => cleanText(node.textContent))
+        .find((text) => text && text.toLowerCase() !== "money impact") ||
+      `Prepare ${formatPeso(amount)} before it affects optional spending.`
+    );
+
+    card.dataset.claraImpactBreakdownReady = "true";
+    card.innerHTML = "";
+
+    const heading = document.createElement("p");
+    heading.className = "text-[11px] font-black uppercase tracking-[.18em] text-fuchsia-100/62";
+    heading.textContent = "Money impact breakdown";
+    card.appendChild(heading);
+
+    const list = document.createElement("div");
+    list.className = "mt-3 space-y-2";
+
+    breakdown.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[.035] px-3 py-2";
+
+      const label = document.createElement("span");
+      label.className = "min-w-0 flex-1 text-xs font-bold leading-5 text-white/62";
+      label.textContent = item.label;
+
+      const value = document.createElement("strong");
+      value.className = "shrink-0 text-xs font-black text-white/86";
+      value.textContent = formatPeso(item.amount);
+
+      row.appendChild(label);
+      row.appendChild(value);
+      list.appendChild(row);
+    });
+
+    card.appendChild(list);
+
+    const totalRow = document.createElement("div");
+    totalRow.className = "mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3";
+
+    const totalLabel = document.createElement("span");
+    totalLabel.className = "text-[10px] font-black uppercase tracking-[.16em] text-white/40";
+    totalLabel.textContent = "Total estimate";
+
+    const totalValue = document.createElement("strong");
+    totalValue.className = "text-sm font-black text-cyan-50";
+    totalValue.textContent = formatPeso(amount);
+
+    totalRow.appendChild(totalLabel);
+    totalRow.appendChild(totalValue);
+    card.appendChild(totalRow);
+
+    const note = document.createElement("p");
+    note.className = "mt-3 text-xs font-semibold leading-5 text-white/44";
+    note.textContent = `CLARA note: ${originalImpactText}`;
+    card.appendChild(note);
+  });
+}
+
+function refreshScheduleEnhancements(root = typeof document !== "undefined" ? document : null) {
+  suppressLegacyImpactPlannerLabels(root);
+  suppressRedundantMoneyImpactLabels(root);
+  rewriteMoneyImpactMessages(root);
+  renderDetailImpactBreakdowns(root);
+}
+
 function Portal({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -346,15 +540,9 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
   );
 
   useEffect(() => {
-    suppressLegacyImpactPlannerLabels();
-    suppressRedundantMoneyImpactLabels();
-    rewriteMoneyImpactMessages();
+    refreshScheduleEnhancements();
     if (typeof MutationObserver === "undefined" || typeof document === "undefined") return undefined;
-    const observer = new MutationObserver(() => {
-      suppressLegacyImpactPlannerLabels();
-      suppressRedundantMoneyImpactLabels();
-      rewriteMoneyImpactMessages();
-    });
+    const observer = new MutationObserver(() => refreshScheduleEnhancements());
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, []);
@@ -508,9 +696,7 @@ function hideRefineButtons(root) {
     textarea.setAttribute("placeholder", SCHEDULE_DESCRIPTION_PLACEHOLDER);
   });
 
-  suppressLegacyImpactPlannerLabels(root);
-  suppressRedundantMoneyImpactLabels(root);
-  rewriteMoneyImpactMessages(root);
+  refreshScheduleEnhancements(root);
 }
 
 export default function DashboardScheduleImpactPortalPanel() {
@@ -578,6 +764,10 @@ export default function DashboardScheduleImpactPortalPanel() {
   const savePlanner = (amountValue = "") => {
     if (!planner?.form?.title) return;
     const cleanImpact = cleanMoney(amountValue);
+    const impactBreakdown = (planner.items || [])
+      .map((item) => ({ label: cleanText(item.name), amount: Math.round(moneyNumber(item.amount)) }))
+      .filter((item) => item.label && item.amount > 0);
+
     writeStoredEvent(user, {
       id: makeId(),
       title: cleanText(planner.form.title),
@@ -586,6 +776,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       type: planner.form.type || "Personal",
       amount: cleanImpact,
       note: cleanText(planner.refinedDescription || planner.form.note),
+      impactBreakdown,
     });
 
     if (planner.form.elements?.amountInput) updateControlledField(planner.form.elements.amountInput, cleanImpact ? `₱${cleanImpact}` : "");
@@ -597,14 +788,10 @@ export default function DashboardScheduleImpactPortalPanel() {
     const root = rootRef.current;
     if (!root || typeof MutationObserver === "undefined") return undefined;
     hideRefineButtons(root);
-    suppressLegacyImpactPlannerLabels();
-    suppressRedundantMoneyImpactLabels();
-    rewriteMoneyImpactMessages();
+    refreshScheduleEnhancements();
     const observer = new MutationObserver(() => {
       hideRefineButtons(root);
-      suppressLegacyImpactPlannerLabels();
-      suppressRedundantMoneyImpactLabels();
-      rewriteMoneyImpactMessages();
+      refreshScheduleEnhancements();
     });
     observer.observe(root, { childList: true, subtree: true, characterData: true });
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
