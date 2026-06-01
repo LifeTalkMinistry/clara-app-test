@@ -1,0 +1,1 @@
+Trigger one-time removal of the manual Schedule Impact estimate button.
