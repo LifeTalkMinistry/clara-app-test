@@ -1,0 +1,35 @@
+name: Source remove impact button
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Edit source files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          portal = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx')
+          s = portal.read_text()
+          s = s.replace('function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {', 'function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose }) {')
+          s = s.replace('            {!session.autoClosing && session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}\n', '')
+          s = s.replace('\n  const useEstimate = (amount) => {\n    applyEstimateToSchedule(amount);\n    closeImpactChat();\n  };\n', '\n')
+          s = s.replace(' onUseEstimate={useEstimate}', '')
+          portal.write_text(s)
+          legacy = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPanel.jsx')
+          if legacy.exists():
+              t = legacy.read_text()
+              t = t.replace('You can tap “Use ${formatPeso(total)} Estimate” when you\'re ready.', 'Reply yes to save this estimate.')
+              t = t.replace('Tap “Use ${formatPeso(session.total)} Estimate” to apply it to this schedule.', 'Reply yes to save this estimate.')
+              legacy.write_text(t)
+          PY
+      - name: Commit source edit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPanel.jsx
+          git diff --cached --quiet || (git commit -m "Deep remove schedule impact estimate button" && git push)
