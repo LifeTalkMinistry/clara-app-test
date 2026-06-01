@@ -313,9 +313,7 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
               <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] border border-cyan-200/22 bg-[#0b1630] shadow-[0_0_34px_rgba(34,211,238,.12),inset_0_1px_0_rgba(255,255,255,.06)]">
                 <div className="h-8 w-8 animate-pulse rounded-full border border-cyan-200/40 bg-cyan-300/15 shadow-[0_0_28px_rgba(34,211,238,.22)]" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/58">CLARA impact planner</p>
               <h2 className="mt-3 max-w-[300px] text-2xl font-black leading-tight text-white">CLARA is mapping possible spending…</h2>
-              <p className="mt-3 max-w-[310px] text-sm font-semibold leading-6 text-white/52">Refining this schedule and preparing only the spending areas that may actually matter.</p>
               {session.form?.title ? <p className="mt-5 rounded-full border border-white/10 bg-[#101936] px-4 py-2 text-xs font-black text-white/58">{session.form.title}</p> : null}
             </div>
           </div>
