@@ -1,5 +1,6 @@
 import { buildClaraFinanceSnapshot } from "./clara-local-brain";
 import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine";
+import { buildSchedulePromptBlock } from "./clara-schedule-ai-context";
 import { summarizeLifeProfileForClara } from "./clara-life-profile";
 import { buildClaraBehavioralContextForPrompt, getClaraBehavioralRiskLabel } from "./clara-behavioral-intelligence";
 import { buildClaraLifeStagePromptBlock, withClaraLifeStageAiContext } from "./clara-life-stage-ai-context";
@@ -314,6 +315,7 @@ async function buildPrompt({ message, context, mode, conversationHistory = [] })
   const budgetPlan = finance.budgetPlan || {};
   const goals = Array.isArray(finance.savingsGoals) ? finance.savingsGoals : [];
   const purchaseCategoryGuide = buildClaraPurchaseCategoryGuide(message, budgets);
+  const schedulePromptBlock = buildSchedulePromptBlock(message, enrichedContext);
 
   return `You are CLARA, an emotionally-aware behavioral money coach.
 
@@ -356,6 +358,9 @@ Budget status: ${budgetPlan.budgetStatus || "unknown"}
 Explanation: ${budgetPlan.budgetExplanation || "Budget state is unclear."}
 Rows: ${buildBudgetRowsForPrompt(budgetPlan)}
 
+Schedule:
+${schedulePromptBlock}
+
 Debt / Obligations:
 Source: local CLARA Debt/Obligations store.
 Active obligation count: ${Number(debtSummary.activeCount || 0)}
@@ -383,6 +388,13 @@ Rules for budget answers:
 - Remaining spendable budget means declared monthly budget minus spent so far.
 - Unallocated means declared monthly budget minus category allocations; it is not the same as spendable remaining.
 
+Rules for schedule answers:
+- Use the Schedule section when the user asks about schedule, appointments, calendar, upcoming plans, commitments, reminders, pressure, payday advice, or spending affected by future plans.
+- If SCHEDULE CONTEXT includes upcoming items, mention the exact schedule title, date, type, and estimated impact when relevant.
+- For spending decisions, naturally remind the user about upcoming money-impact schedule items before giving the spending recommendation.
+- Do not invent schedule items. If no upcoming schedule items are loaded, say that clearly.
+- Compose the message naturally as CLARA. Do not copy the Schedule Context block verbatim unless the user asks for a list.
+
 Rules for debt answers:
 - For debt, obligation, utang, loan, credit, payable, or "what I owe" questions, answer from the Debt / Obligations section.
 - If debt rows are loaded, use the exact obligation names shown in Rows.
@@ -390,7 +402,7 @@ Rules for debt answers:
 - If no debt rows are loaded, say debt records are not loaded instead of guessing.
 
 Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it.
-For purchase, budget, savings, debt, payday, or emergency questions: give a complete recommendation, one short reason, and one next step.
+For purchase, budget, savings, debt, schedule, payday, or emergency questions: give a complete recommendation, one short reason, and one next step.
 Never stop mid-sentence. End with a complete sentence.
 Reply naturally as CLARA in 3-5 conversational sentences.`;
 }
