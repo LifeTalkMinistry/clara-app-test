@@ -1,0 +1,37 @@
+name: Remove schedule estimate button
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  remove:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove button
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx')
+          s = p.read_text()
+          s = s.replace('function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {', 'function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose }) {')
+          s = s.replace('''            {!session.autoClosing && session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}
+''', '')
+          s = s.replace('''
+  const useEstimate = (amount) => {
+    applyEstimateToSchedule(amount);
+    closeImpactChat();
+  };
+''', '\n')
+          s = s.replace(' onUseEstimate={useEstimate}', '')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          rm -f .github/workflows/remove-schedule-estimate-button.yml .github/workflows/repair-schedule-impact.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "Remove manual schedule impact estimate button" && git push)
