@@ -300,8 +300,32 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
 
   if (!session) return null;
 
+  if (session.isPreparing) {
+    return (
+      <Portal>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100000] flex justify-center bg-[#020617] text-white">
+          <div className="relative flex h-[100dvh] w-full max-w-[520px] flex-col overflow-hidden border-x border-cyan-200/18 bg-[#050b1f] px-5 shadow-[0_0_100px_rgba(34,211,238,.12),inset_0_1px_0_rgba(255,255,255,.06)]">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-cyan-300/[0.075] blur-3xl" />
+            <div className="pointer-events-none absolute -left-20 top-1/3 h-48 w-48 rounded-full bg-fuchsia-400/[0.055] blur-3xl" />
+            <button type="button" onClick={onClose} className="absolute right-5 top-[calc(env(safe-area-inset-top)+1.15rem)] z-10 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/70 active:scale-95" aria-label="Close planner">×</button>
+
+            <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[28px] border border-cyan-200/22 bg-[#0b1630] shadow-[0_0_34px_rgba(34,211,238,.12),inset_0_1px_0_rgba(255,255,255,.06)]">
+                <div className="h-8 w-8 animate-pulse rounded-full border border-cyan-200/40 bg-cyan-300/15 shadow-[0_0_28px_rgba(34,211,238,.22)]" />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/58">CLARA impact planner</p>
+              <h2 className="mt-3 max-w-[300px] text-2xl font-black leading-tight text-white">CLARA is mapping possible spending…</h2>
+              <p className="mt-3 max-w-[310px] text-sm font-semibold leading-6 text-white/52">Refining this schedule and preparing only the spending areas that may actually matter.</p>
+              {session.form?.title ? <p className="mt-5 rounded-full border border-white/10 bg-[#101936] px-4 py-2 text-xs font-black text-white/58">{session.form.title}</p> : null}
+            </div>
+          </div>
+        </div>
+      </Portal>
+    );
+  }
+
   const refinedDescription = cleanText(session.refinedDescription || session.form.note || buildLocalRefinedDescription(session.form));
-  const descriptionLabel = session.loading ? "Refining description" : session.source === "ai" ? "AI refined description" : "Schedule description";
+  const descriptionLabel = session.source === "ai" ? "AI refined description" : "Schedule description";
 
   const updateItem = (id, patch) => {
     onChangeItems(session.items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -443,14 +467,14 @@ export default function DashboardScheduleImpactPortalPanel() {
       type: cleanText(form.type) || "Personal",
     };
     const localRefinedDescription = buildLocalRefinedDescription(preparedForm);
-
     const localItems = buildLocalPlanItems(preparedForm);
+
     setPlanner({
-      form: { ...preparedForm, note: localRefinedDescription },
-      refinedDescription: localRefinedDescription,
-      items: localItems,
-      loading: true,
-      source: "local",
+      form: preparedForm,
+      refinedDescription: "",
+      items: [],
+      isPreparing: true,
+      source: "preparing",
     });
 
     try {
@@ -468,15 +492,22 @@ export default function DashboardScheduleImpactPortalPanel() {
       const aiRefinedDescription = getAiRefinedDescription(ai, localRefinedDescription);
       setPlanner((current) => current ? {
         ...current,
-        form: { ...current.form, note: aiRefinedDescription },
+        form: { ...preparedForm, note: aiRefinedDescription },
         refinedDescription: aiRefinedDescription,
         items: aiItems,
-        loading: false,
+        isPreparing: false,
         source: "ai",
       } : current);
     } catch (error) {
       console.warn("[CLARA Schedule] Spending planner AI unavailable, using local starter list:", error);
-      setPlanner((current) => current ? { ...current, loading: false, source: "local" } : current);
+      setPlanner((current) => current ? {
+        ...current,
+        form: { ...preparedForm, note: localRefinedDescription },
+        refinedDescription: localRefinedDescription,
+        items: localItems,
+        isPreparing: false,
+        source: "local",
+      } : current);
     }
   };
 
