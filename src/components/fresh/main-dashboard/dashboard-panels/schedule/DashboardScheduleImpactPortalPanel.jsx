@@ -127,6 +127,10 @@ function isAffirmative(value) {
   return /\b(yes|yeah|yep|yup|correct|tama|oo|opo|sure|sige|go|start|okay|ok|alright)\b/i.test(cleanText(value));
 }
 
+function isReadyReply(value) {
+  return /\b(ready|start|begin|go|go ahead|sige|okay|ok|yes|yep|game)\b/i.test(cleanText(value));
+}
+
 function isNegativeOrFree(value) {
   return /\b(no need|none|wala|free|libre|zero|0|not relevant|skip that|no spending there|not really|hindi|skip)\b/i.test(cleanText(value));
 }
@@ -143,25 +147,6 @@ function isClearMoneyReply(value) {
   if (isQuantityOnlyReply(text)) return false;
   if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text) && parseAmount(text) > 0) return true;
   return /^\d+(?:\.\d+)?$/.test(text) && parseAmount(text) > 0;
-}
-
-function getEventPhrase(form) {
-  const source = cleanText(form.note || form.title);
-  const lower = source.toLowerCase();
-
-  if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "eat out after work";
-  if (/fellowship/.test(lower) && /church|service|simbahan/.test(lower)) return "have a simple fellowship after church service";
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "have a simple fellowship after church service";
-  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "prepare for your mother’s birthday";
-  if (/birthday/.test(lower)) return "prepare for a birthday plan";
-  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "attend a health checkup";
-  if (/renew/.test(lower) && /license|licence/.test(lower)) return "renew your license";
-  if (/buy|bili|gift|regalo/.test(lower)) return "buy a gift";
-  if (/meeting|office|shift|work/.test(lower)) return "handle a work-related schedule";
-  if (/team/.test(lower) && /outing|gala|trip/.test(lower)) return "join a team outing";
-  if (/gala|lakad|alis|labas|outing|trip|hangout/.test(lower)) return "go out for a personal activity";
-
-  return `work through “${source || form.title || "this schedule"}”`;
 }
 
 function getScheduleTitleForImpact(form) {
@@ -289,15 +274,67 @@ function buildSummaryMessage(total, path = []) {
   return `Here’s the estimated money impact for this schedule:\n${lines}\n\nEstimated total: ${formatPeso(total)}. Does this look right?`;
 }
 
-function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategory, activeSubItem }) {
+function normalizeSpendingAreas(value = []) {
+  const seen = new Set();
+  return (Array.isArray(value) ? value : [])
+    .map(cleanText)
+    .filter((area) => {
+      const key = area.toLowerCase();
+      if (!area || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+function getFallbackSpendingAreas(form = {}) {
+  const source = `${form.title || ""} ${form.note || ""} ${form.type || ""}`.toLowerCase();
+  const areas = [];
+  const add = (area) => {
+    if (area && !areas.some((item) => item.toLowerCase() === area.toLowerCase())) areas.push(area);
+  };
+
+  add("Transportation");
+  if (/(eat|dinner|lunch|meal|restaurant|kain|kumain|food|drink|coffee|snack)/i.test(source) || !/(license|renew|doctor|checkup|clinic|hospital)/i.test(source)) add("Food or drinks");
+  if (/(church|fellowship|team|group|family|birthday|party|outing|contribution|share|treat|gift|regalo)/i.test(source)) add("Shared contribution");
+  if (/(license|renew|doctor|checkup|clinic|hospital|ticket|venue|entrance|reservation|fee|table)/i.test(source)) add("Fees or required payment");
+  if (/(gala|lakad|outing|trip|mall|side|stop|extra|after|before|hangout)/i.test(source)) add("Extra stop");
+  add("Emergency buffer");
+
+  return areas.slice(0, 6);
+}
+
+function buildSpendingAreasMessage(areas = []) {
+  const list = normalizeSpendingAreas(areas).length ? normalizeSpendingAreas(areas) : getFallbackSpendingAreas();
+  return `These are the possible spending areas for this schedule:\n${list.map((area) => `- ${area}`).join("\n")}\n\nReply Ready when you want to start.`;
+}
+
+function getSpendingPreviewFromAi(ai = {}, form = {}) {
+  const areas = normalizeSpendingAreas(ai?.spending_areas);
+  const finalAreas = areas.length ? areas : getFallbackSpendingAreas(form);
+  const message = cleanText(ai?.assistant_message);
+  const safeMessage = message && !/(how much|amount|peso|₱|cost\?)/i.test(message) ? message : buildSpendingAreasMessage(finalAreas);
+  return { areas: finalAreas, message: safeMessage.includes("Reply Ready") ? safeMessage : `${safeMessage}\n\nReply Ready when you want to start.` };
+}
+
+function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategory, activeSubItem, form }) {
   const path = normalizeExpensePath(expensePath);
 
   if (stage === "confirm_intent") {
-    if (isAffirmative(reply)) return { stage: "ask_permission", total, expensePath: path, activeCategory, activeSubItem, message: "Great. Before saving, let’s estimate possible expenses one part at a time. Ready to start?" };
+    if (isAffirmative(reply)) return { stage: "spending_area_preview", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSpendingAreasMessage(getFallbackSpendingAreas(form)) };
     return { stage: "clarify_intent", total, expensePath: path, activeCategory, activeSubItem, message: "No worries. What do you really want this schedule to mean?" };
   }
 
-  if (stage === "clarify_intent") return { stage: "ask_permission", total, expensePath: path, activeCategory, activeSubItem, message: "Got it. I’ll use that as the context. Ready to start checking the possible spending?" };
+  if (stage === "clarify_intent") return { stage: "confirm_intent", total, expensePath: path, activeCategory: "", activeSubItem: "", message: getOpeningMessage({ ...form, title: makeTitle(reply, form?.type), note: reply }) };
+
+  if (stage === "spending_area_preview") {
+    if (isReadyReply(reply)) {
+      const first = getFirstPending(path);
+      return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: getLocalPromptForSubItem(first.subItem, path) };
+    }
+    return { stage: "spending_area_preview", total, expensePath: path, activeCategory: "", activeSubItem: "", message: "Sure. Reply “Ready” when you want to start, and we’ll go one spending part at a time." };
+  }
+
   if (stage === "ask_permission") {
     if (isAffirmative(reply)) {
       const first = getFirstPending(path);
@@ -346,7 +383,7 @@ function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategor
 
 function normalizeGeminiStage(value, fallback) {
   const stage = cleanText(value).toLowerCase();
-  const allowed = new Set(["confirm_intent", "clarify_intent", "ask_permission", "category_assessment", "category_summary", "complete", "transport", "food", "fees", "shared", "buffer"]);
+  const allowed = new Set(["confirm_intent", "clarify_intent", "spending_area_preview", "ask_permission", "category_assessment", "category_summary", "complete", "transport", "food", "fees", "shared", "buffer"]);
   if (["transport", "food", "fees", "shared", "buffer"].includes(stage)) return "category_assessment";
   return allowed.has(stage) ? stage : fallback;
 }
@@ -463,7 +500,7 @@ export default function DashboardScheduleImpactPortalPanel() {
     if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
   }, []);
 
-  const startImpactChat = async (form) => {
+  const startImpactChat = (form) => {
     const cleanTitle = shouldReplaceTitle(form.title, form.note, form.type) ? makeTitle(form.note, form.type) : cleanText(form.title);
     const preparedForm = { ...form, title: cleanTitle, note: cleanText(form.note) || makeDescription(form.note, cleanTitle) };
     const basePath = clonePath(DEFAULT_EXPENSE_PATH);
@@ -471,23 +508,9 @@ export default function DashboardScheduleImpactPortalPanel() {
     if (form.elements?.titleInput && shouldReplaceTitle(form.elements.titleInput.value, form.note, form.type)) updateControlledField(form.elements.titleInput, cleanTitle);
     if (form.elements?.noteInput && !cleanText(form.elements.noteInput.value)) updateControlledField(form.elements.noteInput, preparedForm.note);
 
-    const baseSession = { form: preparedForm, total: 0, expensePath: basePath, stage: "confirm_intent", activeCategory: "", activeSubItem: "", messages: [] };
     setInput("");
-    setThinking(true);
-    setSession(baseSession);
-
-    try {
-      const ai = await askGeminiForScheduleImpact({ form: preparedForm, messages: [], stage: "confirm_intent", activeCategory: "", activeSubItem: "", expensePath: basePath, total: 0, latestUserReply: "" });
-      const suggestions = applyScheduleSuggestions(rootRef.current, ai);
-      const nextForm = { ...preparedForm, ...suggestions };
-      const nextPath = normalizeExpensePath(ai.expense_path).length ? normalizeExpensePath(ai.expense_path) : basePath;
-      setSession({ ...baseSession, form: nextForm, expensePath: nextPath, stage: normalizeGeminiStage(ai.stage, "confirm_intent"), activeCategory: ai.active_category || "", activeSubItem: ai.active_sub_item || "", messages: [{ role: "assistant", text: cleanText(ai.assistant_message) || getOpeningMessage(nextForm) }] });
-    } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI unavailable, using local safety reply:", error);
-      setSession({ ...baseSession, messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
-    } finally {
-      setThinking(false);
-    }
+    setThinking(false);
+    setSession({ form: preparedForm, total: 0, expensePath: basePath, stage: "confirm_intent", activeCategory: "", activeSubItem: "", messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
   };
 
   const applyEstimateToSchedule = (amount) => {
@@ -517,13 +540,70 @@ export default function DashboardScheduleImpactPortalPanel() {
     setSession((current) => ({ ...current, messages: optimisticMessages }));
 
     try {
+      if (currentStage === "confirm_intent") {
+        if (!isAffirmative(reply)) {
+          const correctedTitle = makeTitle(reply, session.form.type);
+          const correctedForm = { ...session.form, title: correctedTitle, note: reply };
+          setSession((current) => ({
+            ...current,
+            form: correctedForm,
+            stage: "confirm_intent",
+            activeCategory: "",
+            activeSubItem: "",
+            messages: [...optimisticMessages, { role: "assistant", text: getOpeningMessage(correctedForm) }],
+          }));
+          return;
+        }
+
+        const ai = await askGeminiForScheduleImpact({
+          form: session.form,
+          messages: optimisticMessages,
+          stage: "spending_area_preview",
+          activeCategory: "",
+          activeSubItem: "",
+          expensePath: session.expensePath,
+          total: session.total,
+          latestUserReply: reply,
+        });
+        const suggestions = applyScheduleSuggestions(rootRef.current, ai);
+        const nextPath = normalizeExpensePath(ai.expense_path).length ? normalizeExpensePath(ai.expense_path) : session.expensePath;
+        const preview = getSpendingPreviewFromAi(ai, { ...session.form, ...suggestions });
+
+        setSession((current) => ({
+          ...current,
+          form: { ...(current?.form || session.form), ...suggestions },
+          stage: "spending_area_preview",
+          total: sumPath(nextPath),
+          expensePath: nextPath,
+          activeCategory: "",
+          activeSubItem: "",
+          spendingAreas: preview.areas,
+          messages: [...optimisticMessages, { role: "assistant", text: preview.message }],
+        }));
+        return;
+      }
+
+      if (currentStage === "spending_area_preview") {
+        const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form });
+        setSession((current) => ({
+          ...current,
+          stage: local.stage,
+          total: local.total,
+          expensePath: local.expensePath,
+          activeCategory: local.activeCategory,
+          activeSubItem: local.activeSubItem,
+          messages: [...optimisticMessages, { role: "assistant", text: local.message }],
+        }));
+        return;
+      }
+
       const ai = await askGeminiForScheduleImpact({ form: session.form, messages: optimisticMessages, stage: currentStage, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, expensePath: session.expensePath, total: session.total, latestUserReply: reply });
       const suggestions = applyScheduleSuggestions(rootRef.current, ai);
       const applied = applyAiPathResult({ ai, currentPath: session.expensePath, currentTotal: session.total, activeSubItem: session.activeSubItem });
       const finalPending = getFirstPending(applied.expensePath);
       const normalizedStage = normalizeGeminiStage(ai.stage, currentStage);
-      const nextStage = finalPending.subItem ? (normalizedStage === "confirm_intent" || normalizedStage === "ask_permission" || normalizedStage === "clarify_intent" ? normalizedStage : "category_assessment") : "complete";
-      const assistantText = cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem }).message;
+      const nextStage = finalPending.subItem ? (["confirm_intent", "ask_permission", "clarify_intent", "spending_area_preview"].includes(normalizedStage) ? normalizedStage : "category_assessment") : "complete";
+      const assistantText = cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form }).message;
       const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && applied.total > 0;
 
       setSession((current) => ({
@@ -548,7 +628,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       }
     } catch (error) {
       console.warn("[CLARA Schedule] Impact AI reply unavailable, using local safety reply:", error);
-      const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem });
+      const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form });
       const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && local.total > 0;
       setSession((current) => ({ ...current, stage: local.stage, total: local.total, expensePath: local.expensePath, activeCategory: local.activeCategory, activeSubItem: local.activeSubItem, autoClosing: shouldAutoApplyEstimate, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));
       if (shouldAutoApplyEstimate) {
@@ -563,7 +643,6 @@ export default function DashboardScheduleImpactPortalPanel() {
       setThinking(false);
     }
   };
-
 
   useEffect(() => {
     const root = rootRef.current;
