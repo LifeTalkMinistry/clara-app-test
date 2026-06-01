@@ -20,6 +20,7 @@ function makeTitle(value, type = "Personal") {
   const lower = text.toLowerCase();
 
   if (!text) return `${type || "Personal"} schedule`;
+  if (/dentist|dental|tooth|teeth|ngipin|oral/.test(lower)) return "Dentist Appointment";
   if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "Eat out after work";
   if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "After-church fellowship";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Mama’s birthday plan";
@@ -43,10 +44,11 @@ function makeDescription(value, title = "") {
   const source = cleanText(value || title);
   const lower = source.toLowerCase();
 
+  if (/dentist|dental|tooth|teeth|ngipin|oral/.test(lower)) return "Dental appointment that may involve coverage, procedure costs, out-of-pocket payment, after-care, and transportation.";
   if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "Eat out after work with a workmate or group.";
   if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "Simple fellowship with churchmates after the church service.";
   if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Preparation for my mother’s birthday celebration.";
-  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Health appointment or checkup that may include travel and medical-related costs.";
+  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Health appointment or checkup that may include coverage, travel, medicine, and possible out-of-pocket costs.";
   if (/renew/.test(lower) && /license|licence/.test(lower)) return "License renewal errand that may include fees and transportation.";
   if (/buy|bili|gift|regalo/.test(lower)) return "Gift-buying errand that may affect today’s spending plan.";
   if (/meeting|office|shift|work/.test(lower)) return "Work-related schedule that may involve transportation or meal spending.";
@@ -191,6 +193,66 @@ const DEFAULT_EXPENSE_PATH = [
   },
 ];
 
+function transportPath() {
+  return {
+    category: "transport",
+    label: "Transportation",
+    sub_items: [
+      { key: "transport_going_there", label: "Going to the event", status: "pending", amount: 0 },
+      { key: "transport_going_home", label: "Going back home", status: "pending", amount: 0 },
+      { key: "transport_extra_stop", label: "Extra stop or side trip", status: "pending", amount: 0 },
+    ],
+  };
+}
+
+function bufferPath() {
+  return {
+    category: "buffer",
+    label: "Emergency buffer",
+    sub_items: [{ key: "buffer_emergency", label: "Small emergency buffer", status: "pending", amount: 0 }],
+  };
+}
+
+function getFallbackExpensePath(form = {}) {
+  const source = `${form.title || ""} ${form.note || ""} ${form.type || ""}`.toLowerCase();
+  const isDental = /(dentist|dental|tooth|teeth|ngipin|oral|cleaning|extraction|root canal|braces|pasta|bunot)/i.test(source);
+  const isMedical = isDental || /(doctor|checkup|clinic|hospital|medical|consultation|laboratory|lab|medicine|meds|prescription|hmo|insurance|therapy|x-ray|xray)/i.test(source);
+
+  if (isDental) {
+    return [
+      {
+        category: "dental",
+        label: "Dental appointment costs",
+        sub_items: [
+          { key: "dental_procedure", label: "Dental procedure or consultation", status: "pending", amount: 0 },
+          { key: "dental_coverage_gap", label: "Out-of-pocket balance after insurance/HMO", status: "pending", amount: 0 },
+          { key: "dental_medicine", label: "Medicine or after-care", status: "pending", amount: 0 },
+        ],
+      },
+      transportPath(),
+      bufferPath(),
+    ];
+  }
+
+  if (isMedical) {
+    return [
+      {
+        category: "medical",
+        label: "Medical appointment costs",
+        sub_items: [
+          { key: "medical_consultation", label: "Consultation or procedure fee", status: "pending", amount: 0 },
+          { key: "medical_coverage_gap", label: "Out-of-pocket balance after insurance/HMO", status: "pending", amount: 0 },
+          { key: "medical_medicine", label: "Medicine, lab, or follow-up cost", status: "pending", amount: 0 },
+        ],
+      },
+      transportPath(),
+      bufferPath(),
+    ];
+  }
+
+  return clonePath(DEFAULT_EXPENSE_PATH);
+}
+
 function clonePath(path = DEFAULT_EXPENSE_PATH) {
   return path.map((category) => ({ ...category, sub_items: category.sub_items.map((item) => ({ ...item })) }));
 }
@@ -255,7 +317,13 @@ function formatPeso(value) {
 function getLocalPromptForSubItem(subItemKey, path = []) {
   const { category, item } = findSubItem(path, subItemKey);
   if (!item) return "How much should I estimate for this part?";
-  if (item.key === "transport_going_there") return "Let’s start with transportation. First, how much might you spend going there?";
+  if (item.key === "dental_procedure") return "Let’s start with the dental appointment itself. Is there any consultation, cleaning, extraction, or treatment fee to estimate?";
+  if (item.key === "dental_coverage_gap") return "Will insurance or HMO cover this, or do we need to estimate any possible out-of-pocket balance if it exceeds the limit?";
+  if (item.key === "dental_medicine") return "Any medicine, after-care, or follow-up cost after the dentist appointment?";
+  if (item.key === "medical_consultation") return "Let’s start with the medical appointment itself. Any consultation, test, or procedure fee to estimate?";
+  if (item.key === "medical_coverage_gap") return "Will insurance or HMO cover this, or should we estimate a possible out-of-pocket balance?";
+  if (item.key === "medical_medicine") return "Any medicine, lab, or follow-up cost after the appointment?";
+  if (item.key === "transport_going_there") return "Next, transportation. How much might you spend going there?";
   if (item.key === "transport_going_home") return "How about going back home? Will you spend the same amount, more, less, or none?";
   if (item.key === "transport_extra_stop") return "Any extra stop or side trip?";
   if (item.key === "food_personal") return "Next, food and drinks. How much might you spend for your own food or drinks?";
@@ -287,33 +355,30 @@ function normalizeSpendingAreas(value = []) {
     .slice(0, 8);
 }
 
-function getFallbackSpendingAreas(form = {}) {
-  const source = `${form.title || ""} ${form.note || ""} ${form.type || ""}`.toLowerCase();
-  const areas = [];
-  const add = (area) => {
-    if (area && !areas.some((item) => item.toLowerCase() === area.toLowerCase())) areas.push(area);
-  };
-
-  add("Transportation");
-  if (/(eat|dinner|lunch|meal|restaurant|kain|kumain|food|drink|coffee|snack)/i.test(source) || !/(license|renew|doctor|checkup|clinic|hospital)/i.test(source)) add("Food or drinks");
-  if (/(church|fellowship|team|group|family|birthday|party|outing|contribution|share|treat|gift|regalo)/i.test(source)) add("Shared contribution");
-  if (/(license|renew|doctor|checkup|clinic|hospital|ticket|venue|entrance|reservation|fee|table)/i.test(source)) add("Fees or required payment");
-  if (/(gala|lakad|outing|trip|mall|side|stop|extra|after|before|hangout)/i.test(source)) add("Extra stop");
-  add("Emergency buffer");
-
-  return areas.slice(0, 6);
+function getSpendingAreasFromExpensePath(path = []) {
+  return normalizeExpensePath(path)
+    .flatMap((category) => category.sub_items.map((item) => item.label))
+    .filter(Boolean)
+    .slice(0, 8);
 }
 
-function buildSpendingAreasMessage(areas = []) {
-  const list = normalizeSpendingAreas(areas).length ? normalizeSpendingAreas(areas) : getFallbackSpendingAreas();
+function getFallbackSpendingAreas(form = {}) {
+  const pathAreas = getSpendingAreasFromExpensePath(getFallbackExpensePath(form));
+  if (pathAreas.length) return pathAreas;
+  return ["Transportation", "Food or drinks", "Shared contribution", "Extra stop", "Emergency buffer"];
+}
+
+function buildSpendingAreasMessage(areas = [], form = {}) {
+  const list = normalizeSpendingAreas(areas).length ? normalizeSpendingAreas(areas) : getFallbackSpendingAreas(form);
   return `These are the possible spending areas for this schedule:\n${list.map((area) => `- ${area}`).join("\n")}\n\nReply Ready when you want to start.`;
 }
 
 function getSpendingPreviewFromAi(ai = {}, form = {}) {
   const areas = normalizeSpendingAreas(ai?.spending_areas);
-  const finalAreas = areas.length ? areas : getFallbackSpendingAreas(form);
+  const pathAreas = getSpendingAreasFromExpensePath(ai?.expense_path);
+  const finalAreas = areas.length ? areas : pathAreas.length ? pathAreas : getFallbackSpendingAreas(form);
   const message = cleanText(ai?.assistant_message);
-  const safeMessage = message && !/(how much|amount|peso|₱|cost\?)/i.test(message) ? message : buildSpendingAreasMessage(finalAreas);
+  const safeMessage = message && !/(how much|amount|peso|₱|cost\?)/i.test(message) ? message : buildSpendingAreasMessage(finalAreas, form);
   return { areas: finalAreas, message: safeMessage.includes("Reply Ready") ? safeMessage : `${safeMessage}\n\nReply Ready when you want to start.` };
 }
 
@@ -321,7 +386,7 @@ function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategor
   const path = normalizeExpensePath(expensePath);
 
   if (stage === "confirm_intent") {
-    if (isAffirmative(reply)) return { stage: "spending_area_preview", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSpendingAreasMessage(getFallbackSpendingAreas(form)) };
+    if (isAffirmative(reply)) return { stage: "spending_area_preview", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSpendingAreasMessage(getFallbackSpendingAreas(form), form) };
     return { stage: "clarify_intent", total, expensePath: path, activeCategory, activeSubItem, message: "No worries. What do you really want this schedule to mean?" };
   }
 
@@ -503,7 +568,7 @@ export default function DashboardScheduleImpactPortalPanel() {
   const startImpactChat = (form) => {
     const cleanTitle = shouldReplaceTitle(form.title, form.note, form.type) ? makeTitle(form.note, form.type) : cleanText(form.title);
     const preparedForm = { ...form, title: cleanTitle, note: cleanText(form.note) || makeDescription(form.note, cleanTitle) };
-    const basePath = clonePath(DEFAULT_EXPENSE_PATH);
+    const basePath = clonePath(getFallbackExpensePath(preparedForm));
 
     if (form.elements?.titleInput && shouldReplaceTitle(form.elements.titleInput.value, form.note, form.type)) updateControlledField(form.elements.titleInput, cleanTitle);
     if (form.elements?.noteInput && !cleanText(form.elements.noteInput.value)) updateControlledField(form.elements.noteInput, preparedForm.note);
@@ -544,9 +609,11 @@ export default function DashboardScheduleImpactPortalPanel() {
         if (!isAffirmative(reply)) {
           const correctedTitle = makeTitle(reply, session.form.type);
           const correctedForm = { ...session.form, title: correctedTitle, note: reply };
+          const correctedPath = clonePath(getFallbackExpensePath(correctedForm));
           setSession((current) => ({
             ...current,
             form: correctedForm,
+            expensePath: correctedPath,
             stage: "confirm_intent",
             activeCategory: "",
             activeSubItem: "",
