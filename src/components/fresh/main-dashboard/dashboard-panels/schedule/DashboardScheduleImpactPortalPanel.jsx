@@ -285,6 +285,24 @@ function suppressLegacyImpactPlannerLabels(root = typeof document !== "undefined
   });
 }
 
+function rewriteMoneyImpactMessages(root = typeof document !== "undefined" ? document : null) {
+  if (!root?.querySelectorAll) return;
+
+  root.querySelectorAll("p, span, div").forEach((node) => {
+    if (node.childElementCount > 0) return;
+
+    const text = cleanText(node.textContent);
+    if (!text || !/\bis scheduled on\b/i.test(text) || !/\boptional spending\b/i.test(text)) return;
+
+    const amountMatch = text.match(/Around\s*₱\s*([0-9,]+(?:\.\d+)?)/i);
+    const amount = amountMatch?.[1]?.trim();
+
+    node.textContent = amount
+      ? `Estimated impact: around ₱${amount}. Set this aside before optional spending pulls from your budget.`
+      : "This schedule may affect your spending. Plan possible costs before optional spending pulls from your budget.";
+  });
+}
+
 function Portal({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -309,9 +327,13 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
 
   useEffect(() => {
     suppressLegacyImpactPlannerLabels();
+    rewriteMoneyImpactMessages();
     if (typeof MutationObserver === "undefined" || typeof document === "undefined") return undefined;
-    const observer = new MutationObserver(() => suppressLegacyImpactPlannerLabels());
-    observer.observe(document.body, { childList: true, subtree: true });
+    const observer = new MutationObserver(() => {
+      suppressLegacyImpactPlannerLabels();
+      rewriteMoneyImpactMessages();
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, []);
 
@@ -465,6 +487,7 @@ function hideRefineButtons(root) {
   });
 
   suppressLegacyImpactPlannerLabels(root);
+  rewriteMoneyImpactMessages(root);
 }
 
 export default function DashboardScheduleImpactPortalPanel() {
@@ -552,12 +575,14 @@ export default function DashboardScheduleImpactPortalPanel() {
     if (!root || typeof MutationObserver === "undefined") return undefined;
     hideRefineButtons(root);
     suppressLegacyImpactPlannerLabels();
+    rewriteMoneyImpactMessages();
     const observer = new MutationObserver(() => {
       hideRefineButtons(root);
       suppressLegacyImpactPlannerLabels();
+      rewriteMoneyImpactMessages();
     });
-    observer.observe(root, { childList: true, subtree: true });
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, [panelKey]);
 
