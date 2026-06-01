@@ -276,6 +276,10 @@ function getAiRefinedDescription(ai = {}, fallback = "") {
   );
 }
 
+function isTopAgendaPreviewNode(node) {
+  return Boolean(node?.closest?.("button"));
+}
+
 function suppressLegacyImpactPlannerLabels(root = typeof document !== "undefined" ? document : null) {
   if (!root?.querySelectorAll) return;
   root.querySelectorAll("p, span, div").forEach((node) => {
@@ -289,6 +293,7 @@ function suppressRedundantMoneyImpactLabels(root = typeof document !== "undefine
   if (!root?.querySelectorAll) return;
   root.querySelectorAll("p, span, div").forEach((node) => {
     if (node.childElementCount > 0) return;
+    if (!isTopAgendaPreviewNode(node)) return;
     if (cleanText(node.textContent) !== "MONEY IMPACT") return;
     node.remove();
   });
@@ -299,6 +304,7 @@ function rewriteMoneyImpactMessages(root = typeof document !== "undefined" ? doc
 
   root.querySelectorAll("p, span, div").forEach((node) => {
     if (node.childElementCount > 0) return;
+    if (!isTopAgendaPreviewNode(node)) return;
 
     const text = cleanText(node.textContent);
     const isImpactSentence =
