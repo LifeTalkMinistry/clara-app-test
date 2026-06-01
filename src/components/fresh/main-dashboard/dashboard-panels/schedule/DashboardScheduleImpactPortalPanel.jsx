@@ -70,6 +70,32 @@ function titleCase(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function buildLocalRefinedDescription(form = {}) {
+  const source = `${form.title || ""} ${form.type || ""} ${form.note || ""}`.toLowerCase();
+  const note = cleanText(form.note);
+
+  if (/dentist|dental|tooth|teeth|ngipin|oral|cleaning|extraction|root canal|braces|pasta|bunot/i.test(source)) {
+    return "Dental appointment that may include treatment, coverage checks, out-of-pocket costs, after-care, and transportation.";
+  }
+  if (/date|girlfriend|boyfriend|partner|relationship|jowa|crush|romantic/i.test(source)) {
+    return "Relationship schedule that may involve transportation, food, a small gift, activity fees, or extra stops.";
+  }
+  if (/church|ministry|simbahan|service|fellowship|offering/i.test(source)) {
+    return "Church-related schedule that may involve transportation, food, contribution, or extra stops.";
+  }
+  if (/doctor|checkup|clinic|hospital|medical|consultation|laboratory|lab|medicine|meds|prescription|hmo|insurance/i.test(source)) {
+    return "Health appointment that may involve coverage, consultation, medicine, transportation, or follow-up costs.";
+  }
+  if (/birthday|celebration|party|fiesta/i.test(source)) {
+    return "Celebration schedule that may involve gifts, food, contribution, delivery, or transportation.";
+  }
+  if (/work|office|meeting|shift|coworker|workmate/i.test(source)) {
+    return "Work-related schedule that may involve transportation, meals, coffee, or small work extras.";
+  }
+
+  return note || `${cleanText(form.title) || "This schedule"} may affect your spending plan.`;
+}
+
 function readForm(root) {
   const dialog = root?.querySelector?.('[role="dialog"]');
   const titleInput = dialog?.querySelector('input[placeholder="Schedule title"]');
@@ -240,6 +266,15 @@ function getAiNames(ai = {}) {
   return [...spendingAreas, ...pathAreas].map(cleanText).filter(Boolean);
 }
 
+function getAiRefinedDescription(ai = {}, fallback = "") {
+  return cleanText(
+    ai?.schedule_updates?.description ||
+    ai?.suggested_description ||
+    ai?.description ||
+    fallback
+  );
+}
+
 function Portal({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -264,11 +299,8 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
 
   if (!session) return null;
 
-  const previewNames = (session.items || [])
-    .map((item) => cleanText(item.name))
-    .filter(Boolean)
-    .slice(0, 4);
-  const sourceLabel = session.loading ? "Preparing" : session.source === "ai" ? "AI suggested" : "Smart starter";
+  const refinedDescription = cleanText(session.refinedDescription || session.form.note || buildLocalRefinedDescription(session.form));
+  const descriptionLabel = session.loading ? "Refining description" : session.source === "ai" ? "AI refined description" : "Schedule description";
 
   const updateItem = (id, patch) => {
     onChangeItems(session.items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -301,19 +333,13 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64">CLARA impact planner</p>
                 <h2 className="mt-2 text-2xl font-black leading-tight text-white">Plan possible spending</h2>
                 <p className="mt-1 truncate text-xs font-bold text-white/54">{session.form.title}</p>
-                {session.form.note ? <p className="mt-1 line-clamp-1 text-[11px] font-semibold leading-4 text-white/36">{session.form.note}</p> : null}
               </div>
               <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/70 active:scale-95" aria-label="Close planner">×</button>
             </div>
 
             <div className="relative z-10 mt-4 rounded-[22px] border border-cyan-200/16 bg-[#0b1128] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_12px_28px_rgba(0,0,0,.24)]">
-              <div className="flex items-center justify-between gap-3">
-                <span className="rounded-full border border-cyan-200/18 bg-[#0d2336] px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/70">{sourceLabel}</span>
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/36">{session.items.length} items</span>
-              </div>
-              {previewNames.length ? (
-                <p className="mt-2 truncate text-xs font-bold leading-5 text-white/58">{previewNames.join(" • ")}</p>
-              ) : null}
+              <span className="rounded-full border border-cyan-200/18 bg-[#0d2336] px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/70">{descriptionLabel}</span>
+              <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-white/62">{refinedDescription}</p>
             </div>
           </div>
 
@@ -403,9 +429,16 @@ export default function DashboardScheduleImpactPortalPanel() {
       note: cleanText(form.note),
       type: cleanText(form.type) || "Personal",
     };
+    const localRefinedDescription = buildLocalRefinedDescription(preparedForm);
 
     const localItems = buildLocalPlanItems(preparedForm);
-    setPlanner({ form: preparedForm, items: localItems, loading: true, source: "local" });
+    setPlanner({
+      form: { ...preparedForm, note: localRefinedDescription },
+      refinedDescription: localRefinedDescription,
+      items: localItems,
+      loading: true,
+      source: "local",
+    });
 
     try {
       const ai = await askGeminiForScheduleImpact({
@@ -416,10 +449,18 @@ export default function DashboardScheduleImpactPortalPanel() {
         activeSubItem: "",
         expensePath: [],
         total: 0,
-        latestUserReply: "Generate editable possible spending items only.",
+        latestUserReply: "Refine this schedule description and generate editable possible spending items only.",
       });
       const aiItems = sanitizeAiItems(getAiNames(ai), preparedForm);
-      setPlanner((current) => current ? { ...current, items: aiItems, loading: false, source: "ai" } : current);
+      const aiRefinedDescription = getAiRefinedDescription(ai, localRefinedDescription);
+      setPlanner((current) => current ? {
+        ...current,
+        form: { ...current.form, note: aiRefinedDescription },
+        refinedDescription: aiRefinedDescription,
+        items: aiItems,
+        loading: false,
+        source: "ai",
+      } : current);
     } catch (error) {
       console.warn("[CLARA Schedule] Spending planner AI unavailable, using local starter list:", error);
       setPlanner((current) => current ? { ...current, loading: false, source: "local" } : current);
@@ -438,7 +479,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       time: planner.form.time || "",
       type: planner.form.type || "Personal",
       amount: cleanImpact,
-      note: cleanText(planner.form.note),
+      note: cleanText(planner.refinedDescription || planner.form.note),
     });
 
     if (planner.form.elements?.amountInput) updateControlledField(planner.form.elements.amountInput, cleanImpact ? `₱${cleanImpact}` : "");
