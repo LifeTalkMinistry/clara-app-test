@@ -282,16 +282,14 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed inset-0 z-[100000] flex items-end justify-center bg-[#020617]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white backdrop-blur-2xl"
-        onClick={onClose}
+        className="fixed inset-0 z-[100000] flex justify-center bg-[#020617] text-white"
       >
         <div
-          className="isolate flex max-h-[88svh] w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-cyan-200/24 bg-[#050b1f] shadow-[0_28px_100px_rgba(0,0,0,.78),0_0_48px_rgba(34,211,238,.14),inset_0_1px_0_rgba(255,255,255,.06)]"
-          onClick={(event) => event.stopPropagation()}
+          className="isolate flex h-[100dvh] w-full max-w-[520px] flex-col overflow-hidden border-x border-cyan-200/18 bg-[#050b1f] shadow-[0_0_100px_rgba(34,211,238,.12),inset_0_1px_0_rgba(255,255,255,.06)]"
         >
-          <div className="relative border-b border-white/12 bg-[#050b1f] p-5">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/[0.06] blur-3xl" />
-            <div className="pointer-events-none absolute -left-16 top-10 h-36 w-36 rounded-full bg-fuchsia-400/[0.055] blur-3xl" />
+          <div className="relative shrink-0 border-b border-white/12 bg-[#050b1f] px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1.15rem)]">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-cyan-300/[0.065] blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 top-10 h-40 w-40 rounded-full bg-fuchsia-400/[0.055] blur-3xl" />
             <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64">CLARA impact planner</p>
@@ -299,7 +297,7 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
                 <p className="mt-1 truncate text-xs font-bold text-white/48">{session.form.title}</p>
                 {session.form.note ? <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/34">{session.form.note}</p> : null}
               </div>
-              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/66 active:scale-95" aria-label="Close planner">×</button>
+              <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/70 active:scale-95" aria-label="Close planner">×</button>
             </div>
 
             <div className="relative z-10 mt-4 rounded-[24px] border border-cyan-200/22 bg-[#0b1630] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_0_24px_rgba(34,211,238,0.08)]">
@@ -357,7 +355,7 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
             </button>
           </div>
 
-          <div className="shrink-0 border-t border-white/12 bg-[#050b1f] p-4 shadow-[0_-18px_38px_rgba(0,0,0,.35)]">
+          <div className="shrink-0 border-t border-white/12 bg-[#050b1f] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 shadow-[0_-18px_38px_rgba(0,0,0,.35)]">
             <div className="mb-3 flex items-center justify-between gap-4 rounded-2xl border border-white/12 bg-[#0b1128] px-4 py-3">
               <span className="text-xs font-black uppercase tracking-[0.14em] text-white/46">Total estimated impact</span>
               <span className="text-lg font-black text-white">{formatPeso(total)}</span>
