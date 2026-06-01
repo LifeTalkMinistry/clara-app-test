@@ -1,58 +1,52 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import useUserRole from "@/hooks/useUserRole";
 import { askGeminiForScheduleImpact } from "@/lib/ai-command/schedule-impact-service";
 import OriginalDashboardSchedulePanel from "./DashboardSchedulePanel.jsx";
+
+const STORAGE_PREFIX = "clara_schedule_events_v2";
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function toTitleCase(value) {
-  return cleanText(value)
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+function cleanMoney(value) {
+  return String(value || "").replace(/[^0-9.]/g, "");
 }
 
-const AUTO_TITLE_PATTERN = /^(after-church fellowship|church fellowship|church event|personal outing|work meeting|personal schedule|family schedule|team outing|gift buying errand|license renewal|doctor checkup|birthday preparation|mama’s birthday plan|papa’s birthday plan)$/i;
-
-function makeTitle(value, type = "Personal") {
-  const text = cleanText(value).replace(/[.!?]+$/g, "");
-  const lower = text.toLowerCase();
-
-  if (!text) return `${type || "Personal"} schedule`;
-  if (/dentist|dental|tooth|teeth|ngipin|oral/.test(lower)) return "Dentist Appointment";
-  if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "Eat out after work";
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "After-church fellowship";
-  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Mama’s birthday plan";
-  if (/birthday/.test(lower) && /papa|dad|father|tatay/.test(lower)) return "Papa’s birthday plan";
-  if (/birthday/.test(lower)) return "Birthday preparation";
-  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Doctor checkup";
-  if (/renew/.test(lower) && /license|licence/.test(lower)) return "License renewal";
-  if (/buy|bili|gift|regalo/.test(lower)) return "Gift buying errand";
-  if (/team/.test(lower) && /outing|gala|trip/.test(lower)) return "Team outing";
-  if (/church/.test(lower) && /outing/.test(lower)) return "Church fellowship";
-  if (/church|service|simbahan|ministry/.test(lower)) return "Church event";
-  if (/outing|beach|resort|trip|gala|lakad|alis|labas/.test(lower)) return "Personal outing";
-  if (/meeting|office|shift|work/.test(lower)) return "Work schedule";
-  if (/family|fiesta|mama|papa|nanay|tatay/.test(lower)) return "Family schedule";
-
-  const shortText = text.split(" ").filter(Boolean).slice(0, 5).join(" ");
-  return toTitleCase(shortText) || `${type || "Personal"} schedule`;
+function moneyNumber(value) {
+  const amount = Number(cleanMoney(value));
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
 }
 
-function makeDescription(value, title = "") {
-  const source = cleanText(value || title);
-  const lower = source.toLowerCase();
+function formatPeso(value) {
+  return `₱${Math.max(0, Math.round(Number(value || 0))).toLocaleString()}`;
+}
 
-  if (/dentist|dental|tooth|teeth|ngipin|oral/.test(lower)) return "Dental appointment that may involve coverage, procedure costs, out-of-pocket payment, after-care, and transportation.";
-  if (/(eat out|dinner|lunch|meal|restaurant|kain|kumain)/.test(lower) && /(work|office|shift|coworker|workmate|teammate)/.test(lower)) return "Eat out after work with a workmate or group.";
-  if (/gala|lakad|alis|labas|outing|hangout/.test(lower) && /church|service|simbahan/.test(lower)) return "Simple fellowship with churchmates after the church service.";
-  if (/birthday/.test(lower) && /mama|mom|mother|nanay/.test(lower)) return "Preparation for my mother’s birthday celebration.";
-  if (/doctor|checkup|clinic|hospital|medical/.test(lower)) return "Health appointment or checkup that may include coverage, travel, medicine, and possible out-of-pocket costs.";
-  if (/renew/.test(lower) && /license|licence/.test(lower)) return "License renewal errand that may include fees and transportation.";
-  if (/buy|bili|gift|regalo/.test(lower)) return "Gift-buying errand that may affect today’s spending plan.";
-  if (/meeting|office|shift|work/.test(lower)) return "Work-related schedule that may involve transportation or meal spending.";
-  return source || "Schedule that may affect money or plans.";
+function getStorageKey(user) {
+  return `${STORAGE_PREFIX}_${user?.id || user?.email || "guest"}`;
+}
+
+function readStoredEvents(user) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(getStorageKey(user));
+    const legacy = window.localStorage.getItem("clara_lifeos_schedule_events_v1");
+    const parsed = raw ? JSON.parse(raw) : legacy ? JSON.parse(legacy) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredEvent(user, event) {
+  if (typeof window === "undefined") return;
+  const current = readStoredEvents(user).filter((item) => item?.id && item?.title && item?.date);
+  window.localStorage.setItem(getStorageKey(user), JSON.stringify([...current, event]));
+}
+
+function makeId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function getNativeValueSetter(element) {
@@ -70,13 +64,10 @@ function updateControlledField(element, value) {
   element.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function shouldReplaceTitle(currentTitle, note, type) {
-  const current = cleanText(currentTitle);
-  const noteTitle = makeTitle(note, type);
-  if (!current) return true;
-  if (!cleanText(note)) return false;
-  if (current === noteTitle) return false;
-  return AUTO_TITLE_PATTERN.test(current) || /gala after church/i.test(current);
+function titleCase(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function readForm(root) {
@@ -87,396 +78,166 @@ function readForm(root) {
   const dateInput = dialog?.querySelector('input[type="date"]');
   const timeInput = dialog?.querySelector('input[type="time"]');
   const amountInput = dialog?.querySelector('input[placeholder="AI will calculate"]');
+  const title = cleanText(titleInput?.value);
   const note = cleanText(noteInput?.value);
   const type = cleanText(typeInput?.value) || "Personal";
-  const rawTitle = cleanText(titleInput?.value);
-  const title = shouldReplaceTitle(rawTitle, note, type) ? makeTitle(note, type) : rawTitle;
 
   return {
-    title,
+    title: title || titleCase(note || type || "Personal schedule"),
     note,
     type,
     date: dateInput?.value || "",
     time: timeInput?.value || "",
     amount: amountInput?.value || "",
-    elements: { titleInput, noteInput, typeInput, amountInput },
+    elements: { titleInput, noteInput, typeInput, dateInput, timeInput, amountInput },
   };
 }
 
-function applyScheduleSuggestions(root, ai = {}) {
-  const form = root ? readForm(root) : null;
-  if (!form) return {};
-
-  const suggestedTitle = cleanText(ai?.suggested_title);
-  const suggestedDescription = cleanText(ai?.suggested_description);
-  const currentTitle = cleanText(form.elements.titleInput?.value);
-  const currentNote = cleanText(form.elements.noteInput?.value);
-
-  if (suggestedTitle && shouldReplaceTitle(currentTitle, currentNote, form.type)) updateControlledField(form.elements.titleInput, suggestedTitle);
-  if (suggestedDescription && (!currentNote || currentNote.length < 28 || /gala after church/i.test(currentNote))) updateControlledField(form.elements.noteInput, suggestedDescription);
-
-  return { title: suggestedTitle || form.title, note: suggestedDescription || form.note };
+function hasAny(source, words) {
+  return words.some((word) => source.includes(word));
 }
 
-function parseAmount(text) {
-  const source = String(text || "").replace(/,/g, "");
-  const moneyMatches = [...source.matchAll(/(?:₱|php\s*)?\s*(\d+(?:\.\d+)?)(?:\s*(?:pesos?|php|fare|pamasahe|cost|spend|budget))?/gi)];
-  if (!moneyMatches.length) return 0;
-  return moneyMatches.reduce((sum, match) => sum + Math.round(Number(match[1]) || 0), 0);
+function addUnique(items, name) {
+  const clean = cleanText(name);
+  if (!clean) return items;
+  if (items.some((item) => item.name.toLowerCase() === clean.toLowerCase())) return items;
+  return [...items, { id: makeId(), name: clean, amount: "" }];
 }
 
-function isAffirmative(value) {
-  return /\b(yes|yeah|yep|yup|correct|tama|oo|opo|sure|sige|go|start|okay|ok|alright)\b/i.test(cleanText(value));
-}
+function buildLocalPlanItems(form = {}) {
+  const source = `${form.title || ""} ${form.type || ""} ${form.note || ""}`.toLowerCase();
+  let items = [];
 
-function isReadyReply(value) {
-  return /\b(ready|start|begin|go|go ahead|sige|okay|ok|yes|yep|game)\b/i.test(cleanText(value));
-}
-
-function isNegativeOrFree(value) {
-  return /\b(no need|none|wala|free|libre|zero|0|not relevant|skip that|no spending there|not really|hindi|skip)\b/i.test(cleanText(value));
-}
-
-function isQuantityOnlyReply(value) {
-  const text = cleanText(value).toLowerCase();
-  if (!text) return false;
-  return /\b(ride|rides|jeep|jeepney|tricycle|bus|train|taxi|grab|angkas|people|person|persons|friend|friends|churchmate|churchmates|ticket|tickets|item|items|piece|pieces|times|pax)\b/.test(text) && !/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text);
-}
-
-function isClearMoneyReply(value) {
-  const text = cleanText(value).toLowerCase();
-  if (!text) return false;
-  if (isQuantityOnlyReply(text)) return false;
-  if (/(₱|php|peso|pesos|fare|cost|budget|spend|around|maybe|estimate|pamasahe)/i.test(text) && parseAmount(text) > 0) return true;
-  return /^\d+(?:\.\d+)?$/.test(text) && parseAmount(text) > 0;
-}
-
-function getScheduleTitleForImpact(form) {
-  return cleanText(form?.title) || makeTitle(form?.note, form?.type) || "this schedule";
-}
-
-function getOpeningMessage(form) {
-  return `Hi Max, I’ll assess the money impact for this schedule: ${getScheduleTitleForImpact(form)}. Is that correct?`;
-}
-
-const DEFAULT_EXPENSE_PATH = [
-  {
-    category: "transport",
-    label: "Transportation",
-    sub_items: [
-      { key: "transport_going_there", label: "Going to the event", status: "pending", amount: 0 },
-      { key: "transport_going_home", label: "Going back home", status: "pending", amount: 0 },
-      { key: "transport_extra_stop", label: "Extra stop or side trip", status: "pending", amount: 0 },
-    ],
-  },
-  {
-    category: "food",
-    label: "Food and drinks",
-    sub_items: [
-      { key: "food_personal", label: "Personal food or drinks", status: "pending", amount: 0 },
-      { key: "food_treat_someone", label: "Treating someone / accountable person", status: "pending", amount: 0 },
-      { key: "food_group_share", label: "Shared food contribution", status: "pending", amount: 0 },
-    ],
-  },
-  {
-    category: "fees",
-    label: "Fees or contribution",
-    sub_items: [
-      { key: "fees_church_group", label: "Church or group contribution", status: "pending", amount: 0 },
-      { key: "fees_venue", label: "Venue, entrance, or table fee", status: "pending", amount: 0 },
-    ],
-  },
-  {
-    category: "buffer",
-    label: "Emergency buffer",
-    sub_items: [{ key: "buffer_emergency", label: "Small emergency buffer", status: "pending", amount: 0 }],
-  },
-];
-
-function transportPath() {
-  return {
-    category: "transport",
-    label: "Transportation",
-    sub_items: [
-      { key: "transport_going_there", label: "Going to the event", status: "pending", amount: 0 },
-      { key: "transport_going_home", label: "Going back home", status: "pending", amount: 0 },
-      { key: "transport_extra_stop", label: "Extra stop or side trip", status: "pending", amount: 0 },
-    ],
-  };
-}
-
-function bufferPath() {
-  return {
-    category: "buffer",
-    label: "Emergency buffer",
-    sub_items: [{ key: "buffer_emergency", label: "Small emergency buffer", status: "pending", amount: 0 }],
-  };
-}
-
-function getFallbackExpensePath(form = {}) {
-  const source = `${form.title || ""} ${form.note || ""} ${form.type || ""}`.toLowerCase();
+  const isDate = hasAny(source, ["date", "girlfriend", "boyfriend", "partner", "relationship", "jowa", "crush", "romantic"]);
   const isDental = /(dentist|dental|tooth|teeth|ngipin|oral|cleaning|extraction|root canal|braces|pasta|bunot)/i.test(source);
   const isMedical = isDental || /(doctor|checkup|clinic|hospital|medical|consultation|laboratory|lab|medicine|meds|prescription|hmo|insurance|therapy|x-ray|xray)/i.test(source);
+  const isChurch = hasAny(source, ["church", "ministry", "simbahan", "service", "fellowship", "offering"]);
+  const isBill = form.type === "Bill" || hasAny(source, ["bill", "payment", "due", "installment", "subscription"]);
+  const isBirthday = hasAny(source, ["birthday", "celebration", "party", "fiesta"]);
+  const isLicense = hasAny(source, ["license", "licence", "renewal", "renew"]);
+  const isWork = form.type === "Work" || hasAny(source, ["work", "office", "meeting", "shift", "coworker", "workmate"]);
+  const isOuting = hasAny(source, ["outing", "trip", "beach", "resort", "hangout", "gala", "lakad", "mall", "movie"]);
+
+  if (isDate) {
+    items = addUnique(items, "Transportation");
+    items = addUnique(items, "Food or drinks");
+    items = addUnique(items, "Gift or small surprise");
+    items = addUnique(items, "Date activity / reservation");
+    items = addUnique(items, "Extra stop");
+    items = addUnique(items, "Emergency buffer");
+    return items;
+  }
 
   if (isDental) {
-    return [
-      {
-        category: "dental",
-        label: "Dental appointment costs",
-        sub_items: [
-          { key: "dental_procedure", label: "Dental procedure or consultation", status: "pending", amount: 0 },
-          { key: "dental_coverage_gap", label: "Out-of-pocket balance after insurance/HMO", status: "pending", amount: 0 },
-          { key: "dental_medicine", label: "Medicine or after-care", status: "pending", amount: 0 },
-        ],
-      },
-      transportPath(),
-      bufferPath(),
-    ];
+    items = addUnique(items, "Dental procedure or consultation");
+    items = addUnique(items, "Out-of-pocket balance after insurance/HMO");
+    items = addUnique(items, "Medicine or after-care");
+    items = addUnique(items, "Transportation");
+    items = addUnique(items, "Emergency buffer");
+    return items;
   }
 
   if (isMedical) {
-    return [
-      {
-        category: "medical",
-        label: "Medical appointment costs",
-        sub_items: [
-          { key: "medical_consultation", label: "Consultation or procedure fee", status: "pending", amount: 0 },
-          { key: "medical_coverage_gap", label: "Out-of-pocket balance after insurance/HMO", status: "pending", amount: 0 },
-          { key: "medical_medicine", label: "Medicine, lab, or follow-up cost", status: "pending", amount: 0 },
-        ],
-      },
-      transportPath(),
-      bufferPath(),
-    ];
+    items = addUnique(items, "Consultation or procedure fee");
+    items = addUnique(items, "Out-of-pocket balance after insurance/HMO");
+    items = addUnique(items, "Medicine, lab, or follow-up cost");
+    items = addUnique(items, "Transportation");
+    items = addUnique(items, "Emergency buffer");
+    return items;
   }
 
-  return clonePath(DEFAULT_EXPENSE_PATH);
-}
-
-function clonePath(path = DEFAULT_EXPENSE_PATH) {
-  return path.map((category) => ({ ...category, sub_items: category.sub_items.map((item) => ({ ...item })) }));
-}
-
-function normalizeExpensePath(path) {
-  const source = Array.isArray(path) && path.length ? path : DEFAULT_EXPENSE_PATH;
-  return source
-    .map((category) => ({
-      category: cleanText(category.category),
-      label: cleanText(category.label) || cleanText(category.category),
-      sub_items: (Array.isArray(category.sub_items) ? category.sub_items : [])
-        .map((item) => ({
-          key: cleanText(item.key),
-          label: cleanText(item.label),
-          status: ["pending", "completed", "skipped"].includes(cleanText(item.status)) ? cleanText(item.status) : "pending",
-          amount: Math.max(0, Math.round(Number(item.amount || 0))),
-        }))
-        .filter((item) => item.key && item.label),
-    }))
-    .filter((category) => category.category && category.sub_items.length);
-}
-
-function sumPath(path = []) {
-  return normalizeExpensePath(path).reduce((total, category) => total + category.sub_items.reduce((sum, item) => sum + Number(item.amount || 0), 0), 0);
-}
-
-function findSubItem(path = [], key = "") {
-  for (const category of normalizeExpensePath(path)) {
-    const item = category.sub_items.find((subItem) => subItem.key === key);
-    if (item) return { category, item };
+  if (isLicense) {
+    items = addUnique(items, "Renewal or government fee");
+    items = addUnique(items, "Requirements / photocopy / photo");
+    items = addUnique(items, "Transportation or parking");
+    items = addUnique(items, "Extra processing buffer");
+    return items;
   }
-  return { category: null, item: null };
-}
 
-function getFirstPending(path = []) {
-  for (const category of normalizeExpensePath(path)) {
-    const item = category.sub_items.find((subItem) => subItem.status === "pending");
-    if (item) return { category: category.category, subItem: item.key, categoryLabel: category.label, subItemLabel: item.label };
+  if (isBill) {
+    items = addUnique(items, "Main payment");
+    items = addUnique(items, "Transfer or convenience fee");
+    items = addUnique(items, "Transportation / cash-in cost");
+    items = addUnique(items, "Emergency buffer");
+    return items;
   }
-  return { category: "", subItem: "", categoryLabel: "", subItemLabel: "" };
+
+  if (isBirthday) {
+    items = addUnique(items, "Gift or contribution");
+    items = addUnique(items, "Food or cake");
+    items = addUnique(items, "Transportation / delivery");
+    items = addUnique(items, "Emergency buffer");
+    return items;
+  }
+
+  if (isChurch) {
+    items = addUnique(items, "Transportation");
+    items = addUnique(items, "Food or drinks");
+    items = addUnique(items, "Offering or group contribution");
+    items = addUnique(items, "Extra stop");
+    items = addUnique(items, "Emergency buffer");
+    return items;
+  }
+
+  if (isWork) {
+    items = addUnique(items, "Transportation");
+    items = addUnique(items, "Meal, snack, or coffee");
+    items = addUnique(items, "Work-related extra");
+    items = addUnique(items, "Emergency buffer");
+    return items;
+  }
+
+  if (isOuting) {
+    items = addUnique(items, "Transportation");
+    items = addUnique(items, "Food and drinks");
+    items = addUnique(items, "Entrance or activity fee");
+    items = addUnique(items, "Shared contribution");
+    items = addUnique(items, "Emergency buffer");
+    return items;
+  }
+
+  items = addUnique(items, "Transportation");
+  items = addUnique(items, "Food or drinks");
+  items = addUnique(items, "Fee or shared expense");
+  items = addUnique(items, "Extra stop");
+  items = addUnique(items, "Emergency buffer");
+  return items;
 }
 
-function getCategoryTotal(path = [], categoryKey = "") {
-  const category = normalizeExpensePath(path).find((item) => item.category === categoryKey);
-  return category ? category.sub_items.reduce((sum, subItem) => sum + Number(subItem.amount || 0), 0) : 0;
-}
+function sanitizeAiItems(names = [], form = {}) {
+  const source = `${form.title || ""} ${form.type || ""} ${form.note || ""}`.toLowerCase();
+  const isChurch = hasAny(source, ["church", "ministry", "simbahan", "service", "fellowship", "offering"]);
+  const isDate = hasAny(source, ["date", "girlfriend", "boyfriend", "partner", "relationship", "jowa", "crush", "romantic"]);
+  const local = buildLocalPlanItems(form);
+  const blocked = [
+    !isChurch ? /church|ministry|simbahan|offering/i : null,
+    isDate ? /group contribution|church|ministry|offering/i : null,
+  ].filter(Boolean);
 
-function updatePathSubItem(path = [], subItemKey = "", amount = 0, status = "completed") {
-  const normalized = normalizeExpensePath(path);
-  return normalized.map((category) => ({
-    ...category,
-    sub_items: category.sub_items.map((item) =>
-      item.key === subItemKey ? { ...item, amount: Math.max(0, Math.round(Number(amount || 0))), status } : item
-    ),
-  }));
-}
-
-function formatPeso(value) {
-  return `₱${Math.max(0, Number(value || 0)).toLocaleString()}`;
-}
-
-function getLocalPromptForSubItem(subItemKey, path = []) {
-  const { category, item } = findSubItem(path, subItemKey);
-  if (!item) return "How much should I estimate for this part?";
-  if (item.key === "dental_procedure") return "Let’s start with the dental appointment itself. Is there any consultation, cleaning, extraction, or treatment fee to estimate?";
-  if (item.key === "dental_coverage_gap") return "Will insurance or HMO cover this, or do we need to estimate any possible out-of-pocket balance if it exceeds the limit?";
-  if (item.key === "dental_medicine") return "Any medicine, after-care, or follow-up cost after the dentist appointment?";
-  if (item.key === "medical_consultation") return "Let’s start with the medical appointment itself. Any consultation, test, or procedure fee to estimate?";
-  if (item.key === "medical_coverage_gap") return "Will insurance or HMO cover this, or should we estimate a possible out-of-pocket balance?";
-  if (item.key === "medical_medicine") return "Any medicine, lab, or follow-up cost after the appointment?";
-  if (item.key === "transport_going_there") return "Next, transportation. How much might you spend going there?";
-  if (item.key === "transport_going_home") return "How about going back home? Will you spend the same amount, more, less, or none?";
-  if (item.key === "transport_extra_stop") return "Any extra stop or side trip?";
-  if (item.key === "food_personal") return "Next, food and drinks. How much might you spend for your own food or drinks?";
-  if (item.key === "food_treat_someone") return "Will you treat someone or pay for another person’s food?";
-  if (item.key === "food_group_share") return "Will there be any shared food contribution with the group?";
-  if (item.key === "fees_church_group") return "Will there be any group contribution for this schedule?";
-  if (item.key === "fees_venue") return "Any venue, entrance, table, or reservation fee?";
-  if (item.key === "buffer_emergency") return "Last one: do you want to add a small emergency buffer just in case?";
-  return `For ${category?.label || "this category"}, how much should I estimate for ${item.label}?`;
-}
-
-function buildSummaryMessage(total, path = []) {
-  const lines = normalizeExpensePath(path)
-    .map((category) => `${category.label}: ${formatPeso(getCategoryTotal(path, category.category))}`)
-    .join("\n");
-  return `Here’s the estimated money impact for this schedule:\n${lines}\n\nEstimated total: ${formatPeso(total)}. Does this look right?`;
-}
-
-function normalizeSpendingAreas(value = []) {
-  const seen = new Set();
-  return (Array.isArray(value) ? value : [])
-    .map(cleanText)
-    .filter((area) => {
-      const key = area.toLowerCase();
-      if (!area || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 8);
-}
-
-function getSpendingAreasFromExpensePath(path = []) {
-  return normalizeExpensePath(path)
-    .flatMap((category) => category.sub_items.map((item) => item.label))
+  const fromAi = (Array.isArray(names) ? names : [])
+    .map((name) => cleanText(name))
     .filter(Boolean)
-    .slice(0, 8);
-}
+    .filter((name) => !blocked.some((pattern) => pattern.test(name)))
+    .slice(0, 7)
+    .map((name) => ({ id: makeId(), name, amount: "" }));
 
-function getFallbackSpendingAreas(form = {}) {
-  const pathAreas = getSpendingAreasFromExpensePath(getFallbackExpensePath(form));
-  if (pathAreas.length) return pathAreas;
-  return ["Transportation", "Food or drinks", "Shared contribution", "Extra stop", "Emergency buffer"];
-}
+  if (!fromAi.length) return local;
 
-function buildSpendingAreasMessage(areas = [], form = {}) {
-  const list = normalizeSpendingAreas(areas).length ? normalizeSpendingAreas(areas) : getFallbackSpendingAreas(form);
-  return `These are the possible spending areas for this schedule:\n${list.map((area) => `- ${area}`).join("\n")}\n\nReply Ready when you want to start.`;
-}
-
-function getSpendingPreviewFromAi(ai = {}, form = {}) {
-  const areas = normalizeSpendingAreas(ai?.spending_areas);
-  const pathAreas = getSpendingAreasFromExpensePath(ai?.expense_path);
-  const finalAreas = areas.length ? areas : pathAreas.length ? pathAreas : getFallbackSpendingAreas(form);
-  const message = cleanText(ai?.assistant_message);
-  const safeMessage = message && !/(how much|amount|peso|₱|cost\?)/i.test(message) ? message : buildSpendingAreasMessage(finalAreas, form);
-  return { areas: finalAreas, message: safeMessage.includes("Reply Ready") ? safeMessage : `${safeMessage}\n\nReply Ready when you want to start.` };
-}
-
-function getLocalReplyForStage({ stage, reply, total, expensePath, activeCategory, activeSubItem, form }) {
-  const path = normalizeExpensePath(expensePath);
-
-  if (stage === "confirm_intent") {
-    if (isAffirmative(reply)) return { stage: "spending_area_preview", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSpendingAreasMessage(getFallbackSpendingAreas(form), form) };
-    return { stage: "clarify_intent", total, expensePath: path, activeCategory, activeSubItem, message: "No worries. What do you really want this schedule to mean?" };
+  let merged = fromAi;
+  for (const localItem of local) {
+    if (merged.length >= 7) break;
+    merged = addUnique(merged, localItem.name);
   }
 
-  if (stage === "clarify_intent") return { stage: "confirm_intent", total, expensePath: path, activeCategory: "", activeSubItem: "", message: getOpeningMessage({ ...form, title: makeTitle(reply, form?.type), note: reply }) };
-
-  if (stage === "spending_area_preview") {
-    if (isReadyReply(reply)) {
-      const first = getFirstPending(path);
-      return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: getLocalPromptForSubItem(first.subItem, path) };
-    }
-    return { stage: "spending_area_preview", total, expensePath: path, activeCategory: "", activeSubItem: "", message: "Sure. Reply “Ready” when you want to start, and we’ll go one spending part at a time." };
-  }
-
-  if (stage === "ask_permission") {
-    if (isAffirmative(reply)) {
-      const first = getFirstPending(path);
-      return { stage: "category_assessment", total, expensePath: path, activeCategory: first.category, activeSubItem: first.subItem, message: getLocalPromptForSubItem(first.subItem, path) };
-    }
-    return { stage: "ask_permission", total, expensePath: path, activeCategory, activeSubItem, message: "Sure. Reply “Start” whenever you’re ready, and we’ll go one spending part at a time." };
-  }
-
-  if (stage === "category_assessment") {
-    const { category, item } = findSubItem(path, activeSubItem);
-    if (!item) return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSummaryMessage(total, path) };
-
-    const previousAmount = item.key === "transport_going_home" ? findSubItem(path, "transport_going_there").item?.amount || 0 : 0;
-    const sameReply = /^same$/i.test(cleanText(reply)) && previousAmount > 0;
-    const hasClearZero = isNegativeOrFree(reply);
-    const hasClearCost = isClearMoneyReply(reply) || sameReply;
-    const amount = sameReply ? previousAmount : hasClearCost ? parseAmount(reply) : 0;
-
-    if (!hasClearCost && !hasClearZero) {
-      const quantityPrompt = isQuantityOnlyReply(reply) ? `Got it. For ${item.label.toLowerCase()}, how much do you think that might cost in total?` : `For ${item.label.toLowerCase()}, how much should I estimate? You can reply with an amount like 100, or say none/free.`;
-      return { stage, total, expensePath: path, activeCategory: category.category, activeSubItem: item.key, message: quantityPrompt };
-    }
-
-    const updatedPath = updatePathSubItem(path, item.key, amount, hasClearZero ? "skipped" : "completed");
-    const next = getFirstPending(updatedPath);
-    const nextTotal = sumPath(updatedPath);
-    const categoryTotal = getCategoryTotal(updatedPath, category.category);
-    const acknowledge = hasClearZero ? `Okay, I’ll skip ${item.label.toLowerCase()}.` : `Got it — ${formatPeso(amount)} for ${item.label.toLowerCase()}.`;
-
-    if (!next.subItem) return { stage: "complete", total: nextTotal, expensePath: updatedPath, activeCategory: "", activeSubItem: "", message: `${acknowledge}\n\n${buildSummaryMessage(nextTotal, updatedPath)}` };
-
-    if (next.category !== category.category) {
-      const nextCategory = normalizeExpensePath(updatedPath).find((itemCategory) => itemCategory.category === next.category);
-      return { stage: "category_assessment", total: nextTotal, expensePath: updatedPath, activeCategory: next.category, activeSubItem: next.subItem, message: `${acknowledge} ${category.label} total is ${formatPeso(categoryTotal)}.\n\nNext, let’s check ${nextCategory?.label?.toLowerCase() || "the next category"}. ${getLocalPromptForSubItem(next.subItem, updatedPath)}` };
-    }
-
-    return { stage: "category_assessment", total: nextTotal, expensePath: updatedPath, activeCategory: next.category, activeSubItem: next.subItem, message: `${acknowledge}\n\n${getLocalPromptForSubItem(next.subItem, updatedPath)}` };
-  }
-
-  if (stage === "complete" && isAffirmative(reply) && total > 0) {
-    return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: `Wonderful, Max. Your schedule and estimated money impact of ${formatPeso(total)} have been saved successfully.` };
-  }
-
-  return { stage: "complete", total, expensePath: path, activeCategory: "", activeSubItem: "", message: buildSummaryMessage(total, path) };
+  return merged;
 }
 
-function normalizeGeminiStage(value, fallback) {
-  const stage = cleanText(value).toLowerCase();
-  const allowed = new Set(["confirm_intent", "clarify_intent", "spending_area_preview", "ask_permission", "category_assessment", "category_summary", "complete", "transport", "food", "fees", "shared", "buffer"]);
-  if (["transport", "food", "fees", "shared", "buffer"].includes(stage)) return "category_assessment";
-  return allowed.has(stage) ? stage : fallback;
-}
-
-function applyAiPathResult({ ai, currentPath, currentTotal, activeSubItem }) {
-  let nextPath = normalizeExpensePath(currentPath);
-  const aiPath = normalizeExpensePath(ai?.expense_path);
-  if (aiPath.length) nextPath = aiPath;
-
-  const shouldAdd = Boolean(ai?.should_add_cost) && cleanText(ai?.cost_sub_item);
-  const shouldSkip = Boolean(ai?.should_skip_sub_item) && cleanText(ai?.skipped_sub_item);
-
-  if (shouldAdd) nextPath = updatePathSubItem(nextPath, cleanText(ai.cost_sub_item), ai.confirmed_cost, "completed");
-  if (shouldSkip) nextPath = updatePathSubItem(nextPath, cleanText(ai.skipped_sub_item), 0, "skipped");
-
-  const nextPending = getFirstPending(nextPath);
-  const activeCandidate = cleanText(ai?.active_sub_item) || nextPending.subItem || activeSubItem;
-  const candidateLookup = findSubItem(nextPath, activeCandidate);
-  const nextActiveSubItem = candidateLookup.item?.status === "pending" ? activeCandidate : nextPending.subItem;
-  const nextActiveCategory = nextActiveSubItem ? findSubItem(nextPath, nextActiveSubItem).category?.category || nextPending.category : "";
-
-  return {
-    expensePath: nextPath,
-    total: sumPath(nextPath) || currentTotal,
-    activeCategory: nextActiveCategory,
-    activeSubItem: nextActiveSubItem,
-    costWasAddedOrSkipped: shouldAdd || shouldSkip,
-  };
+function getAiNames(ai = {}) {
+  const spendingAreas = Array.isArray(ai?.spending_areas) ? ai.spending_areas : [];
+  const pathAreas = Array.isArray(ai?.expense_path)
+    ? ai.expense_path.flatMap((category) => (Array.isArray(category?.sub_items) ? category.sub_items.map((item) => item?.label) : []))
+    : [];
+  return [...spendingAreas, ...pathAreas].map(cleanText).filter(Boolean);
 }
 
 function Portal({ children }) {
@@ -495,46 +256,121 @@ function useBodyScrollLock(locked) {
   }, [locked]);
 }
 
-function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose }) {
+function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWithImpact, onSaveWithoutImpact }) {
+  const total = useMemo(
+    () => (session?.items || []).reduce((sum, item) => sum + moneyNumber(item.amount), 0),
+    [session?.items]
+  );
+
   if (!session) return null;
+
+  const updateItem = (id, patch) => {
+    onChangeItems(session.items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  };
+
+  const removeItem = (id) => {
+    const next = session.items.filter((item) => item.id !== id);
+    onChangeItems(next.length ? next : [{ id: makeId(), name: "Possible spending", amount: "" }]);
+  };
+
+  const addItem = () => {
+    onChangeItems([...session.items, { id: makeId(), name: "", amount: "" }]);
+  };
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[10000] isolate flex justify-center overflow-hidden bg-[#020617] text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_36%),linear-gradient(180deg,#020617_0%,#071026_48%,#050816_100%)]" />
-        <div className="relative flex h-[100dvh] w-full max-w-[520px] flex-col overflow-hidden border-x border-cyan-200/10 bg-[#071026]/95 shadow-[0_0_80px_rgba(34,211,238,0.10)] backdrop-blur-2xl">
-          <header className="shrink-0 border-b border-white/10 px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
-            <div className="flex items-start justify-between gap-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/65 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white backdrop-blur-md"
+        onClick={onClose}
+      >
+        <div
+          className="flex max-h-[88svh] w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-cyan-300/18 bg-[#071026]/98 shadow-[0_24px_90px_rgba(0,0,0,.62),0_0_44px_rgba(34,211,238,.13)] backdrop-blur-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="relative border-b border-white/10 p-5">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/[0.08] blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 top-10 h-36 w-36 rounded-full bg-fuchsia-400/[0.08] blur-3xl" />
+            <div className="relative flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/62">CLARA Impact Coach</p>
-                <h2 className="mt-2 text-xl font-black leading-tight text-white">Calculate money impact</h2>
-                <p className="mt-1 truncate text-xs font-semibold text-white/70">{session.form.title}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64">CLARA impact planner</p>
+                <h2 className="mt-2 text-2xl font-black leading-tight text-white">Plan possible spending</h2>
+                <p className="mt-1 truncate text-xs font-bold text-white/48">{session.form.title}</p>
                 {session.form.note ? <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/34">{session.form.note}</p> : null}
               </div>
-              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close impact coach">×</button>
+              <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-white/66 active:scale-95" aria-label="Close planner">×</button>
             </div>
 
-            <div className="mt-4 rounded-[22px] border border-cyan-200/20 bg-cyan-300/[0.07] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_24px_rgba(34,211,238,0.06)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Running estimate</p>
-              <p className="mt-1 text-2xl font-black text-white">{formatPeso(session.total)}</p>
+            <div className="relative mt-4 rounded-[24px] border border-cyan-200/18 bg-cyan-300/[0.065] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_24px_rgba(34,211,238,0.06)]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Estimated money impact</p>
+                  <p className="mt-1 text-3xl font-black text-white">{formatPeso(total)}</p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/46">
+                  {session.loading ? "AI thinking" : session.source === "ai" ? "AI suggested" : "Smart starter"}
+                </span>
+              </div>
             </div>
-          </header>
+          </div>
 
-          <main className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {session.messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[84%] whitespace-pre-line rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${message.role === "user" ? "bg-cyan-300/[0.12] text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.08)]" : "border border-white/12 bg-white/[0.035] text-white/76"}`}>{message.text}</div>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <p className="text-xs font-semibold leading-5 text-white/46">Review the possible expenses, edit the names, then enter only the amounts you want CLARA to watch.</p>
+
+            {session.items.map((item, index) => (
+              <div key={item.id} className="rounded-[24px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={item.name}
+                    onChange={(event) => updateItem(item.id, { name: event.target.value })}
+                    placeholder={`Expense ${index + 1}`}
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-black text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.id)}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-white/42 active:scale-95"
+                    aria-label="Remove item"
+                  >
+                    ×
+                  </button>
+                </div>
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Amount</span>
+                  <div className="flex items-center rounded-2xl border border-white/10 bg-[#0b1128] px-4 py-3 focus-within:border-cyan-300/35">
+                    <span className="mr-2 text-sm font-black text-cyan-100/58">₱</span>
+                    <input
+                      inputMode="decimal"
+                      value={item.amount}
+                      onChange={(event) => updateItem(item.id, { amount: cleanMoney(event.target.value) })}
+                      placeholder="0"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-black text-white outline-none placeholder:text-white/26"
+                    />
+                  </div>
+                </label>
               </div>
             ))}
-            {thinking ? <div className="flex justify-start"><div className="rounded-[22px] border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/54">CLARA is thinking…</div></div> : null}
-          </main>
 
-          <footer className="shrink-0 border-t border-white/10 bg-[#071026]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur-2xl">
-            {!session.autoClosing ? <form onSubmit={onSend} className="flex gap-2">
-              <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Reply with amount or details..." disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
-              <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50">Send</button>
-            </form> : null}
-          </footer>
+            <button type="button" onClick={addItem} className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-300/[0.07] px-4 py-3 text-sm font-black text-cyan-50 active:scale-[0.99]">
+              + Add item
+            </button>
+          </div>
+
+          <div className="shrink-0 border-t border-white/10 bg-[#071026]/98 p-4 backdrop-blur-2xl">
+            <div className="mb-3 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-white/40">Total estimated impact</span>
+              <span className="text-lg font-black text-white">{formatPeso(total)}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => onSaveWithImpact(total)} className="rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.12] px-4 py-3 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.09)] active:scale-[0.99]">
+                Save with impact
+              </button>
+              <button type="button" onClick={onSaveWithoutImpact} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-black text-white/52 active:scale-[0.99]">
+                Save without impact
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </Portal>
@@ -553,162 +389,61 @@ function hideRefineButtons(root) {
 }
 
 export default function DashboardScheduleImpactPortalPanel() {
+  const { user } = useUserRole() || {};
   const rootRef = useRef(null);
-  const autoCloseTimerRef = useRef(null);
-  const [session, setSession] = useState(null);
-  const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
+  const [panelKey, setPanelKey] = useState(0);
+  const [planner, setPlanner] = useState(null);
 
-  useBodyScrollLock(Boolean(session));
+  useBodyScrollLock(Boolean(planner));
 
-  useEffect(() => () => {
-    if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
-  }, []);
+  const startPlanner = async (form) => {
+    const preparedForm = {
+      ...form,
+      title: cleanText(form.title) || titleCase(form.note || form.type || "Personal schedule"),
+      note: cleanText(form.note),
+      type: cleanText(form.type) || "Personal",
+    };
 
-  const startImpactChat = (form) => {
-    const cleanTitle = shouldReplaceTitle(form.title, form.note, form.type) ? makeTitle(form.note, form.type) : cleanText(form.title);
-    const preparedForm = { ...form, title: cleanTitle, note: cleanText(form.note) || makeDescription(form.note, cleanTitle) };
-    const basePath = clonePath(getFallbackExpensePath(preparedForm));
-
-    if (form.elements?.titleInput && shouldReplaceTitle(form.elements.titleInput.value, form.note, form.type)) updateControlledField(form.elements.titleInput, cleanTitle);
-    if (form.elements?.noteInput && !cleanText(form.elements.noteInput.value)) updateControlledField(form.elements.noteInput, preparedForm.note);
-
-    setInput("");
-    setThinking(false);
-    setSession({ form: preparedForm, total: 0, expensePath: basePath, stage: "confirm_intent", activeCategory: "", activeSubItem: "", messages: [{ role: "assistant", text: getOpeningMessage(preparedForm) }] });
-  };
-
-  const applyEstimateToSchedule = (amount) => {
-    const form = rootRef.current ? readForm(rootRef.current) : null;
-    if (form?.elements?.amountInput) updateControlledField(form.elements.amountInput, formatPeso(amount));
-  };
-
-  const closeImpactChat = () => {
-    if (autoCloseTimerRef.current && typeof window !== "undefined") {
-      window.clearTimeout(autoCloseTimerRef.current);
-      autoCloseTimerRef.current = null;
-    }
-    setSession(null);
-  };
-
-  const sendReply = async (event) => {
-    event.preventDefault();
-    const reply = cleanText(input);
-    if (!reply || !session || thinking) return;
-
-    const currentStage = session.stage;
-    const nextUserMessage = { role: "user", text: reply };
-    const optimisticMessages = [...(session.messages || []), nextUserMessage];
-
-    setInput("");
-    setThinking(true);
-    setSession((current) => ({ ...current, messages: optimisticMessages }));
+    const localItems = buildLocalPlanItems(preparedForm);
+    setPlanner({ form: preparedForm, items: localItems, loading: true, source: "local" });
 
     try {
-      if (currentStage === "confirm_intent") {
-        if (!isAffirmative(reply)) {
-          const correctedTitle = makeTitle(reply, session.form.type);
-          const correctedForm = { ...session.form, title: correctedTitle, note: reply };
-          const correctedPath = clonePath(getFallbackExpensePath(correctedForm));
-          setSession((current) => ({
-            ...current,
-            form: correctedForm,
-            expensePath: correctedPath,
-            stage: "confirm_intent",
-            activeCategory: "",
-            activeSubItem: "",
-            messages: [...optimisticMessages, { role: "assistant", text: getOpeningMessage(correctedForm) }],
-          }));
-          return;
-        }
-
-        const ai = await askGeminiForScheduleImpact({
-          form: session.form,
-          messages: optimisticMessages,
-          stage: "spending_area_preview",
-          activeCategory: "",
-          activeSubItem: "",
-          expensePath: session.expensePath,
-          total: session.total,
-          latestUserReply: reply,
-        });
-        const suggestions = applyScheduleSuggestions(rootRef.current, ai);
-        const nextPath = normalizeExpensePath(ai.expense_path).length ? normalizeExpensePath(ai.expense_path) : session.expensePath;
-        const preview = getSpendingPreviewFromAi(ai, { ...session.form, ...suggestions });
-
-        setSession((current) => ({
-          ...current,
-          form: { ...(current?.form || session.form), ...suggestions },
-          stage: "spending_area_preview",
-          total: sumPath(nextPath),
-          expensePath: nextPath,
-          activeCategory: "",
-          activeSubItem: "",
-          spendingAreas: preview.areas,
-          messages: [...optimisticMessages, { role: "assistant", text: preview.message }],
-        }));
-        return;
-      }
-
-      if (currentStage === "spending_area_preview") {
-        const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form });
-        setSession((current) => ({
-          ...current,
-          stage: local.stage,
-          total: local.total,
-          expensePath: local.expensePath,
-          activeCategory: local.activeCategory,
-          activeSubItem: local.activeSubItem,
-          messages: [...optimisticMessages, { role: "assistant", text: local.message }],
-        }));
-        return;
-      }
-
-      const ai = await askGeminiForScheduleImpact({ form: session.form, messages: optimisticMessages, stage: currentStage, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, expensePath: session.expensePath, total: session.total, latestUserReply: reply });
-      const suggestions = applyScheduleSuggestions(rootRef.current, ai);
-      const applied = applyAiPathResult({ ai, currentPath: session.expensePath, currentTotal: session.total, activeSubItem: session.activeSubItem });
-      const finalPending = getFirstPending(applied.expensePath);
-      const normalizedStage = normalizeGeminiStage(ai.stage, currentStage);
-      const nextStage = finalPending.subItem ? (["confirm_intent", "ask_permission", "clarify_intent", "spending_area_preview"].includes(normalizedStage) ? normalizedStage : "category_assessment") : "complete";
-      const assistantText = cleanText(ai.assistant_message) || getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form }).message;
-      const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && applied.total > 0;
-
-      setSession((current) => ({
-        ...current,
-        form: { ...(current?.form || session.form), ...suggestions },
-        stage: nextStage,
-        total: applied.total,
-        expensePath: applied.expensePath,
-        activeCategory: applied.activeCategory,
-        activeSubItem: applied.activeSubItem,
-        autoClosing: shouldAutoApplyEstimate,
-        messages: [...optimisticMessages, { role: "assistant", text: assistantText }],
-      }));
-
-      if (shouldAutoApplyEstimate) {
-        applyEstimateToSchedule(applied.total);
-        if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
-        autoCloseTimerRef.current = window.setTimeout(() => {
-          setSession(null);
-          autoCloseTimerRef.current = null;
-        }, 1000);
-      }
+      const ai = await askGeminiForScheduleImpact({
+        form: preparedForm,
+        messages: [],
+        stage: "spending_area_preview",
+        activeCategory: "",
+        activeSubItem: "",
+        expensePath: [],
+        total: 0,
+        latestUserReply: "Generate editable possible spending items only.",
+      });
+      const aiItems = sanitizeAiItems(getAiNames(ai), preparedForm);
+      setPlanner((current) => current ? { ...current, items: aiItems, loading: false, source: "ai" } : current);
     } catch (error) {
-      console.warn("[CLARA Schedule] Impact AI reply unavailable, using local safety reply:", error);
-      const local = getLocalReplyForStage({ stage: currentStage, reply, total: session.total, expensePath: session.expensePath, activeCategory: session.activeCategory, activeSubItem: session.activeSubItem, form: session.form });
-      const shouldAutoApplyEstimate = currentStage === "complete" && isAffirmative(reply) && local.total > 0;
-      setSession((current) => ({ ...current, stage: local.stage, total: local.total, expensePath: local.expensePath, activeCategory: local.activeCategory, activeSubItem: local.activeSubItem, autoClosing: shouldAutoApplyEstimate, messages: [...optimisticMessages, { role: "assistant", text: local.message }] }));
-      if (shouldAutoApplyEstimate) {
-        applyEstimateToSchedule(local.total);
-        if (autoCloseTimerRef.current && typeof window !== "undefined") window.clearTimeout(autoCloseTimerRef.current);
-        autoCloseTimerRef.current = window.setTimeout(() => {
-          setSession(null);
-          autoCloseTimerRef.current = null;
-        }, 1000);
-      }
-    } finally {
-      setThinking(false);
+      console.warn("[CLARA Schedule] Spending planner AI unavailable, using local starter list:", error);
+      setPlanner((current) => current ? { ...current, loading: false, source: "local" } : current);
     }
+  };
+
+  const closePlanner = () => setPlanner(null);
+
+  const savePlanner = (amountValue = "") => {
+    if (!planner?.form?.title) return;
+    const cleanImpact = cleanMoney(amountValue);
+    writeStoredEvent(user, {
+      id: makeId(),
+      title: cleanText(planner.form.title),
+      date: planner.form.date || new Date().toISOString().slice(0, 10),
+      time: planner.form.time || "",
+      type: planner.form.type || "Personal",
+      amount: cleanImpact,
+      note: cleanText(planner.form.note),
+    });
+
+    if (planner.form.elements?.amountInput) updateControlledField(planner.form.elements.amountInput, cleanImpact ? `₱${cleanImpact}` : "");
+    setPlanner(null);
+    setPanelKey((key) => key + 1);
   };
 
   useEffect(() => {
@@ -718,7 +453,7 @@ export default function DashboardScheduleImpactPortalPanel() {
     const observer = new MutationObserver(() => hideRefineButtons(root));
     observer.observe(root, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, []);
+  }, [panelKey]);
 
   useEffect(() => {
     const onClick = (event) => {
@@ -726,10 +461,21 @@ export default function DashboardScheduleImpactPortalPanel() {
       const button = event.target?.closest?.("button");
       if (!root || !button || !root.contains(button)) return;
       const label = cleanText(button.textContent).toLowerCase();
-      if (label.includes("refine with clara")) { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); return; }
+
+      if (label.includes("refine with clara")) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
+
       if (!label.includes("calculate money impact")) return;
-      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
-      startImpactChat(readForm(root));
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      const form = readForm(root);
+      if (!cleanText(form.title) && !cleanText(form.note)) return;
+      startPlanner(form);
     };
 
     const onSubmit = (event) => {
@@ -737,8 +483,12 @@ export default function DashboardScheduleImpactPortalPanel() {
       if (!root || !root.contains(event.target)) return;
       const submitterText = cleanText(event.submitter?.textContent).toLowerCase();
       if (!submitterText.includes("calculate money impact")) return;
-      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.();
-      startImpactChat(readForm(root));
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      const form = readForm(root);
+      if (!cleanText(form.title) && !cleanText(form.note)) return;
+      startPlanner(form);
     };
 
     document.addEventListener("click", onClick, true);
@@ -747,12 +497,18 @@ export default function DashboardScheduleImpactPortalPanel() {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("submit", onSubmit, true);
     };
-  }, [session, thinking]);
+  }, [planner, panelKey, user?.id, user?.email]);
 
   return (
     <div ref={rootRef} className="contents">
-      <OriginalDashboardSchedulePanel />
-      <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={closeImpactChat} />
+      <OriginalDashboardSchedulePanel key={panelKey} />
+      <PlanPossibleSpendingSheet
+        session={planner}
+        onClose={closePlanner}
+        onChangeItems={(items) => setPlanner((current) => current ? { ...current, items } : current)}
+        onSaveWithImpact={(total) => savePlanner(String(Math.round(total || 0)))}
+        onSaveWithoutImpact={() => savePlanner("")}
+      />
     </div>
   );
 }
