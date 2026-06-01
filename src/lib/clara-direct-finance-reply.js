@@ -1,5 +1,3 @@
-import { buildScheduleDirectReply } from "./clara-schedule-ai-context";
-
 const USE_CONTEXTUAL_FINANCE_REPLY = true;
 
 function normalizeText(value = "") {
@@ -98,9 +96,6 @@ function purchaseAmount(text = "") {
 
 export function buildContextualFinanceReply(prompt = "", context = {}) {
   if (!USE_CONTEXTUAL_FINANCE_REPLY) return "";
-
-  const scheduleReply = buildScheduleDirectReply(prompt, context);
-  if (scheduleReply) return scheduleReply;
 
   const text = normalizeText(prompt);
   if (!isEmergencyOrWalletQuestion(text)) return "";
