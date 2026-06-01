@@ -393,7 +393,7 @@ function useBodyScrollLock(locked) {
   }, [locked]);
 }
 
-function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose, onUseEstimate }) {
+function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClose }) {
   if (!session) return null;
 
   return (
@@ -428,7 +428,6 @@ function ScheduleImpactChat({ session, input, setInput, thinking, onSend, onClos
           </main>
 
           <footer className="shrink-0 border-t border-white/10 bg-[#071026]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur-2xl">
-            {!session.autoClosing && session.total > 0 ? <button type="button" onClick={() => onUseEstimate(session.total)} className="mb-3 w-full rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.08)]">Use {formatPeso(session.total)} estimate</button> : null}
             {!session.autoClosing ? <form onSubmit={onSend} className="flex gap-2">
               <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Reply with amount or details..." disabled={thinking} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/32 disabled:opacity-60" />
               <button type="submit" disabled={thinking || !cleanText(input)} className="rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.10] px-4 py-3 text-sm font-black text-cyan-50 disabled:opacity-50">Send</button>
@@ -565,10 +564,6 @@ export default function DashboardScheduleImpactPortalPanel() {
     }
   };
 
-  const useEstimate = (amount) => {
-    applyEstimateToSchedule(amount);
-    closeImpactChat();
-  };
 
   useEffect(() => {
     const root = rootRef.current;
@@ -611,7 +606,7 @@ export default function DashboardScheduleImpactPortalPanel() {
   return (
     <div ref={rootRef} className="contents">
       <OriginalDashboardSchedulePanel />
-      <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={closeImpactChat} onUseEstimate={useEstimate} />
+      <ScheduleImpactChat session={session} input={input} setInput={setInput} thinking={thinking} onSend={sendReply} onClose={closeImpactChat} />
     </div>
   );
 }

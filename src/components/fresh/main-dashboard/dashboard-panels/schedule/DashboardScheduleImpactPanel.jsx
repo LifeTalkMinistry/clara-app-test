@@ -211,7 +211,7 @@ function buildFinalMessage(answers, categories) {
   });
   const total = answers.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
-  return `All set. Here is your estimate:\n\n${rows.join("\n")}\n\nTotal estimated impact: ${formatPeso(total)}\n\nYou can tap “Use ${formatPeso(total)} Estimate” when you're ready.`;
+  return `All set. Here is your estimate:\n\n${rows.join("\n")}\n\nTotal estimated impact: ${formatPeso(total)}\n\nReply yes to save this estimate.`;
 }
 
 function replaceAnswer(answers, nextAnswer) {
@@ -417,7 +417,7 @@ function buildNextImpactSession(session, reply) {
         ...baseSession.messages,
         {
           role: "assistant",
-          text: `The forecast is already complete. Tap “Use ${formatPeso(session.total)} Estimate” to apply it to this schedule.`,
+          text: `The forecast is already complete. Reply yes to save this estimate.`,
         },
       ],
     };
