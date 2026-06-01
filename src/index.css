@@ -140,3 +140,8 @@ body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] >
 body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"]::-webkit-scrollbar {
   display: none;
 }
+
+/* Schedule Impact Coach: remove only the bottom manual estimate button. Keep the top Running Estimate card. */
+#root div[class*="z-[10000]"] footer > button[type="button"] {
+  display: none !important;
+}
