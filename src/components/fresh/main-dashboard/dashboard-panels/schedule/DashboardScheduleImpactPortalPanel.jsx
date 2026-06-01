@@ -276,6 +276,15 @@ function getAiRefinedDescription(ai = {}, fallback = "") {
   );
 }
 
+function suppressLegacyImpactPlannerLabels(root = typeof document !== "undefined" ? document : null) {
+  if (!root?.querySelectorAll) return;
+  root.querySelectorAll("p, span, div").forEach((node) => {
+    const text = cleanText(node.textContent).toLowerCase();
+    if (text !== "clara impact planner") return;
+    node.remove();
+  });
+}
+
 function Portal({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -297,6 +306,14 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
     () => (session?.items || []).reduce((sum, item) => sum + moneyNumber(item.amount), 0),
     [session?.items]
   );
+
+  useEffect(() => {
+    suppressLegacyImpactPlannerLabels();
+    if (typeof MutationObserver === "undefined" || typeof document === "undefined") return undefined;
+    const observer = new MutationObserver(() => suppressLegacyImpactPlannerLabels());
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   if (!session) return null;
 
@@ -446,6 +463,8 @@ function hideRefineButtons(root) {
     if (!isScheduleDescriptionBox) return;
     textarea.setAttribute("placeholder", SCHEDULE_DESCRIPTION_PLACEHOLDER);
   });
+
+  suppressLegacyImpactPlannerLabels(root);
 }
 
 export default function DashboardScheduleImpactPortalPanel() {
@@ -532,8 +551,13 @@ export default function DashboardScheduleImpactPortalPanel() {
     const root = rootRef.current;
     if (!root || typeof MutationObserver === "undefined") return undefined;
     hideRefineButtons(root);
-    const observer = new MutationObserver(() => hideRefineButtons(root));
+    suppressLegacyImpactPlannerLabels();
+    const observer = new MutationObserver(() => {
+      hideRefineButtons(root);
+      suppressLegacyImpactPlannerLabels();
+    });
     observer.observe(root, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [panelKey]);
 
