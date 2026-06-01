@@ -299,18 +299,6 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
               </div>
               <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/70 active:scale-95" aria-label="Close planner">×</button>
             </div>
-
-            <div className="relative z-10 mt-4 rounded-[24px] border border-cyan-200/22 bg-[#0b1630] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_0_24px_rgba(34,211,238,0.08)]">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/58">Estimated money impact</p>
-                  <p className="mt-1 text-3xl font-black text-white">{formatPeso(total)}</p>
-                </div>
-                <span className="rounded-full border border-white/12 bg-[#101936] px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/50">
-                  {session.loading ? "AI thinking" : session.source === "ai" ? "AI suggested" : "Smart starter"}
-                </span>
-              </div>
-            </div>
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#050b1f] px-4 py-4">
