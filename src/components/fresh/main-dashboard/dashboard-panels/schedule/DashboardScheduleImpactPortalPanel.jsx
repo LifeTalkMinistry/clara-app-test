@@ -353,8 +353,7 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
             <div className="pointer-events-none absolute -left-16 top-10 h-40 w-40 rounded-full bg-fuchsia-400/[0.055] blur-3xl" />
             <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64">CLARA impact planner</p>
-                <h2 className="mt-2 text-2xl font-black leading-tight text-white">Plan possible spending</h2>
+                <h2 className="text-2xl font-black leading-tight text-white">Plan possible spending</h2>
                 <p className="mt-1 truncate text-xs font-bold text-white/54">{session.form.title}</p>
               </div>
               <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/70 active:scale-95" aria-label="Close planner">×</button>
