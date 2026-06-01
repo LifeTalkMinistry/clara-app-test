@@ -264,6 +264,12 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
 
   if (!session) return null;
 
+  const previewNames = (session.items || [])
+    .map((item) => cleanText(item.name))
+    .filter(Boolean)
+    .slice(0, 4);
+  const sourceLabel = session.loading ? "Preparing" : session.source === "ai" ? "AI suggested" : "Smart starter";
+
   const updateItem = (id, patch) => {
     onChangeItems(session.items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
@@ -294,16 +300,24 @@ function PlanPossibleSpendingSheet({ session, onClose, onChangeItems, onSaveWith
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64">CLARA impact planner</p>
                 <h2 className="mt-2 text-2xl font-black leading-tight text-white">Plan possible spending</h2>
-                <p className="mt-1 truncate text-xs font-bold text-white/48">{session.form.title}</p>
-                {session.form.note ? <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/34">{session.form.note}</p> : null}
+                <p className="mt-1 truncate text-xs font-bold text-white/54">{session.form.title}</p>
+                {session.form.note ? <p className="mt-1 line-clamp-1 text-[11px] font-semibold leading-4 text-white/36">{session.form.note}</p> : null}
               </div>
               <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-[#101936] text-white/70 active:scale-95" aria-label="Close planner">×</button>
+            </div>
+
+            <div className="relative z-10 mt-4 rounded-[22px] border border-cyan-200/16 bg-[#0b1128] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_12px_28px_rgba(0,0,0,.24)]">
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full border border-cyan-200/18 bg-[#0d2336] px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/70">{sourceLabel}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/36">{session.items.length} items</span>
+              </div>
+              {previewNames.length ? (
+                <p className="mt-2 truncate text-xs font-bold leading-5 text-white/58">{previewNames.join(" • ")}</p>
+              ) : null}
             </div>
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#050b1f] px-4 py-4">
-            <p className="rounded-2xl border border-white/10 bg-[#0b1128] px-4 py-3 text-xs font-semibold leading-5 text-white/56">Review the possible expenses, edit the names, then enter only the amounts you want CLARA to watch.</p>
-
             {session.items.map((item, index) => (
               <div key={item.id} className="rounded-[24px] border border-white/12 bg-[#0b1128] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_10px_26px_rgba(0,0,0,0.22)]">
                 <div className="flex items-center gap-2">
