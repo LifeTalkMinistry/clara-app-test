@@ -1,14 +1,14 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 
-const DEFAULT_MEMORY_REPLY = "Pattern: a money pattern is showing up. Category: lesson. Guardrail: pause before the next similar spend and check if it is planned.";
+const DEFAULT_MEMORY_REPLY = "That’s useful to notice. I’ll treat it as a money pattern, so next time, pause before a similar spend and check if it was planned.";
 
 const MEMORY_TEMPLATES = Object.freeze({
-  money_rhythm: "Pattern: payday confidence can lower your spending guard. Category: money rhythm. Guardrail: wait 24 hours before non-essential purchases after payday.",
-  spending_trigger: "Pattern: tiredness or repeated situations can trigger extra spending. Category: spending trigger. Guardrail: prepare a low-effort option before the trigger hits.",
-  preference: "Pattern: direct guidance works better for you. Category: preference. Guardrail: keep future money advice short and action-focused.",
-  goal_or_priority: "Pattern: protecting your budget matters more than convenience spending. Category: goal. Guardrail: compare convenience purchases against your budget goal first.",
-  emotional_pattern: "Pattern: emotions may affect spending decisions. Category: emotional pattern. Guardrail: pause first and choose a cheaper reset before unplanned spending.",
-  lesson_or_insight: "Pattern: this insight can become a money rule. Category: lesson. Guardrail: turn it into one simple check before the next similar spend.",
+  money_rhythm: "That’s a useful payday pattern to notice. It looks like payday confidence can lower your spending guard, so a good rule is to wait 24 hours before non-essential purchases after payday.",
+  spending_trigger: "That’s a useful trigger to notice. Tiredness or repeated situations may push you toward extra spending, so prepare a low-effort option before that trigger hits.",
+  preference: "Got it — direct guidance works better for you. I’ll keep money advice short, clear, and action-focused when you’re making decisions.",
+  goal_or_priority: "That goal is worth protecting. When convenience spending shows up, compare it against your budget goal first before you decide.",
+  emotional_pattern: "That emotional pattern matters. When that feeling shows up, pause first and choose a cheaper reset before making an unplanned spend.",
+  lesson_or_insight: "That’s a useful lesson. Turn it into one simple money rule you can check before the next similar spend.",
   general_memory: DEFAULT_MEMORY_REPLY,
 });
 
@@ -81,18 +81,27 @@ function stripQuestions(text = "") {
   return sentences.map(cleanText).filter(Boolean).filter((sentence) => !sentence.includes("?")).join(" ") || cleanText(text).replace(/\?+$/g, ".");
 }
 
-function hasCompleteMemoryStructure(text = "") {
-  return /\bPattern:/i.test(text) && /\bCategory:/i.test(text) && /\bGuardrail:/i.test(text);
+function hasLabelFormat(text = "") {
+  return /\bPattern:/i.test(text) || /\bCategory:/i.test(text) || /\bGuardrail:/i.test(text);
 }
 
-function trimSentences(text = "", maxSentences = 3) {
+function isLikelyIncomplete(text = "") {
+  const cleaned = cleanText(text);
+  if (!cleaned) return true;
+  if (/[,:;\-–—]$/.test(cleaned)) return true;
+  if (!/[.!)]$/.test(cleaned)) return true;
+  const finalWord = (cleaned.toLowerCase().match(/[a-z]+(?:'[a-z]+)?$/) || [""])[0];
+  return ["over", "because", "and", "but", "so", "to", "for", "with", "after", "before", "when", "while"].includes(finalWord);
+}
+
+function trimSentences(text = "", maxSentences = 2) {
   const cleaned = cleanText(text);
   if (!cleaned) return "";
   const parts = cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleaned];
   return parts.slice(0, maxSentences).join(" ").replace(/\s+/g, " ").trim();
 }
 
-function limitWords(text = "", maxWords = 45) {
+function limitWords(text = "", maxWords = 50) {
   const words = cleanText(text).split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return cleanText(text);
   return `${words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/, "")}.`;
@@ -102,12 +111,12 @@ export function buildMemoryBrainPrompt({ userMessage = "", context = {}, recentC
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
   const memoryType = detectMemoryType(userMessage);
-  const requiredTemplate = getTemplateForMessage(userMessage);
+  const suggestedReply = getTemplateForMessage(userMessage);
 
   return `You are CLARA's Memory Brain.
 
 STRICT PURPOSE:
-Identify a memory pattern only. Do not coach. Do not ask questions.
+Notice user money patterns and respond naturally. Do not use labels. Do not ask questions.
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
@@ -117,7 +126,7 @@ ${formatRecentConversation(recentConversation)}
 
 MEMORY SNAPSHOT:
 Detected memory type: ${memoryType}
-Required response template: ${requiredTemplate}
+Suggested natural reply: ${suggestedReply}
 Visible wallet money: ${money(finance.availableMoney)}
 Remaining spendable budget: ${money(plan.remainingSpendableBudget)}
 Monthly spent: ${money(finance.monthlySpent)}
@@ -132,15 +141,14 @@ Known spending trigger: ${getProfileValue(context, ["spendingTrigger", "spending
 Protected goal: ${getProfileValue(context, ["meaningfulGoal", "meaningful_goal", "protectedGoal", "protected_goal"])}
 
 RULES:
-- Use the required response template unless the user gave a more specific pattern.
-- Always include Pattern, Category, and Guardrail.
-- Maximum 45 words.
+- Reply like a normal CLARA conversation.
+- Do not output Pattern, Category, or Guardrail labels.
+- Maximum 2 short sentences.
+- Maximum 50 words.
 - No follow-up questions.
-- No coaching speech.
-- Do not say memory was saved.
-
-FORMAT:
-Pattern: ... Category: ... Guardrail: ...
+- No long coaching speech.
+- Do not say memory was permanently saved.
+- Mention the pattern and one useful next-time rule.
 
 Reply as CLARA:`;
 }
@@ -151,7 +159,7 @@ export function generateLocalMemoryReply({ userMessage = "", context = {} } = {}
   const hasBudgetPressure = finance.budgetPlan?.hasDeclaredBudget && Number(finance.budgetPlan?.remainingSpendableBudget) <= 0;
 
   if (hasBudgetPressure && memoryType === "general_memory") {
-    return "Pattern: your budget looks pressured. Category: budget risk. Guardrail: protect essentials and avoid unplanned spending today.";
+    return "That matters more because your budget looks pressured. For today, protect essentials first and avoid unplanned spending.";
   }
 
   return getTemplateForMessage(userMessage);
@@ -170,7 +178,9 @@ export function sanitizeMemoryBrainReply(reply = "", userMessage = "") {
 
   const withoutQuestions = stripQuestions(cleaned);
   const fallbackSource = userMessage || withoutQuestions || cleaned;
-  if (!hasCompleteMemoryStructure(withoutQuestions)) return getTemplateForMessage(fallbackSource);
 
-  return limitWords(trimSentences(withoutQuestions, 3), 45);
+  if (hasLabelFormat(withoutQuestions)) return getTemplateForMessage(fallbackSource);
+  if (isLikelyIncomplete(withoutQuestions)) return getTemplateForMessage(fallbackSource);
+
+  return limitWords(trimSentences(withoutQuestions, 2), 50);
 }
