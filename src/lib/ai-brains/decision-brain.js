@@ -5,6 +5,7 @@ import { CLARA_BRAINS } from "./brain-router";
 
 const MISSING_PURCHASE_QUESTION = "What are you planning to buy, and how much is it?";
 const MISSING_DATA_REPLY = "I need your wallet or budget data before I can judge this clearly.";
+const DANGLING_DECISION_ENDINGS = ["is", "are", "was", "were", "and", "but", "because", "so", "with", "for", "to", "of", "your", "the", "a", "an", "this", "that", "purchase"];
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -168,6 +169,28 @@ function limitWords(text = "", maxWords = 90) {
   return `${words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/, "")}.`;
 }
 
+function lastWord(text = "") {
+  const words = cleanText(text).toLowerCase().match(/[a-z]+(?:'[a-z]+)?|₱?\d[\d,]*/g) || [];
+  return words[words.length - 1] || "";
+}
+
+function hasSentenceEnding(text = "") {
+  return /[.!?)]$/.test(cleanText(text));
+}
+
+function isBadDecisionReply(text = "") {
+  const cleaned = cleanText(text);
+  const lowered = cleaned.toLowerCase();
+  if (!cleaned) return true;
+  if (/[,:;\-–—]$/.test(cleaned)) return true;
+  if (!hasSentenceEnding(cleaned) && cleaned.length < 180) return true;
+  if (DANGLING_DECISION_ENDINGS.includes(lastWord(cleaned))) return true;
+  if (/\b(comfortably buy|definitely buy|go ahead and buy|yes, you can comfortably)\b/i.test(cleaned)) return true;
+  if (/\byour\s+₱?\d[\d,]*\s+purchase\s+is\s*$/i.test(cleaned)) return true;
+  if (lowered.includes("comfortable") && lowered.includes("buy") && !lowered.includes("budget") && !lowered.includes("schedule") && !lowered.includes("appointment")) return true;
+  return false;
+}
+
 export function buildDecisionBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
@@ -319,7 +342,8 @@ export function sanitizeDecisionBrainReply(reply = "") {
     .replace(/__([^_]+)__/g, "$1")
     .trim();
 
-  if (!cleaned) return "Pause first. I need the amount and your wallet or budget data before I can judge this safely.";
+  if (!cleaned) return "";
+  if (isBadDecisionReply(cleaned)) return "";
 
   return limitWords(trimSentences(cleaned, 4), 90);
 }
