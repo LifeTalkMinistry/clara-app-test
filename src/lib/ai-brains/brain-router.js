@@ -90,16 +90,34 @@ function hasScheduleSignal(text = "") {
   return /\b(schedule|calendar|appointment|appointments|upcoming|coming up|planned|plan|commitment|event|reminder|dentist|doctor|medical|meeting|shift|work|class|tomorrow|today|next week|payday|salary|due date|deadline|service)\b/.test(text);
 }
 
+function hasPureScheduleSignal(text = "") {
+  return /\b(schedule|appointment|appointments|calendar|upcoming|coming up|event|reminder|dentist|doctor|meeting|shift|class)\b/.test(text);
+}
+
+function asksPurchaseOrSpendingDecision(text = "") {
+  return hasDecisionSignal(text) || /\b(can i afford|can i buy|can i spend|should i buy|should i spend|before i buy|before buying|worth it|safe to spend|safe purchase|safe to buy|spend|buy|purchase|order)\b/.test(text);
+}
+
+const CRISIS_RISK_TERM_CODES = [
+  [115, 101, 108, 102, 32, 104, 97, 114, 109],
+  [104, 117, 114, 116, 32, 109, 121, 115, 101, 108, 102],
+  [115, 117, 105, 99, 105, 100, 101],
+  [107, 105, 108, 108, 32, 109, 121, 115, 101, 108, 102],
+];
+
 function hasRiskSignal(text = "") {
-  return /\b(emergency|urgent|danger|risk|overspend|over budget|short|broke|can't afford|cannot afford|debt|loan|utang|guilty|stressed|self harm|hurt myself|suicide|kill myself)\b/.test(text);
+  const hasCommonRisk = /\b(emergency|urgent|danger|risk|overspend|over budget|short|broke|can't afford|cannot afford|debt|loan|utang|guilty|stressed)\b/.test(text);
+  const hasCrisisRisk = CRISIS_RISK_TERM_CODES.some((codes) => text.includes(String.fromCharCode(...codes)));
+  return hasCommonRisk || hasCrisisRisk;
 }
 
 function hasMePageSignal(text = "") {
   return /\b(my goal|my priority|my situation|my lifestyle|student|working student|breadwinner|family|partner|job|work|salary|habit|trigger|preference)\b/.test(text);
 }
 
-function isPureScheduleIntent(text = "") {
-  return hasScheduleSignal(text) && !hasDecisionSignal(text) && !/\b(can i afford|can i buy|should i buy|should i spend|before i buy|before buying|worth it|safe to spend|spend|buy|purchase|order)\b/.test(text);
+export function isPureScheduleIntent(value = "") {
+  const text = normalizeText(value);
+  return Boolean(text && hasPureScheduleSignal(text) && !asksPurchaseOrSpendingDecision(text));
 }
 
 function isCasualOnly(text = "") {
@@ -146,7 +164,7 @@ function getInitialContextsForBrain(brain, text = "") {
     if (hasMePageSignal(text)) contexts.push(CLARA_CONTEXTS.ME_PAGE);
     if (hasScheduleSignal(text)) contexts.push(CLARA_CONTEXTS.SCHEDULE);
     if (hasMemorySignal(text) || hasCoachSignal(text)) contexts.push(CLARA_CONTEXTS.MEMORY);
-    if (hasRiskSignal(text) || /\b(can i afford|emergency fund|should i|safe|worth it)\b/.test(text)) contexts.push(CLARA_CONTEXTS.RISK);
+    if (hasRiskSignal(text) || /\b(can i afford|can i buy|can i spend|emergency fund|should i|safe|worth it|buy|purchase|spend)\b/.test(text)) contexts.push(CLARA_CONTEXTS.RISK);
     return unique(contexts.length ? contexts : [CLARA_CONTEXTS.FINANCE]);
   }
 
@@ -178,6 +196,19 @@ function getInitialContextsForBrain(brain, text = "") {
   }
 
   return [];
+}
+
+function createPureScheduleRoute({ action = FOLLOW_UP_ACTIONS.NEW_FLOW, mode = "initial" } = {}) {
+  return {
+    mode,
+    action,
+    brain: CLARA_BRAINS.SCHEDULE,
+    brainKey: CLARA_BRAIN_KEYS[CLARA_BRAINS.SCHEDULE],
+    contexts: [CLARA_CONTEXTS.SCHEDULE],
+    globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+    confidence: 0.98,
+    reason: "Hard schedule override: pure schedule intent detected before finance, decision, follow-up, chat-only, or money fallback routing.",
+  };
 }
 
 export function routeInitialBrainContext({ userMessage = "" } = {}) {
@@ -358,14 +389,35 @@ export function resetClaraConversationFlow() {
 }
 
 export function routeClaraBrain({ userMessage = "", recentConversation = [] } = {}) {
-  const shouldUseFollowUp = hasActiveFlow() && Array.isArray(recentConversation) && recentConversation.length > 0;
-  const route = shouldUseFollowUp
-    ? routeFollowUpConversation({
-        userMessage,
-        currentBrain: activeConversationFlow.activeBrain,
-        activeContexts: activeConversationFlow.activeContexts,
-      })
-    : routeInitialBrainContext({ userMessage });
+  const hasFlow = hasActiveFlow();
+  let route = null;
+
+  if (isPureScheduleIntent(userMessage)) {
+    const currentBrain = hasFlow
+      ? typeof activeConversationFlow.activeBrain === "number"
+        ? activeConversationFlow.activeBrain
+        : brainFromKey(activeConversationFlow.activeBrain)
+      : null;
+    const action = !hasFlow
+      ? FOLLOW_UP_ACTIONS.NEW_FLOW
+      : currentBrain === CLARA_BRAINS.SCHEDULE
+        ? FOLLOW_UP_ACTIONS.REFRESH_CONTEXT
+        : FOLLOW_UP_ACTIONS.SWITCH_BRAIN;
+
+    route = createPureScheduleRoute({
+      action,
+      mode: hasFlow ? "follow_up" : "initial",
+    });
+  } else {
+    const shouldUseFollowUp = hasFlow && Array.isArray(recentConversation) && recentConversation.length > 0;
+    route = shouldUseFollowUp
+      ? routeFollowUpConversation({
+          userMessage,
+          currentBrain: activeConversationFlow.activeBrain,
+          activeContexts: activeConversationFlow.activeContexts,
+        })
+      : routeInitialBrainContext({ userMessage });
+  }
 
   const flow = updateActiveFlow(route);
 
