@@ -84,7 +84,7 @@ function hasMemorySignal(text = "") {
 }
 
 function hasScheduleSignal(text = "") {
-  return /\b(schedule|calendar|appointment|meeting|shift|work|class|tomorrow|today|next week|payday|salary|due date|deadline|event|service)\b/.test(text);
+  return /\b(schedule|calendar|appointment|appointments|upcoming|coming up|planned|plan|commitment|event|reminder|dentist|doctor|medical|meeting|shift|work|class|tomorrow|today|next week|payday|salary|due date|deadline|service)\b/.test(text);
 }
 
 function hasRiskSignal(text = "") {
@@ -97,7 +97,7 @@ function hasMePageSignal(text = "") {
 
 function isCasualOnly(text = "") {
   if (!text) return false;
-  if (hasMoneySignal(text) || hasDecisionSignal(text) || hasCoachSignal(text) || hasMemorySignal(text)) return false;
+  if (hasScheduleSignal(text) || hasMoneySignal(text) || hasDecisionSignal(text) || hasCoachSignal(text) || hasMemorySignal(text)) return false;
   return /^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta|how are you|how r you|what'?s up|thanks|thank you|salamat|nice|okay|ok|cool|haha|hehe|lol)[!?.\s]*$/.test(text);
 }
 
@@ -133,12 +133,13 @@ function getInitialContextsForBrain(brain, text = "") {
   }
 
   if (brain === CLARA_BRAINS.DECISION) {
-    const contexts = [CLARA_CONTEXTS.FINANCE];
+    const contexts = [];
+    if (hasMoneySignal(text) || hasDecisionSignal(text)) contexts.push(CLARA_CONTEXTS.FINANCE);
     if (hasMePageSignal(text)) contexts.push(CLARA_CONTEXTS.ME_PAGE);
     if (hasScheduleSignal(text)) contexts.push(CLARA_CONTEXTS.SCHEDULE);
     if (hasMemorySignal(text) || hasCoachSignal(text)) contexts.push(CLARA_CONTEXTS.MEMORY);
     if (hasRiskSignal(text) || /\b(can i afford|emergency fund|should i|safe|worth it)\b/.test(text)) contexts.push(CLARA_CONTEXTS.RISK);
-    return unique(contexts);
+    return unique(contexts.length ? contexts : [CLARA_CONTEXTS.FINANCE]);
   }
 
   if (brain === CLARA_BRAINS.COACH) {
@@ -147,6 +148,7 @@ function getInitialContextsForBrain(brain, text = "") {
     if (hasMePageSignal(text)) contexts.push(CLARA_CONTEXTS.ME_PAGE);
     if (hasMoneySignal(text)) contexts.push(CLARA_CONTEXTS.FINANCE_PRESSURE);
     if (hasRiskSignal(text)) contexts.push(CLARA_CONTEXTS.RISK);
+    if (hasScheduleSignal(text)) contexts.push(CLARA_CONTEXTS.SCHEDULE);
     return contexts.length ? unique(contexts) : [CLARA_CONTEXTS.MEMORY];
   }
 
@@ -177,6 +179,10 @@ export function routeInitialBrainContext({ userMessage = "" } = {}) {
     brain = CLARA_BRAINS.DECISION;
     confidence = 0.94;
     reason = "User is asking for a decision or affordability judgment.";
+  } else if (hasScheduleSignal(text)) {
+    brain = CLARA_BRAINS.DECISION;
+    confidence = 0.9;
+    reason = "User is asking about schedule, appointments, or commitments.";
   } else if (hasMemorySignal(text)) {
     brain = CLARA_BRAINS.MEMORY;
     confidence = 0.88;
@@ -225,6 +231,18 @@ export function routeFollowUpConversation({ userMessage = "", currentBrain = nul
     return { ...next, mode: "follow_up", action: FOLLOW_UP_ACTIONS.NEW_FLOW, reason: "User explicitly changed topic." };
   }
 
+  if (hasScheduleSignal(text)) {
+    return {
+      mode: "follow_up",
+      action: FOLLOW_UP_ACTIONS.REFRESH_CONTEXT,
+      brain: previousBrain === CLARA_BRAINS.CASUAL ? CLARA_BRAINS.DECISION : previousBrain,
+      brainKey: CLARA_BRAIN_KEYS[previousBrain === CLARA_BRAINS.CASUAL ? CLARA_BRAINS.DECISION : previousBrain],
+      contexts: [CLARA_CONTEXTS.SCHEDULE],
+      globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+      reason: "Schedule intent detected; refresh schedule context before answering.",
+    };
+  }
+
   const freshRoute = routeInitialBrainContext({ userMessage });
 
   if (isShortFollowUp(text)) {
@@ -253,7 +271,7 @@ export function routeFollowUpConversation({ userMessage = "", currentBrain = nul
 
   const refreshContexts = getInitialContextsForBrain(previousBrain, text).filter((context) => !activeContexts.includes(context));
 
-  if (refreshContexts.length || hasScheduleSignal(text) || hasRiskSignal(text) || hasMePageSignal(text)) {
+  if (refreshContexts.length || hasRiskSignal(text) || hasMePageSignal(text)) {
     return {
       mode: "follow_up",
       action: FOLLOW_UP_ACTIONS.REFRESH_CONTEXT,
