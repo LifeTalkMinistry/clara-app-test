@@ -1,4 +1,6 @@
 import { buildScheduleDirectReply, getScheduleContextForAI } from "../clara-schedule-ai-context";
+import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
+import { CLARA_BRAINS } from "./brain-router";
 
 const DEFAULT_SCHEDULE_REPLY = "I don’t see upcoming schedule items loaded from your Schedule page right now. Add an appointment or event there, then I can help you prepare for it.";
 const INCOMPLETE_MONEY_ENDING_PATTERN = /(?:estimated\s+(?:money\s+)?impact\s+of|estimated\s+cost\s+of|impact\s+of|cost\s+of|amount\s+of)\s*$/i;
@@ -77,6 +79,7 @@ function isIncompleteScheduleReply(text = "") {
 
 export function buildScheduleBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const schedule = getScheduleContextForAI(context || {});
+  const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.SCHEDULE, message: userMessage, context });
 
   return `You are CLARA's Schedule Brain.
 
@@ -85,6 +88,8 @@ Schedule Brain
 
 PURPOSE:
 Answer pure schedule, appointment, calendar, reminder, event, shift, class, doctor, dentist, and upcoming commitment questions.
+
+${subContextBlock}
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
