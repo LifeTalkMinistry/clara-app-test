@@ -18,6 +18,8 @@ import {
   getDebtTitle,
   summarizeDebtObligations,
 } from "./debtObligationStore";
+import { CLARA_BRAINS, getBrainLabel, routeClaraBrain } from "./ai-brains/brain-router";
+import { buildCasualBrainPrompt, generateLocalCasualReply, sanitizeCasualBrainReply } from "./ai-brains/casual-brain";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -441,8 +443,48 @@ export function hasGeminiConfig() {
   return Boolean(getGeminiApiKey());
 }
 
+async function generateCasualBrainReply({ apiKey, message, conversationHistory, signal }) {
+  const localReply = generateLocalCasualReply({ userMessage: message });
+  if (!apiKey) return localReply;
+
+  const prompt = buildCasualBrainPrompt({ userMessage: message, recentConversation: conversationHistory });
+  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
+  let lastError = null;
+
+  for (const model of modelCandidates) {
+    try {
+      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Casual Brain", { model });
+      const text = await requestGeminiText({ apiKey, model, prompt, signal });
+      const casualReply = sanitizeCasualBrainReply(text || localReply);
+      if (casualReply) return casualReply;
+    } catch (error) {
+      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Casual Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
+      lastError = error;
+    }
+  }
+
+  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Casual Brain fallback used", lastError);
+  return localReply;
+}
+
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
+  const brainRoute = routeClaraBrain({ userMessage: message, recentConversation: conversationHistory });
   const apiKey = getGeminiApiKey();
+
+  if (shouldDebugClaraAi()) {
+    console.log("[CLARA Brain Router] Selected brain", {
+      brain: brainRoute.brain,
+      label: getBrainLabel(brainRoute.brain),
+      confidence: brainRoute.confidence,
+      reason: brainRoute.reason,
+      mode,
+    });
+  }
+
+  if (brainRoute.brain === CLARA_BRAINS.CASUAL) {
+    return generateCasualBrainReply({ apiKey, message, conversationHistory, signal });
+  }
+
   if (!apiKey) throw new Error("Gemini API key is not configured.");
   const prompt = await buildPrompt({ message, context, mode, conversationHistory });
   const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
