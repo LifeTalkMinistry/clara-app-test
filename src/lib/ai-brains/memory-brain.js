@@ -1,4 +1,6 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
+import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
+import { CLARA_BRAINS } from "./brain-router";
 
 const DEFAULT_MEMORY_REPLY = "That’s useful to notice. I’ll treat it as a money pattern, so next time, pause before a similar spend and check if it was planned.";
 
@@ -112,11 +114,14 @@ export function buildMemoryBrainPrompt({ userMessage = "", context = {}, recentC
   const plan = finance.budgetPlan || {};
   const memoryType = detectMemoryType(userMessage);
   const suggestedReply = getTemplateForMessage(userMessage);
+  const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.MEMORY, message: userMessage, context });
 
   return `You are CLARA's Memory Brain.
 
 STRICT PURPOSE:
 Notice user money patterns and respond naturally. Do not use labels. Do not ask questions.
+
+${subContextBlock}
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
@@ -141,6 +146,7 @@ Known spending trigger: ${getProfileValue(context, ["spendingTrigger", "spending
 Protected goal: ${getProfileValue(context, ["meaningfulGoal", "meaningful_goal", "protectedGoal", "protected_goal"])}
 
 RULES:
+- Use the selected sub-contexts first when naming the pattern.
 - Reply like a normal CLARA conversation.
 - Do not output Pattern, Category, or Guardrail labels.
 - Maximum 2 short sentences.
