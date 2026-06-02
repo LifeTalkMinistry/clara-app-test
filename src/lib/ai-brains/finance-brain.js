@@ -1,4 +1,6 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
+import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
+import { CLARA_BRAINS } from "./brain-router";
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -75,49 +77,38 @@ function buildSpendingRows(finance = {}) {
   return `Monthly spent: ${money(finance.monthlySpent)}. Planned: ${money(finance.plannedSpent)}. Unplanned: ${money(finance.unplannedSpent)}. Top category: ${topText}`;
 }
 
+function buildTopCategoryLine(finance = {}) {
+  const top = finance.topSpendingCategory;
+  return top?.category ? `Your biggest category right now is ${top.category} at ${money(top.amount)}.` : "I don’t see a top spending category yet.";
+}
+
 export function buildFinanceBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
+  const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.FINANCE, message: userMessage, context });
 
-  return `You are CLARA, a precise but friendly financial assistant inside the CLARA app.
+  return `You are CLARA's Finance Brain.
 
 BRAIN TYPE:
 Finance Brain
 
 PURPOSE:
-Answer questions about CLARA financial cards and money data:
-- Wallets
-- Budgets
-- Expenses / spending
-- Savings goals
-- Emergency fund
-- Investment
-- Debt / obligations
-- Income
-- Transfers
+Answer questions about wallets, budgets, spending, expenses, categories, savings goals, emergency fund, income, transfers, and money card data.
+
+${subContextBlock}
 
 IMPORTANT CONTEXT RULES:
-Use the finance data below as the source of truth.
-Do NOT use saved memories, full profile story, emotional analysis, or life coaching unless the user explicitly asks for behavior or emotions.
-Do NOT turn a simple finance question into a deep coaching reply.
-Do NOT mention unrelated cards.
-Only answer the latest financial question.
+- Use the finance data below as the source of truth.
+- Use the selected sub-contexts first when choosing which finance data to answer from.
+- For spending questions, prioritize transactions, monthly summary, and top category.
+- For category questions, prioritize budget rows and top spending category.
+- For wallet questions, prioritize wallet total and wallet rows.
+- Do not answer spending or category questions using only wallet balance.
+- Do not turn a simple finance question into a coaching reply.
+- Do not mention unrelated cards.
 
 STYLE:
 Direct, clear, short, and data-first.
-Sound helpful and human, not robotic.
-Avoid long paragraphs.
-
-LENGTH RULES:
-- Simple balance/status question: 1-2 short sentences.
-- Card summary: 2-4 short sentences.
-- If data is missing: say what is missing and ask one next question.
-- Maximum 80 words unless the user asks for a breakdown.
-
-ANSWER FORMAT:
-Start with the direct answer first.
-Then add one short helpful note only if useful.
-Ask only one question if needed.
 
 RECENT CHATBOX CONVERSATION:
 ${formatRecentConversation(recentConversation)}
@@ -149,6 +140,11 @@ ${buildEmergencyRow(finance)}
 
 Finance data status: ${finance.hasAnyData ? "ready" : "not enough data loaded"}
 
+ANSWER RULES:
+- Start with the direct answer first.
+- Maximum 2-4 short sentences unless the user asks for a breakdown.
+- If selected sub-contexts are missing, say what is missing instead of guessing.
+
 Reply as CLARA:`;
 }
 
@@ -159,18 +155,18 @@ export function generateLocalFinanceReply({ userMessage = "", context = {} } = {
 
   if (!finance.hasAnyData) return "I don’t see enough finance data loaded yet. Add a wallet, budget, or expense first so I can answer clearly.";
 
+  if (/\b(spent|spending|expense|expenses|this month|monthly|eating most|top category|which category)\b/.test(text)) {
+    return `You’ve spent ${money(finance.monthlySpent)} this month. Unplanned spending is ${money(finance.unplannedSpent)}. ${buildTopCategoryLine(finance)}`;
+  }
+
+  if (/\b(budget|budget left|remaining budget|budget status|category|categories)\b/.test(text)) {
+    if (!plan.hasDeclaredBudget) return "I don’t see a declared monthly budget yet. Set one first so CLARA can track your remaining budget clearly.";
+    return `Your remaining spendable budget is ${money(plan.remainingSpendableBudget)}. You’ve spent ${money(plan.spentTotal)} out of ${money(plan.declaredBudget)}. Budget rows: ${buildBudgetRows(finance)}.`;
+  }
+
   if (/\b(wallet|balance|money left|available money|how much money|cash)\b/.test(text)) {
     const wallets = buildWalletRows(finance);
     return `You currently have ${money(finance.availableMoney)} available. Wallets: ${wallets}.`;
-  }
-
-  if (/\b(budget|budget left|remaining budget|budget status)\b/.test(text)) {
-    if (!plan.hasDeclaredBudget) return "I don’t see a declared monthly budget yet. Set one first so CLARA can track your remaining budget clearly.";
-    return `Your remaining spendable budget is ${money(plan.remainingSpendableBudget)}. You’ve spent ${money(plan.spentTotal)} out of ${money(plan.declaredBudget)}.`;
-  }
-
-  if (/\b(spent|spending|expense|expenses)\b/.test(text)) {
-    return `You’ve spent ${money(finance.monthlySpent)} this month. Unplanned spending is ${money(finance.unplannedSpent)}.`;
   }
 
   if (/\b(savings?|goal|goals)\b/.test(text)) {
