@@ -1,4 +1,4 @@
-const USE_CONTEXTUAL_FINANCE_REPLY = true;
+const USE_CONTEXTUAL_FINANCE_REPLY = false;
 
 function normalizeText(value = "") {
   return String(value || "")
