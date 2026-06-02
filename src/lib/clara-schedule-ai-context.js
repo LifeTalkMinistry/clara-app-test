@@ -180,7 +180,7 @@ export function shouldIncludeScheduleContext(message = "", context = {}) {
   const text = cleanText(message);
   const schedule = getScheduleContextForAI(context);
   const hasPurchaseAmount = /(?:₱|php\s*)?\d+(?:\.\d{1,2})?/i.test(String(message || ""));
-  const explicitScheduleIntent = /\b(schedule|appointment|calendar|upcoming|coming up|planned|plan|commitment|event|reminder|pressure|financially affect|prepare for|what should i prepare|payday advice)\b/.test(text);
+  const explicitScheduleIntent = /\b(schedule|appointment|calendar|upcoming|coming up|planned|plan|commitment|event|reminder|pressure|financially affect|prepare for|prepare money|money for|what should i prepare|payday advice)\b/.test(text);
   const spendingDecisionIntent = /\b(before i spend|should i buy|can i afford|afford|spending decision|spend|buy|purchase|order|pay|anything i should remember|remember first)\b/.test(text);
 
   return explicitScheduleIntent || spendingDecisionIntent || (hasPurchaseAmount && schedule.hasMoneyImpact);
@@ -196,8 +196,15 @@ export function buildSchedulePromptBlock(message = "", context = {}) {
 
 function firstScheduleSentence(event) {
   if (!event) return "You do not have upcoming schedule items loaded from the Schedule page.";
-  const impact = event.amountText ? ` with an estimated impact of ${event.amountText}` : "";
-  return `You have ${event.title} on ${event.dateLabel}${impact}.`;
+  if (event.amountText) return `You have ${event.title} on ${event.dateLabel} with an estimated money impact of ${event.amountText}.`;
+  if (event.hasMoneyImpact) return `You have ${event.title} on ${event.dateLabel}. This appointment may have a cost, but I don't see an exact amount saved yet.`;
+  return `You have ${event.title} on ${event.dateLabel}.`;
+}
+
+function moneyPreparationSentence(event) {
+  if (!event) return "I do not see upcoming money-impact schedule items loaded from your Schedule page right now.";
+  if (event.amountText) return `Yes, your ${event.title} on ${event.dateLabel} has an estimated money impact of ${event.amountText}. It’s worth preparing for it before making extra purchases.`;
+  return `Yes, your ${event.title} on ${event.dateLabel} may have a cost, but I don't see an exact amount saved yet. It’s still worth preparing before making extra purchases.`;
 }
 
 export function buildScheduleDirectReply(message = "", context = {}) {
@@ -206,8 +213,14 @@ export function buildScheduleDirectReply(message = "", context = {}) {
   const amountMatch = String(message || "").replace(/,/g, "").match(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i);
   const purchaseAmount = amountMatch ? money(Number(amountMatch[1])) : "";
   const asksSchedule = /\b(schedule|appointment|calendar|upcoming|coming up|planned|commitment|event|reminder|what should i prepare|prepare for)\b/.test(text);
+  const asksMoneyPreparation = /\b(prepare money|prepare budget|money for|need to prepare money|do i need to prepare|cost|estimated impact|estimated cost)\b/.test(text);
   const asksPressure = /\b(pressure|financially affect|financial pressure|payday advice)\b/.test(text);
   const spendingDecision = /\b(before i spend|should i buy|can i afford|afford|spending decision|spend|buy|purchase|order|pay|anything i should remember|remember first)\b/.test(text);
+
+  if (asksMoneyPreparation) {
+    const target = schedule.nextMoneyItem || schedule.nextItem;
+    return moneyPreparationSentence(target);
+  }
 
   if (asksPressure) {
     if (!schedule.upcomingMoneyItems.length) return "I do not see upcoming money-impact schedule items loaded from your Schedule page right now.";
