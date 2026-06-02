@@ -20,6 +20,7 @@ import {
 } from "./debtObligationStore";
 import { CLARA_BRAINS, getBrainLabel, routeClaraBrain } from "./ai-brains/brain-router";
 import { buildCasualBrainPrompt, generateLocalCasualReply, sanitizeCasualBrainReply } from "./ai-brains/casual-brain";
+import { buildFinanceBrainPrompt, generateLocalFinanceReply, sanitizeFinanceBrainReply } from "./ai-brains/finance-brain";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -467,6 +468,30 @@ async function generateCasualBrainReply({ apiKey, message, conversationHistory, 
   return localReply;
 }
 
+async function generateFinanceBrainReply({ apiKey, message, context, conversationHistory, signal }) {
+  const localReply = generateLocalFinanceReply({ userMessage: message, context });
+  if (!apiKey) return localReply;
+
+  const prompt = buildFinanceBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
+  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
+  let lastError = null;
+
+  for (const model of modelCandidates) {
+    try {
+      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Finance Brain", { model });
+      const text = await requestGeminiText({ apiKey, model, prompt, signal });
+      const financeReply = sanitizeFinanceBrainReply(text || localReply);
+      if (financeReply) return financeReply;
+    } catch (error) {
+      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Finance Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
+      lastError = error;
+    }
+  }
+
+  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Finance Brain fallback used", lastError);
+  return localReply;
+}
+
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
   const brainRoute = routeClaraBrain({ userMessage: message, recentConversation: conversationHistory });
   const apiKey = getGeminiApiKey();
@@ -483,6 +508,10 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
 
   if (brainRoute.brain === CLARA_BRAINS.CASUAL) {
     return generateCasualBrainReply({ apiKey, message, conversationHistory, signal });
+  }
+
+  if (brainRoute.brain === CLARA_BRAINS.FINANCE) {
+    return generateFinanceBrainReply({ apiKey, message, context, conversationHistory, signal });
   }
 
   if (!apiKey) throw new Error("Gemini API key is not configured.");
