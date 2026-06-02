@@ -169,7 +169,8 @@ export function sanitizeMemoryBrainReply(reply = "", userMessage = "") {
   if (!cleaned) return getTemplateForMessage(userMessage);
 
   const withoutQuestions = stripQuestions(cleaned);
-  if (!hasCompleteMemoryStructure(withoutQuestions)) return getTemplateForMessage(userMessage);
+  const fallbackSource = userMessage || withoutQuestions || cleaned;
+  if (!hasCompleteMemoryStructure(withoutQuestions)) return getTemplateForMessage(fallbackSource);
 
   return limitWords(trimSentences(withoutQuestions, 3), 45);
 }
