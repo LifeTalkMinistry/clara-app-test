@@ -24,6 +24,7 @@ import { buildFinanceBrainPrompt, generateLocalFinanceReply, sanitizeFinanceBrai
 import { buildDecisionBrainPrompt, generateLocalDecisionReply, sanitizeDecisionBrainReply } from "./ai-brains/decision-brain";
 import { buildCoachBrainPrompt, generateLocalCoachReply, sanitizeCoachBrainReply } from "./ai-brains/coach-brain";
 import { buildMemoryBrainPrompt, generateLocalMemoryReply, sanitizeMemoryBrainReply } from "./ai-brains/memory-brain";
+import { generateScheduleBrainReply } from "./ai-brains/schedule-brain-entry";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -555,7 +556,7 @@ async function generateMemoryBrainReply({ apiKey, message, context, conversation
     try {
       if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Memory Brain", { model });
       const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      const memoryReply = sanitizeMemoryBrainReply(text || localReply);
+      const memoryReply = sanitizeMemoryBrainReply(text || localReply, message);
       if (memoryReply) return memoryReply;
     } catch (error) {
       if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Memory Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
@@ -577,7 +578,10 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       label: getBrainLabel(brainRoute.brain),
       confidence: brainRoute.confidence,
       reason: brainRoute.reason,
-      mode,
+      mode: brainRoute.mode || mode,
+      action: brainRoute.action,
+      contexts: brainRoute.contexts,
+      activeContexts: brainRoute.activeContexts,
     });
   }
 
@@ -599,6 +603,19 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
 
   if (brainRoute.brain === CLARA_BRAINS.MEMORY) {
     return generateMemoryBrainReply({ apiKey, message, context, conversationHistory, signal });
+  }
+
+  if (brainRoute.brain === CLARA_BRAINS.SCHEDULE) {
+    return generateScheduleBrainReply({
+      apiKey,
+      message,
+      context,
+      conversationHistory,
+      signal,
+      discoverGeminiModelCandidates,
+      requestGeminiText,
+      shouldDebugClaraAi,
+    });
   }
 
   if (!apiKey) throw new Error("Gemini API key is not configured.");
