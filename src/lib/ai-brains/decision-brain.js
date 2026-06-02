@@ -1,4 +1,5 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
+import { buildScheduleDirectReply, buildSchedulePromptBlock } from "../clara-schedule-ai-context";
 
 const MISSING_PURCHASE_QUESTION = "What are you planning to buy, and how much is it?";
 const MISSING_DATA_REPLY = "I need your wallet or budget data before I can judge this clearly.";
@@ -137,6 +138,7 @@ export function buildDecisionBrainPrompt({ userMessage = "", context = {}, recen
   const amount = extractPurchaseAmount(userMessage);
   const decision = classifyLocalDecision({ amount, finance, userMessage });
   const numbers = decision.numbers || getDecisionNumbers(finance);
+  const scheduleBlock = buildSchedulePromptBlock(userMessage, context || {});
 
   return `You are CLARA's Decision Brain.
 
@@ -174,6 +176,9 @@ Remaining spendable budget: ${money(plan.remainingSpendableBudget)}
 Budget status: ${plan.budgetStatus || "unknown"}
 Budget rows: ${buildBudgetRows(finance)}
 
+Schedule:
+${scheduleBlock}
+
 Savings goals:
 ${buildSavingsRows(finance)}
 
@@ -194,14 +199,19 @@ CONTEXT PRIORITY:
 2. Available spendable wallet money
 3. Remaining spendable budget
 4. Emergency fund protected amount
-5. Savings goal progress
-6. Recent spending pattern
-7. Recent conversation
+5. Schedule commitments and upcoming money-impact appointments
+6. Savings goal progress
+7. Recent spending pattern
+8. Recent conversation
 
 IMPORTANT RULES:
+- If the user asks about schedule, appointment, calendar, upcoming plans, or commitments, answer from the Schedule section.
+- If Schedule section has an item such as a dentist appointment, mention it directly.
+- If no schedule items are loaded, say that clearly.
 - Emergency Fund is protected money. Do not treat it as free spending money.
 - Do not overuse full life profile, saved memory, emotional context, or coaching language.
-- If purchase amount is missing, ask only: "${MISSING_PURCHASE_QUESTION}"
+- If purchase amount is missing but the user is asking about schedule, do not ask for purchase amount.
+- If purchase amount is missing for a purchase decision, ask only: "${MISSING_PURCHASE_QUESTION}"
 - If wallet or budget data is missing, say: "${MISSING_DATA_REPLY}"
 - Answer with recommendation first, short reason second, safe next step third.
 - Do not make this a long life-coach reply.
@@ -213,6 +223,9 @@ Reply as CLARA:`;
 }
 
 export function generateLocalDecisionReply({ userMessage = "", context = {} } = {}) {
+  const scheduleReply = buildScheduleDirectReply(userMessage, context || {});
+  if (scheduleReply) return scheduleReply;
+
   const finance = buildClaraFinanceSnapshot(context || {});
   const amount = extractPurchaseAmount(userMessage);
   const decision = classifyLocalDecision({ amount, finance, userMessage });
