@@ -17,7 +17,8 @@ export const CLARA_BRAIN_LABELS = Object.freeze({
 function normalizeText(value = "") {
   return String(value || "")
     .toLowerCase()
-    .replace(/[^a-z0-9₱.,?\s-]/g, " ")
+    .replace(/[^a-z0-9₱.,?'’\s-]/g, " ")
+    .replace(/[’]/g, "'")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -27,7 +28,7 @@ function hasMoneySignal(text = "") {
 }
 
 function hasDecisionSignal(text = "") {
-  return /\b(should i|can i afford|can i buy|is it okay|worth it|before i buy|before buying|help me decide|safe to spend|recommend|delay|go for it)\b/.test(text);
+  return /\b(should i|can i afford|can i buy|can i spend|is it okay|is it ok|is this okay|is this ok|worth it|before i buy|before buying|before i purchase|before purchasing|help me decide|safe to spend|safe purchase|safe to buy|i want to buy|i'm planning to buy|im planning to buy|i am planning to buy|i want to spend|planning to buy|planning to purchase|should i use emergency fund|should i spend|should i delay|delay this|buy this|purchase this|go for it)\b/.test(text);
 }
 
 function hasCoachSignal(text = "") {
