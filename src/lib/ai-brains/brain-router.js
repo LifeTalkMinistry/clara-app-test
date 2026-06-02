@@ -6,6 +6,14 @@ export const CLARA_BRAINS = Object.freeze({
   MEMORY: 5,
 });
 
+export const CLARA_BRAIN_KEYS = Object.freeze({
+  [CLARA_BRAINS.CASUAL]: "casual",
+  [CLARA_BRAINS.FINANCE]: "finance",
+  [CLARA_BRAINS.DECISION]: "decision",
+  [CLARA_BRAINS.COACH]: "coach",
+  [CLARA_BRAINS.MEMORY]: "memory",
+});
+
 export const CLARA_BRAIN_LABELS = Object.freeze({
   [CLARA_BRAINS.CASUAL]: "Casual Brain",
   [CLARA_BRAINS.FINANCE]: "Finance Brain",
@@ -13,6 +21,38 @@ export const CLARA_BRAIN_LABELS = Object.freeze({
   [CLARA_BRAINS.COACH]: "Coach Brain",
   [CLARA_BRAINS.MEMORY]: "Memory Brain",
 });
+
+export const CLARA_CONTEXTS = Object.freeze({
+  CHAT_MEMORY: "chat memory",
+  NONE: "none",
+  WALLETS: "wallets",
+  BUDGET: "budget",
+  SAVINGS: "savings",
+  DEBT: "debt",
+  TRANSACTIONS: "transactions",
+  FINANCE: "finance",
+  ME_PAGE: "me page",
+  SCHEDULE: "schedule",
+  MEMORY: "memory",
+  RISK: "risk",
+  FINANCE_PRESSURE: "finance pressure",
+  PREFERENCES: "preferences",
+  SPENDING_PATTERNS: "spending patterns",
+  GOALS: "goals",
+  EMOTIONAL_TRIGGERS: "emotional triggers",
+  LIFE_LESSONS: "life lessons",
+});
+
+export const FOLLOW_UP_ACTIONS = Object.freeze({
+  CHAT_ONLY: "chat_only",
+  REFRESH_CONTEXT: "refresh_context",
+  SWITCH_BRAIN: "switch_brain",
+  NEW_FLOW: "new_flow",
+});
+
+const FLOW_TTL_MS = 8 * 60 * 1000;
+
+let activeConversationFlow = null;
 
 function normalizeText(value = "") {
   return String(value || "")
@@ -23,8 +63,12 @@ function normalizeText(value = "") {
     .trim();
 }
 
+function unique(items = []) {
+  return [...new Set(items.filter(Boolean))];
+}
+
 function hasMoneySignal(text = "") {
-  return /\b(wallet|budget|expense|expenses|spend|spent|spending|savings?|save|emergency fund|investment|debt|utang|loan|balance|money|cash|gcash|maya|bank|income|payday|afford|buy|purchase|transfer|bills?)\b/.test(text);
+  return /\b(wallet|budget|expense|expenses|spend|spent|spending|savings?|save|emergency fund|investment|debt|utang|loan|balance|money|cash|gcash|maya|bank|income|payday|salary|afford|buy|purchase|transfer|bills?)\b/.test(text);
 }
 
 function hasDecisionSignal(text = "") {
@@ -32,11 +76,23 @@ function hasDecisionSignal(text = "") {
 }
 
 function hasCoachSignal(text = "") {
-  return /\b(stress|stressed|overwhelmed|anxious|sad|tired|pagod|guilty|tempted|craving|burnout|habit|routine|discipline|motivation|mindset|feel|feeling)\b/.test(text);
+  return /\b(stress|stressed|overwhelmed|anxious|sad|tired|exhausted|pagod|guilty|tempted|craving|burnout|habit|routine|discipline|motivation|mindset|feel|feeling|regret|discouraged)\b/.test(text);
 }
 
 function hasMemorySignal(text = "") {
-  return /\b(i noticed|i realized|i realise|i learned|lately|recently|pattern|trigger|usually|always|whenever|helps me|helped me)\b/.test(text);
+  return /\b(i noticed|i realized|i realise|i learned|lately|recently|pattern|trigger|usually|always|whenever|helps me|helped me|i prefer|my goal|my priority)\b/.test(text);
+}
+
+function hasScheduleSignal(text = "") {
+  return /\b(schedule|calendar|appointment|meeting|shift|work|class|tomorrow|today|next week|payday|salary|due date|deadline|event|service)\b/.test(text);
+}
+
+function hasRiskSignal(text = "") {
+  return /\b(emergency|urgent|danger|risk|overspend|over budget|short|broke|can't afford|cannot afford|debt|loan|utang|guilty|stressed|self harm|hurt myself|suicide|kill myself)\b/.test(text);
+}
+
+function hasMePageSignal(text = "") {
+  return /\b(my goal|my priority|my situation|my lifestyle|student|working student|breadwinner|family|partner|job|work|salary|habit|trigger|preference)\b/.test(text);
 }
 
 function isCasualOnly(text = "") {
@@ -45,40 +101,230 @@ function isCasualOnly(text = "") {
   return /^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta|how are you|how r you|what'?s up|thanks|thank you|salamat|nice|okay|ok|cool|haha|hehe|lol)[!?.\s]*$/.test(text);
 }
 
-export function routeClaraBrain({ userMessage = "", recentConversation = [] } = {}) {
+function isShortFollowUp(text = "") {
+  return /^(why|why not|how come|explain|more|tell me more|what do you mean|really|sure|ok|okay|yes|no|go on|continue|what about it|how about that)[!?.\s]*$/.test(text);
+}
+
+function isNewTopicSignal(text = "") {
+  return /\b(new topic|another question|different question|anyway|btw|by the way|change topic|forget that)\b/.test(text);
+}
+
+function brainFromKey(key = "") {
+  const value = normalizeText(key);
+  if (value === "casual") return CLARA_BRAINS.CASUAL;
+  if (value === "finance") return CLARA_BRAINS.FINANCE;
+  if (value === "decision") return CLARA_BRAINS.DECISION;
+  if (value === "coach") return CLARA_BRAINS.COACH;
+  if (value === "memory") return CLARA_BRAINS.MEMORY;
+  return CLARA_BRAINS.CASUAL;
+}
+
+function getInitialContextsForBrain(brain, text = "") {
+  if (brain === CLARA_BRAINS.CASUAL) return [];
+
+  if (brain === CLARA_BRAINS.FINANCE) {
+    const contexts = [];
+    if (/\b(wallet|balance|cash|gcash|maya|bank)\b/.test(text)) contexts.push(CLARA_CONTEXTS.WALLETS);
+    if (/\b(budget|category|left|remaining|over budget)\b/.test(text)) contexts.push(CLARA_CONTEXTS.BUDGET);
+    if (/\b(saving|savings|goal|emergency fund)\b/.test(text)) contexts.push(CLARA_CONTEXTS.SAVINGS);
+    if (/\b(debt|loan|utang|owe|obligation)\b/.test(text)) contexts.push(CLARA_CONTEXTS.DEBT);
+    if (/\b(expense|expenses|spent|spending|transaction|history)\b/.test(text)) contexts.push(CLARA_CONTEXTS.TRANSACTIONS);
+    return contexts.length ? unique(contexts) : [CLARA_CONTEXTS.WALLETS, CLARA_CONTEXTS.BUDGET];
+  }
+
+  if (brain === CLARA_BRAINS.DECISION) {
+    const contexts = [CLARA_CONTEXTS.FINANCE];
+    if (hasMePageSignal(text)) contexts.push(CLARA_CONTEXTS.ME_PAGE);
+    if (hasScheduleSignal(text)) contexts.push(CLARA_CONTEXTS.SCHEDULE);
+    if (hasMemorySignal(text) || hasCoachSignal(text)) contexts.push(CLARA_CONTEXTS.MEMORY);
+    if (hasRiskSignal(text) || /\b(can i afford|emergency fund|should i|safe|worth it)\b/.test(text)) contexts.push(CLARA_CONTEXTS.RISK);
+    return unique(contexts);
+  }
+
+  if (brain === CLARA_BRAINS.COACH) {
+    const contexts = [];
+    if (hasMemorySignal(text) || hasCoachSignal(text)) contexts.push(CLARA_CONTEXTS.MEMORY);
+    if (hasMePageSignal(text)) contexts.push(CLARA_CONTEXTS.ME_PAGE);
+    if (hasMoneySignal(text)) contexts.push(CLARA_CONTEXTS.FINANCE_PRESSURE);
+    if (hasRiskSignal(text)) contexts.push(CLARA_CONTEXTS.RISK);
+    return contexts.length ? unique(contexts) : [CLARA_CONTEXTS.MEMORY];
+  }
+
+  if (brain === CLARA_BRAINS.MEMORY) {
+    const contexts = [];
+    if (/\b(prefer|preference|style|direct advice|short advice)\b/.test(text)) contexts.push(CLARA_CONTEXTS.PREFERENCES);
+    if (/\b(spend|spending|usually|always|pattern|trigger|payday|salary)\b/.test(text)) contexts.push(CLARA_CONTEXTS.SPENDING_PATTERNS);
+    if (/\b(goal|priority|dream|target|saving for|protect)\b/.test(text)) contexts.push(CLARA_CONTEXTS.GOALS);
+    if (/\b(stress|sad|guilty|tired|exhausted|tempted|regret)\b/.test(text)) contexts.push(CLARA_CONTEXTS.EMOTIONAL_TRIGGERS);
+    if (/\b(learned|lesson|realized|noticed|napansin|natutunan)\b/.test(text)) contexts.push(CLARA_CONTEXTS.LIFE_LESSONS);
+    return contexts.length ? unique(contexts) : [CLARA_CONTEXTS.SPENDING_PATTERNS];
+  }
+
+  return [];
+}
+
+export function routeInitialBrainContext({ userMessage = "" } = {}) {
   const text = normalizeText(userMessage);
+  let brain = CLARA_BRAINS.CASUAL;
+  let confidence = 0.72;
+  let reason = "Default casual route.";
 
   if (isCasualOnly(text)) {
-    return { brain: CLARA_BRAINS.CASUAL, confidence: 0.98, reason: "Simple casual conversation." };
+    brain = CLARA_BRAINS.CASUAL;
+    confidence = 0.98;
+    reason = "Simple casual conversation.";
+  } else if (hasDecisionSignal(text)) {
+    brain = CLARA_BRAINS.DECISION;
+    confidence = 0.94;
+    reason = "User is asking for a decision or affordability judgment.";
+  } else if (hasMemorySignal(text)) {
+    brain = CLARA_BRAINS.MEMORY;
+    confidence = 0.88;
+    reason = "User shared a pattern or memory-worthy observation.";
+  } else if (hasCoachSignal(text)) {
+    brain = CLARA_BRAINS.COACH;
+    confidence = 0.86;
+    reason = "User shared emotional or behavioral context.";
+  } else if (hasMoneySignal(text)) {
+    brain = CLARA_BRAINS.FINANCE;
+    confidence = 0.88;
+    reason = "User is asking about money or a finance card.";
   }
 
-  if (hasDecisionSignal(text)) {
-    return { brain: CLARA_BRAINS.DECISION, confidence: 0.94, reason: "User is asking for a decision or affordability judgment." };
+  const contexts = getInitialContextsForBrain(brain, text);
+  return {
+    mode: "initial",
+    action: FOLLOW_UP_ACTIONS.NEW_FLOW,
+    brain,
+    brainKey: CLARA_BRAIN_KEYS[brain],
+    contexts,
+    globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+    confidence,
+    reason,
+  };
+}
+
+export function routeFollowUpConversation({ userMessage = "", currentBrain = null, activeContexts = [] } = {}) {
+  const text = normalizeText(userMessage);
+  const previousBrain = typeof currentBrain === "number" ? currentBrain : brainFromKey(currentBrain);
+
+  if (!text) {
+    return {
+      mode: "follow_up",
+      action: FOLLOW_UP_ACTIONS.CHAT_ONLY,
+      brain: previousBrain,
+      brainKey: CLARA_BRAIN_KEYS[previousBrain],
+      contexts: [],
+      globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+      reason: "Empty or unclear follow-up; continue from chat memory only.",
+    };
   }
 
-  if (hasMemorySignal(text)) {
-    return { brain: CLARA_BRAINS.MEMORY, confidence: 0.88, reason: "User shared a pattern or memory-worthy observation." };
+  if (isNewTopicSignal(text)) {
+    const next = routeInitialBrainContext({ userMessage });
+    return { ...next, mode: "follow_up", action: FOLLOW_UP_ACTIONS.NEW_FLOW, reason: "User explicitly changed topic." };
   }
 
-  if (hasCoachSignal(text)) {
-    return { brain: CLARA_BRAINS.COACH, confidence: 0.86, reason: "User shared emotional or behavioral context." };
+  const freshRoute = routeInitialBrainContext({ userMessage });
+
+  if (isShortFollowUp(text)) {
+    return {
+      mode: "follow_up",
+      action: FOLLOW_UP_ACTIONS.CHAT_ONLY,
+      brain: previousBrain,
+      brainKey: CLARA_BRAIN_KEYS[previousBrain],
+      contexts: [],
+      globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+      reason: "Short follow-up can be answered from chat memory only.",
+    };
   }
 
-  if (hasMoneySignal(text)) {
-    return { brain: CLARA_BRAINS.FINANCE, confidence: 0.88, reason: "User is asking about money or a finance card." };
+  const currentIsCasual = previousBrain === CLARA_BRAINS.CASUAL;
+  const freshIsMeaningful = freshRoute.brain !== CLARA_BRAINS.CASUAL || hasMoneySignal(text) || hasCoachSignal(text) || hasMemorySignal(text) || hasDecisionSignal(text);
+
+  if (!currentIsCasual && freshIsMeaningful && freshRoute.brain !== previousBrain) {
+    return {
+      ...freshRoute,
+      mode: "follow_up",
+      action: FOLLOW_UP_ACTIONS.SWITCH_BRAIN,
+      reason: `User shifted from ${getBrainLabel(previousBrain)} to ${getBrainLabel(freshRoute.brain)}.`,
+    };
   }
 
-  const recentText = (Array.isArray(recentConversation) ? recentConversation : [])
-    .slice(-4)
-    .map((message) => String(message?.text || message?.content || ""))
-    .join(" ")
-    .toLowerCase();
+  const refreshContexts = getInitialContextsForBrain(previousBrain, text).filter((context) => !activeContexts.includes(context));
 
-  if (!hasMoneySignal(recentText) && !hasCoachSignal(recentText)) {
-    return { brain: CLARA_BRAINS.CASUAL, confidence: 0.72, reason: "No finance or coaching signal in the latest chatbox conversation." };
+  if (refreshContexts.length || hasScheduleSignal(text) || hasRiskSignal(text) || hasMePageSignal(text)) {
+    return {
+      mode: "follow_up",
+      action: FOLLOW_UP_ACTIONS.REFRESH_CONTEXT,
+      brain: previousBrain,
+      brainKey: CLARA_BRAIN_KEYS[previousBrain],
+      contexts: unique(refreshContexts.length ? refreshContexts : getInitialContextsForBrain(previousBrain, text)),
+      globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+      reason: "Same brain, but the follow-up needs fresh context.",
+    };
   }
 
-  return { brain: CLARA_BRAINS.COACH, confidence: 0.55, reason: "Fallback to coaching when intent is unclear." };
+  return {
+    mode: "follow_up",
+    action: FOLLOW_UP_ACTIONS.CHAT_ONLY,
+    brain: previousBrain,
+    brainKey: CLARA_BRAIN_KEYS[previousBrain],
+    contexts: [],
+    globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+    reason: "Continue the existing conversation from chat memory only.",
+  };
+}
+
+function hasActiveFlow() {
+  return Boolean(activeConversationFlow?.activeBrain && Date.now() - Number(activeConversationFlow.lastInteractionTimestamp || 0) < FLOW_TTL_MS);
+}
+
+function createConversationId() {
+  return `clara-flow-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function updateActiveFlow(route) {
+  if (!route || !route.brain) return activeConversationFlow;
+  const previousContexts = Array.isArray(activeConversationFlow?.activeContexts) ? activeConversationFlow.activeContexts : [];
+  const routeContexts = Array.isArray(route.contexts) ? route.contexts : [];
+
+  activeConversationFlow = {
+    activeBrain: route.brain,
+    activeBrainKey: CLARA_BRAIN_KEYS[route.brain],
+    activeContexts: route.action === FOLLOW_UP_ACTIONS.CHAT_ONLY ? previousContexts : unique([...previousContexts, ...routeContexts]),
+    conversationId: route.action === FOLLOW_UP_ACTIONS.NEW_FLOW || !activeConversationFlow?.conversationId ? createConversationId() : activeConversationFlow.conversationId,
+    lastInteractionTimestamp: Date.now(),
+  };
+
+  return activeConversationFlow;
+}
+
+export function getActiveConversationFlow() {
+  return activeConversationFlow ? { ...activeConversationFlow, activeContexts: [...(activeConversationFlow.activeContexts || [])] } : null;
+}
+
+export function resetClaraConversationFlow() {
+  activeConversationFlow = null;
+}
+
+export function routeClaraBrain({ userMessage = "", recentConversation = [] } = {}) {
+  const shouldUseFollowUp = hasActiveFlow() && Array.isArray(recentConversation) && recentConversation.length > 0;
+  const route = shouldUseFollowUp
+    ? routeFollowUpConversation({
+        userMessage,
+        currentBrain: activeConversationFlow.activeBrain,
+        activeContexts: activeConversationFlow.activeContexts,
+      })
+    : routeInitialBrainContext({ userMessage });
+
+  const flow = updateActiveFlow(route);
+
+  return {
+    ...route,
+    conversationId: flow?.conversationId,
+    activeContexts: flow?.activeContexts || route.contexts || [],
+  };
 }
 
 export function getBrainLabel(brain) {
