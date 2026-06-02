@@ -1,6 +1,20 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 
-const DEFAULT_MEMORY_REPLY = "That is worth noticing. I’ll treat this as a useful pattern for your money decisions: name the trigger, protect your budget, and use it as a guide before your next spend.";
+const DEFAULT_MEMORY_REPLY = "That is worth noticing. Pattern: this can affect your money decisions. Guardrail: pause before the next similar spend and check if it is planned.";
+
+const COACH_STYLE_PATTERNS = [
+  /it's completely understandable/i,
+  /that feeling is your inner compass/i,
+  /enjoy the fruits of your labor/i,
+  /the good news is/i,
+  /which is fantastic/i,
+  /you'?re already working on/i,
+  /many people experience/i,
+  /would you like/i,
+  /what are you thinking/i,
+  /how can we make/i,
+  /let'?s explore/i,
+];
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -49,12 +63,14 @@ function getProfileValue(context = {}, keys = []) {
 
 function detectMemoryType(message = "") {
   const text = normalizeText(message);
+
+  // Order matters: specific memory signals should win before generic phrases like "I realized".
+  if (/\b(payday|salary|income|allowance|weekly|monthly|bi-weekly|biweekly|after i get paid|after getting paid|after pay day)\b/.test(text)) return "money_rhythm";
   if (/\b(trigger|whenever|pag|kapag|every time|usually|always|pattern)\b/.test(text)) return "spending_trigger";
-  if (/\b(i like|i prefer|i don't like|i hate|i want|preference|style)\b/.test(text)) return "preference";
+  if (/\b(i like|i prefer|i don't like|i hate|preference|style)\b/.test(text)) return "preference";
   if (/\b(goal|dream|target|saving for|protect|important to me|priority)\b/.test(text)) return "goal_or_priority";
+  if (/\b(stress|sad|lonely|bored|guilty|pressure|pagod|tempted|regret|nagsisi)\b/.test(text)) return "emotional_pattern";
   if (/\b(i realized|i realise|i noticed|i learned|lesson|natutunan|napansin)\b/.test(text)) return "lesson_or_insight";
-  if (/\b(stress|sad|lonely|bored|guilty|pressure|pagod|tempted)\b/.test(text)) return "emotional_pattern";
-  if (/\b(payday|salary|income|allowance|weekly|monthly|bi-weekly|biweekly)\b/.test(text)) return "money_rhythm";
   return "general_memory";
 }
 
@@ -66,17 +82,29 @@ function buildGoalRows(finance = {}) {
   return list(finance.savingsGoals, (goal) => `${goal.name || "Goal"}: ${money(goal.saved)} of ${money(goal.target)}`);
 }
 
-function trimSentences(text = "", maxSentences = 4) {
+function trimSentences(text = "", maxSentences = 3) {
   const cleaned = cleanText(text);
   if (!cleaned) return "";
   const parts = cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleaned];
   return parts.slice(0, maxSentences).join(" ").replace(/\s+/g, " ").trim();
 }
 
-function limitWords(text = "", maxWords = 100) {
+function limitWords(text = "", maxWords = 55) {
   const words = cleanText(text).split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return cleanText(text);
   return `${words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/, "")}.`;
+}
+
+function removeCoachStyleSentences(text = "") {
+  const sentences = cleanText(text).match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+  const filtered = sentences
+    .map((sentence) => cleanText(sentence))
+    .filter(Boolean)
+    .filter((sentence) => !sentence.includes("?"))
+    .filter((sentence) => !COACH_STYLE_PATTERNS.some((pattern) => pattern.test(sentence)))
+    .join(" ");
+
+  return filtered || cleanText(text).replace(/\?+$/g, ".");
 }
 
 export function buildMemoryBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
@@ -89,16 +117,8 @@ export function buildMemoryBrainPrompt({ userMessage = "", context = {}, recentC
 BRAIN TYPE:
 Memory Brain
 
-PURPOSE:
-Recognize and respond to user-shared patterns, preferences, triggers, lessons, goals, and money-life observations.
-
-Memory Brain handles messages like:
-- I noticed I spend more when I am stressed.
-- I realized I buy food after work when I am tired.
-- I learned that I need to plan transport earlier.
-- I usually overspend after payday.
-- I prefer direct advice.
-- My real goal is to save for my family.
+STRICT PURPOSE:
+Identify a memory pattern only. Do not coach emotionally. Do not motivate. Do not ask questions.
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
@@ -122,25 +142,20 @@ Guidance tone: ${getProfileValue(context, ["coachingStyle", "coaching_style", "g
 Known spending trigger: ${getProfileValue(context, ["spendingTrigger", "spending_trigger", "trigger"])}
 Protected goal: ${getProfileValue(context, ["meaningfulGoal", "meaningful_goal", "protectedGoal", "protected_goal"])}
 
-RULES:
-- Do not pretend you permanently saved memory unless the app explicitly confirms saving.
-- Say that the insight is useful or worth noticing.
-- Reflect the pattern in one clear sentence.
-- Connect it to one practical money behavior.
-- If appropriate, mention what category this belongs to: trigger, preference, goal, rhythm, or lesson.
-- Do not turn this into a long coaching speech.
-- Do not give a full finance summary unless the user asks.
-- If the user asks to remember/save something, say it is a good memory to keep and summarize it cleanly.
+CRITICAL RESPONSE RULES:
+- Maximum 3 sentences.
+- Maximum 55 words.
+- Never ask a follow-up question.
+- Never say: "It's completely understandable", "fantastic", "the good news", "would you like", or "what are you thinking of purchasing".
+- Do not provide emotional coaching.
+- Do not praise.
+- Do not explain deeply.
+- Do not pretend permanent memory was saved.
 
-ANSWER FORMAT:
-1. Acknowledge the insight.
-2. Name the memory/pattern.
-3. Give one next action or money guardrail.
-
-LENGTH RULES:
-- 2-4 short sentences.
-- Maximum around 100 words.
-- No markdown headings.
+ONLY OUTPUT THIS STRUCTURE:
+Pattern: one clear pattern.
+Category: trigger, preference, goal, rhythm, lesson, or emotional pattern.
+Guardrail: one practical rule for next time.
 
 Reply as CLARA:`;
 }
@@ -150,32 +165,32 @@ export function generateLocalMemoryReply({ userMessage = "", context = {} } = {}
   const finance = buildClaraFinanceSnapshot(context || {});
   const hasBudgetPressure = finance.budgetPlan?.hasDeclaredBudget && Number(finance.budgetPlan?.remainingSpendableBudget) <= 0;
 
+  if (memoryType === "money_rhythm") {
+    return "Pattern: payday confidence can make spending feel safer now but create regret later. Category: money rhythm. Guardrail: wait 24 hours before non-essential purchases after payday.";
+  }
+
   if (memoryType === "spending_trigger") {
-    return "That is a useful spending trigger to notice. When that situation shows up again, pause before spending and check if the purchase is planned, necessary, and inside your budget.";
+    return "Pattern: this situation may trigger extra spending. Category: spending trigger. Guardrail: pause first and check if the purchase is planned, necessary, and inside budget.";
   }
 
   if (memoryType === "preference") {
-    return "Got it — that preference matters for how CLARA should guide you. I’ll respond around that pattern here, and you can use it as a filter for better money decisions.";
+    return "Pattern: your guidance preference matters. Category: preference. Guardrail: use this preference to shape clearer money advice before decisions.";
   }
 
   if (memoryType === "goal_or_priority") {
-    return "That sounds like a real priority, and it is worth protecting. Before future spending, compare the purchase against this goal so your money keeps moving in the right direction.";
-  }
-
-  if (memoryType === "lesson_or_insight") {
-    return "That lesson is worth keeping close. Turn it into one simple rule for next time, so the insight becomes a money guardrail instead of just a thought.";
+    return "Pattern: this goal is a priority worth protecting. Category: goal. Guardrail: compare future purchases against this goal before spending.";
   }
 
   if (memoryType === "emotional_pattern") {
-    return "That emotional pattern matters. When that feeling appears, pause first and choose a cheaper reset before spending, especially if the purchase was not planned.";
+    return "Pattern: emotions may be affecting spending decisions. Category: emotional pattern. Guardrail: pause first and choose a cheaper reset before unplanned spending.";
   }
 
-  if (memoryType === "money_rhythm") {
-    return "That money rhythm is important. Use it to plan your budget timing, especially around payday, bills, and the days when spending pressure usually rises.";
+  if (memoryType === "lesson_or_insight") {
+    return "Pattern: this insight can become a money rule. Category: lesson. Guardrail: turn it into one simple check before the next similar spend.";
   }
 
   if (hasBudgetPressure) {
-    return "That is worth noticing, especially because your budget looks pressured. Treat this as a signal to pause, protect essentials, and avoid unplanned spending today.";
+    return "Pattern: this matters more because your budget looks pressured. Category: budget risk. Guardrail: protect essentials and avoid unplanned spending today.";
   }
 
   return DEFAULT_MEMORY_REPLY;
@@ -191,5 +206,7 @@ export function sanitizeMemoryBrainReply(reply = "") {
     .trim();
 
   if (!cleaned) return DEFAULT_MEMORY_REPLY;
-  return limitWords(trimSentences(cleaned, 4), 100);
+
+  const withoutCoachStyle = removeCoachStyleSentences(cleaned);
+  return limitWords(trimSentences(withoutCoachStyle, 3), 55);
 }
