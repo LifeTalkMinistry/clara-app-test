@@ -4,6 +4,7 @@ export const CLARA_BRAINS = Object.freeze({
   DECISION: 3,
   COACH: 4,
   MEMORY: 5,
+  SCHEDULE: 6,
 });
 
 export const CLARA_BRAIN_KEYS = Object.freeze({
@@ -12,6 +13,7 @@ export const CLARA_BRAIN_KEYS = Object.freeze({
   [CLARA_BRAINS.DECISION]: "decision",
   [CLARA_BRAINS.COACH]: "coach",
   [CLARA_BRAINS.MEMORY]: "memory",
+  [CLARA_BRAINS.SCHEDULE]: "schedule",
 });
 
 export const CLARA_BRAIN_LABELS = Object.freeze({
@@ -20,6 +22,7 @@ export const CLARA_BRAIN_LABELS = Object.freeze({
   [CLARA_BRAINS.DECISION]: "Decision Brain",
   [CLARA_BRAINS.COACH]: "Coach Brain",
   [CLARA_BRAINS.MEMORY]: "Memory Brain",
+  [CLARA_BRAINS.SCHEDULE]: "Schedule Brain",
 });
 
 export const CLARA_CONTEXTS = Object.freeze({
@@ -95,6 +98,10 @@ function hasMePageSignal(text = "") {
   return /\b(my goal|my priority|my situation|my lifestyle|student|working student|breadwinner|family|partner|job|work|salary|habit|trigger|preference)\b/.test(text);
 }
 
+function isPureScheduleIntent(text = "") {
+  return hasScheduleSignal(text) && !hasDecisionSignal(text) && !/\b(can i afford|can i buy|should i buy|should i spend|before i buy|before buying|worth it|safe to spend|spend|buy|purchase|order)\b/.test(text);
+}
+
 function isCasualOnly(text = "") {
   if (!text) return false;
   if (hasScheduleSignal(text) || hasMoneySignal(text) || hasDecisionSignal(text) || hasCoachSignal(text) || hasMemorySignal(text)) return false;
@@ -116,6 +123,7 @@ function brainFromKey(key = "") {
   if (value === "decision") return CLARA_BRAINS.DECISION;
   if (value === "coach") return CLARA_BRAINS.COACH;
   if (value === "memory") return CLARA_BRAINS.MEMORY;
+  if (value === "schedule") return CLARA_BRAINS.SCHEDULE;
   return CLARA_BRAINS.CASUAL;
 }
 
@@ -162,6 +170,13 @@ function getInitialContextsForBrain(brain, text = "") {
     return contexts.length ? unique(contexts) : [CLARA_CONTEXTS.SPENDING_PATTERNS];
   }
 
+  if (brain === CLARA_BRAINS.SCHEDULE) {
+    const contexts = [CLARA_CONTEXTS.SCHEDULE];
+    if (/\b(cost|fee|payment|budget|money|financial|prepare money)\b/.test(text)) contexts.push(CLARA_CONTEXTS.FINANCE_PRESSURE);
+    if (hasRiskSignal(text)) contexts.push(CLARA_CONTEXTS.RISK);
+    return unique(contexts);
+  }
+
   return [];
 }
 
@@ -179,10 +194,10 @@ export function routeInitialBrainContext({ userMessage = "" } = {}) {
     brain = CLARA_BRAINS.DECISION;
     confidence = 0.94;
     reason = "User is asking for a decision or affordability judgment.";
-  } else if (hasScheduleSignal(text)) {
-    brain = CLARA_BRAINS.DECISION;
-    confidence = 0.9;
-    reason = "User is asking about schedule, appointments, or commitments.";
+  } else if (isPureScheduleIntent(text)) {
+    brain = CLARA_BRAINS.SCHEDULE;
+    confidence = 0.94;
+    reason = "User is asking a pure schedule, appointment, or calendar question.";
   } else if (hasMemorySignal(text)) {
     brain = CLARA_BRAINS.MEMORY;
     confidence = 0.88;
@@ -195,6 +210,10 @@ export function routeInitialBrainContext({ userMessage = "" } = {}) {
     brain = CLARA_BRAINS.FINANCE;
     confidence = 0.88;
     reason = "User is asking about money or a finance card.";
+  } else if (hasScheduleSignal(text)) {
+    brain = CLARA_BRAINS.SCHEDULE;
+    confidence = 0.9;
+    reason = "User is asking about schedule, appointments, or commitments.";
   }
 
   const contexts = getInitialContextsForBrain(brain, text);
@@ -231,6 +250,18 @@ export function routeFollowUpConversation({ userMessage = "", currentBrain = nul
     return { ...next, mode: "follow_up", action: FOLLOW_UP_ACTIONS.NEW_FLOW, reason: "User explicitly changed topic." };
   }
 
+  if (isPureScheduleIntent(text)) {
+    return {
+      mode: "follow_up",
+      action: previousBrain === CLARA_BRAINS.SCHEDULE ? FOLLOW_UP_ACTIONS.REFRESH_CONTEXT : FOLLOW_UP_ACTIONS.SWITCH_BRAIN,
+      brain: CLARA_BRAINS.SCHEDULE,
+      brainKey: CLARA_BRAIN_KEYS[CLARA_BRAINS.SCHEDULE],
+      contexts: [CLARA_CONTEXTS.SCHEDULE],
+      globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+      reason: "Pure schedule intent detected; use Schedule Brain with schedule context.",
+    };
+  }
+
   if (hasScheduleSignal(text)) {
     return {
       mode: "follow_up",
@@ -239,7 +270,7 @@ export function routeFollowUpConversation({ userMessage = "", currentBrain = nul
       brainKey: CLARA_BRAIN_KEYS[previousBrain === CLARA_BRAINS.CASUAL ? CLARA_BRAINS.DECISION : previousBrain],
       contexts: [CLARA_CONTEXTS.SCHEDULE],
       globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
-      reason: "Schedule intent detected; refresh schedule context before answering.",
+      reason: "Schedule context is needed inside the current flow.",
     };
   }
 
@@ -258,7 +289,7 @@ export function routeFollowUpConversation({ userMessage = "", currentBrain = nul
   }
 
   const currentIsCasual = previousBrain === CLARA_BRAINS.CASUAL;
-  const freshIsMeaningful = freshRoute.brain !== CLARA_BRAINS.CASUAL || hasMoneySignal(text) || hasCoachSignal(text) || hasMemorySignal(text) || hasDecisionSignal(text);
+  const freshIsMeaningful = freshRoute.brain !== CLARA_BRAINS.CASUAL || hasMoneySignal(text) || hasCoachSignal(text) || hasMemorySignal(text) || hasDecisionSignal(text) || hasScheduleSignal(text);
 
   if (!currentIsCasual && freshIsMeaningful && freshRoute.brain !== previousBrain) {
     return {
