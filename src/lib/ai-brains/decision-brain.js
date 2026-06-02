@@ -60,6 +60,16 @@ function extractPurchaseAmount(message = "") {
   return matches.length ? Math.max(...matches) : null;
 }
 
+function getConversationMessageText(message = {}) {
+  return cleanText(message?.text || message?.content || message?.message || "");
+}
+
+function isAcknowledgmentFollowUp(message = "") {
+  const text = normalizeText(message).replace(/[.?!]+$/g, "").trim();
+
+  return /^(oh i see|i see|ok|okay|got it|hmm|makes sense|noted|understood|right|alright|ah ok|ah okay|sige|yes i see)$/.test(text);
+}
+
 function hasEmergencyIntent(message = "") {
   return /\b(emergency fund|emergency money|protected money|reserve|buffer)\b/i.test(message || "");
 }
@@ -76,6 +86,28 @@ function hasSpendingDecisionIntent(message = "") {
 function hasScheduleConcernIntent(message = "") {
   const text = normalizeText(message);
   return /\b(schedule|appointment|calendar|upcoming|coming up|dentist|doctor|meeting|shift|class|event|reminder|prepare money|prepare for|anything coming up)\b/.test(text);
+}
+
+function getLastDecisionLikeUserMessage(recentConversation = []) {
+  const messages = Array.isArray(recentConversation) ? recentConversation : [];
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role !== "user") continue;
+
+    const text = getConversationMessageText(message);
+    if (!text || isAcknowledgmentFollowUp(text)) continue;
+
+    if (
+      hasSpendingDecisionIntent(text) ||
+      hasScheduleConcernIntent(text) ||
+      extractPurchaseAmount(text) !== null
+    ) {
+      return text;
+    }
+  }
+
+  return "";
 }
 
 function budgetName(budget = {}) {
@@ -123,21 +155,40 @@ function classifyLocalDecision({ amount, finance, userMessage }) {
   if (amount === null) return { level: "ASK", numbers };
   if (!finance.hasAnyData) return { level: "MISSING_DATA", numbers };
   if (usingEmergency && !realEmergency) return { level: "NO", reason: "protected_emergency", numbers };
-  if (numbers.availableSpendableMoney !== null && amount > numbers.availableSpendableMoney && numbers.visibleWalletMoney !== null && amount <= numbers.visibleWalletMoney && numbers.emergencyProtectedMoney > 0) {
+
+  if (
+    numbers.availableSpendableMoney !== null &&
+    amount > numbers.availableSpendableMoney &&
+    numbers.visibleWalletMoney !== null &&
+    amount <= numbers.visibleWalletMoney &&
+    numbers.emergencyProtectedMoney > 0
+  ) {
     return { level: "NO", reason: "touches_protected", numbers };
   }
-  if (numbers.availableSpendableMoney !== null && amount > numbers.availableSpendableMoney) return { level: "NO", reason: "not_enough_spendable", numbers };
-  if (numbers.remainingBudget !== null && amount > numbers.remainingBudget) return { level: "DELAY", reason: "budget_pressure", numbers };
-  if (numbers.remainingBudget !== null && amount > numbers.remainingBudget * 0.5) return { level: "CAUTION", reason: "large_vs_budget", numbers };
+
+  if (numbers.availableSpendableMoney !== null && amount > numbers.availableSpendableMoney) {
+    return { level: "NO", reason: "not_enough_spendable", numbers };
+  }
+
+  if (numbers.remainingBudget !== null && amount > numbers.remainingBudget) {
+    return { level: "DELAY", reason: "budget_pressure", numbers };
+  }
+
+  if (numbers.remainingBudget !== null && amount > numbers.remainingBudget * 0.5) {
+    return { level: "CAUTION", reason: "large_vs_budget", numbers };
+  }
+
   return { level: "SAFE", numbers };
 }
 
 function buildScheduleDecisionLine(context = {}) {
   const schedule = getScheduleContextForAI(context || {});
   const item = schedule.nextMoneyItem || schedule.nextItem;
+
   if (!item) return "I don’t see any upcoming schedule item loaded that would affect this decision.";
   if (item.amountText) return `You also have ${item.title} on ${item.dateLabel} with an estimated money impact of ${item.amountText}.`;
   if (item.hasMoneyImpact) return `You also have ${item.title} on ${item.dateLabel}, and it may have a cost even though no exact amount is saved yet.`;
+
   return `You also have ${item.title} on ${item.dateLabel}, so consider that before spending.`;
 }
 
@@ -154,6 +205,14 @@ function buildScheduleAwareDecisionReply({ amount, decision, numbers, context })
   }
 
   return `This may be possible, but do not decide from wallet balance alone. ${scheduleLine} Reserve that first, then only buy the ${amountText} item if it still fits your budget.`;
+}
+
+function buildAcknowledgmentDecisionReply({ context = {}, previousMessage = "" } = {}) {
+  const scheduleLine = buildScheduleDecisionLine(context);
+  const amount = extractPurchaseAmount(previousMessage);
+  const purchaseText = amount !== null ? `the ${money(amount)} purchase` : "the purchase";
+
+  return `Exactly. ${scheduleLine} Protect that first, then check if ${purchaseText} still fits your remaining budget.`;
 }
 
 function trimSentences(text = "", maxSentences = 4) {
@@ -181,24 +240,36 @@ function hasSentenceEnding(text = "") {
 function isBadDecisionReply(text = "") {
   const cleaned = cleanText(text);
   const lowered = cleaned.toLowerCase();
+
   if (!cleaned) return true;
   if (/[,:;\-–—]$/.test(cleaned)) return true;
   if (!hasSentenceEnding(cleaned) && cleaned.length < 180) return true;
   if (DANGLING_DECISION_ENDINGS.includes(lastWord(cleaned))) return true;
   if (/\b(comfortably buy|definitely buy|go ahead and buy|yes, you can comfortably)\b/i.test(cleaned)) return true;
+  if (/^okay,?\s+so\s+you\s+have\b/i.test(cleaned)) return true;
   if (/\byour\s+₱?\d[\d,]*\s+purchase\s+is\s*$/i.test(cleaned)) return true;
+  if (lowered.includes("you have") && lowered.includes("appointment") && !lowered.includes("protect") && !lowered.includes("budget")) return true;
   if (lowered.includes("comfortable") && lowered.includes("buy") && !lowered.includes("budget") && !lowered.includes("schedule") && !lowered.includes("appointment")) return true;
+
   return false;
 }
 
 export function buildDecisionBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
+  const isAckFollowUp = isAcknowledgmentFollowUp(userMessage);
+  const previousDecisionMessage = isAckFollowUp ? getLastDecisionLikeUserMessage(recentConversation) : "";
+  const effectiveMessage = previousDecisionMessage || userMessage;
+
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
-  const amount = extractPurchaseAmount(userMessage);
-  const decision = classifyLocalDecision({ amount, finance, userMessage });
+  const amount = extractPurchaseAmount(effectiveMessage);
+  const decision = classifyLocalDecision({ amount, finance, userMessage: effectiveMessage });
   const numbers = decision.numbers || getDecisionNumbers(finance);
-  const scheduleBlock = buildSchedulePromptBlock(userMessage, context || {});
-  const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.DECISION, message: userMessage, context });
+  const scheduleBlock = buildSchedulePromptBlock(effectiveMessage, context || {});
+  const subContextBlock = buildClaraBrainSubContextPromptBlock({
+    brain: CLARA_BRAINS.DECISION,
+    message: effectiveMessage,
+    context,
+  });
 
   return `You are CLARA's Decision Brain.
 
@@ -216,7 +287,14 @@ ${subContextBlock}
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
 
-RECENT CHATBOX CONVERSATION:
+${isAckFollowUp ? `FOLLOW-UP STATUS:
+The latest user message is only a short acknowledgment, not a new question.
+Continue the previous decision concern: ${cleanText(previousDecisionMessage) || "not found"}
+Do not restart.
+Do not simply summarize the last fact.
+Give the next best action.
+
+` : ""}RECENT CHATBOX CONVERSATION:
 ${formatRecentConversation(recentConversation)}
 
 DECISION SNAPSHOT:
@@ -258,7 +336,7 @@ DECISION LEVELS:
 
 CONTEXT PRIORITY:
 1. Selected sub-contexts from CLARA SUB-CONTEXT SELECTION
-2. Purchase amount detected from user message
+2. Purchase amount detected from user message or previous decision concern
 3. Available spendable wallet money
 4. Remaining spendable budget
 5. Emergency fund protected amount
@@ -266,6 +344,12 @@ CONTEXT PRIORITY:
 7. Savings goal progress
 8. Recent spending pattern
 9. Recent conversation
+
+IMPORTANT ACKNOWLEDGMENT FOLLOW-UP RULE:
+- If the latest user message is a short acknowledgment like "oh I see", "ok", "got it", "hmm", or "makes sense", continue the active decision flow.
+- Do not answer as if it is a new question.
+- Do not simply repeat the last fact.
+- Confirm the realization briefly, then give the next best action.
 
 IMPORTANT DECISION + SCHEDULE RULE:
 - If the user asks about buying, spending, affordability, delaying, or deciding AND also asks about schedule, appointments, upcoming plans, or money-impact events, this is still a Decision Brain request.
@@ -291,7 +375,20 @@ IMPORTANT RULES:
 Reply as CLARA:`;
 }
 
-export function generateLocalDecisionReply({ userMessage = "", context = {} } = {}) {
+export function generateLocalDecisionReply({
+  userMessage = "",
+  context = {},
+  conversationHistory = [],
+} = {}) {
+  if (isAcknowledgmentFollowUp(userMessage)) {
+    const previousMessage = getLastDecisionLikeUserMessage(conversationHistory);
+
+    return buildAcknowledgmentDecisionReply({
+      context,
+      previousMessage,
+    });
+  }
+
   const finance = buildClaraFinanceSnapshot(context || {});
   const amount = extractPurchaseAmount(userMessage);
   const decision = classifyLocalDecision({ amount, finance, userMessage });
