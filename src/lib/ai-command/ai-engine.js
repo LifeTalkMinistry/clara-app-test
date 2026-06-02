@@ -11,6 +11,11 @@ import {
   parseCommand,
 } from "@/lib/ai-command/command-parser";
 import { askGeminiForUnderstanding, getGeminiStatus } from "@/lib/ai-command/gemini-service";
+import {
+  attachRouteToCommand,
+  routeAssistantInput,
+  shouldUseGeminiForRoute,
+} from "@/lib/ai-command/clara-router";
 
 const READ_INTENTS = new Set([
   AI_INTENTS.GET_LAST_EXPENSE,
@@ -38,10 +43,6 @@ const STATIC_READ_INTENTS = new Set([
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
-}
-
-function getUserKey(user) {
-  return user?.id || user?.email || "local-user";
 }
 
 function getDisplayName(user) {
@@ -139,6 +140,7 @@ function shouldExecuteImmediately(command, input = "") {
   if (!command?.canExecute) return false;
   if (command.status === "awaiting_confirmation") return false;
   if (WRITE_INTENTS.has(command.intent)) return false;
+  if (command.route?.preferAssistantMessage && command.assistantMessage) return false;
   if (isReflectiveMemoryMessage(input) && STATIC_READ_INTENTS.has(command.intent)) return false;
   return command.status === "ready_to_execute" || READ_INTENTS.has(command.intent);
 }
@@ -147,24 +149,41 @@ function shouldPreferLocalCommand(command, input = "") {
   if (!command || command.intent === AI_INTENTS.UNKNOWN) return false;
   if (isReflectiveMemoryMessage(input) && READ_INTENTS.has(command.intent)) return false;
   if (WRITE_INTENTS.has(command.intent)) return true;
+  if (command.intent === AI_INTENTS.DECISION_GUIDANCE) return false;
   if (READ_INTENTS.has(command.intent)) return true;
   return Number(command.confidence || 0) >= 0.78;
 }
 
 async function understandInput({ text, session, financeSnapshot }) {
   const localCommand = parseCommand(text, session?.currentCommand || null);
-  if (shouldPreferLocalCommand(localCommand, text)) return localCommand;
+  const routeResult = routeAssistantInput({ text, session, localCommand });
+
+  if (shouldPreferLocalCommand(localCommand, text) && !shouldUseGeminiForRoute(routeResult, localCommand)) {
+    return attachRouteToCommand(localCommand, routeResult);
+  }
 
   try {
-    const geminiCommand = await askGeminiForUnderstanding({ text, session, financeSnapshot });
-    if (geminiCommand?.intent && geminiCommand.intent !== AI_INTENTS.UNKNOWN) return geminiCommand;
+    if (shouldUseGeminiForRoute(routeResult, localCommand)) {
+      const geminiCommand = await askGeminiForUnderstanding({ text, session, financeSnapshot });
+      if (geminiCommand?.intent && geminiCommand.intent !== AI_INTENTS.UNKNOWN) {
+        return attachRouteToCommand(geminiCommand, routeResult);
+      }
+    }
   } catch (error) {
     console.warn("CLARA Gemini understanding failed:", error);
   }
 
   return localCommand.intent === AI_INTENTS.UNKNOWN
-    ? buildCommand(AI_INTENTS.GENERAL_GUIDANCE, { label: text }, 0.45, "I can help with wallets, expenses, budgets, savings, and money decisions. Try asking me to check your balance or log an expense.")
-    : localCommand;
+    ? attachRouteToCommand(
+        buildCommand(
+          AI_INTENTS.GENERAL_GUIDANCE,
+          { label: text },
+          0.45,
+          "I can help with wallets, expenses, budgets, savings, and money decisions. Try asking me to check your balance or log an expense."
+        ),
+        routeResult
+      )
+    : attachRouteToCommand(localCommand, routeResult);
 }
 
 export async function processAssistantTurn({ text, session, user }) {
@@ -203,8 +222,10 @@ export async function processAssistantTurn({ text, session, user }) {
   }
 
   if (isPureSmallTalk(input)) {
+    const command = buildCommand(AI_INTENTS.GENERAL_GUIDANCE, {}, 0.9);
+    const routeResult = routeAssistantInput({ text: input, session, localCommand: command });
     return {
-      command: buildCommand(AI_INTENTS.GENERAL_GUIDANCE, {}, 0.9),
+      command: attachRouteToCommand(command, routeResult),
       assistantMessage: buildConversationalFallback(input, activeUser),
       executionResult: null,
       status: "detected",
@@ -216,9 +237,11 @@ export async function processAssistantTurn({ text, session, user }) {
 
   if (isBalanceQuestion(input)) {
     const command = buildCommand(AI_INTENTS.CHECK_BALANCE, { scope: "all" }, 0.98);
-    const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
+    const routeResult = routeAssistantInput({ text: input, session, localCommand: command });
+    const routedCommand = attachRouteToCommand(command, routeResult);
+    const result = await executeAICommand(routedCommand, { user: activeUser, financeSnapshot });
     return {
-      command: { ...command, status: result.success ? "executed" : "error" },
+      command: { ...routedCommand, status: result.success ? "executed" : "error" },
       assistantMessage: result.message,
       executionResult: result,
       status: result.success ? "executed" : "error",
@@ -227,8 +250,10 @@ export async function processAssistantTurn({ text, session, user }) {
   }
 
   if (isLastTransactionRequest(input)) {
+    const command = buildCommand(AI_INTENTS.READ_WALLET_HISTORY, { localAction: "latest_transaction" }, 0.95);
+    const routeResult = routeAssistantInput({ text: input, session, localCommand: command });
     return {
-      command: buildCommand(AI_INTENTS.READ_WALLET_HISTORY, { localAction: "latest_transaction" }, 0.95),
+      command: attachRouteToCommand(command, routeResult),
       assistantMessage: buildLatestTransactionMessage(financeSnapshot),
       executionResult: null,
       status: "detected",
@@ -236,7 +261,7 @@ export async function processAssistantTurn({ text, session, user }) {
     };
   }
 
-  const command = await understandInput({ text: input, session, financeSnapshot, userKey: getUserKey(activeUser), user: activeUser });
+  const command = await understandInput({ text: input, session, financeSnapshot });
 
   if (shouldExecuteImmediately(command, input)) {
     const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
