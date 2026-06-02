@@ -1,6 +1,7 @@
 import { buildScheduleDirectReply, getScheduleContextForAI } from "../clara-schedule-ai-context";
 
 const DEFAULT_SCHEDULE_REPLY = "I don’t see upcoming schedule items loaded from your Schedule page right now. Add an appointment or event there, then I can help you prepare for it.";
+const INCOMPLETE_MONEY_ENDING_PATTERN = /(?:estimated\s+(?:money\s+)?impact\s+of|estimated\s+cost\s+of|impact\s+of|cost\s+of|amount\s+of)\s*$/i;
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -26,7 +27,11 @@ function formatScheduleRows(schedule) {
     .slice(0, 8)
     .map((event, index) => {
       const time = event.time ? ` • ${event.time}` : "";
-      const impact = event.amountText ? ` • estimated impact ${event.amountText}` : "";
+      const impact = event.amountText
+        ? ` • estimated impact ${event.amountText}`
+        : event.hasMoneyImpact
+          ? " • possible money impact, exact amount not saved"
+          : "";
       const note = event.note ? ` • note: ${event.note}` : "";
       return `${index + 1}. ${event.title} — ${event.dateLabel}${time} — ${event.type}${impact}${note}`;
     })
@@ -44,6 +49,30 @@ function limitWords(text = "", maxWords = 95) {
   const words = cleanText(text).split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return cleanText(text);
   return `${words.slice(0, maxWords).join(" ").replace(/[,:;\-–—]+$/, "")}.`;
+}
+
+function removeOpeningChatter(text = "") {
+  const cleaned = cleanText(text)
+    .replace(/^CLARA:\s*/i, "")
+    .replace(/^Reply:\s*/i, "")
+    .replace(/^#+\s*/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .trim();
+
+  if (/^[a-z ,'-]{2,32}!\s*(?=(looks like|your|you have|i found|there is))/i.test(cleaned)) {
+    return cleaned.replace(/^[a-z ,'-]{2,32}!\s*/i, "").trim();
+  }
+
+  return cleaned;
+}
+
+function isIncompleteScheduleReply(text = "") {
+  const cleaned = cleanText(text).replace(/[.!?]+$/, "").trim();
+  if (!cleaned) return true;
+  if (INCOMPLETE_MONEY_ENDING_PATTERN.test(cleaned)) return true;
+  if (/\b(estimated|impact|cost|amount|of|with|for|to|because|and|but|so)\s*$/i.test(cleaned) && cleaned.length < 180) return true;
+  return false;
 }
 
 export function buildScheduleBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
@@ -67,6 +96,8 @@ SCHEDULE CONTEXT:
 ${formatScheduleRows(schedule)}
 
 RULES:
+- Start directly with the schedule answer because the conversation may already be active.
+- Do not restart the conversation.
 - If schedule items exist, mention the nearest one first.
 - If there is a dentist appointment, mention it directly.
 - Include date and time if available.
@@ -74,6 +105,9 @@ RULES:
 - End with one helpful CTA or follow-up question, such as preparing budget, reminder, transportation, or what to do next.
 - If no schedule items are loaded, say that clearly and ask the user to add one in the Schedule page.
 - Do not talk like a finance decision unless the user asks about spending.
+- If a money-impact amount exists, include the exact amount in the same sentence.
+- If a money-impact amount is missing, say that the appointment may have a cost but no exact amount is saved yet.
+- Never end with incomplete money-impact or amount phrases.
 - Keep the reply conversational and useful.
 - Maximum 3-4 short sentences.
 
@@ -94,15 +128,14 @@ export function generateLocalScheduleReply({ userMessage = "", context = {} } = 
   return `${directReply} ${cta}`;
 }
 
-export function sanitizeScheduleBrainReply(reply = "") {
-  const cleaned = cleanText(reply)
-    .replace(/^CLARA:\s*/i, "")
-    .replace(/^Reply:\s*/i, "")
-    .replace(/^#+\s*/gm, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .trim();
+export function sanitizeScheduleBrainReply(reply = "", fallbackReply = DEFAULT_SCHEDULE_REPLY) {
+  const cleaned = removeOpeningChatter(reply);
+  const fallback = removeOpeningChatter(fallbackReply || DEFAULT_SCHEDULE_REPLY) || DEFAULT_SCHEDULE_REPLY;
 
-  if (!cleaned) return DEFAULT_SCHEDULE_REPLY;
-  return limitWords(trimSentences(cleaned, 4), 95);
+  if (!cleaned || isIncompleteScheduleReply(cleaned)) return fallback;
+
+  const trimmed = limitWords(trimSentences(cleaned, 4), 95);
+  if (isIncompleteScheduleReply(trimmed)) return fallback;
+
+  return trimmed;
 }
