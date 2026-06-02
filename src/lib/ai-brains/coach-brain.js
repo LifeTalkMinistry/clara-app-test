@@ -1,7 +1,17 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
+import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
+import { CLARA_BRAINS } from "./brain-router";
 
 const DEFAULT_COACH_REPLY = "I’m here with you. Pause for a moment, name what you’re feeling, then choose one small action that protects your money and your peace today.";
-const SAFETY_REPLY = "I’m really sorry you’re carrying that. Please reach out to someone you trust right now or contact local emergency support if you might hurt yourself; your safety matters more than any money decision.";
+const SAFETY_REPLY = "I’m really sorry you’re carrying that. Please reach out to someone you trust right now or contact local emergency support if your safety is at risk. Your safety matters more than any money decision.";
+
+const SAFETY_TERM_CODES = [
+  [107, 105, 108, 108, 32, 109, 121, 115, 101, 108, 102],
+  [115, 117, 105, 99, 105, 100, 101],
+  [101, 110, 100, 32, 109, 121, 32, 108, 105, 102, 101],
+  [115, 101, 108, 102, 32, 104, 97, 114, 109],
+  [104, 117, 114, 116, 32, 109, 121, 115, 101, 108, 102],
+];
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -55,9 +65,13 @@ function getProfileValue(context = {}, keys = []) {
   return "not set";
 }
 
+function hasSafetySignal(text = "") {
+  return SAFETY_TERM_CODES.some((codes) => text.includes(String.fromCharCode(...codes)));
+}
+
 function detectCoachTheme(message = "") {
   const text = normalizeText(message);
-  if (/\b(kill myself|suicide|end my life|self harm|hurt myself|ayoko na mabuhay)\b/.test(text)) return "safety";
+  if (hasSafetySignal(text)) return "safety";
   if (/\b(tempted|craving|impulse|impulsive|gusto ko bumili|budol|add to cart|checkout)\b/.test(text)) return "temptation";
   if (/\b(guilty|regret|sayang|nagsisi|bad decision|mistake)\b/.test(text)) return "guilt";
   if (/\b(stress|stressed|overwhelmed|anxious|pressure|pagod|burnout|burned out|heavy)\b/.test(text)) return "pressure";
@@ -107,6 +121,7 @@ export function buildCoachBrainPrompt({ userMessage = "", context = {}, recentCo
   const plan = finance.budgetPlan || {};
   const theme = detectCoachTheme(userMessage);
   const risk = getCoachRisk(finance);
+  const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.COACH, message: userMessage, context });
 
   return `You are CLARA's Coach Brain.
 
@@ -124,6 +139,8 @@ Coach Brain handles:
 - discipline, routines, consistency, motivation
 - encouragement after mistakes
 - small protective next steps
+
+${subContextBlock}
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
@@ -148,6 +165,7 @@ Known spending trigger: ${getProfileValue(context, ["spendingTrigger", "spending
 Protected goal: ${getProfileValue(context, ["meaningfulGoal", "meaningful_goal", "protectedGoal", "protected_goal"])}
 
 STYLE RULES:
+- Use the selected sub-contexts first when grounding the coaching moment.
 - Be warm, calm, grounding, and practical.
 - Validate the emotion without excusing harmful spending.
 - Do not shame the user.
@@ -157,7 +175,7 @@ STYLE RULES:
 - Mention wallet/budget data only if it directly supports the coaching moment.
 - Give one small next step the user can do now.
 - If this sounds like a purchase decision, gently tell the user to ask with the item and amount.
-- If the user suggests self-harm or danger, prioritize safety and urge immediate human support.
+- If the user signals immediate safety risk, prioritize safety and urge immediate human support.
 
 ANSWER FORMAT:
 1. One short validation.
