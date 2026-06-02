@@ -497,7 +497,12 @@ async function generateFinanceBrainReply({ apiKey, message, context, conversatio
 }
 
 async function generateDecisionBrainReply({ apiKey, message, context, conversationHistory, signal }) {
-  const localReply = generateLocalDecisionReply({ userMessage: message, context });
+  const localReply = generateLocalDecisionReply({
+    userMessage: message,
+    context,
+    conversationHistory,
+  });
+
   if (!apiKey) return localReply;
 
   const prompt = buildDecisionBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
