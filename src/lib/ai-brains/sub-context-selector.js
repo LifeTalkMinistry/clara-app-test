@@ -1,6 +1,6 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 import { getScheduleContextForAI } from "../clara-schedule-ai-context";
-import { CLARA_BRAINS, CLARA_BRAIN_LABELS } from "./brain-router";
+import { CLARA_BRAINS, CLARA_BRAIN_LABELS, CLARA_BRAIN_KEYS } from "./brain-router";
 
 function cleanText(value = "") {
   return String(value || "")
@@ -67,6 +67,9 @@ function buildLoadedData({ context = {}, finance = {}, schedule = {} } = {}) {
     schedule: {
       upcomingItems: count(schedule.upcomingItems) > 0,
       moneyImpactEvents: count(schedule.upcomingMoneyItems) > 0,
+      appointments: count(schedule.upcomingItems) > 0,
+      reminders: count(schedule.upcomingItems) > 0,
+      deadlines: count(schedule.upcomingItems) > 0,
       nextItem: Boolean(schedule.nextItem),
       nextMoneyItem: Boolean(schedule.nextMoneyItem),
     },
@@ -134,6 +137,14 @@ function selectByBrain({ brain, text }) {
   return [];
 }
 
+function routeForBrain(brain) {
+  return {
+    brain,
+    brainKey: CLARA_BRAIN_KEYS[brain],
+    contexts: [],
+  };
+}
+
 export function selectClaraSubContexts({ message = "", context = {}, brainRoute = {} } = {}) {
   const text = cleanText(message);
   const finance = buildClaraFinanceSnapshot(context || {});
@@ -186,6 +197,19 @@ export function attachClaraSubContextSelection(context = {}, selection = null) {
 
 export function getClaraSubContextSelection(context = {}) {
   return context?.claraSubContextSelection || null;
+}
+
+export function buildClaraBrainSubContextPromptBlock({ brain, message = "", context = {} } = {}) {
+  return buildClaraSubContextPromptBlock(
+    attachClaraSubContextSelection(
+      context,
+      selectClaraSubContexts({
+        message,
+        context,
+        brainRoute: routeForBrain(brain),
+      })
+    )
+  );
 }
 
 export function buildClaraSubContextPromptBlock(context = {}) {
