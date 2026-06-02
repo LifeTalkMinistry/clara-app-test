@@ -1,5 +1,7 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 import { buildScheduleDirectReply, buildSchedulePromptBlock } from "../clara-schedule-ai-context";
+import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
+import { CLARA_BRAINS } from "./brain-router";
 
 const MISSING_PURCHASE_QUESTION = "What are you planning to buy, and how much is it?";
 const MISSING_DATA_REPLY = "I need your wallet or budget data before I can judge this clearly.";
@@ -139,6 +141,7 @@ export function buildDecisionBrainPrompt({ userMessage = "", context = {}, recen
   const decision = classifyLocalDecision({ amount, finance, userMessage });
   const numbers = decision.numbers || getDecisionNumbers(finance);
   const scheduleBlock = buildSchedulePromptBlock(userMessage, context || {});
+  const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.DECISION, message: userMessage, context });
 
   return `You are CLARA's Decision Brain.
 
@@ -150,6 +153,8 @@ Ask before you spend.
 
 PURPOSE:
 Help the user decide safely and quickly on purchase decisions, affordability checks, spending judgment, tradeoffs, and "should I?" questions.
+
+${subContextBlock}
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
@@ -195,16 +200,18 @@ DECISION LEVELS:
 - NO: User clearly cannot afford it, or it would touch protected/emergency money without a real emergency reason.
 
 CONTEXT PRIORITY:
-1. Purchase amount detected from user message
-2. Available spendable wallet money
-3. Remaining spendable budget
-4. Emergency fund protected amount
-5. Schedule commitments and upcoming money-impact appointments
-6. Savings goal progress
-7. Recent spending pattern
-8. Recent conversation
+1. Selected sub-contexts from CLARA SUB-CONTEXT SELECTION
+2. Purchase amount detected from user message
+3. Available spendable wallet money
+4. Remaining spendable budget
+5. Emergency fund protected amount
+6. Schedule commitments and upcoming money-impact appointments
+7. Savings goal progress
+8. Recent spending pattern
+9. Recent conversation
 
 IMPORTANT RULES:
+- Use the selected sub-contexts first when choosing what to mention.
 - If the user asks about schedule, appointment, calendar, upcoming plans, or commitments, answer from the Schedule section.
 - If Schedule section has an item such as a dentist appointment, mention it directly.
 - If no schedule items are loaded, say that clearly.
