@@ -1,5 +1,5 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
-import { buildScheduleDirectReply, buildSchedulePromptBlock } from "../clara-schedule-ai-context";
+import { buildScheduleDirectReply, buildSchedulePromptBlock, getScheduleContextForAI } from "../clara-schedule-ai-context";
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
@@ -67,6 +67,16 @@ function hasRealEmergencySignal(message = "") {
   return /\b(hospital|medical|medicine|medication|doctor|accident|urgent|emergency|rent|eviction|electricity|water bill|food|groceries|basic need|essential|survival)\b/i.test(message || "");
 }
 
+function hasSpendingDecisionIntent(message = "") {
+  const text = normalizeText(message);
+  return /\b(before i buy|before buying|before i spend|before spending|can i buy|can i spend|should i buy|should i spend|can i still buy|can i still spend|afford|worth it|delay|purchase|buy|spend|order)\b/.test(text) || extractPurchaseAmount(message) !== null;
+}
+
+function hasScheduleConcernIntent(message = "") {
+  const text = normalizeText(message);
+  return /\b(schedule|appointment|calendar|upcoming|coming up|dentist|doctor|meeting|shift|class|event|reminder|prepare money|prepare for|anything coming up)\b/.test(text);
+}
+
 function budgetName(budget = {}) {
   return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
 }
@@ -119,6 +129,30 @@ function classifyLocalDecision({ amount, finance, userMessage }) {
   if (numbers.remainingBudget !== null && amount > numbers.remainingBudget) return { level: "DELAY", reason: "budget_pressure", numbers };
   if (numbers.remainingBudget !== null && amount > numbers.remainingBudget * 0.5) return { level: "CAUTION", reason: "large_vs_budget", numbers };
   return { level: "SAFE", numbers };
+}
+
+function buildScheduleDecisionLine(context = {}) {
+  const schedule = getScheduleContextForAI(context || {});
+  const item = schedule.nextMoneyItem || schedule.nextItem;
+  if (!item) return "I don’t see any upcoming schedule item loaded that would affect this decision.";
+  if (item.amountText) return `You also have ${item.title} on ${item.dateLabel} with an estimated money impact of ${item.amountText}.`;
+  if (item.hasMoneyImpact) return `You also have ${item.title} on ${item.dateLabel}, and it may have a cost even though no exact amount is saved yet.`;
+  return `You also have ${item.title} on ${item.dateLabel}, so consider that before spending.`;
+}
+
+function buildScheduleAwareDecisionReply({ amount, decision, numbers, context }) {
+  const scheduleLine = buildScheduleDecisionLine(context);
+  const amountText = amount !== null ? money(amount) : "that amount";
+
+  if (decision.reason === "budget_pressure" || decision.reason === "large_vs_budget") {
+    return `I’d delay the ${amountText} purchase for now. ${scheduleLine} Protect that upcoming commitment first, then check if the purchase still fits your remaining budget of ${money(numbers.remainingBudget)}.`;
+  }
+
+  if (decision.reason === "not_enough_spendable" || decision.reason === "touches_protected" || decision.reason === "protected_emergency") {
+    return `I would not buy it right now. ${scheduleLine} Keep your protected and upcoming money safe before spending ${amountText}.`;
+  }
+
+  return `This may be possible, but do not decide from wallet balance alone. ${scheduleLine} Reserve that first, then only buy the ${amountText} item if it still fits your budget.`;
 }
 
 function trimSentences(text = "", maxSentences = 4) {
@@ -210,9 +244,14 @@ CONTEXT PRIORITY:
 8. Recent spending pattern
 9. Recent conversation
 
+IMPORTANT DECISION + SCHEDULE RULE:
+- If the user asks about buying, spending, affordability, delaying, or deciding AND also asks about schedule, appointments, upcoming plans, or money-impact events, this is still a Decision Brain request.
+- In that case, schedule is only supporting context. Do not answer with schedule information only.
+- Give a spending recommendation first, then use the schedule item as the reason or risk.
+
 IMPORTANT RULES:
 - Use the selected sub-contexts first when choosing what to mention.
-- If the user asks about schedule, appointment, calendar, upcoming plans, or commitments, answer from the Schedule section.
+- If the user asks about schedule, appointment, calendar, upcoming plans, or commitments without a spending decision, answer from the Schedule section.
 - If Schedule section has an item such as a dentist appointment, mention it directly.
 - If no schedule items are loaded, say that clearly.
 - Emergency Fund is protected money. Do not treat it as free spending money.
@@ -230,17 +269,23 @@ Reply as CLARA:`;
 }
 
 export function generateLocalDecisionReply({ userMessage = "", context = {} } = {}) {
-  const scheduleReply = buildScheduleDirectReply(userMessage, context || {});
-  if (scheduleReply) return scheduleReply;
-
   const finance = buildClaraFinanceSnapshot(context || {});
   const amount = extractPurchaseAmount(userMessage);
   const decision = classifyLocalDecision({ amount, finance, userMessage });
+  const numbers = decision.numbers || getDecisionNumbers(finance);
+  const isDecisionWithSchedule = hasSpendingDecisionIntent(userMessage) && hasScheduleConcernIntent(userMessage);
+
+  if (!isDecisionWithSchedule) {
+    const scheduleReply = buildScheduleDirectReply(userMessage, context || {});
+    if (scheduleReply) return scheduleReply;
+  }
+
+  if (isDecisionWithSchedule && amount !== null && finance.hasAnyData) {
+    return buildScheduleAwareDecisionReply({ amount, decision, numbers, context });
+  }
 
   if (decision.level === "ASK") return MISSING_PURCHASE_QUESTION;
   if (decision.level === "MISSING_DATA") return MISSING_DATA_REPLY;
-
-  const numbers = decision.numbers || getDecisionNumbers(finance);
 
   if (decision.reason === "protected_emergency") {
     return "Only use protected emergency money if this is a real emergency. If this is normal spending, delay it and use your regular budget instead.";
