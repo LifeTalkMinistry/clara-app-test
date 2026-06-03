@@ -56,6 +56,21 @@ function getBudgetCycleLabel(budget) {
   return "Monthly";
 }
 
+function isFinishedBudgetHeader(budget = {}) {
+  const status = normalizeLower(budget?.status);
+  return (
+    budget?.is_complete === true ||
+    budget?.complete === true ||
+    budget?.planIsComplete === true ||
+    budget?.plan_is_complete === true ||
+    status === "active" ||
+    status === "activated" ||
+    status === "complete" ||
+    status === "completed" ||
+    status === "finished"
+  );
+}
+
 export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
   const monthlyBudgetHeader = useMemo(() => {
     const currentMonthKey = getPHMonthKey();
@@ -77,20 +92,22 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
       return (
         isCurrentMonth &&
         isActive &&
-        !["inactive", "archived", "deleted", "closed"].includes(status) &&
-        isHeader
+        !["inactive", "archived", "deleted", "closed", "draft"].includes(status) &&
+        isHeader &&
+        isFinishedBudgetHeader(budget)
       );
     });
 
     return (
       candidates.find((budget) => isInsideCycle(budget, currentDate)) ||
-      candidates.find((budget) => normalizeLower(budget?.status) === "active") ||
       candidates[0] ||
       null
     );
   }, [budgets]);
 
   const declaredMonthlyBudgetAmount = useMemo(() => {
+    if (!monthlyBudgetHeader || !isFinishedBudgetHeader(monthlyBudgetHeader)) return 0;
+
     return firstValidNumber(
       monthlyBudgetHeader?.declared_amount,
       monthlyBudgetHeader?.declared_budget,
