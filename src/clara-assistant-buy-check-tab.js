@@ -1,20 +1,29 @@
 const BUY_CHECK_LABEL = "Buy Check";
 const SMART_ACTIONS_LABELS = ["Smart Actions", "Analytic"];
 const CORE_PANEL_LABELS = ["Core Features", "Forecast"];
-const BUY_CHECK_ACTION_MATCHERS = ["Afford Check", "Can I Afford This?", "Can I Buy This?", "Buy Check"];
 
-const BUY_CHECK_CONTROLLED_PROMPT = `Start CLARA Buy Check controlled flow.
+const BUY_CHECK_CONTROLLED_PROMPT = `what are you thinking of buying
 
-Important boundaries:
+Start CLARA Buy Check controlled flow.
+
+Do not show this as a user request. CLARA should initiate the conversation from the assistant side.
+
+Reply only with this opening style:
+Hi, Max! What item are you planning to buy?
+
+Then continue Buy Check as a controlled guided flow:
+1. Ask for item if missing.
+2. Ask for amount if missing.
+3. Ask if it was planned or unplanned.
+4. Ask wallet/category only if needed.
+5. Give a clear decision: Buy, Buy with cap, Reduce, Wait, or Pause.
+
+Boundaries:
 - Stay inside Buy Check mode.
 - Do not answer unrelated general chat questions here.
 - Ask only one missing question at a time.
-- Guide the user through: item, amount, planned/unplanned, wallet if needed, category if needed.
-- Then decide: Buy, Buy with cap, Reduce, Wait, or Pause.
-- Use wallet, budget, recent spending, savings/emergency protection, and spending memory if available.
-- Keep the response short and practical.
-
-Begin by asking: What do you want to buy?`;
+- Use wallet, budget, recent spending, savings/emergency protection, and spending memory when available.
+- Keep every reply short, practical, and decision-focused.`;
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -48,20 +57,6 @@ function isAssistantTabButton(button) {
 
   const rowText = clean(button.parentElement?.textContent || "");
   return includesAny(rowText, CORE_PANEL_LABELS) && includesAny(rowText, SMART_ACTIONS_LABELS);
-}
-
-function findButtonByAnyLabel(labels = []) {
-  return getAssistantButtons().find((button) => labels.includes(clean(button.textContent))) || null;
-}
-
-function findBuyCheckActionButton() {
-  return getAssistantButtons().find((button) => {
-    const text = clean(button.innerText || button.textContent);
-    return BUY_CHECK_ACTION_MATCHERS.some((matcher) => text.includes(matcher)) && text.includes("purchase");
-  }) || getAssistantButtons().find((button) => {
-    const text = clean(button.innerText || button.textContent);
-    return BUY_CHECK_ACTION_MATCHERS.some((matcher) => text.includes(matcher));
-  }) || null;
 }
 
 function relabelBuyCheckTab() {
@@ -100,39 +95,8 @@ function submitPromptInsideMainChat(prompt = BUY_CHECK_CONTROLLED_PROMPT) {
   return true;
 }
 
-function clickSmartActionsPanel(button) {
-  if (!button) return false;
-
-  button.dataset.claraProgrammaticOpenSmart = "true";
-  button.click();
-
-  window.setTimeout(() => {
-    delete button.dataset.claraProgrammaticOpenSmart;
-  }, 180);
-
-  return true;
-}
-
 function openBuyCheckMode() {
-  const smartActionsButton = findButtonByAnyLabel(SMART_ACTIONS_LABELS);
-
-  if (!smartActionsButton) {
-    submitPromptInsideMainChat();
-    return;
-  }
-
-  clickSmartActionsPanel(smartActionsButton);
-
-  window.setTimeout(() => {
-    const affordButton = findBuyCheckActionButton();
-
-    if (affordButton) {
-      affordButton.click();
-      return;
-    }
-
-    submitPromptInsideMainChat();
-  }, 90);
+  submitPromptInsideMainChat();
 }
 
 function installBuyCheckClickCapture() {
