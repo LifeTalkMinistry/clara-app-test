@@ -5,6 +5,8 @@ export const supabaseAnonKey = import.meta.env["VITE_SUPABASE_" + "ANON_KEY"] ||
 
 export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey);
 
+const REMOTE_TABLE_ALLOWLIST = new Set(["profiles"]);
+
 let supabaseInstance = null;
 
 if (isSupabaseConfigured) {
@@ -19,66 +21,74 @@ if (isSupabaseConfigured) {
   console.error("Supabase is not configured. Missing URL or anon key.");
 }
 
-const normalizeString = (value) => String(value ?? "").trim();
-
-const getExpenseCategoryFallback = (payload) =>
-  normalizeString(
-    payload?.category ||
-      payload?.expense_category ||
-      payload?.budget_category ||
-      payload?.classification ||
-      payload?.type ||
-      "other"
-  ).toLowerCase() || "other";
-
-const normalizeExpenseWriteRow = (row) => {
-  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
-
-  const nextRow = { ...row };
-
-  if (!normalizeString(nextRow.category) && normalizeString(nextRow.expense_category)) {
-    nextRow.category = getExpenseCategoryFallback(nextRow);
-  }
-
-  delete nextRow.expense_category;
-
-  return nextRow;
+const createLocalOnlyResponse = async (terminal = "select") => {
+  if (terminal === "single") return { data: null, error: null };
+  if (terminal === "maybeSingle") return { data: null, error: null };
+  if (terminal === "csv") return { data: "", error: null };
+  if (terminal === "geojson") return { data: null, error: null };
+  return { data: [], error: null };
 };
 
-const normalizeExpenseWritePayload = (payload) => {
-  if (Array.isArray(payload)) {
-    return payload.map((row) => normalizeExpenseWriteRow(row));
-  }
+const createLocalOnlyQueryBuilder = () => {
+  const builder = {};
+  const chain = () => builder;
 
-  return normalizeExpenseWriteRow(payload);
-};
-
-const createExpenseTableProxy = (tableBuilder) =>
-  new Proxy(tableBuilder, {
-    get(target, prop, receiver) {
-      if (["insert", "update", "upsert"].includes(prop)) {
-        return (payload, options) =>
-          Reflect.get(target, prop, target).call(
-            target,
-            normalizeExpenseWritePayload(payload),
-            options
-          );
-      }
-
-      const value = Reflect.get(target, prop, receiver);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
+  Object.assign(builder, {
+    select: chain,
+    insert: chain,
+    update: chain,
+    delete: chain,
+    upsert: chain,
+    eq: chain,
+    neq: chain,
+    gt: chain,
+    gte: chain,
+    lt: chain,
+    lte: chain,
+    is: chain,
+    in: chain,
+    contains: chain,
+    containedBy: chain,
+    overlaps: chain,
+    like: chain,
+    ilike: chain,
+    match: chain,
+    not: chain,
+    or: chain,
+    filter: chain,
+    order: chain,
+    limit: chain,
+    range: chain,
+    abortSignal: chain,
+    throwOnError: chain,
+    rollback: chain,
+    returns: chain,
+    single: () => createLocalOnlyResponse("single"),
+    maybeSingle: () => createLocalOnlyResponse("maybeSingle"),
+    csv: () => createLocalOnlyResponse("csv"),
+    geojson: () => createLocalOnlyResponse("geojson"),
+    explain: () => createLocalOnlyResponse("explain"),
+    then: (onFulfilled, onRejected) =>
+      createLocalOnlyResponse("select").then(onFulfilled, onRejected),
+    catch: (onRejected) => createLocalOnlyResponse("select").catch(onRejected),
+    finally: (onFinally) => createLocalOnlyResponse("select").finally(onFinally),
   });
+
+  return builder;
+};
 
 const createConfiguredSupabaseProxy = (client) =>
   new Proxy(client, {
     get(target, prop, receiver) {
       if (prop === "from") {
         return (tableName) => {
-          const tableBuilder = target.from(tableName);
-          return String(tableName || "").toLowerCase() === "expenses"
-            ? createExpenseTableProxy(tableBuilder)
-            : tableBuilder;
+          const normalizedTableName = String(tableName || "").toLowerCase();
+
+          if (!REMOTE_TABLE_ALLOWLIST.has(normalizedTableName)) {
+            return createLocalOnlyQueryBuilder();
+          }
+
+          return target.from(tableName);
         };
       }
 
