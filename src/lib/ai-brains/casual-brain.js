@@ -49,13 +49,14 @@ Do NOT mention budgets, wallets, savings, goals, stress patterns, routines, or f
 If the latest user message is only an acknowledgement like "Great", "Okay", "Nice", "Got it", or "Thanks", do NOT repeat the previous budget/finance answer. Treat it as closure, then gently open the next step.
 
 ACKNOWLEDGEMENT MODE:
-${acknowledgementOnly ? "ACTIVE. Reply exactly with this meaning: Glad that helped. What would you like to check next?" : "Not active."}
+${acknowledgementOnly ? "ACTIVE. Reply naturally with the meaning: glad that helped, then ask what the user wants to check next." : "Not active."}
 
 STYLE:
 Reply like a natural mobile chat.
 Sound human, simple, and calm.
 Do not sound like a customer support bot.
 Do not over-explain.
+Do not use canned wording.
 
 LENGTH RULES:
 - Greeting only: 1 short sentence.
@@ -72,19 +73,6 @@ BOUNDARY:
 If the user suddenly asks about money, spending, budget, wallet, savings, or a purchase decision, do not answer deeply.
 Give one short bridge reply only.
 
-GOOD EXAMPLES:
-User: Hi Clara
-CLARA: Hi! I’m here with you. What’s on your mind?
-
-User: How are you?
-CLARA: I’m good. I’m here whenever you want to talk or check something.
-
-User: Thank you
-CLARA: You’re welcome. I’m here with you.
-
-User: Great
-CLARA: Glad that helped. What would you like to check next?
-
 RECENT CHATBOX CONVERSATION:
 ${formatRecentConversation(recentConversation)}
 
@@ -94,26 +82,8 @@ ${cleanText(userMessage)}
 Reply as CLARA:`;
 }
 
-export function generateLocalCasualReply({ userMessage = "" } = {}) {
-  const text = normalizeText(userMessage);
-
-  if (/^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta)[!?.\s]*$/.test(text)) {
-    return "Hi! I’m here with you. What’s on your mind?";
-  }
-
-  if (/how are you|how r you|kumusta ka|kamusta ka/.test(text)) {
-    return "I’m good. I’m here whenever you want to talk or check something.";
-  }
-
-  if (/^(thanks|thank you|salamat)[!?.\s]*$/.test(text)) {
-    return "You’re welcome. What would you like to check next?";
-  }
-
-  if (isCasualAcknowledgementMessage(text)) {
-    return "Glad that helped. What would you like to check next?";
-  }
-
-  return "I’m here with you. What’s on your mind?";
+export function generateLocalCasualReply() {
+  return "";
 }
 
 export function sanitizeCasualBrainReply(reply = "") {
@@ -122,6 +92,6 @@ export function sanitizeCasualBrainReply(reply = "") {
     .replace(/^Reply:\s*/i, "")
     .trim();
 
-  if (!cleaned) return "Hi! I’m here with you. What’s on your mind?";
+  if (!cleaned) return "";
   return trimToWordLimit(cleaned, 25);
 }
