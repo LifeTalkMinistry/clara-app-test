@@ -2,23 +2,22 @@ import { buildScheduleDirectReply, getScheduleContextForAI } from "../clara-sche
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
-const DEFAULT_SCHEDULE_REPLY = "I don’t see upcoming schedule items loaded from your Schedule page right now. Add an appointment or event there, then I can help you prepare for it.";
+const DEFAULT_SCHEDULE_REPLY = "";
 const INCOMPLETE_MONEY_ENDING_PATTERN = /(?:estimated\s+(?:money\s+)?impact\s+of|estimated\s+cost\s+of|impact\s+of|cost\s+of|amount\s+of)\s*$/i;
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function formatRecentConversation(messages = []) {
+function formatFullConversation(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .slice(-6)
     .map((message) => {
       const role = message?.role === "user" ? "User" : "CLARA";
       const text = cleanText(message?.text || message?.content || "");
       return text ? `${role}: ${text}` : "";
     })
     .filter(Boolean)
-    .join("\n") || "No recent chatbox conversation yet.";
+    .join("\n") || "No visible chatbox conversation history yet.";
 }
 
 function formatScheduleRows(schedule) {
@@ -91,17 +90,18 @@ Answer pure schedule, appointment, calendar, reminder, event, shift, class, doct
 
 ${subContextBlock}
 
+FULL VISIBLE CHATBOX CONVERSATION HISTORY:
+${formatFullConversation(recentConversation)}
+
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
-
-RECENT CHATBOX CONVERSATION:
-${formatRecentConversation(recentConversation)}
 
 SCHEDULE CONTEXT:
 ${formatScheduleRows(schedule)}
 
 RULES:
 - Start directly with the schedule answer because the conversation may already be active.
+- Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about tomorrow", and short schedule references.
 - Do not restart the conversation.
 - If schedule items exist, mention the nearest one first.
 - If there is a dentist appointment, mention it directly.
@@ -113,6 +113,7 @@ RULES:
 - If a money-impact amount exists, include the exact amount in the same sentence.
 - If a money-impact amount is missing, say that the appointment may have a cost but no exact amount is saved yet.
 - Never end with incomplete money-impact or amount phrases.
+- Do not use canned wording.
 - Keep the reply conversational and useful.
 - Maximum 3-4 short sentences.
 
@@ -126,11 +127,7 @@ export function generateLocalScheduleReply({ userMessage = "", context = {} } = 
   const schedule = getScheduleContextForAI(context || {});
   if (!schedule.hasUpcomingItems) return DEFAULT_SCHEDULE_REPLY;
 
-  const cta = schedule.hasMoneyImpact
-    ? "Do you want me to help you prepare a small budget for it?"
-    : "Do you want me to help you prepare or set a reminder for it?";
-
-  return `${directReply} ${cta}`;
+  return directReply;
 }
 
 export function sanitizeScheduleBrainReply(reply = "", fallbackReply = DEFAULT_SCHEDULE_REPLY) {
