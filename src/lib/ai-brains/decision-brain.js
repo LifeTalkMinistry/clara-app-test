@@ -51,16 +51,15 @@ function list(items = [], formatter, empty = "none loaded") {
     .join("; ") || empty;
 }
 
-function formatRecentConversation(messages = []) {
+function formatFullConversation(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .slice(-8)
     .map((message) => {
       const role = message?.role === "user" ? "User" : "CLARA";
       const text = cleanText(message?.text || message?.content || "");
       return text ? `${role}: ${text}` : "";
     })
     .filter(Boolean)
-    .join("\n") || "No recent chatbox conversation yet.";
+    .join("\n") || "No visible chatbox conversation history yet.";
 }
 
 function extractPurchaseAmount(message = "") {
@@ -155,11 +154,11 @@ Help the user decide safely and quickly on purchase decisions, affordability che
 
 ${subContextBlock}
 
+FULL VISIBLE CHATBOX CONVERSATION HISTORY:
+${formatFullConversation(recentConversation)}
+
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
-
-RECENT CHATBOX CONVERSATION:
-${formatRecentConversation(recentConversation)}
 
 DECISION SNAPSHOT:
 Purchase amount detected: ${amount !== null ? money(amount) : "missing"}
@@ -192,9 +191,10 @@ Recent expense rows: ${buildRecentExpenseRows(finance)}
 
 DECISION RULES:
 - Use the selected sub-contexts first when choosing what to mention.
+- Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about this", and price-only replies.
 - Do not use hardcoded or canned wording.
 - If the user gave only an item without price, ask one question for the missing price.
-- If the user gave only a price without item, use recent chat history to infer the item. If unclear, ask one clarification question.
+- If the user gave only a price without item, use full chat history to infer the item. If unclear, ask one clarification question.
 - If budget, wallet, schedule, or emergency-fund data is missing, ask one clarification question instead of guessing.
 - Emergency Fund is protected money. Do not treat it as free spending money.
 - Answer with recommendation first, short reason second, safe next step third.
