@@ -1,3 +1,5 @@
+import "./clara-buy-check-result-format-guard";
+
 function formatBuyCheckOpeningBubble() {
   if (typeof document === "undefined") return;
 
