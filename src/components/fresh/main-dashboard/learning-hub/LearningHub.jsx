@@ -2,41 +2,60 @@ import { useState } from "react";
 import useLearningHub from "./logic/useLearningHub";
 import LearningHubCarousel from "./ui/LearningHubCarousel";
 import LearningMaterialModal from "./modal/LearningMaterialModal";
-import { activateClaraSampleUserData } from "@/lib/clara-demo-sample-data";
+import {
+  isClaraSampleUserDataActive,
+  toggleClaraSampleUserData,
+} from "@/lib/clara-demo-sample-data";
 
 export default function LearningHub({ user = null }) {
   const { materials, selectedMaterial, isOpen, openMaterial, closeMaterial } = useLearningHub();
   const [sampleStatus, setSampleStatus] = useState("");
-  const [isSeedingSample, setIsSeedingSample] = useState(false);
+  const [isSwitchingSampleData, setIsSwitchingSampleData] = useState(false);
 
-  const runSampleSeeder = async () => {
-    if (isSeedingSample) return;
+  const runSampleToggle = async () => {
+    if (isSwitchingSampleData) return;
+
+    const shouldRestoreRealData = isClaraSampleUserDataActive();
 
     try {
-      setIsSeedingSample(true);
-      setSampleStatus("Loading Max sample data...");
-      const result = await activateClaraSampleUserData({ user });
+      setIsSwitchingSampleData(true);
       setSampleStatus(
-        `Max sample loaded: ${result.wallets} wallets, ${result.expenses} transactions, ${result.budgets} budget records, ${result.savingsGoals} goals.`
+        shouldRestoreRealData
+          ? "Restoring your original CLARA data..."
+          : "Loading Max sample data..."
       );
+
+      const result = await toggleClaraSampleUserData({ user });
+
+      if (result?.mode === "real") {
+        setSampleStatus("Original CLARA data restored.");
+      } else {
+        setSampleStatus(
+          `Max sample loaded: ${result.wallets} wallets, ${result.expenses} transactions, ${result.budgets} budget records, ${result.savingsGoals} goals.`
+        );
+      }
 
       window.setTimeout(() => window.location.reload(), 900);
     } catch (error) {
-      console.error("CLARA sample user seed failed:", error);
-      setSampleStatus("Sample loading failed. Please try again.");
-      setIsSeedingSample(false);
+      console.error("CLARA sample data switch failed:", error);
+      setSampleStatus(
+        shouldRestoreRealData
+          ? "Original data restore failed. Please try again."
+          : "Sample loading failed. Please try again."
+      );
+      setIsSwitchingSampleData(false);
     }
   };
 
   return (
     <section
       className="clara-budget-focus-shift clara-budget-focus-hub w-full"
-      title="Double click Learning Hub to load Max sample user data"
+      title="Double click Learning Hub to switch Max sample data on or off"
     >
       <LearningHubCarousel
         materials={materials}
         onOpenMaterial={openMaterial}
-        onActivateSampleUser={runSampleSeeder}
+        onActivateSampleUser={runSampleToggle}
       />
 
       {sampleStatus ? (
