@@ -107,34 +107,25 @@ export default function WelcomeBack() {
       </div>
 
       <main className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md flex-col">
-        <div className="flex items-center justify-between">
+        {step > 0 ? (
           <button
             type="button"
             onClick={goBack}
-            disabled={step === 0}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60 backdrop-blur-xl transition enabled:hover:bg-white/[0.08] disabled:opacity-0"
+            className="absolute left-0 top-0 z-20 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
             aria-label="Go back"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
+        ) : null}
 
-          <button
-            type="button"
-            onClick={goToDashboard}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/72 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
-          >
-            Skip
-          </button>
-        </div>
-
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-green-300 to-lime-300 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        <section className="mt-4 flex flex-1 flex-col justify-center">
+        <section className="mt-7 flex-1">
           <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
@@ -148,7 +139,7 @@ export default function WelcomeBack() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
                   {currentSlide.eyebrow}
                 </p>
-                <h1 className="mt-3 text-[1.75rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
+                <h1 className="mt-3 text-[1.72rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
                   {currentSlide.title}
                 </h1>
                 <p className="mt-4 text-[15px] leading-7 text-white/66">
@@ -167,14 +158,14 @@ export default function WelcomeBack() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
                   Choose your path
                 </p>
-                <h1 className="mt-3 text-[1.75rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
+                <h1 className="mt-3 text-[1.72rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
                   I prepared three deeper paths for you, but you can start free today.
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-white/60">
                   Choose a tier later when you want more guidance. For now, you can go straight to the free dashboard and begin.
                 </p>
 
-                <div className="mt-5 max-h-[48vh] space-y-3 overflow-y-auto pr-1">
+                <div className="mt-5 max-h-[49vh] space-y-3 overflow-y-auto pr-1">
                   {tiers.map((tier) => (
                     <div
                       key={tier.name}
@@ -218,7 +209,7 @@ export default function WelcomeBack() {
           </div>
         </section>
 
-        <div className="mt-4 grid gap-2.5">
+        <div className="mt-4 grid gap-2.5 pb-1">
           <button
             type="button"
             onClick={goNext}
