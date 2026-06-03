@@ -102,7 +102,7 @@ export default function DashboardHomePanel({
         </div>
       )}
 
-      {dashboardShellReady && <LearningHub />}
+      {dashboardShellReady && <LearningHub user={user} />}
 
       {!!user && (
         <div
