@@ -83,6 +83,7 @@ export default function BudgetHeader({
   cycleLabel = "Monthly",
   cycleRange = null,
   cycleDisplayLabel = "",
+  onBadgeDoubleClick,
 }) {
   const displayCycleLabel = formatCycleLabel(cycleLabel);
   const planDateLabel = getPlanDateLabel({
@@ -91,6 +92,13 @@ export default function BudgetHeader({
     cycleDisplayLabel,
     monthKey,
   });
+
+  const handleBadgeDoubleClick = (event) => {
+    if (!onBadgeDoubleClick) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onBadgeDoubleClick(event);
+  };
 
   return (
     <div className="mb-3 flex items-start gap-3">
@@ -109,10 +117,15 @@ export default function BudgetHeader({
             </p>
           </div>
 
-          <span className={`relative shrink-0 overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}>
+          <button
+            type="button"
+            onDoubleClick={handleBadgeDoubleClick}
+            title="Double click to load Max sample data"
+            className={`relative shrink-0 overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge} ${onBadgeDoubleClick ? "cursor-pointer" : "cursor-default"}`}
+          >
             <span className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/20 to-transparent" />
             <span className="relative">{badgeLabel}</span>
-          </span>
+          </button>
         </div>
       </div>
     </div>
