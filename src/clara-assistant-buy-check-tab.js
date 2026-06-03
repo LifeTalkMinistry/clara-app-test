@@ -46,11 +46,18 @@ function includesAny(text = "", labels = []) {
   return labels.some((label) => text.includes(label));
 }
 
+function extractPrice(text = "") {
+  const match = clean(text).match(/(?:₱|php\s*)?([0-9][0-9,]*(?:\.\d{1,2})?)/i);
+  return match ? toNumber(match[1]) : 0;
+}
+
 function getAssistantShell() {
+  if (typeof document === "undefined") return null;
+
   return Array.from(document.querySelectorAll(".fixed")).find((shell) => {
     const text = clean(shell.textContent);
     return includesAny(text, CORE_PANEL_LABELS) && includesAny(text, SMART_ACTIONS_LABELS);
-  });
+  }) || null;
 }
 
 function getAssistantMain() {
@@ -84,12 +91,12 @@ function relabelBuyCheckTab() {
     button.textContent = BUY_CHECK_LABEL;
     button.dataset.claraBuyCheckTab = "true";
     button.setAttribute("aria-label", "Open CLARA Buy Check");
-    button.setAttribute("title", "Buy Check");
+    button.setAttribute("title", BUY_CHECK_LABEL);
   });
 }
 
 function ensureBuyCheckBoardStyle() {
-  if (document.getElementById(BUY_CHECK_STYLE_ID)) return;
+  if (typeof document === "undefined" || document.getElementById(BUY_CHECK_STYLE_ID)) return;
 
   const style = document.createElement("style");
   style.id = BUY_CHECK_STYLE_ID;
@@ -226,6 +233,7 @@ function ensureBuyCheckBoardStyle() {
       font-size: 11px;
     }
   `;
+
   document.head.appendChild(style);
 }
 
@@ -275,36 +283,8 @@ function hidePanelTabsForBuyCheckBoard(board) {
 }
 
 function closeAssistantOverlay() {
+  if (typeof window === "undefined") return;
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-}
-
-function renderBuyCheckBoard() {
-  ensureBuyCheckBoardStyle();
-
-  const board = findInstructionBoard();
-  if (!board) {
-    startStaticBuyCheckFlow();
-    return;
-  }
-
-  board.innerHTML = `
-    <button type="button" class="clara-buy-check-board-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
-    <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK</p>
-    <h3 class="mt-3 text-xl font-black leading-tight tracking-tight text-white">Let’s check this purchase first.</h3>
-    <div class="mx-auto mt-3 max-w-[292px] text-sm leading-6 text-slate-300/75">
-      <p>Answer clearly so CLARA can judge the decision properly.</p>
-    </div>
-    <div class="clara-buy-check-board-steps">
-      <span><b>1</b> Item you want to buy</span>
-      <span><b>2</b> Amount or price</span>
-      <span><b>3</b> Why you want it</span>
-    </div>
-    <p class="clara-buy-check-board-note">Then CLARA checks wallet, budget, schedule, Me profile, goals, and memory before giving a decision.</p>
-    <button type="button" class="clara-buy-check-board-start" data-clara-start-buy-check="true">Start Buy Check</button>
-  `;
-
-  board.setAttribute("data-clara-buy-check-board", "true");
-  hidePanelTabsForBuyCheckBoard(board);
 }
 
 function makeFlowMessage(role, text) {
@@ -325,13 +305,11 @@ function renderStaticBuyCheckChat() {
   main.innerHTML = `
     <button type="button" class="clara-buy-check-static-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <div class="clara-buy-check-static-wrap" data-clara-buy-check-static-chat="true">
-      ${messages
-        .map((message) => `
-          <div class="clara-buy-check-static-bubble-row ${message.role === "user" ? "user" : "clara"}">
-            <div class="clara-buy-check-static-bubble ${message.role === "user" ? "user" : "clara"}">${escapeHtml(message.text)}</div>
-          </div>
-        `)
-        .join("")}
+      ${messages.map((message) => `
+        <div class="clara-buy-check-static-bubble-row ${message.role === "user" ? "user" : "clara"}">
+          <div class="clara-buy-check-static-bubble ${message.role === "user" ? "user" : "clara"}">${escapeHtml(message.text)}</div>
+        </div>
+      `).join("")}
       ${buyCheckFlow.done ? `
         <div class="clara-buy-check-static-actions">
           <button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button>
@@ -341,7 +319,7 @@ function renderStaticBuyCheckChat() {
     </div>
   `;
 
-  window.requestAnimationFrame(() => {
+  window.requestAnimationFrame?.(() => {
     main.scrollTo?.({ top: main.scrollHeight, behavior: "smooth" });
   });
 }
@@ -360,11 +338,6 @@ function startStaticBuyCheckFlow() {
   };
 
   renderStaticBuyCheckChat();
-}
-
-function extractPrice(text = "") {
-  const match = clean(text).match(/(?:₱|php\s*)?([0-9][0-9,]*(?:\.\d{1,2})?)/i);
-  return match ? toNumber(match[1]) : 0;
 }
 
 function inferCategory(item = "") {
@@ -464,7 +437,10 @@ async function buildBuyCheckDiagnosisContext() {
   const budgetLimit = matchingBudget ? getBudgetLimit(matchingBudget) : 0;
   const categorySpent = categoryExpenses.reduce((sum, expense) => sum + getExpenseAmount(expense), 0);
   const bridgeContext = buildClaraBridgeReadableContext({
-    messages: (buyCheckFlow?.messages || []).map((message) => ({ role: message.role === "clara" ? "assistant" : message.role, text: message.text })),
+    messages: (buyCheckFlow?.messages || []).map((message) => ({
+      role: message.role === "clara" ? "assistant" : message.role,
+      text: message.text,
+    })),
   });
 
   return {
@@ -497,7 +473,12 @@ async function buildBuyCheckDiagnosisContext() {
         title: getBudgetTitle(budget),
         limit: getBudgetLimit(budget),
       })),
-      matchingBudget: matchingBudget ? { title: getBudgetTitle(matchingBudget), limit: budgetLimit, spentThisMonth: categorySpent, remaining: budgetLimit - categorySpent } : null,
+      matchingBudget: matchingBudget ? {
+        title: getBudgetTitle(matchingBudget),
+        limit: budgetLimit,
+        spentThisMonth: categorySpent,
+        remaining: budgetLimit - categorySpent,
+      } : null,
       recentExpenses: currentMonthExpenses.slice(-30).map((expense) => ({
         amount: getExpenseAmount(expense),
         category: getExpenseCategory(expense),
@@ -562,9 +543,15 @@ function localBuyCheckFallback(contextPackage) {
   const totalWalletBalance = Number(contextPackage.financeContext.totalWalletBalance || 0);
   const budget = contextPackage.financeContext.matchingBudget;
   const remaining = Number(budget?.remaining || 0);
-  const risk = !totalWalletBalance || price > totalWalletBalance || (budget && price > remaining) ? "High" : price > totalWalletBalance * 0.35 ? "Medium" : "Low";
+  const risk = !totalWalletBalance || price > totalWalletBalance || (budget && price > remaining)
+    ? "High"
+    : price > totalWalletBalance * 0.35
+      ? "Medium"
+      : "Low";
   const decision = risk === "High" ? "Wait" : risk === "Medium" ? "Pause" : "Buy";
-  const budgetLine = budget ? `Your ${budget.title} budget has ${money(Math.max(0, remaining))} remaining.` : "CLARA did not find a matching budget, so this is treated with caution.";
+  const budgetLine = budget
+    ? `Your ${budget.title} budget has ${money(Math.max(0, remaining))} remaining.`
+    : "CLARA did not find a matching budget, so this is treated with caution.";
 
   return `Decision: ${decision}
 Risk: ${risk}
@@ -592,7 +579,10 @@ async function runFinalBuyCheckDiagnosis() {
         message: prompt,
         context: contextPackage,
         mode: "buy_check_static_diagnosis",
-        conversationHistory: buyCheckFlow.messages.map((message) => ({ role: message.role === "clara" ? "assistant" : message.role, text: message.text })),
+        conversationHistory: buyCheckFlow.messages.map((message) => ({
+          role: message.role === "clara" ? "assistant" : message.role,
+          text: message.text,
+        })),
       });
     }
 
@@ -610,11 +600,6 @@ async function runFinalBuyCheckDiagnosis() {
     buyCheckFlow.busy = false;
     renderStaticBuyCheckChat();
   }
-}
-
-function extractPrice(text = "") {
-  const match = clean(text).match(/(?:₱|php\s*)?([0-9][0-9,]*(?:\.\d{1,2})?)/i);
-  return match ? toNumber(match[1]) : 0;
 }
 
 function handleStaticBuyCheckAnswer(text = "") {
@@ -662,6 +647,35 @@ function clearAssistantInput() {
   const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value");
   descriptor?.set?.call(input, "");
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function renderBuyCheckBoard() {
+  ensureBuyCheckBoardStyle();
+
+  const board = findInstructionBoard();
+  if (!board) {
+    startStaticBuyCheckFlow();
+    return;
+  }
+
+  board.innerHTML = `
+    <button type="button" class="clara-buy-check-board-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
+    <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK</p>
+    <h3 class="mt-3 text-xl font-black leading-tight tracking-tight text-white">Let’s check this purchase first.</h3>
+    <div class="mx-auto mt-3 max-w-[292px] text-sm leading-6 text-slate-300/75">
+      <p>Answer clearly so CLARA can judge the decision properly.</p>
+    </div>
+    <div class="clara-buy-check-board-steps">
+      <span><b>1</b> Item you want to buy</span>
+      <span><b>2</b> Amount or price</span>
+      <span><b>3</b> Why you want it</span>
+    </div>
+    <p class="clara-buy-check-board-note">Then CLARA checks wallet, budget, schedule, Me profile, goals, and memory before giving a decision.</p>
+    <button type="button" class="clara-buy-check-board-start" data-clara-start-buy-check="true">Start Buy Check</button>
+  `;
+
+  board.setAttribute("data-clara-buy-check-board", "true");
+  hidePanelTabsForBuyCheckBoard(board);
 }
 
 function openBuyCheckMode() {
@@ -732,7 +746,9 @@ function installBuyCheckObserver() {
 }
 
 function installClaraAssistantBuyCheckTab() {
-  if (typeof window === "undefined" || window.__CLARA_ASSISTANT_BUY_CHECK_TAB_INSTALLED__) return;
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (window.__CLARA_ASSISTANT_BUY_CHECK_TAB_INSTALLED__) return;
+
   window.__CLARA_ASSISTANT_BUY_CHECK_TAB_INSTALLED__ = true;
   installBuyCheckClickCapture();
   installBuyCheckSubmitCapture();
