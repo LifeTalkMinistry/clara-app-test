@@ -214,7 +214,7 @@ function localDecision(context) {
 
 function promptFor(context) {
   const status = context.dataReadStatus || {};
-  return `BUY CHECK\n\nData Read Check:\nWallets loaded: ${status.walletsLoaded ?? 0}\nBudgets loaded: ${status.budgetsLoaded ?? 0}\nExpenses loaded: ${status.expensesLoaded ?? 0}\nSavings goals loaded: ${status.savingsGoalsLoaded ?? 0}\nEmergency fund loaded: ${status.emergencyFundLoaded ?? 0}\nSchedule loaded: ${status.scheduleLoaded ?? 0}\nMe profile loaded: ${status.meProfileLoaded ?? 0}\nMemory loaded: ${status.memoryLoaded ?? 0}\nContext source: ${context.source || "real"}\n\nDo not mention demo/sample/fake/test data.\n\nUser Answers:\nItem: ${context.purchaseSummary.item}\nPrice: ${money(context.purchaseSummary.price)}\nReason: ${context.purchaseSummary.reason}\n\nContext Package:\n${JSON.stringify(context, null, 2)}\n\nRequired format:\nDecision: BUY | BUY WITH CAP | REDUCE | WAIT | PAUSE\nRisk: Low | Medium | High\nWhy:\n• Wallet: exact wallet data\n• Budget: exact budget room\n• Goals/Emergency: exact goals/emergency data\n• Pattern/Memory: exact memory/pattern if available\n• Schedule/Profile: exact schedule/profile if available\nSafer move:\none clear action\nOne sentence from CLARA:\nshort personal coaching line`;
+  return `BUY CHECK\n\nData Read Check:\nWallets loaded: ${status.walletsLoaded ?? 0}\nBudgets loaded: ${status.budgetsLoaded ?? 0}\nExpenses loaded: ${status.expensesLoaded ?? 0}\nSavings goals loaded: ${status.savingsGoalsLoaded ?? 0}\nEmergency fund loaded: ${status.emergencyFundLoaded ?? 0}\nSchedule loaded: ${status.scheduleLoaded ?? 0}\nMe profile loaded: ${status.meProfileLoaded ?? 0}\nMemory loaded: ${status.memoryLoaded ?? 0}\nContext source: ${context.source || "real"}\n\nDo not mention demo/sample/fake/test data.\n\nUser Answers:\nItem: ${context.purchaseSummary.item}\nPrice: ${money(context.purchaseSummary.price)}\nReason: ${context.purchaseSummary.reason}\n\nDetailed Context Package for internal analysis:\n${JSON.stringify(context, null, 2)}\n\nRequired format:\nDecision: BUY | BUY WITH CAP | REDUCE | WAIT | PAUSE\nRisk: Low | Medium | High\nSafer move:\none clear action`;
 }
 
 function extractDecision(reply = "", fallback = "PAUSE") {
@@ -235,33 +235,42 @@ function extractSaferMove(reply = "", fallback = "Pause first, then check your w
 
 function goodReply(reply = "") {
   const text = String(reply || "").trim();
-  return text.length >= 120 && /Decision:\s*(BUY WITH CAP|BUY|REDUCE|WAIT|PAUSE)/i.test(text) && /Risk:\s*(Low|Medium|High)/i.test(text) && !/BUY WITH CAPWhy|Decision:\s*[^\n]+Why:/i.test(text);
+  return text.length >= 40 && /Decision:\s*(BUY WITH CAP|BUY|REDUCE|WAIT|PAUSE)/i.test(text) && /Risk:\s*(Low|Medium|High)/i.test(text) && !/BUY WITH CAPWhy|Decision:\s*[^\n]+Why:/i.test(text);
 }
 
-function reportSummary(context, decision) {
+function buildSummary(context, decision) {
   const price = Number(context.purchaseSummary.price || 0);
-  const spendableWallets = context.financeContext.spendableWallets || [];
-  const protectedWallets = context.financeContext.protectedWallets || [];
-  const spendable = Number(context.financeContext.totalSpendableWalletBalance || 0);
-  const after = spendable - price;
   const budget = context.financeContext.matchingBudget;
   const remaining = Number(budget?.remaining || 0);
+  const spendable = Number(context.financeContext.totalSpendableWalletBalance || 0);
+  const afterPurchase = spendable - price;
   const emergency = context.financeContext.emergencyFund;
   const goal = context.financeContext.savingsGoals?.[0];
-  const walletText = spendableWallets.length
-    ? `${spendableWallets.slice(0, 2).map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(" + ")}. Spendable total: ${money(spendable)}. After purchase: ${money(after)}.${protectedWallets.length ? ` Protected: ${protectedWallets.map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(", ")}.` : ""}`
-    : `No spendable wallet was loaded for this ${money(price)} purchase.`;
-  const budgetText = budget
-    ? `${budget.title} has ${money(Math.max(0, remaining))} left. This purchase uses ${remaining > 0 ? Math.round((price / remaining) * 100) : 0}% of that room and leaves ${money(Math.max(0, remaining - price))}.`
-    : `No exact budget was found for ${context.purchaseSummary.inferredCategory}, so CLARA treated it with caution.`;
-  const protectionText = `${goal ? `${goal.name}: ${money(goal.savedAmount)} / ${money(goal.targetAmount)}.` : "No savings goal loaded."} ${emergency ? `Emergency fund: ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)} protected.` : "No emergency fund loaded."}`;
-  const reasonText = `CLARA chose ${decision} because the reason is “${context.purchaseSummary.reason}”, but the purchase still needs to fit wallet safety, budget room, and protected goals.`;
-  return [
-    { label: "Wallet", text: walletText },
-    { label: "Budget", text: budgetText },
-    { label: "Protection", text: protectionText },
-    { label: "Reason", text: reasonText },
-  ];
+  const protection = [];
+
+  if (goal) protection.push(`${goal.name} is ${money(goal.savedAmount)} / ${money(goal.targetAmount)}`);
+  if (emergency) protection.push(`emergency fund is ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)}`);
+
+  if (budget && price > remaining) {
+    return `This ${money(price)} purchase is not safe right now because your ${budget.title} budget only has ${money(Math.max(0, remaining))} left. It would exceed the budget, leave your spendable wallet safety at ${money(afterPurchase)}, and ${protection.length ? `${protection.join(" while ")} should stay protected.` : "protected goals/emergency money should not be used for this."}`;
+  }
+
+  if (budget) {
+    return `This ${money(price)} purchase fits inside your ${budget.title} budget with ${money(Math.max(0, remaining))} currently left, but it would reduce your spendable wallet total from ${money(spendable)} to ${money(afterPurchase)}. ${protection.length ? `${protection.join(" and ")} should stay protected.` : "Keep goals and emergency money protected."}`;
+  }
+
+  return `This ${money(price)} purchase needs caution because CLARA did not find an exact budget for ${context.purchaseSummary.inferredCategory}. Your spendable wallet total is ${money(spendable)}, and ${protection.length ? `${protection.join(" and ")} should stay protected.` : "protected goals/emergency money should not be used for this."}`;
+}
+
+function fallbackSaferMove(context, decision, risk) {
+  const price = Number(context.purchaseSummary.price || 0);
+  const budget = context.financeContext.matchingBudget;
+  const remaining = Number(budget?.remaining || 0);
+
+  if (risk === "High" && budget) return `Wait first, or choose an option below ${money(Math.max(0, remaining))}.`;
+  if (decision === "BUY WITH CAP") return `Buy only up to ${money(price)} and do not add another shopping purchase this week.`;
+  if (risk === "Low") return "Buy it only if it still matches your priority, then log it right away.";
+  return "Pause first, then choose a cheaper option or wait until the next budget reset.";
 }
 
 function buildReport(reply, context) {
@@ -269,14 +278,14 @@ function buildReport(reply, context) {
   const useAi = goodReply(reply);
   const decision = useAi ? extractDecision(reply, fallback.decision) : fallback.decision;
   const risk = useAi ? extractRisk(reply, fallback.risk) : fallback.risk;
-  const saferMove = useAi
-    ? extractSaferMove(reply)
-    : decision === "BUY WITH CAP"
-      ? `Buy only up to ${money(context.purchaseSummary.price)} and do not add another shopping item for the next 7 days.`
-      : risk === "Low"
-        ? "Buy it only if it still matches your priority, then log it right away."
-        : "Wait first or choose a cheaper option before spending.";
-  return { decision, risk, saferMove, summary: reportSummary(context, decision) };
+  const saferMove = useAi ? extractSaferMove(reply, fallbackSaferMove(context, decision, risk)) : fallbackSaferMove(context, decision, risk);
+
+  return {
+    decision,
+    risk,
+    summary: buildSummary(context, decision),
+    saferMove,
+  };
 }
 
 function renderReport(report) {
@@ -285,12 +294,13 @@ function renderReport(report) {
   main.innerHTML = `
     <button type="button" class="clara-buy-check-static-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <div class="clara-buy-check-static-wrap" data-clara-buy-check-report="true">
-      <section class="relative mx-auto w-full max-w-[354px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-5 py-6 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+      <section class="relative mx-auto w-full max-w-[342px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-5 py-6 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
         <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK REPORT</p>
         <h3 class="mt-3 text-2xl font-black leading-tight tracking-tight text-white">${escapeHtml(report.decision)}</h3>
         <div class="mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[12px] font-black text-slate-100/90"><span class="text-slate-400/90">Risk</span><span>${escapeHtml(report.risk)}</span></div>
-        <div class="mt-5 space-y-3 text-left">
-          ${report.summary.map((item) => `<div class="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3"><p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/45">${escapeHtml(item.label)}</p><p class="mt-1 text-[12.5px] font-bold leading-5 text-slate-100/88">${escapeHtml(item.text)}</p></div>`).join("")}
+        <div class="mt-5 rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-4 text-left">
+          <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/45">Summary</p>
+          <p class="mt-2 text-[13px] font-bold leading-6 text-slate-100/90">${escapeHtml(report.summary)}</p>
         </div>
         <div class="mt-4 rounded-2xl border border-emerald-200/15 bg-emerald-300/10 px-4 py-3 text-left"><p class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/55">Safer move</p><p class="mt-1 text-[13px] font-black leading-5 text-emerald-50/92">${escapeHtml(report.saferMove)}</p></div>
         <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Next phase: swipe left to see wallet, budget, goals, emergency, schedule, and pattern details.</p>
@@ -304,13 +314,8 @@ function errorReport() {
   return {
     decision: "PAUSE",
     risk: "Medium",
+    summary: "CLARA could not complete the full wallet and budget read right now, so the purchase should not be approved yet. Goals and emergency money should stay protected until the context check works.",
     saferMove: "Try again in a moment, or check your wallet and budget manually before buying.",
-    summary: [
-      { label: "Wallet", text: "CLARA could not complete the wallet read right now." },
-      { label: "Budget", text: "Budget context may be incomplete, so approval is unsafe." },
-      { label: "Protection", text: "Goals and emergency money should stay protected when the diagnosis is incomplete." },
-      { label: "Reason", text: "CLARA pauses purchases when the full context check does not finish." },
-    ],
   };
 }
 
@@ -334,7 +339,7 @@ async function runDiagnosis(state) {
     let reply = "";
     if (hasGeminiConfig()) {
       try {
-        reply = await generateClaraGeminiReply({ message: prompt, context, mode: "buy_check_report_board", conversationHistory: messages });
+        reply = await generateClaraGeminiReply({ message: prompt, context, mode: "buy_check_phase_one_report", conversationHistory: messages });
       } catch (error) {
         console.warn("[CLARA Buy Check Report] Gemini failed; deterministic report used.", error);
       }
