@@ -52,6 +52,15 @@ function getExpenseDate(expense = {}) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function getWalletTypeText(wallet = {}) {
+  return `${wallet.name || ""} ${wallet.type || ""}`.toLowerCase();
+}
+
+function isProtectedWallet(wallet = {}) {
+  const text = getWalletTypeText(wallet);
+  return text.includes("emergency") || text.includes("reserve") || text.includes("savings") || text.includes("goal");
+}
+
 async function getLocalUser() {
   try {
     const { data } = await supabase.auth.getUser();
@@ -162,6 +171,21 @@ function buildCounts(effectiveContext) {
   };
 }
 
+function findMatchingBudget(budgets = [], category = "") {
+  const categoryKey = normalizeCategory(category);
+  const exact = budgets.find((budget) => normalizeCategory(budget.title || budget.category) === categoryKey);
+  if (exact) return exact;
+
+  const fallbackMap = {
+    shopping: ["shopping", "miscellaneous", "lifestyle", "entertainment"],
+    lifestyle: ["lifestyle", "miscellaneous", "entertainment"],
+    health: ["health", "medical", "miscellaneous"],
+  };
+
+  const candidates = fallbackMap[categoryKey] || [];
+  return budgets.find((budget) => candidates.includes(normalizeCategory(budget.title || budget.category))) || null;
+}
+
 function buildContextPackage(snapshot, effectiveContext) {
   const category = inferCategory(snapshot.item);
   const categoryKey = normalizeCategory(category);
@@ -171,8 +195,12 @@ function buildContextPackage(snapshot, effectiveContext) {
     const date = getExpenseDate(expense);
     return date && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
   });
-  const categoryExpenses = currentMonthExpenses.filter((expense) => normalizeCategory(expense.category) === categoryKey);
-  const matchingBudget = (effectiveContext.budgets || []).find((budget) => normalizeCategory(budget.title || budget.category) === categoryKey) || null;
+  const categoryExpenses = currentMonthExpenses.filter((expense) => {
+    const expenseCategory = normalizeCategory(expense.category);
+    if (expenseCategory === categoryKey) return true;
+    return categoryKey === "shopping" && ["miscellaneous", "lifestyle", "entertainment"].includes(expenseCategory);
+  });
+  const matchingBudget = findMatchingBudget(effectiveContext.budgets || [], category);
   const categorySpent = categoryExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
   const budgetLimit = matchingBudget ? toNumber(matchingBudget.limit ?? matchingBudget.amount) : 0;
   const similarPurchases = expenses.filter((expense) => {
@@ -194,7 +222,10 @@ function buildContextPackage(snapshot, effectiveContext) {
     },
     financeContext: {
       wallets: (effectiveContext.wallets || []).slice(0, 12),
+      spendableWallets: (effectiveContext.wallets || []).filter((wallet) => !isProtectedWallet(wallet)).slice(0, 12),
+      protectedWallets: (effectiveContext.wallets || []).filter(isProtectedWallet).slice(0, 12),
       totalWalletBalance: (effectiveContext.wallets || []).reduce((sum, wallet) => sum + toNumber(wallet.balance), 0),
+      totalSpendableWalletBalance: (effectiveContext.wallets || []).filter((wallet) => !isProtectedWallet(wallet)).reduce((sum, wallet) => sum + toNumber(wallet.balance), 0),
       budgets: (effectiveContext.budgets || []).slice(0, 20),
       matchingBudget: matchingBudget
         ? {
@@ -293,19 +324,32 @@ One sentence from CLARA:
 short personal coaching line`;
 }
 
+function getFirstMoneyImpactSchedule(schedule = []) {
+  return schedule.find((event) => toNumber(event.amount || event.cost || event.estimatedImpact) > 0 || /bill|due|dinner|health|social/i.test(`${event.type || ""} ${event.title || ""}`)) || null;
+}
+
 function localBuyCheckFallback(contextPackage) {
   const price = Number(contextPackage.purchaseSummary.price || 0);
-  const totalWalletBalance = Number(contextPackage.financeContext.totalWalletBalance || 0);
+  const spendableWallets = contextPackage.financeContext.spendableWallets || [];
+  const protectedWallets = contextPackage.financeContext.protectedWallets || [];
+  const totalSpendableWalletBalance = Number(contextPackage.financeContext.totalSpendableWalletBalance || 0);
   const budget = contextPackage.financeContext.matchingBudget;
   const remaining = Number(budget?.remaining || 0);
   const emergencyFund = contextPackage.financeContext.emergencyFund;
   const primaryGoal = contextPackage.financeContext.savingsGoals?.[0];
-  const risk = !totalWalletBalance || price > totalWalletBalance || (budget && price > remaining)
+  const moneySchedule = getFirstMoneyImpactSchedule(contextPackage.scheduleContext || []);
+  const memoryCount = contextPackage.dataReadStatus?.memory || 0;
+  const profileLoaded = Boolean(contextPackage.dataReadStatus?.meProfile);
+  const isNearBudgetLimit = budget && price >= remaining * 0.75;
+  const risk = !totalSpendableWalletBalance || price > totalSpendableWalletBalance || (budget && price > remaining)
     ? "High"
-    : price > totalWalletBalance * 0.35
+    : isNearBudgetLimit || price > totalSpendableWalletBalance * 0.25
       ? "Medium"
       : "Low";
-  const decision = risk === "High" ? "WAIT" : risk === "Medium" ? "PAUSE" : "BUY";
+  const decision = risk === "High" ? "WAIT" : risk === "Medium" ? "BUY WITH CAP" : "BUY";
+  const walletLine = spendableWallets.length
+    ? `${spendableWallets.map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(", ")} are usable; ${protectedWallets.length ? `${protectedWallets.map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(", ")} stay protected.` : "no protected wallet was loaded."}`
+    : `No usable wallet was loaded, so CLARA cannot safely approve ${money(price)}.`;
   const budgetLine = budget
     ? `${budget.title} has ${money(Math.max(0, remaining))} room left after ${money(Number(budget.spentThisMonth || 0))} spent this month.`
     : "No exact matching budget was found, so this needs extra caution.";
@@ -313,25 +357,47 @@ function localBuyCheckFallback(contextPackage) {
     ? `${primaryGoal.name} is at ${money(primaryGoal.savedAmount)} / ${money(primaryGoal.targetAmount)}.`
     : "No savings goal was loaded.";
   const emergencyLine = emergencyFund
-    ? `Emergency fund is ${money(emergencyFund.savedAmount)} / ${money(emergencyFund.targetAmount)} and should stay protected.`
+    ? `Emergency fund is ${money(emergencyFund.savedAmount)} / ${money(emergencyFund.targetAmount)} and should not be touched for this.`
     : "No emergency fund was loaded.";
+  const patternLine = memoryCount
+    ? `Loaded memory shows spending triggers/patterns are relevant, so the cap matters.`
+    : "No strong saved memory pattern was loaded.";
+  const scheduleLine = moneySchedule
+    ? `${moneySchedule.title || "Upcoming event"}${moneySchedule.amount || moneySchedule.cost || moneySchedule.estimatedImpact ? ` may need ${money(toNumber(moneySchedule.amount || moneySchedule.cost || moneySchedule.estimatedImpact))}` : " may affect spending soon"}. ${profileLoaded ? "The Me profile was also considered." : ""}`
+    : profileLoaded
+      ? "The Me profile was considered, with no immediate money schedule pressure found."
+      : "No money-impact schedule/profile signal was loaded.";
 
   return `Decision: ${decision}
 
 Risk: ${risk}
 
 Why:
-• Wallet: The item costs ${money(price)} and your loaded wallet total is ${money(totalWalletBalance)}.
+• Wallet: ${walletLine}
 • Budget: ${budgetLine}
 • Goals/Emergency: ${goalLine} ${emergencyLine}
-• Pattern/Memory: CLARA checked available spending pattern and memory context before deciding.
-• Schedule/Profile: CLARA checked available schedule/profile context before deciding.
+• Pattern/Memory: ${patternLine}
+• Schedule/Profile: ${scheduleLine}
 
 Safer move:
-${risk === "Low" ? "Buy it only if it still matches the reason you gave, then log it right away." : "Wait first or choose a cheaper option before spending."}
+${decision === "BUY WITH CAP" ? `Buy only up to ${money(price)} and do not add another shopping item for the next 7 days.` : risk === "Low" ? "Buy it only if it still matches the reason you gave, then log it right away." : "Wait first or choose a cheaper option before spending."}
 
 One sentence from CLARA:
 Protect the plan first, then spend only when the decision still makes sense.`;
+}
+
+function isUsableBuyCheckReply(reply = "") {
+  const text = String(reply || "").trim();
+  if (!text) return false;
+  if (text.length < 120) return false;
+  if (/Decision:\s*[^\n]+Why:/i.test(text)) return false;
+  if (/BUY WITH CAPWhy|CAPWhy|HighWhy|MediumWhy|LowWhy/i.test(text)) return false;
+
+  return /Decision:\s*(BUY|BUY WITH CAP|REDUCE|WAIT|PAUSE)/i.test(text) &&
+    /Risk:\s*(Low|Medium|High)/i.test(text) &&
+    /Why:/i.test(text) &&
+    /Safer move:/i.test(text) &&
+    /One sentence from CLARA:/i.test(text);
 }
 
 async function runEffectiveBuyCheck(snapshot) {
@@ -356,15 +422,20 @@ async function runEffectiveBuyCheck(snapshot) {
 
   let reply = "";
   if (hasGeminiConfig()) {
-    reply = await generateClaraGeminiReply({
-      message: prompt,
-      context: contextPackage,
-      mode: "buy_check_static_diagnosis",
-      conversationHistory: messages,
-    });
+    try {
+      reply = await generateClaraGeminiReply({
+        message: prompt,
+        context: contextPackage,
+        mode: "buy_check_static_diagnosis",
+        conversationHistory: messages,
+      });
+    } catch (error) {
+      console.warn("[CLARA Buy Check] Gemini reply failed; using deterministic context fallback.", error);
+      reply = "";
+    }
   }
 
-  return clean(reply) || localBuyCheckFallback(contextPackage);
+  return isUsableBuyCheckReply(reply) ? reply.trim() : localBuyCheckFallback(contextPackage);
 }
 
 function installEffectiveBuyCheckGuard() {
