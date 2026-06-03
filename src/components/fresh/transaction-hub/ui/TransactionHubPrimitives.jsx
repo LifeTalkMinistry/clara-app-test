@@ -179,24 +179,41 @@ export function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral"
 }
 
 export function InsightCard({ insight, theme = DEFAULT_THEME }) {
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const bodyClass = "clara-transaction-hub-clean-bg";
+    document.body.classList.add(bodyClass);
+
+    return () => document.body.classList.remove(bodyClass);
+  }, []);
+
   return (
-    <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/42 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    <>
+      <style>{`
+        body.clara-transaction-hub-clean-bg .pointer-events-none.fixed.inset-0.overflow-hidden > div {
+          display: none !important;
+        }
+      `}</style>
 
-      <div className="relative flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border border-white/10 bg-white/[0.035] text-slate-200/78">
-          <CheckCircle2 className="h-4.5 w-4.5" />
-        </div>
+      <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/42 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-        <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400/72">
-            CLARA Insight
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-200/76">
-            {insight}
-          </p>
+        <div className="relative flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border border-white/10 bg-white/[0.035] text-slate-200/78">
+            <CheckCircle2 className="h-4.5 w-4.5" />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400/72">
+              CLARA Insight
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-200/76">
+              {insight}
+            </p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
