@@ -244,10 +244,18 @@ export default function useDashboardMonthlyBudgetPlan({
       0
     );
     const spentTotal = plannedSpentTotal + unplannedSpent + undocumentedSpent;
-    const declaredBudget = firstValidNumber(declaredMonthlyBudgetAmount, allocatedTotal);
+
+    // Important: never infer a declared budget from category allocations.
+    // A typed/suggested amount or old category total must not become real budget truth
+    // until the user has actually declared and finished the budget setup flow.
+    const declaredBudget = firstValidNumber(declaredMonthlyBudgetAmount);
     const unallocated = Math.max(declaredBudget - allocatedTotal, 0);
     const remaining = Math.max(declaredBudget - spentTotal, 0);
-    const isComplete = declaredBudget > 0 && allocatedTotal >= declaredBudget && unallocated <= 0;
+    const isComplete =
+      declaredBudget > 0 &&
+      categories.length > 0 &&
+      allocatedTotal >= declaredBudget &&
+      unallocated <= 0;
 
     return {
       monthKey,
