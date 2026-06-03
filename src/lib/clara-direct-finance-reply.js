@@ -1,3 +1,5 @@
+import { buildClaraFinanceSnapshot } from "./clara-local-brain";
+
 const USE_CONTEXTUAL_FINANCE_REPLY = true;
 
 function normalizeText(value = "") {
@@ -71,57 +73,31 @@ function getEmergencyFundWalletName(emergencyFund = {}, wallets = []) {
   return wallet ? getWalletName(wallet) : link.name || "an existing wallet";
 }
 
-function getBudgetPlan(context = {}) {
-  return context?.budgetPlan || context?.monthlyBudgetPlan || context?.activeBudget || context?.derivedActiveBudget || context?.finance?.budgetPlan || {};
-}
-
-function getDeclaredBudget(context = {}) {
-  const plan = getBudgetPlan(context);
-  return toMaybeNumber(
-    plan?.declaredBudget,
-    plan?.declared_budget,
-    plan?.declaredAmount,
-    plan?.declared_amount,
-    context?.declaredMonthlyBudgetAmount,
-    context?.declared_budget,
-    context?.activeBudget?.declaredBudget,
-    context?.activeBudget?.declared_budget,
-    context?.derivedActiveBudget?.declaredBudget,
-    context?.derivedActiveBudget?.declared_budget,
-    context?.budgetSummary?.declaredBudget
-  );
-}
-
-function getBudgetSpent(context = {}) {
-  const plan = getBudgetPlan(context);
-  return toMaybeNumber(
-    plan?.spentTotal,
-    plan?.spent_total,
-    plan?.totalSpent,
-    plan?.spent,
-    context?.budgetSpent,
-    context?.monthlySpent,
-    context?.totalExpensesThisMonth
-  ) ?? 0;
-}
-
 function getSnapshot(context = {}) {
+  const finance = buildClaraFinanceSnapshot(context || {});
   const wallets = Array.isArray(context.wallets) ? context.wallets : [];
   const emergencyFund = context.emergencyFund || context.emergency_fund || {};
   const readableBalances = wallets.map(getWalletBalance).filter((value) => value !== null);
-  const walletTotal = wallets.length && readableBalances.length ? readableBalances.reduce((sum, value) => sum + value, 0) : null;
+  const walletTotal = finance?.hasWallets && Number.isFinite(Number(finance.totalWalletBalance))
+    ? Number(finance.totalWalletBalance)
+    : wallets.length && readableBalances.length
+      ? readableBalances.reduce((sum, value) => sum + value, 0)
+      : null;
   const protectedTotalFromWallets = wallets.reduce((sum, wallet) => sum + getWalletProtected(wallet), 0);
   const storedEmergencyAmount = getEmergencyFundAmount(emergencyFund);
   const linkedWallet = findLinkedEmergencyWallet(emergencyFund, wallets);
   const hasLink = Boolean(getEmergencyLink(emergencyFund).id || getEmergencyLink(emergencyFund).name);
   const orphanedEmergencyFund = storedEmergencyAmount > 0 && (!wallets.length || !linkedWallet || !hasLink);
-  const emergencyAmount = orphanedEmergencyFund || walletTotal === null ? 0 : Math.min(Math.max(protectedTotalFromWallets, storedEmergencyAmount), walletTotal);
-  const spendableTotal = walletTotal === null ? null : Math.max(walletTotal - emergencyAmount, 0);
+  const emergencyAmount = finance?.protectedEmergencyAmount ?? (orphanedEmergencyFund || walletTotal === null ? 0 : Math.min(Math.max(protectedTotalFromWallets, storedEmergencyAmount), walletTotal));
+  const spendableTotal = finance?.safeSpendableAmount ?? (walletTotal === null ? null : Math.max(walletTotal - emergencyAmount, 0));
   const linkedWalletName = getEmergencyFundWalletName(emergencyFund, wallets);
   const protectedWallet = wallets.find((wallet) => getWalletProtected(wallet) > 0);
-  const declaredBudget = getDeclaredBudget(context);
-  const spentBudget = getBudgetSpent(context);
-  const remainingBudget = declaredBudget === null ? null : Math.max(declaredBudget - spentBudget, 0);
+  const budgetPlan = finance?.budgetPlan || {};
+  const declaredBudget = budgetPlan?.hasDeclaredBudget ? toMaybeNumber(budgetPlan.declaredBudget) : null;
+  const spentBudget = budgetPlan?.hasDeclaredBudget ? toMaybeNumber(budgetPlan.spentTotal) ?? 0 : 0;
+  const remainingBudget = budgetPlan?.hasDeclaredBudget
+    ? toMaybeNumber(budgetPlan.remainingSpendableBudget) ?? Math.max((declaredBudget || 0) - spentBudget, 0)
+    : null;
 
   return {
     wallets,
