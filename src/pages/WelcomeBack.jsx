@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, BarChart3, CheckCircle2, ChevronLeft, HeartHandshake, Sparkles, WalletCards } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import ClaraLogo from "@/components/ClaraLogo";
 
 const tutorialSlides = [
   {
@@ -99,7 +98,7 @@ export default function WelcomeBack() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#040608] px-4 py-6 text-white">
+    <div className="relative min-h-screen overflow-hidden bg-[#040608] px-4 py-4 text-white">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.16),transparent_32%),linear-gradient(180deg,rgba(8,13,20,1)_0%,rgba(3,6,10,1)_100%)]" />
         <div className="absolute -left-28 top-20 h-72 w-72 rounded-full bg-emerald-400/12 blur-[110px]" />
@@ -107,7 +106,7 @@ export default function WelcomeBack() {
         <div className="absolute bottom-0 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[130px]" />
       </div>
 
-      <main className="relative mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md flex-col">
+      <main className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md flex-col">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -119,10 +118,6 @@ export default function WelcomeBack() {
             <ChevronLeft className="h-5 w-5" />
           </button>
 
-          <div className="rounded-[22px] border border-white/10 bg-white/[0.05] p-2 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-            <ClaraLogo variant="icon" theme="dark" />
-          </div>
-
           <button
             type="button"
             onClick={goToDashboard}
@@ -132,21 +127,21 @@ export default function WelcomeBack() {
           </button>
         </div>
 
-        <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-green-300 to-lime-300 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        <section className="mt-5 flex flex-1 flex-col justify-center">
+        <section className="mt-4 flex flex-1 flex-col justify-center">
           <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
 
             {!isTierStep ? (
               <div className="relative">
-                <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-3xl border border-emerald-300/20 bg-emerald-300/12 text-emerald-200 shadow-[0_16px_42px_rgba(16,185,129,0.18)]">
+                <div className="mb-4 inline-flex h-13 w-13 items-center justify-center rounded-3xl border border-emerald-300/20 bg-emerald-300/12 text-emerald-200 shadow-[0_16px_42px_rgba(16,185,129,0.18)]">
                   <CurrentIcon className="h-6 w-6" />
                 </div>
 
@@ -160,7 +155,7 @@ export default function WelcomeBack() {
                   {currentSlide.body}
                 </p>
 
-                <div className="mt-7 rounded-3xl border border-white/10 bg-black/18 p-4">
+                <div className="mt-6 rounded-3xl border border-white/10 bg-black/18 p-4">
                   <p className="text-sm font-semibold text-white">{currentSlide.noteTitle}</p>
                   <p className="mt-1.5 text-sm leading-6 text-white/58">
                     {currentSlide.note}
@@ -179,7 +174,7 @@ export default function WelcomeBack() {
                   Choose a tier later when you want more guidance. For now, you can go straight to the free dashboard and begin.
                 </p>
 
-                <div className="mt-5 max-h-[45vh] space-y-3 overflow-y-auto pr-1">
+                <div className="mt-5 max-h-[48vh] space-y-3 overflow-y-auto pr-1">
                   {tiers.map((tier) => (
                     <div
                       key={tier.name}
@@ -223,7 +218,7 @@ export default function WelcomeBack() {
           </div>
         </section>
 
-        <div className="mt-5 grid gap-3">
+        <div className="mt-4 grid gap-2.5">
           <button
             type="button"
             onClick={goNext}
@@ -237,7 +232,7 @@ export default function WelcomeBack() {
             <button
               type="button"
               onClick={goToDashboard}
-              className="h-13 rounded-2xl border border-white/10 bg-white/[0.045] text-sm font-semibold text-white/70 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+              className="h-11 rounded-2xl border border-white/10 bg-white/[0.045] text-sm font-semibold text-white/70 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
             >
               Skip for now and use the free version
             </button>
