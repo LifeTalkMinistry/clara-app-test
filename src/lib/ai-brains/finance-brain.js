@@ -44,11 +44,40 @@ function formatRecentConversation(messages = []) {
     .join("\n") || "No recent chatbox conversation yet.";
 }
 
+function hasSentenceEnding(text = "") {
+  return /[.!?)]$/.test(cleanText(text));
+}
+
+function looksCutOff(text = "") {
+  const cleaned = cleanText(text);
+  if (!cleaned) return true;
+  if (/₱\s*\d[\d,]*(?:\.\d+)?$/.test(cleaned)) return true;
+  if (/[,:;–—-]$/.test(cleaned)) return true;
+  if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around|based on|you have|your budget|still have)$/i.test(cleaned)) return true;
+  return false;
+}
+
 function trimSentences(text = "", maxSentences = 4) {
   const cleaned = cleanText(text);
   if (!cleaned) return "";
+
   const parts = cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleaned];
-  return parts.slice(0, maxSentences).join(" ").replace(/\s+/g, " ").trim();
+  const completeParts = parts.filter((part, index) => {
+    const sentence = cleanText(part);
+    if (!sentence) return false;
+    if (hasSentenceEnding(sentence)) return true;
+    return index === parts.length - 1 && parts.length === 1 && !looksCutOff(sentence);
+  });
+
+  const safeParts = completeParts.length ? completeParts : parts.slice(0, 1);
+  let result = safeParts.slice(0, maxSentences).join(" ").replace(/\s+/g, " ").trim();
+
+  if (looksCutOff(result)) {
+    const completedOnly = safeParts.filter((part) => hasSentenceEnding(part));
+    result = completedOnly.slice(0, maxSentences).join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  return result;
 }
 
 function buildWalletRows(finance = {}) {
@@ -166,6 +195,8 @@ ANSWER RULES:
 - Maximum 2-4 short sentences unless the user asks for a breakdown.
 - If selected sub-contexts are missing, say what is missing instead of guessing.
 - For budget questions with no declared budget, use this meaning: "I don’t see an active declared monthly budget yet."
+- End with a complete sentence and punctuation.
+- Never stop after a partial money amount like "₱25" or an unfinished phrase like "so you still have".
 
 Reply as CLARA:`;
 }
@@ -210,5 +241,8 @@ export function sanitizeFinanceBrainReply(reply = "") {
     .trim();
 
   if (!cleaned) return "I don’t have enough finance data to answer that clearly yet.";
-  return trimSentences(cleaned, 4);
+
+  const safeReply = trimSentences(cleaned, 4);
+  if (!safeReply || looksCutOff(safeReply)) return "I couldn’t complete that budget reply clearly. Please ask me to check the budget again.";
+  return safeReply;
 }
