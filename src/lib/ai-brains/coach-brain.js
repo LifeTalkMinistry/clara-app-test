@@ -2,7 +2,7 @@ import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
-const DEFAULT_COACH_REPLY = "I’m here with you. Pause for a moment, name what you’re feeling, then choose one small action that protects your money and your peace today.";
+const DEFAULT_COACH_REPLY = "";
 const SAFETY_REPLY = "I’m really sorry you’re carrying that. Please reach out to someone you trust right now or contact local emergency support if your safety is at risk. Your safety matters more than any money decision.";
 
 const SAFETY_TERM_CODES = [
@@ -41,16 +41,15 @@ function list(items = [], formatter, empty = "none loaded") {
     .join("; ") || empty;
 }
 
-function formatRecentConversation(messages = []) {
+function formatFullConversation(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .slice(-6)
     .map((message) => {
       const role = message?.role === "user" ? "User" : "CLARA";
       const text = cleanText(message?.text || message?.content || "");
       return text ? `${role}: ${text}` : "";
     })
     .filter(Boolean)
-    .join("\n") || "No recent chatbox conversation yet.";
+    .join("\n") || "No visible chatbox conversation history yet.";
 }
 
 function getProfileValue(context = {}, keys = []) {
@@ -142,11 +141,11 @@ Coach Brain handles:
 
 ${subContextBlock}
 
+FULL VISIBLE CHATBOX CONVERSATION HISTORY:
+${formatFullConversation(recentConversation)}
+
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
-
-RECENT CHATBOX CONVERSATION:
-${formatRecentConversation(recentConversation)}
 
 COACH SNAPSHOT:
 Detected coach theme: ${theme}
@@ -166,6 +165,7 @@ Protected goal: ${getProfileValue(context, ["meaningfulGoal", "meaningful_goal",
 
 STYLE RULES:
 - Use the selected sub-contexts first when grounding the coaching moment.
+- Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", and short emotional replies.
 - Be warm, calm, grounding, and practical.
 - Validate the emotion without excusing harmful spending.
 - Do not shame the user.
@@ -176,6 +176,7 @@ STYLE RULES:
 - Give one small next step the user can do now.
 - If this sounds like a purchase decision, gently tell the user to ask with the item and amount.
 - If the user signals immediate safety risk, prioritize safety and urge immediate human support.
+- Do not use canned wording.
 
 ANSWER FORMAT:
 1. One short validation.
@@ -190,35 +191,10 @@ LENGTH RULES:
 Reply as CLARA:`;
 }
 
-export function generateLocalCoachReply({ userMessage = "", context = {} } = {}) {
-  const finance = buildClaraFinanceSnapshot(context || {});
+export function generateLocalCoachReply({ userMessage = "" } = {}) {
   const theme = detectCoachTheme(userMessage);
-  const risk = getCoachRisk(finance);
-
   if (theme === "safety") return SAFETY_REPLY;
-
-  if (theme === "temptation") {
-    return "That temptation is real, but you do not have to obey it immediately. Pause for 10 minutes, check if it is planned, then ask CLARA with the item and amount before you spend.";
-  }
-
-  if (theme === "guilt") {
-    return "I hear the guilt, but one mistake does not define your money story. Log what happened honestly, learn the trigger, then make the next decision smaller and cleaner.";
-  }
-
-  if (theme === "pressure") {
-    const riskLine = risk === "high" ? "Because your money looks pressured, protect essentials first." : "You do not need to fix everything today.";
-    return `That sounds heavy, so slow down first. ${riskLine} Choose one small money action now, like checking your budget or delaying one non-essential spend.`;
-  }
-
-  if (theme === "discipline") {
-    return "Discipline does not need to feel intense today. Make it small: track one expense, avoid one unplanned purchase, or review one budget category before the day ends.";
-  }
-
-  if (theme === "emotional_spending") {
-    return "That feeling makes spending look comforting, but comfort and checkout are not always the same thing. Give yourself a pause first, then choose a cheaper way to rest before buying anything.";
-  }
-
-  return DEFAULT_COACH_REPLY;
+  return "";
 }
 
 export function sanitizeCoachBrainReply(reply = "") {
