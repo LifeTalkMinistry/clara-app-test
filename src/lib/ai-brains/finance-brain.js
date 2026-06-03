@@ -24,10 +24,6 @@ function list(items = [], formatter, empty = "none loaded") {
     .join("; ") || empty;
 }
 
-function normalizeText(value = "") {
-  return cleanText(value).toLowerCase();
-}
-
 function budgetName(budget = {}) {
   return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
 }
@@ -42,23 +38,6 @@ function formatRecentConversation(messages = []) {
     })
     .filter(Boolean)
     .join("\n") || "No recent chatbox conversation yet.";
-}
-
-function lastClaraMessage(messages = []) {
-  return [...(Array.isArray(messages) ? messages : [])]
-    .reverse()
-    .find((message) => message?.role !== "user" && cleanText(message?.text || message?.content || ""));
-}
-
-function isAffirmativeFollowUp(value = "") {
-  const text = normalizeText(value).replace(/[!?.]+$/g, "").trim();
-  return /^(sure|yes|yep|yup|yeah|okay|ok|go ahead|show me|please|sige|oo|opo|continue|proceed)$/.test(text);
-}
-
-function previousAskedForBudgetBreakdown(messages = []) {
-  const last = cleanText(lastClaraMessage(messages)?.text || lastClaraMessage(messages)?.content || "").toLowerCase();
-  if (!last) return false;
-  return /\b(would you like|want me|do you want|want to see|show|see)\b/.test(last) && /\b(breakdown|category|categories|budget)\b/.test(last);
 }
 
 function hasSentenceEnding(text = "") {
@@ -132,32 +111,6 @@ function buildSpendingRows(finance = {}) {
   return `Monthly spent: ${money(finance.monthlySpent)}. Planned: ${money(finance.plannedSpent)}. Unplanned: ${money(finance.unplannedSpent)}. Top category: ${topText}`;
 }
 
-function buildTopCategoryLine(finance = {}) {
-  const top = finance.topSpendingCategory;
-  return top?.category ? `Your biggest category right now is ${top.category} at ${money(top.amount)}.` : "I don’t see a top spending category yet.";
-}
-
-function noActiveBudgetReply() {
-  return "I don’t see an active declared monthly budget yet. Your budget card is still in No Plan state, so I can’t calculate real remaining budget yet. Start by declaring your monthly budget amount, then CLARA can track your categories and spending.";
-}
-
-function budgetBreakdownReply(finance = {}) {
-  const plan = finance.budgetPlan || {};
-  if (!plan.hasDeclaredBudget || plan.budgetStatus === "no_budget") return noActiveBudgetReply();
-
-  const categories = Array.isArray(plan.categories) ? plan.categories : [];
-  if (!categories.length) {
-    return `Sure — your declared monthly budget is ${money(plan.declaredBudget)}, but I don’t see budget categories yet. You’ve spent ${money(plan.spentTotal)} so far, so your remaining spendable budget is ${money(plan.remainingSpendableBudget)}.`;
-  }
-
-  const rows = categories
-    .slice(0, 6)
-    .map((category) => `${budgetName(category)}: ${money(category.allocated)} allocated, ${money(category.spent)} spent, ${money(category.remaining)} left`)
-    .join("; ");
-
-  return `Sure — here’s your budget breakdown: ${rows}. You’ve spent ${money(plan.spentTotal)} so far, so your remaining spendable budget is ${money(plan.remainingSpendableBudget)}.`;
-}
-
 export function buildFinanceBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
@@ -189,6 +142,7 @@ IMPORTANT CONTEXT RULES:
 - Do not say "budget looks good" unless there is an active declared budget.
 - If the latest user message is an affirmation like "Sure" or "Yes", use recent chat history to understand what they accepted.
 - If the previous CLARA message asked whether the user wants a budget/category breakdown, provide the budget breakdown from the rows below.
+- Avoid canned wording. Write a fresh, natural answer from the snapshot and the current chat history.
 
 STYLE:
 Direct, clear, short, and data-first.
@@ -237,41 +191,8 @@ ANSWER RULES:
 Reply as CLARA:`;
 }
 
-export function generateLocalFinanceReply({ userMessage = "", context = {}, recentConversation = [] } = {}) {
-  const finance = buildClaraFinanceSnapshot(context || {});
-  const text = normalizeText(userMessage);
-  const plan = finance.budgetPlan || {};
-
-  if (!finance.hasAnyData) return "I don’t see enough finance data loaded yet. Add a wallet, budget, or expense first so I can answer clearly.";
-
-  if (isAffirmativeFollowUp(text) && previousAskedForBudgetBreakdown(recentConversation)) {
-    return budgetBreakdownReply(finance);
-  }
-
-  if (/\b(spent|spending|expense|expenses|this month|monthly|eating most|top category|which category)\b/.test(text)) {
-    return `You’ve spent ${money(finance.monthlySpent)} this month. Unplanned spending is ${money(finance.unplannedSpent)}. ${buildTopCategoryLine(finance)}`;
-  }
-
-  if (/\b(budget|budget left|remaining budget|budget status|category|categories|spending plan)\b/.test(text)) {
-    if (!plan.hasDeclaredBudget || plan.budgetStatus === "no_budget") return noActiveBudgetReply();
-    return `Your remaining spendable budget is ${money(plan.remainingSpendableBudget)}. You’ve spent ${money(plan.spentTotal)} out of ${money(plan.declaredBudget)}. Budget rows: ${buildBudgetRows(finance)}.`;
-  }
-
-  if (/\b(wallet|balance|money left|available money|how much money|cash)\b/.test(text)) {
-    const wallets = buildWalletRows(finance);
-    return `You currently have ${money(finance.availableMoney)} available. Wallets: ${wallets}.`;
-  }
-
-  if (/\b(savings?|goal|goals)\b/.test(text)) {
-    if (!finance.savingsGoals?.length) return "I don’t see savings goals loaded yet. Add one so CLARA can track your progress.";
-    return `Your savings goals: ${buildSavingsRows(finance)}.`;
-  }
-
-  if (/\b(emergency|emergency fund|buffer)\b/.test(text)) {
-    return `Emergency fund: ${buildEmergencyRow(finance)}`;
-  }
-
-  return `Your current visible money is ${money(finance.availableMoney)}. Ask me about wallets, budget, spending, savings, or emergency fund to narrow it down.`;
+export function generateLocalFinanceReply() {
+  return "";
 }
 
 export function sanitizeFinanceBrainReply(reply = "") {
@@ -280,9 +201,9 @@ export function sanitizeFinanceBrainReply(reply = "") {
     .replace(/^Reply:\s*/i, "")
     .trim();
 
-  if (!cleaned) return "I don’t have enough finance data to answer that clearly yet.";
+  if (!cleaned) return "";
 
   const safeReply = trimSentences(cleaned, 4);
-  if (!safeReply || looksCutOff(safeReply)) return "I couldn’t complete that budget reply clearly. Please ask me to check the budget again.";
+  if (!safeReply || looksCutOff(safeReply)) return "";
   return safeReply;
 }
