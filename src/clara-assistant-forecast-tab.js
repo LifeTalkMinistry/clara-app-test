@@ -1,10 +1,14 @@
 const FORECAST_LABEL = "Forecast";
 const CORE_FEATURES_LABEL = "Core Features";
-const SMART_ACTIONS_LABEL = "Smart Actions";
+const SMART_ACTIONS_LABELS = ["Smart Actions", "Analytic"];
 const FORECAST_ACTION_MATCHERS = ["Future Money Forecast", "Forecast"];
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function includesAny(text = "", labels = []) {
+  return labels.some((label) => text.includes(label));
 }
 
 function getAssistantShell() {
@@ -12,7 +16,7 @@ function getAssistantShell() {
     const text = clean(shell.textContent);
     return (
       (text.includes(CORE_FEATURES_LABEL) || text.includes(FORECAST_LABEL)) &&
-      text.includes(SMART_ACTIONS_LABEL)
+      includesAny(text, SMART_ACTIONS_LABELS)
     );
   });
 }
@@ -35,12 +39,12 @@ function isCoreFeaturesTabButton(button) {
   const rowText = clean(button.parentElement?.textContent || "");
   return (
     (rowText.includes(CORE_FEATURES_LABEL) || rowText.includes(FORECAST_LABEL)) &&
-    rowText.includes(SMART_ACTIONS_LABEL)
+    includesAny(rowText, SMART_ACTIONS_LABELS)
   );
 }
 
-function findButtonByExactLabel(label) {
-  return getAssistantButtons().find((button) => clean(button.textContent) === label) || null;
+function findButtonByAnyLabel(labels = []) {
+  return getAssistantButtons().find((button) => labels.includes(clean(button.textContent))) || null;
 }
 
 function findForecastActionButton() {
@@ -84,14 +88,25 @@ function submitForecastFallback() {
   }, 30);
 }
 
+function clickSmartActionsPanel(button) {
+  if (!button) return false;
+
+  button.dataset.claraProgrammaticOpenSmart = "true";
+  button.click();
+  window.setTimeout(() => {
+    delete button.dataset.claraProgrammaticOpenSmart;
+  }, 180);
+  return true;
+}
+
 function openForecastMode() {
-  const smartActionsButton = findButtonByExactLabel(SMART_ACTIONS_LABEL);
+  const smartActionsButton = findButtonByAnyLabel(SMART_ACTIONS_LABELS);
   if (!smartActionsButton) {
     submitForecastFallback();
     return;
   }
 
-  smartActionsButton.click();
+  clickSmartActionsPanel(smartActionsButton);
 
   window.setTimeout(() => {
     const forecastButton = findForecastActionButton();
