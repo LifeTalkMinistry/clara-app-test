@@ -2,6 +2,7 @@ import {
   LOCAL_FINANCE_STORES,
   getLocalRecordsByUser,
   hardDeleteLocalRecord,
+  runLocalFinanceTransaction,
   upsertLocalRecord,
 } from "./localFinanceStore";
 import { CLARA_LIFE_PROFILE_ID, saveClaraLifeProfile } from "./clara-life-profile";
@@ -197,23 +198,17 @@ function getSampleActiveState() {
   return readJsonStorage(SAMPLE_ACTIVE_KEY);
 }
 
-export function isClaraSampleUserDataActive() {
-  return Boolean(getSampleActiveState()?.active);
+export function isClaraSampleUserDataActive(user = null) {
+  const activeState = getSampleActiveState();
+  if (!activeState?.active) return false;
+  if (!user) return true;
+
+  const localUserId = localUserIdFor(user);
+  return !activeState.localUserId || activeState.localUserId === localUserId;
 }
 
-async function backupRealDataBeforeSample(user, localUserId) {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  if (isClaraSampleUserDataActive() || window.localStorage.getItem(SAMPLE_BACKUP_KEY)) return;
-
-  const lifeProfileRecords = await getLocalRecordsByUser(LOCAL_FINANCE_STORES.lifeProfile, { localUserId, includeDeleted: true });
-  const scheduleKey = scheduleKeyFor(user);
-  const backup = { createdAt: n(), localUserId, scheduleKey, scheduleRaw: window.localStorage.getItem(scheduleKey), memoryStoryRaw: window.localStorage.getItem(USER_CONTEXT_STORY_KEY), lifeProfileRecords: Array.isArray(lifeProfileRecords) ? lifeProfileRecords : [] };
-  window.localStorage.setItem(SAMPLE_BACKUP_KEY, JSON.stringify(backup));
-}
-
-async function removeSampleFinanceRecords(localUserId) {
-  const sample = buildSample();
-  const deleteJobs = [
+function getSampleDeleteJobs(sample = buildSample()) {
+  return [
     ...sample.wallets.map((record) => [LOCAL_FINANCE_STORES.wallets, record.id]),
     ...sample.transactions.map((record) => [LOCAL_FINANCE_STORES.walletTransactions, record.id]),
     ...sample.expenses.map((record) => [LOCAL_FINANCE_STORES.expenses, record.id]),
@@ -223,9 +218,81 @@ async function removeSampleFinanceRecords(localUserId) {
     ...sample.memories.map((record) => [LOCAL_FINANCE_STORES.aiFinancialMemory, record.id]),
     ...sample.debts.map((record) => [DEBT_OBLIGATION_STORE, record.id]),
   ];
+}
 
-  for (const [store, recordId] of deleteJobs) {
-    await hardDeleteLocalRecord(store, recordId, localUserId);
+function isSampleSeedRecord(record, expectedId = "") {
+  const recordId = String(record?.id || "").trim();
+  return Boolean(
+    record &&
+      (record.demoSeed === true ||
+        record.source === SOURCE ||
+        recordId === expectedId ||
+        recordId.startsWith(PREFIX) ||
+        recordId === "emergency_fund:sample_max")
+  );
+}
+
+async function hardDeleteSampleRecord(storeName, recordId, localUserId) {
+  return runLocalFinanceTransaction(storeName, localUserId, async ({ getAny, store }) => {
+    const existingRecord = await getAny(storeName, recordId);
+    if (!isSampleSeedRecord(existingRecord, recordId)) return false;
+
+    store(storeName).delete(recordId);
+    return true;
+  });
+}
+
+async function hasCurrentUserSampleFinanceRecords(localUserId) {
+  const sampleJobs = getSampleDeleteJobs();
+  const sampleIdsByStore = sampleJobs.reduce((map, [storeName, recordId]) => {
+    if (!map.has(storeName)) map.set(storeName, new Set());
+    map.get(storeName).add(recordId);
+    return map;
+  }, new Map());
+
+  try {
+    for (const [storeName, sampleIds] of sampleIdsByStore.entries()) {
+      const rows = await getLocalRecordsByUser(storeName, { localUserId });
+      if ((rows || []).some((row) => sampleIds.has(row?.id) || isSampleSeedRecord(row))) {
+        return true;
+      }
+    }
+  } catch (error) {
+    console.warn("CLARA sample state detection failed:", error);
+  }
+
+  return false;
+}
+
+export async function getClaraSampleUserDataState({ user = null } = {}) {
+  const localUserId = localUserIdFor(user);
+  const activeState = getSampleActiveState();
+  const activeFlagForUser = Boolean(
+    activeState?.active && (!activeState.localUserId || activeState.localUserId === localUserId)
+  );
+  const hasSampleRecords = await hasCurrentUserSampleFinanceRecords(localUserId);
+
+  return {
+    active: activeFlagForUser || hasSampleRecords,
+    activeFlagForUser,
+    hasSampleRecords,
+    localUserId,
+  };
+}
+
+async function backupRealDataBeforeSample(user, localUserId) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  if (isClaraSampleUserDataActive(user) || window.localStorage.getItem(SAMPLE_BACKUP_KEY)) return;
+
+  const lifeProfileRecords = await getLocalRecordsByUser(LOCAL_FINANCE_STORES.lifeProfile, { localUserId, includeDeleted: true });
+  const scheduleKey = scheduleKeyFor(user);
+  const backup = { createdAt: n(), localUserId, scheduleKey, scheduleRaw: window.localStorage.getItem(scheduleKey), memoryStoryRaw: window.localStorage.getItem(USER_CONTEXT_STORY_KEY), lifeProfileRecords: Array.isArray(lifeProfileRecords) ? lifeProfileRecords : [] };
+  window.localStorage.setItem(SAMPLE_BACKUP_KEY, JSON.stringify(backup));
+}
+
+async function removeSampleFinanceRecords(localUserId) {
+  for (const [store, recordId] of getSampleDeleteJobs()) {
+    await hardDeleteSampleRecord(store, recordId, localUserId);
   }
 }
 
@@ -256,11 +323,30 @@ async function restoreLifeProfileFromBackup(backup, localUserId) {
   await hardDeleteLocalRecord(LOCAL_FINANCE_STORES.lifeProfile, CLARA_LIFE_PROFILE_ID, localUserId);
 }
 
+async function saveSampleLifeProfile(user, profile) {
+  try {
+    await saveClaraLifeProfile(user, profile);
+  } catch (error) {
+    console.warn("CLARA sample life profile save skipped:", error);
+  }
+}
+
+async function saveSampleDebts(localUserId, debts = []) {
+  for (const debt of debts) {
+    try {
+      await upsertDebtObligation(localUserId, debt);
+    } catch (error) {
+      console.warn("CLARA sample debt save skipped:", error);
+    }
+  }
+}
+
 export async function activateClaraSampleUserData({ user = null } = {}) {
   const localUserId = localUserIdFor(user);
   const sample = buildSample();
 
   await backupRealDataBeforeSample(user, localUserId);
+  await removeSampleFinanceRecords(localUserId);
   await upsertMany(LOCAL_FINANCE_STORES.wallets, sample.wallets, localUserId);
   await upsertMany(LOCAL_FINANCE_STORES.walletTransactions, sample.transactions, localUserId);
   await upsertMany(LOCAL_FINANCE_STORES.expenses, sample.expenses, localUserId);
@@ -268,8 +354,8 @@ export async function activateClaraSampleUserData({ user = null } = {}) {
   await upsertMany(LOCAL_FINANCE_STORES.savingsGoals, sample.goals, localUserId);
   await upsertLocalRecord(LOCAL_FINANCE_STORES.emergencyFund, sample.emergencyFund, localUserId);
   await upsertMany(LOCAL_FINANCE_STORES.aiFinancialMemory, sample.memories, localUserId);
-  for (const debt of sample.debts) await upsertDebtObligation(localUserId, debt);
-  await saveClaraLifeProfile(user, sample.profile);
+  await saveSampleDebts(localUserId, sample.debts);
+  await saveSampleLifeProfile(user, sample.profile);
   saveSchedule(user, sample.scheduleEvents);
   saveMemoryBank(sample.memoryBank);
 
@@ -296,6 +382,7 @@ export async function restoreClaraRealUserData({ user = null } = {}) {
 }
 
 export async function toggleClaraSampleUserData({ user = null } = {}) {
-  if (isClaraSampleUserDataActive()) return restoreClaraRealUserData({ user });
+  const state = await getClaraSampleUserDataState({ user });
+  if (state.active) return restoreClaraRealUserData({ user });
   return activateClaraSampleUserData({ user });
 }
