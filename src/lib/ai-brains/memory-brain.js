@@ -2,17 +2,7 @@ import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
-const DEFAULT_MEMORY_REPLY = "That’s useful to notice. I’ll treat it as a money pattern, so next time, pause before a similar spend and check if it was planned.";
-
-const MEMORY_TEMPLATES = Object.freeze({
-  money_rhythm: "That’s a useful payday pattern to notice. It looks like payday confidence can lower your spending guard, so a good rule is to wait 24 hours before non-essential purchases after payday.",
-  spending_trigger: "That’s a useful trigger to notice. Tiredness or repeated situations may push you toward extra spending, so prepare a low-effort option before that trigger hits.",
-  preference: "Got it — direct guidance works better for you. I’ll keep money advice short, clear, and action-focused when you’re making decisions.",
-  goal_or_priority: "That goal is worth protecting. When convenience spending shows up, compare it against your budget goal first before you decide.",
-  emotional_pattern: "That emotional pattern matters. When that feeling shows up, pause first and choose a cheaper reset before making an unplanned spend.",
-  lesson_or_insight: "That’s a useful lesson. Turn it into one simple money rule you can check before the next similar spend.",
-  general_memory: DEFAULT_MEMORY_REPLY,
-});
+const DEFAULT_MEMORY_REPLY = "";
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -31,16 +21,15 @@ function list(items = [], formatter, empty = "none loaded") {
   return (Array.isArray(items) ? items : []).slice(0, 5).map(formatter).filter(Boolean).join("; ") || empty;
 }
 
-function formatRecentConversation(messages = []) {
+function formatFullConversation(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .slice(-6)
     .map((message) => {
       const role = message?.role === "user" ? "User" : "CLARA";
       const text = cleanText(message?.text || message?.content || "");
       return text ? `${role}: ${text}` : "";
     })
     .filter(Boolean)
-    .join("\n") || "No recent chatbox conversation yet.";
+    .join("\n") || "No visible chatbox conversation history yet.";
 }
 
 function getProfileValue(context = {}, keys = []) {
@@ -64,10 +53,6 @@ function detectMemoryType(message = "") {
   if (/\b(stress|sad|lonely|bored|guilty|pressure|pagod|tempted|regret)\b/.test(text)) return "emotional_pattern";
   if (/\b(i realized|i realise|i noticed|i learned|lesson|natutunan|napansin)\b/.test(text)) return "lesson_or_insight";
   return "general_memory";
-}
-
-export function getTemplateForMessage(message = "") {
-  return MEMORY_TEMPLATES[detectMemoryType(message)] || DEFAULT_MEMORY_REPLY;
 }
 
 function buildWalletRows(finance = {}) {
@@ -113,7 +98,6 @@ export function buildMemoryBrainPrompt({ userMessage = "", context = {}, recentC
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
   const memoryType = detectMemoryType(userMessage);
-  const suggestedReply = getTemplateForMessage(userMessage);
   const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.MEMORY, message: userMessage, context });
 
   return `You are CLARA's Memory Brain.
@@ -123,15 +107,14 @@ Notice user money patterns and respond naturally. Do not use labels. Do not ask 
 
 ${subContextBlock}
 
+FULL VISIBLE CHATBOX CONVERSATION HISTORY:
+${formatFullConversation(recentConversation)}
+
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
 
-RECENT CHATBOX CONVERSATION:
-${formatRecentConversation(recentConversation)}
-
 MEMORY SNAPSHOT:
 Detected memory type: ${memoryType}
-Suggested natural reply: ${suggestedReply}
 Visible wallet money: ${money(finance.availableMoney)}
 Remaining spendable budget: ${money(plan.remainingSpendableBudget)}
 Monthly spent: ${money(finance.monthlySpent)}
@@ -147,8 +130,10 @@ Protected goal: ${getProfileValue(context, ["meaningfulGoal", "meaningful_goal",
 
 RULES:
 - Use the selected sub-contexts first when naming the pattern.
+- Use the full visible chatbox conversation history to understand what pattern the user is referring to.
 - Reply like a normal CLARA conversation.
 - Do not output Pattern, Category, or Guardrail labels.
+- Do not use canned wording.
 - Maximum 2 short sentences.
 - Maximum 50 words.
 - No follow-up questions.
@@ -159,19 +144,11 @@ RULES:
 Reply as CLARA:`;
 }
 
-export function generateLocalMemoryReply({ userMessage = "", context = {} } = {}) {
-  const memoryType = detectMemoryType(userMessage);
-  const finance = buildClaraFinanceSnapshot(context || {});
-  const hasBudgetPressure = finance.budgetPlan?.hasDeclaredBudget && Number(finance.budgetPlan?.remainingSpendableBudget) <= 0;
-
-  if (hasBudgetPressure && memoryType === "general_memory") {
-    return "That matters more because your budget looks pressured. For today, protect essentials first and avoid unplanned spending.";
-  }
-
-  return getTemplateForMessage(userMessage);
+export function generateLocalMemoryReply() {
+  return DEFAULT_MEMORY_REPLY;
 }
 
-export function sanitizeMemoryBrainReply(reply = "", userMessage = "") {
+export function sanitizeMemoryBrainReply(reply = "") {
   const cleaned = cleanText(reply)
     .replace(/^CLARA:\s*/i, "")
     .replace(/^Reply:\s*/i, "")
@@ -180,13 +157,12 @@ export function sanitizeMemoryBrainReply(reply = "", userMessage = "") {
     .replace(/__([^_]+)__/g, "$1")
     .trim();
 
-  if (!cleaned) return getTemplateForMessage(userMessage);
+  if (!cleaned) return DEFAULT_MEMORY_REPLY;
 
   const withoutQuestions = stripQuestions(cleaned);
-  const fallbackSource = userMessage || withoutQuestions || cleaned;
 
-  if (hasLabelFormat(withoutQuestions)) return getTemplateForMessage(fallbackSource);
-  if (isLikelyIncomplete(withoutQuestions)) return getTemplateForMessage(fallbackSource);
+  if (hasLabelFormat(withoutQuestions)) return DEFAULT_MEMORY_REPLY;
+  if (isLikelyIncomplete(withoutQuestions)) return DEFAULT_MEMORY_REPLY;
 
   return limitWords(trimSentences(withoutQuestions, 2), 50);
 }
