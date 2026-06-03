@@ -38,6 +38,18 @@ function hasEnoughAnswers() {
   return clean(state.item).length > 0 && Number(state.price || 0) > 0 && clean(state.reason).length > 0;
 }
 
+function isAlreadyGoodBuyCheckFormat(raw = "") {
+  const text = String(raw || "");
+  const bullets = (text.match(/•/g) || []).length;
+  return (
+    text.includes("Decision:") &&
+    text.includes("Risk:") &&
+    text.includes("Why:") &&
+    text.includes("Safer move:") &&
+    bullets >= 3
+  );
+}
+
 function inferDecision(text = "") {
   const lower = text.toLowerCase();
   if (lower.includes("buy with cap")) return "BUY WITH CAP";
@@ -111,6 +123,11 @@ function formatFinalBubble() {
   if (!bubble || bubble.dataset.claraHardFormatted === "true") return;
 
   const raw = bubble.textContent || "";
+  if (isAlreadyGoodBuyCheckFormat(raw)) {
+    bubble.dataset.claraHardFormatted = "true";
+    return;
+  }
+
   const decision = inferDecision(raw);
   const risk = inferRisk(raw);
   const evidence = extractEvidence(raw);
