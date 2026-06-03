@@ -6,7 +6,10 @@ import LearningHub from "@/components/fresh/main-dashboard/learning-hub/Learning
 import DashboardMoneySummaryStable from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import { Button } from "@/components/ui/button";
-import { activateClaraSampleUserData } from "@/lib/clara-demo-sample-data";
+import {
+  activateClaraSampleUserData,
+  restoreClaraRealUserData,
+} from "@/lib/clara-demo-sample-data";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const CLARA_SAMPLE_DATA_EVENT = "clara:activate-sample-user-data";
@@ -97,20 +100,30 @@ export default function DashboardHomePanel({
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    const handleSampleActivation = async () => {
+    const handleSampleActivation = async (event) => {
       if (sampleLoading) return;
+
+      const action = event?.detail?.action === "restore" ? "restore" : "activate";
 
       try {
         setSampleLoading(true);
-        setSampleStatus("Loading Max sample data...");
-        const result = await activateClaraSampleUserData({ user });
-        setSampleStatus(
-          `Max sample loaded: ${result.wallets} wallets, ${result.expenses} transactions, ${result.budgets} budget records, ${result.savingsGoals} goals.`
-        );
+
+        if (action === "restore") {
+          setSampleStatus("Restoring your real data...");
+          await restoreClaraRealUserData({ user });
+          setSampleStatus("Real data restored.");
+        } else {
+          setSampleStatus("Loading Max sample data...");
+          const result = await activateClaraSampleUserData({ user });
+          setSampleStatus(
+            `Max sample loaded: ${result.wallets} wallets, ${result.expenses} transactions, ${result.budgets} budget records, ${result.savingsGoals} goals.`
+          );
+        }
+
         window.setTimeout(() => window.location.reload(), 900);
       } catch (error) {
         console.error("CLARA sample user seed failed:", error);
-        setSampleStatus("Sample loading failed. Please try again.");
+        setSampleStatus(action === "restore" ? "Real data restore failed. Please try again." : "Sample loading failed. Please try again.");
         setSampleLoading(false);
       }
     };
