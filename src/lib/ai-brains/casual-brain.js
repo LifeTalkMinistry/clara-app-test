@@ -6,16 +6,15 @@ function normalizeText(value = "") {
   return cleanText(value).toLowerCase();
 }
 
-function formatRecentConversation(messages = []) {
+function formatFullConversation(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .slice(-8)
     .map((message) => {
       const role = message?.role === "user" ? "User" : "CLARA";
       const text = cleanText(message?.text || message?.content || "");
       return text ? `${role}: ${text}` : "";
     })
     .filter(Boolean)
-    .join("\n") || "No recent chatbox conversation yet.";
+    .join("\n") || "No visible chatbox conversation history yet.";
 }
 
 function trimToWordLimit(text = "", limit = 25) {
@@ -41,11 +40,12 @@ PURPOSE:
 Handle greetings, small talk, thank-you messages, light check-ins, acknowledgements, and normal conversation.
 
 IMPORTANT:
-Use ONLY the latest conversation inside this current chatbox.
+Use ONLY the latest visible conversation inside this current chatbox.
 Do NOT use full user profile.
 Do NOT use saved memories.
 Do NOT analyze spending patterns.
 Do NOT mention budgets, wallets, savings, goals, stress patterns, routines, or financial history unless the latest user message clearly asks for them.
+Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "great", and "thank you".
 If the latest user message is only an acknowledgement like "Great", "Okay", "Nice", "Got it", or "Thanks", do NOT repeat the previous budget/finance answer. Treat it as closure, then gently open the next step.
 
 ACKNOWLEDGEMENT MODE:
@@ -73,8 +73,8 @@ BOUNDARY:
 If the user suddenly asks about money, spending, budget, wallet, savings, or a purchase decision, do not answer deeply.
 Give one short bridge reply only.
 
-RECENT CHATBOX CONVERSATION:
-${formatRecentConversation(recentConversation)}
+FULL VISIBLE CHATBOX CONVERSATION HISTORY:
+${formatFullConversation(recentConversation)}
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
