@@ -22,57 +22,115 @@ function hasCompleteDiagnosisAnswers(state = {}) {
   );
 }
 
-function findWeakResult() {
+function isInstructionBubble(text = "") {
+  return (
+    text.includes("Hi, Max! What do you want to buy?") ||
+    text.includes("How much does") ||
+    text.includes("Why do you want to buy it?") ||
+    text.includes("Got it. I’m checking")
+  );
+}
+
+function findFinalResultBubble() {
   const chat = getChat();
   if (!chat) return null;
 
-  return Array.from(chat.querySelectorAll(".clara-buy-check-static-bubble.clara")).find((bubble) => {
+  const bubbles = Array.from(chat.querySelectorAll(".clara-buy-check-static-bubble.clara"));
+
+  return bubbles.reverse().find((bubble) => {
     const text = clean(bubble.textContent);
-    if (!text || text.includes("Got it. I’m checking")) return false;
-    if (text.includes("Hi, Max! What do you want to buy?")) return false;
-    if (text.includes("How much does")) return false;
-    if (text.includes("Why do you want to buy it?")) return false;
-    if (text.includes("Decision:") && text.includes("Risk:") && text.includes("Why:")) return false;
-    return /drawn to|impulse|overspending|treating yourself|sometimes spend|be careful|think twice/i.test(text);
-  });
+    if (!text || isInstructionBubble(text)) return false;
+
+    const looksLikeFinal =
+      text.includes("Decision:") ||
+      text.includes("Risk:") ||
+      text.includes("Evidence:") ||
+      text.includes("Safer move:") ||
+      /drawn to|impulse|overspending|treating yourself|sometimes spend|be careful|think twice/i.test(text);
+
+    return looksLikeFinal;
+  }) || null;
 }
 
 function inferCategory(item = "") {
   return /shoe|shoes|sneaker|sneakers|shirt|bag|watch|phone|gadget/i.test(item) ? "Shopping" : "Lifestyle";
 }
 
-function formatResult() {
+function fallbackResult() {
   const state = window[STATE_KEY] || {};
   const item = clean(state.item || "this item");
   const price = Number(state.price || 0);
   const reason = clean(state.reason || "not provided");
   const category = inferCategory(item);
 
-  return `Decision: BUY
+  return `Decision: BUY WITH CAP
 
-Risk: Low
+Risk: Medium
 
 Why:
 • The item is categorized as ${category}, so CLARA checked it as a discretionary purchase.
 • The purchase amount is ${money(price)}.
 • Your stated reason is: “${reason}”.
 • You already own ${/shoe/i.test(item) ? "shoes" : "similar items"}, so this is not a necessity.
-• This does not automatically affect emergency fund or savings goals unless the wallet/budget context says otherwise.
-• No schedule conflict or higher-priority expense is shown in the current Buy Check view.
+• Emergency fund, savings goals, schedule, and full wallet context should be treated as protected until verified.
 
 Safer move:
 If you buy it, cap yourself at ${money(price)} and avoid additional ${category.toLowerCase()} purchases for the next 7 days.`;
+}
+
+function formatExistingResult(rawText = "") {
+  let text = clean(rawText);
+
+  if (!text.includes("Decision:") && !text.includes("Risk:")) {
+    return fallbackResult();
+  }
+
+  text = text
+    .replace(/Decision:\s*/i, "Decision: ")
+    .replace(/\s+Risk:\s*/i, "\n\nRisk: ")
+    .replace(/\s+Evidence:\s*/i, "\n\nWhy:\n")
+    .replace(/\s+Why:\s*/i, "\n\nWhy:\n")
+    .replace(/\s+Safer move:\s*/i, "\n\nSafer move:\n")
+    .replace(/\s+Recommended:\s*/i, "\n\nSafer move:\n")
+    .replace(/\s*\*\s+/g, "\n• ")
+    .replace(/\s+-\s+/g, "\n• ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!text.includes("Why:")) {
+    text = text.replace(/\n\nSafer move:/, "\n\nWhy:\n• CLARA reviewed the available Buy Check evidence for this purchase.\n\nSafer move:");
+  }
+
+  if (!text.includes("Safer move:")) {
+    const state = window[STATE_KEY] || {};
+    const category = inferCategory(state.item || "");
+    text += `\n\nSafer move:\nCap this at ${money(state.price || 0)} and avoid additional ${category.toLowerCase()} purchases for the next 7 days.`;
+  }
+
+  return text;
+}
+
+function removeCheckingBubble() {
+  const chat = getChat();
+  if (!chat) return;
+
+  Array.from(chat.querySelectorAll(".clara-buy-check-static-bubble.clara")).forEach((bubble) => {
+    if (clean(bubble.textContent).includes("Got it. I’m checking")) {
+      bubble.closest(".clara-buy-check-static-bubble-row")?.remove?.();
+    }
+  });
 }
 
 function replaceResult() {
   const state = window[STATE_KEY];
   if (!hasCompleteDiagnosisAnswers(state) || state.__resultFormatGuardDone) return;
 
-  const bubble = findWeakResult();
+  const bubble = findFinalResultBubble();
   if (!bubble) return;
 
   state.__resultFormatGuardDone = true;
-  bubble.innerHTML = formatResult().replace(/\n/g, "<br>");
+  removeCheckingBubble();
+  bubble.innerHTML = formatExistingResult(bubble.textContent).replace(/\n/g, "<br>");
 }
 
 function install() {
