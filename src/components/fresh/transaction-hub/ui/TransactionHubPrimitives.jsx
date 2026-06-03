@@ -46,44 +46,40 @@ export function GlassDropdown({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className={`relative flex min-h-[50px] w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border px-4 text-left shadow-[0_14px_36px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-300 active:scale-[0.985] ${
+        className={`relative flex min-h-[50px] w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border px-4 text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition duration-300 active:scale-[0.985] ${
           open
-            ? `${theme.border} ${theme.orb} ${theme.glow}`
-            : "border-white/10 bg-white/[0.045]"
+            ? `border-white/14 bg-slate-900/72 ${theme.glowSoft}`
+            : "border-white/10 bg-slate-950/44 hover:bg-slate-900/48"
         }`}
       >
-        <span
-          className={`pointer-events-none absolute -right-8 -top-10 h-20 w-20 rounded-full ${theme.orb} blur-2xl opacity-70`}
-        />
+        <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
         <span className="relative flex min-w-0 items-center gap-3">
           {Icon ? (
-            <span
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-black/18 ${theme.primaryText}`}
-            >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-white/[0.035] text-slate-200/78">
               <Icon className="h-4 w-4" />
             </span>
           ) : null}
 
           <span className="min-w-0">
-            <span className="block text-[9px] font-black uppercase tracking-[0.17em] text-white/34">
+            <span className="block text-[9px] font-black uppercase tracking-[0.17em] text-slate-400/72">
               {label}
             </span>
-            <span className="mt-0.5 block truncate text-sm font-black text-white/84">
+            <span className="mt-0.5 block truncate text-sm font-black text-slate-50/88">
               {selected?.label}
             </span>
           </span>
         </span>
 
         <ChevronDown
-          className={`relative h-4 w-4 shrink-0 text-white/48 transition duration-300 ${
-            open ? `rotate-180 ${theme.primaryText}` : ""
+          className={`relative h-4 w-4 shrink-0 text-slate-400/80 transition duration-300 ${
+            open ? "rotate-180 text-slate-100/88" : ""
           }`}
         />
       </button>
 
       <div
-        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-30 grid overflow-hidden rounded-[24px] border border-white/10 bg-[#07101d]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 ${
+        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-30 grid overflow-hidden rounded-[24px] border border-white/10 bg-[#0b111c]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 ${
           open
             ? "grid-rows-[1fr] opacity-100"
             : "pointer-events-none grid-rows-[0fr] opacity-0"
@@ -105,15 +101,13 @@ export function GlassDropdown({
                   }}
                   className={`flex min-h-[42px] w-full items-center justify-between rounded-[18px] px-3 text-left text-sm font-black transition duration-200 active:scale-[0.985] ${
                     active
-                      ? `${theme.orb} ${theme.primaryText}`
-                      : "text-white/60 hover:bg-white/[0.05]"
+                      ? "bg-white/[0.075] text-slate-50/90"
+                      : "text-slate-300/68 hover:bg-white/[0.05]"
                   }`}
                 >
                   <span>{item.label}</span>
                   {active ? (
-                    <span
-                      className={`h-2 w-2 rounded-full ${theme.orb} ${theme.glow}`}
-                    />
+                    <span className="h-2 w-2 rounded-full bg-slate-100/78 shadow-[0_0_14px_rgba(226,232,240,0.2)]" />
                   ) : null}
                 </button>
               );
@@ -128,27 +122,34 @@ export function GlassDropdown({
 export function SummaryCard({ label, value, helper, tone = "slate" }) {
   const toneClass =
     tone === "rose"
-      ? "from-rose-400/10 text-rose-50/88"
+      ? "text-rose-100/86"
       : tone === "emerald"
-        ? "from-[color:var(--clara-theme-soft,rgba(148,163,184,0.1))] text-[color:var(--clara-theme-text,rgba(241,245,249,0.88))]"
+        ? "text-emerald-100/84"
         : tone === "cyan"
-          ? "from-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.1))] text-sky-50/82"
-          : "from-white/[0.075] text-white/88";
+          ? "text-slate-100/86"
+          : "text-slate-100/88";
+
+  const railClass =
+    tone === "rose"
+      ? "bg-rose-200/32"
+      : tone === "emerald"
+        ? "bg-emerald-200/30"
+        : tone === "cyan"
+          ? "bg-slate-300/28"
+          : "bg-slate-300/24";
 
   return (
-    <div
-      className={`relative min-h-[82px] overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br ${toneClass} via-white/[0.035] to-white/[0.02] p-3 shadow-[0_16px_42px_rgba(0,0,0,0.22)] backdrop-blur-2xl`}
-    >
-      <div className="pointer-events-none absolute -right-10 -top-10 h-20 w-20 rounded-full bg-white/[0.055] blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
+    <div className="relative min-h-[82px] overflow-hidden rounded-[22px] border border-white/10 bg-slate-950/42 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className={`absolute left-0 top-4 h-10 w-1 rounded-r-full ${railClass}`} />
 
-      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/38">
+      <p className="pl-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400/72">
         {label}
       </p>
-      <p className="mt-2 truncate text-[clamp(15px,4.5vw,22px)] font-black tracking-tight">
+      <p className={`mt-2 truncate pl-1 text-[clamp(15px,4.5vw,22px)] font-black tracking-tight ${toneClass}`}>
         {value}
       </p>
-      <p className="mt-0.5 truncate text-[10px] font-semibold text-white/40">
+      <p className="mt-0.5 truncate pl-1 text-[10px] font-semibold text-slate-400/66">
         {helper}
       </p>
     </div>
@@ -158,14 +159,14 @@ export function SummaryCard({ label, value, helper, tone = "slate" }) {
 export function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
   const toneClass =
     tone === "good"
-      ? "border-[color:var(--clara-theme-border,rgba(148,163,184,0.18))] bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.075))] text-[color:var(--clara-theme-text,rgba(241,245,249,0.78))]"
+      ? "border-emerald-200/14 bg-emerald-300/[0.055] text-emerald-50/74"
       : tone === "warn"
-        ? "border-amber-200/16 bg-amber-300/8 text-amber-50/76"
+        ? "border-amber-200/14 bg-amber-300/[0.055] text-amber-50/74"
         : tone === "bad"
-          ? "border-rose-200/16 bg-rose-300/8 text-rose-50/76"
+          ? "border-rose-200/14 bg-rose-300/[0.055] text-rose-50/74"
           : tone === "info"
-            ? "border-[color:var(--clara-theme-secondary-border,rgba(125,211,252,0.16))] bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.075))] text-sky-50/76"
-            : "border-white/10 bg-black/18 text-white/58";
+            ? "border-sky-200/12 bg-sky-300/[0.05] text-sky-50/72"
+            : "border-white/10 bg-white/[0.035] text-slate-300/68";
 
   return (
     <span
@@ -179,29 +180,19 @@ export function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral"
 
 export function InsightCard({ insight, theme = DEFAULT_THEME }) {
   return (
-    <section
-      className={`relative overflow-hidden rounded-[24px] border ${theme.border} bg-white/[0.045] p-4 shadow-[0_18px_52px_rgba(0,0,0,0.22)] backdrop-blur-2xl`}
-    >
-      <div
-        className={`pointer-events-none absolute -right-14 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl opacity-70`}
-      />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.07))] blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
+    <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/42 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
       <div className="relative flex items-start gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${theme.border} ${theme.orb} ${theme.primaryText}`}
-        >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border border-white/10 bg-white/[0.035] text-slate-200/78">
           <CheckCircle2 className="h-4.5 w-4.5" />
         </div>
 
         <div className="min-w-0">
-          <p
-            className={`text-[9px] font-black uppercase tracking-[0.18em] ${theme.primaryText} opacity-55`}
-          >
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400/72">
             CLARA Insight
           </p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-white/70">
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-200/76">
             {insight}
           </p>
         </div>
