@@ -21,16 +21,24 @@ function openExistingMemoryPanel(cabinetName = "Spending Memory") {
 
   enableMemoryPanelAccess();
 
-  if (typeof window.openClaraMemoryReviewPanel === "function") {
-    window.openClaraMemoryReviewPanel(cabinetName);
-    return;
-  }
-
   window.dispatchEvent(
-    new CustomEvent("clara:open-memory-review", {
+    new CustomEvent("clara:open-assistant-memory-board", {
       detail: { cabinetName, source: "settings" },
     })
   );
+
+  if (typeof document === "undefined") return;
+
+  const memoryTrigger = document.createElement("button");
+  memoryTrigger.type = "button";
+  memoryTrigger.textContent = "Memory";
+  memoryTrigger.setAttribute("aria-hidden", "true");
+  memoryTrigger.style.position = "fixed";
+  memoryTrigger.style.left = "-9999px";
+  memoryTrigger.style.top = "-9999px";
+  document.body.appendChild(memoryTrigger);
+  memoryTrigger.click();
+  memoryTrigger.remove();
 }
 
 function memoryIconSvg() {
@@ -59,7 +67,7 @@ function updateMemoryRowContent(button) {
   const iconHost = button.querySelector("div svg")?.parentElement;
   if (iconHost) iconHost.innerHTML = memoryIconSvg();
 
-  button.setAttribute("aria-label", "Open CLARA memory review");
+  button.setAttribute("aria-label", "Open CLARA editable memory board");
 }
 
 function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
@@ -71,7 +79,7 @@ function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
     <button
       type="button"
       class="group flex w-full items-center gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left shadow-[0_12px_30px_rgba(0,0,0,0.13)] transition hover:bg-white/[0.07]"
-      aria-label="Open CLARA memory review"
+      aria-label="Open CLARA editable memory board"
     >
       <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8 text-white/65 group-hover:text-white">
         ${memoryIconSvg()}
