@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import { PieChart } from "lucide-react";
 
 const CLARA_SAMPLE_DATA_EVENT = "clara:activate-sample-user-data";
 const SAMPLE_ACTIVE_KEY = "CLARA_SAMPLE_MAX_ACTIVE_V1";
+const DOUBLE_CLICK_WINDOW_MS = 500;
 
 function parseDateOnly(value) {
   const raw = String(value || "").trim();
@@ -94,7 +96,9 @@ function dispatchSampleToggleEvent() {
 
   window.dispatchEvent(
     new CustomEvent(CLARA_SAMPLE_DATA_EVENT, {
-      detail: { action: isSampleActive() ? "restore" : "activate" },
+      detail: {
+        action: isSampleActive() ? "restore" : "activate",
+      },
     })
   );
 }
@@ -108,6 +112,7 @@ export default function BudgetHeader({
   cycleDisplayLabel = "",
   onBadgeDoubleClick,
 }) {
+  const lastBadgeClickAtRef = useRef(0);
   const displayCycleLabel = formatCycleLabel(cycleLabel);
   const planDateLabel = getPlanDateLabel({
     cycleLabel: displayCycleLabel,
@@ -116,7 +121,7 @@ export default function BudgetHeader({
     monthKey,
   });
 
-  const handleBadgeDoubleClick = (event) => {
+  const runSampleToggle = (event) => {
     event.preventDefault();
     event.stopPropagation();
 
@@ -126,6 +131,20 @@ export default function BudgetHeader({
     }
 
     dispatchSampleToggleEvent();
+  };
+
+  const handleBadgeClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const now = Date.now();
+    const isSecondClick = now - lastBadgeClickAtRef.current <= DOUBLE_CLICK_WINDOW_MS;
+    lastBadgeClickAtRef.current = now;
+
+    if (!isSecondClick) return;
+
+    lastBadgeClickAtRef.current = 0;
+    runSampleToggle(event);
   };
 
   return (
@@ -147,11 +166,9 @@ export default function BudgetHeader({
 
           <button
             type="button"
-            onClick={(event) => event.stopPropagation()}
-            onDoubleClick={handleBadgeDoubleClick}
-            onPointerDown={(event) => event.stopPropagation()}
-            title="Double click to switch between real data and Max sample data."
-            className={`relative shrink-0 cursor-pointer overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}
+            onClick={handleBadgeClick}
+            title="Double tap to switch between real data and Max sample data."
+            className={`relative shrink-0 cursor-pointer select-none overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}
           >
             <span className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/20 to-transparent" />
             <span className="relative">{badgeLabel}</span>
