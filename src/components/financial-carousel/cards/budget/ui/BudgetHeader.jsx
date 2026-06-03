@@ -61,7 +61,7 @@ function formatCycleRange(cycleRange, monthKey) {
     return `${startLabel}–${endLabel}`;
   }
 
-  return `${formatShortDate(start)}–${formatShortDate(end)}`;
+  return `${formatShortDate(start)}–${endLabel}`;
 }
 
 function formatCycleLabel(cycleLabel = "Monthly") {
@@ -76,6 +76,19 @@ function getPlanDateLabel({ cycleLabel, cycleRange, cycleDisplayLabel, monthKey 
   if (safeDisplayLabel) return safeDisplayLabel;
   if (displayCycleLabel.toLowerCase() === "monthly") return formatBudgetMonth(monthKey);
   return formatCycleRange(cycleRange, monthKey);
+}
+
+function dispatchSampleDataEvent() {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent(CLARA_SAMPLE_DATA_EVENT, {
+      detail: {
+        source: "budget-active-badge",
+        requestedAt: new Date().toISOString(),
+      },
+    })
+  );
 }
 
 export default function BudgetHeader({
@@ -95,7 +108,7 @@ export default function BudgetHeader({
     monthKey,
   });
 
-  const handleBadgeDoubleClick = (event) => {
+  const handleBadgeActivate = (event) => {
     event.preventDefault();
     event.stopPropagation();
 
@@ -104,9 +117,7 @@ export default function BudgetHeader({
       return;
     }
 
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(CLARA_SAMPLE_DATA_EVENT));
-    }
+    dispatchSampleDataEvent();
   };
 
   return (
@@ -128,8 +139,10 @@ export default function BudgetHeader({
 
           <button
             type="button"
-            onDoubleClick={handleBadgeDoubleClick}
-            title="Double click to load Max sample data"
+            onClick={handleBadgeActivate}
+            onDoubleClick={handleBadgeActivate}
+            onPointerDown={(event) => event.stopPropagation()}
+            title="Click to load Max sample data"
             className={`relative shrink-0 cursor-pointer overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}
           >
             <span className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/20 to-transparent" />
