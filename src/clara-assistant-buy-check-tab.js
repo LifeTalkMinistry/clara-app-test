@@ -103,32 +103,36 @@ function ensureBuyCheckBoardStyle() {
     }
 
     .clara-buy-check-board-steps {
-      margin: 14px auto 0;
+      margin: 16px auto 0;
       display: grid;
-      max-width: 295px;
-      gap: 8px;
+      max-width: 250px;
+      gap: 9px;
       text-align: left;
     }
 
     .clara-buy-check-board-steps span {
       display: flex;
-      gap: 9px;
-      align-items: flex-start;
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background: rgba(255,255,255,.045);
-      padding: 9px 10px;
-      color: rgba(226,232,240,.78);
-      font: 750 12px/1.35 system-ui, sans-serif;
+      gap: 10px;
+      align-items: center;
+      color: rgba(226,232,240,.82);
+      font: 800 12.5px/1.35 system-ui, sans-serif;
     }
 
     .clara-buy-check-board-steps b {
-      color: rgba(110,231,183,.95);
-      font-weight: 950;
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      border: 1px solid rgba(110,231,183,.20);
+      background: rgba(110,231,183,.10);
+      color: rgba(110,231,183,.96);
+      font: 950 11px/1 system-ui, sans-serif;
     }
 
     .clara-buy-check-board-start {
-      margin: 17px auto 0;
+      margin: 18px auto 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -142,10 +146,10 @@ function ensureBuyCheckBoardStyle() {
     }
 
     .clara-buy-check-board-note {
-      margin: 12px auto 0;
-      max-width: 285px;
-      color: rgba(203,213,225,.58);
-      font: 750 11.5px/1.5 system-ui, sans-serif;
+      margin: 15px auto 0;
+      max-width: 286px;
+      color: rgba(203,213,225,.62);
+      font: 750 12px/1.55 system-ui, sans-serif;
     }
   `;
   document.head.appendChild(style);
@@ -212,17 +216,16 @@ function renderBuyCheckBoard() {
   board.innerHTML = `
     <button type="button" class="clara-buy-check-board-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK</p>
-    <h3 class="mt-3 text-2xl font-black leading-tight tracking-tight text-white">Before CLARA checks this purchase...</h3>
-    <div class="mx-auto mt-3 max-w-[300px] space-y-2 text-sm leading-6 text-slate-300/75">
-      <p>Give the details clearly so CLARA can judge it properly.</p>
-      <p>CLARA will ask a few short questions, then give you a decision.</p>
+    <h3 class="mt-3 text-xl font-black leading-tight tracking-tight text-white">Let’s check this purchase first.</h3>
+    <div class="mx-auto mt-3 max-w-[292px] text-sm leading-6 text-slate-300/75">
+      <p>Answer clearly so CLARA can judge the decision properly.</p>
     </div>
     <div class="clara-buy-check-board-steps">
-      <span><b>1</b> What do you want to buy?</span>
-      <span><b>2</b> How much does it cost?</span>
-      <span><b>3</b> Was it planned or unplanned?</span>
+      <span><b>1</b> Item you want to buy</span>
+      <span><b>2</b> Amount or price</span>
+      <span><b>3</b> Planned or unplanned</span>
     </div>
-    <p class="clara-buy-check-board-note">After that, CLARA checks your wallet, budget, spending pattern, goals, and memory before saying Buy, Wait, Reduce, or Pause.</p>
+    <p class="clara-buy-check-board-note">Then CLARA checks your wallet, budget, patterns, goals, and memory before giving a decision.</p>
     <button type="button" class="clara-buy-check-board-start" data-clara-start-buy-check="true">Start Buy Check</button>
   `;
 
