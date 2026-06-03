@@ -127,7 +127,7 @@ export default function WelcomeBack() {
           </div>
         </div>
 
-        <section className="mt-12 flex flex-1 flex-col">
+        <section className="mt-6 flex flex-1 flex-col">
           {!isTierStep ? (
             <>
               <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
