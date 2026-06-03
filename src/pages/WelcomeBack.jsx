@@ -107,25 +107,27 @@ export default function WelcomeBack() {
       </div>
 
       <main className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md flex-col">
-        {step > 0 ? (
-          <button
-            type="button"
-            onClick={goBack}
-            className="absolute left-0 top-0 z-20 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        ) : null}
+        <div className="flex h-11 items-center gap-3">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={goBack}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          ) : null}
 
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-green-300 to-lime-300 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-green-300 to-lime-300 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
 
-        <section className="mt-7 flex-1">
+        <section className="mt-4 flex-1">
           <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
@@ -158,18 +160,18 @@ export default function WelcomeBack() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
                   Choose your path
                 </p>
-                <h1 className="mt-3 text-[1.72rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
+                <h1 className="mt-3 text-[1.55rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.75rem]">
                   I prepared three deeper paths for you, but you can start free today.
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-white/60">
                   Choose a tier later when you want more guidance. For now, you can go straight to the free dashboard and begin.
                 </p>
 
-                <div className="mt-5 max-h-[49vh] space-y-3 overflow-y-auto pr-1">
+                <div className="mt-4 max-h-[50vh] space-y-2.5 overflow-y-auto pb-5 pr-1">
                   {tiers.map((tier) => (
                     <div
                       key={tier.name}
-                      className={`rounded-3xl border p-4 ${
+                      className={`rounded-[26px] border px-4 py-3.5 ${
                         tier.featured
                           ? "border-emerald-300/28 bg-emerald-300/12"
                           : "border-white/10 bg-white/[0.035]"
@@ -178,25 +180,25 @@ export default function WelcomeBack() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-lg font-bold text-white">{tier.name}</h2>
+                            <h2 className="text-base font-bold text-white">{tier.name}</h2>
                             {tier.featured ? (
-                              <span className="rounded-full bg-emerald-300/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200">
+                              <span className="rounded-full bg-emerald-300/15 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-200">
                                 Main value
                               </span>
                             ) : null}
                           </div>
-                          <p className="text-xs text-white/48">{tier.label}</p>
+                          <p className="text-[11px] text-white/48">{tier.label}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-black text-white">{tier.price}</p>
+                          <p className="text-lg font-black text-white">{tier.price}</p>
                           <p className="text-[10px] text-white/40">/month</p>
                         </div>
                       </div>
 
-                      <div className="mt-3 space-y-1.5">
+                      <div className="mt-2.5 space-y-1.5">
                         {tier.points.map((point) => (
-                          <div key={point} className="flex items-center gap-2 text-xs text-white/62">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300/75" />
+                          <div key={point} className="flex items-center gap-2 text-[11px] text-white/62">
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300/75" />
                             <span>{point}</span>
                           </div>
                         ))}
