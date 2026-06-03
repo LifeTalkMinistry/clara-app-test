@@ -58,6 +58,16 @@ const getExpenseCategory = (expense) =>
       "Uncategorized"
   ).trim() || "Uncategorized";
 
+const getWalletBalance = (wallet) =>
+  readNumber(
+    wallet?.derived_balance,
+    wallet?.balance,
+    wallet?.current_balance,
+    wallet?.wallet_balance,
+    wallet?.available_balance,
+    wallet?.starting_balance
+  );
+
 const buildCategoryBreakdown = (expenses) => {
   const totals = new Map();
 
@@ -133,16 +143,12 @@ export default function useDashboardClaraAssistantContext({
         (transaction) => transaction?.amount
       );
 
-    const availableMoney =
-      readNumber(moneyLeftThisMonth, walletMoney) ??
-      sumNumbers(safeWallets, (wallet) =>
-        wallet?.derived_balance ??
-        wallet?.balance ??
-        wallet?.current_balance ??
-        wallet?.wallet_balance ??
-        wallet?.available_balance ??
-        wallet?.starting_balance
-      );
+    const walletBalances = safeWallets
+      .map((wallet) => getWalletBalance(wallet))
+      .filter((balance) => Number.isFinite(balance));
+    const walletRecordTotal = safeWallets.length && walletBalances.length
+      ? walletBalances.reduce((sum, balance) => sum + balance, 0)
+      : null;
 
     const plannedExpenseRows = currentMonthExpenses.filter((expense) => {
       const status = getExpensePlanningStatus(expense);
@@ -207,10 +213,10 @@ export default function useDashboardClaraAssistantContext({
       thisMonthIncome: monthlyIncome,
       monthlyIncome,
       incomeThisMonth: monthlyIncome,
-      moneyLeftThisMonth: availableMoney,
-      availableMoney,
-      totalWalletBalance: availableMoney,
-      walletMoney: availableMoney,
+      moneyLeftThisMonth: walletRecordTotal,
+      availableMoney: walletRecordTotal,
+      totalWalletBalance: walletRecordTotal,
+      walletMoney: walletRecordTotal,
 
       plannedSpent: sumNumbers(plannedExpenseRows, (expense) => expense?.amount),
       unplannedSpent: sumNumbers(unplannedExpenseRows, (expense) => expense?.amount),
