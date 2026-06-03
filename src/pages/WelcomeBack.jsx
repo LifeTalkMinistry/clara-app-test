@@ -127,7 +127,7 @@ export default function WelcomeBack() {
           </div>
         </div>
 
-        <section className="mt-4 flex-1">
+        <section className="mt-10 flex-1">
           <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
