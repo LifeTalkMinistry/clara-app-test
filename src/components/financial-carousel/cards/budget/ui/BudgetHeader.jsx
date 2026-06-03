@@ -1,5 +1,7 @@
 import { PieChart } from "lucide-react";
 
+const CLARA_SAMPLE_DATA_EVENT = "clara:activate-sample-user-data";
+
 function parseDateOnly(value) {
   const raw = String(value || "").trim();
   const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -94,10 +96,17 @@ export default function BudgetHeader({
   });
 
   const handleBadgeDoubleClick = (event) => {
-    if (!onBadgeDoubleClick) return;
     event.preventDefault();
     event.stopPropagation();
-    onBadgeDoubleClick(event);
+
+    if (onBadgeDoubleClick) {
+      onBadgeDoubleClick(event);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(CLARA_SAMPLE_DATA_EVENT));
+    }
   };
 
   return (
@@ -121,7 +130,7 @@ export default function BudgetHeader({
             type="button"
             onDoubleClick={handleBadgeDoubleClick}
             title="Double click to load Max sample data"
-            className={`relative shrink-0 overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge} ${onBadgeDoubleClick ? "cursor-pointer" : "cursor-default"}`}
+            className={`relative shrink-0 cursor-pointer overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}
           >
             <span className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/20 to-transparent" />
             <span className="relative">{badgeLabel}</span>
