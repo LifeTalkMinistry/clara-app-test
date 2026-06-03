@@ -10,7 +10,6 @@ import "./clara-memory-bridge";
 import "./clara-assistant-buy-check-tab";
 import "./clara-assistant-memory-tab";
 import "./clara-memory-cabinet-autosave";
-import "./clara-memory-review-panel";
 import "./clara-settings-memory-entry";
 import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
