@@ -58,6 +58,7 @@ import "./life-stage-young-professional-overlap-fix.css";
 import "./savings-goals-modal-polish.css";
 import "./finance-action-modal-copy-polish.css";
 import "./settings-hide-theme-appearance.js";
+import "./clara-buy-check-bottom-position.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
