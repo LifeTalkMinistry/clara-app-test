@@ -127,35 +127,45 @@ export default function WelcomeBack() {
           </div>
         </div>
 
-        <section className="mt-16 flex-1">
-          <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
+        <section className="mt-12 flex-1">
+          {!isTierStep ? (
+            <>
+              <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
 
-            {!isTierStep ? (
-              <div className="relative">
-                <div className="mb-4 inline-flex h-13 w-13 items-center justify-center rounded-3xl border border-emerald-300/20 bg-emerald-300/12 text-emerald-200 shadow-[0_16px_42px_rgba(16,185,129,0.18)]">
-                  <CurrentIcon className="h-6 w-6" />
+                <div className="relative">
+                  <div className="mb-4 inline-flex h-13 w-13 items-center justify-center rounded-3xl border border-emerald-300/20 bg-emerald-300/12 text-emerald-200 shadow-[0_16px_42px_rgba(16,185,129,0.18)]">
+                    <CurrentIcon className="h-6 w-6" />
+                  </div>
+
+                  <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
+                    {currentSlide.eyebrow}
+                  </p>
+                  <h1 className="mt-3 text-[1.72rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
+                    {currentSlide.title}
+                  </h1>
+                  <p className="mt-4 text-[15px] leading-7 text-white/66">
+                    {currentSlide.body}
+                  </p>
                 </div>
+              </div>
 
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
-                  {currentSlide.eyebrow}
-                </p>
-                <h1 className="mt-3 text-[1.72rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
-                  {currentSlide.title}
-                </h1>
-                <p className="mt-4 text-[15px] leading-7 text-white/66">
-                  {currentSlide.body}
-                </p>
-
-                <div className="mt-6 rounded-3xl border border-white/10 bg-black/18 p-4">
+              <div className="relative mt-4 overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_44%)]" />
+                <div className="relative">
                   <p className="text-sm font-semibold text-white">{currentSlide.noteTitle}</p>
                   <p className="mt-1.5 text-sm leading-6 text-white/58">
                     {currentSlide.note}
                   </p>
                 </div>
               </div>
-            ) : (
+            </>
+          ) : (
+            <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
+
               <div className="relative">
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
                   Choose your path
@@ -207,8 +217,8 @@ export default function WelcomeBack() {
                   ))}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </section>
 
         <div className="mt-4 grid gap-2.5 pb-1">
