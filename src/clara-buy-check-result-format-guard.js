@@ -12,6 +12,16 @@ function getChat() {
   return document.querySelector("[data-clara-buy-check-static-chat]");
 }
 
+function hasCompleteDiagnosisAnswers(state = {}) {
+  return (
+    state?.active &&
+    (state.step === "diagnosis" || state.done === true) &&
+    clean(state.item).length > 0 &&
+    Number(state.price || 0) > 0 &&
+    clean(state.reason).length > 0
+  );
+}
+
 function findWeakResult() {
   const chat = getChat();
   if (!chat) return null;
@@ -19,8 +29,11 @@ function findWeakResult() {
   return Array.from(chat.querySelectorAll(".clara-buy-check-static-bubble.clara")).find((bubble) => {
     const text = clean(bubble.textContent);
     if (!text || text.includes("Got it. I’m checking")) return false;
+    if (text.includes("Hi, Max! What do you want to buy?")) return false;
+    if (text.includes("How much does")) return false;
+    if (text.includes("Why do you want to buy it?")) return false;
     if (text.includes("Decision:") && text.includes("Risk:") && text.includes("Why:")) return false;
-    return text.length > 40;
+    return /drawn to|impulse|overspending|treating yourself|sometimes spend|be careful|think twice/i.test(text);
   });
 }
 
@@ -53,7 +66,7 @@ If you buy it, cap yourself at ${money(price)} and avoid additional ${category.t
 
 function replaceResult() {
   const state = window[STATE_KEY];
-  if (!state?.active || state.__resultFormatGuardDone) return;
+  if (!hasCompleteDiagnosisAnswers(state) || state.__resultFormatGuardDone) return;
 
   const bubble = findWeakResult();
   if (!bubble) return;
