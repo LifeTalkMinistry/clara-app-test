@@ -162,6 +162,17 @@ function isInactive(row = {}) {
   return row?.is_active === false || row?.active === false || ["inactive", "archived", "deleted", "closed"].includes(lower(row?.status));
 }
 
+function isFinishedBudgetPlan(row = {}) {
+  const status = lower(row?.status);
+  return (
+    row?.is_complete === true ||
+    row?.complete === true ||
+    row?.planIsComplete === true ||
+    row?.plan_is_complete === true ||
+    ["active", "activated", "complete", "completed", "finished"].includes(status)
+  );
+}
+
 function normalizeCategory(row = {}, activeExpenses = []) {
   const id = categoryId(row);
   const name = categoryName(row);
@@ -180,8 +191,11 @@ function normalizeCategory(row = {}, activeExpenses = []) {
 }
 
 function getHeader(source = {}) {
-  if (source.monthlyBudgetHeader && !isInactive(source.monthlyBudgetHeader)) return source.monthlyBudgetHeader;
-  return safeArray(source.budgets || source.budgetList || source.finance?.budgets).find((row) => isBudgetHeader(row) && !isInactive(row)) || null;
+  if (source.monthlyBudgetHeader && !isInactive(source.monthlyBudgetHeader) && isBudgetHeader(source.monthlyBudgetHeader) && isFinishedBudgetPlan(source.monthlyBudgetHeader)) {
+    return source.monthlyBudgetHeader;
+  }
+
+  return safeArray(source.budgets || source.budgetList || source.finance?.budgets).find((row) => isBudgetHeader(row) && !isInactive(row) && isFinishedBudgetPlan(row)) || null;
 }
 
 function getRawCategories(source = {}) {
@@ -203,25 +217,45 @@ function firstDeclaredNumberWithSource(candidates = []) {
 
 function getDeclaredBudget(source = {}) {
   const plan = source.monthlyBudgetPlan || source.budgetPlan || source.monthly_budget_plan || {};
-  const header = getHeader(source) || {};
+  const header = getHeader(source) || null;
+  const planCanDeclareBudget = isFinishedBudgetPlan(plan);
+  const sourceCanDeclareBudget = Boolean(
+    header ||
+      source.hasActiveBudgetPlan === true ||
+      source.budgetCardTruth?.hasDeclaredBudget === true ||
+      source.budgetCardTruth?.normalizedBudgetStatus === "active"
+  );
+
   return firstDeclaredNumberWithSource([
-    ["monthlyBudgetPlan.declaredBudget", plan.declaredBudget],
-    ["monthlyBudgetPlan.declared_budget", plan.declared_budget],
-    ["monthlyBudgetPlan.declaredAmount", plan.declaredAmount],
-    ["monthlyBudgetPlan.declared_amount", plan.declared_amount],
-    ["source.declaredMonthlyBudgetAmount", source.declaredMonthlyBudgetAmount],
-    ["source.declared_monthly_budget_amount", source.declared_monthly_budget_amount],
-    ["source.declaredBudget", source.declaredBudget],
-    ["source.declared_budget", source.declared_budget],
-    ["monthlyBudgetHeader.declared_amount", header.declared_amount],
-    ["monthlyBudgetHeader.declared_budget", header.declared_budget],
-    ["monthlyBudgetHeader.monthly_budget_amount", header.monthly_budget_amount],
-    ["monthlyBudgetHeader.total_declared_budget", header.total_declared_budget],
-    ["monthlyBudgetHeader.total_budget", header.total_budget],
-    ["monthlyBudgetHeader.budget_amount", header.budget_amount],
-    ["monthlyBudgetHeader.amount", header.amount],
-    ["budgetSummary.declaredBudget", getPath(source, "budgetSummary.declaredBudget")],
-    ["budget_summary.declaredBudget", getPath(source, "budget_summary.declaredBudget")],
+    ...(planCanDeclareBudget
+      ? [
+          ["monthlyBudgetPlan.declaredBudget", plan.declaredBudget],
+          ["monthlyBudgetPlan.declared_budget", plan.declared_budget],
+          ["monthlyBudgetPlan.declaredAmount", plan.declaredAmount],
+          ["monthlyBudgetPlan.declared_amount", plan.declared_amount],
+        ]
+      : []),
+    ...(sourceCanDeclareBudget
+      ? [
+          ["source.declaredMonthlyBudgetAmount", source.declaredMonthlyBudgetAmount],
+          ["source.declared_monthly_budget_amount", source.declared_monthly_budget_amount],
+          ["source.declaredBudget", source.declaredBudget],
+          ["source.declared_budget", source.declared_budget],
+          ["budgetSummary.declaredBudget", getPath(source, "budgetSummary.declaredBudget")],
+          ["budget_summary.declaredBudget", getPath(source, "budget_summary.declaredBudget")],
+        ]
+      : []),
+    ...(header
+      ? [
+          ["monthlyBudgetHeader.declared_amount", header.declared_amount],
+          ["monthlyBudgetHeader.declared_budget", header.declared_budget],
+          ["monthlyBudgetHeader.monthly_budget_amount", header.monthly_budget_amount],
+          ["monthlyBudgetHeader.total_declared_budget", header.total_declared_budget],
+          ["monthlyBudgetHeader.total_budget", header.total_budget],
+          ["monthlyBudgetHeader.budget_amount", header.budget_amount],
+          ["monthlyBudgetHeader.amount", header.amount],
+        ]
+      : []),
   ]);
 }
 
@@ -234,7 +268,7 @@ function budgetStatus({ declaredBudget, allocatedBudget, spentTotal, categoryCou
 }
 
 function budgetExplanation(status) {
-  if (status === "no_budget") return "User has not declared a monthly budget yet.";
+  if (status === "no_budget") return "User has not declared an active monthly budget yet.";
   if (status === "draft_no_categories") return "User has declared a monthly budget but has not created categories yet.";
   if (status === "unallocated") return "User has a declared monthly budget, but some budget money is not assigned into categories yet.";
   if (status === "active_allocated") return "User has a declared monthly budget with category allocation active.";
@@ -253,7 +287,8 @@ function shouldDebugBudgetTruth() {
 export function buildClaraBudgetSnapshot(context = {}) {
   const source = { ...(context?.financeSnapshot || {}), ...(context?.dashboardSnapshot || {}), ...(context || {}) };
   const plan = source.monthlyBudgetPlan || source.budgetPlan || source.monthly_budget_plan || {};
-  const range = plan.monthRange || getCycleRange(getHeader(source));
+  const activeHeader = getHeader(source);
+  const range = plan.monthRange || getCycleRange(activeHeader || {});
   const expenses = firstArray(source, ["expenses", "monthlyExpensesList", "recentExpenses", "finance.expenses", "dashboardSnapshot.expenses"]);
   const activeExpenses = expenses.filter((expense) => isInRange(expense, range));
   const categories = getRawCategories(source).filter((row) => row && !isBudgetHeader(row) && !isInactive(row)).map((row) => normalizeCategory(row, activeExpenses));
@@ -262,15 +297,15 @@ export function buildClaraBudgetSnapshot(context = {}) {
   const declaredBudget = declaredBudgetResult.value;
   const sourceUsed = declaredBudgetResult.sourceUsed;
   const hasDeclaredBudget = declaredBudget > 0;
-  const plannedSpent = firstNumber(plan, ["plannedSpent", "planned_spent"]) ?? sum(categories.map((category) => category.spent));
+  const plannedSpent = hasDeclaredBudget ? firstNumber(plan, ["plannedSpent", "planned_spent"]) ?? sum(categories.map((category) => category.spent)) : 0;
   const unplannedSpent = firstNumber(plan, ["unplannedSpent", "unplanned_spent"]) ?? sum(activeExpenses.filter((expense) => expenseStatus(expense) === "unplanned").map(expenseAmount));
   const undocumentedSpent = firstNumber(plan, ["undocumentedSpent", "undocumented_spent"]) ?? sum(activeExpenses.filter((expense) => expenseStatus(expense) === "undocumented").map(expenseAmount));
   const computedSpentTotal = plannedSpent + unplannedSpent + undocumentedSpent;
   const fallbackSpent = firstNumber(source, ["monthlySpent", "budgetSpent", "totalBudgetSpent", "totalExpensesThisMonth", "thisMonthSpent", "monthlyExpenses", "spentThisMonth", "finance.monthlySpent"]);
-  const spentTotal = firstNumber(plan, ["spent", "spent_total", "totalSpent", "budgetSpent"]) ?? (computedSpentTotal > 0 ? computedSpentTotal : fallbackSpent ?? sum(activeExpenses.map(expenseAmount)));
+  const spentTotal = hasDeclaredBudget ? firstNumber(plan, ["spent", "spent_total", "totalSpent", "budgetSpent"]) ?? (computedSpentTotal > 0 ? computedSpentTotal : fallbackSpent ?? sum(activeExpenses.map(expenseAmount))) : 0;
   const unallocatedBudget = hasDeclaredBudget ? Math.max(declaredBudget - allocatedBudget, 0) : 0;
   const remainingSpendableBudget = hasDeclaredBudget ? Math.max(declaredBudget - spentTotal, 0) : null;
-  const categoryCount = categories.length;
+  const categoryCount = hasDeclaredBudget ? categories.length : 0;
   const status = budgetStatus({ declaredBudget, allocatedBudget, spentTotal, categoryCount });
   const explanation = budgetExplanation(status);
 
@@ -283,6 +318,7 @@ export function buildClaraBudgetSnapshot(context = {}) {
       budgetStatus: status,
       budgetExplanation: explanation,
       sourceUsed,
+      activeHeaderFound: Boolean(activeHeader),
     });
   }
 
@@ -296,16 +332,17 @@ export function buildClaraBudgetSnapshot(context = {}) {
     undocumentedSpent,
     remainingSpendableBudget,
     categoryCount,
-    categories,
-    budgetCategories: categories,
+    categories: hasDeclaredBudget ? categories : [],
+    budgetCategories: hasDeclaredBudget ? categories : [],
     hasDeclaredBudget,
-    hasBudgetCategories: categoryCount > 0,
+    hasBudgetCategories: hasDeclaredBudget && categoryCount > 0,
     isBudgetFullyAllocated: hasDeclaredBudget && allocatedBudget >= declaredBudget,
     isOverspent: hasDeclaredBudget && spentTotal > declaredBudget,
     budgetStatus: status,
     budgetExplanation: explanation,
     budgetTruthSource: sourceUsed,
     sourceUsed,
+    activeHeaderFound: Boolean(activeHeader),
     monthRange: range,
   };
 }
