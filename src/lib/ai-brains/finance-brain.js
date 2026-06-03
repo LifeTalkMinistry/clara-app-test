@@ -11,6 +11,11 @@ function money(value) {
   return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : "unknown";
 }
 
+function budgetMoney(value, plan = {}) {
+  if (!plan?.hasDeclaredBudget) return "not available";
+  return money(value);
+}
+
 function list(items = [], formatter, empty = "none loaded") {
   return (Array.isArray(items) ? items : [])
     .slice(0, 6)
@@ -53,6 +58,10 @@ function buildWalletRows(finance = {}) {
 function buildBudgetRows(finance = {}) {
   const plan = finance.budgetPlan || {};
   const categories = Array.isArray(plan.categories) ? plan.categories : [];
+  if (!plan.hasDeclaredBudget) {
+    if (categories.length) return "Budget categories exist, but no declared monthly budget is active yet.";
+    return "No active budget plan or budget categories created yet.";
+  }
   if (!categories.length) return "No budget categories created yet.";
   return list(categories, (budget) => `${budgetName(budget)}: allocated ${money(budget.allocated)}, spent ${money(budget.spent)}, left ${money(budget.remaining)}`);
 }
@@ -82,6 +91,10 @@ function buildTopCategoryLine(finance = {}) {
   return top?.category ? `Your biggest category right now is ${top.category} at ${money(top.amount)}.` : "I don’t see a top spending category yet.";
 }
 
+function noActiveBudgetReply() {
+  return "I don’t see an active declared monthly budget yet. Your budget card is still in No Plan state, so I can’t calculate real remaining budget yet. Start by declaring your monthly budget amount, then CLARA can track your categories and spending.";
+}
+
 export function buildFinanceBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
@@ -106,6 +119,11 @@ IMPORTANT CONTEXT RULES:
 - Do not answer spending or category questions using only wallet balance.
 - Do not turn a simple finance question into a coaching reply.
 - Do not mention unrelated cards.
+- If Budget status is "no_budget" or Has declared budget is "no", never say the user has remaining budget.
+- If Budget status is "no_budget", answer clearly that no active declared monthly budget exists.
+- Do not treat budget categories alone as a declared monthly budget.
+- Do not use wallet balance as budget remaining.
+- Do not say "budget looks good" unless there is an active declared budget.
 
 STYLE:
 Direct, clear, short, and data-first.
@@ -121,12 +139,15 @@ Wallet total / available money: ${money(finance.availableMoney)}
 Wallets: ${buildWalletRows(finance)}
 
 Budget:
-Declared monthly budget: ${money(plan.declaredBudget)}
+Has declared budget: ${plan.hasDeclaredBudget ? "yes" : "no"}
+Declared monthly budget: ${plan.hasDeclaredBudget ? money(plan.declaredBudget) : "none"}
 Allocated: ${money(plan.allocatedBudget)}
-Unallocated: ${money(plan.unallocatedBudget)}
+Unallocated: ${budgetMoney(plan.unallocatedBudget, plan)}
 Spent so far: ${money(plan.spentTotal)}
-Remaining spendable budget: ${money(plan.remainingSpendableBudget)}
+Remaining spendable budget: ${budgetMoney(plan.remainingSpendableBudget, plan)}
 Budget status: ${plan.budgetStatus || "unknown"}
+Budget explanation: ${plan.budgetExplanation || "Budget state is unclear."}
+Budget truth source: ${plan.sourceUsed || plan.budgetTruthSource || "unknown"}
 Budget rows: ${buildBudgetRows(finance)}
 
 Spending:
@@ -144,6 +165,7 @@ ANSWER RULES:
 - Start with the direct answer first.
 - Maximum 2-4 short sentences unless the user asks for a breakdown.
 - If selected sub-contexts are missing, say what is missing instead of guessing.
+- For budget questions with no declared budget, use this meaning: "I don’t see an active declared monthly budget yet."
 
 Reply as CLARA:`;
 }
@@ -159,8 +181,8 @@ export function generateLocalFinanceReply({ userMessage = "", context = {} } = {
     return `You’ve spent ${money(finance.monthlySpent)} this month. Unplanned spending is ${money(finance.unplannedSpent)}. ${buildTopCategoryLine(finance)}`;
   }
 
-  if (/\b(budget|budget left|remaining budget|budget status|category|categories)\b/.test(text)) {
-    if (!plan.hasDeclaredBudget) return "I don’t see a declared monthly budget yet. Set one first so CLARA can track your remaining budget clearly.";
+  if (/\b(budget|budget left|remaining budget|budget status|category|categories|spending plan)\b/.test(text)) {
+    if (!plan.hasDeclaredBudget || plan.budgetStatus === "no_budget") return noActiveBudgetReply();
     return `Your remaining spendable budget is ${money(plan.remainingSpendableBudget)}. You’ve spent ${money(plan.spentTotal)} out of ${money(plan.declaredBudget)}. Budget rows: ${buildBudgetRows(finance)}.`;
   }
 
