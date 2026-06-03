@@ -1,0 +1,9 @@
+.clara-buy-check-static-wrap {
+  min-height: 100% !important;
+  justify-content: flex-end !important;
+  box-sizing: border-box !important;
+}
+
+.clara-buy-check-static-bubble-row:first-child {
+  margin-top: auto !important;
+}
