@@ -187,7 +187,6 @@ export default function Login() {
   const { signIn, signInWithGoogle, signUp } = useAuth();
 
   const [mode, setMode] = useState("login");
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -202,11 +201,8 @@ export default function Login() {
     if (!email.trim()) return "Email is required.";
     if (!password.trim()) return "Password is required.";
 
-    if (mode === "signup") {
-      if (!fullName.trim()) return "Full name is required.";
-      if (password.length < 6) {
-        return "Password must be at least 6 characters.";
-      }
+    if (mode === "signup" && password.length < 6) {
+      return "Password must be at least 6 characters.";
     }
 
     return null;
@@ -251,7 +247,7 @@ export default function Login() {
         const data = await signUp({
           email,
           password,
-          fullName,
+          fullName: "",
         });
 
         if (!data?.session) {
@@ -347,18 +343,6 @@ export default function Login() {
               </div>
 
               <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
-                {mode === "signup" && (
-                  <FieldShell label="Full name">
-                    <input
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-emerald-400/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
-                    />
-                  </FieldShell>
-                )}
-
                 <FieldShell label="Email address">
                   <input
                     type="email"
