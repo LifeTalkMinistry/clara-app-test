@@ -84,16 +84,7 @@ function setInputValue(input, value = "") {
 function getState() {
   if (!getChat()) return null;
   if (window[STATE_KEY]?.active) return window[STATE_KEY];
-
-  window[STATE_KEY] = {
-    active: true,
-    step: "item",
-    item: "",
-    price: 0,
-    reason: "",
-    busy: false,
-    done: false,
-  };
+  window[STATE_KEY] = { active: true, step: "item", item: "", price: 0, reason: "", busy: false, done: false };
   return window[STATE_KEY];
 }
 
@@ -105,7 +96,6 @@ function resetState() {
 function appendBubble(role, text, html = "") {
   const chat = getChat();
   if (!chat) return null;
-
   const row = document.createElement("div");
   row.className = `clara-buy-check-static-bubble-row ${role === "user" ? "user" : "clara"}`;
   const bubble = document.createElement("div");
@@ -167,24 +157,14 @@ function buildContext(state, effective) {
   return {
     source: effective.source,
     dataReadStatus: effective.dataReadStatus || {},
-    purchaseSummary: {
-      item: state.item,
-      price: state.price,
-      reason: state.reason,
-      inferredCategory: category,
-    },
+    purchaseSummary: { item: state.item, price: state.price, reason: state.reason, inferredCategory: category },
     financeContext: {
       wallets: effective.wallets || [],
       spendableWallets,
       protectedWallets,
       totalSpendableWalletBalance: spendableWallets.reduce((sum, wallet) => sum + toNumber(wallet.balance), 0),
       budgets: effective.budgets || [],
-      matchingBudget: budget ? {
-        title: budget.title || budget.category,
-        limit: budgetLimit,
-        spentThisMonth: spent,
-        remaining: budgetLimit - spent,
-      } : null,
+      matchingBudget: budget ? { title: budget.title || budget.category, limit: budgetLimit, spentThisMonth: spent, remaining: budgetLimit - spent } : null,
       savingsGoals: effective.savingsGoals || [],
       emergencyFund: effective.emergencyFund || null,
       recentExpenses: monthExpenses.slice(-30),
@@ -206,10 +186,7 @@ function localDecision(context) {
     : (budget && price >= remaining * 0.75) || price > spendable * 0.25
       ? "Medium"
       : "Low";
-  return {
-    decision: risk === "High" ? "WAIT" : risk === "Medium" ? "BUY WITH CAP" : "BUY",
-    risk,
-  };
+  return { decision: risk === "High" ? "WAIT" : risk === "Medium" ? "BUY WITH CAP" : "BUY", risk };
 }
 
 function promptFor(context) {
@@ -238,7 +215,7 @@ function goodReply(reply = "") {
   return text.length >= 40 && /Decision:\s*(BUY WITH CAP|BUY|REDUCE|WAIT|PAUSE)/i.test(text) && /Risk:\s*(Low|Medium|High)/i.test(text) && !/BUY WITH CAPWhy|Decision:\s*[^\n]+Why:/i.test(text);
 }
 
-function buildSummary(context, decision) {
+function buildFinalSummary(context, decision) {
   const price = Number(context.purchaseSummary.price || 0);
   const budget = context.financeContext.matchingBudget;
   const remaining = Number(budget?.remaining || 0);
@@ -247,30 +224,89 @@ function buildSummary(context, decision) {
   const emergency = context.financeContext.emergencyFund;
   const goal = context.financeContext.savingsGoals?.[0];
   const protection = [];
-
   if (goal) protection.push(`${goal.name} is ${money(goal.savedAmount)} / ${money(goal.targetAmount)}`);
   if (emergency) protection.push(`emergency fund is ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)}`);
 
   if (budget && price > remaining) {
-    return `This ${money(price)} purchase is not safe right now because your ${budget.title} budget only has ${money(Math.max(0, remaining))} left. It would exceed the budget, leave your spendable wallet safety at ${money(afterPurchase)}, and ${protection.length ? `${protection.join(" while ")} should stay protected.` : "protected goals/emergency money should not be used for this."}`;
+    return `This ${money(price)} purchase is not safe right now because your ${budget.title} budget only has ${money(Math.max(0, remaining))} left. It would exceed the budget, leave your spendable wallet safety at ${money(afterPurchase)}, and ${protection.length ? `${protection.join(" while ")} should stay protected.` : "protected money should not be used for this."}`;
   }
-
   if (budget) {
     return `This ${money(price)} purchase fits inside your ${budget.title} budget with ${money(Math.max(0, remaining))} currently left, but it would reduce your spendable wallet total from ${money(spendable)} to ${money(afterPurchase)}. ${protection.length ? `${protection.join(" and ")} should stay protected.` : "Keep goals and emergency money protected."}`;
   }
-
-  return `This ${money(price)} purchase needs caution because CLARA did not find an exact budget for ${context.purchaseSummary.inferredCategory}. Your spendable wallet total is ${money(spendable)}, and ${protection.length ? `${protection.join(" and ")} should stay protected.` : "protected goals/emergency money should not be used for this."}`;
+  return `This ${money(price)} purchase needs caution because CLARA did not find an exact budget for ${context.purchaseSummary.inferredCategory}. Your spendable wallet total is ${money(spendable)}, and ${protection.length ? `${protection.join(" and ")} should stay protected.` : "protected money should not be used for this."}`;
 }
 
 function fallbackSaferMove(context, decision, risk) {
   const price = Number(context.purchaseSummary.price || 0);
   const budget = context.financeContext.matchingBudget;
   const remaining = Number(budget?.remaining || 0);
-
   if (risk === "High" && budget) return `Wait first, or choose an option below ${money(Math.max(0, remaining))}.`;
   if (decision === "BUY WITH CAP") return `Buy only up to ${money(price)} and do not add another shopping purchase this week.`;
   if (risk === "Low") return "Buy it only if it still matches your priority, then log it right away.";
   return "Pause first, then choose a cheaper option or wait until the next budget reset.";
+}
+
+function buildEvidenceCards(context, decision, risk, saferMove) {
+  const price = Number(context.purchaseSummary.price || 0);
+  const spendable = Number(context.financeContext.totalSpendableWalletBalance || 0);
+  const budget = context.financeContext.matchingBudget;
+  const remaining = Number(budget?.remaining || 0);
+  const goal = context.financeContext.savingsGoals?.[0];
+  const emergency = context.financeContext.emergencyFund;
+  const walletLine = context.financeContext.spendableWallets.length
+    ? `${context.financeContext.spendableWallets.slice(0, 2).map((wallet) => `${wallet.name}: ${money(wallet.balance)}`).join(" • ")}`
+    : "No spendable wallet loaded.";
+  const protectedLine = context.financeContext.protectedWallets.length
+    ? `Protected: ${context.financeContext.protectedWallets.map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(", ")}.`
+    : "No protected wallet loaded.";
+  const budgetPercent = budget && remaining > 0 ? Math.round((price / remaining) * 100) : 0;
+  const emergencyPercent = emergency?.targetAmount ? Math.round((toNumber(emergency.savedAmount) / toNumber(emergency.targetAmount)) * 100) : 0;
+
+  return [
+    {
+      eyebrow: "01 / PURCHASE",
+      title: context.purchaseSummary.item,
+      body: `Price: ${money(price)}. Reason: ${context.purchaseSummary.reason}. CLARA categorized it as ${context.purchaseSummary.inferredCategory}.`,
+      stat: money(price),
+      note: "This is the small picture: what the user wants to buy.",
+    },
+    {
+      eyebrow: "02 / WALLET",
+      title: "Spendable money",
+      body: `${walletLine}. Spendable total is ${money(spendable)}. After purchase, spendable money would be ${money(spendable - price)}. ${protectedLine}`,
+      stat: money(spendable),
+      note: "Wallet answers: can the user physically afford it?",
+    },
+    {
+      eyebrow: "03 / BUDGET",
+      title: budget ? `${budget.title} budget` : "Budget check",
+      body: budget ? `Budget room is ${money(Math.max(0, remaining))}. This purchase uses ${budgetPercent}% of remaining room and would leave ${money(Math.max(0, remaining - price))}.` : `No exact ${context.purchaseSummary.inferredCategory} budget was found, so CLARA treats this with caution.`,
+      stat: budget ? money(Math.max(0, remaining)) : "No match",
+      note: "Budget answers: does it fit the category plan?",
+    },
+    {
+      eyebrow: "04 / GOALS",
+      title: goal ? goal.name : "Savings goals",
+      body: goal ? `${goal.name} currently has ${money(goal.savedAmount)} saved toward ${money(goal.targetAmount)}. This purchase should not slow the goal unless it is truly necessary.` : "No savings goal was loaded for this check.",
+      stat: goal ? `${money(goal?.savedAmount || 0)}` : "None",
+      note: "Goals answer: will this delay progress?",
+    },
+    {
+      eyebrow: "05 / EMERGENCY",
+      title: "Emergency fund",
+      body: emergency ? `Emergency fund is ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)}${emergencyPercent ? ` (${emergencyPercent}%)` : ""}. This money should stay protected from wants or non-urgent purchases.` : "No emergency fund was loaded for this check.",
+      stat: emergency ? money(emergency.savedAmount) : "None",
+      note: "Emergency answers: is protected money threatened?",
+    },
+    {
+      eyebrow: "06 / FINAL SUMMARY",
+      title: decision,
+      body: buildFinalSummary(context, decision),
+      stat: `Risk: ${risk}`,
+      note: `Safer move: ${saferMove}`,
+      final: true,
+    },
+  ];
 }
 
 function buildReport(reply, context) {
@@ -279,31 +315,34 @@ function buildReport(reply, context) {
   const decision = useAi ? extractDecision(reply, fallback.decision) : fallback.decision;
   const risk = useAi ? extractRisk(reply, fallback.risk) : fallback.risk;
   const saferMove = useAi ? extractSaferMove(reply, fallbackSaferMove(context, decision, risk)) : fallbackSaferMove(context, decision, risk);
-
-  return {
-    decision,
-    risk,
-    summary: buildSummary(context, decision),
-    saferMove,
-  };
+  return { decision, risk, saferMove, cards: buildEvidenceCards(context, decision, risk, saferMove) };
 }
 
 function renderReport(report) {
   const main = getMain();
   if (!main) return;
+  const cardCount = report.cards.length;
   main.innerHTML = `
     <button type="button" class="clara-buy-check-static-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <div class="clara-buy-check-static-wrap" data-clara-buy-check-report="true">
-      <section class="relative mx-auto w-full max-w-[342px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-5 py-6 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+      <section class="relative mx-auto w-full max-w-[354px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-4 py-5 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
         <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK REPORT</p>
-        <h3 class="mt-3 text-2xl font-black leading-tight tracking-tight text-white">${escapeHtml(report.decision)}</h3>
-        <div class="mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[12px] font-black text-slate-100/90"><span class="text-slate-400/90">Risk</span><span>${escapeHtml(report.risk)}</span></div>
-        <div class="mt-5 rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-4 text-left">
-          <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/45">Summary</p>
-          <p class="mt-2 text-[13px] font-bold leading-6 text-slate-100/90">${escapeHtml(report.summary)}</p>
+        <p class="mx-auto mt-2 max-w-[260px] text-[12px] font-bold leading-5 text-slate-300/65">Swipe from purchase details to the final decision.</p>
+        <div class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:none]" style="scrollbar-width:none; -ms-overflow-style:none;">
+          ${report.cards.map((card) => `
+            <article class="min-w-full snap-center rounded-[24px] border ${card.final ? "border-emerald-200/20 bg-emerald-300/10" : "border-white/10 bg-slate-950/20"} px-5 py-5 text-left">
+              <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/45">${escapeHtml(card.eyebrow)}</p>
+              <h3 class="mt-2 text-[22px] font-black leading-tight tracking-tight text-white">${escapeHtml(card.title)}</h3>
+              <div class="mt-3 inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[12px] font-black text-slate-100/90">${escapeHtml(card.stat)}</div>
+              <p class="mt-4 text-[13.5px] font-bold leading-6 text-slate-100/90">${escapeHtml(card.body)}</p>
+              <p class="mt-4 text-[12px] font-black leading-5 ${card.final ? "text-emerald-50/90" : "text-slate-300/58"}">${escapeHtml(card.note)}</p>
+            </article>
+          `).join("")}
         </div>
-        <div class="mt-4 rounded-2xl border border-emerald-200/15 bg-emerald-300/10 px-4 py-3 text-left"><p class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/55">Safer move</p><p class="mt-1 text-[13px] font-black leading-5 text-emerald-50/92">${escapeHtml(report.saferMove)}</p></div>
-        <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Next phase: swipe left to see wallet, budget, goals, emergency, schedule, and pattern details.</p>
+        <div class="mt-1 flex justify-center gap-1.5">
+          ${Array.from({ length: cardCount }).map((_, index) => `<span class="h-1.5 w-${index === 0 ? "5" : "1.5"} rounded-full bg-cyan-100/${index === 0 ? "70" : "25"}"></span>`).join("")}
+        </div>
+        <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Phase 2: wallet, budget, goals, emergency, then final summary. Schedule and memory come next.</p>
         <div class="mt-5 flex flex-wrap justify-center gap-2"><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-close-board="true">Done</button></div>
       </section>
     </div>`;
@@ -314,14 +353,17 @@ function errorReport() {
   return {
     decision: "PAUSE",
     risk: "Medium",
-    summary: "CLARA could not complete the full wallet and budget read right now, so the purchase should not be approved yet. Goals and emergency money should stay protected until the context check works.",
     saferMove: "Try again in a moment, or check your wallet and budget manually before buying.",
+    cards: [
+      { eyebrow: "01 / PURCHASE", title: "Context missing", stat: "Pause", body: "CLARA could not complete the full wallet and budget read right now.", note: "The safest move is to pause." },
+      { eyebrow: "02 / FINAL SUMMARY", title: "PAUSE", stat: "Risk: Medium", body: "Goals and emergency money should stay protected until the context check works.", note: "Safer move: Try again in a moment.", final: true },
+    ],
   };
 }
 
 async function runDiagnosis(state) {
   state.busy = true;
-  appendBubble("clara", "Got it. I’m checking your wallet, budget, schedule, Me profile, goals, and memory now...");
+  appendBubble("clara", "Got it. I’m checking your wallet, budget, goals, and emergency fund now...");
   try {
     const user = await getUser();
     const localUserId = clean(user?.id || user?.email || FALLBACK_USER_ID) || FALLBACK_USER_ID;
@@ -339,7 +381,7 @@ async function runDiagnosis(state) {
     let reply = "";
     if (hasGeminiConfig()) {
       try {
-        reply = await generateClaraGeminiReply({ message: prompt, context, mode: "buy_check_phase_one_report", conversationHistory: messages });
+        reply = await generateClaraGeminiReply({ message: prompt, context, mode: "buy_check_phase_two_carousel", conversationHistory: messages });
       } catch (error) {
         console.warn("[CLARA Buy Check Report] Gemini failed; deterministic report used.", error);
       }
