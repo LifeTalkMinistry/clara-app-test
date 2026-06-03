@@ -41,6 +41,17 @@ function percent(value = 0) {
   return `${number.toFixed(number >= 10 ? 0 : 1)}%`;
 }
 
+function safeJson(value, fallback = "Not available") {
+  if (value === undefined || value === null) return fallback;
+  if (Array.isArray(value) && !value.length) return fallback;
+  if (typeof value === "string" && !clean(value)) return fallback;
+  try {
+    return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  } catch {
+    return fallback;
+  }
+}
+
 function extractPrice(text = "") {
   const match = clean(text).match(/(?:₱|php\s*)?([0-9][0-9,]*(?:\.\d{1,2})?)/i);
   return match ? toNumber(match[1]) : 0;
@@ -80,6 +91,7 @@ function getState() {
     price: 0,
     reason: "",
     busy: false,
+    done: false,
   };
   window[ROUTER_STATE_KEY] = state;
   return state;
@@ -91,7 +103,7 @@ function resetState() {
 
 function appendBubble(role, text, options = {}) {
   const chat = getStaticChat();
-  if (!chat) return;
+  if (!chat) return null;
 
   const row = document.createElement("div");
   row.className = `clara-buy-check-static-bubble-row ${role === "user" ? "user" : "clara"}`;
@@ -107,6 +119,7 @@ function appendBubble(role, text, options = {}) {
 
   const main = chat.closest("main");
   requestAnimationFrame(() => main?.scrollTo?.({ top: main.scrollHeight, behavior: "smooth" }));
+  return row;
 }
 
 function appendOpeningIfMissing() {
@@ -127,7 +140,7 @@ function inferCategory(item = "") {
   if (/jeep|bus|taxi|grab|angkas|moveit|gas|fare|transport/.test(text)) return "Transportation";
   if (/rent|electric|water|internet|wifi|bill|load|subscription/.test(text)) return "Bills";
   if (/medicine|doctor|hospital|vitamin|health|checkup/.test(text)) return "Health";
-  if (/shoe|shirt|clothes|bag|watch|gadget|phone|shopping|lazada|shopee/.test(text)) return "Shopping";
+  if (/shoe|shoes|sneaker|sneakers|shirt|clothes|bag|watch|gadget|phone|shopping|lazada|shopee/.test(text)) return "Shopping";
   return "Lifestyle";
 }
 
@@ -324,7 +337,43 @@ async function buildDiagnosisContext(state) {
     },
   };
 
-  return {
+  const financeContext = {
+    wallets: wallets.slice(0, 12).map((wallet) => ({
+      id: wallet.id,
+      name: wallet.name || wallet.wallet_name || wallet.title || "Wallet",
+      balance: getWalletBalance(wallet),
+    })),
+    totalWalletBalance,
+    budgets: budgets.slice(0, 20).map((budget) => ({ title: getBudgetTitle(budget), limit: getBudgetLimit(budget) })),
+    matchingBudget: matchingBudget ? {
+      title: getBudgetTitle(matchingBudget),
+      limit: budgetLimit,
+      spentThisMonth: categorySpent,
+      remaining: categoryRemaining,
+    } : null,
+    recentExpenses: currentMonthExpenses.slice(-30).map((expense) => ({
+      amount: getExpenseAmount(expense),
+      category: getExpenseCategory(expense),
+      note: clean(expense.notes || expense.item || expense.title || ""),
+      date: expense.date || expense.created_at || expense.createdAt || "",
+    })),
+    savingsGoals: savingsGoals.slice(0, 12),
+    emergencyFund,
+  };
+
+  const dataReadStatus = {
+    walletsLoaded: wallets.length,
+    budgetsLoaded: budgets.length,
+    expensesLoaded: expenses.length,
+    savingsGoalsLoaded: savingsGoals.length,
+    emergencyFundLoaded: Boolean(emergencyFund),
+    scheduleLoaded: scheduleEvents.length > 0,
+    meProfileLoaded: Boolean(mePageContext),
+    memoryLoaded: memoryCabinets.length > 0,
+  };
+
+  const context = {
+    dataReadStatus,
     purchaseSummary: {
       item: state.item,
       price: state.price,
@@ -332,29 +381,7 @@ async function buildDiagnosisContext(state) {
       inferredCategory: category,
     },
     evidenceSummary,
-    financeContext: {
-      wallets: wallets.slice(0, 12).map((wallet) => ({
-        id: wallet.id,
-        name: wallet.name || wallet.wallet_name || wallet.title || "Wallet",
-        balance: getWalletBalance(wallet),
-      })),
-      totalWalletBalance,
-      budgets: budgets.slice(0, 20).map((budget) => ({ title: getBudgetTitle(budget), limit: getBudgetLimit(budget) })),
-      matchingBudget: matchingBudget ? {
-        title: getBudgetTitle(matchingBudget),
-        limit: budgetLimit,
-        spentThisMonth: categorySpent,
-        remaining: categoryRemaining,
-      } : null,
-      recentExpenses: currentMonthExpenses.slice(-30).map((expense) => ({
-        amount: getExpenseAmount(expense),
-        category: getExpenseCategory(expense),
-        note: clean(expense.notes || expense.item || expense.title || ""),
-        date: expense.date || expense.created_at || expense.createdAt || "",
-      })),
-      savingsGoals: savingsGoals.slice(0, 12),
-      emergencyFund,
-    },
+    financeContext,
     scheduleContext: scheduleEvents,
     mePageContext,
     fullMemoryContext: {
@@ -364,6 +391,10 @@ async function buildDiagnosisContext(state) {
     },
     timeContext: bridgeContext.currentTime,
   };
+
+  window.__CLARA_LAST_BUY_CHECK_DATA_READ_STATUS__ = dataReadStatus;
+  window.__CLARA_LAST_BUY_CHECK_CONTEXT__ = context;
+  return context;
 }
 
 function localFallback(context) {
@@ -379,19 +410,182 @@ function localFallback(context) {
   const hasBudgetRoom = budgetRemaining !== null && price <= budgetRemaining;
   const hasWalletRoom = totalWalletBalance > 0 && price <= totalWalletBalance;
   const risk = !hasWalletRoom || (budgetRemaining !== null && !hasBudgetRoom) ? "High" : budgetRemaining === null || price > totalWalletBalance * 0.25 ? "Medium" : "Low";
-  const decision = risk === "High" ? "Wait" : risk === "Medium" ? "Pause" : "Buy";
+  const decision = risk === "High" ? "WAIT" : risk === "Medium" ? "BUY WITH CAP" : "BUY";
 
   return `Decision: ${decision}
+
 Risk: ${risk}
 
-Evidence:
-• Wallet: ${typeof walletEvidence === "object" ? `${money(price)} is ${percent(walletEvidence.purchaseShareOfVisibleBalance || 0)} of visible wallet balance (${money(walletEvidence.totalVisibleBalance)}).` : "Not available."}
-• Budget: ${typeof budgetEvidence === "object" ? `${budgetEvidence.category} has ${money(Math.max(0, budgetEvidence.remaining))} remaining; this purchase uses ${percent(budgetEvidence.purchaseShareOfRemainingBudget || 0)} of that room.` : "No matching budget found, so this is not clearly planned."}
+Why:
+• Wallet: ${typeof walletEvidence === "object" ? `${money(price)} is ${percent(walletEvidence.purchaseShareOfVisibleBalance || 0)} of visible wallet balance from wallet records (${money(walletEvidence.totalVisibleBalance)}).` : "Not available."}
+• Budget: ${typeof budgetEvidence === "object" ? `${budgetEvidence.category} has ${money(Math.max(0, budgetEvidence.remaining))} remaining; this purchase uses ${percent(budgetEvidence.purchaseShareOfRemainingBudget || 0)} of that room.` : "No matching budget found."}
 • Goals/Emergency: ${typeof emergencyEvidence === "object" ? `Emergency fund is ${money(emergencyEvidence.current)} of ${money(emergencyEvidence.target)}${emergencyEvidence.progressPercent ? ` (${percent(emergencyEvidence.progressPercent)})` : ""}.` : "Emergency fund not available."} ${Array.isArray(goalsEvidence) ? `${goalsEvidence.length} savings goal(s) detected.` : "Savings goals not available."}
 • Pattern/Memory: ${Array.isArray(memoryEvidence) && memoryEvidence.length ? memoryEvidence[0].summary : "No specific memory signal available."}
 • Schedule/Profile: ${scheduleProfile?.scheduleEvents !== "Not available" ? "Schedule context detected." : "Schedule not available."} ${scheduleProfile?.mePageContext !== "Not available" ? "Me profile context detected." : "Me profile not available."}
 
-Safer move: ${risk === "Low" ? "Buy only if it remains your priority, then log it immediately." : risk === "Medium" ? "Pause for 24 hours, then buy only if it still fits the same budget room." : "Wait for now or choose a cheaper option that does not break your budget."}`;
+Safer move:
+${risk === "Low" ? "Buy only if it remains your priority, then log it immediately." : risk === "Medium" ? `If you buy it, cap yourself at ${money(price)} and avoid another discretionary purchase for the next 7 days.` : "Wait for now or choose a cheaper option that does not break your budget."}
+
+One sentence from CLARA:
+I checked this against the available wallet, budget, goals, schedule, profile, and memory context before giving the verdict.`;
+}
+
+function buildFullContextBuyCheckPrompt(context) {
+  const finance = context.financeContext || {};
+  const purchase = context.purchaseSummary || {};
+  const status = context.dataReadStatus || {};
+
+  return `You are CLARA.
+
+You are performing a BUY CHECK.
+
+Your job is NOT to be a shopping assistant.
+Your job is to protect the user's financial goals, spending discipline, and long-term progress.
+
+━━━━━━━━━━━━━━━━━━━
+DATA READ CHECK
+━━━━━━━━━━━━━━━━━━━
+
+Wallets loaded:
+${status.walletsLoaded ?? 0}
+
+Budgets loaded:
+${status.budgetsLoaded ?? 0}
+
+Expenses loaded:
+${status.expensesLoaded ?? 0}
+
+Savings goals loaded:
+${status.savingsGoalsLoaded ?? 0}
+
+Emergency fund loaded:
+${status.emergencyFundLoaded ? "Yes" : "No"}
+
+Schedule loaded:
+${status.scheduleLoaded ? "Yes" : "No"}
+
+Me profile loaded:
+${status.meProfileLoaded ? "Yes" : "No"}
+
+Memory loaded:
+${status.memoryLoaded ? "Yes" : "No"}
+
+━━━━━━━━━━━━━━━━━━━
+USER ANSWERS
+━━━━━━━━━━━━━━━━━━━
+
+Item:
+${purchase.item || "Not available"}
+
+Price:
+${money(purchase.price || 0)}
+
+Reason:
+${purchase.reason || "Not available"}
+
+Inferred category:
+${purchase.inferredCategory || "Not available"}
+
+━━━━━━━━━━━━━━━━━━━
+WALLETS
+━━━━━━━━━━━━━━━━━━━
+
+Total visible wallet balance from wallet records:
+${money(finance.totalWalletBalance || 0)}
+
+Important:
+Do not call this the user's full money unless wallet records are complete.
+
+Wallet records:
+${safeJson(finance.wallets)}
+
+━━━━━━━━━━━━━━━━━━━
+BUDGETS
+━━━━━━━━━━━━━━━━━━━
+
+Matching budget:
+${safeJson(finance.matchingBudget)}
+
+All budget records:
+${safeJson(finance.budgets)}
+
+━━━━━━━━━━━━━━━━━━━
+SAVINGS GOALS
+━━━━━━━━━━━━━━━━━━━
+
+${safeJson(finance.savingsGoals)}
+
+━━━━━━━━━━━━━━━━━━━
+EMERGENCY FUND
+━━━━━━━━━━━━━━━━━━━
+
+${safeJson(finance.emergencyFund)}
+
+━━━━━━━━━━━━━━━━━━━
+RECENT EXPENSES
+━━━━━━━━━━━━━━━━━━━
+
+${safeJson(finance.recentExpenses)}
+
+━━━━━━━━━━━━━━━━━━━
+SCHEDULE
+━━━━━━━━━━━━━━━━━━━
+
+${safeJson(context.scheduleContext)}
+
+━━━━━━━━━━━━━━━━━━━
+ME PROFILE
+━━━━━━━━━━━━━━━━━━━
+
+${safeJson(context.mePageContext)}
+
+━━━━━━━━━━━━━━━━━━━
+MEMORY
+━━━━━━━━━━━━━━━━━━━
+
+${safeJson(context.fullMemoryContext)}
+
+━━━━━━━━━━━━━━━━━━━
+BUY CHECK RULES
+━━━━━━━━━━━━━━━━━━━
+
+Analyze:
+1. Affordability
+2. Budget impact
+3. Savings impact
+4. Emergency fund impact
+5. Upcoming schedule impact
+6. Historical spending behavior
+7. User goals
+8. User memory patterns
+
+Do NOT give generic advice.
+Reference actual numbers.
+Reference actual memory when available.
+Reference actual goals when available.
+If a context area is missing, say Not available.
+Do not invent wallet balance, budget room, goals, memory, schedule, or profile data.
+
+━━━━━━━━━━━━━━━━━━━
+REQUIRED RESPONSE FORMAT
+━━━━━━━━━━━━━━━━━━━
+
+Decision: BUY | BUY WITH CAP | REDUCE | WAIT | PAUSE
+
+Risk: Low | Medium | High
+
+Why:
+• Wallet: ...
+• Budget: ...
+• Goals/Emergency: ...
+• Pattern/Memory: ...
+• Schedule/Profile: ...
+
+Safer move:
+...
+
+One sentence from CLARA:
+...`;
 }
 
 async function runDiagnosis(state) {
@@ -400,53 +594,15 @@ async function runDiagnosis(state) {
 
   try {
     const context = await buildDiagnosisContext(state);
-    const prompt = `You are CLARA, a premium personal money coach.
-
-A Buy Check static diagnosis is complete.
-
-User answered:
-Item: ${context.purchaseSummary.item}
-Price: ${money(context.purchaseSummary.price)}
-Reason: ${context.purchaseSummary.reason}
-Inferred category: ${context.purchaseSummary.inferredCategory}
-
-Your job:
-Give a premium evidence-based purchase verdict.
-
-CRITICAL RULES:
-1. Do NOT give generic advice.
-2. Do NOT say “impulse spending,” “think twice,” “be careful,” or “overspending” unless the evidence package supports it.
-3. You MUST reference actual evidence from the evidence summary.
-4. If a context area is missing, say “Not available.” Do not pretend it exists.
-5. You MUST mention wallet, budget, goals/emergency, pattern/memory, and schedule/profile in the final answer.
-6. Infer planned/unplanned silently. Do not ask more questions.
-7. Keep the response premium, concise, direct, and confident.
-
-Required output format:
-Decision: Buy / Buy with cap / Reduce / Wait / Pause
-Risk: Low / Medium / High
-
-Evidence:
-• Wallet: use exact balance/share if available, otherwise “Not available.”
-• Budget: use exact remaining budget/share if available, otherwise “No matching budget found.”
-• Goals/Emergency: mention savings goals/emergency fund if available, otherwise “Not available.”
-• Pattern/Memory: mention a specific memory/pattern only if available, otherwise “No specific memory signal available.”
-• Schedule/Profile: mention schedule or Me profile only if available, otherwise “Not available.”
-
-Safer move: one clear action.
-
-Evidence summary:
-${JSON.stringify(context.evidenceSummary, null, 2)}
-
-Full context package for deeper reasoning:
-${JSON.stringify(context, null, 2)}`;
+    const prompt = buildFullContextBuyCheckPrompt(context);
+    window.__CLARA_LAST_BUY_CHECK_PROMPT__ = prompt;
     let reply = "";
 
     if (hasGeminiConfig()) {
       reply = await generateClaraGeminiReply({
         message: prompt,
         context,
-        mode: "buy_check_static_diagnosis_premium_evidence",
+        mode: "buy_check_full_context_diagnosis",
         conversationHistory: [
           { role: "user", text: context.purchaseSummary.item },
           { role: "user", text: money(context.purchaseSummary.price) },
@@ -458,7 +614,7 @@ ${JSON.stringify(context, null, 2)}`;
     appendBubble("clara", clean(reply) || localFallback(context));
   } catch (error) {
     console.warn("[CLARA Buy Check Router] Diagnosis failed", error);
-    appendBubble("clara", "Decision: Pause\nRisk: Medium\n\nEvidence:\n• Wallet: Not available.\n• Budget: Not available.\n• Goals/Emergency: Not available.\n• Pattern/Memory: Not available.\n• Schedule/Profile: Not available.\n\nSafer move: Try again in a moment before buying. CLARA should not approve a purchase when the diagnosis package is incomplete.");
+    appendBubble("clara", "Decision: PAUSE\n\nRisk: Medium\n\nWhy:\n• Wallet: Not available.\n• Budget: Not available.\n• Goals/Emergency: Not available.\n• Pattern/Memory: Not available.\n• Schedule/Profile: Not available.\n\nSafer move:\nTry again in a moment before buying. CLARA should not approve a purchase when the diagnosis package is incomplete.\n\nOne sentence from CLARA:\nI need the full context package before I can responsibly approve this purchase.");
   } finally {
     state.busy = false;
     state.done = true;
