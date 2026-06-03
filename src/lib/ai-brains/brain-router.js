@@ -123,7 +123,13 @@ export function isPureScheduleIntent(value = "") {
 function isCasualOnly(text = "") {
   if (!text) return false;
   if (hasScheduleSignal(text) || hasMoneySignal(text) || hasDecisionSignal(text) || hasCoachSignal(text) || hasMemorySignal(text)) return false;
-  return /^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta|how are you|how r you|what'?s up|thanks|thank you|salamat|nice|okay|ok|cool|haha|hehe|lol)[!?.\s]*$/.test(text);
+  return /^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta|how are you|how r you|what'?s up|thanks|thank you|salamat|nice|great|perfect|awesome|good|got it|gets|okay|ok|cool|haha|hehe|lol)[!?.\s]*$/.test(text);
+}
+
+function isAcknowledgementOnly(text = "") {
+  if (!text) return false;
+  if (hasScheduleSignal(text) || hasMoneySignal(text) || hasDecisionSignal(text) || hasCoachSignal(text) || hasMemorySignal(text) || hasRiskSignal(text)) return false;
+  return /^(great|nice|perfect|awesome|good|got it|gets|okay|ok|cool|thanks|thank you|salamat|alright|all right|sige|copy|noted|yup|yep|yes|aha|ah ok|ah okay)[!?.\s]*$/.test(text);
 }
 
 function isShortFollowUp(text = "") {
@@ -211,6 +217,19 @@ function createPureScheduleRoute({ action = FOLLOW_UP_ACTIONS.NEW_FLOW, mode = "
   };
 }
 
+function createCasualAcknowledgementRoute({ mode = "follow_up" } = {}) {
+  return {
+    mode,
+    action: FOLLOW_UP_ACTIONS.SWITCH_BRAIN,
+    brain: CLARA_BRAINS.CASUAL,
+    brainKey: CLARA_BRAIN_KEYS[CLARA_BRAINS.CASUAL],
+    contexts: [],
+    globalContexts: [CLARA_CONTEXTS.CHAT_MEMORY],
+    confidence: 0.99,
+    reason: "User only acknowledged the previous answer; switch to Casual Brain instead of repeating the previous finance context.",
+  };
+}
+
 export function routeInitialBrainContext({ userMessage = "" } = {}) {
   const text = normalizeText(userMessage);
   let brain = CLARA_BRAINS.CASUAL;
@@ -279,6 +298,10 @@ export function routeFollowUpConversation({ userMessage = "", currentBrain = nul
   if (isNewTopicSignal(text)) {
     const next = routeInitialBrainContext({ userMessage });
     return { ...next, mode: "follow_up", action: FOLLOW_UP_ACTIONS.NEW_FLOW, reason: "User explicitly changed topic." };
+  }
+
+  if (isAcknowledgementOnly(text)) {
+    return createCasualAcknowledgementRoute({ mode: "follow_up" });
   }
 
   if (isPureScheduleIntent(text)) {
@@ -368,11 +391,17 @@ function updateActiveFlow(route) {
   if (!route || !route.brain) return activeConversationFlow;
   const previousContexts = Array.isArray(activeConversationFlow?.activeContexts) ? activeConversationFlow.activeContexts : [];
   const routeContexts = Array.isArray(route.contexts) ? route.contexts : [];
+  const nextContexts =
+    route.action === FOLLOW_UP_ACTIONS.CHAT_ONLY
+      ? previousContexts
+      : route.action === FOLLOW_UP_ACTIONS.NEW_FLOW || route.action === FOLLOW_UP_ACTIONS.SWITCH_BRAIN
+        ? unique(routeContexts)
+        : unique([...previousContexts, ...routeContexts]);
 
   activeConversationFlow = {
     activeBrain: route.brain,
     activeBrainKey: CLARA_BRAIN_KEYS[route.brain],
-    activeContexts: route.action === FOLLOW_UP_ACTIONS.CHAT_ONLY ? previousContexts : unique([...previousContexts, ...routeContexts]),
+    activeContexts: nextContexts,
     conversationId: route.action === FOLLOW_UP_ACTIONS.NEW_FLOW || !activeConversationFlow?.conversationId ? createConversationId() : activeConversationFlow.conversationId,
     lastInteractionTimestamp: Date.now(),
   };
