@@ -1,25 +1,8 @@
-import { removeMemoryFromCabinet } from "@/lib/memory-cabinets";
-
 const ENTRY_ID = "clara-settings-memory-entry";
 const PROFILE_ENTRY_ID = "clara-profile-memory-entry";
-const PANEL_ID = "clara-memory-review-panel";
-const MEMORY_PANEL_FLAG = "CLARA_MEMORY_REVIEW_PANEL";
-let memoryEventBridgeInstalled = false;
 
-function enableMemoryPanelAccess() {
+function openEditableMemoryBoard(cabinetName = "Spending Memory") {
   if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage?.setItem(MEMORY_PANEL_FLAG, "true");
-  } catch {
-    // Ignore storage errors. The settings card can still try the existing opener.
-  }
-}
-
-function openExistingMemoryPanel(cabinetName = "Spending Memory") {
-  if (typeof window === "undefined") return;
-
-  enableMemoryPanelAccess();
 
   window.dispatchEvent(
     new CustomEvent("clara:open-assistant-memory-board", {
@@ -97,7 +80,7 @@ function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
   section.querySelector("button")?.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    openExistingMemoryPanel();
+    openEditableMemoryBoard();
   });
 
   return section;
@@ -142,7 +125,7 @@ function installSettingsOverviewMemoryEntry() {
   memoryRow.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    openExistingMemoryPanel();
+    openEditableMemoryBoard();
   });
 
   rowContainer.appendChild(memoryRow);
@@ -192,51 +175,7 @@ function installMemoryEntryPoints() {
   installProfileMemoryEntry();
 }
 
-function installMemoryPanelEventBridge() {
-  if (memoryEventBridgeInstalled || typeof document === "undefined") return;
-  memoryEventBridgeInstalled = true;
-
-  document.addEventListener(
-    "click",
-    (event) => {
-      const target = event.target;
-      const panel = target?.closest?.(`#${PANEL_ID}`);
-      if (!panel) return;
-
-      const close = target.closest?.("[data-close-memory-review]");
-      if (close) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        document.getElementById(PANEL_ID)?.remove();
-        return;
-      }
-
-      const tab = target.closest?.("[data-cabinet-tab]");
-      if (tab) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        openExistingMemoryPanel(tab.getAttribute("data-cabinet-tab") || "Spending Memory");
-        return;
-      }
-
-      const memoryRemoval = target.closest?.(".clara-memory-review-delete");
-      if (memoryRemoval) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-
-        const id = memoryRemoval.getAttribute("data-memory-id");
-        const cabinetName = memoryRemoval.getAttribute("data-cabinet-name");
-
-        if (id && cabinetName) removeMemoryFromCabinet(cabinetName, id);
-        openExistingMemoryPanel(cabinetName || "Spending Memory");
-      }
-    },
-    true
-  );
-}
-
 if (typeof window !== "undefined") {
-  installMemoryPanelEventBridge();
   installMemoryEntryPoints();
 
   const observer = new MutationObserver(installMemoryEntryPoints);
