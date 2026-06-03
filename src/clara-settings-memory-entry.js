@@ -1,6 +1,7 @@
 import { removeMemoryFromCabinet } from "@/lib/memory-cabinets";
 
 const ENTRY_ID = "clara-settings-memory-entry";
+const PROFILE_ENTRY_ID = "clara-profile-memory-entry";
 const PANEL_ID = "clara-memory-review-panel";
 const MEMORY_PANEL_FLAG = "CLARA_MEMORY_REVIEW_PANEL";
 let memoryEventBridgeInstalled = false;
@@ -61,6 +62,40 @@ function updateMemoryRowContent(button) {
   button.setAttribute("aria-label", "Open CLARA memory review");
 }
 
+function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
+  const section = document.createElement("section");
+  section.id = id;
+  section.className = "space-y-2";
+  section.innerHTML = `
+    <p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Memory</p>
+    <button
+      type="button"
+      class="group flex w-full items-center gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left shadow-[0_12px_30px_rgba(0,0,0,0.13)] transition hover:bg-white/[0.07]"
+      aria-label="Open CLARA memory review"
+    >
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8 text-white/65 group-hover:text-white">
+        ${memoryIconSvg()}
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-sm font-bold text-white">Memory</p>
+        <p class="mt-1 truncate text-xs text-white/45">Saved context, patterns, and AI memory</p>
+      </div>
+      <span class="max-w-[96px] shrink-0 truncate rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">Review</span>
+      <svg class="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  `;
+
+  section.querySelector("button")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openExistingMemoryPanel();
+  });
+
+  return section;
+}
+
 function findAccountSection() {
   if (typeof document === "undefined") return null;
 
@@ -77,7 +112,7 @@ function findAccountSection() {
   return { section, securityRow };
 }
 
-function installSettingsMemoryEntry() {
+function installSettingsOverviewMemoryEntry() {
   if (typeof document === "undefined") return;
 
   const match = findAccountSection();
@@ -104,6 +139,50 @@ function installSettingsMemoryEntry() {
   });
 
   rowContainer.appendChild(memoryRow);
+}
+
+function findProfileFormCard() {
+  const saveButton = Array.from(document.querySelectorAll("button")).find((button) =>
+    button.textContent?.includes("Save profile")
+  );
+
+  let current = saveButton;
+  while (current?.parentElement) {
+    current = current.parentElement;
+    const className = String(current.className || "");
+    if (className.includes("rounded-[28px]") || className.includes("rounded-[30px]")) {
+      return current;
+    }
+  }
+
+  return null;
+}
+
+function isProfileInformationPage() {
+  return Array.from(document.querySelectorAll("h2, p, button")).some((node) =>
+    node.textContent?.trim() === "Profile information"
+  );
+}
+
+function installProfileMemoryEntry() {
+  if (typeof document === "undefined") return;
+  if (!isProfileInformationPage()) {
+    document.getElementById(PROFILE_ENTRY_ID)?.remove();
+    return;
+  }
+
+  if (document.getElementById(PROFILE_ENTRY_ID)) return;
+
+  const profileFormCard = findProfileFormCard();
+  if (!profileFormCard?.parentElement) return;
+
+  const memorySection = createStandaloneMemorySection(PROFILE_ENTRY_ID);
+  profileFormCard.insertAdjacentElement("afterend", memorySection);
+}
+
+function installMemoryEntryPoints() {
+  installSettingsOverviewMemoryEntry();
+  installProfileMemoryEntry();
 }
 
 function installMemoryPanelEventBridge() {
@@ -151,9 +230,9 @@ function installMemoryPanelEventBridge() {
 
 if (typeof window !== "undefined") {
   installMemoryPanelEventBridge();
-  installSettingsMemoryEntry();
+  installMemoryEntryPoints();
 
-  const observer = new MutationObserver(installSettingsMemoryEntry);
+  const observer = new MutationObserver(installMemoryEntryPoints);
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
