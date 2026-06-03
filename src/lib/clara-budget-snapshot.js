@@ -180,7 +180,7 @@ function normalizeCategory(row = {}, activeExpenses = []) {
 }
 
 function getHeader(source = {}) {
-  if (source.monthlyBudgetHeader) return source.monthlyBudgetHeader;
+  if (source.monthlyBudgetHeader && !isInactive(source.monthlyBudgetHeader)) return source.monthlyBudgetHeader;
   return safeArray(source.budgets || source.budgetList || source.finance?.budgets).find((row) => isBudgetHeader(row) && !isInactive(row)) || null;
 }
 
@@ -193,10 +193,36 @@ function getRawCategories(source = {}) {
   return safeArray(source.budgets || source.budgetList || source.finance?.budgets).filter((row) => !isBudgetHeader(row) && !isInactive(row));
 }
 
-function getDeclaredBudget(source = {}, allocatedBudget = 0) {
+function firstDeclaredNumberWithSource(candidates = []) {
+  for (const [sourceUsed, value] of candidates) {
+    const number = numberFrom(value);
+    if (number !== null) return { value: number, sourceUsed };
+  }
+  return { value: 0, sourceUsed: "none" };
+}
+
+function getDeclaredBudget(source = {}) {
   const plan = source.monthlyBudgetPlan || source.budgetPlan || source.monthly_budget_plan || {};
   const header = getHeader(source) || {};
-  return numberFrom(plan.declaredBudget, plan.declared_budget, plan.declaredAmount, plan.declared_amount, source.declaredMonthlyBudgetAmount, source.declared_monthly_budget_amount, source.declaredBudget, source.declared_budget, header.declared_amount, header.declared_budget, header.monthly_budget_amount, header.total_declared_budget, header.total_budget, header.budget_amount, header.amount, getPath(source, "budgetSummary.declaredBudget"), getPath(source, "budget_summary.declaredBudget")) ?? (allocatedBudget > 0 ? allocatedBudget : 0);
+  return firstDeclaredNumberWithSource([
+    ["monthlyBudgetPlan.declaredBudget", plan.declaredBudget],
+    ["monthlyBudgetPlan.declared_budget", plan.declared_budget],
+    ["monthlyBudgetPlan.declaredAmount", plan.declaredAmount],
+    ["monthlyBudgetPlan.declared_amount", plan.declared_amount],
+    ["source.declaredMonthlyBudgetAmount", source.declaredMonthlyBudgetAmount],
+    ["source.declared_monthly_budget_amount", source.declared_monthly_budget_amount],
+    ["source.declaredBudget", source.declaredBudget],
+    ["source.declared_budget", source.declared_budget],
+    ["monthlyBudgetHeader.declared_amount", header.declared_amount],
+    ["monthlyBudgetHeader.declared_budget", header.declared_budget],
+    ["monthlyBudgetHeader.monthly_budget_amount", header.monthly_budget_amount],
+    ["monthlyBudgetHeader.total_declared_budget", header.total_declared_budget],
+    ["monthlyBudgetHeader.total_budget", header.total_budget],
+    ["monthlyBudgetHeader.budget_amount", header.budget_amount],
+    ["monthlyBudgetHeader.amount", header.amount],
+    ["budgetSummary.declaredBudget", getPath(source, "budgetSummary.declaredBudget")],
+    ["budget_summary.declaredBudget", getPath(source, "budget_summary.declaredBudget")],
+  ]);
 }
 
 function budgetStatus({ declaredBudget, allocatedBudget, spentTotal, categoryCount }) {
@@ -216,6 +242,14 @@ function budgetExplanation(status) {
   return "Budget state is unclear.";
 }
 
+function shouldDebugBudgetTruth() {
+  try {
+    return import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true" || import.meta.env.VITE_CLARA_DEBUG_AI === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function buildClaraBudgetSnapshot(context = {}) {
   const source = { ...(context?.financeSnapshot || {}), ...(context?.dashboardSnapshot || {}), ...(context || {}) };
   const plan = source.monthlyBudgetPlan || source.budgetPlan || source.monthly_budget_plan || {};
@@ -224,17 +258,33 @@ export function buildClaraBudgetSnapshot(context = {}) {
   const activeExpenses = expenses.filter((expense) => isInRange(expense, range));
   const categories = getRawCategories(source).filter((row) => row && !isBudgetHeader(row) && !isInactive(row)).map((row) => normalizeCategory(row, activeExpenses));
   const allocatedBudget = firstNumber(plan, ["allocated", "allocated_total", "totalAllocated"]) ?? firstNumber(source, ["budgetAllocated", "totalBudgetAllocated", "budgetSummary.allocatedBudget"]) ?? sum(categories.map((category) => category.allocated));
-  const declaredBudget = getDeclaredBudget(source, allocatedBudget);
+  const declaredBudgetResult = getDeclaredBudget(source);
+  const declaredBudget = declaredBudgetResult.value;
+  const sourceUsed = declaredBudgetResult.sourceUsed;
+  const hasDeclaredBudget = declaredBudget > 0;
   const plannedSpent = firstNumber(plan, ["plannedSpent", "planned_spent"]) ?? sum(categories.map((category) => category.spent));
   const unplannedSpent = firstNumber(plan, ["unplannedSpent", "unplanned_spent"]) ?? sum(activeExpenses.filter((expense) => expenseStatus(expense) === "unplanned").map(expenseAmount));
   const undocumentedSpent = firstNumber(plan, ["undocumentedSpent", "undocumented_spent"]) ?? sum(activeExpenses.filter((expense) => expenseStatus(expense) === "undocumented").map(expenseAmount));
   const computedSpentTotal = plannedSpent + unplannedSpent + undocumentedSpent;
   const fallbackSpent = firstNumber(source, ["monthlySpent", "budgetSpent", "totalBudgetSpent", "totalExpensesThisMonth", "thisMonthSpent", "monthlyExpenses", "spentThisMonth", "finance.monthlySpent"]);
   const spentTotal = firstNumber(plan, ["spent", "spent_total", "totalSpent", "budgetSpent"]) ?? (computedSpentTotal > 0 ? computedSpentTotal : fallbackSpent ?? sum(activeExpenses.map(expenseAmount)));
-  const unallocatedBudget = Math.max(declaredBudget - allocatedBudget, 0);
-  const remainingSpendableBudget = Math.max(declaredBudget - spentTotal, 0);
+  const unallocatedBudget = hasDeclaredBudget ? Math.max(declaredBudget - allocatedBudget, 0) : 0;
+  const remainingSpendableBudget = hasDeclaredBudget ? Math.max(declaredBudget - spentTotal, 0) : null;
   const categoryCount = categories.length;
   const status = budgetStatus({ declaredBudget, allocatedBudget, spentTotal, categoryCount });
+  const explanation = budgetExplanation(status);
+
+  if (shouldDebugBudgetTruth()) {
+    console.log("[CLARA AI Budget Truth]", {
+      declaredBudget,
+      allocatedBudget,
+      categoryCount,
+      hasDeclaredBudget,
+      budgetStatus: status,
+      budgetExplanation: explanation,
+      sourceUsed,
+    });
+  }
 
   return {
     declaredBudget,
@@ -248,12 +298,14 @@ export function buildClaraBudgetSnapshot(context = {}) {
     categoryCount,
     categories,
     budgetCategories: categories,
-    hasDeclaredBudget: declaredBudget > 0,
+    hasDeclaredBudget,
     hasBudgetCategories: categoryCount > 0,
-    isBudgetFullyAllocated: declaredBudget > 0 && allocatedBudget >= declaredBudget,
-    isOverspent: declaredBudget > 0 && spentTotal > declaredBudget,
+    isBudgetFullyAllocated: hasDeclaredBudget && allocatedBudget >= declaredBudget,
+    isOverspent: hasDeclaredBudget && spentTotal > declaredBudget,
     budgetStatus: status,
-    budgetExplanation: budgetExplanation(status),
+    budgetExplanation: explanation,
+    budgetTruthSource: sourceUsed,
+    sourceUsed,
     monthRange: range,
   };
 }
