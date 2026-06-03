@@ -1,12 +1,5 @@
 import { useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { normalizeProgramTask } from "@/lib/program-journey";
-import {
-  ensureUserProgramAccess,
-  fetchUserProgramRecord,
-} from "@/lib/program-access";
-import { hasCompletedProgramOnboarding } from "@/lib/access-control";
-import { isProgramApproved } from "@/components/fresh/main-dashboard/program-access/programAccessRules";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import { readDashboardPrefs } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
@@ -15,7 +8,6 @@ import {
   firstPositiveNumber,
   getWalletDisplayBalance,
   isClaraOnline,
-  isOwnedByUser,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
 
@@ -47,8 +39,6 @@ export default function useDashboardDataLoader({
   reminderTime,
   financialGoal,
   survivalExpense,
-  isPaid = false,
-  dailyRemindersEnabled = true,
   hasVisibleFinanceData = false,
   hydrateFromCache,
   hasLoadedDashboardRef,
@@ -58,7 +48,6 @@ export default function useDashboardDataLoader({
   setDashboardPageInFlight,
   clearDashboardPageInFlight,
   setLoading,
-  setGuardChecked,
   setFinanceNotice,
   setShowProgramStart,
   setProgramRecord,
@@ -132,7 +121,6 @@ export default function useDashboardDataLoader({
 
           const storedPrefs = readDashboardPrefs(currentUser.id);
 
-          // TEMP AUTH BYPASS: Used while Supabase project is restricted. Remove or disable when Supabase Auth is restored.
           if (localAuthFallbackActive) {
             const localProfile = {
               ...(user?.profile || {}),
@@ -178,9 +166,9 @@ export default function useDashboardDataLoader({
             const nextCache = {
               key: ownerKey,
               loaded: true,
-              tasks: dashboardCacheSnapshot?.tasks || [],
-              submissions: dashboardCacheSnapshot?.submissions || [],
-              programRecord: dashboardCacheSnapshot?.programRecord || null,
+              tasks: [],
+              submissions: [],
+              programRecord: null,
               survivalExpense: firstPositiveNumber(
                 localProfile?.monthly_survival_expense,
                 localProfile?.survival_expense,
@@ -212,7 +200,7 @@ export default function useDashboardDataLoader({
             }
             hydrateFromCache(nextCache);
             setShowProgramStart(false);
-            setProgramRecord(nextCache.programRecord);
+            setProgramRecord(null);
 
             if (!hasVisibleFinanceData) {
               setFinanceNotice(null);
@@ -221,53 +209,34 @@ export default function useDashboardDataLoader({
             return nextCache;
           }
 
-          const [
-            tasksRes,
-            submissionsRes,
-            userProgramRecord,
-            profilesRes,
-            enrollmentsRes,
-          ] = await Promise.all([
-            supabase
-              .from("challenge_tasks")
-              .select("*")
-              .order("sort_order", { ascending: true })
-              .order("day", { ascending: true }),
-            supabase.from("task_submissions").select("*"),
-            fetchUserProgramRecord({ supabase, userId: currentUser.id }),
-            supabase.from("profiles").select("*"),
-            supabase
-              .from("enrollments")
-              .select("*")
-              .eq("user_id", currentUser.id)
-              .order("created_at", { ascending: false })
-              .limit(1),
-          ]);
+          const { data: userProfile, error: profileError } = currentUser.id
+            ? await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", currentUser.id)
+                .maybeSingle()
+            : { data: null, error: null };
 
-          if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
-          if (submissionsRes.error) {
-            console.error("Failed to load submissions:", submissionsRes.error);
-          }
-          if (profilesRes.error) {
-            console.error("Failed to load profiles:", profilesRes.error);
-          }
-          if (enrollmentsRes.error) {
-            console.error("Failed to load enrollments:", enrollmentsRes.error);
+          if (profileError) {
+            console.error("Failed to load profile:", profileError);
           }
 
-          const userSubmissions = (submissionsRes.data || []).filter((item) =>
-            isOwnedByUser(item, currentUser)
-          );
-          const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
-          const userProfile =
-            (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) ||
-            null;
-          const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
+          const safeProfile = userProfile || user?.profile || {
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: currentUser.full_name,
+            display_name: currentUser.full_name || currentUser.email?.split("@")[0] || "CLARA User",
+            plan: "free",
+            plan_key: "free",
+            subscription_status: "free",
+            subscription_label: "Free",
+            status: "free",
+          };
 
           const nextNickname = normalizeString(
-            userProfile?.display_name ||
-              userProfile?.nickname ||
-              userProfile?.full_name ||
+            safeProfile?.display_name ||
+              safeProfile?.nickname ||
+              safeProfile?.full_name ||
               nickname ||
               dashboardCacheSnapshot?.nickname ||
               currentUser.full_name ||
@@ -277,23 +246,20 @@ export default function useDashboardDataLoader({
             reminderTime || dashboardCacheSnapshot?.reminderTime || storedPrefs.reminderTime;
           const nextFinancialGoal =
             financialGoal || dashboardCacheSnapshot?.financialGoal || storedPrefs.financialGoal;
-          const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
-          const onboardingDone = hasCompletedProgramOnboarding(userProfile);
 
-          if (!approved || onboardingDone || !dailyRemindersEnabled) {
-            setShowProgramStart(false);
-          }
+          setShowProgramStart(false);
+          setProgramRecord(null);
 
           const nextCache = {
             key: ownerKey,
             loaded: true,
-            tasks: normalizedTasks,
-            submissions: userSubmissions,
-            programRecord: userProgramRecord || dashboardCacheSnapshot?.programRecord || null,
+            tasks: [],
+            submissions: [],
+            programRecord: null,
             survivalExpense: firstPositiveNumber(
-              userProfile?.monthly_survival_expense,
-              userProfile?.survival_expense,
-              userProfile?.clara_survival_expense,
+              safeProfile?.monthly_survival_expense,
+              safeProfile?.survival_expense,
+              safeProfile?.clara_survival_expense,
               readStoredSurvivalExpense(currentUser.id),
               survivalExpense,
               dashboardCacheSnapshot?.survivalExpense
@@ -308,8 +274,8 @@ export default function useDashboardDataLoader({
             expenses: safeExpenses,
             pendingExpenses: safePendingExpenses,
             offlineReady: true,
-            profileData: userProfile,
-            latestEnrollment: enrollmentRecord,
+            profileData: safeProfile,
+            latestEnrollment: null,
             guardChecked: true,
             nickname: nextNickname,
             reminderTime: nextReminderTime,
@@ -320,35 +286,6 @@ export default function useDashboardDataLoader({
             setDashboardPageCache(nextCache);
           }
           hydrateFromCache(nextCache);
-
-          if (approved && !nextCache.programRecord && currentUser.id) {
-            ensureUserProgramAccess({
-              supabase,
-              user: currentUser,
-              profile: userProfile,
-              enrollment: enrollmentRecord,
-              tasks: normalizedTasks,
-            })
-              .then((ensuredRecord) => {
-                if (!ensuredRecord) return;
-                const latestCache =
-                  typeof getDashboardPageCache === "function"
-                    ? getDashboardPageCache()
-                    : nextCache;
-                const updatedCache = {
-                  ...latestCache,
-                  programRecord: ensuredRecord,
-                };
-
-                if (typeof setDashboardPageCache === "function") {
-                  setDashboardPageCache(updatedCache);
-                }
-                setProgramRecord(ensuredRecord);
-              })
-              .catch((ensureError) => {
-                console.warn("Program access background refresh failed:", ensureError);
-              });
-          }
 
           if (!isClaraOnline() && !hasVisibleFinanceData) {
             setFinanceNotice({
@@ -364,60 +301,48 @@ export default function useDashboardDataLoader({
           setDashboardPageInFlight({ key: ownerKey, promise });
         }
 
-        return await promise;
+        const result = await promise;
+        return result;
       } catch (error) {
-        console.warn("Dashboard background refresh warning:", error);
-        const latestCache =
-          typeof getDashboardPageCache === "function" ? getDashboardPageCache() : null;
-
-        if (!hasVisibleFinanceData && !hasDashboardFinanceContent(latestCache)) {
-          setFinanceNotice({
-            message:
-              "Dashboard data could not fully refresh. Finance data remains protected offline.",
-            type: "error",
-          });
-        }
-
-        return latestCache;
+        console.error("Dashboard load error:", error);
+        const fallbackCache = currentDashboardCache || createEmptyDashboardCache();
+        hydrateFromCache(fallbackCache);
+        return fallbackCache;
       } finally {
         if (typeof clearDashboardPageInFlight === "function") {
           clearDashboardPageInFlight(ownerKey);
         }
         setLoading(false);
-        setGuardChecked(true);
       }
     },
     [
+      userId,
+      userEmail,
+      user,
       cacheKey,
-      clearDashboardPageInFlight,
-      dailyRemindersEnabled,
-      financeBudgets,
-      financeEmergencyFund,
-      financeExpenses,
-      financeSavingsGoals,
-      financeTransfers,
-      financeWalletTransactions,
-      financeWallets,
-      financialGoal,
       getDashboardPageCache,
       getDashboardPageInFlight,
       hasLoadedDashboardRef,
-      hasVisibleFinanceData,
-      hydrateFromCache,
-      isPaid,
+      financeWallets,
+      financeWalletTransactions,
+      financeTransfers,
+      financeBudgets,
+      financeSavingsGoals,
+      financeExpenses,
+      financeEmergencyFund,
       nickname,
       reminderTime,
+      financialGoal,
+      survivalExpense,
+      hasVisibleFinanceData,
+      hydrateFromCache,
       setDashboardPageCache,
       setDashboardPageInFlight,
-      setFinanceNotice,
-      setGuardChecked,
+      clearDashboardPageInFlight,
       setLoading,
-      setProgramRecord,
+      setFinanceNotice,
       setShowProgramStart,
-      survivalExpense,
-      user,
-      userEmail,
-      userId,
+      setProgramRecord,
     ]
   );
 }
