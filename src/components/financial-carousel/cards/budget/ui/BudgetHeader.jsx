@@ -1,6 +1,7 @@
 import { PieChart } from "lucide-react";
 
 const CLARA_SAMPLE_DATA_EVENT = "clara:activate-sample-user-data";
+const SAMPLE_ACTIVE_KEY = "CLARA_SAMPLE_MAX_ACTIVE_V1";
 
 function parseDateOnly(value) {
   const raw = String(value || "").trim();
@@ -78,9 +79,24 @@ function getPlanDateLabel({ cycleLabel, cycleRange, cycleDisplayLabel, monthKey 
   return formatCycleRange(cycleRange, monthKey);
 }
 
+function isSampleActive() {
+  if (typeof window === "undefined" || !window.localStorage) return false;
+
+  try {
+    return JSON.parse(window.localStorage.getItem(SAMPLE_ACTIVE_KEY) || "null")?.active === true;
+  } catch {
+    return false;
+  }
+}
+
 function dispatchSampleToggleEvent() {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(CLARA_SAMPLE_DATA_EVENT));
+
+  window.dispatchEvent(
+    new CustomEvent(CLARA_SAMPLE_DATA_EVENT, {
+      detail: { action: isSampleActive() ? "restore" : "activate" },
+    })
+  );
 }
 
 export default function BudgetHeader({
