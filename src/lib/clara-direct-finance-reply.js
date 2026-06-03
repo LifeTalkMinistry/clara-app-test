@@ -138,16 +138,16 @@ function getSnapshot(context = {}) {
   };
 }
 
-function isEmergencyOrWalletQuestion(text = "") {
-  return /\b(emergency fund|emergency|protected|reserve|wallet|spendable|available money|money left|how much money|can spend|afford)\b/.test(text);
-}
-
 function isFullBudgetScenario(text = "") {
   return /\b(full|fully|entire|all)\b/.test(text) && /\b(budget|monthly budget|spending plan)\b/.test(text) && /\b(left|remain|remaining|available|wallet|money|spendable)\b/.test(text);
 }
 
 function explicitlyUsingEmergencyFund(text = "") {
   return /\b(use emergency|using emergency|use my emergency fund|emergency spend|take from emergency)\b/.test(text);
+}
+
+function isEmergencyProtectionQuestion(text = "") {
+  return /\b(emergency fund|emergency|protected|reserve)\b/.test(text);
 }
 
 function purchaseAmount(text = "") {
@@ -180,14 +180,18 @@ export function buildContextualFinanceReply(prompt = "", context = {}) {
   const snapshot = getSnapshot(context);
 
   if (isFullBudgetScenario(text)) return buildFullBudgetScenarioReply(snapshot);
-  if (!isEmergencyOrWalletQuestion(text)) return "";
 
   const amount = purchaseAmount(text);
   const canUseEmergency = explicitlyUsingEmergencyFund(text);
+  const isEmergencyQuestion = isEmergencyProtectionQuestion(text);
 
-  if (!snapshot.wallets.length) return "I don’t see any wallet records yet. Add your first wallet so CLARA can track your real available money.";
-  if (snapshot.walletTotal === null) return "I can see your wallet record, but I can’t read its current balance clearly yet.";
-  if (snapshot.orphanedEmergencyFund) return `I see old Emergency Fund data showing ${money(snapshot.storedEmergencyAmount)}, but it is not linked to an existing wallet yet. I will treat that as unavailable for now, so your spendable wallet money is ${money(snapshot.spendableTotal)}. Create or link a wallet first before CLARA counts that emergency fund.`;
+  // Keep this deterministic file only for scenario math and emergency-protection logic.
+  // Normal wallet checks must go through Finance Brain so CLARA does not sound static.
+  if (!amount && !canUseEmergency && !isEmergencyQuestion) return "";
+
+  if (!snapshot.wallets.length) return "";
+  if (snapshot.walletTotal === null) return "";
+  if (snapshot.orphanedEmergencyFund && isEmergencyQuestion) return `I see old Emergency Fund data showing ${money(snapshot.storedEmergencyAmount)}, but it is not linked to an existing wallet yet. I will treat that as unavailable for now, so your spendable wallet money is ${money(snapshot.spendableTotal)}. Create or link a wallet first before CLARA counts that emergency fund.`;
 
   if (amount !== null && !canUseEmergency) {
     if (amount > snapshot.spendableTotal) return `I would not treat this as safe from normal wallet money. Your wallets show ${money(snapshot.walletTotal)}, but ${money(snapshot.emergencyAmount)} is protected as Emergency Fund inside ${snapshot.linkedWalletName}, so your spendable money is about ${money(snapshot.spendableTotal)}. If this is truly an emergency, use the Emergency Fund flow first; otherwise, delay or reduce the cost.`;
@@ -196,7 +200,7 @@ export function buildContextualFinanceReply(prompt = "", context = {}) {
 
   if (canUseEmergency) return `Your Emergency Fund has about ${money(snapshot.emergencyAmount)} protected inside ${snapshot.linkedWalletName}. If this is a real emergency, use the Emergency Fund card so CLARA updates the protected amount intentionally and keeps the wallet logic clear.`;
 
-  if (text.includes("emergency") || text.includes("protected") || text.includes("reserve")) return `Your Emergency Fund is treated as protected money, not a separate wallet. I can see about ${money(snapshot.emergencyAmount)} protected inside ${snapshot.linkedWalletName}. Your wallet total may include that money, but CLARA should not count it as normal spendable cash.`;
+  if (isEmergencyQuestion) return `Your Emergency Fund is treated as protected money, not a separate wallet. I can see about ${money(snapshot.emergencyAmount)} protected inside ${snapshot.linkedWalletName}. Your wallet total may include that money, but CLARA should not count it as normal spendable cash.`;
 
-  return `Your wallets show ${money(snapshot.walletTotal)} total, but ${money(snapshot.emergencyAmount)} is protected as Emergency Fund inside ${snapshot.linkedWalletName}. Your normal spendable wallet money is about ${money(snapshot.spendableTotal)}. Use the Emergency Fund only through the Emergency Fund card when it is truly needed.`;
+  return "";
 }
