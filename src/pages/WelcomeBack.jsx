@@ -1,28 +1,47 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, BarChart3, CheckCircle2, ChevronLeft, Sparkles, WalletCards } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, ChevronLeft, HeartHandshake, Sparkles, WalletCards } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ClaraLogo from "@/components/ClaraLogo";
 
 const tutorialSlides = [
   {
-    eyebrow: "The real problem",
-    title: "People are earning money, but still losing control of it.",
+    eyebrow: "Hi there",
+    title: "I’m CLARA. I’m thrilled to be your companion in your finances.",
     body:
-      "Many people work hard, receive income, and still feel confused about where their money went. It is not always a lack of income. Often, it is a lack of visibility, structure, and daily guidance.",
+      "I’m here to help you see your money clearly, understand your spending, and build better financial habits one simple decision at a time.",
+    noteTitle: "Before we start",
+    note:
+      "You don’t have to be perfect with money. You just need a clear system that helps you notice, decide, and improve.",
+    icon: HeartHandshake,
+  },
+  {
+    eyebrow: "Let’s be honest",
+    title: "Earning money is not the same as managing it well.",
+    body:
+      "A lot of people work hard and still wonder where their money went. Sometimes the problem is not income. Sometimes it is lack of visibility, structure, and guidance in the small daily decisions.",
+    noteTitle: "That’s why I’m here",
+    note:
+      "I’ll help you slow down, organize what you have, and become more aware before your money disappears into unplanned spending.",
     icon: BarChart3,
   },
   {
-    eyebrow: "Why CLARA exists",
-    title: "CLARA was created to turn money confusion into a clear daily system.",
+    eyebrow: "How I can help",
+    title: "I’ll help you turn money confusion into a clear daily system.",
     body:
-      "CLARA helps you track what comes in, see what goes out, organize wallets, understand spending patterns, and pause before decisions that can hurt your financial progress.",
+      "Inside CLARA, you can track money, organize wallets, review spending, and build a clearer relationship with your finances without feeling overwhelmed.",
+    noteTitle: "My role in your journey",
+    note:
+      "Think of me as your money clarity companion. I won’t judge you. I’ll help you see, understand, and decide better.",
     icon: WalletCards,
   },
   {
-    eyebrow: "Your next layer",
-    title: "Start free, then upgrade when you want deeper guidance.",
+    eyebrow: "Start your way",
+    title: "You can start free today and upgrade only when you’re ready.",
     body:
-      "The free version gets you inside the dashboard right away. The paid tiers unlock stronger tools, better strategy, and deeper CLARA intelligence as your financial system grows.",
+      "The free version lets you enter the dashboard right away. When you want deeper guidance, strategy, and CLARA intelligence, you can choose a tier that fits your season.",
+    noteTitle: "No pressure",
+    note:
+      "Start simple. Build trust with the system. Upgrade later only when you feel CLARA is becoming part of your financial routine.",
     icon: Sparkles,
   },
 ];
@@ -134,17 +153,17 @@ export default function WelcomeBack() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
                   {currentSlide.eyebrow}
                 </p>
-                <h1 className="mt-3 text-[2rem] font-black leading-[1.05] tracking-[-0.04em] text-white">
+                <h1 className="mt-3 text-[1.75rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
                   {currentSlide.title}
                 </h1>
-                <p className="mt-4 text-[15px] leading-7 text-white/64">
+                <p className="mt-4 text-[15px] leading-7 text-white/66">
                   {currentSlide.body}
                 </p>
 
                 <div className="mt-7 rounded-3xl border border-white/10 bg-black/18 p-4">
-                  <p className="text-sm font-semibold text-white">CLARA’s purpose</p>
+                  <p className="text-sm font-semibold text-white">{currentSlide.noteTitle}</p>
                   <p className="mt-1.5 text-sm leading-6 text-white/58">
-                    To become your money clarity companion: simple enough to start today, strong enough to grow with your financial life.
+                    {currentSlide.note}
                   </p>
                 </div>
               </div>
@@ -153,14 +172,14 @@ export default function WelcomeBack() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/75">
                   Choose your path
                 </p>
-                <h1 className="mt-3 text-[2rem] font-black leading-[1.05] tracking-[-0.04em] text-white">
-                  Start free today. Upgrade only when you are ready.
+                <h1 className="mt-3 text-[1.75rem] font-black leading-[1.08] tracking-[-0.04em] text-white sm:text-[1.9rem]">
+                  I prepared three deeper paths for you, but you can start free today.
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-white/60">
-                  You can go straight to the free dashboard now, or choose a CLARA tier later when you want deeper guidance.
+                  Choose a tier later when you want more guidance. For now, you can go straight to the free dashboard and begin.
                 </p>
 
-                <div className="mt-5 space-y-3">
+                <div className="mt-5 max-h-[45vh] space-y-3 overflow-y-auto pr-1">
                   {tiers.map((tier) => (
                     <div
                       key={tier.name}
@@ -172,7 +191,7 @@ export default function WelcomeBack() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-lg font-bold text-white">{tier.name}</h2>
                             {tier.featured ? (
                               <span className="rounded-full bg-emerald-300/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200">
@@ -210,7 +229,7 @@ export default function WelcomeBack() {
             onClick={goNext}
             className="group inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-5 text-sm font-bold text-[#04110C] shadow-[0_18px_50px_rgba(74,222,128,0.28)] transition hover:scale-[0.99] active:scale-[0.98]"
           >
-            <span>{isTierStep ? "Go to free dashboard" : "Continue tutorial"}</span>
+            <span>{isTierStep ? "Take me to my free dashboard" : "Continue"}</span>
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
           </button>
 
@@ -220,7 +239,7 @@ export default function WelcomeBack() {
               onClick={goToDashboard}
               className="h-13 rounded-2xl border border-white/10 bg-white/[0.045] text-sm font-semibold text-white/70 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
             >
-              Skip tutorial and use free version
+              Skip for now and use the free version
             </button>
           ) : null}
         </div>
