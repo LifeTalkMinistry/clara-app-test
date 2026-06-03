@@ -141,10 +141,10 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       </button>
 
       {soonMessageVisible ? (
-        <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/18 px-6 backdrop-blur-[1px]" onClick={() => setSoonMessageVisible(false)}>
-          <div className="max-w-[300px] rounded-[24px] border border-cyan-100/16 bg-[#061427]/94 px-5 py-4 text-center shadow-[0_22px_60px_rgba(0,0,0,0.34)] backdrop-blur-xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/58">Learning Hub</p>
-            <p className="mt-2 text-sm font-semibold leading-5 text-white/82">{COMING_SOON_MESSAGE}</p>
+        <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 px-6 backdrop-blur-[3px]" onClick={() => setSoonMessageVisible(false)}>
+          <div className="max-w-[300px] rounded-[24px] border border-cyan-100/34 bg-[#061427] px-5 py-4 text-center shadow-[0_24px_70px_rgba(0,0,0,0.62)]">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/82">Learning Hub</p>
+            <p className="mt-2 text-sm font-semibold leading-5 text-white/92">{COMING_SOON_MESSAGE}</p>
           </div>
         </div>
       ) : null}
