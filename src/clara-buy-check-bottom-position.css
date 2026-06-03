@@ -2,6 +2,7 @@
   min-height: 100% !important;
   justify-content: flex-end !important;
   box-sizing: border-box !important;
+  padding-bottom: 18px !important;
 }
 
 .clara-buy-check-static-bubble-row:first-child {
