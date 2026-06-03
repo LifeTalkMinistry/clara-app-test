@@ -28,16 +28,15 @@ function budgetName(budget = {}) {
   return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
 }
 
-function formatRecentConversation(messages = []) {
+function formatFullConversation(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .slice(-8)
     .map((message) => {
       const role = message?.role === "user" ? "User" : "CLARA";
       const text = cleanText(message?.text || message?.content || "");
       return text ? `${role}: ${text}` : "";
     })
     .filter(Boolean)
-    .join("\n") || "No recent chatbox conversation yet.";
+    .join("\n") || "No visible chatbox conversation history yet.";
 }
 
 function hasSentenceEnding(text = "") {
@@ -129,6 +128,7 @@ ${subContextBlock}
 IMPORTANT CONTEXT RULES:
 - Use the finance data below as the source of truth.
 - Use the selected sub-contexts first when choosing which finance data to answer from.
+- Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about this", and price-only replies.
 - For spending questions, prioritize transactions, monthly summary, and top category.
 - For category questions, prioritize budget rows and top spending category.
 - For wallet questions, prioritize wallet total and wallet rows.
@@ -140,15 +140,15 @@ IMPORTANT CONTEXT RULES:
 - Do not treat budget categories alone as a declared monthly budget.
 - Do not use wallet balance as budget remaining.
 - Do not say "budget looks good" unless there is an active declared budget.
-- If the latest user message is an affirmation like "Sure" or "Yes", use recent chat history to understand what they accepted.
+- If the latest user message is an affirmation like "Sure" or "Yes", use full chat history to understand what they accepted.
 - If the previous CLARA message asked whether the user wants a budget/category breakdown, provide the budget breakdown from the rows below.
 - Avoid canned wording. Write a fresh, natural answer from the snapshot and the current chat history.
 
 STYLE:
 Direct, clear, short, and data-first.
 
-RECENT CHATBOX CONVERSATION:
-${formatRecentConversation(recentConversation)}
+FULL VISIBLE CHATBOX CONVERSATION HISTORY:
+${formatFullConversation(recentConversation)}
 
 LATEST USER MESSAGE:
 ${cleanText(userMessage)}
