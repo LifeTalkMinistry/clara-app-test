@@ -170,6 +170,32 @@ function findInstructionBoard() {
   }) || null;
 }
 
+function hidePanelTabsForBuyCheckBoard(board) {
+  const shell = getAssistantShell();
+  if (!shell || !board) return;
+
+  const tabRow = Array.from(shell.querySelectorAll("div")).find((node) => {
+    if (node.contains(board)) return false;
+
+    const text = clean(node.textContent);
+    return (
+      text.includes(BUY_CHECK_LABEL) &&
+      text.includes("Forecast") &&
+      text.includes("Analytic") &&
+      node.querySelectorAll("button").length >= 3
+    );
+  });
+
+  if (!tabRow) return;
+
+  const noisyShell = tabRow.parentElement?.querySelectorAll("button").length === 3
+    ? tabRow.parentElement
+    : tabRow;
+
+  noisyShell.style.display = "none";
+  noisyShell.setAttribute("data-clara-hidden-during-buy-check", "true");
+}
+
 function closeAssistantOverlay() {
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 }
@@ -201,6 +227,7 @@ function renderBuyCheckBoard() {
   `;
 
   board.setAttribute("data-clara-buy-check-board", "true");
+  hidePanelTabsForBuyCheckBoard(board);
 }
 
 function setInputValue(input, value) {
