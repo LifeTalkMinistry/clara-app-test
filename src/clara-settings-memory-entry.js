@@ -75,7 +75,6 @@ function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
   section.id = id;
   section.className = "space-y-2";
   section.innerHTML = `
-    <p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Memory</p>
     <button
       type="button"
       class="group flex w-full items-center gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left shadow-[0_12px_30px_rgba(0,0,0,0.13)] transition hover:bg-white/[0.07]"
