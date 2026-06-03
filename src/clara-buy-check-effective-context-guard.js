@@ -78,6 +78,10 @@ function getAssistantShell() {
   }) || null;
 }
 
+function getAssistantMain() {
+  return getAssistantShell()?.querySelector("main") || getStaticChatWrap()?.closest("main") || null;
+}
+
 function getStaticChatWrap() {
   return getAssistantShell()?.querySelector("[data-clara-buy-check-static-chat]") || null;
 }
@@ -140,20 +144,6 @@ function removeNode(node) {
   } catch {
     // Ignore DOM cleanup failures.
   }
-}
-
-function renderDoneActions() {
-  const wrap = getStaticChatWrap();
-  if (!wrap || wrap.querySelector("[data-clara-effective-buy-check-actions]")) return;
-
-  const actions = document.createElement("div");
-  actions.className = "clara-buy-check-static-actions";
-  actions.dataset.claraEffectiveBuyCheckActions = "true";
-  actions.innerHTML = `
-    <button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button>
-    <button type="button" class="clara-buy-check-static-button" data-clara-buy-check-close-board="true">Done</button>
-  `;
-  wrap.appendChild(actions);
 }
 
 function buildCounts(effectiveContext) {
@@ -393,11 +383,133 @@ function isUsableBuyCheckReply(reply = "") {
   if (/Decision:\s*[^\n]+Why:/i.test(text)) return false;
   if (/BUY WITH CAPWhy|CAPWhy|HighWhy|MediumWhy|LowWhy/i.test(text)) return false;
 
-  return /Decision:\s*(BUY|BUY WITH CAP|REDUCE|WAIT|PAUSE)/i.test(text) &&
+  return /Decision:\s*(BUY WITH CAP|BUY|REDUCE|WAIT|PAUSE)/i.test(text) &&
     /Risk:\s*(Low|Medium|High)/i.test(text) &&
     /Why:/i.test(text) &&
     /Safer move:/i.test(text) &&
     /One sentence from CLARA:/i.test(text);
+}
+
+function extractDecision(reply = "", fallback = "PAUSE") {
+  const match = String(reply || "").match(/Decision:\s*(BUY WITH CAP|BUY|REDUCE|WAIT|PAUSE)/i);
+  return clean(match?.[1] || fallback).toUpperCase();
+}
+
+function extractRisk(reply = "", fallback = "Medium") {
+  const match = String(reply || "").match(/Risk:\s*(Low|Medium|High)/i);
+  const value = clean(match?.[1] || fallback).toLowerCase();
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Medium";
+}
+
+function extractSaferMove(reply = "", fallback = "Pause first, then check your wallet and budget before buying.") {
+  const match = String(reply || "").match(/Safer move:\s*([\s\S]*?)(?:\n\s*One sentence from CLARA:|$)/i);
+  const value = clean(match?.[1] || "");
+  return value || fallback;
+}
+
+function buildReportSummary(contextPackage, decision = "PAUSE") {
+  const price = Number(contextPackage.purchaseSummary.price || 0);
+  const item = clean(contextPackage.purchaseSummary.item || "this item");
+  const reason = clean(contextPackage.purchaseSummary.reason || "not specified");
+  const spendableWallets = contextPackage.financeContext.spendableWallets || [];
+  const totalSpendableWalletBalance = Number(contextPackage.financeContext.totalSpendableWalletBalance || 0);
+  const afterPurchase = totalSpendableWalletBalance - price;
+  const budget = contextPackage.financeContext.matchingBudget;
+  const remaining = Number(budget?.remaining || 0);
+  const remainingAfter = remaining - price;
+  const budgetUsePercent = remaining > 0 ? Math.round((price / remaining) * 100) : 0;
+  const emergencyFund = contextPackage.financeContext.emergencyFund;
+  const primaryGoal = contextPackage.financeContext.savingsGoals?.[0];
+  const walletNames = spendableWallets.slice(0, 2).map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(" + ");
+
+  const walletText = spendableWallets.length
+    ? `${walletNames}${spendableWallets.length > 2 ? " + more" : ""}. Spendable total: ${money(totalSpendableWalletBalance)}. After buying ${item}: ${money(afterPurchase)}.`
+    : `No spendable wallet was loaded for this ${money(price)} purchase.`;
+  const budgetText = budget
+    ? `${budget.title} budget has ${money(Math.max(0, remaining))} left. This purchase uses about ${budgetUsePercent}% of that room and leaves ${money(Math.max(0, remainingAfter))}.`
+    : `No exact budget was found for ${contextPackage.purchaseSummary.inferredCategory}, so CLARA treated it with caution.`;
+  const protectionText = `${primaryGoal ? `${primaryGoal.name}: ${money(primaryGoal.savedAmount)} / ${money(primaryGoal.targetAmount)}.` : "No savings goal loaded."} ${emergencyFund ? `Emergency fund: ${money(emergencyFund.savedAmount)} / ${money(emergencyFund.targetAmount)} protected.` : "No emergency fund loaded."}`;
+  const reasonText = `CLARA chose ${decision} because the reason is “${reason}”, but the purchase still needs to fit wallet safety, budget room, and protected goals.`;
+
+  return [
+    { label: "Wallet", text: walletText },
+    { label: "Budget", text: budgetText },
+    { label: "Protection", text: protectionText },
+    { label: "Reason", text: reasonText },
+  ];
+}
+
+function buildReportModel(reply = "", contextPackage) {
+  const fallbackReply = localBuyCheckFallback(contextPackage);
+  const finalReply = isUsableBuyCheckReply(reply) ? reply.trim() : fallbackReply;
+  const decision = extractDecision(finalReply);
+  const risk = extractRisk(finalReply);
+  const saferMove = extractSaferMove(finalReply, decision === "BUY WITH CAP"
+    ? `Buy only up to ${money(contextPackage.purchaseSummary.price)} and do not add another shopping item for the next 7 days.`
+    : "Pause first, then check your wallet and budget before buying.");
+
+  return {
+    decision,
+    risk,
+    summary: buildReportSummary(contextPackage, decision),
+    saferMove,
+  };
+}
+
+function renderBuyCheckReport(report) {
+  const main = getAssistantMain();
+  if (!main) return;
+
+  main.innerHTML = `
+    <button type="button" class="clara-buy-check-static-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
+    <div class="clara-buy-check-static-wrap" data-clara-buy-check-report="true">
+      <section class="relative mx-auto w-full max-w-[354px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-5 py-6 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK REPORT</p>
+        <h3 class="mt-3 text-2xl font-black leading-tight tracking-tight text-white">${escapeHtml(report.decision)}</h3>
+        <div class="mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[12px] font-black text-slate-100/90">
+          <span class="text-slate-400/90">Risk</span>
+          <span>${escapeHtml(report.risk)}</span>
+        </div>
+
+        <div class="mt-5 space-y-3 text-left">
+          ${(report.summary || []).map((item) => `
+            <div class="rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3">
+              <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/45">${escapeHtml(item.label)}</p>
+              <p class="mt-1 text-[12.5px] font-bold leading-5 text-slate-100/88">${escapeHtml(item.text)}</p>
+            </div>
+          `).join("")}
+        </div>
+
+        <div class="mt-4 rounded-2xl border border-emerald-200/15 bg-emerald-300/10 px-4 py-3 text-left">
+          <p class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/55">Safer move</p>
+          <p class="mt-1 text-[13px] font-black leading-5 text-emerald-50/92">${escapeHtml(report.saferMove)}</p>
+        </div>
+
+        <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Next phase: swipe left to see wallet, budget, goals, emergency, schedule, and pattern details.</p>
+
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          <button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button>
+          <button type="button" class="clara-buy-check-static-button" data-clara-buy-check-close-board="true">Done</button>
+        </div>
+      </section>
+    </div>
+  `;
+
+  main.scrollTo?.({ top: 0, behavior: "smooth" });
+}
+
+function buildErrorReport() {
+  return {
+    decision: "PAUSE",
+    risk: "Medium",
+    summary: [
+      { label: "Wallet", text: "CLARA could not complete the wallet read right now." },
+      { label: "Budget", text: "Budget context may be incomplete, so approval is unsafe." },
+      { label: "Protection", text: "Goals and emergency money should stay protected when the diagnosis is incomplete." },
+      { label: "Reason", text: "CLARA pauses purchases when the full context check does not finish." },
+    ],
+    saferMove: "Try again in a moment, or check your wallet and budget manually before buying.",
+  };
 }
 
 async function runEffectiveBuyCheck(snapshot) {
@@ -435,7 +547,7 @@ async function runEffectiveBuyCheck(snapshot) {
     }
   }
 
-  return isUsableBuyCheckReply(reply) ? reply.trim() : localBuyCheckFallback(contextPackage);
+  return buildReportModel(reply, contextPackage);
 }
 
 function installEffectiveBuyCheckGuard() {
@@ -463,16 +575,14 @@ function installEffectiveBuyCheckGuard() {
     const loadingBubble = appendBubble("clara", "Got it. I’m checking your wallet, budget, schedule, Me profile, goals, and memory now...");
 
     runEffectiveBuyCheck(snapshot)
-      .then((reply) => {
+      .then((report) => {
         removeNode(loadingBubble);
-        appendBubble("clara", reply);
-        renderDoneActions();
+        renderBuyCheckReport(report);
       })
       .catch((error) => {
         console.warn("[CLARA Buy Check] Effective context diagnosis failed", error);
         removeNode(loadingBubble);
-        appendBubble("clara", "Decision: PAUSE\n\nRisk: Medium\n\nWhy:\n• Wallet: I couldn’t complete the full wallet read right now.\n• Budget: Budget context may be incomplete.\n• Goals/Emergency: It is safer not to rush a purchase when the diagnosis is incomplete.\n• Pattern/Memory: Memory check did not finish.\n• Schedule/Profile: Schedule/profile check did not finish.\n\nSafer move:\nTry again in a moment, or check your wallet and budget manually before buying.\n\nOne sentence from CLARA:\nWhen the read is incomplete, the safest money move is to pause first.");
-        renderDoneActions();
+        renderBuyCheckReport(buildErrorReport());
       });
   }, true);
 }
