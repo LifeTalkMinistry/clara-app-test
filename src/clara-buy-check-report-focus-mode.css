@@ -155,7 +155,7 @@
   background: rgba(255, 255, 255, 0.055);
 }
 
-.clara-buy-check-expense-preview div {
+.clara-buy-check-preview-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -163,15 +163,146 @@
   font-size: 12px;
 }
 
-.clara-buy-check-expense-preview span {
+.clara-buy-check-preview-row > span {
   color: rgba(226, 232, 240, 0.55);
   font-weight: 700;
 }
 
-.clara-buy-check-expense-preview strong {
+.clara-buy-check-preview-row > strong {
   color: rgba(255, 255, 255, 0.92);
   font-weight: 900;
   text-align: right;
+}
+
+.clara-buy-check-wallet-row {
+  align-items: center;
+}
+
+.clara-buy-check-wallet-trigger {
+  min-width: 0;
+  max-width: 68%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 7px 9px 7px 12px;
+  color: rgba(255, 255, 255, 0.94);
+  text-align: right;
+}
+
+.clara-buy-check-wallet-trigger strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.clara-buy-check-wallet-trigger small {
+  font-size: 10px;
+  font-weight: 850;
+  color: rgba(226, 232, 240, 0.55);
+}
+
+.clara-buy-check-wallet-trigger b {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(110, 231, 183, 0.95);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.clara-buy-check-wallet-trigger.is-warning {
+  border-color: rgba(251, 191, 36, 0.26);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.clara-buy-check-wallet-menu {
+  display: grid;
+  gap: 7px;
+  max-height: 178px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(190, 255, 245, 0.13);
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.14), transparent 46%),
+    rgba(3, 7, 18, 0.34);
+}
+
+.clara-buy-check-wallet-menu[hidden] {
+  display: none !important;
+}
+
+.clara-buy-check-wallet-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 10px 11px;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+}
+
+.clara-buy-check-wallet-option span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.clara-buy-check-wallet-option strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 950;
+}
+
+.clara-buy-check-wallet-option small {
+  font-size: 10px;
+  font-weight: 850;
+  color: rgba(110, 231, 183, 0.86);
+}
+
+.clara-buy-check-wallet-option b {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 950;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.clara-buy-check-wallet-option.is-selected {
+  border-color: rgba(110, 231, 183, 0.32);
+  background: rgba(110, 231, 183, 0.12);
+}
+
+.clara-buy-check-wallet-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.clara-buy-check-wallet-option.is-disabled small {
+  color: rgba(251, 191, 36, 0.88);
+}
+
+.clara-buy-check-wallet-empty {
+  padding: 10px;
+  color: rgba(226, 232, 240, 0.6);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .clara-buy-check-decision-status {
@@ -207,6 +338,7 @@
 
 .clara-buy-check-decision-actions button:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (max-height: 760px) {
@@ -237,5 +369,9 @@
 
   .clara-buy-check-decision-card {
     padding: 16px;
+  }
+
+  .clara-buy-check-wallet-trigger {
+    max-width: 72%;
   }
 }
