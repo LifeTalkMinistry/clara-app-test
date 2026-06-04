@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay";
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 import useFinancialData from "@/hooks/useFinancialData";
 import useUserRole from "@/hooks/useUserRole";
-import {
-  clearClaraDevIdentityOverride,
-  getDevIdentityScenarios,
-  readClaraDevIdentityOverride,
-  reloadForDevIdentityChange,
-  writeClaraDevIdentityOverride,
-} from "@/lib/clara-dev-simulator";
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
-const DEV_EYE_DOUBLE_TAP_WINDOW = 460;
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-ai-environment-active [data-clara-ai-background="true"] {
@@ -38,101 +29,6 @@ function isMoneyLeftOrbTarget(target) {
   );
 }
 
-function isMoneyPrivacyEyeTarget(target) {
-  return Boolean(target?.closest?.('[data-clara-summary-privacy-toggle="true"]'));
-}
-
-function ClaraDeveloperPanel({ isVisible, activeScenarioId, isApplyingScenario, onClose, onApplyScenario, onClearScenario }) {
-  const scenarios = getDevIdentityScenarios().filter((scenario) => scenario.id !== "demo_user");
-
-  if (!isVisible) return null;
-
-  return (
-    <div className="fixed inset-0 z-[320] flex items-end justify-center bg-black/40 px-4 pb-5 backdrop-blur-[3px]">
-      <div className="w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-[#071019]/95 shadow-[0_25px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-        <div className="border-b border-white/8 px-5 pb-4 pt-5">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-cyan-200/14 bg-cyan-300/10 text-cyan-100">
-              <Sparkles className="h-5 w-5" />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/50">
-                CLARA Developer Access
-              </p>
-
-              <h3 className="mt-1 text-[1rem] font-black text-white">
-                Identity Simulator
-              </h3>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isApplyingScenario}
-              className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-bold text-white/65 disabled:opacity-40"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-
-        <div className="max-h-[68vh] overflow-y-auto px-4 py-4">
-          {isApplyingScenario ? (
-            <div className="mb-3 rounded-[22px] border border-emerald-200/15 bg-emerald-300/10 px-4 py-3 text-[12px] font-bold text-emerald-100/85">
-              Preparing selected CLARA scenario...
-            </div>
-          ) : null}
-
-          <div className="space-y-2">
-            {scenarios.map((scenario) => {
-              const active = activeScenarioId === scenario.id;
-
-              return (
-                <button
-                  key={scenario.id}
-                  type="button"
-                  disabled={isApplyingScenario}
-                  onClick={() => onApplyScenario(scenario.id)}
-                  className={`w-full rounded-[24px] border px-4 py-4 text-left transition active:scale-[0.99] disabled:opacity-55 ${
-                    active
-                      ? "border-emerald-200/22 bg-emerald-300/12"
-                      : "border-white/8 bg-white/[0.04] hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[13px] font-black text-white">{scenario.name || scenario.label}</p>
-                      <p className="mt-1 text-[11.5px] leading-5 text-slate-300/70">{scenario.description}</p>
-                    </div>
-
-                    {active ? (
-                      <div className="rounded-full border border-emerald-200/18 bg-emerald-300/12 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-100">
-                        Active
-                      </div>
-                    ) : null}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              disabled={isApplyingScenario}
-              onClick={onClearScenario}
-              className="flex-1 rounded-[20px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[12px] font-black text-white/70 disabled:opacity-45"
-            >
-              Return To Real State
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ClaraAiEnvironmentBridge() {
   const claraAiEnvironment = useClaraAiEnvironment();
   const { user } = useUserRole();
@@ -148,8 +44,6 @@ export default function ClaraAiEnvironmentBridge() {
     loading = false,
     refreshing = false,
   } = useFinancialData(user);
-
-  const currentOverride = readClaraDevIdentityOverride();
 
   const claraAssistantContext = useMemo(() => {
     const bridgeReadableContext = buildClaraBridgeReadableContext({
@@ -184,12 +78,7 @@ export default function ClaraAiEnvironmentBridge() {
   ]);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
-  const [developerPanelVisible, setDeveloperPanelVisible] = useState(false);
-  const [activeDevScenario, setActiveDevScenario] = useState(() => currentOverride?.scenarioId || null);
-  const [isApplyingScenario, setIsApplyingScenario] = useState(false);
-
   const longPressTimerRef = useRef(null);
-  const lastEyeTapAtRef = useRef(0);
   const isActive = overlayVisible;
 
   useEffect(() => {
@@ -250,26 +139,10 @@ export default function ClaraAiEnvironmentBridge() {
       clearLongPressTimer();
     };
 
-    const handleEyeClick = (event) => {
-      if (!isMoneyPrivacyEyeTarget(event.target)) return;
-
-      const now = Date.now();
-      const previousTapAt = lastEyeTapAtRef.current || 0;
-      lastEyeTapAtRef.current = now;
-
-      if (previousTapAt && now - previousTapAt <= DEV_EYE_DOUBLE_TAP_WINDOW) {
-        lastEyeTapAtRef.current = 0;
-        clearLongPressTimer();
-        setOverlayVisible(false);
-        setDeveloperPanelVisible(true);
-      }
-    };
-
     document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("pointerup", handlePointerRelease, true);
     document.addEventListener("pointercancel", handlePointerRelease, true);
     document.addEventListener("touchend", handlePointerRelease, true);
-    document.addEventListener("click", handleEyeClick, true);
 
     return () => {
       clearLongPressTimer();
@@ -277,7 +150,6 @@ export default function ClaraAiEnvironmentBridge() {
       document.removeEventListener("pointerup", handlePointerRelease, true);
       document.removeEventListener("pointercancel", handlePointerRelease, true);
       document.removeEventListener("touchend", handlePointerRelease, true);
-      document.removeEventListener("click", handleEyeClick, true);
     };
   }, [claraAiEnvironment]);
 
@@ -286,48 +158,9 @@ export default function ClaraAiEnvironmentBridge() {
     claraAiEnvironment.clearEnvironment?.();
   };
 
-  const applyDeveloperScenario = async (scenarioId) => {
-    if (isApplyingScenario || scenarioId === "demo_user") return;
-
-    setIsApplyingScenario(true);
-
-    try {
-      const override = writeClaraDevIdentityOverride(scenarioId);
-      setActiveDevScenario(override.scenarioId);
-      reloadForDevIdentityChange();
-    } catch (error) {
-      console.error("CLARA developer scenario failed:", error);
-      setIsApplyingScenario(false);
-    }
-  };
-
-  const clearDeveloperScenario = async () => {
-    if (isApplyingScenario) return;
-
-    setIsApplyingScenario(true);
-
-    try {
-      clearClaraDevIdentityOverride();
-      setActiveDevScenario(null);
-      reloadForDevIdentityChange();
-    } catch (error) {
-      console.error("CLARA developer scenario reset failed:", error);
-      setIsApplyingScenario(false);
-    }
-  };
-
   return (
     <>
       <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
-
-      <ClaraDeveloperPanel
-        isVisible={developerPanelVisible}
-        activeScenarioId={activeDevScenario}
-        isApplyingScenario={isApplyingScenario}
-        onClose={() => setDeveloperPanelVisible(false)}
-        onApplyScenario={applyDeveloperScenario}
-        onClearScenario={clearDeveloperScenario}
-      />
 
       <ClaraAiEnvironmentOverlay
         isActive={isActive}
