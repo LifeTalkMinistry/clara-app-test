@@ -7,13 +7,12 @@ import {
 } from "@/lib/financeRepository";
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
 import { MEMORY_CABINET_DEFINITIONS, readMemoryCabinet } from "@/lib/memory-cabinets";
-import {
-  activateClaraSampleUserData,
-  getClaraSampleUserDataState,
-} from "@/lib/clara-demo-sample-data";
 
-const DEMO_SOURCE = "clara_sample_demo_seed";
-const DEMO_PREFIX = "clara_sample_max";
+const RETIRED_DEMO_SOURCES = new Set([
+  "clara_demo_account",
+  "clara_sample_demo_seed",
+  "clara_life_stage_demo_seed",
+]);
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -21,7 +20,7 @@ function clean(value = "") {
 
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value || "").replace(/[₱,\s]/g, ""));
+  const parsed = Number(String(value || "").replace(/[^0-9.-]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -33,24 +32,26 @@ function isDeleted(record = {}) {
   return Boolean(record.deletedAt || record.deleted_at || record.syncStatus === "local_deleted");
 }
 
-function isDemoRecord(record = {}) {
+function isRetiredDemoRecord(record = {}) {
   const id = clean(record.id);
-  return Boolean(
-    record.demoSeed === true ||
-      record.source === DEMO_SOURCE ||
-      id.startsWith(DEMO_PREFIX) ||
-      id === "emergency_fund:sample_max"
-  );
-}
+  const source = clean(record.source);
+  const setupFamily = clean(record.setupFamily || record.setup_family);
+  const localUserId = clean(record.localUserId || record.local_user_id);
 
-function hasDemoRecords(raw = {}) {
-  return [
-    ...safeArray(raw.wallets),
-    ...safeArray(raw.budgets),
-    ...safeArray(raw.expenses),
-    ...safeArray(raw.savingsGoals),
-    raw.emergencyFund,
-  ].filter(Boolean).some(isDemoRecord);
+  return Boolean(
+    localUserId === "clara-demo-user" ||
+      id.startsWith("clara_demo") ||
+      id.startsWith("clara_sample_max") ||
+      id.startsWith("clara_life_stage_demo") ||
+      RETIRED_DEMO_SOURCES.has(source) ||
+      setupFamily === "life_stage_sample" ||
+      record.demoAccount === true ||
+      record.demo_account === true ||
+      record.demoVersion ||
+      record.demo_version ||
+      record.sampleData === true ||
+      record.sample_data === true
+  );
 }
 
 function normalizeWallet(wallet = {}) {
@@ -217,11 +218,11 @@ async function readRepositoryFinance(localUserId) {
   ]);
 
   return {
-    wallets: safeArray(wallets).filter((record) => !isDeleted(record)),
-    budgets: safeArray(budgets).filter((record) => !isDeleted(record)),
-    expenses: safeArray(expenses).filter((record) => !isDeleted(record)),
-    savingsGoals: safeArray(savingsGoals).filter((record) => !isDeleted(record)),
-    emergencyFund: emergencyFund && !isDeleted(emergencyFund) ? emergencyFund : null,
+    wallets: safeArray(wallets).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
+    budgets: safeArray(budgets).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
+    expenses: safeArray(expenses).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
+    savingsGoals: safeArray(savingsGoals).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
+    emergencyFund: emergencyFund && !isDeleted(emergencyFund) && !isRetiredDemoRecord(emergencyFund) ? emergencyFund : null,
   };
 }
 
@@ -246,31 +247,12 @@ function buildMemoryContext(bridgeContext = {}, meProfileContext = null) {
 
 export async function getClaraEffectiveFinanceContext(userId, options = {}) {
   const localUserId = clean(userId) || "local-user";
-  const user = options.user || { id: localUserId };
   const messages = safeArray(options.messages);
 
-  let raw = await readRepositoryFinance(localUserId);
-  let repoHasData = hasFinanceData(raw);
-
-  const sampleState = await getClaraSampleUserDataState({ user }).catch(() => ({
-    active: false,
-    activeFlagForUser: false,
-    hasSampleRecords: false,
-    localUserId,
-  }));
-
-  if (!repoHasData && sampleState?.active) {
-    try {
-      await activateClaraSampleUserData({ user });
-      raw = await readRepositoryFinance(localUserId);
-      repoHasData = hasFinanceData(raw);
-    } catch (error) {
-      console.warn("CLARA effective context demo hydration skipped:", error);
-    }
-  }
-
+  const raw = await readRepositoryFinance(localUserId);
+  const repoHasData = hasFinanceData(raw);
   const bridgeContext = buildClaraBridgeReadableContext({ messages });
-  const source = hasDemoRecords(raw) || (sampleState?.active && !repoHasData) ? "demo" : "real";
+  const source = "real";
   const wallets = raw.wallets.map(normalizeWallet);
   const budgets = raw.budgets.filter(isBudgetCategory).map(normalizeBudget);
   const expenses = raw.expenses.map(normalizeExpense);
@@ -300,8 +282,8 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
     meProfileLoaded: meProfileContext?.hasProfile || meProfileContext?.profile || meProfileContext?.profileAnswers ? 1 : 0,
     memoryLoaded,
     repositoryHadData: repoHasData,
-    sampleActive: Boolean(sampleState?.active),
-    sampleRecordsFound: Boolean(sampleState?.hasSampleRecords || hasDemoRecords(raw)),
+    sampleActive: false,
+    sampleRecordsFound: false,
     localUserId,
   };
 
