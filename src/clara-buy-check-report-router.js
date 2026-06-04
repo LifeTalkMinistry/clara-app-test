@@ -351,9 +351,9 @@ function renderReport(report) {
   main.innerHTML = `
     <button type="button" class="clara-buy-check-static-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <div class="clara-buy-check-static-wrap" data-clara-buy-check-report="true">
-      <section class="relative mx-auto w-full max-w-[354px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-4 py-5 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+      <section class="relative mx-auto w-full max-w-[354px] rounded-[28px] border border-cyan-100/15 bg-white/[0.075] px-4 pb-8 pt-5 text-center shadow-[0_22px_58px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
         <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK REPORT</p>
-        <p class="mx-auto mt-2 max-w-[260px] text-[12px] font-bold leading-5 text-slate-300/65">Swipe from purchase details to the final decision.</p>
+        <p class="mx-auto mt-2 max-w-[180px] text-[12px] font-bold leading-5 text-slate-300/65">Swipe to next</p>
         <div class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:none]" style="scrollbar-width:none; -ms-overflow-style:none;">
           ${report.cards.map((card) => `
             <article class="min-w-full snap-center rounded-[24px] border ${card.final ? "border-emerald-200/20 bg-emerald-300/10" : "border-white/10 bg-slate-950/20"} px-5 py-5 text-left">
@@ -368,8 +368,7 @@ function renderReport(report) {
         <div class="mt-1 flex justify-center gap-1.5">
           ${Array.from({ length: cardCount }).map((_, index) => `<span class="h-1.5 w-${index === 0 ? "5" : "1.5"} rounded-full bg-cyan-100/${index === 0 ? "70" : "25"}"></span>`).join("")}
         </div>
-        <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Phase 3: purchase, wallet, budget, goals, emergency, schedule, pattern, then final summary.</p>
-        <div class="mt-5 flex flex-wrap justify-center gap-2"><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-close-board="true">Done</button></div>
+        <div class="mt-6 flex flex-wrap justify-center gap-2"><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-close-board="true">Done</button></div>
       </section>
     </div>`;
   main.scrollTo?.({ top: 0, behavior: "smooth" });
