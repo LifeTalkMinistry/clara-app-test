@@ -6,15 +6,32 @@
   display: none !important;
 }
 
+.fixed:has([data-clara-buy-check-report]) main {
+  min-height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-top: 18px !important;
+  padding-bottom: 18px !important;
+  overflow-y: auto !important;
+}
+
 [data-clara-buy-check-report] section > div:last-child {
   display: none !important;
 }
 
 [data-clara-buy-check-report] {
-  padding-bottom: 22px !important;
+  width: 100% !important;
+  min-height: calc(100dvh - 110px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 18px 0 22px !important;
 }
 
 [data-clara-buy-check-report] section {
+  margin-top: auto !important;
+  margin-bottom: auto !important;
   padding-bottom: 28px !important;
 }
 
@@ -47,6 +64,17 @@
   color: rgba(232, 245, 255, 0.94);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+@media (max-height: 760px) {
+  .fixed:has([data-clara-buy-check-report]) main {
+    align-items: flex-start !important;
+  }
+
+  [data-clara-buy-check-report] {
+    min-height: auto !important;
+    padding-top: 12px !important;
+  }
 }
 
 @media (max-width: 380px) {
