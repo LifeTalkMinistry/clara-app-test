@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import "./clara-memory-bridge";
 import "./clara-buy-check-report-router";
+import "./clara-buy-check-report-content-polish";
 import "./clara-buy-check-effective-context-guard";
 import "./clara-assistant-buy-check-tab";
 import "./clara-assistant-forecast-tab";
@@ -61,6 +62,7 @@ import "./settings-hide-theme-appearance.js";
 import "./clara-buy-check-bottom-position.css";
 import "./clara-buy-check-message-hierarchy";
 import "./clara-buy-check-report-card-polish.css";
+import "./clara-buy-check-report-content-polish.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
