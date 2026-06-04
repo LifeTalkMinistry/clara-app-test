@@ -125,6 +125,16 @@ function getMoneyImpactEvent(context = {}) {
   return schedule.find((event) => toNumber(event.amount || event.cost || event.estimatedImpact) > 0 || /bill|due|rent|dinner|health|appointment|social|payment/i.test(`${event.type || ""} ${event.title || ""} ${event.note || ""}`)) || schedule[0] || null;
 }
 
+function purchaseFeelingText(reason = "") {
+  const text = clean(reason).toLowerCase();
+  if (!text) return "I hear you. You are interested in this item, so CLARA will check it fairly before giving a yes or no.";
+  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${reason}. That feeling is valid, but CLARA still needs to protect your money plan.`;
+  if (/health|medical|fitness|wellness|comfort|pain|need/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${reason}. CLARA will check if the timing and cost are healthy too.`;
+  if (/work|job|school|study|business|career/i.test(text)) return `I hear that this may feel practical: ${reason}. CLARA will check if it supports you without hurting the plan.`;
+  if (/want|like|nice|cool|style|fashion/i.test(text)) return `I hear the want behind this: ${reason}. Wanting it is okay, but CLARA will check if now is the right time.`;
+  return `I hear your reason: ${reason}. CLARA will respect that reason, then compare it with your real money context.`;
+}
+
 function buildCardData(kind, context = {}) {
   const purchase = context.purchaseSummary || {};
   const finance = context.financeContext || {};
@@ -147,11 +157,11 @@ function buildCardData(kind, context = {}) {
   switch (kind) {
     case "purchase":
       return {
-        body: `CLARA is checking ${purchase.item || "this item"} as a ${purchase.inferredCategory || "purchase"} purchase for ${money(price)}. This first card confirms the item, price, and stated reason before judging if it fits the money plan.`,
+        body: `You want to buy ${purchase.item || "this item"} for ${money(price)}. ${purchaseFeelingText(purchase.reason)}`,
         bullets: [
-          `Reason given: ${purchase.reason || "Not specified"}. CLARA will treat the reason as context, not automatic permission to spend.`,
-          `The price being tested is ${money(price)}, and every next card compares that amount with a different protection area.`,
-          "The report checks wallet, budget, goals, emergency fund, schedule, and spending pattern before the final call.",
+          `CLARA reads this as a ${purchase.inferredCategory || "purchase"} purchase, so the decision should not be based on emotion alone.`,
+          `The price being tested is ${money(price)}, then CLARA compares it with wallet, budget, goals, emergency, schedule, and pattern.`,
+          "This first card is acknowledgment first; the next cards are the actual money proof.",
         ],
       };
     case "wallet":
