@@ -1,10 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useDailyTip from "../logic/useDailyTip";
+import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
+
+const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+
+function readActiveCurrentState() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_CURRENT_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.mode === "current_state" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function DailyTipCard() {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
+  const [exiting, setExiting] = useState(false);
+
+  useEffect(() => {
+    const syncActiveState = () => setActiveCurrentState(readActiveCurrentState());
+
+    syncActiveState();
+    window.addEventListener("clara-young-professional-current-state-loaded", syncActiveState);
+    window.addEventListener("storage", syncActiveState);
+
+    return () => {
+      window.removeEventListener("clara-young-professional-current-state-loaded", syncActiveState);
+      window.removeEventListener("storage", syncActiveState);
+    };
+  }, []);
 
   const handleFlip = () => {
     setIsFlipping(true);
@@ -15,6 +46,68 @@ export default function DailyTipCard() {
       setIsFlipping(false);
     }, 760);
   };
+
+  const handleExitCurrentState = async () => {
+    if (exiting) return;
+
+    try {
+      setExiting(true);
+      await exitYoungProfessionalCurrentState();
+      setActiveCurrentState(null);
+
+      window.setTimeout(() => {
+        window.location.hash = "#/dashboard";
+        window.location.reload();
+      }, 350);
+    } catch (error) {
+      console.error("Unable to exit Young Professional current-state data:", error);
+      setExiting(false);
+    }
+  };
+
+  if (activeCurrentState) {
+    const stageTitle = activeCurrentState.activeLifeStageTitle || activeCurrentState.activeLifeStageKey || "Demo";
+
+    return (
+      <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
+        <div className="relative min-h-[150px] overflow-hidden rounded-2xl border border-emerald-300/20 bg-gradient-to-br from-emerald-400/12 via-slate-900/50 to-indigo-500/12 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.16),transparent_48%)]" />
+
+          <div className="relative flex h-full min-h-[118px] flex-col justify-between gap-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-100/85">
+                  Demo Stage Active
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExitCurrentState}
+                  disabled={exiting}
+                  className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-white/75 transition hover:bg-white/12 disabled:opacity-60"
+                >
+                  {exiting ? "Exiting..." : "Exit"}
+                </button>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black leading-tight tracking-[-0.03em] text-white">
+                  You are exploring {stageTitle}
+                </h3>
+                <p className="mt-1.5 text-[12px] font-semibold leading-relaxed text-cyan-50/62">
+                  This is sample current-state data for learning. You can test CLARA here, then exit anytime to return to your real financial records.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200/70">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
+              Current data is temporary learning mode
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
