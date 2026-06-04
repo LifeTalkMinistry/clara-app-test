@@ -11,7 +11,6 @@ const STYLE_ID = "clara-explore-sample-mode-unifier-styles";
 const PICKER_ID = "clara-explore-sample-picker";
 const STATUS_ID = "clara-explore-sample-status";
 const CARD_SELECTOR = ".clara-explore-life-stage-card";
-const SAMPLE_CARD_SELECTOR = ".clara-explore-feature-card-action";
 
 const optionsByTitle = new Map(
   getClaraLifeStageSampleOptions().map((option) => [option.title, option])
@@ -133,17 +132,7 @@ function installStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     .clara-explore-page[data-sample-open="true"] .clara-explore-hero {
-      padding: 0.95rem 1rem !important;
-    }
-
-    .clara-explore-page[data-sample-open="true"] .clara-explore-hero h2 {
-      font-size: 1.05rem !important;
-    }
-
-    .clara-explore-page[data-sample-open="true"] .clara-explore-hero p:last-child {
-      max-width: none !important;
-      font-size: 0.74rem !important;
-      line-height: 1.5 !important;
+      display: none !important;
     }
 
     .clara-explore-page[data-sample-open="true"] .clara-explore-feature-card:not(.clara-explore-feature-card-action),
