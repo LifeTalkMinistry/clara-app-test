@@ -8,7 +8,6 @@ const RESUME_AFTER_TOUCH = 7000;
 const SWIPE_THRESHOLD = 34;
 const LEARNING_HUB_STAGE_HEIGHT = 244;
 const COMING_SOON_MESSAGE = "Learning Hub is still under construction.";
-const SINGLE_CLICK_DELAY = 260;
 
 const learningHubToggleSurface = {
   background:
@@ -18,7 +17,7 @@ const learningHubToggleSurface = {
     "0 10px 26px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
 };
 
-export default function LearningHubCarousel({ materials = [], onOpenMaterial, onActivateSampleUser }) {
+export default function LearningHubCarousel({ materials = [], onOpenMaterial }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -27,7 +26,6 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial, on
   const [soonMessageVisible, setSoonMessageVisible] = useState(false);
   const resumeTimerRef = useRef(null);
   const soonMessageTimerRef = useRef(null);
-  const headerClickTimerRef = useRef(null);
 
   const safeMaterials = useMemo(() => materials.filter(Boolean), [materials]);
   const total = safeMaterials.length;
@@ -41,36 +39,6 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial, on
     soonMessageTimerRef.current = setTimeout(() => {
       setSoonMessageVisible(false);
     }, 2600);
-  };
-
-  const clearHeaderClickTimer = () => {
-    if (!headerClickTimerRef.current) return;
-    clearTimeout(headerClickTimerRef.current);
-    headerClickTimerRef.current = null;
-  };
-
-  const activateSampleUserFromHeader = (event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    clearHeaderClickTimer();
-    setSoonMessageVisible(false);
-    onActivateSampleUser?.();
-  };
-
-  const handleHeaderClick = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (event.detail >= 2) {
-      activateSampleUserFromHeader(event);
-      return;
-    }
-
-    clearHeaderClickTimer();
-    headerClickTimerRef.current = setTimeout(() => {
-      headerClickTimerRef.current = null;
-      showComingSoonMessage();
-    }, SINGLE_CLICK_DELAY);
   };
 
   const pauseCarousel = () => {
@@ -142,7 +110,6 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial, on
 
   useEffect(() => {
     return () => {
-      clearHeaderClickTimer();
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
       if (soonMessageTimerRef.current) clearTimeout(soonMessageTimerRef.current);
     };
@@ -157,9 +124,8 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial, on
       <button
         type="button"
         aria-expanded="false"
-        aria-label="Learning Hub under construction. Double click to activate Max sample data."
-        onClick={handleHeaderClick}
-        onDoubleClick={activateSampleUserFromHeader}
+        aria-label="Learning Hub under construction."
+        onClick={showComingSoonMessage}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
         className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
