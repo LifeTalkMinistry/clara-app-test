@@ -1376,7 +1376,7 @@ export default function DashboardSettingsPanel({
       title: "Mission",
       subtitle: "See CLARA’s purpose and guiding mission.",
       body:
-        "To help people build financial discipline through simple tracking, guided decisions, and a supportive environment.",
+        "CLARA’s mission is to normalize budgeting by making it personal, guided, and easier to commit to.\n\nCLARA helps users build healthier financial habits through clear tracking, simple structure, personal accountability, and daily money awareness — so budgeting feels less like pressure and more like self-respect.",
       sort_order: 1,
       is_active: true,
     },
@@ -1386,7 +1386,7 @@ export default function DashboardSettingsPanel({
       title: "Vision",
       subtitle: "See the long-term direction of CLARA.",
       body:
-        "To make budgeting normal, approachable, and part of everyday life.",
+        "CLARA’s vision is to become a trusted financial habit-building partner for people who want to build discipline, protect their money, and create a healthier relationship with their finances.\n\nCLARA envisions a future where budgeting is no longer seen as punishment or restriction, but as a normal, empowering part of everyday life.",
       sort_order: 2,
       is_active: true,
     },
@@ -1396,7 +1396,7 @@ export default function DashboardSettingsPanel({
       title: "What makes CLARA different",
       subtitle: "See how CLARA goes beyond basic expense tracking.",
       body:
-        "CLARA is not only built to record expenses. It is designed to help users understand behavior, reduce emotional spending, and make better choices before money is spent.\n\nPeople do not change because of information alone. People change because of environment. CLARA is built to become that environment.",
+        "Most finance tools only show information. CLARA gives users a system.\n\nIt connects wallets, budgets, savings, and spending behavior so users do not only track what happened — they learn how to control what happens next.\n\nCLARA focuses on simplicity, structure, and consistency because real financial progress does not come from knowing more. It comes from doing the right things repeatedly.",
       sort_order: 3,
       is_active: true,
     },
@@ -1404,9 +1404,9 @@ export default function DashboardSettingsPanel({
       section_key: "terms_of_use",
       key: "terms_of_use",
       title: "Terms of use",
-      subtitle: "Coming inside CLARA settings.",
+      subtitle: "Understand how CLARA should be used responsibly.",
       body:
-        "Terms of use will be available inside CLARA settings.",
+        "CLARA is a personal finance guidance app designed to support awareness, budgeting, and better money decisions.\n\nCLARA’s tools and AI guidance are meant to help users reflect, organize, and decide more clearly. They should not be treated as professional financial, legal, tax, or investment advice.\n\nYou remain responsible for your own financial decisions, spending choices, account activity, and how you use the guidance provided inside the app.",
       sort_order: 4,
       is_active: true,
     },
@@ -1414,9 +1414,9 @@ export default function DashboardSettingsPanel({
       section_key: "privacy_policy",
       key: "privacy_policy",
       title: "Privacy policy",
-      subtitle: "Coming inside CLARA settings.",
+      subtitle: "See how CLARA protects your personal and financial information.",
       body:
-        "Privacy policy will be available inside CLARA settings.",
+        "CLARA respects your privacy and is designed to protect the personal and financial information you provide inside the app.\n\nCLARA may use information such as your email, expenses, budgets, wallet entries, app activity, and financial patterns to provide core features, personalize your experience, and improve guidance.\n\nCLARA does not sell your personal data. Your information is used to support your financial journey, not to exploit it.",
       sort_order: 5,
       is_active: true,
     },
