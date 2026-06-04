@@ -131,21 +131,10 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    .clara-explore-page[data-sample-open="true"] .clara-explore-hero {
+    .clara-explore-page[data-sample-open="true"] .clara-explore-hero,
+    .clara-explore-page[data-sample-open="true"] .clara-explore-note,
+    .clara-explore-page[data-sample-open="true"] .clara-explore-feature-card {
       display: none !important;
-    }
-
-    .clara-explore-page[data-sample-open="true"] .clara-explore-feature-card:not(.clara-explore-feature-card-action),
-    .clara-explore-page[data-sample-open="true"] .clara-explore-note {
-      display: none !important;
-    }
-
-    .clara-explore-page[data-sample-open="true"] .clara-explore-feature-card-action {
-      border-color: rgba(165, 243, 252, 0.16) !important;
-      background:
-        radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.075), transparent 36%),
-        radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.055), transparent 40%),
-        rgba(255, 255, 255, 0.038) !important;
     }
 
     #${STATUS_ID}[data-type="info"],
