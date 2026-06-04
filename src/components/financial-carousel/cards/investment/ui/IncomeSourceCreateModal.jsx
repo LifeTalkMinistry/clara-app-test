@@ -27,7 +27,13 @@ const createEmptyForm = () => ({
   stability: DEFAULT_STABILITY,
 });
 
-export default function IncomeSourceCreateModal({ open = false, onClose }) {
+const createFormFromSource = (source) => ({
+  name: source?.name || "",
+  category: INCOME_SOURCE_CATEGORIES.includes(source?.category) ? source.category : DEFAULT_CATEGORY,
+  stability: INCOME_SOURCE_STABILITY.includes(source?.stability) ? source.stability : DEFAULT_STABILITY,
+});
+
+export default function IncomeSourceCreateModal({ open = false, source = null, onClose }) {
   const { user } = useAuth();
   const financial = useFinancialData(user);
   const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
@@ -35,12 +41,14 @@ export default function IncomeSourceCreateModal({ open = false, onClose }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const isEditing = Boolean(source?.id);
+
   useEffect(() => {
     if (!open) return;
 
-    setForm(createEmptyForm());
+    setForm(isEditing ? createFormFromSource(source) : createEmptyForm());
     setError("");
-  }, [open]);
+  }, [open, isEditing, source]);
 
   const closeModal = () => {
     if (saving) return;
@@ -61,7 +69,7 @@ export default function IncomeSourceCreateModal({ open = false, onClose }) {
     }
   };
 
-  const createSource = async () => {
+  const saveSource = async () => {
     const sourceName = form.name.trim();
 
     if (!sourceName) {
@@ -76,25 +84,29 @@ export default function IncomeSourceCreateModal({ open = false, onClose }) {
       setError("");
 
       await upsertIncomeSource(localUserId, {
+        ...(source || {}),
+        id: source?.id,
         name: sourceName,
         category: form.category || DEFAULT_CATEGORY,
         stability: form.stability || DEFAULT_STABILITY,
-        totalMoneyIn: 0,
-        total_money_in: 0,
-        totalMoneyOut: 0,
-        total_money_out: 0,
-        currentBalance: 0,
-        current_balance: 0,
-        lastActivityAt: timestamp,
-        last_activity_at: timestamp,
+        totalMoneyIn: source?.totalMoneyIn ?? source?.total_money_in ?? 0,
+        total_money_in: source?.total_money_in ?? source?.totalMoneyIn ?? 0,
+        totalMoneyOut: source?.totalMoneyOut ?? source?.total_money_out ?? 0,
+        total_money_out: source?.total_money_out ?? source?.totalMoneyOut ?? 0,
+        currentBalance: source?.currentBalance ?? source?.current_balance ?? 0,
+        current_balance: source?.current_balance ?? source?.currentBalance ?? 0,
+        lastActivityAt: isEditing ? source?.lastActivityAt || source?.last_activity_at || timestamp : timestamp,
+        last_activity_at: isEditing ? source?.last_activity_at || source?.lastActivityAt || timestamp : timestamp,
+        createdAt: source?.createdAt || source?.created_at,
+        created_at: source?.created_at || source?.createdAt,
       });
 
       await refreshFinanceEvents();
       setForm(createEmptyForm());
       onClose?.();
-    } catch (createError) {
-      console.error("CLARA income source create error:", createError);
-      setError("Unable to create source. Please try again.");
+    } catch (saveError) {
+      console.error("CLARA income source save error:", saveError);
+      setError(isEditing ? "Unable to update source. Please try again." : "Unable to create source. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -108,16 +120,18 @@ export default function IncomeSourceCreateModal({ open = false, onClose }) {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            createSource();
+            saveSource();
           }}
           className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible"
         >
           <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-[28px] font-black tracking-[-0.04em] text-white">Create income source</h3>
+                <h3 className="text-[28px] font-black tracking-[-0.04em] text-white">
+                  {isEditing ? "Edit income source" : "Create income source"}
+                </h3>
                 <p className="mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64">
-                  Add a new place where money comes from.
+                  {isEditing ? "Update where this money comes from." : "Add a new place where money comes from."}
                 </p>
               </div>
 
@@ -192,7 +206,7 @@ export default function IncomeSourceCreateModal({ open = false, onClose }) {
                 disabled={saving}
                 className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)] transition disabled:cursor-not-allowed disabled:opacity-55"
               >
-                {saving ? "Creating..." : "Create Source"}
+                {saving ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Source" : "Create Source"}
               </button>
             </div>
           </div>
