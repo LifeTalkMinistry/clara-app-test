@@ -130,12 +130,56 @@ JSON shape:
   }
 }
 
+function keepConfirmationVisible(card) {
+  if (typeof window === "undefined" || !card) return;
+
+  const chat = card.closest("[data-clara-buy-check-static-chat]");
+  const main = card.closest("main") || chat?.closest("main");
+  const shell = card.closest(".fixed") || main?.closest(".fixed");
+  const composer = shell?.querySelector("form");
+  const composerHeight = Math.ceil(composer?.getBoundingClientRect?.().height || 88);
+  const safePadding = Math.max(152, composerHeight + 72);
+
+  if (chat) {
+    chat.style.paddingBottom = `${safePadding}px`;
+  }
+
+  if (!main) return;
+
+  const adjust = () => {
+    if (!card.isConnected) return;
+
+    const mainRect = main.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const composerRect = composer?.getBoundingClientRect?.();
+    const visibleBottom = composerRect
+      ? Math.min(mainRect.bottom, composerRect.top - 16)
+      : mainRect.bottom - 18;
+    const overflow = cardRect.bottom - visibleBottom;
+
+    if (overflow > 0) {
+      main.scrollBy?.({ top: overflow + 22, behavior: "smooth" });
+      return;
+    }
+
+    if (cardRect.top < mainRect.top + 18) {
+      main.scrollBy?.({ top: cardRect.top - mainRect.top - 18, behavior: "smooth" });
+    }
+  };
+
+  requestAnimationFrame(adjust);
+  window.setTimeout(adjust, 80);
+  window.setTimeout(adjust, 220);
+  window.setTimeout(adjust, 520);
+}
+
 function renderThinkingCard(card) {
   card.innerHTML = `
     <div class="clara-buy-check-message-title">Before we proceed, let me understand that first.</div>
     <div class="clara-buy-check-confirm-summary">I’m cleaning up your answer and summarizing what I think you mean.</div>
     <div class="clara-buy-check-message-sub">One moment...</div>
   `;
+  keepConfirmationVisible(card);
 }
 
 function renderConfirmationCard(card, summary) {
@@ -149,6 +193,7 @@ function renderConfirmationCard(card, summary) {
       <button type="button" data-clara-buy-check-confirm-edit="true">Edit answers</button>
     </div>
   `;
+  keepConfirmationVisible(card);
 }
 
 function getRecentUserAnswers(card) {
@@ -189,7 +234,10 @@ function formatConfirmationCard() {
   if (typeof document === "undefined") return;
 
   document.querySelectorAll(".clara-buy-check-confirm-card").forEach((card) => {
-    if (card.dataset.claraConfirmNatural === "true") return;
+    if (card.dataset.claraConfirmNatural === "true") {
+      keepConfirmationVisible(card);
+      return;
+    }
 
     const input = readConfirmationInput(card);
     const normalizedInput = {
@@ -225,6 +273,14 @@ function installBuyCheckMessageHierarchy() {
       white-space: normal !important;
       padding-top: 14px !important;
       padding-bottom: 14px !important;
+    }
+
+    [data-clara-buy-check-static-chat]:has(.clara-buy-check-confirm-card) {
+      padding-bottom: 168px !important;
+    }
+
+    .clara-buy-check-confirm-card {
+      scroll-margin-bottom: 160px;
     }
 
     .clara-buy-check-message-title {
