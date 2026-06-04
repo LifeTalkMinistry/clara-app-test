@@ -7,7 +7,7 @@ const tutorialSlides = [
     eyebrow: "Hi there",
     title: "I’m CLARA. I’m thrilled to be your companion in your finances.",
     body:
-      "I’m here to help you see your money clearly, understand your spending, and build better financial habits one simple decision at a time.",
+      "I’m here to help you see your money clearly, understand your spending, and build better financial habits one simple decision at a time. Together, we’ll slow things down before you spend, notice where your money goes, and make calmer choices that are easier to repeat.",
     noteTitle: "Before we start",
     note:
       "You don’t have to be perfect with money. You just need a clear system that helps you notice, decide, and improve.",
