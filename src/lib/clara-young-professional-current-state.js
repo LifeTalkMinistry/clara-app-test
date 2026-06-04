@@ -1,10 +1,25 @@
-import { LOCAL_FINANCE_STORES, upsertLocalRecord } from "./localFinanceStore";
+import {
+  LOCAL_FINANCE_STORES,
+  runLocalFinanceTransaction,
+  upsertLocalRecord,
+} from "./localFinanceStore";
 import { supabase } from "./supabaseClient";
 import { saveSelectedLifeStageProfile } from "@/life-stage-flow";
 
 const SOURCE = "clara_young_professional_current_state";
 const FAMILY = "young_professional_current_state";
 const ACTIVE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+
+const STORES_TO_RESET = [
+  LOCAL_FINANCE_STORES.wallets,
+  LOCAL_FINANCE_STORES.walletTransactions,
+  LOCAL_FINANCE_STORES.transfers,
+  LOCAL_FINANCE_STORES.expenses,
+  LOCAL_FINANCE_STORES.budgets,
+  LOCAL_FINANCE_STORES.savingsGoals,
+  LOCAL_FINANCE_STORES.emergencyFund,
+  LOCAL_FINANCE_STORES.aiFinancialMemory,
+];
 
 function nowIso() {
   return new Date().toISOString();
@@ -51,8 +66,8 @@ function currentMonthKey() {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function at(date) {
-  return `${date}T12:00:00.000Z`;
+function at(date, hour = 12) {
+  return `${date}T${String(hour).padStart(2, "0")}:00:00.000Z`;
 }
 
 async function resolveLocalUserId(explicitUser = null) {
@@ -93,22 +108,46 @@ function base(localUserId, type, key, createdAt = nowIso()) {
   };
 }
 
-function wallet(localUserId, key, name, balance, type = "wallet", order = 1) {
-  const amount = toMoney(balance);
+function signedTransactionAmount(transaction) {
+  const amount = toMoney(transaction?.amount);
+  const type = String(transaction?.type || "").trim().toLowerCase();
+
+  if (["expense", "transfer_out", "debit", "withdrawal"].includes(type)) return -amount;
+  if (["income", "opening_balance", "transfer_in", "deposit", "credit"].includes(type)) return amount;
+  return 0;
+}
+
+function wallet(localUserId, key, name, type = "wallet", order = 1) {
   return {
-    ...base(localUserId, "wallet", key, at(monthDate(order))),
+    ...base(localUserId, "wallet", key, at(monthDate(order), 8)),
     name,
     title: name,
     label: name,
     type,
     wallet_type: type,
-    balance: amount,
-    current_balance: amount,
-    wallet_balance: amount,
-    available_balance: amount,
-    starting_balance: amount,
+    balance: 0,
+    current_balance: 0,
+    wallet_balance: 0,
+    available_balance: 0,
+    starting_balance: 0,
     sort_order: order,
   };
+}
+
+function applyLedgerBalances(wallets, walletTransactions) {
+  return wallets.map((row) => {
+    const balance = walletTransactions
+      .filter((transaction) => String(transaction.wallet_id || transaction.walletId || "") === String(row.id))
+      .reduce((sum, transaction) => sum + signedTransactionAmount(transaction), toMoney(row.starting_balance));
+
+    return {
+      ...row,
+      balance,
+      current_balance: balance,
+      wallet_balance: balance,
+      available_balance: balance,
+    };
+  });
 }
 
 function budgetHeader(localUserId) {
@@ -116,7 +155,7 @@ function budgetHeader(localUserId) {
   const month = currentMonthKey();
 
   return {
-    ...base(localUserId, "budget", "monthly_plan", at(monthStart())),
+    ...base(localUserId, "budget", "monthly_plan", at(monthStart(), 8)),
     is_plan_header: true,
     plan_type: "monthly_budget",
     type: "monthly_budget",
@@ -152,7 +191,7 @@ function budget(localUserId, key, title, amount, needType = "need", order = 1) {
   const numericAmount = toMoney(amount);
 
   return {
-    ...base(localUserId, "budget", key, at(monthStart())),
+    ...base(localUserId, "budget", key, at(monthStart(), 8)),
     title,
     name: title,
     category: title,
@@ -173,15 +212,80 @@ function budget(localUserId, key, title, amount, needType = "need", order = 1) {
   };
 }
 
+function walletTransaction(localUserId, key, walletId, amount, type, title, options = {}) {
+  const date = options.date || monthDate(1);
+  const numericAmount = toMoney(amount);
+
+  return {
+    ...base(localUserId, "wallet_txn", key, at(date, options.hour || 12)),
+    wallet_id: walletId,
+    walletId,
+    amount: numericAmount,
+    type,
+    category: options.category || title,
+    source_type: options.sourceType || type,
+    sourceType: options.sourceType || type,
+    title,
+    notes: options.notes || title,
+    created_at: at(date, options.hour || 12),
+    date: at(date, options.hour || 12),
+    details: options.details || null,
+  };
+}
+
+function transfer(localUserId, key, walletIds, fromKey, toKey, amount, title, options = {}) {
+  const date = options.date || monthDate(10);
+  const transferGroupId = makeId(localUserId, "transfer", key);
+  const fromWalletId = walletIds[fromKey];
+  const toWalletId = walletIds[toKey];
+  const numericAmount = toMoney(amount);
+
+  const transferRecord = {
+    ...base(localUserId, "transfer", key, at(date, options.hour || 14)),
+    transfer_group_id: transferGroupId,
+    from_wallet_id: fromWalletId,
+    to_wallet_id: toWalletId,
+    amount: numericAmount,
+    title,
+    notes: title,
+    created_at: at(date, options.hour || 14),
+  };
+
+  const transactions = [
+    walletTransaction(localUserId, `transfer_out_${key}`, fromWalletId, numericAmount, "transfer_out", title, {
+      date,
+      hour: options.hour || 14,
+      category: "Transfer",
+      sourceType: "transfer",
+      notes: `Transfer to ${options.toLabel || "another wallet"}`,
+    }),
+    walletTransaction(localUserId, `transfer_in_${key}`, toWalletId, numericAmount, "transfer_in", title, {
+      date,
+      hour: (options.hour || 14) + 1,
+      category: "Transfer",
+      sourceType: "transfer",
+      notes: `Transfer from ${options.fromLabel || "another wallet"}`,
+    }),
+  ];
+
+  transactions.forEach((transaction) => {
+    transaction.transfer_group_id = transferGroupId;
+    transaction.related_wallet_id = transaction.wallet_id === fromWalletId ? toWalletId : fromWalletId;
+  });
+
+  return { transferRecord, transactions };
+}
+
 function expense(localUserId, walletIds, key, walletKey, amount, category, title, options = {}) {
   const date = options.date || monthDate(5);
   const status = options.status || "planned";
   const needType = options.needType || "need";
   const numericAmount = toMoney(amount);
   const walletId = walletIds[walletKey] || walletIds.primary;
+  const createdAt = at(date, options.hour || 18);
 
   return {
-    ...base(localUserId, "expense", key, at(date)),
+    ...base(localUserId, "expense", key, createdAt),
     wallet_id: walletId,
     walletId,
     amount: numericAmount,
@@ -191,9 +295,9 @@ function expense(localUserId, walletIds, key, walletKey, amount, category, title
     title,
     name: title,
     merchant: title,
-    date: at(date),
+    date: createdAt,
     transaction_date: date,
-    created_at: at(date),
+    created_at: createdAt,
     planning_status: status,
     budget_status: status,
     need_type: needType,
@@ -216,26 +320,7 @@ function expenseTransaction(localUserId, row) {
     title: row.title,
     notes: row.notes,
     created_at: row.created_at,
-  };
-}
-
-function income(localUserId, walletIds, key, walletKey, amount, title, date) {
-  const walletId = walletIds[walletKey] || walletIds.primary;
-  const numericAmount = toMoney(amount);
-
-  return {
-    ...base(localUserId, "wallet_txn", key, at(date)),
-    wallet_id: walletId,
-    walletId,
-    amount: numericAmount,
-    type: "income",
-    category: "Income",
-    source_type: "salary",
-    sourceType: "salary",
-    title,
-    notes: title,
-    created_at: at(date),
-    date: at(date),
+    date: row.created_at,
   };
 }
 
@@ -246,7 +331,7 @@ function savingsGoal(localUserId, key, title, saved, target, order = 1) {
   date.setMonth(date.getMonth() + order * 3);
 
   return {
-    ...base(localUserId, "savings_goal", key, at(monthDate(order + 2))),
+    ...base(localUserId, "savings_goal", key, at(monthDate(order + 2), 9)),
     name: title,
     title,
     saved_amount: savedAmount,
@@ -265,7 +350,7 @@ function savingsGoal(localUserId, key, title, saved, target, order = 1) {
 
 function emergencyFund(localUserId, walletIds) {
   return {
-    ...base(localUserId, "emergency_fund", "primary", at(monthDate(1))),
+    ...base(localUserId, "emergency_fund", "primary", at(monthDate(1), 9)),
     target_amount: 50000,
     targetAmount: 50000,
     saved_amount: 7000,
@@ -287,7 +372,7 @@ function emergencyFund(localUserId, walletIds) {
 
 function memory(localUserId, key, category, summary, spendingImpact, supportStyle) {
   return {
-    ...base(localUserId, "memory", key, at(monthDate(2))),
+    ...base(localUserId, "memory", key, at(monthDate(2), 10)),
     recordKind: "ai_financial_memory",
     category,
     summary,
@@ -299,11 +384,11 @@ function memory(localUserId, key, category, summary, spendingImpact, supportStyl
 }
 
 function buildYoungProfessionalState(localUserId) {
-  const wallets = [
-    wallet(localUserId, "primary", "Payroll Wallet", 13500, "bank", 1),
-    wallet(localUserId, "daily", "Daily Spending Wallet", 2600, "cash", 2),
-    wallet(localUserId, "savings", "Savings Wallet", 12000, "savings", 3),
-    wallet(localUserId, "emergency", "Emergency Reserve Wallet", 7000, "emergency", 4),
+  const rawWallets = [
+    wallet(localUserId, "primary", "Payroll Wallet", "bank", 1),
+    wallet(localUserId, "daily", "Daily Spending Wallet", "cash", 2),
+    wallet(localUserId, "savings", "Savings Wallet", "savings", 3),
+    wallet(localUserId, "emergency", "Emergency Reserve Wallet", "emergency", 4),
   ];
 
   const walletIds = {
@@ -313,22 +398,82 @@ function buildYoungProfessionalState(localUserId) {
     emergency: makeId(localUserId, "wallet", "emergency"),
   };
 
+  const openingTransactions = [
+    walletTransaction(localUserId, "opening_savings_carryover", walletIds.savings, 7000, "opening_balance", "Savings carried over", {
+      date: monthDate(1),
+      hour: 8,
+      category: "Opening Balance",
+      sourceType: "opening_balance",
+      notes: "Existing savings before this month started",
+    }),
+    walletTransaction(localUserId, "opening_emergency_carryover", walletIds.emergency, 4000, "opening_balance", "Emergency fund carried over", {
+      date: monthDate(1),
+      hour: 8,
+      category: "Opening Balance",
+      sourceType: "opening_balance",
+      notes: "Existing emergency reserve before this month started",
+    }),
+  ];
+
+  const incomeTransactions = [
+    walletTransaction(localUserId, "salary_first_cutoff", walletIds.primary, 16000, "income", "Salary - first cutoff", {
+      date: monthDate(10),
+      hour: 9,
+      category: "Income",
+      sourceType: "salary",
+      notes: "Declared income source: first payroll cutoff",
+    }),
+    walletTransaction(localUserId, "salary_second_cutoff", walletIds.primary, 16000, "income", "Salary - second cutoff", {
+      date: monthDate(25),
+      hour: 9,
+      category: "Income",
+      sourceType: "salary",
+      notes: "Declared income source: second payroll cutoff",
+    }),
+  ];
+
+  const transferBundles = [
+    transfer(localUserId, "daily_allowance_allocation", walletIds, "primary", "daily", 5000, "Daily spending allocation", {
+      date: monthDate(10),
+      hour: 14,
+      fromLabel: "Payroll Wallet",
+      toLabel: "Daily Spending Wallet",
+    }),
+    transfer(localUserId, "savings_allocation", walletIds, "primary", "savings", 5000, "Savings allocation", {
+      date: monthDate(10),
+      hour: 15,
+      fromLabel: "Payroll Wallet",
+      toLabel: "Savings Wallet",
+    }),
+    transfer(localUserId, "emergency_allocation", walletIds, "primary", "emergency", 3000, "Emergency fund allocation", {
+      date: monthDate(25),
+      hour: 14,
+      fromLabel: "Payroll Wallet",
+      toLabel: "Emergency Reserve Wallet",
+    }),
+  ];
+
+  const transfers = transferBundles.map((bundle) => bundle.transferRecord);
+  const transferTransactions = transferBundles.flatMap((bundle) => bundle.transactions);
+
   const expenses = [
-    expense(localUserId, walletIds, "home_contribution", "primary", 6000, "Rent / Family Contribution", "Monthly home contribution", { date: monthDate(3) }),
-    expense(localUserId, walletIds, "food_delivery", "daily", 420, "Food", "Food delivery after work", { status: "unplanned", needType: "want", notes: "Tired after work, convenience spending" }),
-    expense(localUserId, walletIds, "coffee_run", "daily", 180, "Food", "Coffee run", { status: "unplanned", needType: "want", notes: "Small repeat spending" }),
-    expense(localUserId, walletIds, "internet_bill", "primary", 1699, "Bills", "Internet bill", { date: monthDate(6) }),
-    expense(localUserId, walletIds, "commute", "daily", 120, "Transportation", "MRT and jeepney", { date: monthDate(7) }),
-    expense(localUserId, walletIds, "online_checkout", "daily", 799, "Lifestyle", "Online checkout", { status: "unplanned", needType: "want", notes: "Payday reward temptation" }),
-    expense(localUserId, walletIds, "savings_transfer", "savings", 2500, "Savings", "Savings transfer", { date: monthDate(10) }),
-    expense(localUserId, walletIds, "medicine", "primary", 380, "Health", "Medicine", { date: monthDate(11) }),
+    expense(localUserId, walletIds, "home_contribution", "primary", 6000, "Rent / Family Contribution", "Monthly home contribution", { date: monthDate(3), hour: 18 }),
+    expense(localUserId, walletIds, "food_delivery", "daily", 420, "Food", "Food delivery after work", { date: monthDate(5), hour: 21, status: "unplanned", needType: "want", notes: "Tired after work, convenience spending" }),
+    expense(localUserId, walletIds, "coffee_run", "daily", 180, "Food", "Coffee run", { date: monthDate(6), hour: 10, status: "unplanned", needType: "want", notes: "Small repeat spending" }),
+    expense(localUserId, walletIds, "internet_bill", "primary", 1699, "Bills", "Internet bill", { date: monthDate(6), hour: 18 }),
+    expense(localUserId, walletIds, "commute", "daily", 120, "Transportation", "MRT and jeepney", { date: monthDate(7), hour: 8 }),
+    expense(localUserId, walletIds, "online_checkout", "daily", 799, "Lifestyle", "Online checkout", { date: monthDate(11), hour: 22, status: "unplanned", needType: "want", notes: "Payday reward temptation" }),
+    expense(localUserId, walletIds, "medicine", "primary", 380, "Health", "Medicine", { date: monthDate(12), hour: 19 }),
   ];
 
   const walletTransactions = [
-    income(localUserId, walletIds, "salary_first_cutoff", "primary", 16000, "Salary - first cutoff", monthDate(10)),
-    income(localUserId, walletIds, "salary_second_cutoff", "primary", 16000, "Salary - second cutoff", monthDate(25)),
+    ...openingTransactions,
+    ...incomeTransactions,
+    ...transferTransactions,
     ...expenses.map((row) => expenseTransaction(localUserId, row)),
   ];
+
+  const wallets = applyLedgerBalances(rawWallets, walletTransactions);
 
   const budgets = [
     budgetHeader(localUserId),
@@ -343,8 +488,8 @@ function buildYoungProfessionalState(localUserId) {
   ];
 
   const savingsGoals = [
-    savingsGoal(localUserId, "laptop_upgrade", "Laptop Upgrade", 12500, 45000, 1),
-    savingsGoal(localUserId, "local_travel", "Local Travel Fund", 6000, 25000, 2),
+    savingsGoal(localUserId, "laptop_upgrade", "Laptop Upgrade", 8000, 45000, 1),
+    savingsGoal(localUserId, "local_travel", "Local Travel Fund", 4000, 25000, 2),
   ];
 
   const memories = [
@@ -378,11 +523,37 @@ function buildYoungProfessionalState(localUserId) {
     wallets,
     expenses,
     walletTransactions,
+    transfers,
     budgets,
     savingsGoals,
     emergencyFund: emergencyFund(localUserId, walletIds),
     memories,
+    ledgerCheck: {
+      income: 32000,
+      openingBalances: 11000,
+      expenses: expenses.reduce((sum, row) => sum + toMoney(row.amount), 0),
+      finalWalletBalance: wallets.reduce((sum, row) => sum + toMoney(row.balance), 0),
+      savingsWalletBalance: wallets.find((row) => row.id === walletIds.savings)?.balance || 0,
+      emergencyWalletBalance: wallets.find((row) => row.id === walletIds.emergency)?.balance || 0,
+    },
   };
+}
+
+function isCurrentStateRecord(record) {
+  return Boolean(record?.source === SOURCE || record?.setupFamily === FAMILY || record?.activeCurrentState === true);
+}
+
+async function clearExistingYoungProfessionalCurrentState(localUserId) {
+  await runLocalFinanceTransaction(STORES_TO_RESET, localUserId, async (tx) => {
+    for (const storeName of STORES_TO_RESET) {
+      const rows = await tx.getAllForUser(storeName, true);
+      for (const row of rows || []) {
+        if (isCurrentStateRecord(row)) {
+          tx.store(storeName).delete(row.id);
+        }
+      }
+    }
+  });
 }
 
 async function upsertRows(storeName, rows, localUserId) {
@@ -391,7 +562,7 @@ async function upsertRows(storeName, rows, localUserId) {
   }
 }
 
-function writeActiveState(localUserId) {
+function writeActiveState(localUserId, ledgerCheck) {
   if (typeof window === "undefined") return;
 
   const activeState = {
@@ -399,6 +570,7 @@ function writeActiveState(localUserId) {
     activeLifeStageKey: "Young Professional",
     activeLifeStageTitle: "Young Professional",
     localUserId,
+    ledgerCheck,
     activatedAt: nowIso(),
   };
 
@@ -434,8 +606,10 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
   const localUserId = await resolveLocalUserId(user);
   const state = buildYoungProfessionalState(localUserId);
 
+  await clearExistingYoungProfessionalCurrentState(localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.wallets, state.wallets, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.walletTransactions, state.walletTransactions, localUserId);
+  await upsertRows(LOCAL_FINANCE_STORES.transfers, state.transfers, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.expenses, state.expenses, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.budgets, state.budgets, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.savingsGoals, state.savingsGoals, localUserId);
@@ -443,7 +617,7 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
   await upsertRows(LOCAL_FINANCE_STORES.aiFinancialMemory, state.memories, localUserId);
 
   writeLifeStageProfile();
-  writeActiveState(localUserId);
+  writeActiveState(localUserId, state.ledgerCheck);
 
   const result = {
     mode: "current_state",
@@ -452,8 +626,11 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
     wallets: state.wallets.length,
     budgets: state.budgets.length,
     expenses: state.expenses.length,
+    transfers: state.transfers.length,
+    walletTransactions: state.walletTransactions.length,
     savingsGoals: state.savingsGoals.length,
     memories: state.memories.length,
+    ledgerCheck: state.ledgerCheck,
   };
 
   dispatchRefresh(result);
