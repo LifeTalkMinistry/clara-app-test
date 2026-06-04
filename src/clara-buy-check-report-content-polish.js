@@ -2,26 +2,34 @@ function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+/*
+  Buy Check card text capacity
+  Based on the current mobile card size, the safe readable target is around
+  380-430 total characters per card across body + bullets.
+
+  These are maximum limits, not required lengths. Short data stays short, but
+  CLARA can now use more of the card when helpful without creating oversized slides.
+*/
 const CARD_BODY_LIMITS = {
-  purchase: 150,
-  wallet: 155,
-  budget: 150,
-  goals: 145,
-  emergency: 145,
-  schedule: 155,
-  pattern: 150,
-  final: 160,
+  purchase: 210,
+  wallet: 205,
+  budget: 200,
+  goals: 200,
+  emergency: 200,
+  schedule: 210,
+  pattern: 205,
+  final: 220,
 };
 
 const CARD_BULLET_LIMITS = {
-  purchase: 115,
-  wallet: 115,
-  budget: 115,
-  goals: 115,
-  emergency: 115,
-  schedule: 115,
-  pattern: 125,
-  final: 120,
+  purchase: 135,
+  wallet: 135,
+  budget: 135,
+  goals: 135,
+  emergency: 135,
+  schedule: 135,
+  pattern: 145,
+  final: 145,
 };
 
 function clampText(value = "", limit = 150) {
@@ -47,12 +55,12 @@ function compactMemorySignal(value = "") {
     .slice(0, 2);
 
   const summary = bestPieces.length ? bestPieces.join(". ") : pieces.slice(0, 1).join(". ");
-  return clampText(summary || text, 125);
+  return clampText(summary || text, 170);
 }
 
 function limitCardData(kind = "", cardData = {}) {
-  const bodyLimit = CARD_BODY_LIMITS[kind] || 150;
-  const bulletLimit = CARD_BULLET_LIMITS[kind] || 115;
+  const bodyLimit = CARD_BODY_LIMITS[kind] || 205;
+  const bulletLimit = CARD_BULLET_LIMITS[kind] || 135;
 
   return {
     ...cardData,
@@ -139,93 +147,93 @@ function buildCardData(kind, context = {}) {
   switch (kind) {
     case "purchase":
       return {
-        body: `CLARA is checking ${purchase.item || "this item"} as a ${purchase.inferredCategory || "purchase"} purchase for ${money(price)}.`,
+        body: `CLARA is checking ${purchase.item || "this item"} as a ${purchase.inferredCategory || "purchase"} purchase for ${money(price)}. This first card confirms the item, price, and stated reason before judging if it fits the money plan.`,
         bullets: [
-          `Reason given: ${purchase.reason || "Not specified"}.`,
-          `The price being tested is ${money(price)}.`,
-          "Next cards check if this fits the user's money environment.",
+          `Reason given: ${purchase.reason || "Not specified"}. CLARA will treat the reason as context, not automatic permission to spend.`,
+          `The price being tested is ${money(price)}, and every next card compares that amount with a different protection area.`,
+          "The report checks wallet, budget, goals, emergency fund, schedule, and spending pattern before the final call.",
         ],
       };
     case "wallet":
       return {
-        body: `Spendable wallets show ${money(spendable)} available before this purchase and ${money(afterPurchase)} after it.`,
+        body: `Spendable wallets show ${money(spendable)} before this purchase and ${money(afterPurchase)} after it. This tells CLARA whether the item can be paid for without touching protected money.`,
         bullets: [
-          spendableWallets.length ? `Usable wallets: ${spendableWallets.slice(0, 2).map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(" + ")}.` : "No spendable wallet was loaded.",
-          protectedWallets.length ? `Protected wallets stay separate: ${protectedWallets.map((wallet) => wallet.name).join(", ")}.` : "No protected wallet was loaded.",
-          afterPurchase < 0 ? "This purchase is bigger than spendable money." : `Wallet safety after purchase: ${money(afterPurchase)}.`,
+          spendableWallets.length ? `Usable wallets: ${spendableWallets.slice(0, 2).map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(" + ")}.` : "No spendable wallet was loaded, so CLARA cannot fully confirm cash safety.",
+          protectedWallets.length ? `Protected wallets stay separate: ${protectedWallets.map((wallet) => wallet.name).join(", ")}.` : "No protected wallet was loaded, so CLARA keeps the decision cautious.",
+          afterPurchase < 0 ? "This purchase is bigger than spendable money, so the safer action is to wait or reduce it." : `Wallet safety after purchase: ${money(afterPurchase)} remains visible after the decision.`,
         ],
       };
     case "budget":
       return {
-        body: budget ? `${budget.title} has ${money(Math.max(0, remaining))} remaining before this purchase.` : `No exact ${purchase.inferredCategory || "category"} budget was found for this purchase.`,
+        body: budget ? `${budget.title} has ${money(Math.max(0, remaining))} remaining before this purchase. CLARA compares the price against the category plan, not only the wallet balance.` : `No exact ${purchase.inferredCategory || "category"} budget was found for this purchase, so CLARA treats the item as less controlled.`,
         bullets: budget
           ? [
-              `Purchase impact: ${percent(budgetUse)} of remaining budget room.`,
-              `Remaining after purchase: ${money(Math.max(0, remaining - price))}.`,
-              price > remaining ? "This would break the current category budget." : "This still fits the category budget.",
+              `Purchase impact: ${percent(budgetUse)} of remaining budget room, based on the current category balance.`,
+              `Remaining after purchase: ${money(Math.max(0, remaining - price))}. This shows the space left after saying yes.`,
+              price > remaining ? "This would break the current category budget and should be delayed or reduced." : "This still fits the category budget, but the final card still checks other risks.",
             ]
           : [
-              "CLARA treats missing budget coverage as a caution signal.",
-              "Create or assign a budget category before making this a habit.",
+              "Missing budget coverage is a caution signal because spending has no clear category boundary.",
+              "Create or assign a budget category before allowing this purchase to become a habit.",
             ],
       };
     case "goals":
       return {
-        body: goal ? `${goal.name} is currently at ${money(goal.savedAmount)} out of ${money(goal.targetAmount)}.` : "No savings goal was loaded for this purchase check.",
+        body: goal ? `${goal.name} is currently at ${money(goal.savedAmount)} out of ${money(goal.targetAmount)}. CLARA checks whether this purchase slows down progress toward that target.` : "No savings goal was loaded for this purchase check, so CLARA cannot measure direct goal impact.",
         bullets: goal
           ? [
-              "This purchase should not slow the goal unless it is necessary.",
+              "This purchase should not slow the goal unless it is necessary or clearly planned.",
               `Price compared with saved goal amount: ${money(price)} vs ${money(goal.savedAmount)}.`,
-              "Goal money should stay intentional, not accidental spending money.",
+              "Goal money should stay intentional, not accidental spending money pulled into a quick decision.",
             ]
           : [
-              "No active goal impact was available.",
-              "CLARA still checks wallet, budget, emergency, schedule, and pattern.",
+              "No active goal impact was available, so this card stays informational instead of approving the purchase.",
+              "CLARA still checks wallet, budget, emergency, schedule, and pattern before the final call.",
             ],
       };
     case "emergency":
       return {
-        body: emergency ? `Emergency fund is ${money(emergency.savedAmount)} out of ${money(emergency.targetAmount)}.` : "No emergency fund was loaded for this check.",
+        body: emergency ? `Emergency fund is ${money(emergency.savedAmount)} out of ${money(emergency.targetAmount)}. CLARA checks if the purchase could pressure protected safety money.` : "No emergency fund was loaded for this check, so CLARA avoids treating missing safety data as permission to spend.",
         bullets: emergency
           ? [
-              `Progress: ${emergency.targetAmount ? percent((toNumber(emergency.savedAmount) / toNumber(emergency.targetAmount)) * 100) : "Not available"}.`,
-              "This should stay protected from wants and non-urgent purchases.",
-              "If emergency money is needed for this item, the safer answer is to wait.",
+              `Progress: ${emergency.targetAmount ? percent((toNumber(emergency.savedAmount) / toNumber(emergency.targetAmount)) * 100) : "Not available"}. This shows how much safety is already built.`,
+              "Emergency money should stay protected from wants and non-urgent purchases.",
+              "If emergency money is needed for this item, the safer answer is to wait or choose a smaller option.",
             ]
           : [
-              "Emergency protection could not be verified.",
+              "Emergency protection could not be verified, so CLARA keeps the decision conservative.",
               "CLARA avoids using missing emergency data as permission to spend.",
             ],
       };
     case "schedule":
       return {
-        body: event ? `${event.title || "Upcoming event"}${event.date ? ` is scheduled on ${event.date}` : " is upcoming"}${eventAmount ? ` and may need ${money(eventAmount)}` : ""}.` : "No upcoming money-impact schedule was loaded for this check.",
+        body: event ? `${event.title || "Upcoming event"}${event.date ? ` is scheduled on ${event.date}` : " is upcoming"}${eventAmount ? ` and may need ${money(eventAmount)}` : ""}. Timing matters because future obligations reduce spending flexibility.` : "No upcoming money-impact schedule was loaded for this check, so CLARA relies more on wallet, budget, goals, emergency, and pattern.",
         bullets: event
           ? [
-              "Timing matters because upcoming events reduce flexibility.",
-              eventAmount ? `This event competes with the ${money(price)} purchase.` : "No exact event cost was loaded.",
-              "CLARA checks timing before giving the final decision.",
+              "Timing matters because upcoming events can make today's purchase feel affordable but risky later.",
+              eventAmount ? `This event competes with the ${money(price)} purchase and should be protected first.` : "No exact event cost was loaded, so CLARA checks timing but avoids guessing the amount.",
+              "CLARA checks timing before the final decision so the user does not spend only based on today's feeling.",
             ]
           : [
-              "No schedule pressure was found.",
+              "No schedule pressure was found, which lowers timing risk but does not automatically approve the purchase.",
               "Final decision will rely more on wallet, budget, goals, emergency, and pattern.",
             ],
       };
     case "pattern":
       return {
-        body: `CLARA found ${categoryExpenses.length} ${purchase.inferredCategory || "category"}-related purchase${categoryExpenses.length === 1 ? "" : "s"} this month totaling ${money(categorySpend)}.`,
+        body: `CLARA found ${categoryExpenses.length} ${purchase.inferredCategory || "category"}-related purchase${categoryExpenses.length === 1 ? "" : "s"} this month totaling ${money(categorySpend)}. This checks whether the item fits a pattern or a one-time need.`,
         bullets: [
           memorySignal,
-          context.mePageContext ? "The Me profile was available for this decision." : "No Me profile signal was available.",
-          categoryExpenses.length ? "Repeated category activity raises the risk of impulse spending." : "No repeated category pattern was found this month.",
+          context.mePageContext ? "The Me profile was available, so CLARA can compare the purchase with the user's stated behavior and priorities." : "No Me profile signal was available, so CLARA only uses transaction and money context here.",
+          categoryExpenses.length ? "Repeated category activity raises the risk of impulse spending and makes this purchase worth slowing down." : "No repeated category pattern was found this month, so this looks less repetitive.",
         ],
       };
     case "final":
       return {
-        body: `CLARA combined wallet, budget, goals, emergency, schedule, and pattern before giving this decision.`,
+        body: `CLARA combined wallet, budget, goals, emergency, schedule, and pattern before giving this decision. The final call should protect money stability, not just answer yes or no.`,
         bullets: [
-          budget ? `Budget room: ${money(Math.max(0, remaining))}.` : "Budget match was not available.",
-          `Spendable after purchase: ${money(afterPurchase)}.`,
+          budget ? `Budget room: ${money(Math.max(0, remaining))}. This is the strongest category boundary for the decision.` : "Budget match was not available, so the final answer should stay cautious.",
+          `Spendable after purchase: ${money(afterPurchase)}. This is the visible wallet result if the user proceeds.`,
           `Safer move: ${fallbackSaferMoveFromContext(context)}.`,
         ],
       };
