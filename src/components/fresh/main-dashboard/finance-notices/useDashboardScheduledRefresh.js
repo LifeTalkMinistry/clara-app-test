@@ -12,9 +12,12 @@ export default function useDashboardScheduledRefresh({
       clearTimeout(refreshTimeoutRef.current);
     }
 
-    refreshTimeoutRef.current = setTimeout(() => {
-      refreshFinancialData?.();
-      loadDashboardData({ background: true });
+    refreshTimeoutRef.current = setTimeout(async () => {
+      try {
+        await refreshFinancialData?.();
+      } finally {
+        await loadDashboardData({ background: true });
+      }
     }, delayMs);
   }, [delayMs, loadDashboardData, refreshFinancialData]);
 
