@@ -4,6 +4,7 @@ import {
   upsertLocalRecord,
 } from "./localFinanceStore";
 import { supabase } from "./supabaseClient";
+import { upsertIncomeSource } from "./incomeHubRepository";
 import { saveSelectedLifeStageProfile } from "@/life-stage-flow";
 
 const SOURCE = "clara_young_professional_current_state";
@@ -19,17 +20,26 @@ const STORES_TO_RESET = [
   LOCAL_FINANCE_STORES.savingsGoals,
   LOCAL_FINANCE_STORES.emergencyFund,
   LOCAL_FINANCE_STORES.aiFinancialMemory,
+  LOCAL_FINANCE_STORES.privatePreferences,
 ];
+
+const MONTHLY_SALARY = 32000;
+const FIRST_CUTOFF = 16000;
+const SECOND_CUTOFF = 16000;
+const OPENING_SAVINGS = 7000;
+const OPENING_EMERGENCY = 4000;
 
 function nowIso() {
   return new Date().toISOString();
 }
 
 function safeUserId(value) {
-  return String(value || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 80) || "local_user";
+  return (
+    String(value || "")
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .slice(0, 80) || "local_user"
+  );
 }
 
 function toMoney(value) {
@@ -151,7 +161,6 @@ function applyLedgerBalances(wallets, walletTransactions) {
 }
 
 function budgetHeader(localUserId) {
-  const amount = 32000;
   const month = currentMonthKey();
 
   return {
@@ -168,11 +177,11 @@ function budgetHeader(localUserId) {
     is_complete: true,
     complete: true,
     plan_is_complete: true,
-    declared_amount: amount,
-    declared_budget: amount,
-    monthly_budget_amount: amount,
-    total_declared_budget: amount,
-    amount,
+    declared_amount: MONTHLY_SALARY,
+    declared_budget: MONTHLY_SALARY,
+    monthly_budget_amount: MONTHLY_SALARY,
+    total_declared_budget: MONTHLY_SALARY,
+    amount: MONTHLY_SALARY,
     month,
     budget_month: month,
     month_key: month,
@@ -214,10 +223,11 @@ function budget(localUserId, key, title, amount, needType = "need", order = 1) {
 
 function walletTransaction(localUserId, key, walletId, amount, type, title, options = {}) {
   const date = options.date || monthDate(1);
+  const timestamp = at(date, options.hour || 12);
   const numericAmount = toMoney(amount);
 
   return {
-    ...base(localUserId, "wallet_txn", key, at(date, options.hour || 12)),
+    ...base(localUserId, "wallet_txn", key, timestamp),
     wallet_id: walletId,
     walletId,
     amount: numericAmount,
@@ -225,10 +235,15 @@ function walletTransaction(localUserId, key, walletId, amount, type, title, opti
     category: options.category || title,
     source_type: options.sourceType || type,
     sourceType: options.sourceType || type,
+    income_source_id: options.incomeSourceId || null,
+    incomeSourceId: options.incomeSourceId || null,
+    income_source_name: options.incomeSourceName || null,
+    incomeSourceName: options.incomeSourceName || null,
+    funding_source: options.fundingSource || options.incomeSourceName || null,
     title,
     notes: options.notes || title,
-    created_at: at(date, options.hour || 12),
-    date: at(date, options.hour || 12),
+    created_at: timestamp,
+    date: timestamp,
     details: options.details || null,
   };
 }
@@ -239,16 +254,17 @@ function transfer(localUserId, key, walletIds, fromKey, toKey, amount, title, op
   const fromWalletId = walletIds[fromKey];
   const toWalletId = walletIds[toKey];
   const numericAmount = toMoney(amount);
+  const timestamp = at(date, options.hour || 14);
 
   const transferRecord = {
-    ...base(localUserId, "transfer", key, at(date, options.hour || 14)),
+    ...base(localUserId, "transfer", key, timestamp),
     transfer_group_id: transferGroupId,
     from_wallet_id: fromWalletId,
     to_wallet_id: toWalletId,
     amount: numericAmount,
     title,
     notes: title,
-    created_at: at(date, options.hour || 14),
+    created_at: timestamp,
   };
 
   const transactions = [
@@ -353,11 +369,11 @@ function emergencyFund(localUserId, walletIds) {
     ...base(localUserId, "emergency_fund", "primary", at(monthDate(1), 9)),
     target_amount: 50000,
     targetAmount: 50000,
-    saved_amount: 7000,
-    savedAmount: 7000,
-    saved: 7000,
-    current_amount: 7000,
-    amount: 7000,
+    saved_amount: OPENING_EMERGENCY + 3000,
+    savedAmount: OPENING_EMERGENCY + 3000,
+    saved: OPENING_EMERGENCY + 3000,
+    current_amount: OPENING_EMERGENCY + 3000,
+    amount: OPENING_EMERGENCY + 3000,
     monthly_target: 3000,
     monthlyTarget: 3000,
     monthly_survival_expense: 18000,
@@ -383,6 +399,47 @@ function memory(localUserId, key, category, summary, spendingImpact, supportStyl
   };
 }
 
+function incomeSource(localUserId) {
+  const incomeSourceId = makeId(localUserId, "income_source", "primary_salary");
+
+  return {
+    id: incomeSourceId,
+    kind: "income_source",
+    recordType: "income_source",
+    localUserId,
+    name: "Primary Salary",
+    title: "Primary Salary",
+    category: "Salary",
+    stability: "Stable",
+    expectedMonthlyAmount: MONTHLY_SALARY,
+    expected_monthly_amount: MONTHLY_SALARY,
+    totalMoneyIn: MONTHLY_SALARY,
+    total_money_in: MONTHLY_SALARY,
+    totalMoneyOut: MONTHLY_SALARY,
+    total_money_out: MONTHLY_SALARY,
+    currentBalance: 0,
+    current_balance: 0,
+    linkedWalletId: makeId(localUserId, "wallet", "primary"),
+    linked_wallet_id: makeId(localUserId, "wallet", "primary"),
+    linkedWalletName: "Payroll Wallet",
+    linked_wallet_name: "Payroll Wallet",
+    notes: "Two payroll cutoffs: ₱16,000 on the 10th and ₱16,000 on the 25th. This source funds the Payroll Wallet first, then allocations move to daily spending, savings, and emergency reserve.",
+    lastActivityAt: at(monthDate(25), 9),
+    last_activity_at: at(monthDate(25), 9),
+    source: SOURCE,
+    setupFamily: FAMILY,
+    activeCurrentState: true,
+    lifeStage: "Young Professional",
+    createdAt: at(monthDate(1), 8),
+    created_at: at(monthDate(1), 8),
+    updatedAt: nowIso(),
+    updated_at: nowIso(),
+    deletedAt: null,
+    deleted_at: null,
+    syncStatus: "local_only",
+  };
+}
+
 function buildYoungProfessionalState(localUserId) {
   const rawWallets = [
     wallet(localUserId, "primary", "Payroll Wallet", "bank", 1),
@@ -398,15 +455,17 @@ function buildYoungProfessionalState(localUserId) {
     emergency: makeId(localUserId, "wallet", "emergency"),
   };
 
+  const salarySource = incomeSource(localUserId);
+
   const openingTransactions = [
-    walletTransaction(localUserId, "opening_savings_carryover", walletIds.savings, 7000, "opening_balance", "Savings carried over", {
+    walletTransaction(localUserId, "opening_savings_carryover", walletIds.savings, OPENING_SAVINGS, "opening_balance", "Savings carried over", {
       date: monthDate(1),
       hour: 8,
       category: "Opening Balance",
       sourceType: "opening_balance",
       notes: "Existing savings before this month started",
     }),
-    walletTransaction(localUserId, "opening_emergency_carryover", walletIds.emergency, 4000, "opening_balance", "Emergency fund carried over", {
+    walletTransaction(localUserId, "opening_emergency_carryover", walletIds.emergency, OPENING_EMERGENCY, "opening_balance", "Emergency fund carried over", {
       date: monthDate(1),
       hour: 8,
       category: "Opening Balance",
@@ -416,19 +475,25 @@ function buildYoungProfessionalState(localUserId) {
   ];
 
   const incomeTransactions = [
-    walletTransaction(localUserId, "salary_first_cutoff", walletIds.primary, 16000, "income", "Salary - first cutoff", {
+    walletTransaction(localUserId, "salary_first_cutoff", walletIds.primary, FIRST_CUTOFF, "income", "Salary - first cutoff", {
       date: monthDate(10),
       hour: 9,
       category: "Income",
       sourceType: "salary",
-      notes: "Declared income source: first payroll cutoff",
+      incomeSourceId: salarySource.id,
+      incomeSourceName: salarySource.name,
+      fundingSource: "Income Hub: Primary Salary",
+      notes: "Declared income source: Primary Salary, first payroll cutoff",
     }),
-    walletTransaction(localUserId, "salary_second_cutoff", walletIds.primary, 16000, "income", "Salary - second cutoff", {
+    walletTransaction(localUserId, "salary_second_cutoff", walletIds.primary, SECOND_CUTOFF, "income", "Salary - second cutoff", {
       date: monthDate(25),
       hour: 9,
       category: "Income",
       sourceType: "salary",
-      notes: "Declared income source: second payroll cutoff",
+      incomeSourceId: salarySource.id,
+      incomeSourceName: salarySource.name,
+      fundingSource: "Income Hub: Primary Salary",
+      notes: "Declared income source: Primary Salary, second payroll cutoff",
     }),
   ];
 
@@ -519,7 +584,11 @@ function buildYoungProfessionalState(localUserId) {
     ),
   ];
 
+  const expenseTotal = expenses.reduce((sum, row) => sum + toMoney(row.amount), 0);
+  const finalWalletBalance = wallets.reduce((sum, row) => sum + toMoney(row.balance), 0);
+
   return {
+    incomeSources: [salarySource],
     wallets,
     expenses,
     walletTransactions,
@@ -529,12 +598,16 @@ function buildYoungProfessionalState(localUserId) {
     emergencyFund: emergencyFund(localUserId, walletIds),
     memories,
     ledgerCheck: {
-      income: 32000,
-      openingBalances: 11000,
-      expenses: expenses.reduce((sum, row) => sum + toMoney(row.amount), 0),
-      finalWalletBalance: wallets.reduce((sum, row) => sum + toMoney(row.balance), 0),
+      income: MONTHLY_SALARY,
+      openingBalances: OPENING_SAVINGS + OPENING_EMERGENCY,
+      expenses: expenseTotal,
+      finalWalletBalance,
+      expectedFinalWalletBalance: MONTHLY_SALARY + OPENING_SAVINGS + OPENING_EMERGENCY - expenseTotal,
       savingsWalletBalance: wallets.find((row) => row.id === walletIds.savings)?.balance || 0,
       emergencyWalletBalance: wallets.find((row) => row.id === walletIds.emergency)?.balance || 0,
+      incomeSourceMoneyIn: salarySource.totalMoneyIn,
+      incomeSourceMoneyOut: salarySource.totalMoneyOut,
+      incomeSourceCurrentBalance: salarySource.currentBalance,
     },
   };
 }
@@ -559,6 +632,12 @@ async function clearExistingYoungProfessionalCurrentState(localUserId) {
 async function upsertRows(storeName, rows, localUserId) {
   for (const row of rows) {
     await upsertLocalRecord(storeName, row, localUserId);
+  }
+}
+
+async function upsertIncomeSources(rows, localUserId) {
+  for (const row of rows) {
+    await upsertIncomeSource(localUserId, row);
   }
 }
 
@@ -596,6 +675,7 @@ function dispatchRefresh(result) {
   if (typeof window === "undefined") return;
 
   window.dispatchEvent(new CustomEvent("clara-young-professional-current-state-loaded", { detail: result }));
+  window.dispatchEvent(new Event("clara-income-hub-updated"));
   window.dispatchEvent(new Event("clara-finance-updated"));
   window.dispatchEvent(new Event("clara-wallets-updated"));
   window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
@@ -607,6 +687,7 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
   const state = buildYoungProfessionalState(localUserId);
 
   await clearExistingYoungProfessionalCurrentState(localUserId);
+  await upsertIncomeSources(state.incomeSources, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.wallets, state.wallets, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.walletTransactions, state.walletTransactions, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.transfers, state.transfers, localUserId);
@@ -623,6 +704,7 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
     mode: "current_state",
     lifeStage: "Young Professional",
     localUserId,
+    incomeSources: state.incomeSources.length,
     wallets: state.wallets.length,
     budgets: state.budgets.length,
     expenses: state.expenses.length,
