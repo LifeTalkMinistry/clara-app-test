@@ -168,6 +168,7 @@ function buildContext(state, effective) {
       savingsGoals: effective.savingsGoals || [],
       emergencyFund: effective.emergencyFund || null,
       recentExpenses: monthExpenses.slice(-30),
+      categoryExpenses,
     },
     scheduleContext: effective.scheduleContext || [],
     mePageContext: effective.meProfileContext || null,
@@ -215,6 +216,61 @@ function goodReply(reply = "") {
   return text.length >= 40 && /Decision:\s*(BUY WITH CAP|BUY|REDUCE|WAIT|PAUSE)/i.test(text) && /Risk:\s*(Low|Medium|High)/i.test(text) && !/BUY WITH CAPWhy|Decision:\s*[^\n]+Why:/i.test(text);
 }
 
+function getScheduleEvents(context) {
+  const raw = context.scheduleContext;
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  return [
+    ...(Array.isArray(raw?.upcomingEvents) ? raw.upcomingEvents : []),
+    ...(Array.isArray(raw?.moneyImpactEvents) ? raw.moneyImpactEvents : []),
+  ].filter(Boolean);
+}
+
+function getMoneyImpactEvent(context) {
+  const events = getScheduleEvents(context);
+  return events.find((event) => toNumber(event.amount || event.cost || event.estimatedImpact) > 0 || /bill|due|rent|dinner|health|appointment|social|payment/i.test(`${event.type || ""} ${event.title || ""} ${event.note || ""}`)) || events[0] || null;
+}
+
+function scheduleText(context) {
+  const event = getMoneyImpactEvent(context);
+  if (!event) return "No upcoming money-impact schedule was loaded for this check.";
+  const amount = toNumber(event.amount || event.cost || event.estimatedImpact);
+  const timing = clean([event.date, event.time].filter(Boolean).join(" • "));
+  return `${event.title || "Upcoming event"}${timing ? ` is scheduled on ${timing}` : " is upcoming"}${amount ? ` and may require ${money(amount)}` : ""}. This can make the timing tighter for a ${money(context.purchaseSummary.price)} purchase.`;
+}
+
+function scheduleStat(context) {
+  const event = getMoneyImpactEvent(context);
+  if (!event) return "No schedule";
+  const amount = toNumber(event.amount || event.cost || event.estimatedImpact);
+  return amount ? money(amount) : "Upcoming";
+}
+
+function flattenMemory(context) {
+  const memory = context.fullMemoryContext || {};
+  const cabinets = Array.isArray(memory.memoryCabinets) ? memory.memoryCabinets : [];
+  const cabinetRecords = cabinets.flatMap((cabinet) => (Array.isArray(cabinet.records) ? cabinet.records : []).map((record) => ({ ...record, cabinet: cabinet.cabinet })));
+  const profileNotes = Array.isArray(memory.profileMemoryNotes) ? memory.profileMemoryNotes : [];
+  return [...cabinetRecords, ...profileNotes].filter(Boolean);
+}
+
+function strongestMemorySignal(context) {
+  const records = flattenMemory(context);
+  const preferred = records.find((record) => /payday|impulse|shopping|food|trigger|spending|discipline|emergency|goal/i.test(`${record.summary || ""} ${(record.signals || []).join(" ")}`));
+  const record = preferred || records[0];
+  if (!record) return "No strong memory pattern was loaded for this check.";
+  return clean(record.summary || (Array.isArray(record.signals) ? record.signals.join(" ") : "")) || "A memory signal was loaded, but it has no readable summary yet.";
+}
+
+function patternText(context) {
+  const category = normalizeCategory(context.purchaseSummary.inferredCategory);
+  const categoryExpenses = context.financeContext.categoryExpenses || [];
+  const monthSpend = categoryExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+  const similarCount = categoryExpenses.length;
+  const memorySignal = strongestMemorySignal(context);
+  const profileHint = context.mePageContext ? " The Me profile was also available for this decision." : "";
+  return `CLARA found ${similarCount} ${category || "category"}-related purchase${similarCount === 1 ? "" : "s"} this month totaling ${money(monthSpend)}. Memory signal: ${memorySignal}${profileHint}`;
+}
+
 function buildFinalSummary(context, decision) {
   const price = Number(context.purchaseSummary.price || 0);
   const budget = context.financeContext.matchingBudget;
@@ -223,17 +279,21 @@ function buildFinalSummary(context, decision) {
   const afterPurchase = spendable - price;
   const emergency = context.financeContext.emergencyFund;
   const goal = context.financeContext.savingsGoals?.[0];
+  const event = getMoneyImpactEvent(context);
+  const memorySignal = strongestMemorySignal(context);
+  const timingLine = event ? ` Timing also matters because ${event.title || "an upcoming event"} is on the schedule.` : " No money-impact schedule was loaded.";
+  const patternLine = memorySignal && !memorySignal.startsWith("No strong") ? ` Pattern check found: ${memorySignal}` : " No strong pattern/memory signal was loaded.";
   const protection = [];
   if (goal) protection.push(`${goal.name} is ${money(goal.savedAmount)} / ${money(goal.targetAmount)}`);
   if (emergency) protection.push(`emergency fund is ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)}`);
 
   if (budget && price > remaining) {
-    return `This ${money(price)} purchase is not safe right now because your ${budget.title} budget only has ${money(Math.max(0, remaining))} left. It would exceed the budget, leave your spendable wallet safety at ${money(afterPurchase)}, and ${protection.length ? `${protection.join(" while ")} should stay protected.` : "protected money should not be used for this."}`;
+    return `This ${money(price)} purchase is not safe right now because your ${budget.title} budget only has ${money(Math.max(0, remaining))} left. It would exceed the budget, leave your spendable wallet safety at ${money(afterPurchase)}, and ${protection.length ? `${protection.join(" while ")} should stay protected.` : "protected money should not be used for this."}${timingLine}${patternLine}`;
   }
   if (budget) {
-    return `This ${money(price)} purchase fits inside your ${budget.title} budget with ${money(Math.max(0, remaining))} currently left, but it would reduce your spendable wallet total from ${money(spendable)} to ${money(afterPurchase)}. ${protection.length ? `${protection.join(" and ")} should stay protected.` : "Keep goals and emergency money protected."}`;
+    return `This ${money(price)} purchase fits inside your ${budget.title} budget with ${money(Math.max(0, remaining))} currently left, but it would reduce your spendable wallet total from ${money(spendable)} to ${money(afterPurchase)}. ${protection.length ? `${protection.join(" and ")} should stay protected.` : "Keep goals and emergency money protected."}${timingLine}${patternLine}`;
   }
-  return `This ${money(price)} purchase needs caution because CLARA did not find an exact budget for ${context.purchaseSummary.inferredCategory}. Your spendable wallet total is ${money(spendable)}, and ${protection.length ? `${protection.join(" and ")} should stay protected.` : "protected money should not be used for this."}`;
+  return `This ${money(price)} purchase needs caution because CLARA did not find an exact budget for ${context.purchaseSummary.inferredCategory}. Your spendable wallet total is ${money(spendable)}, and ${protection.length ? `${protection.join(" and ")} should stay protected.` : "protected money should not be used for this."}${timingLine}${patternLine}`;
 }
 
 function fallbackSaferMove(context, decision, risk) {
@@ -261,51 +321,17 @@ function buildEvidenceCards(context, decision, risk, saferMove) {
     : "No protected wallet loaded.";
   const budgetPercent = budget && remaining > 0 ? Math.round((price / remaining) * 100) : 0;
   const emergencyPercent = emergency?.targetAmount ? Math.round((toNumber(emergency.savedAmount) / toNumber(emergency.targetAmount)) * 100) : 0;
+  const categorySpend = (context.financeContext.categoryExpenses || []).reduce((sum, expense) => sum + toNumber(expense.amount), 0);
 
   return [
-    {
-      eyebrow: "01 / PURCHASE",
-      title: context.purchaseSummary.item,
-      body: `Price: ${money(price)}. Reason: ${context.purchaseSummary.reason}. CLARA categorized it as ${context.purchaseSummary.inferredCategory}.`,
-      stat: money(price),
-      note: "This is the small picture: what the user wants to buy.",
-    },
-    {
-      eyebrow: "02 / WALLET",
-      title: "Spendable money",
-      body: `${walletLine}. Spendable total is ${money(spendable)}. After purchase, spendable money would be ${money(spendable - price)}. ${protectedLine}`,
-      stat: money(spendable),
-      note: "Wallet answers: can the user physically afford it?",
-    },
-    {
-      eyebrow: "03 / BUDGET",
-      title: budget ? `${budget.title} budget` : "Budget check",
-      body: budget ? `Budget room is ${money(Math.max(0, remaining))}. This purchase uses ${budgetPercent}% of remaining room and would leave ${money(Math.max(0, remaining - price))}.` : `No exact ${context.purchaseSummary.inferredCategory} budget was found, so CLARA treats this with caution.`,
-      stat: budget ? money(Math.max(0, remaining)) : "No match",
-      note: "Budget answers: does it fit the category plan?",
-    },
-    {
-      eyebrow: "04 / GOALS",
-      title: goal ? goal.name : "Savings goals",
-      body: goal ? `${goal.name} currently has ${money(goal.savedAmount)} saved toward ${money(goal.targetAmount)}. This purchase should not slow the goal unless it is truly necessary.` : "No savings goal was loaded for this check.",
-      stat: goal ? `${money(goal?.savedAmount || 0)}` : "None",
-      note: "Goals answer: will this delay progress?",
-    },
-    {
-      eyebrow: "05 / EMERGENCY",
-      title: "Emergency fund",
-      body: emergency ? `Emergency fund is ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)}${emergencyPercent ? ` (${emergencyPercent}%)` : ""}. This money should stay protected from wants or non-urgent purchases.` : "No emergency fund was loaded for this check.",
-      stat: emergency ? money(emergency.savedAmount) : "None",
-      note: "Emergency answers: is protected money threatened?",
-    },
-    {
-      eyebrow: "06 / FINAL SUMMARY",
-      title: decision,
-      body: buildFinalSummary(context, decision),
-      stat: `Risk: ${risk}`,
-      note: `Safer move: ${saferMove}`,
-      final: true,
-    },
+    { eyebrow: "01 / PURCHASE", title: context.purchaseSummary.item, body: `Price: ${money(price)}. Reason: ${context.purchaseSummary.reason}. CLARA categorized it as ${context.purchaseSummary.inferredCategory}.`, stat: money(price), note: "This is the small picture: what the user wants to buy." },
+    { eyebrow: "02 / WALLET", title: "Spendable money", body: `${walletLine}. Spendable total is ${money(spendable)}. After purchase, spendable money would be ${money(spendable - price)}. ${protectedLine}`, stat: money(spendable), note: "Wallet answers: can the user physically afford it?" },
+    { eyebrow: "03 / BUDGET", title: budget ? `${budget.title} budget` : "Budget check", body: budget ? `Budget room is ${money(Math.max(0, remaining))}. This purchase uses ${budgetPercent}% of remaining room and would leave ${money(Math.max(0, remaining - price))}.` : `No exact ${context.purchaseSummary.inferredCategory} budget was found, so CLARA treats this with caution.`, stat: budget ? money(Math.max(0, remaining)) : "No match", note: "Budget answers: does it fit the category plan?" },
+    { eyebrow: "04 / GOALS", title: goal ? goal.name : "Savings goals", body: goal ? `${goal.name} currently has ${money(goal.savedAmount)} saved toward ${money(goal.targetAmount)}. This purchase should not slow the goal unless it is truly necessary.` : "No savings goal was loaded for this check.", stat: goal ? `${money(goal?.savedAmount || 0)}` : "None", note: "Goals answer: will this delay progress?" },
+    { eyebrow: "05 / EMERGENCY", title: "Emergency fund", body: emergency ? `Emergency fund is ${money(emergency.savedAmount)} / ${money(emergency.targetAmount)}${emergencyPercent ? ` (${emergencyPercent}%)` : ""}. This money should stay protected from wants or non-urgent purchases.` : "No emergency fund was loaded for this check.", stat: emergency ? money(emergency.savedAmount) : "None", note: "Emergency answers: is protected money threatened?" },
+    { eyebrow: "06 / SCHEDULE", title: "Timing check", body: scheduleText(context), stat: scheduleStat(context), note: "Schedule answers: is this the right time to spend?" },
+    { eyebrow: "07 / PATTERN", title: "Pattern & memory", body: patternText(context), stat: `${(context.financeContext.categoryExpenses || []).length} hit${(context.financeContext.categoryExpenses || []).length === 1 ? "" : "s"} • ${money(categorySpend)}`, note: "Pattern answers: does this match the user’s behavior and identity?" },
+    { eyebrow: "08 / FINAL SUMMARY", title: decision, body: buildFinalSummary(context, decision), stat: `Risk: ${risk}`, note: `Safer move: ${saferMove}`, final: true },
   ];
 }
 
@@ -342,7 +368,7 @@ function renderReport(report) {
         <div class="mt-1 flex justify-center gap-1.5">
           ${Array.from({ length: cardCount }).map((_, index) => `<span class="h-1.5 w-${index === 0 ? "5" : "1.5"} rounded-full bg-cyan-100/${index === 0 ? "70" : "25"}"></span>`).join("")}
         </div>
-        <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Phase 2: wallet, budget, goals, emergency, then final summary. Schedule and memory come next.</p>
+        <p class="mx-auto mt-4 max-w-[286px] text-[11.5px] font-bold leading-5 text-slate-300/62">Phase 3: purchase, wallet, budget, goals, emergency, schedule, pattern, then final summary.</p>
         <div class="mt-5 flex flex-wrap justify-center gap-2"><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-again="true">Check another</button><button type="button" class="clara-buy-check-static-button" data-clara-buy-check-close-board="true">Done</button></div>
       </section>
     </div>`;
@@ -363,7 +389,7 @@ function errorReport() {
 
 async function runDiagnosis(state) {
   state.busy = true;
-  appendBubble("clara", "Got it. I’m checking your wallet, budget, goals, and emergency fund now...");
+  appendBubble("clara", "Got it. I’m checking wallet, budget, goals, emergency, schedule, and memory now...");
   try {
     const user = await getUser();
     const localUserId = clean(user?.id || user?.email || FALLBACK_USER_ID) || FALLBACK_USER_ID;
@@ -381,7 +407,7 @@ async function runDiagnosis(state) {
     let reply = "";
     if (hasGeminiConfig()) {
       try {
-        reply = await generateClaraGeminiReply({ message: prompt, context, mode: "buy_check_phase_two_carousel", conversationHistory: messages });
+        reply = await generateClaraGeminiReply({ message: prompt, context, mode: "buy_check_phase_three_carousel", conversationHistory: messages });
       } catch (error) {
         console.warn("[CLARA Buy Check Report] Gemini failed; deterministic report used.", error);
       }
