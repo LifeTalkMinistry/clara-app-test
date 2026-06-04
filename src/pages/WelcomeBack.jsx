@@ -167,18 +167,21 @@ export default function WelcomeBack() {
                 </div>
               </div>
 
-              <div className="relative mt-4 overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.04] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(132,204,22,0.12),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(45,212,191,0.1),transparent_46%)]" />
+              <div className="relative mt-4 overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.14),transparent_46%)]" />
+                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/35 to-transparent" />
                 <div className="relative">
                   <p className="text-sm font-semibold text-white">{currentSlide.supportTitle}</p>
-                  <p className="mt-1.5 text-[13px] leading-6 text-white/56">
+                  <p className="mt-1.5 text-sm leading-6 text-white/58">
                     {currentSlide.support}
                   </p>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
                     {currentSlide.supportPoints.map((point) => (
-                      <div key={point} className="flex items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-2 text-[10.5px] font-medium text-white/62">
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300/75" />
+                      <div key={point} className="flex items-center gap-2 text-[11px] font-semibold text-white/62">
+                        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-300/10">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-300/80" />
+                        </span>
                         <span>{point}</span>
                       </div>
                     ))}
@@ -186,8 +189,9 @@ export default function WelcomeBack() {
                 </div>
               </div>
 
-              <div className="relative mt-auto overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_44%)]" />
+              <div className="relative mt-3 overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.14),transparent_46%)]" />
+                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/35 to-transparent" />
                 <div className="relative">
                   <p className="text-sm font-semibold text-white">{currentSlide.noteTitle}</p>
                   <p className="mt-1.5 text-sm leading-6 text-white/58">
