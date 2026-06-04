@@ -8,7 +8,7 @@ function clean(value = "") {
   380-430 total characters per card across body + bullets.
 
   These are maximum limits, not required lengths. Short data stays short, but
-  CLARA can now use more of the card when helpful without creating oversized slides.
+  Clara can now use more of the card when helpful without creating oversized slides.
 */
 const CARD_BODY_LIMITS = {
   purchase: 210,
@@ -106,7 +106,7 @@ function sanitizeMemorySignal(value = "") {
     .replace(/\bmemory\.?\s*paydayBehavior\s*(is missing)?\.?/gi, "")
     .replace(/\bpaydayBehavior\b/gi, "payday spending pattern");
 
-  if (!text || text.length < 8) return "No strong spending pattern was loaded for this check.";
+  if (!text || text.length < 8) return "I did not find a strong spending pattern for this check.";
   return compactMemorySignal(text);
 }
 
@@ -127,12 +127,12 @@ function getMoneyImpactEvent(context = {}) {
 
 function purchaseFeelingText(reason = "") {
   const text = clean(reason).toLowerCase();
-  if (!text) return "I hear you. You are interested in this item, so CLARA will check it fairly before giving a yes or no.";
-  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${reason}. That feeling is valid, but CLARA still needs to protect your money plan.`;
-  if (/health|medical|fitness|wellness|comfort|pain|need/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${reason}. CLARA will check if the timing and cost are healthy too.`;
-  if (/work|job|school|study|business|career/i.test(text)) return `I hear that this may feel practical: ${reason}. CLARA will check if it supports you without hurting the plan.`;
-  if (/want|like|nice|cool|style|fashion/i.test(text)) return `I hear the want behind this: ${reason}. Wanting it is okay, but CLARA will check if now is the right time.`;
-  return `I hear your reason: ${reason}. CLARA will respect that reason, then compare it with your real money context.`;
+  if (!text) return "I hear you. You are interested in this, so I’ll check it fairly before saying yes or no.";
+  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${reason}. That feeling is valid, but I still need to protect your money plan.`;
+  if (/health|medical|fitness|wellness|comfort|pain|need/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${reason}. I’ll check if the timing and cost are healthy too.`;
+  if (/work|job|school|study|business|career/i.test(text)) return `I hear that this may feel practical: ${reason}. I’ll check if it supports you without hurting the plan.`;
+  if (/want|like|nice|cool|style|fashion/i.test(text)) return `I hear the want behind this: ${reason}. Wanting it is okay, but I’ll check if now is the right time.`;
+  return `I hear your reason: ${reason}. I’ll respect that, then compare it with your real money context.`;
 }
 
 function buildCardData(kind, context = {}) {
@@ -159,92 +159,92 @@ function buildCardData(kind, context = {}) {
       return {
         body: `You want to buy ${purchase.item || "this item"} for ${money(price)}. ${purchaseFeelingText(purchase.reason)}`,
         bullets: [
-          `CLARA reads this as a ${purchase.inferredCategory || "purchase"} purchase, so the decision should not be based on emotion alone.`,
-          `The price being tested is ${money(price)}, then CLARA compares it with wallet, budget, goals, emergency, schedule, and pattern.`,
-          "This first card is acknowledgment first; the next cards are the actual money proof.",
+          `I’m reading this as a ${purchase.inferredCategory || "purchase"} purchase, so I won’t judge it by emotion alone.`,
+          `I’ll test ${money(price)} against your wallet, budget, goals, emergency fund, schedule, and pattern.`,
+          "This card is me acknowledging you first. The next cards are where I show the money proof.",
         ],
       };
     case "wallet":
       return {
-        body: `Spendable wallets show ${money(spendable)} before this purchase and ${money(afterPurchase)} after it. This tells CLARA whether the item can be paid for without touching protected money.`,
+        body: `I can see ${money(spendable)} in spendable wallets before this purchase. After buying, you would have ${money(afterPurchase)} left in visible spendable money.`,
         bullets: [
-          spendableWallets.length ? `Usable wallets: ${spendableWallets.slice(0, 2).map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(" + ")}.` : "No spendable wallet was loaded, so CLARA cannot fully confirm cash safety.",
-          protectedWallets.length ? `Protected wallets stay separate: ${protectedWallets.map((wallet) => wallet.name).join(", ")}.` : "No protected wallet was loaded, so CLARA keeps the decision cautious.",
-          afterPurchase < 0 ? "This purchase is bigger than spendable money, so the safer action is to wait or reduce it." : `Wallet safety after purchase: ${money(afterPurchase)} remains visible after the decision.`,
+          spendableWallets.length ? `Your usable wallets include ${spendableWallets.slice(0, 2).map((wallet) => `${wallet.name} ${money(wallet.balance)}`).join(" + ")}.` : "I could not confirm a spendable wallet, so I need to stay cautious.",
+          protectedWallets.length ? `I’m keeping these protected: ${protectedWallets.map((wallet) => wallet.name).join(", ")}.` : "I do not see a protected wallet signal here, so I won’t assume extra safety.",
+          afterPurchase < 0 ? "This is bigger than your spendable money, so my safer move is to wait or reduce it." : `Your wallet safety after this would be ${money(afterPurchase)}.`,
         ],
       };
     case "budget":
       return {
-        body: budget ? `${budget.title} has ${money(Math.max(0, remaining))} remaining before this purchase. CLARA compares the price against the category plan, not only the wallet balance.` : `No exact ${purchase.inferredCategory || "category"} budget was found for this purchase, so CLARA treats the item as less controlled.`,
+        body: budget ? `Your ${budget.title} budget has ${money(Math.max(0, remaining))} left before this purchase. I’m checking the category plan, not just whether cash exists.` : `I did not find an exact ${purchase.inferredCategory || "category"} budget for this, so I need to treat it as less controlled.`,
         bullets: budget
           ? [
-              `Purchase impact: ${percent(budgetUse)} of remaining budget room, based on the current category balance.`,
-              `Remaining after purchase: ${money(Math.max(0, remaining - price))}. This shows the space left after saying yes.`,
-              price > remaining ? "This would break the current category budget and should be delayed or reduced." : "This still fits the category budget, but the final card still checks other risks.",
+              `This would use ${percent(budgetUse)} of your remaining budget room in this category.`,
+              `After buying, that category would have ${money(Math.max(0, remaining - price))} left.`,
+              price > remaining ? "This would break your current category budget, so I’d delay or reduce it." : "This fits the category budget, but I still need to check the other risks.",
             ]
           : [
-              "Missing budget coverage is a caution signal because spending has no clear category boundary.",
-              "Create or assign a budget category before allowing this purchase to become a habit.",
+              "Without a matching budget, I cannot clearly see the boundary for this spending.",
+              "I’d rather you assign a category before this becomes a repeated habit.",
             ],
       };
     case "goals":
       return {
-        body: goal ? `${goal.name} is currently at ${money(goal.savedAmount)} out of ${money(goal.targetAmount)}. CLARA checks whether this purchase slows down progress toward that target.` : "No savings goal was loaded for this purchase check, so CLARA cannot measure direct goal impact.",
+        body: goal ? `Your goal, ${goal.name}, is at ${money(goal.savedAmount)} out of ${money(goal.targetAmount)}. I’m checking if this purchase could slow that progress.` : "I did not find a savings goal for this check, so I cannot measure direct goal impact.",
         bullets: goal
           ? [
-              "This purchase should not slow the goal unless it is necessary or clearly planned.",
-              `Price compared with saved goal amount: ${money(price)} vs ${money(goal.savedAmount)}.`,
-              "Goal money should stay intentional, not accidental spending money pulled into a quick decision.",
+              "I don’t want this purchase to slow your goal unless it is necessary or clearly planned.",
+              `The price is ${money(price)} compared with ${money(goal.savedAmount)} already saved.`,
+              "Your goal money should stay intentional, not become accidental spending money.",
             ]
           : [
-              "No active goal impact was available, so this card stays informational instead of approving the purchase.",
-              "CLARA still checks wallet, budget, emergency, schedule, and pattern before the final call.",
+              "Since no active goal was loaded, I’ll rely more on wallet, budget, emergency, schedule, and pattern.",
+              "Missing goal data does not automatically mean this is safe to buy.",
             ],
       };
     case "emergency":
       return {
-        body: emergency ? `Emergency fund is ${money(emergency.savedAmount)} out of ${money(emergency.targetAmount)}. CLARA checks if the purchase could pressure protected safety money.` : "No emergency fund was loaded for this check, so CLARA avoids treating missing safety data as permission to spend.",
+        body: emergency ? `Your emergency fund is ${money(emergency.savedAmount)} out of ${money(emergency.targetAmount)}. I’m checking if this purchase could pressure your safety money.` : "I did not find emergency fund data here, so I won’t treat missing safety data as permission to spend.",
         bullets: emergency
           ? [
-              `Progress: ${emergency.targetAmount ? percent((toNumber(emergency.savedAmount) / toNumber(emergency.targetAmount)) * 100) : "Not available"}. This shows how much safety is already built.`,
-              "Emergency money should stay protected from wants and non-urgent purchases.",
-              "If emergency money is needed for this item, the safer answer is to wait or choose a smaller option.",
+              `Your emergency progress is ${emergency.targetAmount ? percent((toNumber(emergency.savedAmount) / toNumber(emergency.targetAmount)) * 100) : "not available"}.`,
+              "I want your emergency money protected from wants and non-urgent purchases.",
+              "If this needs emergency money, my safer answer is to wait or choose a smaller option.",
             ]
           : [
-              "Emergency protection could not be verified, so CLARA keeps the decision conservative.",
-              "CLARA avoids using missing emergency data as permission to spend.",
+              "Because I could not verify emergency protection, I’ll keep this decision conservative.",
+              "I won’t use missing emergency data as a reason to approve the purchase.",
             ],
       };
     case "schedule":
       return {
-        body: event ? `${event.title || "Upcoming event"}${event.date ? ` is scheduled on ${event.date}` : " is upcoming"}${eventAmount ? ` and may need ${money(eventAmount)}` : ""}. Timing matters because future obligations reduce spending flexibility.` : "No upcoming money-impact schedule was loaded for this check, so CLARA relies more on wallet, budget, goals, emergency, and pattern.",
+        body: event ? `I see ${event.title || "an upcoming event"}${event.date ? ` on ${event.date}` : " coming up"}${eventAmount ? ` that may need ${money(eventAmount)}` : ""}. Timing matters because future obligations reduce flexibility.` : "I don’t see upcoming money-impact schedule pressure, so I’ll lean more on wallet, budget, goals, emergency, and pattern.",
         bullets: event
           ? [
-              "Timing matters because upcoming events can make today's purchase feel affordable but risky later.",
-              eventAmount ? `This event competes with the ${money(price)} purchase and should be protected first.` : "No exact event cost was loaded, so CLARA checks timing but avoids guessing the amount.",
-              "CLARA checks timing before the final decision so the user does not spend only based on today's feeling.",
+              "Something can feel affordable today but become stressful when the next obligation arrives.",
+              eventAmount ? `This event competes with the ${money(price)} purchase, so I want it protected first.` : "I do not have the exact event cost, so I’ll check timing without guessing the amount.",
+              "I’m checking timing so you don’t decide only from today’s feeling.",
             ]
           : [
-              "No schedule pressure was found, which lowers timing risk but does not automatically approve the purchase.",
-              "Final decision will rely more on wallet, budget, goals, emergency, and pattern.",
+              "No schedule pressure lowers timing risk, but it does not automatically make this a yes.",
+              "I’ll still check the rest of your money environment before the final call.",
             ],
       };
     case "pattern":
       return {
-        body: `CLARA found ${categoryExpenses.length} ${purchase.inferredCategory || "category"}-related purchase${categoryExpenses.length === 1 ? "" : "s"} this month totaling ${money(categorySpend)}. This checks whether the item fits a pattern or a one-time need.`,
+        body: `I found ${categoryExpenses.length} ${purchase.inferredCategory || "category"}-related purchase${categoryExpenses.length === 1 ? "" : "s"} this month totaling ${money(categorySpend)}. I’m checking if this is a pattern or a one-time need.`,
         bullets: [
           memorySignal,
-          context.mePageContext ? "The Me profile was available, so CLARA can compare the purchase with the user's stated behavior and priorities." : "No Me profile signal was available, so CLARA only uses transaction and money context here.",
-          categoryExpenses.length ? "Repeated category activity raises the risk of impulse spending and makes this purchase worth slowing down." : "No repeated category pattern was found this month, so this looks less repetitive.",
+          context.mePageContext ? "I also have your Me profile, so I can compare this with your stated behavior and priorities." : "I do not have a Me profile signal here, so I’ll rely on transaction and money context.",
+          categoryExpenses.length ? "Repeated activity in this category raises impulse risk, so I want you to slow down first." : "I don’t see repeated category activity this month, so this looks less repetitive.",
         ],
       };
     case "final":
       return {
-        body: `CLARA combined wallet, budget, goals, emergency, schedule, and pattern before giving this decision. The final call should protect money stability, not just answer yes or no.`,
+        body: `I combined your wallet, budget, goals, emergency fund, schedule, and pattern before giving this decision. My goal is to protect your stability, not just say yes or no.`,
         bullets: [
-          budget ? `Budget room: ${money(Math.max(0, remaining))}. This is the strongest category boundary for the decision.` : "Budget match was not available, so the final answer should stay cautious.",
-          `Spendable after purchase: ${money(afterPurchase)}. This is the visible wallet result if the user proceeds.`,
-          `Safer move: ${fallbackSaferMoveFromContext(context)}.`,
+          budget ? `Your budget room is ${money(Math.max(0, remaining))}. This is the strongest category boundary I can see.` : "I did not find a budget match, so I need the final answer to stay cautious.",
+          `If you proceed, your spendable money after purchase would be ${money(afterPurchase)}.`,
+          `My safer move: ${fallbackSaferMoveFromContext(context)}.`,
         ],
       };
     default:
