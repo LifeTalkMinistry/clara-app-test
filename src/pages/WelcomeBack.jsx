@@ -11,7 +11,6 @@ const tutorialSlides = [
     supportTitle: "A calmer way to start",
     support:
       "CLARA helps you slow down before spending, understand where your money goes, and build small habits that make your finances feel less overwhelming.",
-    supportPoints: ["See clearly", "Pause before buying", "Build habits", "Decide calmly"],
     noteTitle: "Before we start",
     note:
       "You don’t have to be perfect with money. You just need a clear system that helps you notice, decide, and improve.",
@@ -25,7 +24,6 @@ const tutorialSlides = [
     supportTitle: "Small decisions matter",
     support:
       "CLARA is designed to make daily money choices easier to notice, easier to review, and easier to improve over time.",
-    supportPoints: ["Daily awareness", "Simple review", "Less guessing", "Better control"],
     noteTitle: "That’s why I’m here",
     note:
       "I’ll help you slow down, organize what you have, and become more aware before your money disappears into unplanned spending.",
@@ -39,7 +37,6 @@ const tutorialSlides = [
     supportTitle: "Your money map",
     support:
       "You’ll have a simple place to connect your budgets, wallets, spending, savings, and decisions into one clearer picture.",
-    supportPoints: ["Budgets", "Wallets", "Spending", "Savings"],
     noteTitle: "My role in your journey",
     note:
       "Think of me as your money clarity companion. I won’t judge you. I’ll help you see, understand, and decide better.",
@@ -53,7 +50,6 @@ const tutorialSlides = [
     supportTitle: "Start light, grow later",
     support:
       "Begin with the basics first. As your routine becomes clearer, you can unlock deeper guidance when it already feels useful to you.",
-    supportPoints: ["Free start", "No pressure", "Simple tools", "Upgrade later"],
     noteTitle: "No pressure",
     note:
       "Start simple. Build trust with the system. Upgrade later only when you feel CLARA is becoming part of your financial routine.",
@@ -146,11 +142,11 @@ export default function WelcomeBack() {
         <section className="mt-3 flex flex-1 flex-col">
           {!isTierStep ? (
             <>
-              <div className="relative overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+              <div className="relative min-h-[360px] overflow-hidden rounded-[32px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.045)_100%)] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:min-h-[380px]">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_40%)]" />
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
 
-                <div className="relative">
+                <div className="relative flex h-full flex-col">
                   <div className="mb-4 inline-flex h-13 w-13 items-center justify-center rounded-3xl border border-emerald-300/20 bg-emerald-300/12 text-emerald-200 shadow-[0_16px_42px_rgba(16,185,129,0.18)]">
                     <CurrentIcon className="h-6 w-6" />
                   </div>
@@ -164,32 +160,17 @@ export default function WelcomeBack() {
                   <p className="mt-4 text-[15px] leading-7 text-white/66">
                     {currentSlide.body}
                   </p>
-                </div>
-              </div>
 
-              <div className="relative mt-4 overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.14),transparent_46%)]" />
-                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/35 to-transparent" />
-                <div className="relative">
-                  <p className="text-sm font-semibold text-white">{currentSlide.supportTitle}</p>
-                  <p className="mt-1.5 text-sm leading-6 text-white/58">
-                    {currentSlide.support}
-                  </p>
-
-                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
-                    {currentSlide.supportPoints.map((point) => (
-                      <div key={point} className="flex items-center gap-2 text-[11px] font-semibold text-white/62">
-                        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-300/10">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-300/80" />
-                        </span>
-                        <span>{point}</span>
-                      </div>
-                    ))}
+                  <div className="mt-auto border-t border-white/10 pt-4">
+                    <p className="text-sm font-semibold text-white">{currentSlide.supportTitle}</p>
+                    <p className="mt-1.5 text-sm leading-6 text-white/56">
+                      {currentSlide.support}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="relative mt-3 overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+              <div className="relative mt-4 overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.065)_0%,rgba(255,255,255,0.035)_100%)] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.14),transparent_46%)]" />
                 <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/35 to-transparent" />
                 <div className="relative">
