@@ -11,6 +11,9 @@ const SOURCE = "clara_young_professional_current_state";
 const FAMILY = "young_professional_current_state";
 const LIFE_STAGE = "Young Professional";
 const ACTIVE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+const DATA_BOUNDARY = "temporary_demo_playground";
+const RESET_POLICY = "reset_on_every_entry";
+const SESSION_TIME_GRACE_MS = 10000;
 const MONTHLY_SALARY = 32000;
 const PAYROLL_WALLET_NAME = "Payroll Wallet";
 const PRIMARY_SALARY_NAME = "Primary Salary";
@@ -27,6 +30,17 @@ const STORES_TO_RESET = [
   LOCAL_FINANCE_STORES.privatePreferences,
 ];
 
+const DEMO_MUTABLE_FINANCE_STORES = new Set([
+  LOCAL_FINANCE_STORES.wallets,
+  LOCAL_FINANCE_STORES.walletTransactions,
+  LOCAL_FINANCE_STORES.transfers,
+  LOCAL_FINANCE_STORES.expenses,
+  LOCAL_FINANCE_STORES.budgets,
+  LOCAL_FINANCE_STORES.savingsGoals,
+  LOCAL_FINANCE_STORES.emergencyFund,
+  LOCAL_FINANCE_STORES.aiFinancialMemory,
+]);
+
 const nowIso = () => new Date().toISOString();
 
 function safeUserId(value) {
@@ -34,6 +48,10 @@ function safeUserId(value) {
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, "_")
     .slice(0, 80) || "local_user";
+}
+
+function createDemoSessionId(localUserId) {
+  return `demo_young_professional_${safeUserId(localUserId)}_${Date.now()}`;
 }
 
 function dateOnly(date) {
@@ -70,7 +88,31 @@ function makeId(localUserId, type, key) {
   return `clara_yp_current_${safeUserId(localUserId)}_${type}_${key}`;
 }
 
-function base(localUserId, type, key, createdAt = nowIso()) {
+function readActiveCurrentState(localUserId = null) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (parsed?.mode !== "current_state") return null;
+
+    const stageMatches =
+      parsed.setupFamily === FAMILY ||
+      parsed.activeLifeStageKey === LIFE_STAGE ||
+      parsed.activeLifeStageTitle === LIFE_STAGE;
+
+    if (!stageMatches) return null;
+    if (localUserId && parsed.localUserId && String(parsed.localUserId) !== String(localUserId)) return null;
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function base(localUserId, type, key, createdAt = nowIso(), demoSessionId = null) {
   const timestamp = nowIso();
   return {
     id: makeId(localUserId, type, key),
@@ -79,6 +121,10 @@ function base(localUserId, type, key, createdAt = nowIso()) {
     setupFamily: FAMILY,
     activeCurrentState: true,
     lifeStage: LIFE_STAGE,
+    demoMode: true,
+    demoSessionId,
+    dataBoundary: DATA_BOUNDARY,
+    resetPolicy: RESET_POLICY,
     createdAt,
     created_at: createdAt,
     updatedAt: timestamp,
@@ -89,10 +135,10 @@ function base(localUserId, type, key, createdAt = nowIso()) {
   };
 }
 
-function buildPrimarySalaryIncomeSource(localUserId, payrollWalletId) {
+function buildPrimarySalaryIncomeSource(localUserId, payrollWalletId, demoSessionId) {
   const activityAt = at(monthDate(25), 9);
   return {
-    ...base(localUserId, "income_source", "primary_salary", at(monthDate(1), 8)),
+    ...base(localUserId, "income_source", "primary_salary", at(monthDate(1), 8), demoSessionId),
     kind: "income_source",
     recordType: "income_source",
     name: PRIMARY_SALARY_NAME,
@@ -118,10 +164,10 @@ function buildPrimarySalaryIncomeSource(localUserId, payrollWalletId) {
   };
 }
 
-function buildPayrollWallet(localUserId, payrollWalletId) {
+function buildPayrollWallet(localUserId, payrollWalletId, demoSessionId) {
   const postedAt = at(monthDate(25), 9);
   return {
-    ...base(localUserId, "wallet", "payroll", postedAt),
+    ...base(localUserId, "wallet", "payroll", postedAt, demoSessionId),
     id: payrollWalletId,
     name: PAYROLL_WALLET_NAME,
     title: PAYROLL_WALLET_NAME,
@@ -137,10 +183,10 @@ function buildPayrollWallet(localUserId, payrollWalletId) {
   };
 }
 
-function buildSalaryTransferTransaction(localUserId, payrollWalletId, incomeSource) {
+function buildSalaryTransferTransaction(localUserId, payrollWalletId, incomeSource, demoSessionId) {
   const postedAt = at(monthDate(25), 9);
   return {
-    ...base(localUserId, "wallet_txn", "primary_salary_to_payroll_wallet", postedAt),
+    ...base(localUserId, "wallet_txn", "primary_salary_to_payroll_wallet", postedAt, demoSessionId),
     wallet_id: payrollWalletId,
     walletId: payrollWalletId,
     amount: MONTHLY_SALARY,
@@ -178,11 +224,11 @@ function buildSalaryTransferTransaction(localUserId, payrollWalletId, incomeSour
   };
 }
 
-function buildYoungProfessionalState(localUserId) {
+function buildYoungProfessionalState(localUserId, demoSessionId) {
   const payrollWalletId = makeId(localUserId, "wallet", "payroll");
-  const salarySource = buildPrimarySalaryIncomeSource(localUserId, payrollWalletId);
-  const payrollWallet = buildPayrollWallet(localUserId, payrollWalletId);
-  const salaryTransferTransaction = buildSalaryTransferTransaction(localUserId, payrollWalletId, salarySource);
+  const salarySource = buildPrimarySalaryIncomeSource(localUserId, payrollWalletId, demoSessionId);
+  const payrollWallet = buildPayrollWallet(localUserId, payrollWalletId, demoSessionId);
+  const salaryTransferTransaction = buildSalaryTransferTransaction(localUserId, payrollWalletId, salarySource, demoSessionId);
 
   return {
     incomeSources: [salarySource],
@@ -203,6 +249,8 @@ function buildYoungProfessionalState(localUserId) {
       payrollWalletBalance: MONTHLY_SALARY,
       walletTransactionAmount: salaryTransferTransaction.amount,
       walletCount: 1,
+      demoSessionId,
+      resetPolicy: RESET_POLICY,
     },
   };
 }
@@ -212,21 +260,65 @@ function isYoungProfessionalCurrentStateRecord(record) {
   return Boolean(
     record.source === SOURCE ||
       record.setupFamily === FAMILY ||
+      record.dataBoundary === DATA_BOUNDARY ||
+      record.resetPolicy === RESET_POLICY ||
       (record.activeCurrentState === true && record.lifeStage === LIFE_STAGE) ||
       String(record.id || "").startsWith("clara_yp_current_")
   );
 }
 
-async function archiveExistingYoungProfessionalCurrentState(localUserId) {
+function getRecordTimestamp(record) {
+  const values = [
+    record?.updatedAt,
+    record?.updated_at,
+    record?.createdAt,
+    record?.created_at,
+    record?.date,
+    record?.transaction_date,
+  ];
+
+  return values.reduce((latest, value) => {
+    const time = new Date(value || 0).getTime();
+    return Number.isFinite(time) && time > latest ? time : latest;
+  }, 0);
+}
+
+function isDemoMutableRecord(storeName, record) {
+  if (DEMO_MUTABLE_FINANCE_STORES.has(storeName)) return true;
+
+  if (storeName === LOCAL_FINANCE_STORES.privatePreferences) {
+    return record?.kind === "income_source" || record?.recordType === "income_source";
+  }
+
+  return false;
+}
+
+function wasTouchedDuringActiveDemoSession(storeName, record, activeState) {
+  if (!activeState || !isDemoMutableRecord(storeName, record)) return false;
+
+  const activatedAt = new Date(activeState.activatedAt || 0).getTime();
+  if (!Number.isFinite(activatedAt) || activatedAt <= 0) return false;
+
+  const recordTime = getRecordTimestamp(record);
+  return recordTime >= activatedAt - SESSION_TIME_GRACE_MS;
+}
+
+async function archiveExistingYoungProfessionalCurrentState(localUserId, activeState = readActiveCurrentState(localUserId)) {
   const timestamp = nowIso();
   await runLocalFinanceTransaction(STORES_TO_RESET, localUserId, async (tx) => {
     for (const storeName of STORES_TO_RESET) {
       const rows = await tx.getAllForUser(storeName, true);
       for (const row of rows || []) {
-        if (isYoungProfessionalCurrentStateRecord(row)) {
+        const shouldReset =
+          isYoungProfessionalCurrentStateRecord(row) ||
+          wasTouchedDuringActiveDemoSession(storeName, row, activeState);
+
+        if (shouldReset) {
           tx.store(storeName).put({
             ...row,
             activeCurrentState: false,
+            archivedFromDemoSession: activeState?.demoSessionId || row?.demoSessionId || null,
+            resetPolicy: row?.resetPolicy || RESET_POLICY,
             deletedAt: timestamp,
             deleted_at: timestamp,
             updatedAt: timestamp,
@@ -247,12 +339,16 @@ async function upsertIncomeSources(rows, localUserId) {
   for (const row of rows) await upsertIncomeSource(localUserId, row);
 }
 
-function writeActiveState(localUserId, ledgerCheck) {
+function writeActiveState(localUserId, ledgerCheck, demoSessionId) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(
     ACTIVE_KEY,
     JSON.stringify({
       mode: "current_state",
+      dataBoundary: DATA_BOUNDARY,
+      resetPolicy: RESET_POLICY,
+      setupFamily: FAMILY,
+      demoSessionId,
       activeLifeStageKey: LIFE_STAGE,
       activeLifeStageTitle: LIFE_STAGE,
       localUserId,
@@ -294,20 +390,25 @@ function dispatchRefresh(result) {
 
 export async function activateYoungProfessionalCurrentState({ user = null } = {}) {
   const localUserId = await resolveLocalUserId(user);
-  const state = buildYoungProfessionalState(localUserId);
+  const previousActiveState = readActiveCurrentState(localUserId);
+  const demoSessionId = createDemoSessionId(localUserId);
+  const state = buildYoungProfessionalState(localUserId, demoSessionId);
 
-  await archiveExistingYoungProfessionalCurrentState(localUserId);
+  await archiveExistingYoungProfessionalCurrentState(localUserId, previousActiveState);
   await upsertIncomeSources(state.incomeSources, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.wallets, state.wallets, localUserId);
   await upsertRows(LOCAL_FINANCE_STORES.walletTransactions, state.walletTransactions, localUserId);
 
   writeLifeStageProfile();
-  writeActiveState(localUserId, state.ledgerCheck);
+  writeActiveState(localUserId, state.ledgerCheck, demoSessionId);
 
   const result = {
     mode: "current_state",
+    dataBoundary: DATA_BOUNDARY,
+    resetPolicy: RESET_POLICY,
     lifeStage: LIFE_STAGE,
     localUserId,
+    demoSessionId,
     incomeSources: state.incomeSources.length,
     wallets: state.wallets.length,
     budgets: state.budgets.length,
@@ -325,8 +426,9 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
 
 export async function exitYoungProfessionalCurrentState({ user = null } = {}) {
   const localUserId = await resolveLocalUserId(user);
+  const activeState = readActiveCurrentState(localUserId);
 
-  await archiveExistingYoungProfessionalCurrentState(localUserId);
+  await archiveExistingYoungProfessionalCurrentState(localUserId, activeState);
   clearActiveState();
 
   const result = {
@@ -334,6 +436,8 @@ export async function exitYoungProfessionalCurrentState({ user = null } = {}) {
     lifeStage: LIFE_STAGE,
     localUserId,
     exitedCurrentState: true,
+    resetPolicy: RESET_POLICY,
+    clearedDemoSessionId: activeState?.demoSessionId || null,
   };
 
   dispatchRefresh(result);
