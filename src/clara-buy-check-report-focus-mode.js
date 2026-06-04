@@ -1,3 +1,9 @@
+import { supabase } from "@/lib/supabaseClient";
+
+const EXPENSES_TABLE = "expenses";
+const WALLETS_TABLE = "wallets";
+const TXN_TABLE = "wallet_transactions";
+
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -6,6 +12,26 @@ function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const parsed = Number(String(value || "").replace(/[₱,\s,]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function money(value = 0) {
+  const amount = toNumber(value);
+  return `₱${amount.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
+}
+
+function generateId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getPHDateString(value = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(value);
 }
 
 function normalizeCategory(value = "") {
@@ -50,7 +76,11 @@ function isUnexpectedNecessary(reason = "") {
   return /health|medical|medicine|doctor|work|job|school|study|replacement|replace|broken|repair|lost|urgent|emergency/i.test(reason);
 }
 
-function buildExpensePrefillFromBuyCheck() {
+function getFinalDecision() {
+  return clean(document.querySelector("[data-clara-buy-check-report] article:has([data-clara-buy-final-static-actions]) h3")?.textContent || "");
+}
+
+function buildExpensePrefillFromBuyCheck(explanation = "") {
   const context = window.__CLARA_LAST_BUY_CHECK_CONTEXT__ || {};
   const purchase = context.purchaseSummary || {};
   const finance = context.financeContext || {};
@@ -59,70 +89,168 @@ function buildExpensePrefillFromBuyCheck() {
   const budget = finance.matchingBudget;
   const remaining = toNumber(budget?.remaining);
   const category = normalizeCategory(purchase.inferredCategory || purchase.item);
-  const reason = clean(purchase.reason);
+  const originalReason = clean(purchase.reason);
+  const finalExplanation = clean(explanation) || originalReason || "User chose to continue after Buy Check.";
   const isOverBudget = budget ? price > remaining : true;
   const planningStatus = isOverBudget ? "unplanned" : "planned";
   const unplannedReason = planningStatus === "unplanned"
-    ? isUnexpectedNecessary(reason)
-      ? `Unexpected necessary expense — ${reason || "Buy Check approved by user"}`
-      : `Outside budget allocation — ${reason || "Buy Check approved by user"}`
+    ? isUnexpectedNecessary(`${originalReason} ${finalExplanation}`)
+      ? `Unexpected necessary expense — ${finalExplanation}`
+      : `Outside budget allocation — ${finalExplanation}`
     : "";
 
   return {
     source: "buy_check",
-    actionType: "expense",
-    amount: price ? String(price) : "",
+    amount: price,
     category,
     wallet_id: wallet?.id ? String(wallet.id) : "",
-    notes: clean(purchase.item) || "Buy Check purchase",
-    need_type: normalizeNeedType(reason, category),
+    wallet_name: wallet?.name || "Selected wallet",
+    wallet_balance: toNumber(wallet?.balance),
+    notes: `${clean(purchase.item) || "Buy Check purchase"}${finalExplanation ? ` — ${finalExplanation}` : ""}`,
+    need_type: normalizeNeedType(`${originalReason} ${finalExplanation}`, category),
     planning_status: planningStatus,
     unplanned_reason: unplannedReason,
-    buy_check_decision: clean(document.querySelector("[data-clara-buy-check-report] article:has([data-clara-buy-final-static-actions]) h3")?.textContent || ""),
+    user_explanation: finalExplanation,
+    buy_check_decision: getFinalDecision(),
+    purchase,
   };
 }
 
-function openPrefilledExpense() {
-  const detail = buildExpensePrefillFromBuyCheck();
-  try {
-    sessionStorage.setItem("clara_buy_check_expense_prefill", JSON.stringify(detail));
-  } catch {
-    // ignore storage limits
-  }
+function buildReviewRows(payload = {}) {
+  const rows = [
+    ["Amount", money(payload.amount)],
+    ["Category", clean(payload.category).replace(/^./, (letter) => letter.toUpperCase())],
+    ["Wallet", payload.wallet_name || "Selected wallet"],
+    ["Type", payload.need_type === "need" ? "Need" : payload.need_type === "savings" ? "Savings" : "Want"],
+    ["Planning", payload.planning_status === "unplanned" ? "Unplanned" : "Planned"],
+  ];
 
-  window.dispatchEvent(new CustomEvent("clara:open-buy-check-expense", { detail }));
+  return rows.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
 }
 
-function showNotBuyQuestion() {
-  if (document.querySelector("[data-clara-buy-check-not-buy-panel]")) return;
+async function logBuyCheckExpense(payload, statusNode) {
+  if (!payload?.amount || payload.amount <= 0) throw new Error("Missing Buy Check amount.");
+  if (!payload?.wallet_id) throw new Error("No spendable wallet was found for this expense.");
+
+  const { data } = await supabase.auth.getUser();
+  const user = data?.user;
+  if (!user?.email && !user?.id) throw new Error("User not found.");
+
+  const createdAt = new Date().toISOString();
+  const expenseId = generateId();
+  const walletBalance = toNumber(payload.wallet_balance);
+
+  if (payload.amount > walletBalance) throw new Error("Not enough wallet balance for this expense.");
+
+  const expense = {
+    id: expenseId,
+    amount: payload.amount,
+    category: payload.category,
+    wallet_id: String(payload.wallet_id),
+    date: getPHDateString(),
+    notes: payload.notes || "Buy Check purchase",
+    need_type: payload.need_type || "need",
+    planning_status: payload.planning_status || "planned",
+    unplanned_reason: payload.planning_status === "unplanned" ? payload.unplanned_reason || payload.user_explanation : null,
+    created_by: user.email ?? "",
+    user_email: user.email ?? "",
+    user_id: user.id ?? "",
+    created_at: createdAt,
+    updated_at: createdAt,
+  };
+
+  const { error: expenseError } = await supabase.from(EXPENSES_TABLE).insert([expense]);
+  if (expenseError) throw expenseError;
+
+  const transaction = {
+    id: generateId(),
+    wallet_id: String(payload.wallet_id),
+    amount: payload.amount,
+    type: "expense",
+    category: payload.category,
+    need_type: payload.need_type || "need",
+    planning_status: payload.planning_status || "planned",
+    unplanned_reason: payload.planning_status === "unplanned" ? payload.unplanned_reason || payload.user_explanation : null,
+    expense_id: expenseId,
+    notes: payload.notes || "Buy Check purchase",
+    created_at: createdAt,
+    updated_at: createdAt,
+    created_by: user.email ?? "",
+    user_email: user.email ?? "",
+    user_id: user.id ?? "",
+  };
+
+  const { error: transactionError } = await supabase.from(TXN_TABLE).insert([transaction]);
+  if (transactionError) throw transactionError;
+
+  const nextBalance = walletBalance - payload.amount;
+  const { error: walletError } = await supabase
+    .from(WALLETS_TABLE)
+    .update({ balance: nextBalance, updated_at: createdAt })
+    .eq("id", payload.wallet_id);
+  if (walletError) throw walletError;
+
+  try {
+    const existing = JSON.parse(localStorage.getItem("clara_buy_check_buy_explanations") || "[]");
+    existing.unshift({ ...payload, created_at: createdAt });
+    localStorage.setItem("clara_buy_check_buy_explanations", JSON.stringify(existing.slice(0, 30)));
+  } catch {
+    // ignore local explanation storage failures
+  }
+
+  ["clara-expenses-updated", "clara-finance-updated", "clara-wallets-updated", "clara-wallet-transactions-updated"].forEach((name) => window.dispatchEvent(new Event(name)));
+  if (statusNode) statusNode.textContent = "Expense logged successfully.";
+}
+
+function showDecisionExplanation(choice = "buy") {
+  document.querySelector("[data-clara-buy-check-decision-panel]")?.remove();
 
   const context = window.__CLARA_LAST_BUY_CHECK_CONTEXT__ || {};
-  const decision = clean(document.querySelector("[data-clara-buy-check-report] article:has([data-clara-buy-final-static-actions]) h3")?.textContent || "this recommendation");
-  const item = clean(context.purchaseSummary?.item || "this purchase");
+  const purchase = context.purchaseSummary || {};
+  const decision = getFinalDecision() || "this recommendation";
+  const isBuy = choice === "buy";
+  const item = clean(purchase.item || "this purchase");
+  const payload = isBuy ? buildExpensePrefillFromBuyCheck("") : null;
 
   const panel = document.createElement("div");
-  panel.dataset.claraBuyCheckNotBuyPanel = "true";
-  panel.className = "clara-buy-check-not-buy-panel";
+  panel.dataset.claraBuyCheckDecisionPanel = choice;
+  panel.className = "clara-buy-check-decision-panel";
   panel.innerHTML = `
-    <div class="clara-buy-check-not-buy-card">
-      <p class="clara-buy-check-not-buy-title">Help me understand your decision.</p>
-      <p class="clara-buy-check-not-buy-copy">I suggested <strong>${decision}</strong> for <strong>${item}</strong>, but you chose not to buy. What made you decide that?</p>
-      <textarea class="clara-buy-check-not-buy-input" rows="3" placeholder="Example: I changed my mind, I want to save first, or I realized it is not urgent."></textarea>
-      <div class="clara-buy-check-not-buy-actions">
-        <button type="button" data-clara-buy-check-not-buy-save="true">Save reflection</button>
-        <button type="button" data-clara-buy-check-not-buy-close="true">Skip</button>
+    <div class="clara-buy-check-decision-card">
+      <p class="clara-buy-check-decision-title">${isBuy ? "Before I log this expense..." : "Help me understand your decision."}</p>
+      <p class="clara-buy-check-decision-copy">
+        ${isBuy
+          ? `You chose to buy <strong>${item}</strong>. Tell me why, so I can attach your explanation to the transaction${payload?.planning_status === "unplanned" ? " as the unplanned-spending reason" : " note"}.`
+          : `I suggested <strong>${decision}</strong> for <strong>${item}</strong>, but you chose not to buy. Tell me why, so I can remember this decision pattern.`}
+      </p>
+      <textarea class="clara-buy-check-decision-input" rows="3" placeholder="Example: It is for work, my current one is broken, I decided to save first, or it is not urgent anymore."></textarea>
+      ${isBuy ? `<div class="clara-buy-check-expense-preview">${buildReviewRows(payload)}</div>` : ""}
+      <p class="clara-buy-check-decision-status" aria-live="polite"></p>
+      <div class="clara-buy-check-decision-actions">
+        <button type="button" data-clara-buy-check-decision-save="true">${isBuy ? "Log expense" : "Save reflection"}</button>
+        <button type="button" data-clara-buy-check-decision-close="true">Cancel</button>
       </div>
     </div>
   `;
   document.body.appendChild(panel);
+  panel.querySelector("textarea")?.focus();
 }
 
 function saveNotBuyReflection(panel) {
-  const input = panel.querySelector(".clara-buy-check-not-buy-input");
+  const input = panel.querySelector(".clara-buy-check-decision-input");
   const reflection = clean(input?.value || "");
+  const status = panel.querySelector(".clara-buy-check-decision-status");
+
+  if (!reflection) {
+    if (status) status.textContent = "Please add a short reason first.";
+    return;
+  }
+
   const context = window.__CLARA_LAST_BUY_CHECK_CONTEXT__ || {};
   const payload = {
     source: "buy_check_not_buy",
+    clara_recommendation: getFinalDecision(),
+    user_action: "not_buy",
     reflection,
     purchase: context.purchaseSummary || null,
     created_at: new Date().toISOString(),
@@ -136,7 +264,34 @@ function saveNotBuyReflection(panel) {
     // ignore local reflection storage failures
   }
 
-  panel.remove();
+  window.dispatchEvent(new CustomEvent("clara:buy-check-decision-memory", { detail: payload }));
+  if (status) status.textContent = "Reflection saved.";
+  window.setTimeout(() => panel.remove(), 450);
+}
+
+async function saveBuyExplanationAndLog(panel) {
+  const input = panel.querySelector(".clara-buy-check-decision-input");
+  const status = panel.querySelector(".clara-buy-check-decision-status");
+  const explanation = clean(input?.value || "");
+
+  if (!explanation) {
+    if (status) status.textContent = "Please explain why you will buy this first.";
+    return;
+  }
+
+  const saveButton = panel.querySelector("[data-clara-buy-check-decision-save]");
+  if (saveButton) saveButton.disabled = true;
+  if (status) status.textContent = "Logging expense...";
+
+  try {
+    const payload = buildExpensePrefillFromBuyCheck(explanation);
+    await logBuyCheckExpense(payload, status);
+    window.setTimeout(() => panel.remove(), 700);
+  } catch (error) {
+    console.error("[CLARA Buy Check] Failed to log expense", error);
+    if (status) status.textContent = error?.message || "Could not log expense.";
+    if (saveButton) saveButton.disabled = false;
+  }
 }
 
 function addFinalStaticActions() {
@@ -174,7 +329,7 @@ function installBuyCheckReportFocusMode() {
     if (willBuyButton) {
       event.preventDefault();
       event.stopPropagation();
-      openPrefilledExpense();
+      showDecisionExplanation("buy");
       return;
     }
 
@@ -182,17 +337,22 @@ function installBuyCheckReportFocusMode() {
     if (notBuyButton) {
       event.preventDefault();
       event.stopPropagation();
-      showNotBuyQuestion();
+      showDecisionExplanation("not_buy");
       return;
     }
 
-    const panel = event.target?.closest?.("[data-clara-buy-check-not-buy-panel]");
-    if (event.target?.closest?.("[data-clara-buy-check-not-buy-close]")) {
+    const panel = event.target?.closest?.("[data-clara-buy-check-decision-panel]");
+    if (event.target?.closest?.("[data-clara-buy-check-decision-close]")) {
       panel?.remove();
       return;
     }
-    if (event.target?.closest?.("[data-clara-buy-check-not-buy-save]")) {
-      if (panel) saveNotBuyReflection(panel);
+    if (event.target?.closest?.("[data-clara-buy-check-decision-save]")) {
+      if (!panel) return;
+      if (panel.dataset.claraBuyCheckDecisionPanel === "buy") {
+        saveBuyExplanationAndLog(panel);
+      } else {
+        saveNotBuyReflection(panel);
+      }
     }
   }, true);
 }
