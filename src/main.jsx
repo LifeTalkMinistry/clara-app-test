@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import "./clara-memory-bridge";
+import "./clara-buy-check-budget-aware-prefilter";
 import "./clara-buy-check-report-router";
 import "./clara-buy-check-price-question-copy";
 import "./clara-buy-check-report-content-polish";
