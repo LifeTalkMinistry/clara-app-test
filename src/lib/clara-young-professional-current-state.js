@@ -262,6 +262,11 @@ function writeActiveState(localUserId, ledgerCheck) {
   );
 }
 
+function clearActiveState() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ACTIVE_KEY);
+}
+
 function writeLifeStageProfile() {
   saveSelectedLifeStageProfile({
     stage: LIFE_STAGE,
@@ -312,6 +317,23 @@ export async function activateYoungProfessionalCurrentState({ user = null } = {}
     savingsGoals: state.savingsGoals.length,
     memories: state.memories.length,
     ledgerCheck: state.ledgerCheck,
+  };
+
+  dispatchRefresh(result);
+  return result;
+}
+
+export async function exitYoungProfessionalCurrentState({ user = null } = {}) {
+  const localUserId = await resolveLocalUserId(user);
+
+  await archiveExistingYoungProfessionalCurrentState(localUserId);
+  clearActiveState();
+
+  const result = {
+    mode: "real_data",
+    lifeStage: LIFE_STAGE,
+    localUserId,
+    exitedCurrentState: true,
   };
 
   dispatchRefresh(result);
