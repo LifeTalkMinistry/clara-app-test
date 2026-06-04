@@ -1,70 +1,41 @@
-import { useRef } from "react";
 import { PieChart } from "lucide-react";
 
-const CLARA_SAMPLE_DATA_EVENT = "clara:activate-sample-user-data";
-const SAMPLE_ACTIVE_KEY = "CLARA_SAMPLE_MAX_ACTIVE_V1";
-const DOUBLE_CLICK_WINDOW_MS = 500;
-
 function parseDateOnly(value) {
-  const raw = String(value || "").trim();
-  const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (!match) return null;
-
-  const date = new Date(`${match[1]}T00:00:00`);
+  const raw = String(value || "").trim().slice(0, 10);
+  if (!raw) return null;
+  const date = new Date(`${raw}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function formatBudgetMonth(monthKey) {
   const raw = String(monthKey || "").trim();
-  const match = raw.match(/^(\d{4})-(\d{2})$/);
-
-  if (!match) return raw || "This month";
-
-  const [, year, month] = match;
+  const [year, month] = raw.split("-");
+  if (!year || !month) return raw || "This month";
   const date = new Date(Number(year), Number(month) - 1, 1);
-
   if (Number.isNaN(date.getTime())) return raw;
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-  }).format(date);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
 }
 
 function formatShortDate(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function formatCycleRange(cycleRange, monthKey) {
   const start = parseDateOnly(cycleRange?.start);
   const end = parseDateOnly(cycleRange?.end);
-
   if (!start || !end) return formatBudgetMonth(monthKey);
   if (start.getTime() === end.getTime()) return formatShortDate(start);
-
-  const sameMonth =
-    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
   const sameYear = start.getFullYear() === end.getFullYear();
-
   if (sameMonth) {
     const month = new Intl.DateTimeFormat("en-US", { month: "short" }).format(start);
-    return `${month} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
+    return `${month} ${start.getDate()}-${end.getDate()}, ${end.getFullYear()}`;
   }
-
   if (sameYear) {
-    const startLabel = new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-    }).format(start);
-    const endLabel = formatShortDate(end);
-    return `${startLabel}–${endLabel}`;
+    const startLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(start);
+    return `${startLabel}-${formatShortDate(end)}`;
   }
-
-  return `${formatShortDate(start)}–${formatShortDate(end)}`;
+  return `${formatShortDate(start)}-${formatShortDate(end)}`;
 }
 
 function formatCycleLabel(cycleLabel = "Monthly") {
@@ -75,32 +46,9 @@ function formatCycleLabel(cycleLabel = "Monthly") {
 function getPlanDateLabel({ cycleLabel, cycleRange, cycleDisplayLabel, monthKey }) {
   const displayCycleLabel = formatCycleLabel(cycleLabel);
   const safeDisplayLabel = String(cycleDisplayLabel || "").trim();
-
   if (safeDisplayLabel) return safeDisplayLabel;
   if (displayCycleLabel.toLowerCase() === "monthly") return formatBudgetMonth(monthKey);
   return formatCycleRange(cycleRange, monthKey);
-}
-
-function isSampleActive() {
-  if (typeof window === "undefined" || !window.localStorage) return false;
-
-  try {
-    return JSON.parse(window.localStorage.getItem(SAMPLE_ACTIVE_KEY) || "null")?.active === true;
-  } catch {
-    return false;
-  }
-}
-
-function dispatchSampleToggleEvent() {
-  if (typeof window === "undefined") return;
-
-  window.dispatchEvent(
-    new CustomEvent(CLARA_SAMPLE_DATA_EVENT, {
-      detail: {
-        action: isSampleActive() ? "restore" : "activate",
-      },
-    })
-  );
 }
 
 export default function BudgetHeader({
@@ -110,49 +58,14 @@ export default function BudgetHeader({
   cycleLabel = "Monthly",
   cycleRange = null,
   cycleDisplayLabel = "",
-  onBadgeDoubleClick,
 }) {
-  const lastBadgeClickAtRef = useRef(0);
   const displayCycleLabel = formatCycleLabel(cycleLabel);
-  const planDateLabel = getPlanDateLabel({
-    cycleLabel: displayCycleLabel,
-    cycleRange,
-    cycleDisplayLabel,
-    monthKey,
-  });
-
-  const runSampleToggle = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (onBadgeDoubleClick) {
-      onBadgeDoubleClick(event);
-      return;
-    }
-
-    dispatchSampleToggleEvent();
-  };
-
-  const handleBadgeClick = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const now = Date.now();
-    const isSecondClick = now - lastBadgeClickAtRef.current <= DOUBLE_CLICK_WINDOW_MS;
-    lastBadgeClickAtRef.current = now;
-
-    if (!isSecondClick) return;
-
-    lastBadgeClickAtRef.current = 0;
-    runSampleToggle(event);
-  };
+  const planDateLabel = getPlanDateLabel({ cycleLabel: displayCycleLabel, cycleRange, cycleDisplayLabel, monthKey });
 
   return (
     <div className="mb-3 flex items-start gap-3">
-      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-teal-100/[0.15] bg-[linear-gradient(145deg,rgba(255,255,255,0.085),rgba(45,212,191,0.05)_42%,rgba(0,0,0,0.045))] text-teal-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.13),inset_0_-1px_0_rgba(45,212,191,0.05),0_0_16px_rgba(45,212,191,0.085),0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-sm">
-        <div className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/26 to-transparent" />
-        <div className="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-full bg-teal-200/[0.09] blur-xl" />
-        <PieChart className="relative h-4 w-4 drop-shadow-[0_0_8px_rgba(153,246,228,0.14)]" />
+      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-teal-100/15 bg-white/10 text-teal-100 shadow-md backdrop-blur-sm">
+        <PieChart className="relative h-4 w-4" />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -164,15 +77,11 @@ export default function BudgetHeader({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleBadgeClick}
-            title="Double tap to switch between real data and Max sample data."
-            className={`relative shrink-0 cursor-pointer select-none overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}
+          <div
+            className={`relative shrink-0 select-none overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-md ${status.badge}`}
           >
-            <span className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/20 to-transparent" />
             <span className="relative">{badgeLabel}</span>
-          </button>
+          </div>
         </div>
       </div>
     </div>
