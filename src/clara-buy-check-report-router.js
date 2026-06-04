@@ -386,6 +386,33 @@ function errorReport() {
   };
 }
 
+function reasonAssumption(reason = "") {
+  const text = clean(reason).toLowerCase();
+  if (!text) return "I’m not seeing a clear reason yet, so I’ll treat this carefully.";
+  if (/reward|treat|deserve|celebrate|birthday|gift/.test(text)) return "I’m reading this as a reward for yourself.";
+  if (/replacement|replace|broken|old|damaged|lost/.test(text)) return "I’m reading this as a replacement or practical need.";
+  if (/health|medical|medicine|doctor|wellness|fitness/.test(text)) return "I’m reading this as connected to your wellbeing.";
+  if (/work|job|school|study|business|career/.test(text)) return "I’m reading this as connected to work, school, or responsibility.";
+  if (/hobby|sport|sports|basketball|music|creative|content/.test(text)) return "I’m reading this as connected to a hobby or personal growth.";
+  if (/want|like|style|fashion|cool|nice/.test(text)) return "I’m reading this as something you personally want.";
+  return `I’m reading your reason as: ${reason}.`;
+}
+
+function showConfirmation(state) {
+  appendBubble("clara", "", `
+    <div class="clara-buy-check-confirm-card">
+      <div class="clara-buy-check-message-title">Before we proceed, just to make sure I got it right:</div>
+      <div class="clara-buy-check-confirm-summary">You want to buy <strong>${escapeHtml(state.item)}</strong> worth <strong>${escapeHtml(money(state.price))}</strong>.</div>
+      <div class="clara-buy-check-confirm-summary">You mentioned <strong>“${escapeHtml(state.reason || "no reason added")}”</strong>, so ${escapeHtml(reasonAssumption(state.reason))}</div>
+      <div class="clara-buy-check-message-sub">Is that correct, or do you want to change something before I run the full Buy Check?</div>
+      <div class="clara-buy-check-confirm-actions">
+        <button type="button" data-clara-buy-check-confirm-continue="true">Continue</button>
+        <button type="button" data-clara-buy-check-confirm-edit="true">Edit answers</button>
+      </div>
+    </div>
+  `);
+}
+
 async function runDiagnosis(state) {
   state.busy = true;
   appendBubble("clara", "Got it. I’m checking wallet, budget, goals, emergency, schedule, and memory now...");
@@ -421,6 +448,25 @@ async function runDiagnosis(state) {
   }
 }
 
+function continueConfirmation() {
+  const state = getState();
+  if (!state || state.busy || state.done || state.step !== "confirm") return;
+  state.step = "diagnosis";
+  appendBubble("user", "Continue");
+  runDiagnosis(state);
+}
+
+function editConfirmation() {
+  const state = getState();
+  if (!state || state.busy || state.done || state.step !== "confirm") return;
+  appendBubble("user", "Edit answers");
+  state.step = "item";
+  state.item = "";
+  state.price = 0;
+  state.reason = "";
+  appendBubble("clara", "", `<div class="clara-buy-check-message-title">No problem. Let’s correct it.</div><div class="clara-buy-check-message-sub">What do you want to buy?</div><div class="clara-buy-check-message-example">Example: Running shoes</div>`);
+}
+
 function handleAnswer(value = "") {
   const state = getState();
   if (!state || state.busy || state.done) return;
@@ -447,8 +493,12 @@ function handleAnswer(value = "") {
   }
   if (state.step === "reason") {
     state.reason = answer;
-    state.step = "diagnosis";
-    runDiagnosis(state);
+    state.step = "confirm";
+    showConfirmation(state);
+    return;
+  }
+  if (state.step === "confirm") {
+    appendBubble("clara", "Please tap Continue if I got it right, or Edit answers if you want to change something.");
   }
 }
 
@@ -469,16 +519,49 @@ function route(event) {
   return true;
 }
 
+function installConfirmStyles() {
+  if (document.getElementById("clara-buy-check-confirm-styles")) return;
+  const style = document.createElement("style");
+  style.id = "clara-buy-check-confirm-styles";
+  style.textContent = `
+    .clara-buy-check-confirm-card { white-space: normal; }
+    .clara-buy-check-confirm-summary { margin-top: 8px; font-size: 13px; font-weight: 800; line-height: 1.45; color: rgba(226,244,255,.88); }
+    .clara-buy-check-confirm-summary strong { color: rgba(255,255,255,.98); font-weight: 950; }
+    .clara-buy-check-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .clara-buy-check-confirm-actions button { border: 0; border-radius: 999px; padding: 10px 12px; font-size: 12px; font-weight: 950; color: rgba(5,16,28,.94); background: linear-gradient(135deg, rgba(105,255,218,.96), rgba(65,212,239,.94)); box-shadow: 0 10px 24px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.3); }
+    .clara-buy-check-confirm-actions button:last-child { color: rgba(232,245,255,.94); background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); }
+  `;
+  document.head.appendChild(style);
+}
+
 function install() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_BUY_CHECK_REPORT_ROUTER_INSTALLED__) return;
   window.__CLARA_BUY_CHECK_REPORT_ROUTER_INSTALLED__ = true;
+  installConfirmStyles();
   document.addEventListener("submit", route, true);
   document.addEventListener("click", (event) => {
     const shell = getShell();
     if (!shell || !getChat()) return;
     const button = event.target?.closest?.("button");
     if (!button || !shell.contains(button)) return;
+
+    if (button.closest("[data-clara-buy-check-confirm-continue]")) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      continueConfirmation();
+      return;
+    }
+
+    if (button.closest("[data-clara-buy-check-confirm-edit]")) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      editConfirmation();
+      return;
+    }
+
     const isSend = button.type === "submit" || String(button.getAttribute("aria-label") || "").toLowerCase().includes("send");
     if (isSend) route(event);
   }, true);
