@@ -64,6 +64,7 @@ function limitCardData(kind = "", cardData = {}) {
 
   return {
     ...cardData,
+    title: cardData.title,
     body: clampText(cardData.body, bodyLimit),
     bullets: safeArray(cardData.bullets).slice(0, 3).map((item) => clampText(item, bulletLimit)),
   };
@@ -98,6 +99,44 @@ function safeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
+function toTitleCase(value = "") {
+  return clean(value)
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bAnd\b/g, "and")
+    .replace(/\bOr\b/g, "or");
+}
+
+function normalizePurchaseItem(value = "", { title = false } = {}) {
+  const raw = clean(value);
+  let text = raw
+    .replace(/^i\s*(?:want|wanna|would like|like|need|plan|am planning|was thinking)\s*(?:to)?\s*buy\s+/i, "")
+    .replace(/^i\s*(?:want|wanna|would like|like|need|plan|am planning|was thinking)\s+/i, "")
+    .replace(/^buy\s+/i, "")
+    .replace(/^to\s+buy\s+/i, "")
+    .replace(/\bphonee+\b/gi, "phone")
+    .replace(/\bseconf\b/gi, "second")
+    .trim();
+
+  const lower = text.toLowerCase();
+  if (/phone/.test(lower) && /(second|2nd|secondhand|second hand|used|pre[-\s]?owned)/.test(lower)) {
+    return title ? "Second-hand phone" : "a second-hand phone";
+  }
+
+  if (!text) text = raw || "this item";
+  if (title) return toTitleCase(text.replace(/^(a|an|the)\s+/i, ""));
+  return text;
+}
+
+function normalizeReason(value = "") {
+  return clean(value)
+    .replace(/^h+u*m+\s*/i, "")
+    .replace(/^h+m+\s*/i, "")
+    .replace(/^uh+m+\s*/i, "")
+    .replace(/\bi\s*might\s+need\s+it\s+to\s+work\b/i, "work need")
+    .trim();
+}
+
 function sanitizeMemorySignal(value = "") {
   const text = clean(value)
     .replace(/^[-•]\s*/g, "")
@@ -126,13 +165,15 @@ function getMoneyImpactEvent(context = {}) {
 }
 
 function purchaseFeelingText(reason = "") {
-  const text = clean(reason).toLowerCase();
+  const cleanReason = normalizeReason(reason);
+  const text = cleanReason.toLowerCase();
   if (!text) return "I hear you. You are interested in this, so I’ll check it fairly before deciding.";
-  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${reason}. That feeling is valid, but I still need to protect your money plan.`;
-  if (/health|medical|fitness|wellness|comfort|pain|need/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${reason}. I’ll check if the timing and cost are healthy too.`;
-  if (/work|job|school|study|business|career/i.test(text)) return `I hear that this may feel practical: ${reason}. I’ll check if it supports you without hurting the plan.`;
-  if (/want|like|nice|cool|style|fashion/i.test(text)) return `I hear the want behind this: ${reason}. Wanting it is okay, but I’ll check if now is the right time.`;
-  return `I hear your reason: ${reason}. I’ll respect that, then compare it with your real money context.`;
+  if (/work|job|school|study|business|career|productivity/i.test(text)) return `I hear that this may be practical for you: ${cleanReason}. I’ll check if it supports you without hurting the plan.`;
+  if (/replacement|replace|broken|old|damaged|lost|repair/i.test(text)) return `I hear this may be a replacement need: ${cleanReason}. I’ll check if the timing and cost make sense.`;
+  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${cleanReason}. That feeling is valid, but I still need to protect your money plan.`;
+  if (/health|medical|fitness|wellness|comfort|pain/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${cleanReason}. I’ll check if the timing and cost are healthy too.`;
+  if (/want|like|nice|cool|style|fashion/i.test(text)) return `I hear the want behind this: ${cleanReason}. Wanting it is okay, but I’ll check if now is the right time.`;
+  return `I hear your reason: ${cleanReason}. I’ll respect that, then compare it with your real money context.`;
 }
 
 function buildCardData(kind, context = {}) {
@@ -153,11 +194,15 @@ function buildCardData(kind, context = {}) {
   const memorySignal = getMemorySignal(context);
   const protectedWallets = safeArray(finance.protectedWallets);
   const spendableWallets = safeArray(finance.spendableWallets);
+  const displayItem = normalizePurchaseItem(purchase.item);
+  const displayTitle = normalizePurchaseItem(purchase.item, { title: true });
+  const displayReason = normalizeReason(purchase.reason);
 
   switch (kind) {
     case "purchase":
       return {
-        body: `You want to buy ${purchase.item || "this item"} for ${money(price)}. ${purchaseFeelingText(purchase.reason)}`,
+        title: displayTitle,
+        body: `You want to buy ${displayItem} for ${money(price)}. ${purchaseFeelingText(displayReason)}`,
         bullets: [
           `I’m reading this as a ${purchase.inferredCategory || "purchase"} purchase, so I won’t judge it by emotion alone.`,
           `I’ll test ${money(price)} against your wallet, budget, goals, emergency fund, schedule, and pattern.`,
@@ -295,10 +340,12 @@ function polishReportCards() {
     const cardData = limitCardData(kind, buildCardData(kind, context));
     if (!cardData) return;
 
+    const title = article.querySelector("h3");
     const paragraphs = article.querySelectorAll("p");
     const body = paragraphs[1];
     const oldNote = paragraphs[2];
 
+    if (title && cardData.title) title.textContent = cardData.title;
     if (body) body.textContent = cardData.body;
     if (oldNote) {
       oldNote.className = "clara-buy-check-card-points";
