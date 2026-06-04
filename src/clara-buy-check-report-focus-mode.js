@@ -1,8 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-
-const EXPENSES_TABLE = "expenses";
-const WALLETS_TABLE = "wallets";
-const TXN_TABLE = "wallet_transactions";
+import { addExpense as repoAddExpense } from "@/lib/financeRepository";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -65,15 +62,21 @@ function normalizeDisplayItem(value = "") {
   return raw || clean(value) || "this purchase";
 }
 
+function getWalletBalance(wallet = {}) {
+  return toNumber(wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? wallet.available_balance ?? wallet.starting_balance ?? 0);
+}
+
 function chooseExpenseWallet(context = {}) {
   const price = toNumber(context.purchaseSummary?.price);
-  const wallets = Array.isArray(context.financeContext?.spendableWallets)
-    ? context.financeContext.spendableWallets
-    : [];
+  const finance = context.financeContext || {};
+  const sourceWallets = Array.isArray(finance.spendableWallets) && finance.spendableWallets.length
+    ? finance.spendableWallets
+    : Array.isArray(finance.wallets)
+      ? finance.wallets
+      : [];
 
-  const candidates = wallets
-    .map((wallet) => ({ ...wallet, balanceNumber: toNumber(wallet.balance) }))
-    .filter((wallet) => wallet.id && wallet.balanceNumber >= price);
+  const wallets = sourceWallets.map((wallet) => ({ ...wallet, balanceNumber: getWalletBalance(wallet) }));
+  const candidates = wallets.filter((wallet) => wallet.id && (!price || wallet.balanceNumber >= price));
 
   const priority = (wallet = {}) => {
     const name = clean(wallet.name).toLowerCase();
@@ -97,6 +100,16 @@ function getFinalCard() {
 
 function getFinalDecision() {
   return clean(getFinalCard()?.querySelector("h3")?.textContent || "");
+}
+
+async function getBuyCheckLocalUserId() {
+  try {
+    const { data } = await supabase.auth.getUser();
+    const user = data?.user;
+    return String(user?.id || user?.email || "clara-demo-user").trim() || "clara-demo-user";
+  } catch {
+    return "clara-demo-user";
+  }
 }
 
 function buildExpensePrefillFromBuyCheck(explanation = "") {
@@ -124,7 +137,7 @@ function buildExpensePrefillFromBuyCheck(explanation = "") {
     category,
     wallet_id: wallet?.id ? String(wallet.id) : "",
     wallet_name: wallet?.name || "Selected wallet",
-    wallet_balance: toNumber(wallet?.balance),
+    wallet_balance: getWalletBalance(wallet),
     notes: `${normalizeDisplayItem(purchase.item)}${finalExplanation ? ` — ${finalExplanation}` : ""}`,
     need_type: normalizeNeedType(`${originalReason} ${finalExplanation}`, category),
     planning_status: planningStatus,
@@ -232,18 +245,14 @@ async function logBuyCheckExpense(payload, statusNode) {
   if (!payload?.amount || payload.amount <= 0) throw new Error("Missing Buy Check amount.");
   if (!payload?.wallet_id) throw new Error("No spendable wallet was found for this expense.");
 
-  const { data } = await supabase.auth.getUser();
-  const user = data?.user;
-  if (!user?.email && !user?.id) throw new Error("User not found.");
-
+  const localUserId = await getBuyCheckLocalUserId();
   const createdAt = new Date().toISOString();
-  const expenseId = generateId();
   const walletBalance = toNumber(payload.wallet_balance);
 
   if (payload.amount > walletBalance) throw new Error("Not enough wallet balance for this expense.");
 
-  const expense = {
-    id: expenseId,
+  await repoAddExpense(localUserId, {
+    id: generateId(),
     amount: payload.amount,
     category: payload.category,
     wallet_id: String(payload.wallet_id),
@@ -252,43 +261,11 @@ async function logBuyCheckExpense(payload, statusNode) {
     need_type: payload.need_type || "need",
     planning_status: payload.planning_status || "planned",
     unplanned_reason: payload.planning_status === "unplanned" ? payload.unplanned_reason || payload.user_explanation : null,
-    created_by: user.email ?? "",
-    user_email: user.email ?? "",
-    user_id: user.id ?? "",
     created_at: createdAt,
     updated_at: createdAt,
-  };
-
-  const { error: expenseError } = await supabase.from(EXPENSES_TABLE).insert([expense]);
-  if (expenseError) throw expenseError;
-
-  const transaction = {
-    id: generateId(),
-    wallet_id: String(payload.wallet_id),
-    amount: payload.amount,
-    type: "expense",
-    category: payload.category,
-    need_type: payload.need_type || "need",
-    planning_status: payload.planning_status || "planned",
-    unplanned_reason: payload.planning_status === "unplanned" ? payload.unplanned_reason || payload.user_explanation : null,
-    expense_id: expenseId,
-    notes: payload.notes || "Buy Check purchase",
-    created_at: createdAt,
-    updated_at: createdAt,
-    created_by: user.email ?? "",
-    user_email: user.email ?? "",
-    user_id: user.id ?? "",
-  };
-
-  const { error: transactionError } = await supabase.from(TXN_TABLE).insert([transaction]);
-  if (transactionError) throw transactionError;
-
-  const nextBalance = walletBalance - payload.amount;
-  const { error: walletError } = await supabase
-    .from(WALLETS_TABLE)
-    .update({ balance: nextBalance, updated_at: createdAt })
-    .eq("id", payload.wallet_id);
-  if (walletError) throw walletError;
+    source: "local",
+    syncStatus: "local_only",
+  });
 
   try {
     const existing = JSON.parse(localStorage.getItem("clara_buy_check_buy_explanations") || "[]");
@@ -298,7 +275,14 @@ async function logBuyCheckExpense(payload, statusNode) {
     // ignore local explanation storage failures
   }
 
-  ["clara-expenses-updated", "clara-finance-updated", "clara-wallets-updated", "clara-wallet-transactions-updated"].forEach((name) => window.dispatchEvent(new Event(name)));
+  [
+    "clara-expenses-updated",
+    "clara-finance-updated",
+    "clara-wallets-updated",
+    "clara-wallet-transactions-updated",
+    "clara-local-finance-updated",
+  ].forEach((name) => window.dispatchEvent(new Event(name)));
+
   if (statusNode) statusNode.textContent = "Expense logged successfully.";
 }
 
