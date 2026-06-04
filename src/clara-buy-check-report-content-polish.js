@@ -127,7 +127,7 @@ function getMoneyImpactEvent(context = {}) {
 
 function purchaseFeelingText(reason = "") {
   const text = clean(reason).toLowerCase();
-  if (!text) return "I hear you. You are interested in this, so I’ll check it fairly before saying yes or no.";
+  if (!text) return "I hear you. You are interested in this, so I’ll check it fairly before deciding.";
   if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${reason}. That feeling is valid, but I still need to protect your money plan.`;
   if (/health|medical|fitness|wellness|comfort|pain|need/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${reason}. I’ll check if the timing and cost are healthy too.`;
   if (/work|job|school|study|business|career/i.test(text)) return `I hear that this may feel practical: ${reason}. I’ll check if it supports you without hurting the plan.`;
@@ -240,7 +240,7 @@ function buildCardData(kind, context = {}) {
       };
     case "final":
       return {
-        body: `I combined your wallet, budget, goals, emergency fund, schedule, and pattern before giving this decision. My goal is to protect your stability, not just say yes or no.`,
+        body: `I combined your wallet, budget, goals, emergency fund, schedule, and pattern before giving this decision. My goal is to protect your stability, not just give a quick answer.`,
         bullets: [
           budget ? `Your budget room is ${money(Math.max(0, remaining))}. This is the strongest category boundary I can see.` : "I did not find a budget match, so I need the final answer to stay cautious.",
           `If you proceed, your spendable money after purchase would be ${money(afterPurchase)}.`,
