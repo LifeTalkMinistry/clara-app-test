@@ -129,12 +129,18 @@ function normalizePurchaseItem(value = "", { title = false } = {}) {
 }
 
 function normalizeReason(value = "") {
-  return clean(value)
+  const text = clean(value)
     .replace(/^h+u*m+\s*/i, "")
     .replace(/^h+m+\s*/i, "")
     .replace(/^uh+m+\s*/i, "")
     .replace(/\bi\s*might\s+need\s+it\s+to\s+work\b/i, "work need")
+    .replace(/[?!.]+$/g, "")
     .trim();
+
+  if (/^(replacement|replace)$/i.test(text)) return "replacement need";
+  if (/^(work|work need|for work)$/i.test(text)) return "work need";
+  if (/^(reward|treat)$/i.test(text)) return "personal reward";
+  return text;
 }
 
 function sanitizeMemorySignal(value = "") {
@@ -168,11 +174,11 @@ function purchaseFeelingText(reason = "") {
   const cleanReason = normalizeReason(reason);
   const text = cleanReason.toLowerCase();
   if (!text) return "I hear you. You are interested in this, so I’ll check it fairly before deciding.";
-  if (/work|job|school|study|business|career|productivity/i.test(text)) return `I hear that this may be practical for you: ${cleanReason}. I’ll check if it supports you without hurting the plan.`;
-  if (/replacement|replace|broken|old|damaged|lost|repair/i.test(text)) return `I hear this may be a replacement need: ${cleanReason}. I’ll check if the timing and cost make sense.`;
-  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return `I hear the feeling behind this: ${cleanReason}. That feeling is valid, but I still need to protect your money plan.`;
-  if (/health|medical|fitness|wellness|comfort|pain/i.test(text)) return `I hear that this may feel connected to your wellbeing: ${cleanReason}. I’ll check if the timing and cost are healthy too.`;
-  if (/want|like|nice|cool|style|fashion/i.test(text)) return `I hear the want behind this: ${cleanReason}. Wanting it is okay, but I’ll check if now is the right time.`;
+  if (/work|job|school|study|business|career|productivity/i.test(text)) return "I hear that this may be practical for work or responsibility. I’ll check if it supports you without hurting the plan.";
+  if (/replacement|replace|broken|old|damaged|lost|repair/i.test(text)) return "I hear that this may be a replacement need. I’ll check if the timing and cost make sense.";
+  if (/reward|treat|deserve|celebrate|gift|birthday|stress|tired|drained|sad|happy|excited/i.test(text)) return "I hear the feeling behind this. That feeling is valid, but I still need to protect your money plan.";
+  if (/health|medical|fitness|wellness|comfort|pain/i.test(text)) return "I hear that this may be connected to your wellbeing. I’ll check if the timing and cost are healthy too.";
+  if (/want|like|nice|cool|style|fashion/i.test(text)) return "I hear the want behind this. Wanting it is okay, but I’ll check if now is the right time.";
   return `I hear your reason: ${cleanReason}. I’ll respect that, then compare it with your real money context.`;
 }
 
