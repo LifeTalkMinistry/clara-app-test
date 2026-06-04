@@ -24,7 +24,22 @@ function normalizeItemName(value = "") {
     .replace(/^to\s+buy\s+/i, "")
     .trim();
 
-  return cleaned || raw || "this item";
+  const normalized = cleaned || raw || "this item";
+  const lower = normalized.toLowerCase();
+  if (lower.includes("phone") && (lower.includes("second") || lower.includes("seconf") || lower.includes("used"))) {
+    return "a second-hand phone";
+  }
+
+  return normalized;
+}
+
+function normalizePrice(value = "") {
+  const text = clean(value);
+  const match = text.match(/(?:₱|php\s*)?([0-9][0-9,\s]*(?:\.\d{1,2})?)/i);
+  if (!match) return text || "the entered amount";
+  const amount = Number(String(match[1]).replace(/[\s,]/g, ""));
+  if (!Number.isFinite(amount) || amount <= 0) return text || "the entered amount";
+  return `₱${amount.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
 function reasonMeaning(reason = "") {
@@ -40,14 +55,17 @@ function reasonMeaning(reason = "") {
 }
 
 function getFallbackSummary({ item, price, reason }) {
-  const reasonLine = reasonMeaning(reason);
+  const itemName = normalizeItemName(item);
+  const priceText = normalizePrice(price);
+  const reasonText = clean(reason).replace(/^h+u*m+\s*/i, "").trim() || clean(reason);
+  const reasonLine = reasonMeaning(reasonText);
   return {
-    item,
-    price,
-    reason,
-    line1: `You’re thinking of buying ${item} for ${price}.`,
-    line2: reason ? `You said “${reason},” so ${reasonLine}` : reasonLine,
-    question: "Is that correct before I run the full Buy Check?",
+    item: itemName,
+    price: priceText,
+    reason: reasonText,
+    line1: `You’re thinking of buying ${itemName} for ${priceText}.`,
+    line2: reasonText ? `Since you mentioned “${reasonText},” ${reasonLine}` : reasonLine,
+    question: "Did I get that right before I run the full Buy Check?",
   };
 }
 
@@ -75,7 +93,23 @@ function parseAiSummary(reply = "") {
 async function askAiForConfirmationSummary(input) {
   if (!hasGeminiConfig()) return null;
 
-  const prompt = `You are CLARA, a warm personal money coach. Before running a Buy Check report, summarize the user's answers in polished, natural wording.\n\nImportant rules:\n- Speak directly to the user as CLARA using I/you.\n- Do not mention budgets, wallet balance, risk, or final decision yet.\n- Correct awkward item wording. Example: "I want to buy second hand phone" becomes "a second-hand phone".\n- Interpret the reason gently. Example: "work need" means it may be connected to work or productivity.\n- Keep the whole confirmation short.\n- Return ONLY valid JSON.\n\nUser answers:\nItem: ${input.item}\nPrice: ${input.price}\nReason: ${input.reason || "not specified"}\n\nJSON shape:\n{"line1":"You’re thinking of buying ...","line2":"Since you mentioned ...","question":"Did I get that right before I run the full Buy Check?"}`;
+  const prompt = `You are CLARA, a warm personal money coach. Before running a Buy Check report, summarize the user's answers in polished, natural wording.
+
+Important rules:
+- Speak directly to the user as CLARA using I/you.
+- Do not mention budgets, wallet balance, risk, or final decision yet.
+- Correct awkward item wording. Example: "I want to buy second hand phone" becomes "a second-hand phone".
+- Interpret the reason gently. Example: "work need" means it may be connected to work or productivity.
+- Keep the whole confirmation short.
+- Return ONLY valid JSON.
+
+User answers:
+Item: ${input.item}
+Price: ${input.price}
+Reason: ${input.reason || "not specified"}
+
+JSON shape:
+{"line1":"You’re thinking of buying ...","line2":"Since you mentioned ...","question":"Did I get that right before I run the full Buy Check?"}`;
 
   try {
     const reply = await generateClaraGeminiReply({
@@ -96,9 +130,17 @@ async function askAiForConfirmationSummary(input) {
   }
 }
 
+function renderThinkingCard(card) {
+  card.innerHTML = `
+    <div class="clara-buy-check-message-title">Before we proceed, let me understand that first.</div>
+    <div class="clara-buy-check-confirm-summary">I’m cleaning up your answer and summarizing what I think you mean.</div>
+    <div class="clara-buy-check-message-sub">One moment...</div>
+  `;
+}
+
 function renderConfirmationCard(card, summary) {
   card.innerHTML = `
-    <div class="clara-buy-check-message-title">Before we proceed, just to make sure I got it right:</div>
+    <div class="clara-buy-check-message-title">Before we proceed, I want to make sure I understood you correctly.</div>
     <div class="clara-buy-check-confirm-summary">${escapeHtml(summary.line1)}</div>
     ${summary.line2 ? `<div class="clara-buy-check-confirm-summary">${escapeHtml(summary.line2)}</div>` : ""}
     <div class="clara-buy-check-message-sub">${escapeHtml(summary.question || "Did I get that right before I run the full Buy Check?")}</div>
@@ -107,6 +149,26 @@ function renderConfirmationCard(card, summary) {
       <button type="button" data-clara-buy-check-confirm-edit="true">Edit answers</button>
     </div>
   `;
+}
+
+function getRecentUserAnswers(card) {
+  const chat = card.closest("[data-clara-buy-check-static-chat]");
+  const userBubbles = Array.from(chat?.querySelectorAll(".clara-buy-check-static-bubble.user") || []);
+  const recent = userBubbles.slice(-3).map((bubble) => clean(bubble.textContent));
+  if (recent.length < 3) return null;
+  return { item: recent[0], price: recent[1], reason: recent[2] };
+}
+
+function readConfirmationInput(card) {
+  const strongValues = Array.from(card.querySelectorAll("strong")).map((node) =>
+    clean(node.textContent).replace(/^“|”$/g, "")
+  );
+  const recent = getRecentUserAnswers(card);
+  return {
+    item: recent?.item || strongValues[0] || "this item",
+    price: recent?.price || strongValues[1] || "the entered amount",
+    reason: recent?.reason || strongValues[2] || "",
+  };
 }
 
 function formatBuyCheckOpeningBubble() {
@@ -129,26 +191,26 @@ function formatConfirmationCard() {
   document.querySelectorAll(".clara-buy-check-confirm-card").forEach((card) => {
     if (card.dataset.claraConfirmNatural === "true") return;
 
-    const strongValues = Array.from(card.querySelectorAll("strong")).map((node) =>
-      clean(node.textContent).replace(/^“|”$/g, "")
-    );
-
-    const input = {
-      item: normalizeItemName(strongValues[0] || "this item"),
-      price: strongValues[1] || "the entered amount",
-      reason: strongValues[2] || "",
+    const input = readConfirmationInput(card);
+    const normalizedInput = {
+      item: normalizeItemName(input.item),
+      price: normalizePrice(input.price),
+      reason: clean(input.reason),
     };
 
     card.dataset.claraConfirmNatural = "true";
     card.dataset.claraConfirmAiStatus = hasGeminiConfig() ? "loading" : "fallback";
-    renderConfirmationCard(card, getFallbackSummary(input));
+    renderThinkingCard(card);
 
-    if (!hasGeminiConfig()) return;
+    if (!hasGeminiConfig()) {
+      renderConfirmationCard(card, getFallbackSummary(normalizedInput));
+      return;
+    }
 
-    askAiForConfirmationSummary(input).then((aiSummary) => {
-      if (!aiSummary || !card.isConnected) return;
-      card.dataset.claraConfirmAiStatus = "ready";
-      renderConfirmationCard(card, aiSummary);
+    askAiForConfirmationSummary(normalizedInput).then((aiSummary) => {
+      if (!card.isConnected) return;
+      card.dataset.claraConfirmAiStatus = aiSummary ? "ready" : "fallback";
+      renderConfirmationCard(card, aiSummary || getFallbackSummary(normalizedInput));
     });
   });
 }
