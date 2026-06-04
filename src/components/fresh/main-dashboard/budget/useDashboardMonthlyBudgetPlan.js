@@ -163,6 +163,20 @@ function getExpensePlanningStatus(expense = {}) {
   return "planned";
 }
 
+function findMatchingBudgetOptionForExpense(expense = {}, safeBudgetOptions = []) {
+  const expenseCategory = normalizeLower(getExpenseBudgetCategory(expense));
+  const expenseBudgetId = getExpenseBudgetId(expense);
+
+  return safeBudgetOptions.find((item) => {
+    const itemId = normalizeString(item?.id || item?.key || "");
+    const itemTitle = normalizeLower(item?.title);
+    return (
+      (itemId && expenseBudgetId && itemId === expenseBudgetId) ||
+      (itemTitle && expenseCategory && itemTitle === expenseCategory)
+    );
+  }) || null;
+}
+
 export default function useDashboardMonthlyBudgetPlan({
   manualExpenseBudgetOptions = [],
   expenses = [],
@@ -192,8 +206,6 @@ export default function useDashboardMonthlyBudgetPlan({
 
       const spent = safeExpenses.reduce((sum, expense) => {
         const status = getExpensePlanningStatus(expense);
-        if (!["planned", "budget_risk", "over_budget"].includes(status)) return sum;
-
         const expenseCategory = getExpenseBudgetCategory(expense);
         const expenseBudgetId = getExpenseBudgetId(expense);
 
@@ -203,6 +215,13 @@ export default function useDashboardMonthlyBudgetPlan({
 
         if (!matchesId && !matchesCategory) return sum;
         if (!inActiveRange(expense)) return sum;
+
+        // Sample/demo mode should behave like real user data. If the user logs
+        // a Buy Check purchase as unplanned but it still belongs to a real
+        // budget category, it must reduce that category room too.
+        if (!["planned", "budget_risk", "over_budget", "unplanned"].includes(status)) {
+          return sum;
+        }
 
         return sum + firstValidNumber(expense?.amount);
       }, 0);
@@ -225,6 +244,7 @@ export default function useDashboardMonthlyBudgetPlan({
       const status = getExpensePlanningStatus(expense);
       if (status !== "unplanned") return sum;
       if (!inActiveRange(expense)) return sum;
+      if (findMatchingBudgetOptionForExpense(expense, safeBudgetOptions)) return sum;
       return sum + firstValidNumber(expense?.amount);
     }, 0);
 
