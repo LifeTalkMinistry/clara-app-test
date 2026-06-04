@@ -62,6 +62,7 @@ import "./life-stage-young-professional-overlap-fix.css";
 import "./savings-goals-modal-polish.css";
 import "./finance-action-modal-copy-polish.css";
 import "./settings-hide-theme-appearance.js";
+import "./clara-settings-explore-clara-entry.js";
 import "./clara-buy-check-bottom-position.css";
 import "./clara-buy-check-message-hierarchy";
 import "./clara-buy-check-report-card-polish.css";
