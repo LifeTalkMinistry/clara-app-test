@@ -5,6 +5,15 @@ function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function escapeHtml(value = "") {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const parsed = Number(String(value || "").replace(/[₱,\s,]/g, ""));
@@ -62,20 +71,52 @@ function normalizeDisplayItem(value = "") {
   return raw || clean(value) || "this purchase";
 }
 
+function getWalletId(wallet = {}) {
+  return clean(wallet.id ?? wallet.wallet_id ?? wallet.walletId ?? wallet.key ?? wallet.uuid ?? "");
+}
+
+function getWalletName(wallet = {}) {
+  return clean(wallet.name || wallet.wallet_name || wallet.title || wallet.label || "Wallet");
+}
+
 function getWalletBalance(wallet = {}) {
   return toNumber(wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? wallet.available_balance ?? wallet.starting_balance ?? 0);
 }
 
-function chooseExpenseWallet(context = {}) {
-  const price = toNumber(context.purchaseSummary?.price);
+function getWalletOptions(context = {}) {
   const finance = context.financeContext || {};
-  const sourceWallets = Array.isArray(finance.spendableWallets) && finance.spendableWallets.length
-    ? finance.spendableWallets
-    : Array.isArray(finance.wallets)
-      ? finance.wallets
-      : [];
+  const rawWallets = [
+    ...(Array.isArray(finance.wallets) ? finance.wallets : []),
+    ...(Array.isArray(finance.spendableWallets) ? finance.spendableWallets : []),
+    ...(Array.isArray(finance.protectedWallets) ? finance.protectedWallets : []),
+  ];
 
-  const wallets = sourceWallets.map((wallet) => ({ ...wallet, balanceNumber: getWalletBalance(wallet) }));
+  const seen = new Set();
+
+  return rawWallets
+    .map((wallet) => {
+      const id = getWalletId(wallet);
+      const name = getWalletName(wallet);
+      const key = id || name.toLowerCase();
+      if (!key || seen.has(key)) return null;
+      seen.add(key);
+      return {
+        ...wallet,
+        id,
+        name,
+        balanceNumber: getWalletBalance(wallet),
+      };
+    })
+    .filter(Boolean);
+}
+
+function chooseExpenseWallet(context = {}, preferredWalletId = "") {
+  const price = toNumber(context.purchaseSummary?.price);
+  const wallets = getWalletOptions(context);
+  const preferred = wallets.find((wallet) => wallet.id && wallet.id === preferredWalletId);
+
+  if (preferred) return preferred;
+
   const candidates = wallets.filter((wallet) => wallet.id && (!price || wallet.balanceNumber >= price));
 
   const priority = (wallet = {}) => {
@@ -112,12 +153,12 @@ async function getBuyCheckLocalUserId() {
   }
 }
 
-function buildExpensePrefillFromBuyCheck(explanation = "") {
+function buildExpensePrefillFromBuyCheck(explanation = "", preferredWalletId = "") {
   const context = window.__CLARA_LAST_BUY_CHECK_CONTEXT__ || {};
   const purchase = context.purchaseSummary || {};
   const finance = context.financeContext || {};
   const price = toNumber(purchase.price);
-  const wallet = chooseExpenseWallet(context);
+  const wallet = chooseExpenseWallet(context, preferredWalletId);
   const budget = finance.matchingBudget;
   const remaining = toNumber(budget?.remaining);
   const category = normalizeCategory(purchase.inferredCategory || purchase.item);
@@ -137,7 +178,7 @@ function buildExpensePrefillFromBuyCheck(explanation = "") {
     category,
     wallet_id: wallet?.id ? String(wallet.id) : "",
     wallet_name: wallet?.name || "Selected wallet",
-    wallet_balance: getWalletBalance(wallet),
+    wallet_balance: wallet?.balanceNumber ?? getWalletBalance(wallet),
     notes: `${normalizeDisplayItem(purchase.item)}${finalExplanation ? ` — ${finalExplanation}` : ""}`,
     need_type: normalizeNeedType(`${originalReason} ${finalExplanation}`, category),
     planning_status: planningStatus,
@@ -148,16 +189,63 @@ function buildExpensePrefillFromBuyCheck(explanation = "") {
   };
 }
 
+function walletHasEnough(wallet = {}, amount = 0) {
+  return Boolean(wallet.id) && getWalletBalance(wallet) >= toNumber(amount);
+}
+
+function buildWalletOptionsHtml(selectedWalletId = "", amount = 0) {
+  const context = window.__CLARA_LAST_BUY_CHECK_CONTEXT__ || {};
+  const wallets = getWalletOptions(context);
+
+  if (!wallets.length) {
+    return `<div class="clara-buy-check-wallet-empty">No wallets found.</div>`;
+  }
+
+  return wallets.map((wallet) => {
+    const enough = walletHasEnough(wallet, amount);
+    const selected = wallet.id && wallet.id === selectedWalletId;
+    return `
+      <button
+        type="button"
+        class="clara-buy-check-wallet-option${selected ? " is-selected" : ""}${!enough ? " is-disabled" : ""}"
+        data-clara-buy-check-wallet-option="true"
+        data-wallet-id="${escapeHtml(wallet.id)}"
+        ${!enough ? "disabled" : ""}
+      >
+        <span>
+          <strong>${escapeHtml(wallet.name)}</strong>
+          <small>${enough ? "Available" : "Not enough balance"}</small>
+        </span>
+        <b>${money(wallet.balanceNumber)}</b>
+      </button>
+    `;
+  }).join("");
+}
+
 function buildReviewRows(payload = {}) {
+  const selectedWalletId = clean(payload.wallet_id);
+  const enough = payload.amount > 0 && payload.wallet_id && payload.amount <= toNumber(payload.wallet_balance);
   const rows = [
     ["Amount", money(payload.amount)],
     ["Category", clean(payload.category).replace(/^./, (letter) => letter.toUpperCase())],
-    ["Wallet", payload.wallet_name || "Selected wallet"],
     ["Type", payload.need_type === "need" ? "Need" : payload.need_type === "savings" ? "Savings" : "Want"],
     ["Planning", payload.planning_status === "unplanned" ? "Unplanned" : "Planned"],
   ];
 
-  return rows.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+  return `
+    ${rows.map(([label, value]) => `<div class="clara-buy-check-preview-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    <div class="clara-buy-check-preview-row clara-buy-check-wallet-row">
+      <span>Pay from</span>
+      <button type="button" class="clara-buy-check-wallet-trigger${!enough ? " is-warning" : ""}" data-clara-buy-check-wallet-toggle="true">
+        <strong>${escapeHtml(payload.wallet_name || "Choose wallet")}</strong>
+        <small>${money(payload.wallet_balance)}</small>
+        <b aria-hidden="true">⌄</b>
+      </button>
+    </div>
+    <div class="clara-buy-check-wallet-menu" data-clara-buy-check-wallet-menu="true" hidden>
+      ${buildWalletOptionsHtml(selectedWalletId, payload.amount)}
+    </div>
+  `;
 }
 
 function closeBuyCheckOverlay() {
@@ -286,6 +374,45 @@ async function logBuyCheckExpense(payload, statusNode) {
   if (statusNode) statusNode.textContent = "Expense logged successfully.";
 }
 
+function updateBuyPanelValidation(panel, { preserveStatus = false } = {}) {
+  if (!panel || panel.dataset.claraBuyCheckDecisionPanel !== "buy") return null;
+
+  const input = panel.querySelector(".clara-buy-check-decision-input");
+  const preview = panel.querySelector(".clara-buy-check-expense-preview");
+  const status = panel.querySelector(".clara-buy-check-decision-status");
+  const saveButton = panel.querySelector("[data-clara-buy-check-decision-save]");
+  const explanation = clean(input?.value || "");
+  const selectedWalletId = clean(panel.dataset.claraBuyCheckSelectedWalletId || "");
+  const payload = buildExpensePrefillFromBuyCheck(explanation, selectedWalletId);
+  const enoughBalance = Boolean(payload.wallet_id) && payload.amount > 0 && payload.amount <= toNumber(payload.wallet_balance);
+  const canLog = Boolean(explanation) && payload.amount > 0 && Boolean(payload.wallet_id) && enoughBalance;
+
+  panel.dataset.claraBuyCheckSelectedWalletId = payload.wallet_id || "";
+
+  if (preview) {
+    const menuWasOpen = Boolean(preview.querySelector("[data-clara-buy-check-wallet-menu]:not([hidden])"));
+    preview.innerHTML = buildReviewRows(payload);
+    const nextMenu = preview.querySelector("[data-clara-buy-check-wallet-menu]");
+    if (menuWasOpen && nextMenu) nextMenu.hidden = false;
+  }
+
+  if (saveButton) saveButton.disabled = !canLog;
+
+  if (status && !preserveStatus) {
+    if (!payload.wallet_id) {
+      status.textContent = "Choose a wallet before logging this expense.";
+    } else if (!enoughBalance) {
+      status.textContent = "Not enough wallet balance for this expense.";
+    } else if (!explanation) {
+      status.textContent = "Add a short explanation before logging.";
+    } else {
+      status.textContent = "";
+    }
+  }
+
+  return { payload, canLog, enoughBalance };
+}
+
 function showDecisionExplanation(choice = "buy") {
   document.querySelector("[data-clara-buy-check-decision-panel]")?.remove();
 
@@ -298,14 +425,15 @@ function showDecisionExplanation(choice = "buy") {
 
   const panel = document.createElement("div");
   panel.dataset.claraBuyCheckDecisionPanel = choice;
+  if (isBuy) panel.dataset.claraBuyCheckSelectedWalletId = payload?.wallet_id || "";
   panel.className = "clara-buy-check-decision-panel";
   panel.innerHTML = `
     <div class="clara-buy-check-decision-card">
       <p class="clara-buy-check-decision-title">${isBuy ? "Before I log this expense..." : "Help me understand your decision."}</p>
       <p class="clara-buy-check-decision-copy">
         ${isBuy
-          ? `You chose to buy <strong>${item}</strong>. Tell me why, so I can attach your explanation to the transaction${payload?.planning_status === "unplanned" ? " as the unplanned-spending reason" : " note"}.`
-          : `I suggested <strong>${decision}</strong> for <strong>${item}</strong>, but you chose not to buy. Tell me why, so I can remember this decision pattern.`}
+          ? `You chose to buy <strong>${escapeHtml(item)}</strong>. Tell me why, so I can attach your explanation to the transaction${payload?.planning_status === "unplanned" ? " as the unplanned-spending reason" : " note"}.`
+          : `I suggested <strong>${escapeHtml(decision)}</strong> for <strong>${escapeHtml(item)}</strong>, but you chose not to buy. Tell me why, so I can remember this decision pattern.`}
       </p>
       <textarea class="clara-buy-check-decision-input" rows="3" placeholder="Example: It is for work, my current one is broken, I decided to save first, or it is not urgent anymore."></textarea>
       ${isBuy ? `<div class="clara-buy-check-expense-preview">${buildReviewRows(payload)}</div>` : ""}
@@ -318,6 +446,8 @@ function showDecisionExplanation(choice = "buy") {
   `;
   document.body.appendChild(panel);
   panel.querySelector("textarea")?.focus();
+
+  if (isBuy) updateBuyPanelValidation(panel);
 }
 
 function saveNotBuyReflection(panel) {
@@ -360,21 +490,25 @@ async function saveBuyExplanationAndLog(panel) {
 
   if (!explanation) {
     if (status) status.textContent = "Please explain why you will buy this first.";
+    updateBuyPanelValidation(panel, { preserveStatus: true });
     return;
   }
+
+  const validation = updateBuyPanelValidation(panel);
+  if (!validation?.canLog) return;
 
   const saveButton = panel.querySelector("[data-clara-buy-check-decision-save]");
   if (saveButton) saveButton.disabled = true;
   if (status) status.textContent = "Logging expense...";
 
   try {
-    const payload = buildExpensePrefillFromBuyCheck(explanation);
+    const payload = buildExpensePrefillFromBuyCheck(explanation, panel.dataset.claraBuyCheckSelectedWalletId || "");
     await logBuyCheckExpense(payload, status);
     completeExpenseLogFlow(payload);
   } catch (error) {
     console.error("[CLARA Buy Check] Failed to log expense", error);
     if (status) status.textContent = error?.message || "Could not log expense.";
-    if (saveButton) saveButton.disabled = false;
+    updateBuyPanelValidation(panel, { preserveStatus: true });
   }
 }
 
@@ -419,6 +553,12 @@ function installBuyCheckReportFocusMode() {
     showDecisionExplanation(willBuyButton ? "buy" : "not_buy");
   }, true);
 
+  document.addEventListener("input", (event) => {
+    const panel = event.target?.closest?.("[data-clara-buy-check-decision-panel='buy']");
+    if (!panel || !event.target?.matches?.(".clara-buy-check-decision-input")) return;
+    updateBuyPanelValidation(panel);
+  }, true);
+
   document.addEventListener("click", (event) => {
     const willBuyButton = event.target?.closest?.("[data-clara-buy-check-will-buy]");
     if (willBuyButton) {
@@ -439,6 +579,26 @@ function installBuyCheckReportFocusMode() {
     }
 
     const panel = event.target?.closest?.("[data-clara-buy-check-decision-panel]");
+
+    const walletToggle = event.target?.closest?.("[data-clara-buy-check-wallet-toggle]");
+    if (walletToggle && panel?.dataset.claraBuyCheckDecisionPanel === "buy") {
+      event.preventDefault();
+      event.stopPropagation();
+      const menu = panel.querySelector("[data-clara-buy-check-wallet-menu]");
+      if (menu) menu.hidden = !menu.hidden;
+      return;
+    }
+
+    const walletOption = event.target?.closest?.("[data-clara-buy-check-wallet-option]");
+    if (walletOption && panel?.dataset.claraBuyCheckDecisionPanel === "buy") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (walletOption.disabled || walletOption.classList.contains("is-disabled")) return;
+      panel.dataset.claraBuyCheckSelectedWalletId = clean(walletOption.dataset.walletId || "");
+      updateBuyPanelValidation(panel);
+      return;
+    }
+
     if (event.target?.closest?.("[data-clara-buy-check-decision-close]")) {
       panel?.remove();
       return;
