@@ -2,6 +2,65 @@ function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+const CARD_BODY_LIMITS = {
+  purchase: 150,
+  wallet: 155,
+  budget: 150,
+  goals: 145,
+  emergency: 145,
+  schedule: 155,
+  pattern: 150,
+  final: 160,
+};
+
+const CARD_BULLET_LIMITS = {
+  purchase: 115,
+  wallet: 115,
+  budget: 115,
+  goals: 115,
+  emergency: 115,
+  schedule: 115,
+  pattern: 125,
+  final: 120,
+};
+
+function clampText(value = "", limit = 150) {
+  const text = clean(value);
+  if (!text || text.length <= limit) return text;
+
+  const roughCut = text.slice(0, Math.max(0, limit - 1));
+  const lastSpace = roughCut.lastIndexOf(" ");
+  const safeCut = lastSpace >= Math.floor(limit * 0.62) ? roughCut.slice(0, lastSpace) : roughCut;
+
+  return `${safeCut.trim().replace(/[.,;:–—-]+$/g, "")}…`;
+}
+
+function compactMemorySignal(value = "") {
+  const text = clean(value);
+  const pieces = text
+    .split(/\s+-\s+|[.!?]\s+/)
+    .map(clean)
+    .filter((piece) => piece.length >= 16);
+
+  const bestPieces = pieces
+    .filter((piece) => /spend|food|shopping|stress|trigger|impulse|goal|discipline|habit|budget|basketball|work/i.test(piece))
+    .slice(0, 2);
+
+  const summary = bestPieces.length ? bestPieces.join(". ") : pieces.slice(0, 1).join(". ");
+  return clampText(summary || text, 125);
+}
+
+function limitCardData(kind = "", cardData = {}) {
+  const bodyLimit = CARD_BODY_LIMITS[kind] || 150;
+  const bulletLimit = CARD_BULLET_LIMITS[kind] || 115;
+
+  return {
+    ...cardData,
+    body: clampText(cardData.body, bodyLimit),
+    bullets: safeArray(cardData.bullets).slice(0, 3).map((item) => clampText(item, bulletLimit)),
+  };
+}
+
 function escapeHtml(value = "") {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -40,7 +99,7 @@ function sanitizeMemorySignal(value = "") {
     .replace(/\bpaydayBehavior\b/gi, "payday spending pattern");
 
   if (!text || text.length < 8) return "No strong spending pattern was loaded for this check.";
-  return text;
+  return compactMemorySignal(text);
 }
 
 function getMemorySignal(context = {}) {
@@ -215,7 +274,7 @@ function polishReportCards() {
 
     const eyebrow = clean(article.querySelector("p")?.textContent || "");
     const kind = cardKindFromEyebrow(eyebrow);
-    const cardData = buildCardData(kind, context);
+    const cardData = limitCardData(kind, buildCardData(kind, context));
     if (!cardData) return;
 
     const paragraphs = article.querySelectorAll("p");
