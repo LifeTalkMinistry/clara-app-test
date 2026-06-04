@@ -7,7 +7,11 @@ const tutorialSlides = [
     eyebrow: "Hi there",
     title: "I’m CLARA. I’m thrilled to be your companion in your finances.",
     body:
-      "I’m here to help you see your money clearly, understand your spending, and build better financial habits one simple decision at a time. Together, we’ll slow things down before you spend, notice where your money goes, and make calmer choices that are easier to repeat.",
+      "I’m here to help you see your money clearly, understand your spending, and build better financial habits one simple decision at a time.",
+    supportTitle: "A calmer way to start",
+    support:
+      "CLARA helps you slow down before spending, understand where your money goes, and build small habits that make your finances feel less overwhelming.",
+    supportPoints: ["See clearly", "Pause before buying", "Build habits", "Decide calmly"],
     noteTitle: "Before we start",
     note:
       "You don’t have to be perfect with money. You just need a clear system that helps you notice, decide, and improve.",
@@ -18,6 +22,10 @@ const tutorialSlides = [
     title: "Earning money is not the same as managing it well.",
     body:
       "A lot of people work hard and still wonder where their money went. Sometimes the problem is not income. Sometimes it is lack of visibility, structure, and guidance in the small daily decisions.",
+    supportTitle: "Small decisions matter",
+    support:
+      "CLARA is designed to make daily money choices easier to notice, easier to review, and easier to improve over time.",
+    supportPoints: ["Daily awareness", "Simple review", "Less guessing", "Better control"],
     noteTitle: "That’s why I’m here",
     note:
       "I’ll help you slow down, organize what you have, and become more aware before your money disappears into unplanned spending.",
@@ -28,6 +36,10 @@ const tutorialSlides = [
     title: "I’ll help you turn money confusion into a clear daily system.",
     body:
       "Inside CLARA, you can track money, organize wallets, review spending, and build a clearer relationship with your finances without feeling overwhelmed.",
+    supportTitle: "Your money map",
+    support:
+      "You’ll have a simple place to connect your budgets, wallets, spending, savings, and decisions into one clearer picture.",
+    supportPoints: ["Budgets", "Wallets", "Spending", "Savings"],
     noteTitle: "My role in your journey",
     note:
       "Think of me as your money clarity companion. I won’t judge you. I’ll help you see, understand, and decide better.",
@@ -38,6 +50,10 @@ const tutorialSlides = [
     title: "You can start free today and upgrade only when you’re ready.",
     body:
       "The free version lets you enter the dashboard right away. When you want deeper guidance, strategy, and CLARA intelligence, you can choose a tier that fits your season.",
+    supportTitle: "Start light, grow later",
+    support:
+      "Begin with the basics first. As your routine becomes clearer, you can unlock deeper guidance when it already feels useful to you.",
+    supportPoints: ["Free start", "No pressure", "Simple tools", "Upgrade later"],
     noteTitle: "No pressure",
     note:
       "Start simple. Build trust with the system. Upgrade later only when you feel CLARA is becoming part of your financial routine.",
@@ -148,6 +164,25 @@ export default function WelcomeBack() {
                   <p className="mt-4 text-[15px] leading-7 text-white/66">
                     {currentSlide.body}
                   </p>
+                </div>
+              </div>
+
+              <div className="relative mt-4 overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.04] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(132,204,22,0.12),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(45,212,191,0.1),transparent_46%)]" />
+                <div className="relative">
+                  <p className="text-sm font-semibold text-white">{currentSlide.supportTitle}</p>
+                  <p className="mt-1.5 text-[13px] leading-6 text-white/56">
+                    {currentSlide.support}
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {currentSlide.supportPoints.map((point) => (
+                      <div key={point} className="flex items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-2 text-[10.5px] font-medium text-white/62">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300/75" />
+                        <span>{point}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
