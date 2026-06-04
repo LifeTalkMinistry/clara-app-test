@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import "./clara-memory-bridge";
 import "./clara-buy-check-report-router";
+import "./clara-buy-check-price-question-copy";
 import "./clara-buy-check-report-content-polish";
 import "./clara-buy-check-report-focus-mode";
 import "./clara-buy-check-effective-context-guard";
