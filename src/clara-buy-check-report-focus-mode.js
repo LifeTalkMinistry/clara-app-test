@@ -52,6 +52,19 @@ function normalizeNeedType(reason = "", category = "") {
   return "want";
 }
 
+function normalizeDisplayItem(value = "") {
+  const raw = clean(value)
+    .replace(/^i\s*(?:want|wanna|would like|like|need|plan|am planning|was thinking)\s*(?:to)?\s*buy\s+/i, "")
+    .replace(/^buy\s+/i, "")
+    .replace(/\bphonee+\b/gi, "phone")
+    .replace(/\bseconf\b/gi, "second")
+    .trim();
+
+  const lower = raw.toLowerCase();
+  if (/phone/.test(lower) && /(second|2nd|secondhand|second hand|used|pre[-\s]?owned)/.test(lower)) return "a second-hand phone";
+  return raw || clean(value) || "this purchase";
+}
+
 function chooseExpenseWallet(context = {}) {
   const price = toNumber(context.purchaseSummary?.price);
   const wallets = Array.isArray(context.financeContext?.spendableWallets)
@@ -76,8 +89,14 @@ function isUnexpectedNecessary(reason = "") {
   return /health|medical|medicine|doctor|work|job|school|study|replacement|replace|broken|repair|lost|urgent|emergency/i.test(reason);
 }
 
+function getFinalCard() {
+  return Array.from(document.querySelectorAll("[data-clara-buy-check-report] article")).find((article) =>
+    clean(article.textContent).includes("08 / FINAL SUMMARY")
+  );
+}
+
 function getFinalDecision() {
-  return clean(document.querySelector("[data-clara-buy-check-report] article:has([data-clara-buy-final-static-actions]) h3")?.textContent || "");
+  return clean(getFinalCard()?.querySelector("h3")?.textContent || "");
 }
 
 function buildExpensePrefillFromBuyCheck(explanation = "") {
@@ -106,7 +125,7 @@ function buildExpensePrefillFromBuyCheck(explanation = "") {
     wallet_id: wallet?.id ? String(wallet.id) : "",
     wallet_name: wallet?.name || "Selected wallet",
     wallet_balance: toNumber(wallet?.balance),
-    notes: `${clean(purchase.item) || "Buy Check purchase"}${finalExplanation ? ` — ${finalExplanation}` : ""}`,
+    notes: `${normalizeDisplayItem(purchase.item)}${finalExplanation ? ` — ${finalExplanation}` : ""}`,
     need_type: normalizeNeedType(`${originalReason} ${finalExplanation}`, category),
     planning_status: planningStatus,
     unplanned_reason: unplannedReason,
@@ -209,7 +228,7 @@ function showDecisionExplanation(choice = "buy") {
   const purchase = context.purchaseSummary || {};
   const decision = getFinalDecision() || "this recommendation";
   const isBuy = choice === "buy";
-  const item = clean(purchase.item || "this purchase");
+  const item = normalizeDisplayItem(purchase.item || "this purchase");
   const payload = isBuy ? buildExpensePrefillFromBuyCheck("") : null;
 
   const panel = document.createElement("div");
@@ -324,11 +343,23 @@ function installBuyCheckReportFocusMode() {
   observer.observe(document.documentElement, { childList: true, subtree: true });
   addFinalStaticActions();
 
+  document.addEventListener("pointerup", (event) => {
+    const willBuyButton = event.target?.closest?.("[data-clara-buy-check-will-buy]");
+    const notBuyButton = event.target?.closest?.("[data-clara-buy-check-not-buy]");
+    if (!willBuyButton && !notBuyButton) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    showDecisionExplanation(willBuyButton ? "buy" : "not_buy");
+  }, true);
+
   document.addEventListener("click", (event) => {
     const willBuyButton = event.target?.closest?.("[data-clara-buy-check-will-buy]");
     if (willBuyButton) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       showDecisionExplanation("buy");
       return;
     }
@@ -337,6 +368,7 @@ function installBuyCheckReportFocusMode() {
     if (notBuyButton) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       showDecisionExplanation("not_buy");
       return;
     }
