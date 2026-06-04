@@ -16,6 +16,17 @@ const RETIRED_DEMO_STORAGE_KEYS = [
   "clara_dev_identity_override_v1",
   "clara_demo_intro_seen_at_v1",
   "CLARA_AI_USE_DEMO_CONTEXT",
+  "CLARA_SAMPLE_MAX_ACTIVE_V1",
+  "CLARA_SAMPLE_MAX_REAL_BACKUP_V1",
+  "CLARA_LIFE_STAGE_SAMPLE_ACTIVE_V1",
+];
+
+const RETIRED_STORAGE_KEY_PARTS = [
+  "clara_demo",
+  "clara_sample",
+  "clara_life_stage_demo",
+  "CLARA_SAMPLE",
+  "CLARA_LIFE_STAGE_SAMPLE",
 ];
 
 const RETIRED_DEMO_CLEANUP_STORES = [
@@ -72,22 +83,45 @@ function clearRetiredDemoBrowserState() {
     for (const key of RETIRED_DEMO_STORAGE_KEYS) {
       window.localStorage.removeItem(key);
     }
+
+    const keysToRemove = [];
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key) continue;
+      if (RETIRED_STORAGE_KEY_PARTS.some((part) => key.includes(part))) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => window.localStorage.removeItem(key));
   } catch {
     // Storage can be unavailable in restricted browser modes.
   }
 }
 
 function isRetiredDemoAccountRecord(record) {
-  const id = String(record?.id || "");
-  const source = String(record?.source || "");
+  if (!record || typeof record !== "object") return false;
+
+  const id = String(record.id || "");
+  const source = String(record.source || "");
+  const setupFamily = String(record.setupFamily || record.setup_family || "");
+  const localUserId = String(record.localUserId || record.local_user_id || "");
 
   return Boolean(
-    id.startsWith("clara_demo") ||
-      record?.demoAccount === true ||
-      record?.demo_account === true ||
-      record?.demoVersion ||
-      record?.demo_version ||
-      source === "clara_demo_account"
+    localUserId === RETIRED_DEMO_LOCAL_USER_ID ||
+      id.startsWith("clara_demo") ||
+      id.startsWith("clara_sample_max") ||
+      id.startsWith("clara_life_stage_demo") ||
+      source === "clara_demo_account" ||
+      source === "clara_sample_demo_seed" ||
+      source === "clara_life_stage_demo_seed" ||
+      setupFamily === "life_stage_sample" ||
+      record.demoAccount === true ||
+      record.demo_account === true ||
+      record.demoVersion ||
+      record.demo_version ||
+      record.sampleData === true ||
+      record.sample_data === true
   );
 }
 
@@ -154,6 +188,7 @@ async function purgeRetiredDemoAccountData(user) {
     window.dispatchEvent(new Event("clara-wallets-updated"));
     window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
     window.dispatchEvent(new Event("clara-expenses-updated"));
+    window.setTimeout(() => window.location.reload(), 250);
   }
 }
 
@@ -176,9 +211,7 @@ export default function ClaraAiEnvironmentBridge() {
   } = useFinancialData(user);
 
   const claraAssistantContext = useMemo(() => {
-    const bridgeReadableContext = buildClaraBridgeReadableContext({
-      messages: claraAiEnvironment.messages,
-    });
+    const bridgeReadableContext = buildClaraBridgeReadableContext({ messages: claraAiEnvironment.messages });
 
     return {
       user,
@@ -193,19 +226,7 @@ export default function ClaraAiEnvironmentBridge() {
       refreshing,
       ...bridgeReadableContext,
     };
-  }, [
-    user,
-    expenses,
-    wallets,
-    walletTransactions,
-    transfers,
-    budgets,
-    savingsGoals,
-    emergencyFund,
-    loading,
-    refreshing,
-    claraAiEnvironment.messages,
-  ]);
+  }, [user, expenses, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, loading, refreshing, claraAiEnvironment.messages]);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
@@ -264,7 +285,6 @@ export default function ClaraAiEnvironmentBridge() {
 
     const handlePointerDown = (event) => {
       if (!isMoneyLeftOrbTarget(event.target)) return;
-
       clearLongPressTimer();
       longPressTimerRef.current = window.setTimeout(() => {
         setOverlayVisible(true);
@@ -272,9 +292,7 @@ export default function ClaraAiEnvironmentBridge() {
       }, LONG_PRESS_DELAY);
     };
 
-    const handlePointerRelease = () => {
-      clearLongPressTimer();
-    };
+    const handlePointerRelease = () => clearLongPressTimer();
 
     document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("pointerup", handlePointerRelease, true);
