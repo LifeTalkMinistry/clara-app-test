@@ -1,3 +1,4 @@
+import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import "./clara-buy-check-result-format-guard";
 import "./clara-buy-check-hard-final-format";
 
@@ -38,6 +39,76 @@ function reasonMeaning(reason = "") {
   return `I’m reading your reason as “${reason}.”`;
 }
 
+function getFallbackSummary({ item, price, reason }) {
+  const reasonLine = reasonMeaning(reason);
+  return {
+    item,
+    price,
+    reason,
+    line1: `You’re thinking of buying ${item} for ${price}.`,
+    line2: reason ? `You said “${reason},” so ${reasonLine}` : reasonLine,
+    question: "Is that correct before I run the full Buy Check?",
+  };
+}
+
+function stripFence(value = "") {
+  return clean(value).replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+}
+
+function parseAiSummary(reply = "") {
+  const text = stripFence(reply);
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    const line1 = clean(parsed.line1);
+    const line2 = clean(parsed.line2);
+    const question = clean(parsed.question);
+    if (!line1 || !question) return null;
+    return { line1, line2, question };
+  } catch {
+    return null;
+  }
+}
+
+async function askAiForConfirmationSummary(input) {
+  if (!hasGeminiConfig()) return null;
+
+  const prompt = `You are CLARA, a warm personal money coach. Before running a Buy Check report, summarize the user's answers in polished, natural wording.\n\nImportant rules:\n- Speak directly to the user as CLARA using I/you.\n- Do not mention budgets, wallet balance, risk, or final decision yet.\n- Correct awkward item wording. Example: "I want to buy second hand phone" becomes "a second-hand phone".\n- Interpret the reason gently. Example: "work need" means it may be connected to work or productivity.\n- Keep the whole confirmation short.\n- Return ONLY valid JSON.\n\nUser answers:\nItem: ${input.item}\nPrice: ${input.price}\nReason: ${input.reason || "not specified"}\n\nJSON shape:\n{"line1":"You’re thinking of buying ...","line2":"Since you mentioned ...","question":"Did I get that right before I run the full Buy Check?"}`;
+
+  try {
+    const reply = await generateClaraGeminiReply({
+      message: prompt,
+      mode: "buy_check_confirmation_summary",
+      context: input,
+      conversationHistory: [
+        { role: "user", text: input.item },
+        { role: "user", text: input.price },
+        { role: "user", text: input.reason },
+      ],
+    });
+
+    return parseAiSummary(reply);
+  } catch (error) {
+    console.warn("[CLARA Buy Check] AI confirmation summary failed; fallback used.", error);
+    return null;
+  }
+}
+
+function renderConfirmationCard(card, summary) {
+  card.innerHTML = `
+    <div class="clara-buy-check-message-title">Before we proceed, just to make sure I got it right:</div>
+    <div class="clara-buy-check-confirm-summary">${escapeHtml(summary.line1)}</div>
+    ${summary.line2 ? `<div class="clara-buy-check-confirm-summary">${escapeHtml(summary.line2)}</div>` : ""}
+    <div class="clara-buy-check-message-sub">${escapeHtml(summary.question || "Did I get that right before I run the full Buy Check?")}</div>
+    <div class="clara-buy-check-confirm-actions">
+      <button type="button" data-clara-buy-check-confirm-continue="true">Continue</button>
+      <button type="button" data-clara-buy-check-confirm-edit="true">Edit answers</button>
+    </div>
+  `;
+}
+
 function formatBuyCheckOpeningBubble() {
   if (typeof document === "undefined") return;
 
@@ -62,22 +133,23 @@ function formatConfirmationCard() {
       clean(node.textContent).replace(/^“|”$/g, "")
     );
 
-    const item = normalizeItemName(strongValues[0] || "this item");
-    const price = strongValues[1] || "the entered amount";
-    const reason = strongValues[2] || "";
-    const reasonLine = reasonMeaning(reason);
+    const input = {
+      item: normalizeItemName(strongValues[0] || "this item"),
+      price: strongValues[1] || "the entered amount",
+      reason: strongValues[2] || "",
+    };
 
     card.dataset.claraConfirmNatural = "true";
-    card.innerHTML = `
-      <div class="clara-buy-check-message-title">Before we proceed, just to make sure I got it right:</div>
-      <div class="clara-buy-check-confirm-summary">You’re thinking of buying <strong>${escapeHtml(item)}</strong> for <strong>${escapeHtml(price)}</strong>.</div>
-      <div class="clara-buy-check-confirm-summary">${reason ? `You said <strong>“${escapeHtml(reason)}”</strong>, so ${escapeHtml(reasonLine)}` : escapeHtml(reasonLine)}</div>
-      <div class="clara-buy-check-message-sub">Is that correct before I run the full Buy Check?</div>
-      <div class="clara-buy-check-confirm-actions">
-        <button type="button" data-clara-buy-check-confirm-continue="true">Continue</button>
-        <button type="button" data-clara-buy-check-confirm-edit="true">Edit answers</button>
-      </div>
-    `;
+    card.dataset.claraConfirmAiStatus = hasGeminiConfig() ? "loading" : "fallback";
+    renderConfirmationCard(card, getFallbackSummary(input));
+
+    if (!hasGeminiConfig()) return;
+
+    askAiForConfirmationSummary(input).then((aiSummary) => {
+      if (!aiSummary || !card.isConnected) return;
+      card.dataset.claraConfirmAiStatus = "ready";
+      renderConfirmationCard(card, aiSummary);
+    });
   });
 }
 
