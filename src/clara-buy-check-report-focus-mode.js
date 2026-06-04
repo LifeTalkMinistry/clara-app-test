@@ -147,6 +147,87 @@ function buildReviewRows(payload = {}) {
   return rows.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
 }
 
+function closeBuyCheckOverlay() {
+  try {
+    document.querySelector("[data-clara-buy-check-decision-panel]")?.remove();
+    document.querySelector("[data-clara-buy-check-close-board]")?.click?.();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  } catch {
+    // keep navigation working even if the overlay close handler is unavailable
+  }
+}
+
+function navigateToDashboard() {
+  try {
+    if (window.location.hash !== "#/dashboard") {
+      window.location.hash = "/dashboard";
+    }
+  } catch {
+    // ignore hash navigation failures
+  }
+}
+
+function showExpenseLoggedToast(payload = {}) {
+  document.querySelector("[data-clara-buy-check-success-toast]")?.remove();
+
+  const toast = document.createElement("div");
+  toast.dataset.claraBuyCheckSuccessToast = "true";
+  toast.style.cssText = `
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+    z-index: 10000;
+    width: min(calc(100vw - 32px), 360px);
+    transform: translate(-50%, 14px);
+    opacity: 0;
+    border: 1px solid rgba(110, 231, 183, 0.22);
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(6, 12, 24, 0.96));
+    color: rgba(255, 255, 255, 0.94);
+    padding: 13px 15px;
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(18px);
+    transition: opacity 220ms ease, transform 220ms ease;
+    pointer-events: none;
+  `;
+
+  const item = normalizeDisplayItem(payload.purchase?.item || payload.notes || "expense");
+  toast.innerHTML = `
+    <div style="font-size:13px;font-weight:950;line-height:1.25;color:rgba(167,243,208,.96);">Expense logged successfully</div>
+    <div style="margin-top:4px;font-size:12px;font-weight:750;line-height:1.35;color:rgba(226,232,240,.74);">${money(payload.amount)} for ${item} has been added to your transactions.</div>
+  `;
+
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translate(-50%, 0)";
+  });
+
+  window.setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translate(-50%, 14px)";
+    window.setTimeout(() => toast.remove(), 240);
+  }, 2800);
+}
+
+function completeExpenseLogFlow(payload = {}) {
+  try {
+    sessionStorage.setItem("clara_last_expense_logged_toast", JSON.stringify({
+      amount: payload.amount,
+      notes: payload.notes,
+      purchase: payload.purchase,
+      created_at: new Date().toISOString(),
+    }));
+  } catch {
+    // ignore session storage failures
+  }
+
+  closeBuyCheckOverlay();
+  navigateToDashboard();
+
+  window.setTimeout(() => showExpenseLoggedToast(payload), 360);
+}
+
 async function logBuyCheckExpense(payload, statusNode) {
   if (!payload?.amount || payload.amount <= 0) throw new Error("Missing Buy Check amount.");
   if (!payload?.wallet_id) throw new Error("No spendable wallet was found for this expense.");
@@ -305,7 +386,7 @@ async function saveBuyExplanationAndLog(panel) {
   try {
     const payload = buildExpensePrefillFromBuyCheck(explanation);
     await logBuyCheckExpense(payload, status);
-    window.setTimeout(() => panel.remove(), 700);
+    completeExpenseLogFlow(payload);
   } catch (error) {
     console.error("[CLARA Buy Check] Failed to log expense", error);
     if (status) status.textContent = error?.message || "Could not log expense.";
