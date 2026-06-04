@@ -1,13 +1,19 @@
-import { MoreHorizontal, Plus, Repeat2, WalletCards } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Repeat2, Trash2, WalletCards, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/context/AuthContext";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 import useInvestmentCardLogic, { fmt } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 import IncomeSourceAddMoneyModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceAddMoneyModal";
 import IncomeSourceCreateModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModal";
+import {
+  deleteIncomeSource,
+  getIncomeHubLocalUserId,
+  getIncomeSourceRemovalPlan,
+} from "@/lib/incomeHubRepository";
 
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
@@ -245,7 +251,7 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
 
           {menuOpen ? (
             <div
-              className="absolute right-0 top-10 z-[140] w-48 rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-xl ring-1 ring-white/[0.06]"
+              className="absolute right-0 top-10 z-[140] w-52 rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-xl ring-1 ring-white/[0.06]"
               onPointerDownCapture={stopIncomeSourceGesture}
               onMouseDownCapture={stopIncomeSourceGesture}
               onTouchStartCapture={stopIncomeSourceGesture}
@@ -266,6 +272,24 @@ function IncomeSourceRow({ source, menuOpen, onToggleMenu, onAction }) {
               >
                 <Repeat2 className="h-3.5 w-3.5 text-sky-200" />
                 Transfer Money
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => handleMenuAction(event, "edit_income_source")}
+                className={incomeMenuActionClass}
+              >
+                <Pencil className="h-3.5 w-3.5 text-cyan-100" />
+                Edit Income Source
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => handleMenuAction(event, "delete_income_source")}
+                className={`${incomeMenuActionClass} text-rose-100 hover:bg-rose-500/10`}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-rose-200" />
+                Delete Income Source
               </button>
             </div>
           ) : null}
@@ -344,11 +368,76 @@ function ActiveIncomeSources({ sources, openMenuId, onToggleMenu, onSourceAction
   );
 }
 
+function IncomeSourceRemovalModal({ source, open, saving, onClose, onConfirm, onTransfer }) {
+  if (!open || !source) return null;
+
+  const removalPlan = getIncomeSourceRemovalPlan(source);
+  const isBlocked = removalPlan.type === "blocked_balance";
+
+  return (
+    <div className="fixed inset-0 z-[140] flex min-h-[100svh] items-center justify-center bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.45),rgba(2,6,23,0.78)_55%,rgba(2,6,23,0.92))] px-4 py-5 backdrop-blur-[16px]">
+      <div className="w-full max-w-[390px] rounded-[32px] border border-white/[0.14] bg-[radial-gradient(circle_at_12%_0%,rgba(34,211,238,0.10),transparent_38%),linear-gradient(135deg,rgba(5,31,48,0.98),rgba(8,16,42,0.995)_50%,rgba(35,15,67,0.995))] p-4 text-white shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_42px_rgba(244,63,94,0.06)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/42">Income source safety</p>
+            <h3 className="mt-2 text-[25px] font-black leading-tight tracking-[-0.045em] text-white">{removalPlan.title}</h3>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+            aria-label="Close modal"
+          >
+            <X className="h-4.5 w-4.5" />
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <p className="text-sm font-black text-white">{source.name}</p>
+          <p className="mt-1 text-xs font-semibold text-white/55">Current balance: {fmt(getSourceNet(source))}</p>
+        </div>
+
+        <p className="mt-4 text-[13px] font-semibold leading-6 text-white/68">{removalPlan.message}</p>
+
+        <div className="mt-5 grid grid-cols-[0.84fr_1.16fr] gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/76 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-55"
+          >
+            {removalPlan.secondaryLabel}
+          </button>
+
+          <button
+            type="button"
+            onClick={isBlocked ? onTransfer : onConfirm}
+            disabled={saving}
+            className={`rounded-2xl px-4 py-3 text-sm font-black text-white transition disabled:opacity-55 ${
+              removalPlan.danger
+                ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
+                : "bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 shadow-[0_10px_30px_rgba(34,211,238,0.18)]"
+            }`}
+          >
+            {saving ? "Saving..." : removalPlan.primaryLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const localUserId = getIncomeHubLocalUserId(user);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [incomeSourceModal, setIncomeSourceModal] = useState({ type: null, source: null });
-  const [createIncomeSourceOpen, setCreateIncomeSourceOpen] = useState(false);
+  const [sourceFormModal, setSourceFormModal] = useState({ open: false, source: null });
+  const [removalSource, setRemovalSource] = useState(null);
+  const [removalSaving, setRemovalSaving] = useState(false);
   const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
 
   const { isExpanded } = state;
@@ -373,7 +462,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
   const openCreateIncomeSourceModal = () => {
     setOpenMenuId(null);
-    setCreateIncomeSourceOpen(true);
+    setSourceFormModal({ open: true, source: null });
   };
 
   const handleSourceAction = (source, action) => {
@@ -384,11 +473,51 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
       return;
     }
 
+    if (action === "edit_income_source") {
+      setSourceFormModal({ open: true, source });
+      return;
+    }
+
+    if (action === "delete_income_source") {
+      setRemovalSource(source);
+      return;
+    }
+
     openIncomeHub({
       action,
       incomeSourceId: source.id,
       incomeSourceName: source.name,
     });
+  };
+
+  const closeSourceFormModal = () => {
+    setSourceFormModal({ open: false, source: null });
+  };
+
+  const closeRemovalModal = () => {
+    if (removalSaving) return;
+    setRemovalSource(null);
+  };
+
+  const confirmRemoveIncomeSource = async () => {
+    if (!removalSource?.id) return;
+
+    try {
+      setRemovalSaving(true);
+      await deleteIncomeSource(localUserId, removalSource.id);
+      setRemovalSource(null);
+    } catch (error) {
+      console.error("CLARA income source removal error:", error);
+    } finally {
+      setRemovalSaving(false);
+    }
+  };
+
+  const transferBeforeRemoval = () => {
+    if (!removalSource) return;
+    const source = removalSource;
+    setRemovalSource(null);
+    setIncomeSourceModal({ type: "transfer_money", source });
   };
 
   const sourceCount = readiness?.sourceCount || 0;
@@ -480,8 +609,18 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
       />
 
       <IncomeSourceCreateModal
-        open={createIncomeSourceOpen}
-        onClose={() => setCreateIncomeSourceOpen(false)}
+        open={sourceFormModal.open}
+        source={sourceFormModal.source}
+        onClose={closeSourceFormModal}
+      />
+
+      <IncomeSourceRemovalModal
+        open={Boolean(removalSource)}
+        source={removalSource}
+        saving={removalSaving}
+        onClose={closeRemovalModal}
+        onConfirm={confirmRemoveIncomeSource}
+        onTransfer={transferBeforeRemoval}
       />
     </>
   );
