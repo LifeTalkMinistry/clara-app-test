@@ -22,6 +22,34 @@ const MODE_COPY = {
   },
 };
 
+const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const isTransientAuthError = (error) => {
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    message.includes("failed to fetch") ||
+    message.includes("network") ||
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("session") ||
+    message.includes("disconnected") ||
+    message.includes("message port")
+  );
+};
+
+async function signInWithOneRetry(signIn, credentials) {
+  try {
+    return await signIn(credentials);
+  } catch (error) {
+    if (!isTransientAuthError(error)) throw error;
+
+    console.warn("CLARA login transient auth error. Retrying once...", error);
+    await sleep(450);
+    return await signIn(credentials);
+  }
+}
+
 function FieldShell({ label, hint, children }) {
   return (
     <label className="block space-y-2">
@@ -220,6 +248,9 @@ export default function Login() {
     if (msg.includes("rate limit")) {
       return "Too many attempts. Please wait.";
     }
+    if (msg.includes("auth request timed out") || msg.includes("failed to fetch") || msg.includes("network")) {
+      return "Login connection was interrupted. Please try again.";
+    }
     if (msg.includes("email")) {
       return "Please enter a valid email address.";
     }
@@ -259,7 +290,7 @@ export default function Login() {
 
         navigate("/onboarding");
       } else {
-        await signIn({ email, password });
+        await signInWithOneRetry(signIn, { email, password });
 
         if (typeof window !== "undefined") {
           const basePath = `${window.location.origin}${window.location.pathname}${window.location.search}`;
@@ -434,26 +465,26 @@ export default function Login() {
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={loading}
-                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-white transition hover:bg-white/[0.1] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-4 text-sm font-semibold text-white/82 transition duration-200 hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Chrome className="h-[17px] w-[17px]" />
-                  <span>Continue with Google</span>
+                  Continue with Google
                 </button>
               </div>
 
-              <div className="mt-5 flex items-center justify-center gap-1.5 text-sm text-white/54">
-                <span>{copy.secondaryLead}</span>
+              <div className="mt-5 text-center text-sm text-white/55">
+                <span>{copy.secondaryLead}</span>{" "}
                 <button
                   type="button"
                   onClick={() => switchMode(mode === "login" ? "signup" : "login")}
-                  className="rounded-md font-medium text-emerald-300 transition hover:text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
+                  className="font-semibold text-emerald-300 transition hover:text-emerald-200"
                 >
                   {copy.secondaryAction}
                 </button>
               </div>
 
-              <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-white/38">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-300/65" />
+              <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-white/45">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-300/70" />
                 <span>Private by design</span>
               </div>
             </div>
@@ -465,8 +496,8 @@ export default function Login() {
         open={forgotOpen}
         onClose={() => setForgotOpen(false)}
         defaultEmail={email}
+        onSent={(sentEmail) => setEmail(sentEmail)}
         friendlyError={friendlyError}
-        onSent={(nextEmail) => setEmail(nextEmail)}
       />
     </>
   );
