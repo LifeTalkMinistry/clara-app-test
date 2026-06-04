@@ -1,0 +1,40 @@
+/* Buy Check report content polish
+   Removes internal-style note feel by turning the bottom area of each card into user-facing bullets. */
+
+[data-clara-buy-check-report] .clara-buy-check-card-points {
+  margin-top: 16px !important;
+  color: rgba(226, 244, 255, 0.84) !important;
+}
+
+[data-clara-buy-check-report] .clara-buy-check-card-bullets {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-clara-buy-check-report] .clara-buy-check-card-bullets li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-weight: 800;
+  color: rgba(235, 247, 255, 0.84);
+}
+
+[data-clara-buy-check-report] .clara-buy-check-card-bullets li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(99, 255, 225, 0.72);
+  box-shadow: 0 0 10px rgba(99, 255, 225, 0.25);
+}
+
+[data-clara-buy-check-report] article[class*="emerald"] .clara-buy-check-card-bullets li::before {
+  background: rgba(132, 255, 199, 0.85);
+}
