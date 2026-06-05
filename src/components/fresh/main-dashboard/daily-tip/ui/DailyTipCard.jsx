@@ -72,10 +72,7 @@ export default function DailyTipCard() {
           <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
           <div className="relative flex h-full flex-col justify-center gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-emerald-100/85">
-                Learning Mode Active
-              </span>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={handleExitCurrentState}
