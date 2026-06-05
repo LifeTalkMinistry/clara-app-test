@@ -29,15 +29,13 @@ export default function useDashboardPanelUiState({
   const isFreePlan = (planPreview || plan) === "free";
 
   const openDashboardPanel = useCallback((panelKey) => {
-    if (isFreePlan && ["me", "schedule"].includes(panelKey)) return;
-
     const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
     const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
     const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
 
     setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
     setActiveDashboardPanel(targetPanel);
-  }, [activeDashboardPanel, isFreePlan, setActiveDashboardPanel, setDashboardPanelDirection]);
+  }, [activeDashboardPanel, setActiveDashboardPanel, setDashboardPanelDirection]);
 
   const closeDashboardPanel = useCallback(() => {
     setDashboardPanelDirection("backward");
