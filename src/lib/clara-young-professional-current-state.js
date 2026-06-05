@@ -2,9 +2,12 @@ import { supabase } from "./supabaseClient";
 import { LOCAL_FINANCE_STORES, runLocalFinanceTransaction } from "./localFinanceStore";
 
 export const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+export const SAMPLE_DATA_LOCAL_USER_ID = "clara-sample-data-user";
 
 const CURRENT_STATE_SOURCE = "clara_young_professional_current_state";
 const CURRENT_STATE_FAMILY = "young_professional_current_state";
+const SAMPLE_DATA_SOURCE = "clara_sample_data_income_sources";
+const SAMPLE_DATA_FAMILY = "sample_data_income_sources_only";
 const FALLBACK_LOCAL_USER_ID = "local-user";
 const DEMO_LOCAL_USER_ID = "clara-demo-user";
 
@@ -40,7 +43,7 @@ function removeActiveCurrentStateFlag() {
 }
 
 async function getPossibleLocalUserIds() {
-  const ids = new Set([FALLBACK_LOCAL_USER_ID, DEMO_LOCAL_USER_ID]);
+  const ids = new Set([FALLBACK_LOCAL_USER_ID, DEMO_LOCAL_USER_ID, SAMPLE_DATA_LOCAL_USER_ID]);
 
   try {
     const { data } = await supabase.auth.getUser();
@@ -55,7 +58,7 @@ async function getPossibleLocalUserIds() {
   return [...ids].map(clean).filter(Boolean);
 }
 
-function isYoungProfessionalCurrentStateRecord(record = {}) {
+function isCurrentStateRecord(record = {}) {
   if (!record || typeof record !== "object") return false;
 
   const id = clean(record.id).toLowerCase();
@@ -68,7 +71,13 @@ function isYoungProfessionalCurrentStateRecord(record = {}) {
       setupFamily === CURRENT_STATE_FAMILY ||
       (record.activeCurrentState === true && lifeStage.includes("young professional")) ||
       id.includes("clara_young_professional") ||
-      id.includes("young_professional_current_state")
+      id.includes("young_professional_current_state") ||
+      source === SAMPLE_DATA_SOURCE ||
+      setupFamily === SAMPLE_DATA_FAMILY ||
+      record.activeSampleData === true ||
+      record.active_sample_data === true ||
+      id.includes("clara_sample_income") ||
+      id.includes("sample_data_income_sources")
   );
 }
 
@@ -84,7 +93,7 @@ async function purgeCurrentStateRecordsForUser(localUserId) {
       const store = tx.store(storeName);
 
       for (const row of rows || []) {
-        if (isYoungProfessionalCurrentStateRecord(row)) {
+        if (isCurrentStateRecord(row)) {
           store.delete(row.id);
           deletedAny = true;
         }
@@ -123,7 +132,7 @@ export async function exitYoungProfessionalCurrentState() {
       const deletedForUser = await purgeCurrentStateRecordsForUser(localUserId);
       deletedAny = deletedAny || deletedForUser;
     } catch (error) {
-      console.warn("Young Professional current-state cleanup skipped for one local user:", error);
+      console.warn("CLARA current-state/sample-data cleanup skipped for one local user:", error);
     }
   }
 
