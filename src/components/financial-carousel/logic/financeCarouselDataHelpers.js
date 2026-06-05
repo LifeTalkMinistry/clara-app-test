@@ -24,30 +24,37 @@ export const normalizeCarouselBudgetPlan = (plan = {}) => {
     plan?.allocated_amount
   );
 
-  const spentAmount = readCarouselNumber(
-    plan?.spent_amount,
-    plan?.spent,
-    plan?.total_spent,
-    categories.reduce(
-      (sum, item) =>
-        sum +
-        readCarouselNumber(item?.spent, item?.spent_amount, item?.total_spent),
-      0
-    )
-  );
-
-  const remainingAmount = Math.max(
-    readCarouselNumber(
-      plan?.remaining_amount,
-      plan?.remaining,
-      plan?.amount_left,
-      declaredBudget - spentAmount
-    ),
+  const categorySpentAmount = categories.reduce(
+    (sum, item) =>
+      sum +
+      readCarouselNumber(item?.spent, item?.spent_amount, item?.total_spent, item?.used),
     0
   );
 
+  const spentAmount = Math.max(
+    readCarouselNumber(plan?.spent_amount),
+    readCarouselNumber(plan?.spent),
+    readCarouselNumber(plan?.spent_total),
+    readCarouselNumber(plan?.total_spent),
+    readCarouselNumber(plan?.totalSpent),
+    readCarouselNumber(plan?.planned_spent) + readCarouselNumber(plan?.unplanned_spent) + readCarouselNumber(plan?.undocumented_spent),
+    categorySpentAmount
+  );
+
+  const remainingAmount = Math.max(declaredBudget - spentAmount, 0);
+
   return {
-    activeBudget: plan || null,
+    activeBudget: {
+      ...(plan || {}),
+      spent: spentAmount,
+      spent_amount: spentAmount,
+      spent_total: spentAmount,
+      total_spent: spentAmount,
+      totalSpent: spentAmount,
+      remaining: remainingAmount,
+      remaining_amount: remainingAmount,
+      amount_left: remainingAmount,
+    },
     budgetCategories: categories,
     declaredBudget,
     unallocatedAmount: readCarouselNumber(plan?.unallocated_amount),
@@ -58,6 +65,6 @@ export const normalizeCarouselBudgetPlan = (plan = {}) => {
     remainingAmount,
     amountLeft: remainingAmount,
     spentAmount,
-    totalSpent: readCarouselNumber(plan?.total_spent, spentAmount),
+    totalSpent: spentAmount,
   };
 };
