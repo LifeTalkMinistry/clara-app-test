@@ -139,10 +139,26 @@ function readPlanPreview() {
 function ClaraCommitmentBookletModal({ open, onClose }) {
   const [bookletPage, setBookletPage] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
+  const [pageTurnDirection, setPageTurnDirection] = useState(1);
+  const [pageMotion, setPageMotion] = useState("settled");
 
   useEffect(() => {
-    if (open) setBookletPage(0);
+    if (open) {
+      setBookletPage(0);
+      setPageTurnDirection(1);
+      setPageMotion("settled");
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || pageMotion !== "entering") return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      setPageMotion("settled");
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [bookletPage, open, pageMotion]);
 
   if (!open) return null;
 
@@ -158,15 +174,30 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     ? "mt-4 space-y-2.5 text-[clamp(0.84rem,2.95vw,0.98rem)] font-bold leading-[1.5] text-slate-100/88"
     : "mt-5 space-y-3 text-[clamp(0.92rem,3.05vw,1.03rem)] font-bold leading-[1.62] text-slate-100/88";
   const contentOffsetClass = isDensePage ? "" : "-translate-y-[3%]";
+  const pageTurnClass =
+    pageMotion === "entering"
+      ? `${pageTurnDirection > 0 ? "translate-x-8" : "-translate-x-8"} opacity-0 scale-[0.985]`
+      : "translate-x-0 opacity-100 scale-100";
+
+  const turnToPage = (targetPage) => {
+    const nextPage = Math.min(
+      Math.max(targetPage, 0),
+      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
+    );
+
+    if (nextPage === bookletPage) return;
+
+    setPageTurnDirection(nextPage > bookletPage ? 1 : -1);
+    setPageMotion("entering");
+    setBookletPage(nextPage);
+  };
 
   const goToPreviousPage = () => {
-    setBookletPage((currentPage) => Math.max(currentPage - 1, 0));
+    turnToPage(bookletPage - 1);
   };
 
   const goToNextPage = () => {
-    setBookletPage((currentPage) =>
-      Math.min(currentPage + 1, CLARA_COMMITMENT_BOOKLET_PAGES.length - 1)
-    );
+    turnToPage(bookletPage + 1);
   };
 
   const handleTouchStart = (event) => {
@@ -217,11 +248,14 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
         </div>
 
         <div
-          className="relative z-10 mt-5 flex min-h-0 flex-1 touch-pan-y"
+          className="relative z-10 mt-5 flex min-h-0 flex-1 touch-pan-y overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <article className="flex min-h-0 w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]">
+          <article
+            key={bookletPage}
+            className={`flex min-h-0 w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)] transition-all duration-300 ease-out will-change-transform ${pageTurnClass}`}
+          >
             <div className={contentOffsetClass}>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
                 {bookletPage + 1 < 10 ? `0${bookletPage + 1}` : bookletPage + 1} / {page.label.toUpperCase()}
@@ -281,8 +315,8 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             <button
               key={bookletItem.label}
               type="button"
-              onClick={() => setBookletPage(index)}
-              className={`h-1.5 rounded-full transition-all ${
+              onClick={() => turnToPage(index)}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
                 index === bookletPage ? "w-6 bg-cyan-100/64" : "w-1.5 bg-cyan-100/22"
               }`}
               aria-label={`Go to ${bookletItem.label}`}
