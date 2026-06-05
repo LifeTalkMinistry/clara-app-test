@@ -155,8 +155,8 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
       (page.closingParagraphs?.length || 0) >
     10;
   const pageTextClass = isDensePage
-    ? "mt-3 space-y-1.5 text-[clamp(0.68rem,2.15vw,0.8rem)] font-semibold leading-[1.34] text-white/80"
-    : "mt-4 space-y-2.5 text-[clamp(0.78rem,2.55vw,0.94rem)] font-semibold leading-[1.52] text-white/80";
+    ? "mt-4 space-y-2 text-[clamp(0.78rem,2.75vw,0.92rem)] font-bold leading-[1.43] text-slate-100/88"
+    : "mt-5 space-y-3 text-[clamp(0.92rem,3.05vw,1.03rem)] font-bold leading-[1.62] text-slate-100/88";
 
   const goToPreviousPage = () => {
     setBookletPage((currentPage) => Math.max(currentPage - 1, 0));
@@ -190,46 +190,43 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817]/88 px-[clamp(24px,6.5vw,36px)] pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] backdrop-blur-xl"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817]/92 px-[clamp(18px,5vw,30px)] pt-[max(18px,env(safe-area-inset-top))] pb-[max(18px,env(safe-area-inset-bottom))] backdrop-blur-2xl"
       onClick={onClose}
     >
-      <div
-        className="relative flex h-[calc(100dvh-58px)] max-h-[780px] w-full max-w-[430px] flex-col overflow-hidden rounded-[42px] border border-white/14 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.06),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.09),transparent_36%),rgba(5,10,23,0.985)] text-white shadow-[0_28px_96px_rgba(0,0,0,0.64)] backdrop-blur-2xl"
+      <section
+        className="relative mx-auto flex h-[min(88dvh,760px)] w-[92vw] max-w-[470px] flex-col overflow-hidden rounded-[38px] border border-cyan-100/14 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.14),transparent_40%),rgba(8,15,34,0.94)] px-4 pb-5 pt-5 text-white shadow-[0_28px_86px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="pointer-events-none absolute inset-x-14 top-0 h-px bg-white/22" />
-        <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-cyan-400/7 blur-3xl" />
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-20 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
+          aria-label="Close commitment booklet"
+        >
+          <X className="h-4 w-4" />
+        </button>
 
-        <header className="relative z-10 shrink-0 rounded-t-[42px] bg-[rgba(2,8,23,0.56)] px-5 pb-5 pt-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/58">
-                CLARA Commitment Booklet
-              </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/34">
-                {page.label} of {CLARA_COMMITMENT_BOOKLET_PAGES.length}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-full border border-white/12 bg-white/[0.06] p-2 text-white/60 transition hover:bg-white/[0.1] hover:text-white/86"
-              aria-label="Close commitment booklet"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </header>
+        <div className="relative z-10 shrink-0 pr-12 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/58">
+            CLARA Commitment Booklet
+          </p>
+          <p className="mx-auto mt-2 max-w-[180px] text-[12px] font-bold leading-5 text-slate-300/62">
+            Swipe to next
+          </p>
+        </div>
 
         <div
-          className="relative z-10 flex-1 overflow-hidden px-5 py-5"
+          className="relative z-10 mt-5 flex min-h-0 flex-1 touch-pan-y"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <article className="mx-auto flex h-[92%] w-full flex-col justify-center self-center rounded-[32px] border border-white/14 bg-[rgba(8,18,40,0.93)] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.09),inset_0_-18px_34px_rgba(0,0,0,0.14),0_20px_52px_rgba(0,0,0,0.28)]">
-            <div className="-translate-y-[4%]">
-              <h2 className="text-[clamp(1.08rem,4.7vw,1.48rem)] font-black leading-tight tracking-[-0.045em] text-white/96">
+          <article className="flex min-h-0 w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,rgba(18,139,144,0.74)_0%,rgba(29,47,109,0.82)_44%,rgba(44,22,100,0.78)_100%),rgba(6,13,31,0.94)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]">
+            <div className="-translate-y-[3%]">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
+                {bookletPage + 1 < 10 ? `0${bookletPage + 1}` : bookletPage + 1} / {page.label.toUpperCase()}
+              </p>
+
+              <h2 className="mt-3 text-[clamp(1.58rem,6.4vw,2.1rem)] font-black leading-[1.05] tracking-[-0.055em] text-white">
                 {page.title}
               </h2>
 
@@ -239,16 +236,16 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 ))}
 
                 {page.quote ? (
-                  <div className="rounded-[18px] border border-white/14 bg-white/[0.08] px-3 py-2 text-center text-[clamp(0.72rem,2.2vw,0.82rem)] font-black italic leading-[1.35] text-white/90">
+                  <div className="mt-3 rounded-full border border-white/20 bg-white/[0.08] px-4 py-2.5 text-center text-[clamp(0.78rem,2.5vw,0.92rem)] font-black italic leading-[1.35] text-white/92">
                     “{page.quote}”
                   </div>
                 ) : null}
 
                 {page.bullets ? (
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {page.bullets.map((bullet) => (
-                      <li key={bullet} className="flex gap-2">
-                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
+                      <li key={bullet} className="flex gap-2.5">
+                        <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-200/70" />
                         <span>{bullet}</span>
                       </li>
                     ))}
@@ -256,10 +253,10 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 ) : null}
 
                 {page.checks ? (
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {page.checks.map((check) => (
-                      <li key={check} className="flex gap-2 text-white/86">
-                        <span className="shrink-0 text-white/62">✓</span>
+                      <li key={check} className="flex gap-2.5 text-white/92">
+                        <span className="shrink-0 text-cyan-100/72">✓</span>
                         <span>{check}</span>
                       </li>
                     ))}
@@ -271,7 +268,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 ))}
 
                 {page.hint ? (
-                  <p className="pt-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/48">
+                  <p className="pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/54">
                     {page.hint}
                   </p>
                 ) : null}
@@ -280,7 +277,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                   <button
                     type="button"
                     onClick={onClose}
-                    className="mt-2 w-full rounded-[20px] border border-white/16 bg-white/[0.1] px-4 py-2.5 text-sm font-black text-white/90 transition hover:bg-white/[0.14] active:scale-[0.99]"
+                    className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
                   >
                     Start My Commitment
                   </button>
@@ -290,25 +287,20 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           </article>
         </div>
 
-        <footer className="relative z-10 shrink-0 rounded-b-[42px] bg-[rgba(2,8,23,0.62)] px-5 pb-5 pt-4">
-          <div className="flex items-center justify-center gap-1.5">
-            {CLARA_COMMITMENT_BOOKLET_PAGES.map((bookletItem, index) => (
-              <button
-                key={bookletItem.label}
-                type="button"
-                onClick={() => setBookletPage(index)}
-                className={`h-1.5 rounded-full transition-all ${
-                  index === bookletPage ? "w-6 bg-white/58" : "w-1.5 bg-white/18"
-                }`}
-                aria-label={`Go to ${bookletItem.label}`}
-              />
-            ))}
-          </div>
-          <p className="mt-2.5 text-center text-[8px] font-black uppercase tracking-[0.2em] text-white/26">
-            Swipe to turn page
-          </p>
-        </footer>
-      </div>
+        <div className="relative z-10 mt-4 flex justify-center gap-1.5">
+          {CLARA_COMMITMENT_BOOKLET_PAGES.map((bookletItem, index) => (
+            <button
+              key={bookletItem.label}
+              type="button"
+              onClick={() => setBookletPage(index)}
+              className={`h-1.5 rounded-full transition-all ${
+                index === bookletPage ? "w-6 bg-cyan-100/64" : "w-1.5 bg-cyan-100/22"
+              }`}
+              aria-label={`Go to ${bookletItem.label}`}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
