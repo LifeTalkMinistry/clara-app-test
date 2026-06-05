@@ -1,3 +1,4 @@
+import { buildIncomeHubDirectReply } from "@/lib/clara-income-direct-finance-reply";
 import {
   filterTransactionHubTimeline,
   logTransactionHubAiReader,
@@ -402,6 +403,9 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
 }
 
 export function buildContextualFinanceReply(message = "", context = {}) {
+  const incomeReply = buildIncomeHubDirectReply(message, context);
+  if (incomeReply) return incomeReply;
+
   const transactionReply = buildTransactionHubGroundedReply(message, context);
 
   if (transactionReply?.handled) {
