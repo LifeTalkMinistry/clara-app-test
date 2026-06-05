@@ -7,7 +7,7 @@ import BudgetCategoryItem from "@/components/financial-carousel/cards/budget/ui/
 import { fmt } from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 
 const expandButtonClass =
-  "border-white/[0.075] bg-white/[0.055] py-3 font-bold text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_12px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm hover:border-emerald-100/16 hover:bg-white/[0.08]";
+  "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
 const expandedPanelClass =
   "h-full overflow-y-auto rounded-[24px] border border-emerald-100/[0.10] bg-[linear-gradient(135deg,rgba(9,54,68,0.42),rgba(18,30,70,0.48)_48%,rgba(54,34,104,0.46))] p-3.5 pr-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.065),0_14px_30px_rgba(0,0,0,0.16)]";
@@ -42,7 +42,7 @@ function getBudgetDriftState({ outsidePlanSpent = 0, spent = 0, declared = 0 }) 
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
-    <div className="shrink-0 border-t border-white/[0.045] pt-3">
+    <div className="mt-0.5 shrink-0 border-t border-white/[0.035] pt-3">
       <FinanceCardExpandButton
         detailKey="budgets"
         expanded={expanded}
@@ -136,44 +136,38 @@ export default function BudgetCardContent(props) {
 
   if (!expanded) {
     return (
-      <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.58]">
-          <div className="absolute -left-20 top-[-62px] h-44 w-44 rounded-full bg-cyan-400/[0.075] blur-3xl" />
-          <div className="absolute bottom-[-108px] right-[-84px] h-52 w-52 rounded-full bg-violet-500/[0.12] blur-3xl" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.028),transparent_32%,rgba(0,0,0,0.14)_100%)]" />
+      <div className="relative z-10 flex h-full min-h-[286px] flex-col overflow-hidden px-4 pb-4 pt-5">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.46]">
+          <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.06] blur-3xl" />
+          <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
         </div>
 
-        <div className="relative flex min-h-0 flex-col gap-4">
-          <div className="relative min-h-0 overflow-hidden rounded-[28px] border border-emerald-100/[0.12] bg-[linear-gradient(135deg,rgba(10,126,128,0.22)_0%,rgba(16,38,76,0.40)_48%,rgba(73,43,132,0.34)_100%)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_16px_34px_rgba(0,0,0,0.18),0_0_28px_rgba(45,212,191,0.08)] backdrop-blur-[2px]">
-            <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_18%_16%,rgba(94,234,212,0.14),transparent_42%),radial-gradient(circle_at_90%_82%,rgba(168,85,247,0.15),transparent_50%)]" />
-            <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/35 to-transparent" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-[27px] border border-white/[0.035]" />
+        <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+          <div className="flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+            <BudgetHeader
+              monthKey={monthKey}
+              badgeLabel={badgeLabel}
+              status={status}
+              cycleLabel={cycleLabel}
+              cycleRange={cycleRange}
+              cycleDisplayLabel={cycleDisplayLabel}
+            />
 
-            <div className="relative">
-              <BudgetHeader
-                monthKey={monthKey}
-                badgeLabel={badgeLabel}
+            <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+              <BudgetSummaryStats
+                declared={declared}
+                remaining={remaining}
+                spent={spent}
+                allocated={allocated}
+                unallocated={unallocated}
+                progress={progress}
                 status={status}
-                cycleLabel={cycleLabel}
-                cycleRange={cycleRange}
-                cycleDisplayLabel={cycleDisplayLabel}
+                message={message}
+                remainingAmountColor={remainingAmountColor}
+                hasDeclaredBudget={hasDeclaredBudget}
+                planIsComplete={planIsComplete}
               />
-
-              <div className="mt-3 rounded-[24px] border border-white/[0.045] bg-black/[0.095] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm">
-                <BudgetSummaryStats
-                  declared={declared}
-                  remaining={remaining}
-                  spent={spent}
-                  allocated={allocated}
-                  unallocated={unallocated}
-                  progress={progress}
-                  status={status}
-                  message={message}
-                  remainingAmountColor={remainingAmountColor}
-                  hasDeclaredBudget={hasDeclaredBudget}
-                  planIsComplete={planIsComplete}
-                />
-              </div>
             </div>
           </div>
 
