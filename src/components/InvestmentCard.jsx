@@ -429,3 +429,200 @@ function IncomeSourceRemovalModal({ source, open, saving, onClose, onConfirm, on
     </div>
   );
 }
+
+export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const localUserId = getIncomeHubLocalUserId(user);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [incomeSourceModal, setIncomeSourceModal] = useState({ type: null, source: null });
+  const [sourceFormModal, setSourceFormModal] = useState({ open: false, source: null });
+  const [removalSource, setRemovalSource] = useState(null);
+  const [removalSaving, setRemovalSaving] = useState(false);
+  const { state, computed, handlers } = useInvestmentCardLogic({ item, expanded, onToggleDetails });
+
+  const { isExpanded } = state;
+  const {
+    tone,
+    title,
+    statusLabel,
+    readiness,
+    incomeSources,
+    statOneLabel,
+    statOneValue,
+    statTwoLabel,
+    statTwoValue,
+    statThreeLabel,
+    statThreeValue,
+  } = computed;
+  const { handleToggleDetails } = handlers;
+
+  const openIncomeHub = (extraState = {}) => {
+    navigate("/investment-plan", { state: { source: "income-hub-card", ...extraState } });
+  };
+
+  const openCreateIncomeSourceModal = () => {
+    setOpenMenuId(null);
+    setSourceFormModal({ open: true, source: null });
+  };
+
+  const handleSourceAction = (source, action) => {
+    setOpenMenuId(null);
+
+    if (action === "add_money" || action === "transfer_money") {
+      setIncomeSourceModal({ type: action, source });
+      return;
+    }
+
+    if (action === "edit_income_source") {
+      setSourceFormModal({ open: true, source });
+      return;
+    }
+
+    if (action === "delete_income_source") {
+      setRemovalSource(source);
+      return;
+    }
+
+    openIncomeHub({
+      action,
+      incomeSourceId: source.id,
+      incomeSourceName: source.name,
+    });
+  };
+
+  const closeSourceFormModal = () => {
+    setSourceFormModal({ open: false, source: null });
+  };
+
+  const closeRemovalModal = () => {
+    if (removalSaving) return;
+    setRemovalSource(null);
+  };
+
+  const confirmRemoveIncomeSource = async () => {
+    if (!removalSource?.id) return;
+
+    try {
+      setRemovalSaving(true);
+      await deleteIncomeSource(localUserId, removalSource.id);
+      setRemovalSource(null);
+    } catch (error) {
+      console.error("CLARA income source removal error:", error);
+    } finally {
+      setRemovalSaving(false);
+    }
+  };
+
+  const transferBeforeRemoval = () => {
+    if (!removalSource) return;
+    const source = removalSource;
+    setRemovalSource(null);
+    setIncomeSourceModal({ type: "transfer_money", source });
+  };
+
+  const sourceCount = readiness?.sourceCount || 0;
+  const incomeSourceTitle = `${sourceCount} Income Source${sourceCount === 1 ? "" : "s"}`;
+
+  return (
+    <>
+      <FinanceCardShell
+        cardKey="investmentFund"
+        expanded={isExpanded}
+        ringClass="shadow-[0_0_24px_rgba(34,211,238,0.08),0_0_46px_rgba(88,28,135,0.07)]"
+        roundedClass="rounded-3xl"
+        glowLayerClassNames={INCOME_HUB_GLOW_LAYERS}
+        surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]"
+        shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]"
+      >
+        {!isExpanded ? (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
+              <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
+              <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
+            </div>
+
+            <div className="relative flex min-h-0 flex-col gap-4">
+              <div className="min-h-[244px] rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+                <IncomeHubHeader title={title} statusLabel={statusLabel} tone={tone} />
+
+                <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+                  <IncomeSummaryStats
+                    mainLabel={incomeSourceTitle}
+                    statOneLabel={statOneLabel}
+                    statOneValue={statOneValue}
+                    statTwoLabel={statTwoLabel}
+                    statTwoValue={statTwoValue}
+                    statThreeLabel={statThreeLabel}
+                    statThreeValue={statThreeValue}
+                    tone={tone}
+                  />
+                </div>
+              </div>
+
+              <ExpandButtonRow expanded={false} onToggleDetails={handleToggleDetails} />
+            </div>
+          </div>
+        ) : (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
+              <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
+              <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-violet-500/[0.10] blur-3xl" />
+            </div>
+
+            <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+              <div className="shrink-0">
+                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{incomeSourceTitle}</p>
+              </div>
+
+              <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
+
+              <div className="min-h-0 flex-1 overflow-hidden pt-1">
+                <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
+                  <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                    {sourceCount === 0 ? (
+                      <EmptyIncomeSources onCreateIncomeSource={openCreateIncomeSourceModal} />
+                    ) : (
+                      <ActiveIncomeSources
+                        sources={incomeSources}
+                        openMenuId={openMenuId}
+                        onToggleMenu={(sourceId) => setOpenMenuId((current) => (current === sourceId ? null : sourceId))}
+                        onSourceAction={handleSourceAction}
+                        onCreateIncomeSource={openCreateIncomeSourceModal}
+                      />
+                    )}
+                  </div>
+
+                  <div aria-hidden="true" className="h-5 shrink-0" />
+                </FinanceCardExpandedPanel>
+              </div>
+            </div>
+          </div>
+        )}
+      </FinanceCardShell>
+
+      <IncomeSourceAddMoneyModal
+        open={incomeSourceModal.type === "add_money" || incomeSourceModal.type === "transfer_money"}
+        mode={incomeSourceModal.type}
+        source={incomeSourceModal.source}
+        onClose={() => setIncomeSourceModal({ type: null, source: null })}
+      />
+
+      <IncomeSourceCreateModal
+        open={sourceFormModal.open}
+        source={sourceFormModal.source}
+        onClose={closeSourceFormModal}
+      />
+
+      <IncomeSourceRemovalModal
+        open={Boolean(removalSource)}
+        source={removalSource}
+        saving={removalSaving}
+        onClose={closeRemovalModal}
+        onConfirm={confirmRemoveIncomeSource}
+        onTransfer={transferBeforeRemoval}
+      />
+    </>
+  );
+}
