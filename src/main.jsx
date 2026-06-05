@@ -59,6 +59,7 @@ import "./life-stage-diagnosis-cleanup.css";
 import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
 import "./life-stage-young-professional-overlap-fix.css";
+import "./me-life-stage-signal-gap-fix.css";
 import "./savings-goals-modal-polish.css";
 import "./finance-action-modal-copy-polish.css";
 import "./settings-hide-theme-appearance.js";
