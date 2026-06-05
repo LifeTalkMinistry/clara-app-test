@@ -53,21 +53,11 @@ export default function BudgetCard({
     isComplete,
   });
 
-  const openBudgetManager = () => {
-    if (typeof onSaveBudget === "function") {
-      onSaveBudget();
-      return;
-    }
-
+  const openBudgetPlanPage = () => {
     navigate("/budget-plan");
   };
 
-  const openBudgetCategoryManager = (item) => {
-    if (typeof onEditBudgetCategory === "function") {
-      onEditBudgetCategory(item);
-      return;
-    }
-
+  const openBudgetCategoryOnPlanPage = (item) => {
     const id = item?.id || item?.key || item?.budget?.id || null;
 
     navigate("/budget-plan", {
@@ -89,8 +79,8 @@ export default function BudgetCard({
         expanded={expanded}
         onToggleDetails={onToggleDetails}
         financeActionLoading={financeActionLoading}
-        onSaveBudget={openBudgetManager}
-        onEditBudgetCategory={openBudgetCategoryManager}
+        onSaveBudget={openBudgetPlanPage}
+        onEditBudgetCategory={openBudgetCategoryOnPlanPage}
         onDeleteBudgetCategory={onDeleteBudgetCategory}
         categories={categories}
         declared={declared}
@@ -109,7 +99,7 @@ export default function BudgetCard({
         monthKey={monthKey}
         badgeLabel={badgeLabel}
         budgetPace={budgetPace}
-        openBudgetModal={openBudgetManager}
+        openBudgetModal={openBudgetPlanPage}
       />
     </FinanceCardShell>
   );
