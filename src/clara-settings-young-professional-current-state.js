@@ -70,7 +70,7 @@ function createSection() {
   const section = document.createElement("section");
   section.id = SECTION_ID;
   section.className = "space-y-2";
-  section.innerHTML = `<p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Learning</p><div class="space-y-2.5"><button type="button" class="clara-current-state-row"><div class="clara-current-state-icon">${iconSvg()}</div><div class="clara-current-state-text"><p>Explore CLARA</p><span>Preview CLARA with a sample financial profile</span></div><span class="clara-current-state-badge">Guide</span>${chevronSvg()}</button></div>`;
+  section.innerHTML = `<p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Learning</p><div class="space-y-2.5"><button type="button" class="clara-current-state-row"><div class="clara-current-state-icon">${iconSvg()}</div><div class="clara-current-state-text"><p>Explore CLARA</p><span>Preview CLARA with sample financial data</span></div><span class="clara-current-state-badge">Guide</span>${chevronSvg()}</button></div>`;
   section.querySelector("button")?.addEventListener("click", () => showPage(true));
   return section;
 }
@@ -80,7 +80,7 @@ function createPage() {
   page.id = PAGE_ID;
   page.className = "space-y-4 pb-6";
   page.style.display = "none";
-  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Explore CLARA</span><h2>Try a sample profile</h2><p>Explore CLARA using realistic financial data and guided examples before using your own records.</p></div><div id="${STATUS_ID}">Sample profiles are for learning only. Your real financial records stay separate and protected.</div><div class="clara-current-state-card"><h3>Average Income Earner</h3><p>Monthly income, bills, transportation, food expenses, savings goals, emergency fund planning, and common spending decisions.</p><small>Learning profile</small></div>`;
+  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Explore CLARA</span><h2>Try sample data</h2><p>Explore CLARA using realistic financial data and guided examples before using your own records.</p></div><div id="${STATUS_ID}">Sample data is for learning only. Your real financial records stay separate and protected.</div><div class="clara-current-state-card"><h3>Sample Data</h3><p>Explore monthly income, bills, transportation, food expenses, savings goals, emergency fund planning, and common spending decisions.</p><small>Learning data</small></div>`;
   page.querySelector(".clara-current-state-back")?.addEventListener("click", () => showPage(false));
   return page;
 }
