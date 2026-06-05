@@ -4,6 +4,7 @@ import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/u
 import useFinancialData from "@/hooks/useFinancialData";
 import useUserRole from "@/hooks/useUserRole";
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
+import { buildIncomeHubAiSnapshot } from "@/lib/clara-income-hub-ai-reader";
 import { buildTransactionHubAiSnapshot } from "@/lib/clara-transaction-hub-ai-reader";
 import { LOCAL_FINANCE_STORES, runLocalFinanceTransaction } from "@/lib/localFinanceStore";
 
@@ -201,12 +202,14 @@ export default function ClaraAiEnvironmentBridge() {
 
   const {
     expenses = [],
+    incomes = [],
     wallets = [],
     walletTransactions = [],
     transfers = [],
     budgets = [],
     savingsGoals = [],
     emergencyFund = null,
+    totalIncome = 0,
     loading = false,
     refreshing = false,
   } = useFinancialData(user);
@@ -225,24 +228,43 @@ export default function ClaraAiEnvironmentBridge() {
     [expenses, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund]
   );
 
+  const incomeHubSnapshot = useMemo(
+    () =>
+      buildIncomeHubAiSnapshot({
+        incomes,
+        expenses,
+        wallets,
+        walletTransactions,
+        transfers,
+        budgets,
+        savingsGoals,
+        emergencyFund,
+        transactionHubSnapshot,
+      }),
+    [incomes, expenses, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, transactionHubSnapshot]
+  );
+
   const claraAssistantContext = useMemo(() => {
     const bridgeReadableContext = buildClaraBridgeReadableContext({ messages: claraAiEnvironment.messages });
 
     return {
       user,
       expenses,
+      incomes,
       wallets,
       walletTransactions,
       transfers,
       budgets,
       savingsGoals,
       emergencyFund,
+      totalIncome,
       transactionHubSnapshot,
+      incomeHubSnapshot,
       loading,
       refreshing,
       ...bridgeReadableContext,
     };
-  }, [user, expenses, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, transactionHubSnapshot, loading, refreshing, claraAiEnvironment.messages]);
+  }, [user, expenses, incomes, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, totalIncome, transactionHubSnapshot, incomeHubSnapshot, loading, refreshing, claraAiEnvironment.messages]);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
