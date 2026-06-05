@@ -13,6 +13,17 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
+function hasGeminiEnvironmentConfig() {
+  return Boolean(
+    import.meta.env.VITE_GEMINI_API_KEY ||
+      import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
+      import.meta.env.VITE_GOOGLE_AI_API_KEY ||
+      import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
+      import.meta.env.VITE_CLARA_GEMINI_API_KEY ||
+      import.meta.env.VITE_AI_API_KEY
+  );
+}
+
 function peso(value) {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -111,8 +122,8 @@ function formatIncomeLine(income, index) {
 
 function latestIncomeReply(income) {
   const source = income.incomeSourceName || income.title || "Income";
-  const wallet = income.destinationWalletName || income.walletName || "No wallet shown";
-  return `I checked your Income Hub. Your latest income source is ${source} for ${peso(income.amount)}, received on ${formatDate(income.date)}${wallet ? ` into your ${wallet}` : ""}.`;
+  const wallet = income.destinationWalletName || income.walletName || "";
+  return `I checked your Income Hub. Your latest income source is ${source} for ${peso(income.amount)}, received on ${formatDate(income.date)}${wallet ? ` into your ${wallet}` : ", but the receiving wallet is not shown"}.`;
 }
 
 function incomeRecordsReply(records, filters = {}) {
@@ -266,6 +277,12 @@ function asGroundedPackage(packageData = {}) {
   };
 }
 
+function attachIncomePackageToContext(context, incomeReply) {
+  if (!context || typeof context !== "object" || !incomeReply?.handled) return;
+  context.incomeHubGroundedReplyPackage = incomeReply;
+  context.__incomeHubGroundedReplyPackage = incomeReply;
+}
+
 export function buildIncomeHubGroundedReply(message = "", context = {}) {
   const filters = detectIncomeQuery(message);
   if (!filters) return { handled: false };
@@ -339,5 +356,12 @@ export function buildIncomeHubGroundedReply(message = "", context = {}) {
 export function buildIncomeHubDirectReply(message = "", context = {}) {
   const incomeReply = buildIncomeHubGroundedReply(message, context);
   if (!incomeReply?.handled) return "";
-  return incomeReply;
+
+  attachIncomePackageToContext(context, incomeReply);
+
+  if (incomeReply.shouldUseGemini && hasGeminiEnvironmentConfig()) {
+    return "";
+  }
+
+  return incomeReply.localFallbackReply || String(incomeReply || "");
 }
