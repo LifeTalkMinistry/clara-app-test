@@ -1,5 +1,6 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
 import { buildTransactionHubGroundedReply } from "../clara-direct-finance-reply";
+import { buildGroundedIncomeHubBlock } from "./income-hub-grounding-block";
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
@@ -152,6 +153,7 @@ export function buildFinanceBrainPrompt({ userMessage = "", context = {}, recent
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
   const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.FINANCE, message: userMessage, context });
+  const groundedIncomeHubBlock = buildGroundedIncomeHubBlock(context);
   const groundedTransactionHubBlock = buildGroundedTransactionHubBlock(userMessage, context);
 
   return `You are CLARA's Finance Brain.
@@ -162,11 +164,14 @@ Finance Brain
 PURPOSE:
 Answer questions about wallets, budgets, spending, expenses, categories, savings goals, emergency fund, income, transfers, and money card data.
 
+${groundedIncomeHubBlock}
+
 ${groundedTransactionHubBlock}
 
 ${subContextBlock}
 
 IMPORTANT CONTEXT RULES:
+- If Income Hub Grounding Mode is active, answer from that grounded block first.
 - If Transaction Hub Grounding Mode is active, answer from that grounded block first.
 - Use the finance data below as the source of truth.
 - Use the selected sub-contexts first when choosing which finance data to answer from.
@@ -174,6 +179,7 @@ IMPORTANT CONTEXT RULES:
 - For spending questions, prioritize transactions, monthly summary, and top category.
 - For category questions, prioritize budget rows and top spending category.
 - For wallet questions, prioritize wallet total and wallet rows.
+- For income/source/salary questions, prioritize Income Hub Grounding Mode when active.
 - Do not answer spending or category questions using only wallet balance.
 - Do not turn a simple finance question into a coaching reply.
 - Do not mention unrelated cards.
