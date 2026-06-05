@@ -67,6 +67,8 @@ export default function DashboardHomePanel({
   fmt,
 }) {
   const [moneySummaryResetKey, setMoneySummaryResetKey] = useState(0);
+  const currentPlan = user?.plan || user?.subscription?.plan || "free";
+  const isFreePlan = currentPlan === "free";
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -102,12 +104,12 @@ export default function DashboardHomePanel({
         </div>
       )}
 
-      {dashboardShellReady && <LearningHub user={user} />}
+      {dashboardShellReady && !isFreePlan && <LearningHub user={user} />}
 
       {!!user && (
         <div
           className={`${dashboardScale.financeWrap} ${
-            dashboardShellReady ? "mt-[clamp(16px,2.6dvh,24px)]" : ""
+            dashboardShellReady && !isFreePlan ? "mt-[clamp(16px,2.6dvh,24px)]" : ""
           }`}
         >
           <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
@@ -123,6 +125,7 @@ export default function DashboardHomePanel({
             dashboardScale={dashboardScale}
             selectedDashboardTheme={selectedDashboardTheme}
             themeInactiveDotClass={themeInactiveDotClass}
+            plan={currentPlan}
             wallets={wallets}
             walletMoney={walletMoney}
             walletPreviewTransactions={walletPreviewTransactions}
@@ -171,9 +174,9 @@ export default function DashboardHomePanel({
             onAddSavings={(goal) =>
               window.requestAnimationFrame(() => openAddSavingsModal(goal))
             }
-            startClaraAiLongPress={startClaraAiLongPress}
-            endClaraAiLongPress={endClaraAiLongPress}
-            handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
+            startClaraAiLongPress={isFreePlan ? undefined : startClaraAiLongPress}
+            endClaraAiLongPress={isFreePlan ? undefined : endClaraAiLongPress}
+            handleClaraAiOrbClickCapture={isFreePlan ? undefined : handleClaraAiOrbClickCapture}
           />
         </div>
       )}
