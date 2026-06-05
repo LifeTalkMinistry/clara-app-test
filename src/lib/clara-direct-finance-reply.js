@@ -22,6 +22,9 @@ const TRANSACTION_WORDS = [
   "wallet activity",
   "money in",
   "money out",
+  "happened",
+  "activity",
+  "history",
 ];
 
 function normalizeText(value) {
@@ -87,6 +90,7 @@ function summarizeLabel(filters) {
   if (filters.yesterday) return "yesterday";
   if (filters.thisWeek) return "this_week";
   if (filters.thisMonth) return "this_month";
+  if (filters.thisYear) return "this_year";
   if (filters.income) return "income";
   if (filters.expense) return "expense";
   if (filters.transfer) return "transfer";
@@ -104,8 +108,10 @@ function detectTransactionQuery(message = "") {
   const asksWhereTransferred = /where\s+(did|do|was|is)?.*transfer|transfer.*where|moved.*where|where.*moved/.test(text);
   const hasTransactionWord = TRANSACTION_WORDS.some((word) => text.includes(word));
   const asksSpendingToday = /(what|how much).*\b(spend|spent)\b/.test(text);
+  const hasPeriodIntent = /\b(today|yesterday|this week|week|this month|month|this year|year|202\d)\b/.test(text);
+  const asksTimelineSummary = /\b(what happened|show|check|summary|summarize|activity|history|records?)\b/.test(text) && hasPeriodIntent;
 
-  if (!hasTransactionWord && !asksSpendingToday && !asksWhereTransferred) return null;
+  if (!hasTransactionWord && !asksSpendingToday && !asksWhereTransferred && !asksTimelineSummary) return null;
 
   const filters = {
     latest: /latest|last|recent|newest/.test(text),
@@ -113,6 +119,7 @@ function detectTransactionQuery(message = "") {
     yesterday: /yesterday/.test(text),
     thisWeek: /this week|week/.test(text),
     thisMonth: /this month|month/.test(text),
+    thisYear: /this year|year|202\d/.test(text),
     income: /income|salary|payday|money in|cash in|deposit/.test(text),
     expense: /expense|expenses|spend|spent|money out|purchase|bought|buy/.test(text),
     transfer: /transfer|transfers|moved|send|sent/.test(text),
@@ -127,8 +134,9 @@ function detectTransactionQuery(message = "") {
     filters.latest = true;
   }
 
-  if (!filters.today && !filters.yesterday && !filters.thisWeek && !filters.thisMonth && !filters.latest && /show all|all transactions|what happened/.test(text)) {
+  if (!filters.today && !filters.yesterday && !filters.thisWeek && !filters.thisMonth && !filters.thisYear && !filters.latest && /show all|all transactions|what happened/.test(text)) {
     filters.thisMonth = text.includes("month") ? true : false;
+    filters.thisYear = text.includes("year") || /202\d/.test(text) ? true : false;
   }
 
   return filters;
@@ -147,6 +155,7 @@ function noRecordsReply(filters) {
   if (filters.yesterday) return "I checked your Transaction Hub, but I don’t see any transactions recorded yesterday.";
   if (filters.thisWeek) return "I checked your Transaction Hub, but I don’t see any matching Transaction Hub records this week.";
   if (filters.thisMonth) return "I checked your Transaction Hub, but I don’t see any matching Transaction Hub records this month.";
+  if (filters.thisYear) return "I checked your Transaction Hub, but I don’t see any matching Transaction Hub records this year.";
   if (filters.income) return "I checked your Transaction Hub, but I don’t see any income transactions recorded yet.";
   if (filters.expense) return "I checked your Transaction Hub, but I don’t see any expense transactions matching that request.";
   if (filters.transfer) return "I checked your Transaction Hub, but I don’t see any transfer records matching that request.";
@@ -197,13 +206,15 @@ function recordsReply(records, filters) {
         ? "this week"
         : filters.thisMonth
           ? "this month"
-          : filters.income
-            ? "income transactions"
-            : filters.expense
-              ? "expense transactions"
-              : filters.transfer
-                ? "transfers"
-                : "matching transactions";
+          : filters.thisYear
+            ? "this year"
+            : filters.income
+              ? "income transactions"
+              : filters.expense
+                ? "expense transactions"
+                : filters.transfer
+                  ? "transfers"
+                  : "matching transactions";
 
   const summary = summarizeTransactionRecords(records);
   const visibleRecords = records.slice(0, 12);
