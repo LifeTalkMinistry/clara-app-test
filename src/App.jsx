@@ -249,7 +249,7 @@ function AppRoutes() {
                   <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
                   <Route path="/lifeos" element={guard(<LifeOS />, "/lifeos")} />
                   <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
-                  <Route path="/budget-plan" element={guard(<MonthlyBudgetPlan />, "/budget-plan", false, "/budgets")} />
+                  <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
                   <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
                   <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
                   <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
