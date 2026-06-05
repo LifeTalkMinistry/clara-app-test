@@ -302,6 +302,20 @@ export default function useBudgetCardLogic({
       });
   }, [rawCategories]);
 
+  const categorySpent = categories.reduce(
+    (sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount ?? item?.used),
+    0
+  );
+  const activeBudgetSpent = Math.max(
+    safeNumber(activeBudget?.spent),
+    safeNumber(activeBudget?.spent_amount),
+    safeNumber(activeBudget?.spent_total),
+    safeNumber(activeBudget?.total_spent),
+    safeNumber(activeBudget?.totalSpent),
+    safeNumber(activeBudget?.planned_spent) + safeNumber(activeBudget?.unplanned_spent) + safeNumber(activeBudget?.undocumented_spent),
+    categorySpent
+  );
+
   const declared = safeNumber(
     declaredBudget ||
       activeBudget?.declared_budget ||
@@ -319,17 +333,9 @@ export default function useBudgetCardLogic({
       )
   );
 
-  const spent = safeNumber(
-    activeBudget?.spent ??
-      activeBudget?.spent_amount ??
-      activeBudget?.total_spent ??
-      categories.reduce((sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount), 0)
-  );
+  const spent = activeBudgetSpent;
 
-  const remaining = Math.max(
-    safeNumber(activeBudget?.remaining ?? activeBudget?.remaining_amount ?? declared - spent),
-    0
-  );
+  const remaining = Math.max(declared - spent, 0);
 
   const unallocated = Math.max(
     safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? declared - allocated),
