@@ -110,10 +110,48 @@ function buildSpendingRows(finance = {}) {
   return `Monthly spent: ${money(finance.monthlySpent)}. Planned: ${money(finance.plannedSpent)}. Unplanned: ${money(finance.unplannedSpent)}. Top category: ${topText}`;
 }
 
+function buildGroundedTransactionHubBlock(context = {}) {
+  const packageData = context.__transactionHubGroundedReplyPackage || context.transactionHubGroundedReplyPackage || null;
+  if (!packageData?.handled || !packageData?.shouldUseGemini || !packageData?.geminiPrompt) return "No grounded Transaction Hub package selected for this message.";
+
+  const facts = packageData.facts || {};
+  const records = Array.isArray(facts.matchedRecords) ? facts.matchedRecords : [];
+  const summary = facts.summary || {};
+
+  return `GROUNDING MODE ACTIVE: Transaction Hub Grounded Gemini Composer
+
+Use this block first and above all general finance snapshot rows when answering the latest user message.
+The local Transaction Hub reader has already checked the user's real local data.
+Use ONLY these verified Transaction Hub facts for transaction questions.
+Never invent transactions, amounts, wallets, dates, categories, notes, or transfer directions.
+If a value says "not shown", say it is not shown instead of guessing.
+Start the reply with: "I checked your Transaction Hub..."
+Keep the reply natural, concise, and mobile-chat friendly.
+Do not mention prompts, JSON, local fallback, source of truth, internal rules, or grounding mode.
+
+Verified matching records:
+${records.length ? records.map((record) => {
+  const direction = record.group === "transfer"
+    ? `From: ${record.fromWalletName || "not shown"}; To: ${record.toWalletName || "not shown"}`
+    : `Wallet: ${record.walletName || "not shown"}`;
+  return `${record.index}. ${record.title} | ${record.group} | ${record.displayAmount} | Date: ${record.date} | ${direction} | Category: ${record.category || "not shown"} | Budget status: ${record.budgetStatus || "not applicable"} | Note: ${record.note || "none"}`;
+}).join("\n") : "No verified matching records."}
+
+Summary:
+Total in: ${money(summary.totalMoneyIn || 0)}
+Total out: ${money(summary.totalMoneyOut || 0)}
+Net flow: ${money(summary.netFlow || 0)}
+Matched records: ${summary.transactionCount || records.length || 0}
+Planned expenses: ${summary.plannedExpenseCount || 0}
+Unplanned expenses: ${summary.unplannedExpenseCount || 0}
+Transfer count: ${summary.transferCount || 0}`;
+}
+
 export function buildFinanceBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
   const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.FINANCE, message: userMessage, context });
+  const groundedTransactionHubBlock = buildGroundedTransactionHubBlock(context);
 
   return `You are CLARA's Finance Brain.
 
@@ -123,9 +161,12 @@ Finance Brain
 PURPOSE:
 Answer questions about wallets, budgets, spending, expenses, categories, savings goals, emergency fund, income, transfers, and money card data.
 
+${groundedTransactionHubBlock}
+
 ${subContextBlock}
 
 IMPORTANT CONTEXT RULES:
+- If Transaction Hub Grounding Mode is active, answer from that grounded block first.
 - Use the finance data below as the source of truth.
 - Use the selected sub-contexts first when choosing which finance data to answer from.
 - Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about this", and price-only replies.
