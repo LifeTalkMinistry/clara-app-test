@@ -1,0 +1,90 @@
+/* CLARA Me page — Life Stage support card / pressure signal gap fix.
+   Final spacing authority for the Life Stage stack only.
+   Keeps the existing premium composition while preventing negative hero overlap
+   from leaving a visible blank row before the pressure signal dock. */
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+  --clara-life-support-overlap: 28px;
+  --clara-life-support-height: 102px;
+  --clara-life-dock-gap: 6px;
+  --clara-life-pressure-dock-height: 46px;
+  --clara-life-snapshot-height: 218px;
+  grid-template-rows:
+    minmax(236px, clamp(236px, 37svh, 284px))
+    calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+    var(--clara-life-pressure-dock-height)
+    var(--clara-life-snapshot-height) !important;
+  gap: 0 !important;
+  align-content: start !important;
+  overflow: hidden !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
+  position: relative !important;
+  z-index: 12 !important;
+  height: var(--clara-life-support-height) !important;
+  min-height: var(--clara-life-support-height) !important;
+  max-height: var(--clara-life-support-height) !important;
+  margin-top: calc(var(--clara-life-support-overlap) * -1) !important;
+  margin-bottom: 0 !important;
+  align-self: start !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+  height: var(--clara-life-pressure-dock-height) !important;
+  min-height: var(--clara-life-pressure-dock-height) !important;
+  max-height: var(--clara-life-pressure-dock-height) !important;
+  margin: 0 auto !important;
+  align-self: center !important;
+  box-sizing: border-box !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+  height: var(--clara-life-snapshot-height) !important;
+  min-height: var(--clara-life-snapshot-height) !important;
+  max-height: var(--clara-life-snapshot-height) !important;
+  margin-top: 0 !important;
+  align-self: start !important;
+}
+
+@media (min-height: 820px) {
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    grid-template-rows:
+      minmax(248px, clamp(248px, 36.5svh, 292px))
+      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+      var(--clara-life-pressure-dock-height)
+      var(--clara-life-snapshot-height) !important;
+  }
+}
+
+@media (max-height: 760px) {
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    --clara-life-support-overlap: 22px;
+    --clara-life-support-height: 92px;
+    --clara-life-dock-gap: 6px;
+    --clara-life-pressure-dock-height: 42px;
+    --clara-life-snapshot-height: 204px;
+    grid-template-rows:
+      minmax(214px, clamp(214px, 35.5svh, 260px))
+      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+      var(--clara-life-pressure-dock-height)
+      var(--clara-life-snapshot-height) !important;
+  }
+}
+
+@media (max-height: 680px) {
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    --clara-life-support-overlap: 14px;
+    --clara-life-support-height: 78px;
+    --clara-life-dock-gap: 4px;
+    --clara-life-pressure-dock-height: 40px;
+    --clara-life-snapshot-height: 192px;
+    grid-template-rows:
+      minmax(186px, clamp(186px, 34.5svh, 222px))
+      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+      var(--clara-life-pressure-dock-height)
+      var(--clara-life-snapshot-height) !important;
+  }
+}
