@@ -42,12 +42,13 @@ function compactSourceFromText(text = "") {
 
 function compactWalletFromText(text = "") {
   const normalized = normalizeText(text);
-  const walletMatch = normalized.match(/(?:wallet|to|into|received by)\s+([a-z0-9\s]{2,40})/);
-  if (walletMatch?.[1]) return walletMatch[1].trim();
+  if (/what wallet|which wallet|wallet received|received.*wallet|salary.*wallet|income.*wallet/.test(normalized)) return "";
   if (normalized.includes("gcash")) return "gcash";
   if (normalized.includes("maya")) return "maya";
   if (normalized.includes("bdo")) return "bdo";
   if (normalized.includes("bank")) return "bank";
+  const walletMatch = normalized.match(/(?:into|to|received by)\s+([a-z0-9\s]{2,40})/);
+  if (walletMatch?.[1]) return walletMatch[1].trim();
   return "";
 }
 
@@ -77,6 +78,17 @@ function detectIncomeQuery(message = "") {
   };
 }
 
+function queryLabel(filters = {}) {
+  if (filters.latest) return "latest";
+  if (filters.today) return "today";
+  if (filters.yesterday) return "yesterday";
+  if (filters.thisWeek) return "this_week";
+  if (filters.thisMonth) return "this_month";
+  if (filters.sourceText) return "source";
+  if (filters.walletText) return "wallet";
+  return "income";
+}
+
 function noIncomeConnectionReply() {
   return "Income Hub data is not connected yet, so I can’t honestly say I checked real income records.";
 }
@@ -91,17 +103,6 @@ function noIncomeRecordsReply(filters = {}) {
   return "I checked your Income Hub, but I don’t see any income records yet.";
 }
 
-function queryLabel(filters = {}) {
-  if (filters.latest) return "latest";
-  if (filters.today) return "today";
-  if (filters.yesterday) return "yesterday";
-  if (filters.thisWeek) return "this_week";
-  if (filters.thisMonth) return "this_month";
-  if (filters.sourceText) return "source";
-  if (filters.walletText) return "wallet";
-  return "income";
-}
-
 function formatIncomeLine(income, index) {
   const source = income.incomeSourceName || income.title || "Income";
   const wallet = income.destinationWalletName || income.walletName || "No wallet shown";
@@ -111,7 +112,7 @@ function formatIncomeLine(income, index) {
 function latestIncomeReply(income) {
   const source = income.incomeSourceName || income.title || "Income";
   const wallet = income.destinationWalletName || income.walletName || "No wallet shown";
-  return `I checked your Income Hub. Your latest income source is ${source} for ${peso(income.amount)}, received on ${formatDate(income.date)} into your ${wallet}.`;
+  return `I checked your Income Hub. Your latest income source is ${source} for ${peso(income.amount)}, received on ${formatDate(income.date)}${wallet ? ` into your ${wallet}` : ""}.`;
 }
 
 function incomeRecordsReply(records, filters = {}) {
@@ -138,17 +139,21 @@ function incomeRecordsReply(records, filters = {}) {
 }
 
 function incomeSourcesReply(snapshot = {}) {
-  const sources = Array.isArray(snapshot.incomeBySource) ? snapshot.incomeBySource : [];
+  const sourceRoots = Array.isArray(snapshot.sourceRoots) ? snapshot.sourceRoots : [];
+  const sources = sourceRoots.length
+    ? sourceRoots.map((source) => ({ name: source.incomeSourceName, total: source.totalMoneyIn || source.amount, count: 1 }))
+    : Array.isArray(snapshot.incomeBySource) ? snapshot.incomeBySource : [];
+
   if (!sources.length) return "I checked your Income Hub, but I don’t see any income sources yet.";
   const lines = sources.slice(0, 12).map((source, index) => `${index + 1}. ${source.name} — ${peso(source.total)} — ${source.count} record${source.count === 1 ? "" : "s"}`).join("\n");
   return `I checked your Income Hub. Here are your income sources:\n\n${lines}`;
 }
 
-function incomeWalletReply(records = []) {
-  const latest = records[0] || null;
+function incomeWalletReply(records = [], snapshot = {}) {
+  const latest = records[0] || snapshot.latestIncome || null;
   if (!latest) return "I checked your Income Hub, but I don’t see an income record with a receiving wallet.";
   const source = latest.incomeSourceName || latest.title || "Income";
-  const wallet = latest.destinationWalletName || latest.walletName || "No wallet shown";
+  const wallet = latest.destinationWalletName || latest.walletName || snapshot.summary?.latestDestinationWallet || "No wallet shown";
   return `I checked your Income Hub. Your ${source} income of ${peso(latest.amount)} was received into ${wallet} on ${formatDate(latest.date)}.`;
 }
 
@@ -173,34 +178,166 @@ function getIncomeMatchingRecords(snapshot = {}, filters = {}) {
   if (!snapshot?.connected) return [];
   let records = filterIncomeHubRecords(snapshot.timeline || [], filters);
   if (filters.latest && !records.length && snapshot.latestIncome) records = [snapshot.latestIncome];
+  if (filters.asksReceivingWallet && !records.length && snapshot.latestIncome) records = [snapshot.latestIncome];
   return records;
 }
 
-export function buildIncomeHubDirectReply(message = "", context = {}) {
+function verifiedIncomeFacts(records = []) {
+  return records.slice(0, 12).map((income, index) => ({
+    index: index + 1,
+    id: income.id,
+    source: income.source,
+    incomeSourceName: income.incomeSourceName || income.title || "Income",
+    title: income.title || income.incomeSourceName || "Income",
+    amount: Math.abs(Number(income.amount || 0)),
+    displayAmount: peso(income.amount),
+    date: formatDate(income.date),
+    dateKey: income.dateKey || "not shown",
+    walletName: income.walletName || "not shown",
+    destinationWalletName: income.destinationWalletName || income.walletName || "not shown",
+    note: income.note || "none",
+    type: income.type || "income",
+    isSourceRoot: Boolean(income.isSourceRoot),
+  }));
+}
+
+function buildIncomeGeminiPrompt({ message, records, filters, localFallbackReply, snapshot }) {
+  const facts = verifiedIncomeFacts(records);
+  const summary = summarizeIncomeRecords(records);
+  const sourceRoots = Array.isArray(snapshot?.sourceRoots) ? verifiedIncomeFacts(snapshot.sourceRoots) : [];
+
+  return {
+    facts: {
+      queryLabel: queryLabel(filters),
+      matchedRecords: facts,
+      sourceRoots,
+      summary,
+      localFallbackReply,
+    },
+    geminiPrompt: `You are CLARA, a personal money coach.
+
+The user asked:
+"${String(message || "").trim()}"
+
+I already checked the user's local Income Hub data.
+Use ONLY the verified Income Hub facts below.
+Do not invent or assume any income source, amount, wallet, date, or transfer.
+Income source/root means the source of money such as employer, salary source, business, or side hustle.
+Receiving wallet means where the money was received or stored.
+
+Verified matched income records:
+${facts.length ? facts.map((income) => `${income.index}. ${income.incomeSourceName} | ${income.displayAmount} | Date: ${income.date} | Receiving wallet: ${income.destinationWalletName} | Source root: ${income.isSourceRoot ? "yes" : "no"} | Note: ${income.note}`).join("\n") : "No verified matched income records."}
+
+Verified Income Hub source roots:
+${sourceRoots.length ? sourceRoots.map((income) => `${income.index}. ${income.incomeSourceName} | Total: ${income.displayAmount} | Latest activity: ${income.date} | Receiving wallet: ${income.destinationWalletName}`).join("\n") : "No source roots loaded."}
+
+Summary:
+Total income in matched records: ${peso(summary.totalIncome)}
+Matched records: ${summary.incomeCount}
+Top income source: ${summary.topIncomeSource}
+Most used receiving wallet: ${summary.mostUsedReceivingWallet}
+
+Strict reply rules:
+- Start with: "I checked your Income Hub..."
+- Keep it natural, concise, and mobile-chat friendly.
+- Clearly separate income source/root from receiving wallet.
+- Mention exact source name, amount, date, and wallet when available.
+- If wallet is not shown, say the receiving wallet is not shown.
+- Do not say Transaction Hub for this answer.
+- Do not ask unnecessary follow-up questions when the records answer the question.
+- Do not mention JSON, prompts, local fallback, source of truth, or internal rules.
+
+Write the final CLARA reply now.`,
+  };
+}
+
+function asGroundedPackage(packageData = {}) {
+  return {
+    ...packageData,
+    toString() {
+      return String(packageData.localFallbackReply || "");
+    },
+    valueOf() {
+      return String(packageData.localFallbackReply || "");
+    },
+    [Symbol.toPrimitive]() {
+      return String(packageData.localFallbackReply || "");
+    },
+  };
+}
+
+export function buildIncomeHubGroundedReply(message = "", context = {}) {
   const filters = detectIncomeQuery(message);
-  if (!filters) return "";
+  if (!filters) return { handled: false };
 
   const snapshot = context?.incomeHubSnapshot || null;
-  if (!snapshot || snapshot.connected !== true) return noIncomeConnectionReply();
+  if (!snapshot || snapshot.connected !== true) {
+    return asGroundedPackage({
+      handled: true,
+      source: "income_hub_grounded",
+      shouldUseGemini: false,
+      localFallbackReply: noIncomeConnectionReply(),
+      geminiPrompt: "",
+      facts: { reason: "income_hub_not_connected" },
+    });
+  }
 
   if (filters.asksWhereTransferred) {
-    logIncomeHubAiReader("Query detected: transfer_flow");
-    logIncomeHubAiReader("Matched records:", snapshot.possibleRelatedTransfers?.length || 0);
-    return incomeTransferReply(snapshot);
+    const localFallbackReply = incomeTransferReply(snapshot);
+    const records = snapshot.latestIncome ? [snapshot.latestIncome] : [];
+    return asGroundedPackage({
+      handled: true,
+      source: "income_hub_grounded",
+      shouldUseGemini: records.length > 0,
+      localFallbackReply,
+      ...buildIncomeGeminiPrompt({ message, records, filters, localFallbackReply, snapshot }),
+    });
   }
 
   if (filters.asksSourcesList) {
-    logIncomeHubAiReader("Query detected: source");
-    logIncomeHubAiReader("Matched records:", snapshot.incomeBySource?.length || 0);
-    return incomeSourcesReply(snapshot);
+    const records = Array.isArray(snapshot.sourceRoots) && snapshot.sourceRoots.length ? snapshot.sourceRoots : snapshot.timeline || [];
+    const localFallbackReply = incomeSourcesReply(snapshot);
+    return asGroundedPackage({
+      handled: true,
+      source: "income_hub_grounded",
+      shouldUseGemini: records.length > 0,
+      localFallbackReply,
+      ...buildIncomeGeminiPrompt({ message, records, filters, localFallbackReply, snapshot }),
+    });
   }
 
   const records = getIncomeMatchingRecords(snapshot, filters);
   logIncomeHubAiReader(`Query detected: ${queryLabel(filters)}`);
   logIncomeHubAiReader("Matched records:", records.length);
 
-  if (!records.length) return noIncomeRecordsReply(filters);
-  if (filters.asksReceivingWallet) return incomeWalletReply(records);
-  if (filters.latest) return latestIncomeReply(records[0]);
-  return incomeRecordsReply(records, filters);
+  if (!records.length) {
+    return asGroundedPackage({
+      handled: true,
+      source: "income_hub_grounded",
+      shouldUseGemini: false,
+      localFallbackReply: noIncomeRecordsReply(filters),
+      geminiPrompt: "",
+      facts: { queryLabel: queryLabel(filters), matchedRecords: [], summary: summarizeIncomeRecords([]) },
+    });
+  }
+
+  const localFallbackReply = filters.asksReceivingWallet
+    ? incomeWalletReply(records, snapshot)
+    : filters.latest
+      ? latestIncomeReply(records[0])
+      : incomeRecordsReply(records, filters);
+
+  return asGroundedPackage({
+    handled: true,
+    source: "income_hub_grounded",
+    shouldUseGemini: true,
+    localFallbackReply,
+    ...buildIncomeGeminiPrompt({ message, records, filters, localFallbackReply, snapshot }),
+  });
+}
+
+export function buildIncomeHubDirectReply(message = "", context = {}) {
+  const incomeReply = buildIncomeHubGroundedReply(message, context);
+  if (!incomeReply?.handled) return "";
+  return incomeReply;
 }
