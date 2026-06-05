@@ -17,6 +17,47 @@ const buildFallbackPlanConfig = (plan) => ({
   plan_key: normalizePlanKey(plan || "free"),
 });
 
+function getDeveloperPlanPreview() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem("clara_dev_plan_preview");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return normalizePlanKey(parsed?.plan || "free");
+  } catch (error) {
+    console.warn("Unable to read CLARA developer plan preview", error);
+    return null;
+  }
+}
+
+function applyDeveloperPlanPreview(profileLike = {}, previewPlan = null) {
+  if (!previewPlan) return profileLike;
+
+  const plan = normalizePlanKey(previewPlan);
+  const paid = plan !== "free";
+  const accessLevel = paid ? getAccessLevelForPlan(plan) : "free";
+
+  return {
+    ...(profileLike || {}),
+    role: paid ? "paid_user" : "user",
+    plan,
+    subscription_plan: plan,
+    access_level: accessLevel,
+    subscription_status: paid ? accessLevel : "free",
+    status: paid ? "approved" : "free",
+    enrollment_status: paid ? "approved" : "none",
+    is_enrolled: paid,
+    program_active: paid,
+    entitlement_status: paid ? "active" : "free",
+    activation_status: paid ? "active" : "not_required",
+    is_activated: true,
+    has_pro_access: paid,
+    has_program_access: paid,
+    dev_plan_preview: true,
+  };
+}
+
 const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => {
   if (!authUser) return null;
 
@@ -37,7 +78,7 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
       ? "free"
       : plan === "pro_99"
         ? "pro"
-        : plan === "core_599"
+        : plan === "core_199"
           ? "core"
           : "life_os";
 
@@ -64,8 +105,8 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
       label: PLAN_LABELS[plan] || "Free",
       isPaid: Boolean(accessState?.isPaid),
       isPro: Boolean(accessState?.isPaid) || plan === "pro_99",
-      isCore: plan === "core_599",
-      isLifeOS: plan === "coaching_1299",
+      isCore: plan === "core_199",
+      isLifeOS: plan === "life_os_499",
     },
     enrollment_status: safeProfile?.enrollment_status || "none",
     status: safeProfile?.status || "free",
@@ -113,6 +154,11 @@ export default function useUserRole() {
 
   const loading = !authReady || authLoading;
   const ready = !loading;
+  const developerPlanPreview = getDeveloperPlanPreview();
+  const effectiveProfile = useMemo(
+    () => applyDeveloperPlanPreview(profile || {}, developerPlanPreview),
+    [profile, developerPlanPreview]
+  );
 
   const accessState = useMemo(() => {
     if (!authUser) {
@@ -124,15 +170,15 @@ export default function useUserRole() {
     }
 
     return deriveAccessState({
-      ...(profile || {}),
-      role: profile?.role || authUser?.user_metadata?.role || "user",
-      plan: profile?.plan || profile?.subscription_plan || "free",
+      ...(effectiveProfile || {}),
+      role: effectiveProfile?.role || authUser?.user_metadata?.role || "user",
+      plan: effectiveProfile?.plan || effectiveProfile?.subscription_plan || "free",
       access_level:
-        profile?.access_level ||
-        profile?.subscription_status ||
-        getAccessLevelForPlan(profile?.plan || "free"),
+        effectiveProfile?.access_level ||
+        effectiveProfile?.subscription_status ||
+        getAccessLevelForPlan(effectiveProfile?.plan || "free"),
     });
-  }, [authUser, profile]);
+  }, [authUser, effectiveProfile]);
 
   const role = accessState.role;
   const plan = normalizePlanKey(accessState.plan || "free");
@@ -172,9 +218,9 @@ export default function useUserRole() {
       community: "view",
       messages: "admin_only",
       ai:
-        plan === "coaching_1299"
+        plan === "life_os_499"
           ? "life_os"
-          : plan === "core_599"
+          : plan === "core_199"
             ? "advanced"
             : "off",
     };
@@ -209,11 +255,11 @@ export default function useUserRole() {
     () =>
       buildResolvedUser(
         authUser,
-        profile,
+        effectiveProfile,
         accessState,
         isFeatureEnabled(planConfig || buildFallbackPlanConfig(plan), "referrals")
       ),
-    [accessState, authUser, plan, planConfig, profile]
+    [accessState, authUser, plan, planConfig, effectiveProfile]
   );
 
   const access = useMemo(
