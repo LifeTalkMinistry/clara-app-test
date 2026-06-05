@@ -1,3 +1,5 @@
+import "./clara-buy-check-not-buy-completion-flow";
+
 const hideThemeAppearanceSettingsRow = () => {
   if (typeof document === "undefined") return;
 
