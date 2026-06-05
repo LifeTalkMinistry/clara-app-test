@@ -360,7 +360,10 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
 
 export function buildContextualFinanceReply(message = "", context = {}) {
   const transactionReply = buildTransactionHubGroundedReply(message, context);
-  if (transactionReply?.handled) return transactionReply;
+
+  if (transactionReply?.handled) {
+    return transactionReply.shouldUseGemini ? "" : transactionReply.localFallbackReply;
+  }
 
   return "";
 }
