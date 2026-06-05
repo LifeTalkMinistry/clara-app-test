@@ -190,20 +190,20 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817]/88 px-[clamp(22px,6vw,32px)] pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] backdrop-blur-xl"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817]/88 px-[clamp(24px,6.5vw,36px)] pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] backdrop-blur-xl"
       onClick={onClose}
     >
       <div
-        className="relative flex h-[calc(100dvh-56px)] max-h-[780px] w-full max-w-[430px] flex-col overflow-hidden rounded-[42px] border border-white/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.1),transparent_36%),rgba(5,10,23,0.98)] text-white shadow-[0_28px_96px_rgba(0,0,0,0.64)] backdrop-blur-2xl"
+        className="relative flex h-[calc(100dvh-58px)] max-h-[780px] w-full max-w-[430px] flex-col overflow-hidden rounded-[42px] border border-white/14 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.06),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.09),transparent_36%),rgba(5,10,23,0.985)] text-white shadow-[0_28px_96px_rgba(0,0,0,0.64)] backdrop-blur-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-white/28" />
-        <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-cyan-400/8 blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-14 top-0 h-px bg-white/22" />
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-cyan-400/7 blur-3xl" />
 
-        <header className="relative z-10 shrink-0 rounded-t-[42px] border-b border-white/10 bg-[rgba(2,8,23,0.86)] px-5 pb-5 pt-5">
+        <header className="relative z-10 shrink-0 rounded-t-[42px] bg-[rgba(2,8,23,0.56)] px-5 pb-5 pt-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/56">
+              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/58">
                 CLARA Commitment Booklet
               </p>
               <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/34">
@@ -214,7 +214,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-full border border-white/16 bg-white/[0.09] p-2 text-white/70 transition hover:bg-white/[0.12] hover:text-white"
+              className="shrink-0 rounded-full border border-white/12 bg-white/[0.06] p-2 text-white/60 transition hover:bg-white/[0.1] hover:text-white/86"
               aria-label="Close commitment booklet"
             >
               <X className="h-4 w-4" />
@@ -227,68 +227,70 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <article className="flex h-full flex-col justify-center rounded-[32px] border border-white/14 bg-[rgba(8,18,40,0.92)] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_46px_rgba(0,0,0,0.24)]">
-            <h2 className="text-[clamp(1.08rem,4.7vw,1.48rem)] font-black leading-tight tracking-[-0.045em] text-white/96">
-              {page.title}
-            </h2>
+          <article className="mx-auto flex h-[92%] w-full flex-col justify-center self-center rounded-[32px] border border-white/14 bg-[rgba(8,18,40,0.93)] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.09),inset_0_-18px_34px_rgba(0,0,0,0.14),0_20px_52px_rgba(0,0,0,0.28)]">
+            <div className="-translate-y-[4%]">
+              <h2 className="text-[clamp(1.08rem,4.7vw,1.48rem)] font-black leading-tight tracking-[-0.045em] text-white/96">
+                {page.title}
+              </h2>
 
-            <div className={pageTextClass}>
-              {page.paragraphs?.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
+              <div className={pageTextClass}>
+                {page.paragraphs?.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
 
-              {page.quote ? (
-                <div className="rounded-[18px] border border-white/14 bg-white/[0.08] px-3 py-2 text-center text-[clamp(0.72rem,2.2vw,0.82rem)] font-black italic leading-[1.35] text-white/90">
-                  “{page.quote}”
-                </div>
-              ) : null}
+                {page.quote ? (
+                  <div className="rounded-[18px] border border-white/14 bg-white/[0.08] px-3 py-2 text-center text-[clamp(0.72rem,2.2vw,0.82rem)] font-black italic leading-[1.35] text-white/90">
+                    “{page.quote}”
+                  </div>
+                ) : null}
 
-              {page.bullets ? (
-                <ul className="space-y-1.5">
-                  {page.bullets.map((bullet) => (
-                    <li key={bullet} className="flex gap-2">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
-                      <span>{bullet}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+                {page.bullets ? (
+                  <ul className="space-y-1.5">
+                    {page.bullets.map((bullet) => (
+                      <li key={bullet} className="flex gap-2">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-              {page.checks ? (
-                <ul className="space-y-1.5">
-                  {page.checks.map((check) => (
-                    <li key={check} className="flex gap-2 text-white/86">
-                      <span className="shrink-0 text-white/62">✓</span>
-                      <span>{check}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+                {page.checks ? (
+                  <ul className="space-y-1.5">
+                    {page.checks.map((check) => (
+                      <li key={check} className="flex gap-2 text-white/86">
+                        <span className="shrink-0 text-white/62">✓</span>
+                        <span>{check}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-              {page.closingParagraphs?.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
+                {page.closingParagraphs?.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
 
-              {page.hint ? (
-                <p className="pt-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/48">
-                  {page.hint}
-                </p>
-              ) : null}
+                {page.hint ? (
+                  <p className="pt-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/48">
+                    {page.hint}
+                  </p>
+                ) : null}
 
-              {isFinalPage ? (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="mt-2 w-full rounded-[20px] border border-white/16 bg-white/[0.1] px-4 py-2.5 text-sm font-black text-white/90 transition hover:bg-white/[0.14] active:scale-[0.99]"
-                >
-                  Start My Commitment
-                </button>
-              ) : null}
+                {isFinalPage ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-2 w-full rounded-[20px] border border-white/16 bg-white/[0.1] px-4 py-2.5 text-sm font-black text-white/90 transition hover:bg-white/[0.14] active:scale-[0.99]"
+                  >
+                    Start My Commitment
+                  </button>
+                ) : null}
+              </div>
             </div>
           </article>
         </div>
 
-        <footer className="relative z-10 shrink-0 rounded-b-[42px] border-t border-white/10 bg-[rgba(2,8,23,0.9)] px-5 pb-5 pt-4">
+        <footer className="relative z-10 shrink-0 rounded-b-[42px] bg-[rgba(2,8,23,0.62)] px-5 pb-5 pt-4">
           <div className="flex items-center justify-center gap-1.5">
             {CLARA_COMMITMENT_BOOKLET_PAGES.map((bookletItem, index) => (
               <button
@@ -296,13 +298,13 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 type="button"
                 onClick={() => setBookletPage(index)}
                 className={`h-1.5 rounded-full transition-all ${
-                  index === bookletPage ? "w-6 bg-white/70" : "w-1.5 bg-white/24"
+                  index === bookletPage ? "w-6 bg-white/58" : "w-1.5 bg-white/18"
                 }`}
                 aria-label={`Go to ${bookletItem.label}`}
               />
             ))}
           </div>
-          <p className="mt-2.5 text-center text-[9px] font-black uppercase tracking-[0.18em] text-white/34">
+          <p className="mt-2.5 text-center text-[8px] font-black uppercase tracking-[0.2em] text-white/26">
             Swipe to turn page
           </p>
         </footer>
