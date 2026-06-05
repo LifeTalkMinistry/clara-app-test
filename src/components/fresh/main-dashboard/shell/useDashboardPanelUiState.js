@@ -3,6 +3,15 @@ import { CalendarDays, Home, Settings, User } from "lucide-react";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 
+function readPlanPreview() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem("clara_dev_plan_preview") || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function useDashboardPanelUiState({
   activeDashboardPanel,
   dashboardPanelDirection,
@@ -14,9 +23,10 @@ export default function useDashboardPanelUiState({
   hasVisibleFinanceData,
   financeDataLoading,
   financeDataRefreshing,
-  plan = "free",
+  plan = "pro_99",
 }) {
-  const isFreePlan = plan === "free";
+  const planPreview = readPlanPreview();
+  const isFreePlan = (planPreview || plan) === "free";
 
   const openDashboardPanel = useCallback((panelKey) => {
     if (isFreePlan && ["me", "schedule"].includes(panelKey)) return;
