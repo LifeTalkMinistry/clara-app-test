@@ -155,8 +155,9 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
       (page.closingParagraphs?.length || 0) >
     10;
   const pageTextClass = isDensePage
-    ? "mt-4 space-y-2 text-[clamp(0.78rem,2.75vw,0.92rem)] font-bold leading-[1.43] text-slate-100/88"
+    ? "mt-4 space-y-2.5 text-[clamp(0.84rem,2.95vw,0.98rem)] font-bold leading-[1.5] text-slate-100/88"
     : "mt-5 space-y-3 text-[clamp(0.92rem,3.05vw,1.03rem)] font-bold leading-[1.62] text-slate-100/88";
+  const contentOffsetClass = isDensePage ? "" : "-translate-y-[3%]";
 
   const goToPreviousPage = () => {
     setBookletPage((currentPage) => Math.max(currentPage - 1, 0));
@@ -221,7 +222,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           onTouchEnd={handleTouchEnd}
         >
           <article className="flex min-h-0 w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]">
-            <div className="-translate-y-[3%]">
+            <div className={contentOffsetClass}>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
                 {bookletPage + 1 < 10 ? `0${bookletPage + 1}` : bookletPage + 1} / {page.label.toUpperCase()}
               </p>
