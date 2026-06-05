@@ -1,4 +1,5 @@
 import { buildClaraFinanceSnapshot } from "../clara-local-brain";
+import { buildTransactionHubGroundedReply } from "../clara-direct-finance-reply";
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
@@ -110,8 +111,8 @@ function buildSpendingRows(finance = {}) {
   return `Monthly spent: ${money(finance.monthlySpent)}. Planned: ${money(finance.plannedSpent)}. Unplanned: ${money(finance.unplannedSpent)}. Top category: ${topText}`;
 }
 
-function buildGroundedTransactionHubBlock(context = {}) {
-  const packageData = context.__transactionHubGroundedReplyPackage || context.transactionHubGroundedReplyPackage || null;
+function buildGroundedTransactionHubBlock(userMessage = "", context = {}) {
+  const packageData = context.__transactionHubGroundedReplyPackage || context.transactionHubGroundedReplyPackage || buildTransactionHubGroundedReply(userMessage, context);
   if (!packageData?.handled || !packageData?.shouldUseGemini || !packageData?.geminiPrompt) return "No grounded Transaction Hub package selected for this message.";
 
   const facts = packageData.facts || {};
@@ -151,7 +152,7 @@ export function buildFinanceBrainPrompt({ userMessage = "", context = {}, recent
   const finance = buildClaraFinanceSnapshot(context || {});
   const plan = finance.budgetPlan || {};
   const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.FINANCE, message: userMessage, context });
-  const groundedTransactionHubBlock = buildGroundedTransactionHubBlock(context);
+  const groundedTransactionHubBlock = buildGroundedTransactionHubBlock(userMessage, context);
 
   return `You are CLARA's Finance Brain.
 
