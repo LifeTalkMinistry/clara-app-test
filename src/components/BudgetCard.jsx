@@ -14,10 +14,18 @@ const BUDGET_GLOW_LAYERS = [
 ];
 
 const PLAN_TEST_OPTIONS = [
-  { label: "Reset account / Free account", value: "free" },
-  { label: "PRO account", value: "pro_99" },
-  { label: "CORE account", value: "core_199" },
-  { label: "ELITE account", value: "life_os_499" },
+  {
+    label: "Explorer Journey",
+    helper: "Preview the free CLARA experience.",
+    badge: "FREE",
+    value: "free",
+  },
+  {
+    label: "Committed Journey",
+    helper: "Preview the full CLARA experience.",
+    badge: "COMMITTED",
+    value: "life_os_499",
+  },
 ];
 
 function savePlanPreview(value) {
@@ -172,9 +180,9 @@ export default function BudgetCard({
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-teal-200/70">
-                  Developer Plan Override
+                  Developer Access Override
                 </p>
-                <h3 className="mt-1 text-lg font-black text-white">Choose test account state</h3>
+                <h3 className="mt-1 text-lg font-black text-white">Choose test journey state</h3>
                 <p className="mt-1 text-xs font-semibold leading-5 text-white/62">
                   Local preview only. No Google Play purchase will run.
                 </p>
@@ -194,9 +202,15 @@ export default function BudgetCard({
                   key={option.value}
                   type="button"
                   onClick={() => applyPlanPreview(option.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10]"
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10]"
                 >
-                  {option.label}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-black">{option.label}</span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.08] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-teal-100/72">
+                      {option.badge}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-white/50">{option.helper}</p>
                 </button>
               ))}
             </div>
