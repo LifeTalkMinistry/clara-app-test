@@ -23,8 +23,13 @@ function getDeveloperPlanPreview() {
   try {
     const raw = window.localStorage.getItem("clara_dev_plan_preview");
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return normalizePlanKey(parsed?.plan || "free");
+
+    if (raw.trim().startsWith("{")) {
+      const parsed = JSON.parse(raw);
+      return normalizePlanKey(parsed?.plan || "free");
+    }
+
+    return normalizePlanKey(raw);
   } catch (error) {
     console.warn("Unable to read CLARA developer plan preview", error);
     return null;
@@ -80,7 +85,7 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
         ? "pro"
         : plan === "core_199"
           ? "core"
-          : "life_os";
+          : "elite";
 
   const accessLevel = normalizeAccessLevel(
     safeProfile?.access_level ||
@@ -97,16 +102,16 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     plan,
     subscription_status: subscriptionStatus,
     access_level: accessLevel,
-    subscription_label: PLAN_LABELS[plan] || "Free",
+    subscription_label: plan === "life_os_499" ? "Elite" : PLAN_LABELS[plan] || "Free",
     subscription: {
       plan,
       access_level: accessLevel,
       status: subscriptionStatus,
-      label: PLAN_LABELS[plan] || "Free",
+      label: plan === "life_os_499" ? "Elite" : PLAN_LABELS[plan] || "Free",
       isPaid: Boolean(accessState?.isPaid),
       isPro: Boolean(accessState?.isPaid) || plan === "pro_99",
       isCore: plan === "core_199",
-      isLifeOS: plan === "life_os_499",
+      isElite: plan === "life_os_499",
     },
     enrollment_status: safeProfile?.enrollment_status || "none",
     status: safeProfile?.status || "free",
@@ -199,7 +204,9 @@ export default function useUserRole() {
     ? "Admin"
     : isAdvertiser
       ? "Advertiser"
-      : PLAN_LABELS[plan] || "Free";
+      : plan === "life_os_499"
+        ? "Elite"
+        : PLAN_LABELS[plan] || "Free";
 
   const featureModes = useMemo(() => {
     const safePlanConfig = planConfig || buildFallbackPlanConfig(plan);
@@ -209,20 +216,39 @@ export default function useUserRole() {
       return acc;
     }, {});
 
-    if (!isPreActivation) return baseModes;
+    const officialModes =
+      plan === "free"
+        ? {
+            ...baseModes,
+            expenses: "full",
+            wallets: "full",
+            budgets: "full",
+            ai: "off",
+            analytics: "off",
+            savings_goals: "off",
+            modules: "off",
+            community: "off",
+            messages: "off",
+            customization: "off",
+          }
+        : baseModes;
+
+    if (!isPreActivation) return officialModes;
 
     return {
-      ...baseModes,
+      ...officialModes,
       tasks: "preview",
-      modules: "preview",
-      community: "view",
-      messages: "admin_only",
+      modules: plan === "free" ? "off" : "preview",
+      community: plan === "free" ? "off" : "view",
+      messages: plan === "free" ? "off" : "admin_only",
       ai:
         plan === "life_os_499"
           ? "life_os"
           : plan === "core_199"
             ? "advanced"
-            : "off",
+            : plan === "pro_99"
+              ? "basic"
+              : "off",
     };
   }, [isPreActivation, plan, planConfig]);
 
@@ -288,7 +314,7 @@ export default function useUserRole() {
       ai: isFeatureAvailable("ai"),
       aiBasic: hasFeatureAccess("ai", ["basic", "advanced", "life_os"]),
       aiAdvanced: hasFeatureAccess("ai", ["advanced", "life_os"]),
-      aiLifeOS: hasFeatureAccess("ai", ["life_os"]),
+      aiElite: hasFeatureAccess("ai", ["life_os"]),
       customization: isFeatureAvailable("customization"),
     }),
     [hasFeatureAccess, isFeatureAvailable]
