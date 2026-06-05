@@ -66,11 +66,6 @@ export default function DailyTipCard() {
   };
 
   if (activeCurrentState) {
-    const loadedParts = Array.isArray(activeCurrentState.loadedParts) ? activeCurrentState.loadedParts : [];
-    const focusText = loadedParts.includes("income_sources")
-      ? "Income sources are active: BPO Salary and Side Hustle. Both start at ₱0."
-      : "Sample learning data is active.";
-
     return (
       <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
         <div className="relative h-[150px] w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -93,10 +88,10 @@ export default function DailyTipCard() {
 
             <div>
               <h3 className="text-base font-black leading-tight tracking-[-0.03em] text-white">
-                Sample Data is active
+                Explore without risking real records
               </h3>
               <p className="mt-1 text-[11px] font-semibold leading-snug text-cyan-50/66">
-                {focusText} Test CLARA here, then exit anytime to return to your real records.
+                Practice with sample data first. CLARA will show how it reads income, explains your setup, and guides money decisions. Exit anytime to return to your real records.
               </p>
             </div>
           </div>
