@@ -13,9 +13,57 @@ import {
 } from "@/lib/plan-config";
 import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
 
+const COMMITTED_PLAN_KEY = "life_os_499";
+const COMMITTED_ACCESS_LEVEL = "life_os";
+
 const buildFallbackPlanConfig = (plan) => ({
   plan_key: normalizePlanKey(plan || "free"),
 });
+
+function normalizeStatus(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isActiveCommittedProfile(profileLike = {}, previewPlan = null) {
+  const plan = normalizePlanKey(
+    previewPlan || profileLike?.plan || profileLike?.subscription_plan || "free"
+  );
+
+  if (plan !== COMMITTED_PLAN_KEY) return false;
+
+  if (previewPlan === COMMITTED_PLAN_KEY) return true;
+
+  const activeStatuses = new Set(["active", "approved", "committed"]);
+
+  return (
+    profileLike?.role === "paid_user" ||
+    profileLike?.is_enrolled === true ||
+    profileLike?.program_active === true ||
+    profileLike?.has_pro_access === true ||
+    profileLike?.has_program_access === true ||
+    activeStatuses.has(normalizeStatus(profileLike?.subscription_status)) ||
+    activeStatuses.has(normalizeStatus(profileLike?.entitlement_status)) ||
+    activeStatuses.has(normalizeStatus(profileLike?.status)) ||
+    Boolean(profileLike?.activated_at)
+  );
+}
+
+function buildCommittedFeatureModes() {
+  return FEATURE_DEFINITIONS.reduce((acc, feature) => {
+    if (feature.key === "ai" && feature.modes.includes("life_os")) {
+      acc[feature.key] = "life_os";
+      return acc;
+    }
+
+    if (feature.modes.includes("full")) {
+      acc[feature.key] = "full";
+      return acc;
+    }
+
+    acc[feature.key] = feature.modes.find((mode) => mode !== "off") || "off";
+    return acc;
+  }, {});
+}
 
 function getDeveloperPlanPreview() {
   if (typeof window === "undefined") return null;
@@ -49,7 +97,8 @@ function applyDeveloperPlanPreview(profileLike = {}, previewPlan = null) {
     plan,
     subscription_plan: plan,
     access_level: accessLevel,
-    subscription_status: paid ? accessLevel : "free",
+    subscription_status: paid ? "active" : "free",
+    subscription_label: paid ? "CLARA Commitment" : "Explorer",
     status: paid ? "approved" : "free",
     enrollment_status: paid ? "approved" : "none",
     is_enrolled: paid,
@@ -78,20 +127,27 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     accessState?.plan || safeProfile?.plan || "free"
   );
 
+  const isCommitted = plan === COMMITTED_PLAN_KEY;
+
   const subscriptionStatus =
     plan === "free"
       ? "free"
-      : plan === "pro_99"
-        ? "pro"
-        : plan === "core_199"
-          ? "core"
-          : "elite";
+      : isCommitted
+        ? "committed"
+        : plan === "pro_99"
+          ? "pro"
+          : plan === "core_199"
+            ? "core"
+            : "elite";
 
   const accessLevel = normalizeAccessLevel(
     safeProfile?.access_level ||
+      accessState?.accessLevel ||
       subscriptionStatus ||
       getAccessLevelForPlan(plan)
   );
+
+  const displayLabel = isCommitted ? "Committed" : PLAN_LABELS[plan] || "Free";
 
   return {
     ...safeProfile,
@@ -102,16 +158,17 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     plan,
     subscription_status: subscriptionStatus,
     access_level: accessLevel,
-    subscription_label: plan === "life_os_499" ? "Elite" : PLAN_LABELS[plan] || "Free",
+    subscription_label: displayLabel,
     subscription: {
       plan,
       access_level: accessLevel,
       status: subscriptionStatus,
-      label: plan === "life_os_499" ? "Elite" : PLAN_LABELS[plan] || "Free",
+      label: displayLabel,
       isPaid: Boolean(accessState?.isPaid),
       isPro: Boolean(accessState?.isPaid) || plan === "pro_99",
       isCore: plan === "core_199",
-      isElite: plan === "life_os_499",
+      isElite: isCommitted,
+      isCommitted,
     },
     enrollment_status: safeProfile?.enrollment_status || "none",
     status: safeProfile?.status || "free",
@@ -174,7 +231,7 @@ export default function useUserRole() {
       });
     }
 
-    return deriveAccessState({
+    const baseAccessState = deriveAccessState({
       ...(effectiveProfile || {}),
       role: effectiveProfile?.role || authUser?.user_metadata?.role || "user",
       plan: effectiveProfile?.plan || effectiveProfile?.subscription_plan || "free",
@@ -183,7 +240,23 @@ export default function useUserRole() {
         effectiveProfile?.subscription_status ||
         getAccessLevelForPlan(effectiveProfile?.plan || "free"),
     });
-  }, [authUser, effectiveProfile]);
+
+    if (isActiveCommittedProfile(effectiveProfile, developerPlanPreview)) {
+      return {
+        ...baseAccessState,
+        plan: COMMITTED_PLAN_KEY,
+        accessLevel: COMMITTED_ACCESS_LEVEL,
+        isPaid: true,
+        isFree: false,
+        isPending: false,
+        isActivated: true,
+        isPreActivation: false,
+        activationRequired: false,
+      };
+    }
+
+    return baseAccessState;
+  }, [authUser, effectiveProfile, developerPlanPreview]);
 
   const role = accessState.role;
   const plan = normalizePlanKey(accessState.plan || "free");
@@ -194,6 +267,7 @@ export default function useUserRole() {
   const isFree = accessState.isFree;
   const isPreActivation = accessState.isPreActivation;
   const isActivated = accessState.isActivated;
+  const isCommitted = plan === COMMITTED_PLAN_KEY;
 
   const planConfig = useMemo(
     () => plansByKey?.[plan] || buildFallbackPlanConfig(plan),
@@ -204,11 +278,15 @@ export default function useUserRole() {
     ? "Admin"
     : isAdvertiser
       ? "Advertiser"
-      : plan === "life_os_499"
-        ? "Elite"
+      : isCommitted
+        ? "Committed"
         : PLAN_LABELS[plan] || "Free";
 
   const featureModes = useMemo(() => {
+    if (isCommitted) {
+      return buildCommittedFeatureModes();
+    }
+
     const safePlanConfig = planConfig || buildFallbackPlanConfig(plan);
 
     const baseModes = FEATURE_DEFINITIONS.reduce((acc, feature) => {
@@ -250,7 +328,7 @@ export default function useUserRole() {
               ? "basic"
               : "off",
     };
-  }, [isPreActivation, plan, planConfig]);
+  }, [isCommitted, isPreActivation, plan, planConfig]);
 
   const isFeatureAvailable = useCallback(
     (featureKey) => {
