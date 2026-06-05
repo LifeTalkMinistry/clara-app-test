@@ -13,7 +13,7 @@ export const readCarouselNumber = (...values) => {
   return 0;
 };
 
-export const normalizeCarouselBudgetPlan = (plan = {}) => {
+export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => {
   const categories = Array.isArray(plan?.categories) ? plan.categories : [];
 
   const declaredBudget = readCarouselNumber(
@@ -31,13 +31,19 @@ export const normalizeCarouselBudgetPlan = (plan = {}) => {
     0
   );
 
+  const plannedBreakdownSpent =
+    readCarouselNumber(plan?.planned_spent) +
+    readCarouselNumber(plan?.unplanned_spent) +
+    readCarouselNumber(plan?.undocumented_spent);
+
   const spentAmount = Math.max(
+    readCarouselNumber(liveExpenseTotal),
     readCarouselNumber(plan?.spent_amount),
     readCarouselNumber(plan?.spent),
     readCarouselNumber(plan?.spent_total),
     readCarouselNumber(plan?.total_spent),
     readCarouselNumber(plan?.totalSpent),
-    readCarouselNumber(plan?.planned_spent) + readCarouselNumber(plan?.unplanned_spent) + readCarouselNumber(plan?.undocumented_spent),
+    plannedBreakdownSpent,
     categorySpentAmount
   );
 
