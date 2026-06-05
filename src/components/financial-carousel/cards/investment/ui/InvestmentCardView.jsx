@@ -1,4 +1,5 @@
-import { MoreHorizontal, WalletCards } from "lucide-react";
+import { ChevronDown, MoreHorizontal, WalletCards } from "lucide-react";
+import { useState } from "react";
 import useInvestmentCardLogic, {
   fmt,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
@@ -158,29 +159,44 @@ function buildIncomeActivityItems(sources = []) {
 }
 
 function IncomeRecentActivityPreview({ sources = [] }) {
+  const [expanded, setExpanded] = useState(false);
   const items = buildIncomeActivityItems(sources);
 
   if (!items.length) return null;
 
   return (
     <div className="rounded-2xl border border-cyan-100/15 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_24px_rgba(0,255,220,0.045)] backdrop-blur-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Recent activity</p>
-      <div className="mt-3 space-y-2">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.045] px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{item.title}</p>
-              <p className="mt-1 text-xs text-white/45">{formatIncomeActivityDate(item.date)}</p>
-            </div>
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={expanded}
+        onClick={(event) => {
+          event.stopPropagation();
+          setExpanded((value) => !value);
+        }}
+      >
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Recent activity</span>
+        <ChevronDown className={`h-4 w-4 text-white/58 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
 
-            {item.amount !== null ? (
-              <p className={`shrink-0 text-sm font-bold ${item.amountClassName}`}>
-                {item.prefix}{fmt(item.amount || 0)}
-              </p>
-            ) : null}
-          </div>
-        ))}
-      </div>
+      {expanded ? (
+        <div className="mt-3 space-y-2">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.045] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{item.title}</p>
+                <p className="mt-1 text-xs text-white/45">{formatIncomeActivityDate(item.date)}</p>
+              </div>
+
+              {item.amount !== null ? (
+                <p className={`shrink-0 text-sm font-bold ${item.amountClassName}`}>
+                  {item.prefix}{fmt(item.amount || 0)}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
