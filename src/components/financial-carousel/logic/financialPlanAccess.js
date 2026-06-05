@@ -4,7 +4,9 @@ const PLAN_RANK = {
   pro_99: 1,
   core: 2,
   core_199: 2,
+  elite: 3,
   lifeos: 3,
+  life_os_499: 3,
   admin: 99,
 };
 
