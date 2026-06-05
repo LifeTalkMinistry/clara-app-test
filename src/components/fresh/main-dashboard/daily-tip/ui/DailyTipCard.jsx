@@ -88,10 +88,10 @@ export default function DailyTipCard() {
 
             <div>
               <h3 className="text-base font-black leading-tight tracking-[-0.03em] text-white">
-                Explore without risking real records
+                Sample Data is active
               </h3>
               <p className="mt-1 text-[11px] font-semibold leading-snug text-cyan-50/66">
-                Practice with sample data first. CLARA will show how it reads income, explains your setup, and guides money decisions. Exit anytime to return to your real records.
+                Explore without risking real records. Practice first so CLARA can show how it reads income, explains your setup, and guides decisions.
               </p>
             </div>
           </div>
