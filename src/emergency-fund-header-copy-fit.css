@@ -1,0 +1,7 @@
+[data-finance-card="emergencyFund"] [class*="flex items-start justify-between"] p[class*="text-[11px]"] {
+  max-width: 8rem !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.15 !important;
+}
