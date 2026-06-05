@@ -68,11 +68,12 @@ function getBudgetCycleRange(budgetCycleSource = null) {
   const fallbackRange = getPHMonthRange();
   const rawStart =
     budgetCycleSource?.reset_start_at ||
+    budgetCycleSource?.tracking_started_at ||
+    budgetCycleSource?.tracking_start_date ||
     budgetCycleSource?.cycle_start ||
     budgetCycleSource?.budget_cycle_start ||
     budgetCycleSource?.period_start ||
-    budgetCycleSource?.range_start ||
-    budgetCycleSource?.tracking_start_date;
+    budgetCycleSource?.range_start;
   const rawEnd =
     budgetCycleSource?.cycle_end ||
     budgetCycleSource?.budget_cycle_end ||
