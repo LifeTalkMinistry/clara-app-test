@@ -17,7 +17,7 @@ const PLAN_TEST_OPTIONS = [
   { label: "Reset account / Free account", value: "free" },
   { label: "PRO account", value: "pro_99" },
   { label: "CORE account", value: "core_199" },
-  { label: "ELITE / LIFE OS account", value: "life_os_499" },
+  { label: "ELITE account", value: "life_os_499" },
 ];
 
 function savePlanPreview(value) {
