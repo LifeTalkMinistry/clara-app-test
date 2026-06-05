@@ -22,10 +22,7 @@ const PLAN_TEST_OPTIONS = [
 
 function savePlanPreview(value) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    "clara_dev_plan_preview",
-    JSON.stringify({ plan: value, updatedAt: new Date().toISOString() })
-  );
+  window.localStorage.setItem("clara_dev_plan_preview", value);
   window.dispatchEvent(new CustomEvent("clara-plan-preview-updated", { detail: { plan: value } }));
 }
 
