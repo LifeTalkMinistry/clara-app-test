@@ -135,7 +135,7 @@ export default function BudgetCard({
 
   return (
     <>
-      <div ref={cardRef}>
+      <div ref={cardRef} className="flex h-full min-h-[inherit] flex-col rounded-[inherit]">
         <FinanceCardShell
           cardKey="budget"
           expanded={expanded}
