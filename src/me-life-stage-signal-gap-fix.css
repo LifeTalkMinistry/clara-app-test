@@ -1,25 +1,36 @@
-/* CLARA Me page — Life Stage support card / pressure signal gap fix.
-   Final spacing authority for the Life Stage stack only.
-   Keeps the existing premium composition while preventing negative hero overlap
-   from leaving a visible blank row before the pressure signal dock. */
+/* CLARA Me page — Life Stage support card / pressure signal spacing authority.
+   Rebalances the hero/support/signal/snapshot stack after the gap fix.
+   The support card stays close to the signal dock, the snapshot gets a controlled
+   breathing gap, and leftover height is absorbed by the hero row instead of
+   collecting as a detached empty area at the bottom. */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
   --clara-life-support-overlap: 28px;
   --clara-life-support-height: 102px;
-  --clara-life-dock-gap: 6px;
+  --clara-life-support-signal-gap: 6px;
   --clara-life-pressure-dock-height: 46px;
+  --clara-life-signal-snapshot-gap: 12px;
   --clara-life-snapshot-height: 218px;
+  --clara-life-bottom-safety: 10px;
   grid-template-rows:
-    minmax(236px, clamp(236px, 37svh, 284px))
-    calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+    minmax(236px, 1fr)
+    calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-support-signal-gap))
     var(--clara-life-pressure-dock-height)
-    var(--clara-life-snapshot-height) !important;
+    var(--clara-life-signal-snapshot-gap)
+    var(--clara-life-snapshot-height)
+    var(--clara-life-bottom-safety) !important;
   gap: 0 !important;
-  align-content: start !important;
+  align-content: stretch !important;
   overflow: hidden !important;
 }
 
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type {
+  grid-row: 1 !important;
+  align-self: stretch !important;
+}
+
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
+  grid-row: 2 !important;
   position: relative !important;
   z-index: 12 !important;
   height: var(--clara-life-support-height) !important;
@@ -33,6 +44,7 @@
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+  grid-row: 3 !important;
   height: var(--clara-life-pressure-dock-height) !important;
   min-height: var(--clara-life-pressure-dock-height) !important;
   max-height: var(--clara-life-pressure-dock-height) !important;
@@ -42,6 +54,7 @@
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+  grid-row: 5 !important;
   height: var(--clara-life-snapshot-height) !important;
   min-height: var(--clara-life-snapshot-height) !important;
   max-height: var(--clara-life-snapshot-height) !important;
@@ -51,11 +64,14 @@
 
 @media (min-height: 820px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    --clara-life-bottom-safety: 12px;
     grid-template-rows:
-      minmax(248px, clamp(248px, 36.5svh, 292px))
-      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+      minmax(248px, 1fr)
+      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-support-signal-gap))
       var(--clara-life-pressure-dock-height)
-      var(--clara-life-snapshot-height) !important;
+      var(--clara-life-signal-snapshot-gap)
+      var(--clara-life-snapshot-height)
+      var(--clara-life-bottom-safety) !important;
   }
 }
 
@@ -63,14 +79,18 @@
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-life-support-overlap: 22px;
     --clara-life-support-height: 92px;
-    --clara-life-dock-gap: 6px;
+    --clara-life-support-signal-gap: 6px;
     --clara-life-pressure-dock-height: 42px;
+    --clara-life-signal-snapshot-gap: 11px;
     --clara-life-snapshot-height: 204px;
+    --clara-life-bottom-safety: 8px;
     grid-template-rows:
-      minmax(214px, clamp(214px, 35.5svh, 260px))
-      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+      minmax(214px, 1fr)
+      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-support-signal-gap))
       var(--clara-life-pressure-dock-height)
-      var(--clara-life-snapshot-height) !important;
+      var(--clara-life-signal-snapshot-gap)
+      var(--clara-life-snapshot-height)
+      var(--clara-life-bottom-safety) !important;
   }
 }
 
@@ -78,13 +98,17 @@
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-life-support-overlap: 14px;
     --clara-life-support-height: 78px;
-    --clara-life-dock-gap: 4px;
+    --clara-life-support-signal-gap: 4px;
     --clara-life-pressure-dock-height: 40px;
+    --clara-life-signal-snapshot-gap: 10px;
     --clara-life-snapshot-height: 192px;
+    --clara-life-bottom-safety: 8px;
     grid-template-rows:
-      minmax(186px, clamp(186px, 34.5svh, 222px))
-      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-dock-gap))
+      minmax(186px, 1fr)
+      calc(var(--clara-life-support-height) - var(--clara-life-support-overlap) + var(--clara-life-support-signal-gap))
       var(--clara-life-pressure-dock-height)
-      var(--clara-life-snapshot-height) !important;
+      var(--clara-life-signal-snapshot-gap)
+      var(--clara-life-snapshot-height)
+      var(--clara-life-bottom-safety) !important;
   }
 }
