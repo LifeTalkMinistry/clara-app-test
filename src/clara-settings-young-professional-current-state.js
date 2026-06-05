@@ -4,6 +4,9 @@ const SECTION_ID = "clara-current-state-learning-section";
 const PAGE_ID = "clara-current-state-learning-page";
 const STYLE_ID = "clara-current-state-learning-styles";
 const STATUS_ID = "clara-current-state-learning-status";
+const DB_NAME = "clara_local_finance";
+const ACTIVE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+const FINANCE_STORES = ["expenses", "wallets", "wallet_transactions", "transfers", "budgets", "savings_goals", "emergency_fund", "ai_financial_memory", "private_preferences"];
 
 function findSettingsRoot() {
   return document.querySelector("#root .space-y-5.pb-6");
@@ -17,11 +20,7 @@ function findProgramSection(settingsRoot) {
 }
 
 function safeJsonParse(value) {
-  try {
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
-  }
+  try { return value ? JSON.parse(value) : null; } catch { return null; }
 }
 
 function createUserCandidate(id, email = null) {
@@ -45,7 +44,6 @@ function getSettingsDemoUsers() {
   const profile = lastAccessSnapshot?.profileBasic || lastAccessSnapshot?.profile || {};
   const cachedId = lastAccessSnapshot?.userId || profile?.id || lastAccessSnapshot?.email || profile?.email;
   const cachedEmail = lastAccessSnapshot?.email || profile?.email || null;
-
   return uniqueUsers([
     createUserCandidate(cachedId, cachedEmail),
     createUserCandidate("local-dev-user", "local@clara.app"),
@@ -53,21 +51,99 @@ function getSettingsDemoUsers() {
   ]);
 }
 
+function idbRequest(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("IndexedDB request failed."));
+  });
+}
+
+function idbTxDone(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve(true);
+    transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed."));
+    transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted."));
+  });
+}
+
+function openDemoDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { resolve(null); return; }
+    const request = window.indexedDB.open(DB_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Unable to open CLARA local database."));
+    request.onblocked = () => reject(new Error("CLARA local database is blocked by another tab."));
+  });
+}
+
+function isYoungProfessionalDemoRecord(record) {
+  if (!record || typeof record !== "object") return false;
+  const text = [record.id, record.name, record.title, record.label, record.source, record.setupFamily, record.dataBoundary, record.resetPolicy, record.lifeStage, record.income_source_name, record.incomeSourceName, record.funding_source, record.notes]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return Boolean(
+    record.source === "clara_young_professional_current_state" ||
+    record.setupFamily === "young_professional_current_state" ||
+    record.dataBoundary === "temporary_demo_playground" ||
+    record.resetPolicy === "reset_on_every_entry" ||
+    (record.activeCurrentState === true && record.lifeStage === "Young Professional") ||
+    text.includes("clara_yp_current") ||
+    text.includes("primary salary") ||
+    text.includes("payroll wallet") ||
+    text.includes("primary_salary") ||
+    text.includes("payroll")
+  );
+}
+
+async function hardDeleteYoungProfessionalDemoRecords(users = getSettingsDemoUsers()) {
+  const db = await openDemoDb();
+  if (!db) return 0;
+  try {
+    const storeNames = FINANCE_STORES.filter((name) => db.objectStoreNames.contains(name));
+    if (!storeNames.length) return 0;
+    const tx = db.transaction(storeNames, "readwrite");
+    let deletedCount = 0;
+    const userIds = users.map((user) => String(user?.id || user?.email || "").trim()).filter(Boolean);
+
+    for (const storeName of storeNames) {
+      const store = tx.objectStore(storeName);
+      for (const localUserId of userIds) {
+        const index = store.index("localUserId");
+        const range = IDBKeyRange.only(localUserId);
+        await new Promise((resolve, reject) => {
+          const cursorRequest = index.openCursor(range);
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result;
+            if (!cursor) { resolve(true); return; }
+            if (isYoungProfessionalDemoRecord(cursor.value)) {
+              deletedCount += 1;
+              cursor.delete();
+            }
+            cursor.continue();
+          };
+          cursorRequest.onerror = () => reject(cursorRequest.error || new Error("Failed to clean demo records."));
+        });
+      }
+    }
+
+    await idbTxDone(tx);
+    window.localStorage?.removeItem(ACTIVE_KEY);
+    return deletedCount;
+  } finally {
+    db.close();
+  }
+}
+
 function iconSvg() {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8L19 17Z"/></svg>`;
 }
-
-function backSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`;
-}
-
-function chevronSvg() {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
-}
+function backSvg() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`; }
+function chevronSvg() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`; }
 
 function installStyles() {
   if (document.getElementById(STYLE_ID)) return;
-
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
@@ -94,7 +170,6 @@ function installStyles() {
     #${STATUS_ID} { display: none; border-radius: 22px; border: 1px solid rgba(52, 211, 153, 0.22); background: rgba(16, 185, 129, 0.11); padding: 0.9rem 1rem; color: rgba(209, 250, 229, 0.9); font-size: 0.75rem; font-weight: 800; line-height: 1.5; }
     #${STATUS_ID}[data-type="error"] { border-color: rgba(251,113,133,0.24); background: rgba(244,63,94,0.12); color: rgba(255,228,230,0.92); }
   `;
-
   document.head.appendChild(style);
 }
 
@@ -107,44 +182,41 @@ function setStatus(message, type = "success") {
 }
 
 function assertLoaded(result) {
-  if (!result || Number(result.incomeSources || 0) < 3 || Number(result.wallets || 0) < 3 || Number(result.expenses || 0) < 1) {
-    throw new Error("CLARA could not confirm the demo records. Please try again after refreshing the app.");
-  }
+  if (!result || Number(result.incomeSources || 0) < 3 || Number(result.wallets || 0) < 3 || Number(result.expenses || 0) < 1) throw new Error("CLARA could not confirm the demo records. Please try again after refreshing the app.");
 }
 
 async function loadYoungProfessional(button) {
   const previousText = button?.querySelector("small")?.textContent || "Activate demo data";
-
   try {
     if (button) {
       button.disabled = true;
       const small = button.querySelector("small");
-      if (small) small.textContent = "Loading full demo data...";
+      if (small) small.textContent = "Deleting old demo data...";
     }
-
     const users = getSettingsDemoUsers();
-    setStatus("Preparing Young Professional demo records for the active dashboard session...", "success");
-
+    setStatus("Deleting old Young Professional demo records first...", "success");
+    const deletedCount = await hardDeleteYoungProfessionalDemoRecords(users);
+    if (button) {
+      const small = button.querySelector("small");
+      if (small) small.textContent = "Loading fresh demo data...";
+    }
+    setStatus(`Old demo records deleted: ${deletedCount}. Loading fresh Young Professional setup...`, "success");
     let primaryResult = null;
     for (const user of users) {
       const result = await activateYoungProfessionalCurrentState({ user });
       assertLoaded(result);
       primaryResult = primaryResult || result;
     }
-
-    setStatus(`Demo loaded: ${primaryResult.incomeSources} sources, ${primaryResult.wallets} wallets, ${primaryResult.expenses} expenses, ${primaryResult.savingsGoals} goals.`, "success");
-
+    setStatus(`Fresh demo loaded: ${primaryResult.incomeSources} sources, ${primaryResult.wallets} wallets, ${primaryResult.expenses} expenses, ${primaryResult.savingsGoals} goals.`, "success");
     window.setTimeout(() => {
       window.dispatchEvent(new Event("clara-finance-updated"));
       window.location.hash = "#/dashboard";
       window.location.reload();
     }, 650);
-
     return primaryResult;
   } catch (error) {
     console.error("Young Professional current-state activation failed:", error);
     setStatus(error?.message || "Unable to activate Young Professional right now.", "error");
-
     if (button) {
       button.disabled = false;
       const small = button.querySelector("small");
@@ -166,20 +238,7 @@ function createSection() {
   const section = document.createElement("section");
   section.id = SECTION_ID;
   section.className = "space-y-2";
-  section.innerHTML = `
-    <p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Learning</p>
-    <div class="space-y-2.5">
-      <button type="button" class="clara-current-state-row">
-        <div class="clara-current-state-icon">${iconSvg()}</div>
-        <div class="clara-current-state-text">
-          <p>Explore CLARA</p>
-          <span>Try a full demo setup for learning</span>
-        </div>
-        <span class="clara-current-state-badge">Start</span>
-        ${chevronSvg()}
-      </button>
-    </div>
-  `;
+  section.innerHTML = `<p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Learning</p><div class="space-y-2.5"><button type="button" class="clara-current-state-row"><div class="clara-current-state-icon">${iconSvg()}</div><div class="clara-current-state-text"><p>Explore CLARA</p><span>Try a full demo setup for learning</span></div><span class="clara-current-state-badge">Start</span>${chevronSvg()}</button></div>`;
   section.querySelector("button")?.addEventListener("click", () => showPage(true));
   return section;
 }
@@ -189,20 +248,7 @@ function createPage() {
   page.id = PAGE_ID;
   page.className = "space-y-4 pb-6";
   page.style.display = "none";
-  page.innerHTML = `
-    <button type="button" class="clara-current-state-back">${backSvg()} Settings</button>
-    <div class="clara-current-state-instruction">
-      <span class="clara-current-state-kicker">Instruction</span>
-      <h2>Choose demo financial setup</h2>
-      <p>This loads a temporary learning setup. You can test CLARA freely, exit anytime, and return to a fresh default demo.</p>
-    </div>
-    <div id="${STATUS_ID}"></div>
-    <button type="button" class="clara-current-state-card">
-      <h3>Young Professional</h3>
-      <p>Work salary, side hustle, family support, BDO, GCash, Cash, budgets, expenses, savings, emergency fund, and PH money seasons.</p>
-      <small>3 sources · 3 wallets · Jan-May demo data</small>
-    </button>
-  `;
+  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Instruction</span><h2>Choose demo financial setup</h2><p>This loads a temporary learning setup. You can test CLARA freely, exit anytime, and return to a fresh default demo.</p></div><div id="${STATUS_ID}"></div><button type="button" class="clara-current-state-card"><h3>Young Professional</h3><p>Work salary, side hustle, family support, BDO, GCash, Cash, budgets, expenses, savings, emergency fund, and PH money seasons.</p><small>3 sources · 3 wallets · Jan-May demo data</small></button>`;
   page.querySelector(".clara-current-state-back")?.addEventListener("click", () => showPage(false));
   page.querySelector(".clara-current-state-card")?.addEventListener("click", (event) => loadYoungProfessional(event.currentTarget));
   return page;
