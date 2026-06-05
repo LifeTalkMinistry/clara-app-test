@@ -71,6 +71,7 @@ function detectIncomeQuery(message = "") {
   const asksWhereTransferred = /where\s+(did|do|was|is)?.*transfer|transfer.*where|where.*income.*go|where.*salary.*go|where.*money.*go/.test(text);
   const asksReceivingWallet = /what wallet|which wallet|wallet received|received.*wallet|salary.*wallet|income.*wallet/.test(text);
   const asksTotalMoneyIn = /total money in|how much income|how much.*received|total income/.test(text);
+  const mentionsSalary = /\bsalary\b|payday/.test(text);
 
   if (!hasIncomeWord && !asksWhereTransferred && !asksReceivingWallet && !asksTotalMoneyIn) return null;
 
@@ -86,6 +87,7 @@ function detectIncomeQuery(message = "") {
     asksReceivingWallet,
     asksSourcesList: /show all income sources|all income sources|income sources/.test(text),
     asksTotalMoneyIn,
+    mentionsSalary,
   };
 }
 
@@ -185,11 +187,37 @@ function incomeTransferReply(snapshot = {}) {
   return "I checked your Income Hub, but I don’t see enough income or transfer records to know where it was transferred.";
 }
 
+function sourceRootMatches(record = {}, target = "") {
+  const normalizedTarget = normalizeText(target);
+  if (!normalizedTarget) return false;
+  return [
+    record.incomeSourceName,
+    record.title,
+    record.type,
+    record.note,
+    record.raw?.name,
+    record.raw?.title,
+    record.raw?.category,
+    record.raw?.type,
+    record.raw?.sourceName,
+  ].some((value) => normalizeText(value).includes(normalizedTarget));
+}
+
 function getIncomeMatchingRecords(snapshot = {}, filters = {}) {
   if (!snapshot?.connected) return [];
   let records = filterIncomeHubRecords(snapshot.timeline || [], filters);
+
+  if (!records.length && filters.sourceText && Array.isArray(snapshot.sourceRoots)) {
+    records = snapshot.sourceRoots.filter((record) => sourceRootMatches(record, filters.sourceText));
+  }
+
+  if (!records.length && filters.mentionsSalary && Array.isArray(snapshot.sourceRoots)) {
+    records = snapshot.sourceRoots.filter((record) => sourceRootMatches(record, "salary"));
+  }
+
+  if (filters.asksReceivingWallet && !filters.sourceText && !records.length && snapshot.latestIncome) records = [snapshot.latestIncome];
+  if (filters.asksReceivingWallet && !filters.sourceText && records.length > 1 && snapshot.latestIncome) records = [snapshot.latestIncome];
   if (filters.latest && !records.length && snapshot.latestIncome) records = [snapshot.latestIncome];
-  if (filters.asksReceivingWallet && !records.length && snapshot.latestIncome) records = [snapshot.latestIncome];
   return records;
 }
 
