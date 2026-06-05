@@ -171,6 +171,7 @@ export default function DashboardHomePanel({
             firstPositiveNumber={firstPositiveNumber}
             readStoredSurvivalExpense={readStoredSurvivalExpense}
             monthlyBudgetPlan={monthlyBudgetPlan}
+            thisMonthSpent={thisMonthSpent}
             savingsGoals={savingsGoals}
             totalSavingsSaved={totalSavingsSaved}
             totalSavingsTarget={totalSavingsTarget}
