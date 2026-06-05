@@ -1,4 +1,5 @@
-import { Lock, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Lock, LogOut, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "@/hooks/useUserRole";
@@ -24,14 +25,74 @@ function readPlanPreview() {
   }
 }
 
-function LockedPanelPreview({ children, tier = "PRO" }) {
+function ClaraCommitmentBookletModal({ open, onClose }) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[99999] flex items-end justify-center bg-[#020817]/82 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-[30px] border border-white/14 bg-[rgba(9,18,36,0.9)] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/48">
+              CLARA Commitment Booklet
+            </p>
+            <h2 className="mt-2 text-xl font-black tracking-[-0.04em] text-white/94">
+              Before you continue
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-full border border-white/12 bg-white/[0.075] p-2 text-white/60 transition hover:bg-white/[0.1] hover:text-white"
+            aria-label="Close commitment booklet"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className="mt-4 text-sm font-semibold leading-6 text-white/72">
+          CLARA works best when you treat your money journey as a commitment, not just a tool. This booklet will help you understand the mindset, responsibility, and daily consistency behind the experience.
+        </p>
+
+        <div className="mt-5 rounded-[24px] border border-white/12 bg-white/[0.065] p-4">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-white/42">
+            What this means
+          </p>
+          <p className="mt-2 text-sm leading-6 text-white/70">
+            Pause before spending. Be honest with your records. Build small habits. Let CLARA guide your decisions with clarity and purpose.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 w-full rounded-[22px] border border-white/14 bg-white/[0.09] px-4 py-3 text-sm font-black text-white/86 transition hover:bg-white/[0.12] active:scale-[0.99]"
+        >
+          I Understand
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LockedPanelPreview({ children, onOpenCommitmentBooklet }) {
+  const handleOpenCommitmentBooklet = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenCommitmentBooklet?.();
+  };
+
   return (
     <div
       className="relative min-h-full overflow-hidden rounded-[30px]"
-      onClickCapture={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
+      onClickCapture={handleOpenCommitmentBooklet}
       onPointerDownCapture={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -46,11 +107,11 @@ function LockedPanelPreview({ children, tier = "PRO" }) {
             <Lock className="h-4.5 w-4.5" />
           </div>
           <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/52">
-            {tier} Version
+            COMMITTED VERSION
           </p>
-          <p className="mt-1 text-lg font-black tracking-[-0.03em] text-white/92">Upgrade to {tier}</p>
+          <p className="mt-1 text-lg font-black tracking-[-0.03em] text-white/92">Ready to Commit?</p>
           <p className="mt-1.5 text-xs font-semibold leading-5 text-white/58">
-            This page is visible as a preview, but actions are locked on Free.
+            Tap to see more.
           </p>
         </div>
       </div>
@@ -118,15 +179,40 @@ export default function DashboardPanelRenderer({
   const previewPlan = readPlanPreview();
   const userPlan = user?.plan || user?.subscription?.plan || plan;
   const isFreePreview = (previewPlan || userPlan) === "free";
+  const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
+  const openCommitmentBooklet = () => setCommitmentBookletOpen(true);
+  const closeCommitmentBooklet = () => setCommitmentBookletOpen(false);
 
   if (activePanel === "me") {
     const content = renderMe?.() ?? <DashboardMeLifePanel />;
-    return isFreePreview ? <LockedPanelPreview tier="PRO">{content}</LockedPanelPreview> : content;
+    return (
+      <>
+        {isFreePreview ? (
+          <LockedPanelPreview onOpenCommitmentBooklet={openCommitmentBooklet}>
+            {content}
+          </LockedPanelPreview>
+        ) : (
+          content
+        )}
+        <ClaraCommitmentBookletModal open={commitmentBookletOpen} onClose={closeCommitmentBooklet} />
+      </>
+    );
   }
 
   if (activePanel === "schedule") {
     const content = <DashboardSchedulePanel />;
-    return isFreePreview ? <LockedPanelPreview tier="PRO">{content}</LockedPanelPreview> : content;
+    return (
+      <>
+        {isFreePreview ? (
+          <LockedPanelPreview onOpenCommitmentBooklet={openCommitmentBooklet}>
+            {content}
+          </LockedPanelPreview>
+        ) : (
+          content
+        )}
+        <ClaraCommitmentBookletModal open={commitmentBookletOpen} onClose={closeCommitmentBooklet} />
+      </>
+    );
   }
 
   if (activePanel === "feed") return renderFeed?.() ?? fallback;
