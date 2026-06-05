@@ -4,7 +4,6 @@ import {
   getPHMonthKey,
   getPHMonthRange,
   getTransactionDate,
-  isInPHRange,
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
@@ -15,6 +14,10 @@ function hasTime(value) {
 
 function toDateOnly(value) {
   if (!value) return "";
+  const raw = String(value).trim();
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateOnly && !hasTime(raw)) return dateOnly[1];
+
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return normalizeString(value).slice(0, 10);
   return parsed.toISOString().slice(0, 10);
@@ -50,7 +53,10 @@ function getBudgetCycleSource(monthlyBudgetHeader = null, safeBudgetOptions = []
   const option = safeBudgetOptions.find((item) => {
     const budget = item?.budget || item;
     return Boolean(
-      budget?.budget_cycle ||
+      budget?.reset_start_at ||
+        budget?.tracking_started_at ||
+        budget?.tracking_start_date ||
+        budget?.budget_cycle ||
         budget?.cycle_type ||
         budget?.budget_rhythm ||
         budget?.period_type ||
@@ -120,11 +126,12 @@ function isInBudgetCycle(expense = {}, monthRange = {}) {
     return true;
   }
 
-  return isInPHRange(
-    getComparableExpenseDate(expense, monthRange.start),
-    toDateOnly(monthRange.start),
-    toDateOnly(monthRange.end)
-  );
+  const expenseKey = toDateOnly(getComparableExpenseDate(expense, monthRange.start));
+  const startKey = toDateOnly(monthRange.start);
+  const endKey = toDateOnly(monthRange.end);
+
+  if (!expenseKey || !startKey || !endKey) return false;
+  return expenseKey >= startKey && expenseKey <= endKey;
 }
 
 function getExpenseBudgetCategory(expense = {}) {
@@ -178,6 +185,8 @@ function findMatchingBudgetOptionForExpense(expense = {}, safeBudgetOptions = []
   }) || null;
 }
 
+const PLANNED_STATUSES = new Set(["planned", "budget_risk", "over_budget"]);
+
 export default function useDashboardMonthlyBudgetPlan({
   manualExpenseBudgetOptions = [],
   expenses = [],
@@ -200,12 +209,13 @@ export default function useDashboardMonthlyBudgetPlan({
     const cycleType = getBudgetCycleType(budgetCycleSource);
     const cycleLabel = getBudgetCycleLabel(cycleType);
     const inActiveRange = (expense) => isInBudgetCycle(expense, monthRange);
+    const activeCycleExpenses = safeExpenses.filter(inActiveRange);
 
     const categories = safeBudgetOptions.map((item) => {
       const itemId = normalizeString(item?.id || item?.key || "");
       const itemTitle = normalizeString(item?.title || "");
 
-      const spent = safeExpenses.reduce((sum, expense) => {
+      const spent = activeCycleExpenses.reduce((sum, expense) => {
         const status = getExpensePlanningStatus(expense);
         const expenseCategory = getExpenseBudgetCategory(expense);
         const expenseBudgetId = getExpenseBudgetId(expense);
@@ -215,12 +225,8 @@ export default function useDashboardMonthlyBudgetPlan({
           normalizeLower(expenseCategory) === normalizeLower(itemTitle);
 
         if (!matchesId && !matchesCategory) return sum;
-        if (!inActiveRange(expense)) return sum;
 
-        // Sample/demo mode should behave like real user data. If the user logs
-        // a Buy Check purchase as unplanned but it still belongs to a real
-        // budget category, it must reduce that category room too.
-        if (!["planned", "budget_risk", "over_budget", "unplanned"].includes(status)) {
+        if (![...PLANNED_STATUSES, "unplanned"].includes(status)) {
           return sum;
         }
 
@@ -241,18 +247,28 @@ export default function useDashboardMonthlyBudgetPlan({
       };
     });
 
-    const unplannedSpent = safeExpenses.reduce((sum, expense) => {
+    const matchedPlannedSpent = categories.reduce(
+      (sum, item) => sum + firstValidNumber(item?.spent, item?.used),
+      0
+    );
+
+    const unmatchedPlannedSpent = activeCycleExpenses.reduce((sum, expense) => {
       const status = getExpensePlanningStatus(expense);
-      if (status !== "unplanned") return sum;
-      if (!inActiveRange(expense)) return sum;
+      if (!PLANNED_STATUSES.has(status)) return sum;
       if (findMatchingBudgetOptionForExpense(expense, safeBudgetOptions)) return sum;
       return sum + firstValidNumber(expense?.amount);
     }, 0);
 
-    const undocumentedSpent = safeExpenses.reduce((sum, expense) => {
+    const unplannedSpent = activeCycleExpenses.reduce((sum, expense) => {
+      const status = getExpensePlanningStatus(expense);
+      if (status !== "unplanned") return sum;
+      if (findMatchingBudgetOptionForExpense(expense, safeBudgetOptions)) return sum;
+      return sum + firstValidNumber(expense?.amount);
+    }, 0);
+
+    const undocumentedSpent = activeCycleExpenses.reduce((sum, expense) => {
       const status = getExpensePlanningStatus(expense);
       if (status !== "undocumented") return sum;
-      if (!inActiveRange(expense)) return sum;
       return sum + firstValidNumber(expense?.amount);
     }, 0);
 
@@ -260,15 +276,9 @@ export default function useDashboardMonthlyBudgetPlan({
       (sum, item) => sum + firstValidNumber(item?.allocated),
       0
     );
-    const plannedSpentTotal = categories.reduce(
-      (sum, item) => sum + firstValidNumber(item?.spent, item?.used),
-      0
-    );
+    const plannedSpentTotal = matchedPlannedSpent + unmatchedPlannedSpent;
     const spentTotal = plannedSpentTotal + unplannedSpent + undocumentedSpent;
 
-    // Important: never infer a declared budget from category allocations.
-    // A typed/suggested amount or old category total must not become real budget truth
-    // until the user has actually declared and finished the budget setup flow.
     const declaredBudget = firstValidNumber(declaredMonthlyBudgetAmount);
     const unallocated = Math.max(declaredBudget - allocatedTotal, 0);
     const remaining = Math.max(declaredBudget - spentTotal, 0);
@@ -305,15 +315,20 @@ export default function useDashboardMonthlyBudgetPlan({
       undocumented_spent: undocumentedSpent,
       undocumentedSpent,
       spent: spentTotal,
+      spent_amount: spentTotal,
       spent_total: spentTotal,
+      total_spent: spentTotal,
       totalSpent: spentTotal,
       remaining,
+      remaining_amount: remaining,
+      amount_left: remaining,
       totalRemaining: remaining,
       unallocated,
       unallocated_balance: unallocated,
       unallocatedBalance: unallocated,
       categories,
       categoryRows: categories,
+      active_cycle_expense_count: activeCycleExpenses.length,
       is_complete: isComplete,
       isComplete,
       hasDeclaredBudget: declaredBudget > 0,
