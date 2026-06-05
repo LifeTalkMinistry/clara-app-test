@@ -5,6 +5,7 @@ import useFinancialData from "@/hooks/useFinancialData";
 import useUserRole from "@/hooks/useUserRole";
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
 import { buildIncomeHubAiSnapshot } from "@/lib/clara-income-hub-ai-reader";
+import { getIncomeHubLocalUserId, getIncomeSources } from "@/lib/incomeHubRepository";
 import { buildTransactionHubAiSnapshot } from "@/lib/clara-transaction-hub-ai-reader";
 import { LOCAL_FINANCE_STORES, runLocalFinanceTransaction } from "@/lib/localFinanceStore";
 
@@ -199,6 +200,7 @@ export default function ClaraAiEnvironmentBridge() {
 
   const claraAiEnvironment = useClaraAiEnvironment();
   const { user } = useUserRole();
+  const [incomeSources, setIncomeSources] = useState([]);
 
   const {
     expenses = [],
@@ -213,6 +215,35 @@ export default function ClaraAiEnvironmentBridge() {
     loading = false,
     refreshing = false,
   } = useFinancialData(user);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadIncomeSources() {
+      try {
+        const localUserId = getIncomeHubLocalUserId(user);
+        const sources = await getIncomeSources(localUserId);
+        if (!cancelled) setIncomeSources(Array.isArray(sources) ? sources : []);
+      } catch (error) {
+        console.warn("CLARA Income Hub source records could not be loaded for AI context:", error);
+        if (!cancelled) setIncomeSources([]);
+      }
+    }
+
+    loadIncomeSources();
+
+    const handleIncomeHubUpdated = () => loadIncomeSources();
+    if (typeof window !== "undefined") {
+      window.addEventListener("clara-income-hub-updated", handleIncomeHubUpdated);
+    }
+
+    return () => {
+      cancelled = true;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("clara-income-hub-updated", handleIncomeHubUpdated);
+      }
+    };
+  }, [user]);
 
   const transactionHubSnapshot = useMemo(
     () =>
@@ -232,6 +263,7 @@ export default function ClaraAiEnvironmentBridge() {
     () =>
       buildIncomeHubAiSnapshot({
         incomes,
+        incomeSources,
         expenses,
         wallets,
         walletTransactions,
@@ -241,7 +273,7 @@ export default function ClaraAiEnvironmentBridge() {
         emergencyFund,
         transactionHubSnapshot,
       }),
-    [incomes, expenses, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, transactionHubSnapshot]
+    [incomes, incomeSources, expenses, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, transactionHubSnapshot]
   );
 
   const claraAssistantContext = useMemo(() => {
@@ -251,6 +283,7 @@ export default function ClaraAiEnvironmentBridge() {
       user,
       expenses,
       incomes,
+      incomeSources,
       wallets,
       walletTransactions,
       transfers,
@@ -264,7 +297,7 @@ export default function ClaraAiEnvironmentBridge() {
       refreshing,
       ...bridgeReadableContext,
     };
-  }, [user, expenses, incomes, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, totalIncome, transactionHubSnapshot, incomeHubSnapshot, loading, refreshing, claraAiEnvironment.messages]);
+  }, [user, expenses, incomes, incomeSources, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, totalIncome, transactionHubSnapshot, incomeHubSnapshot, loading, refreshing, claraAiEnvironment.messages]);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
