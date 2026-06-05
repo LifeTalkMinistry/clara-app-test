@@ -1,5 +1,5 @@
-import { getIncomeHubLocalUserId, upsertIncomeSource } from "./lib/incomeHubRepository";
-import { supabase } from "./lib/supabaseClient";
+import { upsertIncomeSource } from "./lib/incomeHubRepository";
+import { SAMPLE_DATA_LOCAL_USER_ID, exitYoungProfessionalCurrentState } from "./lib/clara-young-professional-current-state";
 
 const SECTION_ID = "clara-current-state-learning-section";
 const PAGE_ID = "clara-current-state-learning-page";
@@ -48,6 +48,7 @@ function markSampleDataLearningModeActive() {
       activeLifeStageTitle: "Sample Data",
       samplePersonName: "Max",
       sampleRole: "Call center worker",
+      demoLocalUserId: SAMPLE_DATA_LOCAL_USER_ID,
       loadedParts: ["income_sources"],
       source: SAMPLE_DATA_SOURCE,
       setupFamily: SAMPLE_DATA_FAMILY,
@@ -61,24 +62,9 @@ function markSampleDataLearningModeActive() {
   window.dispatchEvent(new Event("storage"));
 }
 
-async function getSampleDataLocalUserIds() {
-  const ids = new Set();
-  ids.add(getIncomeHubLocalUserId(null));
-
-  try {
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user;
-    if (user?.id || user?.email) ids.add(getIncomeHubLocalUserId(user));
-  } catch {
-    // Local/offline mode can still use the local user id.
-  }
-
-  return [...ids].filter(Boolean);
-}
-
 function buildSampleIncomeSources(localUserId) {
   const timestamp = new Date().toISOString();
-  const safeUserKey = String(localUserId || "local-user").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeUserKey = String(localUserId || SAMPLE_DATA_LOCAL_USER_ID).replace(/[^a-zA-Z0-9_-]/g, "_");
 
   return [
     {
@@ -156,15 +142,13 @@ async function loadSampleIncomeSourcesOnly(button) {
       button.disabled = true;
       button.textContent = "Loading income sources...";
     }
-    setStatus("Loading Sample Data income sources only...");
+    setStatus("Preparing isolated Sample Data income sources...");
 
-    const localUserIds = await getSampleDataLocalUserIds();
+    await exitYoungProfessionalCurrentState();
 
-    for (const localUserId of localUserIds) {
-      const sources = buildSampleIncomeSources(localUserId);
-      for (const source of sources) {
-        await upsertIncomeSource(localUserId, source);
-      }
+    const sources = buildSampleIncomeSources(SAMPLE_DATA_LOCAL_USER_ID);
+    for (const source of sources) {
+      await upsertIncomeSource(SAMPLE_DATA_LOCAL_USER_ID, source);
     }
 
     markSampleDataLearningModeActive();
@@ -175,7 +159,7 @@ async function loadSampleIncomeSourcesOnly(button) {
       window.dispatchEvent(new Event("clara-local-finance-updated"));
     }
 
-    setStatus("Income sources added: BPO Salary and Side Hustle. Both are set to ₱0. The dashboard is now in Sample Data learning mode.");
+    setStatus("Income sources added inside Sample Data only: BPO Salary and Side Hustle. Both are set to ₱0. Your real records were not touched.");
     if (button) button.textContent = "Income sources added";
   } catch (error) {
     console.warn("CLARA Sample Data income source setup failed:", error);
