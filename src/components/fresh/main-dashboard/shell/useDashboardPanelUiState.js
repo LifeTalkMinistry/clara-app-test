@@ -14,15 +14,20 @@ export default function useDashboardPanelUiState({
   hasVisibleFinanceData,
   financeDataLoading,
   financeDataRefreshing,
+  plan = "free",
 }) {
+  const isFreePlan = plan === "free";
+
   const openDashboardPanel = useCallback((panelKey) => {
+    if (isFreePlan && ["me", "schedule"].includes(panelKey)) return;
+
     const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
     const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
     const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
 
     setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
     setActiveDashboardPanel(targetPanel);
-  }, [activeDashboardPanel, setActiveDashboardPanel, setDashboardPanelDirection]);
+  }, [activeDashboardPanel, isFreePlan, setActiveDashboardPanel, setDashboardPanelDirection]);
 
   const closeDashboardPanel = useCallback(() => {
     setDashboardPanelDirection("backward");
@@ -55,23 +60,32 @@ export default function useDashboardPanelUiState({
       (financeDataLoading && hasVisibleFinanceData)
   );
 
+  const proBadge = {
+    type: "pill",
+    value: "PRO",
+    className: "border-white/10 bg-white/[0.08] text-white/62",
+  };
+
   const headerQuickActions = useMemo(() => [
     { key: "home", label: "Home", icon: Home, badge: null },
-    { key: "me", label: "Me", icon: User, badge: null },
+    { key: "me", label: "Me", icon: User, badge: isFreePlan ? proBadge : null, locked: isFreePlan },
     {
       key: "schedule",
       label: "Schedule",
       icon: CalendarDays,
-      badge: feedHasHighlight
-        ? {
-            type: "dot",
-            value: "",
-            className: "border-emerald-400/25 bg-emerald-400 text-emerald-100",
-          }
-        : null,
+      locked: isFreePlan,
+      badge: isFreePlan
+        ? proBadge
+        : feedHasHighlight
+          ? {
+              type: "dot",
+              value: "",
+              className: "border-emerald-400/25 bg-emerald-400 text-emerald-100",
+            }
+          : null,
     },
     { key: "settings", label: "Settings", icon: Settings, badge: null },
-  ], [feedHasHighlight]);
+  ], [feedHasHighlight, isFreePlan]);
 
   return {
     openDashboardPanel,
