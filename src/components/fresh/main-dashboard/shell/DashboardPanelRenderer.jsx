@@ -1,13 +1,24 @@
 import { Lock, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
+import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
 
 function readPlanPreview() {
   if (typeof window === "undefined") return "";
+
   try {
-    return window.localStorage.getItem("clara_dev_plan_preview") || "";
+    const raw = window.localStorage.getItem("clara_dev_plan_preview") || "";
+    const clean = raw.trim();
+    if (!clean) return "";
+
+    if (clean.startsWith("{")) {
+      const parsed = JSON.parse(clean);
+      return String(parsed?.plan || parsed?.plan_key || "").trim();
+    }
+
+    return clean;
   } catch {
     return "";
   }
@@ -103,7 +114,10 @@ export default function DashboardPanelRenderer({
   renderMe,
   fallback = null,
 }) {
-  const isFreePreview = readPlanPreview() === "free";
+  const { plan = "free", user } = useUserRole();
+  const previewPlan = readPlanPreview();
+  const userPlan = user?.plan || user?.subscription?.plan || plan;
+  const isFreePreview = (previewPlan || userPlan) === "free";
 
   if (activePanel === "me") {
     const content = renderMe?.() ?? <DashboardMeLifePanel />;
