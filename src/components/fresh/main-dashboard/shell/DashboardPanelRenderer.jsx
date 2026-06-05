@@ -91,7 +91,8 @@ const CLARA_COMMITMENT_BOOKLET_PAGES = [
     title: "A — Advocacy",
     paragraphs: [
       "Your commitment doesn't stop with you.",
-      "A portion of every commitment plan helps support:",
+      "10% of every monthly commitment goes into the CLARA Charity Fund.",
+      "This fund helps support:",
     ],
     bullets: ["Students in need", "Calamity assistance", "Community support initiatives"],
     closingParagraphs: [
