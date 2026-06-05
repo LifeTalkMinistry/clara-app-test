@@ -70,7 +70,7 @@ function createSection() {
   const section = document.createElement("section");
   section.id = SECTION_ID;
   section.className = "space-y-2";
-  section.innerHTML = `<p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Learning</p><div class="space-y-2.5"><button type="button" class="clara-current-state-row"><div class="clara-current-state-icon">${iconSvg()}</div><div class="clara-current-state-text"><p>Explore CLARA</p><span>Preview demo setups for future guided learning</span></div><span class="clara-current-state-badge">Preview</span>${chevronSvg()}</button></div>`;
+  section.innerHTML = `<p class="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Learning</p><div class="space-y-2.5"><button type="button" class="clara-current-state-row"><div class="clara-current-state-icon">${iconSvg()}</div><div class="clara-current-state-text"><p>Explore CLARA</p><span>Preview future guided learning setups</span></div><span class="clara-current-state-badge">Preview</span>${chevronSvg()}</button></div>`;
   section.querySelector("button")?.addEventListener("click", () => showPage(true));
   return section;
 }
@@ -80,7 +80,7 @@ function createPage() {
   page.id = PAGE_ID;
   page.className = "space-y-4 pb-6";
   page.style.display = "none";
-  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Instruction</span><h2>Demo setup preview</h2><p>This section is now static only. No demo data will be loaded, deleted, or written to your records.</p></div><div id="${STATUS_ID}">Demo engine paused. Young Professional remains here as a static preview while the clean demo system is rebuilt.</div><div class="clara-current-state-card"><h3>Young Professional</h3><p>Stable salary, independence pressure, payday confidence, small lifestyle leaks, side hustle possibilities, savings discipline, and PH money seasons.</p><small>Static preview only</small></div>`;
+  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Instruction</span><h2>Learning setup preview</h2><p>This section is static only. It does not load, delete, or write any financial records.</p></div><div id="${STATUS_ID}">Young Professional remains here as a static preview while a clean learning system is rebuilt.</div><div class="clara-current-state-card"><h3>Young Professional</h3><p>Stable salary, independence pressure, payday confidence, small lifestyle leaks, side hustle possibilities, savings discipline, and PH money seasons.</p><small>Static preview only</small></div>`;
   page.querySelector(".clara-current-state-back")?.addEventListener("click", () => showPage(false));
   return page;
 }
