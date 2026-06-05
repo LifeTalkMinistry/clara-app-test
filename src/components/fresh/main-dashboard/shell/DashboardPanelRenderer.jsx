@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Lock, LogOut, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
@@ -138,46 +138,50 @@ function readPlanPreview() {
 
 function ClaraCommitmentBookletModal({ open, onClose }) {
   const [bookletPage, setBookletPage] = useState(0);
-  const [touchStartX, setTouchStartX] = useState(null);
+  const carouselRef = useRef(null);
 
   useEffect(() => {
-    if (open) setBookletPage(0);
+    if (!open) return;
+
+    setBookletPage(0);
+
+    window.requestAnimationFrame(() => {
+      carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
+    });
   }, [open]);
 
   if (!open) return null;
 
   const goToPage = (targetPage) => {
-    setBookletPage(
-      Math.min(Math.max(targetPage, 0), CLARA_COMMITMENT_BOOKLET_PAGES.length - 1)
+    const nextPage = Math.min(
+      Math.max(targetPage, 0),
+      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
     );
-  };
+    const carousel = carouselRef.current;
 
-  const goToPreviousPage = () => {
-    goToPage(bookletPage - 1);
-  };
+    setBookletPage(nextPage);
 
-  const goToNextPage = () => {
-    goToPage(bookletPage + 1);
-  };
-
-  const handleTouchStart = (event) => {
-    setTouchStartX(event.changedTouches?.[0]?.clientX ?? null);
-  };
-
-  const handleTouchEnd = (event) => {
-    if (touchStartX === null) return;
-
-    const touchEndX = event.changedTouches?.[0]?.clientX ?? touchStartX;
-    const distance = touchStartX - touchEndX;
-    const swipeThreshold = 42;
-
-    if (distance > swipeThreshold) {
-      goToNextPage();
-    } else if (distance < -swipeThreshold) {
-      goToPreviousPage();
+    if (carousel) {
+      carousel.scrollTo({
+        left: carousel.clientWidth * nextPage,
+        behavior: "smooth",
+      });
     }
+  };
 
-    setTouchStartX(null);
+  const handleCarouselScroll = (event) => {
+    const carousel = event.currentTarget;
+    if (!carousel.clientWidth) return;
+
+    const currentPage = Math.round(carousel.scrollLeft / carousel.clientWidth);
+    const safePage = Math.min(
+      Math.max(currentPage, 0),
+      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
+    );
+
+    if (safePage !== bookletPage) {
+      setBookletPage(safePage);
+    }
   };
 
   const renderBookletPage = (bookletItem, index) => {
@@ -196,7 +200,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     return (
       <article
         key={bookletItem.label}
-        className="flex min-h-0 w-full min-w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]"
+        className="flex h-full min-h-0 w-full min-w-full snap-center snap-always flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]"
       >
         <div className={contentOffsetClass}>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
@@ -281,16 +285,11 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
         </div>
 
         <div
-          className="relative z-10 mt-5 flex min-h-0 flex-1 touch-pan-y overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          ref={carouselRef}
+          className="relative z-10 mt-5 flex min-h-0 flex-1 snap-x snap-mandatory touch-pan-x overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onScroll={handleCarouselScroll}
         >
-          <div
-            className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform"
-            style={{ transform: `translateX(-${bookletPage * 100}%)` }}
-          >
-            {CLARA_COMMITMENT_BOOKLET_PAGES.map(renderBookletPage)}
-          </div>
+          {CLARA_COMMITMENT_BOOKLET_PAGES.map(renderBookletPage)}
         </div>
 
         <div className="relative z-10 mt-4 flex justify-center gap-1.5">
