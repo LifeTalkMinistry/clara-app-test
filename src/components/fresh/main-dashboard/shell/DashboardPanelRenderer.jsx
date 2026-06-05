@@ -235,12 +235,6 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                   <p key={paragraph}>{paragraph}</p>
                 ))}
 
-                {page.quote ? (
-                  <div className="mt-3 rounded-full border border-white/20 bg-white/[0.08] px-4 py-2.5 text-center text-[clamp(0.78rem,2.5vw,0.92rem)] font-black italic leading-[1.35] text-white/92">
-                    “{page.quote}”
-                  </div>
-                ) : null}
-
                 {page.bullets ? (
                   <ul className="space-y-2">
                     {page.bullets.map((bullet) => (
@@ -266,12 +260,6 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 {page.closingParagraphs?.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}
-
-                {page.hint ? (
-                  <p className="pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/54">
-                    {page.hint}
-                  </p>
-                ) : null}
 
                 {isFinalPage ? (
                   <button
