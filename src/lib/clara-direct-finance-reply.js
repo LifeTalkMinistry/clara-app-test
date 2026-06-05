@@ -33,6 +33,17 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
+function hasGeminiEnvironmentConfig() {
+  return Boolean(
+    import.meta.env.VITE_GEMINI_API_KEY ||
+      import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
+      import.meta.env.VITE_GOOGLE_AI_API_KEY ||
+      import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
+      import.meta.env.VITE_CLARA_GEMINI_API_KEY ||
+      import.meta.env.VITE_AI_API_KEY
+  );
+}
+
 function peso(value) {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -315,6 +326,12 @@ function asGroundedPackage(packageData = {}) {
   };
 }
 
+function attachGroundedPackageToContext(context, transactionReply) {
+  if (!context || typeof context !== "object" || !transactionReply?.handled) return;
+  context.transactionHubGroundedReplyPackage = transactionReply;
+  context.__transactionHubGroundedReplyPackage = transactionReply;
+}
+
 export function buildTransactionHubGroundedReply(message = "", context = {}) {
   const filters = detectTransactionQuery(message);
   if (!filters) return { handled: false };
@@ -375,7 +392,16 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
 
 export function buildContextualFinanceReply(message = "", context = {}) {
   const transactionReply = buildTransactionHubGroundedReply(message, context);
-  if (transactionReply?.handled) return transactionReply;
+
+  if (transactionReply?.handled) {
+    attachGroundedPackageToContext(context, transactionReply);
+
+    if (transactionReply.shouldUseGemini && hasGeminiEnvironmentConfig()) {
+      return "";
+    }
+
+    return transactionReply.localFallbackReply || String(transactionReply || "");
+  }
 
   return "";
 }
