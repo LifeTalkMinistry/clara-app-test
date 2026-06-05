@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
@@ -11,6 +12,22 @@ const BUDGET_GLOW_LAYERS = [
   "pointer-events-none absolute inset-x-0 top-0 z-[3] h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.058),rgba(255,255,255,0.012)_42%,transparent)]",
   "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-teal-100/[0.055]",
 ];
+
+const PLAN_TEST_OPTIONS = [
+  { label: "Reset account / Free account", value: "free" },
+  { label: "PRO account", value: "pro_99" },
+  { label: "CORE account", value: "core_199" },
+  { label: "ELITE / LIFE OS account", value: "life_os_499" },
+];
+
+function savePlanPreview(value) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    "clara_dev_plan_preview",
+    JSON.stringify({ plan: value, updatedAt: new Date().toISOString() })
+  );
+  window.dispatchEvent(new CustomEvent("clara-plan-preview-updated", { detail: { plan: value } }));
+}
 
 export default function BudgetCard({
   activeBudget = null,
@@ -28,6 +45,8 @@ export default function BudgetCard({
   onDeleteBudgetCategory,
 }) {
   const navigate = useNavigate();
+  const cardRef = useRef(null);
+  const [showPlanPreview, setShowPlanPreview] = useState(false);
 
   const {
     categories,
@@ -65,42 +84,116 @@ export default function BudgetCard({
     });
   };
 
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return undefined;
+
+    const titleNode = Array.from(card.querySelectorAll("p")).find(
+      (node) => node.textContent?.trim() === "Budget"
+    );
+
+    if (!titleNode) return undefined;
+
+    const handleTitleTap = (event) => {
+      if (event.detail >= 2) {
+        event.preventDefault();
+        event.stopPropagation();
+        setShowPlanPreview(true);
+      }
+    };
+
+    titleNode.classList.add("cursor-pointer", "select-none");
+    titleNode.addEventListener("click", handleTitleTap);
+
+    return () => {
+      titleNode.removeEventListener("click", handleTitleTap);
+    };
+  }, [expanded]);
+
+  const applyPlanPreview = (value) => {
+    savePlanPreview(value);
+    setShowPlanPreview(false);
+    window.location.reload();
+  };
+
   return (
-    <FinanceCardShell
-      cardKey="budget"
-      expanded={expanded}
-      ringClass={status.ring}
-      roundedClass="rounded-3xl"
-      glowLayerClassNames={BUDGET_GLOW_LAYERS}
-      surfaceClassName="!border-teal-100/[0.07] !bg-[linear-gradient(135deg,rgba(3,37,43,0.91),rgba(5,17,39,0.955)_44%,rgba(19,13,56,0.915))]"
-      shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.47),0_0_28px_rgba(45,212,191,0.058),0_0_54px_rgba(79,70,229,0.085)]"
-    >
-      <BudgetCardContent
-        expanded={expanded}
-        onToggleDetails={onToggleDetails}
-        financeActionLoading={financeActionLoading}
-        onSaveBudget={openBudgetPlanPage}
-        onEditBudgetCategory={openBudgetCategoryOnPlanPage}
-        onDeleteBudgetCategory={onDeleteBudgetCategory}
-        categories={categories}
-        declared={declared}
-        allocated={allocated}
-        spent={spent}
-        remaining={remaining}
-        unallocated={unallocated}
-        progress={progress}
-        hasDeclaredBudget={hasDeclaredBudget}
-        planIsComplete={planIsComplete}
-        unplannedSpent={unplannedSpent}
-        undocumentedSpent={undocumentedSpent}
-        status={status}
-        message={message}
-        remainingAmountColor={remainingAmountColor}
-        monthKey={monthKey}
-        badgeLabel={badgeLabel}
-        budgetPace={budgetPace}
-        openBudgetModal={openBudgetPlanPage}
-      />
-    </FinanceCardShell>
+    <>
+      <div ref={cardRef}>
+        <FinanceCardShell
+          cardKey="budget"
+          expanded={expanded}
+          ringClass={status.ring}
+          roundedClass="rounded-3xl"
+          glowLayerClassNames={BUDGET_GLOW_LAYERS}
+          surfaceClassName="!border-teal-100/[0.07] !bg-[linear-gradient(135deg,rgba(3,37,43,0.91),rgba(5,17,39,0.955)_44%,rgba(19,13,56,0.915))]"
+          shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.47),0_0_28px_rgba(45,212,191,0.058),0_0_54px_rgba(79,70,229,0.085)]"
+        >
+          <BudgetCardContent
+            expanded={expanded}
+            onToggleDetails={onToggleDetails}
+            financeActionLoading={financeActionLoading}
+            onSaveBudget={openBudgetPlanPage}
+            onEditBudgetCategory={openBudgetCategoryOnPlanPage}
+            onDeleteBudgetCategory={onDeleteBudgetCategory}
+            categories={categories}
+            declared={declared}
+            allocated={allocated}
+            spent={spent}
+            remaining={remaining}
+            unallocated={unallocated}
+            progress={progress}
+            hasDeclaredBudget={hasDeclaredBudget}
+            planIsComplete={planIsComplete}
+            unplannedSpent={unplannedSpent}
+            undocumentedSpent={undocumentedSpent}
+            status={status}
+            message={message}
+            remainingAmountColor={remainingAmountColor}
+            monthKey={monthKey}
+            badgeLabel={badgeLabel}
+            budgetPace={budgetPace}
+            openBudgetModal={openBudgetPlanPage}
+          />
+        </FinanceCardShell>
+      </div>
+
+      {showPlanPreview && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 px-4 pb-6 backdrop-blur-sm sm:items-center sm:pb-0">
+          <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(7,44,54,0.96),rgba(19,20,63,0.98)_52%,rgba(58,28,101,0.96))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.48)]">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-teal-200/70">
+                  Developer Plan Override
+                </p>
+                <h3 className="mt-1 text-lg font-black text-white">Choose test account state</h3>
+                <p className="mt-1 text-xs font-semibold leading-5 text-white/62">
+                  Local preview only. No Google Play purchase will run.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPlanPreview(false)}
+                className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-bold text-white/75"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {PLAN_TEST_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => applyPlanPreview(option.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-sm font-black text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10]"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
