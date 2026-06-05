@@ -12,7 +12,7 @@ export default function BudgetSummaryStats({
   const roundedProgress = Math.round(progress);
   const statusLabel = status?.label || (hasDeclaredBudget ? "Healthy" : "No Plan");
   const remainingMessage = hasDeclaredBudget
-    ? `${fmt(remaining)} left out of your ${fmt(declared)} budget.`
+    ? `Out of your ${fmt(declared)} budget.`
     : "Create this cycle’s spending plan first.";
   const summaryTiles = [
     {
@@ -34,15 +34,22 @@ export default function BudgetSummaryStats({
   return (
     <>
       <div className="mb-3">
-        <p
-          className={`text-[32px] font-black leading-none tracking-[-0.05em] ${
-            hasDeclaredBudget
-              ? remainingAmountColor
-              : "text-teal-50 drop-shadow-[0_0_14px_rgba(153,246,228,0.10)]"
-          }`}
-        >
-          {fmt(remaining)}
-        </p>
+        <div className="flex items-end gap-1.5">
+          <p
+            className={`text-[32px] font-black leading-none tracking-[-0.05em] ${
+              hasDeclaredBudget
+                ? remainingAmountColor
+                : "text-teal-50 drop-shadow-[0_0_14px_rgba(153,246,228,0.10)]"
+            }`}
+          >
+            {fmt(remaining)}
+          </p>
+          {hasDeclaredBudget ? (
+            <span className="pb-[3px] text-[13px] font-black uppercase tracking-[-0.02em] text-white/72">
+              Left
+            </span>
+          ) : null}
+        </div>
 
         <p className="mt-2 text-sm font-semibold leading-tight text-white/76">
           {remainingMessage}
