@@ -24,16 +24,33 @@ function safeJsonParse(value) {
   }
 }
 
-function getSettingsDemoUser() {
+function createUserCandidate(id, email = null) {
+  const safeId = String(id || "").trim();
+  if (!safeId) return null;
+  return { id: safeId, email: email || null };
+}
+
+function uniqueUsers(users = []) {
+  const seen = new Set();
+  return users.filter((user) => {
+    const key = String(user?.id || user?.email || "").trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getSettingsDemoUsers() {
   const lastAccessSnapshot = safeJsonParse(window.localStorage?.getItem("clara_access_snapshot_v2:last"));
   const profile = lastAccessSnapshot?.profileBasic || lastAccessSnapshot?.profile || {};
-  const id = lastAccessSnapshot?.userId || profile?.id || lastAccessSnapshot?.email || profile?.email;
-  const email = lastAccessSnapshot?.email || profile?.email || null;
+  const cachedId = lastAccessSnapshot?.userId || profile?.id || lastAccessSnapshot?.email || profile?.email;
+  const cachedEmail = lastAccessSnapshot?.email || profile?.email || null;
 
-  return {
-    id: id || "local-dev-user",
-    email: email || "local@clara.app",
-  };
+  return uniqueUsers([
+    createUserCandidate(cachedId, cachedEmail),
+    createUserCandidate("local-dev-user", "local@clara.app"),
+    createUserCandidate("local-user", "local@clara.app"),
+  ]);
 }
 
 function iconSvg() {
@@ -55,11 +72,7 @@ function installStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     #${SECTION_ID} > p { color: rgba(207, 250, 254, 0.38) !important; letter-spacing: 0.21em !important; }
-    .clara-current-state-row, .clara-current-state-card, .clara-current-state-instruction {
-      border: 1px solid rgba(165, 243, 252, 0.14);
-      background: radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.085), transparent 38%), radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.065), transparent 42%), rgba(255, 255, 255, 0.04);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.058), 0 12px 30px rgba(0, 0, 0, 0.13), 0 0 20px rgba(34, 211, 238, 0.025);
-    }
+    .clara-current-state-row, .clara-current-state-card, .clara-current-state-instruction { border: 1px solid rgba(165, 243, 252, 0.14); background: radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.085), transparent 38%), radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.065), transparent 42%), rgba(255, 255, 255, 0.04); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.058), 0 12px 30px rgba(0, 0, 0, 0.13), 0 0 20px rgba(34, 211, 238, 0.025); }
     .clara-current-state-row { display: flex; width: 100%; min-height: 4.2rem; align-items: center; gap: 0.75rem; border-radius: 24px; padding: 1rem; text-align: left; transition: 160ms ease; }
     .clara-current-state-icon { display: flex; height: 2.75rem; width: 2.75rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 1rem; border: 1px solid rgba(165, 243, 252, 0.16); background: rgba(255, 255, 255, 0.075); color: rgba(236, 253, 255, 0.72); }
     .clara-current-state-icon svg, .clara-current-state-row > svg, .clara-current-state-back svg { height: 1rem; width: 1rem; }
@@ -109,10 +122,17 @@ async function loadYoungProfessional(button) {
       if (small) small.textContent = "Loading full demo data...";
     }
 
-    setStatus("Preparing Young Professional demo records...", "success");
-    const result = await activateYoungProfessionalCurrentState({ user: getSettingsDemoUser() });
-    assertLoaded(result);
-    setStatus(`Demo loaded: ${result.incomeSources} sources, ${result.wallets} wallets, ${result.expenses} expenses, ${result.savingsGoals} goals.`, "success");
+    const users = getSettingsDemoUsers();
+    setStatus("Preparing Young Professional demo records for the active dashboard session...", "success");
+
+    let primaryResult = null;
+    for (const user of users) {
+      const result = await activateYoungProfessionalCurrentState({ user });
+      assertLoaded(result);
+      primaryResult = primaryResult || result;
+    }
+
+    setStatus(`Demo loaded: ${primaryResult.incomeSources} sources, ${primaryResult.wallets} wallets, ${primaryResult.expenses} expenses, ${primaryResult.savingsGoals} goals.`, "success");
 
     window.setTimeout(() => {
       window.dispatchEvent(new Event("clara-finance-updated"));
@@ -120,7 +140,7 @@ async function loadYoungProfessional(button) {
       window.location.reload();
     }, 650);
 
-    return result;
+    return primaryResult;
   } catch (error) {
     console.error("Young Professional current-state activation failed:", error);
     setStatus(error?.message || "Unable to activate Young Professional right now.", "error");
@@ -137,10 +157,8 @@ function showPage(show) {
   const root = findSettingsRoot();
   const page = document.getElementById(PAGE_ID);
   if (!root || !page) return;
-
   root.style.display = show ? "none" : "";
   page.style.display = show ? "block" : "none";
-
   if (show) page.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -162,7 +180,6 @@ function createSection() {
       </button>
     </div>
   `;
-
   section.querySelector("button")?.addEventListener("click", () => showPage(true));
   return section;
 }
@@ -174,56 +191,36 @@ function createPage() {
   page.style.display = "none";
   page.innerHTML = `
     <button type="button" class="clara-current-state-back">${backSvg()} Settings</button>
-
     <div class="clara-current-state-instruction">
       <span class="clara-current-state-kicker">Instruction</span>
       <h2>Choose demo financial setup</h2>
       <p>This loads a temporary learning setup. You can test CLARA freely, exit anytime, and return to a fresh default demo.</p>
     </div>
-
     <div id="${STATUS_ID}"></div>
-
     <button type="button" class="clara-current-state-card">
       <h3>Young Professional</h3>
       <p>Work salary, side hustle, family support, BDO, GCash, Cash, budgets, expenses, savings, emergency fund, and PH money seasons.</p>
       <small>3 sources · 3 wallets · Jan-May demo data</small>
     </button>
   `;
-
   page.querySelector(".clara-current-state-back")?.addEventListener("click", () => showPage(false));
-  page.querySelector(".clara-current-state-card")?.addEventListener("click", (event) => {
-    loadYoungProfessional(event.currentTarget);
-  });
-
+  page.querySelector(".clara-current-state-card")?.addEventListener("click", (event) => loadYoungProfessional(event.currentTarget));
   return page;
 }
 
 function install() {
   if (typeof document === "undefined") return;
-
   installStyles();
-
   const settingsRoot = findSettingsRoot();
   if (!settingsRoot) return;
-
   const programSection = findProgramSection(settingsRoot);
   if (!programSection) return;
-
-  if (!document.getElementById(SECTION_ID)) {
-    programSection.insertAdjacentElement("afterend", createSection());
-  }
-
-  if (!document.getElementById(PAGE_ID)) {
-    settingsRoot.insertAdjacentElement("afterend", createPage());
-  }
+  if (!document.getElementById(SECTION_ID)) programSection.insertAdjacentElement("afterend", createSection());
+  if (!document.getElementById(PAGE_ID)) settingsRoot.insertAdjacentElement("afterend", createPage());
 }
 
 if (typeof window !== "undefined") {
   window.requestAnimationFrame(install);
-
   const observer = new MutationObserver(install);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 }
