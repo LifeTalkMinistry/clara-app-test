@@ -46,14 +46,73 @@ function titleCase(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function normalizeDateLikeText(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/\bat\b/i, " ")
+    .replace(/\s+/g, " ");
+}
+
+function dateFromParts(year, month, day, hour = 12, minute = 0, second = 0) {
+  const d = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), 0);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function parseFirestoreTimestamp(value) {
+  if (!value || typeof value !== "object") return null;
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+  }
+
+  const seconds = value.seconds ?? value._seconds;
+  const nanoseconds = value.nanoseconds ?? value._nanoseconds ?? 0;
+  if (Number.isFinite(Number(seconds))) {
+    const date = new Date(Number(seconds) * 1000 + Math.floor(Number(nanoseconds || 0) / 1000000));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
 function parseDate(value, fallback = new Date()) {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return new Date(value);
+
+  const firestoreDate = parseFirestoreTimestamp(value);
+  if (firestoreDate) return firestoreDate;
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const date = new Date(value < 10000000000 ? value * 1000 : value);
+    return Number.isNaN(date.getTime()) ? new Date(fallback) : date;
+  }
+
   if (!hasValue(value)) return fallback instanceof Date ? new Date(fallback) : new Date();
 
-  const text = String(value).trim();
+  const text = normalizeDateLikeText(value);
+
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
     const [year, month, day] = text.split("-").map(Number);
-    return new Date(year, month - 1, day, 12, 0, 0, 0);
+    return dateFromParts(year, month, day) || new Date(fallback);
+  }
+
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(text)) {
+    const [year, month, day] = text.split("/").map(Number);
+    return dateFromParts(year, month, day) || new Date(fallback);
+  }
+
+  const isoDateTime = text.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (isoDateTime) {
+    const [, year, month, day, hour, minute, second = 0] = isoDateTime;
+    const localDate = dateFromParts(year, month, day, hour, minute, second);
+    if (localDate) return localDate;
+  }
+
+  const slashDate = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (slashDate) {
+    const [, month, day, yearRaw, hour = 12, minute = 0, second = 0] = slashDate;
+    const year = String(yearRaw).length === 2 ? `20${yearRaw}` : yearRaw;
+    const localDate = dateFromParts(year, month, day, hour, minute, second);
+    if (localDate) return localDate;
   }
 
   const parsed = new Date(text);
@@ -93,6 +152,12 @@ function startOfWeek(value) {
 function startOfMonth(value) {
   const d = startOfDay(value);
   d.setDate(1);
+  return d;
+}
+
+function startOfYear(value) {
+  const d = startOfDay(value);
+  d.setMonth(0, 1);
   return d;
 }
 
@@ -324,20 +389,37 @@ function buildBudgetMap(budgets = []) {
 }
 
 function getTransactionDate(raw) {
-  return (
-    raw?.created_at ||
-    raw?.createdAt ||
-    raw?.date ||
-    raw?.transaction_date ||
-    raw?.transactionDate ||
-    raw?.paid_at ||
-    raw?.paidAt ||
-    raw?.logged_at ||
-    raw?.loggedAt ||
-    raw?.updated_at ||
-    raw?.updatedAt ||
-    new Date()
-  );
+  const candidates = [
+    raw?.transaction_date,
+    raw?.transactionDate,
+    raw?.transaction_at,
+    raw?.transactionAt,
+    raw?.occurred_at,
+    raw?.occurredAt,
+    raw?.posted_at,
+    raw?.postedAt,
+    raw?.paid_at,
+    raw?.paidAt,
+    raw?.logged_at,
+    raw?.loggedAt,
+    raw?.created_at,
+    raw?.createdAt,
+    raw?.date,
+    raw?.datetime,
+    raw?.dateTime,
+    raw?.timestamp,
+    raw?.time,
+    raw?.updated_at,
+    raw?.updatedAt,
+    raw?.metadata?.transaction_date,
+    raw?.metadata?.transactionDate,
+    raw?.metadata?.date,
+    raw?.raw?.transaction_date,
+    raw?.raw?.transactionDate,
+    raw?.raw?.date,
+  ];
+
+  return candidates.find((candidate) => hasValue(candidate) || candidate instanceof Date || typeof candidate === "number") || new Date();
 }
 
 function extractNestedTransactions(records = [], keys = [], source = "nested_transaction", group = "savings") {
@@ -375,9 +457,10 @@ function buildTransferFallbacks(walletTransactions = [], transfers = []) {
     .filter((item) => !isDeletedRecord(item))
     .filter((item) => getGroup(item) === "transfer")
     .forEach((item, index) => {
+      const transactionDate = getTransactionDate(item);
       const groupId = String(
         firstValue(item, ["transfer_group_id", "transferGroupId", "transfer_id", "transferId"]) ||
-          `fallback-transfer-${item?.created_at || item?.createdAt || item?.date || index}`
+          `fallback-transfer-${transactionDate || index}`
       );
 
       if (!grouped.has(groupId)) grouped.set(groupId, []);
@@ -414,7 +497,7 @@ function buildTransferFallbacks(walletTransactions = [], transfers = []) {
           "",
         amount,
         type: "transfer",
-        created_at: anchor?.created_at || anchor?.createdAt || anchor?.date || new Date().toISOString(),
+        created_at: getTransactionDate(anchor) || new Date().toISOString(),
         notes: anchor?.notes || anchor?.note || "",
         __activityGroup: "transfer",
         __activitySource: "wallet_transfer_group",
@@ -561,6 +644,7 @@ function normalizeTimeline(context = {}) {
         amount,
         signedAmount,
         date: parsedDate.toISOString(),
+        localDateKey: dateKey,
         dateKey,
         monthKey: transactionMonthKey,
         note: isJsonLike(note) ? "" : String(note || "").trim(),
@@ -587,7 +671,7 @@ function getConnectedState(context = {}) {
 }
 
 function filterByDateKey(timeline, key) {
-  return timeline.filter((item) => item.dateKey === key);
+  return timeline.filter((item) => item.dateKey === key || item.localDateKey === key || toDateKey(item.date) === key);
 }
 
 function filterFromDate(timeline, start, end = new Date()) {
@@ -635,6 +719,7 @@ export function filterTransactionHubTimeline(timeline = [], filters = {}) {
   if (filters.yesterday) records = filterByDateKey(records, toDateKey(new Date(startOfDay(now).getTime() - DAY_MS)));
   if (filters.thisWeek) records = filterFromDate(records, startOfWeek(now), endOfDay(now));
   if (filters.thisMonth) records = filterFromDate(records, startOfMonth(now), endOfDay(now));
+  if (filters.thisYear) records = filterFromDate(records, startOfYear(now), endOfDay(now));
   if (filters.income) records = records.filter((item) => INCOME_GROUPS.has(item.group));
   if (filters.expense) records = records.filter((item) => EXPENSE_GROUPS.has(item.group));
   if (filters.transfer) records = records.filter((item) => TRANSFER_GROUPS.has(item.group));
@@ -657,6 +742,7 @@ export function buildTransactionHubAiSnapshot(context = {}) {
       yesterdayTransactions: [],
       thisWeekTransactions: [],
       thisMonthTransactions: [],
+      thisYearTransactions: [],
       incomeTransactions: [],
       expenseTransactions: [],
       transferTransactions: [],
@@ -672,6 +758,7 @@ export function buildTransactionHubAiSnapshot(context = {}) {
   const yesterdayTransactions = filterTransactionHubTimeline(timeline, { yesterday: true, now });
   const thisWeekTransactions = filterTransactionHubTimeline(timeline, { thisWeek: true, now });
   const thisMonthTransactions = filterTransactionHubTimeline(timeline, { thisMonth: true, now });
+  const thisYearTransactions = filterTransactionHubTimeline(timeline, { thisYear: true, now });
   const incomeTransactions = filterTransactionHubTimeline(timeline, { income: true });
   const expenseTransactions = filterTransactionHubTimeline(timeline, { expense: true });
   const transferTransactions = filterTransactionHubTimeline(timeline, { transfer: true });
@@ -685,6 +772,7 @@ export function buildTransactionHubAiSnapshot(context = {}) {
     yesterdayTransactions,
     thisWeekTransactions,
     thisMonthTransactions,
+    thisYearTransactions,
     incomeTransactions,
     expenseTransactions,
     transferTransactions,
@@ -695,6 +783,13 @@ export function buildTransactionHubAiSnapshot(context = {}) {
 
   logTransactionHubAiReader("Snapshot ready", {
     totalTransactions: snapshot.totalTransactions,
+    today: todayTransactions.length,
+    yesterday: yesterdayTransactions.length,
+    thisWeek: thisWeekTransactions.length,
+    thisMonth: thisMonthTransactions.length,
+    thisYear: thisYearTransactions.length,
+    oldestDateKey: timeline[timeline.length - 1]?.dateKey || null,
+    latestDateKey: timeline[0]?.dateKey || null,
     generatedAt: snapshot.generatedAt,
   });
 
