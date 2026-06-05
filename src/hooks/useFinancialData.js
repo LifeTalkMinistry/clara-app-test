@@ -30,7 +30,6 @@ import {
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
-import { resolveFinanceLocalUserId } from "@/lib/claraActiveDemoUser";
 
 const FINANCE_INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
@@ -45,7 +44,10 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
-const getLocalUserId = (user) => resolveFinanceLocalUserId(user, "local-user");
+const getLocalUserId = (user) => {
+  const value = user?.id || user?.email || "local-user";
+  return String(value || "local-user").trim() || "local-user";
+};
 
 const removeDeletedRows = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => !row?.deletedAt && !row?.deleted_at);
 const sortByNewest = (rows) => [...(Array.isArray(rows) ? rows : [])].sort((a, b) => new Date(b?.createdAt || b?.created_at || b?.date || 0).getTime() - new Date(a?.createdAt || a?.created_at || a?.date || 0).getTime());
@@ -93,7 +95,7 @@ let financialDataCache = createEmptyFinancialCache();
 
 function useFinancialData(user) {
   const localUserId = getLocalUserId(user);
-  const cacheKey = `${localUserId || "local-user"}::finance_view`;
+  const cacheKey = `${localUserId || "local-user"}::real_user`;
   const hasUsableCache = financialDataCache.loaded && financialDataCache.key === cacheKey;
   const initialCache = hasUsableCache ? financialDataCache : createEmptyFinancialCache(cacheKey);
 
