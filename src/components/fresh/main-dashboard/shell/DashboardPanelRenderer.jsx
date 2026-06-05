@@ -121,7 +121,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-[22px] border border-white/16 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/9 0 transition hover:bg-white/[0.14] active:scale-[0.99]"
+            className="w-full rounded-[22px] border border-white/16 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/90 transition hover:bg-white/[0.14] active:scale-[0.99]"
           >
             I Understand
           </button>
