@@ -29,6 +29,7 @@ export const getCarouselData = ({
   walletPreviewTransactions = [],
   survivalExpense = 0,
   user = null,
+  plan = null,
   guardChecked = false,
   loading = false,
   profileData = null,
@@ -115,6 +116,7 @@ export const getCarouselData = ({
   };
 
   const registeredCards = getEnabledCarouselItems({
+    plan: plan || user?.plan,
     profileData,
     featureFlags,
     includeLocked,
