@@ -60,13 +60,16 @@ export default function DailyTipCard() {
         window.location.reload();
       }, 350);
     } catch (error) {
-      console.error("Unable to exit Young Professional current-state data:", error);
+      console.error("Unable to exit Sample Data learning mode:", error);
       setExiting(false);
     }
   };
 
   if (activeCurrentState) {
-    const stageTitle = activeCurrentState.activeLifeStageTitle || activeCurrentState.activeLifeStageKey || "Demo";
+    const loadedParts = Array.isArray(activeCurrentState.loadedParts) ? activeCurrentState.loadedParts : [];
+    const focusText = loadedParts.includes("income_sources")
+      ? "Income sources are active: BPO Salary and Side Hustle. Both start at ₱0."
+      : "Sample learning data is active.";
 
     return (
       <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
@@ -76,7 +79,7 @@ export default function DailyTipCard() {
           <div className="relative flex h-full flex-col justify-center gap-3">
             <div className="flex items-center justify-between gap-2">
               <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-emerald-100/85">
-                Demo Stage Active
+                Learning Mode Active
               </span>
               <button
                 type="button"
@@ -90,10 +93,10 @@ export default function DailyTipCard() {
 
             <div>
               <h3 className="text-base font-black leading-tight tracking-[-0.03em] text-white">
-                Exploring {stageTitle}
+                Sample Data is active
               </h3>
               <p className="mt-1 text-[11px] font-semibold leading-snug text-cyan-50/66">
-                Sample learning data is active. You can test CLARA here, then exit anytime to return to your real records.
+                {focusText} Test CLARA here, then exit anytime to return to your real records.
               </p>
             </div>
           </div>
