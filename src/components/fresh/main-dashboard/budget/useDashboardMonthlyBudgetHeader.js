@@ -19,11 +19,13 @@ function todayKey() {
 
 function getCycleStart(budget) {
   return toDateOnly(
-    budget?.cycle_start ||
+    budget?.reset_start_at ||
+      budget?.tracking_started_at ||
+      budget?.tracking_start_date ||
+      budget?.cycle_start ||
       budget?.budget_cycle_start ||
       budget?.period_start ||
-      budget?.range_start ||
-      budget?.tracking_start_date
+      budget?.range_start
   );
 }
 
