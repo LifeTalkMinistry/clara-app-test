@@ -1,4 +1,4 @@
-import { WalletCards } from "lucide-react";
+import { MoreHorizontal, WalletCards } from "lucide-react";
 import useInvestmentCardLogic, {
   fmt,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
@@ -22,6 +22,41 @@ const glowLayers = [
 const expandButtonClass =
   "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
+function toIncomeNumber(value) {
+  const number = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function getSourceIn(source) {
+  return toIncomeNumber(source?.totalMoneyIn ?? source?.total_money_in);
+}
+
+function getSourceOut(source) {
+  return toIncomeNumber(source?.totalMoneyOut ?? source?.total_money_out);
+}
+
+function getSourceNet(source) {
+  return toIncomeNumber(source?.currentBalance ?? source?.current_balance ?? getSourceIn(source) - getSourceOut(source));
+}
+
+function getSourceActivityDate(source) {
+  return source?.lastActivityAt || source?.last_activity_at || source?.updatedAt || source?.updated_at || source?.createdAt || source?.created_at || null;
+}
+
+function formatIncomeActivityDate(value) {
+  if (!value) return "Just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Just now";
+
+  return date.toLocaleString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function SummaryTiles({ statOneLabel, statOneValue, statTwoLabel, statTwoValue, statThreeLabel, statThreeValue, tone }) {
   const tiles = [
     { label: statOneLabel, value: statOneValue, valueClassName: "text-emerald-200" },
@@ -41,6 +76,108 @@ function SummaryTiles({ statOneLabel, statOneValue, statTwoLabel, statTwoValue, 
             <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
               {tile.label}
             </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IncomeSourcePreviewRow({ source }) {
+  const net = getSourceNet(source);
+  const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
+
+  return (
+    <div className="relative overflow-visible rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="absolute left-0 top-3 h-[calc(100%-24px)] w-[3px] rounded-full bg-emerald-300/70" />
+      <div className="flex items-center gap-3 pl-1.5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          {initial}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black leading-tight text-white">{source?.name || "Income Source"}</p>
+          <p className="mt-1 text-[11px] font-bold leading-none text-white/66">Net: {fmt(net)}</p>
+        </div>
+
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-white/[0.055] text-white/78"
+          aria-label={`${source?.name || "Income source"} actions`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MoreHorizontal className="h-4.5 w-4.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function buildIncomeActivityItems(sources = []) {
+  return (Array.isArray(sources) ? sources : [])
+    .map((source) => {
+      const moneyIn = getSourceIn(source);
+      const moneyOut = getSourceOut(source);
+      const date = getSourceActivityDate(source);
+      const wasUpdated = source?.updatedAt || source?.updated_at;
+
+      if (moneyOut > 0) {
+        return {
+          id: `${source.id}-out`,
+          title: "Transfer to Wallet",
+          date,
+          amount: moneyOut,
+          prefix: "-",
+          amountClassName: "text-rose-100",
+        };
+      }
+
+      if (moneyIn > 0) {
+        return {
+          id: `${source.id}-in`,
+          title: "Added Money",
+          date,
+          amount: moneyIn,
+          prefix: "+",
+          amountClassName: "text-emerald-100",
+        };
+      }
+
+      return {
+        id: `${source.id}-source`,
+        title: wasUpdated ? "Updated Source" : "Created Source",
+        date,
+        amount: null,
+        prefix: "",
+        amountClassName: "text-white/70",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
+    .slice(0, 3);
+}
+
+function IncomeRecentActivityPreview({ sources = [] }) {
+  const items = buildIncomeActivityItems(sources);
+
+  if (!items.length) return null;
+
+  return (
+    <div className="rounded-2xl border border-cyan-100/15 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_24px_rgba(0,255,220,0.045)] backdrop-blur-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Recent activity</p>
+      <div className="mt-3 space-y-2">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.045] px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-white">{item.title}</p>
+              <p className="mt-1 text-xs text-white/45">{formatIncomeActivityDate(item.date)}</p>
+            </div>
+
+            {item.amount !== null ? (
+              <p className={`shrink-0 text-sm font-bold ${item.amountClassName}`}>
+                {item.prefix}{fmt(item.amount || 0)}
+              </p>
+            ) : null}
           </div>
         ))}
       </div>
@@ -86,6 +223,8 @@ export default function InvestmentCardView({
     incomeSources = [],
   } = computed;
 
+  const sourceCount = readiness?.sourceCount || incomeSources.length || 0;
+  const incomeSourceTitle = `${sourceCount} Income Source${sourceCount === 1 ? "" : "s"}`;
   const mainValue = readiness?.totalGenerated > 0 ? fmt(readiness.totalGenerated) : "Set source";
 
   return (
@@ -171,10 +310,7 @@ export default function InvestmentCardView({
             <div className="relative flex min-h-0 flex-1 flex-col gap-4">
               <div className="shrink-0">
                 <p className={`truncate text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>
-                  {mainValue}
-                </p>
-                <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">
-                  {description || "Track and review your income sources."}
+                  {incomeSourceTitle}
                 </p>
               </div>
 
@@ -190,25 +326,23 @@ export default function InvestmentCardView({
               </div>
 
               <div className="min-h-0 flex-1 overflow-hidden pt-1">
-                <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
-                  <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">
-                      Income sources
-                    </p>
-                    <p className="mt-2 text-[13px] font-semibold leading-5 text-white/68">
-                      {incomeSources.length
-                        ? `${incomeSources.length} source${incomeSources.length > 1 ? "s" : ""} tracked in Income Hub.`
-                        : "Create an income source to begin mapping where your money starts."}
-                    </p>
+                <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
+                  <div className="rounded-[24px] border border-white/[0.055] bg-black/[0.08] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                    {incomeSources.length ? (
+                      <div className="space-y-3">
+                        <div className="max-h-[286px] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.24)_transparent]">
+                          {incomeSources.map((source) => (
+                            <IncomeSourcePreviewRow key={source.id} source={source} />
+                          ))}
+                        </div>
+                        <IncomeRecentActivityPreview sources={incomeSources} />
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/[0.055] bg-white/[0.035] px-3.5 py-3 text-center text-[12px] font-semibold text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                        Create an income source to start tracking money coming in.
+                      </div>
+                    )}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handlers.handlePlanInvestment}
-                    className="w-full rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.08] px-4 py-3 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-400/[0.13]"
-                  >
-                    Ask CLARA About Income
-                  </button>
 
                   <div aria-hidden="true" className="h-5 shrink-0" />
                 </FinanceCardExpandedPanel>
