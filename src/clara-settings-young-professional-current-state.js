@@ -5,6 +5,7 @@ const SECTION_ID = "clara-current-state-learning-section";
 const PAGE_ID = "clara-current-state-learning-page";
 const STYLE_ID = "clara-current-state-learning-static-styles";
 const STATUS_ID = "clara-current-state-learning-static-status";
+const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
 const SAMPLE_DATA_SOURCE = "clara_sample_data_income_sources";
 const SAMPLE_DATA_FAMILY = "sample_data_income_sources_only";
 
@@ -34,6 +35,30 @@ function chevronSvg() {
 function setStatus(message = "") {
   const status = document.getElementById(STATUS_ID);
   if (status) status.textContent = message;
+}
+
+function markSampleDataLearningModeActive() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(ACTIVE_CURRENT_STATE_KEY, JSON.stringify({
+      mode: "current_state",
+      dataMode: "sample_data",
+      activeLifeStageKey: "sample_data",
+      activeLifeStageTitle: "Sample Data",
+      samplePersonName: "Max",
+      sampleRole: "Call center worker",
+      loadedParts: ["income_sources"],
+      source: SAMPLE_DATA_SOURCE,
+      setupFamily: SAMPLE_DATA_FAMILY,
+      activatedAt: new Date().toISOString(),
+    }));
+  } catch {
+    // If storage is unavailable, the income sources can still be created.
+  }
+
+  window.dispatchEvent(new Event("clara-young-professional-current-state-loaded"));
+  window.dispatchEvent(new Event("storage"));
 }
 
 async function getSampleDataLocalUserIds() {
@@ -142,13 +167,15 @@ async function loadSampleIncomeSourcesOnly(button) {
       }
     }
 
+    markSampleDataLearningModeActive();
+
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("clara-income-hub-updated"));
       window.dispatchEvent(new Event("clara-finance-updated"));
       window.dispatchEvent(new Event("clara-local-finance-updated"));
     }
 
-    setStatus("Income sources added: BPO Salary and Side Hustle. Both are set to ₱0. No other sample data was created.");
+    setStatus("Income sources added: BPO Salary and Side Hustle. Both are set to ₱0. The dashboard is now in Sample Data learning mode.");
     if (button) button.textContent = "Income sources added";
   } catch (error) {
     console.warn("CLARA Sample Data income source setup failed:", error);
