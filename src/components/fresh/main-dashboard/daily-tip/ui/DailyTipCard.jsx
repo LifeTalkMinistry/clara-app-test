@@ -72,10 +72,7 @@ export default function DailyTipCard() {
           <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
           <div className="relative flex h-full flex-col">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-[9px] font-black uppercase leading-none tracking-[0.18em] text-cyan-100/60">
-                Sample Mode
-              </div>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={handleExitCurrentState}
@@ -86,11 +83,11 @@ export default function DailyTipCard() {
               </button>
             </div>
 
-            <div className="mt-5 max-w-[18.5rem]">
+            <div className="mt-3 max-w-[19.25rem] pr-1">
               <h3 className="text-base font-black leading-tight tracking-[-0.03em] text-white">
                 Sample Data is active
               </h3>
-              <p className="mt-2 text-[11px] font-semibold leading-[1.45] text-cyan-50/68">
+              <p className="mt-2.5 text-[11px] font-semibold leading-[1.52] text-cyan-50/70">
                 Explore without risking real records. Practice first so CLARA can show how it reads income, explains your setup, and guides decisions.
               </p>
             </div>
