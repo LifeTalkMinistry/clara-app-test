@@ -190,17 +190,17 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817] px-[clamp(24px,7vw,42px)] pt-[max(28px,env(safe-area-inset-top))] pb-[max(28px,env(safe-area-inset-bottom))]"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817] px-[clamp(18px,5vw,30px)] pt-[max(18px,env(safe-area-inset-top))] pb-[max(18px,env(safe-area-inset-bottom))]"
       onClick={onClose}
     >
       <section
-        className="relative mx-auto flex h-[min(82dvh,720px)] w-[88vw] max-w-[430px] flex-col overflow-hidden rounded-[36px] border border-cyan-100/14 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_40%),#081122] px-5 pb-6 pt-6 text-white shadow-[0_28px_86px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
+        className="relative mx-auto flex h-[min(88dvh,760px)] w-[92vw] max-w-[470px] flex-col overflow-hidden rounded-[38px] border border-cyan-100/14 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_40%),#081122] px-4 pb-5 pt-5 text-white shadow-[0_28px_86px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
         onClick={(event) => event.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-5 top-5 z-20 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
+          className="absolute right-4 top-4 z-20 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
           aria-label="Close commitment booklet"
         >
           <X className="h-4 w-4" />
@@ -216,7 +216,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
         </div>
 
         <div
-          className="relative z-10 mt-6 flex min-h-0 flex-1 touch-pan-y"
+          className="relative z-10 mt-5 flex min-h-0 flex-1 touch-pan-y"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -275,7 +275,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           </article>
         </div>
 
-        <div className="relative z-10 mt-5 flex justify-center gap-1.5">
+        <div className="relative z-10 mt-4 flex justify-center gap-1.5">
           {CLARA_COMMITMENT_BOOKLET_PAGES.map((bookletItem, index) => (
             <button
               key={bookletItem.label}
