@@ -1,10 +1,121 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Lock, LogOut, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
+
+const CLARA_COMMITMENT_BOOKLET_PAGES = [
+  {
+    label: "Page 1",
+    title: "Ready to know who CLARA is?",
+    paragraphs: [
+      "Most people think CLARA is a budgeting app.",
+      "That's understandable.",
+      "You record income.",
+      "Track expenses.",
+      "Create budgets.",
+      "But that's not what CLARA was built to do.",
+      "Let's discover CLARA one letter at a time.",
+    ],
+    hint: "Swipe to continue →",
+  },
+  {
+    label: "Page 2",
+    title: "C — Commitment",
+    paragraphs: [
+      "Most financial apps sell access.",
+      "CLARA sells commitment.",
+      "The truth is...",
+      "Most people already know what they should do with money.",
+      "Save more.",
+      "Spend less.",
+      "Avoid impulse purchases.",
+      "Build an emergency fund.",
+      "Follow a budget.",
+      "Knowledge is rarely the problem.",
+      "Consistency is.",
+      "That's why CLARA begins with a commitment.",
+      "Not because you need another subscription.",
+      "But because meaningful change usually starts when someone decides:",
+    ],
+    quote: "I'm ready to take this seriously.",
+  },
+  {
+    label: "Page 3",
+    title: "L — Lifestyle Clarity",
+    paragraphs: [
+      "Money doesn't exist in isolation.",
+      "It follows your lifestyle.",
+      "Your habits.",
+      "Your responsibilities.",
+      "Your emotions.",
+      "Your goals.",
+      "CLARA helps you understand where your money goes and why it goes there.",
+      "Because clarity often comes before control.",
+      "When you can see your financial behavior clearly, better decisions become easier.",
+    ],
+  },
+  {
+    label: "Page 4",
+    title: "A — Ask Before You Spend",
+    paragraphs: [
+      "One question can change a financial future.",
+      "Should I buy this?",
+      "Many financial mistakes happen in moments.",
+      "Not because people are irresponsible.",
+      "But because decisions are made too quickly.",
+      "CLARA was built around one simple principle:",
+      "Ask Before You Spend.",
+      "That small pause can be the difference between impulse and intention.",
+    ],
+  },
+  {
+    label: "Page 5",
+    title: "R — Real Guidance",
+    paragraphs: [
+      "Records tell you what happened.",
+      "Guidance helps you decide what happens next.",
+      "CLARA is designed to be more than a tracker.",
+      "It creates an environment where you can:",
+    ],
+    bullets: ["Reflect", "Learn", "Plan", "Improve"],
+    closingParagraphs: [
+      "Because tracking money is useful.",
+      "But understanding your behavior is powerful.",
+    ],
+  },
+  {
+    label: "Page 6",
+    title: "A — Advocacy",
+    paragraphs: [
+      "Your commitment doesn't stop with you.",
+      "A portion of every commitment plan helps support:",
+    ],
+    bullets: ["Students in need", "Calamity assistance", "Community support initiatives"],
+    closingParagraphs: [
+      "As CLARA grows, so does its ability to help others.",
+      "Improving your financial life can also help improve someone else's.",
+    ],
+  },
+  {
+    label: "Final Page",
+    title: "Ready to Commit?",
+    paragraphs: ["You're not just unlocking tools.", "You're unlocking:"],
+    checks: [
+      "Commitment",
+      "Lifestyle Clarity",
+      "Ask Before You Spend",
+      "Real Guidance",
+      "Advocacy",
+    ],
+    closingParagraphs: [
+      "The tools are simply the vehicle.",
+      "The real goal is helping you become someone who consistently makes better money decisions.",
+    ],
+  },
+];
 
 function readPlanPreview() {
   if (typeof window === "undefined") return "";
@@ -26,7 +137,53 @@ function readPlanPreview() {
 }
 
 function ClaraCommitmentBookletModal({ open, onClose }) {
+  const [bookletPage, setBookletPage] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(null);
+
+  useEffect(() => {
+    if (open) setBookletPage(0);
+  }, [open]);
+
   if (!open) return null;
+
+  const page = CLARA_COMMITMENT_BOOKLET_PAGES[bookletPage];
+  const isFirstPage = bookletPage === 0;
+  const isFinalPage = bookletPage === CLARA_COMMITMENT_BOOKLET_PAGES.length - 1;
+
+  const goToPreviousPage = () => {
+    setBookletPage((currentPage) => Math.max(currentPage - 1, 0));
+  };
+
+  const goToNextPage = () => {
+    if (isFinalPage) {
+      onClose?.();
+      return;
+    }
+
+    setBookletPage((currentPage) =>
+      Math.min(currentPage + 1, CLARA_COMMITMENT_BOOKLET_PAGES.length - 1)
+    );
+  };
+
+  const handleTouchStart = (event) => {
+    setTouchStartX(event.changedTouches?.[0]?.clientX ?? null);
+  };
+
+  const handleTouchEnd = (event) => {
+    if (touchStartX === null) return;
+
+    const touchEndX = event.changedTouches?.[0]?.clientX ?? touchStartX;
+    const distance = touchStartX - touchEndX;
+    const swipeThreshold = 42;
+
+    if (distance > swipeThreshold) {
+      goToNextPage();
+    } else if (distance < -swipeThreshold) {
+      goToPreviousPage();
+    }
+
+    setTouchStartX(null);
+  };
 
   return (
     <div
@@ -40,15 +197,15 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/28" />
         <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-cyan-400/8 blur-3xl" />
 
-        <header className="relative z-10 shrink-0 border-b border-white/10 bg-[rgba(2,8,23,0.82)] px-5 pb-4 pt-5">
+        <header className="relative z-10 shrink-0 border-b border-white/10 bg-[rgba(2,8,23,0.86)] px-5 pb-4 pt-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/56">
                 CLARA Commitment Booklet
               </p>
-              <h2 className="mt-2 text-xl font-black tracking-[-0.04em] text-white/96">
-                Before you continue
-              </h2>
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/34">
+                {page.label} of {CLARA_COMMITMENT_BOOKLET_PAGES.length}
+              </p>
             </div>
 
             <button
@@ -62,69 +219,94 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           </div>
         </header>
 
-        <div className="relative z-10 flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="space-y-3.5">
-            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.92)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
-                This is not just tracking
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/78">
-                CLARA is designed to help you pause, reflect, and make calmer money decisions before your habits control the outcome.
-              </p>
-            </section>
+        <div
+          className="relative z-10 flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <article className="min-h-full rounded-[28px] border border-white/14 bg-[rgba(8,18,40,0.92)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <h2 className="text-[1.35rem] font-black leading-tight tracking-[-0.045em] text-white/96">
+              {page.title}
+            </h2>
 
-            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.88)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
-                What commitment means
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/78">
-                Commitment means being honest with your records, checking your money before spending, and allowing small daily decisions to build long-term discipline.
-              </p>
-            </section>
+            <div className="mt-5 space-y-3.5 text-[0.95rem] font-semibold leading-7 text-white/78">
+              {page.paragraphs?.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
 
-            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.88)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
-                What CLARA will ask from you
-              </p>
-              <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-white/78">
-                <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
-                  <span>Record honestly</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
-                  <span>Pause before impulse spending</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
-                  <span>Review your money with clarity</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
-                  <span>Build consistency one decision at a time</span>
-                </li>
-              </ul>
-            </section>
+              {page.quote ? (
+                <div className="rounded-[22px] border border-white/14 bg-white/[0.08] px-4 py-3 text-center text-sm font-black italic text-white/90">
+                  “{page.quote}”
+                </div>
+              ) : null}
 
-            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.88)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
-                The purpose
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/78">
-                This experience is not about pressure. It is about helping you become more aware, more prepared, and more intentional with your money.
-              </p>
-            </section>
-          </div>
+              {page.bullets ? (
+                <ul className="space-y-2.5">
+                  {page.bullets.map((bullet) => (
+                    <li key={bullet} className="flex gap-2.5">
+                      <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {page.checks ? (
+                <ul className="space-y-2.5">
+                  {page.checks.map((check) => (
+                    <li key={check} className="flex gap-2.5 text-white/86">
+                      <span className="shrink-0 text-white/62">✓</span>
+                      <span>{check}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {page.closingParagraphs?.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+
+              {page.hint ? (
+                <p className="pt-2 text-sm font-black uppercase tracking-[0.16em] text-white/48">
+                  {page.hint}
+                </p>
+              ) : null}
+            </div>
+          </article>
         </div>
 
-        <footer className="relative z-10 shrink-0 border-t border-white/10 bg-[rgba(2,8,23,0.86)] px-5 pb-5 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-[22px] border border-white/16 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/90 transition hover:bg-white/[0.14] active:scale-[0.99]"
-          >
-            I Understand
-          </button>
+        <footer className="relative z-10 shrink-0 border-t border-white/10 bg-[rgba(2,8,23,0.9)] px-5 pb-5 pt-4">
+          <div className="mb-3 flex items-center justify-center gap-1.5">
+            {CLARA_COMMITMENT_BOOKLET_PAGES.map((bookletItem, index) => (
+              <button
+                key={bookletItem.label}
+                type="button"
+                onClick={() => setBookletPage(index)}
+                className={`h-1.5 rounded-full transition-all ${
+                  index === bookletPage ? "w-6 bg-white/70" : "w-1.5 bg-white/24"
+                }`}
+                aria-label={`Go to ${bookletItem.label}`}
+              />
+            ))}
+          </div>
+
+          <div className="grid grid-cols-[0.72fr_1fr] gap-2.5">
+            <button
+              type="button"
+              onClick={goToPreviousPage}
+              disabled={isFirstPage}
+              className="rounded-[22px] border border-white/12 bg-white/[0.055] px-4 py-3 text-sm font-black text-white/62 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-35 active:scale-[0.99]"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={goToNextPage}
+              className="rounded-[22px] border border-white/16 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/90 transition hover:bg-white/[0.14] active:scale-[0.99]"
+            >
+              {isFinalPage ? "Start My Commitment" : "Continue"}
+            </button>
+          </div>
         </footer>
       </div>
     </div>
