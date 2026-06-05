@@ -20,6 +20,14 @@
   z-index: 14 !important;
 }
 
+/* Let the middle insight card breathe downward into the open space above the signal dock. */
+#root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] {
+  min-height: clamp(104px, 28vw, 116px) !important;
+  margin-bottom: -10px !important;
+  padding-bottom: clamp(16px, 4.2vw, 20px) !important;
+  box-sizing: border-box !important;
+}
+
 @media (max-height: 760px) {
   #root [data-clara-young-pro-layout="true"] > section:first-of-type img {
     object-position: center 20% !important;
@@ -33,6 +41,11 @@
   #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] + section {
     margin-top: -16px !important;
   }
+
+  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] {
+    min-height: 108px !important;
+    margin-bottom: -8px !important;
+  }
 }
 
 @media (max-width: 420px) {
@@ -43,5 +56,10 @@
 
   #root [data-clara-young-pro-layout="true"] section[class*="rounded-b-[30px]"] + section {
     margin-top: -17px !important;
+  }
+
+  #root [data-clara-young-pro-layout="true"] [data-clara-support-card="true"] {
+    min-height: 110px !important;
+    margin-bottom: -9px !important;
   }
 }
