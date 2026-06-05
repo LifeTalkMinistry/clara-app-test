@@ -86,8 +86,8 @@ export default function DailyTipCard() {
               </button>
             </div>
 
-            <div className="mt-5 max-w-[19.25rem] pr-1">
-              <p className="text-[11px] font-semibold leading-[1.58] text-cyan-50/72">
+            <div className="mt-[18px] max-w-[19.5rem] pr-2">
+              <p className="text-[11.6px] font-semibold leading-[1.5] text-cyan-50/74">
                 Explore without risking real records. Practice first so CLARA can show how it reads income, explains your setup, and guides decisions.
               </p>
             </div>
