@@ -94,19 +94,31 @@ export default function BudgetCard({
 
     if (!titleNode) return undefined;
 
-    const handleTitleTap = (event) => {
-      if (event.detail >= 2) {
-        event.preventDefault();
-        event.stopPropagation();
-        setShowPlanPreview(true);
+    let lastTitleTapAt = 0;
+
+    const openPlanPreview = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setShowPlanPreview(true);
+    };
+
+    const handleTitleClick = (event) => {
+      const now = Date.now();
+      const clickedTwice = event.detail >= 2 || now - lastTitleTapAt <= 520;
+      lastTitleTapAt = now;
+
+      if (clickedTwice) {
+        openPlanPreview(event);
       }
     };
 
     titleNode.classList.add("cursor-pointer", "select-none");
-    titleNode.addEventListener("click", handleTitleTap);
+    titleNode.style.touchAction = "manipulation";
+    titleNode.addEventListener("click", handleTitleClick, true);
 
     return () => {
-      titleNode.removeEventListener("click", handleTitleTap);
+      titleNode.removeEventListener("click", handleTitleClick, true);
+      titleNode.style.touchAction = "";
     };
   }, [expanded]);
 
