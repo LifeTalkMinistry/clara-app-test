@@ -6,6 +6,10 @@ import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
 
+const CLARA_COMMITMENT_PRODUCT_ID = "clara_commitment_249";
+const CLARA_COMMITMENT_UNLOCK_PLAN = "life_os_499";
+const CLARA_COMMITMENT_ACCESS_LEVEL = "life_os";
+
 const CLARA_COMMITMENT_BOOKLET_PAGES = [
   {
     label: "Page 1",
@@ -137,16 +141,77 @@ function readPlanPreview() {
   }
 }
 
+async function openGooglePlayCommitmentPurchase() {
+  if (typeof window === "undefined") {
+    throw new Error("Google Play Billing is only available inside the installed Android app.");
+  }
+
+  const purchaseApi = window.CdvPurchase;
+  const store = purchaseApi?.store;
+
+  if (!store) {
+    throw new Error(
+      `Google Play Billing is not available in this preview. Build the Android app and create the ${CLARA_COMMITMENT_PRODUCT_ID} subscription product in Google Play Console.`
+    );
+  }
+
+  const platform = purchaseApi?.Platform?.GOOGLE_PLAY || "google-play";
+  const productType =
+    purchaseApi?.ProductType?.PAID_SUBSCRIPTION ||
+    purchaseApi?.ProductType?.SUBSCRIPTION ||
+    "paid subscription";
+
+  if (!store.__claraCommitmentProductRegistered) {
+    store.register([
+      {
+        id: CLARA_COMMITMENT_PRODUCT_ID,
+        type: productType,
+        platform,
+      },
+    ]);
+    store.__claraCommitmentProductRegistered = true;
+  }
+
+  if (!store.__claraCommitmentStoreInitialized) {
+    await Promise.resolve(store.initialize([platform]));
+    store.__claraCommitmentStoreInitialized = true;
+  } else if (typeof store.update === "function") {
+    await Promise.resolve(store.update());
+  }
+
+  const product = store.get?.(CLARA_COMMITMENT_PRODUCT_ID, platform) || store.get?.(CLARA_COMMITMENT_PRODUCT_ID);
+  const offer = product?.getOffer?.();
+
+  if (!offer?.order) {
+    throw new Error(
+      `Google Play product ${CLARA_COMMITMENT_PRODUCT_ID} is not ready yet. Make sure it is active in Play Console and synced in the Android build.`
+    );
+  }
+
+  const orderResult = await Promise.resolve(offer.order());
+
+  if (orderResult?.isError || orderResult?.error) {
+    throw new Error(orderResult?.message || orderResult?.error?.message || "Google Play purchase was not completed.");
+  }
+
+  return orderResult;
+}
+
 function ClaraCommitmentBookletModal({ open, onClose }) {
   const [bookletPage, setBookletPage] = useState(0);
   const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseMessage, setPurchaseMessage] = useState("");
   const carouselRef = useRef(null);
+  const { user, refreshUser } = useUserRole();
 
   useEffect(() => {
     if (!open) return;
 
     setBookletPage(0);
     setCommitmentOfferOpen(false);
+    setPurchaseBusy(false);
+    setPurchaseMessage("");
 
     window.requestAnimationFrame(() => {
       carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
@@ -154,6 +219,68 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
   }, [open]);
 
   if (!open) return null;
+
+  const activateCommitmentAccess = async () => {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    const activeUserId = user?.id || authUser?.id;
+    const activeEmail = user?.email || authUser?.email || null;
+
+    if (!activeUserId) {
+      throw new Error("Please sign in first before starting your CLARA commitment.");
+    }
+
+    const now = new Date().toISOString();
+
+    const { error } = await supabase.from("profiles").upsert(
+      {
+        id: activeUserId,
+        email: activeEmail,
+        plan: CLARA_COMMITMENT_UNLOCK_PLAN,
+        plan_key: CLARA_COMMITMENT_UNLOCK_PLAN,
+        subscription_plan: CLARA_COMMITMENT_UNLOCK_PLAN,
+        access_level: CLARA_COMMITMENT_ACCESS_LEVEL,
+        subscription_status: "active",
+        subscription_label: "CLARA Commitment",
+        enrollment_source: "google_play",
+        enrollment_status: "approved",
+        status: "active",
+        is_enrolled: true,
+        program_active: true,
+        entitlement_status: "active",
+        activation_status: "active",
+        is_activated: true,
+        activated_at: now,
+      },
+      { onConflict: "id" }
+    );
+
+    if (error) throw error;
+
+    await refreshUser?.();
+  };
+
+  const handleGooglePlayCommitment = async () => {
+    if (purchaseBusy) return;
+
+    setPurchaseBusy(true);
+    setPurchaseMessage("Opening Google Play...");
+
+    try {
+      await openGooglePlayCommitmentPurchase();
+      setPurchaseMessage("Activating your CLARA commitment...");
+      await activateCommitmentAccess();
+      setPurchaseMessage("Commitment active. Unlocking CLARA...");
+      onClose();
+    } catch (error) {
+      console.error("CLARA Google Play commitment failed:", error);
+      setPurchaseMessage(error?.message || "Google Play purchase could not be completed yet.");
+    } finally {
+      setPurchaseBusy(false);
+    }
+  };
 
   const goToPage = (targetPage) => {
     const nextPage = Math.min(
@@ -250,6 +377,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
+                  setPurchaseMessage("");
                   setCommitmentOfferOpen(true);
                 }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
@@ -315,7 +443,9 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
         {commitmentOfferOpen ? (
           <div
             className="absolute inset-0 z-40 flex items-center justify-center bg-[#020817]/84 px-5 backdrop-blur-sm"
-            onClick={() => setCommitmentOfferOpen(false)}
+            onClick={() => {
+              if (!purchaseBusy) setCommitmentOfferOpen(false);
+            }}
           >
             <div
               className="relative w-full max-w-[340px] rounded-[32px] border border-cyan-100/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_42%),#081122] px-6 py-6 text-center text-white shadow-[0_24px_70px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
@@ -323,9 +453,12 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             >
               <button
                 type="button"
-                onClick={() => setCommitmentOfferOpen(false)}
+                onClick={() => {
+                  if (!purchaseBusy) setCommitmentOfferOpen(false);
+                }}
                 className="absolute right-4 top-4 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
                 aria-label="Close commitment price"
+                disabled={purchaseBusy}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -353,18 +486,26 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 10% of every monthly commitment goes into the CLARA Charity Fund.
               </p>
 
+              {purchaseMessage ? (
+                <p className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-bold leading-5 text-white/62">
+                  {purchaseMessage}
+                </p>
+              ) : null}
+
               <div className="mt-5 grid grid-cols-1 gap-2">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99]"
+                  onClick={handleGooglePlayCommitment}
+                  disabled={purchaseBusy}
+                  className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Continue for ₱249
+                  {purchaseBusy ? "Opening Google Play..." : "Continue for ₱249"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCommitmentOfferOpen(false)}
-                  className="rounded-full px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64"
+                  disabled={purchaseBusy}
+                  className="rounded-full px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Not now
                 </button>
