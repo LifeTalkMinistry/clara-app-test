@@ -30,23 +30,23 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817]/76 px-4 py-[max(14px,env(safe-area-inset-top))] backdrop-blur-lg"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#020817]/88 px-4 py-[max(14px,env(safe-area-inset-top))] backdrop-blur-xl"
       onClick={onClose}
     >
       <div
-        className="relative flex h-[86dvh] max-h-[720px] w-full max-w-[440px] flex-col overflow-hidden rounded-[34px] border border-white/14 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.12),transparent_38%),rgba(9,18,36,0.9)] text-white shadow-[0_26px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+        className="relative flex h-[86dvh] max-h-[720px] w-full max-w-[440px] flex-col overflow-hidden rounded-[34px] border border-white/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.1),transparent_36%),rgba(5,10,23,0.98)] text-white shadow-[0_28px_96px_rgba(0,0,0,0.64)] backdrop-blur-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/30" />
-        <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/28" />
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-cyan-400/8 blur-3xl" />
 
-        <header className="relative z-10 shrink-0 border-b border-white/10 bg-black/10 px-5 pb-4 pt-5">
+        <header className="relative z-10 shrink-0 border-b border-white/10 bg-[rgba(2,8,23,0.82)] px-5 pb-4 pt-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/48">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/56">
                 CLARA Commitment Booklet
               </p>
-              <h2 className="mt-2 text-xl font-black tracking-[-0.04em] text-white/94">
+              <h2 className="mt-2 text-xl font-black tracking-[-0.04em] text-white/96">
                 Before you continue
               </h2>
             </div>
@@ -54,7 +54,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-full border border-white/14 bg-white/[0.075] p-2.5 text-white/62 transition hover:bg-white/[0.1] hover:text-white"
+              className="shrink-0 rounded-full border border-white/16 bg-white/[0.09] p-2.5 text-white/70 transition hover:bg-white/[0.12] hover:text-white"
               aria-label="Close commitment booklet"
             >
               <X className="h-4 w-4" />
@@ -64,64 +64,64 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
 
         <div className="relative z-10 flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="space-y-3.5">
-            <section className="rounded-[26px] border border-white/12 bg-white/[0.065] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/48">
+            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.92)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
                 This is not just tracking
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/72">
+              <p className="mt-2 text-sm font-semibold leading-6 text-white/78">
                 CLARA is designed to help you pause, reflect, and make calmer money decisions before your habits control the outcome.
               </p>
             </section>
 
-            <section className="rounded-[26px] border border-white/12 bg-white/[0.055] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/48">
+            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.88)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
                 What commitment means
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/72">
+              <p className="mt-2 text-sm font-semibold leading-6 text-white/78">
                 Commitment means being honest with your records, checking your money before spending, and allowing small daily decisions to build long-term discipline.
               </p>
             </section>
 
-            <section className="rounded-[26px] border border-white/12 bg-white/[0.055] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/48">
+            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.88)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
                 What CLARA will ask from you
               </p>
-              <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-white/72">
+              <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-white/78">
                 <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/40" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
                   <span>Record honestly</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/40" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
                   <span>Pause before impulse spending</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/40" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
                   <span>Review your money with clarity</span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/40" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-white/48" />
                   <span>Build consistency one decision at a time</span>
                 </li>
               </ul>
             </section>
 
-            <section className="rounded-[26px] border border-white/12 bg-white/[0.055] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/48">
+            <section className="rounded-[26px] border border-white/14 bg-[rgba(8,18,40,0.88)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
                 The purpose
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/72">
+              <p className="mt-2 text-sm font-semibold leading-6 text-white/78">
                 This experience is not about pressure. It is about helping you become more aware, more prepared, and more intentional with your money.
               </p>
             </section>
           </div>
         </div>
 
-        <footer className="relative z-10 shrink-0 border-t border-white/10 bg-black/15 px-5 pb-5 pt-4">
+        <footer className="relative z-10 shrink-0 border-t border-white/10 bg-[rgba(2,8,23,0.86)] px-5 pb-5 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-[22px] border border-white/14 bg-white/[0.09] px-4 py-3 text-sm font-black text-white/86 transition hover:bg-white/[0.12] active:scale-[0.99]"
+            className="w-full rounded-[22px] border border-white/16 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/9 0 transition hover:bg-white/[0.14] active:scale-[0.99]"
           >
             I Understand
           </button>
