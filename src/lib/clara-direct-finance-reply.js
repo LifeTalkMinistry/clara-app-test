@@ -300,6 +300,21 @@ Write the final CLARA reply now.`,
   };
 }
 
+function asGroundedPackage(packageData = {}) {
+  return {
+    ...packageData,
+    toString() {
+      return String(packageData.localFallbackReply || "");
+    },
+    valueOf() {
+      return String(packageData.localFallbackReply || "");
+    },
+    [Symbol.toPrimitive]() {
+      return String(packageData.localFallbackReply || "");
+    },
+  };
+}
+
 export function buildTransactionHubGroundedReply(message = "", context = {}) {
   const filters = detectTransactionQuery(message);
   if (!filters) return { handled: false };
@@ -307,27 +322,27 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
   const snapshot = getTransactionHubSnapshot(context);
 
   if (!snapshot || snapshot.connected !== true) {
-    return {
+    return asGroundedPackage({
       handled: true,
       localFallbackReply: noConnectionReply(),
       shouldUseGemini: false,
       geminiPrompt: "",
       facts: { reason: "transaction_hub_not_connected" },
       source: "transaction_hub_grounded",
-    };
+    });
   }
 
   if (filters.asksWhereTransferred) {
     const records = getMatchingRecords(snapshot, filters);
     const localFallbackReply = whereTransferredReply(snapshot, filters);
 
-    return {
+    return asGroundedPackage({
       handled: true,
       localFallbackReply,
       shouldUseGemini: records.length > 0,
       ...buildGroundedGeminiPrompt({ message, records, filters, localFallbackReply }),
       source: "transaction_hub_grounded",
-    };
+    });
   }
 
   const records = getMatchingRecords(snapshot, filters);
@@ -337,25 +352,25 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
   logTransactionHubAiReader("Matched records:", records.length);
 
   if (!records.length) {
-    return {
+    return asGroundedPackage({
       handled: true,
       localFallbackReply: noRecordsReply(filters),
       shouldUseGemini: false,
       geminiPrompt: "",
       facts: { queryLabel, matchedRecords: [], summary: summarizeTransactionRecords([]) },
       source: "transaction_hub_grounded",
-    };
+    });
   }
 
   const localFallbackReply = filters.latest ? latestTransactionReply(records[0]) : recordsReply(records, filters);
 
-  return {
+  return asGroundedPackage({
     handled: true,
     localFallbackReply,
     shouldUseGemini: true,
     ...buildGroundedGeminiPrompt({ message, records, filters, localFallbackReply }),
     source: "transaction_hub_grounded",
-  };
+  });
 }
 
 export function buildContextualFinanceReply(message = "", context = {}) {
