@@ -4,6 +4,7 @@ import {
   upsertLocalRecord,
   hardDeleteLocalRecord,
 } from "./localFinanceStore.js";
+import { resolveFinanceLocalUserId } from "./claraActiveDemoUser.js";
 
 const STORE_NAME = LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 const RECORD_KIND = "income_source";
@@ -49,8 +50,7 @@ const getSourceBalance = (source) =>
   toIncomeHubNumber(source?.currentBalance ?? source?.current_balance ?? getSourceMoneyIn(source) - getSourceMoneyOut(source));
 
 export function getIncomeHubLocalUserId(user) {
-  const value = user?.id || user?.email || "local-user";
-  return String(value || "local-user").trim() || "local-user";
+  return resolveFinanceLocalUserId(user, "local-user");
 }
 
 export function getIncomeSourceRemovalPlan(source = {}) {
