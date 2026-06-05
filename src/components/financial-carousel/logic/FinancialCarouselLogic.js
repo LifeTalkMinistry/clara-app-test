@@ -20,7 +20,6 @@ export const getDefaultCarouselIndex = (items = []) => {
 
 export const getCarouselData = ({
   monthlyBudgetPlan,
-  thisMonthSpent = 0,
   savingsGoals = [],
   totalSavingsSaved = 0,
   totalSavingsTarget = 0,
@@ -58,7 +57,7 @@ export const getCarouselData = ({
           survivalExpense
         ) > 0);
 
-  const budgetData = normalizeCarouselBudgetPlan(monthlyBudgetPlan || {}, thisMonthSpent);
+  const budgetData = normalizeCarouselBudgetPlan(monthlyBudgetPlan || {});
 
   const safeSavingsGoals = Array.isArray(savingsGoals)
     ? savingsGoals
