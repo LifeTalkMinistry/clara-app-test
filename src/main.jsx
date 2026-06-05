@@ -62,6 +62,7 @@ import "./life-stage-young-professional-overlap-fix.css";
 import "./me-life-stage-signal-gap-fix.css";
 import "./savings-goals-modal-polish.css";
 import "./finance-action-modal-copy-polish.css";
+import "./emergency-fund-header-copy-fit.css";
 import "./settings-hide-theme-appearance.js";
 import "./clara-settings-young-professional-current-state.js";
 import "./clara-buy-check-bottom-position.css";
