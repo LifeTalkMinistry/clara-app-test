@@ -4,6 +4,10 @@ import {
   upsertLocalRecord,
   hardDeleteLocalRecord,
 } from "./localFinanceStore.js";
+import {
+  ACTIVE_CURRENT_STATE_KEY,
+  SAMPLE_DATA_LOCAL_USER_ID,
+} from "./clara-young-professional-current-state.js";
 
 const STORE_NAME = LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 const RECORD_KIND = "income_source";
@@ -47,6 +51,24 @@ const getSourceMoneyIn = (source) => toIncomeHubNumber(source?.totalMoneyIn ?? s
 const getSourceMoneyOut = (source) => toIncomeHubNumber(source?.totalMoneyOut ?? source?.total_money_out);
 const getSourceBalance = (source) =>
   toIncomeHubNumber(source?.currentBalance ?? source?.current_balance ?? getSourceMoneyIn(source) - getSourceMoneyOut(source));
+
+function getActiveSampleDataUserId() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(ACTIVE_CURRENT_STATE_KEY) || "null");
+    if (parsed?.mode !== "current_state" || parsed?.dataMode !== "sample_data") return null;
+    return String(parsed.demoLocalUserId || SAMPLE_DATA_LOCAL_USER_ID).trim() || SAMPLE_DATA_LOCAL_USER_ID;
+  } catch {
+    return null;
+  }
+}
+
+function getIncomeHubReadUserId(localUserId) {
+  const sampleUserId = getActiveSampleDataUserId();
+  if (sampleUserId && String(localUserId || "") !== sampleUserId) return sampleUserId;
+  return localUserId;
+}
 
 export function getIncomeHubLocalUserId(user) {
   const value = user?.id || user?.email || "local-user";
@@ -148,7 +170,8 @@ const sortNewest = (sources) =>
   });
 
 export async function getIncomeSources(localUserId) {
-  const records = await getLocalRecords(STORE_NAME, localUserId);
+  const readLocalUserId = getIncomeHubReadUserId(localUserId);
+  const records = await getLocalRecords(STORE_NAME, readLocalUserId);
   return sortNewest(
     (records || []).filter(
       (record) =>
