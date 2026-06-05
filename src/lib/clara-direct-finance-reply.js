@@ -82,6 +82,10 @@ function summarizeLabel(filters) {
   return "all";
 }
 
+function hasTypeFilter(filters = {}) {
+  return Boolean(filters.income || filters.expense || filters.transfer || filters.savings || filters.wallet || filters.emergencyFund);
+}
+
 function detectTransactionQuery(message = "") {
   const text = normalizeText(message);
   if (!text) return null;
@@ -219,7 +223,7 @@ function buildTransactionHubDirectReply(message, context = {}) {
   logTransactionHubAiReader("Matched records:", records.length);
 
   if (filters.latest) {
-    const latest = records[0] || snapshot.latestTransaction || null;
+    const latest = records[0] || (hasTypeFilter(filters) ? null : snapshot.latestTransaction || null);
     return latest ? latestTransactionReply(latest) : noRecordsReply(filters);
   }
 
