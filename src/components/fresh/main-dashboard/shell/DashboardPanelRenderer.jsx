@@ -139,65 +139,25 @@ function readPlanPreview() {
 function ClaraCommitmentBookletModal({ open, onClose }) {
   const [bookletPage, setBookletPage] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
-  const [pageTurnDirection, setPageTurnDirection] = useState(1);
-  const [pageMotion, setPageMotion] = useState("settled");
 
   useEffect(() => {
-    if (open) {
-      setBookletPage(0);
-      setPageTurnDirection(1);
-      setPageMotion("settled");
-    }
+    if (open) setBookletPage(0);
   }, [open]);
-
-  useEffect(() => {
-    if (!open || pageMotion !== "entering") return undefined;
-
-    const frame = window.requestAnimationFrame(() => {
-      setPageMotion("settled");
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [bookletPage, open, pageMotion]);
 
   if (!open) return null;
 
-  const page = CLARA_COMMITMENT_BOOKLET_PAGES[bookletPage];
-  const isFinalPage = bookletPage === CLARA_COMMITMENT_BOOKLET_PAGES.length - 1;
-  const isDensePage =
-    (page.paragraphs?.length || 0) +
-      (page.bullets?.length || 0) +
-      (page.checks?.length || 0) +
-      (page.closingParagraphs?.length || 0) >
-    10;
-  const pageTextClass = isDensePage
-    ? "mt-4 space-y-2.5 text-[clamp(0.84rem,2.95vw,0.98rem)] font-bold leading-[1.5] text-slate-100/88"
-    : "mt-5 space-y-3 text-[clamp(0.92rem,3.05vw,1.03rem)] font-bold leading-[1.62] text-slate-100/88";
-  const contentOffsetClass = isDensePage ? "" : "-translate-y-[3%]";
-  const pageTurnClass =
-    pageMotion === "entering"
-      ? `${pageTurnDirection > 0 ? "translate-x-8" : "-translate-x-8"} opacity-0 scale-[0.985]`
-      : "translate-x-0 opacity-100 scale-100";
-
-  const turnToPage = (targetPage) => {
-    const nextPage = Math.min(
-      Math.max(targetPage, 0),
-      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
+  const goToPage = (targetPage) => {
+    setBookletPage(
+      Math.min(Math.max(targetPage, 0), CLARA_COMMITMENT_BOOKLET_PAGES.length - 1)
     );
-
-    if (nextPage === bookletPage) return;
-
-    setPageTurnDirection(nextPage > bookletPage ? 1 : -1);
-    setPageMotion("entering");
-    setBookletPage(nextPage);
   };
 
   const goToPreviousPage = () => {
-    turnToPage(bookletPage - 1);
+    goToPage(bookletPage - 1);
   };
 
   const goToNextPage = () => {
-    turnToPage(bookletPage + 1);
+    goToPage(bookletPage + 1);
   };
 
   const handleTouchStart = (event) => {
@@ -218,6 +178,79 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     }
 
     setTouchStartX(null);
+  };
+
+  const renderBookletPage = (bookletItem, index) => {
+    const isFinalPage = index === CLARA_COMMITMENT_BOOKLET_PAGES.length - 1;
+    const isDensePage =
+      (bookletItem.paragraphs?.length || 0) +
+        (bookletItem.bullets?.length || 0) +
+        (bookletItem.checks?.length || 0) +
+        (bookletItem.closingParagraphs?.length || 0) >
+      10;
+    const pageTextClass = isDensePage
+      ? "mt-4 space-y-2.5 text-[clamp(0.84rem,2.95vw,0.98rem)] font-bold leading-[1.5] text-slate-100/88"
+      : "mt-5 space-y-3 text-[clamp(0.92rem,3.05vw,1.03rem)] font-bold leading-[1.62] text-slate-100/88";
+    const contentOffsetClass = isDensePage ? "" : "-translate-y-[3%]";
+
+    return (
+      <article
+        key={bookletItem.label}
+        className="flex min-h-0 w-full min-w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]"
+      >
+        <div className={contentOffsetClass}>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
+            {index + 1 < 10 ? `0${index + 1}` : index + 1} / {bookletItem.label.toUpperCase()}
+          </p>
+
+          <h2 className="mt-3 text-[clamp(1.58rem,6.4vw,2.1rem)] font-black leading-[1.05] tracking-[-0.055em] text-white">
+            {bookletItem.title}
+          </h2>
+
+          <div className={pageTextClass}>
+            {bookletItem.paragraphs?.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+
+            {bookletItem.bullets ? (
+              <ul className="space-y-2">
+                {bookletItem.bullets.map((bullet) => (
+                  <li key={bullet} className="flex gap-2.5">
+                    <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-200/70" />
+                    <span>{bullet}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {bookletItem.checks ? (
+              <ul className="space-y-2">
+                {bookletItem.checks.map((check) => (
+                  <li key={check} className="flex gap-2.5 text-white/92">
+                    <span className="shrink-0 text-cyan-100/72">✓</span>
+                    <span>{check}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {bookletItem.closingParagraphs?.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+
+            {isFinalPage ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
+              >
+                Start My Commitment
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </article>
+    );
   };
 
   return (
@@ -252,62 +285,12 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <article
-            key={bookletPage}
-            className={`flex min-h-0 w-full flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)] transition-all duration-300 ease-out will-change-transform ${pageTurnClass}`}
+          <div
+            className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform"
+            style={{ transform: `translateX(-${bookletPage * 100}%)` }}
           >
-            <div className={contentOffsetClass}>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
-                {bookletPage + 1 < 10 ? `0${bookletPage + 1}` : bookletPage + 1} / {page.label.toUpperCase()}
-              </p>
-
-              <h2 className="mt-3 text-[clamp(1.58rem,6.4vw,2.1rem)] font-black leading-[1.05] tracking-[-0.055em] text-white">
-                {page.title}
-              </h2>
-
-              <div className={pageTextClass}>
-                {page.paragraphs?.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
-                ))}
-
-                {page.bullets ? (
-                  <ul className="space-y-2">
-                    {page.bullets.map((bullet) => (
-                      <li key={bullet} className="flex gap-2.5">
-                        <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-200/70" />
-                        <span>{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                {page.checks ? (
-                  <ul className="space-y-2">
-                    {page.checks.map((check) => (
-                      <li key={check} className="flex gap-2.5 text-white/92">
-                        <span className="shrink-0 text-cyan-100/72">✓</span>
-                        <span>{check}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                {page.closingParagraphs?.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
-                ))}
-
-                {isFinalPage ? (
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
-                  >
-                    Start My Commitment
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </article>
+            {CLARA_COMMITMENT_BOOKLET_PAGES.map(renderBookletPage)}
+          </div>
         </div>
 
         <div className="relative z-10 mt-4 flex justify-center gap-1.5">
@@ -315,7 +298,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             <button
               key={bookletItem.label}
               type="button"
-              onClick={() => turnToPage(index)}
+              onClick={() => goToPage(index)}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 index === bookletPage ? "w-6 bg-cyan-100/64" : "w-1.5 bg-cyan-100/22"
               }`}
