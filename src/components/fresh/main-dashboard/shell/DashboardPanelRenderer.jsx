@@ -139,12 +139,14 @@ function readPlanPreview() {
 
 function ClaraCommitmentBookletModal({ open, onClose }) {
   const [bookletPage, setBookletPage] = useState(0);
+  const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
   const carouselRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
 
     setBookletPage(0);
+    setCommitmentOfferOpen(false);
 
     window.requestAnimationFrame(() => {
       carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
@@ -246,7 +248,10 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             {isFinalPage ? (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setCommitmentOfferOpen(true);
+                }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
               >
                 Start My Commitment
@@ -306,6 +311,67 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
             />
           ))}
         </div>
+
+        {commitmentOfferOpen ? (
+          <div
+            className="absolute inset-0 z-40 flex items-center justify-center bg-[#020817]/84 px-5 backdrop-blur-sm"
+            onClick={() => setCommitmentOfferOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-[340px] rounded-[32px] border border-cyan-100/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_42%),#081122] px-6 py-6 text-center text-white shadow-[0_24px_70px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setCommitmentOfferOpen(false)}
+                className="absolute right-4 top-4 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
+                aria-label="Close commitment price"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
+                Monthly Commitment
+              </p>
+              <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">
+                So? You are ready to commit?
+              </h3>
+              <p className="mx-auto mt-3 max-w-[260px] text-sm font-bold leading-6 text-white/68">
+                Start your journey toward financial freedom with CLARA’s guided money decision experience.
+              </p>
+
+              <div className="mt-5 rounded-[26px] border border-white/14 bg-white/[0.08] px-5 py-5">
+                <p className="text-[3rem] font-black leading-none tracking-[-0.08em] text-white">
+                  ₱249
+                </p>
+                <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/48">
+                  per month
+                </p>
+              </div>
+
+              <p className="mt-4 text-xs font-bold leading-5 text-white/52">
+                10% of every monthly commitment goes into the CLARA Charity Fund.
+              </p>
+
+              <div className="mt-5 grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99]"
+                >
+                  Continue for ₱249
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCommitmentOfferOpen(false)}
+                  className="rounded-full px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64"
+                >
+                  Not now
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );
