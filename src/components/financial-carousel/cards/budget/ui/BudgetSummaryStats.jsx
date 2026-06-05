@@ -1,6 +1,7 @@
 import { fmt } from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 
 export default function BudgetSummaryStats({
+  declared = 0,
   remaining = 0,
   spent = 0,
   progress = 0,
@@ -10,6 +11,9 @@ export default function BudgetSummaryStats({
 }) {
   const roundedProgress = Math.round(progress);
   const statusLabel = status?.label || (hasDeclaredBudget ? "Healthy" : "No Plan");
+  const remainingMessage = hasDeclaredBudget
+    ? `${fmt(remaining)} left out of your ${fmt(declared)} budget.`
+    : "Create this cycle’s spending plan first.";
   const summaryTiles = [
     {
       label: "Spent",
@@ -41,7 +45,7 @@ export default function BudgetSummaryStats({
         </p>
 
         <p className="mt-2 text-sm font-semibold leading-tight text-white/76">
-          Available to spend this month.
+          {remainingMessage}
         </p>
       </div>
 
