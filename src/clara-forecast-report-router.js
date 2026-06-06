@@ -13,6 +13,7 @@ const OPEN_EVENT = "clara:open-forecast-report";
 const READY_EVENT = "clara:forecast-phase-one-ready";
 const ACTION_SELECTOR = "[data-clara-open-forecast-report='true']";
 const HORIZON_SELECTOR = "[data-clara-forecast-horizon]";
+const REPORT_TONES = new Set(["neutral", "reality", "hope", "possibility"]);
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -25,6 +26,18 @@ function escapeHtml(value = "") {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function reportTone(value = "neutral") {
+  const tone = clean(value).toLowerCase();
+  return REPORT_TONES.has(tone) ? tone : "neutral";
+}
+
+function reportCardClass(card = {}) {
+  const classes = ["clara-forecast-report-card"];
+  if (card.final) classes.push("is-final");
+  classes.push(`is-${reportTone(card.tone)}`);
+  return classes.join(" ");
 }
 
 function getState() {
@@ -146,6 +159,22 @@ function statRows(stats = []) {
   `).join("");
 }
 
+function cardHero(card = {}) {
+  if (!card.hero) return "";
+  return `<div class="clara-forecast-report-hero">${escapeHtml(card.hero)}</div>`;
+}
+
+function finalCardExtras(card = {}, report = {}) {
+  if (!card.final) return "";
+  const readinessBlock = report.type === "readiness"
+    ? `<div class="clara-forecast-report-missing"><p>Missing data list</p>${missingDataHtml(card.missingData)}</div>`
+    : "";
+  const cta = card.ctaLabel
+    ? `<button type="button" class="clara-forecast-report-final-cta" data-clara-forecast-report-close="true">${escapeHtml(card.ctaLabel)}</button>`
+    : "";
+  return `${readinessBlock}${cta}`;
+}
+
 function horizonGrid(snapshot = {}) {
   const summary = getClaraForecastHorizonSummary(snapshot);
   const allowed = new Set(summary.eligibleMonths || []);
@@ -235,12 +264,13 @@ function renderReport(snapshot, horizonMonths = 1) {
       </header>
       <div class="clara-forecast-report-track" aria-label="Future Money Forecast report slides">
         ${report.cards.map((card) => `
-          <article class="clara-forecast-report-card ${card.final ? `is-final is-${card.tone || "ready"}` : ""}">
+          <article class="${reportCardClass(card)}">
             <p class="clara-forecast-report-eyebrow">${escapeHtml(card.eyebrow)}</p>
             <h3>${escapeHtml(card.title)}</h3>
+            ${cardHero(card)}
             <div class="clara-forecast-report-stats">${statRows(card.stats)}</div>
             <p class="clara-forecast-report-body">${escapeHtml(card.body)}</p>
-            ${card.final ? `<div class="clara-forecast-report-missing"><p>${report.type === "readiness" ? "Missing data list" : "Final note"}</p>${missingDataHtml(card.missingData)}</div>` : ""}
+            ${finalCardExtras(card, report)}
           </article>
         `).join("")}
       </div>
