@@ -80,7 +80,7 @@ const getStatusMeta = (sourceCount) => {
       badge: `${sourceCount} sources`,
       mainLabel: "Income sources",
       statusValue: "Mapped",
-      description: "CLARA can now compare salary, business, side hustle, and other income sources.",
+      description: "Track every place where money comes from.",
       primaryAction: "Open Income Hub",
       secondaryAction: "Ask CLARA About Income",
     };
