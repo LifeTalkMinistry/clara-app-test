@@ -13,6 +13,7 @@ export function buildGroundedIncomeHubBlock(context = {}) {
   const records = Array.isArray(facts.matchedRecords) ? facts.matchedRecords : [];
   const sourceRoots = Array.isArray(facts.sourceRoots) ? facts.sourceRoots : [];
   const summary = facts.summary || {};
+  const localFallbackReply = facts.localFallbackReply || packageData.localFallbackReply || "";
 
   return `GROUNDING MODE ACTIVE: Income Hub Grounded Gemini Composer
 
@@ -25,6 +26,12 @@ Receiving wallet means where the money was received or stored.
 Start the reply with: "I checked your Income Hub..."
 Keep the reply natural, concise, and mobile-chat friendly.
 Do not say Transaction Hub for this answer.
+Do not use uncertain wording like "might be", "probably", "maybe", "looks like", or "I think".
+If the receiving wallet is not shown, say exactly: "the receiving wallet is not shown in Income Hub."
+If you cannot compose a better answer from the verified facts, use the local fallback meaning below but rewrite it naturally.
+
+Local fallback meaning:
+${localFallbackReply || "No local fallback provided."}
 
 Verified matched income records:
 ${records.length ? records.map((record) => `${record.index}. ${record.incomeSourceName} | ${record.displayAmount} | Date: ${record.date} | Receiving wallet: ${record.destinationWalletName || "not shown"} | Source root: ${record.isSourceRoot ? "yes" : "no"} | Note: ${record.note || "none"}`).join("\n") : "No verified matched income records."}
