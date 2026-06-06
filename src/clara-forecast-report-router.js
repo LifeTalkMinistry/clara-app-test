@@ -44,6 +44,14 @@ function reportCardClass(card = {}) {
   return classes.join(" ");
 }
 
+function displayStats(card = {}) {
+  const stats = Array.isArray(card.stats) ? card.stats : [];
+  if (card.final && reportTone(card.tone) === "possibility") {
+    return stats.filter((item) => clean(item?.label).toLowerCase() !== "better-future lift");
+  }
+  return stats;
+}
+
 function getState() {
   window[STATE_KEY] = window[STATE_KEY] || { snapshot: null, effectiveContext: null, busy: false, selectedHorizonMonths: 1 };
   return window[STATE_KEY];
@@ -272,7 +280,7 @@ function renderReport(snapshot, horizonMonths = 1) {
             <p class="clara-forecast-report-eyebrow">${escapeHtml(card.eyebrow)}</p>
             <h3>${escapeHtml(card.title)}</h3>
             ${cardHero(card)}
-            <div class="clara-forecast-report-stats">${statRows(card.stats)}</div>
+            <div class="clara-forecast-report-stats">${statRows(displayStats(card))}</div>
             <p class="clara-forecast-report-body">${escapeHtml(card.body)}</p>
             ${finalCardExtras(card, report)}
           </article>
