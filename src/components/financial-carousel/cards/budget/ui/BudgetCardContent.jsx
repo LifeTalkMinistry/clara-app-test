@@ -200,8 +200,8 @@ function BudgetDriftDetailsModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/64 px-4 pb-6 pt-10 backdrop-blur-md sm:items-center sm:pb-0">
-      <div className="relative flex max-h-[min(620px,calc(100vh-72px))] w-full max-w-[352px] flex-col overflow-hidden rounded-[28px] border border-emerald-100/[0.12] bg-[linear-gradient(135deg,rgba(6,42,52,0.97),rgba(14,24,61,0.985)_48%,rgba(50,30,91,0.97))] shadow-[0_24px_80px_rgba(0,0,0,0.58),0_0_42px_rgba(45,212,191,0.09)]">
+    <div className="fixed inset-0 z-[10000] flex items-start justify-center bg-black/64 px-4 pb-6 pt-[128px] backdrop-blur-md">
+      <div className="relative flex max-h-[calc(100vh-150px)] w-full max-w-[352px] flex-col overflow-hidden rounded-[28px] border border-emerald-100/[0.12] bg-[linear-gradient(135deg,rgba(6,42,52,0.97),rgba(14,24,61,0.985)_48%,rgba(50,30,91,0.97))] shadow-[0_24px_80px_rgba(0,0,0,0.58),0_0_42px_rgba(45,212,191,0.09)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(45,212,191,0.12),transparent_34%),radial-gradient(circle_at_90%_100%,rgba(168,85,247,0.18),transparent_44%)]" />
         <div className="relative flex items-start justify-between gap-3 border-b border-white/[0.055] px-4 pb-3.5 pt-4">
           <div className="min-w-0">
