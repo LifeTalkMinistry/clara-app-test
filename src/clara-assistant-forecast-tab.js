@@ -2,6 +2,7 @@ const FORECAST_LABEL = "Forecast";
 const CORE_FEATURES_LABEL = "Core Features";
 const SMART_ACTIONS_LABELS = ["Smart Actions", "Analytic"];
 const FORECAST_ACTION_MATCHERS = ["Future Money Forecast", "Forecast"];
+const FORECAST_LOADING_ID = "clara-forecast-transition-loader";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -70,6 +71,32 @@ function relabelForecastTab() {
   });
 }
 
+function removeForecastLoader() {
+  document.getElementById(FORECAST_LOADING_ID)?.remove();
+}
+
+function showForecastLoader() {
+  const shell = getAssistantShell();
+  if (!shell) return;
+  removeForecastLoader();
+
+  const loader = document.createElement("div");
+  loader.id = FORECAST_LOADING_ID;
+  loader.className = "clara-forecast-transition-loader";
+  loader.innerHTML = `
+    <div class="clara-forecast-transition-card">
+      <div class="clara-forecast-transition-orb" aria-hidden="true"></div>
+      <p class="clara-forecast-transition-eyebrow">FUTURE MONEY FORECAST</p>
+      <h3>Preparing your forecast</h3>
+      <p>CLARA is reading local wallets, budgets, expenses, income, savings, and money pressure before showing the report.</p>
+      <div class="clara-forecast-transition-bar"><span></span></div>
+    </div>
+  `;
+  shell.appendChild(loader);
+
+  window.setTimeout(removeForecastLoader, 4200);
+}
+
 function submitForecastFallback() {
   const shell = getAssistantShell();
   const input = shell?.querySelector("input, textarea");
@@ -100,6 +127,7 @@ function clickSmartActionsPanel(button) {
 }
 
 function openForecastMode() {
+  showForecastLoader();
   const smartActionsButton = findButtonByAnyLabel(SMART_ACTIONS_LABELS);
   if (!smartActionsButton) {
     submitForecastFallback();
@@ -130,8 +158,21 @@ function installForecastClickCapture() {
   }, true);
 }
 
+function installForecastReadyCleaner() {
+  window.addEventListener("clara:forecast-phase-one-ready", removeForecastLoader);
+  document.addEventListener("click", (event) => {
+    if (event.target?.closest?.("[data-clara-open-forecast-report='true']")) removeForecastLoader();
+    if (event.target?.closest?.("[aria-label='Close CLARA AI mode']")) removeForecastLoader();
+  }, true);
+}
+
 function installForecastObserver() {
-  const observer = new MutationObserver(() => relabelForecastTab());
+  const observer = new MutationObserver(() => {
+    relabelForecastTab();
+    const shell = getAssistantShell();
+    if (!shell) removeForecastLoader();
+    if (shell && /Forecast snapshot ready|Forecast snapshot needs more records/i.test(shell.textContent || "")) removeForecastLoader();
+  });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   relabelForecastTab();
 }
@@ -140,6 +181,7 @@ function installClaraAssistantForecastTab() {
   if (typeof window === "undefined" || window.__CLARA_ASSISTANT_FORECAST_TAB_INSTALLED__) return;
   window.__CLARA_ASSISTANT_FORECAST_TAB_INSTALLED__ = true;
   installForecastClickCapture();
+  installForecastReadyCleaner();
   installForecastObserver();
 }
 
