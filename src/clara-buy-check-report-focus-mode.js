@@ -72,15 +72,18 @@ function normalizeDisplayItem(value = "") {
 }
 
 function getWalletId(wallet = {}) {
-  return clean(wallet.id ?? wallet.wallet_id ?? wallet.walletId ?? wallet.key ?? wallet.uuid ?? "");
+  const safeWallet = wallet || {};
+  return clean(safeWallet.id ?? safeWallet.wallet_id ?? safeWallet.walletId ?? safeWallet.key ?? safeWallet.uuid ?? "");
 }
 
 function getWalletName(wallet = {}) {
-  return clean(wallet.name || wallet.wallet_name || wallet.title || wallet.label || "Wallet");
+  const safeWallet = wallet || {};
+  return clean(safeWallet.name || safeWallet.wallet_name || safeWallet.title || safeWallet.label || "Wallet");
 }
 
 function getWalletBalance(wallet = {}) {
-  return toNumber(wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? wallet.available_balance ?? wallet.starting_balance ?? 0);
+  const safeWallet = wallet || {};
+  return toNumber(safeWallet.balance ?? safeWallet.current_balance ?? safeWallet.wallet_balance ?? safeWallet.available_balance ?? safeWallet.starting_balance ?? safeWallet.balanceNumber ?? 0);
 }
 
 function getWalletOptions(context = {}) {
@@ -178,7 +181,7 @@ function buildExpensePrefillFromBuyCheck(explanation = "", preferredWalletId = "
     category,
     wallet_id: wallet?.id ? String(wallet.id) : "",
     wallet_name: wallet?.name || "Selected wallet",
-    wallet_balance: wallet?.balanceNumber ?? getWalletBalance(wallet),
+    wallet_balance: wallet ? wallet.balanceNumber ?? getWalletBalance(wallet) : 0,
     notes: `${normalizeDisplayItem(purchase.item)}${finalExplanation ? ` — ${finalExplanation}` : ""}`,
     need_type: normalizeNeedType(`${originalReason} ${finalExplanation}`, category),
     planning_status: planningStatus,
@@ -421,7 +424,15 @@ function showDecisionExplanation(choice = "buy") {
   const decision = getFinalDecision() || "this recommendation";
   const isBuy = choice === "buy";
   const item = normalizeDisplayItem(purchase.item || "this purchase");
-  const payload = isBuy ? buildExpensePrefillFromBuyCheck("") : null;
+  let payload = null;
+  if (isBuy) {
+    try {
+      payload = buildExpensePrefillFromBuyCheck("");
+    } catch (error) {
+      console.warn("[CLARA Buy Check] Could not prefill expense safely", error);
+      payload = { wallet_id: "", wallet_name: "Choose wallet", wallet_balance: 0, amount: toNumber(purchase.price), planning_status: "unplanned" };
+    }
+  }
 
   const panel = document.createElement("div");
   panel.dataset.claraBuyCheckDecisionPanel = choice;
