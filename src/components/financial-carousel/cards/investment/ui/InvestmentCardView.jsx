@@ -1,4 +1,4 @@
-import { ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, WalletCards, X } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Pencil, Plus, Repeat2, Trash2, WalletCards, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +8,7 @@ import useInvestmentCardLogic, {
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
+import IncomeSourceAddMoneyModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceAddMoneyModal";
 import IncomeSourceCreateModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModal";
 import {
   deleteIncomeSource,
@@ -169,11 +170,20 @@ function IncomeSourcePreviewRow({ source, menuOpen, onToggleMenu, onAction }) {
             >
               <button
                 type="button"
-                onClick={(event) => handleMenuAction(event, "edit_income_source")}
+                onClick={(event) => handleMenuAction(event, "add_money")}
                 className={incomeMenuActionClass}
               >
-                <Pencil className="h-3.5 w-3.5 text-cyan-100" />
-                Edit income source
+                <Plus className="h-3.5 w-3.5 text-emerald-200" />
+                Add Money
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => handleMenuAction(event, "transfer_money")}
+                className={incomeMenuActionClass}
+              >
+                <Repeat2 className="h-3.5 w-3.5 text-sky-200" />
+                Transfer Money
               </button>
 
               <button
@@ -182,7 +192,16 @@ function IncomeSourcePreviewRow({ source, menuOpen, onToggleMenu, onAction }) {
                 className={`${incomeMenuActionClass} text-rose-100 hover:bg-rose-500/10`}
               >
                 <Trash2 className="h-3.5 w-3.5 text-rose-200" />
-                Delete income source
+                Delete
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => handleMenuAction(event, "edit_income_source")}
+                className={incomeMenuActionClass}
+              >
+                <Pencil className="h-3.5 w-3.5 text-cyan-100" />
+                Edit
               </button>
             </div>
           ) : null}
@@ -388,6 +407,7 @@ export default function InvestmentCardView({
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
   const localUserId = getIncomeHubLocalUserId(user);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [incomeSourceModal, setIncomeSourceModal] = useState({ type: null, source: null });
   const [sourceFormModal, setSourceFormModal] = useState({ open: false, source: null });
   const [removalSource, setRemovalSource] = useState(null);
   const [removalSaving, setRemovalSaving] = useState(false);
@@ -458,6 +478,11 @@ export default function InvestmentCardView({
 
   const handleSourceAction = (source, action) => {
     setOpenMenuId(null);
+
+    if (action === "add_money" || action === "transfer_money") {
+      setIncomeSourceModal({ type: action, source });
+      return;
+    }
 
     if (action === "edit_income_source") {
       setSourceFormModal({ open: true, source });
@@ -630,6 +655,13 @@ export default function InvestmentCardView({
           )}
         </FinanceCardShell>
       </div>
+
+      <IncomeSourceAddMoneyModal
+        open={incomeSourceModal.type === "add_money" || incomeSourceModal.type === "transfer_money"}
+        mode={incomeSourceModal.type}
+        source={incomeSourceModal.source}
+        onClose={() => setIncomeSourceModal({ type: null, source: null })}
+      />
 
       <IncomeSourceCreateModal
         open={sourceFormModal.open}
