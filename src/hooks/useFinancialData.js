@@ -30,6 +30,7 @@ import {
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
+import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 
 const FINANCE_INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
@@ -46,7 +47,8 @@ const toNumber = (value) => {
 
 const getLocalUserId = (user) => {
   const value = user?.id || user?.email || "local-user";
-  return String(value || "local-user").trim() || "local-user";
+  const realLocalUserId = String(value || "local-user").trim() || "local-user";
+  return getEffectiveDemoFinanceLocalUserId(realLocalUserId);
 };
 
 const removeDeletedRows = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => !row?.deletedAt && !row?.deleted_at);
@@ -94,8 +96,9 @@ const createEmptyFinancialCache = (key = null) => ({
 let financialDataCache = createEmptyFinancialCache();
 
 function useFinancialData(user) {
-  const localUserId = getLocalUserId(user);
-  const cacheKey = `${localUserId || "local-user"}::real_user`;
+  const [financeUserVersion, setFinanceUserVersion] = useState(0);
+  const localUserId = useMemo(() => getLocalUserId(user), [user?.id, user?.email, financeUserVersion]);
+  const cacheKey = `${localUserId || "local-user"}::finance_data`;
   const hasUsableCache = financialDataCache.loaded && financialDataCache.key === cacheKey;
   const initialCache = hasUsableCache ? financialDataCache : createEmptyFinancialCache(cacheKey);
 
@@ -215,6 +218,16 @@ function useFinancialData(user) {
     loadingPromiseRef.current = promise;
     return promise;
   }, [buildSafeCache, cacheKey, hydrateFromCache, localUserId]);
+
+  useEffect(() => {
+    const bumpFinanceUser = () => {
+      financialDataCache = createEmptyFinancialCache();
+      setFinanceUserVersion((version) => version + 1);
+    };
+    const events = ["clara:demo-data-loaded", "clara:finance-data-updated", "clara-finance-updated", "clara-local-finance-updated", "storage"];
+    events.forEach((eventName) => window.addEventListener(eventName, bumpFinanceUser));
+    return () => events.forEach((eventName) => window.removeEventListener(eventName, bumpFinanceUser));
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
