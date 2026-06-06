@@ -34,7 +34,7 @@ function getBudgetDriftState({ outsidePlanSpent = 0, spent = 0, declared = 0 }) 
     rate,
     label: "Watch zone",
     title: "Some spending went outside your plan.",
-    message: "Review it or adjust your categories before it becomes a pattern.",
+    message: "Review it before it becomes a pattern.",
     tone: "border-cyan-100/[0.12] bg-[linear-gradient(135deg,rgba(34,211,238,0.095),rgba(59,130,246,0.045)_48%,rgba(255,255,255,0.035))] text-cyan-50",
     valueTone: "text-cyan-200",
   };
@@ -55,34 +55,24 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
-function BudgetInsightCard({ driftState, outsidePlanSpent, onAdjust }) {
+function BudgetInsightCard({ driftState, outsidePlanSpent }) {
   return (
     <div className={`relative overflow-hidden rounded-[20px] border px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)] backdrop-blur-sm ${driftState.tone}`}>
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <p className="text-[13px] font-black leading-tight text-white/92">
-              {driftState.label}
-            </p>
-            <span className="rounded-full border border-white/[0.065] bg-black/[0.14] px-2 py-0.5 text-[10px] font-black text-white/60">
-              {Math.round(driftState.rate)}%
-            </span>
-          </div>
-
-          <p className="text-[12px] font-semibold leading-5 text-white/70">
-            {outsidePlanSpent > 0 ? `${fmt(outsidePlanSpent)} spent outside your plan. ` : ""}
-            {driftState.message}
+      <div className="relative min-w-0">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <p className="text-[13px] font-black leading-tight text-white/92">
+            {driftState.label}
           </p>
+          <span className="rounded-full border border-white/[0.065] bg-black/[0.14] px-2 py-0.5 text-[10px] font-black text-white/60">
+            {Math.round(driftState.rate)}%
+          </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onAdjust}
-          className="shrink-0 rounded-full border border-white/[0.075] bg-white/[0.065] px-3 py-1.5 text-[11px] font-black text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10]"
-        >
-          Adjust
-        </button>
+        <p className="text-[12px] font-semibold leading-5 text-white/70">
+          {outsidePlanSpent > 0 ? `${fmt(outsidePlanSpent)} spent outside your plan. ` : ""}
+          {driftState.message}
+        </p>
       </div>
     </div>
   );
@@ -217,7 +207,6 @@ export default function BudgetCardContent(props) {
             <BudgetInsightCard
               driftState={driftState}
               outsidePlanSpent={outsidePlanSpent}
-              onAdjust={openBudgetModal}
             />
 
             <div>
