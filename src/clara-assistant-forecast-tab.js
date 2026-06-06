@@ -1,8 +1,18 @@
+import { supabase } from "@/lib/supabaseClient";
+import { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";
+import { buildClaraForecastPhaseOneSnapshot } from "@/lib/clara-forecast-phase-one-snapshot";
+
 const FORECAST_LABEL = "Forecast";
 const CORE_FEATURES_LABEL = "Core Features";
 const SMART_ACTIONS_LABELS = ["Smart Actions", "Analytic"];
-const FORECAST_ACTION_MATCHERS = ["Future Money Forecast", "Forecast"];
 const FORECAST_LOADING_ID = "clara-forecast-transition-loader";
+const FALLBACK_USER_ID = "local-user";
+const READY_EVENT = "clara:forecast-phase-one-ready";
+const OPEN_EVENT = "clara:open-forecast-report";
+const MIN_LOADING_MS = 2400;
+
+let forecastRunId = 0;
+let forecastIsPreparing = false;
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -19,7 +29,7 @@ function getAssistantShell() {
       (text.includes(CORE_FEATURES_LABEL) || text.includes(FORECAST_LABEL)) &&
       includesAny(text, SMART_ACTIONS_LABELS)
     );
-  });
+  }) || null;
 }
 
 function getAssistantButtons() {
@@ -44,21 +54,6 @@ function isCoreFeaturesTabButton(button) {
   );
 }
 
-function findButtonByAnyLabel(labels = []) {
-  return getAssistantButtons().find((button) => labels.includes(clean(button.textContent))) || null;
-}
-
-function findForecastActionButton() {
-  return getAssistantButtons().find((button) => {
-    const text = clean(button.innerText || button.textContent);
-    return FORECAST_ACTION_MATCHERS.some((matcher) => text.includes(matcher)) &&
-      (text.includes("Predict") || text.includes("money") || text.includes("heading"));
-  }) || getAssistantButtons().find((button) => {
-    const text = clean(button.innerText || button.textContent);
-    return FORECAST_ACTION_MATCHERS.some((matcher) => text.includes(matcher));
-  }) || null;
-}
-
 function relabelForecastTab() {
   getAssistantButtons().forEach((button) => {
     if (!isCoreFeaturesTabButton(button)) return;
@@ -77,7 +72,8 @@ function removeForecastLoader() {
 
 function showForecastLoader() {
   const shell = getAssistantShell();
-  if (!shell) return;
+  if (!shell) return null;
+
   removeForecastLoader();
 
   const loader = document.createElement("div");
@@ -93,54 +89,82 @@ function showForecastLoader() {
     </div>
   `;
   shell.appendChild(loader);
-
-  window.setTimeout(removeForecastLoader, 4200);
+  return loader;
 }
 
-function submitForecastFallback() {
-  const shell = getAssistantShell();
-  const input = shell?.querySelector("input, textarea");
-  const form = input?.closest("form");
-  const submitButton = form?.querySelector('button[type="submit"], button[aria-label*="Send"]');
-  if (!input || !form) return;
-
-  const nextValue = "Run my Future Money Forecast using income, expenses, budgets, savings, wallets, unplanned spending, and hidden risks.";
-  const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value");
-  descriptor?.set?.call(input, nextValue);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-
-  window.setTimeout(() => {
-    if (typeof form.requestSubmit === "function") form.requestSubmit();
-    else submitButton?.click?.();
-  }, 30);
+function delay(ms = 0) {
+  return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
 }
 
-function clickSmartActionsPanel(button) {
-  if (!button) return false;
-
-  button.dataset.claraProgrammaticOpenSmart = "true";
-  button.click();
-  window.setTimeout(() => {
-    delete button.dataset.claraProgrammaticOpenSmart;
-  }, 180);
-  return true;
+async function getCurrentUser() {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data?.user || null;
+  } catch {
+    return null;
+  }
 }
 
-function openForecastMode() {
+function enrichSnapshotWithRecords(snapshot = {}, effectiveContext = {}) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+
+  return {
+    ...snapshot,
+    forecastRecords: {
+      ...(snapshot.forecastRecords || {}),
+      wallets: effectiveContext.wallets || snapshot.forecastRecords?.wallets || [],
+      incomes: effectiveContext.incomes || snapshot.forecastRecords?.incomes || [],
+      incomeSources: effectiveContext.incomeSources || snapshot.forecastRecords?.incomeSources || [],
+      expenses: effectiveContext.expenses || snapshot.forecastRecords?.expenses || [],
+      walletTransactions: effectiveContext.walletTransactions || snapshot.forecastRecords?.walletTransactions || [],
+      transfers: effectiveContext.transfers || snapshot.forecastRecords?.transfers || [],
+      budgets: effectiveContext.budgets || snapshot.forecastRecords?.budgets || [],
+      savingsGoals: effectiveContext.savingsGoals || snapshot.forecastRecords?.savingsGoals || [],
+      debtObligations: effectiveContext.debtObligations || snapshot.forecastRecords?.debtObligations || [],
+      emergencyFund: effectiveContext.emergencyFund || snapshot.forecastRecords?.emergencyFund || null,
+    },
+  };
+}
+
+function setGlobalSnapshot(snapshot, effectiveContext = null) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+
+  const enriched = enrichSnapshotWithRecords(snapshot, effectiveContext || {});
+  window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__ = enriched;
+  window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: { snapshot: enriched } }));
+  return enriched;
+}
+
+async function prepareForecastPhaseOneSnapshot() {
+  const user = await getCurrentUser();
+  const localUserId = clean(user?.id || user?.email || FALLBACK_USER_ID) || FALLBACK_USER_ID;
+  const effectiveContext = await getClaraEffectiveFinanceContext(localUserId, { user, messages: [] });
+  const forecastSnapshot = buildClaraForecastPhaseOneSnapshot(effectiveContext, {});
+  return setGlobalSnapshot(forecastSnapshot, effectiveContext);
+}
+
+async function openForecastMode() {
+  if (forecastIsPreparing) return;
+
+  const runId = ++forecastRunId;
+  forecastIsPreparing = true;
   showForecastLoader();
-  const smartActionsButton = findButtonByAnyLabel(SMART_ACTIONS_LABELS);
-  if (!smartActionsButton) {
-    submitForecastFallback();
-    return;
+
+  const startedAt = Date.now();
+
+  try {
+    await prepareForecastPhaseOneSnapshot();
+  } catch (error) {
+    console.warn("[CLARA Forecast] Phase 1 snapshot failed safely.", error);
   }
 
-  clickSmartActionsPanel(smartActionsButton);
+  await delay(MIN_LOADING_MS - (Date.now() - startedAt));
 
-  window.setTimeout(() => {
-    const forecastButton = findForecastActionButton();
-    if (forecastButton) forecastButton.click();
-    else submitForecastFallback();
-  }, 90);
+  if (runId !== forecastRunId) return;
+
+  removeForecastLoader();
+  window.dispatchEvent(new Event(OPEN_EVENT));
+  forecastIsPreparing = false;
 }
 
 function installForecastClickCapture() {
@@ -158,11 +182,14 @@ function installForecastClickCapture() {
   }, true);
 }
 
-function installForecastReadyCleaner() {
-  window.addEventListener("clara:forecast-phase-one-ready", removeForecastLoader);
+function installForecastCleanupListeners() {
   document.addEventListener("click", (event) => {
-    if (event.target?.closest?.("[data-clara-open-forecast-report='true']")) removeForecastLoader();
-    if (event.target?.closest?.("[aria-label='Close CLARA AI mode']")) removeForecastLoader();
+    if (event.target?.closest?.("[data-clara-forecast-report-close]")) removeForecastLoader();
+    if (event.target?.closest?.("[aria-label='Close CLARA AI mode']")) {
+      forecastRunId += 1;
+      forecastIsPreparing = false;
+      removeForecastLoader();
+    }
   }, true);
 }
 
@@ -171,17 +198,17 @@ function installForecastObserver() {
     relabelForecastTab();
     const shell = getAssistantShell();
     if (!shell) removeForecastLoader();
-    if (shell && /Forecast snapshot ready|Forecast snapshot needs more records/i.test(shell.textContent || "")) removeForecastLoader();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   relabelForecastTab();
 }
 
 function installClaraAssistantForecastTab() {
-  if (typeof window === "undefined" || window.__CLARA_ASSISTANT_FORECAST_TAB_INSTALLED__) return;
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (window.__CLARA_ASSISTANT_FORECAST_TAB_INSTALLED__) return;
   window.__CLARA_ASSISTANT_FORECAST_TAB_INSTALLED__ = true;
   installForecastClickCapture();
-  installForecastReadyCleaner();
+  installForecastCleanupListeners();
   installForecastObserver();
 }
 
