@@ -91,6 +91,34 @@
   letter-spacing: 0.02em;
 }
 
+.clara-forecast-active-header {
+  align-self: center;
+  width: min(100%, 390px);
+  margin: 0 auto;
+  padding: 56px 8px 16px;
+  text-align: center;
+}
+
+.clara-forecast-active-header p,
+.clara-forecast-active-header h2 {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.clara-forecast-active-header p {
+  color: rgba(207, 250, 254, 0.62);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+}
+
+.clara-forecast-active-header h2 {
+  margin-top: 9px;
+  color: rgba(248, 250, 252, 0.84);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .clara-forecast-report-track {
   display: flex;
   flex: 1;
@@ -235,11 +263,13 @@
   width: 6px;
   border-radius: 999px;
   background: rgba(207, 250, 254, 0.24);
+  transition: width 0.18s ease, background 0.18s ease, opacity 0.18s ease;
 }
 
 .clara-forecast-report-dots span.is-active {
   width: 22px;
   background: rgba(103, 232, 249, 0.72);
+  opacity: 1;
 }
 
 .clara-forecast-report-footer {
@@ -426,6 +456,10 @@
 
 @media (max-height: 690px) {
   .clara-forecast-report-header {
+    padding-top: 42px;
+  }
+
+  .clara-forecast-active-header {
     padding-top: 42px;
   }
 
