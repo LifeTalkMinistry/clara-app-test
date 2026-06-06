@@ -185,6 +185,37 @@ function renderHorizonPicker(snapshot) {
   document.body.appendChild(overlay);
 }
 
+function syncForecastReportProgress(overlay) {
+  const track = overlay?.querySelector?.(".clara-forecast-report-track");
+  const cards = Array.from(track?.querySelectorAll?.(".clara-forecast-report-card") || []);
+  const dots = Array.from(overlay?.querySelectorAll?.(".clara-forecast-report-dots span") || []);
+  if (!track || !cards.length || !dots.length) return;
+
+  let ticking = false;
+  const updateActiveDot = () => {
+    ticking = false;
+    const currentIndex = cards.reduce((nearestIndex, card, index) => {
+      const currentDistance = Math.abs(card.offsetLeft - track.scrollLeft);
+      const nearestDistance = Math.abs(cards[nearestIndex].offsetLeft - track.scrollLeft);
+      return currentDistance < nearestDistance ? index : nearestIndex;
+    }, 0);
+
+    dots.forEach((dot, index) => {
+      dot.classList.toggle("is-active", index === currentIndex);
+    });
+  };
+
+  const requestUpdate = () => {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(updateActiveDot);
+  };
+
+  track.addEventListener("scroll", requestUpdate, { passive: true });
+  window.requestAnimationFrame(updateActiveDot);
+  window.setTimeout(updateActiveDot, 120);
+}
+
 function renderReport(snapshot, horizonMonths = 1) {
   const report = buildClaraForecastReport(snapshot, { horizonMonths });
   closeReport();
@@ -198,7 +229,7 @@ function renderReport(snapshot, horizonMonths = 1) {
     <div class="clara-forecast-report-bg" aria-hidden="true"></div>
     <div class="clara-forecast-report-shell">
       <button type="button" class="clara-forecast-report-close" data-clara-forecast-report-close="true" aria-label="Close Forecast Report">×</button>
-      <header class="clara-forecast-report-header">
+      <header class="clara-forecast-report-header clara-forecast-active-header">
         <p>${escapeHtml(report.title)}</p>
         <h2>${escapeHtml(report.subtitle)}</h2>
       </header>
@@ -223,6 +254,7 @@ function renderReport(snapshot, horizonMonths = 1) {
     </div>`;
 
   document.body.appendChild(overlay);
+  syncForecastReportProgress(overlay);
 }
 
 function closeReport() {
