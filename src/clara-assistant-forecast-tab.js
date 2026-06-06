@@ -9,7 +9,7 @@ const FORECAST_LOADING_ID = "clara-forecast-transition-loader";
 const FALLBACK_USER_ID = "local-user";
 const READY_EVENT = "clara:forecast-phase-one-ready";
 const OPEN_EVENT = "clara:open-forecast-report";
-const MIN_LOADING_MS = 2400;
+const MIN_LOADING_MS = 3000;
 
 let forecastRunId = 0;
 let forecastIsPreparing = false;
