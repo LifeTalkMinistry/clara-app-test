@@ -13,6 +13,14 @@ export const readCarouselNumber = (...values) => {
   return 0;
 };
 
+const readCarouselArray = (...values) => {
+  for (const value of values) {
+    if (Array.isArray(value)) return value;
+  }
+
+  return [];
+};
+
 export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => {
   const categories = Array.isArray(plan?.categories) ? plan.categories : [];
 
@@ -48,6 +56,13 @@ export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => 
   );
 
   const remainingAmount = Math.max(declaredBudget - spentAmount, 0);
+  const unplannedItems = readCarouselArray(plan?.unplanned_items, plan?.unplannedItems);
+  const undocumentedItems = readCarouselArray(plan?.undocumented_items, plan?.undocumentedItems);
+  const outsidePlanItems = readCarouselArray(
+    plan?.outside_plan_items,
+    plan?.outsidePlanItems,
+    [...unplannedItems, ...undocumentedItems]
+  );
 
   return {
     activeBudget: {
@@ -68,6 +83,9 @@ export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => 
     isComplete: plan?.is_complete === true,
     unplannedSpent: readCarouselNumber(plan?.unplanned_spent),
     undocumentedSpent: readCarouselNumber(plan?.undocumented_spent),
+    unplannedItems,
+    undocumentedItems,
+    outsidePlanItems,
     remainingAmount,
     amountLeft: remainingAmount,
     spentAmount,
