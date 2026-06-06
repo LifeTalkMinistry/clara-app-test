@@ -1,3 +1,4 @@
+import { buildDashboardSummaryDirectReply } from "@/lib/clara-dashboard-summary-ai-reader";
 import { buildIncomeHubDirectReply } from "@/lib/clara-income-direct-finance-reply";
 import {
   filterTransactionHubTimeline,
@@ -403,6 +404,9 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
 }
 
 export function buildContextualFinanceReply(message = "", context = {}) {
+  const dashboardSummaryReply = buildDashboardSummaryDirectReply(message, context);
+  if (dashboardSummaryReply) return dashboardSummaryReply;
+
   const incomeReply = buildIncomeHubDirectReply(message, context);
   if (incomeReply) return incomeReply;
 
