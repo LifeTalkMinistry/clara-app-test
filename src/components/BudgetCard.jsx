@@ -42,6 +42,9 @@ export default function BudgetCard({
   isComplete = false,
   unplannedSpent = 0,
   undocumentedSpent = 0,
+  unplannedItems = [],
+  undocumentedItems = [],
+  outsidePlanItems = [],
   expanded = false,
   onToggleDetails,
   financeActionLoading = false,
@@ -163,6 +166,9 @@ export default function BudgetCard({
             planIsComplete={planIsComplete}
             unplannedSpent={unplannedSpent}
             undocumentedSpent={undocumentedSpent}
+            unplannedItems={unplannedItems}
+            undocumentedItems={undocumentedItems}
+            outsidePlanItems={outsidePlanItems}
             status={status}
             message={message}
             remainingAmountColor={remainingAmountColor}
