@@ -56,7 +56,7 @@ function findForecastReadyBubble() {
 
 function enrichSnapshotWithRecords(snapshot = {}, effectiveContext = {}) {
   if (!snapshot || typeof snapshot !== "object") return snapshot;
-  const enriched = {
+  return {
     ...snapshot,
     forecastRecords: {
       ...(snapshot.forecastRecords || {}),
@@ -72,7 +72,6 @@ function enrichSnapshotWithRecords(snapshot = {}, effectiveContext = {}) {
       emergencyFund: effectiveContext.emergencyFund || snapshot.forecastRecords?.emergencyFund || null,
     },
   };
-  return enriched;
 }
 
 function setGlobalSnapshot(snapshot, effectiveContext = null) {
@@ -153,9 +152,8 @@ function horizonGrid(snapshot = {}) {
   return Array.from({ length: 12 }, (_, index) => {
     const month = index + 1;
     const isAllowed = allowed.has(month);
-    const label = `${month}M`;
     return `<button type="button" data-clara-forecast-horizon="${month}" class="${isAllowed ? "is-available" : "is-locked"}" ${isAllowed ? "" : "aria-disabled=\"true\""}>
-      <strong>${label}</strong>
+      <strong>${month}M</strong>
       <span>${isAllowed ? "Available" : "Need history"}</span>
     </button>`;
   }).join("");
@@ -249,7 +247,7 @@ function openSelectedHorizon(months = 1) {
   const horizon = Number(months) || 1;
   state.selectedHorizonMonths = horizon;
   const eligibility = canBuildClaraForecast(snapshot, horizon);
-  renderReport(snapshot, { valueOf: () => eligibility.horizon }.valueOf());
+  renderReport(snapshot, eligibility.horizon);
 }
 
 function installReadyListener() {
