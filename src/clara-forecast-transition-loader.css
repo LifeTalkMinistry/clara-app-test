@@ -94,10 +94,13 @@
 .clara-forecast-transition-bar span {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 46%;
+  width: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(45, 212, 191, 0.1), rgba(103, 232, 249, 0.95), rgba(124, 58, 237, 0.88));
-  animation: claraForecastBar 1.25s ease-in-out infinite;
+  box-shadow: 0 0 18px rgba(103, 232, 249, 0.18);
+  transform: scaleX(0.04);
+  transform-origin: left center;
+  animation: claraForecastBar 3s ease-out forwards;
 }
 
 @keyframes claraForecastOrbSpin {
@@ -105,6 +108,8 @@
 }
 
 @keyframes claraForecastBar {
-  0% { transform: translateX(-110%); }
-  100% { transform: translateX(230%); }
+  0% { transform: scaleX(0.04); opacity: 0.72; }
+  55% { transform: scaleX(0.58); opacity: 0.92; }
+  82% { transform: scaleX(0.86); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
 }
