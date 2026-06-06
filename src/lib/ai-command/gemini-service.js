@@ -1,3 +1,4 @@
+import { requestClaraGeminiProxyJson, getClaraProxyModel } from "@/lib/clara-gemini-proxy-client";
 import { AI_INTENTS, normalizeGeminiCommand } from "@/lib/ai-command/command-parser";
 import { compactFinanceSnapshot } from "@/lib/ai-command/finance-context";
 
@@ -7,11 +8,8 @@ const USER_CONTEXT_STORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
 
 function getGeminiConfig() {
   return {
-    apiKey:
-      import.meta.env.VITE_GEMINI_API_KEY ||
-      import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
-      "",
-    model: import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL,
+    apiKey: 'server-proxy',
+    model: getClaraProxyModel(DEFAULT_MODEL),
   };
 }
 
@@ -239,8 +237,6 @@ export async function askGeminiForUnderstanding({ text, session, financeSnapshot
   if (!apiKey) {
     return buildFallbackCommand(userInput, Object.assign(new Error("Gemini API key is not configured."), { code: "GEMINI_NOT_CONFIGURED" }));
   }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const compact = compactFinanceSnapshot(financeSnapshot);
   const userContextStory = formatUserContextStoryForPrompt();
 
@@ -296,12 +292,12 @@ ${userInput}`;
       historyCount: recentHistory.length,
     });
 
-    const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: timeout.signal });
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) throw Object.assign(new Error(payload?.error?.message || "Gemini request failed."), { code: "GEMINI_FAILED", status: response.status, payload });
-
-    const textPayload = payload?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").filter(Boolean).join("\n") || "";
+    const textPayload = await requestClaraGeminiProxyJson({
+      prompt,
+      model,
+      signal: timeout.signal,
+      generationConfig: body.generationConfig,
+    });
     const parsed = extractJson(textPayload);
     const normalized = sanitizeGeminiResult(parsed);
 
@@ -316,6 +312,6 @@ ${userInput}`;
 }
 
 export function getGeminiStatus() {
-  const { apiKey, model } = getGeminiConfig();
-  return { configured: Boolean(apiKey), model };
+  const { model } = getGeminiConfig();
+  return { configured: true, model };
 }

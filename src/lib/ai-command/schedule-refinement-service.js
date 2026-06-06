@@ -1,3 +1,4 @@
+import { requestClaraGeminiProxyJson, getClaraProxyModel } from "@/lib/clara-gemini-proxy-client";
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_TIMEOUT_MS = 18000;
 const DEPRECATED_MODELS = new Set(["gemini-1.5-flash", "gemini-2.0-flash"]);
@@ -14,11 +15,8 @@ function normalizeModelName(value) {
 
 function getGeminiConfig() {
   return {
-    apiKey:
-      import.meta.env.VITE_GEMINI_API_KEY ||
-      import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
-      "",
-    model: normalizeModelName(import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL),
+    apiKey: 'server-proxy',
+    model: getClaraProxyModel(DEFAULT_MODEL),
   };
 }
 
@@ -191,14 +189,6 @@ Rules:
 
 export async function askGeminiForScheduleRefinement({ form, conversation, latestAnswer } = {}) {
   const { apiKey, model } = getGeminiConfig();
-
-  if (!apiKey) {
-    throw Object.assign(new Error("Gemini API key is not configured."), {
-      code: "GEMINI_NOT_CONFIGURED",
-    });
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const prompt = buildPrompt({ form, conversation, latestAnswer });
   const timeout = withTimeout();
 
@@ -209,36 +199,18 @@ export async function askGeminiForScheduleRefinement({ form, conversation, lates
       hasConversation: Array.isArray(conversation) && conversation.length > 0,
     });
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.55,
-          topP: 0.9,
-          topK: 40,
-          maxOutputTokens: 900,
-          responseMimeType: "application/json",
-        },
-      }),
+    const textPayload = await requestClaraGeminiProxyJson({
+      prompt,
+      model,
       signal: timeout.signal,
+      generationConfig: {
+        temperature: 0.55,
+        topP: 0.9,
+        topK: 40,
+        maxOutputTokens: 900,
+        responseMimeType: "application/json",
+      },
     });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw Object.assign(new Error(payload?.error?.message || "Gemini schedule refinement failed."), {
-        code: "GEMINI_FAILED",
-        status: response.status,
-        payload,
-      });
-    }
-
-    const textPayload =
-      payload?.candidates?.[0]?.content?.parts
-        ?.map((part) => part?.text || "")
-        .filter(Boolean)
-        .join("\n") || "";
 
     return normalizeRefinementResult(extractJson(textPayload));
   } catch (error) {

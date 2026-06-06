@@ -14,14 +14,7 @@ function normalizeText(value) {
 }
 
 function hasGeminiEnvironmentConfig() {
-  return Boolean(
-    import.meta.env.VITE_GEMINI_API_KEY ||
-      import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
-      import.meta.env.VITE_GOOGLE_AI_API_KEY ||
-      import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
-      import.meta.env.VITE_CLARA_GEMINI_API_KEY ||
-      import.meta.env.VITE_AI_API_KEY
-  );
+  return true;
 }
 
 function peso(value) {

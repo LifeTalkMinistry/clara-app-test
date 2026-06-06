@@ -1,3 +1,4 @@
+import { requestClaraGeminiProxyJson, getClaraProxyModel } from "@/lib/clara-gemini-proxy-client";
 import {
   normalizeScheduleImpactSessionMemory,
   normalizeExpensePath,
@@ -41,11 +42,8 @@ function normalizeModelName(value) {
 
 function getGeminiConfig() {
   return {
-    apiKey:
-      import.meta.env.VITE_GEMINI_API_KEY ||
-      import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
-      "",
-    model: normalizeModelName(import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL),
+    apiKey: 'server-proxy',
+    model: getClaraProxyModel(DEFAULT_MODEL),
   };
 }
 
@@ -264,11 +262,6 @@ export async function askGeminiForScheduleImpact({
   sessionMemory,
 } = {}) {
   const { apiKey, model } = getGeminiConfig();
-  if (!apiKey) {
-    throw Object.assign(new Error("Gemini API key is not configured."), {
-      code: "GEMINI_NOT_CONFIGURED",
-    });
-  }
 
   const normalizedMemory = normalizeScheduleImpactSessionMemory(sessionMemory || {}, {
     form,
@@ -278,7 +271,6 @@ export async function askGeminiForScheduleImpact({
     activeSubItem,
     expensePath,
   });
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const prompt = buildPrompt({ form, messages, stage, activeCategory, activeSubItem, expensePath, total, latestUserReply, sessionMemory: normalizedMemory });
 
   let lastError = null;
@@ -298,43 +290,18 @@ export async function askGeminiForScheduleImpact({
         runningEstimate: normalizedMemory.runningEstimate,
       });
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.55,
-            topP: 0.9,
-            topK: 40,
-            maxOutputTokens: 1800,
-            responseMimeType: "application/json",
-          },
-        }),
+      const textPayload = await requestClaraGeminiProxyJson({
+        prompt,
+        model,
         signal: timeout.signal,
+        generationConfig: {
+          temperature: 0.55,
+          topP: 0.9,
+          topK: 40,
+          maxOutputTokens: 1800,
+          responseMimeType: "application/json",
+        },
       });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const error = Object.assign(new Error(payload?.error?.message || "Gemini schedule impact request failed."), {
-          code: "GEMINI_FAILED",
-          status: response.status,
-          payload,
-        });
-        if (isRetryableGeminiStatus(response.status) && attempt < 2) {
-          lastError = error;
-          timeout.clear();
-          await wait(650 * (attempt + 1));
-          continue;
-        }
-        throw error;
-      }
-
-      const textPayload =
-        payload?.candidates?.[0]?.content?.parts
-          ?.map((part) => part?.text || "")
-          .filter(Boolean)
-          .join("\n") || "";
       const parsed = extractJson(textPayload);
       const shouldAddCost = Boolean(parsed?.should_add_cost);
       const confirmedCost = normalizeConfirmedCost(parsed?.confirmed_cost);
