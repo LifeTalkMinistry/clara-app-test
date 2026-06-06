@@ -1,0 +1,36 @@
+name: CLARA Gemini Proxy Migration
+
+on:
+  push:
+    paths:
+      - ".github/scripts/clara-gemini-proxy-migration.mjs"
+      - ".github/workflows/clara-gemini-proxy-migration.yml"
+      - ".github/clara-gemini-proxy-migration-trigger.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run CLARA Gemini proxy migration
+        run: node .github/scripts/clara-gemini-proxy-migration.mjs
+
+      - name: Commit migrated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/ai-command/gemini-service.js src/lib/ai-command/schedule-refinement-service.js src/lib/ai-command/schedule-impact-service.js src/lib/clara-income-direct-finance-reply.js src/lib/clara-direct-finance-reply.js
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit."
+          else
+            git commit -m "Move remaining CLARA Gemini callers to Vercel proxy"
+            git push
+          fi
