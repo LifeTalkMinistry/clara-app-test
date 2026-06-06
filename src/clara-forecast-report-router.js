@@ -162,6 +162,7 @@ function horizonGrid(snapshot = {}) {
 function renderHorizonPicker(snapshot) {
   closeReport();
   const summary = getClaraForecastHorizonSummary(snapshot);
+  const historyLabel = `${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"}`;
   const overlay = document.createElement("section");
   overlay.className = "clara-forecast-report-overlay clara-forecast-horizon-overlay";
   overlay.setAttribute("role", "dialog");
@@ -170,20 +171,14 @@ function renderHorizonPicker(snapshot) {
   overlay.innerHTML = `
     <div class="clara-forecast-report-bg" aria-hidden="true"></div>
     <div class="clara-forecast-report-shell clara-forecast-horizon-shell">
-      <button type="button" class="clara-forecast-report-close" data-clara-forecast-report-close="true" aria-label="Close Forecast Report">×</button>
       <header class="clara-forecast-report-header clara-forecast-horizon-header">
         <p>FUTURE MONEY FORECAST</p>
-        <h2>Choose one timeframe</h2>
+        <h2>Choose timeframe</h2>
       </header>
-      <section class="clara-forecast-horizon-card">
-        <p class="clara-forecast-report-eyebrow">FORECAST HORIZON</p>
-        <h3>How far ahead should CLARA look?</h3>
-        <p class="clara-forecast-report-body">CLARA will use the same number of past months as the basis for the forecast. Example: 3 months selected uses the last 3 months of behavior.</p>
-        <div class="clara-forecast-horizon-summary">
-          <div><span>Usable history</span><strong>${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"}</strong></div>
-          <div><span>Forecast rule</span><strong>Cannot exceed history</strong></div>
-        </div>
+      <section class="clara-forecast-horizon-card" aria-label="Choose forecast timeframe">
+        <p class="clara-forecast-horizon-helper">Select how many months CLARA should project using your available history.</p>
         <div class="clara-forecast-horizon-grid">${horizonGrid(snapshot)}</div>
+        <p class="clara-forecast-horizon-footer-note">Available history: ${historyLabel} · Forecast cannot exceed history</p>
         ${!summary.hasAnyEligibleHorizon ? `<div class="clara-forecast-horizon-warning">CLARA needs at least 1 month of financial activity before forecasting.</div>` : ""}
       </section>
     </div>`;
