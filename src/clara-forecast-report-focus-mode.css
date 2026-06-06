@@ -281,8 +281,18 @@
 }
 
 .clara-forecast-horizon-header {
-  width: 100%;
+  align-self: center;
+  width: min(100%, 390px);
+  margin: 0 auto;
   padding: 0 8px 0;
+  text-align: center;
+}
+
+.clara-forecast-horizon-header p,
+.clara-forecast-horizon-header h2 {
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 .clara-forecast-horizon-header p {
