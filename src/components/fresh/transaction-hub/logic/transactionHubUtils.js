@@ -378,7 +378,6 @@ export const TIMELINE_GROUPS = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
   { key: "thisWeek", label: "This Week" },
-  { key: "earlier", label: "Earlier" },
 ];
 
 export const getBudgetCategory = (item) =>
