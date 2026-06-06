@@ -1,5 +1,5 @@
-const NOT_AVAILABLE = "Not available";
-const MISSING = "Missing";
+const NOT_ENOUGH_DATA = "Not enough data yet";
+const NO_MAJOR_SIGNAL = "No major signal detected";
 const MAX_HORIZON_MONTHS = 12;
 
 function hasValue(value) {
@@ -21,29 +21,24 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function amount(value) {
-  if (!hasValue(value)) return NOT_AVAILABLE;
+function amount(value, fallback = NOT_ENOUGH_DATA) {
+  if (!hasValue(value)) return fallback;
   return `₱${toNumber(value).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
-function signedAmount(value) {
+function signedAmount(value, fallback = NOT_ENOUGH_DATA) {
+  if (!hasValue(value)) return fallback;
   const number = toNumber(value);
   const sign = number > 0 ? "+" : number < 0 ? "-" : "";
-  return `${sign}${amount(Math.abs(number))}`;
+  return `${sign}${amount(Math.abs(number), "₱0")}`;
 }
 
 function count(value) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
 }
 
-function text(value) {
-  return hasValue(value) ? String(value).trim() : MISSING;
-}
-
-function percent(value) {
-  if (!hasValue(value)) return NOT_AVAILABLE;
-  const number = toNumber(value);
-  return Number.isFinite(number) ? `${Math.round(number)}%` : NOT_AVAILABLE;
+function text(value, fallback = NOT_ENOUGH_DATA) {
+  return hasValue(value) ? String(value).trim() : fallback;
 }
 
 function stat(label, value) {
@@ -132,7 +127,7 @@ function currentMoney(snapshot = {}) {
   return {
     walletCount: data.walletCount ?? snapshot.counts?.wallets,
     totalWalletBalance: data.totalWalletBalance,
-    safeSpendableMoney: data.safeSpendableMoney ?? data.spendableWalletBalance,
+    safeSpendableMoney: data.safeSpendableMoney ?? data.spendableWalletBalance ?? data.moneyLeft ?? data.currentMoneyLeft,
     emergencyProtectedAmount: data.emergencyProtectedAmount,
   };
 }
@@ -174,7 +169,7 @@ function getEmergencyTarget(emergencyFund = {}) {
 }
 
 function getGoalSaved(goal = {}) {
-  return firstNumber(goal, ["savedAmount", "saved_amount", "saved", "current_amount"]);
+  return firstNumber(goal, ["savedAmount", "saved_amount", "saved", "current_amount", "currentAmount", "amount", "balance"]);
 }
 
 function getGoalTarget(goal = {}) {
@@ -256,6 +251,20 @@ export function canBuildClaraForecast(snapshot = {}, horizonMonths = 1) {
   };
 }
 
+function categoryTotals(expenses = [], horizon = 1) {
+  return expenses.reduce((map, expense) => {
+    const category = categoryOf(expense);
+    map.set(category, (map.get(category) || 0) + getExpenseAmount(expense));
+    return map;
+  }, new Map());
+}
+
+function topCategory(map = new Map(), horizon = 1) {
+  return [...map.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([category, value]) => ({ category, amount: value, monthlyAmount: value / Math.max(horizon, 1) }))[0] || null;
+}
+
 function monthlyAverages(snapshot = {}, horizonMonths = 1) {
   const horizon = normalizeHorizonMonths(horizonMonths);
   const records = getRecords(snapshot);
@@ -272,8 +281,10 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
   const unplannedExpenses = expensesToUse.filter(isUnplanned);
   const totalUnplanned = sum(unplannedExpenses, getExpenseAmount);
   const transfersOut = sum(recordsInWindow(records.transfers, horizon), (transfer) => firstNumber(transfer, ["amount", "total", "value"]));
-  const currentWalletTotal = sum(records.wallets, getWalletBalance) || currentMoney(snapshot).totalWalletBalance || 0;
-  const currentEmergency = getEmergencySaved(records.emergencyFund || {}) || currentMoney(snapshot).emergencyProtectedAmount || 0;
+  const money = currentMoney(snapshot);
+  const currentWalletTotal = sum(records.wallets, getWalletBalance) || money.totalWalletBalance || 0;
+  const currentMoneyLeft = hasValue(money.safeSpendableMoney) ? toNumber(money.safeSpendableMoney) : currentWalletTotal;
+  const currentEmergency = getEmergencySaved(records.emergencyFund || {}) || money.emergencyProtectedAmount || 0;
   const emergencyTarget = getEmergencyTarget(records.emergencyFund || {});
   const totalSavingsSaved = sum(records.savingsGoals, getGoalSaved);
   const totalSavingsTarget = sum(records.savingsGoals, getGoalTarget);
@@ -287,25 +298,13 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
   const averageMonthlyTransfers = transfersOut / horizon;
   const netMonthlyCashFlow = averageMonthlyIncome - averageMonthlyExpenses - monthlyDebtPayment;
 
-  const categoryTotals = expensesToUse.reduce((map, expense) => {
-    const category = categoryOf(expense);
-    map.set(category, (map.get(category) || 0) + getExpenseAmount(expense));
-    return map;
-  }, new Map());
+  const allCategoryTotals = categoryTotals(expensesToUse, horizon);
+  const riskyCategoryTotals = categoryTotals(unplannedExpenses, horizon);
+  const biggestLeak = topCategory(allCategoryTotals, horizon);
+  const biggestRiskyCategory = topCategory(riskyCategoryTotals, horizon) || biggestLeak;
 
-  const biggestLeak = [...categoryTotals.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .map(([category, value]) => ({ category, amount: value, monthlyAmount: value / horizon }))[0] || null;
-
-  const riskyCategories = unplannedExpenses.reduce((map, expense) => {
-    const category = categoryOf(expense);
-    map.set(category, (map.get(category) || 0) + getExpenseAmount(expense));
-    return map;
-  }, new Map());
-  const biggestRiskyCategory = [...riskyCategories.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .map(([category, value]) => ({ category, amount: value, monthlyAmount: value / horizon }))[0] || biggestLeak;
-
+  const incomeMonthCount = new Set(incomesToUse.map(getRecordDate).map(monthKey).filter(Boolean)).size;
+  const expenseMonthCount = new Set(expensesToUse.map(getRecordDate).map(monthKey).filter(Boolean)).size;
   const emergencyMonthlyProgress = Math.max(0, currentEmergency > 0 ? Math.min(netMonthlyCashFlow * 0.2, currentEmergency / Math.max(horizon, 1)) : 0);
   const savingsMonthlyProgress = Math.max(0, totalSavingsSaved > 0 ? Math.min(netMonthlyCashFlow * 0.25, totalSavingsSaved / Math.max(horizon, 1)) : 0);
 
@@ -314,7 +313,13 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
     incomeRecordsUsed: incomesToUse.length,
     expenseRecordsUsed: expensesToUse.length,
     transactionRecordsUsed: transactionIncomeWindow.length + transactionExpenseWindow.length,
+    budgetRecordsUsed: records.budgets.length,
+    savingsGoalRecordsUsed: records.savingsGoals.length,
+    debtRecordsUsed: records.debtObligations.length,
+    incomeMonthCount,
+    expenseMonthCount,
     currentWalletTotal,
+    currentMoneyLeft,
     currentEmergency,
     emergencyTarget,
     totalSavingsSaved,
@@ -337,6 +342,13 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
   };
 }
 
+function directionFromProjection(projectedMoneyLeft, netCashFlow, projectedNetPosition) {
+  if (projectedNetPosition > 0 && netCashFlow > 0) return "Improving";
+  if (projectedMoneyLeft >= 0 && netCashFlow >= 0) return "Stable";
+  if (projectedMoneyLeft >= 0) return "Under pressure";
+  return "At risk";
+}
+
 function buildProjection(snapshot = {}, horizonMonths = 1) {
   const avg = monthlyAverages(snapshot, horizonMonths);
   const horizon = avg.horizon;
@@ -345,39 +357,57 @@ function buildProjection(snapshot = {}, horizonMonths = 1) {
   const goodSavingsGrowth = avg.savingsMonthlyProgress * horizon;
   const debtReduction = Math.min(avg.totalDebtBalance, avg.monthlyDebtPayment * horizon);
   const projectedDebtBalance = Math.max(0, avg.totalDebtBalance - debtReduction);
+  const projectedMoneyLeftIfSame = avg.currentMoneyLeft + avg.netMonthlyCashFlow * horizon;
   const projectedWalletIfSame = avg.currentWalletTotal + avg.netMonthlyCashFlow * horizon;
-  const projectedWalletIfImproved = projectedWalletIfSame + badLeakCost;
+  const projectedEmergencyIfSame = avg.currentEmergency;
+  const projectedSavingsIfSame = avg.totalSavingsSaved;
   const projectedEmergencyIfGood = avg.currentEmergency + goodEmergencyGrowth;
-  const projectedEmergencyIfImproved = projectedEmergencyIfGood + Math.max(0, badLeakCost * 0.35);
   const projectedSavingsIfGood = avg.totalSavingsSaved + goodSavingsGrowth;
-  const projectedSavingsIfImproved = projectedSavingsIfGood + Math.max(0, badLeakCost * 0.45);
-  const projectedNetPositionSame = projectedWalletIfSame + projectedEmergencyIfGood + projectedSavingsIfGood - projectedDebtBalance;
-  const projectedNetPositionImproved = projectedWalletIfImproved + projectedEmergencyIfImproved + projectedSavingsIfImproved - projectedDebtBalance;
-
-  const status = projectedNetPositionImproved > projectedNetPositionSame && avg.netMonthlyCashFlow >= 0
-    ? "Improving"
-    : avg.netMonthlyCashFlow >= 0
-      ? "Stable"
-      : projectedWalletIfSame > 0
-        ? "Under Pressure"
-        : "At Risk";
+  const projectedMoneyLeftIfGood = projectedMoneyLeftIfSame;
+  const projectedWalletIfGood = projectedWalletIfSame;
+  const recoveredLeakPotential = Math.max(0, badLeakCost);
+  const projectedMoneyLeftIfImproved = projectedMoneyLeftIfGood + recoveredLeakPotential;
+  const projectedWalletIfImproved = projectedWalletIfGood + recoveredLeakPotential;
+  const projectedEmergencyIfImproved = projectedEmergencyIfGood + Math.max(0, recoveredLeakPotential * 0.35);
+  const projectedSavingsIfImproved = projectedSavingsIfGood + Math.max(0, recoveredLeakPotential * 0.45);
+  const projectedTotalAvailable = projectedMoneyLeftIfImproved + projectedEmergencyIfImproved + projectedSavingsIfImproved;
+  const projectedNetPositionSame = projectedMoneyLeftIfSame + projectedEmergencyIfSame + projectedSavingsIfSame - avg.totalDebtBalance;
+  const projectedNetPositionGood = projectedMoneyLeftIfGood + projectedEmergencyIfGood + projectedSavingsIfGood - projectedDebtBalance;
+  const projectedNetPositionImproved = projectedTotalAvailable - projectedDebtBalance;
+  const currentDirection = directionFromProjection(avg.currentMoneyLeft, avg.netMonthlyCashFlow, avg.currentMoneyLeft + avg.currentEmergency + avg.totalSavingsSaved - avg.totalDebtBalance);
+  const badDirection = directionFromProjection(projectedMoneyLeftIfSame, avg.netMonthlyCashFlow, projectedNetPositionSame);
+  const goodDirection = directionFromProjection(projectedMoneyLeftIfGood, avg.netMonthlyCashFlow, projectedNetPositionGood);
+  const betterDirection = directionFromProjection(projectedMoneyLeftIfImproved, avg.netMonthlyCashFlow + avg.averageMonthlyUnplanned, projectedNetPositionImproved);
 
   return {
     ...avg,
     badLeakCost,
+    recoveredLeakPotential,
     goodEmergencyGrowth,
     goodSavingsGrowth,
     debtReduction,
     projectedDebtBalance,
     projectedWalletIfSame,
-    projectedWalletIfImproved,
+    projectedMoneyLeftIfSame,
+    projectedEmergencyIfSame,
+    projectedSavingsIfSame,
+    projectedMoneyLeftIfGood,
+    projectedWalletIfGood,
     projectedEmergencyIfGood,
-    projectedEmergencyIfImproved,
     projectedSavingsIfGood,
+    projectedMoneyLeftIfImproved,
+    projectedWalletIfImproved,
+    projectedEmergencyIfImproved,
     projectedSavingsIfImproved,
+    projectedTotalAvailable,
     projectedNetPositionSame,
+    projectedNetPositionGood,
     projectedNetPositionImproved,
-    status,
+    currentDirection,
+    badDirection,
+    goodDirection,
+    betterDirection,
+    status: betterDirection,
   };
 }
 
@@ -394,6 +424,7 @@ function readinessReport(snapshot = {}, horizonMonths = 1, reason = "") {
       {
         eyebrow: "01 / FORECAST NOT READY",
         title: "Not Enough History Yet",
+        tone: "neutral",
         body: reason || "CLARA needs more financial behavior before this forecast becomes reliable.",
         stats: [
           stat("Requested forecast", monthLabel(horizonMonths)),
@@ -405,18 +436,59 @@ function readinessReport(snapshot = {}, horizonMonths = 1, reason = "") {
       {
         eyebrow: "02 / WHAT CLARA NEEDS",
         title: "Build Forecast Evidence",
-        body: "To unlock forecasting, keep recording wallets, income, expenses, emergency fund, savings, debts, and budget behavior.",
+        tone: "neutral",
+        body: "Keep recording wallets, income, expenses, emergency fund, savings, debts, and budget behavior so CLARA can build a stronger local forecast.",
         stats: [
           stat("Minimum useful history", "1 month"),
           stat("Maximum forecast", "12 months"),
           stat("Rule", "Forecast cannot exceed history"),
         ],
         final: true,
-        tone: "needs-data",
+        ctaLabel: "I got it now",
         missingData: missingData.length ? missingData : ["At least 1 month of consistent financial activity"],
       },
     ],
   };
+}
+
+function signalWhen(condition, success, fallback = NO_MAJOR_SIGNAL) {
+  return condition ? success : fallback;
+}
+
+function dataBasisSummary(projection = {}, availableHistoryMonths = 0) {
+  const parts = [
+    `${availableHistoryMonths} usable month${availableHistoryMonths === 1 ? "" : "s"}`,
+    `${count(projection.incomeRecordsUsed)} income`,
+    `${count(projection.expenseRecordsUsed)} expense`,
+  ];
+  if (projection.transactionRecordsUsed) parts.push(`${count(projection.transactionRecordsUsed)} transaction`);
+  return parts.join(" · ");
+}
+
+function savingsSummary(projection = {}) {
+  if (!projection.savingsGoalRecordsUsed && !projection.totalSavingsSaved && !projection.totalSavingsTarget) return NOT_ENOUGH_DATA;
+  if (projection.totalSavingsTarget) return `${amount(projection.totalSavingsSaved, "₱0")} / ${amount(projection.totalSavingsTarget)}`;
+  return amount(projection.totalSavingsSaved, "₱0");
+}
+
+function emergencySummary(projection = {}) {
+  if (!projection.currentEmergency && !projection.emergencyTarget) return NOT_ENOUGH_DATA;
+  if (projection.emergencyTarget) return `${amount(projection.currentEmergency, "₱0")} / ${amount(projection.emergencyTarget)}`;
+  return amount(projection.currentEmergency, "₱0");
+}
+
+function categorySignal(categoryRecord, prefix = "Likely leak") {
+  if (!categoryRecord?.category) return NOT_ENOUGH_DATA;
+  return `${prefix}: ${categoryRecord.category}`;
+}
+
+function nextBestAction(projection = {}) {
+  const category = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
+  if (category && projection.badLeakCost > 0) {
+    return `Reduce ${category} first, then redirect the saved amount to emergency fund, savings, or debt.`;
+  }
+  if (projection.budgetRecordsUsed <= 0) return "Create one simple budget limit for your highest spending category.";
+  return "Keep recording your next 7 days so CLARA can sharpen the next forecast.";
 }
 
 export function buildClaraForecastReport(snapshot = {}, options = {}) {
@@ -426,106 +498,159 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
 
   const projection = buildProjection(snapshot, horizon);
   const horizonText = monthLabel(horizon);
-  const badCategory = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "Unplanned spending";
-  const goodSavingsText = projection.totalSavingsSaved || projection.currentEmergency ? "savings and protection are already visible" : "good money habits need more visible proof";
+  const horizonSummary = getClaraForecastHorizonSummary(snapshot);
+  const leakCategory = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
+  const leakLabel = categorySignal(projection.biggestRiskyCategory || projection.biggestLeak, "Likely leak");
   const improvementLift = projection.projectedNetPositionImproved - projection.projectedNetPositionSame;
+  const hasLeak = projection.badLeakCost > 0;
+  const hasSavingsDiscipline = projection.totalSavingsSaved > 0 || projection.currentEmergency > 0;
+  const hasDebtActivity = projection.monthlyDebtPayment > 0 || projection.debtRecordsUsed > 0;
 
   return {
     title: "FUTURE MONEY FORECAST",
-    subtitle: `${horizonText} outlook`,
+    subtitle: `${horizonText} behavioral forecast`,
     type: "projection",
     horizonMonths: horizon,
     cards: [
       {
-        eyebrow: "01 / FORECAST BASIS",
-        title: "How CLARA Calculated This",
-        body: `This forecast uses your last ${horizonText} of local behavior and projects the next ${horizonText} using the same deterministic formula.`,
+        eyebrow: "01 / FORECAST SETUP",
+        title: "Forecast Setup",
+        tone: "neutral",
+        hero: horizonText,
+        body: "CLARA used your local records only. No Gemini call is used for this report.",
         stats: [
-          stat("Forecast horizon", horizonText),
-          stat("Income records used", count(projection.incomeRecordsUsed)),
-          stat("Expense records used", count(projection.expenseRecordsUsed)),
-          stat("Average monthly income", amount(projection.averageMonthlyIncome)),
-          stat("Average monthly expenses", amount(projection.averageMonthlyExpenses)),
+          stat("Selected Forecast Horizon", horizonText),
+          stat("Historical Data Used", `${horizonSummary.availableHistoryMonths} month${horizonSummary.availableHistoryMonths === 1 ? "" : "s"}`),
+          stat("Forecast Confidence", labelCompleteness(snapshot.dataCompleteness)),
+          stat("Data Basis Summary", dataBasisSummary(projection, horizonSummary.availableHistoryMonths)),
         ],
       },
       {
-        eyebrow: "02 / BAD HABITS CLARA FOUND",
-        title: "What Is Leaking Money",
-        body: `CLARA found money pressure from ${badCategory}. This does not shame the user; it shows where future money can quietly disappear.`,
+        eyebrow: "02 / CURRENT POSITION",
+        title: "Current Financial Position",
+        tone: "neutral",
+        hero: amount(projection.currentMoneyLeft, NOT_ENOUGH_DATA),
+        body: "This is the money position CLARA sees before projecting your next months.",
         stats: [
-          stat("Unplanned spending count", count(projection.unplannedCount)),
-          stat("Average monthly leak", amount(projection.averageMonthlyUnplanned)),
-          stat("Biggest pressure area", text(badCategory)),
-          stat(`${horizonText} leak cost`, amount(projection.badLeakCost)),
+          stat("Current Money Left", amount(projection.currentMoneyLeft, NOT_ENOUGH_DATA)),
+          stat("Wallet Balance", amount(projection.currentWalletTotal, NOT_ENOUGH_DATA)),
+          stat("Emergency Fund", emergencySummary(projection)),
+          stat("Savings Goals", savingsSummary(projection)),
+          stat("Debt Balance", projection.debtRecordsUsed ? amount(projection.totalDebtBalance, "₱0") : NOT_ENOUGH_DATA),
+          stat("Current Financial Direction", projection.currentDirection),
         ],
       },
       {
-        eyebrow: "03 / IF NOTHING CHANGES",
-        title: "Cost of Staying the Same",
-        body: "If the risky behavior continues, money that could have built emergency fund, savings, or debt freedom may continue escaping first.",
+        eyebrow: "03 / REALITY CHECK",
+        title: "Risky Habits CLARA Found",
+        tone: "reality",
+        body: "These are conservative signals based on available spending records. CLARA marks patterns, not judgment.",
         stats: [
-          stat("Projected money left", amount(projection.projectedWalletIfSame)),
-          stat("Emergency fund outcome", amount(projection.projectedEmergencyIfGood)),
-          stat("Savings goal outcome", amount(projection.projectedSavingsIfGood)),
-          stat("Remaining debt", amount(projection.projectedDebtBalance)),
+          stat("Impulse Spending", signalWhen(projection.unplannedCount > 0, "Detected pattern")),
+          stat("Unplanned Purchases", projection.unplannedCount > 0 ? `${count(projection.unplannedCount)} record${projection.unplannedCount === 1 ? "" : "s"}` : NO_MAJOR_SIGNAL),
+          stat("Overspending Categories", leakLabel),
+          stat("Spending Leaks", projection.biggestLeak ? `${categorySignal(projection.biggestLeak)} · ${amount(projection.biggestLeak.monthlyAmount)}/mo` : NOT_ENOUGH_DATA),
+          stat("Financial Risks Detected", projection.badDirection === "At risk" || projection.badDirection === "Under pressure" ? projection.badDirection : NO_MAJOR_SIGNAL),
         ],
       },
       {
-        eyebrow: "04 / GOOD HABITS CLARA FOUND",
-        title: "What Is Already Helping You",
-        body: `CLARA also recognizes the good side: ${goodSavingsText}. These are the behaviors worth protecting.`,
+        eyebrow: "04 / REALITY CHECK",
+        title: "What These Habits May Cost You",
+        tone: "reality",
+        hero: hasLeak ? amount(projection.badLeakCost) : NO_MAJOR_SIGNAL,
+        body: "This slide shows the cost of leaks if the same pattern continues through the selected horizon.",
         stats: [
-          stat("Net monthly direction", signedAmount(projection.netMonthlyCashFlow)),
-          stat("Debt payment pace", amount(projection.monthlyDebtPayment)),
-          stat("Emergency fund now", amount(projection.currentEmergency)),
-          stat("Savings goals now", amount(projection.totalSavingsSaved)),
+          stat("Monthly Leak Cost", projection.averageMonthlyUnplanned > 0 ? amount(projection.averageMonthlyUnplanned) : NO_MAJOR_SIGNAL),
+          stat("Forecasted Leak Cost", hasLeak ? amount(projection.badLeakCost) : NO_MAJOR_SIGNAL),
+          stat("Goals Being Delayed", hasLeak && projection.totalSavingsTarget > projection.totalSavingsSaved ? `Up to ${amount(Math.min(projection.badLeakCost, projection.totalSavingsTarget - projection.totalSavingsSaved))}` : NO_MAJOR_SIGNAL),
+          stat("Emergency Fund Impact", hasLeak ? `${amount(Math.max(0, projection.badLeakCost * 0.35))} could protect you` : NO_MAJOR_SIGNAL),
+          stat("Debt Impact", hasLeak && projection.totalDebtBalance > 0 ? `${amount(Math.min(projection.badLeakCost, projection.totalDebtBalance))} could reduce debt` : NO_MAJOR_SIGNAL),
         ],
       },
       {
-        eyebrow: "05 / IF GOOD HABITS CONTINUE",
-        title: "Value of Your Strong Side",
-        body: `If the good habits continue for ${horizonText}, CLARA projects progress in protection, savings, and debt reduction where records are available.`,
+        eyebrow: "05 / BAD FUTURE PROJECTION",
+        title: "If Nothing Changes",
+        tone: "reality",
+        hero: amount(projection.projectedMoneyLeftIfSame, NOT_ENOUGH_DATA),
+        body: "This is the pressure path: the forecast if the same income, spending, leak, savings, and debt behavior continues.",
         stats: [
-          stat("Emergency fund growth", amount(projection.goodEmergencyGrowth)),
-          stat("Savings growth", amount(projection.goodSavingsGrowth)),
-          stat("Debt reduction", amount(projection.debtReduction)),
-          stat("Projected debt balance", amount(projection.projectedDebtBalance)),
+          stat("Projected Money Left", amount(projection.projectedMoneyLeftIfSame, NOT_ENOUGH_DATA)),
+          stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfSame, "₱0")),
+          stat("Projected Savings Progress", amount(projection.projectedSavingsIfSame, "₱0")),
+          stat("Projected Debt Position", projection.debtRecordsUsed ? amount(projection.totalDebtBalance, "₱0") : NOT_ENOUGH_DATA),
+          stat("Financial Direction", projection.badDirection),
         ],
       },
       {
-        eyebrow: "06 / BETTER FUTURE SCENARIO",
-        title: "Keep Good, Fix Leaks",
-        body: "This is the better version: keep the good behavior and redirect the leak instead of letting it disappear.",
+        eyebrow: "06 / HOPE CHECK",
+        title: "Good Habits CLARA Found",
+        tone: "hope",
+        body: "CLARA also looks for what is already working, so the report does not only focus on risk.",
         stats: [
-          stat("Recovered leak potential", amount(projection.badLeakCost)),
-          stat("Better money left", amount(projection.projectedWalletIfImproved)),
-          stat("Better emergency fund", amount(projection.projectedEmergencyIfImproved)),
-          stat("Better savings position", amount(projection.projectedSavingsIfImproved)),
+          stat("Consistent Income", signalWhen(projection.incomeRecordsUsed > 0, `Based on ${count(projection.incomeRecordsUsed)} record${projection.incomeRecordsUsed === 1 ? "" : "s"}`)),
+          stat("Savings Discipline", signalWhen(hasSavingsDiscipline, "Based on available records")),
+          stat("Budget Usage", signalWhen(projection.budgetRecordsUsed > 0, `${count(projection.budgetRecordsUsed)} budget record${projection.budgetRecordsUsed === 1 ? "" : "s"}`)),
+          stat("Emergency Fund Contributions", projection.currentEmergency > 0 ? amount(projection.currentEmergency) : NO_MAJOR_SIGNAL),
+          stat("Debt Payments", signalWhen(hasDebtActivity, projection.monthlyDebtPayment > 0 ? amount(projection.monthlyDebtPayment) : "Debt records exist")),
+          stat("Positive Behaviors", projection.netMonthlyCashFlow >= 0 ? "Money direction is stable or improving" : "Good records exist, but cash flow needs support"),
         ],
       },
       {
-        eyebrow: "07 / REAL FINANCIAL RESULT",
-        title: `After ${horizonText}`,
-        body: "This is the practical outcome CLARA can show from the selected timeframe: projected money, protection, savings, debt, and total direction.",
+        eyebrow: "07 / HOPE CHECK",
+        title: "Value of the Good Habits",
+        tone: "hope",
+        hero: amount(projection.debtReduction + projection.goodEmergencyGrowth + projection.goodSavingsGrowth, "₱0"),
+        body: "These values come from the good behavior already visible in your local data.",
         stats: [
-          stat("Projected money left", amount(projection.projectedWalletIfImproved)),
-          stat("Projected emergency fund", amount(projection.projectedEmergencyIfImproved)),
-          stat("Projected savings goals", amount(projection.projectedSavingsIfImproved)),
-          stat("Projected remaining debt", amount(projection.projectedDebtBalance)),
-          stat("Projected net position", amount(projection.projectedNetPositionImproved)),
+          stat("Future Value of Savings", amount(projection.goodSavingsGrowth, "₱0")),
+          stat("Future Value of Budgeting", projection.budgetRecordsUsed > 0 ? "Budget records are active" : NOT_ENOUGH_DATA),
+          stat("Future Value of Debt Reduction", amount(projection.debtReduction, "₱0")),
+          stat("Future Value of Emergency Fund Growth", amount(projection.goodEmergencyGrowth, "₱0")),
         ],
       },
       {
-        eyebrow: "08 / NEXT BEST MOVE",
-        title: projection.status,
-        body: `Imagine what can happen in ${horizonText} if you keep the habits that help you and fix the leak that slows you down. Start with one move: reduce ${badCategory} by a small fixed amount this month.`,
+        eyebrow: "08 / GOOD FUTURE PROJECTION",
+        title: "If You Continue the Good",
+        tone: "hope",
+        hero: amount(projection.projectedMoneyLeftIfGood, NOT_ENOUGH_DATA),
+        body: "This is the steady path if the helpful behaviors continue without adding a new improvement plan yet.",
+        stats: [
+          stat("Projected Money Left", amount(projection.projectedMoneyLeftIfGood, NOT_ENOUGH_DATA)),
+          stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfGood, "₱0")),
+          stat("Projected Savings Progress", amount(projection.projectedSavingsIfGood, "₱0")),
+          stat("Projected Debt Reduction", amount(projection.debtReduction, "₱0")),
+          stat("Financial Direction", projection.goodDirection),
+        ],
+      },
+      {
+        eyebrow: "09 / POSSIBILITY PLAN",
+        title: "Keep the Good, Fix the Bad",
+        tone: "possibility",
+        body: "The better future does not require changing everything. CLARA starts with protecting what works and fixing the biggest leak first.",
+        stats: [
+          stat("Good Habits to Protect", hasSavingsDiscipline || projection.incomeRecordsUsed > 0 ? "Income, savings, protection, and budget signals" : NOT_ENOUGH_DATA),
+          stat("Biggest Leak to Fix", leakCategory ? `Likely leak: ${leakCategory}` : NOT_ENOUGH_DATA),
+          stat("Recommended Adjustments", nextBestAction(projection)),
+          stat("Highest Impact Change", hasLeak ? `Recover up to ${amount(projection.badLeakCost)} over ${horizonText}` : "Record more spending evidence first"),
+        ],
+      },
+      {
+        eyebrow: "10 / BEST FUTURE PROJECTION",
+        title: "Your Better Future Outcome",
+        tone: "possibility",
+        hero: amount(projection.projectedTotalAvailable, NOT_ENOUGH_DATA),
+        body: `This is the better direction if you keep the good habits and redirect the leak CLARA found. One next best action: ${nextBestAction(projection)}`,
         final: true,
-        tone: projection.status === "At Risk" ? "needs-data" : projection.status === "Under Pressure" ? "partial" : "ready",
+        ctaLabel: "I got it now",
         stats: [
-          stat("Financial direction", projection.status),
-          stat("Better-future lift", amount(improvementLift)),
-          stat("Focus leak", text(badCategory)),
-          stat("Formula", "Same engine, selected months"),
+          stat("Projected Money Left", amount(projection.projectedMoneyLeftIfImproved, NOT_ENOUGH_DATA)),
+          stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfImproved, "₱0")),
+          stat("Projected Savings Goal Completion", amount(projection.projectedSavingsIfImproved, "₱0")),
+          stat("Projected Debt Balance", projection.debtRecordsUsed ? amount(projection.projectedDebtBalance, "₱0") : NOT_ENOUGH_DATA),
+          stat("Projected Total Available Money", amount(projection.projectedTotalAvailable, NOT_ENOUGH_DATA)),
+          stat("Financial Direction", projection.betterDirection),
+          stat("One Next Best Action", nextBestAction(projection)),
+          stat("Better-future lift", amount(improvementLift, "₱0")),
         ],
         missingData: [],
       },
