@@ -1,5 +1,6 @@
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_PROXY_ENDPOINT = "/api/clara-gemini";
+const CLARA_GEMINI_PROXY_PRODUCTION_URL = "https://clara-app-test.vercel.app/api/clara-gemini";
 
 function cleanText(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -7,6 +8,28 @@ function cleanText(value = "") {
 
 function normalizeModelName(model = "") {
   return cleanText(model).replace(/^models\//, "");
+}
+
+function getClaraGeminiProxyEndpoint() {
+  const envUrl = import.meta.env.VITE_CLARA_GEMINI_PROXY_URL;
+  if (envUrl) return envUrl;
+
+  if (typeof window === "undefined") {
+    return GEMINI_PROXY_ENDPOINT;
+  }
+
+  const protocol = window.location?.protocol || "";
+  const hostname = window.location?.hostname || "";
+
+  const isNativeLike =
+    protocol === "capacitor:" ||
+    protocol === "ionic:" ||
+    protocol === "file:" ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    Boolean(window.Capacitor?.isNativePlatform?.());
+
+  return isNativeLike ? CLARA_GEMINI_PROXY_PRODUCTION_URL : GEMINI_PROXY_ENDPOINT;
 }
 
 export function getClaraProxyModel(fallback = DEFAULT_GEMINI_MODEL) {
@@ -52,7 +75,7 @@ export async function requestClaraGeminiProxyText({
     throw error;
   }
 
-  const response = await fetch(GEMINI_PROXY_ENDPOINT, {
+  const response = await fetch(getClaraGeminiProxyEndpoint(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
