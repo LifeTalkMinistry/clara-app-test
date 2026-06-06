@@ -14,6 +14,7 @@ const READY_EVENT = "clara:forecast-phase-one-ready";
 const ACTION_SELECTOR = "[data-clara-open-forecast-report='true']";
 const HORIZON_SELECTOR = "[data-clara-forecast-horizon]";
 const REPORT_TONES = new Set(["neutral", "reality", "hope", "possibility"]);
+const SETUP_NOT_ENOUGH_DATA = "Not enough data to generate result";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -26,6 +27,128 @@ function escapeHtml(value = "") {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function toArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function toNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function monthLabel(months = 1) {
+  const safeMonths = Math.min(Math.max(Math.round(toNumber(months)) || 1, 1), 12);
+  return `${safeMonths} month${safeMonths === 1 ? "" : "s"}`;
+}
+
+function recordLabel(value = 0) {
+  const total = Number.isFinite(Number(value)) ? Number(value) : 0;
+  return `${total} record${total === 1 ? "" : "s"}`;
+}
+
+function getRecordDate(record = {}) {
+  const raw = record.date || record.createdAt || record.created_at || record.updatedAt || record.updated_at || record.lastActivityAt || record.last_activity_at || record.targetDate || record.target_date || "";
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isRecentEnough(date, horizonMonths = 1) {
+  if (!date) return false;
+  const boundary = new Date();
+  boundary.setMonth(boundary.getMonth() - (Math.min(Math.max(Math.round(toNumber(horizonMonths)) || 1, 1), 12)));
+  return date >= boundary;
+}
+
+function recordsInWindow(records = [], horizonMonths = 1) {
+  return toArray(records).filter((record) => isRecentEnough(getRecordDate(record), horizonMonths));
+}
+
+function firstText(source = {}, keys = []) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (clean(value)) return clean(value);
+  }
+  return "";
+}
+
+function isIncomeTransaction(transaction = {}) {
+  const type = firstText(transaction, ["type", "transaction_type", "kind"]).toLowerCase();
+  return ["income", "add", "cash_in", "deposit", "opening_balance", "credit"].includes(type);
+}
+
+function isExpenseTransaction(transaction = {}) {
+  const type = firstText(transaction, ["type", "transaction_type", "kind"]).toLowerCase();
+  return ["expense", "withdrawal", "debit", "spend", "purchase", "cash_out"].includes(type);
+}
+
+function setupConfidenceLabel(value = "") {
+  const normalized = clean(value || "weak").toLowerCase();
+  if (normalized === "strong") return "Strong";
+  if (normalized === "medium" || normalized === "partial" || normalized === "moderate") return "Moderate";
+  return "Limited";
+}
+
+function setupRecordCounts(snapshot = {}, horizonMonths = 1) {
+  const records = snapshot.forecastRecords || {};
+  const incomeWindow = recordsInWindow(records.incomes, horizonMonths);
+  const transactionIncomeWindow = recordsInWindow(toArray(records.walletTransactions).filter(isIncomeTransaction), horizonMonths);
+  const expenseWindow = recordsInWindow(records.expenses, horizonMonths);
+  const transactionExpenseWindow = recordsInWindow(toArray(records.walletTransactions).filter(isExpenseTransaction), horizonMonths);
+
+  return {
+    incomeRecords: incomeWindow.length ? incomeWindow.length : transactionIncomeWindow.length,
+    expenseRecords: expenseWindow.length ? expenseWindow.length : transactionExpenseWindow.length,
+    transactionRecords: transactionIncomeWindow.length + transactionExpenseWindow.length,
+  };
+}
+
+function hasSetupMoneyContext(snapshot = {}) {
+  const records = snapshot.forecastRecords || {};
+  return toArray(records.wallets).length > 0
+    || toArray(records.incomes).length > 0
+    || toArray(records.expenses).length > 0
+    || toArray(records.walletTransactions).length > 0;
+}
+
+function finalizeForecastSetupSlide(report = {}, snapshot = {}, horizonMonths = 1) {
+  if (!Array.isArray(report.cards) || !report.cards.length) return report;
+
+  const summary = getClaraForecastHorizonSummary(snapshot);
+  const horizon = Math.min(Math.max(Math.round(toNumber(horizonMonths)) || 1, 1), 12);
+  const hasUsableSetupData = hasSetupMoneyContext(snapshot) && summary.availableHistoryMonths >= horizon;
+  const horizonText = monthLabel(horizon);
+  const availableHistoryText = `${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"}`;
+  const counts = setupRecordCounts(snapshot, horizon);
+  const setupValue = (value) => (hasUsableSetupData ? value : SETUP_NOT_ENOUGH_DATA);
+
+  return {
+    ...report,
+    cards: report.cards.map((card, index) => {
+      if (index !== 0) return card;
+      return {
+        ...card,
+        eyebrow: "01 / FORECAST SETUP",
+        title: "Forecast Setup",
+        tone: "neutral",
+        hero: setupValue(horizonText),
+        body: hasUsableSetupData
+          ? "CLARA used your available local money records to build this forecast. More complete history improves forecast confidence."
+          : "CLARA needs more saved local money records to build a stronger forecast.",
+        stats: [
+          { label: "Selected Forecast Horizon", value: setupValue(horizonText) },
+          { label: "Available History", value: setupValue(availableHistoryText) },
+          { label: "Forecast Basis", value: setupValue(`Last ${horizonText}`) },
+          { label: "Forecast Confidence", value: hasUsableSetupData ? setupConfidenceLabel(snapshot.dataCompleteness) : "Limited" },
+          { label: "Income Records", value: setupValue(recordLabel(counts.incomeRecords)) },
+          { label: "Expense Records", value: setupValue(recordLabel(counts.expenseRecords)) },
+          { label: "Transaction Records", value: setupValue(recordLabel(counts.transactionRecords)) },
+        ],
+      };
+    }),
+  };
 }
 
 function reportSubtitle(report = {}) {
@@ -258,7 +381,7 @@ function syncForecastReportProgress(overlay) {
 }
 
 function renderReport(snapshot, horizonMonths = 1) {
-  const report = buildClaraForecastReport(snapshot, { horizonMonths });
+  const report = finalizeForecastSetupSlide(buildClaraForecastReport(snapshot, { horizonMonths }), snapshot, horizonMonths);
   closeReport();
 
   const overlay = document.createElement("section");
