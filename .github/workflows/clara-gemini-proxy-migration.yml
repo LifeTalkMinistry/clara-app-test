@@ -6,6 +6,7 @@ on:
       - ".github/scripts/clara-gemini-proxy-migration.mjs"
       - ".github/workflows/clara-gemini-proxy-migration.yml"
       - ".github/clara-gemini-proxy-migration-trigger.txt"
+      - ".github/migration-run.txt"
   workflow_dispatch:
 
 permissions:
