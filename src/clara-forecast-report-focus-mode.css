@@ -112,7 +112,7 @@
   color: rgba(207, 250, 254, 0.62);
   font-size: 10.5px;
   letter-spacing: 0.22em;
-  text-indent: 0.22em;
+  text-indent: 0;
 }
 
 .clara-forecast-active-header h2 {
@@ -431,15 +431,15 @@
 
 .clara-forecast-horizon-shell {
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   gap: 14px;
 }
 
 .clara-forecast-horizon-header {
-  align-self: center;
-  width: min(100%, 390px);
-  margin: 0 auto;
-  padding: 0 8px 0;
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   text-align: center;
 }
 
@@ -626,18 +626,15 @@
 }
 
 /* Forecast header alignment safety fix:
-   Keeps the timeframe picker header and active slide header centered independently. */
-.clara-forecast-report-shell > .clara-forecast-report-header,
-.clara-forecast-horizon-shell > .clara-forecast-horizon-header,
-.clara-forecast-report-shell > .clara-forecast-active-header {
+   Horizon picker and report slides are intentionally scoped independently. */
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header {
+  flex: 0 0 auto;
   align-self: stretch;
   box-sizing: border-box;
-  width: 100%;
+  width: calc(100% + 28px);
   max-width: none;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 0;
-  padding-right: 0;
+  margin: 0 -14px;
+  padding: 0 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -646,12 +643,8 @@
   transform: none;
 }
 
-.clara-forecast-report-shell > .clara-forecast-report-header p,
-.clara-forecast-report-shell > .clara-forecast-report-header h2,
 .clara-forecast-horizon-shell > .clara-forecast-horizon-header p,
-.clara-forecast-horizon-shell > .clara-forecast-horizon-header h2,
-.clara-forecast-report-shell > .clara-forecast-active-header p,
-.clara-forecast-report-shell > .clara-forecast-active-header h2 {
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header h2 {
   box-sizing: border-box;
   display: block;
   width: 100%;
@@ -661,16 +654,38 @@
   padding-left: 0;
   padding-right: 0;
   text-align: center;
+  text-indent: 0;
   transform: none;
 }
 
-.clara-forecast-report-shell > .clara-forecast-report-header p,
-.clara-forecast-horizon-shell > .clara-forecast-horizon-header p,
-.clara-forecast-report-shell > .clara-forecast-active-header p {
-  text-indent: 0.22em;
+.clara-forecast-report-shell:not(.clara-forecast-horizon-shell) > .clara-forecast-active-header {
+  flex: 0 0 auto;
+  align-self: stretch;
+  box-sizing: border-box;
+  width: calc(100% + 28px);
+  max-width: none;
+  margin: 0 -14px;
+  padding-left: 14px;
+  padding-right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transform: none;
 }
 
-.clara-forecast-horizon-shell > .clara-forecast-horizon-header,
-.clara-forecast-report-shell > .clara-forecast-active-header {
-  flex: 0 0 auto;
+.clara-forecast-report-shell:not(.clara-forecast-horizon-shell) > .clara-forecast-active-header p,
+.clara-forecast-report-shell:not(.clara-forecast-horizon-shell) > .clara-forecast-active-header h2 {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  text-indent: 0;
+  transform: none;
 }
