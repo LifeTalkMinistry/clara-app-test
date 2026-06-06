@@ -276,23 +276,25 @@
 
 .clara-forecast-horizon-shell {
   justify-content: center;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
 }
 
 .clara-forecast-horizon-header {
-  padding: 0 8px 2px;
+  width: 100%;
+  padding: 0 8px 0;
 }
 
 .clara-forecast-horizon-header p {
   color: rgba(207, 250, 254, 0.62);
-  font-size: 10px;
+  font-size: 10.5px;
   letter-spacing: 0.22em;
 }
 
 .clara-forecast-horizon-header h2 {
-  margin-top: 7px;
+  margin-top: 8px;
   color: rgba(248, 250, 252, 0.92);
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 950;
   letter-spacing: -0.03em;
 }
@@ -300,16 +302,16 @@
 .clara-forecast-horizon-card {
   min-width: auto;
   align-self: center;
-  width: 100%;
-  max-height: calc(100dvh - 92px);
-  padding: 18px 16px 16px;
+  width: min(100%, 390px);
+  max-height: calc(100dvh - 96px);
+  padding: 20px 17px 17px;
 }
 
 .clara-forecast-horizon-helper {
-  max-width: 310px;
+  max-width: 320px;
   margin: 0 auto;
   color: rgba(226, 232, 240, 0.74);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 750;
   line-height: 1.45;
   text-align: center;
@@ -347,13 +349,13 @@
 .clara-forecast-horizon-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 17px;
 }
 
 .clara-forecast-horizon-grid button {
-  min-height: 70px;
-  border-radius: 21px;
+  min-height: 76px;
+  border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.065);
   color: rgba(255, 255, 255, 0.92);
@@ -371,12 +373,12 @@
 }
 
 .clara-forecast-horizon-grid button strong {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 950;
 }
 
 .clara-forecast-horizon-grid button span {
-  margin-top: 4px;
+  margin-top: 5px;
   font-size: 9px;
   font-weight: 850;
   color: rgba(203, 213, 225, 0.62);
@@ -392,7 +394,7 @@
 }
 
 .clara-forecast-horizon-footer-note {
-  margin: 13px 0 0;
+  margin: 15px 0 0;
   color: rgba(203, 213, 225, 0.6);
   font-size: 10.5px;
   font-weight: 800;
@@ -415,6 +417,10 @@
 @media (max-height: 690px) {
   .clara-forecast-report-header {
     padding-top: 42px;
+  }
+
+  .clara-forecast-horizon-shell {
+    gap: 10px;
   }
 
   .clara-forecast-horizon-header {
@@ -442,7 +448,7 @@
   }
 
   .clara-forecast-horizon-grid button {
-    min-height: 60px;
+    min-height: 64px;
   }
 
   .clara-forecast-horizon-footer-note {
