@@ -1,0 +1,73 @@
+name: Patch Buy Check Will Buy Wallet Null Safety
+
+on:
+  push:
+    paths:
+      - ".github/workflows/patch-buy-check-will-buy-wallet-null.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch Buy Check wallet null safety
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const filePath = "src/clara-buy-check-report-focus-mode.js";
+          let source = fs.readFileSync(filePath, "utf8");
+
+          source = source.replace(
+            'function getWalletId(wallet = {}) {\n  return clean(wallet.id ?? wallet.wallet_id ?? wallet.walletId ?? wallet.key ?? wallet.uuid ?? "");\n}',
+            'function getWalletId(wallet = {}) {\n  const safeWallet = wallet || {};\n  return clean(safeWallet.id ?? safeWallet.wallet_id ?? safeWallet.walletId ?? safeWallet.key ?? safeWallet.uuid ?? "");\n}'
+          );
+
+          source = source.replace(
+            'function getWalletName(wallet = {}) {\n  return clean(wallet.name || wallet.wallet_name || wallet.title || wallet.label || "Wallet");\n}',
+            'function getWalletName(wallet = {}) {\n  const safeWallet = wallet || {};\n  return clean(safeWallet.name || safeWallet.wallet_name || safeWallet.title || safeWallet.label || "Wallet");\n}'
+          );
+
+          source = source.replace(
+            'function getWalletBalance(wallet = {}) {\n  return toNumber(wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? wallet.available_balance ?? wallet.starting_balance ?? 0);\n}',
+            'function getWalletBalance(wallet = {}) {\n  const safeWallet = wallet || {};\n  return toNumber(safeWallet.balance ?? safeWallet.current_balance ?? safeWallet.wallet_balance ?? safeWallet.available_balance ?? safeWallet.starting_balance ?? safeWallet.balanceNumber ?? 0);\n}'
+          );
+
+          source = source.replace(
+            '    wallet_balance: wallet?.balanceNumber ?? getWalletBalance(wallet),',
+            '    wallet_balance: wallet ? wallet.balanceNumber ?? getWalletBalance(wallet) : 0,'
+          );
+
+          source = source.replace(
+            '  const payload = isBuy ? buildExpensePrefillFromBuyCheck("") : null;\n\n  const panel = document.createElement("div");',
+            '  let payload = null;\n  if (isBuy) {\n    try {\n      payload = buildExpensePrefillFromBuyCheck("");\n    } catch (error) {\n      console.warn("[CLARA Buy Check] Could not prefill expense safely", error);\n      payload = { wallet_id: "", wallet_name: "Choose wallet", wallet_balance: 0, amount: toNumber(purchase.price), planning_status: "unplanned" };\n    }\n  }\n\n  const panel = document.createElement("div");'
+          );
+
+          if (!source.includes('const safeWallet = wallet || {};')) {
+            throw new Error("Wallet null safety patch did not apply.");
+          }
+          if (!source.includes('Could not prefill expense safely')) {
+            throw new Error("Buy panel safety fallback patch did not apply.");
+          }
+
+          fs.writeFileSync(filePath, source);
+          NODE
+
+      - name: Commit patched file and remove temporary workflow
+        run: |
+          rm -f .github/workflows/patch-buy-check-will-buy-wallet-null.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/clara-buy-check-report-focus-mode.js .github/workflows/patch-buy-check-will-buy-wallet-null.yml
+          if git diff --cached --quiet; then
+            echo "No Buy Check wallet safety changes to commit."
+          else
+            git commit -m "Fix Buy Check will buy wallet null safety"
+            git push
+          fi
