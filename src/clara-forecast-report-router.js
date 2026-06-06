@@ -28,6 +28,10 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#39;");
 }
 
+function reportSubtitle(report = {}) {
+  return clean(report.subtitle).replace(/\s*behavioral forecast$/i, " outlook");
+}
+
 function reportTone(value = "neutral") {
   const tone = clean(value).toLowerCase();
   return REPORT_TONES.has(tone) ? tone : "neutral";
@@ -260,7 +264,7 @@ function renderReport(snapshot, horizonMonths = 1) {
       <button type="button" class="clara-forecast-report-close" data-clara-forecast-report-close="true" aria-label="Close Forecast Report">×</button>
       <header class="clara-forecast-report-header clara-forecast-active-header">
         <p>${escapeHtml(report.title)}</p>
-        <h2>${escapeHtml(report.subtitle)}</h2>
+        <h2>${escapeHtml(reportSubtitle(report))}</h2>
       </header>
       <div class="clara-forecast-report-track" aria-label="Future Money Forecast report slides">
         ${report.cards.map((card) => `
