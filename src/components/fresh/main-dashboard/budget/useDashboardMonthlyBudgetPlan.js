@@ -185,6 +185,39 @@ function findMatchingBudgetOptionForExpense(expense = {}, safeBudgetOptions = []
   }) || null;
 }
 
+function normalizeOutsidePlanExpense(expense = {}, type = "unplanned", index = 0) {
+  const amount = firstValidNumber(expense?.amount, expense?.spent, expense?.value, expense?.total);
+  const rawDate =
+    expense?.date ||
+    expense?.transaction_date ||
+    expense?.transactionDate ||
+    expense?.spent_at ||
+    expense?.created_at ||
+    expense?.createdAt ||
+    expense?.logged_at ||
+    getTransactionDate(expense);
+  const time = toTime(rawDate) || 0;
+
+  return {
+    ...expense,
+    id: expense?.id || expense?.key || `${type}-${index}-${rawDate || amount}`,
+    type,
+    status: type,
+    planning_status: type,
+    title:
+      expense?.title ||
+      expense?.name ||
+      expense?.merchant ||
+      expense?.description ||
+      getExpenseBudgetCategory(expense) ||
+      (type === "undocumented" ? "Undocumented expense" : "Unplanned expense"),
+    category: getExpenseBudgetCategory(expense) || "No category",
+    amount,
+    date: rawDate,
+    sortTime: time,
+  };
+}
+
 const PLANNED_STATUSES = new Set(["planned", "budget_risk", "over_budget"]);
 
 export default function useDashboardMonthlyBudgetPlan({
@@ -259,18 +292,31 @@ export default function useDashboardMonthlyBudgetPlan({
       return sum + firstValidNumber(expense?.amount);
     }, 0);
 
-    const unplannedSpent = activeCycleExpenses.reduce((sum, expense) => {
-      const status = getExpensePlanningStatus(expense);
-      if (status !== "unplanned") return sum;
-      if (findMatchingBudgetOptionForExpense(expense, safeBudgetOptions)) return sum;
-      return sum + firstValidNumber(expense?.amount);
-    }, 0);
+    const unplannedExpenseItems = activeCycleExpenses
+      .filter((expense) => {
+        const status = getExpensePlanningStatus(expense);
+        if (status !== "unplanned") return false;
+        return !findMatchingBudgetOptionForExpense(expense, safeBudgetOptions);
+      })
+      .map((expense, index) => normalizeOutsidePlanExpense(expense, "unplanned", index));
 
-    const undocumentedSpent = activeCycleExpenses.reduce((sum, expense) => {
-      const status = getExpensePlanningStatus(expense);
-      if (status !== "undocumented") return sum;
-      return sum + firstValidNumber(expense?.amount);
-    }, 0);
+    const undocumentedExpenseItems = activeCycleExpenses
+      .filter((expense) => getExpensePlanningStatus(expense) === "undocumented")
+      .map((expense, index) => normalizeOutsidePlanExpense(expense, "undocumented", index));
+
+    const unplannedSpent = unplannedExpenseItems.reduce(
+      (sum, expense) => sum + firstValidNumber(expense?.amount),
+      0
+    );
+
+    const undocumentedSpent = undocumentedExpenseItems.reduce(
+      (sum, expense) => sum + firstValidNumber(expense?.amount),
+      0
+    );
+
+    const outsidePlanItems = [...unplannedExpenseItems, ...undocumentedExpenseItems].sort(
+      (a, b) => firstValidNumber(b?.sortTime) - firstValidNumber(a?.sortTime)
+    );
 
     const allocatedTotal = categories.reduce(
       (sum, item) => sum + firstValidNumber(item?.allocated),
@@ -314,6 +360,12 @@ export default function useDashboardMonthlyBudgetPlan({
       unplannedSpent,
       undocumented_spent: undocumentedSpent,
       undocumentedSpent,
+      unplanned_items: unplannedExpenseItems,
+      unplannedItems: unplannedExpenseItems,
+      undocumented_items: undocumentedExpenseItems,
+      undocumentedItems: undocumentedExpenseItems,
+      outside_plan_items: outsidePlanItems,
+      outsidePlanItems,
       spent: spentTotal,
       spent_amount: spentTotal,
       spent_total: spentTotal,
