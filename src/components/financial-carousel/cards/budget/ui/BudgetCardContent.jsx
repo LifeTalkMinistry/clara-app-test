@@ -149,21 +149,23 @@ function BudgetInsightCard({ driftState, outsidePlanSpent, onOpenDetails }) {
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
       <div className="relative min-w-0">
-        <div className="mb-1.5 flex flex-wrap items-center gap-2">
-          <p className="text-[13px] font-black leading-tight text-white/92">
-            {driftState.label}
-          </p>
-          <span className="rounded-full border border-white/[0.065] bg-black/[0.14] px-2 py-0.5 text-[10px] font-black text-white/60">
-            {Math.round(driftState.rate)}%
+        <div className="mb-1.5 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="text-[13px] font-black leading-tight text-white/92">
+              {driftState.label}
+            </p>
+            <span className="rounded-full border border-white/[0.065] bg-black/[0.14] px-2 py-0.5 text-[10px] font-black text-white/60">
+              {Math.round(driftState.rate)}%
+            </span>
+          </div>
+          <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-white/36">
+            Tap To View
           </span>
         </div>
 
         <p className="text-[12px] font-semibold leading-5 text-white/70">
           {outsidePlanSpent > 0 ? `${fmt(outsidePlanSpent)} spent outside your plan. ` : ""}
           {driftState.message}
-        </p>
-        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
-          Tap to view details
         </p>
       </div>
     </button>
