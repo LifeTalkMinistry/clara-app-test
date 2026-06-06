@@ -1,13 +1,9 @@
-import { upsertIncomeSource } from "./lib/incomeHubRepository";
-import { SAMPLE_DATA_LOCAL_USER_ID, exitYoungProfessionalCurrentState } from "./lib/clara-young-professional-current-state";
+import { loadYoungProfessionalDemoProfile, isYoungProfessionalDemoProfileActive } from "./lib/demo/loadDemoProfile";
 
 const SECTION_ID = "clara-current-state-learning-section";
 const PAGE_ID = "clara-current-state-learning-page";
 const STYLE_ID = "clara-current-state-learning-static-styles";
 const STATUS_ID = "clara-current-state-learning-static-status";
-const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
-const SAMPLE_DATA_SOURCE = "clara_sample_data_income_sources";
-const SAMPLE_DATA_FAMILY = "sample_data_income_sources_only";
 
 function findSettingsRoot() {
   return document.querySelector("#root .space-y-5.pb-6");
@@ -15,9 +11,7 @@ function findSettingsRoot() {
 
 function findProgramSection(settingsRoot) {
   if (!settingsRoot) return null;
-  return Array.from(settingsRoot.querySelectorAll("section")).find((section) =>
-    section.textContent?.includes("Program") && section.textContent?.includes("About CLARA")
-  );
+  return Array.from(settingsRoot.querySelectorAll("section")).find((section) => section.textContent?.includes("Program") && section.textContent?.includes("About CLARA"));
 }
 
 function iconSvg() {
@@ -37,143 +31,25 @@ function setStatus(message = "") {
   if (status) status.textContent = message;
 }
 
-function markSampleDataLearningModeActive() {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(ACTIVE_CURRENT_STATE_KEY, JSON.stringify({
-      mode: "current_state",
-      dataMode: "sample_data",
-      activeLifeStageKey: "sample_data",
-      activeLifeStageTitle: "Sample Data",
-      samplePersonName: "Max",
-      sampleRole: "Call center worker",
-      demoLocalUserId: SAMPLE_DATA_LOCAL_USER_ID,
-      loadedParts: ["income_sources"],
-      source: SAMPLE_DATA_SOURCE,
-      setupFamily: SAMPLE_DATA_FAMILY,
-      activatedAt: new Date().toISOString(),
-    }));
-  } catch {
-    // If storage is unavailable, the income sources can still be created.
-  }
-
-  window.dispatchEvent(new Event("clara-young-professional-current-state-loaded"));
-  window.dispatchEvent(new Event("storage"));
-}
-
-function buildSampleIncomeSources(localUserId) {
-  const timestamp = new Date().toISOString();
-  const safeUserKey = String(localUserId || SAMPLE_DATA_LOCAL_USER_ID).replace(/[^a-zA-Z0-9_-]/g, "_");
-
-  return [
-    {
-      id: `clara_sample_income_bpo_salary_${safeUserKey}`,
-      kind: "income_source",
-      recordType: "income_source",
-      name: "BPO Salary",
-      title: "BPO Salary",
-      category: "Salary",
-      stability: "Stable",
-      totalMoneyIn: 0,
-      total_money_in: 0,
-      totalMoneyOut: 0,
-      total_money_out: 0,
-      currentBalance: 0,
-      current_balance: 0,
-      expectedMonthlyAmount: 0,
-      expected_monthly_amount: 0,
-      notes: "Sample Data: Max works in a call center. Amount intentionally starts at ₱0.",
-      samplePersonName: "Max",
-      sample_person_name: "Max",
-      sampleRole: "Call center worker",
-      sample_role: "Call center worker",
-      source: SAMPLE_DATA_SOURCE,
-      setupFamily: SAMPLE_DATA_FAMILY,
-      activeSampleData: true,
-      createdAt: timestamp,
-      created_at: timestamp,
-      updatedAt: timestamp,
-      updated_at: timestamp,
-      deletedAt: null,
-      deleted_at: null,
-      syncStatus: "local_only",
-    },
-    {
-      id: `clara_sample_income_side_hustle_${safeUserKey}`,
-      kind: "income_source",
-      recordType: "income_source",
-      name: "Side Hustle",
-      title: "Side Hustle",
-      category: "Side Hustle",
-      stability: "Irregular",
-      totalMoneyIn: 0,
-      total_money_in: 0,
-      totalMoneyOut: 0,
-      total_money_out: 0,
-      currentBalance: 0,
-      current_balance: 0,
-      expectedMonthlyAmount: 0,
-      expected_monthly_amount: 0,
-      notes: "Sample Data: Max has a possible side hustle income stream. Amount intentionally starts at ₱0.",
-      samplePersonName: "Max",
-      sample_person_name: "Max",
-      sampleRole: "Call center worker",
-      sample_role: "Call center worker",
-      source: SAMPLE_DATA_SOURCE,
-      setupFamily: SAMPLE_DATA_FAMILY,
-      activeSampleData: true,
-      createdAt: timestamp,
-      created_at: timestamp,
-      updatedAt: timestamp,
-      updated_at: timestamp,
-      deletedAt: null,
-      deleted_at: null,
-      syncStatus: "local_only",
-    },
-  ];
-}
-
-async function loadSampleIncomeSourcesOnly(button) {
+async function loadDemo(button) {
   if (button?.disabled) return;
-
   try {
-    if (button) {
-      button.disabled = true;
-      button.textContent = "Loading income sources...";
-    }
-    setStatus("Preparing isolated Sample Data income sources...");
-
-    await exitYoungProfessionalCurrentState();
-
-    const sources = buildSampleIncomeSources(SAMPLE_DATA_LOCAL_USER_ID);
-    for (const source of sources) {
-      await upsertIncomeSource(SAMPLE_DATA_LOCAL_USER_ID, source);
-    }
-
-    markSampleDataLearningModeActive();
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("clara-income-hub-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
-      window.dispatchEvent(new Event("clara-local-finance-updated"));
-    }
-
-    setStatus("Income sources added inside Sample Data only: BPO Salary and Side Hustle. Both are set to ₱0. Your real records were not touched.");
-    if (button) button.textContent = "Income sources added";
+    button.disabled = true;
+    button.textContent = "Loading demo profile...";
+    setStatus("Preparing 12-month Young Professional demo profile...");
+    const result = await loadYoungProfessionalDemoProfile();
+    setStatus(`Demo Profile Loaded: ${result.summary?.months || 12} months, ${result.summary?.expenses || 0} expenses, ${result.summary?.walletTransactions || 0} wallet transactions, and ${result.summary?.budgets || 0} budgets are ready. Forecast and Dashboard can now read the sample history. Your real records were not touched.`);
   } catch (error) {
-    console.warn("CLARA Sample Data income source setup failed:", error);
-    setStatus("CLARA could not add the sample income sources yet. Please try again.");
-    if (button) {
-      button.disabled = false;
-      button.textContent = "Load income sources";
-    }
+    console.warn("CLARA demo profile setup failed:", error);
+    setStatus("CLARA could not load the 1-Year Demo Profile yet. Please try again.");
+  } finally {
+    button.disabled = false;
+    button.textContent = isYoungProfessionalDemoProfileActive() ? "Reset Demo Profile" : "Load 1-Year Demo Profile";
   }
 }
 
 function installStyles() {
   if (document.getElementById(STYLE_ID)) return;
-
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
@@ -227,9 +103,9 @@ function createPage() {
   page.id = PAGE_ID;
   page.className = "space-y-4 pb-6";
   page.style.display = "none";
-  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Explore CLARA</span><h2>Try sample data</h2><p>Explore CLARA using realistic financial data and guided examples before using your own records.</p></div><div id="${STATUS_ID}">Sample data is for learning only. Your real financial records stay separate and protected.</div><div class="clara-current-state-card"><h3>Sample Data</h3><p>Creates income sources only for Max, a call center worker: BPO Salary and Side Hustle. Both start at ₱0.</p><small>Income sources only</small><button type="button" data-clara-load-sample-income="true">Load income sources</button></div>`;
+  page.innerHTML = `<button type="button" class="clara-current-state-back">${backSvg()} Settings</button><div class="clara-current-state-instruction"><span class="clara-current-state-kicker">Explore CLARA</span><h2>Try sample data</h2><p>Explore CLARA using realistic financial data and guided examples before using your own records.</p></div><div id="${STATUS_ID}">Sample data is for learning only. Your real financial records stay separate and protected.</div><div class="clara-current-state-card"><h3>Sample Data</h3><p>Explore CLARA using realistic 12-month financial history before using your own records.</p><p>This creates demo income, expenses, budgets, savings, emergency fund activity, wallets, and transactions for learning only.</p><small>Learning Mode</small><button type="button" data-clara-load-demo-profile="true">Load 1-Year Demo Profile</button></div>`;
   page.querySelector(".clara-current-state-back")?.addEventListener("click", () => showPage(false));
-  page.querySelector("[data-clara-load-sample-income]")?.addEventListener("click", (event) => loadSampleIncomeSourcesOnly(event.currentTarget));
+  page.querySelector("[data-clara-load-demo-profile]")?.addEventListener("click", (event) => loadDemo(event.currentTarget));
   return page;
 }
 
