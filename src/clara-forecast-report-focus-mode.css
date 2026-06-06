@@ -154,9 +154,57 @@
   -webkit-backdrop-filter: blur(24px);
 }
 
+.clara-forecast-report-card {
+  position: relative;
+  overflow: hidden auto;
+}
+
+.clara-forecast-report-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.clara-forecast-report-card.is-neutral {
+  border-color: rgba(148, 163, 184, 0.2);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(2, 6, 23, 0.64));
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.25), 0 0 42px rgba(103, 232, 249, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.clara-forecast-report-card.is-reality {
+  border-color: rgba(251, 191, 36, 0.28);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(251, 191, 36, 0.14), transparent 34%),
+    radial-gradient(circle at 90% 18%, rgba(248, 113, 113, 0.09), transparent 36%),
+    linear-gradient(180deg, rgba(30, 20, 10, 0.6), rgba(2, 6, 23, 0.72));
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.25), 0 0 46px rgba(251, 191, 36, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.clara-forecast-report-card.is-hope {
+  border-color: rgba(45, 212, 191, 0.28);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(45, 212, 191, 0.14), transparent 34%),
+    radial-gradient(circle at 92% 18%, rgba(34, 197, 94, 0.09), transparent 36%),
+    linear-gradient(180deg, rgba(5, 26, 24, 0.56), rgba(2, 6, 23, 0.72));
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.25), 0 0 46px rgba(45, 212, 191, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.clara-forecast-report-card.is-possibility {
+  border-color: rgba(129, 140, 248, 0.3);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(96, 165, 250, 0.14), transparent 34%),
+    radial-gradient(circle at 92% 18%, rgba(168, 85, 247, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(15, 18, 45, 0.62), rgba(2, 6, 23, 0.72));
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.25), 0 0 48px rgba(129, 140, 248, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 .clara-forecast-report-card.is-final {
-  border-color: rgba(103, 232, 249, 0.22);
-  background: linear-gradient(180deg, rgba(45, 212, 191, 0.12), rgba(124, 58, 237, 0.1));
+  box-shadow: 0 26px 66px rgba(0, 0, 0, 0.3), 0 0 54px rgba(129, 140, 248, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .clara-forecast-report-eyebrow {
@@ -168,6 +216,18 @@
   text-transform: uppercase;
 }
 
+.clara-forecast-report-card.is-reality .clara-forecast-report-eyebrow {
+  color: rgba(254, 243, 199, 0.72);
+}
+
+.clara-forecast-report-card.is-hope .clara-forecast-report-eyebrow {
+  color: rgba(204, 251, 241, 0.7);
+}
+
+.clara-forecast-report-card.is-possibility .clara-forecast-report-eyebrow {
+  color: rgba(221, 214, 254, 0.74);
+}
+
 .clara-forecast-report-card h3,
 .clara-forecast-horizon-card h3 {
   margin: 10px 0 14px;
@@ -176,6 +236,39 @@
   font-weight: 950;
   letter-spacing: -0.04em;
   line-height: 1.02;
+}
+
+.clara-forecast-report-hero {
+  display: inline-flex;
+  max-width: 100%;
+  margin: 2px 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.28);
+  color: rgba(248, 250, 252, 0.96);
+  font-size: 12px;
+  font-weight: 950;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  padding: 8px 11px;
+}
+
+.clara-forecast-report-card.is-reality .clara-forecast-report-hero {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: rgba(251, 191, 36, 0.08);
+  color: rgba(254, 243, 199, 0.96);
+}
+
+.clara-forecast-report-card.is-hope .clara-forecast-report-hero {
+  border-color: rgba(45, 212, 191, 0.24);
+  background: rgba(45, 212, 191, 0.08);
+  color: rgba(204, 251, 241, 0.96);
+}
+
+.clara-forecast-report-card.is-possibility .clara-forecast-report-hero {
+  border-color: rgba(129, 140, 248, 0.24);
+  background: rgba(129, 140, 248, 0.08);
+  color: rgba(224, 231, 255, 0.96);
 }
 
 .clara-forecast-report-stats {
@@ -193,6 +286,21 @@
   border-radius: 18px;
   background: rgba(2, 6, 23, 0.23);
   padding: 10px 11px;
+}
+
+.clara-forecast-report-card.is-reality .clara-forecast-report-stat-row {
+  border-color: rgba(251, 191, 36, 0.12);
+  background: rgba(30, 20, 10, 0.24);
+}
+
+.clara-forecast-report-card.is-hope .clara-forecast-report-stat-row {
+  border-color: rgba(45, 212, 191, 0.12);
+  background: rgba(5, 26, 24, 0.24);
+}
+
+.clara-forecast-report-card.is-possibility .clara-forecast-report-stat-row {
+  border-color: rgba(129, 140, 248, 0.13);
+  background: rgba(15, 18, 45, 0.28);
 }
 
 .clara-forecast-report-stat-row span {
@@ -252,6 +360,20 @@
   font-weight: 800;
   line-height: 1.35;
   padding: 8px 10px;
+}
+
+.clara-forecast-report-final-cta {
+  width: 100%;
+  margin-top: 16px;
+  border: 1px solid rgba(129, 140, 248, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(103, 232, 249, 0.92), rgba(129, 140, 248, 0.88), rgba(168, 85, 247, 0.76));
+  box-shadow: 0 16px 34px rgba(79, 70, 229, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: rgba(2, 6, 23, 0.94);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.01em;
+  padding: 13px 14px;
 }
 
 .clara-forecast-report-dots {
@@ -548,10 +670,7 @@
   text-indent: 0.22em;
 }
 
-.clara-forecast-horizon-shell > .clara-forecast-horizon-header {
-  flex: 0 0 auto;
-}
-
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header,
 .clara-forecast-report-shell > .clara-forecast-active-header {
   flex: 0 0 auto;
 }
