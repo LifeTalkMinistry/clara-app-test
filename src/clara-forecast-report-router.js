@@ -1,13 +1,18 @@
 import { supabase } from "@/lib/supabaseClient";
 import { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";
 import { buildClaraForecastPhaseOneSnapshot } from "@/lib/clara-forecast-phase-one-snapshot";
-import { buildClaraForecastReport } from "./clara-forecast-report-builder";
+import {
+  buildClaraForecastReport,
+  canBuildClaraForecast,
+  getClaraForecastHorizonSummary,
+} from "./clara-forecast-report-builder";
 
 const STATE_KEY = "__CLARA_FORECAST_REPORT_ROUTER_STATE__";
 const FALLBACK_USER_ID = "local-user";
 const OPEN_EVENT = "clara:open-forecast-report";
 const READY_EVENT = "clara:forecast-phase-one-ready";
 const ACTION_SELECTOR = "[data-clara-open-forecast-report='true']";
+const HORIZON_SELECTOR = "[data-clara-forecast-horizon]";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -23,7 +28,7 @@ function escapeHtml(value = "") {
 }
 
 function getState() {
-  window[STATE_KEY] = window[STATE_KEY] || { snapshot: null, busy: false };
+  window[STATE_KEY] = window[STATE_KEY] || { snapshot: null, effectiveContext: null, busy: false, selectedHorizonMonths: 1 };
   return window[STATE_KEY];
 }
 
@@ -49,12 +54,35 @@ function findForecastReadyBubble() {
   }) || null;
 }
 
-function setGlobalSnapshot(snapshot) {
+function enrichSnapshotWithRecords(snapshot = {}, effectiveContext = {}) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+  const enriched = {
+    ...snapshot,
+    forecastRecords: {
+      ...(snapshot.forecastRecords || {}),
+      wallets: effectiveContext.wallets || snapshot.forecastRecords?.wallets || [],
+      incomes: effectiveContext.incomes || snapshot.forecastRecords?.incomes || [],
+      incomeSources: effectiveContext.incomeSources || snapshot.forecastRecords?.incomeSources || [],
+      expenses: effectiveContext.expenses || snapshot.forecastRecords?.expenses || [],
+      walletTransactions: effectiveContext.walletTransactions || snapshot.forecastRecords?.walletTransactions || [],
+      transfers: effectiveContext.transfers || snapshot.forecastRecords?.transfers || [],
+      budgets: effectiveContext.budgets || snapshot.forecastRecords?.budgets || [],
+      savingsGoals: effectiveContext.savingsGoals || snapshot.forecastRecords?.savingsGoals || [],
+      debtObligations: effectiveContext.debtObligations || snapshot.forecastRecords?.debtObligations || [],
+      emergencyFund: effectiveContext.emergencyFund || snapshot.forecastRecords?.emergencyFund || null,
+    },
+  };
+  return enriched;
+}
+
+function setGlobalSnapshot(snapshot, effectiveContext = null) {
   if (!snapshot || typeof snapshot !== "object") return;
   const state = getState();
-  state.snapshot = snapshot;
-  window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__ = snapshot;
-  window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: { snapshot } }));
+  const enriched = enrichSnapshotWithRecords(snapshot, effectiveContext || state.effectiveContext || {});
+  state.snapshot = enriched;
+  if (effectiveContext) state.effectiveContext = effectiveContext;
+  window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__ = enriched;
+  window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: { snapshot: enriched } }));
 }
 
 async function getCurrentUser() {
@@ -69,7 +97,8 @@ async function getCurrentUser() {
 async function prepareSharedSnapshot() {
   const state = getState();
   if (state.snapshot || window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__) {
-    state.snapshot = state.snapshot || window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__;
+    state.snapshot = enrichSnapshotWithRecords(state.snapshot || window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__, state.effectiveContext || {});
+    window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__ = state.snapshot;
     return state.snapshot;
   }
   if (state.busy) return null;
@@ -80,8 +109,8 @@ async function prepareSharedSnapshot() {
     const localUserId = clean(user?.id || user?.email || FALLBACK_USER_ID) || FALLBACK_USER_ID;
     const effectiveContext = await getClaraEffectiveFinanceContext(localUserId, { user, messages: [] });
     const forecastSnapshot = buildClaraForecastPhaseOneSnapshot(effectiveContext, {});
-    setGlobalSnapshot(forecastSnapshot);
-    return forecastSnapshot;
+    setGlobalSnapshot(forecastSnapshot, effectiveContext);
+    return getState().snapshot;
   } catch (error) {
     console.warn("[CLARA Forecast Report] Shared snapshot was not ready.", error);
     return null;
@@ -94,7 +123,7 @@ function buildActionButton() {
   const wrap = document.createElement("div");
   wrap.className = "clara-forecast-report-inline-action";
   wrap.dataset.claraForecastReportInlineAction = "true";
-  wrap.innerHTML = `<button type="button" ${ACTION_SELECTOR.replace("[", "").replace("]", "")} aria-label="View Forecast Report">View Forecast Report</button>`;
+  wrap.innerHTML = `<button type="button" data-clara-open-forecast-report="true" aria-label="View Forecast Report">View Forecast Report</button>`;
   return wrap;
 }
 
@@ -118,8 +147,53 @@ function statRows(stats = []) {
   `).join("");
 }
 
-function renderReport(snapshot) {
-  const report = buildClaraForecastReport(snapshot);
+function horizonGrid(snapshot = {}) {
+  const summary = getClaraForecastHorizonSummary(snapshot);
+  const allowed = new Set(summary.eligibleMonths || []);
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const isAllowed = allowed.has(month);
+    const label = `${month}M`;
+    return `<button type="button" data-clara-forecast-horizon="${month}" class="${isAllowed ? "is-available" : "is-locked"}" ${isAllowed ? "" : "aria-disabled=\"true\""}>
+      <strong>${label}</strong>
+      <span>${isAllowed ? "Available" : "Need history"}</span>
+    </button>`;
+  }).join("");
+}
+
+function renderHorizonPicker(snapshot) {
+  closeReport();
+  const summary = getClaraForecastHorizonSummary(snapshot);
+  const overlay = document.createElement("section");
+  overlay.className = "clara-forecast-report-overlay clara-forecast-horizon-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.dataset.claraForecastReportOverlay = "true";
+  overlay.innerHTML = `
+    <div class="clara-forecast-report-bg" aria-hidden="true"></div>
+    <div class="clara-forecast-report-shell clara-forecast-horizon-shell">
+      <button type="button" class="clara-forecast-report-close" data-clara-forecast-report-close="true" aria-label="Close Forecast Report">×</button>
+      <header class="clara-forecast-report-header clara-forecast-horizon-header">
+        <p>FUTURE MONEY FORECAST</p>
+        <h2>Choose one timeframe</h2>
+      </header>
+      <section class="clara-forecast-horizon-card">
+        <p class="clara-forecast-report-eyebrow">FORECAST HORIZON</p>
+        <h3>How far ahead should CLARA look?</h3>
+        <p class="clara-forecast-report-body">CLARA will use the same number of past months as the basis for the forecast. Example: 3 months selected uses the last 3 months of behavior.</p>
+        <div class="clara-forecast-horizon-summary">
+          <div><span>Usable history</span><strong>${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"}</strong></div>
+          <div><span>Forecast rule</span><strong>Cannot exceed history</strong></div>
+        </div>
+        <div class="clara-forecast-horizon-grid">${horizonGrid(snapshot)}</div>
+        ${!summary.hasAnyEligibleHorizon ? `<div class="clara-forecast-horizon-warning">CLARA needs at least 1 month of financial activity before forecasting.</div>` : ""}
+      </section>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function renderReport(snapshot, horizonMonths = 1) {
+  const report = buildClaraForecastReport(snapshot, { horizonMonths });
   closeReport();
 
   const overlay = document.createElement("section");
@@ -142,7 +216,7 @@ function renderReport(snapshot) {
             <h3>${escapeHtml(card.title)}</h3>
             <div class="clara-forecast-report-stats">${statRows(card.stats)}</div>
             <p class="clara-forecast-report-body">${escapeHtml(card.body)}</p>
-            ${card.final ? `<div class="clara-forecast-report-missing"><p>Missing data list</p>${missingDataHtml(card.missingData)}</div>` : ""}
+            ${card.final ? `<div class="clara-forecast-report-missing"><p>${report.type === "readiness" ? "Missing data list" : "Final note"}</p>${missingDataHtml(card.missingData)}</div>` : ""}
           </article>
         `).join("")}
       </div>
@@ -165,7 +239,17 @@ function closeReport() {
 async function openForecastReport() {
   const snapshot = window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__ || getState().snapshot || await prepareSharedSnapshot();
   if (!snapshot) return;
-  renderReport(snapshot);
+  renderHorizonPicker(snapshot);
+}
+
+function openSelectedHorizon(months = 1) {
+  const state = getState();
+  const snapshot = window.__CLARA_LAST_FORECAST_PHASE_ONE_SNAPSHOT__ || state.snapshot;
+  if (!snapshot) return;
+  const horizon = Number(months) || 1;
+  state.selectedHorizonMonths = horizon;
+  const eligibility = canBuildClaraForecast(snapshot, horizon);
+  renderReport(snapshot, { valueOf: () => eligibility.horizon }.valueOf());
 }
 
 function installReadyListener() {
@@ -184,6 +268,14 @@ function installActionClickListener() {
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       window.dispatchEvent(new Event(OPEN_EVENT));
+      return;
+    }
+
+    const horizonButton = event.target?.closest?.(HORIZON_SELECTOR);
+    if (horizonButton) {
+      event.preventDefault();
+      const month = Number(horizonButton.getAttribute("data-clara-forecast-horizon"));
+      openSelectedHorizon(month);
       return;
     }
 
