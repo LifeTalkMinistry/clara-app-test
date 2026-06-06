@@ -19,49 +19,151 @@ jobs:
 
       - name: Connect forecast to shared reader
         run: |
-          node <<'NODE'
-          const fs = require("fs");
-          const filePath = "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx";
-          let source = fs.readFileSync(filePath, "utf8");
+          python <<'PY'
+          from pathlib import Path
+          import re
 
-          const importAnchor = 'import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";';
-          const sharedImports = `${importAnchor}\nimport { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";\nimport { buildClaraForecastPhaseOneSnapshot } from "@/lib/clara-forecast-phase-one-snapshot";`;
-          if (!source.includes('clara-effective-finance-context')) {
-            source = source.replace(importAnchor, sharedImports);
-          }
+          path = Path("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx")
+          source = path.read_text()
 
-          const formatMoneyLine = 'function formatMoney(value) { const number = Number(value); return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : null; }';
-          const forecastFormatHelpers = `${formatMoneyLine}\nfunction formatForecastMoney(value) { const number = Number(value); return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : "Not available"; }\nfunction formatForecastCount(value) { const number = Number(value); return Number.isFinite(number) ? String(number) : "0"; }\nfunction formatForecastPercent(value) { const number = Number(value); return Number.isFinite(number) ? `${Math.round(number)}%` : "Missing"; }\nfunction formatForecastValue(value) { if (value === undefined || value === null || value === "") return "Missing"; if (Array.isArray(value)) return value.length ? value.map(formatForecastValue).join(", ") : "Missing"; if (typeof value === "object") { const direct = value.value || value.label || value.name || value.title || value.summary || value.status || value.type || value.category; return direct ? String(direct) : "Available"; } return String(value).trim() || "Missing"; }`;
-          if (!source.includes('function formatForecastMoney')) {
-            source = source.replace(formatMoneyLine, forecastFormatHelpers);
-          }
+          anchor = 'import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";'
+          imports = anchor + '\nimport { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";\nimport { buildClaraForecastPhaseOneSnapshot } from "@/lib/clara-forecast-phase-one-snapshot";'
+          if 'clara-effective-finance-context' not in source:
+              source = source.replace(anchor, imports)
 
-          source = source.replace(
-            /function forecastLoadingText\(\) \{[\s\S]*?\n\}\n\nfunction forecastReadyText/,
-            `function forecastLoadingText() {\n  return \`CLARA is reading your future money signals…\n\nChecking your money available, income timing, money going out, budget pressure, savings pressure, behavior risk, and payday schedule.\n\nNo typing needed. This Phase 1 snapshot uses your current local records only.\`;\n}\n\nfunction forecastReadyText`
-          );
+          format_money_line = 'function formatMoney(value) { const number = Number(value); return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : null; }'
+          format_helpers = '''function formatMoney(value) { const number = Number(value); return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : null; }
+function formatForecastMoney(value) { const number = Number(value); return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : "Not available"; }
+function formatForecastCount(value) { const number = Number(value); return Number.isFinite(number) ? String(number) : "0"; }
+function formatForecastPercent(value) { const number = Number(value); return Number.isFinite(number) ? `${Math.round(number)}%` : "Missing"; }
+function formatForecastValue(value) { if (value === undefined || value === null || value === "") return "Missing"; if (Array.isArray(value)) return value.length ? value.map(formatForecastValue).join(", ") : "Missing"; if (typeof value === "object") { const direct = value.value || value.label || value.name || value.title || value.summary || value.status || value.type || value.category; return direct ? String(direct) : "Available"; } return String(value).trim() || "Missing"; }'''
+          if 'function formatForecastMoney' not in source:
+              source = source.replace(format_money_line, format_helpers)
 
-          source = source.replace(
-            /function forecastReadyText\(snapshot = \{\}\) \{[\s\S]*?\n\}\n\nfunction fallbackReply/,
-            `function forecastReadyText(snapshot = {}) {\n  const completenessLabel = String(snapshot.dataCompleteness || "weak").charAt(0).toUpperCase() + String(snapshot.dataCompleteness || "weak").slice(1);\n  const current = snapshot.currentMoney || {};\n  const incoming = snapshot.moneyComingIn || {};\n  const outgoing = snapshot.moneyGoingOut || {};\n  const budget = snapshot.budgetPressure || {};\n  const savings = snapshot.savingsPressure || {};\n  const behavior = snapshot.behaviorRisk || {};\n  const schedule = snapshot.schedulePaydayRisk || {};\n  const missing = Array.isArray(snapshot.missingData) ? snapshot.missingData : [];\n  const missingLines = missing.length ? missing.map((item) => \\`• \\${item}\\`).join("\\n") : "• No major missing data detected for Phase 1";\n\n  return \`Forecast snapshot ready\n\nCLARA has prepared your money forecast snapshot.\nForecast generation will use this data in the next phase.\n\nData completeness level: \\${completenessLabel}\n\nCurrent money:\nWallets found: \\${formatForecastCount(current.walletCount)}\nTotal wallet balance: \\${formatForecastMoney(current.totalWalletBalance)}\nSafe spendable money: \\${formatForecastMoney(current.safeSpendableMoney)}\nEmergency protected amount: \\${formatForecastMoney(current.emergencyProtectedAmount)}\n\nMoney coming in:\nIncome records found: \\${formatForecastCount(incoming.incomeRecordsCount)}\nIncome sources found: \\${formatForecastCount(incoming.incomeSourcesCount)}\nExpected income: \\${formatForecastMoney(incoming.expectedIncome)}\nPayday timing: \\${formatForecastValue(incoming.paydayTiming)}\n\nMoney going out:\nExpenses found: \\${formatForecastCount(outgoing.expensesCount)}\nTransactions found: \\${formatForecastCount(outgoing.transactionsCount)}\nTransfers found: \\${formatForecastCount(outgoing.transfersCount)}\nRecurring expenses found: \\${formatForecastCount(outgoing.recurringExpensesCount)}\nSubscriptions found: \\${formatForecastCount(outgoing.subscriptionsCount)}\nBills found: \\${formatForecastCount(outgoing.billsCount)}\nDebt obligations found: \\${formatForecastCount(outgoing.debtObligationsCount)}\n\nBudget pressure:\nBudgets found: \\${formatForecastCount(budget.budgetsCount)}\nBudget categories found: \\${formatForecastCount(budget.budgetCategoriesCount)}\nBudget remaining: \\${formatForecastMoney(budget.budgetRemaining)}\nPlanned expenses found: \\${formatForecastCount(budget.plannedExpensesCount)}\nUnplanned expenses found: \\${formatForecastCount(budget.unplannedExpensesCount)}\nOutside-plan spending found: \\${formatForecastCount(budget.outsidePlanSpendingCount)}\n\nSavings pressure:\nSavings goals found: \\${formatForecastCount(savings.savingsGoalsCount)}\nSavings progress: \\${formatForecastPercent(savings.savingsProgress)}\nEmergency fund: \\${formatForecastMoney(savings.emergencyFund)}\nGoal deadlines found: \\${formatForecastCount(savings.goalDeadlinesCount)}\n\nBehavior risk:\nRecent expense activity: \\${formatForecastValue(behavior.recentExpenseActivity)}\nUnplanned spending count: \\${formatForecastCount(behavior.unplannedSpendingCount)}\nStress spending habit: \\${formatForecastValue(behavior.stressSpendingHabit)}\nCommon impulse purchases: \\${formatForecastValue(behavior.commonImpulsePurchases)}\nBiggest spending weakness: \\${formatForecastValue(behavior.biggestSpendingWeakness)}\n\nSchedule / payday risk:\nPayday cycle: \\${formatForecastValue(schedule.paydayCycle)}\nWork schedule: \\${formatForecastValue(schedule.workSchedule)}\nSleep pattern: \\${formatForecastValue(schedule.sleepPattern)}\nEnergy drop: \\${formatForecastValue(schedule.energyDrop)}\nBurnout indicators: \\${formatForecastValue(schedule.burnoutIndicators)}\n\nMissing data detected:\n\\${missingLines}\`;\n}\n\nfunction fallbackReply`
-          );
+          loading_block = '''function forecastLoadingText() {
+  return `CLARA is reading your future money signals…
 
-          const newStartForecast = `  const startForecastPhaseOne = (action) => {\n    if (isThinking) return;\n    clearForecastPhaseOneTimer();\n    stopThinkingMessageRotation();\n    setPanel("smart");\n    setDraft("");\n    setIsThinking(true);\n\n    const pending = makeMessage("clara", forecastLoadingText(), { source: "forecast_phase_one", smartAction: { ...action, chips: [] } });\n    setLocalMessages([makeMessage("user", action.title), pending]);\n    logForecastPhaseOne("Shared-reader snapshot started");\n\n    forecastPhaseOneTimerRef.current = window.setTimeout(async () => {\n      try {\n        const user = claraAssistantContext?.user || claraAssistantContext?.currentUser || {};\n        const localUserId = String(user?.id || user?.email || claraAssistantContext?.userId || claraAssistantContext?.localUserId || "local-user").trim() || "local-user";\n        const effectiveContext = await getClaraEffectiveFinanceContext(localUserId, { user, messages: visibleMessages });\n        const forecastSnapshot = buildClaraForecastPhaseOneSnapshot(effectiveContext, claraAssistantContext);\n        forecastSnapshotRef.current = forecastSnapshot;\n        logForecastPhaseOne("Shared-reader snapshot ready", forecastSnapshot);\n        logForecastPhaseOne("Missing data:", forecastSnapshot.missingData);\n        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: forecastReadyText(forecastSnapshot), source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));\n      } catch (error) {\n        console.error("[CLARA Forecast Phase 1] Shared-reader snapshot failed", error);\n        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: "Forecast snapshot could not be prepared right now. CLARA stayed safe and did not change your records.", source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));\n      } finally {\n        forecastPhaseOneTimerRef.current = null;\n        setIsThinking(false);\n      }\n    }, 650);\n  };\n\n  const runClara = async`;
+Checking your money available, income timing, money going out, budget pressure, savings pressure, behavior risk, and payday schedule.
 
-          source = source.replace(
-            /  const startForecastPhaseOne = \(action\) => \{[\s\S]*?\n  \};\n\n  const runClara = async/,
-            newStartForecast
-          );
+No typing needed. This Phase 1 snapshot uses your current local records only.`;
+}'''
+          source = re.sub(r'function forecastLoadingText\(\) \{[\s\S]*?\n\}\n\nfunction forecastReadyText', loading_block + '\n\nfunction forecastReadyText', source, count=1)
 
-          if (!source.includes('getClaraEffectiveFinanceContext') || !source.includes('buildClaraForecastPhaseOneSnapshot')) {
-            throw new Error("Forecast shared-reader imports were not added.");
-          }
-          if (!source.includes('Shared-reader snapshot started')) {
-            throw new Error("Forecast shared-reader start handler was not patched.");
-          }
+          ready_block = '''function forecastReadyText(snapshot = {}) {
+  const completenessLabel = String(snapshot.dataCompleteness || "weak").charAt(0).toUpperCase() + String(snapshot.dataCompleteness || "weak").slice(1);
+  const current = snapshot.currentMoney || {};
+  const incoming = snapshot.moneyComingIn || {};
+  const outgoing = snapshot.moneyGoingOut || {};
+  const budget = snapshot.budgetPressure || {};
+  const savings = snapshot.savingsPressure || {};
+  const behavior = snapshot.behaviorRisk || {};
+  const schedule = snapshot.schedulePaydayRisk || {};
+  const missing = Array.isArray(snapshot.missingData) ? snapshot.missingData : [];
+  const missingLines = missing.length ? missing.map((item) => `• ${item}`).join("\n") : "• No major missing data detected for Phase 1";
 
-          fs.writeFileSync(filePath, source);
-          NODE
+  return `Forecast snapshot ready
+
+CLARA has prepared your money forecast snapshot.
+Forecast generation will use this data in the next phase.
+
+Data completeness level: ${completenessLabel}
+
+Current money:
+Wallets found: ${formatForecastCount(current.walletCount)}
+Total wallet balance: ${formatForecastMoney(current.totalWalletBalance)}
+Safe spendable money: ${formatForecastMoney(current.safeSpendableMoney)}
+Emergency protected amount: ${formatForecastMoney(current.emergencyProtectedAmount)}
+
+Money coming in:
+Income records found: ${formatForecastCount(incoming.incomeRecordsCount)}
+Income sources found: ${formatForecastCount(incoming.incomeSourcesCount)}
+Expected income: ${formatForecastMoney(incoming.expectedIncome)}
+Payday timing: ${formatForecastValue(incoming.paydayTiming)}
+
+Money going out:
+Expenses found: ${formatForecastCount(outgoing.expensesCount)}
+Transactions found: ${formatForecastCount(outgoing.transactionsCount)}
+Transfers found: ${formatForecastCount(outgoing.transfersCount)}
+Recurring expenses found: ${formatForecastCount(outgoing.recurringExpensesCount)}
+Subscriptions found: ${formatForecastCount(outgoing.subscriptionsCount)}
+Bills found: ${formatForecastCount(outgoing.billsCount)}
+Debt obligations found: ${formatForecastCount(outgoing.debtObligationsCount)}
+
+Budget pressure:
+Budgets found: ${formatForecastCount(budget.budgetsCount)}
+Budget categories found: ${formatForecastCount(budget.budgetCategoriesCount)}
+Budget remaining: ${formatForecastMoney(budget.budgetRemaining)}
+Planned expenses found: ${formatForecastCount(budget.plannedExpensesCount)}
+Unplanned expenses found: ${formatForecastCount(budget.unplannedExpensesCount)}
+Outside-plan spending found: ${formatForecastCount(budget.outsidePlanSpendingCount)}
+
+Savings pressure:
+Savings goals found: ${formatForecastCount(savings.savingsGoalsCount)}
+Savings progress: ${formatForecastPercent(savings.savingsProgress)}
+Emergency fund: ${formatForecastMoney(savings.emergencyFund)}
+Goal deadlines found: ${formatForecastCount(savings.goalDeadlinesCount)}
+
+Behavior risk:
+Recent expense activity: ${formatForecastValue(behavior.recentExpenseActivity)}
+Unplanned spending count: ${formatForecastCount(behavior.unplannedSpendingCount)}
+Stress spending habit: ${formatForecastValue(behavior.stressSpendingHabit)}
+Common impulse purchases: ${formatForecastValue(behavior.commonImpulsePurchases)}
+Biggest spending weakness: ${formatForecastValue(behavior.biggestSpendingWeakness)}
+
+Schedule / payday risk:
+Payday cycle: ${formatForecastValue(schedule.paydayCycle)}
+Work schedule: ${formatForecastValue(schedule.workSchedule)}
+Sleep pattern: ${formatForecastValue(schedule.sleepPattern)}
+Energy drop: ${formatForecastValue(schedule.energyDrop)}
+Burnout indicators: ${formatForecastValue(schedule.burnoutIndicators)}
+
+Missing data detected:
+${missingLines}`;
+}'''
+          source = re.sub(r'function forecastReadyText\(snapshot = \{\}\) \{[\s\S]*?\n\}\n\nfunction fallbackReply', ready_block + '\n\nfunction fallbackReply', source, count=1)
+
+          start_forecast = '''  const startForecastPhaseOne = (action) => {
+    if (isThinking) return;
+    clearForecastPhaseOneTimer();
+    stopThinkingMessageRotation();
+    setPanel("smart");
+    setDraft("");
+    setIsThinking(true);
+
+    const pending = makeMessage("clara", forecastLoadingText(), { source: "forecast_phase_one", smartAction: { ...action, chips: [] } });
+    setLocalMessages([makeMessage("user", action.title), pending]);
+    logForecastPhaseOne("Shared-reader snapshot started");
+
+    forecastPhaseOneTimerRef.current = window.setTimeout(async () => {
+      try {
+        const user = claraAssistantContext?.user || claraAssistantContext?.currentUser || {};
+        const localUserId = String(user?.id || user?.email || claraAssistantContext?.userId || claraAssistantContext?.localUserId || "local-user").trim() || "local-user";
+        const effectiveContext = await getClaraEffectiveFinanceContext(localUserId, { user, messages: visibleMessages });
+        const forecastSnapshot = buildClaraForecastPhaseOneSnapshot(effectiveContext, claraAssistantContext);
+        forecastSnapshotRef.current = forecastSnapshot;
+        logForecastPhaseOne("Shared-reader snapshot ready", forecastSnapshot);
+        logForecastPhaseOne("Missing data:", forecastSnapshot.missingData);
+        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: forecastReadyText(forecastSnapshot), source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
+      } catch (error) {
+        console.error("[CLARA Forecast Phase 1] Shared-reader snapshot failed", error);
+        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: "Forecast snapshot could not be prepared right now. CLARA stayed safe and did not change your records.", source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
+      } finally {
+        forecastPhaseOneTimerRef.current = null;
+        setIsThinking(false);
+      }
+    }, 650);
+  };
+
+  const runClara = async'''
+          source = re.sub(r'  const startForecastPhaseOne = \(action\) => \{[\s\S]*?\n  \};\n\n  const runClara = async', start_forecast, source, count=1)
+
+          if 'getClaraEffectiveFinanceContext' not in source or 'buildClaraForecastPhaseOneSnapshot' not in source:
+              raise SystemExit('Forecast shared-reader imports were not added.')
+          if 'Shared-reader snapshot started' not in source:
+              raise SystemExit('Forecast shared-reader start handler was not patched.')
+
+          path.write_text(source)
+          PY
 
       - name: Commit patched forecast overlay and remove temporary workflow
         run: |
