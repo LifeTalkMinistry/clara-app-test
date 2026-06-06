@@ -1,3 +1,4 @@
+import { supabase } from "../supabaseClient";
 import {
   LOCAL_FINANCE_STORES,
   runLocalFinanceTransaction,
@@ -29,6 +30,17 @@ const DEMO_STORES = [
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+async function resolveDemoLocalUserId(options = {}) {
+  const explicit = clean(options.localUserId);
+  if (explicit) return explicit;
+  try {
+    const { data } = await supabase.auth.getUser();
+    return clean(data?.user?.id || data?.user?.email) || SAMPLE_DATA_LOCAL_USER_ID;
+  } catch {
+    return SAMPLE_DATA_LOCAL_USER_ID;
+  }
 }
 
 async function writeDemoRecords(localUserId, dataset) {
@@ -116,7 +128,7 @@ export function isYoungProfessionalDemoProfileActive() {
 }
 
 export async function loadYoungProfessionalDemoProfile(options = {}) {
-  const localUserId = clean(options.localUserId) || SAMPLE_DATA_LOCAL_USER_ID;
+  const localUserId = await resolveDemoLocalUserId(options);
   await exitYoungProfessionalCurrentState();
   const dataset = generateYoungProfessionalDemoData({ localUserId, now: options.now || new Date() });
   await writeDemoRecords(localUserId, dataset);
