@@ -1,3 +1,4 @@
+import { buildDashboardCardsDirectReply } from "@/lib/clara-dashboard-cards-ai-reader";
 import { buildDashboardSummaryDirectReply } from "@/lib/clara-dashboard-summary-ai-reader";
 import { buildIncomeHubDirectReply } from "@/lib/clara-income-direct-finance-reply";
 import {
@@ -404,6 +405,9 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
 }
 
 export function buildContextualFinanceReply(message = "", context = {}) {
+  const dashboardCardsReply = buildDashboardCardsDirectReply(message, context);
+  if (dashboardCardsReply) return dashboardCardsReply;
+
   const dashboardSummaryReply = buildDashboardSummaryDirectReply(message, context);
   if (dashboardSummaryReply) return dashboardSummaryReply;
 
