@@ -3,9 +3,13 @@ import {
   getEmergencyFund,
   getExpenses,
   getSavingsGoals,
+  getTransfers,
   getWallets,
+  getWalletTransactions,
 } from "@/lib/financeRepository";
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
+import { getIncomeSources } from "@/lib/incomeHubRepository";
+import { getDebtObligations } from "@/lib/debtObligationStore";
 import { MEMORY_CABINET_DEFINITIONS, readMemoryCabinet } from "@/lib/memory-cabinets";
 
 const RETIRED_DEMO_SOURCES = new Set([
@@ -14,8 +18,21 @@ const RETIRED_DEMO_SOURCES = new Set([
   "clara_life_stage_demo_seed",
 ]);
 
+const INCOME_TRANSACTION_TYPES = new Set([
+  "income",
+  "add",
+  "cash_in",
+  "deposit",
+  "opening_balance",
+  "credit",
+]);
+
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function cleanLower(value = "") {
+  return clean(value).toLowerCase();
 }
 
 function toNumber(value) {
@@ -52,6 +69,10 @@ function isRetiredDemoRecord(record = {}) {
       record.sampleData === true ||
       record.sample_data === true
   );
+}
+
+function isSafeFinanceRecord(record = {}) {
+  return !isDeleted(record) && !isRetiredDemoRecord(record);
 }
 
 function normalizeWallet(wallet = {}) {
@@ -125,6 +146,81 @@ function normalizeExpense(expense = {}) {
     needType: clean(expense.need_type || expense.needType || ""),
     unplannedReason: clean(expense.unplanned_reason || ""),
     source: expense.source || null,
+  };
+}
+
+function normalizeWalletTransaction(transaction = {}) {
+  return {
+    id: transaction.id,
+    walletId: clean(transaction.wallet_id || transaction.walletId || transaction.source_wallet_id || transaction.sourceWalletId || ""),
+    type: clean(transaction.type || transaction.transaction_type || transaction.kind || ""),
+    amount: toNumber(transaction.amount ?? transaction.total ?? transaction.value ?? 0),
+    title: clean(transaction.title || transaction.name || transaction.merchant || transaction.label || "Wallet transaction"),
+    note: clean(transaction.note || transaction.notes || transaction.description || transaction.memo || transaction.title || ""),
+    date: transaction.date || transaction.created_at || transaction.createdAt || transaction.updatedAt || transaction.transaction_date || transaction.transactionDate || "",
+    source: transaction.source || null,
+  };
+}
+
+function normalizeTransfer(transfer = {}) {
+  return {
+    id: transfer.id,
+    fromWalletId: clean(transfer.from_wallet_id || transfer.fromWalletId || transfer.source_wallet_id || transfer.sourceWalletId || transfer.wallet_id || transfer.walletId || ""),
+    toWalletId: clean(transfer.to_wallet_id || transfer.toWalletId || transfer.destination_wallet_id || transfer.destinationWalletId || transfer.target_wallet_id || transfer.targetWalletId || ""),
+    amount: toNumber(transfer.amount ?? transfer.total ?? transfer.value ?? 0),
+    date: transfer.date || transfer.created_at || transfer.createdAt || transfer.updatedAt || transfer.transfer_date || transfer.transferDate || "",
+    source: transfer.source || null,
+  };
+}
+
+function isIncomeTransaction(transaction = {}) {
+  return INCOME_TRANSACTION_TYPES.has(cleanLower(transaction.type || transaction.transaction_type || transaction.kind));
+}
+
+function normalizeIncome(transaction = {}) {
+  const normalized = normalizeWalletTransaction(transaction);
+  return {
+    id: normalized.id,
+    walletId: normalized.walletId,
+    amount: normalized.amount,
+    title: normalized.title,
+    note: normalized.note,
+    date: normalized.date,
+    source: normalized.source,
+  };
+}
+
+function normalizeIncomeSource(source = {}) {
+  const totalMoneyIn = toNumber(source.totalMoneyIn ?? source.total_money_in ?? source.moneyIn ?? source.money_in ?? 0);
+  const totalMoneyOut = toNumber(source.totalMoneyOut ?? source.total_money_out ?? source.moneyOut ?? source.money_out ?? 0);
+  const currentBalance = toNumber(source.currentBalance ?? source.current_balance ?? source.balance ?? totalMoneyIn - totalMoneyOut);
+
+  return {
+    id: source.id,
+    name: clean(source.name || source.title || source.label || source.category || "Income source"),
+    category: clean(source.category || "Other Income"),
+    stability: clean(source.stability || ""),
+    currentBalance,
+    totalMoneyIn,
+    totalMoneyOut,
+    lastActivityAt: source.lastActivityAt || source.last_activity_at || source.updatedAt || source.updated_at || source.createdAt || source.created_at || "",
+    source: source.source || null,
+  };
+}
+
+function normalizeDebtObligation(record = {}) {
+  const balance = toNumber(record.totalDebt ?? record.balance ?? record.amount ?? record.debt_balance ?? record.remainingBalance ?? record.remaining_balance ?? 0);
+  const amount = toNumber(record.monthlyDebt ?? record.monthlyPayment ?? record.monthly_payment ?? record.payment ?? record.amount ?? balance ?? 0);
+
+  return {
+    id: record.id,
+    title: clean(record.title || record.name || record.lender || record.creditor || record.label || record.debtName || "Debt obligation"),
+    name: clean(record.name || record.title || record.lender || record.creditor || record.label || record.debtName || "Debt obligation"),
+    amount,
+    balance,
+    dueDate: record.dueDate || record.due_date || record.nextDueDate || record.next_due_date || "",
+    status: clean(record.status || ""),
+    source: record.source || null,
   };
 }
 
@@ -208,21 +304,47 @@ function countMemoryRecords(memoryContext = null) {
   return cabinetCount + storedMemoryCount + userHistoryCount + profileNotesCount;
 }
 
+async function safeRead(readFn, fallback) {
+  try {
+    return await readFn();
+  } catch {
+    return fallback;
+  }
+}
+
 async function readRepositoryFinance(localUserId) {
-  const [wallets, budgets, expenses, savingsGoals, emergencyFund] = await Promise.all([
-    getWallets(localUserId).catch(() => []),
-    getBudgets(localUserId).catch(() => []),
-    getExpenses(localUserId).catch(() => []),
-    getSavingsGoals(localUserId).catch(() => []),
-    getEmergencyFund(localUserId).catch(() => null),
+  const [
+    wallets,
+    budgets,
+    expenses,
+    walletTransactions,
+    transfers,
+    savingsGoals,
+    emergencyFund,
+    incomeSources,
+    debtObligations,
+  ] = await Promise.all([
+    safeRead(() => getWallets(localUserId), []),
+    safeRead(() => getBudgets(localUserId), []),
+    safeRead(() => getExpenses(localUserId), []),
+    safeRead(() => getWalletTransactions(localUserId), []),
+    safeRead(() => getTransfers(localUserId), []),
+    safeRead(() => getSavingsGoals(localUserId), []),
+    safeRead(() => getEmergencyFund(localUserId), null),
+    safeRead(() => getIncomeSources(localUserId), []),
+    safeRead(() => getDebtObligations(localUserId), []),
   ]);
 
   return {
-    wallets: safeArray(wallets).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
-    budgets: safeArray(budgets).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
-    expenses: safeArray(expenses).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
-    savingsGoals: safeArray(savingsGoals).filter((record) => !isDeleted(record) && !isRetiredDemoRecord(record)),
-    emergencyFund: emergencyFund && !isDeleted(emergencyFund) && !isRetiredDemoRecord(emergencyFund) ? emergencyFund : null,
+    wallets: safeArray(wallets).filter(isSafeFinanceRecord),
+    budgets: safeArray(budgets).filter(isSafeFinanceRecord),
+    expenses: safeArray(expenses).filter(isSafeFinanceRecord),
+    walletTransactions: safeArray(walletTransactions).filter(isSafeFinanceRecord),
+    transfers: safeArray(transfers).filter(isSafeFinanceRecord),
+    savingsGoals: safeArray(savingsGoals).filter(isSafeFinanceRecord),
+    emergencyFund: emergencyFund && isSafeFinanceRecord(emergencyFund) ? emergencyFund : null,
+    incomeSources: safeArray(incomeSources).filter(isSafeFinanceRecord),
+    debtObligations: safeArray(debtObligations).filter(isSafeFinanceRecord),
   };
 }
 
@@ -231,7 +353,11 @@ function hasFinanceData(raw = {}) {
     safeArray(raw.wallets).length ||
       safeArray(raw.budgets).length ||
       safeArray(raw.expenses).length ||
+      safeArray(raw.walletTransactions).length ||
+      safeArray(raw.transfers).length ||
       safeArray(raw.savingsGoals).length ||
+      safeArray(raw.incomeSources).length ||
+      safeArray(raw.debtObligations).length ||
       raw.emergencyFund
   );
 }
@@ -256,8 +382,13 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
   const wallets = raw.wallets.map(normalizeWallet);
   const budgets = raw.budgets.filter(isBudgetCategory).map(normalizeBudget);
   const expenses = raw.expenses.map(normalizeExpense);
+  const walletTransactions = raw.walletTransactions.map(normalizeWalletTransaction);
+  const transfers = raw.transfers.map(normalizeTransfer);
+  const incomes = raw.walletTransactions.filter(isIncomeTransaction).map(normalizeIncome);
+  const incomeSources = raw.incomeSources.map(normalizeIncomeSource);
   const savingsGoals = raw.savingsGoals.map(normalizeSavingsGoal);
   const emergencyFund = normalizeEmergencyFund(raw.emergencyFund);
+  const debtObligations = raw.debtObligations.map(normalizeDebtObligation);
   const scheduleContext = normalizeScheduleEvents(bridgeContext.scheduleEvents);
   const meProfileContext =
     bridgeContext.Me_summary_profile?.hasProfile
@@ -285,6 +416,11 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
     sampleActive: false,
     sampleRecordsFound: false,
     localUserId,
+    walletTransactionsLoaded: walletTransactions.length,
+    transfersLoaded: transfers.length,
+    incomesLoaded: incomes.length,
+    incomeSourcesLoaded: incomeSources.length,
+    debtObligationsLoaded: debtObligations.length,
   };
 
   return {
@@ -299,5 +435,10 @@ export async function getClaraEffectiveFinanceContext(userId, options = {}) {
     memoryContext: memoryLoaded ? memoryContext : null,
     timeContext: bridgeContext.currentTime,
     dataReadStatus,
+    walletTransactions,
+    transfers,
+    incomes,
+    incomeSources,
+    debtObligations,
   };
 }
