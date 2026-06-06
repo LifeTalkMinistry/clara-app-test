@@ -22,6 +22,9 @@ export default function BudgetCardView({
         isComplete={data.isComplete}
         unplannedSpent={data.unplannedSpent}
         undocumentedSpent={data.undocumentedSpent}
+        unplannedItems={data.unplannedItems}
+        undocumentedItems={data.undocumentedItems}
+        outsidePlanItems={data.outsidePlanItems}
         remainingAmount={data.remainingAmount}
         amountLeft={data.amountLeft}
         spentAmount={data.spentAmount}
