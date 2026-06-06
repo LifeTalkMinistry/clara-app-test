@@ -1,3 +1,5 @@
+import "./clara-forecast-header-center-fix.css";
+
 const REPORT_OVERLAY_SELECTOR = "[data-clara-forecast-report-overlay='true']";
 const FINAL_ACTION_SELECTOR = "[data-clara-forecast-final-affirmation='true']";
 
