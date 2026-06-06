@@ -25,8 +25,11 @@ import { buildDecisionBrainPrompt, generateLocalDecisionReply, sanitizeDecisionB
 import { buildCoachBrainPrompt, sanitizeCoachBrainReply } from "./ai-brains/coach-brain";
 import { buildMemoryBrainPrompt, sanitizeMemoryBrainReply } from "./ai-brains/memory-brain";
 import { generateScheduleBrainReply } from "./ai-brains/schedule-brain-entry";
+import {
+  getClaraGeminiProxyModelCandidates,
+  requestClaraGeminiProxyText,
+} from "./clara-gemini-proxy-client";
 
-const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const KNOWN_GEMINI_MODELS = [
   "gemini-2.5-flash",
@@ -104,6 +107,7 @@ const DANGLING_REPLY_ENDINGS = [
 ];
 
 const GEMINI_RETRY_REPLY = "I couldn’t complete that AI reply cleanly. Please send it again so CLARA can answer using the full context.";
+const PROXY_API_KEY_SENTINEL = "server-proxy";
 
 function getLocalDebugFlag() {
   try {
@@ -134,56 +138,19 @@ function isTextChatGeminiModel(model = "") {
 }
 
 function getGeminiApiKey() {
-  return import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_API_KEY || import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY || import.meta.env.VITE_CLARA_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || "";
+  return PROXY_API_KEY_SENTINEL;
 }
 
 function getConfiguredGeminiModel() {
-  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || "";
+  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
 }
 
 function getFallbackGeminiModelCandidates() {
   return uniqueModels([getConfiguredGeminiModel(), DEFAULT_GEMINI_MODEL, ...KNOWN_GEMINI_MODELS]).filter(isTextChatGeminiModel);
 }
 
-function rankGeminiModel(model = "") {
-  const value = normalizeModelName(model).toLowerCase();
-  const configured = normalizeModelName(getConfiguredGeminiModel()).toLowerCase();
-  if (configured && value === configured && isTextChatGeminiModel(value)) return 0;
-  if (value.includes("2.5") && value.includes("flash") && !value.includes("lite")) return 1;
-  if (value.includes("2.5") && value.includes("flash") && value.includes("lite")) return 2;
-  if (value.includes("2.0") && value.includes("flash") && !value.includes("lite")) return 3;
-  if (value.includes("1.5") && value.includes("flash")) return 4;
-  if (value.includes("flash")) return 5;
-  if (value.includes("pro")) return 6;
-  return 9;
-}
-
-async function discoverGeminiModelCandidates({ apiKey, signal } = {}) {
-  const fallbackModels = getFallbackGeminiModelCandidates();
-  try {
-    const response = await fetch(`${GEMINI_ENDPOINT_BASE}?key=${encodeURIComponent(apiKey)}`, { signal });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model discovery failed", { status: response.status, message: data?.error?.message, payload: data });
-      return fallbackModels;
-    }
-    const allGenerateContentModels = (Array.isArray(data?.models) ? data.models : []).filter((model) => (model?.supportedGenerationMethods || []).includes("generateContent")).map((model) => normalizeModelName(model?.name)).filter(Boolean);
-    const discoveredModels = allGenerateContentModels.filter(isTextChatGeminiModel);
-    const blockedModels = allGenerateContentModels.filter((model) => !isTextChatGeminiModel(model));
-    const configuredModel = normalizeModelName(getConfiguredGeminiModel());
-    const configuredModelCandidate = isTextChatGeminiModel(configuredModel) ? configuredModel : "";
-    const orderedDiscoveredModels = uniqueModels(discoveredModels).sort((a, b) => rankGeminiModel(a) - rankGeminiModel(b));
-    const candidates = uniqueModels([configuredModelCandidate, ...orderedDiscoveredModels, ...fallbackModels]).filter(isTextChatGeminiModel);
-    if (shouldDebugClaraAi()) {
-      console.log("[CLARA Gemini] Available text generateContent models", orderedDiscoveredModels);
-      console.log("[CLARA Gemini] Blocked non-chat models", blockedModels);
-      console.log("[CLARA Gemini] Final text model candidates", candidates);
-    }
-    return candidates;
-  } catch (error) {
-    if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model discovery crashed", error);
-    return fallbackModels;
-  }
+async function discoverGeminiModelCandidates() {
+  return getClaraGeminiProxyModelCandidates(getFallbackGeminiModelCandidates()).filter(isTextChatGeminiModel);
 }
 
 function money(value) {
@@ -416,159 +383,76 @@ Never stop mid-sentence. End with a complete sentence.
 Reply naturally as CLARA in 3-5 conversational sentences.`;
 }
 
-async function requestGeminiContent({ apiKey, model, prompt, signal }) {
-  const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+async function requestGeminiContent({ model, prompt, signal, generationConfig } = {}) {
+  const text = await requestClaraGeminiProxyText({
+    prompt,
+    model,
     signal,
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.55, topP: 0.86, maxOutputTokens: 520 }
-    })
+    generationConfig: {
+      temperature: 0.55,
+      topP: 0.86,
+      maxOutputTokens: 520,
+      ...(generationConfig || {}),
+    },
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data?.error?.message || `Gemini request failed for ${model}.`);
-    error.status = response.status;
-    error.model = model;
-    error.payload = data;
-    throw error;
-  }
-  return data;
+  return { candidates: [{ content: { parts: [{ text }] } }] };
 }
 
 function extractGeminiText(data = {}) {
   return sanitizeClaraReply((data?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(" "));
 }
 
-async function requestGeminiText({ apiKey, model, prompt, signal }) {
-  const data = await requestGeminiContent({ apiKey, model, prompt, signal });
+async function requestGeminiText({ model, prompt, signal, generationConfig } = {}) {
+  const data = await requestGeminiContent({ model, prompt, signal, generationConfig });
   return extractGeminiText(data);
 }
 
 export function hasGeminiConfig() {
-  return Boolean(getGeminiApiKey());
+  return true;
 }
 
-async function generateCasualBrainReply({ apiKey, message, conversationHistory, signal }) {
-  if (!apiKey) return GEMINI_RETRY_REPLY;
+async function runBrain({ label, prompt, modelCandidates, signal, sanitize = (text) => text, fallback = GEMINI_RETRY_REPLY }) {
+  let lastError = null;
+  for (const model of modelCandidates) {
+    try {
+      if (shouldDebugClaraAi()) console.log(`[CLARA Brain] Trying ${label}`, { model });
+      const text = await requestGeminiText({ model, prompt, signal });
+      const reply = sanitize(text || "");
+      if (reply) return reply;
+    } catch (error) {
+      if (shouldDebugClaraAi()) console.warn(`[CLARA Brain] ${label} failed`, { model, message: error?.message, status: error?.status });
+      lastError = error;
+    }
+  }
+  if (shouldDebugClaraAi() && lastError) console.warn(`[CLARA Brain] ${label} fallback used`, lastError);
+  return fallback;
+}
 
+async function generateCasualBrainReply({ message, conversationHistory, signal }) {
   const prompt = buildCasualBrainPrompt({ userMessage: message, recentConversation: conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Casual Brain", { model });
-      const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      const casualReply = sanitizeCasualBrainReply(text || "");
-      if (casualReply) return casualReply;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Casual Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
-      lastError = error;
-    }
-  }
-
-  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Casual Brain fallback blocked", lastError);
-  return GEMINI_RETRY_REPLY;
+  return runBrain({ label: "Casual Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeCasualBrainReply });
 }
 
-async function generateFinanceBrainReply({ apiKey, message, context, conversationHistory, signal }) {
-  if (!apiKey) return GEMINI_RETRY_REPLY;
-
+async function generateFinanceBrainReply({ message, context, conversationHistory, signal }) {
   const prompt = buildFinanceBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Finance Brain", { model });
-      const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      const financeReply = sanitizeFinanceBrainReply(text || "");
-      if (financeReply) return financeReply;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Finance Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
-      lastError = error;
-    }
-  }
-
-  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Finance Brain fallback blocked", lastError);
-  return GEMINI_RETRY_REPLY;
+  return runBrain({ label: "Finance Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeFinanceBrainReply });
 }
 
-async function generateDecisionBrainReply({ apiKey, message, context, conversationHistory, signal }) {
-  const localReply = generateLocalDecisionReply({
-    userMessage: message,
-    context,
-    conversationHistory,
-  });
-
-  if (!apiKey) return GEMINI_RETRY_REPLY;
-
+async function generateDecisionBrainReply({ message, context, conversationHistory, signal }) {
+  const localReply = generateLocalDecisionReply({ userMessage: message, context, conversationHistory });
   const prompt = buildDecisionBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Decision Brain", { model });
-      const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      const decisionReply = sanitizeDecisionBrainReply(text || "");
-      if (decisionReply) return decisionReply;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Decision Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
-      lastError = error;
-    }
-  }
-
-  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Decision Brain Gemini failed, using deterministic decision continuation only when available", lastError);
-  return localReply && !localReply.includes("visible money right now") ? localReply : GEMINI_RETRY_REPLY;
+  const reply = await runBrain({ label: "Decision Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeDecisionBrainReply, fallback: "" });
+  return reply || (localReply && !localReply.includes("visible money right now") ? localReply : GEMINI_RETRY_REPLY);
 }
 
-async function generateCoachBrainReply({ apiKey, message, context, conversationHistory, signal }) {
-  if (!apiKey) return GEMINI_RETRY_REPLY;
-
+async function generateCoachBrainReply({ message, context, conversationHistory, signal }) {
   const prompt = buildCoachBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Coach Brain", { model });
-      const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      const coachReply = sanitizeCoachBrainReply(text || "");
-      if (coachReply) return coachReply;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Coach Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
-      lastError = error;
-    }
-  }
-
-  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Coach Brain fallback blocked", lastError);
-  return GEMINI_RETRY_REPLY;
+  return runBrain({ label: "Coach Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeCoachBrainReply });
 }
 
-async function generateMemoryBrainReply({ apiKey, message, context, conversationHistory, signal }) {
-  if (!apiKey) return GEMINI_RETRY_REPLY;
-
+async function generateMemoryBrainReply({ message, context, conversationHistory, signal }) {
   const prompt = buildMemoryBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Brain] Trying Memory Brain", { model });
-      const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      const memoryReply = sanitizeMemoryBrainReply(text || "", message);
-      if (memoryReply) return memoryReply;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Brain] Memory Brain failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
-      lastError = error;
-    }
-  }
-
-  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Brain] Memory Brain fallback blocked", lastError);
-  return GEMINI_RETRY_REPLY;
+  return runBrain({ label: "Memory Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: (text) => sanitizeMemoryBrainReply(text || "", message) });
 }
 
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
@@ -588,25 +472,11 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     });
   }
 
-  if (brainRoute.brain === CLARA_BRAINS.CASUAL) {
-    return generateCasualBrainReply({ apiKey, message, conversationHistory, signal });
-  }
-
-  if (brainRoute.brain === CLARA_BRAINS.FINANCE) {
-    return generateFinanceBrainReply({ apiKey, message, context, conversationHistory, signal });
-  }
-
-  if (brainRoute.brain === CLARA_BRAINS.DECISION) {
-    return generateDecisionBrainReply({ apiKey, message, context, conversationHistory, signal });
-  }
-
-  if (brainRoute.brain === CLARA_BRAINS.COACH) {
-    return generateCoachBrainReply({ apiKey, message, context, conversationHistory, signal });
-  }
-
-  if (brainRoute.brain === CLARA_BRAINS.MEMORY) {
-    return generateMemoryBrainReply({ apiKey, message, context, conversationHistory, signal });
-  }
+  if (brainRoute.brain === CLARA_BRAINS.CASUAL) return generateCasualBrainReply({ message, conversationHistory, signal });
+  if (brainRoute.brain === CLARA_BRAINS.FINANCE) return generateFinanceBrainReply({ message, context, conversationHistory, signal });
+  if (brainRoute.brain === CLARA_BRAINS.DECISION) return generateDecisionBrainReply({ message, context, conversationHistory, signal });
+  if (brainRoute.brain === CLARA_BRAINS.COACH) return generateCoachBrainReply({ message, context, conversationHistory, signal });
+  if (brainRoute.brain === CLARA_BRAINS.MEMORY) return generateMemoryBrainReply({ message, context, conversationHistory, signal });
 
   if (brainRoute.brain === CLARA_BRAINS.SCHEDULE) {
     return generateScheduleBrainReply({
@@ -621,33 +491,29 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     });
   }
 
-  if (!apiKey) return GEMINI_RETRY_REPLY;
   const prompt = await buildPrompt({ message, context, mode, conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
+  const modelCandidates = await discoverGeminiModelCandidates();
   let lastError = null;
+
   for (const model of modelCandidates) {
     try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying model", model);
-      const text = await requestGeminiText({ apiKey, model, prompt, signal });
-      if (text && !isIncompleteClaraReply(text)) {
-        if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded", model);
-        return text;
-      }
-      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Incomplete reply detected, retrying", { model, text });
+      if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying proxy model", model);
+      const text = await requestGeminiText({ model, prompt, signal });
+      if (text && !isIncompleteClaraReply(text)) return text;
+
       const retryPrompt = buildCompletionRetryPrompt({ originalPrompt: prompt, incompleteReply: text });
-      const retryText = await requestGeminiText({ apiKey, model, prompt: retryPrompt, signal });
-      if (retryText && !isIncompleteClaraReply(retryText)) {
-        if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Model succeeded after completion retry", model);
-        return retryText;
-      }
+      const retryText = await requestGeminiText({ model, prompt: retryPrompt, signal });
+      if (retryText && !isIncompleteClaraReply(retryText)) return retryText;
+
       lastError = new Error(`Gemini returned incomplete CLARA replies using ${model}.`);
       lastError.model = model;
       lastError.partialReply = retryText || text;
     } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Model failed", { model, message: error?.message, status: error?.status, payload: error?.payload });
+      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Proxy model failed", { model, message: error?.message, status: error?.status });
       lastError = error;
     }
   }
+
   if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Gemini] Final fallback blocked", lastError);
   return GEMINI_RETRY_REPLY;
 }
