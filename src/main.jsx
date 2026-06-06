@@ -10,6 +10,7 @@ import "./clara-memory-bridge";
 import "./clara-buy-check-budget-aware-prefilter";
 import "./clara-buy-check-report-router";
 import "./clara-forecast-report-router";
+import "./clara-forecast-official-transition";
 import "./clara-buy-check-price-question-copy";
 import "./clara-buy-check-report-content-polish";
 import "./clara-buy-check-report-focus-mode";
