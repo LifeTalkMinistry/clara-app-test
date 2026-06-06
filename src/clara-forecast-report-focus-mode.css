@@ -502,3 +502,56 @@
     margin-top: 10px;
   }
 }
+
+/* Forecast header alignment safety fix:
+   Keeps the timeframe picker header and active slide header centered independently. */
+.clara-forecast-report-shell > .clara-forecast-report-header,
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header,
+.clara-forecast-report-shell > .clara-forecast-active-header {
+  align-self: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0;
+  padding-right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transform: none;
+}
+
+.clara-forecast-report-shell > .clara-forecast-report-header p,
+.clara-forecast-report-shell > .clara-forecast-report-header h2,
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header p,
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header h2,
+.clara-forecast-report-shell > .clara-forecast-active-header p,
+.clara-forecast-report-shell > .clara-forecast-active-header h2 {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  transform: none;
+}
+
+.clara-forecast-report-shell > .clara-forecast-report-header p,
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header p,
+.clara-forecast-report-shell > .clara-forecast-active-header p {
+  text-indent: 0.22em;
+}
+
+.clara-forecast-horizon-shell > .clara-forecast-horizon-header {
+  flex: 0 0 auto;
+}
+
+.clara-forecast-report-shell > .clara-forecast-active-header {
+  flex: 0 0 auto;
+}
