@@ -8,6 +8,8 @@ import { buildIncomeHubAiSnapshot } from "@/lib/clara-income-hub-ai-reader";
 import { getIncomeHubLocalUserId, getIncomeSources } from "@/lib/incomeHubRepository";
 import { buildTransactionHubAiSnapshot } from "@/lib/clara-transaction-hub-ai-reader";
 import { buildDashboardSummaryAiSnapshot } from "@/lib/clara-dashboard-summary-ai-reader";
+import { buildDashboardCardsAiSnapshot } from "@/lib/clara-dashboard-cards-ai-reader";
+import { getDebtObligations } from "@/lib/debtObligationStore";
 import { LOCAL_FINANCE_STORES, runLocalFinanceTransaction } from "@/lib/localFinanceStore";
 
 const LONG_PRESS_DELAY = 520;
@@ -200,8 +202,9 @@ export default function ClaraAiEnvironmentBridge() {
   clearRetiredDemoBrowserState();
 
   const claraAiEnvironment = useClaraAiEnvironment();
-  const { user } = useUserRole();
+  const { user, plan } = useUserRole();
   const [incomeSources, setIncomeSources] = useState([]);
+  const [debtObligations, setDebtObligations] = useState([]);
 
   const {
     expenses = [],
@@ -242,6 +245,37 @@ export default function ClaraAiEnvironmentBridge() {
       cancelled = true;
       if (typeof window !== "undefined") {
         window.removeEventListener("clara-income-hub-updated", handleIncomeHubUpdated);
+      }
+    };
+  }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDebtObligations() {
+      try {
+        const localUserId = getRealLocalUserId(user);
+        const records = await getDebtObligations(localUserId);
+        if (!cancelled) setDebtObligations(Array.isArray(records) ? records : []);
+      } catch (error) {
+        console.warn("CLARA debt obligation records could not be loaded for AI context:", error);
+        if (!cancelled) setDebtObligations([]);
+      }
+    }
+
+    loadDebtObligations();
+
+    const handleDebtUpdated = () => loadDebtObligations();
+    if (typeof window !== "undefined") {
+      window.addEventListener("clara-finance-updated", handleDebtUpdated);
+      window.addEventListener("clara-debt-obligations-updated", handleDebtUpdated);
+    }
+
+    return () => {
+      cancelled = true;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("clara-finance-updated", handleDebtUpdated);
+        window.removeEventListener("clara-debt-obligations-updated", handleDebtUpdated);
       }
     };
   }, [user]);
@@ -305,11 +339,48 @@ export default function ClaraAiEnvironmentBridge() {
     ]
   );
 
+  const dashboardCardsLiveSnapshot = useMemo(
+    () =>
+      buildDashboardCardsAiSnapshot({
+        user,
+        plan,
+        wallets,
+        incomes,
+        expenses,
+        walletTransactions,
+        transfers,
+        budgets,
+        savingsGoals,
+        emergencyFund,
+        debtObligations,
+        transactionHubSnapshot,
+        incomeHubSnapshot,
+        dashboardSummarySnapshot,
+      }),
+    [
+      user,
+      plan,
+      wallets,
+      incomes,
+      expenses,
+      walletTransactions,
+      transfers,
+      budgets,
+      savingsGoals,
+      emergencyFund,
+      debtObligations,
+      transactionHubSnapshot,
+      incomeHubSnapshot,
+      dashboardSummarySnapshot,
+    ]
+  );
+
   const claraAssistantContext = useMemo(() => {
     const bridgeReadableContext = buildClaraBridgeReadableContext({ messages: claraAiEnvironment.messages });
 
     return {
       user,
+      plan,
       expenses,
       incomes,
       incomeSources,
@@ -319,15 +390,17 @@ export default function ClaraAiEnvironmentBridge() {
       budgets,
       savingsGoals,
       emergencyFund,
+      debtObligations,
       totalIncome,
       transactionHubSnapshot,
       incomeHubSnapshot,
       dashboardSummarySnapshot,
+      dashboardCardsLiveSnapshot,
       loading,
       refreshing,
       ...bridgeReadableContext,
     };
-  }, [user, expenses, incomes, incomeSources, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, totalIncome, transactionHubSnapshot, incomeHubSnapshot, dashboardSummarySnapshot, loading, refreshing, claraAiEnvironment.messages]);
+  }, [user, plan, expenses, incomes, incomeSources, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, debtObligations, totalIncome, transactionHubSnapshot, incomeHubSnapshot, dashboardSummarySnapshot, dashboardCardsLiveSnapshot, loading, refreshing, claraAiEnvironment.messages]);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
