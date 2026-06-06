@@ -1,4 +1,4 @@
-const REPORT_OVERLAY_SELECTOR = "[data-clara-forecast-report-overlay='true']:not(.clara-forecast-horizon-overlay)";
+const REPORT_OVERLAY_SELECTOR = "[data-clara-forecast-report-overlay='true']";
 const FINAL_ACTION_SELECTOR = "[data-clara-forecast-final-affirmation='true']";
 
 function closeForecastReportFromFinalAction(target) {
@@ -7,10 +7,12 @@ function closeForecastReportFromFinalAction(target) {
 }
 
 function enhanceForecastReportExit(overlay) {
-  if (!overlay || overlay.classList.contains("clara-forecast-horizon-overlay")) return;
+  if (!overlay) return;
 
   overlay.querySelector(".clara-forecast-report-close")?.remove?.();
   overlay.querySelector(".clara-forecast-report-footer")?.remove?.();
+
+  if (overlay.classList.contains("clara-forecast-horizon-overlay")) return;
 
   const finalCard =
     overlay.querySelector(".clara-forecast-report-card.is-final") ||
