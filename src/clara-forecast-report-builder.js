@@ -521,6 +521,87 @@ function categorySignal(categoryRecord, prefix = "Likely leak") {
   return `${prefix}: ${categoryRecord.category}`;
 }
 
+function hasRiskDiagnosisData(projection = {}) {
+  return count(projection.expenseRecordsUsed) > 0;
+}
+
+function unplannedRatio(projection = {}) {
+  const expenses = count(projection.expenseRecordsUsed);
+  if (!expenses) return 0;
+  return count(projection.unplannedCount) / expenses;
+}
+
+function impulseSpendingSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const ratio = unplannedRatio(projection);
+  if (ratio === 0) return "Low signal";
+  if (ratio <= 0.25) return "Low signal";
+  if (ratio <= 0.5) return "Moderate signal";
+  return "High signal";
+}
+
+function unplannedPurchasesSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const records = count(projection.unplannedCount);
+  return `${records} record${records === 1 ? "" : "s"}`;
+}
+
+function biggestOverspendingCategorySummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection) || count(projection.unplannedCount) <= 0) return "No major category detected";
+  return projection.biggestRiskyCategory?.category || "No major category detected";
+}
+
+function estimatedMonthlyLeakSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return `${amount(projection.averageMonthlyUnplanned, "₱0")}/month`;
+}
+
+function financialRiskLevelSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const ratio = unplannedRatio(projection);
+  const leakShare = projection.averageMonthlyExpenses > 0
+    ? projection.averageMonthlyUnplanned / projection.averageMonthlyExpenses
+    : 0;
+
+  if (projection.badDirection === "At risk" || ratio > 0.5 || leakShare >= 0.3) return "High";
+  if (projection.badDirection === "Under pressure" || count(projection.unplannedCount) > 0) return "Moderate";
+  return "Low";
+}
+
+function primaryRiskPatternSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection) || count(projection.unplannedCount) <= 0) return "No major pattern detected";
+  const category = projection.biggestRiskyCategory?.category;
+  if (category && count(projection.unplannedCount) >= 3) return `Frequent ${category.toLowerCase()} spending`;
+  if (count(projection.unplannedCount) >= 2) return "Repeated unplanned purchases";
+  if (category) return `${category} spending risk`;
+  return "Detected spending pattern";
+}
+
+function budgetAlignmentSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection) || count(projection.budgetRecordsUsed) <= 0) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const ratio = unplannedRatio(projection);
+  if (ratio === 0) return "Mostly planned";
+  if (ratio <= 0.5 && projection.badDirection !== "At risk") return "Partially planned";
+  if (projection.badDirection === "At risk" || projection.badDirection === "Under pressure") return "Budget drift detected";
+  return "Frequently outside budget";
+}
+
+function riskyHabitsHeroSummary(projection = {}) {
+  if (!hasRiskDiagnosisData(projection)) return "No major risk detected";
+  const hasDetectedRisk = count(projection.unplannedCount) > 0 || projection.averageMonthlyUnplanned > 0;
+  const category = projection.biggestRiskyCategory?.category;
+  if (hasDetectedRisk && category) return `${category} Leak`;
+  if (count(projection.unplannedCount) > 0) return `${count(projection.unplannedCount)} Risk Signals`;
+  if (projection.averageMonthlyUnplanned > 0) return `${amount(projection.averageMonthlyUnplanned)} Leak`;
+  return "No major risk detected";
+}
+
+function riskyHabitsBodySummary(projection = {}) {
+  return hasRiskDiagnosisData(projection)
+    ? "These are observed spending patterns based on your available records. CLARA identifies behaviors that may slow financial progress, not personal mistakes."
+    : "CLARA needs more spending and budget records before it can identify risky habits with confidence.";
+}
+
 function nextBestAction(projection = {}) {
   const category = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
   if (category && projection.badLeakCost > 0) {
@@ -539,7 +620,6 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
   const horizonText = monthLabel(horizon);
   const horizonSummary = getClaraForecastHorizonSummary(snapshot);
   const leakCategory = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
-  const leakLabel = categorySignal(projection.biggestRiskyCategory || projection.biggestLeak, "Likely leak");
   const improvementLift = projection.projectedNetPositionImproved - projection.projectedNetPositionSame;
   const hasLeak = projection.badLeakCost > 0;
   const hasSavingsDiscipline = projection.totalSavingsSaved > 0 || projection.currentEmergency > 0;
@@ -584,13 +664,16 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
         eyebrow: "03 / REALITY CHECK",
         title: "Risky Habits CLARA Found",
         tone: "reality",
-        body: "These are conservative signals based on available spending records. CLARA marks patterns, not judgment.",
+        hero: riskyHabitsHeroSummary(projection),
+        body: riskyHabitsBodySummary(projection),
         stats: [
-          stat("Impulse Spending", signalWhen(projection.unplannedCount > 0, "Detected pattern")),
-          stat("Unplanned Purchases", projection.unplannedCount > 0 ? `${count(projection.unplannedCount)} record${projection.unplannedCount === 1 ? "" : "s"}` : NO_MAJOR_SIGNAL),
-          stat("Overspending Categories", leakLabel),
-          stat("Spending Leaks", projection.biggestLeak ? `${categorySignal(projection.biggestLeak)} · ${amount(projection.biggestLeak.monthlyAmount)}/mo` : NOT_ENOUGH_DATA),
-          stat("Financial Risks Detected", projection.badDirection === "At risk" || projection.badDirection === "Under pressure" ? projection.badDirection : NO_MAJOR_SIGNAL),
+          stat("Impulse Spending", impulseSpendingSummary(projection)),
+          stat("Unplanned Purchases", unplannedPurchasesSummary(projection)),
+          stat("Biggest Overspending Category", biggestOverspendingCategorySummary(projection)),
+          stat("Estimated Monthly Leak", estimatedMonthlyLeakSummary(projection)),
+          stat("Financial Risk Level", financialRiskLevelSummary(projection)),
+          stat("Primary Risk Pattern", primaryRiskPatternSummary(projection)),
+          stat("Budget Alignment", budgetAlignmentSummary(projection)),
         ],
       },
       {
