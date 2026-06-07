@@ -15,6 +15,7 @@ import "./clara-buy-check-price-question-copy";
 import "./clara-buy-check-report-content-polish";
 import "./clara-buy-check-report-focus-mode";
 import "./clara-forecast-report-focus-mode.css";
+import "./clara-forecast-report-explanation-container.css";
 import "./clara-forecast-transition-loader.css";
 import "./clara-buy-check-effective-context-guard";
 import "./clara-assistant-buy-check-tab";
@@ -82,7 +83,6 @@ window.CLARA_BILLING = window.CLARA_BILLING || {};
     const isAndroid =
       /android/i.test(navigator.userAgent) ||
       !!window.Capacitor?.isNativePlatform?.();
-
     if (isAndroid) {
       setTimeout(async () => {
         try {
@@ -124,5 +124,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
