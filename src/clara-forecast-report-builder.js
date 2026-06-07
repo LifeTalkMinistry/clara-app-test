@@ -671,7 +671,8 @@ function nextBestAction(projection = {}) {
   }
   if (projection.budgetRecordsUsed <= 0) return "Create one simple budget limit for your highest spending category.";
   return "Keep recording your next 7 days so CLARA can sharpen the next forecast.";
-}\n
+}
+
 export function buildClaraForecastReport(snapshot = {}, options = {}) {
   const horizon = normalizeHorizonMonths(options.horizonMonths || snapshot.selectedForecastHorizonMonths || 1);
   const eligibility = canBuildClaraForecast(snapshot, horizon);
