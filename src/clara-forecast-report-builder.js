@@ -589,7 +589,7 @@ function moneyDivertedFromGoalsSummary(projection = {}) {
 
 function emergencyFundOpportunitySummary(projection = {}) {
   return hasLeakCostData(projection)
-    ? `${amount(Math.max(0, projection.badLeakCost * 0.35), "₱0")} could protect you`
+    ? amount(Math.max(0, projection.badLeakCost * 0.35), "₱0")
     : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
