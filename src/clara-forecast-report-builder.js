@@ -1,6 +1,8 @@
 const NOT_ENOUGH_DATA = "Not enough data yet";
 const CURRENT_POSITION_NOT_ENOUGH_DATA = "Not enough data to generate result";
 const NO_MAJOR_SIGNAL = "No major signal detected";
+const NO_DEBT_RECORDS = "No debt records found";
+const NO_COST_DRIVER = "No major cost driver detected";
 const MAX_HORIZON_MONTHS = 12;
 
 function hasValue(value) {
@@ -556,6 +558,66 @@ function estimatedMonthlyLeakSummary(projection = {}) {
   return `${amount(projection.averageMonthlyUnplanned, "₱0")}/month`;
 }
 
+function hasLeakCostData(projection = {}) {
+  return hasRiskDiagnosisData(projection) && projection.badLeakCost > 0;
+}
+
+function monthlyLeakCostSummary(projection = {}) {
+  return hasLeakCostData(projection)
+    ? `${amount(projection.averageMonthlyUnplanned, "₱0")}/month`
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function forecastedLeakCostSummary(projection = {}) {
+  return hasLeakCostData(projection)
+    ? amount(projection.badLeakCost, CURRENT_POSITION_NOT_ENOUGH_DATA)
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function goalDelayAmount(projection = {}) {
+  const remainingGoalGap = Math.max(0, projection.totalSavingsTarget - projection.totalSavingsSaved);
+  if (!hasLeakCostData(projection) || remainingGoalGap <= 0) return 0;
+  return Math.min(projection.badLeakCost, remainingGoalGap);
+}
+
+function moneyDivertedFromGoalsSummary(projection = {}) {
+  const delayedAmount = goalDelayAmount(projection);
+  return delayedAmount > 0
+    ? `Up to ${amount(delayedAmount, "₱0")}`
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function emergencyFundOpportunitySummary(projection = {}) {
+  return hasLeakCostData(projection)
+    ? `${amount(Math.max(0, projection.badLeakCost * 0.35), "₱0")} could protect you`
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function savingsProgressDelayedSummary(projection = {}) {
+  const delayedAmount = goalDelayAmount(projection);
+  return delayedAmount > 0
+    ? `${amount(delayedAmount, "₱0")} delayed`
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function debtReductionMissedSummary(projection = {}) {
+  if (!projection.debtRecordsUsed || projection.totalDebtBalance <= 0) return NO_DEBT_RECORDS;
+  return hasLeakCostData(projection)
+    ? `${amount(Math.min(projection.badLeakCost, projection.totalDebtBalance), "₱0")} missed payoff`
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function biggestCostDriverSummary(projection = {}) {
+  if (!hasLeakCostData(projection)) return NO_COST_DRIVER;
+  return projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || NO_COST_DRIVER;
+}
+
+function costOfRiskyHabitsBodySummary(projection = {}) {
+  return hasLeakCostData(projection)
+    ? "This shows what your current leak may cost over the selected horizon if the same pattern continues."
+    : "CLARA needs more spending records before it can estimate the cost of risky habits with confidence.";
+}
+
 function financialRiskLevelSummary(projection = {}) {
   if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
   const ratio = unplannedRatio(projection);
@@ -680,14 +742,16 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
         eyebrow: "04 / REALITY CHECK",
         title: "What These Habits May Cost You",
         tone: "reality",
-        hero: hasLeak ? amount(projection.badLeakCost) : NO_MAJOR_SIGNAL,
-        body: "This slide shows the cost of leaks if the same pattern continues through the selected horizon.",
+        hero: forecastedLeakCostSummary(projection),
+        body: costOfRiskyHabitsBodySummary(projection),
         stats: [
-          stat("Monthly Leak Cost", projection.averageMonthlyUnplanned > 0 ? amount(projection.averageMonthlyUnplanned) : NO_MAJOR_SIGNAL),
-          stat("Forecasted Leak Cost", hasLeak ? amount(projection.badLeakCost) : NO_MAJOR_SIGNAL),
-          stat("Goals Being Delayed", hasLeak && projection.totalSavingsTarget > projection.totalSavingsSaved ? `Up to ${amount(Math.min(projection.badLeakCost, projection.totalSavingsTarget - projection.totalSavingsSaved))}` : NO_MAJOR_SIGNAL),
-          stat("Emergency Fund Impact", hasLeak ? `${amount(Math.max(0, projection.badLeakCost * 0.35))} could protect you` : NO_MAJOR_SIGNAL),
-          stat("Debt Impact", hasLeak && projection.totalDebtBalance > 0 ? `${amount(Math.min(projection.badLeakCost, projection.totalDebtBalance))} could reduce debt` : NO_MAJOR_SIGNAL),
+          stat("Monthly Leak Cost", monthlyLeakCostSummary(projection)),
+          stat("Forecasted Leak Cost", forecastedLeakCostSummary(projection)),
+          stat("Money Diverted From Goals", moneyDivertedFromGoalsSummary(projection)),
+          stat("Emergency Fund Opportunity", emergencyFundOpportunitySummary(projection)),
+          stat("Savings Progress Delayed", savingsProgressDelayedSummary(projection)),
+          stat("Debt Reduction Missed", debtReductionMissedSummary(projection)),
+          stat("Biggest Cost Driver", biggestCostDriverSummary(projection)),
         ],
       },
       {
