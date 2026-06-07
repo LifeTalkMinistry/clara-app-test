@@ -1,4 +1,5 @@
 const NOT_ENOUGH_DATA = "Not enough data yet";
+const CURRENT_POSITION_NOT_ENOUGH_DATA = "Not enough data to generate result";
 const NO_MAJOR_SIGNAL = "No major signal detected";
 const MAX_HORIZON_MONTHS = 12;
 
@@ -282,7 +283,10 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
   const totalUnplanned = sum(unplannedExpenses, getExpenseAmount);
   const transfersOut = sum(recordsInWindow(records.transfers, horizon), (transfer) => firstNumber(transfer, ["amount", "total", "value"]));
   const money = currentMoney(snapshot);
-  const currentWalletTotal = sum(records.wallets, getWalletBalance) || money.totalWalletBalance || 0;
+  const walletRecordsTotal = sum(records.wallets, getWalletBalance);
+  const currentWalletTotalAvailable = records.wallets.length > 0 || hasValue(money.totalWalletBalance);
+  const currentWalletTotal = walletRecordsTotal || money.totalWalletBalance || 0;
+  const currentMoneyLeftAvailable = hasValue(money.safeSpendableMoney) || currentWalletTotalAvailable;
   const currentMoneyLeft = hasValue(money.safeSpendableMoney) ? toNumber(money.safeSpendableMoney) : currentWalletTotal;
   const currentEmergency = getEmergencySaved(records.emergencyFund || {}) || money.emergencyProtectedAmount || 0;
   const emergencyTarget = getEmergencyTarget(records.emergencyFund || {});
@@ -319,7 +323,9 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
     incomeMonthCount,
     expenseMonthCount,
     currentWalletTotal,
+    currentWalletTotalAvailable,
     currentMoneyLeft,
+    currentMoneyLeftAvailable,
     currentEmergency,
     emergencyTarget,
     totalSavingsSaved,
@@ -465,16 +471,49 @@ function dataBasisSummary(projection = {}, availableHistoryMonths = 0) {
   return parts.join(" · ");
 }
 
+function currentPositionMoneyLeftSummary(projection = {}) {
+  return projection.currentMoneyLeftAvailable
+    ? amount(projection.currentMoneyLeft, CURRENT_POSITION_NOT_ENOUGH_DATA)
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function totalWalletBalanceSummary(projection = {}) {
+  return projection.currentWalletTotalAvailable
+    ? amount(projection.currentWalletTotal, CURRENT_POSITION_NOT_ENOUGH_DATA)
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
 function savingsSummary(projection = {}) {
-  if (!projection.savingsGoalRecordsUsed && !projection.totalSavingsSaved && !projection.totalSavingsTarget) return NOT_ENOUGH_DATA;
+  if (!projection.savingsGoalRecordsUsed && !projection.totalSavingsSaved && !projection.totalSavingsTarget) return "No savings goal created";
   if (projection.totalSavingsTarget) return `${amount(projection.totalSavingsSaved, "₱0")} / ${amount(projection.totalSavingsTarget)}`;
   return amount(projection.totalSavingsSaved, "₱0");
 }
 
 function emergencySummary(projection = {}) {
-  if (!projection.currentEmergency && !projection.emergencyTarget) return NOT_ENOUGH_DATA;
+  if (!projection.currentEmergency && !projection.emergencyTarget) return "No emergency fund created";
   if (projection.emergencyTarget) return `${amount(projection.currentEmergency, "₱0")} / ${amount(projection.emergencyTarget)}`;
   return amount(projection.currentEmergency, "₱0");
+}
+
+function debtPositionSummary(projection = {}) {
+  return projection.debtRecordsUsed
+    ? `${amount(projection.totalDebtBalance, "₱0")} remaining`
+    : "No debt records found";
+}
+
+function netFinancialPositionSummary(projection = {}) {
+  if (!projection.currentMoneyLeftAvailable) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const netFinancialPosition = projection.currentMoneyLeft + projection.currentEmergency + projection.totalSavingsSaved - projection.totalDebtBalance;
+  return amount(netFinancialPosition, CURRENT_POSITION_NOT_ENOUGH_DATA);
+}
+
+function currentPositionDirectionSummary(projection = {}) {
+  if (!projection.currentMoneyLeftAvailable) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const netFinancialPosition = projection.currentMoneyLeft + projection.currentEmergency + projection.totalSavingsSaved - projection.totalDebtBalance;
+  if (projection.netMonthlyCashFlow > 0 && netFinancialPosition >= 0) return "Improving";
+  if (projection.netMonthlyCashFlow >= 0) return "Stable";
+  if (projection.monthlyDebtPayment > 0 || projection.currentEmergency > 0 || projection.totalSavingsSaved > 0) return "Recovering";
+  return "Declining";
 }
 
 function categorySignal(categoryRecord, prefix = "Likely leak") {
@@ -529,15 +568,16 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
         eyebrow: "02 / CURRENT POSITION",
         title: "Current Financial Position",
         tone: "neutral",
-        hero: amount(projection.currentMoneyLeft, NOT_ENOUGH_DATA),
-        body: "This is the money position CLARA sees before projecting your next months.",
+        hero: currentPositionMoneyLeftSummary(projection),
+        body: "This is your current financial starting point before CLARA projects what may happen over the selected timeframe.",
         stats: [
-          stat("Current Money Left", amount(projection.currentMoneyLeft, NOT_ENOUGH_DATA)),
-          stat("Wallet Balance", amount(projection.currentWalletTotal, NOT_ENOUGH_DATA)),
-          stat("Emergency Fund", emergencySummary(projection)),
-          stat("Savings Goals", savingsSummary(projection)),
-          stat("Debt Balance", projection.debtRecordsUsed ? amount(projection.totalDebtBalance, "₱0") : NOT_ENOUGH_DATA),
-          stat("Current Financial Direction", projection.currentDirection),
+          stat("Current Money Left", currentPositionMoneyLeftSummary(projection)),
+          stat("Total Wallet Balance", totalWalletBalanceSummary(projection)),
+          stat("Emergency Fund Status", emergencySummary(projection)),
+          stat("Savings Goal Progress", savingsSummary(projection)),
+          stat("Debt Position", debtPositionSummary(projection)),
+          stat("Net Financial Position", netFinancialPositionSummary(projection)),
+          stat("Current Financial Direction", currentPositionDirectionSummary(projection)),
         ],
       },
       {
