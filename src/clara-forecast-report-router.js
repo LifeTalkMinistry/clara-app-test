@@ -15,6 +15,8 @@ const ACTION_SELECTOR = "[data-clara-open-forecast-report='true']";
 const HORIZON_SELECTOR = "[data-clara-forecast-horizon]";
 const REPORT_TONES = new Set(["neutral", "reality", "hope", "possibility"]);
 const SETUP_NOT_ENOUGH_DATA = "Not enough data to generate result";
+const NO_DEBT_RECORDS = "No debt records found";
+const NO_MAJOR_LEAK_DETECTED = "No major leak detected";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -145,6 +147,90 @@ function finalizeForecastSetupSlide(report = {}, snapshot = {}, horizonMonths = 
           { label: "Income Records", value: setupValue(recordLabel(counts.incomeRecords)) },
           { label: "Expense Records", value: setupValue(recordLabel(counts.expenseRecords)) },
           { label: "Transaction Records", value: setupValue(recordLabel(counts.transactionRecords)) },
+        ],
+      };
+    }),
+  };
+}
+
+function statValue(stats = [], label = "") {
+  const target = clean(label).toLowerCase();
+  const row = toArray(stats).find((item) => clean(item?.label).toLowerCase() === target);
+  return clean(row?.value);
+}
+
+function cardStat(card = {}, label = "", fallback = SETUP_NOT_ENOUGH_DATA) {
+  return statValue(card.stats, label) || fallback;
+}
+
+function isNotEnoughDataValue(value = "") {
+  return clean(value).toLowerCase().includes("not enough data");
+}
+
+function slideEightDebtReductionValue(slideEight = {}, slideSeven = {}) {
+  const slideSevenDebtValue = statValue(slideSeven.stats, "Debt Reduction Value");
+  if (clean(slideSevenDebtValue).toLowerCase() === NO_DEBT_RECORDS.toLowerCase()) return NO_DEBT_RECORDS;
+  return cardStat(slideEight, "Projected Debt Reduction", NO_DEBT_RECORDS);
+}
+
+function slideEightGoodHabitValue(slideSeven = {}) {
+  return statValue(slideSeven.stats, "Total Good-Habit Value") || clean(slideSeven.hero) || SETUP_NOT_ENOUGH_DATA;
+}
+
+function slideEightLeakStatus(slideFive = {}, slideFour = {}) {
+  const leakValue = statValue(slideFive.stats, "Leak Cost Carried Forward")
+    || statValue(slideFive.stats, "Money Not Redirected")
+    || statValue(slideFour.stats, "Forecasted Leak Cost");
+  const normalized = clean(leakValue).toLowerCase();
+
+  if (!normalized || isNotEnoughDataValue(normalized)) return SETUP_NOT_ENOUGH_DATA;
+  if (normalized === NO_MAJOR_LEAK_DETECTED.toLowerCase()) return NO_MAJOR_LEAK_DETECTED;
+  return toNumber(leakValue) > 0 ? "Not fixed yet" : NO_MAJOR_LEAK_DETECTED;
+}
+
+function slideEightBody(projectedMoneyLeft = "") {
+  return isNotEnoughDataValue(projectedMoneyLeft)
+    ? "CLARA needs more local records before it can project the value of continuing good habits."
+    : "This is the steady path if your current good habits continue, but the biggest leak has not been corrected yet.";
+}
+
+function finalizeForecastSlideEight(report = {}) {
+  if (!Array.isArray(report.cards) || !report.cards.length) return report;
+
+  const slideSeven = report.cards.find((card) => clean(card?.eyebrow) === "07 / HOPE CHECK") || {};
+  const slideFour = report.cards.find((card) => clean(card?.eyebrow) === "04 / REALITY CHECK") || {};
+  const slideFive = report.cards.find((card) => clean(card?.eyebrow) === "05 / BAD FUTURE PROJECTION") || {};
+
+  return {
+    ...report,
+    cards: report.cards.map((card) => {
+      const isSlideEight = clean(card?.eyebrow) === "08 / GOOD FUTURE PROJECTION"
+        && clean(card?.title) === "If You Continue the Good";
+      if (!isSlideEight) return card;
+
+      const projectedMoneyLeft = clean(card.hero) || cardStat(card, "Projected Money Left");
+      const projectedEmergency = cardStat(card, "Projected Emergency Fund");
+      const projectedSavings = cardStat(card, "Projected Savings Progress");
+      const projectedDebtReduction = slideEightDebtReductionValue(card, slideSeven);
+      const goodHabitValueApplied = slideEightGoodHabitValue(slideSeven);
+      const leakStatus = slideEightLeakStatus(slideFive, slideFour);
+      const financialDirection = cardStat(card, "Financial Direction");
+
+      return {
+        ...card,
+        eyebrow: "08 / GOOD FUTURE PROJECTION",
+        title: "If You Continue the Good",
+        tone: "hope",
+        hero: projectedMoneyLeft || SETUP_NOT_ENOUGH_DATA,
+        body: slideEightBody(projectedMoneyLeft),
+        stats: [
+          { label: "Projected Money Left", value: projectedMoneyLeft || SETUP_NOT_ENOUGH_DATA },
+          { label: "Projected Emergency Fund", value: projectedEmergency },
+          { label: "Projected Savings Progress", value: projectedSavings },
+          { label: "Projected Debt Reduction", value: projectedDebtReduction },
+          { label: "Good Habit Value Applied", value: goodHabitValueApplied },
+          { label: "Leak Status", value: leakStatus },
+          { label: "Financial Direction", value: financialDirection },
         ],
       };
     }),
@@ -381,7 +467,7 @@ function syncForecastReportProgress(overlay) {
 }
 
 function renderReport(snapshot, horizonMonths = 1) {
-  const report = finalizeForecastSetupSlide(buildClaraForecastReport(snapshot, { horizonMonths }), snapshot, horizonMonths);
+  const report = finalizeForecastSlideEight(finalizeForecastSetupSlide(buildClaraForecastReport(snapshot, { horizonMonths }), snapshot, horizonMonths));
   closeReport();
 
   const overlay = document.createElement("section");
