@@ -204,6 +204,7 @@ function finalizeSlideNine() {
   const recover = amount > 0 ? `Recover ${money(amount)}` : "Build more history";
   const goodHabits = goodHabitsToProtect();
 
+  slide.classList.add("clara-forecast-slide-nine-final");
   setHero(slide, amount > 0 ? recover : "No major leak to fix");
   setRows(slide, [
     ["Good Habits to Protect", goodHabits],
