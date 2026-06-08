@@ -107,7 +107,22 @@ function getEmergencySaved(emergencyFund = {}) {
 }
 
 function getBudgetAmount(budget = {}) {
-  return toNumber(budget.limit ?? budget.amount ?? budget.budget_amount ?? budget.allocated ?? budget.allocated_amount ?? 0);
+  return toNumber(
+    budget.limit ??
+      budget.amount ??
+      budget.plannedAmount ??
+      budget.planned_amount ??
+      budget.allocatedAmount ??
+      budget.allocated_amount ??
+      budget.monthlyLimit ??
+      budget.monthly_limit ??
+      budget.categoryLimit ??
+      budget.category_limit ??
+      budget.budget_amount ??
+      budget.allocated ??
+      budget.allocated_amount ??
+      0
+  );
 }
 
 function expenseStatus(expense = {}) {
@@ -142,10 +157,18 @@ function countGoalDeadlines(goals = []) {
 }
 
 function expectedIncomeFromSources(incomeSources = []) {
-  const currentBalanceTotal = sumValues(incomeSources, (source) => source.currentBalance ?? source.current_balance);
-  if (currentBalanceTotal > 0) return currentBalanceTotal;
-  const moneyInTotal = sumValues(incomeSources, (source) => source.totalMoneyIn ?? source.total_money_in ?? source.amount);
-  return moneyInTotal > 0 ? moneyInTotal : null;
+  const explicitRecurringTotal = sumValues(incomeSources, (source) =>
+    source.monthlyAmount ??
+      source.monthly_amount ??
+      source.expectedMonthlyIncome ??
+      source.expected_monthly_income ??
+      source.recurringAmount ??
+      source.recurring_amount ??
+      source.salaryAmount ??
+      source.salary_amount
+  );
+
+  return explicitRecurringTotal > 0 ? explicitRecurringTotal : null;
 }
 
 function formatActivityCount(expenses = [], transactions = []) {
@@ -287,5 +310,17 @@ export function buildClaraForecastPhaseOneSnapshot(effectiveContext = {}, fallba
     dataReadStatus: effectiveContext.dataReadStatus || {},
     source: effectiveContext.source || "real",
     generatedAt: new Date().toISOString(),
+    forecastRecords: {
+      wallets,
+      budgets,
+      expenses,
+      walletTransactions,
+      transfers,
+      incomes,
+      incomeSources,
+      savingsGoals,
+      debtObligations,
+      emergencyFund,
+    },
   };
 }
