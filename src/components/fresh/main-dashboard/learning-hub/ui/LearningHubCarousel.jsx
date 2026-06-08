@@ -7,7 +7,6 @@ const AUTO_SCROLL_DELAY = 4200;
 const RESUME_AFTER_TOUCH = 7000;
 const SWIPE_THRESHOLD = 34;
 const LEARNING_HUB_STAGE_HEIGHT = 244;
-const COMING_SOON_MESSAGE = "Learning Hub is still under construction.";
 
 const learningHubToggleSurface = {
   background:
@@ -23,31 +22,38 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
   const [headerTouchStartY, setHeaderTouchStartY] = useState(null);
-  const [soonMessageVisible, setSoonMessageVisible] = useState(false);
+
   const resumeTimerRef = useRef(null);
-  const soonMessageTimerRef = useRef(null);
+  const headerSwipeHandledRef = useRef(false);
 
   const safeMaterials = useMemo(() => materials.filter(Boolean), [materials]);
   const total = safeMaterials.length;
 
-  const showComingSoonMessage = () => {
-    setIsExpanded(false);
-    setSoonMessageVisible(true);
+  const toggleExpanded = () => {
+    setIsExpanded((current) => {
+      const next = !current;
 
-    if (soonMessageTimerRef.current) clearTimeout(soonMessageTimerRef.current);
+      if (next) {
+        setIsPaused(false);
+      }
 
-    soonMessageTimerRef.current = setTimeout(() => {
-      setSoonMessageVisible(false);
-    }, 2600);
+      return next;
+    });
   };
 
   const pauseCarousel = () => {
     setIsPaused(true);
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+    }
   };
 
   const resumeCarouselSoon = () => {
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+    }
+
     resumeTimerRef.current = setTimeout(() => {
       setIsPaused(false);
     }, RESUME_AFTER_TOUCH);
@@ -55,30 +61,55 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
   const moveToNext = () => {
     if (!total) return;
+
     setActiveIndex((current) => (current + 1) % total);
   };
 
   const moveToPrev = () => {
     if (!total) return;
+
     setActiveIndex((current) => (current - 1 + total) % total);
   };
 
   const moveToIndex = (index) => {
     if (!total) return;
+
     pauseCarousel();
     setActiveIndex(index);
     resumeCarouselSoon();
   };
 
+  const handleHeaderClick = () => {
+    if (headerSwipeHandledRef.current) {
+      headerSwipeHandledRef.current = false;
+      return;
+    }
+
+    toggleExpanded();
+  };
+
   const handleHeaderTouchStart = (e) => {
+    headerSwipeHandledRef.current = false;
     setHeaderTouchStartY(e.touches[0].clientY);
   };
 
   const handleHeaderTouchEnd = (e) => {
     if (headerTouchStartY === null) return;
-    const diff = e.changedTouches[0].clientY - headerTouchStartY;
 
-    if (Math.abs(diff) > SWIPE_THRESHOLD) showComingSoonMessage();
+    const diff = e.changedTouches[0].clientY - headerTouchStartY;
+    const didSwipe = Math.abs(diff) > SWIPE_THRESHOLD;
+
+    if (didSwipe) {
+      headerSwipeHandledRef.current = true;
+      e.preventDefault();
+      e.stopPropagation();
+
+      setIsExpanded(diff > 0);
+
+      if (diff > 0) {
+        setIsPaused(false);
+      }
+    }
 
     setHeaderTouchStartY(null);
   };
@@ -90,11 +121,15 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
   const handleTouchEnd = (e) => {
     if (touchStartX === null) return;
+
     const diff = touchStartX - e.changedTouches[0].clientX;
 
     if (Math.abs(diff) > 50) {
-      if (diff > 0) moveToNext();
-      else moveToPrev();
+      if (diff > 0) {
+        moveToNext();
+      } else {
+        moveToPrev();
+      }
     }
 
     setTouchStartX(null);
@@ -105,13 +140,15 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
     if (!isExpanded || isPaused || total <= 1) return undefined;
 
     const interval = setInterval(moveToNext, AUTO_SCROLL_DELAY);
+
     return () => clearInterval(interval);
   }, [isExpanded, isPaused, total]);
 
   useEffect(() => {
     return () => {
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-      if (soonMessageTimerRef.current) clearTimeout(soonMessageTimerRef.current);
+      if (resumeTimerRef.current) {
+        clearTimeout(resumeTimerRef.current);
+      }
     };
   }, []);
 
@@ -123,9 +160,9 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
       <button
         type="button"
-        aria-expanded="false"
-        aria-label="Learning Hub under construction."
-        onClick={showComingSoonMessage}
+        aria-expanded={isExpanded}
+        aria-label={isExpanded ? "Collapse Learning Hub." : "Open Learning Hub."}
+        onClick={handleHeaderClick}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
         className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
@@ -136,22 +173,27 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         <span className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.05] via-transparent to-black/8 backdrop-blur-[1px]" />
 
         <BookOpen size={16} className="relative z-10 text-cyan-100/62" />
-        <span className="relative z-10 whitespace-nowrap text-white/76">Learning Hub</span>
-        <ChevronDown size={15} className="relative z-10 text-cyan-100/42" />
+
+        <span className="relative z-10 whitespace-nowrap text-white/76">
+          Learning Hub
+        </span>
+
+        <ChevronDown
+          size={15}
+          className={`relative z-10 text-cyan-100/42 transition-transform duration-300 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
-      {soonMessageVisible ? (
-        <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 px-6 backdrop-blur-[3px]" onClick={() => setSoonMessageVisible(false)}>
-          <div className="max-w-[300px] rounded-[24px] border border-cyan-100/34 bg-[#061427] px-5 py-4 text-center shadow-[0_24px_70px_rgba(0,0,0,0.62)]">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/82">Learning Hub</p>
-            <p className="mt-2 text-sm font-semibold leading-5 text-white/92">{COMING_SOON_MESSAGE}</p>
-          </div>
-        </div>
-      ) : null}
-
       <div
-        data-learning-hub-expanded="false"
-        className="clara-learning-hub-expanded clara-learning-motion grid grid-rows-[0px] opacity-0 transition-[grid-template-rows,opacity,margin] duration-500 ease-out"
+        data-learning-hub-expanded={isExpanded ? "true" : "false"}
+        className="clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out"
+        style={{
+          gridTemplateRows: isExpanded ? `${LEARNING_HUB_STAGE_HEIGHT}px` : "0px",
+          opacity: isExpanded ? 1 : 0,
+          marginTop: isExpanded ? "0.75rem" : "0rem",
+        }}
       >
         <div className="clara-learning-hub-clip min-h-0 overflow-visible">
           <div
@@ -179,6 +221,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
             {safeMaterials.map((item, index) => {
               const rawOffset = index - activeIndex;
+
               const wrappedOffset =
                 rawOffset > total / 2
                   ? rawOffset - total
@@ -201,6 +244,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
                       onOpenMaterial?.(item);
                       return;
                     }
+
                     moveToIndex(index);
                   }}
                 />
