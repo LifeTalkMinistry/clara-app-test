@@ -412,7 +412,16 @@ function reportTone(value = "neutral") {
 
 function reportCardClass(card = {}) {
   const classes = ["clara-forecast-report-card"];
+
   if (card.final) classes.push("is-final");
+
+  const eyebrow = clean(card.eyebrow);
+  const title = clean(card.title);
+
+  if (eyebrow === "09 / POSSIBILITY PLAN" && title === "Keep the Good, Fix the Bad") {
+    classes.push("clara-forecast-slide-nine-final");
+  }
+
   classes.push(`is-${reportTone(card.tone)}`);
   return classes.join(" ");
 }
