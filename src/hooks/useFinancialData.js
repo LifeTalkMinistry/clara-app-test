@@ -30,6 +30,10 @@ import {
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
+import {
+  updateTransferSafely,
+  deleteTransferSafely,
+} from "@/lib/financeTransferSafeActions";
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 
 const FINANCE_INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
@@ -274,6 +278,8 @@ function useFinancialData(user) {
 
   const deleteIncome = useCallback(async (id) => deleteWalletTransaction(id), [deleteWalletTransaction]);
   const transferBetweenWallets = useCallback(async (payload) => { const result = await repoTransferBetweenWallets(localUserId, payload); await refreshData(); return result; }, [localUserId, refreshData]);
+  const updateTransfer = useCallback(async (id, updates = {}) => { const result = await updateTransferSafely(localUserId, id, updates); await refreshData(); return result; }, [localUserId, refreshData]);
+  const deleteTransfer = useCallback(async (id) => { const result = await deleteTransferSafely(localUserId, id); await refreshData(); return result; }, [localUserId, refreshData]);
   const addBudget = useCallback(async (budget) => { const result = await repoAddBudget(localUserId, budget); await refreshData(); return result; }, [localUserId, refreshData]);
   const updateBudget = useCallback(async (id, updates) => { const result = await repoUpdateBudget(localUserId, id, updates); await refreshData(); return result; }, [localUserId, refreshData]);
   const deleteBudget = useCallback(async (id) => { const result = await repoDeleteBudget(localUserId, id); await refreshData(); return result; }, [localUserId, refreshData]);
@@ -306,7 +312,7 @@ function useFinancialData(user) {
     refreshData,
     addExpense, updateExpense, deleteExpense,
     addWallet, updateWallet, deleteWallet,
-    addIncome, addMoney, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets,
+    addIncome, addMoney, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets, updateTransfer, deleteTransfer,
     addBudget, updateBudget, deleteBudget, upsertBudget,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
     updateEmergencyFund,
