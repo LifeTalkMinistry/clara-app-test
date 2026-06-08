@@ -28,7 +28,7 @@ export default function LearningMaterialCard({
 
   const width = isActive ? 184 : absOffset === 1 ? 124 : 100;
   const height = isActive ? 224 : absOffset === 1 ? 188 : 160;
-  const pageEdgeWidth = isActive ? 2 : 5;
+  const pageEdgeWidth = isActive ? 4 : 5;
   const depthOffset = isActive ? 3 : 2;
   const contentLeftPadding = isActive ? 18 : 12;
 
@@ -49,16 +49,16 @@ export default function LearningMaterialCard({
     >
       <div className="relative h-full w-full overflow-visible" style={{ transformStyle: "preserve-3d" }}>
         <div
-          className={`absolute inset-[1px] rounded-[18px] transition-opacity duration-500 ${
-            isActive ? "bg-transparent opacity-[0.045]" : "bg-cyan-50 opacity-[0.08]"
+          className={`absolute rounded-[18px] transition-opacity duration-500 ${
+            isActive ? "inset-4 bg-transparent opacity-100" : "inset-[1px] bg-cyan-50 opacity-[0.08]"
           }`}
           style={{
             transform: isActive
-              ? "translate3d(0px, 1px, -18px)"
+              ? "translate3d(0px, 2px, -18px)"
               : `translate3d(${depthOffset}px, ${depthOffset}px, -18px)`,
-            filter: isActive ? "blur(10px)" : "blur(1px)",
+            filter: isActive ? "blur(18px)" : "blur(1px)",
             boxShadow: isActive
-              ? "0 24px 42px rgba(0,0,0,0.30), 0 0 26px rgba(34,211,238,0.045)"
+              ? "0 24px 46px rgba(0,0,0,0.34), 0 0 28px rgba(34,211,238,0.055)"
               : "0 14px 24px rgba(0,0,0,0.20)",
           }}
         />
@@ -66,7 +66,7 @@ export default function LearningMaterialCard({
         <div
           className={`relative z-10 h-full w-full overflow-hidden rounded-[18px] border transition-[border-color,background-color,box-shadow] duration-500 ${
             isActive
-              ? "border-cyan-100/18 bg-slate-950 shadow-[0_20px_40px_rgba(0,0,0,0.34),0_0_18px_rgba(34,211,238,0.035)]"
+              ? "border-cyan-100/14 bg-slate-950 shadow-[0_20px_40px_rgba(0,0,0,0.34),0_0_18px_rgba(34,211,238,0.035)]"
               : "border-cyan-200/8 bg-slate-950/84 shadow-[0_12px_22px_rgba(0,0,0,0.17)]"
           }`}
         >
@@ -76,7 +76,7 @@ export default function LearningMaterialCard({
               isActive ? "opacity-100" : "opacity-42"
             }`}
           />
-          <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-transparent" : "ring-white/8"}`} />
+          <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/5" : "ring-white/8"}`} />
           <div
             className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
               isActive ? "opacity-100" : "opacity-28"
@@ -90,18 +90,18 @@ export default function LearningMaterialCard({
 
           <div
             className={`absolute transition-opacity duration-500 ${
-              isActive ? "rounded-none opacity-14" : "bottom-2 top-2 rounded-r-[12px] border-l border-cyan-50/8 opacity-18"
+              isActive ? "rounded-r-[10px] opacity-[0.22]" : "bottom-2 top-2 rounded-r-[12px] border-l border-cyan-50/8 opacity-18"
             }`}
             style={{
-              right: isActive ? 8 : 0,
-              top: isActive ? 26 : undefined,
-              bottom: isActive ? 26 : undefined,
+              right: isActive ? 4 : 0,
+              top: isActive ? 12 : undefined,
+              bottom: isActive ? 12 : undefined,
               width: pageEdgeWidth,
               background: isActive
-                ? "linear-gradient(180deg, transparent, rgba(165,243,252,0.045) 18%, rgba(241,245,249,0.05) 50%, rgba(165,243,252,0.035) 82%, transparent)"
+                ? "linear-gradient(180deg, transparent, rgba(165,243,252,0.035) 16%, rgba(241,245,249,0.055) 50%, rgba(165,243,252,0.03) 84%, transparent)"
                 : "linear-gradient(90deg, rgba(241,245,249,0.12), rgba(165,243,252,0.075) 46%, rgba(15,23,42,0.16))",
               boxShadow: isActive
-                ? "none"
+                ? "inset 1px 0 1px rgba(255,255,255,0.035)"
                 : "inset 1px 0 2px rgba(255,255,255,0.06), inset -1px 0 3px rgba(0,0,0,0.18)",
             }}
           >
