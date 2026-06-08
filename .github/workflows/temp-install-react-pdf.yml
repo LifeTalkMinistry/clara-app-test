@@ -1,0 +1,62 @@
+name: Temporary React PDF Install and Verification
+
+on:
+  push:
+    branches:
+      - feature/clara-learning-hub-pdf-reader
+    paths:
+      - ".github/workflows/temp-install-react-pdf.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  install-and-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/clara-learning-hub-pdf-reader
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install React-PDF through npm
+        run: npm install react-pdf
+
+      - name: Create permanent local PDF asset folder
+        run: |
+          mkdir -p public/pdfs/learning-hub
+          touch public/pdfs/learning-hub/.gitkeep
+
+      - name: Targeted lint
+        run: npx eslint src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+
+      - name: Standard relative build
+        run: npm run build
+
+      - name: Verify emitted PDF worker in relative build
+        run: |
+          find dist -type f | grep -E 'pdf\.worker.*\.mjs$'
+
+      - name: GitHub Pages build
+        run: npm run build:web
+
+      - name: Verify emitted PDF worker in GitHub Pages build
+        run: |
+          find dist -type f | grep -E 'pdf\.worker.*\.mjs$'
+
+      - name: Commit generated dependency files and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/temp-install-react-pdf.yml
+          git add package.json package-lock.json public/pdfs/learning-hub/.gitkeep
+          git commit -m "Install react-pdf and verify Learning Hub reader builds"
+          git push origin HEAD:feature/clara-learning-hub-pdf-reader
