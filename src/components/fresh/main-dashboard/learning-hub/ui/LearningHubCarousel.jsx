@@ -239,6 +239,8 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
                   isActive={isActive}
                   offset={wrappedOffset}
                   visible={visible}
+                  position={index + 1}
+                  total={total}
                   onClick={() => {
                     if (isActive) {
                       onOpenMaterial?.(item);
