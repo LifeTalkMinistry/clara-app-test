@@ -28,7 +28,7 @@ export default function LearningMaterialCard({
 
   const width = isActive ? 184 : absOffset === 1 ? 124 : 100;
   const height = isActive ? 224 : absOffset === 1 ? 188 : 160;
-  const pageEdgeWidth = isActive ? 4 : 5;
+  const pageEdgeWidth = isActive ? 2 : 5;
   const depthOffset = isActive ? 3 : 2;
   const contentLeftPadding = isActive ? 18 : 12;
 
@@ -50,15 +50,15 @@ export default function LearningMaterialCard({
       <div className="relative h-full w-full overflow-visible" style={{ transformStyle: "preserve-3d" }}>
         <div
           className={`absolute inset-[1px] rounded-[18px] transition-opacity duration-500 ${
-            isActive ? "bg-transparent opacity-[0.06]" : "bg-cyan-50 opacity-[0.08]"
+            isActive ? "bg-transparent opacity-[0.045]" : "bg-cyan-50 opacity-[0.08]"
           }`}
           style={{
             transform: isActive
-              ? "translate3d(0px, 2px, -18px)"
+              ? "translate3d(0px, 1px, -18px)"
               : `translate3d(${depthOffset}px, ${depthOffset}px, -18px)`,
-            filter: isActive ? "blur(8px)" : "blur(1px)",
+            filter: isActive ? "blur(10px)" : "blur(1px)",
             boxShadow: isActive
-              ? "0 26px 48px rgba(0,0,0,0.32), 0 0 30px rgba(34,211,238,0.055)"
+              ? "0 24px 42px rgba(0,0,0,0.30), 0 0 26px rgba(34,211,238,0.045)"
               : "0 14px 24px rgba(0,0,0,0.20)",
           }}
         />
@@ -66,7 +66,7 @@ export default function LearningMaterialCard({
         <div
           className={`relative z-10 h-full w-full overflow-hidden rounded-[18px] border transition-[border-color,background-color,box-shadow] duration-500 ${
             isActive
-              ? "border-cyan-100/24 bg-slate-950 shadow-[0_20px_40px_rgba(0,0,0,0.34),0_0_22px_rgba(34,211,238,0.045)]"
+              ? "border-cyan-100/18 bg-slate-950 shadow-[0_20px_40px_rgba(0,0,0,0.34),0_0_18px_rgba(34,211,238,0.035)]"
               : "border-cyan-200/8 bg-slate-950/84 shadow-[0_12px_22px_rgba(0,0,0,0.17)]"
           }`}
         >
@@ -76,7 +76,7 @@ export default function LearningMaterialCard({
               isActive ? "opacity-100" : "opacity-42"
             }`}
           />
-          <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/6" : "ring-white/8"}`} />
+          <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-transparent" : "ring-white/8"}`} />
           <div
             className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
               isActive ? "opacity-100" : "opacity-28"
@@ -84,31 +84,35 @@ export default function LearningMaterialCard({
           />
           <div
             className={`absolute inset-x-0 top-0 h-[44%] bg-[linear-gradient(135deg,rgba(255,255,255,0.075),transparent_56%)] transition-opacity duration-500 ${
-              isActive ? "opacity-90" : "opacity-30"
+              isActive ? "opacity-80" : "opacity-30"
             }`}
           />
 
           <div
-            className={`absolute rounded-r-[12px] transition-opacity duration-500 ${
-              isActive ? "opacity-24" : "bottom-2 top-2 border-l border-cyan-50/8 opacity-18"
+            className={`absolute transition-opacity duration-500 ${
+              isActive ? "rounded-none opacity-14" : "bottom-2 top-2 rounded-r-[12px] border-l border-cyan-50/8 opacity-18"
             }`}
             style={{
-              right: isActive ? 4 : 0,
-              top: isActive ? 12 : undefined,
-              bottom: isActive ? 12 : undefined,
+              right: isActive ? 8 : 0,
+              top: isActive ? 26 : undefined,
+              bottom: isActive ? 26 : undefined,
               width: pageEdgeWidth,
               background: isActive
-                ? "linear-gradient(90deg, rgba(241,245,249,0.055), rgba(165,243,252,0.045) 52%, rgba(15,23,42,0.08))"
+                ? "linear-gradient(180deg, transparent, rgba(165,243,252,0.045) 18%, rgba(241,245,249,0.05) 50%, rgba(165,243,252,0.035) 82%, transparent)"
                 : "linear-gradient(90deg, rgba(241,245,249,0.12), rgba(165,243,252,0.075) 46%, rgba(15,23,42,0.16))",
               boxShadow: isActive
-                ? "inset 1px 0 1px rgba(255,255,255,0.025)"
+                ? "none"
                 : "inset 1px 0 2px rgba(255,255,255,0.06), inset -1px 0 3px rgba(0,0,0,0.18)",
             }}
           >
-            <span className={`absolute left-1 top-[22%] h-px w-[45%] rounded-full ${isActive ? "bg-cyan-50/8" : "bg-cyan-50/16"}`} />
-            <span className={`absolute left-1 top-[39%] h-px w-[52%] rounded-full ${isActive ? "bg-cyan-50/7" : "bg-cyan-50/12"}`} />
-            <span className={`absolute left-1 top-[57%] h-px w-[42%] rounded-full ${isActive ? "bg-cyan-50/6" : "bg-cyan-50/10"}`} />
-            <span className={`absolute left-1 top-[73%] h-px w-[48%] rounded-full ${isActive ? "bg-cyan-50/5" : "bg-cyan-50/9"}`} />
+            {!isActive && (
+              <>
+                <span className="absolute left-1 top-[22%] h-px w-[45%] rounded-full bg-cyan-50/16" />
+                <span className="absolute left-1 top-[39%] h-px w-[52%] rounded-full bg-cyan-50/12" />
+                <span className="absolute left-1 top-[57%] h-px w-[42%] rounded-full bg-cyan-50/10" />
+                <span className="absolute left-1 top-[73%] h-px w-[48%] rounded-full bg-cyan-50/9" />
+              </>
+            )}
           </div>
 
           <div
