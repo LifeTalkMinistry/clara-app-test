@@ -73,7 +73,7 @@ function finalizeSlideFive() {
     ["Projected Savings Progress", savings],
     ["Projected Debt Position", debt],
     ["Leak Cost Carried Forward", leakExists ? leakText : NO_LEAK],
-    ["Money Not Redirected", leakExists ? `${leakText} stays in old pattern` : NO_LEAK],
+    ["Money Not Redirected", leakExists ? leakText : NO_LEAK],
     ["Financial Direction", hasProjection ? direction : NEEDS],
   ]);
 
