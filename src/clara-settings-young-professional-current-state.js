@@ -4,6 +4,10 @@ const SECTION_ID = "clara-current-state-learning-section";
 const PAGE_ID = "clara-current-state-learning-page";
 const STYLE_ID = "clara-current-state-learning-static-styles";
 const STATUS_ID = "clara-current-state-learning-static-status";
+const OPEN_DEMO_PROFILE_EVENT = "clara:open-developer-demo-profile";
+const ACCOUNT_TAP_WINDOW_MS = 450;
+
+let lastAccountTapAt = 0;
 
 function findSettingsRoot() {
   return document.querySelector("#root .space-y-5.pb-6");
@@ -109,18 +113,54 @@ function createPage() {
   return page;
 }
 
+function ensurePage() {
+  const settingsRoot = findSettingsRoot();
+  if (!settingsRoot) return false;
+  if (!document.getElementById(PAGE_ID)) settingsRoot.insertAdjacentElement("afterend", createPage());
+  return true;
+}
+
+function openDemoProfilePage() {
+  install();
+  if (ensurePage()) showPage(true);
+}
+
+function isAccountLabel(target) {
+  const label = target?.closest?.("p");
+  if (!label || (label.textContent || "").trim().toLowerCase() !== "account") return false;
+
+  const settingsRoot = findSettingsRoot();
+  if (!settingsRoot || !settingsRoot.contains(label)) return false;
+
+  const section = label.closest("section");
+  return Boolean(
+    section &&
+      settingsRoot.contains(section) &&
+      section.textContent?.includes("Profile information") &&
+      section.textContent?.includes("Security & privacy")
+  );
+}
+
+function handleAccountLabelShortcut(event) {
+  if (!isAccountLabel(event.target)) return;
+
+  const now = Date.now();
+  const isSecondTap = now - lastAccountTapAt <= ACCOUNT_TAP_WINDOW_MS;
+  lastAccountTapAt = isSecondTap ? 0 : now;
+
+  if (isSecondTap) window.dispatchEvent(new Event(OPEN_DEMO_PROFILE_EVENT));
+}
+
 function install() {
   if (typeof document === "undefined") return;
   installStyles();
-  const settingsRoot = findSettingsRoot();
-  if (!settingsRoot) return;
-  const programSection = findProgramSection(settingsRoot);
-  if (!programSection) return;
-  if (!document.getElementById(SECTION_ID)) programSection.insertAdjacentElement("afterend", createSection());
-  if (!document.getElementById(PAGE_ID)) settingsRoot.insertAdjacentElement("afterend", createPage());
+  ensurePage();
 }
 
 if (typeof window !== "undefined") {
+  window.addEventListener(OPEN_DEMO_PROFILE_EVENT, openDemoProfilePage);
+  document.addEventListener("click", handleAccountLabelShortcut, true);
+
   window.requestAnimationFrame(install);
   const observer = new MutationObserver(install);
   observer.observe(document.documentElement, { childList: true, subtree: true });
