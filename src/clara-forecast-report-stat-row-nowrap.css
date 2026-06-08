@@ -1,0 +1,13 @@
+.clara-forecast-report-stat-row {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.clara-forecast-report-stat-row strong {
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
