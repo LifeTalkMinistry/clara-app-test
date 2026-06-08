@@ -1,11 +1,19 @@
-export default function LearningMaterialCard({ item, isActive, offset = 0, visible = true, onClick }) {
+export default function LearningMaterialCard({
+  item,
+  isActive,
+  offset = 0,
+  visible = true,
+  position,
+  total,
+  onClick,
+}) {
   const absOffset = Math.abs(offset);
   const direction = offset < 0 ? -1 : 1;
 
   const distanceMap = {
     0: 0,
-    1: 108,
-    2: 184,
+    1: 142,
+    2: 226,
   };
 
   const cardOffset = distanceMap[Math.min(absOffset, 2)] || 0;
@@ -15,11 +23,11 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
   const rotate = isActive ? 0 : offset < 0 ? 5 + absOffset : -5 - absOffset;
   const origin = isActive ? "center center" : offset < 0 ? "right center" : "left center";
   const depth = isActive ? 18 : absOffset === 1 ? -18 : -48;
-  const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.42 : 0.18) : 0;
+  const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.24 : 0.08) : 0;
   const zIndex = isActive ? 70 : absOffset === 1 ? 42 : 24;
 
-  const width = isActive ? 158 : absOffset === 1 ? 124 : 108;
-  const height = isActive ? 214 : absOffset === 1 ? 184 : 160;
+  const width = isActive ? 210 : absOffset === 1 ? 118 : 96;
+  const height = isActive ? 214 : absOffset === 1 ? 176 : 150;
 
   return (
     <div
@@ -60,23 +68,27 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
             </div>
           </div>
 
-          <div className="mt-auto mb-auto pt-4">
-            <h3 className={`${isActive ? "text-[17px]" : absOffset === 1 ? "text-[14px]" : "text-[12px]"} line-clamp-3 font-black leading-tight text-white`}>
+          <div className={`${isActive ? "mt-auto mb-auto pt-4" : "mt-auto mb-auto pt-2"}`}>
+            <h3 className={`${isActive ? "text-[18px] line-clamp-3" : absOffset === 1 ? "text-[13px] line-clamp-2" : "text-[11px] line-clamp-2"} font-black leading-tight text-white`}>
               {item.title}
             </h3>
-            <p className={`${isActive ? "mt-2 text-[10.5px]" : "mt-2 text-[9.5px]"} line-clamp-2 leading-snug text-white/62`}>
-              {item.subtitle || "Read and learn."}
-            </p>
+            {isActive && (
+              <p className="mt-2 line-clamp-2 text-[10.5px] leading-snug text-white/62">
+                {item.subtitle || "Read and learn."}
+              </p>
+            )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between">
-            <span className="rounded-full border border-white/10 bg-white/[0.075] px-3 py-1 text-[9px] font-semibold text-white/82">
-              Read Now
-            </span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.04] text-white/65">
-              □
-            </span>
-          </div>
+          {isActive && (
+            <div className="mt-auto flex items-center justify-between">
+              <span className="rounded-full border border-white/10 bg-white/[0.075] px-3 py-1 text-[9px] font-semibold text-white/82">
+                Start Lesson
+              </span>
+              <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-2.5 py-1 text-[9px] font-semibold text-white/65">
+                {position} / {total}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
