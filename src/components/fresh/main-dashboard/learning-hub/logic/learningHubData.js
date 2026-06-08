@@ -6,7 +6,7 @@ export const learningHubData = [
     type: "book",
     accent: "cyan",
     coverLabel: "Money Source",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/income-hub.webp.png",
     pages: [
       {
         title: "The Reality",
@@ -37,7 +37,7 @@ export const learningHubData = [
     type: "book",
     accent: "teal",
     coverLabel: "Money System",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/wallet-hub.webp.png",
     pages: [
       {
         title: "The Reality",
@@ -68,7 +68,7 @@ export const learningHubData = [
     type: "book",
     accent: "emerald",
     coverLabel: "Money Plan",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/budget-hub.webp.png",
     pages: [
       {
         title: "The Reality",
@@ -99,7 +99,7 @@ export const learningHubData = [
     type: "book",
     accent: "teal",
     coverLabel: "Protection",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/emergency-fund.webp.png",
     pages: [
       {
         title: "The Reality",
@@ -130,7 +130,7 @@ export const learningHubData = [
     type: "book",
     accent: "blue",
     coverLabel: "Money Progress",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/savings-goals.webp.png",
     pages: [
       {
         title: "The Reality",
@@ -161,7 +161,7 @@ export const learningHubData = [
     type: "book",
     accent: "rose",
     coverLabel: "Money Pressure",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/debt-obligations.webp.png",
     pages: [
       {
         title: "The Reality",
