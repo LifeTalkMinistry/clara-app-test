@@ -164,7 +164,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       >
         <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/[0.08] blur-3xl" />
         <div className="absolute -bottom-32 -right-24 h-80 w-80 rounded-full bg-indigo-500/[0.09] blur-3xl" />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/30 via-slate-950/35 to-black/45" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/[0.30] via-slate-950/[0.35] to-black/[0.45]" />
       </div>
 
       <header
@@ -183,7 +183,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
           <h2
             id={titleId}
-            className="truncate px-2 text-center text-sm font-semibold tracking-[0.01em] text-white/85 sm:text-[15px]"
+            className="truncate px-2 text-center text-sm font-semibold tracking-[0.01em] text-white/[0.85] sm:text-[15px]"
           >
             {material.title}
           </h2>
@@ -218,7 +218,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                   : "translate-y-2 opacity-0"
               }`}
             >
-              <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-200/55 sm:text-[11px]">
+              <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-200/[0.55] sm:text-[11px]">
                 CLARA Learning Hub
               </p>
 
@@ -227,7 +227,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                   (pageCount > 0 ? "Lesson" : "Lesson unavailable")}
               </h3>
 
-              <div className="max-w-[58ch] whitespace-pre-line text-[17px] leading-[1.75] text-white/82 sm:text-lg sm:leading-[1.8]">
+              <div className="max-w-[58ch] whitespace-pre-line text-[17px] leading-[1.75] text-white/[0.82] sm:text-lg sm:leading-[1.8]">
                 {currentPage?.body ??
                   "This lesson does not have readable pages available yet."}
               </div>
@@ -237,7 +237,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       </main>
 
       <footer
-        className="relative z-10 shrink-0 border-t border-white/[0.06] bg-slate-950/45 px-4 pt-3 backdrop-blur-xl sm:px-6"
+        className="relative z-10 shrink-0 border-t border-white/[0.06] bg-slate-950/[0.45] px-4 pt-3 backdrop-blur-xl sm:px-6"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <div className="mx-auto flex w-full max-w-[640px] items-center justify-between gap-4">
@@ -267,7 +267,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
               type="button"
               onClick={goNext}
               aria-label="Go to next page"
-              className="inline-flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.09] px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              className="inline-flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/[0.15] bg-cyan-300/[0.09] px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               Next
               <ChevronRight aria-hidden="true" size={18} strokeWidth={1.8} />
