@@ -772,6 +772,60 @@ function slideSixBodySummary(signals = {}) {
     : "CLARA needs more local records before it can identify positive financial habits with confidence.";
 }
 
+function totalGoodHabitValue(projection = {}) {
+  return projection.debtReduction + projection.goodEmergencyGrowth + projection.goodSavingsGrowth;
+}
+
+function savingsValueSummary(projection = {}) {
+  const hasSavingsData = projection.savingsGoalRecordsUsed > 0 || projection.totalSavingsSaved > 0 || projection.totalSavingsTarget > 0 || projection.goodSavingsGrowth > 0;
+  return hasSavingsData
+    ? amount(projection.goodSavingsGrowth, "₱0")
+    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function emergencyFundProtectionSummary(projection = {}) {
+  const hasEmergencyData = projection.currentEmergency > 0 || projection.emergencyTarget > 0 || projection.goodEmergencyGrowth > 0;
+  return hasEmergencyData
+    ? amount(projection.goodEmergencyGrowth, "₱0")
+    : "No emergency fund created";
+}
+
+function budgetControlValueSummary(projection = {}) {
+  return projection.budgetRecordsUsed > 0 ? "Tracking active" : "No budget records found";
+}
+
+function debtReductionValueSummary(projection = {}) {
+  return projection.debtRecordsUsed ? amount(projection.debtReduction, "₱0") : NO_DEBT_RECORDS;
+}
+
+function protectedMoneySummary(projection = {}) {
+  const protectedMoney = projection.currentEmergency > 0 ? projection.currentEmergency : projection.totalSavingsSaved;
+  return protectedMoney > 0 ? amount(protectedMoney, "₱0") : CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function totalGoodHabitValueSummary(projection = {}) {
+  return amount(totalGoodHabitValue(projection), "₱0");
+}
+
+function strongestValueDriverSummary(projection = {}) {
+  const drivers = [
+    { label: "Savings", value: projection.goodSavingsGrowth },
+    { label: "Emergency Fund", value: projection.goodEmergencyGrowth },
+    { label: "Debt Reduction", value: projection.debtReduction },
+  ].filter((driver) => driver.value > 0).sort((left, right) => right.value - left.value);
+
+  if (drivers.length) return drivers[0].label;
+  if (projection.budgetRecordsUsed > 0) return "Budget Tracking";
+  return "No major value driver detected";
+}
+
+function slideSevenBodySummary(projection = {}) {
+  const hasValueEvidence = totalGoodHabitValue(projection) > 0 || projection.currentEmergency > 0 || projection.totalSavingsSaved > 0 || projection.budgetRecordsUsed > 0;
+  return hasValueEvidence
+    ? "These values show what your good habits are already protecting, building, or improving."
+    : "CLARA needs more local records before it can estimate the value of good habits with confidence.";
+}
+
 function nextBestAction(projection = {}) {
   const category = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
   if (category && projection.badLeakCost > 0) {
@@ -890,13 +944,16 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
         eyebrow: "07 / HOPE CHECK",
         title: "Value of the Good Habits",
         tone: "hope",
-        hero: amount(projection.debtReduction + projection.goodEmergencyGrowth + projection.goodSavingsGrowth, "₱0"),
-        body: "These values come from the good behavior already visible in your local data.",
+        hero: totalGoodHabitValueSummary(projection),
+        body: slideSevenBodySummary(projection),
         stats: [
-          stat("Future Value of Savings", amount(projection.goodSavingsGrowth, "₱0")),
-          stat("Future Value of Budgeting", projection.budgetRecordsUsed > 0 ? "Budget records are active" : NOT_ENOUGH_DATA),
-          stat("Future Value of Debt Reduction", amount(projection.debtReduction, "₱0")),
-          stat("Future Value of Emergency Fund Growth", amount(projection.goodEmergencyGrowth, "₱0")),
+          stat("Savings Value", savingsValueSummary(projection)),
+          stat("Emergency Fund Protection", emergencyFundProtectionSummary(projection)),
+          stat("Budget Control Value", budgetControlValueSummary(projection)),
+          stat("Debt Reduction Value", debtReductionValueSummary(projection)),
+          stat("Protected Money", protectedMoneySummary(projection)),
+          stat("Total Good-Habit Value", totalGoodHabitValueSummary(projection)),
+          stat("Strongest Value Driver", strongestValueDriverSummary(projection)),
         ],
       },
       {
