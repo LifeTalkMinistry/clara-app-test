@@ -140,7 +140,6 @@ function renderWindowPicker(snapshot) {
   overlay.innerHTML = `
     <div class="clara-forecast-report-bg" aria-hidden="true"></div>
     <div class="clara-forecast-report-shell clara-forecast-horizon-shell">
-      <button type="button" class="clara-forecast-report-close" data-clara-analytics-report-close="true" aria-label="Close Analytic Report">×</button>
       <header class="clara-forecast-report-header clara-forecast-horizon-header">
         <p>CURRENT MONEY ANALYTIC</p>
         <h2>Choose analysis window</h2>
@@ -199,10 +198,6 @@ function syncAnalyticsReportProgress(overlay) {
     dots.forEach((dot, index) => dot.classList.toggle("is-active", index === currentIndex));
     const finalSlideActive = cards[currentIndex]?.classList.contains("is-final") || false;
     overlay.classList.toggle("is-final-slide-active", finalSlideActive);
-    const closeButton = overlay.querySelector(".clara-forecast-report-close");
-    const footer = overlay.querySelector(".clara-forecast-report-footer");
-    if (closeButton) closeButton.hidden = finalSlideActive;
-    if (footer) footer.hidden = finalSlideActive;
   };
 
   const requestUpdate = () => {
@@ -229,7 +224,6 @@ function renderReport(snapshot, analysisMonths = 1) {
   overlay.innerHTML = `
     <div class="clara-forecast-report-bg" aria-hidden="true"></div>
     <div class="clara-forecast-report-shell">
-      <button type="button" class="clara-forecast-report-close" data-clara-analytics-report-close="true" aria-label="Close Analytic Report">×</button>
       <header class="clara-forecast-report-header clara-forecast-active-header">
         <p>${escapeHtml(report.title)}</p>
         <h2>${escapeHtml(report.subtitle)}</h2>
@@ -249,10 +243,6 @@ function renderReport(snapshot, analysisMonths = 1) {
       <div class="clara-forecast-report-dots" aria-hidden="true">
         ${report.cards.map((_, index) => `<span class="${index === 0 ? "is-active" : ""}"></span>`).join("")}
       </div>
-      <footer class="clara-forecast-report-footer">
-        <button type="button" data-clara-analytics-report-close="true">Close</button>
-        <button type="button" data-clara-analytics-report-back="true">Back to Analytic</button>
-      </footer>
     </div>`;
 
   document.body.appendChild(overlay);
