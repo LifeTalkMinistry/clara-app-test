@@ -1,3 +1,5 @@
+import "./clara-forecast-slide9-final";
+
 const NEEDS = "Not enough data to generate result";
 const NO_LEAK = "No major leak detected";
 const NO_DEBT = "No debt records found";
