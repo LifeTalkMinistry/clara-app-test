@@ -10,12 +10,19 @@ import {
 
 import {
   formatTime,
+  getEditableRawId,
   getIcon,
   getToneClasses,
   peso,
   titleCase,
+  toInputDate,
 } from "../logic/transactionHubUtils";
 import { StatusBadge } from "./TransactionHubPrimitives";
+
+if (typeof globalThis !== "undefined") {
+  globalThis.getEditableRawId = globalThis.getEditableRawId || getEditableRawId;
+  globalThis.toInputDate = globalThis.toInputDate || toInputDate;
+}
 
 function firstTextValue(...values) {
   const value = values.find((item) => String(item || "").trim());
@@ -96,7 +103,7 @@ export default function TransactionCard({ item, onEdit }) {
           event.stopPropagation();
           onEdit?.(item);
         }}
-        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-[13px] border border-white/10 bg-white/[0.04] text-slate-300/62 shadow-[0_10px_22px_rgba(0,0,0,0.16)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.075] hover:text-slate-50/84 active:scale-[0.94]"
+        className="absolute right-3 top-3 z-20 flex h-10 w-10 touch-manipulation items-center justify-center rounded-[14px] border border-white/10 bg-white/[0.04] text-slate-300/62 shadow-[0_10px_22px_rgba(0,0,0,0.16)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.075] hover:text-slate-50/84 active:scale-[0.94]"
         aria-label={`Edit ${item.title}`}
       >
         <Edit3 className="h-3.5 w-3.5" />
