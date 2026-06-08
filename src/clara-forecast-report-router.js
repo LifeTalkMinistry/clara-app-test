@@ -237,6 +237,92 @@ function finalizeForecastSlideEight(report = {}) {
   };
 }
 
+function normalizeMoneyValue(value = "", fallback = SETUP_NOT_ENOUGH_DATA) {
+  const normalized = clean(value);
+  return normalized && !isNotEnoughDataValue(normalized) ? normalized : fallback;
+}
+
+function slideTenDebtBalance(card = {}) {
+  const value = clean(statValue(card.stats, "Projected Debt Balance"));
+  return value && !isNotEnoughDataValue(value) ? value : NO_DEBT_RECORDS;
+}
+
+function slideTenCategoryFromAction(value = "") {
+  const action = clean(value);
+  const reduceMatch = action.match(/^Reduce\s+(.+?)\s+first\b/i) || action.match(/^Reduce\s+(.+?)\s+→/i);
+  if (reduceMatch?.[1]) return clean(reduceMatch[1]);
+  return "";
+}
+
+function slideTenLeakCategory(card = {}, report = {}) {
+  const slideNine = toArray(report.cards).find((item) => clean(item?.eyebrow) === "09 / POSSIBILITY PLAN") || {};
+  const leakText = statValue(slideNine.stats, "Biggest Leak to Fix").replace(/^Likely leak:\s*/i, "");
+  const actionText = statValue(card.stats, "One Next Best Action") || statValue(slideNine.stats, "Recommended Adjustments");
+  return clean(leakText) || slideTenCategoryFromAction(actionText);
+}
+
+function slideTenHasDebt(card = {}) {
+  const value = slideTenDebtBalance(card);
+  return value !== NO_DEBT_RECORDS && !isNotEnoughDataValue(value) && toNumber(value) > 0;
+}
+
+function slideTenHasEnoughData(card = {}) {
+  const totalAvailable = statValue(card.stats, "Projected Total Available Money") || clean(card.hero);
+  return Boolean(totalAvailable) && !isNotEnoughDataValue(totalAvailable);
+}
+
+function compactSlideTenAction(card = {}, report = {}) {
+  if (!slideTenHasEnoughData(card)) return "Track 7 days → Build history";
+
+  const category = slideTenLeakCategory(card, report);
+  if (!category) return "Keep current habits → Build history";
+  if (slideTenHasDebt(card)) return `Reduce ${category} → Debt`;
+  return `Reduce ${category} → Emergency + savings`;
+}
+
+function finalizeForecastSlideTen(report = {}) {
+  if (!Array.isArray(report.cards) || !report.cards.length) return report;
+
+  return {
+    ...report,
+    cards: report.cards.map((card) => {
+      const isSlideTen = clean(card?.eyebrow) === "10 / BEST FUTURE PROJECTION"
+        && clean(card?.title) === "Your Better Future Outcome";
+      if (!isSlideTen) return card;
+
+      const projectedTotalAvailable = normalizeMoneyValue(
+        statValue(card.stats, "Projected Total Available Money") || clean(card.hero),
+        SETUP_NOT_ENOUGH_DATA,
+      );
+
+      return {
+        ...card,
+        eyebrow: "10 / BEST FUTURE PROJECTION",
+        title: "Your Better Future Outcome",
+        tone: "possibility",
+        hero: projectedTotalAvailable,
+        body: "This is the better direction if you keep what works and fix the biggest leak CLARA found.",
+        final: true,
+        ctaLabel: "I got it now",
+        actionNote: {
+          label: "Next best action",
+          value: compactSlideTenAction(card, report),
+        },
+        stats: [
+          { label: "Projected Money Left", value: normalizeMoneyValue(statValue(card.stats, "Projected Money Left"), SETUP_NOT_ENOUGH_DATA) },
+          { label: "Projected Emergency Fund", value: normalizeMoneyValue(statValue(card.stats, "Projected Emergency Fund"), SETUP_NOT_ENOUGH_DATA) },
+          { label: "Savings Goal Completion", value: normalizeMoneyValue(statValue(card.stats, "Projected Savings Goal Completion") || statValue(card.stats, "Savings Goal Completion"), SETUP_NOT_ENOUGH_DATA) },
+          { label: "Projected Debt Balance", value: slideTenDebtBalance(card) },
+          { label: "Projected Total Available Money", value: projectedTotalAvailable },
+          { label: "Better-Future Lift", value: normalizeMoneyValue(statValue(card.stats, "Better-future lift") || statValue(card.stats, "Better-Future Lift"), SETUP_NOT_ENOUGH_DATA) },
+          { label: "Financial Direction", value: clean(statValue(card.stats, "Financial Direction")) || SETUP_NOT_ENOUGH_DATA },
+        ],
+        missingData: [],
+      };
+    }),
+  };
+}
+
 function reportSubtitle(report = {}) {
   return clean(report.subtitle).replace(/\s*behavioral forecast$/i, " outlook");
 }
@@ -254,11 +340,7 @@ function reportCardClass(card = {}) {
 }
 
 function displayStats(card = {}) {
-  const stats = Array.isArray(card.stats) ? card.stats : [];
-  if (card.final && reportTone(card.tone) === "possibility") {
-    return stats.filter((item) => clean(item?.label).toLowerCase() !== "better-future lift");
-  }
-  return stats;
+  return Array.isArray(card.stats) ? card.stats : [];
 }
 
 function getState() {
@@ -385,6 +467,19 @@ function cardHero(card = {}) {
   return `<div class="clara-forecast-report-hero">${escapeHtml(card.hero)}</div>`;
 }
 
+function cardActionNote(card = {}) {
+  const note = card.actionNote || {};
+  const label = clean(note.label || "Next best action");
+  const value = clean(note.value);
+  if (!value) return "";
+  return `
+    <div class="clara-forecast-report-action-note clara-forecast-report-stat-row" style="margin-top:10px;">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
 function finalCardExtras(card = {}, report = {}) {
   if (!card.final) return "";
   const readinessBlock = report.type === "readiness"
@@ -453,6 +548,13 @@ function syncForecastReportProgress(overlay) {
     dots.forEach((dot, index) => {
       dot.classList.toggle("is-active", index === currentIndex);
     });
+
+    const finalSlideActive = cards[currentIndex]?.classList.contains("is-final") || false;
+    overlay.classList.toggle("is-final-slide-active", finalSlideActive);
+    const closeButton = overlay.querySelector(".clara-forecast-report-close");
+    const footer = overlay.querySelector(".clara-forecast-report-footer");
+    if (closeButton) closeButton.hidden = finalSlideActive;
+    if (footer) footer.hidden = finalSlideActive;
   };
 
   const requestUpdate = () => {
@@ -467,7 +569,8 @@ function syncForecastReportProgress(overlay) {
 }
 
 function renderReport(snapshot, horizonMonths = 1) {
-  const report = finalizeForecastSlideEight(finalizeForecastSetupSlide(buildClaraForecastReport(snapshot, { horizonMonths }), snapshot, horizonMonths));
+  const baseReport = buildClaraForecastReport(snapshot, { horizonMonths });
+  const report = finalizeForecastSlideTen(finalizeForecastSlideEight(finalizeForecastSetupSlide(baseReport, snapshot, horizonMonths)));
   closeReport();
 
   const overlay = document.createElement("section");
@@ -490,6 +593,7 @@ function renderReport(snapshot, horizonMonths = 1) {
             <h3>${escapeHtml(card.title)}</h3>
             ${cardHero(card)}
             <div class="clara-forecast-report-stats">${statRows(displayStats(card))}</div>
+            ${cardActionNote(card)}
             <p class="clara-forecast-report-body">${escapeHtml(card.body)}</p>
             ${finalCardExtras(card, report)}
           </article>
