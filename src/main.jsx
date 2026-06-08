@@ -16,6 +16,7 @@ import "./clara-buy-check-price-question-copy";
 import "./clara-buy-check-report-content-polish";
 import "./clara-buy-check-report-focus-mode";
 import "./clara-forecast-report-focus-mode.css";
+import "./clara-forecast-report-stat-row-nowrap.css";
 import "./clara-forecast-report-explanation-container.css";
 import "./clara-forecast-transition-loader.css";
 import "./clara-buy-check-effective-context-guard";
