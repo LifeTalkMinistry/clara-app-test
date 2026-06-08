@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export default function LearningMaterialCard({
   item,
   isActive,
@@ -7,6 +9,10 @@ export default function LearningMaterialCard({
   total,
   onClick,
 }) {
+  const rawThumbnailSrc = item?.thumbnail || "";
+  const [brokenThumbnailSrc, setBrokenThumbnailSrc] = useState("");
+  const thumbnailSrc = rawThumbnailSrc && brokenThumbnailSrc !== rawThumbnailSrc ? rawThumbnailSrc : "";
+
   const absOffset = Math.abs(offset);
   const direction = offset < 0 ? -1 : 1;
 
@@ -70,7 +76,26 @@ export default function LearningMaterialCard({
               : "border-cyan-200/8 bg-slate-950/84 shadow-[0_12px_22px_rgba(0,0,0,0.17)]"
           }`}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))]" />
+          {thumbnailSrc && (
+            <img
+              src={thumbnailSrc}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{
+                opacity: isActive ? 0.72 : 0.5,
+                transform: "scale(1.01)",
+              }}
+              onError={(event) => {
+                setBrokenThumbnailSrc(rawThumbnailSrc);
+                event.currentTarget.style.display = "none";
+              }}
+            />
+          )}
+          <div
+            className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500"
+            style={{ opacity: thumbnailSrc ? (isActive ? 0.68 : 0.82) : 1 }}
+          />
           <div
             className={`absolute inset-0 bg-gradient-to-b from-white/[0.07] via-transparent to-black/30 transition-opacity duration-500 ${
               isActive ? "opacity-100" : "opacity-42"
