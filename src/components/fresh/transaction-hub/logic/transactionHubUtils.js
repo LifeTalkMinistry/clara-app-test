@@ -237,6 +237,12 @@ export const getStableDedupeKey = (item, group, source, fallback) => {
 export const getEditableRawId = (item) =>
   getFirstValue(item?.raw || item || {}, [
     "id",
+    "transfer_group_id",
+    "transferGroupId",
+    "group_id",
+    "groupId",
+    "reference_id",
+    "referenceId",
     "local_id",
     "localId",
     "transaction_id",
@@ -257,6 +263,26 @@ export const getEditableWalletId = (item) =>
     "sourceWalletId",
   ]);
 
+export const getEditableTransferFromWalletId = (item) =>
+  getFirstValue(item?.raw || item || {}, [
+    "from_wallet_id",
+    "fromWalletId",
+    "source_wallet_id",
+    "sourceWalletId",
+    "wallet_id",
+    "walletId",
+  ]);
+
+export const getEditableTransferToWalletId = (item) =>
+  getFirstValue(item?.raw || item || {}, [
+    "to_wallet_id",
+    "toWalletId",
+    "destination_wallet_id",
+    "destinationWalletId",
+    "related_wallet_id",
+    "relatedWalletId",
+  ]);
+
 export const toInputDate = (value) => {
   const d = parseDate(value);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -270,6 +296,8 @@ export const buildEditFormFromTransaction = (item) => ({
   amount: String(Math.abs(cleanNumber(item?.amount || item?.signedAmount || 0))),
   category: item?.category || "",
   walletId: getEditableWalletId(item),
+  fromWalletId: getEditableTransferFromWalletId(item),
+  toWalletId: getEditableTransferToWalletId(item),
   note: item?.note || "",
   date: toInputDate(item?.date || new Date()),
 });
