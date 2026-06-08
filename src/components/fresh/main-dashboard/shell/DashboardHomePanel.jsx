@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock, Lock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
@@ -8,32 +8,6 @@ import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notice
 import { Button } from "@/components/ui/button";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
-
-function LockedDashboardBlock({ children, tier = "PRO" }) {
-  return (
-    <div
-      className="relative rounded-[30px]"
-      onClickCapture={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onPointerDownCapture={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-    >
-      <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">
-        {children}
-      </div>
-      <div className="absolute inset-0 z-[160] flex items-center justify-center rounded-[30px] bg-black/[0.08] backdrop-blur-[0.5px]">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-[rgba(9,18,36,0.66)] px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/76 shadow-[0_12px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <Lock className="h-3.5 w-3.5" />
-          Upgrade to {tier}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardHomePanel({
   isPending,
@@ -130,15 +104,7 @@ export default function DashboardHomePanel({
         </div>
       )}
 
-      {dashboardShellReady && (
-        isFreePlan ? (
-          <LockedDashboardBlock tier="PRO">
-            <LearningHub user={user} />
-          </LockedDashboardBlock>
-        ) : (
-          <LearningHub user={user} />
-        )
-      )}
+      {dashboardShellReady && <LearningHub user={user} />}
 
       {!!user && (
         <div
