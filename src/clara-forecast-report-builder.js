@@ -2,6 +2,7 @@ const NOT_ENOUGH_DATA = "Not enough data yet";
 const CURRENT_POSITION_NOT_ENOUGH_DATA = "Not enough data to generate result";
 const NO_DEBT_RECORDS = "No debt records found";
 const NO_COST_DRIVER = "No major cost driver detected";
+const NO_MAJOR_LEAK_DETECTED = "No major leak detected";
 const MAX_HORIZON_MONTHS = 12;
 const OPENING_BALANCE_WARNING = "Opening balance excluded from monthly income projection.";
 const INCOME_SOURCE_BALANCE_WARNING = "Income sources were not used as monthly income because no explicit recurring amount was found.";
@@ -1302,6 +1303,48 @@ function nextBestAction(projection = {}) {
   return "Keep recording your next 7 days so CLARA can sharpen the next forecast.";
 }
 
+function slideNineGoodHabitsToProtect(projection = {}) {
+  const hasIncome = count(projection.incomeRecordsUsed) > 0 || projection.averageMonthlyIncome > 0;
+  const hasSavings = projection.totalSavingsSaved > 0
+    || projection.currentEmergency > 0
+    || projection.savingsGoalRecordsUsed > 0;
+  const hasBudget = projection.budgetRecordsUsed > 0;
+
+  if (hasIncome && hasSavings) return "Income + savings";
+  if (hasSavings && hasBudget) return "Savings + budget";
+  if (hasIncome) return "Income";
+  if (hasSavings) return "Savings";
+  if (hasBudget) return "Budget tracking";
+  return NOT_ENOUGH_DATA;
+}
+
+function slideNineRedirectTo(projection = {}) {
+  const emergencyNeedsFunding = projection.emergencyTarget > 0
+    && projection.currentEmergency < projection.emergencyTarget;
+  const hasSavingsGoal = projection.savingsGoalRecordsUsed > 0
+    || projection.totalSavingsTarget > 0
+    || projection.totalSavingsSaved > 0;
+  const hasDebt = projection.debtRecordsUsed > 0 && projection.totalDebtBalance > 0;
+
+  if (emergencyNeedsFunding) return "Emergency fund";
+  if (hasSavingsGoal) return "Savings goal";
+  if (hasDebt) return "Debt";
+  return "Emergency + savings";
+}
+
+function slideNineHighestImpactChange(projection = {}) {
+  return hasRiskEvidence(projection)
+    ? `Recover ${amount(projection.badLeakCost, "₱0")}`
+    : "Record more spending evidence first";
+}
+
+function slideNineActionDifficulty(projection = {}) {
+  const needsDiscipline = hasRiskEvidence(projection)
+    && (projection.leakEvidenceType === "budget" || count(projection.unplannedCount) >= 2);
+
+  return needsDiscipline ? "Needs discipline" : "Manageable";
+}
+
 export function buildClaraForecastReport(snapshot = {}, options = {}) {
   const horizon = normalizeHorizonMonths(options.horizonMonths || snapshot.selectedForecastHorizonMonths || 1);
   const eligibility = canBuildClaraForecast(snapshot, horizon);
@@ -1314,7 +1357,6 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
   const leakCategory = projection.biggestRiskyCategory?.category || "";
   const improvementLift = projection.projectedNetPositionImproved - projection.projectedNetPositionSame;
   const hasLeak = hasRiskEvidence(projection);
-  const hasSavingsDiscipline = projection.totalSavingsSaved > 0 || projection.currentEmergency > 0;
   const slideSixSignals = slideSixGoodHabitSignals(projection);
 
   const cards = [
@@ -1439,12 +1481,16 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
       eyebrow: "09 / POSSIBILITY PLAN",
       title: "Keep the Good, Fix the Bad",
       tone: "possibility",
-      body: "The better future does not require changing everything. CLARA starts with protecting what works and fixing the biggest verified leak first.",
+      hero: hasLeak ? `Recover ${amount(projection.badLeakCost, "₱0")}` : "No major leak to fix",
+      body: "The better future does not require changing everything. CLARA starts by protecting what works and fixing the biggest verified leak first.",
       stats: [
-        stat("Good Habits to Protect", hasSavingsDiscipline || projection.incomeRecordsUsed > 0 ? "Income, savings, protection, and budget signals" : NOT_ENOUGH_DATA),
-        stat("Biggest Leak to Fix", leakCategory && hasLeak ? `Likely leak: ${leakCategory}` : NOT_ENOUGH_DATA),
-        stat("Recommended Adjustments", nextBestAction(projection)),
-        stat("Highest Impact Change", hasLeak ? `Recover up to ${amount(projection.badLeakCost)} over ${horizonText}` : "Record more spending evidence first"),
+        stat("Good Habits to Protect", slideNineGoodHabitsToProtect(projection)),
+        stat("Main Leak to Fix", leakCategory && hasLeak ? leakCategory : NO_MAJOR_LEAK_DETECTED),
+        stat("Recommended Focus", leakCategory && hasLeak ? `Reduce ${leakCategory}` : "Track spending first"),
+        stat("Redirect To", slideNineRedirectTo(projection)),
+        stat("Highest Impact Change", slideNineHighestImpactChange(projection)),
+        stat("Action Difficulty", slideNineActionDifficulty(projection)),
+        stat("Next Step", leakCategory && hasLeak ? `Set ${leakCategory} limit` : "Track 7 days"),
       ],
     },
     {
