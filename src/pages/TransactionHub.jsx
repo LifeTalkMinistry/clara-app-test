@@ -17,10 +17,11 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  X,
   Tag,
+  Trash2,
   TrendingUp,
   WalletCards,
+  X,
 } from "lucide-react";
 
 import useUserRole from "../hooks/useUserRole";
@@ -37,6 +38,7 @@ import {
   getBudgetAmount,
   getBudgetCategory,
   getBudgetMonthKey,
+  getEditableRawId,
   getFirstValue,
   getGroup,
   getIcon,
@@ -55,6 +57,7 @@ import {
   parseDate,
   peso,
   titleCase,
+  toInputDate,
 } from "@/components/fresh/transaction-hub/logic/transactionHubUtils";
 
 import {
@@ -160,15 +163,19 @@ function EditTransactionDialog({
   form,
   wallets,
   saving,
+  deleting,
   error,
   onChange,
   onClose,
   onSubmit,
+  onDelete,
   theme = DEFAULT_THEME,
 }) {
   const dialogRef = useRef(null);
+  const busy = saving || deleting;
+
   useClickOutside(dialogRef, () => {
-    if (!saving) onClose?.();
+    if (!busy) onClose?.();
   });
 
   if (!open || !item) return null;
@@ -189,7 +196,9 @@ function EditTransactionDialog({
 
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${theme.primaryText} opacity-60`}>
+            <p
+              className={`text-[9px] font-black uppercase tracking-[0.18em] ${theme.primaryText} opacity-60`}
+            >
               Edit Transaction
             </p>
             <h2 className="mt-1 truncate text-xl font-black tracking-tight text-white/92">
@@ -203,7 +212,7 @@ function EditTransactionDialog({
           <button
             type="button"
             onClick={onClose}
-            disabled={saving}
+            disabled={busy}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border border-white/10 bg-black/22 text-white/58 transition duration-200 hover:bg-white/[0.06] hover:text-white/86 disabled:opacity-40 active:scale-[0.96]"
             aria-label="Close edit transaction"
           >
@@ -221,7 +230,8 @@ function EditTransactionDialog({
                 value={form.title}
                 onChange={(event) => onChange("title", event.target.value)}
                 placeholder="Transaction title"
-                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none placeholder:text-white/28 ${theme.focus}`}
+                disabled={busy}
+                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none placeholder:text-white/28 disabled:opacity-55 ${theme.focus}`}
               />
             </label>
 
@@ -234,7 +244,8 @@ function EditTransactionDialog({
                 onChange={(event) => onChange("amount", event.target.value)}
                 inputMode="decimal"
                 placeholder="0"
-                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none placeholder:text-white/28 ${theme.focus}`}
+                disabled={busy}
+                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none placeholder:text-white/28 disabled:opacity-55 ${theme.focus}`}
               />
             </label>
 
@@ -246,7 +257,8 @@ function EditTransactionDialog({
                 type="date"
                 value={form.date}
                 onChange={(event) => onChange("date", event.target.value)}
-                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none [color-scheme:dark] ${theme.focus}`}
+                disabled={busy}
+                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none [color-scheme:dark] disabled:opacity-55 ${theme.focus}`}
               />
             </label>
 
@@ -258,7 +270,8 @@ function EditTransactionDialog({
                 value={form.category}
                 onChange={(event) => onChange("category", event.target.value)}
                 placeholder="Category"
-                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none placeholder:text-white/28 ${theme.focus}`}
+                disabled={busy}
+                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none placeholder:text-white/28 disabled:opacity-55 ${theme.focus}`}
               />
             </label>
 
@@ -269,7 +282,7 @@ function EditTransactionDialog({
               <select
                 value={form.walletId}
                 onChange={(event) => onChange("walletId", event.target.value)}
-                disabled={canEditTransfer}
+                disabled={busy || canEditTransfer}
                 className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none disabled:opacity-55 ${theme.focus}`}
               >
                 <option value="">No wallet selected</option>
@@ -296,7 +309,8 @@ function EditTransactionDialog({
               onChange={(event) => onChange("note", event.target.value)}
               placeholder="Optional note"
               rows={3}
-              className={`w-full resize-none rounded-[18px] border border-white/10 bg-black/[0.26] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/28 ${theme.focus}`}
+              disabled={busy}
+              className={`w-full resize-none rounded-[18px] border border-white/10 bg-black/[0.26] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/28 disabled:opacity-55 ${theme.focus}`}
             />
           </label>
 
@@ -306,11 +320,23 @@ function EditTransactionDialog({
             </div>
           ) : null}
 
+          <div className="rounded-[18px] border border-rose-200/12 bg-rose-300/[0.045] p-2.5">
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={busy}
+              className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[16px] border border-rose-200/14 bg-black/18 text-xs font-black text-rose-50/78 transition duration-200 hover:bg-rose-300/[0.075] disabled:opacity-45 active:scale-[0.98]"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleting ? "Deleting..." : "Delete Transaction"}
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
-              disabled={saving}
+              disabled={busy}
               className="min-h-[48px] rounded-[19px] border border-white/10 bg-black/20 text-sm font-black text-white/64 transition duration-200 disabled:opacity-45 active:scale-[0.98]"
             >
               Cancel
@@ -318,7 +344,7 @@ function EditTransactionDialog({
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={busy}
               className={`min-h-[48px] rounded-[19px] border ${theme.border} ${theme.orb} text-sm font-black ${theme.primaryText} shadow-[0_0_22px_var(--clara-theme-glow,rgba(148,163,184,0.09))] transition duration-200 disabled:opacity-45 active:scale-[0.98]`}
             >
               {saving ? "Saving..." : "Save Changes"}
@@ -435,6 +461,7 @@ export default function TransactionHub() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(() => buildEditFormFromTransaction(null));
   const [editSaving, setEditSaving] = useState(false);
+  const [deleteSaving, setDeleteSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
   const safeWallets = Array.isArray(financial.wallets) ? financial.wallets : [];
@@ -845,7 +872,7 @@ export default function TransactionHub() {
   };
 
   const closeEditDialog = () => {
-    if (editSaving) return;
+    if (editSaving || deleteSaving) return;
     setIsEditOpen(false);
     setSelectedTransaction(null);
     setEditForm(buildEditFormFromTransaction(null));
@@ -961,6 +988,76 @@ export default function TransactionHub() {
       );
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!selectedTransaction) return;
+
+    const rawId = getEditableRawId(selectedTransaction);
+
+    if (!rawId) {
+      setEditError("This transaction is missing its original ID and cannot be deleted safely.");
+      return;
+    }
+
+    const confirmCopy =
+      selectedTransaction.group === "expense"
+        ? "Delete this transaction? This will remove the record and reverse its wallet effect. This will return the amount to the wallet."
+        : "Delete this transaction? This will remove the record and reverse its wallet effect.";
+
+    const confirmed =
+      typeof window === "undefined" || typeof window.confirm !== "function"
+        ? true
+        : window.confirm(confirmCopy);
+
+    if (!confirmed) return;
+
+    try {
+      setDeleteSaving(true);
+      setEditError("");
+
+      if (selectedTransaction.group === "expense") {
+        if (typeof financial.deleteExpense !== "function") {
+          throw new Error("Expense deletion is not available in useFinancialData yet.");
+        }
+
+        await financial.deleteExpense(rawId);
+        setNotice("Transaction deleted. Wallet balance was restored.");
+      } else if (
+        selectedTransaction.group === "income" ||
+        selectedTransaction.group === "wallet"
+      ) {
+        if (typeof financial.deleteWalletTransaction !== "function") {
+          throw new Error("Wallet transaction deletion is not available in useFinancialData yet.");
+        }
+
+        await financial.deleteWalletTransaction(rawId);
+        setNotice("Transaction deleted. Wallet balance was updated.");
+      } else if (selectedTransaction.group === "transfer") {
+        throw new Error(
+          "Transfer deletion needs a dedicated safe reversal and is not available in this edit modal yet."
+        );
+      } else if (selectedTransaction.group === "savings") {
+        throw new Error("Savings deletion is not available from this transaction edit modal yet.");
+      } else {
+        throw new Error("Deletion for this transaction type is not available yet.");
+      }
+
+      if (typeof financial.refreshData === "function") {
+        await financial.refreshData();
+      }
+
+      setIsEditOpen(false);
+      setSelectedTransaction(null);
+      setEditForm(buildEditFormFromTransaction(null));
+      setEditError("");
+    } catch (error) {
+      setEditError(
+        error?.message || "CLARA could not delete this transaction. Your data was not changed."
+      );
+    } finally {
+      setDeleteSaving(false);
     }
   };
 
@@ -1163,10 +1260,12 @@ export default function TransactionHub() {
         form={editForm}
         wallets={safeWallets}
         saving={editSaving}
+        deleting={deleteSaving}
         error={editError}
         onChange={handleEditFormChange}
         onClose={closeEditDialog}
         onSubmit={handleSubmitEdit}
+        onDelete={handleDeleteTransaction}
         theme={theme}
       />
     </div>
