@@ -32,6 +32,7 @@ export default function LearningMaterialCard({
   const depthOffset = isActive ? 3 : 2;
   const contentLeftPadding = isActive ? 18 : 12;
   const thumbnailSrc = item?.thumbnail || "";
+  const hasThumbnail = Boolean(thumbnailSrc);
 
   return (
     <div
@@ -71,123 +72,118 @@ export default function LearningMaterialCard({
               : "border-cyan-200/8 bg-slate-950/84 shadow-[0_12px_22px_rgba(0,0,0,0.17)]"
           }`}
         >
-          {thumbnailSrc && (
+          {hasThumbnail ? (
             <img
               src={thumbnailSrc}
-              alt=""
-              aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                opacity: isActive ? 0.72 : 0.5,
-                transform: "scale(1.01)",
-              }}
+              alt={item?.title ? `${item.title} cover` : "Learning material cover"}
+              className="h-full w-full object-cover"
               onError={(event) => {
                 event.currentTarget.style.display = "none";
               }}
             />
-          )}
-          <div
-            className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500"
-            style={{ opacity: thumbnailSrc ? (isActive ? 0.68 : 0.82) : 1 }}
-          />
-          <div
-            className={`absolute inset-0 bg-gradient-to-b from-white/[0.07] via-transparent to-black/30 transition-opacity duration-500 ${
-              isActive ? "opacity-100" : "opacity-42"
-            }`}
-          />
-          <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/5" : "ring-white/8"}`} />
-          <div
-            className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
-              isActive ? "opacity-100" : "opacity-28"
-            }`}
-          />
-          <div
-            className={`absolute inset-x-0 top-0 h-[44%] bg-[linear-gradient(135deg,rgba(255,255,255,0.075),transparent_56%)] transition-opacity duration-500 ${
-              isActive ? "opacity-80" : "opacity-30"
-            }`}
-          />
-
-          <div
-            className={`absolute transition-opacity duration-500 ${
-              isActive ? "rounded-r-[10px] opacity-[0.22]" : "bottom-2 top-2 rounded-r-[12px] border-l border-cyan-50/8 opacity-18"
-            }`}
-            style={{
-              right: isActive ? 4 : 0,
-              top: isActive ? 12 : undefined,
-              bottom: isActive ? 12 : undefined,
-              width: pageEdgeWidth,
-              background: isActive
-                ? "linear-gradient(180deg, transparent, rgba(165,243,252,0.035) 16%, rgba(241,245,249,0.055) 50%, rgba(165,243,252,0.03) 84%, transparent)"
-                : "linear-gradient(90deg, rgba(241,245,249,0.12), rgba(165,243,252,0.075) 46%, rgba(15,23,42,0.16))",
-              boxShadow: isActive
-                ? "inset 1px 0 1px rgba(255,255,255,0.035)"
-                : "inset 1px 0 2px rgba(255,255,255,0.06), inset -1px 0 3px rgba(0,0,0,0.18)",
-            }}
-          >
-            {!isActive && (
-              <>
-                <span className="absolute left-1 top-[22%] h-px w-[45%] rounded-full bg-cyan-50/16" />
-                <span className="absolute left-1 top-[39%] h-px w-[52%] rounded-full bg-cyan-50/12" />
-                <span className="absolute left-1 top-[57%] h-px w-[42%] rounded-full bg-cyan-50/10" />
-                <span className="absolute left-1 top-[73%] h-px w-[48%] rounded-full bg-cyan-50/9" />
-              </>
-            )}
-          </div>
-
-          <div
-            className="relative z-10 flex h-full flex-col text-white"
-            style={{
-              paddingTop: isActive ? 14 : 12,
-              paddingRight: isActive ? 13 : 11,
-              paddingBottom: isActive ? 13 : 12,
-              paddingLeft: contentLeftPadding,
-            }}
-          >
-            <div>
-              {isActive && (
-                <div className="mb-2 inline-flex rounded-full border border-cyan-100/16 bg-white/[0.075] px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  Featured
-                </div>
-              )}
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500" />
               <div
-                className={`line-clamp-1 font-bold uppercase text-white/50 ${
-                  isActive ? "text-[8.5px] tracking-[0.22em]" : "text-[7.5px] tracking-[0.18em]"
+                className={`absolute inset-0 bg-gradient-to-b from-white/[0.07] via-transparent to-black/30 transition-opacity duration-500 ${
+                  isActive ? "opacity-100" : "opacity-42"
                 }`}
-              >
-                {item.coverLabel || "Guide"}
-              </div>
-            </div>
+              />
+              <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/5" : "ring-white/8"}`} />
+              <div
+                className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
+                  isActive ? "opacity-100" : "opacity-28"
+                }`}
+              />
+              <div
+                className={`absolute inset-x-0 top-0 h-[44%] bg-[linear-gradient(135deg,rgba(255,255,255,0.075),transparent_56%)] transition-opacity duration-500 ${
+                  isActive ? "opacity-80" : "opacity-30"
+                }`}
+              />
 
-            <div className={`${isActive ? "mt-auto mb-auto pt-5" : "mt-auto mb-auto pt-3"}`}>
-              <h3
-                className={`${
-                  isActive
-                    ? "text-[17px] leading-[1.08] line-clamp-3"
-                    : absOffset === 1
-                      ? "text-[12.5px] leading-tight line-clamp-3"
-                      : "text-[10.5px] leading-tight line-clamp-2"
-                } font-black text-white drop-shadow-[0_1px_10px_rgba(0,0,0,0.18)]`}
+              <div
+                className={`absolute transition-opacity duration-500 ${
+                  isActive ? "rounded-r-[10px] opacity-[0.22]" : "bottom-2 top-2 rounded-r-[12px] border-l border-cyan-50/8 opacity-18"
+                }`}
+                style={{
+                  right: isActive ? 4 : 0,
+                  top: isActive ? 12 : undefined,
+                  bottom: isActive ? 12 : undefined,
+                  width: pageEdgeWidth,
+                  background: isActive
+                    ? "linear-gradient(180deg, transparent, rgba(165,243,252,0.035) 16%, rgba(241,245,249,0.055) 50%, rgba(165,243,252,0.03) 84%, transparent)"
+                    : "linear-gradient(90deg, rgba(241,245,249,0.12), rgba(165,243,252,0.075) 46%, rgba(15,23,42,0.16))",
+                  boxShadow: isActive
+                    ? "inset 1px 0 1px rgba(255,255,255,0.035)"
+                    : "inset 1px 0 2px rgba(255,255,255,0.06), inset -1px 0 3px rgba(0,0,0,0.18)",
+                }}
               >
-                {item.title}
-              </h3>
-              {isActive && (
-                <p className="mt-2.5 line-clamp-2 text-[10px] leading-snug text-white/62">
-                  {item.subtitle || "Read and learn."}
-                </p>
-              )}
-            </div>
-
-            {isActive && (
-              <div className="mt-auto flex items-center justify-between gap-2">
-                <span className="rounded-full border border-white/10 bg-white/[0.085] px-3 py-1.5 text-[9px] font-semibold text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  Start Lesson
-                </span>
-                <span className="shrink-0 rounded-full border border-cyan-100/14 bg-white/[0.045] px-2.5 py-1 text-[8.5px] font-semibold text-white/62">
-                  {position} / {total}
-                </span>
+                {!isActive && (
+                  <>
+                    <span className="absolute left-1 top-[22%] h-px w-[45%] rounded-full bg-cyan-50/16" />
+                    <span className="absolute left-1 top-[39%] h-px w-[52%] rounded-full bg-cyan-50/12" />
+                    <span className="absolute left-1 top-[57%] h-px w-[42%] rounded-full bg-cyan-50/10" />
+                    <span className="absolute left-1 top-[73%] h-px w-[48%] rounded-full bg-cyan-50/9" />
+                  </>
+                )}
               </div>
-            )}
-          </div>
+
+              <div
+                className="relative z-10 flex h-full flex-col text-white"
+                style={{
+                  paddingTop: isActive ? 14 : 12,
+                  paddingRight: isActive ? 13 : 11,
+                  paddingBottom: isActive ? 13 : 12,
+                  paddingLeft: contentLeftPadding,
+                }}
+              >
+                <div>
+                  {isActive && (
+                    <div className="mb-2 inline-flex rounded-full border border-cyan-100/16 bg-white/[0.075] px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      Featured
+                    </div>
+                  )}
+                  <div
+                    className={`line-clamp-1 font-bold uppercase text-white/50 ${
+                      isActive ? "text-[8.5px] tracking-[0.22em]" : "text-[7.5px] tracking-[0.18em]"
+                    }`}
+                  >
+                    {item.coverLabel || "Guide"}
+                  </div>
+                </div>
+
+                <div className={`${isActive ? "mt-auto mb-auto pt-5" : "mt-auto mb-auto pt-3"}`}>
+                  <h3
+                    className={`${
+                      isActive
+                        ? "text-[17px] leading-[1.08] line-clamp-3"
+                        : absOffset === 1
+                          ? "text-[12.5px] leading-tight line-clamp-3"
+                          : "text-[10.5px] leading-tight line-clamp-2"
+                    } font-black text-white drop-shadow-[0_1px_10px_rgba(0,0,0,0.18)]`}
+                  >
+                    {item.title}
+                  </h3>
+                  {isActive && (
+                    <p className="mt-2.5 line-clamp-2 text-[10px] leading-snug text-white/62">
+                      {item.subtitle || "Read and learn."}
+                    </p>
+                  )}
+                </div>
+
+                {isActive && (
+                  <div className="mt-auto flex items-center justify-between gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/[0.085] px-3 py-1.5 text-[9px] font-semibold text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      Start Lesson
+                    </span>
+                    <span className="shrink-0 rounded-full border border-cyan-100/14 bg-white/[0.045] px-2.5 py-1 text-[8.5px] font-semibold text-white/62">
+                      {position} / {total}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
