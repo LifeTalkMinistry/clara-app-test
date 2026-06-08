@@ -695,6 +695,83 @@ function unchangedPathBodySummary(projection = {}) {
     : "CLARA needs more records before it can project what happens if current habits continue.";
 }
 
+function recordCountSummary(total = 0, noun = "record") {
+  const safeTotal = count(total);
+  return `${safeTotal} ${noun} record${safeTotal === 1 ? "" : "s"}`;
+}
+
+function positiveFinancialDirectionSummary(projection = {}) {
+  if (!projection.currentMoneyLeftAvailable && !projection.incomeRecordsUsed && !projection.expenseRecordsUsed) {
+    return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  }
+  if (projection.netMonthlyCashFlow > 0) return "Improving";
+  if (projection.netMonthlyCashFlow >= 0) return "Stable or improving";
+  if (currentPositionDirectionSummary(projection) === "Recovering") return "Recovering";
+  return CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function slideSixGoodHabitSignals(projection = {}) {
+  const incomeRecords = count(projection.incomeRecordsUsed);
+  const budgetRecords = count(projection.budgetRecordsUsed);
+  const expenseRecords = count(projection.expenseRecordsUsed);
+  const transactionRecords = count(projection.transactionRecordsUsed);
+  const savingsRecords = count(projection.savingsGoalRecordsUsed);
+  const debtRecords = count(projection.debtRecordsUsed);
+  const hasStableIncome = incomeRecords > 0 || projection.averageMonthlyIncome > 0;
+  const hasSavingsDiscipline = savingsRecords > 0 || projection.totalSavingsSaved > 0;
+  const hasBudgetUsage = budgetRecords > 0;
+  const hasEmergencyActivity = projection.currentEmergency > 0 || projection.emergencyTarget > 0;
+  const hasDebtResponsibility = debtRecords > 0 || projection.monthlyDebtPayment > 0;
+  const plannedMoneyBehavior = hasBudgetUsage
+    ? "Budget tracking active"
+    : count(projection.unplannedCount) > 0 && count(projection.unplannedCount) < expenseRecords
+      ? "Planned spending signals found"
+      : expenseRecords > 0 || transactionRecords > 0
+        ? "Some spending is being tracked"
+        : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  const positiveDirection = positiveFinancialDirectionSummary(projection);
+
+  const positiveSignals = [
+    hasStableIncome,
+    hasSavingsDiscipline,
+    hasBudgetUsage,
+    hasEmergencyActivity,
+    hasDebtResponsibility,
+    plannedMoneyBehavior !== CURRENT_POSITION_NOT_ENOUGH_DATA,
+    positiveDirection !== CURRENT_POSITION_NOT_ENOUGH_DATA,
+  ].filter(Boolean).length;
+
+  return {
+    count: positiveSignals,
+    hasStableIncome,
+    hasSavingsDiscipline,
+    hasBudgetUsage,
+    stats: [
+      stat("Income Consistency", incomeRecords > 0 ? recordCountSummary(incomeRecords, "income") : hasStableIncome ? "Stable income records found" : CURRENT_POSITION_NOT_ENOUGH_DATA),
+      stat("Savings Discipline", hasSavingsDiscipline ? "Savings activity detected" : CURRENT_POSITION_NOT_ENOUGH_DATA),
+      stat("Budget Usage", hasBudgetUsage ? recordCountSummary(budgetRecords, "budget") : "No budget records found"),
+      stat("Emergency Fund Activity", projection.currentEmergency > 0 ? `${amount(projection.currentEmergency, "₱0")} protected` : projection.emergencyTarget > 0 ? "Emergency fund started" : "No emergency fund created"),
+      stat("Debt Responsibility", debtRecords > 0 ? projection.monthlyDebtPayment > 0 ? `${amount(projection.monthlyDebtPayment, "₱0")} payment signal` : "Debt records active" : NO_DEBT_RECORDS),
+      stat("Planned Money Behavior", plannedMoneyBehavior),
+      stat("Positive Financial Direction", positiveDirection),
+    ],
+  };
+}
+
+function slideSixHeroSummary(signals = {}) {
+  if (signals.count > 0) return `${signals.count} Good Signal${signals.count === 1 ? "" : "s"}`;
+  if (signals.hasStableIncome) return "Stable Income";
+  if (signals.hasSavingsDiscipline) return "Savings Active";
+  if (signals.hasBudgetUsage) return "Budget Tracking Active";
+  return "No major positive signal yet";
+}
+
+function slideSixBodySummary(signals = {}) {
+  return signals.count > 0
+    ? "CLARA also looks for what is already working. These habits are the strengths your forecast can build from."
+    : "CLARA needs more local records before it can identify positive financial habits with confidence.";
+}
+
 function nextBestAction(projection = {}) {
   const category = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
   if (category && projection.badLeakCost > 0) {
@@ -716,7 +793,7 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
   const improvementLift = projection.projectedNetPositionImproved - projection.projectedNetPositionSame;
   const hasLeak = projection.badLeakCost > 0;
   const hasSavingsDiscipline = projection.totalSavingsSaved > 0 || projection.currentEmergency > 0;
-  const hasDebtActivity = projection.monthlyDebtPayment > 0 || projection.debtRecordsUsed > 0;
+  const slideSixSignals = slideSixGoodHabitSignals(projection);
 
   return {
     title: "FUTURE MONEY FORECAST",
@@ -805,15 +882,9 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
         eyebrow: "06 / HOPE CHECK",
         title: "Good Habits CLARA Found",
         tone: "hope",
-        body: "CLARA also looks for what is already working, so the report does not only focus on risk.",
-        stats: [
-          stat("Consistent Income", signalWhen(projection.incomeRecordsUsed > 0, `Based on ${count(projection.incomeRecordsUsed)} record${projection.incomeRecordsUsed === 1 ? "" : "s"}`)),
-          stat("Savings Discipline", signalWhen(hasSavingsDiscipline, "Based on available records")),
-          stat("Budget Usage", signalWhen(projection.budgetRecordsUsed > 0, `${count(projection.budgetRecordsUsed)} budget record${projection.budgetRecordsUsed === 1 ? "" : "s"}`)),
-          stat("Emergency Fund Contributions", projection.currentEmergency > 0 ? amount(projection.currentEmergency) : NO_MAJOR_SIGNAL),
-          stat("Debt Payments", signalWhen(hasDebtActivity, projection.monthlyDebtPayment > 0 ? amount(projection.monthlyDebtPayment) : "Debt records exist")),
-          stat("Positive Behaviors", projection.netMonthlyCashFlow >= 0 ? "Money direction is stable or improving" : "Good records exist, but cash flow needs support"),
-        ],
+        hero: slideSixHeroSummary(slideSixSignals),
+        body: slideSixBodySummary(slideSixSignals),
+        stats: slideSixSignals.stats,
       },
       {
         eyebrow: "07 / HOPE CHECK",
