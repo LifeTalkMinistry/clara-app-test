@@ -23,7 +23,6 @@ const INCOME_TRANSACTION_TYPES = new Set([
   "add",
   "cash_in",
   "deposit",
-  "opening_balance",
   "credit",
 ]);
 
@@ -118,6 +117,12 @@ function normalizeBudget(budget = {}) {
       budget.total_budget ??
       budget.budget ??
       budget.cap ??
+      budget.plannedAmount ??
+      budget.planned_amount ??
+      budget.monthlyLimit ??
+      budget.monthly_limit ??
+      budget.categoryLimit ??
+      budget.category_limit ??
       0
   );
 
@@ -127,6 +132,11 @@ function normalizeBudget(budget = {}) {
     category: getBudgetTitle(budget),
     limit: amount,
     amount,
+    plannedAmount: amount,
+    allocatedAmount: amount,
+    monthlyLimit: amount,
+    categoryLimit: amount,
+    remainingAmount: toNumber(budget.remainingAmount ?? budget.remaining_amount ?? 0),
     month: clean(budget.month || budget.budget_month || budget.month_key || ""),
     needType: clean(budget.need_type || budget.needType || ""),
     source: budget.source || null,
@@ -142,9 +152,14 @@ function normalizeExpense(expense = {}) {
     title: clean(expense.title || expense.name || expense.merchant || expense.item || "Expense"),
     note: clean(expense.notes || expense.note || expense.item || expense.title || ""),
     date: expense.date || expense.created_at || expense.createdAt || expense.updatedAt || "",
-    planningStatus: clean(expense.planning_status || expense.budget_status || expense.status || ""),
+    planningStatus: clean(expense.planning_status || expense.planningStatus || expense.budget_status || expense.budgetStatus || expense.status || ""),
+    budgetStatus: clean(expense.budget_status || expense.budgetStatus || ""),
     needType: clean(expense.need_type || expense.needType || ""),
     unplannedReason: clean(expense.unplanned_reason || ""),
+    expenseId: expense.expenseId || expense.expense_id || null,
+    sourceExpenseId: expense.sourceExpenseId || expense.source_expense_id || null,
+    referenceId: expense.referenceId || expense.reference_id || null,
+    linkedExpenseId: expense.linkedExpenseId || expense.linked_expense_id || null,
     source: expense.source || null,
   };
 }
@@ -158,6 +173,10 @@ function normalizeWalletTransaction(transaction = {}) {
     title: clean(transaction.title || transaction.name || transaction.merchant || transaction.label || "Wallet transaction"),
     note: clean(transaction.note || transaction.notes || transaction.description || transaction.memo || transaction.title || ""),
     date: transaction.date || transaction.created_at || transaction.createdAt || transaction.updatedAt || transaction.transaction_date || transaction.transactionDate || "",
+    expenseId: transaction.expenseId || transaction.expense_id || null,
+    sourceExpenseId: transaction.sourceExpenseId || transaction.source_expense_id || null,
+    referenceId: transaction.referenceId || transaction.reference_id || null,
+    linkedExpenseId: transaction.linkedExpenseId || transaction.linked_expense_id || null,
     source: transaction.source || null,
   };
 }
@@ -203,6 +222,10 @@ function normalizeIncomeSource(source = {}) {
     currentBalance,
     totalMoneyIn,
     totalMoneyOut,
+    monthlyAmount: toNumber(source.monthlyAmount ?? source.monthly_amount ?? 0),
+    expectedMonthlyIncome: toNumber(source.expectedMonthlyIncome ?? source.expected_monthly_income ?? 0),
+    recurringAmount: toNumber(source.recurringAmount ?? source.recurring_amount ?? 0),
+    salaryAmount: toNumber(source.salaryAmount ?? source.salary_amount ?? 0),
     lastActivityAt: source.lastActivityAt || source.last_activity_at || source.updatedAt || source.updated_at || source.createdAt || source.created_at || "",
     source: source.source || null,
   };
@@ -210,7 +233,7 @@ function normalizeIncomeSource(source = {}) {
 
 function normalizeDebtObligation(record = {}) {
   const balance = toNumber(record.totalDebt ?? record.balance ?? record.amount ?? record.debt_balance ?? record.remainingBalance ?? record.remaining_balance ?? 0);
-  const amount = toNumber(record.monthlyDebt ?? record.monthlyPayment ?? record.monthly_payment ?? record.payment ?? record.amount ?? balance ?? 0);
+  const amount = toNumber(record.monthlyDebt ?? record.monthlyPayment ?? record.monthly_payment ?? record.payment ?? record.scheduledPayment ?? record.scheduled_payment ?? 0);
 
   return {
     id: record.id,
@@ -218,7 +241,10 @@ function normalizeDebtObligation(record = {}) {
     name: clean(record.name || record.title || record.lender || record.creditor || record.label || record.debtName || "Debt obligation"),
     amount,
     balance,
-    dueDate: record.dueDate || record.due_date || record.nextDueDate || record.next_due_date || "",
+    monthlyDebt: amount,
+    monthlyPayment: amount,
+    dueDate: record.dueDate || record.due_date || record.nextDueDate || record.next_due_date || record.date || "",
+    date: record.date || record.created_at || record.createdAt || record.updatedAt || record.updated_at || "",
     status: clean(record.status || ""),
     source: record.source || null,
   };
@@ -228,9 +254,10 @@ function normalizeSavingsGoal(goal = {}) {
   return {
     id: goal.id,
     name: clean(goal.name || goal.title || goal.label || "Savings Goal"),
-    savedAmount: toNumber(goal.saved_amount ?? goal.savedAmount ?? goal.saved ?? goal.current_amount ?? 0),
+    savedAmount: toNumber(goal.saved_amount ?? goal.savedAmount ?? goal.saved ?? goal.current_amount ?? goal.currentAmount ?? 0),
     targetAmount: toNumber(goal.target_amount ?? goal.targetAmount ?? goal.target ?? goal.goal_amount ?? 0),
     targetDate: goal.target_date || goal.targetDate || "",
+    date: goal.date || goal.created_at || goal.createdAt || goal.updated_at || goal.updatedAt || "",
     status: clean(goal.status || ""),
     source: goal.source || null,
   };
@@ -248,6 +275,7 @@ function normalizeEmergencyFund(record = null) {
     monthsCovered: toNumber(record.monthsCovered ?? record.months_covered ?? 0),
     linkedWalletId: clean(record.linkedWalletId || record.linked_wallet_id || ""),
     linkedWalletName: clean(record.linkedWalletName || record.linked_wallet_name || ""),
+    date: record.date || record.created_at || record.createdAt || record.updated_at || record.updatedAt || "",
     status: clean(record.status || ""),
     source: record.source || null,
   };
