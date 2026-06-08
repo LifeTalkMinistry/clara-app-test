@@ -1,8 +1,19 @@
+import { supabase } from "@/lib/supabaseClient";
+import { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";
+import { buildClaraForecastPhaseOneSnapshot } from "@/lib/clara-forecast-phase-one-snapshot";
+
 const ANALYTIC_LABEL = "Analytic";
 const SMART_ACTIONS_LABEL = "Smart Actions";
 const FORECAST_LABEL = "Forecast";
 const CORE_FEATURES_LABEL = "Core Features";
-const ANALYTIC_ACTION_MATCHERS = ["Spending Checkup", "Checkup"];
+const ANALYTIC_LOADING_ID = "clara-analytics-transition-loader";
+const FALLBACK_USER_ID = "local-user";
+const READY_EVENT = "clara:analytics-phase-one-ready";
+const OPEN_EVENT = "clara:open-analytics-report";
+const MIN_LOADING_MS = 3000;
+
+let analyticRunId = 0;
+let analyticIsPreparing = false;
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -15,7 +26,7 @@ function getAssistantShell() {
       (text.includes(FORECAST_LABEL) || text.includes(CORE_FEATURES_LABEL)) &&
       (text.includes(SMART_ACTIONS_LABEL) || text.includes(ANALYTIC_LABEL))
     );
-  });
+  }) || null;
 }
 
 function getAssistantButtons() {
@@ -40,17 +51,6 @@ function isSmartActionsTabButton(button) {
   );
 }
 
-function findAnalyticActionButton() {
-  return getAssistantButtons().find((button) => {
-    const text = clean(button.innerText || button.textContent);
-    return ANALYTIC_ACTION_MATCHERS.some((matcher) => text.includes(matcher)) &&
-      (text.includes("spending") || text.includes("leak") || text.includes("patterns"));
-  }) || getAssistantButtons().find((button) => {
-    const text = clean(button.innerText || button.textContent);
-    return ANALYTIC_ACTION_MATCHERS.some((matcher) => text.includes(matcher));
-  }) || null;
-}
-
 function relabelAnalyticTab() {
   getAssistantButtons().forEach((button) => {
     if (!isSmartActionsTabButton(button)) return;
@@ -63,42 +63,105 @@ function relabelAnalyticTab() {
   });
 }
 
-function submitAnalyticFallback() {
-  const shell = getAssistantShell();
-  const input = shell?.querySelector("input, textarea");
-  const form = input?.closest("form");
-  const submitButton = form?.querySelector('button[type="submit"], button[aria-label*="Send"]');
-  if (!input || !form) return;
-
-  const nextValue = "Run my Spending Checkup. Analyze my biggest spending leaks, patterns, unplanned spending, and what I should fix first.";
-  const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value");
-  descriptor?.set?.call(input, nextValue);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-
-  window.setTimeout(() => {
-    if (typeof form.requestSubmit === "function") form.requestSubmit();
-    else submitButton?.click?.();
-  }, 30);
+function removeAnalyticsLoader() {
+  document.getElementById(ANALYTIC_LOADING_ID)?.remove();
 }
 
-function openAnalyticMode() {
-  const activeAnalyticTab = getAssistantButtons().find((button) =>
-    button.dataset?.claraAnalyticTab === "true" || clean(button.textContent) === ANALYTIC_LABEL
-  );
+function showAnalyticsLoader() {
+  const shell = getAssistantShell();
+  if (!shell) return null;
 
-  if (activeAnalyticTab?.dataset?.claraProgrammaticOpenSmart !== "true") {
-    activeAnalyticTab.dataset.claraProgrammaticOpenSmart = "true";
-    activeAnalyticTab.click();
-    window.setTimeout(() => {
-      delete activeAnalyticTab.dataset.claraProgrammaticOpenSmart;
-    }, 180);
+  removeAnalyticsLoader();
+
+  const loader = document.createElement("div");
+  loader.id = ANALYTIC_LOADING_ID;
+  loader.className = "clara-forecast-transition-loader";
+  loader.innerHTML = `
+    <div class="clara-forecast-transition-card">
+      <div class="clara-forecast-transition-orb" aria-hidden="true"></div>
+      <p class="clara-forecast-transition-eyebrow">CURRENT MONEY ANALYTIC</p>
+      <h3>Preparing your analysis</h3>
+      <p>CLARA is reading local wallets, budgets, expenses, income, savings, debt, and money pressure before showing your current money situation.</p>
+      <div class="clara-forecast-transition-bar"><span></span></div>
+    </div>
+  `;
+  shell.appendChild(loader);
+  return loader;
+}
+
+function delay(ms = 0) {
+  return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
+}
+
+async function getCurrentUser() {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data?.user || null;
+  } catch {
+    return null;
+  }
+}
+
+function enrichSnapshotWithRecords(snapshot = {}, effectiveContext = {}) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+
+  return {
+    ...snapshot,
+    forecastRecords: {
+      ...(snapshot.forecastRecords || {}),
+      wallets: effectiveContext.wallets || snapshot.forecastRecords?.wallets || [],
+      incomes: effectiveContext.incomes || snapshot.forecastRecords?.incomes || [],
+      incomeSources: effectiveContext.incomeSources || snapshot.forecastRecords?.incomeSources || [],
+      expenses: effectiveContext.expenses || snapshot.forecastRecords?.expenses || [],
+      walletTransactions: effectiveContext.walletTransactions || snapshot.forecastRecords?.walletTransactions || [],
+      transfers: effectiveContext.transfers || snapshot.forecastRecords?.transfers || [],
+      budgets: effectiveContext.budgets || snapshot.forecastRecords?.budgets || [],
+      savingsGoals: effectiveContext.savingsGoals || snapshot.forecastRecords?.savingsGoals || [],
+      debtObligations: effectiveContext.debtObligations || snapshot.forecastRecords?.debtObligations || [],
+      emergencyFund: effectiveContext.emergencyFund || snapshot.forecastRecords?.emergencyFund || null,
+    },
+  };
+}
+
+function setGlobalAnalyticsSnapshot(snapshot, effectiveContext = null) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+
+  const enriched = enrichSnapshotWithRecords(snapshot, effectiveContext || {});
+  window.__CLARA_LAST_ANALYTICS_PHASE_ONE_SNAPSHOT__ = enriched;
+  window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: { snapshot: enriched } }));
+  return enriched;
+}
+
+async function prepareAnalyticsPhaseOneSnapshot() {
+  const user = await getCurrentUser();
+  const localUserId = clean(user?.id || user?.email || FALLBACK_USER_ID) || FALLBACK_USER_ID;
+  const effectiveContext = await getClaraEffectiveFinanceContext(localUserId, { user, messages: [] });
+  const analyticsSnapshot = buildClaraForecastPhaseOneSnapshot(effectiveContext, {});
+  return setGlobalAnalyticsSnapshot(analyticsSnapshot, effectiveContext);
+}
+
+async function openAnalyticMode() {
+  if (analyticIsPreparing) return;
+
+  const runId = ++analyticRunId;
+  analyticIsPreparing = true;
+  showAnalyticsLoader();
+
+  const startedAt = Date.now();
+
+  try {
+    await prepareAnalyticsPhaseOneSnapshot();
+  } catch (error) {
+    console.warn("[CLARA Analytic] Phase 1 snapshot failed safely.", error);
   }
 
-  window.setTimeout(() => {
-    const analyticButton = findAnalyticActionButton();
-    if (analyticButton) analyticButton.click();
-    else submitAnalyticFallback();
-  }, 90);
+  await delay(MIN_LOADING_MS - (Date.now() - startedAt));
+
+  if (runId !== analyticRunId) return;
+
+  removeAnalyticsLoader();
+  window.dispatchEvent(new Event(OPEN_EVENT));
+  analyticIsPreparing = false;
 }
 
 function installAnalyticClickCapture() {
@@ -109,8 +172,6 @@ function installAnalyticClickCapture() {
     const isAnalyticTab = button.dataset?.claraAnalyticTab === "true" || clean(button.textContent) === ANALYTIC_LABEL;
     if (!isAnalyticTab || !getAssistantShell()?.contains(button)) return;
 
-    if (button.dataset?.claraProgrammaticOpenSmart === "true") return;
-
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
@@ -118,16 +179,33 @@ function installAnalyticClickCapture() {
   }, true);
 }
 
+function installAnalyticCleanupListeners() {
+  document.addEventListener("click", (event) => {
+    if (event.target?.closest?.("[data-clara-analytics-report-close]")) removeAnalyticsLoader();
+    if (event.target?.closest?.("[aria-label='Close CLARA AI mode']")) {
+      analyticRunId += 1;
+      analyticIsPreparing = false;
+      removeAnalyticsLoader();
+    }
+  }, true);
+}
+
 function installAnalyticObserver() {
-  const observer = new MutationObserver(() => relabelAnalyticTab());
+  const observer = new MutationObserver(() => {
+    relabelAnalyticTab();
+    const shell = getAssistantShell();
+    if (!shell) removeAnalyticsLoader();
+  });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   relabelAnalyticTab();
 }
 
 function installClaraAssistantAnalyticTab() {
-  if (typeof window === "undefined" || window.__CLARA_ASSISTANT_ANALYTIC_TAB_INSTALLED__) return;
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (window.__CLARA_ASSISTANT_ANALYTIC_TAB_INSTALLED__) return;
   window.__CLARA_ASSISTANT_ANALYTIC_TAB_INSTALLED__ = true;
   installAnalyticClickCapture();
+  installAnalyticCleanupListeners();
   installAnalyticObserver();
 }
 
