@@ -52,7 +52,18 @@ function recordLabel(value = 0) {
 }
 
 function getRecordDate(record = {}) {
-  const raw = record.date || record.createdAt || record.created_at || record.updatedAt || record.updated_at || record.lastActivityAt || record.last_activity_at || record.targetDate || record.target_date || "";
+  const raw = record.date
+    || record.transactionDate
+    || record.transaction_date
+    || record.createdAt
+    || record.created_at
+    || record.updatedAt
+    || record.updated_at
+    || record.lastActivityAt
+    || record.last_activity_at
+    || record.targetDate
+    || record.target_date
+    || "";
   const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -60,7 +71,7 @@ function getRecordDate(record = {}) {
 function isRecentEnough(date, horizonMonths = 1) {
   if (!date) return false;
   const boundary = new Date();
-  boundary.setMonth(boundary.getMonth() - (Math.min(Math.max(Math.round(toNumber(horizonMonths)) || 1, 1), 12)));
+  boundary.setMonth(boundary.getMonth() - Math.min(Math.max(Math.round(toNumber(horizonMonths)) || 1, 1), 12));
   return date >= boundary;
 }
 
@@ -76,14 +87,32 @@ function firstText(source = {}, keys = []) {
   return "";
 }
 
+function transactionType(transaction = {}) {
+  return firstText(transaction, ["type", "transaction_type", "kind", "movementType", "movement_type"]).toLowerCase();
+}
+
+function isOpeningBalanceTransaction(transaction = {}) {
+  const type = transactionType(transaction);
+  const text = clean(`${transaction.source || ""} ${transaction.reason || ""} ${transaction.title || ""} ${transaction.note || ""}`).toLowerCase();
+  return type === "opening_balance" || text.includes("opening balance");
+}
+
+function isTransferOrInternalMovement(transaction = {}) {
+  const type = transactionType(transaction);
+  const text = clean(`${type} ${transaction.source || ""} ${transaction.title || ""} ${transaction.note || ""}`).toLowerCase();
+  return ["transfer", "internal_transfer", "wallet_transfer", "move", "movement", "internal_movement"].includes(type)
+    || text.includes("internal movement")
+    || text.includes("wallet transfer");
+}
+
 function isIncomeTransaction(transaction = {}) {
-  const type = firstText(transaction, ["type", "transaction_type", "kind"]).toLowerCase();
-  return ["income", "add", "cash_in", "deposit", "opening_balance", "credit"].includes(type);
+  if (isOpeningBalanceTransaction(transaction) || isTransferOrInternalMovement(transaction)) return false;
+  return ["income", "add", "cash_in", "deposit", "credit"].includes(transactionType(transaction));
 }
 
 function isExpenseTransaction(transaction = {}) {
-  const type = firstText(transaction, ["type", "transaction_type", "kind"]).toLowerCase();
-  return ["expense", "withdrawal", "debit", "spend", "purchase", "cash_out"].includes(type);
+  if (isTransferOrInternalMovement(transaction)) return false;
+  return ["expense", "withdrawal", "debit", "spend", "purchase", "cash_out"].includes(transactionType(transaction));
 }
 
 function setupConfidenceLabel(value = "") {
@@ -95,7 +124,7 @@ function setupConfidenceLabel(value = "") {
 
 function setupRecordCounts(snapshot = {}, horizonMonths = 1) {
   const records = snapshot.forecastRecords || {};
-  const incomeWindow = recordsInWindow(records.incomes, horizonMonths);
+  const incomeWindow = recordsInWindow(records.incomes, horizonMonths).filter((record) => !isOpeningBalanceTransaction(record));
   const transactionIncomeWindow = recordsInWindow(toArray(records.walletTransactions).filter(isIncomeTransaction), horizonMonths);
   const expenseWindow = recordsInWindow(records.expenses, horizonMonths);
   const transactionExpenseWindow = recordsInWindow(toArray(records.walletTransactions).filter(isExpenseTransaction), horizonMonths);
@@ -108,11 +137,8 @@ function setupRecordCounts(snapshot = {}, horizonMonths = 1) {
 }
 
 function hasSetupMoneyContext(snapshot = {}) {
-  const records = snapshot.forecastRecords || {};
-  return toArray(records.wallets).length > 0
-    || toArray(records.incomes).length > 0
-    || toArray(records.expenses).length > 0
-    || toArray(records.walletTransactions).length > 0;
+  const summary = getClaraForecastHorizonSummary(snapshot);
+  return summary.activeFinancialMonths > 0;
 }
 
 function finalizeForecastSetupSlide(report = {}, snapshot = {}, horizonMonths = 1) {
@@ -122,7 +148,7 @@ function finalizeForecastSetupSlide(report = {}, snapshot = {}, horizonMonths = 
   const horizon = Math.min(Math.max(Math.round(toNumber(horizonMonths)) || 1, 1), 12);
   const hasUsableSetupData = hasSetupMoneyContext(snapshot) && summary.availableHistoryMonths >= horizon;
   const horizonText = monthLabel(horizon);
-  const availableHistoryText = `${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"}`;
+  const availableHistoryText = `${summary.availableHistoryMonths} active month${summary.availableHistoryMonths === 1 ? "" : "s"}`;
   const counts = setupRecordCounts(snapshot, horizon);
   const setupValue = (value) => (hasUsableSetupData ? value : SETUP_NOT_ENOUGH_DATA);
 
@@ -137,11 +163,12 @@ function finalizeForecastSetupSlide(report = {}, snapshot = {}, horizonMonths = 
         tone: "neutral",
         hero: setupValue(horizonText),
         body: hasUsableSetupData
-          ? "CLARA used your available local money records to build this forecast. More complete history improves forecast confidence."
+          ? "CLARA used your available local money records to build this forecast. More complete active history improves forecast confidence."
           : "CLARA needs more saved local money records to build a stronger forecast.",
         stats: [
           { label: "Selected Forecast Horizon", value: setupValue(horizonText) },
           { label: "Available History", value: setupValue(availableHistoryText) },
+          { label: "Date Span Observed", value: setupValue(`${summary.dateSpanMonths} month${summary.dateSpanMonths === 1 ? "" : "s"}`) },
           { label: "Forecast Basis", value: setupValue(`Last ${horizonText}`) },
           { label: "Forecast Confidence", value: hasUsableSetupData ? setupConfidenceLabel(snapshot.dataCompleteness) : "Limited" },
           { label: "Income Records", value: setupValue(recordLabel(counts.incomeRecords)) },
@@ -174,7 +201,10 @@ function slideEightDebtReductionValue(slideEight = {}, slideSeven = {}) {
 }
 
 function slideEightGoodHabitValue(slideSeven = {}) {
-  return statValue(slideSeven.stats, "Total Good-Habit Value") || clean(slideSeven.hero) || SETUP_NOT_ENOUGH_DATA;
+  return statValue(slideSeven.stats, "Estimated Good-Habit Value")
+    || statValue(slideSeven.stats, "Total Good-Habit Value")
+    || clean(slideSeven.hero)
+    || SETUP_NOT_ENOUGH_DATA;
 }
 
 function slideEightLeakStatus(slideFive = {}, slideFour = {}) {
@@ -228,7 +258,7 @@ function finalizeForecastSlideEight(report = {}) {
           { label: "Projected Emergency Fund", value: projectedEmergency },
           { label: "Projected Savings Progress", value: projectedSavings },
           { label: "Projected Debt Reduction", value: projectedDebtReduction },
-          { label: "Good Habit Value Applied", value: goodHabitValueApplied },
+          { label: "Estimated Good-Habit Value Applied", value: goodHabitValueApplied },
           { label: "Leak Status", value: leakStatus },
           { label: "Financial Direction", value: financialDirection },
         ],
@@ -273,7 +303,6 @@ function slideTenHasEnoughData(card = {}) {
 
 function compactSlideTenAction(card = {}, report = {}) {
   if (!slideTenHasEnoughData(card)) return "Track 7 days → Build history";
-
   const category = slideTenLeakCategory(card, report);
   if (!category) return "Keep current habits → Build history";
   if (slideTenHasDebt(card)) return `Reduce ${category} → Debt`;
@@ -301,7 +330,7 @@ function finalizeForecastSlideTen(report = {}) {
         title: "Your Better Future Outcome",
         tone: "possibility",
         hero: projectedTotalAvailable,
-        body: "This is the better direction if you keep what works and fix the biggest leak CLARA found.",
+        body: "This is the better direction if you keep what works and fix the biggest verified leak CLARA found.",
         final: true,
         ctaLabel: "I got it now",
         actionNote: {
@@ -320,6 +349,55 @@ function finalizeForecastSlideTen(report = {}) {
         missingData: [],
       };
     }),
+  };
+}
+
+function traceTypeForLabel(label = "") {
+  const normalized = clean(label).toLowerCase();
+  if (normalized.includes("estimated")) return "ESTIMATED";
+  if (normalized.includes("projected") || normalized.includes("forecast") || normalized.includes("direction") || normalized.includes("risk") || normalized.includes("value")) return "CALCULATED";
+  if (normalized.includes("recommended") || normalized.includes("likely")) return "INFERRED";
+  if (normalized.includes("not enough")) return "FALLBACK";
+  return "ACTUAL";
+}
+
+function synchronizeAuditSlideTrace(report = {}) {
+  if (!report.audit || !Array.isArray(report.cards)) return report;
+  const slideTrace = {};
+  report.cards.forEach((card, index) => {
+    const key = `slide${index + 1}`;
+    const rows = [];
+    if (card.hero) {
+      rows.push({
+        label: "Hero",
+        value: card.hero,
+        type: traceTypeForLabel(card.hero),
+        formula: "Final report object before render",
+        source: key,
+        riskLevel: card.tone || "neutral",
+      });
+    }
+    toArray(card.stats).forEach((item) => {
+      rows.push({
+        label: item.label,
+        value: item.value,
+        type: traceTypeForLabel(item.label),
+        formula: "Final report object before render",
+        source: key,
+        riskLevel: card.tone || "neutral",
+      });
+    });
+    slideTrace[key] = rows;
+  });
+  return {
+    ...report,
+    audit: {
+      ...report.audit,
+      slideTrace: {
+        ...(report.audit.slideTrace || {}),
+        ...slideTrace,
+      },
+    },
   };
 }
 
@@ -507,7 +585,7 @@ function horizonGrid(snapshot = {}) {
 function renderHorizonPicker(snapshot) {
   closeReport();
   const summary = getClaraForecastHorizonSummary(snapshot);
-  const historyLabel = `${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"}`;
+  const historyLabel = `${summary.availableHistoryMonths} active month${summary.availableHistoryMonths === 1 ? "" : "s"}`;
   const overlay = document.createElement("section");
   overlay.className = "clara-forecast-report-overlay clara-forecast-horizon-overlay";
   overlay.setAttribute("role", "dialog");
@@ -521,9 +599,9 @@ function renderHorizonPicker(snapshot) {
         <h2>Choose timeframe</h2>
       </header>
       <section class="clara-forecast-horizon-card" aria-label="Choose forecast timeframe">
-        <p class="clara-forecast-horizon-helper">Select how many months CLARA should project using your available history.</p>
+        <p class="clara-forecast-horizon-helper">Select how many months CLARA should project using your active usable history.</p>
         <div class="clara-forecast-horizon-grid">${horizonGrid(snapshot)}</div>
-        <p class="clara-forecast-horizon-footer-note">Available history: ${historyLabel} · Forecast cannot exceed history</p>
+        <p class="clara-forecast-horizon-footer-note">Available history: ${historyLabel} · Forecast cannot exceed active history</p>
         ${!summary.hasAnyEligibleHorizon ? `<div class="clara-forecast-horizon-warning">CLARA needs at least 1 month of financial activity before forecasting.</div>` : ""}
       </section>
     </div>`;
@@ -570,7 +648,13 @@ function syncForecastReportProgress(overlay) {
 
 function renderReport(snapshot, horizonMonths = 1) {
   const baseReport = buildClaraForecastReport(snapshot, { horizonMonths });
-  const report = finalizeForecastSlideTen(finalizeForecastSlideEight(finalizeForecastSetupSlide(baseReport, snapshot, horizonMonths)));
+  const report = synchronizeAuditSlideTrace(finalizeForecastSlideTen(
+    finalizeForecastSlideEight(
+      finalizeForecastSetupSlide(baseReport, snapshot, horizonMonths),
+    ),
+  ));
+
+  window.__CLARA_LAST_FORECAST_AUDIT__ = report.audit || null;
   closeReport();
 
   const overlay = document.createElement("section");
