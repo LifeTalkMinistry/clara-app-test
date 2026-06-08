@@ -1,9 +1,15 @@
 const NOT_ENOUGH_DATA = "Not enough data yet";
 const CURRENT_POSITION_NOT_ENOUGH_DATA = "Not enough data to generate result";
-const NO_MAJOR_SIGNAL = "No major signal detected";
 const NO_DEBT_RECORDS = "No debt records found";
 const NO_COST_DRIVER = "No major cost driver detected";
 const MAX_HORIZON_MONTHS = 12;
+const OPENING_BALANCE_WARNING = "Opening balance excluded from monthly income projection.";
+const INCOME_SOURCE_BALANCE_WARNING = "Income sources were not used as monthly income because no explicit recurring amount was found.";
+const GOOD_HABIT_ESTIMATE_WARNING = "Good habit value is estimated from current behavior, not guaranteed.";
+const SPARSE_HORIZON_WARNING = "Sparse active months inside selected horizon.";
+const WALLET_EXPENSE_LINK_WARNING = "Wallet transaction expenses exist but were not merged due to missing link fields.";
+const BUDGET_INTERPRETATION_WARNING = "Budget records exist but could not be interpreted for leak detection.";
+const DEBT_PAYMENT_EXPENSE_WARNING = "Debt payment may already be included in expenses.";
 
 function hasValue(value) {
   if (value === undefined || value === null || value === "") return false;
@@ -29,19 +35,8 @@ function amount(value, fallback = NOT_ENOUGH_DATA) {
   return `₱${toNumber(value).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
-function signedAmount(value, fallback = NOT_ENOUGH_DATA) {
-  if (!hasValue(value)) return fallback;
-  const number = toNumber(value);
-  const sign = number > 0 ? "+" : number < 0 ? "-" : "";
-  return `${sign}${amount(Math.abs(number), "₱0")}`;
-}
-
 function count(value) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
-}
-
-function text(value, fallback = NOT_ENOUGH_DATA) {
-  return hasValue(value) ? String(value).trim() : fallback;
 }
 
 function stat(label, value) {
@@ -61,7 +56,7 @@ function monthLabel(months = 1) {
 function normalizeCompleteness(value = "") {
   const normalized = String(value || "weak").trim().toLowerCase();
   if (normalized === "strong") return "strong";
-  if (normalized === "medium" || normalized === "partial") return "medium";
+  if (normalized === "medium" || normalized === "partial" || normalized === "moderate") return "medium";
   return "weak";
 }
 
@@ -73,40 +68,6 @@ function labelCompleteness(value = "") {
 function normalizeMissingData(snapshot = {}) {
   const missing = Array.isArray(snapshot.missingData) ? snapshot.missingData : [];
   return missing.map((item) => String(item || "").trim()).filter(Boolean);
-}
-
-function getRecordDate(record = {}) {
-  const raw = record.date || record.createdAt || record.created_at || record.updatedAt || record.updated_at || record.lastActivityAt || record.last_activity_at || record.targetDate || record.target_date || "";
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function monthKey(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthsBetweenInclusive(startDate, endDate) {
-  if (!startDate || !endDate) return 0;
-  const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
-  return Math.max(months, 0);
-}
-
-function isRecentEnough(date, horizonMonths) {
-  if (!date) return false;
-  const boundary = new Date();
-  boundary.setMonth(boundary.getMonth() - normalizeHorizonMonths(horizonMonths));
-  return date >= boundary;
-}
-
-function recordsInWindow(records = [], horizonMonths = 1) {
-  return toArray(records).filter((record) => isRecentEnough(getRecordDate(record), horizonMonths));
-}
-
-function sum(records = [], getter) {
-  return toArray(records).reduce((total, record) => total + toNumber(getter(record)), 0);
 }
 
 function firstNumber(source = {}, keys = []) {
@@ -151,12 +112,82 @@ function getRecords(snapshot = {}) {
   };
 }
 
+function getRecordDate(record = {}) {
+  const raw = record.date
+    || record.transactionDate
+    || record.transaction_date
+    || record.paidAt
+    || record.paid_at
+    || record.lastPaidAt
+    || record.last_paid_at
+    || record.activityDate
+    || record.activity_date
+    || record.createdAt
+    || record.created_at
+    || record.updatedAt
+    || record.updated_at
+    || record.lastActivityAt
+    || record.last_activity_at
+    || record.targetDate
+    || record.target_date
+    || record.dueDate
+    || record.due_date
+    || "";
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function monthKey(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthsBetweenInclusive(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+  return Math.max(months, 0);
+}
+
+function isRecentEnough(date, horizonMonths) {
+  if (!date) return false;
+  const boundary = new Date();
+  boundary.setMonth(boundary.getMonth() - normalizeHorizonMonths(horizonMonths));
+  return date >= boundary;
+}
+
+function recordsInWindow(records = [], horizonMonths = 1) {
+  return toArray(records).filter((record) => isRecentEnough(getRecordDate(record), horizonMonths));
+}
+
+function sum(records = [], getter) {
+  return toArray(records).reduce((total, record) => total + toNumber(getter(record)), 0);
+}
+
+function cleanLower(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 function getExpenseAmount(expense = {}) {
   return firstNumber(expense, ["amount", "total", "value"]);
 }
 
 function getIncomeAmount(income = {}) {
-  return firstNumber(income, ["amount", "total", "value", "currentBalance", "current_balance", "totalMoneyIn", "total_money_in"]);
+  return firstNumber(income, ["amount", "total", "value"]);
+}
+
+function getExplicitRecurringIncomeSourceAmount(source = {}) {
+  return firstNumber(source, [
+    "monthlyAmount",
+    "monthly_amount",
+    "expectedMonthlyIncome",
+    "expected_monthly_income",
+    "recurringAmount",
+    "recurring_amount",
+    "salaryAmount",
+    "salary_amount",
+  ]);
 }
 
 function getWalletBalance(wallet = {}) {
@@ -164,11 +195,11 @@ function getWalletBalance(wallet = {}) {
 }
 
 function getEmergencySaved(emergencyFund = {}) {
-  return firstNumber(emergencyFund, ["savedAmount", "saved_amount", "saved", "currentAmount", "current_amount", "amount", "balance"]);
+  return firstNumber(emergencyFund || {}, ["savedAmount", "saved_amount", "saved", "currentAmount", "current_amount", "amount", "balance"]);
 }
 
 function getEmergencyTarget(emergencyFund = {}) {
-  return firstNumber(emergencyFund, ["targetAmount", "target_amount", "target", "goal_amount"]);
+  return firstNumber(emergencyFund || {}, ["targetAmount", "target_amount", "target", "goal_amount"]);
 }
 
 function getGoalSaved(goal = {}) {
@@ -180,56 +211,304 @@ function getGoalTarget(goal = {}) {
 }
 
 function getDebtBalance(debt = {}) {
-  return firstNumber(debt, ["balance", "totalDebt", "total_debt", "remainingBalance", "remaining_balance", "amount"]);
+  return firstNumber(debt, ["balance", "totalDebt", "total_debt", "remainingBalance", "remaining_balance", "debt_balance", "amount"]);
 }
 
 function getDebtMonthlyPayment(debt = {}) {
-  return firstNumber(debt, ["monthlyDebt", "monthly_debt", "monthlyPayment", "monthly_payment", "payment", "amount"]);
+  return firstNumber(debt, ["monthlyDebt", "monthly_debt", "monthlyPayment", "monthly_payment", "payment", "scheduledPayment", "scheduled_payment"]);
+}
+
+function transactionType(transaction = {}) {
+  return firstText(transaction, ["type", "transaction_type", "kind", "movementType", "movement_type"]).toLowerCase();
+}
+
+function isOpeningBalanceTransaction(transaction = {}) {
+  const type = transactionType(transaction);
+  const source = cleanLower(`${transaction.source || ""} ${transaction.reason || ""} ${transaction.title || ""} ${transaction.note || ""}`);
+  return type === "opening_balance" || source.includes("opening balance");
+}
+
+function isTransferOrInternalMovement(transaction = {}) {
+  const type = transactionType(transaction);
+  const text = cleanLower(`${type} ${transaction.source || ""} ${transaction.title || ""} ${transaction.note || ""} ${transaction.category || ""}`);
+  return ["transfer", "internal_transfer", "wallet_transfer", "move", "movement", "internal_movement"].includes(type)
+    || text.includes("internal movement")
+    || text.includes("wallet transfer")
+    || text.includes("transfer between");
 }
 
 function isIncomeTransaction(transaction = {}) {
-  const type = firstText(transaction, ["type", "transaction_type", "kind"]).toLowerCase();
-  return ["income", "add", "cash_in", "deposit", "opening_balance", "credit"].includes(type);
+  if (isOpeningBalanceTransaction(transaction) || isTransferOrInternalMovement(transaction)) return false;
+  const type = transactionType(transaction);
+  return ["income", "add", "cash_in", "deposit", "credit"].includes(type);
 }
 
 function isExpenseTransaction(transaction = {}) {
-  const type = firstText(transaction, ["type", "transaction_type", "kind"]).toLowerCase();
+  if (isTransferOrInternalMovement(transaction)) return false;
+  const type = transactionType(transaction);
   return ["expense", "withdrawal", "debit", "spend", "purchase", "cash_out"].includes(type);
 }
 
-function isUnplanned(expense = {}) {
-  const textValue = `${expense.planningStatus || ""} ${expense.planning_status || ""} ${expense.budgetStatus || ""} ${expense.budget_status || ""} ${expense.status || ""}`.toLowerCase();
-  return /unplanned|outside|undocumented|over budget|budget risk|not planned/.test(textValue);
+function hasOpeningBalanceIncome(records = {}) {
+  return toArray(records.walletTransactions).some(isOpeningBalanceTransaction)
+    || toArray(records.incomes).some((income) => transactionType(income) === "opening_balance" || isOpeningBalanceTransaction(income));
 }
 
 function categoryOf(expense = {}) {
-  return firstText(expense, ["category", "title", "name", "note", "type"]) || "Uncategorized";
+  return firstText(expense, ["category", "categoryName", "category_name", "budgetCategory", "budget_category", "title", "name", "note", "type"]) || "Uncategorized";
+}
+
+function isUnplanned(expense = {}) {
+  const textValue = `${expense.planningStatus || ""} ${expense.planning_status || ""} ${expense.budgetStatus || ""} ${expense.budget_status || ""} ${expense.status || ""} ${expense.needType || ""} ${expense.need_type || ""}`.toLowerCase();
+  return /unplanned|outside|undocumented|over budget|over-budget|budget risk|not planned|unbudgeted/.test(textValue);
+}
+
+function hasExplicitRiskStatus(expense = {}) {
+  return isUnplanned(expense);
+}
+
+function linkKeys(record = {}) {
+  return [
+    record.id,
+    record.expenseId,
+    record.expense_id,
+    record.sourceExpenseId,
+    record.source_expense_id,
+    record.referenceId,
+    record.reference_id,
+    record.linkedExpenseId,
+    record.linked_expense_id,
+  ].map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function transactionLinkKeys(record = {}) {
+  return [
+    record.expenseId,
+    record.expense_id,
+    record.sourceExpenseId,
+    record.source_expense_id,
+    record.referenceId,
+    record.reference_id,
+    record.linkedExpenseId,
+    record.linked_expense_id,
+  ].map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function buildCanonicalExpenseEvents(records, horizonMonths, auditWarnings = []) {
+  const horizon = normalizeHorizonMonths(horizonMonths);
+  const expenseWindow = recordsInWindow(records.expenses, horizon);
+  const walletExpenseWindow = recordsInWindow(toArray(records.walletTransactions).filter(isExpenseTransaction), horizon);
+  const expenseKeys = new Set(expenseWindow.flatMap(linkKeys));
+  const canonical = expenseWindow.map((expense) => ({ ...expense, __source: "expense" }));
+
+  if (!walletExpenseWindow.length) return canonical;
+
+  if (!expenseWindow.length) {
+    return walletExpenseWindow.map((transaction) => ({ ...transaction, __source: "wallet_transaction" }));
+  }
+
+  let blockedForMissingLinks = false;
+  for (const transaction of walletExpenseWindow) {
+    const links = transactionLinkKeys(transaction);
+    if (!links.length) {
+      blockedForMissingLinks = true;
+      continue;
+    }
+    const isLinkedToExpense = links.some((key) => expenseKeys.has(key));
+    if (!isLinkedToExpense) canonical.push({ ...transaction, __source: "wallet_transaction" });
+  }
+
+  if (blockedForMissingLinks && !auditWarnings.includes(WALLET_EXPENSE_LINK_WARNING)) {
+    auditWarnings.push(WALLET_EXPENSE_LINK_WARNING);
+  }
+
+  return canonical;
+}
+
+function categoryTotals(expenses = []) {
+  return expenses.reduce((map, expense) => {
+    const category = categoryOf(expense);
+    map.set(category, (map.get(category) || 0) + getExpenseAmount(expense));
+    return map;
+  }, new Map());
+}
+
+function topCategory(map = new Map(), horizon = 1) {
+  return [...map.entries()]
+    .filter(([, value]) => value > 0)
+    .sort((left, right) => right[1] - left[1])
+    .map(([category, value]) => ({ category, amount: value, monthlyAmount: value / Math.max(horizon, 1) }))[0] || null;
+}
+
+function getBudgetCategory(budget = {}) {
+  return firstText(budget, ["category", "title", "name", "label", "budget_category"]);
+}
+
+function getBudgetAllocation(budget = {}) {
+  const allocation = firstNumber(budget, [
+    "limit",
+    "amount",
+    "plannedAmount",
+    "planned_amount",
+    "allocatedAmount",
+    "allocated_amount",
+    "monthlyLimit",
+    "monthly_limit",
+    "categoryLimit",
+    "category_limit",
+  ]);
+  const remaining = firstNumber(budget, ["remainingAmount", "remaining_amount"]);
+  if (allocation > 0) return allocation;
+  if (remaining > 0) return remaining;
+  return 0;
+}
+
+function buildBudgetMap(records = {}, auditWarnings = []) {
+  const map = new Map();
+  const budgets = toArray(records.budgets);
+  let uninterpretable = false;
+
+  for (const budget of budgets) {
+    const category = getBudgetCategory(budget);
+    const allocation = getBudgetAllocation(budget);
+    if (!category || allocation <= 0) {
+      uninterpretable = true;
+      continue;
+    }
+    map.set(category, (map.get(category) || 0) + allocation);
+  }
+
+  if (budgets.length && !map.size && uninterpretable && !auditWarnings.includes(BUDGET_INTERPRETATION_WARNING)) {
+    auditWarnings.push(BUDGET_INTERPRETATION_WARNING);
+  }
+
+  return map;
+}
+
+function buildLeakAnalysis(expenses = [], records = {}, horizon = 1, auditWarnings = []) {
+  const allCategoryTotals = categoryTotals(expenses);
+  const biggestOverallCategory = topCategory(allCategoryTotals, horizon);
+  const explicitRiskExpenses = expenses.filter(hasExplicitRiskStatus);
+  const unplannedTotals = categoryTotals(explicitRiskExpenses);
+  const totalUnplanned = sum(explicitRiskExpenses, getExpenseAmount);
+  const riskTotals = new Map(unplannedTotals);
+  const budgetMap = buildBudgetMap(records, auditWarnings);
+  let totalOverBudget = 0;
+  let hasBudgetOverspend = false;
+
+  for (const [category, spent] of allCategoryTotals.entries()) {
+    const allocation = budgetMap.get(category) || 0;
+    if (allocation > 0 && spent > allocation) {
+      const overage = spent - allocation;
+      totalOverBudget += overage;
+      hasBudgetOverspend = true;
+      riskTotals.set(category, (riskTotals.get(category) || 0) + overage);
+    }
+  }
+
+  const repeatedUnplanned = explicitRiskExpenses.length >= 2;
+  const biggestRiskyCategory = topCategory(riskTotals, horizon);
+  let leakEvidenceType = "none";
+  if (hasBudgetOverspend) leakEvidenceType = "budget";
+  else if (totalUnplanned > 0) leakEvidenceType = "explicit";
+  else if (repeatedUnplanned) leakEvidenceType = "repeated_unplanned";
+
+  const badLeakCost = leakEvidenceType === "budget"
+    ? Math.max(totalOverBudget, totalUnplanned)
+    : totalUnplanned;
+
+  return {
+    allCategoryTotals,
+    riskyCategoryTotals: riskTotals,
+    biggestOverallCategory,
+    biggestRiskyCategory: biggestRiskyCategory || null,
+    totalUnplanned,
+    totalOverBudget,
+    badLeakCost: Math.max(0, badLeakCost),
+    unplannedCount: explicitRiskExpenses.length,
+    leakEvidenceType,
+    leakIsActualOrInferred: leakEvidenceType === "none" ? "none" : "actual",
+  };
+}
+
+function activeMonthCounts(records = {}) {
+  const financialMonths = new Set();
+  const incomeMonths = new Set();
+  const expenseMonths = new Set();
+  const transactionMonths = new Set();
+  const usableDates = [];
+
+  const addMonth = (targetSet, record, alsoFinancial = true) => {
+    const date = getRecordDate(record);
+    const key = monthKey(date);
+    if (!key) return;
+    targetSet.add(key);
+    if (alsoFinancial) financialMonths.add(key);
+    usableDates.push(date);
+  };
+
+  toArray(records.incomes).forEach((record) => {
+    if (getIncomeAmount(record) > 0 && !isOpeningBalanceTransaction(record)) addMonth(incomeMonths, record);
+  });
+
+  toArray(records.expenses).forEach((record) => {
+    if (getExpenseAmount(record) > 0) addMonth(expenseMonths, record);
+  });
+
+  toArray(records.walletTransactions).forEach((record) => {
+    if (isIncomeTransaction(record) && getIncomeAmount(record) > 0) {
+      addMonth(transactionMonths, record);
+      addMonth(incomeMonths, record);
+      return;
+    }
+    if (isExpenseTransaction(record) && getExpenseAmount(record) > 0) {
+      addMonth(transactionMonths, record);
+      addMonth(expenseMonths, record);
+    }
+  });
+
+  toArray(records.debtObligations).forEach((record) => {
+    if (getDebtMonthlyPayment(record) > 0 && getRecordDate(record)) addMonth(financialMonths, record, false);
+  });
+
+  toArray(records.savingsGoals).forEach((record) => {
+    if (getGoalSaved(record) > 0 && getRecordDate(record)) addMonth(financialMonths, record, false);
+  });
+
+  if (records.emergencyFund && getEmergencySaved(records.emergencyFund) > 0 && getRecordDate(records.emergencyFund)) {
+    addMonth(financialMonths, records.emergencyFund, false);
+  }
+
+  const minDate = usableDates.length ? usableDates.reduce((oldest, date) => (date < oldest ? date : oldest), usableDates[0]) : null;
+  const maxDate = usableDates.length ? usableDates.reduce((latest, date) => (date > latest ? date : latest), usableDates[0]) : null;
+  const dateSpanMonths = monthsBetweenInclusive(minDate, maxDate);
+  const activeFinancialMonths = financialMonths.size;
+
+  return {
+    dateSpanMonths: Math.min(MAX_HORIZON_MONTHS, dateSpanMonths),
+    activeFinancialMonths,
+    activeIncomeMonths: incomeMonths.size,
+    activeExpenseMonths: expenseMonths.size,
+    activeTransactionMonths: transactionMonths.size,
+    availableHistoryMonths: activeFinancialMonths,
+    sparseHistoryWarning: dateSpanMonths > activeFinancialMonths ? "Sparse history detected: date span is larger than usable active financial months." : "",
+  };
+}
+
+export function buildForecastHistorySummary(snapshot = {}) {
+  return activeMonthCounts(getRecords(snapshot));
 }
 
 function detectAvailableHistoryMonths(snapshot = {}) {
-  const records = getRecords(snapshot);
-  const datedRecords = [
-    ...records.incomes,
-    ...records.expenses,
-    ...records.walletTransactions,
-    ...records.transfers,
-  ]
-    .map(getRecordDate)
-    .filter(Boolean);
-
-  if (!datedRecords.length) return 0;
-
-  const minDate = datedRecords.reduce((oldest, date) => (date < oldest ? date : oldest), datedRecords[0]);
-  const maxDate = datedRecords.reduce((latest, date) => (date > latest ? date : latest), datedRecords[0]);
-  const observedMonths = monthsBetweenInclusive(minDate, maxDate);
-  const uniqueMonths = new Set(datedRecords.map(monthKey).filter(Boolean)).size;
-  return Math.min(MAX_HORIZON_MONTHS, Math.max(observedMonths, uniqueMonths, 1));
+  return buildForecastHistorySummary(snapshot).availableHistoryMonths;
 }
 
 export function getClaraForecastHorizonSummary(snapshot = {}) {
+  const history = buildForecastHistorySummary(snapshot);
   const availableHistoryMonths = detectAvailableHistoryMonths(snapshot);
   const eligibleMonths = Array.from({ length: Math.min(MAX_HORIZON_MONTHS, availableHistoryMonths) }, (_, index) => index + 1);
   return {
+    ...history,
     availableHistoryMonths,
     eligibleMonths,
     maxHorizonMonths: MAX_HORIZON_MONTHS,
@@ -241,7 +520,12 @@ export function canBuildClaraForecast(snapshot = {}, horizonMonths = 1) {
   const horizon = normalizeHorizonMonths(horizonMonths);
   const summary = getClaraForecastHorizonSummary(snapshot);
   const records = getRecords(snapshot);
-  const hasMoneyContext = toArray(records.wallets).length > 0 || toArray(records.incomes).length > 0 || toArray(records.expenses).length > 0 || toArray(records.walletTransactions).length > 0;
+  const hasMoneyContext = summary.activeFinancialMonths > 0
+    || toArray(records.wallets).length > 0
+    || toArray(records.incomes).length > 0
+    || toArray(records.expenses).length > 0
+    || toArray(records.walletTransactions).some((transaction) => isIncomeTransaction(transaction) || isExpenseTransaction(transaction));
+
   return {
     allowed: summary.availableHistoryMonths >= horizon && hasMoneyContext,
     horizon,
@@ -249,41 +533,55 @@ export function canBuildClaraForecast(snapshot = {}, horizonMonths = 1) {
     reason: !hasMoneyContext
       ? "CLARA needs at least one wallet, income, expense, or transaction record before forecasting."
       : summary.availableHistoryMonths < horizon
-        ? `CLARA only has about ${summary.availableHistoryMonths} month${summary.availableHistoryMonths === 1 ? "" : "s"} of usable history. Try a shorter timeframe first.`
+        ? `CLARA only has about ${summary.availableHistoryMonths} active financial month${summary.availableHistoryMonths === 1 ? "" : "s"} of usable history. Try a shorter timeframe first.`
         : "Ready",
   };
 }
 
-function categoryTotals(expenses = [], horizon = 1) {
-  return expenses.reduce((map, expense) => {
-    const category = categoryOf(expense);
-    map.set(category, (map.get(category) || 0) + getExpenseAmount(expense));
-    return map;
-  }, new Map());
+function activeMonthsInWindow(records = {}, horizon = 1) {
+  return activeMonthCounts({
+    ...records,
+    incomes: recordsInWindow(records.incomes, horizon),
+    expenses: recordsInWindow(records.expenses, horizon),
+    walletTransactions: recordsInWindow(records.walletTransactions, horizon),
+    debtObligations: recordsInWindow(records.debtObligations, horizon),
+    savingsGoals: recordsInWindow(records.savingsGoals, horizon),
+    emergencyFund: isRecentEnough(getRecordDate(records.emergencyFund || {}), horizon) ? records.emergencyFund : null,
+  });
 }
 
-function topCategory(map = new Map(), horizon = 1) {
-  return [...map.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .map(([category, value]) => ({ category, amount: value, monthlyAmount: value / Math.max(horizon, 1) }))[0] || null;
-}
-
-function monthlyAverages(snapshot = {}, horizonMonths = 1) {
+function monthlyAverages(snapshot = {}, horizonMonths = 1, auditWarnings = []) {
   const horizon = normalizeHorizonMonths(horizonMonths);
   const records = getRecords(snapshot);
-  const incomeWindow = recordsInWindow(records.incomes, horizon);
+  const incomeWindow = recordsInWindow(records.incomes, horizon).filter((income) => !isOpeningBalanceTransaction(income));
   const transactionIncomeWindow = recordsInWindow(records.walletTransactions.filter(isIncomeTransaction), horizon);
-  const expenseWindow = recordsInWindow(records.expenses, horizon);
-  const transactionExpenseWindow = recordsInWindow(records.walletTransactions.filter(isExpenseTransaction), horizon);
-  const expensesToUse = expenseWindow.length ? expenseWindow : transactionExpenseWindow;
   const incomesToUse = incomeWindow.length ? incomeWindow : transactionIncomeWindow;
+  const expensesToUse = buildCanonicalExpenseEvents(records, horizon, auditWarnings);
+  const totalIncomeEvents = sum(incomesToUse, getIncomeAmount);
+  const explicitRecurringIncome = sum(records.incomeSources, getExplicitRecurringIncomeSourceAmount);
+  const incomeSourceHasBalances = records.incomeSources.some((source) => firstNumber(source, ["currentBalance", "current_balance", "balance", "totalMoneyIn", "total_money_in"]) > 0);
 
-  const totalIncome = sum(incomesToUse, getIncomeAmount);
-  const incomeSourceFallback = sum(records.incomeSources, getIncomeAmount);
+  if (hasOpeningBalanceIncome(records) && !auditWarnings.includes(OPENING_BALANCE_WARNING)) {
+    auditWarnings.push(OPENING_BALANCE_WARNING);
+  }
+
+  if (records.incomeSources.length && explicitRecurringIncome <= 0 && incomeSourceHasBalances && !auditWarnings.includes(INCOME_SOURCE_BALANCE_WARNING)) {
+    auditWarnings.push(INCOME_SOURCE_BALANCE_WARNING);
+  }
+
+  const totalIncome = totalIncomeEvents > 0 ? totalIncomeEvents : explicitRecurringIncome;
   const totalExpenses = sum(expensesToUse, getExpenseAmount);
-  const unplannedExpenses = expensesToUse.filter(isUnplanned);
-  const totalUnplanned = sum(unplannedExpenses, getExpenseAmount);
-  const transfersOut = sum(recordsInWindow(records.transfers, horizon), (transfer) => firstNumber(transfer, ["amount", "total", "value"]));
+  const historyWindow = activeMonthsInWindow(records, horizon);
+  const denominatorUsed = Math.max(historyWindow.activeFinancialMonths, 1);
+  const incomeDenominator = Math.max(historyWindow.activeIncomeMonths, historyWindow.activeFinancialMonths, 1);
+  const expenseDenominator = Math.max(historyWindow.activeExpenseMonths, historyWindow.activeFinancialMonths, 1);
+  const leak = buildLeakAnalysis(expensesToUse, records, horizon, auditWarnings);
+  const unplannedDenominator = Math.max(historyWindow.activeExpenseMonths, 1);
+
+  if (horizon > historyWindow.activeFinancialMonths && historyWindow.activeFinancialMonths > 0 && !auditWarnings.includes(SPARSE_HORIZON_WARNING)) {
+    auditWarnings.push(SPARSE_HORIZON_WARNING);
+  }
+
   const money = currentMoney(snapshot);
   const walletRecordsTotal = sum(records.wallets, getWalletBalance);
   const currentWalletTotalAvailable = records.wallets.length > 0 || hasValue(money.totalWalletBalance);
@@ -296,34 +594,31 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
   const totalSavingsTarget = sum(records.savingsGoals, getGoalTarget);
   const totalDebtBalance = sum(records.debtObligations, getDebtBalance);
   const monthlyDebtPayment = sum(records.debtObligations, getDebtMonthlyPayment);
-  const observedMonthlyIncome = totalIncome / horizon;
-  const fallbackMonthlyIncome = incomeSourceFallback > 0 && !totalIncome ? incomeSourceFallback : 0;
-  const averageMonthlyIncome = observedMonthlyIncome || fallbackMonthlyIncome;
-  const averageMonthlyExpenses = totalExpenses / horizon;
-  const averageMonthlyUnplanned = totalUnplanned / horizon;
-  const averageMonthlyTransfers = transfersOut / horizon;
+  const averageMonthlyIncome = totalIncome / incomeDenominator;
+  const averageMonthlyExpenses = totalExpenses / expenseDenominator;
+  const averageMonthlyUnplanned = leak.totalUnplanned / unplannedDenominator;
   const netMonthlyCashFlow = averageMonthlyIncome - averageMonthlyExpenses - monthlyDebtPayment;
 
-  const allCategoryTotals = categoryTotals(expensesToUse, horizon);
-  const riskyCategoryTotals = categoryTotals(unplannedExpenses, horizon);
-  const biggestLeak = topCategory(allCategoryTotals, horizon);
-  const biggestRiskyCategory = topCategory(riskyCategoryTotals, horizon) || biggestLeak;
+  if (monthlyDebtPayment > 0 && expensesToUse.some((expense) => cleanLower(`${categoryOf(expense)} ${expense.title || ""} ${expense.name || ""} ${expense.note || ""}`).match(/debt|loan|payment|utang|installment/)) && !auditWarnings.includes(DEBT_PAYMENT_EXPENSE_WARNING)) {
+    auditWarnings.push(DEBT_PAYMENT_EXPENSE_WARNING);
+  }
 
-  const incomeMonthCount = new Set(incomesToUse.map(getRecordDate).map(monthKey).filter(Boolean)).size;
-  const expenseMonthCount = new Set(expensesToUse.map(getRecordDate).map(monthKey).filter(Boolean)).size;
-  const emergencyMonthlyProgress = Math.max(0, currentEmergency > 0 ? Math.min(netMonthlyCashFlow * 0.2, currentEmergency / Math.max(horizon, 1)) : 0);
-  const savingsMonthlyProgress = Math.max(0, totalSavingsSaved > 0 ? Math.min(netMonthlyCashFlow * 0.25, totalSavingsSaved / Math.max(horizon, 1)) : 0);
+  const emergencyMonthlyProgress = Math.max(0, currentEmergency > 0 ? Math.min(netMonthlyCashFlow * 0.2, currentEmergency / denominatorUsed) : 0);
+  const savingsMonthlyProgress = Math.max(0, totalSavingsSaved > 0 ? Math.min(netMonthlyCashFlow * 0.25, totalSavingsSaved / denominatorUsed) : 0);
 
   return {
     horizon,
     incomeRecordsUsed: incomesToUse.length,
     expenseRecordsUsed: expensesToUse.length,
-    transactionRecordsUsed: transactionIncomeWindow.length + transactionExpenseWindow.length,
+    transactionRecordsUsed: transactionIncomeWindow.length + expensesToUse.filter((record) => record.__source === "wallet_transaction").length,
     budgetRecordsUsed: records.budgets.length,
     savingsGoalRecordsUsed: records.savingsGoals.length,
     debtRecordsUsed: records.debtObligations.length,
-    incomeMonthCount,
-    expenseMonthCount,
+    activeFinancialMonthsInWindow: historyWindow.activeFinancialMonths,
+    activeIncomeMonthsInWindow: historyWindow.activeIncomeMonths,
+    activeExpenseMonthsInWindow: historyWindow.activeExpenseMonths,
+    activeTransactionMonthsInWindow: historyWindow.activeTransactionMonths,
+    denominatorUsed,
     currentWalletTotal,
     currentWalletTotalAvailable,
     currentMoneyLeft,
@@ -334,20 +629,55 @@ function monthlyAverages(snapshot = {}, horizonMonths = 1) {
     totalSavingsTarget,
     totalDebtBalance,
     monthlyDebtPayment,
+    totalIncomeInWindow: totalIncomeEvents,
+    explicitRecurringIncome,
+    totalExpensesInWindow: totalExpenses,
+    totalUnplannedInWindow: leak.totalUnplanned,
+    totalOverBudgetInWindow: leak.totalOverBudget,
     averageMonthlyIncome,
     averageMonthlyExpenses,
     averageMonthlyUnplanned,
-    averageMonthlyTransfers,
     netMonthlyCashFlow,
     projectedIncome: averageMonthlyIncome * horizon,
     projectedExpenses: averageMonthlyExpenses * horizon,
-    projectedUnplannedLeak: averageMonthlyUnplanned * horizon,
-    biggestLeak,
-    biggestRiskyCategory,
-    unplannedCount: unplannedExpenses.length,
+    projectedUnplannedLeak: leak.badLeakCost,
+    biggestLeak: leak.biggestOverallCategory,
+    biggestRiskyCategory: leak.biggestRiskyCategory,
+    biggestOverallCategory: leak.biggestOverallCategory,
+    unplannedCount: leak.unplannedCount,
     emergencyMonthlyProgress,
     savingsMonthlyProgress,
+    leakEvidenceType: leak.leakEvidenceType,
+    leakIsActualOrInferred: leak.leakIsActualOrInferred,
+    badLeakCost: leak.badLeakCost,
   };
+}
+
+function allocateRecoveredLeak(recoveredLeakPotential, options = {}) {
+  const total = Math.max(0, toNumber(recoveredLeakPotential));
+  const projectedDebtBalance = Math.max(0, toNumber(options.projectedDebtBalance));
+  const hasDebt = Boolean(options.hasDebt && projectedDebtBalance > 0);
+
+  if (!total) {
+    return { moneyLeft: 0, emergency: 0, savings: 0, debt: 0, totalAllocated: 0, allocationIntegrityPass: true };
+  }
+
+  if (!hasDebt) {
+    const moneyLeft = total * 0.2;
+    const emergency = total * 0.35;
+    const savings = total - moneyLeft - emergency;
+    const totalAllocated = moneyLeft + emergency + savings;
+    return { moneyLeft, emergency, savings, debt: 0, totalAllocated, allocationIntegrityPass: totalAllocated <= total + 0.0001 };
+  }
+
+  const moneyLeft = total * 0.2;
+  const plannedDebt = total * 0.4;
+  const debt = Math.min(plannedDebt, projectedDebtBalance);
+  const unusedDebtAllocation = Math.max(0, plannedDebt - debt);
+  const emergency = total * 0.2 + unusedDebtAllocation * 0.5;
+  const savings = total * 0.2 + unusedDebtAllocation * 0.5;
+  const totalAllocated = moneyLeft + emergency + savings + debt;
+  return { moneyLeft, emergency, savings, debt, totalAllocated, allocationIntegrityPass: totalAllocated <= total + 0.0001 };
 }
 
 function directionFromProjection(projectedMoneyLeft, netCashFlow, projectedNetPosition) {
@@ -357,10 +687,10 @@ function directionFromProjection(projectedMoneyLeft, netCashFlow, projectedNetPo
   return "At risk";
 }
 
-function buildProjection(snapshot = {}, horizonMonths = 1) {
-  const avg = monthlyAverages(snapshot, horizonMonths);
+function buildProjection(snapshot = {}, horizonMonths = 1, auditWarnings = []) {
+  const avg = monthlyAverages(snapshot, horizonMonths, auditWarnings);
   const horizon = avg.horizon;
-  const badLeakCost = avg.projectedUnplannedLeak;
+  const badLeakCost = avg.badLeakCost;
   const goodEmergencyGrowth = avg.emergencyMonthlyProgress * horizon;
   const goodSavingsGrowth = avg.savingsMonthlyProgress * horizon;
   const debtReduction = Math.min(avg.totalDebtBalance, avg.monthlyDebtPayment * horizon);
@@ -374,27 +704,36 @@ function buildProjection(snapshot = {}, horizonMonths = 1) {
   const projectedMoneyLeftIfGood = projectedMoneyLeftIfSame;
   const projectedWalletIfGood = projectedWalletIfSame;
   const recoveredLeakPotential = Math.max(0, badLeakCost);
-  const projectedMoneyLeftIfImproved = projectedMoneyLeftIfGood + recoveredLeakPotential;
-  const projectedWalletIfImproved = projectedWalletIfGood + recoveredLeakPotential;
-  const projectedEmergencyIfImproved = projectedEmergencyIfGood + Math.max(0, recoveredLeakPotential * 0.35);
-  const projectedSavingsIfImproved = projectedSavingsIfGood + Math.max(0, recoveredLeakPotential * 0.45);
+  const allocation = allocateRecoveredLeak(recoveredLeakPotential, {
+    projectedDebtBalance,
+    hasDebt: avg.totalDebtBalance > 0,
+  });
+  const projectedMoneyLeftIfImproved = projectedMoneyLeftIfGood + allocation.moneyLeft;
+  const projectedWalletIfImproved = projectedWalletIfGood + allocation.moneyLeft;
+  const projectedEmergencyIfImproved = projectedEmergencyIfGood + allocation.emergency;
+  const projectedSavingsIfImproved = projectedSavingsIfGood + allocation.savings;
+  const projectedDebtBalanceIfImproved = Math.max(0, projectedDebtBalance - allocation.debt);
   const projectedTotalAvailable = projectedMoneyLeftIfImproved + projectedEmergencyIfImproved + projectedSavingsIfImproved;
   const projectedNetPositionSame = projectedMoneyLeftIfSame + projectedEmergencyIfSame + projectedSavingsIfSame - avg.totalDebtBalance;
   const projectedNetPositionGood = projectedMoneyLeftIfGood + projectedEmergencyIfGood + projectedSavingsIfGood - projectedDebtBalance;
-  const projectedNetPositionImproved = projectedTotalAvailable - projectedDebtBalance;
+  const projectedNetPositionImproved = projectedTotalAvailable - projectedDebtBalanceIfImproved;
   const currentDirection = directionFromProjection(avg.currentMoneyLeft, avg.netMonthlyCashFlow, avg.currentMoneyLeft + avg.currentEmergency + avg.totalSavingsSaved - avg.totalDebtBalance);
   const badDirection = directionFromProjection(projectedMoneyLeftIfSame, avg.netMonthlyCashFlow, projectedNetPositionSame);
   const goodDirection = directionFromProjection(projectedMoneyLeftIfGood, avg.netMonthlyCashFlow, projectedNetPositionGood);
   const betterDirection = directionFromProjection(projectedMoneyLeftIfImproved, avg.netMonthlyCashFlow + avg.averageMonthlyUnplanned, projectedNetPositionImproved);
 
+  if (!auditWarnings.includes(GOOD_HABIT_ESTIMATE_WARNING)) auditWarnings.push(GOOD_HABIT_ESTIMATE_WARNING);
+
   return {
     ...avg,
     badLeakCost,
     recoveredLeakPotential,
+    betterFutureAllocation: allocation,
     goodEmergencyGrowth,
     goodSavingsGrowth,
     debtReduction,
     projectedDebtBalance,
+    projectedDebtBalanceIfImproved,
     projectedWalletIfSame,
     projectedMoneyLeftIfSame,
     projectedEmergencyIfSame,
@@ -419,11 +758,186 @@ function buildProjection(snapshot = {}, horizonMonths = 1) {
   };
 }
 
+function createEmptyForecastAudit(horizonMonths = 1, history = {}) {
+  const horizon = normalizeHorizonMonths(horizonMonths);
+  return {
+    version: "forecast-audit-v1",
+    horizon: {
+      selectedHorizonMonths: horizon,
+      maxHorizonMonths: MAX_HORIZON_MONTHS,
+      dateSpanMonths: history.dateSpanMonths || 0,
+      activeFinancialMonths: history.activeFinancialMonths || 0,
+      activeIncomeMonths: history.activeIncomeMonths || 0,
+      activeExpenseMonths: history.activeExpenseMonths || 0,
+      activeTransactionMonths: history.activeTransactionMonths || 0,
+      availableHistoryMonthsUsed: history.availableHistoryMonths || 0,
+      sparseHistoryWarning: history.sparseHistoryWarning || "",
+    },
+    rawTotals: {
+      currentMoneyLeft: 0,
+      totalWalletBalance: 0,
+      totalIncomeInWindow: 0,
+      totalExpensesInWindow: 0,
+      totalUnplannedInWindow: 0,
+      totalOverBudgetInWindow: 0,
+      totalDebtBalance: 0,
+      monthlyDebtPayment: 0,
+      currentEmergency: 0,
+      totalSavingsSaved: 0,
+      totalSavingsTarget: 0,
+    },
+    monthlyAverages: {
+      denominatorUsed: 1,
+      averageMonthlyIncome: 0,
+      averageMonthlyExpenses: 0,
+      averageMonthlyUnplanned: 0,
+      netMonthlyCashFlow: 0,
+    },
+    leakAnalysis: {
+      leakEvidenceType: "none",
+      biggestRiskyCategory: null,
+      biggestOverallCategory: null,
+      badLeakCost: 0,
+      leakIsActualOrInferred: "none",
+    },
+    betterFutureAllocation: {
+      recoveredLeakPotential: 0,
+      moneyLeftAllocation: 0,
+      emergencyAllocation: 0,
+      savingsAllocation: 0,
+      debtAllocation: 0,
+      totalAllocated: 0,
+      allocationIntegrityPass: true,
+    },
+    formulas: {
+      projectedMoneyLeftIfSame: 0,
+      projectedMoneyLeftIfGood: 0,
+      projectedMoneyLeftIfImproved: 0,
+      projectedEmergencyIfImproved: 0,
+      projectedSavingsIfImproved: 0,
+      projectedDebtBalance: 0,
+      projectedDebtBalanceIfImproved: 0,
+      projectedTotalAvailable: 0,
+      betterFutureLift: 0,
+    },
+    slideTrace: {
+      slide1: [],
+      slide2: [],
+      slide3: [],
+      slide4: [],
+      slide5: [],
+      slide6: [],
+      slide7: [],
+      slide8: [],
+      slide9: [],
+      slide10: [],
+    },
+    warnings: [],
+  };
+}
+
+function traceTypeForLabel(label = "") {
+  const normalized = String(label).toLowerCase();
+  if (normalized.includes("estimated")) return "ESTIMATED";
+  if (normalized.includes("forecast") || normalized.includes("projected") || normalized.includes("direction") || normalized.includes("value") || normalized.includes("risk")) return "CALCULATED";
+  if (normalized.includes("likely") || normalized.includes("recommended")) return "INFERRED";
+  if (normalized.includes("not enough")) return "FALLBACK";
+  return "ACTUAL";
+}
+
+function traceRows(card = {}, slideNumber = 1) {
+  const rows = [];
+  if (card.hero) {
+    rows.push({
+      label: "Hero",
+      value: card.hero,
+      type: traceTypeForLabel(card.hero),
+      formula: "Report builder card hero",
+      source: `slide${slideNumber}`,
+      riskLevel: card.tone || "neutral",
+    });
+  }
+  toArray(card.stats).forEach((item) => {
+    rows.push({
+      label: item.label,
+      value: item.value,
+      type: traceTypeForLabel(item.label),
+      formula: "Report builder normalized local-data calculation",
+      source: `slide${slideNumber}`,
+      riskLevel: card.tone || "neutral",
+    });
+  });
+  return rows;
+}
+
+function buildForecastAudit(snapshot = {}, projection = {}, horizonMonths = 1, warnings = [], cards = []) {
+  const history = getClaraForecastHorizonSummary(snapshot);
+  const audit = createEmptyForecastAudit(horizonMonths, history);
+  const allocation = projection.betterFutureAllocation || {};
+  const betterFutureLift = projection.projectedNetPositionImproved - projection.projectedNetPositionSame;
+
+  audit.rawTotals = {
+    currentMoneyLeft: projection.currentMoneyLeft || 0,
+    totalWalletBalance: projection.currentWalletTotal || 0,
+    totalIncomeInWindow: projection.totalIncomeInWindow || 0,
+    totalExpensesInWindow: projection.totalExpensesInWindow || 0,
+    totalUnplannedInWindow: projection.totalUnplannedInWindow || 0,
+    totalOverBudgetInWindow: projection.totalOverBudgetInWindow || 0,
+    totalDebtBalance: projection.totalDebtBalance || 0,
+    monthlyDebtPayment: projection.monthlyDebtPayment || 0,
+    currentEmergency: projection.currentEmergency || 0,
+    totalSavingsSaved: projection.totalSavingsSaved || 0,
+    totalSavingsTarget: projection.totalSavingsTarget || 0,
+  };
+  audit.monthlyAverages = {
+    denominatorUsed: projection.denominatorUsed || 1,
+    averageMonthlyIncome: projection.averageMonthlyIncome || 0,
+    averageMonthlyExpenses: projection.averageMonthlyExpenses || 0,
+    averageMonthlyUnplanned: projection.averageMonthlyUnplanned || 0,
+    netMonthlyCashFlow: projection.netMonthlyCashFlow || 0,
+  };
+  audit.leakAnalysis = {
+    leakEvidenceType: projection.leakEvidenceType || "none",
+    biggestRiskyCategory: projection.biggestRiskyCategory?.category || null,
+    biggestOverallCategory: projection.biggestOverallCategory?.category || null,
+    badLeakCost: projection.badLeakCost || 0,
+    leakIsActualOrInferred: projection.leakIsActualOrInferred || "none",
+  };
+  audit.betterFutureAllocation = {
+    recoveredLeakPotential: projection.recoveredLeakPotential || 0,
+    moneyLeftAllocation: allocation.moneyLeft || 0,
+    emergencyAllocation: allocation.emergency || 0,
+    savingsAllocation: allocation.savings || 0,
+    debtAllocation: allocation.debt || 0,
+    totalAllocated: allocation.totalAllocated || 0,
+    allocationIntegrityPass: allocation.allocationIntegrityPass !== false,
+  };
+  audit.formulas = {
+    projectedMoneyLeftIfSame: projection.projectedMoneyLeftIfSame || 0,
+    projectedMoneyLeftIfGood: projection.projectedMoneyLeftIfGood || 0,
+    projectedMoneyLeftIfImproved: projection.projectedMoneyLeftIfImproved || 0,
+    projectedEmergencyIfImproved: projection.projectedEmergencyIfImproved || 0,
+    projectedSavingsIfImproved: projection.projectedSavingsIfImproved || 0,
+    projectedDebtBalance: projection.projectedDebtBalance || 0,
+    projectedDebtBalanceIfImproved: projection.projectedDebtBalanceIfImproved || 0,
+    projectedTotalAvailable: projection.projectedTotalAvailable || 0,
+    betterFutureLift: Number.isFinite(betterFutureLift) ? betterFutureLift : 0,
+  };
+  audit.warnings = [...new Set([...(history.sparseHistoryWarning ? [history.sparseHistoryWarning] : []), ...warnings])];
+  cards.forEach((card, index) => {
+    audit.slideTrace[`slide${index + 1}`] = traceRows(card, index + 1);
+  });
+  return audit;
+}
+
 function readinessReport(snapshot = {}, horizonMonths = 1, reason = "") {
   const completeness = normalizeCompleteness(snapshot.dataCompleteness);
   const missingData = normalizeMissingData(snapshot);
   const horizonSummary = getClaraForecastHorizonSummary(snapshot);
-  return {
+  const audit = createEmptyForecastAudit(horizonMonths, horizonSummary);
+  audit.warnings = [reason || "Forecast blocked because usable active financial history is not enough for the selected horizon."].filter(Boolean);
+
+  const report = {
     title: "FUTURE MONEY FORECAST",
     subtitle: "Readiness check",
     type: "readiness",
@@ -436,7 +950,8 @@ function readinessReport(snapshot = {}, horizonMonths = 1, reason = "") {
         body: reason || "CLARA needs more financial behavior before this forecast becomes reliable.",
         stats: [
           stat("Requested forecast", monthLabel(horizonMonths)),
-          stat("Usable history", `${horizonSummary.availableHistoryMonths} month${horizonSummary.availableHistoryMonths === 1 ? "" : "s"}`),
+          stat("Usable active history", `${horizonSummary.availableHistoryMonths} month${horizonSummary.availableHistoryMonths === 1 ? "" : "s"}`),
+          stat("Date span observed", `${horizonSummary.dateSpanMonths} month${horizonSummary.dateSpanMonths === 1 ? "" : "s"}`),
           stat("Data completeness", labelCompleteness(completeness)),
           stat("Gemini", "Not used"),
         ],
@@ -447,9 +962,9 @@ function readinessReport(snapshot = {}, horizonMonths = 1, reason = "") {
         tone: "neutral",
         body: "Keep recording wallets, income, expenses, emergency fund, savings, debts, and budget behavior so CLARA can build a stronger local forecast.",
         stats: [
-          stat("Minimum useful history", "1 month"),
+          stat("Minimum useful history", "1 active financial month"),
           stat("Maximum forecast", "12 months"),
-          stat("Rule", "Forecast cannot exceed history"),
+          stat("Rule", "Forecast cannot exceed active usable history"),
         ],
         final: true,
         ctaLabel: "I got it now",
@@ -457,15 +972,14 @@ function readinessReport(snapshot = {}, horizonMonths = 1, reason = "") {
       },
     ],
   };
-}
-
-function signalWhen(condition, success, fallback = NO_MAJOR_SIGNAL) {
-  return condition ? success : fallback;
+  audit.slideTrace.slide1 = traceRows(report.cards[0], 1);
+  audit.slideTrace.slide2 = traceRows(report.cards[1], 2);
+  return { ...report, audit };
 }
 
 function dataBasisSummary(projection = {}, availableHistoryMonths = 0) {
   const parts = [
-    `${availableHistoryMonths} usable month${availableHistoryMonths === 1 ? "" : "s"}`,
+    `${availableHistoryMonths} active usable month${availableHistoryMonths === 1 ? "" : "s"}`,
     `${count(projection.incomeRecordsUsed)} income`,
     `${count(projection.expenseRecordsUsed)} expense`,
   ];
@@ -474,15 +988,11 @@ function dataBasisSummary(projection = {}, availableHistoryMonths = 0) {
 }
 
 function currentPositionMoneyLeftSummary(projection = {}) {
-  return projection.currentMoneyLeftAvailable
-    ? amount(projection.currentMoneyLeft, CURRENT_POSITION_NOT_ENOUGH_DATA)
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return projection.currentMoneyLeftAvailable ? amount(projection.currentMoneyLeft, CURRENT_POSITION_NOT_ENOUGH_DATA) : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function totalWalletBalanceSummary(projection = {}) {
-  return projection.currentWalletTotalAvailable
-    ? amount(projection.currentWalletTotal, CURRENT_POSITION_NOT_ENOUGH_DATA)
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return projection.currentWalletTotalAvailable ? amount(projection.currentWalletTotal, CURRENT_POSITION_NOT_ENOUGH_DATA) : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function savingsSummary(projection = {}) {
@@ -498,33 +1008,28 @@ function emergencySummary(projection = {}) {
 }
 
 function debtPositionSummary(projection = {}) {
-  return projection.debtRecordsUsed
-    ? `${amount(projection.totalDebtBalance, "₱0")} remaining`
-    : "No debt records found";
+  return projection.debtRecordsUsed ? `${amount(projection.totalDebtBalance, "₱0")} remaining` : NO_DEBT_RECORDS;
 }
 
 function netFinancialPositionSummary(projection = {}) {
   if (!projection.currentMoneyLeftAvailable) return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  const netFinancialPosition = projection.currentMoneyLeft + projection.currentEmergency + projection.totalSavingsSaved - projection.totalDebtBalance;
-  return amount(netFinancialPosition, CURRENT_POSITION_NOT_ENOUGH_DATA);
+  return amount(projection.currentMoneyLeft + projection.currentEmergency + projection.totalSavingsSaved - projection.totalDebtBalance, CURRENT_POSITION_NOT_ENOUGH_DATA);
 }
 
 function currentPositionDirectionSummary(projection = {}) {
   if (!projection.currentMoneyLeftAvailable) return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  const netFinancialPosition = projection.currentMoneyLeft + projection.currentEmergency + projection.totalSavingsSaved - projection.totalDebtBalance;
-  if (projection.netMonthlyCashFlow > 0 && netFinancialPosition >= 0) return "Improving";
+  if (projection.netMonthlyCashFlow > 0 && projection.currentMoneyLeft + projection.currentEmergency + projection.totalSavingsSaved >= projection.totalDebtBalance) return "Improving";
   if (projection.netMonthlyCashFlow >= 0) return "Stable";
   if (projection.monthlyDebtPayment > 0 || projection.currentEmergency > 0 || projection.totalSavingsSaved > 0) return "Recovering";
   return "Declining";
 }
 
-function categorySignal(categoryRecord, prefix = "Likely leak") {
-  if (!categoryRecord?.category) return NOT_ENOUGH_DATA;
-  return `${prefix}: ${categoryRecord.category}`;
-}
-
 function hasRiskDiagnosisData(projection = {}) {
   return count(projection.expenseRecordsUsed) > 0;
+}
+
+function hasRiskEvidence(projection = {}) {
+  return projection.leakEvidenceType && projection.leakEvidenceType !== "none" && projection.badLeakCost > 0;
 }
 
 function unplannedRatio(projection = {}) {
@@ -536,9 +1041,9 @@ function unplannedRatio(projection = {}) {
 function impulseSpendingSummary(projection = {}) {
   if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
   const ratio = unplannedRatio(projection);
-  if (ratio === 0) return "Low signal";
-  if (ratio <= 0.25) return "Low signal";
-  if (ratio <= 0.5) return "Moderate signal";
+  if (!hasRiskEvidence(projection)) return "Low signal";
+  if (ratio <= 0.25 && projection.leakEvidenceType !== "budget") return "Low signal";
+  if (ratio <= 0.5 || projection.leakEvidenceType === "budget") return "Moderate signal";
   return "High signal";
 }
 
@@ -549,90 +1054,71 @@ function unplannedPurchasesSummary(projection = {}) {
 }
 
 function biggestOverspendingCategorySummary(projection = {}) {
-  if (!hasRiskDiagnosisData(projection) || count(projection.unplannedCount) <= 0) return "No major category detected";
+  if (!hasRiskEvidence(projection)) return "No major category detected";
   return projection.biggestRiskyCategory?.category || "No major category detected";
 }
 
 function estimatedMonthlyLeakSummary(projection = {}) {
-  if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  return `${amount(projection.averageMonthlyUnplanned, "₱0")}/month`;
-}
-
-function hasLeakCostData(projection = {}) {
-  return hasRiskDiagnosisData(projection) && projection.badLeakCost > 0;
+  if (!hasRiskEvidence(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return `${amount(projection.badLeakCost / Math.max(projection.activeExpenseMonthsInWindow, 1), "₱0")}/month`;
 }
 
 function monthlyLeakCostSummary(projection = {}) {
-  return hasLeakCostData(projection)
-    ? `${amount(projection.averageMonthlyUnplanned, "₱0")}/month`
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return hasRiskEvidence(projection) ? `${amount(projection.badLeakCost / Math.max(projection.activeExpenseMonthsInWindow, 1), "₱0")}/month` : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function forecastedLeakCostSummary(projection = {}) {
-  return hasLeakCostData(projection)
-    ? amount(projection.badLeakCost, CURRENT_POSITION_NOT_ENOUGH_DATA)
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return hasRiskEvidence(projection) ? amount(projection.badLeakCost, CURRENT_POSITION_NOT_ENOUGH_DATA) : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function goalDelayAmount(projection = {}) {
   const remainingGoalGap = Math.max(0, projection.totalSavingsTarget - projection.totalSavingsSaved);
-  if (!hasLeakCostData(projection) || remainingGoalGap <= 0) return 0;
+  if (!hasRiskEvidence(projection) || remainingGoalGap <= 0) return 0;
   return Math.min(projection.badLeakCost, remainingGoalGap);
 }
 
 function moneyDivertedFromGoalsSummary(projection = {}) {
   const delayedAmount = goalDelayAmount(projection);
-  return delayedAmount > 0
-    ? `Up to ${amount(delayedAmount, "₱0")}`
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return delayedAmount > 0 ? `Up to ${amount(delayedAmount, "₱0")}` : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function emergencyFundOpportunitySummary(projection = {}) {
-  return hasLeakCostData(projection)
-    ? amount(Math.max(0, projection.badLeakCost * 0.35), "₱0")
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return hasRiskEvidence(projection) ? amount(projection.betterFutureAllocation?.emergency || 0, "₱0") : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function savingsProgressDelayedSummary(projection = {}) {
   const delayedAmount = goalDelayAmount(projection);
-  return delayedAmount > 0
-    ? `${amount(delayedAmount, "₱0")} delayed`
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return delayedAmount > 0 ? `${amount(delayedAmount, "₱0")} delayed` : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function debtReductionMissedSummary(projection = {}) {
   if (!projection.debtRecordsUsed || projection.totalDebtBalance <= 0) return NO_DEBT_RECORDS;
-  return hasLeakCostData(projection)
-    ? `${amount(Math.min(projection.badLeakCost, projection.totalDebtBalance), "₱0")} missed payoff`
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return hasRiskEvidence(projection) ? `${amount(projection.betterFutureAllocation?.debt || 0, "₱0")} missed payoff` : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function biggestCostDriverSummary(projection = {}) {
-  if (!hasLeakCostData(projection)) return NO_COST_DRIVER;
-  return projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || NO_COST_DRIVER;
+  if (!hasRiskEvidence(projection)) return NO_COST_DRIVER;
+  return projection.biggestRiskyCategory?.category || NO_COST_DRIVER;
 }
 
 function costOfRiskyHabitsBodySummary(projection = {}) {
-  return hasLeakCostData(projection)
+  return hasRiskEvidence(projection)
     ? "This shows what your current leak may cost over the selected horizon if the same pattern continues."
-    : "CLARA needs more spending records before it can estimate the cost of risky habits with confidence.";
+    : "No major risk evidence was found, so CLARA does not label the biggest spending category as a leak.";
 }
 
 function financialRiskLevelSummary(projection = {}) {
   if (!hasRiskDiagnosisData(projection)) return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  const ratio = unplannedRatio(projection);
-  const leakShare = projection.averageMonthlyExpenses > 0
-    ? projection.averageMonthlyUnplanned / projection.averageMonthlyExpenses
-    : 0;
-
-  if (projection.badDirection === "At risk" || ratio > 0.5 || leakShare >= 0.3) return "High";
-  if (projection.badDirection === "Under pressure" || count(projection.unplannedCount) > 0) return "Moderate";
-  return "Low";
+  if (!hasRiskEvidence(projection)) return "Low";
+  const leakShare = projection.averageMonthlyExpenses > 0 ? projection.averageMonthlyUnplanned / projection.averageMonthlyExpenses : 0;
+  if (projection.badDirection === "At risk" || leakShare >= 0.3) return "High";
+  return "Moderate";
 }
 
 function primaryRiskPatternSummary(projection = {}) {
-  if (!hasRiskDiagnosisData(projection) || count(projection.unplannedCount) <= 0) return "No major pattern detected";
+  if (!hasRiskEvidence(projection)) return "No major pattern detected";
   const category = projection.biggestRiskyCategory?.category;
+  if (projection.leakEvidenceType === "budget" && category) return `${category} budget overspending`;
   if (category && count(projection.unplannedCount) >= 3) return `Frequent ${category.toLowerCase()} spending`;
   if (count(projection.unplannedCount) >= 2) return "Repeated unplanned purchases";
   if (category) return `${category} spending risk`;
@@ -641,57 +1127,48 @@ function primaryRiskPatternSummary(projection = {}) {
 
 function budgetAlignmentSummary(projection = {}) {
   if (!hasRiskDiagnosisData(projection) || count(projection.budgetRecordsUsed) <= 0) return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  const ratio = unplannedRatio(projection);
-  if (ratio === 0) return "Mostly planned";
-  if (ratio <= 0.5 && projection.badDirection !== "At risk") return "Partially planned";
-  if (projection.badDirection === "At risk" || projection.badDirection === "Under pressure") return "Budget drift detected";
-  return "Frequently outside budget";
+  if (projection.leakEvidenceType === "budget") return "Budget overspending detected";
+  if (!hasRiskEvidence(projection)) return "Mostly planned";
+  return "Budget drift detected";
 }
 
 function riskyHabitsHeroSummary(projection = {}) {
-  if (!hasRiskDiagnosisData(projection)) return "No major risk detected";
-  const hasDetectedRisk = count(projection.unplannedCount) > 0 || projection.averageMonthlyUnplanned > 0;
+  if (!hasRiskDiagnosisData(projection) || !hasRiskEvidence(projection)) return "No major risk detected";
   const category = projection.biggestRiskyCategory?.category;
-  if (hasDetectedRisk && category) return `${category} Leak`;
-  if (count(projection.unplannedCount) > 0) return `${count(projection.unplannedCount)} Risk Signals`;
-  if (projection.averageMonthlyUnplanned > 0) return `${amount(projection.averageMonthlyUnplanned)} Leak`;
-  return "No major risk detected";
+  if (category) return `${category} Leak`;
+  return `${amount(projection.badLeakCost)} Leak`;
 }
 
 function riskyHabitsBodySummary(projection = {}) {
   return hasRiskDiagnosisData(projection)
-    ? "These are observed spending patterns based on your available records. CLARA identifies behaviors that may slow financial progress, not personal mistakes."
+    ? "These are observed spending patterns based on your available records. CLARA identifies behaviors with risk evidence, not simply the largest category."
     : "CLARA needs more spending and budget records before it can identify risky habits with confidence.";
 }
 
 function unchangedPathHeroSummary(projection = {}) {
-  if (hasLeakCostData(projection)) return `${amount(projection.badLeakCost, "₱0")} Unfixed`;
+  if (hasRiskEvidence(projection)) return `${amount(projection.badLeakCost, "₱0")} Unfixed`;
   if (hasRiskDiagnosisData(projection)) return "No major leak detected";
   return CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function leakCostCarriedForwardSummary(projection = {}) {
-  return hasLeakCostData(projection)
-    ? amount(projection.badLeakCost, "₱0")
-    : "No major leak detected";
+  return hasRiskEvidence(projection) ? amount(projection.badLeakCost, "₱0") : "No major leak detected";
 }
 
 function moneyNotRedirectedSummary(projection = {}) {
-  return hasLeakCostData(projection)
-    ? amount(projection.badLeakCost, "₱0")
-    : "No major leak detected";
+  return hasRiskEvidence(projection) ? amount(projection.badLeakCost, "₱0") : "No major leak detected";
 }
 
 function unchangedPathDirectionSummary(projection = {}) {
   if (!projection.currentMoneyLeftAvailable) return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  if (hasLeakCostData(projection) && projection.badDirection === "Improving") return "Improving, but leaking";
-  if (hasLeakCostData(projection) && projection.badDirection === "Stable") return "Stable, but leaking";
+  if (hasRiskEvidence(projection) && projection.badDirection === "Improving") return "Improving, but leaking";
+  if (hasRiskEvidence(projection) && projection.badDirection === "Stable") return "Stable, but leaking";
   return projection.badDirection || CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
 function unchangedPathBodySummary(projection = {}) {
   return hasRiskDiagnosisData(projection)
-    ? "This is the unchanged path: your money may still move forward, but the same leak continues to reduce what could have gone to savings, emergency fund, or debt."
+    ? "This is the unchanged path: your money may still move forward, but any verified leak continues to reduce what could have gone to savings, emergency fund, or debt."
     : "CLARA needs more records before it can project what happens if current habits continue.";
 }
 
@@ -701,9 +1178,7 @@ function recordCountSummary(total = 0, noun = "record") {
 }
 
 function positiveFinancialDirectionSummary(projection = {}) {
-  if (!projection.currentMoneyLeftAvailable && !projection.incomeRecordsUsed && !projection.expenseRecordsUsed) {
-    return CURRENT_POSITION_NOT_ENOUGH_DATA;
-  }
+  if (!projection.currentMoneyLeftAvailable && !projection.incomeRecordsUsed && !projection.expenseRecordsUsed) return CURRENT_POSITION_NOT_ENOUGH_DATA;
   if (projection.netMonthlyCashFlow > 0) return "Improving";
   if (projection.netMonthlyCashFlow >= 0) return "Stable or improving";
   if (currentPositionDirectionSummary(projection) === "Recovering") return "Recovering";
@@ -730,7 +1205,6 @@ function slideSixGoodHabitSignals(projection = {}) {
         ? "Some spending is being tracked"
         : CURRENT_POSITION_NOT_ENOUGH_DATA;
   const positiveDirection = positiveFinancialDirectionSummary(projection);
-
   const positiveSignals = [
     hasStableIncome,
     hasSavingsDiscipline,
@@ -778,16 +1252,12 @@ function totalGoodHabitValue(projection = {}) {
 
 function savingsValueSummary(projection = {}) {
   const hasSavingsData = projection.savingsGoalRecordsUsed > 0 || projection.totalSavingsSaved > 0 || projection.totalSavingsTarget > 0 || projection.goodSavingsGrowth > 0;
-  return hasSavingsData
-    ? amount(projection.goodSavingsGrowth, "₱0")
-    : CURRENT_POSITION_NOT_ENOUGH_DATA;
+  return hasSavingsData ? amount(projection.goodSavingsGrowth, "₱0") : CURRENT_POSITION_NOT_ENOUGH_DATA;
 }
 
-function emergencyFundProtectionSummary(projection = {}) {
+function emergencyGrowthSummary(projection = {}) {
   const hasEmergencyData = projection.currentEmergency > 0 || projection.emergencyTarget > 0 || projection.goodEmergencyGrowth > 0;
-  return hasEmergencyData
-    ? amount(projection.goodEmergencyGrowth, "₱0")
-    : "No emergency fund created";
+  return hasEmergencyData ? amount(projection.goodEmergencyGrowth, "₱0") : "No emergency fund created";
 }
 
 function budgetControlValueSummary(projection = {}) {
@@ -813,7 +1283,6 @@ function strongestValueDriverSummary(projection = {}) {
     { label: "Emergency Fund", value: projection.goodEmergencyGrowth },
     { label: "Debt Reduction", value: projection.debtReduction },
   ].filter((driver) => driver.value > 0).sort((left, right) => right.value - left.value);
-
   if (drivers.length) return drivers[0].label;
   if (projection.budgetRecordsUsed > 0) return "Budget Tracking";
   return "No major value driver detected";
@@ -822,15 +1291,13 @@ function strongestValueDriverSummary(projection = {}) {
 function slideSevenBodySummary(projection = {}) {
   const hasValueEvidence = totalGoodHabitValue(projection) > 0 || projection.currentEmergency > 0 || projection.totalSavingsSaved > 0 || projection.budgetRecordsUsed > 0;
   return hasValueEvidence
-    ? "These values show what your good habits are already protecting, building, or improving."
+    ? "These estimates show what your good habits may continue protecting, building, or improving based on your local records."
     : "CLARA needs more local records before it can estimate the value of good habits with confidence.";
 }
 
 function nextBestAction(projection = {}) {
-  const category = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
-  if (category && projection.badLeakCost > 0) {
-    return `Reduce ${category} first, then redirect the saved amount to emergency fund, savings, or debt.`;
-  }
+  const category = projection.biggestRiskyCategory?.category || "";
+  if (category && hasRiskEvidence(projection)) return `Reduce ${category} first, then redirect the saved amount to emergency fund, savings, or debt.`;
   if (projection.budgetRecordsUsed <= 0) return "Create one simple budget limit for your highest spending category.";
   return "Keep recording your next 7 days so CLARA can sharpen the next forecast.";
 }
@@ -840,168 +1307,174 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
   const eligibility = canBuildClaraForecast(snapshot, horizon);
   if (!eligibility.allowed) return readinessReport(snapshot, horizon, eligibility.reason);
 
-  const projection = buildProjection(snapshot, horizon);
+  const auditWarnings = [];
+  const projection = buildProjection(snapshot, horizon, auditWarnings);
   const horizonText = monthLabel(horizon);
   const horizonSummary = getClaraForecastHorizonSummary(snapshot);
-  const leakCategory = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
+  const leakCategory = projection.biggestRiskyCategory?.category || "";
   const improvementLift = projection.projectedNetPositionImproved - projection.projectedNetPositionSame;
-  const hasLeak = projection.badLeakCost > 0;
+  const hasLeak = hasRiskEvidence(projection);
   const hasSavingsDiscipline = projection.totalSavingsSaved > 0 || projection.currentEmergency > 0;
   const slideSixSignals = slideSixGoodHabitSignals(projection);
+
+  const cards = [
+    {
+      eyebrow: "01 / FORECAST SETUP",
+      title: "Forecast Setup",
+      tone: "neutral",
+      hero: horizonText,
+      body: "CLARA used your local records only. No Gemini call is used for this report.",
+      stats: [
+        stat("Selected Forecast Horizon", horizonText),
+        stat("Historical Data Used", `${horizonSummary.availableHistoryMonths} active month${horizonSummary.availableHistoryMonths === 1 ? "" : "s"}`),
+        stat("Date Span Observed", `${horizonSummary.dateSpanMonths} month${horizonSummary.dateSpanMonths === 1 ? "" : "s"}`),
+        stat("Forecast Confidence", labelCompleteness(snapshot.dataCompleteness)),
+        stat("Data Basis Summary", dataBasisSummary(projection, horizonSummary.availableHistoryMonths)),
+      ],
+    },
+    {
+      eyebrow: "02 / CURRENT POSITION",
+      title: "Current Financial Position",
+      tone: "neutral",
+      hero: currentPositionMoneyLeftSummary(projection),
+      body: "This is your current financial starting point before CLARA projects what may happen over the selected timeframe.",
+      stats: [
+        stat("Current Money Left", currentPositionMoneyLeftSummary(projection)),
+        stat("Total Wallet Balance", totalWalletBalanceSummary(projection)),
+        stat("Emergency Fund Status", emergencySummary(projection)),
+        stat("Savings Goal Progress", savingsSummary(projection)),
+        stat("Debt Position", debtPositionSummary(projection)),
+        stat("Net Financial Position", netFinancialPositionSummary(projection)),
+        stat("Current Financial Direction", currentPositionDirectionSummary(projection)),
+      ],
+    },
+    {
+      eyebrow: "03 / REALITY CHECK",
+      title: "Risky Habits CLARA Found",
+      tone: "reality",
+      hero: riskyHabitsHeroSummary(projection),
+      body: riskyHabitsBodySummary(projection),
+      stats: [
+        stat("Impulse Spending", impulseSpendingSummary(projection)),
+        stat("Unplanned Purchases", unplannedPurchasesSummary(projection)),
+        stat("Biggest Overspending Category", biggestOverspendingCategorySummary(projection)),
+        stat("Estimated Monthly Leak", estimatedMonthlyLeakSummary(projection)),
+        stat("Financial Risk Level", financialRiskLevelSummary(projection)),
+        stat("Primary Risk Pattern", primaryRiskPatternSummary(projection)),
+        stat("Budget Alignment", budgetAlignmentSummary(projection)),
+      ],
+    },
+    {
+      eyebrow: "04 / REALITY CHECK",
+      title: "Cost of These Habits",
+      tone: "reality",
+      hero: forecastedLeakCostSummary(projection),
+      body: costOfRiskyHabitsBodySummary(projection),
+      stats: [
+        stat("Monthly Leak Cost", monthlyLeakCostSummary(projection)),
+        stat("Forecasted Leak Cost", forecastedLeakCostSummary(projection)),
+        stat("Money Diverted From Goals", moneyDivertedFromGoalsSummary(projection)),
+        stat("Emergency Fund Opportunity", emergencyFundOpportunitySummary(projection)),
+        stat("Savings Progress Delayed", savingsProgressDelayedSummary(projection)),
+        stat("Debt Reduction Missed", debtReductionMissedSummary(projection)),
+        stat("Biggest Cost Driver", biggestCostDriverSummary(projection)),
+      ],
+    },
+    {
+      eyebrow: "05 / BAD FUTURE PROJECTION",
+      title: "If Nothing Changes",
+      tone: "reality",
+      hero: unchangedPathHeroSummary(projection),
+      body: unchangedPathBodySummary(projection),
+      stats: [
+        stat("Projected Money Left", amount(projection.projectedMoneyLeftIfSame, NOT_ENOUGH_DATA)),
+        stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfSame, "₱0")),
+        stat("Projected Savings Progress", amount(projection.projectedSavingsIfSame, "₱0")),
+        stat("Projected Debt Position", projection.debtRecordsUsed ? amount(projection.projectedDebtBalance, "₱0") : NO_DEBT_RECORDS),
+        stat("Leak Cost Carried Forward", leakCostCarriedForwardSummary(projection)),
+        stat("Money Not Redirected", moneyNotRedirectedSummary(projection)),
+        stat("Financial Direction", unchangedPathDirectionSummary(projection)),
+      ],
+    },
+    {
+      eyebrow: "06 / HOPE CHECK",
+      title: "Good Habits CLARA Found",
+      tone: "hope",
+      hero: slideSixHeroSummary(slideSixSignals),
+      body: slideSixBodySummary(slideSixSignals),
+      stats: slideSixSignals.stats,
+    },
+    {
+      eyebrow: "07 / HOPE CHECK",
+      title: "Value of the Good Habits",
+      tone: "hope",
+      hero: totalGoodHabitValueSummary(projection),
+      body: slideSevenBodySummary(projection),
+      stats: [
+        stat("Estimated Savings Value", savingsValueSummary(projection)),
+        stat("Estimated Emergency Growth", emergencyGrowthSummary(projection)),
+        stat("Budget Control Value", budgetControlValueSummary(projection)),
+        stat("Debt Reduction Value", debtReductionValueSummary(projection)),
+        stat("Protected Money", protectedMoneySummary(projection)),
+        stat("Estimated Good-Habit Value", totalGoodHabitValueSummary(projection)),
+        stat("Strongest Value Driver", strongestValueDriverSummary(projection)),
+      ],
+    },
+    {
+      eyebrow: "08 / GOOD FUTURE PROJECTION",
+      title: "If You Continue the Good",
+      tone: "hope",
+      hero: amount(projection.projectedMoneyLeftIfGood, NOT_ENOUGH_DATA),
+      body: "This is the steady path if your current good habits continue, but the biggest leak has not been corrected yet.",
+      stats: [
+        stat("Projected Money Left", amount(projection.projectedMoneyLeftIfGood, NOT_ENOUGH_DATA)),
+        stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfGood, "₱0")),
+        stat("Projected Savings Progress", amount(projection.projectedSavingsIfGood, "₱0")),
+        stat("Projected Debt Reduction", amount(projection.debtReduction, "₱0")),
+        stat("Estimated Good-Habit Value Applied", totalGoodHabitValueSummary(projection)),
+        stat("Financial Direction", projection.goodDirection),
+      ],
+    },
+    {
+      eyebrow: "09 / POSSIBILITY PLAN",
+      title: "Keep the Good, Fix the Bad",
+      tone: "possibility",
+      body: "The better future does not require changing everything. CLARA starts with protecting what works and fixing the biggest verified leak first.",
+      stats: [
+        stat("Good Habits to Protect", hasSavingsDiscipline || projection.incomeRecordsUsed > 0 ? "Income, savings, protection, and budget signals" : NOT_ENOUGH_DATA),
+        stat("Biggest Leak to Fix", leakCategory && hasLeak ? `Likely leak: ${leakCategory}` : NOT_ENOUGH_DATA),
+        stat("Recommended Adjustments", nextBestAction(projection)),
+        stat("Highest Impact Change", hasLeak ? `Recover up to ${amount(projection.badLeakCost)} over ${horizonText}` : "Record more spending evidence first"),
+      ],
+    },
+    {
+      eyebrow: "10 / BEST FUTURE PROJECTION",
+      title: "Your Better Future Outcome",
+      tone: "possibility",
+      hero: amount(projection.projectedTotalAvailable, NOT_ENOUGH_DATA),
+      body: `This is the better direction if you keep the good habits and redirect the verified leak CLARA found. One next best action: ${nextBestAction(projection)}`,
+      final: true,
+      ctaLabel: "I got it now",
+      stats: [
+        stat("Projected Money Left", amount(projection.projectedMoneyLeftIfImproved, NOT_ENOUGH_DATA)),
+        stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfImproved, "₱0")),
+        stat("Projected Savings Goal Completion", amount(projection.projectedSavingsIfImproved, "₱0")),
+        stat("Projected Debt Balance", projection.debtRecordsUsed ? amount(projection.projectedDebtBalanceIfImproved, "₱0") : NOT_ENOUGH_DATA),
+        stat("Projected Total Available Money", amount(projection.projectedTotalAvailable, NOT_ENOUGH_DATA)),
+        stat("Financial Direction", projection.betterDirection),
+        stat("One Next Best Action", nextBestAction(projection)),
+        stat("Better-future lift", amount(improvementLift, "₱0")),
+      ],
+      missingData: [],
+    },
+  ];
 
   return {
     title: "FUTURE MONEY FORECAST",
     subtitle: `${horizonText} behavioral forecast`,
     type: "projection",
     horizonMonths: horizon,
-    cards: [
-      {
-        eyebrow: "01 / FORECAST SETUP",
-        title: "Forecast Setup",
-        tone: "neutral",
-        hero: horizonText,
-        body: "CLARA used your local records only. No Gemini call is used for this report.",
-        stats: [
-          stat("Selected Forecast Horizon", horizonText),
-          stat("Historical Data Used", `${horizonSummary.availableHistoryMonths} month${horizonSummary.availableHistoryMonths === 1 ? "" : "s"}`),
-          stat("Forecast Confidence", labelCompleteness(snapshot.dataCompleteness)),
-          stat("Data Basis Summary", dataBasisSummary(projection, horizonSummary.availableHistoryMonths)),
-        ],
-      },
-      {
-        eyebrow: "02 / CURRENT POSITION",
-        title: "Current Financial Position",
-        tone: "neutral",
-        hero: currentPositionMoneyLeftSummary(projection),
-        body: "This is your current financial starting point before CLARA projects what may happen over the selected timeframe.",
-        stats: [
-          stat("Current Money Left", currentPositionMoneyLeftSummary(projection)),
-          stat("Total Wallet Balance", totalWalletBalanceSummary(projection)),
-          stat("Emergency Fund Status", emergencySummary(projection)),
-          stat("Savings Goal Progress", savingsSummary(projection)),
-          stat("Debt Position", debtPositionSummary(projection)),
-          stat("Net Financial Position", netFinancialPositionSummary(projection)),
-          stat("Current Financial Direction", currentPositionDirectionSummary(projection)),
-        ],
-      },
-      {
-        eyebrow: "03 / REALITY CHECK",
-        title: "Risky Habits CLARA Found",
-        tone: "reality",
-        hero: riskyHabitsHeroSummary(projection),
-        body: riskyHabitsBodySummary(projection),
-        stats: [
-          stat("Impulse Spending", impulseSpendingSummary(projection)),
-          stat("Unplanned Purchases", unplannedPurchasesSummary(projection)),
-          stat("Biggest Overspending Category", biggestOverspendingCategorySummary(projection)),
-          stat("Estimated Monthly Leak", estimatedMonthlyLeakSummary(projection)),
-          stat("Financial Risk Level", financialRiskLevelSummary(projection)),
-          stat("Primary Risk Pattern", primaryRiskPatternSummary(projection)),
-          stat("Budget Alignment", budgetAlignmentSummary(projection)),
-        ],
-      },
-      {
-        eyebrow: "04 / REALITY CHECK",
-        title: "Cost of These Habits",
-        tone: "reality",
-        hero: forecastedLeakCostSummary(projection),
-        body: costOfRiskyHabitsBodySummary(projection),
-        stats: [
-          stat("Monthly Leak Cost", monthlyLeakCostSummary(projection)),
-          stat("Forecasted Leak Cost", forecastedLeakCostSummary(projection)),
-          stat("Money Diverted From Goals", moneyDivertedFromGoalsSummary(projection)),
-          stat("Emergency Fund Opportunity", emergencyFundOpportunitySummary(projection)),
-          stat("Savings Progress Delayed", savingsProgressDelayedSummary(projection)),
-          stat("Debt Reduction Missed", debtReductionMissedSummary(projection)),
-          stat("Biggest Cost Driver", biggestCostDriverSummary(projection)),
-        ],
-      },
-      {
-        eyebrow: "05 / BAD FUTURE PROJECTION",
-        title: "If Nothing Changes",
-        tone: "reality",
-        hero: unchangedPathHeroSummary(projection),
-        body: unchangedPathBodySummary(projection),
-        stats: [
-          stat("Projected Money Left", amount(projection.projectedMoneyLeftIfSame, NOT_ENOUGH_DATA)),
-          stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfSame, "₱0")),
-          stat("Projected Savings Progress", amount(projection.projectedSavingsIfSame, "₱0")),
-          stat("Projected Debt Position", projection.debtRecordsUsed ? amount(projection.totalDebtBalance, "₱0") : NO_DEBT_RECORDS),
-          stat("Leak Cost Carried Forward", leakCostCarriedForwardSummary(projection)),
-          stat("Money Not Redirected", moneyNotRedirectedSummary(projection)),
-          stat("Financial Direction", unchangedPathDirectionSummary(projection)),
-        ],
-      },
-      {
-        eyebrow: "06 / HOPE CHECK",
-        title: "Good Habits CLARA Found",
-        tone: "hope",
-        hero: slideSixHeroSummary(slideSixSignals),
-        body: slideSixBodySummary(slideSixSignals),
-        stats: slideSixSignals.stats,
-      },
-      {
-        eyebrow: "07 / HOPE CHECK",
-        title: "Value of the Good Habits",
-        tone: "hope",
-        hero: totalGoodHabitValueSummary(projection),
-        body: slideSevenBodySummary(projection),
-        stats: [
-          stat("Savings Value", savingsValueSummary(projection)),
-          stat("Emergency Fund Protection", emergencyFundProtectionSummary(projection)),
-          stat("Budget Control Value", budgetControlValueSummary(projection)),
-          stat("Debt Reduction Value", debtReductionValueSummary(projection)),
-          stat("Protected Money", protectedMoneySummary(projection)),
-          stat("Total Good-Habit Value", totalGoodHabitValueSummary(projection)),
-          stat("Strongest Value Driver", strongestValueDriverSummary(projection)),
-        ],
-      },
-      {
-        eyebrow: "08 / GOOD FUTURE PROJECTION",
-        title: "If You Continue the Good",
-        tone: "hope",
-        hero: amount(projection.projectedMoneyLeftIfGood, NOT_ENOUGH_DATA),
-        body: "This is the steady path if the helpful behaviors continue without adding a new improvement plan yet.",
-        stats: [
-          stat("Projected Money Left", amount(projection.projectedMoneyLeftIfGood, NOT_ENOUGH_DATA)),
-          stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfGood, "₱0")),
-          stat("Projected Savings Progress", amount(projection.projectedSavingsIfGood, "₱0")),
-          stat("Projected Debt Reduction", amount(projection.debtReduction, "₱0")),
-          stat("Financial Direction", projection.goodDirection),
-        ],
-      },
-      {
-        eyebrow: "09 / POSSIBILITY PLAN",
-        title: "Keep the Good, Fix the Bad",
-        tone: "possibility",
-        body: "The better future does not require changing everything. CLARA starts with protecting what works and fixing the biggest leak first.",
-        stats: [
-          stat("Good Habits to Protect", hasSavingsDiscipline || projection.incomeRecordsUsed > 0 ? "Income, savings, protection, and budget signals" : NOT_ENOUGH_DATA),
-          stat("Biggest Leak to Fix", leakCategory ? `Likely leak: ${leakCategory}` : NOT_ENOUGH_DATA),
-          stat("Recommended Adjustments", nextBestAction(projection)),
-          stat("Highest Impact Change", hasLeak ? `Recover up to ${amount(projection.badLeakCost)} over ${horizonText}` : "Record more spending evidence first"),
-        ],
-      },
-      {
-        eyebrow: "10 / BEST FUTURE PROJECTION",
-        title: "Your Better Future Outcome",
-        tone: "possibility",
-        hero: amount(projection.projectedTotalAvailable, NOT_ENOUGH_DATA),
-        body: `This is the better direction if you keep the good habits and redirect the leak CLARA found. One next best action: ${nextBestAction(projection)}`,
-        final: true,
-        ctaLabel: "I got it now",
-        stats: [
-          stat("Projected Money Left", amount(projection.projectedMoneyLeftIfImproved, NOT_ENOUGH_DATA)),
-          stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfImproved, "₱0")),
-          stat("Projected Savings Goal Completion", amount(projection.projectedSavingsIfImproved, "₱0")),
-          stat("Projected Debt Balance", projection.debtRecordsUsed ? amount(projection.projectedDebtBalance, "₱0") : NOT_ENOUGH_DATA),
-          stat("Projected Total Available Money", amount(projection.projectedTotalAvailable, NOT_ENOUGH_DATA)),
-          stat("Financial Direction", projection.betterDirection),
-          stat("One Next Best Action", nextBestAction(projection)),
-          stat("Better-future lift", amount(improvementLift, "₱0")),
-        ],
-        missingData: [],
-      },
-    ],
+    cards,
+    audit: buildForecastAudit(snapshot, projection, horizon, auditWarnings, cards),
   };
 }
