@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 export default function LearningMaterialCard({
   item,
   isActive,
@@ -9,10 +7,6 @@ export default function LearningMaterialCard({
   total,
   onClick,
 }) {
-  const rawThumbnailSrc = item?.thumbnail || "";
-  const [brokenThumbnailSrc, setBrokenThumbnailSrc] = useState("");
-  const thumbnailSrc = rawThumbnailSrc && brokenThumbnailSrc !== rawThumbnailSrc ? rawThumbnailSrc : "";
-
   const absOffset = Math.abs(offset);
   const direction = offset < 0 ? -1 : 1;
 
@@ -37,6 +31,7 @@ export default function LearningMaterialCard({
   const pageEdgeWidth = isActive ? 4 : 5;
   const depthOffset = isActive ? 3 : 2;
   const contentLeftPadding = isActive ? 18 : 12;
+  const thumbnailSrc = item?.thumbnail || "";
 
   return (
     <div
@@ -87,7 +82,6 @@ export default function LearningMaterialCard({
                 transform: "scale(1.01)",
               }}
               onError={(event) => {
-                setBrokenThumbnailSrc(rawThumbnailSrc);
                 event.currentTarget.style.display = "none";
               }}
             />
