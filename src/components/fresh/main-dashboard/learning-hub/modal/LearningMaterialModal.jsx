@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const SWIPE_THRESHOLD = 50;
@@ -146,17 +147,17 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     goPrevious();
   };
 
-  if (!isOpen || !material) return null;
+  if (!isOpen || !material || typeof document === "undefined") {
+    return null;
+  }
 
-  return (
+  const readerContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={material.title ? titleId : undefined}
       aria-label={material.title ? undefined : "CLARA Learning Hub reader"}
-      className={`fixed inset-0 z-[120] flex h-[100dvh] w-full flex-col overflow-hidden bg-slate-950 text-white transition-opacity duration-300 ease-out ${
-        isVisible ? "opacity-100" : "opacity-0"
-      }`}
+      className="fixed inset-0 z-[9999] isolate flex h-[100dvh] min-h-[100svh] w-screen flex-col overflow-hidden bg-[#050814] text-white"
     >
       <div
         aria-hidden="true"
@@ -277,4 +278,6 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       </footer>
     </div>
   );
+
+  return createPortal(readerContent, document.body);
 }
