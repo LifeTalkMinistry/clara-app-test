@@ -41,6 +41,18 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function firstNumber(source = {}, keys = []) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null && value !== "") return toNumber(value);
+  }
+  return 0;
+}
+
+function money(value = 0) {
+  return `₱${toNumber(value).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
+}
+
 function monthLabel(months = 1) {
   const safeMonths = Math.min(Math.max(Math.round(toNumber(months)) || 1, 1), 12);
   return `${safeMonths} month${safeMonths === 1 ? "" : "s"}`;
@@ -186,12 +198,29 @@ function statValue(stats = [], label = "") {
   return clean(row?.value);
 }
 
+function firstStatValue(stats = [], labels = []) {
+  for (const label of labels) {
+    const value = statValue(stats, label);
+    if (clean(value)) return clean(value);
+  }
+  return "";
+}
+
 function cardStat(card = {}, label = "", fallback = SETUP_NOT_ENOUGH_DATA) {
   return statValue(card.stats, label) || fallback;
 }
 
 function isNotEnoughDataValue(value = "") {
   return clean(value).toLowerCase().includes("not enough data");
+}
+
+function isNoLeakValue(value = "") {
+  const normalized = clean(value).toLowerCase();
+  return !normalized
+    || normalized === NO_MAJOR_LEAK_DETECTED.toLowerCase()
+    || normalized.includes("no major")
+    || normalized.includes("not fixed")
+    || isNotEnoughDataValue(normalized);
 }
 
 function slideEightDebtReductionValue(slideEight = {}, slideSeven = {}) {
@@ -267,6 +296,155 @@ function finalizeForecastSlideEight(report = {}) {
   };
 }
 
+function getExpenseAmount(record = {}) {
+  return firstNumber(record, ["amount", "total", "value"]);
+}
+
+function emergencySaved(emergencyFund = {}) {
+  return firstNumber(emergencyFund || {}, ["savedAmount", "saved_amount", "saved", "currentAmount", "current_amount", "amount", "balance"]);
+}
+
+function emergencyTarget(emergencyFund = {}) {
+  return firstNumber(emergencyFund || {}, ["targetAmount", "target_amount", "target", "goal_amount"]);
+}
+
+function goalSaved(goal = {}) {
+  return firstNumber(goal, ["savedAmount", "saved_amount", "saved", "current_amount", "currentAmount", "amount", "balance"]);
+}
+
+function goalTarget(goal = {}) {
+  return firstNumber(goal, ["targetAmount", "target_amount", "target", "goal_amount"]);
+}
+
+function compactLeakCategory(value = "") {
+  const category = clean(value)
+    .replace(/^likely leak:\s*/i, "")
+    .replace(/\s+leak$/i, "")
+    .trim();
+
+  return isNoLeakValue(category) ? "" : category;
+}
+
+function slideNineLeakCategory(report = {}) {
+  const slideThree = toArray(report.cards).find((card) => clean(card?.eyebrow) === "03 / REALITY CHECK") || {};
+  const slideFour = toArray(report.cards).find((card) => clean(card?.eyebrow) === "04 / REALITY CHECK") || {};
+  const slideNine = toArray(report.cards).find((card) => clean(card?.eyebrow) === "09 / POSSIBILITY PLAN") || {};
+  const candidates = [
+    statValue(slideNine.stats, "Main Leak to Fix"),
+    statValue(slideNine.stats, "Biggest Leak to Fix"),
+    statValue(slideThree.stats, "Biggest Overspending Category"),
+    statValue(slideFour.stats, "Biggest Cost Driver"),
+    clean(slideThree.hero),
+  ];
+
+  return compactLeakCategory(candidates.find((value) => compactLeakCategory(value)) || "");
+}
+
+function slideNineRecoveredAmount(report = {}) {
+  const slideFour = toArray(report.cards).find((card) => clean(card?.eyebrow) === "04 / REALITY CHECK") || {};
+  const slideFive = toArray(report.cards).find((card) => clean(card?.eyebrow) === "05 / BAD FUTURE PROJECTION") || {};
+  const slideNine = toArray(report.cards).find((card) => clean(card?.eyebrow) === "09 / POSSIBILITY PLAN") || {};
+  const candidates = [
+    clean(slideNine.hero),
+    statValue(slideNine.stats, "Highest Impact Change"),
+    statValue(slideFour.stats, "Forecasted Leak Cost"),
+    statValue(slideFive.stats, "Leak Cost Carried Forward"),
+    statValue(slideFive.stats, "Money Not Redirected"),
+  ];
+  return toNumber(candidates.find((value) => toNumber(value) > 0));
+}
+
+function slideNineGoodHabits(snapshot = {}, report = {}) {
+  const records = snapshot.forecastRecords || {};
+  const oldSlideNine = toArray(report.cards).find((card) => clean(card?.eyebrow) === "09 / POSSIBILITY PLAN") || {};
+  const oldValue = clean(statValue(oldSlideNine.stats, "Good Habits to Protect")).toLowerCase();
+  const hasIncome = toArray(records.incomes).length > 0
+    || toArray(records.incomeSources).length > 0
+    || oldValue.includes("income");
+  const emergencyFund = records.emergencyFund || null;
+  const hasEmergency = emergencySaved(emergencyFund) > 0 || emergencyTarget(emergencyFund) > 0;
+  const savingsGoals = toArray(records.savingsGoals);
+  const hasSavings = savingsGoals.length > 0
+    || savingsGoals.some((goal) => goalSaved(goal) > 0 || goalTarget(goal) > 0)
+    || hasEmergency
+    || oldValue.includes("savings");
+  const hasBudget = toArray(records.budgets).length > 0 || oldValue.includes("budget");
+
+  if (hasIncome && hasSavings) return "Income + savings";
+  if (hasSavings && hasBudget) return "Savings + budget";
+  if (hasIncome) return "Income";
+  if (hasSavings) return "Savings";
+  return SETUP_NOT_ENOUGH_DATA;
+}
+
+function slideNineRedirectTo(snapshot = {}) {
+  const records = snapshot.forecastRecords || {};
+  const emergencyFund = records.emergencyFund || null;
+  const saved = emergencySaved(emergencyFund);
+  const target = emergencyTarget(emergencyFund);
+  const savingsGoals = toArray(records.savingsGoals);
+  const hasSavingsGoal = savingsGoals.length > 0
+    || savingsGoals.some((goal) => goalSaved(goal) > 0 || goalTarget(goal) > 0);
+
+  if (target > 0 && saved < target) return "Emergency fund";
+  if (hasSavingsGoal) return "Savings goal";
+  if (toArray(records.debtObligations).length > 0) return "Debt";
+  return "Emergency + savings";
+}
+
+function slideNineActionDifficulty(snapshot = {}, horizonMonths = 1, recoveredAmount = 0) {
+  if (recoveredAmount <= 0) return "Manageable";
+  const records = snapshot.forecastRecords || {};
+  const expenses = recordsInWindow(records.expenses, horizonMonths);
+  const transactionExpenses = recordsInWindow(toArray(records.walletTransactions).filter(isExpenseTransaction), horizonMonths);
+  const expenseRecords = expenses.length ? expenses : transactionExpenses;
+  const totalExpenses = expenseRecords.reduce((total, record) => total + getExpenseAmount(record), 0);
+  return totalExpenses > 0 && recoveredAmount / totalExpenses >= 0.3 ? "Needs discipline" : "Manageable";
+}
+
+function slideNineBody(goodHabits = "", leakCategory = "", recoveredAmount = 0) {
+  const hasEnoughData = goodHabits !== SETUP_NOT_ENOUGH_DATA || Boolean(leakCategory) || recoveredAmount > 0;
+  return hasEnoughData
+    ? "The better future does not require changing everything. CLARA starts by protecting what works and fixing the biggest verified leak first."
+    : "CLARA needs more local records before it can recommend the highest-impact adjustment.";
+}
+
+function finalizeForecastSlideNine(report = {}, snapshot = {}, horizonMonths = 1) {
+  if (!Array.isArray(report.cards) || !report.cards.length) return report;
+
+  const leakCategory = slideNineLeakCategory(report);
+  const recoveredAmount = slideNineRecoveredAmount(report);
+  const goodHabits = slideNineGoodHabits(snapshot, report);
+  const recoverValue = recoveredAmount > 0 ? `Recover ${money(recoveredAmount)}` : "Build more history";
+
+  return {
+    ...report,
+    cards: report.cards.map((card) => {
+      const isSlideNine = clean(card?.eyebrow) === "09 / POSSIBILITY PLAN"
+        && clean(card?.title) === "Keep the Good, Fix the Bad";
+      if (!isSlideNine) return card;
+
+      return {
+        ...card,
+        eyebrow: "09 / POSSIBILITY PLAN",
+        title: "Keep the Good, Fix the Bad",
+        tone: "possibility",
+        hero: recoveredAmount > 0 ? recoverValue : "No major leak to fix",
+        body: slideNineBody(goodHabits, leakCategory, recoveredAmount),
+        stats: [
+          { label: "Good Habits to Protect", value: goodHabits },
+          { label: "Main Leak to Fix", value: leakCategory || NO_MAJOR_LEAK_DETECTED },
+          { label: "Recommended Focus", value: leakCategory ? `Reduce ${leakCategory}` : "Track spending first" },
+          { label: "Redirect To", value: slideNineRedirectTo(snapshot) },
+          { label: "Highest Impact Change", value: recoverValue },
+          { label: "Action Difficulty", value: slideNineActionDifficulty(snapshot, horizonMonths, recoveredAmount) },
+          { label: "Next Step", value: leakCategory ? `Set ${leakCategory} limit` : "Track 7 days" },
+        ],
+      };
+    }),
+  };
+}
+
 function normalizeMoneyValue(value = "", fallback = SETUP_NOT_ENOUGH_DATA) {
   const normalized = clean(value);
   return normalized && !isNotEnoughDataValue(normalized) ? normalized : fallback;
@@ -279,15 +457,18 @@ function slideTenDebtBalance(card = {}) {
 
 function slideTenCategoryFromAction(value = "") {
   const action = clean(value);
-  const reduceMatch = action.match(/^Reduce\s+(.+?)\s+first\b/i) || action.match(/^Reduce\s+(.+?)\s+→/i);
+  const reduceMatch = action.match(/^Reduce\s+(.+?)(?:\s+first\b|\s+→|$)/i);
   if (reduceMatch?.[1]) return clean(reduceMatch[1]);
   return "";
 }
 
 function slideTenLeakCategory(card = {}, report = {}) {
   const slideNine = toArray(report.cards).find((item) => clean(item?.eyebrow) === "09 / POSSIBILITY PLAN") || {};
-  const leakText = statValue(slideNine.stats, "Biggest Leak to Fix").replace(/^Likely leak:\s*/i, "");
-  const actionText = statValue(card.stats, "One Next Best Action") || statValue(slideNine.stats, "Recommended Adjustments");
+  const leakText = compactLeakCategory(
+    firstStatValue(slideNine.stats, ["Main Leak to Fix", "Biggest Leak to Fix"]),
+  );
+  const actionText = statValue(card.stats, "One Next Best Action")
+    || firstStatValue(slideNine.stats, ["Recommended Focus", "Recommended Adjustments"]);
   return clean(leakText) || slideTenCategoryFromAction(actionText);
 }
 
@@ -658,8 +839,12 @@ function syncForecastReportProgress(overlay) {
 function renderReport(snapshot, horizonMonths = 1) {
   const baseReport = buildClaraForecastReport(snapshot, { horizonMonths });
   const report = synchronizeAuditSlideTrace(finalizeForecastSlideTen(
-    finalizeForecastSlideEight(
-      finalizeForecastSetupSlide(baseReport, snapshot, horizonMonths),
+    finalizeForecastSlideNine(
+      finalizeForecastSlideEight(
+        finalizeForecastSetupSlide(baseReport, snapshot, horizonMonths),
+      ),
+      snapshot,
+      horizonMonths,
     ),
   ));
 
