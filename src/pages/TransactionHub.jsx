@@ -181,6 +181,17 @@ function EditTransactionDialog({
   if (!open || !item) return null;
 
   const canEditTransfer = item.group === "transfer";
+  const getWalletOptionId = (wallet) =>
+    String(
+      wallet?.id ||
+        wallet?.wallet_id ||
+        wallet?.walletId ||
+        wallet?.local_id ||
+        wallet?.localId ||
+        ""
+    );
+  const getWalletOptionLabel = (wallet) =>
+    wallet?.name || wallet?.wallet_name || wallet?.title || wallet?.label || "Wallet";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/58 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-6 backdrop-blur-md sm:items-center">
@@ -275,29 +286,81 @@ function EditTransactionDialog({
               />
             </label>
 
-            <label className="space-y-1.5">
-              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
-                Wallet
-              </span>
-              <select
-                value={form.walletId}
-                onChange={(event) => onChange("walletId", event.target.value)}
-                disabled={busy || canEditTransfer}
-                className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none disabled:opacity-55 ${theme.focus}`}
-              >
-                <option value="">No wallet selected</option>
-                {wallets.map((wallet) => {
-                  const id = String(wallet.id || wallet.local_id || wallet.localId || "");
-                  if (!id) return null;
+            {canEditTransfer ? (
+              <>
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+                    From Wallet
+                  </span>
+                  <select
+                    value={form.fromWalletId || ""}
+                    onChange={(event) => onChange("fromWalletId", event.target.value)}
+                    disabled={busy}
+                    className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none disabled:opacity-55 ${theme.focus}`}
+                  >
+                    <option value="">Select source wallet</option>
+                    {wallets.map((wallet) => {
+                      const id = getWalletOptionId(wallet);
+                      if (!id) return null;
 
-                  return (
-                    <option key={id} value={id}>
-                      {wallet.name || wallet.wallet_name || wallet.title || "Wallet"}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
+                      return (
+                        <option key={`from-${id}`} value={id}>
+                          {getWalletOptionLabel(wallet)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+                    To Wallet
+                  </span>
+                  <select
+                    value={form.toWalletId || ""}
+                    onChange={(event) => onChange("toWalletId", event.target.value)}
+                    disabled={busy}
+                    className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none disabled:opacity-55 ${theme.focus}`}
+                  >
+                    <option value="">Select destination wallet</option>
+                    {wallets.map((wallet) => {
+                      const id = getWalletOptionId(wallet);
+                      if (!id) return null;
+
+                      return (
+                        <option key={`to-${id}`} value={id}>
+                          {getWalletOptionLabel(wallet)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </>
+            ) : (
+              <label className="space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+                  Wallet
+                </span>
+                <select
+                  value={form.walletId || ""}
+                  onChange={(event) => onChange("walletId", event.target.value)}
+                  disabled={busy}
+                  className={`min-h-[48px] w-full rounded-[18px] border border-white/10 bg-black/[0.26] px-4 text-sm font-bold text-white outline-none disabled:opacity-55 ${theme.focus}`}
+                >
+                  <option value="">No wallet selected</option>
+                  {wallets.map((wallet) => {
+                    const id = getWalletOptionId(wallet);
+                    if (!id) return null;
+
+                    return (
+                      <option key={id} value={id}>
+                        {getWalletOptionLabel(wallet)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            )}
           </div>
 
           <label className="block space-y-1.5">
@@ -514,6 +577,56 @@ export default function TransactionHub() {
 
     return map;
   }, [safeBudgets]);
+
+  const getWalletDisplayNameById = (walletId) => {
+    const wallet = walletMap.get(String(walletId || ""));
+    return wallet?.name || wallet?.wallet_name || wallet?.title || wallet?.label || "";
+  };
+
+  const getTransferFromWalletId = (item) =>
+    getFirstValue(item?.raw || item || {}, [
+      "from_wallet_id",
+      "fromWalletId",
+      "source_wallet_id",
+      "sourceWalletId",
+      "wallet_id",
+      "walletId",
+    ]);
+
+  const getTransferToWalletId = (item) =>
+    getFirstValue(item?.raw || item || {}, [
+      "to_wallet_id",
+      "toWalletId",
+      "destination_wallet_id",
+      "destinationWalletId",
+      "related_wallet_id",
+      "relatedWalletId",
+    ]);
+
+  const buildTransferDeleteConfirmation = (item) => {
+    const raw = item?.raw || item || {};
+    const amount = Math.abs(cleanNumber(raw.amount ?? item?.amount ?? item?.signedAmount ?? 0));
+    const amountText = peso(amount);
+    const sourceWalletName = getWalletDisplayNameById(getTransferFromWalletId(item));
+    const destinationWalletName = getWalletDisplayNameById(getTransferToWalletId(item));
+
+    const sourceLine = sourceWalletName
+      ? `${sourceWalletName} will get ${amountText} back.`
+      : "Source wallet will get the amount back.";
+    const destinationLine = destinationWalletName
+      ? `${destinationWalletName} will lose ${amountText}.`
+      : "Destination wallet will lose the amount.";
+
+    return [
+      "Delete this transfer?",
+      "",
+      `This will reverse ${amountText}:`,
+      sourceLine,
+      destinationLine,
+      "",
+      "This action cannot be undone.",
+    ].join("\n");
+  };
 
   const activityBase = useMemo(() => {
     const visibleSources = [
@@ -906,18 +1019,38 @@ export default function TransactionHub() {
     const amount = Math.abs(cleanNumber(editForm.amount));
     const dateValue = editForm.date || toInputDate(new Date());
 
-    return {
+    const basePayload = {
       title: editForm.title.trim(),
       name: editForm.title.trim(),
       amount,
       category: editForm.category.trim(),
-      wallet_id: editForm.walletId || null,
-      walletId: editForm.walletId || null,
       note: editForm.note.trim(),
       notes: editForm.note.trim(),
       description: editForm.note.trim(),
       date: dateValue,
       transaction_date: dateValue,
+    };
+
+    if (selectedTransaction?.group === "transfer") {
+      return {
+        ...basePayload,
+        from_wallet_id: editForm.fromWalletId || null,
+        fromWalletId: editForm.fromWalletId || null,
+        source_wallet_id: editForm.fromWalletId || null,
+        sourceWalletId: editForm.fromWalletId || null,
+        to_wallet_id: editForm.toWalletId || null,
+        toWalletId: editForm.toWalletId || null,
+        destination_wallet_id: editForm.toWalletId || null,
+        destinationWalletId: editForm.toWalletId || null,
+        related_wallet_id: editForm.toWalletId || null,
+        relatedWalletId: editForm.toWalletId || null,
+      };
+    }
+
+    return {
+      ...basePayload,
+      wallet_id: editForm.walletId || null,
+      walletId: editForm.walletId || null,
     };
   };
 
@@ -928,15 +1061,52 @@ export default function TransactionHub() {
 
     const rawId = getEditableRawId(selectedTransaction);
     const amount = Math.abs(cleanNumber(editForm.amount));
+    const dateValue = String(editForm.date || "").trim();
+    const parsedDate = dateValue ? new Date(`${dateValue}T12:00:00`) : null;
 
     if (!rawId) {
       setEditError("This transaction is missing its original ID.");
       return;
     }
 
-    if (!amount) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       setEditError("Enter a valid amount before saving.");
       return;
+    }
+
+    if (!dateValue || !parsedDate || Number.isNaN(parsedDate.getTime())) {
+      setEditError("Select a valid date before saving.");
+      return;
+    }
+
+    if (selectedTransaction.group === "transfer") {
+      const fromWalletId = String(editForm.fromWalletId || "").trim();
+      const toWalletId = String(editForm.toWalletId || "").trim();
+
+      if (!fromWalletId) {
+        setEditError("Select the source wallet for this transfer.");
+        return;
+      }
+
+      if (!toWalletId) {
+        setEditError("Select the destination wallet for this transfer.");
+        return;
+      }
+
+      if (!walletMap.has(fromWalletId)) {
+        setEditError("Select a valid source wallet for this transfer.");
+        return;
+      }
+
+      if (!walletMap.has(toWalletId)) {
+        setEditError("Select a valid destination wallet for this transfer.");
+        return;
+      }
+
+      if (fromWalletId === toWalletId) {
+        setEditError("Source and destination wallets must be different.");
+        return;
+      }
     }
 
     const payload = buildUpdatePayload();
@@ -962,14 +1132,11 @@ export default function TransactionHub() {
           amount,
         });
       } else if (selectedTransaction.group === "transfer") {
-        const updateTransfer =
-          financial.updateTransfer || financial.updateWalletTransfer || financial.transferBetweenWallets;
-
-        if (typeof updateTransfer !== "function") {
+        if (typeof financial.updateTransfer !== "function") {
           throw new Error("Transfer editing is not available in useFinancialData yet.");
         }
 
-        await updateTransfer(rawId, payload);
+        await financial.updateTransfer(rawId, payload);
       } else {
         throw new Error("Editing for this transaction type is not available yet.");
       }
@@ -1002,7 +1169,9 @@ export default function TransactionHub() {
     }
 
     const confirmCopy =
-      selectedTransaction.group === "expense"
+      selectedTransaction.group === "transfer"
+        ? buildTransferDeleteConfirmation(selectedTransaction)
+        : selectedTransaction.group === "expense"
         ? "Delete this transaction? This will remove the record and reverse its wallet effect. This will return the amount to the wallet."
         : "Delete this transaction? This will remove the record and reverse its wallet effect.";
 
@@ -1035,9 +1204,12 @@ export default function TransactionHub() {
         await financial.deleteWalletTransaction(rawId);
         setNotice("Transaction deleted. Wallet balance was updated.");
       } else if (selectedTransaction.group === "transfer") {
-        throw new Error(
-          "Transfer deletion needs a dedicated safe reversal and is not available in this edit modal yet."
-        );
+        if (typeof financial.deleteTransfer !== "function") {
+          throw new Error("Transfer deletion is not available in useFinancialData yet.");
+        }
+
+        await financial.deleteTransfer(rawId);
+        setNotice("Transfer deleted. Both wallet movements were reversed safely.");
       } else if (selectedTransaction.group === "savings") {
         throw new Error("Savings deletion is not available from this transaction edit modal yet.");
       } else {
