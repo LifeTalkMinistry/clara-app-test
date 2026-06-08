@@ -73,14 +73,27 @@ export default function LearningMaterialCard({
           }`}
         >
           {hasThumbnail ? (
-            <img
-              src={thumbnailSrc}
-              alt={item?.title ? `${item.title} cover` : "Learning material cover"}
-              className="h-full w-full object-cover"
-              onError={(event) => {
-                event.currentTarget.style.display = "none";
+            <div
+              className="absolute inset-0 overflow-hidden rounded-[18px]"
+              style={{
+                clipPath: "inset(0 round 18px)",
+                transform: "translateZ(0)",
+                backfaceVisibility: "hidden",
               }}
-            />
+            >
+              <img
+                src={thumbnailSrc}
+                alt={item?.title ? `${item.title} cover` : "Learning material cover"}
+                className="block h-full w-full rounded-[18px] object-cover"
+                style={{
+                  transform: "translateZ(0)",
+                  backfaceVisibility: "hidden",
+                }}
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
           ) : (
             <>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500" />
