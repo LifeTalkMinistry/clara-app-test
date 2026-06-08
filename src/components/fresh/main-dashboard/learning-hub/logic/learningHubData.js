@@ -7,7 +7,7 @@ export const learningHubData = [
     type: "book",
     accent: "cyan",
     coverLabel: "Money Basics",
-    thumbnail: "",
+    thumbnail: "/images/learning-hub/money-map.webp",
     pages: [
       { title: "The Reality", body: "Your money does not disappear randomly. It usually follows a route: income arrives, bills wait, small spending starts, and the remaining balance becomes unclear." },
       { title: "The Pattern", body: "When expenses are not visible, every purchase feels small. By the end of the week, the total feels surprising because the pattern was never mapped." },
