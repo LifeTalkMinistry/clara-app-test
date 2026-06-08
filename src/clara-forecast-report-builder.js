@@ -664,6 +664,37 @@ function riskyHabitsBodySummary(projection = {}) {
     : "CLARA needs more spending and budget records before it can identify risky habits with confidence.";
 }
 
+function unchangedPathHeroSummary(projection = {}) {
+  if (hasLeakCostData(projection)) return `${amount(projection.badLeakCost, "₱0")} Unfixed`;
+  if (hasRiskDiagnosisData(projection)) return "No major leak detected";
+  return CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function leakCostCarriedForwardSummary(projection = {}) {
+  return hasLeakCostData(projection)
+    ? amount(projection.badLeakCost, "₱0")
+    : "No major leak detected";
+}
+
+function moneyNotRedirectedSummary(projection = {}) {
+  return hasLeakCostData(projection)
+    ? amount(projection.badLeakCost, "₱0")
+    : "No major leak detected";
+}
+
+function unchangedPathDirectionSummary(projection = {}) {
+  if (!projection.currentMoneyLeftAvailable) return CURRENT_POSITION_NOT_ENOUGH_DATA;
+  if (hasLeakCostData(projection) && projection.badDirection === "Improving") return "Improving, but leaking";
+  if (hasLeakCostData(projection) && projection.badDirection === "Stable") return "Stable, but leaking";
+  return projection.badDirection || CURRENT_POSITION_NOT_ENOUGH_DATA;
+}
+
+function unchangedPathBodySummary(projection = {}) {
+  return hasRiskDiagnosisData(projection)
+    ? "This is the unchanged path: your money may still move forward, but the same leak continues to reduce what could have gone to savings, emergency fund, or debt."
+    : "CLARA needs more records before it can project what happens if current habits continue.";
+}
+
 function nextBestAction(projection = {}) {
   const category = projection.biggestRiskyCategory?.category || projection.biggestLeak?.category || "";
   if (category && projection.badLeakCost > 0) {
@@ -758,14 +789,16 @@ export function buildClaraForecastReport(snapshot = {}, options = {}) {
         eyebrow: "05 / BAD FUTURE PROJECTION",
         title: "If Nothing Changes",
         tone: "reality",
-        hero: amount(projection.projectedMoneyLeftIfSame, NOT_ENOUGH_DATA),
-        body: "This is the pressure path: the forecast if the same income, spending, leak, savings, and debt behavior continues.",
+        hero: unchangedPathHeroSummary(projection),
+        body: unchangedPathBodySummary(projection),
         stats: [
           stat("Projected Money Left", amount(projection.projectedMoneyLeftIfSame, NOT_ENOUGH_DATA)),
           stat("Projected Emergency Fund", amount(projection.projectedEmergencyIfSame, "₱0")),
           stat("Projected Savings Progress", amount(projection.projectedSavingsIfSame, "₱0")),
-          stat("Projected Debt Position", projection.debtRecordsUsed ? amount(projection.totalDebtBalance, "₱0") : NOT_ENOUGH_DATA),
-          stat("Financial Direction", projection.badDirection),
+          stat("Projected Debt Position", projection.debtRecordsUsed ? amount(projection.totalDebtBalance, "₱0") : NO_DEBT_RECORDS),
+          stat("Leak Cost Carried Forward", leakCostCarriedForwardSummary(projection)),
+          stat("Money Not Redirected", moneyNotRedirectedSummary(projection)),
+          stat("Financial Direction", unchangedPathDirectionSummary(projection)),
         ],
       },
       {
