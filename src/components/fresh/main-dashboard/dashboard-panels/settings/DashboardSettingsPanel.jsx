@@ -1079,9 +1079,6 @@ export default function DashboardSettingsPanel({
 
           <div className="px-1">
             <h2 className="text-xl font-black tracking-tight text-white">Security & privacy</h2>
-            <p className="mt-1.5 max-w-[34ch] text-xs leading-5 text-white/50">
-              Manage how CLARA protects and uses your information.
-            </p>
           </div>
         </div>
 
@@ -1188,9 +1185,6 @@ export default function DashboardSettingsPanel({
                   <h3 id="ai-privacy-title" className="text-lg font-black text-white">
                     How CLARA uses your information
                   </h3>
-                  <p className="mt-1 text-xs leading-5 text-white/45">
-                    A simple explanation of the context CLARA uses for guidance.
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -1210,14 +1204,6 @@ export default function DashboardSettingsPanel({
                   </div>
                 ))}
               </div>
-
-              <button
-                type="button"
-                onClick={() => setIsAiPrivacyModalOpen(false)}
-                className="mt-6 min-h-11 w-full rounded-2xl bg-white/[0.09] px-4 py-3 text-sm font-black text-white transition hover:bg-white/[0.13]"
-              >
-                Close
-              </button>
             </div>
           </div>
         ) : null}
