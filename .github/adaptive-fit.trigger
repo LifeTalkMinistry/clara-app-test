@@ -1,1 +1,0 @@
-adaptive readable-fit validation
