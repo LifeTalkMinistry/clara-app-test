@@ -84,9 +84,6 @@ const dashboardPanelInitials = (value = "") => {
 export default function DashboardSettingsPanel({
   onBack,
   user,
-  plan,
-  isPaid,
-  isFree,
   isAdmin = false,
   notificationSettings,
   openThemePicker,
@@ -257,33 +254,9 @@ export default function DashboardSettingsPanel({
     };
   }, [user?.id]);
 
-  const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
-  const rawCurrentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
-
-  const normalizePlanDisplay = useCallback((value) => {
-    const normalized = normalizeLower(value);
-
-    if (["pro", "pro_99", "pro99", "pro tools", "pro_tools"].some((key) => normalized.includes(key))) {
-      return "Pro 99";
-    }
-
-    if (["core", "core_199", "core199", "core_599"].some((key) => normalized.includes(key))) {
-      return "Core 199";
-    }
-
-    if (["life os", "life_os", "lifeos", "life-os", "coaching", "coach", "coaching_1299"].some((key) => normalized.includes(key))) {
-      return "Life OS 499";
-    }
-
-    if (normalized === "free") return "Free";
-    if (!normalized || normalized === "paid" || normalized === "plan") return isPaid ? "Paid plan" : "Free";
-
-    return String(value || "").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
-  }, [isPaid]);
-
-  const currentPlan = normalizePlanDisplay(rawCurrentPlan);
-  const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
-  const supportEmail = "claraprogram2026@gmail.com";
+const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
+const currentPlan = "Committed";
+const supportEmail = "claraprogram2026@gmail.com";
 
   const saveNotificationSettings = useCallback((next) => {
     try {
@@ -646,84 +619,110 @@ export default function DashboardSettingsPanel({
     },
   ];
 
-  const resolveBillingCycle = useCallback((record) => {
-    const rawCycle = normalizeLower(
-      record?.billing_cycle ||
-        record?.billing_interval ||
-        record?.subscription_interval ||
-        record?.interval ||
-        record?.cycle ||
-        record?.renewal_frequency ||
-        record?.payment_cycle ||
-        ""
-    );
+const resolveBillingDate = useCallback((record, keys = []) => {
+  const rawValue = keys.map((key) => record?.[key]).find(Boolean);
+  return rawValue ? formatCompactDate(rawValue) : "Not recorded";
+}, []);
 
-    if (!rawCycle) return "Not recorded";
+const rawBillingStatus = normalizeLower(
+  billingRecord?.payment_status ||
+    billingRecord?.status ||
+    billingRecord?.enrollment_status ||
+    billingRecord?.subscription_status ||
+    billingRecord?.approval_status ||
+    billingRecord?.payment_state ||
+    billingRecord?.access_status ||
+    ""
+)
+  .replaceAll("_", " ")
+  .replaceAll("-", " ")
+  .trim();
 
-    if (["month", "monthly", "1 month", "per month", "mo"].includes(rawCycle) || rawCycle.includes("monthly")) {
-      return "Monthly";
-    }
+const matchesBillingStatus = (statuses = []) =>
+  statuses.some(
+    (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
+  );
 
-    if (["year", "yearly", "annual", "annually", "12 months"].includes(rawCycle) || rawCycle.includes("annual")) {
-      return "Yearly";
-    }
+const membershipStatusKey = billingLoading
+  ? "checking"
+  : !billingRecord
+    ? "notActivated"
+    : matchesBillingStatus([
+          "expired",
+          "inactive",
+          "cancelled",
+          "canceled",
+          "rejected",
+          "declined",
+          "failed",
+          "suspended",
+        ])
+      ? "inactive"
+      : matchesBillingStatus([
+            "pending",
+            "processing",
+            "submitted",
+            "awaiting approval",
+            "awaiting review",
+            "under review",
+          ])
+        ? "pending"
+        : matchesBillingStatus([
+              "active",
+              "approved",
+              "paid",
+              "completed",
+              "complete",
+              "confirmed",
+              "verified",
+              "successful",
+              "success",
+              "current",
+            ])
+          ? "active"
+          : "pending";
 
-    if (rawCycle.includes("one") || rawCycle.includes("lifetime")) {
-      return "One-time";
-    }
+const membershipStatusConfig = {
+  active: {
+    label: "Active",
+    description: "Full CLARA access",
+    badgeClass: "border-emerald-300/20 bg-emerald-400/10 text-emerald-100",
+  },
+  pending: {
+    label: "Pending",
+    description: "Membership approval is being processed",
+    badgeClass: "border-amber-300/20 bg-amber-400/10 text-amber-100",
+  },
+  inactive: {
+    label: "Inactive",
+    description: "Membership access is currently inactive",
+    badgeClass: "border-rose-300/18 bg-rose-400/8 text-rose-100/85",
+  },
+  notActivated: {
+    label: "Not activated",
+    description: "Your Committed membership is not yet activated",
+    badgeClass: "border-white/15 bg-white/7 text-white/55",
+  },
+  checking: {
+    label: "Checking",
+    description: "Checking your membership status",
+    badgeClass: "border-white/15 bg-white/7 text-white/55",
+  },
+};
 
-    return rawCycle.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
-  }, []);
+const membershipStatus = membershipStatusConfig[membershipStatusKey];
 
-  const resolveBillingDate = useCallback((record, keys = []) => {
-    const rawValue = keys.map((key) => record?.[key]).find(Boolean);
-    return rawValue ? formatCompactDate(rawValue) : "Not recorded";
-  }, []);
+const billingStartLabel = billingRecord
+  ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
+  : "Not recorded";
 
-  const billingCycleLabel = resolveBillingCycle(billingRecord);
-  const billingStatusLabel = billingLoading
-    ? "Checking..."
-    : billingRecord
-      ? normalizePlanDisplay(
-          billingRecord?.payment_status ||
-            billingRecord?.status ||
-            billingRecord?.enrollment_status ||
-            billingRecord?.subscription_status ||
-            "Active"
-        )
-      : "No record";
+const nextBillingLabel = billingRecord
+  ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
+  : "Not recorded";
 
-  const billingStartLabel = billingRecord
-    ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
-    : "Not recorded";
-
-  const nextBillingLabel = billingRecord
-    ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
-    : "Not recorded";
-
-  const planOptions = [
-    {
-      key: "pro_99",
-      title: "Pro",
-      price: "₱99",
-      displayName: "Pro 99",
-      description: "Starter upgrade for essential CLARA tools.",
-    },
-    {
-      key: "core_199",
-      title: "Core",
-      price: "₱199",
-      displayName: "Core 199",
-      description: "Main financial system access for deeper tracking.",
-    },
-    {
-      key: "life_os_499",
-      title: "Life OS",
-      price: "₱499",
-      displayName: "Life OS 499",
-      description: "Full CLARA access with Life OS support.",
-    },
-  ];
+const hasBillingStart = billingStartLabel !== "Not recorded";
+const hasNextBilling = nextBillingLabel !== "Not recorded";
+const hasBillingDates = hasBillingStart || hasNextBilling;
 
   const renderNotice = () => {
     if (!settingsNotice) return null;
@@ -908,135 +907,104 @@ export default function DashboardSettingsPanel({
     </div>
   );
 
-  const renderPlanPage = () => (
-    <div className="space-y-4">
-      <DetailHeader
-        title="Plan & billing"
-        subtitle="Manage your access, enrollment, and payment flow inside settings."
-      />
+const renderPlanPage = () => (
+  <div className="space-y-4">
+    <DetailHeader title="Plan & Billing" />
 
-      <div className="rounded-[30px] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),rgba(16,185,129,0.07)] p-5 shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">Current plan</p>
-        <p className="mt-2 text-2xl font-black text-white">{currentPlan}</p>
-        <p className="mt-1 text-sm text-white/58">{planStatusLabel} access level</p>
+    <section className="overflow-hidden rounded-[30px] border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_34%),rgba(255,255,255,0.055)] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/65">
+        Current membership
+      </p>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px]">
-          <InfoTile label="Features" value={isPaid ? "Unlocked" : "Limited"} />
-          <InfoTile label="Tier" value={currentPlan} />
-          <InfoTile label="Billing cycle" value={billingCycleLabel} />
-          <InfoTile label="Next billing" value={nextBillingLabel} />
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-2xl font-black tracking-tight text-white">Committed</h3>
+          <p className="mt-1 text-lg font-black text-emerald-100">₱249 / month</p>
         </div>
+
+        <span
+          className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatus.badgeClass}`}
+        >
+          {membershipStatus.label}
+        </span>
       </div>
 
-      <div className="rounded-[24px] border border-white/15 bg-white/[0.075] p-4">
-        <p className="text-sm font-black text-white">Plan details</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {["Expense tracking", "Wallets", "Budgets", "Analytics", "Emergency fund", "Messages"].map((feature) => (
-            <div
-              key={feature}
-              className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-2"
-            >
-              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
-              <span className="truncate text-[11px] font-bold text-white/62">{feature}</span>
+      <p className="mt-3 text-sm font-semibold leading-6 text-white/62">
+        {membershipStatus.description}
+      </p>
+
+      {hasBillingDates ? (
+        <div
+          className={`mt-5 grid gap-3 border-t border-white/10 pt-4 ${
+            hasBillingStart && hasNextBilling ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
+          {hasBillingStart ? (
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                Started
+              </p>
+              <p className="mt-1 break-words text-sm font-bold text-white/82">
+                {billingStartLabel}
+              </p>
             </div>
-          ))}
+          ) : null}
+
+          {hasNextBilling ? (
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                Next billing
+              </p>
+              <p className="mt-1 break-words text-sm font-bold text-white/82">
+                {nextBillingLabel}
+              </p>
+            </div>
+          ) : null}
         </div>
-      </div>
-
-      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
-        <p className="text-sm font-black text-white">Simple terms</p>
-        <p className="mt-2 text-xs leading-5 text-white/48">
-          Access depends on approved enrollment or active payment status. For billing concerns, use Help & support inside Settings.
+      ) : (
+        <p className="mt-5 rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-xs leading-5 text-white/48">
+          Your billing dates will appear here once your Committed membership has been activated.
         </p>
-      </div>
+      )}
+    </section>
 
-      <div className="space-y-3">
-        <p className="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
-          Available plans
-        </p>
+    <section className="rounded-[26px] border border-white/15 bg-white/[0.045] p-4 backdrop-blur-xl">
+      <h3 className="text-sm font-black text-white">Included with Committed</h3>
 
-        {planOptions.map((option) => {
-          const normalizedCurrentPlan = normalizeLower(currentPlan);
-          const normalizedRawPlan = normalizeLower(rawCurrentPlan);
-
-          const isLifeOsLegacy =
-            option.key === "life_os_499" &&
-            ["coaching", "coach", "coaching_1299", "life os", "life_os", "lifeos"].some((key) =>
-              normalizedRawPlan.includes(key)
-            );
-
-          const isCoreLegacy =
-            option.key === "core_199" &&
-            ["core", "core_199", "core199", "core_599"].some((key) =>
-              normalizedRawPlan.includes(key)
-            );
-
-          const isProLegacy =
-            option.key === "pro_99" &&
-            ["pro", "pro_99", "pro99", "pro_tools"].some((key) =>
-              normalizedRawPlan.includes(key)
-            );
-
-          const isCurrent =
-            normalizedCurrentPlan.includes(normalizeLower(option.displayName)) ||
-            normalizedCurrentPlan.includes(normalizeLower(option.title)) ||
-            isLifeOsLegacy ||
-            isCoreLegacy ||
-            isProLegacy;
-
-          return (
-            <div
-              key={option.key}
-              className={`rounded-[24px] border p-4 ${
-                isCurrent
-                  ? "border-emerald-400/25 bg-emerald-400/10"
-                  : "border-white/15 bg-white/[0.045]"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black text-white">{option.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-white/45">{option.description}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-black text-white">{option.price}</p>
-                  {isCurrent ? (
-                    <p className="mt-1 text-[10px] font-black text-emerald-200">CURRENT</p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-white">Billing status</p>
-            <p className="mt-1 text-xs leading-5 text-white/45">
-              Read from your enrollment/payment record when available.
-            </p>
+      <div className="mt-3 space-y-3">
+        {[
+          "Complete money tracking",
+          "Budgets, wallets, and financial goals",
+          "CLARA insights and Forecast",
+          "Learning Hub and account support",
+        ].map((inclusion) => (
+          <div key={inclusion} className="flex items-start gap-2.5">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200/90" />
+            <span className="text-sm font-semibold leading-5 text-white/65">{inclusion}</span>
           </div>
-
-          <span className="shrink-0 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-[10px] font-black text-white/55">
-            {billingStatusLabel}
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-          <InfoTile label="Cycle" value={billingCycleLabel} />
-          <InfoTile label="Started" value={billingStartLabel} />
-        </div>
-
-        {billingCycleLabel === "Not recorded" ? (
-          <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-400/8 px-3 py-2 text-[11px] leading-5 text-amber-100/75">
-            Monthly billing will show here once the billing cycle field is saved in the enrollment record.
-          </p>
-        ) : null}
+        ))}
       </div>
-    </div>
-  );
+    </section>
+
+    <section className="rounded-[26px] border border-white/12 bg-white/[0.03] p-4">
+      <h3 className="text-sm font-black text-white">Need help with your payment?</h3>
+      <p className="mt-2 text-xs leading-5 text-white/48">
+        For enrollment, activation, or billing concerns, contact CLARA Support.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => {
+          setSettingsNotice(null);
+          setActiveSetting("support");
+        }}
+        className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/15"
+      >
+        Contact support
+      </button>
+    </section>
+  </div>
+);
 
   const renderSecurityPage = () => {
     const protectedDataItems = [
