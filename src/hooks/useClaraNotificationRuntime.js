@@ -5,8 +5,8 @@ import {
   fetchTaskReminderSettings,
   fetchTaskReminderState,
   getActiveReminderWindow,
-  modeSupportsPush,
   shouldSurfaceTaskReminder,
+  upsertTaskReminderSettings,
   upsertTaskReminderState,
 } from "@/lib/task-reminders";
 import {
@@ -61,6 +61,15 @@ function timeToMinutes(value) {
 function shouldDelayForQuietHours(notification, preferences) {
   if (!isInsideQuietHours(preferences)) return false;
   return !["critical", "warning"].includes(notification?.severity);
+}
+
+function taskDeliveryPreferencesDiffer(settings, preferences) {
+  return (
+    settings.timezone !== preferences.timezone ||
+    settings.quiet_hours_enabled !== preferences.quietHoursEnabled ||
+    settings.quiet_hours_start !== preferences.quietHoursStart ||
+    settings.quiet_hours_end !== preferences.quietHoursEnd
+  );
 }
 
 export default function useClaraNotificationRuntime({
@@ -159,6 +168,20 @@ export default function useClaraNotificationRuntime({
       let settings;
       try {
         settings = await fetchTaskReminderSettings({ supabase, userId });
+
+        if (taskDeliveryPreferencesDiffer(settings, preferences)) {
+          settings = await upsertTaskReminderSettings({
+            supabase,
+            userId,
+            settings: {
+              ...settings,
+              timezone: preferences.timezone,
+              quiet_hours_enabled: preferences.quietHoursEnabled,
+              quiet_hours_start: preferences.quietHoursStart,
+              quiet_hours_end: preferences.quietHoursEnd,
+            },
+          });
+        }
       } catch (error) {
         console.warn("CLARA task reminder settings could not be loaded:", error);
         return;
@@ -214,7 +237,18 @@ export default function useClaraNotificationRuntime({
         })
       );
 
-      if (!result.created || result.notification.deliveredAt) return;
+      const snoozedUntil = result.notification.snoozedUntil
+        ? new Date(result.notification.snoozedUntil)
+        : null;
+      const snoozeExpired = Boolean(
+        snoozedUntil &&
+        !Number.isNaN(snoozedUntil.getTime()) &&
+        snoozedUntil <= new Date() &&
+        !result.notification.dismissedAt &&
+        !result.notification.actedAt
+      );
+
+      if (!result.created && !snoozeExpired) return;
 
       toast(result.notification.title, {
         description: result.notification.body,
@@ -240,7 +274,7 @@ export default function useClaraNotificationRuntime({
           label: "Later",
           onClick: () => {
             const snoozeMinutes = Number(settings.snooze_default_minutes || preferences.snoozeMinutes || 30);
-            const snoozedUntil = new Date(Date.now() + snoozeMinutes * 60_000).toISOString();
+            const nextSnoozedUntil = new Date(Date.now() + snoozeMinutes * 60_000).toISOString();
             snoozeNotification(userId, result.notification.id, snoozeMinutes).catch(() => {});
             upsertTaskReminderState({
               supabase,
@@ -248,27 +282,13 @@ export default function useClaraNotificationRuntime({
               task: activeTask,
               reminderWindow,
               patch: {
-                snoozed_until: snoozedUntil,
+                snoozed_until: nextSnoozedUntil,
                 last_action: "snoozed",
               },
             }).catch(() => {});
           },
         },
       });
-
-      if (modeSupportsPush(settings.reminder_mode) && getNotificationPermissionState() === "granted") {
-        try {
-          await showDeviceNotification({
-            title: result.notification.title,
-            body: result.notification.body,
-            url: "/lifeos",
-            tag: dedupeKey,
-            eventType,
-          });
-        } catch (error) {
-          console.warn("CLARA task device notification failed:", error);
-        }
-      }
 
       await Promise.all([
         markNotificationDelivered(userId, result.notification.id),
