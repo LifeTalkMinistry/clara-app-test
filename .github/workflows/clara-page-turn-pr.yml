@@ -31,6 +31,42 @@ jobs:
         run: |
           sed -n "/python <<'PY'/,/^[[:space:]]*PY$/p" .github/workflows/clara-page-turn-surgical.yml \
             | sed '1d;$d;s/^          //' > /tmp/clara-page-turn-patch.py
+          python <<'PY'
+          from pathlib import Path
+
+          patch_path = Path("/tmp/clara-page-turn-patch.py")
+          script = patch_path.read_text(encoding="utf-8")
+          old_call = "replace_once(old_page, new_page, 'animated page wrapper')"
+          robust_call = '''page_start_marker = "                          <Page\\n"
+page_end_marker = "                          />"
+if text.count(page_start_marker) != 1:
+    raise SystemExit(
+        f"animated page wrapper start: expected exactly one match, found {text.count(page_start_marker)}"
+    )
+page_start = text.index(page_start_marker)
+page_end = text.index(page_end_marker, page_start) + len(page_end_marker)
+page_block = text[page_start:page_end]
+indented_page_block = "\\n".join(f"  {line}" for line in page_block.splitlines())
+wrapper = (
+    '                          <div\\n'
+    '                            className="relative shrink-0"\\n'
+    '                            style={pdfPaperStyle}\\n'
+    '                          >\\n'
+    f'{indented_page_block}\\n'
+    '                            <div\\n'
+    '                              aria-hidden="true"\\n'
+    '                              className="pointer-events-none absolute inset-y-0"\\n'
+    '                              style={pdfPaperEdgeStyle}\\n'
+    '                            />\\n'
+    '                          </div>'
+)
+text = text[:page_start] + wrapper + text[page_end:]'''
+          if script.count(old_call) != 1:
+              raise SystemExit(
+                  f"wrapper patch call: expected exactly one match, found {script.count(old_call)}"
+              )
+          patch_path.write_text(script.replace(old_call, robust_call, 1), encoding="utf-8")
+          PY
           python /tmp/clara-page-turn-patch.py > /tmp/clara-page-turn-patch.log 2>&1
 
       - name: Upload patch diagnostic
