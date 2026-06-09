@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown } from "lucide-react";
+import { BookOpen, ChevronDown, Lock } from "lucide-react";
 import DailyTipCard from "../../daily-tip";
 import LearningMaterialCard from "./LearningMaterialCard";
 
@@ -220,12 +220,19 @@ export default function LearningHubCarousel({
           Learning Hub
         </span>
 
-        <ChevronDown
-          size={15}
-          className={`relative z-10 text-cyan-100/42 transition-transform duration-300 ${
-            !isLocked && isExpanded ? "rotate-180" : ""
-          }`}
-        />
+        {isLocked ? (
+          <span className="relative z-10 inline-flex items-center gap-1 rounded-full border border-white/14 bg-white/[0.08] px-1.5 py-0.5 text-[7px] font-black tracking-[0.12em] text-cyan-50/72">
+            <Lock className="h-2.5 w-2.5" />
+            PRO
+          </span>
+        ) : (
+          <ChevronDown
+            size={15}
+            className={`relative z-10 text-cyan-100/42 transition-transform duration-300 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        )}
       </button>
 
       <div
