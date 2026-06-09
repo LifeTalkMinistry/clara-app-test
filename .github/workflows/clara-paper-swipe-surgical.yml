@@ -49,9 +49,11 @@ jobs:
           git diff --check
           git rm .github/workflows/clara-paper-swipe-surgical.yml
           git rm .clara-paper-swipe-trigger.py
+          git rm .clara-paper-swipe-pulse
 
           mapfile -t changed < <(git diff --name-only HEAD | sort)
           expected=(
+            ".clara-paper-swipe-pulse"
             ".clara-paper-swipe-trigger.py"
             ".github/workflows/clara-paper-swipe-surgical.yml"
             "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
