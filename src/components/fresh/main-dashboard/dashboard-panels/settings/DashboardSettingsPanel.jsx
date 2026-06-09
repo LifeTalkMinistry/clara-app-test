@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
+import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
 import DashboardPanelShell from "@/components/fresh/main-dashboard/dashboard-panels/DashboardPanelShell";
 import {
   dashboardPanelCardClass,
@@ -38,7 +39,6 @@ import {
   readStoredPerformanceMode,
   saveVisualPerformanceMode,
 } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
-import { persistStoredNotificationSettings } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import {
   formatCompactDate,
@@ -90,11 +90,9 @@ export default function DashboardSettingsPanel({
   onBack,
   user,
   isAdmin = false,
-  notificationSettings,
   openThemePicker,
   resetThemeToDefault,
   onOpenMessages,
-  setNotificationSettings = () => {},
 }) {
   const navigate = useNavigate();
 
@@ -106,13 +104,6 @@ export default function DashboardSettingsPanel({
     user?.user_metadata?.name ||
     user?.email?.split("@")?.[0] ||
     "";
-
-  const [localNotifications, setLocalNotifications] = useState(() => ({
-    dailyReminders: notificationSettings?.dailyReminders !== false,
-    productUpdates: notificationSettings?.productUpdates !== false,
-    coachingAlerts: notificationSettings?.coachingAlerts !== false,
-    budgetAlerts: notificationSettings?.budgetAlerts !== false,
-  }));
 
   const [localPerformanceMode, setLocalPerformanceMode] = useState(() =>
     readStoredPerformanceMode(user?.id || "guest")
@@ -143,15 +134,6 @@ export default function DashboardSettingsPanel({
   useEffect(() => {
     setProfileName(initialDisplayName);
   }, [initialDisplayName]);
-
-  useEffect(() => {
-    setLocalNotifications({
-      dailyReminders: notificationSettings?.dailyReminders !== false,
-      productUpdates: notificationSettings?.productUpdates !== false,
-      coachingAlerts: notificationSettings?.coachingAlerts !== false,
-      budgetAlerts: notificationSettings?.budgetAlerts !== false,
-    });
-  }, [notificationSettings]);
 
   useEffect(() => {
     const storedPerformanceMode = readStoredPerformanceMode(user?.id || "guest");
@@ -266,29 +248,6 @@ const currentPlan =
     ? "Syncing"
     : membershipState.planLabel;
 const supportEmail = "claraprogram2026@gmail.com";
-
-  const saveNotificationSettings = useCallback((next) => {
-    try {
-      const saved = persistStoredNotificationSettings(user?.id || "guest", next);
-      setNotificationSettings(saved);
-      dispatchClaraEvent("clara-settings-updated", { type: "notifications", notifications: saved });
-    } catch (error) {
-      console.error("Failed to save embedded settings:", error);
-    }
-  }, [setNotificationSettings, user?.id]);
-
-  const persistNotificationToggle = useCallback((key) => {
-    setLocalNotifications((prev) => {
-      const next = {
-        ...prev,
-        [key]: !prev[key],
-      };
-
-      saveNotificationSettings(next);
-      setSettingsNotice({ type: "success", message: "Notification preference updated." });
-      return next;
-    });
-  }, [saveNotificationSettings]);
 
   const persistPerformanceToggle = useCallback(() => {
     setLocalPerformanceMode((current) => {
@@ -507,29 +466,6 @@ const supportEmail = "claraprogram2026@gmail.com";
     user?.user_metadata?.full_name,
     user?.user_metadata?.name,
   ]);
-
-  const notificationRows = [
-    {
-      key: "dailyReminders",
-      title: "Daily reminders",
-      description: "Budget nudges and daily financial check-ins",
-    },
-    {
-      key: "budgetAlerts",
-      title: "Budget alerts",
-      description: "Warnings when spending gets close to your budget",
-    },
-    {
-      key: "productUpdates",
-      title: "Product updates",
-      description: "New CLARA improvements and feature notices",
-    },
-    {
-      key: "coachingAlerts",
-      title: "Coaching alerts",
-      description: "Program/coaching related prompts",
-    },
-  ];
 
   const settingSections = [
     {
@@ -809,35 +745,10 @@ const billingDetailsMessage =
     <div className="space-y-4">
       <DetailHeader
         title="Notifications"
-        subtitle="Choose what deserves your attention."
+        subtitle="Control how and when CLARA gets your attention."
       />
 
-      {renderNotice()}
-
-      <div className="space-y-3">
-        {notificationRows.map((row) => (
-          <button
-            key={row.key}
-            type="button"
-            onClick={() => persistNotificationToggle(row.key)}
-            className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left transition hover:bg-white/[0.07]"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-white">{row.title}</p>
-              <p className="mt-1 text-xs leading-5 text-white/45">{row.description}</p>
-            </div>
-
-            <SettingsToggle enabled={localNotifications[row.key]} />
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
-        <p className="text-sm font-bold text-white">Delivery behavior</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">
-          These preferences are saved on this device first. You can later move them to Supabase when you add a shared user settings table.
-        </p>
-      </div>
+      <NotificationSettingsPanel userId={user?.id} embedded />
     </div>
   );
 

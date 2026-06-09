@@ -3,8 +3,7 @@ import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, Log
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
-import TaskReminderSettingsCard from "@/components/TaskReminderSettingsCard";
-import useTaskReminderSettings from "@/hooks/useTaskReminderSettings";
+import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
 import { CLARA_VOICE_OPTIONS, readClaraSettings, saveClaraSettings } from "@/lib/clara-settings";
 
 const ROLE_STYLES = {
@@ -154,7 +153,6 @@ export default function Settings() {
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteRequesting, setDeleteRequesting] = useState(false);
-  const taskReminderSettings = useTaskReminderSettings(userId);
   const deletionRequestUrl =
     import.meta.env.VITE_ACCOUNT_DELETION_URL ||
     "https://lifetalkministry.github.io/clara-app-test/#/account-deletion";
@@ -215,13 +213,6 @@ export default function Settings() {
   const enrollmentStatus = String(profile?.enrollment_status || profile?.status || "free").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
   const dirty = useMemo(() => {
-    if (detailSection === "notifications") {
-      return (
-        JSON.stringify(settingsState.notifications) !==
-          JSON.stringify(initialSettingsState.notifications) ||
-        taskReminderSettings.dirty
-      );
-    }
     if (detailSection === "privacy") {
       return JSON.stringify(settingsState.privacy) !== JSON.stringify(initialSettingsState.privacy);
     }
@@ -272,9 +263,6 @@ export default function Settings() {
       setError("");
       setMessage("");
       saveClaraSettings(userId, settingsState);
-      if (detailSection === "notifications") {
-        await taskReminderSettings.saveSettings();
-      }
       setInitialSettingsState(settingsState);
       setMessage("Settings updated successfully.");
     } catch (saveError) {
@@ -283,7 +271,7 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
-  }, [detailSection, dirty, settingsState, taskReminderSettings, userId]);
+  }, [detailSection, dirty, settingsState, userId]);
 
   const handlePasswordReset = useCallback(async () => {
     if (!email) return;
@@ -417,7 +405,7 @@ export default function Settings() {
           <Panel
             title={activeMeta.label}
             subtitle={activeMeta.subtitle}
-            action={detailSection === "notifications" || detailSection === "privacy" || detailSection === "preferences" ? (
+            action={detailSection === "privacy" || detailSection === "preferences" ? (
               <button type="button" onClick={handleSave} disabled={!dirty || saving} className={`panelSave ${!dirty || saving ? "panelSaveDisabled" : ""}`}>
                 {saving ? "Saving..." : "Save"}
               </button>
@@ -438,39 +426,7 @@ export default function Settings() {
             )}
 
             {detailSection === "notifications" && (
-              <div className="space-y-3">
-                <ToggleRow label="Daily reminders" description="Receive your regular CLARA reminder, dashboard guided-path prompt, and day-start nudges." checked={settingsState.notifications.dailyReminders} onChange={() => updateNestedSetting("notifications", "dailyReminders", !settingsState.notifications.dailyReminders)} />
-                <ToggleRow label="Life OS alerts" description="Get updates for Life OS activity and important progress prompts." checked={settingsState.notifications.coachingAlerts} onChange={() => updateNestedSetting("notifications", "coachingAlerts", !settingsState.notifications.coachingAlerts)} />
-                <ToggleRow label="Product updates" description="Hear about meaningful feature updates and CLARA announcements." checked={settingsState.notifications.productUpdates} onChange={() => updateNestedSetting("notifications", "productUpdates", !settingsState.notifications.productUpdates)} />
-                <TaskReminderSettingsCard
-                  settings={taskReminderSettings.settings}
-                  onChange={(nextSettings) => {
-                    taskReminderSettings.setSettings(nextSettings);
-                    setMessage("");
-                    setError("");
-                  }}
-                  loading={taskReminderSettings.loading || saving}
-                  pushSupported={taskReminderSettings.pushSupported}
-                  permissionState={taskReminderSettings.permissionState}
-                  pushConfigured={taskReminderSettings.pushConfigured}
-                  pushEnabling={taskReminderSettings.pushEnabling}
-                  onEnablePush={async () => {
-                    try {
-                      setError("");
-                      setMessage("");
-                      const result = await taskReminderSettings.enablePush();
-                      if (!result.configured) {
-                        setMessage("Push permission updated. Add your VAPID key to finish full browser push.");
-                        return;
-                      }
-                      setMessage("Push notifications connected for this device.");
-                    } catch (pushError) {
-                      console.error("Push setup error:", pushError);
-                      setError("Unable to enable push notifications right now.");
-                    }
-                  }}
-                />
-              </div>
+              <NotificationSettingsPanel userId={userId} />
             )}
 
             {detailSection === "privacy" && (

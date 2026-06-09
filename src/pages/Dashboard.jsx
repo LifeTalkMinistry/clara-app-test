@@ -28,6 +28,7 @@ import useDashboardBudgetFormProgress from "@/components/fresh/main-dashboard/bu
 import useDashboardManualExpenseBudgetListItems from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetListItems";
 import { DASHBOARD_SCALE, useDashboardViewportMode } from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";
 import useDashboardNotificationSettings from "@/components/fresh/main-dashboard/dashboard-settings/useDashboardNotificationSettings";
+import useClaraNotificationRuntime from "@/hooks/useClaraNotificationRuntime";
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
 import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents";
@@ -511,6 +512,15 @@ export default function Dashboard() {
     programRecord,
     isPaid,
     isProgramOnboardingCompleted,
+  });
+
+  useClaraNotificationRuntime({
+    userId,
+    budgets,
+    expenses,
+    savingsGoals,
+    activeTask,
+    navigate,
   });
 
   const {

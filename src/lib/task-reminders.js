@@ -13,6 +13,10 @@ export const DEFAULT_TASK_REMINDER_SETTINGS = {
   preferred_times: ["09:00"],
   snooze_default_minutes: 30,
   only_notify_if_incomplete: true,
+  timezone: "UTC",
+  quiet_hours_enabled: true,
+  quiet_hours_start: "22:00",
+  quiet_hours_end: "07:00",
 };
 
 export const TASK_REMINDER_EVENT = "clara-task-reminder-completed";
@@ -37,6 +41,16 @@ const DEFAULT_TIME_SETS = {
 
 function normalizeString(value) {
   return String(value ?? "").trim();
+}
+
+function normalizeTimezone(value) {
+  const timezone = normalizeString(value) || "UTC";
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch {
+    return "UTC";
+  }
 }
 
 export function modeSupportsInApp(mode) {
@@ -145,6 +159,17 @@ export function coerceTaskReminderSettings(value = {}) {
       typeof value.only_notify_if_incomplete === "boolean"
         ? value.only_notify_if_incomplete
         : DEFAULT_TASK_REMINDER_SETTINGS.only_notify_if_incomplete,
+    timezone: normalizeTimezone(value.timezone || DEFAULT_TASK_REMINDER_SETTINGS.timezone),
+    quiet_hours_enabled:
+      typeof value.quiet_hours_enabled === "boolean"
+        ? value.quiet_hours_enabled
+        : DEFAULT_TASK_REMINDER_SETTINGS.quiet_hours_enabled,
+    quiet_hours_start:
+      normalizeReminderTime(value.quiet_hours_start) ||
+      DEFAULT_TASK_REMINDER_SETTINGS.quiet_hours_start,
+    quiet_hours_end:
+      normalizeReminderTime(value.quiet_hours_end) ||
+      DEFAULT_TASK_REMINDER_SETTINGS.quiet_hours_end,
   };
 }
 
