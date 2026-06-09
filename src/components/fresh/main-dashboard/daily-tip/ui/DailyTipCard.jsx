@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import useDailyTip from "../logic/useDailyTip";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
+import CommittedFeatureLock from "@/components/fresh/main-dashboard/program-access/CommittedFeatureLock";
 
 const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
 
@@ -17,7 +18,10 @@ function readActiveCurrentState() {
   }
 }
 
-export default function DailyTipCard() {
+export default function DailyTipCard({
+  hasCommittedAccess = true,
+  onOpenCommitmentBooklet,
+}) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
@@ -93,6 +97,19 @@ export default function DailyTipCard() {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!hasCommittedAccess) {
+    return (
+      <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
+        <CommittedFeatureLock
+          message="Tap to unlock Daily Money Tip"
+          ariaLabel="Open the Committed Version to unlock Daily Money Tip"
+          onClick={onOpenCommitmentBooklet}
+          className="h-[150px]"
+        />
       </div>
     );
   }

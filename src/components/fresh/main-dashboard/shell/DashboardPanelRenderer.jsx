@@ -5,6 +5,10 @@ import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
+import {
+  OPEN_COMMITMENT_BOOKLET_EVENT,
+  useCommittedFeatureAccess,
+} from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 
 const CLARA_COMMITMENT_PRODUCT_ID = "clara_commitment_249";
 const CLARA_COMMITMENT_UNLOCK_PLAN = "life_os_499";
@@ -611,19 +615,35 @@ export default function DashboardPanelRenderer({
   renderMe,
   fallback = null,
 }) {
-  const { plan = "free", user } = useUserRole();
   const previewPlan = readPlanPreview();
-  const userPlan = user?.plan || user?.subscription?.plan || plan;
-  const isFreePreview = (previewPlan || userPlan) === "free";
+  const hasCommittedAccess = useCommittedFeatureAccess({ previewPlan });
   const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
   const openCommitmentBooklet = () => setCommitmentBookletOpen(true);
   const closeCommitmentBooklet = () => setCommitmentBookletOpen(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleOpenCommitmentBooklet = () => openCommitmentBooklet();
+
+    window.addEventListener(
+      OPEN_COMMITMENT_BOOKLET_EVENT,
+      handleOpenCommitmentBooklet
+    );
+
+    return () => {
+      window.removeEventListener(
+        OPEN_COMMITMENT_BOOKLET_EVENT,
+        handleOpenCommitmentBooklet
+      );
+    };
+  }, []);
 
   if (activePanel === "me") {
     const content = renderMe?.() ?? <DashboardMeLifePanel />;
     return (
       <>
-        {isFreePreview ? (
+        {!hasCommittedAccess ? (
           <LockedPanelPreview onOpenCommitmentBooklet={openCommitmentBooklet}>
             {content}
           </LockedPanelPreview>
@@ -639,7 +659,7 @@ export default function DashboardPanelRenderer({
     const content = <DashboardSchedulePanel />;
     return (
       <>
-        {isFreePreview ? (
+        {!hasCommittedAccess ? (
           <LockedPanelPreview onOpenCommitmentBooklet={openCommitmentBooklet}>
             {content}
           </LockedPanelPreview>
@@ -656,5 +676,13 @@ export default function DashboardPanelRenderer({
   if (activePanel === "task") return renderTask?.() ?? fallback;
   if (activePanel === "settings") return renderSettingsWithLogout(renderSettings, fallback);
 
-  return renderHome?.() ?? fallback;
+  return (
+    <>
+      {renderHome?.() ?? fallback}
+      <ClaraCommitmentBookletModal
+        open={commitmentBookletOpen}
+        onClose={closeCommitmentBooklet}
+      />
+    </>
+  );
 }
