@@ -5,8 +5,10 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Minimize2,
   MoreHorizontal,
   X,
+  ZoomIn,
 } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -17,7 +19,11 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 const SWIPE_THRESHOLD = 50;
+const DOUBLE_TAP_DELAY = 300;
+const TAP_MOVE_TOLERANCE = 12;
 const PDF_MAX_WIDTH = 1040;
+const PDF_READING_ZOOM_MULTIPLIER = 1.75;
+const PDF_ZOOM_MAX_WIDTH = 1800;
 
 const resolvePublicAssetUrl = (assetPath) => {
   const normalizedPath = assetPath.trim().replace(/^\/+/, "");
@@ -106,7 +112,10 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
   const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
   const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);
+  const [isPdfZoomed, setIsPdfZoomed] = useState(false);
   const touchStartRef = useRef({ x: null, y: null });
+  const lastPdfTapTimeRef = useRef(0);
+  const ignoreDoubleClickUntilRef = useRef(0);
   const scrollContainerRef = useRef(null);
   const pdfViewportRef = useRef(null);
   const activeLoadTokenRef = useRef("");
@@ -153,6 +162,17 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     pageCount > 0 &&
     (!hasPdf ||
       (pdfStatus === "ready" && pendingGlobalPageIndex === null));
+  const canTogglePdfZoom =
+    hasPdf &&
+    pdfStatus === "ready" &&
+    pdfRenderWidth > 0 &&
+    !isBoundaryTransition;
+  const activePdfRenderWidth = isPdfZoomed
+    ? Math.min(
+        Math.round(pdfRenderWidth * PDF_READING_ZOOM_MULTIPLIER),
+        PDF_ZOOM_MAX_WIDTH,
+      )
+    : pdfRenderWidth;
   const progress =
     pageCount > 0 &&
     (!hasPdf ||
@@ -190,9 +210,32 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   activeLoadTokenRef.current = activeDocumentKey;
 
+  const clearTouchTracking = useCallback(() => {
+    touchStartRef.current = { x: null, y: null };
+  }, []);
+
+  const clearTapTracking = useCallback(() => {
+    lastPdfTapTimeRef.current = 0;
+    ignoreDoubleClickUntilRef.current = 0;
+  }, []);
+
   const scrollToTop = useCallback(() => {
     scrollContainerRef.current?.scrollTo({
       top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, []);
+
+  const syncPdfScrollPosition = useCallback((centerHorizontally) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: 0,
+      left: centerHorizontally
+        ? Math.max(0, (container.scrollWidth - container.clientWidth) / 2)
+        : 0,
       behavior: "auto",
     });
   }, []);
@@ -207,9 +250,19 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
     setIsReaderMenuOpen(false);
-    touchStartRef.current = { x: null, y: null };
+    setIsPdfZoomed(false);
+    clearTouchTracking();
+    clearTapTracking();
     transitionLockRef.current = false;
-  }, []);
+  }, [clearTapTracking, clearTouchTracking]);
+
+  const togglePdfZoom = useCallback(() => {
+    if (!canTogglePdfZoom || isReaderMenuOpen) return;
+
+    clearTouchTracking();
+    lastPdfTapTimeRef.current = 0;
+    setIsPdfZoomed((currentZoomed) => !currentZoomed);
+  }, [canTogglePdfZoom, clearTouchTracking, isReaderMenuOpen]);
 
   const navigateToGlobalPage = useCallback(
     (targetGlobalPageIndex) => {
@@ -223,6 +276,12 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         return;
       }
 
+      if (hasPdf) {
+        setIsPdfZoomed(false);
+        clearTouchTracking();
+        clearTapTracking();
+      }
+
       if (!hasMultiPartPdf) {
         setPageIndex(targetGlobalPageIndex);
         return;
@@ -234,6 +293,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       );
 
       if (targetPartIndex < 0) {
+        setIsPdfZoomed(false);
         setPdfStatus("error");
         setPdfError("This section of the book is not configured correctly.");
         return;
@@ -245,6 +305,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       }
 
       transitionLockRef.current = true;
+      setIsPdfZoomed(false);
       setPendingGlobalPageIndex(targetGlobalPageIndex);
       setActivePartIndex(targetPartIndex);
       setPdfPageCount(0);
@@ -255,7 +316,10 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     [
       activePartIndex,
       canNavigate,
+      clearTapTracking,
+      clearTouchTracking,
       hasMultiPartPdf,
+      hasPdf,
       pageCount,
       pdfParts,
       safePageIndex,
@@ -289,6 +353,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         return;
       }
 
+      setIsPdfZoomed(false);
       const nextPageCount = Number.isFinite(numPages)
         ? Math.max(0, Math.trunc(numPages))
         : 0;
@@ -360,6 +425,9 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         return;
       }
 
+      setIsPdfZoomed(false);
+      clearTapTracking();
+      clearTouchTracking();
       setPdfPageCount(0);
 
       if (!hasMultiPartPdf) {
@@ -368,11 +436,22 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
       setPdfStatus("error");
       setPdfError("Check the PDF file and try again.");
+      scrollToTop();
     },
-    [hasMultiPartPdf],
+    [
+      clearTapTracking,
+      clearTouchTracking,
+      hasMultiPartPdf,
+      scrollToTop,
+    ],
   );
 
   const retryPdf = useCallback(() => {
+    setIsPdfZoomed(false);
+    setIsReaderMenuOpen(false);
+    clearTapTracking();
+    clearTouchTracking();
+
     if (!hasMultiPartPdf) {
       setPageIndex(0);
     }
@@ -382,7 +461,12 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfStatus("loading");
     setPdfReloadKey((currentKey) => currentKey + 1);
     scrollToTop();
-  }, [hasMultiPartPdf, scrollToTop]);
+  }, [
+    clearTapTracking,
+    clearTouchTracking,
+    hasMultiPartPdf,
+    scrollToTop,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -400,8 +484,10 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
     setIsReaderMenuOpen(false);
+    setIsPdfZoomed(false);
     setIsVisible(false);
-    touchStartRef.current = { x: null, y: null };
+    clearTouchTracking();
+    clearTapTracking();
     transitionLockRef.current = false;
     scrollToTop();
 
@@ -411,6 +497,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
     return () => window.cancelAnimationFrame(animationFrame);
   }, [
+    clearTapTracking,
+    clearTouchTracking,
     hasPdf,
     isOpen,
     material?.id,
@@ -467,15 +555,37 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   useEffect(() => {
     if (!isOpen) return;
     setIsReaderMenuOpen(false);
-    touchStartRef.current = { x: null, y: null };
+    setIsPdfZoomed(false);
+    clearTouchTracking();
+    clearTapTracking();
     scrollToTop();
   }, [
     activePdfPath,
+    clearTapTracking,
+    clearTouchTracking,
     isOpen,
     material?.id,
     pdfReloadKey,
     safePageIndex,
     scrollToTop,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen || !hasPdf || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      syncPdfScrollPosition(isPdfZoomed);
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [
+    activePdfRenderWidth,
+    hasPdf,
+    isOpen,
+    isPdfZoomed,
+    syncPdfScrollPosition,
   ]);
 
   useEffect(() => {
@@ -501,11 +611,18 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
           return;
         }
 
+        if (hasPdf && isPdfZoomed) {
+          setIsPdfZoomed(false);
+          clearTapTracking();
+          clearTouchTracking();
+          return;
+        }
+
         closeReader();
         return;
       }
 
-      if (isReaderMenuOpen) return;
+      if (isReaderMenuOpen || (hasPdf && isPdfZoomed)) return;
 
       if (event.key === "ArrowRight") {
         event.preventDefault();
@@ -524,11 +641,21 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeReader, goNext, goPrevious, isOpen, isReaderMenuOpen]);
+  }, [
+    clearTapTracking,
+    clearTouchTracking,
+    closeReader,
+    goNext,
+    goPrevious,
+    hasPdf,
+    isOpen,
+    isPdfZoomed,
+    isReaderMenuOpen,
+  ]);
 
   const handleTouchStart = (event) => {
     if (isReaderMenuOpen) {
-      touchStartRef.current = { x: null, y: null };
+      clearTouchTracking();
       return;
     }
 
@@ -541,25 +668,47 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     };
   };
 
-  const clearTouchStart = () => {
-    touchStartRef.current = { x: null, y: null };
-  };
-
   const handleTouchEnd = (event) => {
     if (isReaderMenuOpen) {
-      clearTouchStart();
+      clearTouchTracking();
       return;
     }
 
     const touch = event.changedTouches?.[0];
     const { x: startX, y: startY } = touchStartRef.current;
 
-    clearTouchStart();
+    clearTouchTracking();
 
     if (!touch || startX === null || startY === null) return;
 
     const horizontalDistance = touch.clientX - startX;
     const verticalDistance = touch.clientY - startY;
+    const isTap =
+      Math.abs(horizontalDistance) <= TAP_MOVE_TOLERANCE &&
+      Math.abs(verticalDistance) <= TAP_MOVE_TOLERANCE;
+
+    if (hasPdf && isTap && canTogglePdfZoom) {
+      const now = Date.now();
+      const elapsedSinceLastTap = now - lastPdfTapTimeRef.current;
+
+      if (
+        lastPdfTapTimeRef.current > 0 &&
+        elapsedSinceLastTap <= DOUBLE_TAP_DELAY
+      ) {
+        event.preventDefault();
+        lastPdfTapTimeRef.current = 0;
+        ignoreDoubleClickUntilRef.current = now + DOUBLE_TAP_DELAY * 2;
+        togglePdfZoom();
+        return;
+      }
+
+      lastPdfTapTimeRef.current = now;
+    } else if (hasPdf) {
+      lastPdfTapTimeRef.current = 0;
+    }
+
+    if (hasPdf && isPdfZoomed) return;
+
     const isHorizontalGesture =
       Math.abs(horizontalDistance) > Math.abs(verticalDistance);
 
@@ -578,18 +727,49 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     goPrevious();
   };
 
+  const handlePdfDoubleClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (
+      isReaderMenuOpen ||
+      Date.now() < ignoreDoubleClickUntilRef.current
+    ) {
+      return;
+    }
+
+    togglePdfZoom();
+  };
+
+  const handlePdfPageRenderSuccess = useCallback(() => {
+    syncPdfScrollPosition(isPdfZoomed);
+  }, [isPdfZoomed, syncPdfScrollPosition]);
+
   const openReaderMenu = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    clearTouchStart();
+    clearTouchTracking();
+    clearTapTracking();
     setIsReaderMenuOpen(true);
   };
 
   const closeReaderMenu = (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    clearTouchStart();
+    clearTouchTracking();
+    clearTapTracking();
     setIsReaderMenuOpen(false);
+  };
+
+  const handleZoomMenuAction = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsReaderMenuOpen(false);
+    clearTouchTracking();
+    clearTapTracking();
+
+    if (!canTogglePdfZoom) return;
+    setIsPdfZoomed((currentZoomed) => !currentZoomed);
   };
 
   if (!isOpen || !material || typeof document === "undefined") {
@@ -677,7 +857,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
           onClick={openReaderMenu}
           onTouchStart={(event) => {
             event.stopPropagation();
-            clearTouchStart();
+            clearTouchTracking();
+            clearTapTracking();
           }}
           onTouchEnd={(event) => event.stopPropagation()}
           aria-label="Open reader options"
@@ -694,13 +875,24 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         <div
           ref={scrollContainerRef}
-          className={`h-full touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain ${
-            hasPdf ? "px-2 py-2 sm:px-3 sm:py-3" : "px-5 sm:px-8"
+          className={`h-full overscroll-contain ${
+            hasPdf
+              ? isPdfZoomed
+                ? "overflow-auto px-2 py-2 sm:px-3 sm:py-3"
+                : "overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3"
+              : "overflow-x-hidden overflow-y-auto px-5 sm:px-8"
           }`}
-          style={{ WebkitOverflowScrolling: "touch" }}
+          style={{
+            WebkitOverflowScrolling: "touch",
+            touchAction: hasPdf
+              ? isPdfZoomed
+                ? "pan-x pan-y"
+                : "pan-y"
+              : "pan-y",
+          }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          onTouchCancel={clearTouchStart}
+          onTouchCancel={clearTouchTracking}
         >
           {hasPdf ? (
             <div className="mx-auto flex min-h-full w-full max-w-[1040px] flex-col">
@@ -711,7 +903,10 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                     ? `Page ${safePageIndex + 1} of ${pageCount} of ${material.title}`
                     : `PDF reader for ${material.title}`
                 }
-                className={`my-auto w-full transition-[opacity,transform] duration-300 ease-out ${
+                onDoubleClick={handlePdfDoubleClick}
+                className={`${
+                  isPdfZoomed ? "my-0" : "my-auto"
+                } w-full transition-[opacity,transform] duration-300 ease-out ${
                   isVisible
                     ? "translate-y-0 opacity-100"
                     : "translate-y-2 opacity-0"
@@ -732,14 +927,18 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                       loading={null}
                       error={null}
                       noData={null}
-                      className="flex w-full justify-center"
+                      className={
+                        isPdfZoomed
+                          ? "flex w-max min-w-full justify-start"
+                          : "flex w-full justify-center"
+                      }
                     >
                       {pdfStatus === "ready" &&
                       pdfPageCount > 0 &&
-                      pdfRenderWidth > 0 ? (
+                      activePdfRenderWidth > 0 ? (
                         <Page
                           pageNumber={localPdfPageNumber}
-                          width={pdfRenderWidth}
+                          width={activePdfRenderWidth}
                           renderTextLayer={true}
                           renderAnnotationLayer={false}
                           onLoadError={() =>
@@ -748,6 +947,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                           onRenderError={() =>
                             handlePdfLoadError(activeDocumentKey)
                           }
+                          onRenderSuccess={handlePdfPageRenderSuccess}
                           loading={
                             <div
                               role="status"
@@ -761,7 +961,9 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                             </div>
                           }
                           error={null}
-                          className="mx-auto overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]"
+                          className={`${
+                            isPdfZoomed ? "mx-0" : "mx-auto"
+                          } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
                         />
                       ) : null}
                     </Document>
@@ -899,7 +1101,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
           onTouchStart={(event) => {
             event.stopPropagation();
-            clearTouchStart();
+            clearTouchTracking();
+            clearTapTracking();
           }}
           onTouchEnd={(event) => event.stopPropagation()}
         >
@@ -925,20 +1128,49 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
               Reader options
             </p>
 
-            <button
-              type="button"
-              onClick={closeReader}
-              className="flex h-12 min-h-12 w-full appearance-none items-center justify-start gap-3 rounded-xl border border-white/[0.10] bg-white/[0.06] px-4 py-0 text-left text-sm font-semibold text-white/90 transition hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-              style={{ minHeight: "48px", width: "100%", borderRadius: "14px" }}
-            >
-              <LogOut
-                aria-hidden="true"
-                className="shrink-0 text-white/65"
-                size={18}
-                strokeWidth={1.9}
-              />
-              <span className="min-w-0 flex-1">Exit reader</span>
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleZoomMenuAction}
+                disabled={!canTogglePdfZoom}
+                className="flex h-12 min-h-12 w-full appearance-none items-center justify-start gap-3 rounded-xl border border-white/[0.10] bg-white/[0.06] px-4 py-0 text-left text-sm font-semibold text-white/90 transition hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/[0.06]"
+                style={{ minHeight: "48px", width: "100%", borderRadius: "14px" }}
+              >
+                {isPdfZoomed ? (
+                  <Minimize2
+                    aria-hidden="true"
+                    className="shrink-0 text-cyan-200/75"
+                    size={18}
+                    strokeWidth={1.9}
+                  />
+                ) : (
+                  <ZoomIn
+                    aria-hidden="true"
+                    className="shrink-0 text-cyan-200/75"
+                    size={18}
+                    strokeWidth={1.9}
+                  />
+                )}
+                <span className="min-w-0 flex-1">
+                  {isPdfZoomed ? "Fit page" : "Enlarge page"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={closeReader}
+                className="flex h-12 min-h-12 w-full appearance-none items-center justify-start gap-3 rounded-xl border border-white/[0.10] bg-white/[0.06] px-4 py-0 text-left text-sm font-semibold text-white/90 transition hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                style={{ minHeight: "48px", width: "100%", borderRadius: "14px" }}
+              >
+                <LogOut
+                  aria-hidden="true"
+                  className="shrink-0 text-white/65"
+                  size={18}
+                  strokeWidth={1.9}
+                />
+                <span className="min-w-0 flex-1">Exit reader</span>
+              </button>
+            </div>
           </section>
         </div>
       )}
