@@ -165,7 +165,10 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       const nextTaskSettings = {
         ...taskReminderSettings.settings,
         ...patch,
-        reminders_enabled: Boolean(nextPreferences.tasksAndCoaching && taskApplicable),
+        reminders_enabled:
+          taskApplicable === true
+            ? Boolean(nextPreferences.tasksAndCoaching)
+            : taskReminderSettings.settings.reminders_enabled,
         timezone: nextPreferences.timezone,
         quiet_hours_enabled: nextPreferences.quietHoursEnabled,
         quiet_hours_start: nextPreferences.quietHoursStart,

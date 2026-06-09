@@ -81,8 +81,13 @@ function reminderTimes(settings: Record<string, unknown>) {
   return ["09:00"];
 }
 
-function dueTime(settings: Record<string, unknown>, currentTime: string) {
-  return reminderTimes(settings).find((time) => time === currentTime) || "";
+function dueTime(settings: Record<string, unknown>, currentMinutes: number) {
+  return (
+    reminderTimes(settings).find((time) => {
+      const scheduledMinutes = minutesFromTime(time);
+      return currentMinutes >= scheduledMinutes && currentMinutes < scheduledMinutes + 5;
+    }) || ""
+  );
 }
 
 async function getIncompleteAssignment(userId: string, localDate: string) {
@@ -179,7 +184,7 @@ Deno.serve(async (request) => {
       if (!userId) continue;
 
       const clock = localClock(String(settings.timezone || "UTC"), now);
-      const time = dueTime(settings, clock.time);
+      const time = dueTime(settings, clock.minutes);
       if (!time || insideQuietHours(settings, clock.minutes)) {
         skipped += 1;
         continue;

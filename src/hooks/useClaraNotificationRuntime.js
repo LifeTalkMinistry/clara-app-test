@@ -23,6 +23,7 @@ import {
 } from "@/lib/notifications/localNotificationRepository";
 import {
   getZonedDateParts,
+  hasStoredNotificationPreferences,
   isInsideQuietHours,
   readNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
@@ -63,8 +64,9 @@ function shouldDelayForQuietHours(notification, preferences) {
   return !["critical", "warning"].includes(notification?.severity);
 }
 
-function taskDeliveryPreferencesDiffer(settings, preferences) {
+function taskDeliveryPreferencesDiffer(settings, preferences, syncEnabledState) {
   return (
+    (syncEnabledState && settings.reminders_enabled !== preferences.tasksAndCoaching) ||
     settings.timezone !== preferences.timezone ||
     settings.quiet_hours_enabled !== preferences.quietHoursEnabled ||
     settings.quiet_hours_start !== preferences.quietHoursStart ||
@@ -162,19 +164,22 @@ export default function useClaraNotificationRuntime({
     };
 
     const evaluateTaskReminder = async (preferences) => {
-      if (!activeTask || !preferences.tasksAndCoaching) return;
-      if (!isNotificationEventAllowed("task_still_incomplete", preferences)) return;
+      if (!activeTask) return;
 
+      const syncEnabledState = hasStoredNotificationPreferences(userId);
       let settings;
       try {
         settings = await fetchTaskReminderSettings({ supabase, userId });
 
-        if (taskDeliveryPreferencesDiffer(settings, preferences)) {
+        if (taskDeliveryPreferencesDiffer(settings, preferences, syncEnabledState)) {
           settings = await upsertTaskReminderSettings({
             supabase,
             userId,
             settings: {
               ...settings,
+              reminders_enabled: syncEnabledState
+                ? preferences.tasksAndCoaching
+                : settings.reminders_enabled,
               timezone: preferences.timezone,
               quiet_hours_enabled: preferences.quietHoursEnabled,
               quiet_hours_start: preferences.quietHoursStart,
@@ -186,6 +191,9 @@ export default function useClaraNotificationRuntime({
         console.warn("CLARA task reminder settings could not be loaded:", error);
         return;
       }
+
+      if (!preferences.tasksAndCoaching) return;
+      if (!isNotificationEventAllowed("task_still_incomplete", preferences)) return;
 
       const reminderWindow = getActiveReminderWindow(settings, new Date());
       if (!reminderWindow) return;
