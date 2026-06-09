@@ -49,6 +49,7 @@ import {
   openCommittedVersionModal,
   useCommittedMembershipState,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+import appPackage from "../../../../../../package.json";
 
 const dashboardRuntimePrefs = { clear: () => {} };
 const dashboardRuntimeNotifications = { clear: () => {} };
@@ -753,13 +754,6 @@ const billingDetailsMessage =
     </div>
   );
 
-  const InfoTile = ({ label, value }) => (
-    <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
-      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
-    </div>
-  );
-
   const renderProfilePage = () => (
     <div className="space-y-4">
       <DetailHeader
@@ -1257,19 +1251,19 @@ const renderPlanPage = () => (
       is_active: true,
     },
     {
-      section_key: "clara_difference",
-      key: "clara_difference",
-      title: "What makes CLARA different",
-      subtitle: "See how CLARA goes beyond basic expense tracking.",
+      section_key: "privacy_policy",
+      key: "privacy_policy",
+      title: "Privacy Policy",
+      subtitle: "See how CLARA protects your personal and financial information.",
       body:
-        "Most finance tools only show information. CLARA gives users a system.\n\nIt connects wallets, budgets, savings, and spending behavior so users do not only track what happened — they learn how to control what happens next.\n\nCLARA focuses on simplicity, structure, and consistency because real financial progress does not come from knowing more. It comes from doing the right things repeatedly.",
+        "CLARA respects your privacy and is designed to protect the personal and financial information you provide inside the app.\n\nCLARA may use information such as your email, expenses, budgets, wallet entries, app activity, and financial patterns to provide core features, personalize your experience, and improve guidance.\n\nCLARA does not sell your personal data. Your information is used to support your financial journey, not to exploit it.",
       sort_order: 3,
       is_active: true,
     },
     {
       section_key: "terms_of_use",
       key: "terms_of_use",
-      title: "Terms of use",
+      title: "Terms of Use",
       subtitle: "Understand how CLARA should be used responsibly.",
       body:
         "CLARA is a personal finance guidance app designed to support awareness, budgeting, and better money decisions.\n\nCLARA’s tools and AI guidance are meant to help users reflect, organize, and decide more clearly. They should not be treated as professional financial, legal, tax, or investment advice.\n\nYou remain responsible for your own financial decisions, spending choices, account activity, and how you use the guidance provided inside the app.",
@@ -1277,16 +1271,24 @@ const renderPlanPage = () => (
       is_active: true,
     },
     {
-      section_key: "privacy_policy",
-      key: "privacy_policy",
-      title: "Privacy policy",
-      subtitle: "See how CLARA protects your personal and financial information.",
+      section_key: "clara_difference",
+      key: "clara_difference",
+      title: "App Information",
+      subtitle: "See how CLARA goes beyond basic expense tracking.",
       body:
-        "CLARA respects your privacy and is designed to protect the personal and financial information you provide inside the app.\n\nCLARA may use information such as your email, expenses, budgets, wallet entries, app activity, and financial patterns to provide core features, personalize your experience, and improve guidance.\n\nCLARA does not sell your personal data. Your information is used to support your financial journey, not to exploit it.",
+        "Most finance tools only show information. CLARA gives users a system.\n\nIt connects wallets, budgets, savings, and spending behavior so users do not only track what happened — they learn how to control what happens next.\n\nCLARA focuses on simplicity, structure, and consistency because real financial progress does not come from knowing more. It comes from doing the right things repeatedly.",
       sort_order: 5,
       is_active: true,
     },
   ];
+
+  const informationTitleByKey = {
+    mission: "Mission",
+    vision: "Vision",
+    privacy_policy: "Privacy Policy",
+    terms_of_use: "Terms of Use",
+    clara_difference: "App Information",
+  };
 
   const normalizeLegalInfoRow = (row, fallback) => ({
     section_key: row?.section_key || fallback.section_key,
@@ -1373,7 +1375,7 @@ const renderPlanPage = () => (
       const verifiedAdmin = await verifyLegalInformationAdminAccess();
 
       if (!verifiedAdmin) {
-        throw new Error("Admin permission is required to update Legal & Information content.");
+        throw new Error("Admin permission is required to update Information content.");
       }
 
       const now = new Date().toISOString();
@@ -1401,11 +1403,11 @@ const renderPlanPage = () => (
       setLegalInfoEditMode(false);
       setSettingsNotice({
         type: "success",
-        message: "Legal & Information content updated.",
+        message: "Information content updated.",
       });
     } catch (error) {
-      console.error("Legal information content save failed:", error);
-      setLegalInfoError(error?.message || "Unable to save Legal & Information content right now.");
+      console.error("Information content save failed:", error);
+      setLegalInfoError(error?.message || "Unable to save Information content right now.");
     } finally {
       setLegalInfoSaving(false);
     }
@@ -1418,25 +1420,24 @@ const renderPlanPage = () => (
     verifyLegalInformationAdminAccess,
   ]);
 
-  const AboutClaraRow = ({ row }) => {
+  const AboutClaraRow = ({ row, isLast }) => {
     const isOpen = activeAboutInfo === row.section_key;
 
     return (
-      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/[0.045]">
+      <div className={isLast ? "" : "border-b border-white/10"}>
         <button
           type="button"
           onClick={() => setActiveAboutInfo((current) => (current === row.section_key ? null : row.section_key))}
-          className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.065] active:scale-[0.99]"
+          className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.045] active:scale-[0.99]"
           aria-expanded={isOpen}
         >
-          <div className="min-w-0 flex-1">
-            <p className="break-words text-xs font-bold text-white">{row.title}</p>
-            <p className="mt-1 break-words text-[11px] leading-5 text-white/42">{row.subtitle}</p>
-          </div>
+          <p className="min-w-0 flex-1 break-words text-sm font-bold text-white">
+            {informationTitleByKey[row.section_key] || row.title}
+          </p>
 
           <ChevronRight
             className={`h-4 w-4 shrink-0 text-white/35 transition duration-200 ${
-              isOpen ? "rotate-90 text-emerald-200" : ""
+              isOpen ? "rotate-90 text-cyan-200" : ""
             }`}
           />
         </button>
@@ -1447,13 +1448,13 @@ const renderPlanPage = () => (
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="border-t border-white/15 bg-black/15 px-4 py-4">
+            <div className="border-t border-white/10 bg-black/10 px-4 py-4">
               {row.body
                 .split(/\n{2,}/)
                 .map((paragraph, index) => (
                   <p
                     key={`${row.section_key}-${index}`}
-                    className={`${index > 0 ? "mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-3 text-emerald-50/85" : "text-white/70"} text-sm leading-6`}
+                    className={`${index > 0 ? "mt-3" : ""} text-sm leading-6 text-white/68`}
                   >
                     {paragraph}
                   </p>
@@ -1514,32 +1515,43 @@ const renderPlanPage = () => (
   );
 
   const renderAboutPage = () => (
-    <div className="space-y-4">
-      <DetailHeader
-        title="About CLARA"
-        subtitle="Understand CLARA’s purpose, direction, and the principles behind the app."
-      />
+    <div className="space-y-5">
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSetting(null);
+            setActiveAboutInfo(null);
+            setSettingsNotice(null);
+          }}
+          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
+        >
+          <ArrowDown className="h-3.5 w-3.5 rotate-90" />
+          Settings
+        </button>
 
-      <div className="rounded-[30px] border border-white/15 bg-white/[0.045] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <p className="text-2xl font-black text-white">CLARA</p>
-        <p className="mt-2 text-sm leading-6 text-white/60">
-          Built to help users see where their money goes, understand why they spend, and build better financial discipline one decision at a time.
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-          <InfoTile label="Version" value="v1" />
-          <InfoTile label="Experience" value="Mobile" />
+        <div className="px-1">
+          <h2 className="text-xl font-black tracking-tight text-white">About CLARA</h2>
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-white/15 bg-white/[0.075] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-white">Legal & information</p>
-            <p className="mt-1 text-xs leading-5 text-white/45">
-              Mission, vision, and build information can be rendered here directly so the user stays inside settings.
-            </p>
-          </div>
+      <section className="rounded-[26px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_38%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.13),transparent_42%),rgba(255,255,255,0.045)] p-5 shadow-[0_16px_44px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <p className="text-2xl font-black tracking-tight text-white">CLARA</p>
+        <p className="mt-1 text-sm font-bold text-cyan-100/80">Personal Money Coach</p>
+
+        <p className="mt-4 max-w-[28ch] text-sm font-semibold leading-6 text-white/72">
+          Understand your spending.<br />
+          Make better money decisions.
+        </p>
+
+        <p className="mt-5 border-t border-white/10 pt-3 text-[11px] font-semibold text-white/38">
+          Version {appPackage.version}
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <h3 className="text-sm font-black text-white">Information</h3>
 
           {canEditLegalInformation && !legalInfoEditMode ? (
             <button
@@ -1554,14 +1566,14 @@ const renderPlanPage = () => (
         </div>
 
         {legalInfoError ? (
-          <div className="mb-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-xs leading-5 text-rose-100">
+          <div className="rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-xs leading-5 text-rose-100">
             {legalInfoError}
           </div>
         ) : null}
 
         {legalInfoLoading && !legalInfoEditMode ? (
-          <div className="mb-3 rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-xs text-white/45">
-            Loading Legal & Information content...
+          <div className="rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 text-xs text-white/45">
+            Loading information...
           </div>
         ) : null}
 
@@ -1570,7 +1582,7 @@ const renderPlanPage = () => (
             <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 px-4 py-3">
               <p className="text-xs font-bold text-emerald-50">Admin editing mode</p>
               <p className="mt-1 text-[11px] leading-5 text-emerald-50/65">
-                Edit the Legal & Information content below. Changes are saved to Supabase and shown to all users.
+                Edit the Information content below. Changes are saved to Supabase and shown to all users.
               </p>
             </div>
 
@@ -1598,13 +1610,17 @@ const renderPlanPage = () => (
             </div>
           </div>
         ) : (
-          <div className="grid gap-2">
-            {aboutClaraRows.map((row) => (
-              <AboutClaraRow key={row.section_key} row={row} />
+          <div className="overflow-hidden rounded-[22px] border border-white/12 bg-white/[0.03]">
+            {aboutClaraRows.map((row, index) => (
+              <AboutClaraRow
+                key={row.section_key}
+                row={row}
+                isLast={index === aboutClaraRows.length - 1}
+              />
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 
