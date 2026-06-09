@@ -25,96 +25,70 @@ jobs:
         run: |
           python <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx")
           text = path.read_text(encoding="utf-8")
 
-          def replace_once(old, new):
+          def replace_once(old, new, label):
               global text
               if new in text:
                   return
               count = text.count(old)
               if count != 1:
-                  raise RuntimeError(f"Expected exactly one match, found {count}: {old[:90]!r}")
+                  raise RuntimeError(f"{label}: expected one match, found {count}")
               text = text.replace(old, new, 1)
 
           replace_once(
-              '''const PDF_MAX_WIDTH = 1040;
-          const PDF_READING_ZOOM_MULTIPLIER = 1.75;''',
-              '''const PDF_MAX_WIDTH = 1040;
-          const PDF_COMFORTABLE_FIT_HEIGHT_RATIO = 0.78;
-          const PDF_NARROW_SCREEN_MAX_OVERSIZE = 1.06;
-          const PDF_NARROW_SCREEN_BREAKPOINT = 640;
-          const PDF_READING_ZOOM_MULTIPLIER = 1.75;''',
+              "const PDF_MAX_WIDTH = 1040;\n",
+              "const PDF_MAX_WIDTH = 1040;\n"
+              "const PDF_COMFORTABLE_FIT_HEIGHT_RATIO = 0.78;\n"
+              "const PDF_NARROW_SCREEN_MAX_OVERSIZE = 1.06;\n"
+              "const PDF_NARROW_SCREEN_BREAKPOINT = 640;\n",
+              "fit constants",
           )
 
           replace_once(
-              '''  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
-            const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);''',
-              '''  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
-            const [pdfPageAspectRatio, setPdfPageAspectRatio] = useState(0);
-            const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);''',
+              "  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);\n",
+              "  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);\n"
+              "  const [pdfPageAspectRatio, setPdfPageAspectRatio] = useState(0);\n",
+              "aspect-ratio state",
+          )
+
+          reset_anchor = "    setPdfRenderWidth(0);\n"
+          if "    setPdfPageAspectRatio(0);\n" not in text:
+              reset_count = text.count(reset_anchor)
+              if reset_count != 2:
+                  raise RuntimeError(
+                      f"render-width resets: expected two matches, found {reset_count}",
+                  )
+              text = text.replace(
+                  reset_anchor,
+                  reset_anchor + "    setPdfPageAspectRatio(0);\n",
+              )
+
+          replace_once(
+              "      setIsPdfZoomed(false);\n      clearTapTracking();\n",
+              "      setIsPdfZoomed(false);\n"
+              "      setPdfPageAspectRatio(0);\n"
+              "      clearTapTracking();\n",
+              "PDF error reset",
           )
 
           replace_once(
-              '''    setPdfRenderWidth(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              clearTouchTracking();''',
-              '''    setPdfRenderWidth(0);
-              setPdfPageAspectRatio(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              clearTouchTracking();''',
+              "  const retryPdf = useCallback(() => {\n    setIsPdfZoomed(false);\n",
+              "  const retryPdf = useCallback(() => {\n"
+              "    setIsPdfZoomed(false);\n"
+              "    setPdfPageAspectRatio(0);\n",
+              "Retry reset",
           )
 
-          replace_once(
-              '''      setIsPdfZoomed(false);
-              clearTapTracking();
-              clearTouchTracking();
-              setPdfPageCount(0);''',
-              '''      setIsPdfZoomed(false);
-              setPdfPageAspectRatio(0);
-              clearTapTracking();
-              clearTouchTracking();
-              setPdfPageCount(0);''',
+          measure_pattern = re.compile(
+              r"    const measureViewport = \(\) => \{\n.*?\n    \};\n\n"
+              r"    const animationFrame = window\.requestAnimationFrame\(measureViewport\);",
+              re.DOTALL,
           )
-
-          replace_once(
-              '''  const retryPdf = useCallback(() => {
-              setIsPdfZoomed(false);
-              setIsReaderMenuOpen(false);''',
-              '''  const retryPdf = useCallback(() => {
-              setIsPdfZoomed(false);
-              setPdfPageAspectRatio(0);
-              setIsReaderMenuOpen(false);''',
-          )
-
-          replace_once(
-              '''    setPdfReloadKey(0);
-              setPdfRenderWidth(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              setIsVisible(false);''',
-              '''    setPdfReloadKey(0);
-              setPdfRenderWidth(0);
-              setPdfPageAspectRatio(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              setIsVisible(false);''',
-          )
-
-          replace_once(
-              '''    const measureViewport = () => {
-              const availableWidth = Math.floor(viewport.getBoundingClientRect().width);
-              const nextWidth =
-                availableWidth > 0 ? Math.min(availableWidth, PDF_MAX_WIDTH) : 0;
-
-              setPdfRenderWidth((currentWidth) =>
-                currentWidth === nextWidth ? currentWidth : nextWidth,
-              );
-            };''',
-              '''    const measureViewport = () => {
+          measure_replacement = '''    const measureViewport = () => {
               const viewportRect = viewport.getBoundingClientRect();
               const scrollContainer = scrollContainerRef.current;
               const availableWidth = Math.floor(viewportRect.width);
@@ -150,94 +124,85 @@ jobs:
               setPdfRenderWidth((currentWidth) =>
                 currentWidth === nextWidth ? currentWidth : nextWidth,
               );
-            };''',
+            };
+
+            const animationFrame = window.requestAnimationFrame(measureViewport);'''
+          text, measure_count = measure_pattern.subn(measure_replacement, text, count=1)
+          if measure_count != 1:
+              raise RuntimeError(
+                  f"viewport measurement: expected one match, found {measure_count}",
+              )
+
+          replace_once(
+              "      resizeObserver = new window.ResizeObserver(measureViewport);\n"
+              "      resizeObserver.observe(viewport);\n",
+              "      resizeObserver = new window.ResizeObserver(measureViewport);\n"
+              "      resizeObserver.observe(viewport);\n"
+              "      if (scrollContainerRef.current) {\n"
+              "        resizeObserver.observe(scrollContainerRef.current);\n"
+              "      }\n",
+              "ResizeObserver targets",
           )
 
           replace_once(
-              '''    if (typeof window.ResizeObserver === "function") {
-              resizeObserver = new window.ResizeObserver(measureViewport);
-              resizeObserver.observe(viewport);
-            } else {''',
-              '''    if (typeof window.ResizeObserver === "function") {
-              resizeObserver = new window.ResizeObserver(measureViewport);
-              resizeObserver.observe(viewport);
-              if (scrollContainerRef.current) {
-                resizeObserver.observe(scrollContainerRef.current);
-              }
-            } else {''',
+              "  }, [activePdfPath, hasPdf, isOpen, material?.id]);\n",
+              "  }, [\n"
+              "    activePdfPath,\n"
+              "    hasPdf,\n"
+              "    isOpen,\n"
+              "    material?.id,\n"
+              "    pdfPageAspectRatio,\n"
+              "  ]);\n",
+              "measurement dependencies",
           )
 
           replace_once(
-              '''  }, [activePdfPath, hasPdf, isOpen, material?.id]);''',
-              '''  }, [
-              activePdfPath,
-              hasPdf,
-              isOpen,
-              material?.id,
-              pdfPageAspectRatio,
-            ]);''',
+              "  useEffect(() => {\n"
+              "    if (!isOpen) return;\n"
+              "    setIsReaderMenuOpen(false);\n"
+              "    setIsPdfZoomed(false);\n",
+              "  useEffect(() => {\n"
+              "    if (!isOpen) return;\n"
+              "    setIsReaderMenuOpen(false);\n"
+              "    setIsPdfZoomed(false);\n"
+              "    setPdfPageAspectRatio(0);\n",
+              "page-change reset",
           )
 
           replace_once(
-              '''    setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              clearTouchTracking();
-              clearTapTracking();
-              scrollToTop();
-            }, [
-              activePdfPath,''',
-              '''    setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              setPdfPageAspectRatio(0);
-              clearTouchTracking();
-              clearTapTracking();
-              scrollToTop();
-            }, [
-              activePdfPath,''',
+              "  const handlePdfPageRenderSuccess = useCallback(() => {\n"
+              "    syncPdfScrollPosition(isPdfZoomed);\n"
+              "  }, [isPdfZoomed, syncPdfScrollPosition]);\n\n",
+              "  const handlePdfPageRenderSuccess = useCallback(() => {\n"
+              "    syncPdfScrollPosition(isPdfZoomed);\n"
+              "  }, [isPdfZoomed, syncPdfScrollPosition]);\n\n"
+              "  const handlePdfPageLoadSuccess = useCallback((page) => {\n"
+              "    const pageViewport = page?.getViewport?.({ scale: 1 });\n"
+              "    const nextAspectRatio =\n"
+              "      pageViewport?.width > 0 && pageViewport?.height > 0\n"
+              "        ? pageViewport.width / pageViewport.height\n"
+              "        : 0;\n\n"
+              "    if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;\n\n"
+              "    setPdfPageAspectRatio((currentAspectRatio) =>\n"
+              "      Math.abs(currentAspectRatio - nextAspectRatio) < 0.001\n"
+              "        ? currentAspectRatio\n"
+              "        : nextAspectRatio,\n"
+              "    );\n"
+              "  }, []);\n\n",
+              "page aspect-ratio callback",
           )
 
           replace_once(
-              '''  const handlePdfPageRenderSuccess = useCallback(() => {
-              syncPdfScrollPosition(isPdfZoomed);
-            }, [isPdfZoomed, syncPdfScrollPosition]);
-
-            const openReaderMenu = (event) => {''',
-              '''  const handlePdfPageRenderSuccess = useCallback(() => {
-              syncPdfScrollPosition(isPdfZoomed);
-            }, [isPdfZoomed, syncPdfScrollPosition]);
-
-            const handlePdfPageLoadSuccess = useCallback((page) => {
-              const pageViewport = page?.getViewport?.({ scale: 1 });
-              const nextAspectRatio =
-                pageViewport?.width > 0 && pageViewport?.height > 0
-                  ? pageViewport.width / pageViewport.height
-                  : 0;
-
-              if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;
-
-              setPdfPageAspectRatio((currentAspectRatio) =>
-                Math.abs(currentAspectRatio - nextAspectRatio) < 0.001
-                  ? currentAspectRatio
-                  : nextAspectRatio,
-              );
-            }, []);
-
-            const openReaderMenu = (event) => {''',
+              '                : "overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3"',
+              '                : "overflow-x-hidden overflow-y-auto px-0 py-2 sm:px-2 sm:py-3"',
+              "Fit Page padding",
           )
 
           replace_once(
-              '''                : "overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3"''',
-              '''                : "overflow-x-hidden overflow-y-auto px-0 py-2 sm:px-2 sm:py-3"''',
-          )
-
-          replace_once(
-              '''                          renderTextLayer={true}
-                                      renderAnnotationLayer={false}
-                                      onLoadError={() =>''',
-              '''                          renderTextLayer={true}
-                                      renderAnnotationLayer={false}
-                                      onLoadSuccess={handlePdfPageLoadSuccess}
-                                      onLoadError={() =>''',
+              "                          renderAnnotationLayer={false}\n",
+              "                          renderAnnotationLayer={false}\n"
+              "                          onLoadSuccess={handlePdfPageLoadSuccess}\n",
+              "Page load callback",
           )
 
           path.write_text(text, encoding="utf-8")
