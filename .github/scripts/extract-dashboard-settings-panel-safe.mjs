@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+// Trigger the build-gated Profile subtitle cleanup runner.
 const targetPath = "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx";
 let source = fs.readFileSync(targetPath, "utf8");
 const original = source;
