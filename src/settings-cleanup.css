@@ -1,7 +1,7 @@
 /* CLARA Settings Cleanup
    Simplifies the settings screen without touching underlying logic.
    Keep this scoped to the settings content so the unified top nav is never affected.
-*/
+ */
 
 /* remove large profile hero card */
 #root .space-y-5.pb-6 > div.rounded-\[30px\].border.border-white\/15.bg-\[radial-gradient\(circle_at_top_left\,rgba\(255\,255\,255\,0\.08\)\,transparent_34\%\)\,rgba\(255\,255\,255\,0\.045\)\].p-4.shadow-\[0_18px_50px_rgba\(0\,0\,0\,0\.20\)\].backdrop-blur-xl {
@@ -10,6 +10,11 @@
 
 /* remove redundant profile information row */
 #root .space-y-5.pb-6 > section:first-of-type .space-y-2\.5 > button.group:first-child {
+  display: none !important;
+}
+
+/* remove unnecessary subtitle on the Profile information detail page */
+#root .space-y-4:has(input[placeholder="Enter your name"]) > .mb-4.space-y-4 > div.rounded-\[28px\] > p.mt-2 {
   display: none !important;
 }
 
