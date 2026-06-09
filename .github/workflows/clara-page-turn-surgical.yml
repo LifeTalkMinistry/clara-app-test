@@ -1,0 +1,675 @@
+name: CLARA surgical PDF page turn
+
+on:
+  push:
+    paths:
+      - .github/workflows/clara-page-turn-surgical.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply surgical page-turn patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'const PDF_MAX_RENDER_WIDTH = 3200;\n',
+              'const PDF_MAX_RENDER_WIDTH = 3200;\n'
+              'const PDF_PAGE_TURN_OUT_DURATION = 140;\n'
+              'const PDF_PAGE_TURN_IN_DURATION = 180;\n',
+              'page-turn constants',
+          )
+
+          replace_once(
+              '  const [announcedZoomPercentage, setAnnouncedZoomPercentage] = useState(100);\n'
+              '  const touchStartRef = useRef({ x: null, y: null });\n',
+              '  const [announcedZoomPercentage, setAnnouncedZoomPercentage] = useState(100);\n'
+              '  const [pdfPageTurnDirection, setPdfPageTurnDirection] = useState(null);\n'
+              '  const [pdfPageTurnPhase, setPdfPageTurnPhase] = useState("idle");\n'
+              '  const touchStartRef = useRef({ x: null, y: null });\n',
+              'page-turn state',
+          )
+
+          replace_once(
+              '  const activeLoadTokenRef = useRef("");\n'
+              '  const isOpenRef = useRef(isOpen);\n'
+              '  const transitionLockRef = useRef(false);\n'
+              '  const pdfZoomScaleRef = useRef(PDF_MIN_ZOOM_SCALE);\n',
+              '  const activeLoadTokenRef = useRef("");\n'
+              '  const isOpenRef = useRef(isOpen);\n'
+              '  const isMountedRef = useRef(true);\n'
+              '  const transitionLockRef = useRef(false);\n'
+              '  const pdfPageTurnLockRef = useRef(false);\n'
+              '  const pdfPageTurnPhaseRef = useRef("idle");\n'
+              '  const pdfPageTurnTimerRef = useRef(null);\n'
+              '  const pdfPageTurnFrameRef = useRef(null);\n'
+              '  const pdfPageTurnSettleFrameRef = useRef(null);\n'
+              '  const pdfZoomScaleRef = useRef(PDF_MIN_ZOOM_SCALE);\n',
+              'page-turn refs',
+          )
+
+          replace_once(
+              '  isOpenRef.current = isOpen;\n'
+              '  pdfZoomScaleRef.current = pdfZoomScale;\n',
+              '  isOpenRef.current = isOpen;\n'
+              '  pdfZoomScaleRef.current = pdfZoomScale;\n\n'
+              '  useEffect(() => {\n'
+              '    pdfPageTurnPhaseRef.current = pdfPageTurnPhase;\n'
+              '  }, [pdfPageTurnPhase]);\n',
+              'phase ref synchronization',
+          )
+
+          replace_once(
+              '  activeLoadTokenRef.current = activeDocumentKey;\n\n'
+              '  const getEffectiveScaleForRequestedScale = useCallback(\n',
+              '  activeLoadTokenRef.current = activeDocumentKey;\n\n'
+              '  const pdfPaperStyle = useMemo(() => {\n'
+              '    const restingTransform =\n'
+              '      "translate3d(0, 0, 0) rotateY(0deg) scale(1)";\n'
+              '    const sharedStyle = {\n'
+              '      transformStyle: "preserve-3d",\n'
+              '      backfaceVisibility: "hidden",\n'
+              '      willChange: pdfPageTurnDirection ? "transform, opacity" : "auto",\n'
+              '    };\n\n'
+              '    if (!pdfPageTurnDirection) {\n'
+              '      return {\n'
+              '        ...sharedStyle,\n'
+              '        transform: restingTransform,\n'
+              '        opacity: 1,\n'
+              '        transition: "none",\n'
+              '        transformOrigin: "center center",\n'
+              '      };\n'
+              '    }\n\n'
+              '    if (pdfPageTurnPhase === "leaving") {\n'
+              '      const isNext = pdfPageTurnDirection === "next";\n'
+              '      return {\n'
+              '        ...sharedStyle,\n'
+              '        transform: isNext\n'
+              '          ? "translate3d(-6%, 0, 0) rotateY(-4deg) scale(0.985)"\n'
+              '          : "translate3d(6%, 0, 0) rotateY(4deg) scale(0.985)",\n'
+              '        opacity: 0.74,\n'
+              '        transition: `transform ${PDF_PAGE_TURN_OUT_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,\n'
+              '        transformOrigin: isNext ? "left center" : "right center",\n'
+              '      };\n'
+              '    }\n\n'
+              '    if (pdfPageTurnPhase === "entering") {\n'
+              '      const isNext = pdfPageTurnDirection === "next";\n'
+              '      return {\n'
+              '        ...sharedStyle,\n'
+              '        transform: isNext\n'
+              '          ? "translate3d(6%, 0, 0) rotateY(3deg) scale(0.985)"\n'
+              '          : "translate3d(-6%, 0, 0) rotateY(-3deg) scale(0.985)",\n'
+              '        opacity: 0.78,\n'
+              '        transition: "none",\n'
+              '        transformOrigin: isNext ? "right center" : "left center",\n'
+              '      };\n'
+              '    }\n\n'
+              '    return {\n'
+              '      ...sharedStyle,\n'
+              '      transform: restingTransform,\n'
+              '      opacity: 1,\n'
+              '      transition: `transform ${PDF_PAGE_TURN_IN_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`,\n'
+              '      transformOrigin:\n'
+              '        pdfPageTurnDirection === "next" ? "right center" : "left center",\n'
+              '    };\n'
+              '  }, [pdfPageTurnDirection, pdfPageTurnPhase]);\n\n'
+              '  const pdfPaperEdgeStyle = useMemo(() => {\n'
+              '    const isNext = pdfPageTurnDirection === "next";\n'
+              '    const isActivePhase =\n'
+              '      pdfPageTurnPhase === "leaving" || pdfPageTurnPhase === "entering";\n'
+              '    const opacity =\n'
+              '      pdfPageTurnPhase === "leaving"\n'
+              '        ? 1\n'
+              '        : pdfPageTurnPhase === "entering"\n'
+              '          ? 0.58\n'
+              '          : 0;\n\n'
+              '    return {\n'
+              '      width: "44px",\n'
+              '      left: pdfPageTurnDirection && !isNext ? 0 : "auto",\n'
+              '      right: pdfPageTurnDirection && isNext ? 0 : "auto",\n'
+              '      opacity: isActivePhase ? opacity : 0,\n'
+              '      background: isNext\n'
+              '        ? "linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 76%, rgba(0, 0, 0, 0.12) 96%, rgba(255, 255, 255, 0.1) 100%)"\n'
+              '        : "linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 76%, rgba(0, 0, 0, 0.12) 96%, rgba(255, 255, 255, 0.1) 100%)",\n'
+              '      transition:\n'
+              '        pdfPageTurnPhase === "idle"\n'
+              '          ? `opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`\n'
+              '          : `opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,\n'
+              '    };\n'
+              '  }, [pdfPageTurnDirection, pdfPageTurnPhase]);\n\n'
+              '  const getEffectiveScaleForRequestedScale = useCallback(\n',
+              'paper styles',
+          )
+
+          replace_once(
+              '  const clearTapTracking = useCallback(() => {\n'
+              '    lastPdfTapTimeRef.current = 0;\n'
+              '    ignoreDoubleClickUntilRef.current = 0;\n'
+              '  }, []);\n\n'
+              '  const clearGestureTracking = useCallback(() => {\n',
+              '  const clearTapTracking = useCallback(() => {\n'
+              '    lastPdfTapTimeRef.current = 0;\n'
+              '    ignoreDoubleClickUntilRef.current = 0;\n'
+              '  }, []);\n\n'
+              '  const clearPdfPageTurnTimer = useCallback(() => {\n'
+              '    if (pdfPageTurnTimerRef.current !== null) {\n'
+              '      if (typeof window !== "undefined") {\n'
+              '        window.clearTimeout(pdfPageTurnTimerRef.current);\n'
+              '      }\n'
+              '      pdfPageTurnTimerRef.current = null;\n'
+              '    }\n'
+              '  }, []);\n\n'
+              '  const clearPdfPageTurnFrames = useCallback(() => {\n'
+              '    if (typeof window === "undefined") return;\n\n'
+              '    if (pdfPageTurnFrameRef.current !== null) {\n'
+              '      window.cancelAnimationFrame(pdfPageTurnFrameRef.current);\n'
+              '      pdfPageTurnFrameRef.current = null;\n'
+              '    }\n\n'
+              '    if (pdfPageTurnSettleFrameRef.current !== null) {\n'
+              '      window.cancelAnimationFrame(pdfPageTurnSettleFrameRef.current);\n'
+              '      pdfPageTurnSettleFrameRef.current = null;\n'
+              '    }\n'
+              '  }, []);\n\n'
+              '  const resetPdfPageTurnState = useCallback(() => {\n'
+              '    clearPdfPageTurnTimer();\n'
+              '    clearPdfPageTurnFrames();\n'
+              '    pdfPageTurnLockRef.current = false;\n'
+              '    pdfPageTurnPhaseRef.current = "idle";\n\n'
+              '    if (isMountedRef.current) {\n'
+              '      setPdfPageTurnPhase("idle");\n'
+              '      setPdfPageTurnDirection(null);\n'
+              '    }\n'
+              '  }, [clearPdfPageTurnFrames, clearPdfPageTurnTimer]);\n\n'
+              '  const clearGestureTracking = useCallback(() => {\n',
+              'page-turn cleanup helpers',
+          )
+
+          replace_once(
+              '  const setReadingZoom = useCallback(() => {\n'
+              '    if (!canTogglePdfZoom) return;\n',
+              '  const setReadingZoom = useCallback(() => {\n'
+              '    if (!canTogglePdfZoom || pdfPageTurnLockRef.current) return;\n',
+              'reading zoom lock',
+          )
+
+          replace_once(
+              '  const resetReaderState = useCallback(() => {\n'
+              '    setPageIndex(0);\n',
+              '  const resetReaderState = useCallback(() => {\n'
+              '    resetPdfPageTurnState();\n'
+              '    setPageIndex(0);\n',
+              'reader reset page-turn cleanup',
+          )
+          replace_once(
+              '  }, [clearGestureTracking, clearTapTracking]);\n\n'
+              '  const togglePdfZoom = useCallback(() => {\n',
+              '  }, [clearGestureTracking, clearTapTracking, resetPdfPageTurnState]);\n\n'
+              '  const togglePdfZoom = useCallback(() => {\n',
+              'reader reset dependencies',
+          )
+
+          replace_once(
+              '  const togglePdfZoom = useCallback(() => {\n'
+              '    if (!canTogglePdfZoom || isReaderMenuOpen) return;\n',
+              '  const togglePdfZoom = useCallback(() => {\n'
+              '    if (\n'
+              '      !canTogglePdfZoom ||\n'
+              '      isReaderMenuOpen ||\n'
+              '      pdfPageTurnLockRef.current\n'
+              '    ) {\n'
+              '      return;\n'
+              '    }\n',
+              'toggle zoom lock',
+          )
+
+          replace_once(
+              '      if (targetPartIndex < 0) {\n'
+              '        resetPdfToFit({ announce: false });\n',
+              '      if (targetPartIndex < 0) {\n'
+              '        resetPdfPageTurnState();\n'
+              '        resetPdfToFit({ announce: false });\n',
+              'multipart destination cleanup',
+          )
+          replace_once(
+              '      resetPdfToFit,\n'
+              '      safePageIndex,\n'
+              '      scrollToTop,\n'
+              '    ],\n'
+              '  );\n\n'
+              '  const goNext = useCallback(() => {\n'
+              '    navigateToGlobalPage(Math.min(safePageIndex + 1, pageCount - 1));\n'
+              '  }, [navigateToGlobalPage, pageCount, safePageIndex]);\n\n'
+              '  const goPrevious = useCallback(() => {\n'
+              '    navigateToGlobalPage(Math.max(safePageIndex - 1, 0));\n'
+              '  }, [navigateToGlobalPage, safePageIndex]);\n',
+              '      resetPdfPageTurnState,\n'
+              '      resetPdfToFit,\n'
+              '      safePageIndex,\n'
+              '      scrollToTop,\n'
+              '    ],\n'
+              '  );\n\n'
+              '  const requestPdfPageTurn = useCallback(\n'
+              '    (targetGlobalPageIndex) => {\n'
+              '      if (\n'
+              '        !canNavigate ||\n'
+              '        transitionLockRef.current ||\n'
+              '        pdfPageTurnLockRef.current ||\n'
+              '        targetGlobalPageIndex < 0 ||\n'
+              '        targetGlobalPageIndex >= pageCount ||\n'
+              '        targetGlobalPageIndex === safePageIndex ||\n'
+              '        isReaderMenuOpen\n'
+              '      ) {\n'
+              '        return;\n'
+              '      }\n\n'
+              '      if (!hasPdf) {\n'
+              '        navigateToGlobalPage(targetGlobalPageIndex);\n'
+              '        return;\n'
+              '      }\n\n'
+              '      if (\n'
+              '        pdfStatus !== "ready" ||\n'
+              '        isBoundaryTransition ||\n'
+              '        isPdfZoomed ||\n'
+              '        Math.abs(effectivePdfZoomScale - PDF_MIN_ZOOM_SCALE) >\n'
+              '          PDF_ZOOM_EPSILON\n'
+              '      ) {\n'
+              '        return;\n'
+              '      }\n\n'
+              '      const prefersReducedMotion =\n'
+              '        typeof window !== "undefined" &&\n'
+              '        typeof window.matchMedia === "function" &&\n'
+              '        window.matchMedia("(prefers-reduced-motion: reduce)").matches;\n\n'
+              '      if (prefersReducedMotion) {\n'
+              '        navigateToGlobalPage(targetGlobalPageIndex);\n'
+              '        return;\n'
+              '      }\n\n'
+              '      const direction =\n'
+              '        targetGlobalPageIndex > safePageIndex ? "next" : "previous";\n\n'
+              '      clearPdfPageTurnTimer();\n'
+              '      pdfPageTurnLockRef.current = true;\n'
+              '      setPdfPageTurnDirection(direction);\n'
+              '      pdfPageTurnPhaseRef.current = "leaving";\n'
+              '      setPdfPageTurnPhase("leaving");\n\n'
+              '      pdfPageTurnTimerRef.current = window.setTimeout(() => {\n'
+              '        pdfPageTurnTimerRef.current = null;\n\n'
+              '        if (!isMountedRef.current || !isOpenRef.current) {\n'
+              '          resetPdfPageTurnState();\n'
+              '          return;\n'
+              '        }\n\n'
+              '        pdfPageTurnPhaseRef.current = "entering";\n'
+              '        setPdfPageTurnPhase("entering");\n'
+              '        navigateToGlobalPage(targetGlobalPageIndex);\n'
+              '      }, PDF_PAGE_TURN_OUT_DURATION);\n'
+              '    },\n'
+              '    [\n'
+              '      canNavigate,\n'
+              '      clearPdfPageTurnTimer,\n'
+              '      effectivePdfZoomScale,\n'
+              '      hasPdf,\n'
+              '      isBoundaryTransition,\n'
+              '      isPdfZoomed,\n'
+              '      isReaderMenuOpen,\n'
+              '      navigateToGlobalPage,\n'
+              '      pageCount,\n'
+              '      pdfStatus,\n'
+              '      resetPdfPageTurnState,\n'
+              '      safePageIndex,\n'
+              '    ],\n'
+              '  );\n\n'
+              '  const goNext = useCallback(() => {\n'
+              '    requestPdfPageTurn(Math.min(safePageIndex + 1, pageCount - 1));\n'
+              '  }, [pageCount, requestPdfPageTurn, safePageIndex]);\n\n'
+              '  const goPrevious = useCallback(() => {\n'
+              '    requestPdfPageTurn(Math.max(safePageIndex - 1, 0));\n'
+              '  }, [requestPdfPageTurn, safePageIndex]);\n',
+              'page-turn navigation wrapper',
+          )
+
+          replace_once(
+              '      if (nextPageCount === 0) {\n'
+              '        setPdfPageCount(0);\n',
+              '      if (nextPageCount === 0) {\n'
+              '        resetPdfPageTurnState();\n'
+              '        setPdfPageCount(0);\n',
+              'empty PDF cleanup',
+          )
+          replace_once(
+              '        if (!activePart || nextPageCount !== activePart.expectedPageCount) {\n'
+              '          setPdfPageCount(0);\n',
+              '        if (!activePart || nextPageCount !== activePart.expectedPageCount) {\n'
+              '          resetPdfPageTurnState();\n'
+              '          setPdfPageCount(0);\n',
+              'part count cleanup',
+          )
+          replace_once(
+              '          if (pendingPartIndex !== activePartIndex) {\n'
+              '            setPdfStatus("error");\n',
+              '          if (pendingPartIndex !== activePartIndex) {\n'
+              '            resetPdfPageTurnState();\n'
+              '            setPdfStatus("error");\n',
+              'pending part cleanup',
+          )
+          replace_once(
+              '      pendingGlobalPageIndex,\n'
+              '      resetPdfToFit,\n'
+              '      scrollToTop,\n',
+              '      pendingGlobalPageIndex,\n'
+              '      resetPdfPageTurnState,\n'
+              '      resetPdfToFit,\n'
+              '      scrollToTop,\n',
+              'load success dependencies',
+          )
+
+          replace_once(
+              '      resetPdfToFit({ announce: false });\n'
+              '      setPdfPageAspectRatio(0);\n'
+              '      setPdfPageCount(0);\n\n'
+              '      if (!hasMultiPartPdf) {\n',
+              '      resetPdfPageTurnState();\n'
+              '      resetPdfToFit({ announce: false });\n'
+              '      setPdfPageAspectRatio(0);\n'
+              '      setPdfPageCount(0);\n\n'
+              '      if (!hasMultiPartPdf) {\n',
+              'load error cleanup',
+          )
+          replace_once(
+              '    [hasMultiPartPdf, resetPdfToFit, scrollToTop],\n'
+              '  );\n\n'
+              '  const retryPdf = useCallback(() => {\n'
+              '    resetPdfToFit({ announce: false });\n',
+              '    [\n'
+              '      hasMultiPartPdf,\n'
+              '      resetPdfPageTurnState,\n'
+              '      resetPdfToFit,\n'
+              '      scrollToTop,\n'
+              '    ],\n'
+              '  );\n\n'
+              '  const retryPdf = useCallback(() => {\n'
+              '    resetPdfPageTurnState();\n'
+              '    resetPdfToFit({ announce: false });\n',
+              'load error dependencies and retry cleanup',
+          )
+          replace_once(
+              '  }, [hasMultiPartPdf, resetPdfToFit, scrollToTop]);\n\n'
+              '  useEffect(() => {\n'
+              '    if (!isOpen) {\n',
+              '  }, [\n'
+              '    hasMultiPartPdf,\n'
+              '    resetPdfPageTurnState,\n'
+              '    resetPdfToFit,\n'
+              '    scrollToTop,\n'
+              '  ]);\n\n'
+              '  useEffect(() => {\n'
+              '    resetPdfPageTurnState();\n\n'
+              '    if (!isOpen) {\n',
+              'retry dependencies and material cleanup',
+          )
+          replace_once(
+              '    pdfSourceSignature,\n'
+              '    resetReaderState,\n'
+              '    scrollToTop,\n',
+              '    pdfSourceSignature,\n'
+              '    resetPdfPageTurnState,\n'
+              '    resetReaderState,\n'
+              '    scrollToTop,\n',
+              'material effect dependencies',
+          )
+
+          replace_once(
+              '  const processPdfTap = useCallback(() => {\n'
+              '    if (!canTogglePdfZoom || isReaderMenuOpen) return false;\n',
+              '  const processPdfTap = useCallback(() => {\n'
+              '    if (\n'
+              '      !canTogglePdfZoom ||\n'
+              '      isReaderMenuOpen ||\n'
+              '      pdfPageTurnLockRef.current\n'
+              '    ) {\n'
+              '      return false;\n'
+              '    }\n',
+              'double tap lock',
+          )
+
+          replace_once(
+              '    const handleTouchStart = (event) => {\n'
+              '      if (isReaderMenuOpen) {\n',
+              '    const handleTouchStart = (event) => {\n'
+              '      if (pdfPageTurnLockRef.current) {\n'
+              '        clearGestureTracking();\n'
+              '        clearTapTracking();\n'
+              '        return;\n'
+              '      }\n\n'
+              '      if (isReaderMenuOpen) {\n',
+              'touch lock',
+          )
+
+          replace_once(
+              '  useEffect(\n'
+              '    () => () => {\n'
+              '      clearGestureTracking();\n'
+              '    },\n'
+              '    [clearGestureTracking],\n'
+              '  );\n',
+              '  useEffect(() => {\n'
+              '    isMountedRef.current = true;\n\n'
+              '    return () => {\n'
+              '      isMountedRef.current = false;\n'
+              '      resetPdfPageTurnState();\n'
+              '      clearGestureTracking();\n'
+              '    };\n'
+              '  }, [clearGestureTracking, resetPdfPageTurnState]);\n',
+              'unmount cleanup',
+          )
+
+          replace_once(
+              '    if (\n'
+              '      isReaderMenuOpen ||\n'
+              '      Date.now() < ignoreDoubleClickUntilRef.current\n'
+              '    ) {\n',
+              '    if (\n'
+              '      isReaderMenuOpen ||\n'
+              '      pdfPageTurnLockRef.current ||\n'
+              '      Date.now() < ignoreDoubleClickUntilRef.current\n'
+              '    ) {\n',
+              'desktop double click lock',
+          )
+
+          replace_once(
+              '  const handlePdfPageRenderSuccess = useCallback(() => {\n'
+              '    if (pendingFocalPointRef.current) {\n'
+              '      window.requestAnimationFrame(() => {\n'
+              '        applyPendingFocalPoint();\n'
+              '        if (!pinchGestureRef.current.active) {\n'
+              '          pendingFocalPointRef.current = null;\n'
+              '        }\n'
+              '      });\n'
+              '    }\n'
+              '  }, [applyPendingFocalPoint]);\n',
+              '  const handlePdfPageRenderSuccess = useCallback(() => {\n'
+              '    if (pendingFocalPointRef.current) {\n'
+              '      window.requestAnimationFrame(() => {\n'
+              '        applyPendingFocalPoint();\n'
+              '        if (!pinchGestureRef.current.active) {\n'
+              '          pendingFocalPointRef.current = null;\n'
+              '        }\n'
+              '      });\n'
+              '    }\n\n'
+              '    if (\n'
+              '      pdfPageTurnLockRef.current &&\n'
+              '      pdfPageTurnPhaseRef.current === "entering"\n'
+              '    ) {\n'
+              '      clearPdfPageTurnFrames();\n'
+              '      pdfPageTurnFrameRef.current = window.requestAnimationFrame(() => {\n'
+              '        pdfPageTurnFrameRef.current = null;\n'
+              '        pdfPageTurnSettleFrameRef.current = window.requestAnimationFrame(\n'
+              '          () => {\n'
+              '            pdfPageTurnSettleFrameRef.current = null;\n\n'
+              '            if (!isMountedRef.current || !isOpenRef.current) {\n'
+              '              resetPdfPageTurnState();\n'
+              '              return;\n'
+              '            }\n\n'
+              '            pdfPageTurnPhaseRef.current = "idle";\n'
+              '            setPdfPageTurnPhase("idle");\n'
+              '            clearPdfPageTurnTimer();\n'
+              '            pdfPageTurnTimerRef.current = window.setTimeout(() => {\n'
+              '              pdfPageTurnTimerRef.current = null;\n'
+              '              pdfPageTurnLockRef.current = false;\n\n'
+              '              if (isMountedRef.current) {\n'
+              '                setPdfPageTurnDirection(null);\n'
+              '              }\n'
+              '            }, PDF_PAGE_TURN_IN_DURATION);\n'
+              '          },\n'
+              '        );\n'
+              '      });\n'
+              '    }\n'
+              '  }, [\n'
+              '    applyPendingFocalPoint,\n'
+              '    clearPdfPageTurnFrames,\n'
+              '    clearPdfPageTurnTimer,\n'
+              '    resetPdfPageTurnState,\n'
+              '  ]);\n',
+              'render-success settle',
+          )
+
+          replace_once(
+              '  const openReaderMenu = (event) => {\n'
+              '    event.preventDefault();\n'
+              '    event.stopPropagation();\n'
+              '    clearGestureTracking();\n',
+              '  const openReaderMenu = (event) => {\n'
+              '    event.preventDefault();\n'
+              '    event.stopPropagation();\n\n'
+              '    if (pdfPageTurnLockRef.current) return;\n\n'
+              '    clearGestureTracking();\n',
+              'reader menu lock',
+          )
+
+          old_page = '''                          <Page
+                            pageNumber={localPdfPageNumber}
+                            inputRef={pdfContentRef}
+                            width={activePdfRenderWidth}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={false}
+                            onLoadSuccess={handlePdfPageLoadSuccess}
+                            onLoadError={() =>
+                              handlePdfLoadError(activeDocumentKey)
+                            }
+                            onRenderError={() =>
+                              handlePdfLoadError(activeDocumentKey)
+                            }
+                            onRenderSuccess={handlePdfPageRenderSuccess}
+                            loading={
+                              <div
+                                role="status"
+                                aria-live="polite"
+                                className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+                              >
+                                <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
+                                <p className="text-sm font-medium text-white/65">
+                                  Preparing your page...
+                                </p>
+                              </div>
+                            }
+                            error={null}
+                            className={`${
+                              isPdfZoomed ? "mx-0" : "mx-auto"
+                            } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
+                          />'''
+          new_page = '''                          <div
+                            className="relative shrink-0"
+                            style={pdfPaperStyle}
+                          >
+                            <Page
+                              pageNumber={localPdfPageNumber}
+                              inputRef={pdfContentRef}
+                              width={activePdfRenderWidth}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={false}
+                              onLoadSuccess={handlePdfPageLoadSuccess}
+                              onLoadError={() =>
+                                handlePdfLoadError(activeDocumentKey)
+                              }
+                              onRenderError={() =>
+                                handlePdfLoadError(activeDocumentKey)
+                              }
+                              onRenderSuccess={handlePdfPageRenderSuccess}
+                              loading={
+                                <div
+                                  role="status"
+                                  aria-live="polite"
+                                  className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+                                >
+                                  <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
+                                  <p className="text-sm font-medium text-white/65">
+                                    Preparing your page...
+                                  </p>
+                                </div>
+                              }
+                              error={null}
+                              className={`${
+                                isPdfZoomed ? "mx-0" : "mx-auto"
+                              } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
+                            />
+                            <div
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-y-0"
+                              style={pdfPaperEdgeStyle}
+                            />
+                          </div>'''
+          replace_once(old_page, new_page, 'animated page wrapper')
+
+          path.write_text(text, encoding="utf-8")
+          print(f"Updated {path}")
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build validation 1
+        run: npm run build
+
+      - name: Build validation 2
+        run: npm run build
+
+      - name: Confirm surgical diff
+        shell: bash
+        run: |
+          target="src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
+          changed="$(git diff --name-only)"
+          test "$changed" = "$target"
+          git diff --check
+          git diff -- package.json package-lock.json | grep -q '^$'
+
+      - name: Commit validated implementation
+        shell: bash
+        run: |
+          git config user.name "CLARA Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+          git commit -m "Add premium PDF paper swipe transition"
+          git push origin HEAD:main
