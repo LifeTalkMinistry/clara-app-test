@@ -45,6 +45,10 @@ import {
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import {
+  openCommittedVersionModal,
+  useCommittedMembershipState,
+} from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 
 const dashboardRuntimePrefs = { clear: () => {} };
 const dashboardRuntimeNotifications = { clear: () => {} };
@@ -133,6 +137,7 @@ export default function DashboardSettingsPanel({
   const [billingLoading, setBillingLoading] = useState(false);
   const [isAiPrivacyModalOpen, setIsAiPrivacyModalOpen] = useState(false);
   const [isDataDetailsOpen, setIsDataDetailsOpen] = useState(false);
+  const membershipState = useCommittedMembershipState({ billingRecord });
 
   useEffect(() => {
     setProfileName(initialDisplayName);
@@ -209,7 +214,7 @@ export default function DashboardSettingsPanel({
     return () => {
       isMounted = false;
     };
-  }, [user?.id]);
+  }, [user?.id, membershipState.billingSyncKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -255,7 +260,10 @@ export default function DashboardSettingsPanel({
   }, [user?.id]);
 
 const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
-const currentPlan = "Committed";
+const currentPlan =
+  membershipState.membershipStatus === "loading"
+    ? "Syncing"
+    : membershipState.planLabel;
 const supportEmail = "claraprogram2026@gmail.com";
 
   const saveNotificationSettings = useCallback((next) => {
@@ -624,93 +632,12 @@ const resolveBillingDate = useCallback((record, keys = []) => {
   return rawValue ? formatCompactDate(rawValue) : "Not recorded";
 }, []);
 
-const rawBillingStatus = normalizeLower(
-  billingRecord?.payment_status ||
-    billingRecord?.status ||
-    billingRecord?.enrollment_status ||
-    billingRecord?.subscription_status ||
-    billingRecord?.approval_status ||
-    billingRecord?.payment_state ||
-    billingRecord?.access_status ||
-    ""
-)
-  .replaceAll("_", " ")
-  .replaceAll("-", " ")
-  .trim();
-
-const matchesBillingStatus = (statuses = []) =>
-  statuses.some(
-    (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
-  );
-
-const membershipStatusKey = billingLoading
-  ? "checking"
-  : !billingRecord
-    ? "notActivated"
-    : matchesBillingStatus([
-          "expired",
-          "inactive",
-          "cancelled",
-          "canceled",
-          "rejected",
-          "declined",
-          "failed",
-          "suspended",
-        ])
-      ? "inactive"
-      : matchesBillingStatus([
-            "pending",
-            "processing",
-            "submitted",
-            "awaiting approval",
-            "awaiting review",
-            "under review",
-          ])
-        ? "pending"
-        : matchesBillingStatus([
-              "active",
-              "approved",
-              "paid",
-              "completed",
-              "complete",
-              "confirmed",
-              "verified",
-              "successful",
-              "success",
-              "current",
-            ])
-          ? "active"
-          : "pending";
-
-const membershipStatusConfig = {
-  active: {
-    label: "Active",
-    description: "Full CLARA access",
-    badgeClass: "border-emerald-300/20 bg-emerald-400/10 text-emerald-100",
-  },
-  pending: {
-    label: "Pending",
-    description: "Membership approval is being processed",
-    badgeClass: "border-amber-300/20 bg-amber-400/10 text-amber-100",
-  },
-  inactive: {
-    label: "Inactive",
-    description: "Membership access is currently inactive",
-    badgeClass: "border-rose-300/18 bg-rose-400/8 text-rose-100/85",
-  },
-  notActivated: {
-    label: "Not activated",
-    description: "Your Committed membership is not yet activated",
-    badgeClass: "border-white/15 bg-white/7 text-white/55",
-  },
-  checking: {
-    label: "Checking",
-    description: "Checking your membership status",
-    badgeClass: "border-white/15 bg-white/7 text-white/55",
-  },
-};
-
-const membershipStatus = membershipStatusConfig[membershipStatusKey];
+const membershipStatusBadgeClass = {
+  active: "border-emerald-300/20 bg-emerald-400/10 text-emerald-100",
+  pending: "border-amber-300/20 bg-amber-400/10 text-amber-100",
+  not_committed: "border-white/15 bg-white/7 text-white/55",
+  loading: "border-white/15 bg-white/7 text-white/55",
+}[membershipState.membershipStatus] || "border-white/15 bg-white/7 text-white/55";
 
 const billingStartLabel = billingRecord
   ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
@@ -723,6 +650,19 @@ const nextBillingLabel = billingRecord
 const hasBillingStart = billingStartLabel !== "Not recorded";
 const hasNextBilling = nextBillingLabel !== "Not recorded";
 const hasBillingDates = hasBillingStart || hasNextBilling;
+const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;
+const billingDetailsMessage =
+  membershipState.membershipStatus === "loading"
+    ? "Syncing membership…"
+    : membershipState.isActiveCommitted
+      ? billingLoading || !hasBillingDates
+        ? "Billing details are syncing."
+        : ""
+      : membershipState.isPendingActivation
+        ? billingLoading
+          ? "Activation details are syncing."
+          : "Activation is awaiting confirmation."
+        : "No active billing. You will only be charged after starting and activating your commitment.";
 
   const renderNotice = () => {
     if (!settingsNotice) return null;
@@ -918,22 +858,29 @@ const renderPlanPage = () => (
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-2xl font-black tracking-tight text-white">Committed</h3>
-          <p className="mt-1 text-lg font-black text-emerald-100">₱249 / month</p>
+          <h3 className="text-2xl font-black tracking-tight text-white">
+            {membershipState.planLabel}
+          </h3>
+          <p className="mt-1 text-lg font-black text-emerald-100">
+            {membershipState.priceLabel}
+          </p>
         </div>
 
         <span
-          className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatus.badgeClass}`}
+          className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatusBadgeClass}`}
         >
-          {membershipStatus.label}
+          {membershipState.statusLabel}
         </span>
       </div>
 
       <p className="mt-3 text-sm font-semibold leading-6 text-white/62">
-        {membershipStatus.description}
+        {membershipState.description}
+      </p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
+        {membershipState.featureDescription}
       </p>
 
-      {hasBillingDates ? (
+      {shouldShowBillingDates ? (
         <div
           className={`mt-5 grid gap-3 border-t border-white/10 pt-4 ${
             hasBillingStart && hasNextBilling ? "grid-cols-2" : "grid-cols-1"
@@ -961,17 +908,27 @@ const renderPlanPage = () => (
             </div>
           ) : null}
         </div>
-      ) : (
+      ) : billingDetailsMessage ? (
         <p className="mt-5 rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-xs leading-5 text-white/48">
-          Billing dates will appear after your membership is activated.
+          {billingDetailsMessage}
         </p>
-      )}
+      ) : null}
+
+      {membershipState.membershipStatus === "not_committed" ? (
+        <button
+          type="button"
+          onClick={openCommittedVersionModal}
+          className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] transition hover:scale-[1.01]"
+        >
+          View Committed Version
+        </button>
+      ) : null}
     </section>
 
     <section className="rounded-[26px] border border-white/12 bg-white/[0.03] p-4">
       <h3 className="text-sm font-black text-white">Need help with activation or billing?</h3>
       <p className="mt-2 text-xs leading-5 text-white/48">
-        If your membership is pending, inactive, or not yet activated, contact CLARA Support and include the email connected to your account.
+        Contact CLARA Support and include the email connected to your account so the team can review your membership or billing details.
       </p>
 
       <button
