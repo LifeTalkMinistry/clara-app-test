@@ -30,6 +30,8 @@ const PDF_READING_ZOOM_SCALE = 1.75;
 const PDF_MAX_ZOOM_SCALE = 4;
 const PDF_ZOOM_EPSILON = 0.01;
 const PDF_MAX_RENDER_WIDTH = 3200;
+const PDF_PAGE_TURN_OUT_DURATION = 140;
+const PDF_PAGE_TURN_IN_DURATION = 180;
 
 const clamp = (value, minimum, maximum) =>
   Math.min(Math.max(value, minimum), maximum);
@@ -135,6 +137,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);
   const [pdfZoomScale, setPdfZoomScale] = useState(PDF_MIN_ZOOM_SCALE);
   const [announcedZoomPercentage, setAnnouncedZoomPercentage] = useState(100);
+  const [pdfPageTurnDirection, setPdfPageTurnDirection] = useState(null);
+  const [pdfPageTurnPhase, setPdfPageTurnPhase] = useState("idle");
   const touchStartRef = useRef({ x: null, y: null });
   const lastPdfTapTimeRef = useRef(0);
   const ignoreDoubleClickUntilRef = useRef(0);
@@ -143,7 +147,13 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const pdfContentRef = useRef(null);
   const activeLoadTokenRef = useRef("");
   const isOpenRef = useRef(isOpen);
+  const isMountedRef = useRef(true);
   const transitionLockRef = useRef(false);
+  const pdfPageTurnLockRef = useRef(false);
+  const pdfPageTurnPhaseRef = useRef("idle");
+  const pdfPageTurnTimerRef = useRef(null);
+  const pdfPageTurnFrameRef = useRef(null);
+  const pdfPageTurnSettleFrameRef = useRef(null);
   const pdfZoomScaleRef = useRef(PDF_MIN_ZOOM_SCALE);
   const pinchGestureRef = useRef({
     active: false,
@@ -169,6 +179,10 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   isOpenRef.current = isOpen;
   pdfZoomScaleRef.current = pdfZoomScale;
+
+  useEffect(() => {
+    pdfPageTurnPhaseRef.current = pdfPageTurnPhase;
+  }, [pdfPageTurnPhase]);
 
   const legacyPages = Array.isArray(material?.pages) ? material.pages : [];
   const pdfPartsManifest = useMemo(
@@ -262,6 +276,87 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   activeLoadTokenRef.current = activeDocumentKey;
 
+  const pdfPaperStyle = useMemo(() => {
+    const restingTransform =
+      "translate3d(0, 0, 0) rotateY(0deg) scale(1)";
+    const sharedStyle = {
+      transformStyle: "preserve-3d",
+      backfaceVisibility: "hidden",
+      willChange: pdfPageTurnDirection ? "transform, opacity" : "auto",
+    };
+
+    if (!pdfPageTurnDirection) {
+      return {
+        ...sharedStyle,
+        transform: restingTransform,
+        opacity: 1,
+        transition: "none",
+        transformOrigin: "center center",
+      };
+    }
+
+    if (pdfPageTurnPhase === "leaving") {
+      const isNext = pdfPageTurnDirection === "next";
+      return {
+        ...sharedStyle,
+        transform: isNext
+          ? "translate3d(-6%, 0, 0) rotateY(-4deg) scale(0.985)"
+          : "translate3d(6%, 0, 0) rotateY(4deg) scale(0.985)",
+        opacity: 0.74,
+        transition: `transform ${PDF_PAGE_TURN_OUT_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,
+        transformOrigin: isNext ? "left center" : "right center",
+      };
+    }
+
+    if (pdfPageTurnPhase === "entering") {
+      const isNext = pdfPageTurnDirection === "next";
+      return {
+        ...sharedStyle,
+        transform: isNext
+          ? "translate3d(6%, 0, 0) rotateY(3deg) scale(0.985)"
+          : "translate3d(-6%, 0, 0) rotateY(-3deg) scale(0.985)",
+        opacity: 0.78,
+        transition: "none",
+        transformOrigin: isNext ? "right center" : "left center",
+      };
+    }
+
+    return {
+      ...sharedStyle,
+      transform: restingTransform,
+      opacity: 1,
+      transition: `transform ${PDF_PAGE_TURN_IN_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`,
+      transformOrigin:
+        pdfPageTurnDirection === "next" ? "right center" : "left center",
+    };
+  }, [pdfPageTurnDirection, pdfPageTurnPhase]);
+
+  const pdfPaperEdgeStyle = useMemo(() => {
+    const isNext = pdfPageTurnDirection === "next";
+    const isActivePhase =
+      pdfPageTurnPhase === "leaving" || pdfPageTurnPhase === "entering";
+    const opacity =
+      pdfPageTurnPhase === "leaving"
+        ? 1
+        : pdfPageTurnPhase === "entering"
+          ? 0.58
+          : 0;
+
+    return {
+      width: "44px",
+      left: pdfPageTurnDirection && !isNext ? 0 : "auto",
+      right: pdfPageTurnDirection && isNext ? 0 : "auto",
+      opacity: isActivePhase ? opacity : 0,
+      background: isNext
+        ? "linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 76%, rgba(0, 0, 0, 0.12) 96%, rgba(255, 255, 255, 0.1) 100%)"
+        : "linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 76%, rgba(0, 0, 0, 0.12) 96%, rgba(255, 255, 255, 0.1) 100%)",
+      transition:
+        pdfPageTurnPhase === "idle"
+          ? `opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`
+          : `opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,
+    };
+  }, [pdfPageTurnDirection, pdfPageTurnPhase]);
+
   const getEffectiveScaleForRequestedScale = useCallback(
     (requestedScale) => {
       if (pdfRenderWidth <= 0) return PDF_MIN_ZOOM_SCALE;
@@ -283,6 +378,41 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     lastPdfTapTimeRef.current = 0;
     ignoreDoubleClickUntilRef.current = 0;
   }, []);
+
+  const clearPdfPageTurnTimer = useCallback(() => {
+    if (pdfPageTurnTimerRef.current !== null) {
+      if (typeof window !== "undefined") {
+        window.clearTimeout(pdfPageTurnTimerRef.current);
+      }
+      pdfPageTurnTimerRef.current = null;
+    }
+  }, []);
+
+  const clearPdfPageTurnFrames = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    if (pdfPageTurnFrameRef.current !== null) {
+      window.cancelAnimationFrame(pdfPageTurnFrameRef.current);
+      pdfPageTurnFrameRef.current = null;
+    }
+
+    if (pdfPageTurnSettleFrameRef.current !== null) {
+      window.cancelAnimationFrame(pdfPageTurnSettleFrameRef.current);
+      pdfPageTurnSettleFrameRef.current = null;
+    }
+  }, []);
+
+  const resetPdfPageTurnState = useCallback(() => {
+    clearPdfPageTurnTimer();
+    clearPdfPageTurnFrames();
+    pdfPageTurnLockRef.current = false;
+    pdfPageTurnPhaseRef.current = "idle";
+
+    if (isMountedRef.current) {
+      setPdfPageTurnPhase("idle");
+      setPdfPageTurnDirection(null);
+    }
+  }, [clearPdfPageTurnFrames, clearPdfPageTurnTimer]);
 
   const clearGestureTracking = useCallback(() => {
     if (gestureAnimationFrameRef.current !== null) {
@@ -376,7 +506,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   );
 
   const setReadingZoom = useCallback(() => {
-    if (!canTogglePdfZoom) return;
+    if (!canTogglePdfZoom || pdfPageTurnLockRef.current) return;
 
     clearGestureTracking();
     clearTapTracking();
@@ -410,6 +540,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   ]);
 
   const resetReaderState = useCallback(() => {
+    resetPdfPageTurnState();
     setPageIndex(0);
     setActivePartIndex(0);
     setPendingGlobalPageIndex(null);
@@ -426,10 +557,16 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     clearGestureTracking();
     clearTapTracking();
     transitionLockRef.current = false;
-  }, [clearGestureTracking, clearTapTracking]);
+  }, [clearGestureTracking, clearTapTracking, resetPdfPageTurnState]);
 
   const togglePdfZoom = useCallback(() => {
-    if (!canTogglePdfZoom || isReaderMenuOpen) return;
+    if (
+      !canTogglePdfZoom ||
+      isReaderMenuOpen ||
+      pdfPageTurnLockRef.current
+    ) {
+      return;
+    }
 
     if (
       pdfZoomScaleRef.current >
@@ -474,6 +611,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       );
 
       if (targetPartIndex < 0) {
+        resetPdfPageTurnState();
         resetPdfToFit({ announce: false });
         setPdfStatus("error");
         setPdfError("This section of the book is not configured correctly.");
@@ -501,19 +639,97 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       hasPdf,
       pageCount,
       pdfParts,
+      resetPdfPageTurnState,
       resetPdfToFit,
       safePageIndex,
       scrollToTop,
     ],
   );
 
+  const requestPdfPageTurn = useCallback(
+    (targetGlobalPageIndex) => {
+      if (
+        !canNavigate ||
+        transitionLockRef.current ||
+        pdfPageTurnLockRef.current ||
+        targetGlobalPageIndex < 0 ||
+        targetGlobalPageIndex >= pageCount ||
+        targetGlobalPageIndex === safePageIndex ||
+        isReaderMenuOpen
+      ) {
+        return;
+      }
+
+      if (!hasPdf) {
+        navigateToGlobalPage(targetGlobalPageIndex);
+        return;
+      }
+
+      if (
+        pdfStatus !== "ready" ||
+        isBoundaryTransition ||
+        isPdfZoomed ||
+        Math.abs(effectivePdfZoomScale - PDF_MIN_ZOOM_SCALE) >
+          PDF_ZOOM_EPSILON
+      ) {
+        return;
+      }
+
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (prefersReducedMotion) {
+        navigateToGlobalPage(targetGlobalPageIndex);
+        return;
+      }
+
+      const direction =
+        targetGlobalPageIndex > safePageIndex ? "next" : "previous";
+
+      clearPdfPageTurnTimer();
+      pdfPageTurnLockRef.current = true;
+      setPdfPageTurnDirection(direction);
+      pdfPageTurnPhaseRef.current = "leaving";
+      setPdfPageTurnPhase("leaving");
+
+      pdfPageTurnTimerRef.current = window.setTimeout(() => {
+        pdfPageTurnTimerRef.current = null;
+
+        if (!isMountedRef.current || !isOpenRef.current) {
+          resetPdfPageTurnState();
+          return;
+        }
+
+        pdfPageTurnPhaseRef.current = "entering";
+        setPdfPageTurnPhase("entering");
+        navigateToGlobalPage(targetGlobalPageIndex);
+      }, PDF_PAGE_TURN_OUT_DURATION);
+    },
+    [
+      canNavigate,
+      clearPdfPageTurnTimer,
+      effectivePdfZoomScale,
+      hasPdf,
+      isBoundaryTransition,
+      isPdfZoomed,
+      isReaderMenuOpen,
+      navigateToGlobalPage,
+      pageCount,
+      pdfStatus,
+      resetPdfPageTurnState,
+      safePageIndex,
+    ],
+  );
+
   const goNext = useCallback(() => {
-    navigateToGlobalPage(Math.min(safePageIndex + 1, pageCount - 1));
-  }, [navigateToGlobalPage, pageCount, safePageIndex]);
+    requestPdfPageTurn(Math.min(safePageIndex + 1, pageCount - 1));
+  }, [pageCount, requestPdfPageTurn, safePageIndex]);
 
   const goPrevious = useCallback(() => {
-    navigateToGlobalPage(Math.max(safePageIndex - 1, 0));
-  }, [navigateToGlobalPage, safePageIndex]);
+    requestPdfPageTurn(Math.max(safePageIndex - 1, 0));
+  }, [requestPdfPageTurn, safePageIndex]);
 
   const closeReader = useCallback(() => {
     resetReaderState();
@@ -540,6 +756,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         : 0;
 
       if (nextPageCount === 0) {
+        resetPdfPageTurnState();
         setPdfPageCount(0);
         setPdfStatus("error");
         setPdfError("Check the PDF file and try again.");
@@ -548,6 +765,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
       if (hasMultiPartPdf) {
         if (!activePart || nextPageCount !== activePart.expectedPageCount) {
+          resetPdfPageTurnState();
           setPdfPageCount(0);
           setPdfStatus("error");
           setPdfError(
@@ -565,6 +783,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
           );
 
           if (pendingPartIndex !== activePartIndex) {
+            resetPdfPageTurnState();
             setPdfStatus("error");
             setPdfError("This section of the book is not configured correctly.");
             return;
@@ -596,6 +815,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       hasMultiPartPdf,
       pdfParts,
       pendingGlobalPageIndex,
+      resetPdfPageTurnState,
       resetPdfToFit,
       scrollToTop,
     ],
@@ -608,6 +828,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         return;
       }
 
+      resetPdfPageTurnState();
       resetPdfToFit({ announce: false });
       setPdfPageAspectRatio(0);
       setPdfPageCount(0);
@@ -620,10 +841,16 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       setPdfError("Check the PDF file and try again.");
       scrollToTop();
     },
-    [hasMultiPartPdf, resetPdfToFit, scrollToTop],
+    [
+      hasMultiPartPdf,
+      resetPdfPageTurnState,
+      resetPdfToFit,
+      scrollToTop,
+    ],
   );
 
   const retryPdf = useCallback(() => {
+    resetPdfPageTurnState();
     resetPdfToFit({ announce: false });
     setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
@@ -637,9 +864,16 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfStatus("loading");
     setPdfReloadKey((currentKey) => currentKey + 1);
     scrollToTop();
-  }, [hasMultiPartPdf, resetPdfToFit, scrollToTop]);
+  }, [
+    hasMultiPartPdf,
+    resetPdfPageTurnState,
+    resetPdfToFit,
+    scrollToTop,
+  ]);
 
   useEffect(() => {
+    resetPdfPageTurnState();
+
     if (!isOpen) {
       setIsVisible(false);
       resetReaderState();
@@ -677,6 +911,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     isOpen,
     material?.id,
     pdfSourceSignature,
+    resetPdfPageTurnState,
     resetReaderState,
     scrollToTop,
   ]);
@@ -877,7 +1112,13 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   ]);
 
   const processPdfTap = useCallback(() => {
-    if (!canTogglePdfZoom || isReaderMenuOpen) return false;
+    if (
+      !canTogglePdfZoom ||
+      isReaderMenuOpen ||
+      pdfPageTurnLockRef.current
+    ) {
+      return false;
+    }
 
     const now = Date.now();
     const elapsedSinceLastTap = now - lastPdfTapTimeRef.current;
@@ -905,6 +1146,12 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     if (!gestureSurface) return undefined;
 
     const handleTouchStart = (event) => {
+      if (pdfPageTurnLockRef.current) {
+        clearGestureTracking();
+        clearTapTracking();
+        return;
+      }
+
       if (isReaderMenuOpen) {
         clearGestureTracking();
         return;
@@ -1198,12 +1445,15 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     processPdfTap,
   ]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      resetPdfPageTurnState();
       clearGestureTracking();
-    },
-    [clearGestureTracking],
-  );
+    };
+  }, [clearGestureTracking, resetPdfPageTurnState]);
 
   const handlePdfDoubleClick = (event) => {
     event.preventDefault();
@@ -1211,6 +1461,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
     if (
       isReaderMenuOpen ||
+      pdfPageTurnLockRef.current ||
       Date.now() < ignoreDoubleClickUntilRef.current
     ) {
       return;
@@ -1228,7 +1479,44 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         }
       });
     }
-  }, [applyPendingFocalPoint]);
+
+    if (
+      pdfPageTurnLockRef.current &&
+      pdfPageTurnPhaseRef.current === "entering"
+    ) {
+      clearPdfPageTurnFrames();
+      pdfPageTurnFrameRef.current = window.requestAnimationFrame(() => {
+        pdfPageTurnFrameRef.current = null;
+        pdfPageTurnSettleFrameRef.current = window.requestAnimationFrame(
+          () => {
+            pdfPageTurnSettleFrameRef.current = null;
+
+            if (!isMountedRef.current || !isOpenRef.current) {
+              resetPdfPageTurnState();
+              return;
+            }
+
+            pdfPageTurnPhaseRef.current = "idle";
+            setPdfPageTurnPhase("idle");
+            clearPdfPageTurnTimer();
+            pdfPageTurnTimerRef.current = window.setTimeout(() => {
+              pdfPageTurnTimerRef.current = null;
+              pdfPageTurnLockRef.current = false;
+
+              if (isMountedRef.current) {
+                setPdfPageTurnDirection(null);
+              }
+            }, PDF_PAGE_TURN_IN_DURATION);
+          },
+        );
+      });
+    }
+  }, [
+    applyPendingFocalPoint,
+    clearPdfPageTurnFrames,
+    clearPdfPageTurnTimer,
+    resetPdfPageTurnState,
+  ]);
 
   const handlePdfPageLoadSuccess = useCallback((page) => {
     const pageViewport = page?.getViewport?.({ scale: 1 });
@@ -1249,6 +1537,9 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const openReaderMenu = (event) => {
     event.preventDefault();
     event.stopPropagation();
+
+    if (pdfPageTurnLockRef.current) return;
+
     clearGestureTracking();
     clearTapTracking();
     setIsReaderMenuOpen(true);
@@ -1442,37 +1733,47 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                         {pdfStatus === "ready" &&
                         pdfPageCount > 0 &&
                         activePdfRenderWidth > 0 ? (
-                          <Page
-                            pageNumber={localPdfPageNumber}
-                            inputRef={pdfContentRef}
-                            width={activePdfRenderWidth}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={false}
-                            onLoadSuccess={handlePdfPageLoadSuccess}
-                            onLoadError={() =>
-                              handlePdfLoadError(activeDocumentKey)
-                            }
-                            onRenderError={() =>
-                              handlePdfLoadError(activeDocumentKey)
-                            }
-                            onRenderSuccess={handlePdfPageRenderSuccess}
-                            loading={
-                              <div
-                                role="status"
-                                aria-live="polite"
-                                className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
-                              >
-                                <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
-                                <p className="text-sm font-medium text-white/65">
-                                  Preparing your page...
-                                </p>
-                              </div>
-                            }
-                            error={null}
-                            className={`${
-                              isPdfZoomed ? "mx-0" : "mx-auto"
-                            } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
-                          />
+                          <div
+                            className="relative shrink-0"
+                            style={pdfPaperStyle}
+                          >
+                            <Page
+                              pageNumber={localPdfPageNumber}
+                              inputRef={pdfContentRef}
+                              width={activePdfRenderWidth}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={false}
+                              onLoadSuccess={handlePdfPageLoadSuccess}
+                              onLoadError={() =>
+                                handlePdfLoadError(activeDocumentKey)
+                              }
+                              onRenderError={() =>
+                                handlePdfLoadError(activeDocumentKey)
+                              }
+                              onRenderSuccess={handlePdfPageRenderSuccess}
+                              loading={
+                                <div
+                                  role="status"
+                                  aria-live="polite"
+                                  className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+                                >
+                                  <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
+                                  <p className="text-sm font-medium text-white/65">
+                                    Preparing your page...
+                                  </p>
+                                </div>
+                              }
+                              error={null}
+                              className={`${
+                                isPdfZoomed ? "mx-0" : "mx-auto"
+                              } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
+                            />
+                            <div
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-y-0"
+                              style={pdfPaperEdgeStyle}
+                            />
+                          </div>
                         ) : null}
                       </Document>
                     </div>
