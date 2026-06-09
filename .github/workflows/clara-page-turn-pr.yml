@@ -81,6 +81,6 @@ jobs:
         run: |
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-page-turn-trigger .clara-page-turn-error.log
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-page-turn-trigger
           git commit -m "Add premium PDF paper swipe transition"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
