@@ -66,11 +66,11 @@ function openDatabase() {
   return databasePromise;
 }
 
-function createId(userId, dedupeKey) {
-  const encoded = btoa(unescape(encodeURIComponent(`${userId}:${dedupeKey}`)))
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(0, 96);
-  return `notification_${encoded}`;
+function createId() {
+  if (globalThis.crypto?.randomUUID) {
+    return `notification_${globalThis.crypto.randomUUID()}`;
+  }
+  return `notification_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function emitNotificationEvent(type, notification) {
@@ -98,20 +98,13 @@ export async function createNotification(notification) {
   const dedupeKey = String(notification?.dedupeKey || "").trim();
   if (!dedupeKey) throw new Error("Notification dedupeKey is required.");
 
-  const database = await openDatabase();
-  const transaction = database.transaction(STORE_NAME, "readwrite");
-  const store = transaction.objectStore(STORE_NAME);
   const scopeKey = `${userId}:${dedupeKey}`;
-  const existing = await requestToPromise(store.index("scopeKey").get(scopeKey));
-
-  if (existing) {
-    await transactionToPromise(transaction);
-    return { notification: existing, created: false };
-  }
+  const existing = await getNotificationByDedupeKey(userId, dedupeKey);
+  if (existing) return { notification: existing, created: false };
 
   const next = {
     ...notification,
-    id: notification.id || createId(userId, dedupeKey),
+    id: notification.id || createId(),
     userId,
     dedupeKey,
     scopeKey,
@@ -123,10 +116,21 @@ export async function createNotification(notification) {
     snoozedUntil: notification.snoozedUntil || null,
   };
 
-  store.add(next);
-  await transactionToPromise(transaction);
-  emitNotificationEvent("clara:notification-created", next);
-  return { notification: next, created: true };
+  const database = await openDatabase();
+  const transaction = database.transaction(STORE_NAME, "readwrite");
+  transaction.objectStore(STORE_NAME).add(next);
+
+  try {
+    await transactionToPromise(transaction);
+    emitNotificationEvent("clara:notification-created", next);
+    return { notification: next, created: true };
+  } catch (error) {
+    if (error?.name === "ConstraintError") {
+      const racedExisting = await getNotificationByDedupeKey(userId, dedupeKey);
+      if (racedExisting) return { notification: racedExisting, created: false };
+    }
+    throw error;
+  }
 }
 
 export async function listNotifications(userId, options = {}) {
@@ -211,7 +215,10 @@ export async function cleanupOldNotifications(userId, retentionDays = RETENTION_
 
   (rows || []).forEach((item) => {
     const createdAt = new Date(item.createdAt || 0).getTime();
-    if (createdAt < cutoff && (item.readAt || item.dismissedAt || item.actedAt)) {
+    if (
+      createdAt < cutoff &&
+      (item.readAt || item.dismissedAt || item.actedAt || item.deliveredAt)
+    ) {
       store.delete(item.id);
       removed += 1;
     }
