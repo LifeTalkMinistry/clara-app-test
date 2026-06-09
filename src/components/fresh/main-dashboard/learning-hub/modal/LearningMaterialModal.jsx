@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  LogOut,
   MoreHorizontal,
   X,
 } from "lucide-react";
@@ -694,7 +695,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         <div
           ref={scrollContainerRef}
           className={`h-full touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain ${
-            hasPdf ? "p-3 sm:p-4" : "px-5 sm:px-8"
+            hasPdf ? "px-2 py-2 sm:px-3 sm:py-3" : "px-5 sm:px-8"
           }`}
           style={{ WebkitOverflowScrolling: "touch" }}
           onTouchStart={handleTouchStart}
@@ -760,7 +761,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                             </div>
                           }
                           error={null}
-                          className="mx-auto overflow-hidden rounded-[8px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.38)]"
+                          className="mx-auto overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]"
                         />
                       ) : null}
                     </Document>
@@ -894,29 +895,49 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
       {hasPdf && isReaderMenuOpen && (
         <div
-          className="absolute inset-0 z-40 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6"
-          onClick={closeReaderMenu}
+          className="fixed inset-0 z-50 flex items-end justify-center px-2"
+          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
           onTouchStart={(event) => {
             event.stopPropagation();
             clearTouchStart();
           }}
           onTouchEnd={(event) => event.stopPropagation()}
         >
+          <button
+            type="button"
+            aria-label="Close reader options"
+            onClick={closeReaderMenu}
+            className="absolute inset-0 h-full w-full cursor-default appearance-none border-0 bg-black/45 p-0 backdrop-blur-[1px]"
+          />
+
           <section
             id="clara-reader-options"
             role="dialog"
             aria-modal="true"
-            aria-label="Reader options"
+            aria-labelledby="clara-reader-options-title"
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-sm rounded-[26px] border border-white/[0.12] bg-slate-950/90 p-3 shadow-[0_24px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:rounded-3xl"
-            style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-t-[24px] rounded-b-[18px] border border-white/[0.12] bg-slate-950/95 px-3 pb-3 pt-3 shadow-[0_24px_80px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:px-4 sm:pb-4"
           >
+            <p
+              id="clara-reader-options-title"
+              className="px-1 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
+            >
+              Reader options
+            </p>
+
             <button
               type="button"
               onClick={closeReader}
-              className="flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/[0.10] bg-white/[0.06] px-5 text-sm font-semibold text-white/90 transition hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              className="flex h-12 min-h-12 w-full appearance-none items-center justify-start gap-3 rounded-xl border border-white/[0.10] bg-white/[0.06] px-4 py-0 text-left text-sm font-semibold text-white/90 transition hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              style={{ minHeight: "48px", width: "100%", borderRadius: "14px" }}
             >
-              Exit reader
+              <LogOut
+                aria-hidden="true"
+                className="shrink-0 text-white/65"
+                size={18}
+                strokeWidth={1.9}
+              />
+              <span className="min-w-0 flex-1">Exit reader</span>
             </button>
           </section>
         </div>
