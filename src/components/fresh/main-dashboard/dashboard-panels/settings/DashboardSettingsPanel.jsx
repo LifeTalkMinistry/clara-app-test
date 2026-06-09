@@ -7,7 +7,6 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
-  Clock,
   Edit,
   ExternalLink,
   FileText,
@@ -25,7 +24,6 @@ import {
   ShieldCheck,
   Target,
   Trash2,
-  Wallet,
   WalletCards,
   X,
 } from "lucide-react";
@@ -137,6 +135,9 @@ export default function DashboardSettingsPanel({
   const [supportSending, setSupportSending] = useState(false);
   const [billingRecord, setBillingRecord] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [isAiPrivacyModalOpen, setIsAiPrivacyModalOpen] = useState(false);
+  const [isResetConfirmationOpen, setIsResetConfirmationOpen] = useState(false);
+  const [isDataDetailsOpen, setIsDataDetailsOpen] = useState(false);
 
   useEffect(() => {
     setProfileName(initialDisplayName);
@@ -1040,22 +1041,21 @@ export default function DashboardSettingsPanel({
   );
 
   const renderSecurityPage = () => {
-    const sessionHighlights = ["Offline-first", "Local-first records", "Private finance data"];
     const protectedDataItems = [
       "Wallets",
       "Expenses",
       "Budgets",
-      "Savings goals",
+      "Savings",
       "Emergency fund",
       "Transfers",
       "Transaction history",
       "AI context",
     ];
     const aiPrivacyItems = [
-      "Spending patterns are checked locally first",
-      "AI uses only the context needed for guidance",
-      "Decision history stays personal on this device",
-      "No public feed exposes your financial behavior",
+      "CLARA checks available device data first.",
+      "Only the context needed for guidance is used.",
+      "Your decision history stays personal.",
+      "Your spending activity is not published to a public feed.",
     ];
     const resetIncludes = [
       "Theme selection",
@@ -1063,192 +1063,291 @@ export default function DashboardSettingsPanel({
       "AI visual preferences",
       "Tutorial state",
     ];
-    const resetDoesNotTouch = ["Wallet balances", "Expenses", "Budgets", "Savings data"];
-    const futureSecurityFeatures = [
-      "App PIN lock",
-      "Biometric lock",
-      "Private mode",
-      "AI memory reset",
-      "Encrypted backup",
-      "Multi-device sync",
+    const resetDoesNotDelete = [
+      "Wallet balances",
+      "Expenses",
+      "Budgets",
+      "Savings data",
+      "Emergency fund",
+      "Transfers",
+      "Transaction history",
+      "AI financial context",
     ];
+
+    const closeSecurityOverlays = () => {
+      setIsAiPrivacyModalOpen(false);
+      setIsResetConfirmationOpen(false);
+    };
 
     return (
       <div className="space-y-4 pb-6">
-        <DetailHeader
-          title="Security & privacy"
-          subtitle="Protect your financial records, local AI memory, and personal decision environment."
-        />
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => {
+              closeSecurityOverlays();
+              setIsDataDetailsOpen(false);
+              setActiveSetting(null);
+              setActiveAboutInfo(null);
+              setSettingsNotice(null);
+            }}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
+          >
+            <ArrowDown className="h-3.5 w-3.5 rotate-90" />
+            Settings
+          </button>
+
+          <div className="px-1">
+            <h2 className="text-xl font-black tracking-tight text-white">Security & privacy</h2>
+            <p className="mt-1.5 max-w-[34ch] text-xs leading-5 text-white/50">
+              Manage how CLARA protects and uses your information.
+            </p>
+          </div>
+        </div>
 
         {renderNotice()}
 
-        <div className="rounded-[30px] border border-emerald-300/18 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <section className="rounded-[24px] border border-emerald-300/18 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.13),transparent_36%),rgba(255,255,255,0.045)] p-5 shadow-[0_16px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
           <div className="flex items-start gap-3">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-emerald-300/20 bg-emerald-400/10 text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.12)]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
               <ShieldCheck className="h-5 w-5" />
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-white">Current device</p>
-                  <p className="mt-1 truncate text-xs text-white/50">
-                    {user?.email || "This device acts as your CLARA environment"}
-                  </p>
+              <h3 className="text-base font-black text-white">Your CLARA data is private</h3>
+
+              {user?.email ? (
+                <div className="mt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">Signed in as</p>
+                  <p className="mt-1 break-all text-sm font-semibold leading-5 text-white/78">{user.email}</p>
                 </div>
-
-                <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
-                  Private
-                </span>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {sessionHighlights.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-white/15 bg-black/15 px-3 py-1.5 text-[10px] font-black text-white/62"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
+              ) : (
+                <p className="mt-3 text-sm font-semibold leading-6 text-white/68">
+                  This device is your private CLARA environment.
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-            <InfoTile label="Session" value={user?.id ? "Signed in" : "Local"} />
-            <InfoTile label="Storage" value="Device first" />
-            <InfoTile label="Finance data" value="Protected" />
-            <InfoTile label="AI context" value="Private" />
-          </div>
-        </div>
-
-        <div className="rounded-[30px] border border-white/15 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-white">Protected financial records</p>
-              <p className="mt-2 text-xs leading-5 text-white/48">
-                Resetting appearance or preferences will not touch the financial records CLARA uses to coach your decisions.
-              </p>
-            </div>
-            <Wallet className="mt-1 h-5 w-5 shrink-0 text-emerald-100/75" />
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {protectedDataItems.map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
-              >
-                <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
-                <span className="truncate text-xs font-bold text-white/68">{item}</span>
+          <div className="mt-5 space-y-2.5">
+            {["Financial records protected", "Device-first data", "Not publicly visible"].map((item) => (
+              <div key={item} className="flex items-center gap-2.5 text-sm font-semibold text-white/72">
+                <Check className="h-4 w-4 shrink-0 text-emerald-200" />
+                <span>{item}</span>
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="rounded-[30px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_34%),rgba(255,255,255,0.04)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
-              <MessageCircle className="h-5 w-5" />
-            </div>
+          <p className="mt-4 text-xs leading-5 text-white/48">
+            Your wallets, expenses, budgets, savings, transfers, transaction history, and AI context remain protected.
+          </p>
 
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white">Private AI environment</p>
-              <p className="mt-1 text-xs leading-5 text-white/48">
-                CLARA can use your financial context for budgeting guidance without making your spending behavior public.
-              </p>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsDataDetailsOpen((current) => !current)}
+            aria-expanded={isDataDetailsOpen}
+            className="mt-4 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-emerald-100 transition hover:text-emerald-50"
+          >
+            View data details
+            <ChevronRight
+              className={"h-4 w-4 transition " + (isDataDetailsOpen ? "rotate-90 text-emerald-200" : "")}
+            />
+          </button>
 
-          <div className="mt-4 space-y-2">
-            {aiPrivacyItems.map((item) => (
-              <div
-                key={item}
-                className="flex items-start gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
-              >
-                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-100" />
-                <span className="text-xs font-semibold leading-5 text-white/62">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-[30px] border border-amber-300/15 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.12),transparent_34%),rgba(255,255,255,0.04)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/10 text-amber-100">
-              <RotateCcw className="h-5 w-5" />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white">Reset appearance & preferences</p>
-              <p className="mt-1 text-xs leading-5 text-white/48">
-                Restore CLARA's default visual setup on this device without deleting your money records.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/65">Reset includes</p>
-              <div className="mt-3 space-y-2">
-                {resetIncludes.map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-xs font-semibold text-white/60">
-                    <RotateCcw className="h-3.5 w-3.5 shrink-0 text-amber-100/80" />
+          {isDataDetailsOpen ? (
+            <div className="mt-1 border-t border-white/10 pt-4">
+              <ul className="space-y-2">
+                {protectedDataItems.map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-xs font-semibold text-white/58">
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200/80" />
                     {item}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
+          ) : null}
+        </section>
 
-            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/70">Will not touch</p>
-              <div className="mt-3 space-y-2">
-                {resetDoesNotTouch.map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-xs font-semibold text-white/62">
-                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-100" />
-                    {item}
-                  </div>
-                ))}
-              </div>
+        <button
+          type="button"
+          onClick={() => setIsAiPrivacyModalOpen(true)}
+          aria-haspopup="dialog"
+          className="group flex min-h-[72px] w-full items-center gap-3 rounded-[22px] border border-white/15 bg-white/[0.045] px-4 py-3.5 text-left transition hover:bg-white/[0.07]"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-400/8 text-cyan-100">
+            <MessageCircle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white">AI privacy</p>
+            <p className="mt-1 text-xs leading-5 text-white/46">
+              CLARA uses only the financial context needed to guide you.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-white/45">
+            <span className="hidden sm:inline">Learn more</span>
+            <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-white/65" />
+          </div>
+        </button>
+
+        <section className="rounded-[22px] border border-white/15 bg-white/[0.04] p-4 backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/16 bg-amber-400/8 text-amber-100">
+              <RotateCcw className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-black text-white">Reset appearance and preferences</h3>
+              <p className="mt-1 text-xs leading-5 text-white/46">
+                Restore CLARA's default theme and visual preferences.
+              </p>
+              <p className="mt-2 text-[11px] font-semibold text-emerald-100/75">
+                Your financial records will not be deleted.
+              </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={clearLocalPreferences}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/15"
+            onClick={() => setIsResetConfirmationOpen(true)}
+            aria-haspopup="dialog"
+            className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/18 bg-amber-400/9 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/14"
           >
             <RotateCcw className="h-4 w-4" />
-            Reset preferences and theme
+            Reset preferences
           </button>
-        </div>
+        </section>
 
-        <div className="rounded-[30px] border border-white/15 bg-white/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)] backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-white">Future security features</p>
-              <p className="mt-1 text-xs leading-5 text-white/42">
-                Keep these visible as trust signals while they are being prepared.
-              </p>
-            </div>
-            <span className="shrink-0 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-[10px] font-black text-white/45">
-              Coming soon
-            </span>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {futureSecurityFeatures.map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/10 px-3 py-3 opacity-70"
-              >
-                <Clock className="h-3.5 w-3.5 shrink-0 text-white/35" />
-                <span className="truncate text-xs font-bold text-white/45">{item}</span>
+        {isAiPrivacyModalOpen ? (
+          <div
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-[#020713]/80 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={() => setIsAiPrivacyModalOpen(false)}
+            role="presentation"
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ai-privacy-title"
+              onClick={(event) => event.stopPropagation()}
+              className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-[28px] border border-white/15 bg-[#081321] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.48)] sm:rounded-[28px]"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 id="ai-privacy-title" className="text-lg font-black text-white">
+                    How CLARA uses your information
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-white/45">
+                    A simple explanation of the context CLARA uses for guidance.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAiPrivacyModalOpen(false)}
+                  aria-label="Close AI privacy information"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.055] text-white/60 transition hover:bg-white/[0.09] hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            ))}
+
+              <div className="mt-5 space-y-3">
+                {aiPrivacyItems.map((item) => (
+                  <div key={item} className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100" />
+                    <p className="text-sm leading-6 text-white/68">{item}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAiPrivacyModalOpen(false)}
+                className="mt-6 min-h-11 w-full rounded-2xl bg-white/[0.09] px-4 py-3 text-sm font-black text-white transition hover:bg-white/[0.13]"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {isResetConfirmationOpen ? (
+          <div
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-[#020713]/80 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={() => setIsResetConfirmationOpen(false)}
+            role="presentation"
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reset-preferences-title"
+              onClick={(event) => event.stopPropagation()}
+              className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[28px] border border-white/15 bg-[#081321] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.48)] sm:rounded-[28px]"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 id="reset-preferences-title" className="text-lg font-black text-white">
+                    Reset appearance and preferences?
+                  </h3>
+                  <p className="mt-2 text-xs leading-5 text-white/48">
+                    This restores CLARA's default visual setup on this device.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsResetConfirmationOpen(false)}
+                  aria-label="Close reset confirmation"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.055] text-white/60 transition hover:bg-white/[0.09] hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-5">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/70">This will reset</p>
+                  <ul className="mt-3 space-y-2.5">
+                    {resetIncludes.map((item) => (
+                      <li key={item} className="flex items-center gap-2.5 text-sm font-semibold text-white/65">
+                        <RotateCcw className="h-3.5 w-3.5 shrink-0 text-amber-100/80" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="border-t border-white/10 pt-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/70">This will not delete</p>
+                  <ul className="mt-3 space-y-2.5">
+                    {resetDoesNotDelete.map((item) => (
+                      <li key={item} className="flex items-center gap-2.5 text-sm font-semibold text-white/65">
+                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-100" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetConfirmationOpen(false)}
+                  className="min-h-11 rounded-2xl border border-white/15 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/[0.09]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsResetConfirmationOpen(false);
+                    await clearLocalPreferences();
+                  }}
+                  className="min-h-11 rounded-2xl border border-amber-300/20 bg-amber-400/12 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/18"
+                >
+                  Reset preferences
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   };
