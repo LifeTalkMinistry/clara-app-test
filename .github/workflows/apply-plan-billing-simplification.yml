@@ -1,0 +1,335 @@
+name: Apply Plan and Billing simplification
+
+on:
+  push:
+    paths:
+      - ".github/workflows/apply-plan-billing-simplification.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch DashboardSettingsPanel
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
+          source = path.read_text(encoding="utf-8")
+
+          source = source.replace(
+              '''export default function DashboardSettingsPanel({
+            onBack,
+            user,
+            plan,
+            isPaid,
+            isFree,
+            isAdmin = false,''',
+              '''export default function DashboardSettingsPanel({
+            onBack,
+            user,
+            isAdmin = false,''',
+              1,
+          )
+
+          source, count = re.subn(
+              r'''  const displayName = profileName\?\.trim\(\) \|\| initialDisplayName \|\| "Your CLARA account";\n  const rawCurrentPlan =.*?\n  const supportEmail = "claraprogram2026@gmail\.com";''',
+              '''  const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
+          const currentPlan = "Committed";
+          const supportEmail = "claraprogram2026@gmail.com";''',
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise RuntimeError("Unable to replace legacy plan display logic")
+
+          billing_logic = '''  const resolveBillingDate = useCallback((record, keys = []) => {
+            const rawValue = keys.map((key) => record?.[key]).find(Boolean);
+            return rawValue ? formatCompactDate(rawValue) : "Not recorded";
+          }, []);
+
+          const rawBillingStatus = normalizeLower(
+            billingRecord?.payment_status ||
+              billingRecord?.status ||
+              billingRecord?.enrollment_status ||
+              billingRecord?.subscription_status ||
+              billingRecord?.approval_status ||
+              billingRecord?.payment_state ||
+              billingRecord?.access_status ||
+              ""
+          )
+            .replaceAll("_", " ")
+            .replaceAll("-", " ")
+            .trim();
+
+          const matchesBillingStatus = (statuses = []) =>
+            statuses.some(
+              (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
+            );
+
+          const membershipStatusKey = billingLoading
+            ? "checking"
+            : !billingRecord
+              ? "notActivated"
+              : matchesBillingStatus([
+                    "expired",
+                    "inactive",
+                    "cancelled",
+                    "canceled",
+                    "rejected",
+                    "declined",
+                    "failed",
+                    "suspended",
+                  ])
+                ? "inactive"
+                : matchesBillingStatus([
+                      "pending",
+                      "processing",
+                      "submitted",
+                      "awaiting approval",
+                      "awaiting review",
+                      "under review",
+                    ])
+                  ? "pending"
+                  : matchesBillingStatus([
+                        "active",
+                        "approved",
+                        "paid",
+                        "completed",
+                        "complete",
+                        "confirmed",
+                        "verified",
+                        "successful",
+                        "success",
+                        "current",
+                      ])
+                    ? "active"
+                    : "pending";
+
+          const membershipStatusConfig = {
+            active: {
+              label: "Active",
+              description: "Full CLARA access",
+              badgeClass: "border-emerald-300/20 bg-emerald-400/10 text-emerald-100",
+            },
+            pending: {
+              label: "Pending",
+              description: "Membership approval is being processed",
+              badgeClass: "border-amber-300/20 bg-amber-400/10 text-amber-100",
+            },
+            inactive: {
+              label: "Inactive",
+              description: "Membership access is currently inactive",
+              badgeClass: "border-rose-300/18 bg-rose-400/8 text-rose-100/85",
+            },
+            notActivated: {
+              label: "Not activated",
+              description: "Your Committed membership is not yet activated",
+              badgeClass: "border-white/15 bg-white/7 text-white/55",
+            },
+            checking: {
+              label: "Checking",
+              description: "Checking your membership status",
+              badgeClass: "border-white/15 bg-white/7 text-white/55",
+            },
+          };
+
+          const membershipStatus = membershipStatusConfig[membershipStatusKey];
+
+          const billingStartLabel = billingRecord
+            ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
+            : "Not recorded";
+
+          const nextBillingLabel = billingRecord
+            ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
+            : "Not recorded";
+
+          const hasBillingStart = billingStartLabel !== "Not recorded";
+          const hasNextBilling = nextBillingLabel !== "Not recorded";
+          const hasBillingDates = hasBillingStart || hasNextBilling;
+'''
+
+          source, count = re.subn(
+              r'''  const resolveBillingCycle = useCallback\(\(record\) => \{.*?\n  const renderNotice = \(\) => \{''',
+              billing_logic + '''\n  const renderNotice = () => {''',
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise RuntimeError("Unable to replace legacy billing helpers")
+
+          plan_page = '''  const renderPlanPage = () => (
+            <div className="space-y-4">
+              <DetailHeader title="Plan & Billing" />
+
+              <section className="overflow-hidden rounded-[30px] border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_34%),rgba(255,255,255,0.055)] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/65">
+                  Current membership
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-2xl font-black tracking-tight text-white">Committed</h3>
+                    <p className="mt-1 text-lg font-black text-emerald-100">₱249 / month</p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${membershipStatus.badgeClass}`}
+                  >
+                    {membershipStatus.label}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-sm font-semibold leading-6 text-white/62">
+                  {membershipStatus.description}
+                </p>
+
+                {hasBillingDates ? (
+                  <div
+                    className={`mt-5 grid gap-3 border-t border-white/10 pt-4 ${
+                      hasBillingStart && hasNextBilling ? "grid-cols-2" : "grid-cols-1"
+                    }`}
+                  >
+                    {hasBillingStart ? (
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                          Started
+                        </p>
+                        <p className="mt-1 break-words text-sm font-bold text-white/82">
+                          {billingStartLabel}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {hasNextBilling ? (
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                          Next billing
+                        </p>
+                        <p className="mt-1 break-words text-sm font-bold text-white/82">
+                          {nextBillingLabel}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-5 rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-xs leading-5 text-white/48">
+                    Your billing dates will appear here once your Committed membership has been activated.
+                  </p>
+                )}
+              </section>
+
+              <section className="rounded-[26px] border border-white/15 bg-white/[0.045] p-4 backdrop-blur-xl">
+                <h3 className="text-sm font-black text-white">Included with Committed</h3>
+
+                <div className="mt-3 space-y-3">
+                  {[
+                    "Complete money tracking",
+                    "Budgets, wallets, and financial goals",
+                    "CLARA insights and Forecast",
+                    "Learning Hub and account support",
+                  ].map((inclusion) => (
+                    <div key={inclusion} className="flex items-start gap-2.5">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200/90" />
+                      <span className="text-sm font-semibold leading-5 text-white/65">{inclusion}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-[26px] border border-white/12 bg-white/[0.03] p-4">
+                <h3 className="text-sm font-black text-white">Need help with your payment?</h3>
+                <p className="mt-2 text-xs leading-5 text-white/48">
+                  For enrollment, activation, or billing concerns, contact CLARA Support.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsNotice(null);
+                    setActiveSetting("support");
+                  }}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/15"
+                >
+                  Contact support
+                </button>
+              </section>
+            </div>
+          );
+'''
+
+          source, count = re.subn(
+              r'''  const renderPlanPage = \(\) => \(.*?\n  const renderSecurityPage = \(\) => \{''',
+              plan_page + '''\n  const renderSecurityPage = () => {''',
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise RuntimeError("Unable to replace Plan & Billing page")
+
+          required = [
+              'const currentPlan = "Committed";',
+              '₱249 / month',
+              'Included with Committed',
+              'setActiveSetting("support")',
+              'membershipStatusConfig',
+              'Your billing dates will appear here once your Committed membership has been activated.',
+          ]
+          forbidden = [
+              'const planOptions =',
+              'normalizePlanDisplay',
+              'resolveBillingCycle',
+              'billingCycleLabel',
+              'rawCurrentPlan',
+              'planStatusLabel',
+              'Available plans',
+              'Simple terms',
+              '₱99',
+              '₱199',
+              '₱499',
+              'billing cycle field is saved',
+          ]
+
+          for value in required:
+              if value not in source:
+                  raise RuntimeError(f"Missing required result: {value}")
+
+          for value in forbidden:
+              if value in source:
+                  raise RuntimeError(f"Legacy value still present: {value}")
+
+          path.write_text(source, encoding="utf-8")
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check target file
+        run: npx eslint src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+
+      - name: Build project
+        run: npm run build
+
+      - name: Commit surgical update and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "CLARA Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          git rm .github/workflows/apply-plan-billing-simplification.yml
+          git commit -m "refactor: simplify Plan and Billing membership page"
+          git push
