@@ -6,56 +6,46 @@ on:
       - main
     paths:
       - ".github/workflows/refactor-dashboard-inline-helpers.yml"
-      - ".github/scripts/extract-dashboard-messages-panel-safe.mjs"
-      - ".github/scripts/extract-dashboard-tasks-panel-safe.mjs"
-      - ".github/scripts/extract-dashboard-event-helper-safe.mjs"
       - ".github/scripts/extract-dashboard-settings-panel-safe.mjs"
-      - ".github/scripts/cleanup-dashboard-unused-imports-safe.mjs"
-      - "src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  extract-dashboard-panels:
+  security-privacy-cleanup:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Extract Dashboard messages panel
-        run: node .github/scripts/extract-dashboard-messages-panel-safe.mjs
-
-      - name: Extract Dashboard tasks panel
-        run: node .github/scripts/extract-dashboard-tasks-panel-safe.mjs
-
-      - name: Extract Dashboard event helper
-        run: node .github/scripts/extract-dashboard-event-helper-safe.mjs
-
-      - name: Extract Dashboard settings panel
+      - name: Apply surgical Security and Privacy cleanup
         run: node .github/scripts/extract-dashboard-settings-panel-safe.mjs
-
-      - name: Skip Dashboard unused import cleanup
-        run: echo "Dashboard unused import cleanup is temporarily disabled to avoid moving imports into the wrong module."
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build check
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GEMINI_MODEL: gemini-2.5-flash
 
-      - name: Commit Dashboard panel extraction
+      - name: Commit verified Settings page cleanup
         run: |
-          if git diff --quiet; then
-            echo "No Dashboard panel extraction changes needed."
-            exit 0
-          fi
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel.jsx src/components/fresh/main-dashboard/dashboard-panels/tasks/DashboardTasksPanel.jsx src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
-          git commit -m "Extract dashboard panels"
-          git push
+          git add src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No Settings source changes were produced."
+            exit 1
+          fi
+          git commit -m "Simplify Security and Privacy settings page"
+          git pull --rebase origin main
+          git push origin main
