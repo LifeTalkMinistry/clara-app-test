@@ -1,20 +1,21 @@
-name: Validate Plan and Billing membership synchronization
+name: Validate adaptive PDF readable fit
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - ".github/plan-billing-sync.trigger"
-      - "src/pages/Dashboard.jsx"
-      - "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
+      - ".github/workflows/apply-adaptive-pdf-readable-fit.yml"
+      - ".github/workflows/run-adaptive-pdf-readable-fit.yml"
+      - "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
 
 permissions:
   contents: write
 
 jobs:
-  patch-and-validate:
+  patch-build-and-clean:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout pull request branch
         uses: actions/checkout@v4
@@ -22,280 +23,25 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Apply surgical membership-status synchronization
+      - name: Extract and apply adaptive readable-fit patch
         run: |
           python <<'PY'
           from pathlib import Path
 
-          dashboard_path = Path("src/pages/Dashboard.jsx")
-          settings_path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
-
-          def replace_once(path, old, new):
-              text = path.read_text(encoding="utf-8")
-              if new in text:
-                  return
-              count = text.count(old)
-              if count != 1:
-                  raise RuntimeError(f"Expected exactly one match in {path}, found {count}")
-              path.write_text(text.replace(old, new, 1), encoding="utf-8")
-
-          replace_once(
-              dashboard_path,
-              '''  const { user, plan, isAdmin, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
-    useUserRole();''',
-              '''  const {
-    user,
-    plan,
-    isAdmin,
-    isAdvertiser,
-    isPaid,
-    isFree,
-    isPending,
-    refreshUser,
-    loading: accessLoading,
-    isActivated,
-    isPreActivation,
-  } = useUserRole();''',
+          workflow = Path(".github/workflows/apply-adaptive-pdf-readable-fit.yml")
+          lines = workflow.read_text(encoding="utf-8").splitlines()
+          start = lines.index("          python <<'PY'") + 1
+          end = lines.index("          PY", start)
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in lines[start:end]
           )
-
-          replace_once(
-              dashboard_path,
-              '''                isPaid={isPaid}
-                isFree={isFree}
-                isAdmin={isAdmin}''',
-              '''                accessLoading={accessLoading}
-                isPaid={isPaid}
-                isFree={isFree}
-                isPending={isPending}
-                isActivated={isActivated}
-                isPreActivation={isPreActivation}
-                isAdmin={isAdmin}''',
+          Path("/tmp/apply-adaptive-readable-fit.py").write_text(
+              script,
+              encoding="utf-8",
           )
-
-          replace_once(
-              settings_path,
-              '''  onBack,
-  user,
-  isAdmin = false,
-  notificationSettings,''',
-              '''  onBack,
-  user,
-  accessLoading = false,
-  isPaid = false,
-  isFree = true,
-  isPending = false,
-  isActivated = false,
-  isPreActivation = false,
-  isAdmin = false,
-  notificationSettings,''',
-          )
-
-          replace_once(
-              settings_path,
-              '''const rawBillingStatus = normalizeLower(
-  billingRecord?.payment_status ||
-    billingRecord?.status ||
-    billingRecord?.enrollment_status ||
-    billingRecord?.subscription_status ||
-    billingRecord?.approval_status ||
-    billingRecord?.payment_state ||
-    billingRecord?.access_status ||
-    ""
-)
-  .replaceAll("_", " ")
-  .replaceAll("-", " ")
-  .trim();
-
-const matchesBillingStatus = (statuses = []) =>
-  statuses.some(
-    (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
-  );
-
-const membershipStatusKey = billingLoading
-  ? "checking"
-  : !billingRecord
-    ? "notActivated"
-    : matchesBillingStatus([
-          "expired",
-          "inactive",
-          "cancelled",
-          "canceled",
-          "rejected",
-          "declined",
-          "failed",
-          "suspended",
-        ])
-      ? "inactive"
-      : matchesBillingStatus([
-            "pending",
-            "processing",
-            "submitted",
-            "awaiting approval",
-            "awaiting review",
-            "under review",
-          ])
-        ? "pending"
-        : matchesBillingStatus([
-              "active",
-              "approved",
-              "paid",
-              "completed",
-              "complete",
-              "confirmed",
-              "verified",
-              "successful",
-              "success",
-              "current",
-            ])
-          ? "active"
-          : "pending";''',
-              '''const normalizeMembershipStatus = (value) =>
-  normalizeLower(value)
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
-    .trim();
-
-const userStatusCandidates = [
-  user?.enrollment_status,
-  user?.status,
-  user?.entitlement_status,
-  user?.activation_status,
-  user?.subscription_status,
-]
-  .map(normalizeMembershipStatus)
-  .filter(Boolean);
-
-const billingStatusCandidates = [
-  billingRecord?.payment_status,
-  billingRecord?.status,
-  billingRecord?.enrollment_status,
-  billingRecord?.subscription_status,
-  billingRecord?.approval_status,
-  billingRecord?.payment_state,
-  billingRecord?.access_status,
-]
-  .map(normalizeMembershipStatus)
-  .filter(Boolean);
-
-const membershipStatusCandidates = [
-  ...userStatusCandidates,
-  ...billingStatusCandidates,
-];
-
-const matchesMembershipStatus = (statuses = []) =>
-  membershipStatusCandidates.some((candidate) =>
-    statuses.some(
-      (status) => candidate === status || candidate.includes(status)
-    )
-  );
-
-const hasExplicitPendingStatus = matchesMembershipStatus([
-  "pending",
-  "processing",
-  "submitted",
-  "awaiting approval",
-  "awaiting review",
-  "under review",
-  "payment pending",
-  "purchase pending",
-  "google play pending",
-  "google play processing",
-  "purchase processing",
-]);
-
-const hasExplicitInactiveStatus = matchesMembershipStatus([
-  "expired",
-  "inactive",
-  "cancelled",
-  "canceled",
-  "rejected",
-  "declined",
-  "failed",
-  "suspended",
-  "revoked",
-  "refunded",
-]);
-
-const accessConfirmsActive = isPaid && isActivated;
-const profileConfirmsActive =
-  !isPending &&
-  !isPreActivation &&
-  !isFree &&
-  !hasExplicitPendingStatus &&
-  !hasExplicitInactiveStatus &&
-  (user?.is_activated === true ||
-    user?.program_active === true ||
-    user?.is_enrolled === true ||
-    Boolean(user?.activated_at));
-
-const membershipStatusKey = accessLoading
-  ? "checking"
-  : accessConfirmsActive || profileConfirmsActive
-    ? "active"
-    : isPending || hasExplicitPendingStatus
-      ? "pending"
-      : hasExplicitInactiveStatus
-        ? "inactive"
-        : "notActivated";''',
-          )
-
-          replace_once(
-              settings_path,
-              '''const billingStartLabel = billingRecord
-  ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
-  : "Not recorded";
-
-const nextBillingLabel = billingRecord
-  ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
-  : "Not recorded";
-
-const hasBillingStart = billingStartLabel !== "Not recorded";
-const hasNextBilling = nextBillingLabel !== "Not recorded";
-const hasBillingDates = hasBillingStart || hasNextBilling;''',
-              '''const billingStartLabel = resolveBillingDate(
-  {
-    ...(billingRecord || {}),
-    profile_activated_at: user?.activated_at,
-  },
-  [
-    "current_period_start",
-    "billing_start",
-    "started_at",
-    "approved_at",
-    "activated_at",
-    "profile_activated_at",
-    "created_at",
-  ]
-);
-
-const nextBillingLabel = resolveBillingDate(billingRecord, [
-  "next_billing_date",
-  "next_payment_due",
-  "current_period_end",
-  "renewal_date",
-  "expires_at",
-  "valid_until",
-  "end_date",
-]);
-
-const hasBillingStart = billingStartLabel !== "Not recorded";
-const hasNextBilling = nextBillingLabel !== "Not recorded";
-const hasBillingDates = hasBillingStart || hasNextBilling;
-const billingDatesNotice = billingLoading
-  ? "Checking billing dates..."
-  : membershipStatusKey === "active"
-    ? "Your membership is active. Billing dates are not available yet."
-    : "Billing dates will appear after your membership is activated.";''',
-          )
-
-          replace_once(
-              settings_path,
-              '''          Billing dates will appear after your membership is activated.''',
-              '''          {billingDatesNotice}''',
-          )
-
-          Path(".github/plan-billing-sync.trigger").unlink(missing_ok=True)
           PY
+          python /tmp/apply-adaptive-readable-fit.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -306,23 +52,18 @@ const billingDatesNotice = billingLoading
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint Dashboard
-        run: npx eslint src/pages/Dashboard.jsx
-
-      - name: Lint Dashboard Settings panel
-        run: npx eslint src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
-
-      - name: Build project
+      - name: Build default target
         run: npm run build
 
-      - name: Commit validated changes to pull request branch
+      - name: Build web target
+        run: npm run build:web
+
+      - name: Commit validated reader-only change
         run: |
-          if git diff --quiet; then
-            echo "No synchronization changes needed."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx .github/plan-billing-sync.trigger
-          git commit -m "Fix Plan and Billing membership status synchronization"
-          git push
+          git rm .github/workflows/apply-adaptive-pdf-readable-fit.yml
+          git rm .github/workflows/run-adaptive-pdf-readable-fit.yml
+          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+          git commit -m "Improve adaptive PDF fit readability"
+          git push origin ${{ github.event.pull_request.head.ref }}
