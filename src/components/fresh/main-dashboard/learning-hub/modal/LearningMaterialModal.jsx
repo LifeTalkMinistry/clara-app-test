@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
@@ -20,8 +20,78 @@ const resolvePublicAssetUrl = (assetPath) => {
   return `${normalizedBaseUrl}${normalizedPath}`;
 };
 
+const validatePdfParts = (pdfParts, declaredTotalPages) => {
+  if (!Array.isArray(pdfParts) || pdfParts.length === 0) {
+    return { isValid: false, parts: [], totalPages: 0 };
+  }
+
+  const parts = pdfParts.map((part) => ({
+    id: typeof part?.id === "string" ? part.id.trim() : "",
+    path: typeof part?.path === "string" ? part.path.trim() : "",
+    startPage: Number(part?.startPage),
+    endPage: Number(part?.endPage),
+    expectedPageCount: Number(part?.expectedPageCount),
+  }));
+
+  const hasInvalidEntry = parts.some((part) => {
+    const mappedPageCount = part.endPage - part.startPage + 1;
+
+    return (
+      !part.id ||
+      !part.path ||
+      !Number.isInteger(part.startPage) ||
+      !Number.isInteger(part.endPage) ||
+      !Number.isInteger(part.expectedPageCount) ||
+      part.startPage < 1 ||
+      part.endPage < part.startPage ||
+      part.expectedPageCount < 1 ||
+      mappedPageCount !== part.expectedPageCount
+    );
+  });
+
+  if (hasInvalidEntry) {
+    return { isValid: false, parts: [], totalPages: 0 };
+  }
+
+  const hasNonContiguousRange = parts.some((part, index) => {
+    if (index === 0) return part.startPage !== 1;
+    return part.startPage !== parts[index - 1].endPage + 1;
+  });
+
+  const totalPages = Number(declaredTotalPages);
+  const lastPart = parts[parts.length - 1];
+
+  if (
+    hasNonContiguousRange ||
+    !Number.isInteger(totalPages) ||
+    totalPages < 1 ||
+    lastPart.endPage !== totalPages
+  ) {
+    return { isValid: false, parts: [], totalPages: 0 };
+  }
+
+  return { isValid: true, parts, totalPages };
+};
+
+const findPartForGlobalPage = (parts, globalPageIndex) => {
+  const visiblePageNumber = globalPageIndex + 1;
+
+  return parts.findIndex(
+    (part) =>
+      visiblePageNumber >= part.startPage &&
+      visiblePageNumber <= part.endPage,
+  );
+};
+
+const getLocalPageNumber = (globalPageIndex, part) => {
+  if (!part) return 1;
+  return globalPageIndex + 2 - part.startPage;
+};
+
 export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const [pageIndex, setPageIndex] = useState(0);
+  const [activePartIndex, setActivePartIndex] = useState(0);
+  const [pendingGlobalPageIndex, setPendingGlobalPageIndex] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const [pdfPageCount, setPdfPageCount] = useState(0);
   const [pdfStatus, setPdfStatus] = useState("idle");
@@ -31,29 +101,86 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const touchStartRef = useRef({ x: null, y: null });
   const scrollContainerRef = useRef(null);
   const pdfViewportRef = useRef(null);
+  const activeLoadTokenRef = useRef("");
+  const isOpenRef = useRef(isOpen);
+  const transitionLockRef = useRef(false);
+
+  isOpenRef.current = isOpen;
 
   const legacyPages = Array.isArray(material?.pages) ? material.pages : [];
-  const hasPdf =
+  const pdfPartsManifest = useMemo(
+    () => validatePdfParts(material?.pdfParts, material?.totalPages),
+    [material?.pdfParts, material?.totalPages],
+  );
+  const hasMultiPartPdf = pdfPartsManifest.isValid;
+  const hasSinglePdf =
+    !hasMultiPartPdf &&
     typeof material?.pdfPath === "string" &&
     material.pdfPath.trim().length > 0;
-  const pdfUrl = hasPdf ? resolvePublicAssetUrl(material.pdfPath) : "";
-  const pageCount = hasPdf ? pdfPageCount : legacyPages.length;
+  const hasPdf = hasMultiPartPdf || hasSinglePdf;
+  const pdfParts = pdfPartsManifest.parts;
+  const multiPartTotalPages = pdfPartsManifest.totalPages;
+  const activePart = hasMultiPartPdf
+    ? pdfParts[activePartIndex] ?? pdfParts[0] ?? null
+    : null;
+  const activePdfPath = hasMultiPartPdf
+    ? activePart?.path ?? ""
+    : hasSinglePdf
+      ? material.pdfPath
+      : "";
+  const pdfUrl = hasPdf ? resolvePublicAssetUrl(activePdfPath) : "";
+  const pageCount = hasMultiPartPdf
+    ? multiPartTotalPages
+    : hasSinglePdf
+      ? pdfPageCount
+      : legacyPages.length;
   const safePageIndex = pageCount > 0 ? Math.min(pageIndex, pageCount - 1) : 0;
   const currentPage = legacyPages[safePageIndex] ?? null;
+  const localPdfPageNumber = hasMultiPartPdf
+    ? getLocalPageNumber(safePageIndex, activePart)
+    : safePageIndex + 1;
+  const isBoundaryTransition =
+    hasMultiPartPdf && pendingGlobalPageIndex !== null;
   const canNavigate =
-    pageCount > 0 && (!hasPdf || pdfStatus === "ready");
+    pageCount > 0 &&
+    (!hasPdf ||
+      (pdfStatus === "ready" && pendingGlobalPageIndex === null));
   const progress =
-    canNavigate && pageCount > 0
+    pageCount > 0 &&
+    (!hasPdf ||
+      pdfStatus === "ready" ||
+      isBoundaryTransition ||
+      pdfStatus === "error")
       ? ((safePageIndex + 1) / pageCount) * 100
       : 0;
   const isFirstPage = safePageIndex === 0;
   const isFinalPage = pageCount > 0 && safePageIndex === pageCount - 1;
   const showFinishReading = canNavigate && isFinalPage;
   const titleId = "clara-learning-reader-title";
-  const pageCounter =
-    hasPdf && pdfStatus !== "ready"
-      ? "— / —"
-      : `${pageCount > 0 ? safePageIndex + 1 : 0} / ${pageCount}`;
+  const isInitialPdfLoad =
+    hasPdf &&
+    pdfStatus !== "ready" &&
+    !isBoundaryTransition &&
+    pdfPageCount === 0;
+  const pageCounter = isInitialPdfLoad
+    ? "— / —"
+    : `${pageCount > 0 ? safePageIndex + 1 : 0} / ${pageCount}`;
+  const pdfPartsSignature = hasMultiPartPdf
+    ? pdfParts
+        .map(
+          (part) =>
+            `${part.id}:${part.path}:${part.startPage}:${part.endPage}:${part.expectedPageCount}`,
+        )
+        .join("|")
+    : "";
+  const pdfSourceSignature = hasMultiPartPdf
+    ? `parts:${pdfPartsSignature}:${multiPartTotalPages}`
+    : hasSinglePdf
+      ? `single:${material.pdfPath.trim()}`
+      : "text";
+  const activeDocumentKey = `${material?.id ?? "material"}:${pdfUrl}:${pdfReloadKey}`;
+
+  activeLoadTokenRef.current = activeDocumentKey;
 
   const scrollToTop = useCallback(() => {
     scrollContainerRef.current?.scrollTo({
@@ -62,43 +189,139 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     });
   }, []);
 
-  const goNext = useCallback(() => {
-    if (!canNavigate || pageCount === 0) return;
+  const resetReaderState = useCallback(() => {
+    setPageIndex(0);
+    setActivePartIndex(0);
+    setPendingGlobalPageIndex(null);
+    setPdfPageCount(0);
+    setPdfStatus("idle");
+    setPdfError(null);
+    setPdfReloadKey(0);
+    setPdfRenderWidth(0);
+    transitionLockRef.current = false;
+  }, []);
 
-    setPageIndex((currentIndex) =>
-      Math.min(currentIndex + 1, pageCount - 1),
-    );
-  }, [canNavigate, pageCount]);
+  const navigateToGlobalPage = useCallback(
+    (targetGlobalPageIndex) => {
+      if (
+        !canNavigate ||
+        transitionLockRef.current ||
+        targetGlobalPageIndex < 0 ||
+        targetGlobalPageIndex >= pageCount ||
+        targetGlobalPageIndex === safePageIndex
+      ) {
+        return;
+      }
+
+      if (!hasMultiPartPdf) {
+        setPageIndex(targetGlobalPageIndex);
+        return;
+      }
+
+      const targetPartIndex = findPartForGlobalPage(
+        pdfParts,
+        targetGlobalPageIndex,
+      );
+
+      if (targetPartIndex < 0) {
+        setPdfStatus("error");
+        setPdfError("This section of the book is not configured correctly.");
+        return;
+      }
+
+      if (targetPartIndex === activePartIndex) {
+        setPageIndex(targetGlobalPageIndex);
+        return;
+      }
+
+      transitionLockRef.current = true;
+      setPendingGlobalPageIndex(targetGlobalPageIndex);
+      setActivePartIndex(targetPartIndex);
+      setPdfPageCount(0);
+      setPdfError(null);
+      setPdfStatus("loading");
+      scrollToTop();
+    },
+    [
+      activePartIndex,
+      canNavigate,
+      hasMultiPartPdf,
+      pageCount,
+      pdfParts,
+      safePageIndex,
+      scrollToTop,
+    ],
+  );
+
+  const goNext = useCallback(() => {
+    navigateToGlobalPage(Math.min(safePageIndex + 1, pageCount - 1));
+  }, [navigateToGlobalPage, pageCount, safePageIndex]);
 
   const goPrevious = useCallback(() => {
-    if (!canNavigate) return;
-
-    setPageIndex((currentIndex) => Math.max(currentIndex - 1, 0));
-  }, [canNavigate]);
+    navigateToGlobalPage(Math.max(safePageIndex - 1, 0));
+  }, [navigateToGlobalPage, safePageIndex]);
 
   const closeReader = useCallback(() => {
-    setPageIndex(0);
+    resetReaderState();
     setIsVisible(false);
     onClose?.();
-  }, [onClose]);
+  }, [onClose, resetReaderState]);
 
   const finishReading = useCallback(() => {
-    setPageIndex(0);
+    resetReaderState();
     setIsVisible(false);
     onClose?.();
-  }, [onClose]);
+  }, [onClose, resetReaderState]);
 
   const handlePdfLoadSuccess = useCallback(
-    ({ numPages }) => {
+    ({ numPages }, loadToken) => {
+      if (!isOpenRef.current || loadToken !== activeLoadTokenRef.current) {
+        return;
+      }
+
       const nextPageCount = Number.isFinite(numPages)
         ? Math.max(0, Math.trunc(numPages))
         : 0;
 
       if (nextPageCount === 0) {
         setPdfPageCount(0);
-        setPageIndex(0);
         setPdfStatus("error");
         setPdfError("Check the PDF file and try again.");
+        return;
+      }
+
+      if (hasMultiPartPdf) {
+        if (!activePart || nextPageCount !== activePart.expectedPageCount) {
+          setPdfPageCount(0);
+          setPdfStatus("error");
+          setPdfError(
+            "This section of the book does not match its expected page count.",
+          );
+          return;
+        }
+
+        setPdfPageCount(nextPageCount);
+
+        if (pendingGlobalPageIndex !== null) {
+          const pendingPartIndex = findPartForGlobalPage(
+            pdfParts,
+            pendingGlobalPageIndex,
+          );
+
+          if (pendingPartIndex !== activePartIndex) {
+            setPdfStatus("error");
+            setPdfError("This section of the book is not configured correctly.");
+            return;
+          }
+
+          setPageIndex(pendingGlobalPageIndex);
+          setPendingGlobalPageIndex(null);
+        }
+
+        setPdfStatus("ready");
+        setPdfError(null);
+        transitionLockRef.current = false;
+        scrollToTop();
         return;
       }
 
@@ -108,40 +331,66 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       );
       setPdfStatus("ready");
       setPdfError(null);
+      transitionLockRef.current = false;
       scrollToTop();
     },
-    [scrollToTop],
+    [
+      activePart,
+      activePartIndex,
+      hasMultiPartPdf,
+      pdfParts,
+      pendingGlobalPageIndex,
+      scrollToTop,
+    ],
   );
 
-  const handlePdfLoadError = useCallback(() => {
-    setPdfPageCount(0);
-    setPageIndex(0);
-    setPdfStatus("error");
-    setPdfError("Check the PDF file and try again.");
-  }, []);
+  const handlePdfLoadError = useCallback(
+    (loadToken) => {
+      if (!isOpenRef.current || loadToken !== activeLoadTokenRef.current) {
+        return;
+      }
+
+      setPdfPageCount(0);
+
+      if (!hasMultiPartPdf) {
+        setPageIndex(0);
+      }
+
+      setPdfStatus("error");
+      setPdfError("Check the PDF file and try again.");
+    },
+    [hasMultiPartPdf],
+  );
 
   const retryPdf = useCallback(() => {
-    setPageIndex(0);
+    if (!hasMultiPartPdf) {
+      setPageIndex(0);
+    }
+
     setPdfPageCount(0);
     setPdfError(null);
     setPdfStatus("loading");
     setPdfReloadKey((currentKey) => currentKey + 1);
     scrollToTop();
-  }, [scrollToTop]);
+  }, [hasMultiPartPdf, scrollToTop]);
 
   useEffect(() => {
     if (!isOpen) {
       setIsVisible(false);
+      resetReaderState();
       return undefined;
     }
 
     setPageIndex(0);
+    setActivePartIndex(0);
+    setPendingGlobalPageIndex(null);
     setPdfPageCount(0);
     setPdfStatus(hasPdf ? "loading" : "idle");
     setPdfError(null);
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
     setIsVisible(false);
+    transitionLockRef.current = false;
     scrollToTop();
 
     const animationFrame = window.requestAnimationFrame(() => {
@@ -149,14 +398,21 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     });
 
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [hasPdf, isOpen, material?.id, material?.pdfPath, scrollToTop]);
+  }, [
+    hasPdf,
+    isOpen,
+    material?.id,
+    pdfSourceSignature,
+    resetReaderState,
+    scrollToTop,
+  ]);
 
   useEffect(() => {
     setPageIndex((currentIndex) => {
       if (pageCount === 0) return 0;
       return Math.min(currentIndex, pageCount - 1);
     });
-  }, [pageCount, material?.id, material?.pdfPath]);
+  }, [material?.id, pageCount, pdfSourceSignature]);
 
   useEffect(() => {
     if (!isOpen || !hasPdf || typeof window === "undefined") {
@@ -194,15 +450,15 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         window.removeEventListener("resize", measureViewport);
       }
     };
-  }, [hasPdf, isOpen, material?.id, material?.pdfPath]);
+  }, [activePdfPath, hasPdf, isOpen, material?.id]);
 
   useEffect(() => {
     if (!isOpen) return;
     scrollToTop();
   }, [
+    activePdfPath,
     isOpen,
     material?.id,
-    material?.pdfPath,
     pdfReloadKey,
     safePageIndex,
     scrollToTop,
@@ -294,6 +550,18 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     return null;
   }
 
+  const isForwardBoundary =
+    isBoundaryTransition && pendingGlobalPageIndex > safePageIndex;
+  const boundaryLoadingMessage = isForwardBoundary
+    ? "Preparing the next section..."
+    : "Preparing the previous section...";
+  const boundaryErrorTitle = isForwardBoundary
+    ? "The next section could not be loaded."
+    : "The previous section could not be loaded.";
+  const errorTitle = isBoundaryTransition
+    ? boundaryErrorTitle
+    : "This book could not be opened.";
+
   const readerContent = (
     <div
       role="dialog"
@@ -372,11 +640,15 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                 {pdfStatus !== "error" ? (
                   <>
                     <Document
-                      key={`${pdfUrl}-${pdfReloadKey}`}
+                      key={activeDocumentKey}
                       file={pdfUrl}
-                      onLoadSuccess={handlePdfLoadSuccess}
-                      onLoadError={handlePdfLoadError}
-                      onSourceError={handlePdfLoadError}
+                      onLoadSuccess={(result) =>
+                        handlePdfLoadSuccess(result, activeDocumentKey)
+                      }
+                      onLoadError={() => handlePdfLoadError(activeDocumentKey)}
+                      onSourceError={() =>
+                        handlePdfLoadError(activeDocumentKey)
+                      }
                       loading={null}
                       error={null}
                       noData={null}
@@ -386,12 +658,16 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                       pdfPageCount > 0 &&
                       pdfRenderWidth > 0 ? (
                         <Page
-                          pageNumber={safePageIndex + 1}
+                          pageNumber={localPdfPageNumber}
                           width={pdfRenderWidth}
                           renderTextLayer={true}
                           renderAnnotationLayer={false}
-                          onLoadError={handlePdfLoadError}
-                          onRenderError={handlePdfLoadError}
+                          onLoadError={() =>
+                            handlePdfLoadError(activeDocumentKey)
+                          }
+                          onRenderError={() =>
+                            handlePdfLoadError(activeDocumentKey)
+                          }
                           loading={
                             <div
                               role="status"
@@ -421,7 +697,9 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                         <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
                         <div>
                           <p className="text-sm font-semibold text-white/75">
-                            Preparing your book...
+                            {isBoundaryTransition
+                              ? boundaryLoadingMessage
+                              : "Preparing your book..."}
                           </p>
                           <p className="mt-1 text-xs text-white/40">
                             CLARA is setting up your reading page.
@@ -437,7 +715,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                   >
                     <div className="max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-7 backdrop-blur-md">
                       <h3 className="text-base font-semibold text-white/90">
-                        This book could not be opened.
+                        {errorTitle}
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-white/55">
                         {pdfError ?? "Check the PDF file and try again."}
