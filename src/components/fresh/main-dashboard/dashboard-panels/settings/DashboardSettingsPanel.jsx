@@ -963,33 +963,15 @@ const renderPlanPage = () => (
         </div>
       ) : (
         <p className="mt-5 rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-xs leading-5 text-white/48">
-          Your billing dates will appear here once your Committed membership has been activated.
+          Billing dates will appear after your membership is activated.
         </p>
       )}
     </section>
 
-    <section className="rounded-[26px] border border-white/15 bg-white/[0.045] p-4 backdrop-blur-xl">
-      <h3 className="text-sm font-black text-white">Included with Committed</h3>
-
-      <div className="mt-3 space-y-3">
-        {[
-          "Complete money tracking",
-          "Budgets, wallets, and financial goals",
-          "CLARA insights and Forecast",
-          "Learning Hub and account support",
-        ].map((inclusion) => (
-          <div key={inclusion} className="flex items-start gap-2.5">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-200/90" />
-            <span className="text-sm font-semibold leading-5 text-white/65">{inclusion}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-
     <section className="rounded-[26px] border border-white/12 bg-white/[0.03] p-4">
-      <h3 className="text-sm font-black text-white">Need help with your payment?</h3>
+      <h3 className="text-sm font-black text-white">Need help with activation or billing?</h3>
       <p className="mt-2 text-xs leading-5 text-white/48">
-        For enrollment, activation, or billing concerns, contact CLARA Support.
+        If your membership is pending, inactive, or not yet activated, contact CLARA Support and include the email connected to your account.
       </p>
 
       <button
@@ -1000,7 +982,7 @@ const renderPlanPage = () => (
         }}
         className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/15"
       >
-        Contact support
+        Contact CLARA Support
       </button>
     </section>
   </div>
