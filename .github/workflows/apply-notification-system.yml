@@ -6,6 +6,15 @@ on:
       - feature/clara-notification-system
     paths:
       - .clara-notification-system-trigger
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - .clara-notification-system-trigger
 
 permissions:
   contents: write
