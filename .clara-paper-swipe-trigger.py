@@ -1,0 +1,799 @@
+from pathlib import Path
+
+path = Path(
+    "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
+)
+content = path.read_text(encoding="utf-8")
+
+
+def replace_once(old, new, label):
+    global content
+    count = content.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected exactly one match, found {count}")
+    content = content.replace(old, new, 1)
+
+
+replace_once(
+    "const PDF_MAX_RENDER_WIDTH = 3200;\n",
+    "const PDF_MAX_RENDER_WIDTH = 3200;\n"
+    "const PDF_PAGE_TURN_OUT_DURATION = 140;\n"
+    "const PDF_PAGE_TURN_IN_DURATION = 180;\n",
+    "page-turn constants",
+)
+
+replace_once(
+    "  const [announcedZoomPercentage, setAnnouncedZoomPercentage] = useState(100);\n"
+    "  const touchStartRef = useRef({ x: null, y: null });\n",
+    "  const [announcedZoomPercentage, setAnnouncedZoomPercentage] = useState(100);\n"
+    "  const [pdfPageTurnDirection, setPdfPageTurnDirection] = useState(null);\n"
+    '  const [pdfPageTurnPhase, setPdfPageTurnPhase] = useState("idle");\n'
+    "  const touchStartRef = useRef({ x: null, y: null });\n",
+    "page-turn state",
+)
+
+replace_once(
+    '  const activeLoadTokenRef = useRef("");\n'
+    "  const isOpenRef = useRef(isOpen);\n"
+    "  const transitionLockRef = useRef(false);\n"
+    "  const pdfZoomScaleRef = useRef(PDF_MIN_ZOOM_SCALE);\n",
+    '  const activeLoadTokenRef = useRef("");\n'
+    "  const isOpenRef = useRef(isOpen);\n"
+    "  const isMountedRef = useRef(true);\n"
+    "  const transitionLockRef = useRef(false);\n"
+    "  const pdfPageTurnLockRef = useRef(false);\n"
+    '  const pdfPageTurnPhaseRef = useRef("idle");\n'
+    "  const pdfPageTurnTimerRef = useRef(null);\n"
+    "  const pdfZoomScaleRef = useRef(PDF_MIN_ZOOM_SCALE);\n",
+    "page-turn refs",
+)
+
+replace_once(
+    """  const clearTapTracking = useCallback(() => {
+    lastPdfTapTimeRef.current = 0;
+    ignoreDoubleClickUntilRef.current = 0;
+  }, []);
+
+  const clearGestureTracking = useCallback(() => {
+""",
+    """  const clearTapTracking = useCallback(() => {
+    lastPdfTapTimeRef.current = 0;
+    ignoreDoubleClickUntilRef.current = 0;
+  }, []);
+
+  const clearPdfPageTurnTimer = useCallback(() => {
+    if (pdfPageTurnTimerRef.current !== null) {
+      clearTimeout(pdfPageTurnTimerRef.current);
+      pdfPageTurnTimerRef.current = null;
+    }
+  }, []);
+
+  const resetPdfPageTurnState = useCallback(
+    ({ updateState = true } = {}) => {
+      clearPdfPageTurnTimer();
+      pdfPageTurnLockRef.current = false;
+      pdfPageTurnPhaseRef.current = "idle";
+
+      if (updateState) {
+        setPdfPageTurnPhase("idle");
+        setPdfPageTurnDirection(null);
+      }
+    },
+    [clearPdfPageTurnTimer],
+  );
+
+  const clearGestureTracking = useCallback(() => {
+""",
+    "page-turn cleanup helpers",
+)
+
+replace_once(
+    """  const resetReaderState = useCallback(() => {
+    setPageIndex(0);
+    setActivePartIndex(0);
+    setPendingGlobalPageIndex(null);
+    setPdfPageCount(0);
+    setPdfStatus("idle");
+    setPdfError(null);
+    setPdfReloadKey(0);
+    setPdfRenderWidth(0);
+    setPdfPageAspectRatio(0);
+    setIsReaderMenuOpen(false);
+    pdfZoomScaleRef.current = PDF_MIN_ZOOM_SCALE;
+    setPdfZoomScale(PDF_MIN_ZOOM_SCALE);
+    setAnnouncedZoomPercentage(100);
+    clearGestureTracking();
+    clearTapTracking();
+    transitionLockRef.current = false;
+  }, [clearGestureTracking, clearTapTracking]);
+""",
+    """  const resetReaderState = useCallback(() => {
+    resetPdfPageTurnState();
+    setPageIndex(0);
+    setActivePartIndex(0);
+    setPendingGlobalPageIndex(null);
+    setPdfPageCount(0);
+    setPdfStatus("idle");
+    setPdfError(null);
+    setPdfReloadKey(0);
+    setPdfRenderWidth(0);
+    setPdfPageAspectRatio(0);
+    setIsReaderMenuOpen(false);
+    pdfZoomScaleRef.current = PDF_MIN_ZOOM_SCALE;
+    setPdfZoomScale(PDF_MIN_ZOOM_SCALE);
+    setAnnouncedZoomPercentage(100);
+    clearGestureTracking();
+    clearTapTracking();
+    transitionLockRef.current = false;
+  }, [clearGestureTracking, clearTapTracking, resetPdfPageTurnState]);
+""",
+    "reader reset integration",
+)
+
+replace_once(
+    """  const togglePdfZoom = useCallback(() => {
+    if (!canTogglePdfZoom || isReaderMenuOpen) return;
+""",
+    """  const togglePdfZoom = useCallback(() => {
+    if (
+      !canTogglePdfZoom ||
+      isReaderMenuOpen ||
+      pdfPageTurnLockRef.current
+    ) {
+      return;
+    }
+""",
+    "zoom lock",
+)
+
+replace_once(
+    """      if (targetPartIndex < 0) {
+        resetPdfToFit({ announce: false });
+        setPdfStatus("error");
+""",
+    """      if (targetPartIndex < 0) {
+        resetPdfPageTurnState();
+        resetPdfToFit({ announce: false });
+        setPdfStatus("error");
+""",
+    "multipart destination reset",
+)
+
+replace_once(
+    """      pdfParts,
+      resetPdfToFit,
+      safePageIndex,
+""",
+    """      pdfParts,
+      resetPdfPageTurnState,
+      resetPdfToFit,
+      safePageIndex,
+""",
+    "navigation dependencies",
+)
+
+replace_once(
+    """  const goNext = useCallback(() => {
+    navigateToGlobalPage(Math.min(safePageIndex + 1, pageCount - 1));
+  }, [navigateToGlobalPage, pageCount, safePageIndex]);
+
+  const goPrevious = useCallback(() => {
+    navigateToGlobalPage(Math.max(safePageIndex - 1, 0));
+  }, [navigateToGlobalPage, safePageIndex]);
+""",
+    """  const requestPdfPageTurn = useCallback(
+    (targetGlobalPageIndex) => {
+      if (
+        !canNavigate ||
+        transitionLockRef.current ||
+        pdfPageTurnLockRef.current ||
+        targetGlobalPageIndex < 0 ||
+        targetGlobalPageIndex >= pageCount ||
+        targetGlobalPageIndex === safePageIndex ||
+        isReaderMenuOpen
+      ) {
+        return;
+      }
+
+      if (!hasPdf) {
+        navigateToGlobalPage(targetGlobalPageIndex);
+        return;
+      }
+
+      if (
+        pdfStatus !== "ready" ||
+        isPdfZoomed ||
+        effectivePdfZoomScale > PDF_MIN_ZOOM_SCALE + PDF_ZOOM_EPSILON ||
+        pdfZoomScaleRef.current > PDF_MIN_ZOOM_SCALE + PDF_ZOOM_EPSILON
+      ) {
+        return;
+      }
+
+      const direction =
+        targetGlobalPageIndex > safePageIndex ? "next" : "previous";
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (prefersReducedMotion) {
+        navigateToGlobalPage(targetGlobalPageIndex);
+        return;
+      }
+
+      clearPdfPageTurnTimer();
+      pdfPageTurnLockRef.current = true;
+      setPdfPageTurnDirection(direction);
+      pdfPageTurnPhaseRef.current = "leaving";
+      setPdfPageTurnPhase("leaving");
+
+      pdfPageTurnTimerRef.current = window.setTimeout(() => {
+        pdfPageTurnTimerRef.current = null;
+
+        if (
+          !isMountedRef.current ||
+          !isOpenRef.current ||
+          transitionLockRef.current
+        ) {
+          resetPdfPageTurnState({ updateState: isMountedRef.current });
+          return;
+        }
+
+        pdfPageTurnPhaseRef.current = "entering";
+        setPdfPageTurnPhase("entering");
+        navigateToGlobalPage(targetGlobalPageIndex);
+      }, PDF_PAGE_TURN_OUT_DURATION);
+    },
+    [
+      canNavigate,
+      clearPdfPageTurnTimer,
+      effectivePdfZoomScale,
+      hasPdf,
+      isPdfZoomed,
+      isReaderMenuOpen,
+      navigateToGlobalPage,
+      pageCount,
+      pdfStatus,
+      resetPdfPageTurnState,
+      safePageIndex,
+    ],
+  );
+
+  const goNext = useCallback(() => {
+    requestPdfPageTurn(Math.min(safePageIndex + 1, pageCount - 1));
+  }, [pageCount, requestPdfPageTurn, safePageIndex]);
+
+  const goPrevious = useCallback(() => {
+    requestPdfPageTurn(Math.max(safePageIndex - 1, 0));
+  }, [requestPdfPageTurn, safePageIndex]);
+""",
+    "central page-turn request",
+)
+
+replace_once(
+    """      if (nextPageCount === 0) {
+        setPdfPageCount(0);
+""",
+    """      if (nextPageCount === 0) {
+        resetPdfPageTurnState();
+        setPdfPageCount(0);
+""",
+    "empty PDF reset",
+)
+
+replace_once(
+    """        if (!activePart || nextPageCount !== activePart.expectedPageCount) {
+          setPdfPageCount(0);
+""",
+    """        if (!activePart || nextPageCount !== activePart.expectedPageCount) {
+          resetPdfPageTurnState();
+          setPdfPageCount(0);
+""",
+    "multipart page-count reset",
+)
+
+replace_once(
+    """          if (pendingPartIndex !== activePartIndex) {
+            setPdfStatus("error");
+""",
+    """          if (pendingPartIndex !== activePartIndex) {
+            resetPdfPageTurnState();
+            setPdfStatus("error");
+""",
+    "pending multipart reset",
+)
+
+replace_once(
+    """      pendingGlobalPageIndex,
+      resetPdfToFit,
+      scrollToTop,
+""",
+    """      pendingGlobalPageIndex,
+      resetPdfPageTurnState,
+      resetPdfToFit,
+      scrollToTop,
+""",
+    "load success dependencies",
+)
+
+replace_once(
+    """  const handlePdfLoadError = useCallback(
+    (loadToken) => {
+      if (!isOpenRef.current || loadToken !== activeLoadTokenRef.current) {
+        if (isOpenRef.current) resetPdfToFit({ announce: false });
+        return;
+      }
+
+      resetPdfToFit({ announce: false });
+      setPdfPageAspectRatio(0);
+      setPdfPageCount(0);
+
+      if (!hasMultiPartPdf) {
+        setPageIndex(0);
+      }
+
+      setPdfStatus("error");
+      setPdfError("Check the PDF file and try again.");
+      scrollToTop();
+    },
+    [hasMultiPartPdf, resetPdfToFit, scrollToTop],
+  );
+""",
+    """  const handlePdfLoadError = useCallback(
+    (loadToken) => {
+      if (!isOpenRef.current || loadToken !== activeLoadTokenRef.current) {
+        if (isOpenRef.current) resetPdfToFit({ announce: false });
+        return;
+      }
+
+      resetPdfPageTurnState();
+      resetPdfToFit({ announce: false });
+      setPdfPageAspectRatio(0);
+      setPdfPageCount(0);
+
+      if (!hasMultiPartPdf) {
+        setPageIndex(0);
+      }
+
+      setPdfStatus("error");
+      setPdfError("Check the PDF file and try again.");
+      scrollToTop();
+    },
+    [hasMultiPartPdf, resetPdfPageTurnState, resetPdfToFit, scrollToTop],
+  );
+""",
+    "PDF error reset",
+)
+
+replace_once(
+    """  const retryPdf = useCallback(() => {
+    resetPdfToFit({ announce: false });
+    setPdfPageAspectRatio(0);
+    setIsReaderMenuOpen(false);
+
+    if (!hasMultiPartPdf) {
+      setPageIndex(0);
+    }
+
+    setPdfPageCount(0);
+    setPdfError(null);
+    setPdfStatus("loading");
+    setPdfReloadKey((currentKey) => currentKey + 1);
+    scrollToTop();
+  }, [hasMultiPartPdf, resetPdfToFit, scrollToTop]);
+""",
+    """  const retryPdf = useCallback(() => {
+    resetPdfPageTurnState();
+    resetPdfToFit({ announce: false });
+    setPdfPageAspectRatio(0);
+    setIsReaderMenuOpen(false);
+
+    if (!hasMultiPartPdf) {
+      setPageIndex(0);
+    }
+
+    setPdfPageCount(0);
+    setPdfError(null);
+    setPdfStatus("loading");
+    setPdfReloadKey((currentKey) => currentKey + 1);
+    scrollToTop();
+  }, [hasMultiPartPdf, resetPdfPageTurnState, resetPdfToFit, scrollToTop]);
+""",
+    "retry reset",
+)
+
+replace_once(
+    """    if (!isOpen) {
+      setIsVisible(false);
+      resetReaderState();
+      return undefined;
+    }
+
+    setPageIndex(0);
+""",
+    """    if (!isOpen) {
+      setIsVisible(false);
+      resetReaderState();
+      return undefined;
+    }
+
+    resetPdfPageTurnState();
+    setPageIndex(0);
+""",
+    "material change reset",
+)
+
+replace_once(
+    """    pdfSourceSignature,
+    resetReaderState,
+    scrollToTop,
+""",
+    """    pdfSourceSignature,
+    resetPdfPageTurnState,
+    resetReaderState,
+    scrollToTop,
+""",
+    "material effect dependencies",
+)
+
+replace_once(
+    """  const processPdfTap = useCallback(() => {
+    if (!canTogglePdfZoom || isReaderMenuOpen) return false;
+""",
+    """  const processPdfTap = useCallback(() => {
+    if (
+      !canTogglePdfZoom ||
+      isReaderMenuOpen ||
+      pdfPageTurnLockRef.current
+    ) {
+      return false;
+    }
+""",
+    "double-tap lock",
+)
+
+replace_once(
+    """  useEffect(
+    () => () => {
+      clearGestureTracking();
+    },
+    [clearGestureTracking],
+  );
+""",
+    """  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      clearGestureTracking();
+      resetPdfPageTurnState({ updateState: false });
+    };
+  }, [clearGestureTracking, resetPdfPageTurnState]);
+""",
+    "unmount cleanup",
+)
+
+replace_once(
+    """    if (
+      isReaderMenuOpen ||
+      Date.now() < ignoreDoubleClickUntilRef.current
+    ) {
+""",
+    """    if (
+      isReaderMenuOpen ||
+      pdfPageTurnLockRef.current ||
+      Date.now() < ignoreDoubleClickUntilRef.current
+    ) {
+""",
+    "desktop double-click lock",
+)
+
+replace_once(
+    """  const handlePdfPageRenderSuccess = useCallback(() => {
+    if (pendingFocalPointRef.current) {
+      window.requestAnimationFrame(() => {
+        applyPendingFocalPoint();
+        if (!pinchGestureRef.current.active) {
+          pendingFocalPointRef.current = null;
+        }
+      });
+    }
+  }, [applyPendingFocalPoint]);
+""",
+    """  const handlePdfPageRenderSuccess = useCallback(() => {
+    if (pendingFocalPointRef.current) {
+      window.requestAnimationFrame(() => {
+        applyPendingFocalPoint();
+        if (!pinchGestureRef.current.active) {
+          pendingFocalPointRef.current = null;
+        }
+      });
+    }
+
+    if (
+      !pdfPageTurnLockRef.current ||
+      pdfPageTurnPhaseRef.current !== "entering"
+    ) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (!isMountedRef.current || !isOpenRef.current) {
+          resetPdfPageTurnState({ updateState: false });
+          return;
+        }
+
+        if (
+          !pdfPageTurnLockRef.current ||
+          pdfPageTurnPhaseRef.current !== "entering"
+        ) {
+          return;
+        }
+
+        clearPdfPageTurnTimer();
+        pdfPageTurnPhaseRef.current = "idle";
+        setPdfPageTurnPhase("idle");
+
+        pdfPageTurnTimerRef.current = window.setTimeout(() => {
+          pdfPageTurnTimerRef.current = null;
+          pdfPageTurnLockRef.current = false;
+
+          if (isMountedRef.current && isOpenRef.current) {
+            setPdfPageTurnDirection(null);
+          }
+        }, PDF_PAGE_TURN_IN_DURATION);
+      });
+    });
+  }, [
+    applyPendingFocalPoint,
+    clearPdfPageTurnTimer,
+    resetPdfPageTurnState,
+  ]);
+""",
+    "render-success settle",
+)
+
+replace_once(
+    """  const openReaderMenu = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearGestureTracking();
+""",
+    """  const openReaderMenu = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (pdfPageTurnLockRef.current) return;
+
+    clearGestureTracking();
+""",
+    "reader menu lock",
+)
+
+replace_once(
+    """  const handleZoomMenuAction = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsReaderMenuOpen(false);
+
+    if (!canTogglePdfZoom) return;
+
+    if (isPdfZoomed) {
+      resetPdfToFit();
+      return;
+    }
+
+    setReadingZoom();
+  };
+
+  if (!isOpen || !material || typeof document === "undefined") {
+""",
+    """  const handleZoomMenuAction = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsReaderMenuOpen(false);
+
+    if (!canTogglePdfZoom) return;
+
+    if (isPdfZoomed) {
+      resetPdfToFit();
+      return;
+    }
+
+    setReadingZoom();
+  };
+
+  const pdfPaperTurnStyle = useMemo(() => {
+    const restingTransform =
+      "translate3d(0, 0, 0) rotateY(0deg) scale(1)";
+    const isNext = pdfPageTurnDirection === "next";
+    const isPrevious = pdfPageTurnDirection === "previous";
+    const hasActiveDirection = isNext || isPrevious;
+    const isTransitionActive =
+      pdfPageTurnPhase !== "idle" || hasActiveDirection;
+
+    if (pdfPageTurnPhase === "leaving" && hasActiveDirection) {
+      return {
+        transform: isNext
+          ? "translate3d(-6%, 0, 0) rotateY(-4deg) scale(0.985)"
+          : "translate3d(6%, 0, 0) rotateY(4deg) scale(0.985)",
+        opacity: 0.74,
+        transition: `transform ${PDF_PAGE_TURN_OUT_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,
+        transformOrigin: isNext ? "left center" : "right center",
+        transformStyle: "preserve-3d",
+        backfaceVisibility: "hidden",
+        willChange: "transform, opacity",
+      };
+    }
+
+    if (pdfPageTurnPhase === "entering" && hasActiveDirection) {
+      return {
+        transform: isNext
+          ? "translate3d(6%, 0, 0) rotateY(3deg) scale(0.985)"
+          : "translate3d(-6%, 0, 0) rotateY(-3deg) scale(0.985)",
+        opacity: 0.78,
+        transition: "none",
+        transformOrigin: isNext ? "right center" : "left center",
+        transformStyle: "preserve-3d",
+        backfaceVisibility: "hidden",
+        willChange: "transform, opacity",
+      };
+    }
+
+    return {
+      transform: restingTransform,
+      opacity: 1,
+      transition: hasActiveDirection
+        ? `transform ${PDF_PAGE_TURN_IN_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`
+        : "none",
+      transformOrigin: isNext
+        ? "right center"
+        : isPrevious
+          ? "left center"
+          : "center center",
+      transformStyle: "preserve-3d",
+      backfaceVisibility: "hidden",
+      willChange: isTransitionActive ? "transform, opacity" : "auto",
+    };
+  }, [pdfPageTurnDirection, pdfPageTurnPhase]);
+
+  const pdfPaperEdgeStyle = useMemo(() => {
+    const isNext = pdfPageTurnDirection === "next";
+    const isPrevious = pdfPageTurnDirection === "previous";
+    const hasActiveDirection = isNext || isPrevious;
+    const edgeOpacity =
+      pdfPageTurnPhase === "leaving"
+        ? 1
+        : pdfPageTurnPhase === "entering"
+          ? 0.62
+          : 0;
+
+    return {
+      width: "44px",
+      left: isPrevious ? 0 : undefined,
+      right: isNext ? 0 : undefined,
+      opacity: hasActiveDirection ? edgeOpacity : 0,
+      background: isNext
+        ? "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 42%, rgba(0,0,0,0.18) 86%, rgba(255,255,255,0.10) 100%)"
+        : "linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 42%, rgba(0,0,0,0.18) 86%, rgba(255,255,255,0.10) 100%)",
+      transition:
+        pdfPageTurnPhase === "idle" && hasActiveDirection
+          ? `opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`
+          : `opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,
+      filter: edgeOpacity > 0 ? "blur(0.4px)" : "none",
+      zIndex: 2,
+    };
+  }, [pdfPageTurnDirection, pdfPageTurnPhase]);
+
+  if (!isOpen || !material || typeof document === "undefined") {
+""",
+    "paper style derivation",
+)
+
+replace_once(
+    """                          <Page
+                            pageNumber={localPdfPageNumber}
+                            inputRef={pdfContentRef}
+                            width={activePdfRenderWidth}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={false}
+                            onLoadSuccess={handlePdfPageLoadSuccess}
+                            onLoadError={() =>
+                              handlePdfLoadError(activeDocumentKey)
+                            }
+                            onRenderError={() =>
+                              handlePdfLoadError(activeDocumentKey)
+                            }
+                            onRenderSuccess={handlePdfPageRenderSuccess}
+                            loading={
+                              <div
+                                role="status"
+                                aria-live="polite"
+                                className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+                              >
+                                <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
+                                <p className="text-sm font-medium text-white/65">
+                                  Preparing your page...
+                                </p>
+                              </div>
+                            }
+                            error={null}
+                            className={`${
+                              isPdfZoomed ? "mx-0" : "mx-auto"
+                            } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
+                          />
+""",
+    """                          <div
+                            className="relative shrink-0"
+                            style={{ perspective: "1200px" }}
+                          >
+                            <div
+                              className="relative shrink-0"
+                              style={pdfPaperTurnStyle}
+                            >
+                              <Page
+                                pageNumber={localPdfPageNumber}
+                                inputRef={pdfContentRef}
+                                width={activePdfRenderWidth}
+                                renderTextLayer={true}
+                                renderAnnotationLayer={false}
+                                onLoadSuccess={handlePdfPageLoadSuccess}
+                                onLoadError={() =>
+                                  handlePdfLoadError(activeDocumentKey)
+                                }
+                                onRenderError={() =>
+                                  handlePdfLoadError(activeDocumentKey)
+                                }
+                                onRenderSuccess={handlePdfPageRenderSuccess}
+                                loading={
+                                  <div
+                                    role="status"
+                                    aria-live="polite"
+                                    className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+                                  >
+                                    <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
+                                    <p className="text-sm font-medium text-white/65">
+                                      Preparing your page...
+                                    </p>
+                                  </div>
+                                }
+                                error={null}
+                                className={`${
+                                  isPdfZoomed ? "mx-0" : "mx-auto"
+                                } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
+                              />
+
+                              <div
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-y-0"
+                                style={pdfPaperEdgeStyle}
+                              />
+                            </div>
+                          </div>
+""",
+    "Page animation wrapper",
+)
+
+required_snippets = [
+    'isPdfZoomed ? "w-max min-w-full" : "w-full"',
+    'isPdfZoomed\n                            ? "flex w-max min-w-full justify-start"\n                            : "flex w-full justify-center"',
+    'isPdfZoomed ? "mx-0" : "mx-auto"',
+    "renderTextLayer={true}",
+    "renderAnnotationLayer={false}",
+    "onRenderSuccess={handlePdfPageRenderSuccess}",
+]
+for snippet in required_snippets:
+    if snippet not in content:
+        raise SystemExit(f"preserved PDF ownership snippet missing: {snippet}")
+
+if content.count("const PDF_PAGE_TURN_OUT_DURATION = 140;") != 1:
+    raise SystemExit("outgoing duration constant validation failed")
+if content.count("const PDF_PAGE_TURN_IN_DURATION = 180;") != 1:
+    raise SystemExit("incoming duration constant validation failed")
+if "navigateToGlobalPage(Math.min(safePageIndex + 1" in content:
+    raise SystemExit("goNext still owns direct PDF navigation")
+if "navigateToGlobalPage(Math.max(safePageIndex - 1" in content:
+    raise SystemExit("goPrevious still owns direct PDF navigation")
+
+path.write_text(content, encoding="utf-8")
