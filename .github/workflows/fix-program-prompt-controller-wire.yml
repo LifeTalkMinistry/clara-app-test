@@ -1,21 +1,20 @@
-name: Validate adaptive PDF readable fit
+name: Validate Plan and Billing membership synchronization
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - ".github/workflows/apply-adaptive-pdf-readable-fit.yml"
-      - ".github/workflows/run-adaptive-pdf-readable-fit.yml"
-      - "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
+      - ".github/plan-billing-sync.trigger"
+      - "src/pages/Dashboard.jsx"
+      - "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
 
 permissions:
   contents: write
 
 jobs:
-  patch-build-and-clean:
+  patch-and-validate:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout pull request branch
         uses: actions/checkout@v4
@@ -23,226 +22,279 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Apply adaptive readable-fit calculation
+      - name: Apply surgical membership-status synchronization
         run: |
           python <<'PY'
           from pathlib import Path
 
-          path = Path("src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx")
-          text = path.read_text(encoding="utf-8")
+          dashboard_path = Path("src/pages/Dashboard.jsx")
+          settings_path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
 
-          def replace_once(old, new):
-              global text
+          def replace_once(path, old, new):
+              text = path.read_text(encoding="utf-8")
               if new in text:
                   return
               count = text.count(old)
               if count != 1:
-                  raise RuntimeError(f"Expected exactly one match, found {count}: {old[:90]!r}")
-              text = text.replace(old, new, 1)
+                  raise RuntimeError(f"Expected exactly one match in {path}, found {count}")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
           replace_once(
-              '''const PDF_MAX_WIDTH = 1040;
-          const PDF_READING_ZOOM_MULTIPLIER = 1.75;''',
-              '''const PDF_MAX_WIDTH = 1040;
-          const PDF_COMFORTABLE_FIT_HEIGHT_RATIO = 0.78;
-          const PDF_NARROW_SCREEN_MAX_OVERSIZE = 1.06;
-          const PDF_NARROW_SCREEN_BREAKPOINT = 640;
-          const PDF_READING_ZOOM_MULTIPLIER = 1.75;''',
+              dashboard_path,
+              '''  const { user, plan, isAdmin, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
+    useUserRole();''',
+              '''  const {
+    user,
+    plan,
+    isAdmin,
+    isAdvertiser,
+    isPaid,
+    isFree,
+    isPending,
+    refreshUser,
+    loading: accessLoading,
+    isActivated,
+    isPreActivation,
+  } = useUserRole();''',
           )
 
           replace_once(
-              '''  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
-            const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);''',
-              '''  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
-            const [pdfPageAspectRatio, setPdfPageAspectRatio] = useState(0);
-            const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);''',
+              dashboard_path,
+              '''                isPaid={isPaid}
+                isFree={isFree}
+                isAdmin={isAdmin}''',
+              '''                accessLoading={accessLoading}
+                isPaid={isPaid}
+                isFree={isFree}
+                isPending={isPending}
+                isActivated={isActivated}
+                isPreActivation={isPreActivation}
+                isAdmin={isAdmin}''',
           )
 
           replace_once(
-              '''    setPdfRenderWidth(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              clearTouchTracking();''',
-              '''    setPdfRenderWidth(0);
-              setPdfPageAspectRatio(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              clearTouchTracking();''',
+              settings_path,
+              '''  onBack,
+  user,
+  isAdmin = false,
+  notificationSettings,''',
+              '''  onBack,
+  user,
+  accessLoading = false,
+  isPaid = false,
+  isFree = true,
+  isPending = false,
+  isActivated = false,
+  isPreActivation = false,
+  isAdmin = false,
+  notificationSettings,''',
           )
 
           replace_once(
-              '''      setIsPdfZoomed(false);
-              clearTapTracking();
-              clearTouchTracking();
-              setPdfPageCount(0);''',
-              '''      setIsPdfZoomed(false);
-              setPdfPageAspectRatio(0);
-              clearTapTracking();
-              clearTouchTracking();
-              setPdfPageCount(0);''',
+              settings_path,
+              '''const rawBillingStatus = normalizeLower(
+  billingRecord?.payment_status ||
+    billingRecord?.status ||
+    billingRecord?.enrollment_status ||
+    billingRecord?.subscription_status ||
+    billingRecord?.approval_status ||
+    billingRecord?.payment_state ||
+    billingRecord?.access_status ||
+    ""
+)
+  .replaceAll("_", " ")
+  .replaceAll("-", " ")
+  .trim();
+
+const matchesBillingStatus = (statuses = []) =>
+  statuses.some(
+    (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
+  );
+
+const membershipStatusKey = billingLoading
+  ? "checking"
+  : !billingRecord
+    ? "notActivated"
+    : matchesBillingStatus([
+          "expired",
+          "inactive",
+          "cancelled",
+          "canceled",
+          "rejected",
+          "declined",
+          "failed",
+          "suspended",
+        ])
+      ? "inactive"
+      : matchesBillingStatus([
+            "pending",
+            "processing",
+            "submitted",
+            "awaiting approval",
+            "awaiting review",
+            "under review",
+          ])
+        ? "pending"
+        : matchesBillingStatus([
+              "active",
+              "approved",
+              "paid",
+              "completed",
+              "complete",
+              "confirmed",
+              "verified",
+              "successful",
+              "success",
+              "current",
+            ])
+          ? "active"
+          : "pending";''',
+              '''const normalizeMembershipStatus = (value) =>
+  normalizeLower(value)
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .trim();
+
+const userStatusCandidates = [
+  user?.enrollment_status,
+  user?.status,
+  user?.entitlement_status,
+  user?.activation_status,
+  user?.subscription_status,
+]
+  .map(normalizeMembershipStatus)
+  .filter(Boolean);
+
+const billingStatusCandidates = [
+  billingRecord?.payment_status,
+  billingRecord?.status,
+  billingRecord?.enrollment_status,
+  billingRecord?.subscription_status,
+  billingRecord?.approval_status,
+  billingRecord?.payment_state,
+  billingRecord?.access_status,
+]
+  .map(normalizeMembershipStatus)
+  .filter(Boolean);
+
+const membershipStatusCandidates = [
+  ...userStatusCandidates,
+  ...billingStatusCandidates,
+];
+
+const matchesMembershipStatus = (statuses = []) =>
+  membershipStatusCandidates.some((candidate) =>
+    statuses.some(
+      (status) => candidate === status || candidate.includes(status)
+    )
+  );
+
+const hasExplicitPendingStatus = matchesMembershipStatus([
+  "pending",
+  "processing",
+  "submitted",
+  "awaiting approval",
+  "awaiting review",
+  "under review",
+  "payment pending",
+  "purchase pending",
+  "google play pending",
+  "google play processing",
+  "purchase processing",
+]);
+
+const hasExplicitInactiveStatus = matchesMembershipStatus([
+  "expired",
+  "inactive",
+  "cancelled",
+  "canceled",
+  "rejected",
+  "declined",
+  "failed",
+  "suspended",
+  "revoked",
+  "refunded",
+]);
+
+const accessConfirmsActive = isPaid && isActivated;
+const profileConfirmsActive =
+  !isPending &&
+  !isPreActivation &&
+  !isFree &&
+  !hasExplicitPendingStatus &&
+  !hasExplicitInactiveStatus &&
+  (user?.is_activated === true ||
+    user?.program_active === true ||
+    user?.is_enrolled === true ||
+    Boolean(user?.activated_at));
+
+const membershipStatusKey = accessLoading
+  ? "checking"
+  : accessConfirmsActive || profileConfirmsActive
+    ? "active"
+    : isPending || hasExplicitPendingStatus
+      ? "pending"
+      : hasExplicitInactiveStatus
+        ? "inactive"
+        : "notActivated";''',
           )
 
           replace_once(
-              '''  const retryPdf = useCallback(() => {
-              setIsPdfZoomed(false);
-              setIsReaderMenuOpen(false);''',
-              '''  const retryPdf = useCallback(() => {
-              setIsPdfZoomed(false);
-              setPdfPageAspectRatio(0);
-              setIsReaderMenuOpen(false);''',
+              settings_path,
+              '''const billingStartLabel = billingRecord
+  ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
+  : "Not recorded";
+
+const nextBillingLabel = billingRecord
+  ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
+  : "Not recorded";
+
+const hasBillingStart = billingStartLabel !== "Not recorded";
+const hasNextBilling = nextBillingLabel !== "Not recorded";
+const hasBillingDates = hasBillingStart || hasNextBilling;''',
+              '''const billingStartLabel = resolveBillingDate(
+  {
+    ...(billingRecord || {}),
+    profile_activated_at: user?.activated_at,
+  },
+  [
+    "current_period_start",
+    "billing_start",
+    "started_at",
+    "approved_at",
+    "activated_at",
+    "profile_activated_at",
+    "created_at",
+  ]
+);
+
+const nextBillingLabel = resolveBillingDate(billingRecord, [
+  "next_billing_date",
+  "next_payment_due",
+  "current_period_end",
+  "renewal_date",
+  "expires_at",
+  "valid_until",
+  "end_date",
+]);
+
+const hasBillingStart = billingStartLabel !== "Not recorded";
+const hasNextBilling = nextBillingLabel !== "Not recorded";
+const hasBillingDates = hasBillingStart || hasNextBilling;
+const billingDatesNotice = billingLoading
+  ? "Checking billing dates..."
+  : membershipStatusKey === "active"
+    ? "Your membership is active. Billing dates are not available yet."
+    : "Billing dates will appear after your membership is activated.";''',
           )
 
           replace_once(
-              '''    setPdfReloadKey(0);
-              setPdfRenderWidth(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              setIsVisible(false);''',
-              '''    setPdfReloadKey(0);
-              setPdfRenderWidth(0);
-              setPdfPageAspectRatio(0);
-              setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              setIsVisible(false);''',
+              settings_path,
+              '''          Billing dates will appear after your membership is activated.''',
+              '''          {billingDatesNotice}''',
           )
 
-          replace_once(
-              '''    const measureViewport = () => {
-              const availableWidth = Math.floor(viewport.getBoundingClientRect().width);
-              const nextWidth =
-                availableWidth > 0 ? Math.min(availableWidth, PDF_MAX_WIDTH) : 0;
-
-              setPdfRenderWidth((currentWidth) =>
-                currentWidth === nextWidth ? currentWidth : nextWidth,
-              );
-            };''',
-              '''    const measureViewport = () => {
-              const viewportRect = viewport.getBoundingClientRect();
-              const scrollContainer = scrollContainerRef.current;
-              const availableWidth = Math.floor(viewportRect.width);
-              const availableHeight = Math.floor(
-                scrollContainer?.getBoundingClientRect().height ?? window.innerHeight,
-              );
-
-              if (availableWidth <= 0 || availableHeight <= 0) {
-                setPdfRenderWidth(0);
-                return;
-              }
-
-              const isNarrowPortraitScreen =
-                availableWidth < PDF_NARROW_SCREEN_BREAKPOINT &&
-                availableHeight > availableWidth;
-              const widthLimit =
-                availableWidth *
-                (isNarrowPortraitScreen ? PDF_NARROW_SCREEN_MAX_OVERSIZE : 1);
-              const heightDrivenWidth =
-                pdfPageAspectRatio > 0
-                  ? availableHeight *
-                    PDF_COMFORTABLE_FIT_HEIGHT_RATIO *
-                    pdfPageAspectRatio
-                  : availableWidth;
-              const nextWidth = Math.round(
-                Math.min(
-                  Math.max(availableWidth, heightDrivenWidth),
-                  widthLimit,
-                  PDF_MAX_WIDTH,
-                ),
-              );
-
-              setPdfRenderWidth((currentWidth) =>
-                currentWidth === nextWidth ? currentWidth : nextWidth,
-              );
-            };''',
-          )
-
-          replace_once(
-              '''    if (typeof window.ResizeObserver === "function") {
-              resizeObserver = new window.ResizeObserver(measureViewport);
-              resizeObserver.observe(viewport);
-            } else {''',
-              '''    if (typeof window.ResizeObserver === "function") {
-              resizeObserver = new window.ResizeObserver(measureViewport);
-              resizeObserver.observe(viewport);
-              if (scrollContainerRef.current) {
-                resizeObserver.observe(scrollContainerRef.current);
-              }
-            } else {''',
-          )
-
-          replace_once(
-              '''  }, [activePdfPath, hasPdf, isOpen, material?.id]);''',
-              '''  }, [
-              activePdfPath,
-              hasPdf,
-              isOpen,
-              material?.id,
-              pdfPageAspectRatio,
-            ]);''',
-          )
-
-          replace_once(
-              '''    setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              clearTouchTracking();
-              clearTapTracking();
-              scrollToTop();
-            }, [
-              activePdfPath,''',
-              '''    setIsReaderMenuOpen(false);
-              setIsPdfZoomed(false);
-              setPdfPageAspectRatio(0);
-              clearTouchTracking();
-              clearTapTracking();
-              scrollToTop();
-            }, [
-              activePdfPath,''',
-          )
-
-          replace_once(
-              '''  const handlePdfPageRenderSuccess = useCallback(() => {
-              syncPdfScrollPosition(isPdfZoomed);
-            }, [isPdfZoomed, syncPdfScrollPosition]);
-
-            const openReaderMenu = (event) => {''',
-              '''  const handlePdfPageRenderSuccess = useCallback(() => {
-              syncPdfScrollPosition(isPdfZoomed);
-            }, [isPdfZoomed, syncPdfScrollPosition]);
-
-            const handlePdfPageLoadSuccess = useCallback((page) => {
-              const pageViewport = page?.getViewport?.({ scale: 1 });
-              const nextAspectRatio =
-                pageViewport?.width > 0 && pageViewport?.height > 0
-                  ? pageViewport.width / pageViewport.height
-                  : 0;
-
-              if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;
-
-              setPdfPageAspectRatio((currentAspectRatio) =>
-                Math.abs(currentAspectRatio - nextAspectRatio) < 0.001
-                  ? currentAspectRatio
-                  : nextAspectRatio,
-              );
-            }, []);
-
-            const openReaderMenu = (event) => {''',
-          )
-
-          replace_once(
-              '''                : "overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3"''',
-              '''                : "overflow-x-hidden overflow-y-auto px-0 py-2 sm:px-2 sm:py-3"''',
-          )
-
-          replace_once(
-              '''                          renderTextLayer={true}
-                                      renderAnnotationLayer={false}
-                                      onLoadError={() =>''',
-              '''                          renderTextLayer={true}
-                                      renderAnnotationLayer={false}
-                                      onLoadSuccess={handlePdfPageLoadSuccess}
-                                      onLoadError={() =>''',
-          )
-
-          path.write_text(text, encoding="utf-8")
+          Path(".github/plan-billing-sync.trigger").unlink(missing_ok=True)
           PY
 
       - name: Setup Node
@@ -254,18 +306,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build default target
+      - name: Lint Dashboard
+        run: npx eslint src/pages/Dashboard.jsx
+
+      - name: Lint Dashboard Settings panel
+        run: npx eslint src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+
+      - name: Build project
         run: npm run build
 
-      - name: Build web target
-        run: npm run build:web
-
-      - name: Commit validated reader-only change
+      - name: Commit validated changes to pull request branch
         run: |
+          if git diff --quiet; then
+            echo "No synchronization changes needed."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/apply-adaptive-pdf-readable-fit.yml
-          git rm .github/workflows/run-adaptive-pdf-readable-fit.yml
-          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
-          git commit -m "Improve adaptive PDF fit readability"
-          git push origin ${{ github.event.pull_request.head.ref }}
+          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx .github/plan-billing-sync.trigger
+          git commit -m "Fix Plan and Billing membership status synchronization"
+          git push
