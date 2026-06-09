@@ -94,6 +94,12 @@ function migrateLegacyShape(value = {}) {
   };
 }
 
+function definedEntries(value = {}) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
+  );
+}
+
 export function normalizeNotificationPreferences(value = {}) {
   const migrated = migrateLegacyShape(value);
   const defaults = DEFAULT_NOTIFICATION_PREFERENCES;
@@ -190,9 +196,10 @@ export function persistNotificationPreferences(userId, value) {
 }
 
 export function updateNotificationPreferences(userId, updates = {}) {
+  const migratedUpdates = definedEntries(migrateLegacyShape(updates));
   return persistNotificationPreferences(userId, {
     ...readNotificationPreferences(userId),
-    ...migrateLegacyShape(updates),
+    ...migratedUpdates,
   });
 }
 
