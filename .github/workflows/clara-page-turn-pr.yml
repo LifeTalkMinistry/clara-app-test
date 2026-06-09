@@ -6,6 +6,9 @@ on:
       - main
     types:
       - opened
+      - synchronize
+    paths:
+      - .clara-page-turn-trigger
 
 permissions:
   contents: write
@@ -18,7 +21,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
+          fetch-depth: 1
+          show-progress: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -31,7 +35,11 @@ jobs:
         run: |
           sed -n "/python <<'PY'/,/^[[:space:]]*PY$/p" .github/workflows/clara-page-turn-surgical.yml \
             | sed '1d;$d;s/^          //' > /tmp/clara-page-turn-patch.py
-          python /tmp/clara-page-turn-patch.py
+          set +e
+          python /tmp/clara-page-turn-patch.py > /tmp/clara-page-turn-patch.log 2>&1
+          status=$?
+          cat /tmp/clara-page-turn-patch.log
+          exit $status
 
       - name: Install dependencies
         run: npm ci
