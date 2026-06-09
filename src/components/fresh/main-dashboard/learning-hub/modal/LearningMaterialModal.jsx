@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  X,
+} from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/TextLayer.css";
 
@@ -10,7 +16,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 const SWIPE_THRESHOLD = 50;
-const PDF_MAX_WIDTH = 720;
+const PDF_MAX_WIDTH = 1040;
 
 const resolvePublicAssetUrl = (assetPath) => {
   const normalizedPath = assetPath.trim().replace(/^\/+/, "");
@@ -98,6 +104,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const [pdfError, setPdfError] = useState(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
   const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
+  const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);
   const touchStartRef = useRef({ x: null, y: null });
   const scrollContainerRef = useRef(null);
   const pdfViewportRef = useRef(null);
@@ -198,6 +205,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfError(null);
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
+    setIsReaderMenuOpen(false);
+    touchStartRef.current = { x: null, y: null };
     transitionLockRef.current = false;
   }, []);
 
@@ -389,7 +398,9 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfError(null);
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
+    setIsReaderMenuOpen(false);
     setIsVisible(false);
+    touchStartRef.current = { x: null, y: null };
     transitionLockRef.current = false;
     scrollToTop();
 
@@ -454,6 +465,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   useEffect(() => {
     if (!isOpen) return;
+    setIsReaderMenuOpen(false);
+    touchStartRef.current = { x: null, y: null };
     scrollToTop();
   }, [
     activePdfPath,
@@ -481,9 +494,17 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+
+        if (isReaderMenuOpen) {
+          setIsReaderMenuOpen(false);
+          return;
+        }
+
         closeReader();
         return;
       }
+
+      if (isReaderMenuOpen) return;
 
       if (event.key === "ArrowRight") {
         event.preventDefault();
@@ -502,9 +523,14 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeReader, goNext, goPrevious, isOpen]);
+  }, [closeReader, goNext, goPrevious, isOpen, isReaderMenuOpen]);
 
   const handleTouchStart = (event) => {
+    if (isReaderMenuOpen) {
+      touchStartRef.current = { x: null, y: null };
+      return;
+    }
+
     const touch = event.touches?.[0];
     if (!touch) return;
 
@@ -519,6 +545,11 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   };
 
   const handleTouchEnd = (event) => {
+    if (isReaderMenuOpen) {
+      clearTouchStart();
+      return;
+    }
+
     const touch = event.changedTouches?.[0];
     const { x: startX, y: startY } = touchStartRef.current;
 
@@ -546,6 +577,20 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     goPrevious();
   };
 
+  const openReaderMenu = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearTouchStart();
+    setIsReaderMenuOpen(true);
+  };
+
+  const closeReaderMenu = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    clearTouchStart();
+    setIsReaderMenuOpen(false);
+  };
+
   if (!isOpen || !material || typeof document === "undefined") {
     return null;
   }
@@ -566,64 +611,98 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby={material.title ? titleId : undefined}
-      aria-label={material.title ? undefined : "CLARA Learning Hub reader"}
-      className="fixed inset-0 z-[9999] isolate flex h-[100dvh] min-h-[100svh] w-screen flex-col overflow-hidden bg-[#050814] text-white"
+      aria-labelledby={!hasPdf && material.title ? titleId : undefined}
+      aria-label={
+        hasPdf
+          ? `${material.title || "CLARA Learning Hub"} PDF reader`
+          : material.title
+            ? undefined
+            : "CLARA Learning Hub reader"
+      }
+      className={`fixed inset-0 z-[9999] isolate flex h-[100dvh] min-h-[100svh] w-screen flex-col overflow-hidden text-white ${
+        hasPdf ? "bg-[#080a0f]" : "bg-[#050814]"
+      }`}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
-        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/[0.08] blur-3xl" />
-        <div className="absolute -bottom-32 -right-24 h-80 w-80 rounded-full bg-indigo-500/[0.09] blur-3xl" />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/[0.30] via-slate-950/[0.35] to-black/[0.45]" />
-      </div>
-
-      <header
-        className="relative z-10 shrink-0 px-4 sm:px-6"
-        style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
-      >
-        <div className="mx-auto grid w-full max-w-4xl grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] items-center gap-2">
-          <button
-            type="button"
-            onClick={closeReader}
-            aria-label="Close reader"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/75 backdrop-blur-md transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-          >
-            <X aria-hidden="true" size={19} strokeWidth={1.8} />
-          </button>
-
-          <h2
-            id={titleId}
-            className="truncate px-2 text-center text-sm font-semibold tracking-[0.01em] text-white/[0.85] sm:text-[15px]"
-          >
-            {material.title}
-          </h2>
-
-          <p className="text-right text-xs font-medium tabular-nums text-white/50 sm:text-sm">
-            {pageCounter}
-          </p>
+      {!hasPdf && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+        >
+          <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/[0.08] blur-3xl" />
+          <div className="absolute -bottom-32 -right-24 h-80 w-80 rounded-full bg-indigo-500/[0.09] blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/[0.30] via-slate-950/[0.35] to-black/[0.45]" />
         </div>
+      )}
 
-        <div className="mx-auto mt-3 h-[2px] w-full max-w-4xl overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 transition-[width] duration-300 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </header>
+      {!hasPdf && (
+        <header
+          className="relative z-10 shrink-0 px-4 sm:px-6"
+          style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+        >
+          <div className="mx-auto grid w-full max-w-4xl grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] items-center gap-2">
+            <button
+              type="button"
+              onClick={closeReader}
+              aria-label="Close reader"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/75 backdrop-blur-md transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            >
+              <X aria-hidden="true" size={19} strokeWidth={1.8} />
+            </button>
+
+            <h2
+              id={titleId}
+              className="truncate px-2 text-center text-sm font-semibold tracking-[0.01em] text-white/[0.85] sm:text-[15px]"
+            >
+              {material.title}
+            </h2>
+
+            <p className="text-right text-xs font-medium tabular-nums text-white/50 sm:text-sm">
+              {pageCounter}
+            </p>
+          </div>
+
+          <div className="mx-auto mt-3 h-[2px] w-full max-w-4xl overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-blue-400 transition-[width] duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </header>
+      )}
+
+      {hasPdf && (
+        <button
+          type="button"
+          onClick={openReaderMenu}
+          onTouchStart={(event) => {
+            event.stopPropagation();
+            clearTouchStart();
+          }}
+          onTouchEnd={(event) => event.stopPropagation()}
+          aria-label="Open reader options"
+          aria-haspopup="dialog"
+          aria-expanded={isReaderMenuOpen}
+          aria-controls="clara-reader-options"
+          className="absolute left-1/2 z-30 flex h-11 min-h-11 w-11 min-w-11 -translate-x-1/2 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"
+          style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+        >
+          <MoreHorizontal aria-hidden="true" size={22} strokeWidth={2} />
+        </button>
+      )}
 
       <main className="relative z-10 min-h-0 flex-1 overflow-hidden">
         <div
           ref={scrollContainerRef}
-          className="h-full touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain px-5 sm:px-8"
+          className={`h-full touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain ${
+            hasPdf ? "p-3 sm:p-4" : "px-5 sm:px-8"
+          }`}
           style={{ WebkitOverflowScrolling: "touch" }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={clearTouchStart}
         >
           {hasPdf ? (
-            <div className="mx-auto flex min-h-full w-full max-w-[720px] items-start justify-center py-6 sm:py-10">
+            <div className="mx-auto flex min-h-full w-full max-w-[1040px] flex-col">
               <section
                 ref={pdfViewportRef}
                 aria-label={
@@ -631,7 +710,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                     ? `Page ${safePageIndex + 1} of ${pageCount} of ${material.title}`
                     : `PDF reader for ${material.title}`
                 }
-                className={`w-full transition-[opacity,transform] duration-300 ease-out ${
+                className={`my-auto w-full transition-[opacity,transform] duration-300 ease-out ${
                   isVisible
                     ? "translate-y-0 opacity-100"
                     : "translate-y-2 opacity-0"
@@ -681,7 +760,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                             </div>
                           }
                           error={null}
-                          className="mx-auto overflow-hidden rounded-[10px] bg-white shadow-[0_18px_55px_rgba(0,0,0,0.32)]"
+                          className="mx-auto overflow-hidden rounded-[8px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.38)]"
                         />
                       ) : null}
                     </Document>
@@ -733,7 +812,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                           onClick={closeReader}
                           className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.05] px-5 text-sm font-medium text-white/75 transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                         >
-                          Close
+                          Exit reader
                         </button>
                       </div>
                     </div>
@@ -770,46 +849,78 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         </div>
       </main>
 
-      <footer
-        className="relative z-10 shrink-0 border-t border-white/[0.06] bg-slate-950/[0.45] px-4 pt-3 backdrop-blur-xl sm:px-6"
-        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-      >
-        <div className="mx-auto flex w-full max-w-[640px] items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={goPrevious}
-            disabled={!canNavigate || isFirstPage}
-            aria-label="Go to previous page"
-            className="inline-flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-medium text-white/75 backdrop-blur-md transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white/[0.05]"
-          >
-            <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.8} />
-            Back
-          </button>
+      {!hasPdf && (
+        <footer
+          className="relative z-10 shrink-0 border-t border-white/[0.06] bg-slate-950/[0.45] px-4 pt-3 backdrop-blur-xl sm:px-6"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
+          <div className="mx-auto flex w-full max-w-[640px] items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={goPrevious}
+              disabled={!canNavigate || isFirstPage}
+              aria-label="Go to previous page"
+              className="inline-flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm font-medium text-white/75 backdrop-blur-md transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white/[0.05]"
+            >
+              <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.8} />
+              Back
+            </button>
 
-          {showFinishReading ? (
+            {showFinishReading ? (
+              <button
+                type="button"
+                onClick={finishReading}
+                aria-label="Finish reading and close reader"
+                className="inline-flex min-h-12 min-w-[154px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-sm font-semibold text-slate-950 shadow-[0_10px_30px_rgba(34,211,238,0.12)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              >
+                Finish Reading
+                <Check aria-hidden="true" size={18} strokeWidth={2} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={!canNavigate}
+                aria-label="Go to next page"
+                className="inline-flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/[0.15] bg-cyan-300/[0.09] px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-cyan-300/[0.09]"
+              >
+                Next
+                <ChevronRight aria-hidden="true" size={18} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
+        </footer>
+      )}
+
+      {hasPdf && isReaderMenuOpen && (
+        <div
+          className="absolute inset-0 z-40 flex items-end justify-center bg-black/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6"
+          onClick={closeReaderMenu}
+          onTouchStart={(event) => {
+            event.stopPropagation();
+            clearTouchStart();
+          }}
+          onTouchEnd={(event) => event.stopPropagation()}
+        >
+          <section
+            id="clara-reader-options"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reader options"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm rounded-[26px] border border-white/[0.12] bg-slate-950/90 p-3 shadow-[0_24px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:rounded-3xl"
+            style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+          >
             <button
               type="button"
-              onClick={finishReading}
-              aria-label="Finish reading and close reader"
-              className="inline-flex min-h-12 min-w-[154px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-sm font-semibold text-slate-950 shadow-[0_10px_30px_rgba(34,211,238,0.12)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              onClick={closeReader}
+              className="flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/[0.10] bg-white/[0.06] px-5 text-sm font-semibold text-white/90 transition hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
-              Finish Reading
-              <Check aria-hidden="true" size={18} strokeWidth={2} />
+              Exit reader
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={!canNavigate}
-              aria-label="Go to next page"
-              className="inline-flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/[0.15] bg-cyan-300/[0.09] px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-cyan-300/[0.09]"
-            >
-              Next
-              <ChevronRight aria-hidden="true" size={18} strokeWidth={1.8} />
-            </button>
-          )}
+          </section>
         </div>
-      </footer>
+      )}
     </div>
   );
 
