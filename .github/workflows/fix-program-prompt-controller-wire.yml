@@ -23,25 +23,227 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract and apply adaptive readable-fit patch
+      - name: Apply adaptive readable-fit calculation
         run: |
           python <<'PY'
           from pathlib import Path
 
-          workflow = Path(".github/workflows/apply-adaptive-pdf-readable-fit.yml")
-          lines = workflow.read_text(encoding="utf-8").splitlines()
-          start = lines.index("          python <<'PY'") + 1
-          end = lines.index("          PY", start)
-          script = "\n".join(
-              line[10:] if line.startswith("          ") else line
-              for line in lines[start:end]
+          path = Path("src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(old, new):
+              global text
+              if new in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"Expected exactly one match, found {count}: {old[:90]!r}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '''const PDF_MAX_WIDTH = 1040;
+          const PDF_READING_ZOOM_MULTIPLIER = 1.75;''',
+              '''const PDF_MAX_WIDTH = 1040;
+          const PDF_COMFORTABLE_FIT_HEIGHT_RATIO = 0.78;
+          const PDF_NARROW_SCREEN_MAX_OVERSIZE = 1.06;
+          const PDF_NARROW_SCREEN_BREAKPOINT = 640;
+          const PDF_READING_ZOOM_MULTIPLIER = 1.75;''',
           )
-          Path("/tmp/apply-adaptive-readable-fit.py").write_text(
-              script,
-              encoding="utf-8",
+
+          replace_once(
+              '''  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
+            const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);''',
+              '''  const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
+            const [pdfPageAspectRatio, setPdfPageAspectRatio] = useState(0);
+            const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);''',
           )
+
+          replace_once(
+              '''    setPdfRenderWidth(0);
+              setIsReaderMenuOpen(false);
+              setIsPdfZoomed(false);
+              clearTouchTracking();''',
+              '''    setPdfRenderWidth(0);
+              setPdfPageAspectRatio(0);
+              setIsReaderMenuOpen(false);
+              setIsPdfZoomed(false);
+              clearTouchTracking();''',
+          )
+
+          replace_once(
+              '''      setIsPdfZoomed(false);
+              clearTapTracking();
+              clearTouchTracking();
+              setPdfPageCount(0);''',
+              '''      setIsPdfZoomed(false);
+              setPdfPageAspectRatio(0);
+              clearTapTracking();
+              clearTouchTracking();
+              setPdfPageCount(0);''',
+          )
+
+          replace_once(
+              '''  const retryPdf = useCallback(() => {
+              setIsPdfZoomed(false);
+              setIsReaderMenuOpen(false);''',
+              '''  const retryPdf = useCallback(() => {
+              setIsPdfZoomed(false);
+              setPdfPageAspectRatio(0);
+              setIsReaderMenuOpen(false);''',
+          )
+
+          replace_once(
+              '''    setPdfReloadKey(0);
+              setPdfRenderWidth(0);
+              setIsReaderMenuOpen(false);
+              setIsPdfZoomed(false);
+              setIsVisible(false);''',
+              '''    setPdfReloadKey(0);
+              setPdfRenderWidth(0);
+              setPdfPageAspectRatio(0);
+              setIsReaderMenuOpen(false);
+              setIsPdfZoomed(false);
+              setIsVisible(false);''',
+          )
+
+          replace_once(
+              '''    const measureViewport = () => {
+              const availableWidth = Math.floor(viewport.getBoundingClientRect().width);
+              const nextWidth =
+                availableWidth > 0 ? Math.min(availableWidth, PDF_MAX_WIDTH) : 0;
+
+              setPdfRenderWidth((currentWidth) =>
+                currentWidth === nextWidth ? currentWidth : nextWidth,
+              );
+            };''',
+              '''    const measureViewport = () => {
+              const viewportRect = viewport.getBoundingClientRect();
+              const scrollContainer = scrollContainerRef.current;
+              const availableWidth = Math.floor(viewportRect.width);
+              const availableHeight = Math.floor(
+                scrollContainer?.getBoundingClientRect().height ?? window.innerHeight,
+              );
+
+              if (availableWidth <= 0 || availableHeight <= 0) {
+                setPdfRenderWidth(0);
+                return;
+              }
+
+              const isNarrowPortraitScreen =
+                availableWidth < PDF_NARROW_SCREEN_BREAKPOINT &&
+                availableHeight > availableWidth;
+              const widthLimit =
+                availableWidth *
+                (isNarrowPortraitScreen ? PDF_NARROW_SCREEN_MAX_OVERSIZE : 1);
+              const heightDrivenWidth =
+                pdfPageAspectRatio > 0
+                  ? availableHeight *
+                    PDF_COMFORTABLE_FIT_HEIGHT_RATIO *
+                    pdfPageAspectRatio
+                  : availableWidth;
+              const nextWidth = Math.round(
+                Math.min(
+                  Math.max(availableWidth, heightDrivenWidth),
+                  widthLimit,
+                  PDF_MAX_WIDTH,
+                ),
+              );
+
+              setPdfRenderWidth((currentWidth) =>
+                currentWidth === nextWidth ? currentWidth : nextWidth,
+              );
+            };''',
+          )
+
+          replace_once(
+              '''    if (typeof window.ResizeObserver === "function") {
+              resizeObserver = new window.ResizeObserver(measureViewport);
+              resizeObserver.observe(viewport);
+            } else {''',
+              '''    if (typeof window.ResizeObserver === "function") {
+              resizeObserver = new window.ResizeObserver(measureViewport);
+              resizeObserver.observe(viewport);
+              if (scrollContainerRef.current) {
+                resizeObserver.observe(scrollContainerRef.current);
+              }
+            } else {''',
+          )
+
+          replace_once(
+              '''  }, [activePdfPath, hasPdf, isOpen, material?.id]);''',
+              '''  }, [
+              activePdfPath,
+              hasPdf,
+              isOpen,
+              material?.id,
+              pdfPageAspectRatio,
+            ]);''',
+          )
+
+          replace_once(
+              '''    setIsReaderMenuOpen(false);
+              setIsPdfZoomed(false);
+              clearTouchTracking();
+              clearTapTracking();
+              scrollToTop();
+            }, [
+              activePdfPath,''',
+              '''    setIsReaderMenuOpen(false);
+              setIsPdfZoomed(false);
+              setPdfPageAspectRatio(0);
+              clearTouchTracking();
+              clearTapTracking();
+              scrollToTop();
+            }, [
+              activePdfPath,''',
+          )
+
+          replace_once(
+              '''  const handlePdfPageRenderSuccess = useCallback(() => {
+              syncPdfScrollPosition(isPdfZoomed);
+            }, [isPdfZoomed, syncPdfScrollPosition]);
+
+            const openReaderMenu = (event) => {''',
+              '''  const handlePdfPageRenderSuccess = useCallback(() => {
+              syncPdfScrollPosition(isPdfZoomed);
+            }, [isPdfZoomed, syncPdfScrollPosition]);
+
+            const handlePdfPageLoadSuccess = useCallback((page) => {
+              const pageViewport = page?.getViewport?.({ scale: 1 });
+              const nextAspectRatio =
+                pageViewport?.width > 0 && pageViewport?.height > 0
+                  ? pageViewport.width / pageViewport.height
+                  : 0;
+
+              if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;
+
+              setPdfPageAspectRatio((currentAspectRatio) =>
+                Math.abs(currentAspectRatio - nextAspectRatio) < 0.001
+                  ? currentAspectRatio
+                  : nextAspectRatio,
+              );
+            }, []);
+
+            const openReaderMenu = (event) => {''',
+          )
+
+          replace_once(
+              '''                : "overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3"''',
+              '''                : "overflow-x-hidden overflow-y-auto px-0 py-2 sm:px-2 sm:py-3"''',
+          )
+
+          replace_once(
+              '''                          renderTextLayer={true}
+                                      renderAnnotationLayer={false}
+                                      onLoadError={() =>''',
+              '''                          renderTextLayer={true}
+                                      renderAnnotationLayer={false}
+                                      onLoadSuccess={handlePdfPageLoadSuccess}
+                                      onLoadError={() =>''',
+          )
+
+          path.write_text(text, encoding="utf-8")
           PY
-          python /tmp/apply-adaptive-readable-fit.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
