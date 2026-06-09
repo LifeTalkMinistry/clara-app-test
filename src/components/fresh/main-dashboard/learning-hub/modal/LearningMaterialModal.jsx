@@ -22,6 +22,9 @@ const SWIPE_THRESHOLD = 50;
 const DOUBLE_TAP_DELAY = 300;
 const TAP_MOVE_TOLERANCE = 12;
 const PDF_MAX_WIDTH = 1040;
+const PDF_COMFORTABLE_FIT_HEIGHT_RATIO = 0.78;
+const PDF_NARROW_SCREEN_MAX_OVERSIZE = 1.06;
+const PDF_NARROW_SCREEN_BREAKPOINT = 640;
 const PDF_READING_ZOOM_MULTIPLIER = 1.75;
 const PDF_ZOOM_MAX_WIDTH = 1800;
 
@@ -111,6 +114,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const [pdfError, setPdfError] = useState(null);
   const [pdfReloadKey, setPdfReloadKey] = useState(0);
   const [pdfRenderWidth, setPdfRenderWidth] = useState(0);
+  const [pdfPageAspectRatio, setPdfPageAspectRatio] = useState(0);
   const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);
   const [isPdfZoomed, setIsPdfZoomed] = useState(false);
   const touchStartRef = useRef({ x: null, y: null });
@@ -249,6 +253,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfError(null);
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
+    setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
     setIsPdfZoomed(false);
     clearTouchTracking();
@@ -426,6 +431,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       }
 
       setIsPdfZoomed(false);
+      setPdfPageAspectRatio(0);
       clearTapTracking();
       clearTouchTracking();
       setPdfPageCount(0);
@@ -448,6 +454,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   const retryPdf = useCallback(() => {
     setIsPdfZoomed(false);
+    setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
     clearTapTracking();
     clearTouchTracking();
@@ -483,6 +490,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfError(null);
     setPdfReloadKey(0);
     setPdfRenderWidth(0);
+    setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
     setIsPdfZoomed(false);
     setIsVisible(false);
@@ -523,21 +531,52 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     if (!viewport) return undefined;
 
     const measureViewport = () => {
-      const availableWidth = Math.floor(viewport.getBoundingClientRect().width);
-      const nextWidth =
-        availableWidth > 0 ? Math.min(availableWidth, PDF_MAX_WIDTH) : 0;
+    const viewportRect = viewport.getBoundingClientRect();
+    const scrollContainer = scrollContainerRef.current;
+    const availableWidth = Math.floor(viewportRect.width);
+    const availableHeight = Math.floor(
+      scrollContainer?.getBoundingClientRect().height ?? window.innerHeight,
+    );
 
-      setPdfRenderWidth((currentWidth) =>
-        currentWidth === nextWidth ? currentWidth : nextWidth,
-      );
-    };
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      setPdfRenderWidth(0);
+      return;
+    }
 
-    const animationFrame = window.requestAnimationFrame(measureViewport);
+    const isNarrowPortraitScreen =
+      availableWidth < PDF_NARROW_SCREEN_BREAKPOINT &&
+      availableHeight > availableWidth;
+    const widthLimit =
+      availableWidth *
+      (isNarrowPortraitScreen ? PDF_NARROW_SCREEN_MAX_OVERSIZE : 1);
+    const heightDrivenWidth =
+      pdfPageAspectRatio > 0
+        ? availableHeight *
+          PDF_COMFORTABLE_FIT_HEIGHT_RATIO *
+          pdfPageAspectRatio
+        : availableWidth;
+    const nextWidth = Math.round(
+      Math.min(
+        Math.max(availableWidth, heightDrivenWidth),
+        widthLimit,
+        PDF_MAX_WIDTH,
+      ),
+    );
+
+    setPdfRenderWidth((currentWidth) =>
+      currentWidth === nextWidth ? currentWidth : nextWidth,
+    );
+  };
+
+  const animationFrame = window.requestAnimationFrame(measureViewport);
     let resizeObserver = null;
 
     if (typeof window.ResizeObserver === "function") {
       resizeObserver = new window.ResizeObserver(measureViewport);
       resizeObserver.observe(viewport);
+      if (scrollContainerRef.current) {
+        resizeObserver.observe(scrollContainerRef.current);
+      }
     } else {
       window.addEventListener("resize", measureViewport);
     }
@@ -550,12 +589,19 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         window.removeEventListener("resize", measureViewport);
       }
     };
-  }, [activePdfPath, hasPdf, isOpen, material?.id]);
+  }, [
+    activePdfPath,
+    hasPdf,
+    isOpen,
+    material?.id,
+    pdfPageAspectRatio,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;
     setIsReaderMenuOpen(false);
     setIsPdfZoomed(false);
+    setPdfPageAspectRatio(0);
     clearTouchTracking();
     clearTapTracking();
     scrollToTop();
@@ -745,6 +791,22 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     syncPdfScrollPosition(isPdfZoomed);
   }, [isPdfZoomed, syncPdfScrollPosition]);
 
+  const handlePdfPageLoadSuccess = useCallback((page) => {
+    const pageViewport = page?.getViewport?.({ scale: 1 });
+    const nextAspectRatio =
+      pageViewport?.width > 0 && pageViewport?.height > 0
+        ? pageViewport.width / pageViewport.height
+        : 0;
+
+    if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;
+
+    setPdfPageAspectRatio((currentAspectRatio) =>
+      Math.abs(currentAspectRatio - nextAspectRatio) < 0.001
+        ? currentAspectRatio
+        : nextAspectRatio,
+    );
+  }, []);
+
   const openReaderMenu = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -879,7 +941,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
             hasPdf
               ? isPdfZoomed
                 ? "overflow-auto px-2 py-2 sm:px-3 sm:py-3"
-                : "overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3"
+                : "overflow-x-hidden overflow-y-auto px-0 py-2 sm:px-2 sm:py-3"
               : "overflow-x-hidden overflow-y-auto px-5 sm:px-8"
           }`}
           style={{
@@ -941,6 +1003,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
                           width={activePdfRenderWidth}
                           renderTextLayer={true}
                           renderAnnotationLayer={false}
+                          onLoadSuccess={handlePdfPageLoadSuccess}
                           onLoadError={() =>
                             handlePdfLoadError(activeDocumentKey)
                           }
