@@ -1,7 +1,7 @@
 import {
   notificationPreferencesToLegacySettings,
-  persistNotificationPreferences,
   readNotificationPreferences,
+  updateNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
 
 const SETTINGS_STORAGE_PREFIX = "clara_settings_";
@@ -61,18 +61,16 @@ export function readClaraSettings(userId) {
   if (typeof window === "undefined") return createDefaultClaraSettings(userId);
 
   try {
-    const raw = window.localStorage.getItem(getSettingsStorageKey(userId));
+    const storageKey = getSettingsStorageKey(userId);
+    const raw = window.localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : {};
 
     if (parsed?.notifications && typeof parsed.notifications === "object") {
-      const currentPreferences = readNotificationPreferences(userId);
-      const hasLegacyOverrides = Object.keys(parsed.notifications).length > 0;
-      if (hasLegacyOverrides) {
-        persistNotificationPreferences(userId, {
-          ...currentPreferences,
-          ...parsed.notifications,
-        });
-      }
+      updateNotificationPreferences(userId, parsed.notifications);
+      const { notifications: legacyNotifications, ...remainingSettings } = parsed;
+      void legacyNotifications;
+      window.localStorage.setItem(storageKey, JSON.stringify(remainingSettings));
+      return normalizeClaraSettings(remainingSettings, userId);
     }
 
     return normalizeClaraSettings(parsed, userId);
@@ -87,10 +85,7 @@ export function saveClaraSettings(userId, nextValue) {
 
   try {
     if (nextValue?.notifications && typeof nextValue.notifications === "object") {
-      persistNotificationPreferences(userId, {
-        ...readNotificationPreferences(userId),
-        ...nextValue.notifications,
-      });
+      updateNotificationPreferences(userId, nextValue.notifications);
     }
 
     const normalized = normalizeClaraSettings(nextValue, userId);
