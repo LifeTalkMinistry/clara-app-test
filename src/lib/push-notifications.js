@@ -44,12 +44,15 @@ export async function registerReminderServiceWorker() {
     throw new Error("Push notifications are not supported on this device.");
   }
 
-  return navigator.serviceWorker.register(REMINDER_SERVICE_WORKER_PATH);
+  const registration = await navigator.serviceWorker.register(REMINDER_SERVICE_WORKER_PATH);
+  await navigator.serviceWorker.ready;
+  return registration;
 }
 
 export async function requestBrowserNotificationPermission() {
   if (!supportsPushNotifications()) return "unsupported";
   if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
   return Notification.requestPermission();
 }
 
@@ -108,7 +111,44 @@ export async function enableTaskReminderPush({ userId }) {
 
 export async function getExistingPushSubscription() {
   if (!supportsPushNotifications()) return null;
-  const registration = await navigator.serviceWorker.getRegistration(REMINDER_SERVICE_WORKER_PATH);
+  const registration =
+    (await navigator.serviceWorker.getRegistration()) ||
+    (await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL || "/"));
   if (!registration) return null;
   return registration.pushManager.getSubscription();
+}
+
+export async function showDeviceNotification({
+  title,
+  body,
+  url = "/dashboard",
+  tag = "",
+  eventType = "",
+} = {}) {
+  if (!supportsPushNotifications()) {
+    throw new Error("Device notifications are not supported on this browser.");
+  }
+  if (Notification.permission !== "granted") {
+    throw new Error("Device notification permission has not been granted.");
+  }
+
+  const registration = await registerReminderServiceWorker();
+  await registration.showNotification(title || "CLARA", {
+    body: body || "CLARA has an update for you.",
+    icon: `${import.meta.env.BASE_URL || "/"}favicon.svg`,
+    badge: `${import.meta.env.BASE_URL || "/"}favicon.svg`,
+    tag: tag || undefined,
+    renotify: false,
+    data: { url, eventType, tag },
+  });
+}
+
+export function showTestNotification() {
+  return showDeviceNotification({
+    title: "CLARA notifications are ready",
+    body: "You’ll receive important reminders based on your preferences.",
+    url: "/dashboard",
+    tag: `clara-test-${Date.now()}`,
+    eventType: "test_notification",
+  });
 }
