@@ -7,6 +7,23 @@ export const learningHubData = [
     accent: "cyan",
     coverLabel: "Money Source",
     thumbnail: "/images/learning-hub/income-hub.webp.png",
+    pdfParts: [
+      {
+        id: "part-1",
+        path: "/books/so-thats-it/clara-so-thats-it-part-1-pages-1-31.pdf",
+        startPage: 1,
+        endPage: 31,
+        expectedPageCount: 31,
+      },
+      {
+        id: "part-2",
+        path: "/books/so-thats-it/clara-so-thats-it-part-2-pages-32-52.pdf",
+        startPage: 32,
+        endPage: 52,
+        expectedPageCount: 21,
+      },
+    ],
+    totalPages: 52,
     pages: [
       {
         title: "The Reality",
