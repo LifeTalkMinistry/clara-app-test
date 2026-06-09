@@ -1,6 +1,9 @@
 name: Validate committed feature locks
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - committed-daily-tip-learning-hub-lock
