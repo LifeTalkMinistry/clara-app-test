@@ -1,0 +1,7 @@
+#root div.space-y-4:has(input[placeholder="Enter your name"]) > div:first-child p {
+  height: 0 !important;
+  margin-top: 0 !important;
+  overflow: hidden !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
