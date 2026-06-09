@@ -1,0 +1,130 @@
+name: Apply Plan and Billing second-pass simplification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-plan-billing-second-pass.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch Plan and Billing page
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
+          source = path.read_text(encoding="utf-8")
+          original = source
+
+          replacements = [
+              (
+                  "Your billing dates will appear here once your Committed membership has been activated.",
+                  "Billing dates will appear after your membership is activated.",
+                  "missing billing-date notice",
+              ),
+              (
+                  "Need help with your payment?",
+                  "Need help with activation or billing?",
+                  "support heading",
+              ),
+              (
+                  "For enrollment, activation, or billing concerns, contact CLARA Support.",
+                  "If your membership is pending, inactive, or not yet activated, contact CLARA Support and include the email connected to your account.",
+                  "support paragraph",
+              ),
+              (
+                  "Contact support",
+                  "Contact CLARA Support",
+                  "support button label",
+              ),
+          ]
+
+          for old, new, label in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise RuntimeError(f"Expected exactly one {label}; found {count}")
+              source = source.replace(old, new, 1)
+
+          inclusion_pattern = re.compile(
+              r'''\n\s*<section className="rounded-\[26px\] border border-white/15 bg-white/\[0\.045\] p-4 backdrop-blur-xl">\n\s*<h3 className="text-sm font-black text-white">Included with Committed</h3>\n\s*<div className="mt-3 space-y-3">\n\s*\{\[\n\s*"Complete money tracking",\n\s*"Budgets, wallets, and financial goals",\n\s*"CLARA insights and Forecast",\n\s*"Learning Hub and account support",\n\s*\]\.map\(\(inclusion\) => \(\n\s*<div key=\{inclusion\} className="flex items-start gap-2\.5">\n\s*<Check className="mt-0\.5 h-4 w-4 shrink-0 text-emerald-200/90" />\n\s*<span className="text-sm font-semibold leading-5 text-white/65">\{inclusion\}</span>\n\s*</div>\n\s*\)\)\}\n\s*</div>\n\s*</section>\n''',
+              re.S,
+          )
+          source, inclusion_count = inclusion_pattern.subn("\n", source, count=1)
+          if inclusion_count != 1:
+              raise RuntimeError(f"Expected exactly one Committed inclusions card; removed {inclusion_count}")
+
+          required = [
+              'const currentPlan = "Committed";',
+              '₱249 / month',
+              'Billing dates will appear after your membership is activated.',
+              'Need help with activation or billing?',
+              'If your membership is pending, inactive, or not yet activated, contact CLARA Support and include the email connected to your account.',
+              'Contact CLARA Support',
+              'setActiveSetting("support")',
+              'const resolveBillingDate = useCallback',
+              'const membershipStatusKey = billingLoading',
+              'const membershipStatusConfig = {',
+              '["current_period_start", "billing_start", "started_at", "approved_at", "created_at"]',
+              '["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"]',
+              '<Check className="h-4 w-4" />',
+          ]
+          forbidden = [
+              "Included with Committed",
+              "Complete money tracking",
+              "Budgets, wallets, and financial goals",
+              "CLARA insights and Forecast",
+              "Learning Hub and account support",
+              "Your billing dates will appear here once your Committed membership has been activated.",
+              "Need help with your payment?",
+              "For enrollment, activation, or billing concerns, contact CLARA Support.",
+              ">Contact support<",
+          ]
+
+          for value in required:
+              if value not in source:
+                  raise RuntimeError(f"Missing required result: {value}")
+
+          for value in forbidden:
+              if value in source:
+                  raise RuntimeError(f"Retired Plan and Billing content remains: {value}")
+
+          if source == original:
+              raise RuntimeError("No Plan and Billing changes were produced")
+
+          path.write_text(source, encoding="utf-8")
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check target file
+        run: npx eslint src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+
+      - name: Build project
+        run: npm run build
+
+      - name: Commit surgical update and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "CLARA Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          git rm .github/workflows/apply-plan-billing-second-pass.yml
+          git commit -m "refactor: simplify Plan and Billing membership status page"
+          git pull --rebase origin main
+          git push origin main
