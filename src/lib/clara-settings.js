@@ -1,3 +1,9 @@
+import {
+  notificationPreferencesToLegacySettings,
+  persistNotificationPreferences,
+  readNotificationPreferences,
+} from "@/lib/notifications/notificationPreferences";
+
 const SETTINGS_STORAGE_PREFIX = "clara_settings_";
 
 export const CLARA_VOICE_OPTIONS = [
@@ -9,13 +15,11 @@ export function getSettingsStorageKey(userId) {
   return `${SETTINGS_STORAGE_PREFIX}${userId || "guest"}`;
 }
 
-export function createDefaultClaraSettings() {
+export function createDefaultClaraSettings(userId = null) {
   return {
-    notifications: {
-      dailyReminders: true,
-      productUpdates: true,
-      coachingAlerts: true,
-    },
+    notifications: notificationPreferencesToLegacySettings(
+      readNotificationPreferences(userId)
+    ),
     privacy: {
       analyticsSharing: true,
       showCommunityProfile: true,
@@ -32,13 +36,12 @@ export function createDefaultClaraSettings() {
   };
 }
 
-export function normalizeClaraSettings(value = {}) {
-  const defaults = createDefaultClaraSettings();
+export function normalizeClaraSettings(value = {}, userId = null) {
+  const defaults = createDefaultClaraSettings(userId);
   return {
-    notifications: {
-      ...defaults.notifications,
-      ...(value.notifications || {}),
-    },
+    notifications: notificationPreferencesToLegacySettings(
+      readNotificationPreferences(userId)
+    ),
     privacy: {
       ...defaults.privacy,
       ...(value.privacy || {}),
@@ -55,15 +58,27 @@ export function normalizeClaraSettings(value = {}) {
 }
 
 export function readClaraSettings(userId) {
-  if (typeof window === "undefined") return createDefaultClaraSettings();
+  if (typeof window === "undefined") return createDefaultClaraSettings(userId);
 
   try {
     const raw = window.localStorage.getItem(getSettingsStorageKey(userId));
     const parsed = raw ? JSON.parse(raw) : {};
-    return normalizeClaraSettings(parsed);
+
+    if (parsed?.notifications && typeof parsed.notifications === "object") {
+      const currentPreferences = readNotificationPreferences(userId);
+      const hasLegacyOverrides = Object.keys(parsed.notifications).length > 0;
+      if (hasLegacyOverrides) {
+        persistNotificationPreferences(userId, {
+          ...currentPreferences,
+          ...parsed.notifications,
+        });
+      }
+    }
+
+    return normalizeClaraSettings(parsed, userId);
   } catch (error) {
     console.error("Failed to read CLARA settings:", error);
-    return createDefaultClaraSettings();
+    return createDefaultClaraSettings(userId);
   }
 }
 
@@ -71,10 +86,21 @@ export function saveClaraSettings(userId, nextValue) {
   if (typeof window === "undefined" || !userId) return;
 
   try {
-    const normalized = normalizeClaraSettings(nextValue);
+    if (nextValue?.notifications && typeof nextValue.notifications === "object") {
+      persistNotificationPreferences(userId, {
+        ...readNotificationPreferences(userId),
+        ...nextValue.notifications,
+      });
+    }
+
+    const normalized = normalizeClaraSettings(nextValue, userId);
     window.localStorage.setItem(
       getSettingsStorageKey(userId),
-      JSON.stringify(normalized)
+      JSON.stringify({
+        privacy: normalized.privacy,
+        preferences: normalized.preferences,
+        ai: normalized.ai,
+      })
     );
     window.dispatchEvent(
       new CustomEvent("clara-settings-updated", {
@@ -95,13 +121,16 @@ export function getStoredClaraVoice(userId) {
 
 export function setStoredClaraVoice(userId, voice) {
   const current = readClaraSettings(userId);
-  const next = normalizeClaraSettings({
-    ...current,
-    ai: {
-      ...current.ai,
-      voice,
+  const next = normalizeClaraSettings(
+    {
+      ...current,
+      ai: {
+        ...current.ai,
+        voice,
+      },
     },
-  });
+    userId
+  );
   saveClaraSettings(userId, next);
   return next.ai.voice;
 }
