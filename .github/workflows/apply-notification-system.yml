@@ -1,0 +1,70 @@
+name: Apply CLARA notification system
+
+on:
+  push:
+    branches:
+      - feature/clara-notification-system
+    paths:
+      - .clara-notification-system-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-build-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/clara-notification-system
+          fetch-depth: 1
+
+      - name: Apply surgical integration
+        run: python .github/scripts/apply-notification-system.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production app
+        run: npm run build:web
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: build-validation-placeholder
+          VITE_GEMINI_API_KEY: build-validation-placeholder
+          VITE_GEMINI_MODEL: gemini-2.5-flash
+
+      - name: Validate notification integration
+        shell: bash
+        run: |
+          git diff --check
+          grep -q 'NotificationSettingsPanel' src/pages/Settings.jsx
+          grep -q 'NotificationSettingsPanel' src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          grep -q 'useClaraNotificationRuntime' src/pages/Dashboard.jsx
+          grep -q 'quiet_hours_enabled' src/lib/task-reminders.js
+          test -f src/lib/notifications/notificationRegistry.js
+          test -f src/lib/notifications/localNotificationRepository.js
+          test -f supabase/functions/schedule-task-reminders/index.ts
+          test -f supabase/notification_system.sql
+
+      - name: Remove temporary integration files
+        run: |
+          rm -f .clara-notification-system-trigger
+          rm -f .github/scripts/apply-notification-system.py
+          rm -f .github/workflows/apply-notification-system.yml
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          git config user.name "CLARA Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement durable CLARA notification system"
+          git push origin HEAD:feature/clara-notification-system
