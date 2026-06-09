@@ -1,10 +1,333 @@
-name: Disabled legacy workflow
+name: Surgical Plan and Billing membership synchronization
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/fix-program-prompt-controller-wire.yml"
+
+permissions:
+  contents: write
 
 jobs:
-  disabled:
+  patch-and-validate:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Legacy workflow disabled"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply surgical membership-status synchronization
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_value, old, new):
+              path = Path(path_value)
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"Expected exactly one match in {path_value}, found {count}")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          dashboard_path = "src/pages/Dashboard.jsx"
+          settings_path = "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
+
+          replace_once(
+              dashboard_path,
+              '''  const { user, plan, isAdmin, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
+    useUserRole();''',
+              '''  const {
+    user,
+    plan,
+    isAdmin,
+    isAdvertiser,
+    isPaid,
+    isFree,
+    isPending,
+    refreshUser,
+    loading: accessLoading,
+    isActivated,
+    isPreActivation,
+  } = useUserRole();''',
+          )
+
+          replace_once(
+              dashboard_path,
+              '''                isPaid={isPaid}
+                isFree={isFree}
+                isAdmin={isAdmin}''',
+              '''                accessLoading={accessLoading}
+                isPaid={isPaid}
+                isFree={isFree}
+                isPending={isPending}
+                isActivated={isActivated}
+                isPreActivation={isPreActivation}
+                isAdmin={isAdmin}''',
+          )
+
+          replace_once(
+              settings_path,
+              '''  onBack,
+  user,
+  isAdmin = false,
+  notificationSettings,''',
+              '''  onBack,
+  user,
+  accessLoading = false,
+  isPaid = false,
+  isFree = true,
+  isPending = false,
+  isActivated = false,
+  isPreActivation = false,
+  isAdmin = false,
+  notificationSettings,''',
+          )
+
+          old_status_block = '''const rawBillingStatus = normalizeLower(
+  billingRecord?.payment_status ||
+    billingRecord?.status ||
+    billingRecord?.enrollment_status ||
+    billingRecord?.subscription_status ||
+    billingRecord?.approval_status ||
+    billingRecord?.payment_state ||
+    billingRecord?.access_status ||
+    ""
+)
+  .replaceAll("_", " ")
+  .replaceAll("-", " ")
+  .trim();
+
+const matchesBillingStatus = (statuses = []) =>
+  statuses.some(
+    (status) => rawBillingStatus === status || rawBillingStatus.includes(status)
+  );
+
+const membershipStatusKey = billingLoading
+  ? "checking"
+  : !billingRecord
+    ? "notActivated"
+    : matchesBillingStatus([
+          "expired",
+          "inactive",
+          "cancelled",
+          "canceled",
+          "rejected",
+          "declined",
+          "failed",
+          "suspended",
+        ])
+      ? "inactive"
+      : matchesBillingStatus([
+            "pending",
+            "processing",
+            "submitted",
+            "awaiting approval",
+            "awaiting review",
+            "under review",
+          ])
+        ? "pending"
+        : matchesBillingStatus([
+              "active",
+              "approved",
+              "paid",
+              "completed",
+              "complete",
+              "confirmed",
+              "verified",
+              "successful",
+              "success",
+              "current",
+            ])
+          ? "active"
+          : "pending";'''
+
+          new_status_block = '''const normalizeMembershipStatus = (value) =>
+  normalizeLower(value)
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .trim();
+
+const userStatusCandidates = [
+  user?.enrollment_status,
+  user?.status,
+  user?.entitlement_status,
+  user?.activation_status,
+  user?.subscription_status,
+]
+  .map(normalizeMembershipStatus)
+  .filter(Boolean);
+
+const billingStatusCandidates = [
+  billingRecord?.payment_status,
+  billingRecord?.status,
+  billingRecord?.enrollment_status,
+  billingRecord?.subscription_status,
+  billingRecord?.approval_status,
+  billingRecord?.payment_state,
+  billingRecord?.access_status,
+]
+  .map(normalizeMembershipStatus)
+  .filter(Boolean);
+
+const membershipStatusCandidates = [
+  ...userStatusCandidates,
+  ...billingStatusCandidates,
+];
+
+const matchesMembershipStatus = (statuses = []) =>
+  membershipStatusCandidates.some((candidate) =>
+    statuses.some(
+      (status) => candidate === status || candidate.includes(status)
+    )
+  );
+
+const hasExplicitPendingStatus = matchesMembershipStatus([
+  "pending",
+  "processing",
+  "submitted",
+  "awaiting approval",
+  "awaiting review",
+  "under review",
+  "payment pending",
+  "purchase pending",
+  "google play pending",
+  "google play processing",
+  "purchase processing",
+]);
+
+const hasExplicitInactiveStatus = matchesMembershipStatus([
+  "expired",
+  "inactive",
+  "cancelled",
+  "canceled",
+  "rejected",
+  "declined",
+  "failed",
+  "suspended",
+  "revoked",
+  "refunded",
+]);
+
+const accessConfirmsActive = isPaid && isActivated;
+const profileConfirmsActive =
+  !isPending &&
+  !isPreActivation &&
+  !isFree &&
+  !hasExplicitPendingStatus &&
+  !hasExplicitInactiveStatus &&
+  (user?.is_activated === true ||
+    user?.program_active === true ||
+    user?.is_enrolled === true ||
+    Boolean(user?.activated_at));
+
+const membershipStatusKey = accessLoading
+  ? "checking"
+  : accessConfirmsActive || profileConfirmsActive
+    ? "active"
+    : isPending || hasExplicitPendingStatus
+      ? "pending"
+      : hasExplicitInactiveStatus
+        ? "inactive"
+        : "notActivated";'''
+
+          replace_once(settings_path, old_status_block, new_status_block)
+
+          replace_once(
+              settings_path,
+              '''const billingStartLabel = billingRecord
+  ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
+  : "Not recorded";
+
+const nextBillingLabel = billingRecord
+  ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
+  : "Not recorded";
+
+const hasBillingStart = billingStartLabel !== "Not recorded";
+const hasNextBilling = nextBillingLabel !== "Not recorded";
+const hasBillingDates = hasBillingStart || hasNextBilling;''',
+              '''const billingStartLabel = resolveBillingDate(
+  {
+    ...(billingRecord || {}),
+    profile_activated_at: user?.activated_at,
+  },
+  [
+    "current_period_start",
+    "billing_start",
+    "started_at",
+    "approved_at",
+    "activated_at",
+    "profile_activated_at",
+    "created_at",
+  ]
+);
+
+const nextBillingLabel = resolveBillingDate(billingRecord, [
+  "next_billing_date",
+  "next_payment_due",
+  "current_period_end",
+  "renewal_date",
+  "expires_at",
+  "valid_until",
+  "end_date",
+]);
+
+const hasBillingStart = billingStartLabel !== "Not recorded";
+const hasNextBilling = nextBillingLabel !== "Not recorded";
+const hasBillingDates = hasBillingStart || hasNextBilling;
+const billingDatesNotice = billingLoading
+  ? "Checking billing dates..."
+  : membershipStatusKey === "active"
+    ? "Your membership is active. Billing dates are not available yet."
+    : "Billing dates will appear after your membership is activated.";''',
+          )
+
+          replace_once(
+              settings_path,
+              '''          Billing dates will appear after your membership is activated.''',
+              '''          {billingDatesNotice}''',
+          )
+          PY
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint Dashboard
+        run: npx eslint src/pages/Dashboard.jsx
+
+      - name: Lint Dashboard Settings panel
+        run: npx eslint src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+
+      - name: Build project
+        run: npm run build
+
+      - name: Restore disabled legacy workflow
+        run: |
+          cat > .github/workflows/fix-program-prompt-controller-wire.yml <<'EOF'
+          name: Disabled legacy workflow
+
+          on:
+            workflow_dispatch:
+
+          jobs:
+            disabled:
+              runs-on: ubuntu-latest
+              steps:
+                - run: echo "Legacy workflow disabled"
+          EOF
+
+      - name: Commit validated synchronization fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx .github/workflows/fix-program-prompt-controller-wire.yml
+          git commit -m "Fix Plan and Billing membership status synchronization"
+          git push
