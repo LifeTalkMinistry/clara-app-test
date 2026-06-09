@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Lock } from "lucide-react";
 import useDailyTip from "../logic/useDailyTip";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
 
@@ -110,11 +111,20 @@ export default function DailyTipCard({
       <button
         type="button"
         onClick={handleFlip}
-        className="group relative h-[150px] w-full cursor-pointer bg-transparent text-left transition-transform duration-300 active:scale-[0.98]"
+        aria-label={
+          hasCommittedAccess
+            ? "Flip Daily Money Tip"
+            : "Open the Committed Version to unlock Daily Money Tip"
+        }
+        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left transition-transform duration-300 active:scale-[0.98]"
         style={{ perspective: "1500px", WebkitTapHighlightColor: "transparent" }}
       >
         <div
-          className="clara-preserve-flip-motion absolute inset-0 rounded-2xl transition-transform duration-700 will-change-transform"
+          className={`clara-preserve-flip-motion absolute inset-0 rounded-2xl transition-[transform,opacity,filter] duration-700 will-change-transform ${
+            hasCommittedAccess
+              ? ""
+              : "pointer-events-none opacity-45 grayscale-[0.78] saturate-[0.68]"
+          }`}
           style={{
             transformStyle: "preserve-3d",
             transitionTimingFunction: "cubic-bezier(0.18, 0.85, 0.28, 1.15)",
@@ -168,6 +178,22 @@ export default function DailyTipCard({
             </div>
           </div>
         </div>
+
+        {!hasCommittedAccess ? (
+          <span className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/[0.14] backdrop-blur-[0.8px]">
+            <span className="rounded-[22px] border border-white/16 bg-[rgba(9,18,36,0.72)] px-4 py-3 text-center text-white shadow-[0_16px_42px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+              <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.08] text-white/76">
+                <Lock className="h-3.5 w-3.5" />
+              </span>
+              <span className="mt-2 block text-[9px] font-black uppercase tracking-[0.2em] text-white/58">
+                Committed Version
+              </span>
+              <span className="mt-1 block text-[11px] font-black text-white/88">
+                Tap to unlock
+              </span>
+            </span>
+          </span>
+        ) : null}
       </button>
     </div>
   );
