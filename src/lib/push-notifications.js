@@ -111,9 +111,9 @@ export async function enableTaskReminderPush({ userId }) {
 
 export async function getExistingPushSubscription() {
   if (!supportsPushNotifications()) return null;
-  const registration =
-    (await navigator.serviceWorker.getRegistration()) ||
-    (await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL || "/"));
+  const registration = await navigator.serviceWorker.getRegistration(
+    import.meta.env.BASE_URL || "/"
+  );
   if (!registration) return null;
   return registration.pushManager.getSubscription();
 }
