@@ -1,16 +1,17 @@
+import {
+  getNotificationPreferencesStorageKey,
+  notificationPreferencesToLegacySettings,
+  readNotificationPreferences,
+  updateNotificationPreferences,
+} from "@/lib/notifications/notificationPreferences";
+
 const dashboardRuntimePrefs = new Map();
-const dashboardRuntimeNotifications = new Map();
 const dashboardRuntimeMoneySummaryVisibility = new Map();
 
 export const MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";
 
 const normalizeRuntimeString = (value) =>
   typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
-
-const dispatchClaraRuntimeSettingsEvent = (eventName, detail = {}) => {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(eventName, { detail }));
-};
 
 export const getDashboardPrefsStorageKey = (userId) =>
   `clara_dashboard_prefs_${userId || "guest"}`;
@@ -42,33 +43,14 @@ export function persistDashboardPrefs(userId, updates) {
 }
 
 export function getSettingsStorageKey(userId) {
-  return `clara_settings_${userId || "guest"}`;
+  return getNotificationPreferencesStorageKey(userId);
 }
 
 export function readStoredNotificationSettings(userId) {
-  const defaults = {
-    dailyReminders: true,
-    productUpdates: true,
-    coachingAlerts: true,
-    budgetAlerts: true,
-    decisionNudges: true,
-    goalProgressAlerts: true,
-  };
-
-  const saved = dashboardRuntimeNotifications.get(getSettingsStorageKey(userId)) || {};
-  return { ...defaults, ...saved };
+  return notificationPreferencesToLegacySettings(readNotificationPreferences(userId));
 }
 
 export function persistStoredNotificationSettings(userId, updates = {}) {
-  const key = getSettingsStorageKey(userId);
-  const current = readStoredNotificationSettings(userId);
-  const next = { ...current, ...(updates || {}) };
-
-  dashboardRuntimeNotifications.set(key, next);
-  dispatchClaraRuntimeSettingsEvent("clara:settings-updated", {
-    type: "notifications",
-    notifications: next,
-  });
-
-  return next;
+  const saved = updateNotificationPreferences(userId, updates);
+  return notificationPreferencesToLegacySettings(saved);
 }
