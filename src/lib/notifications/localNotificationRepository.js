@@ -125,10 +125,8 @@ export async function createNotification(notification) {
     emitNotificationEvent("clara:notification-created", next);
     return { notification: next, created: true };
   } catch (error) {
-    if (error?.name === "ConstraintError") {
-      const racedExisting = await getNotificationByDedupeKey(userId, dedupeKey);
-      if (racedExisting) return { notification: racedExisting, created: false };
-    }
+    const racedExisting = await getNotificationByDedupeKey(userId, dedupeKey);
+    if (racedExisting) return { notification: racedExisting, created: false };
     throw error;
   }
 }
@@ -185,7 +183,10 @@ export function markNotificationRead(userId, notificationId) {
 }
 
 export function markNotificationDelivered(userId, notificationId) {
-  return updateNotification(userId, notificationId, { deliveredAt: new Date().toISOString() });
+  return updateNotification(userId, notificationId, {
+    deliveredAt: new Date().toISOString(),
+    snoozedUntil: null,
+  });
 }
 
 export function markNotificationActed(userId, notificationId) {
