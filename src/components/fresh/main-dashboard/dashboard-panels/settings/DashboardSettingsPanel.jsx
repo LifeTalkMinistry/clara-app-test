@@ -17,7 +17,6 @@ import {
   Palette,
   Plus,
   Rocket,
-  RotateCcw,
   Search,
   Send,
   Settings,
@@ -136,7 +135,6 @@ export default function DashboardSettingsPanel({
   const [billingRecord, setBillingRecord] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [isAiPrivacyModalOpen, setIsAiPrivacyModalOpen] = useState(false);
-  const [isResetConfirmationOpen, setIsResetConfirmationOpen] = useState(false);
   const [isDataDetailsOpen, setIsDataDetailsOpen] = useState(false);
 
   useEffect(() => {
@@ -1057,26 +1055,8 @@ export default function DashboardSettingsPanel({
       "Your decision history stays personal.",
       "Your spending activity is not published to a public feed.",
     ];
-    const resetIncludes = [
-      "Theme selection",
-      "Dashboard preferences",
-      "AI visual preferences",
-      "Tutorial state",
-    ];
-    const resetDoesNotDelete = [
-      "Wallet balances",
-      "Expenses",
-      "Budgets",
-      "Savings data",
-      "Emergency fund",
-      "Transfers",
-      "Transaction history",
-      "AI financial context",
-    ];
-
     const closeSecurityOverlays = () => {
       setIsAiPrivacyModalOpen(false);
-      setIsResetConfirmationOpen(false);
     };
 
     return (
@@ -1189,32 +1169,6 @@ export default function DashboardSettingsPanel({
           </div>
         </button>
 
-        <section className="rounded-[22px] border border-white/15 bg-white/[0.04] p-4 backdrop-blur-xl">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-300/16 bg-amber-400/8 text-amber-100">
-              <RotateCcw className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-black text-white">Reset appearance and preferences</h3>
-              <p className="mt-1 text-xs leading-5 text-white/46">
-                Restore CLARA's default theme and visual preferences.
-              </p>
-              <p className="mt-2 text-[11px] font-semibold text-emerald-100/75">
-                Your financial records will not be deleted.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsResetConfirmationOpen(true)}
-            aria-haspopup="dialog"
-            className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/18 bg-amber-400/9 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/14"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset preferences
-          </button>
-        </section>
 
         {isAiPrivacyModalOpen ? (
           <div
@@ -1268,86 +1222,6 @@ export default function DashboardSettingsPanel({
           </div>
         ) : null}
 
-        {isResetConfirmationOpen ? (
-          <div
-            className="fixed inset-0 z-[100] flex items-end justify-center bg-[#020713]/80 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-            onClick={() => setIsResetConfirmationOpen(false)}
-            role="presentation"
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="reset-preferences-title"
-              onClick={(event) => event.stopPropagation()}
-              className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[28px] border border-white/15 bg-[#081321] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.48)] sm:rounded-[28px]"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 id="reset-preferences-title" className="text-lg font-black text-white">
-                    Reset appearance and preferences?
-                  </h3>
-                  <p className="mt-2 text-xs leading-5 text-white/48">
-                    This restores CLARA's default visual setup on this device.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsResetConfirmationOpen(false)}
-                  aria-label="Close reset confirmation"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.055] text-white/60 transition hover:bg-white/[0.09] hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="mt-5 space-y-5">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/70">This will reset</p>
-                  <ul className="mt-3 space-y-2.5">
-                    {resetIncludes.map((item) => (
-                      <li key={item} className="flex items-center gap-2.5 text-sm font-semibold text-white/65">
-                        <RotateCcw className="h-3.5 w-3.5 shrink-0 text-amber-100/80" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="border-t border-white/10 pt-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/70">This will not delete</p>
-                  <ul className="mt-3 space-y-2.5">
-                    {resetDoesNotDelete.map((item) => (
-                      <li key={item} className="flex items-center gap-2.5 text-sm font-semibold text-white/65">
-                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-100" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsResetConfirmationOpen(false)}
-                  className="min-h-11 rounded-2xl border border-white/15 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/[0.09]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setIsResetConfirmationOpen(false);
-                    await clearLocalPreferences();
-                  }}
-                  className="min-h-11 rounded-2xl border border-amber-300/20 bg-amber-400/12 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/18"
-                >
-                  Reset preferences
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
     );
   };
