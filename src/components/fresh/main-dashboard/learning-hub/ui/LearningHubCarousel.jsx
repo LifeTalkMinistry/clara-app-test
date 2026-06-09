@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ChevronDown } from "lucide-react";
 import DailyTipCard from "../../daily-tip";
+import CommittedFeatureLock from "../../program-access/CommittedFeatureLock";
 import LearningMaterialCard from "./LearningMaterialCard";
 
 const AUTO_SCROLL_DELAY = 4200;
@@ -16,7 +17,12 @@ const learningHubToggleSurface = {
     "0 10px 26px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
 };
 
-export default function LearningHubCarousel({ materials = [], onOpenMaterial }) {
+export default function LearningHubCarousel({
+  materials = [],
+  hasCommittedAccess = true,
+  onOpenCommitmentBooklet,
+  onOpenMaterial,
+}) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -28,8 +34,14 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
   const safeMaterials = useMemo(() => materials.filter(Boolean), [materials]);
   const total = safeMaterials.length;
+  const isLocked = !hasCommittedAccess;
 
   const toggleExpanded = () => {
+    if (isLocked) {
+      onOpenCommitmentBooklet?.();
+      return;
+    }
+
     setIsExpanded((current) => {
       const next = !current;
 
@@ -42,6 +54,8 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   const pauseCarousel = () => {
+    if (isLocked) return;
+
     setIsPaused(true);
 
     if (resumeTimerRef.current) {
@@ -50,6 +64,8 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   const resumeCarouselSoon = () => {
+    if (isLocked) return;
+
     if (resumeTimerRef.current) {
       clearTimeout(resumeTimerRef.current);
     }
@@ -60,19 +76,19 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   const moveToNext = () => {
-    if (!total) return;
+    if (isLocked || !total) return;
 
     setActiveIndex((current) => (current + 1) % total);
   };
 
   const moveToPrev = () => {
-    if (!total) return;
+    if (isLocked || !total) return;
 
     setActiveIndex((current) => (current - 1 + total) % total);
   };
 
   const moveToIndex = (index) => {
-    if (!total) return;
+    if (isLocked || !total) return;
 
     pauseCarousel();
     setActiveIndex(index);
@@ -80,6 +96,11 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   const handleHeaderClick = () => {
+    if (isLocked) {
+      onOpenCommitmentBooklet?.();
+      return;
+    }
+
     if (headerSwipeHandledRef.current) {
       headerSwipeHandledRef.current = false;
       return;
@@ -89,12 +110,14 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   const handleHeaderTouchStart = (e) => {
+    if (isLocked) return;
+
     headerSwipeHandledRef.current = false;
     setHeaderTouchStartY(e.touches[0].clientY);
   };
 
   const handleHeaderTouchEnd = (e) => {
-    if (headerTouchStartY === null) return;
+    if (isLocked || headerTouchStartY === null) return;
 
     const diff = e.changedTouches[0].clientY - headerTouchStartY;
     const didSwipe = Math.abs(diff) > SWIPE_THRESHOLD;
@@ -115,12 +138,14 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   const handleTouchStart = (e) => {
+    if (isLocked) return;
+
     pauseCarousel();
     setTouchStartX(e.touches[0].clientX);
   };
 
   const handleTouchEnd = (e) => {
-    if (touchStartX === null) return;
+    if (isLocked || touchStartX === null) return;
 
     const diff = touchStartX - e.changedTouches[0].clientX;
 
@@ -137,12 +162,21 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   };
 
   useEffect(() => {
-    if (!isExpanded || isPaused || total <= 1) return undefined;
+    if (isLocked || !isExpanded || isPaused || total <= 1) return undefined;
 
     const interval = setInterval(moveToNext, AUTO_SCROLL_DELAY);
 
     return () => clearInterval(interval);
-  }, [isExpanded, isPaused, total]);
+  }, [isExpanded, isLocked, isPaused, total]);
+
+  useEffect(() => {
+    if (!isLocked) return;
+
+    setIsExpanded(false);
+    setIsPaused(false);
+    setTouchStartX(null);
+    setHeaderTouchStartY(null);
+  }, [isLocked]);
 
   useEffect(() => {
     return () => {
@@ -156,15 +190,24 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
   return (
     <section className="relative -mb-1 w-full overflow-hidden px-1 py-0">
-      <DailyTipCard />
+      <DailyTipCard
+        hasCommittedAccess={hasCommittedAccess}
+        onOpenCommitmentBooklet={onOpenCommitmentBooklet}
+      />
 
       <button
         type="button"
-        aria-expanded={isExpanded}
-        aria-label={isExpanded ? "Collapse Learning Hub." : "Open Learning Hub."}
+        aria-expanded={isLocked ? false : isExpanded}
+        aria-label={
+          isLocked
+            ? "Open the Committed Version to unlock Learning Hub."
+            : isExpanded
+              ? "Collapse Learning Hub."
+              : "Open Learning Hub."
+        }
         onClick={handleHeaderClick}
-        onTouchStart={handleHeaderTouchStart}
-        onTouchEnd={handleHeaderTouchEnd}
+        onTouchStart={isLocked ? undefined : handleHeaderTouchStart}
+        onTouchEnd={isLocked ? undefined : handleHeaderTouchEnd}
         className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
         style={learningHubToggleSurface}
       >
@@ -181,80 +224,91 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         <ChevronDown
           size={15}
           className={`relative z-10 text-cyan-100/42 transition-transform duration-300 ${
-            isExpanded ? "rotate-180" : ""
+            !isLocked && isExpanded ? "rotate-180" : ""
           }`}
         />
       </button>
 
-      <div
-        data-learning-hub-expanded={isExpanded ? "true" : "false"}
-        className="clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out"
-        style={{
-          gridTemplateRows: isExpanded ? `${LEARNING_HUB_STAGE_HEIGHT}px` : "0px",
-          opacity: isExpanded ? 1 : 0,
-          marginTop: isExpanded ? "0.75rem" : "0rem",
-        }}
-      >
-        <div className="clara-learning-hub-clip min-h-0 overflow-visible">
-          <div
-            className="clara-learning-hub-stage relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
-            style={{
-              height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
-              minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
-              perspective: "1300px",
-              transformStyle: "preserve-3d",
-            }}
-            onMouseEnter={pauseCarousel}
-            onMouseLeave={resumeCarouselSoon}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
-            <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.055] via-transparent to-black/24" />
-            <div className="pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10" />
+      {isLocked ? (
+        <div className="mt-3 px-2 pb-1">
+          <CommittedFeatureLock
+            message="Tap to unlock Learning Hub"
+            ariaLabel="Open the Committed Version to unlock Learning Hub"
+            onClick={onOpenCommitmentBooklet}
+            className="h-[116px]"
+          />
+        </div>
+      ) : (
+        <div
+          data-learning-hub-expanded={isExpanded ? "true" : "false"}
+          className="clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out"
+          style={{
+            gridTemplateRows: isExpanded ? `${LEARNING_HUB_STAGE_HEIGHT}px` : "0px",
+            opacity: isExpanded ? 1 : 0,
+            marginTop: isExpanded ? "0.75rem" : "0rem",
+          }}
+        >
+          <div className="clara-learning-hub-clip min-h-0 overflow-visible">
+            <div
+              className="clara-learning-hub-stage relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
+              style={{
+                height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+                minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+                perspective: "1300px",
+                transformStyle: "preserve-3d",
+              }}
+              onMouseEnter={pauseCarousel}
+              onMouseLeave={resumeCarouselSoon}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
+              <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.055] via-transparent to-black/24" />
+              <div className="pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10" />
 
-            <div className="pointer-events-none absolute left-0 top-0 z-[88] h-full w-11 bg-gradient-to-r from-[#020617] via-[#020617]/56 to-transparent" />
-            <div className="pointer-events-none absolute right-0 top-0 z-[88] h-full w-11 bg-gradient-to-l from-[#020617] via-[#020617]/56 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[89] h-7 bg-gradient-to-b from-[#020617]/82 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[89] h-7 bg-gradient-to-t from-[#020617]/82 to-transparent" />
+              <div className="pointer-events-none absolute left-0 top-0 z-[88] h-full w-11 bg-gradient-to-r from-[#020617] via-[#020617]/56 to-transparent" />
+              <div className="pointer-events-none absolute right-0 top-0 z-[88] h-full w-11 bg-gradient-to-l from-[#020617] via-[#020617]/56 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-[89] h-7 bg-gradient-to-b from-[#020617]/82 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[89] h-7 bg-gradient-to-t from-[#020617]/82 to-transparent" />
 
-            {safeMaterials.map((item, index) => {
-              const rawOffset = index - activeIndex;
+              {safeMaterials.map((item, index) => {
+                const rawOffset = index - activeIndex;
 
-              const wrappedOffset =
-                rawOffset > total / 2
-                  ? rawOffset - total
-                  : rawOffset < -total / 2
-                    ? rawOffset + total
-                    : rawOffset;
+                const wrappedOffset =
+                  rawOffset > total / 2
+                    ? rawOffset - total
+                    : rawOffset < -total / 2
+                      ? rawOffset + total
+                      : rawOffset;
 
-              const isActive = wrappedOffset === 0;
-              const visible = Math.abs(wrappedOffset) <= 2;
+                const isActive = wrappedOffset === 0;
+                const visible = Math.abs(wrappedOffset) <= 2;
 
-              return (
-                <LearningMaterialCard
-                  key={item.id || index}
-                  item={item}
-                  isActive={isActive}
-                  offset={wrappedOffset}
-                  visible={visible}
-                  position={index + 1}
-                  total={total}
-                  onClick={() => {
-                    if (isActive) {
-                      onOpenMaterial?.(item);
-                      return;
-                    }
+                return (
+                  <LearningMaterialCard
+                    key={item.id || index}
+                    item={item}
+                    isActive={isActive}
+                    offset={wrappedOffset}
+                    visible={visible}
+                    position={index + 1}
+                    total={total}
+                    onClick={() => {
+                      if (isActive) {
+                        onOpenMaterial?.(item);
+                        return;
+                      }
 
-                    moveToIndex(index);
-                  }}
-                />
-              );
-            })}
+                      moveToIndex(index);
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
