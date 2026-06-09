@@ -1417,7 +1417,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
               >
                 {pdfStatus !== "error" ? (
                   <>
-                    <div className="w-max min-w-full">
+                    <div className={isPdfZoomed ? "w-max min-w-full" : "w-full"}>
                       <Document
                         key={activeDocumentKey}
                         file={pdfUrl}
