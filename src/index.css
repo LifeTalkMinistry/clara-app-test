@@ -145,3 +145,8 @@ body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] >
 #root div[class*="z-[10000]"] footer > button[type="button"] {
   display: none !important;
 }
+
+/* Prevent react-pdf's empty page wrapper from flashing bright white between rendered canvases. */
+[role="dialog"][aria-label$="PDF reader"] .react-pdf__Page {
+  background-color: #080a0f !important;
+}
