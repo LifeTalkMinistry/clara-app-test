@@ -29,6 +29,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
+import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import DashboardPanelShell from "@/components/fresh/main-dashboard/dashboard-panels/DashboardPanelShell";
 import {
   dashboardPanelCardClass,
@@ -105,6 +106,8 @@ export default function DashboardSettingsPanel({
     user?.email?.split("@")?.[0] ||
     "";
 
+  const { preferences: notificationPreferences } =
+    useNotificationPreferences(user?.id || "guest");
   const [localPerformanceMode, setLocalPerformanceMode] = useState(() =>
     readStoredPerformanceMode(user?.id || "guest")
   );
@@ -515,7 +518,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           title: "Notifications",
           description: "Reminders, alerts, and program updates",
           icon: Bell,
-          badge: localNotifications.dailyReminders ? "On" : "Off",
+          badge: notificationPreferences.dailyCheckIn ? "On" : "Off",
           action: () => setActiveSetting("notifications"),
         },
       ],
