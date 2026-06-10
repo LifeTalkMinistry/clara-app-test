@@ -1,4 +1,4 @@
-name: Validate CLARA buffered PDF carousel
+name: Integrate validated CLARA buffered PDF carousel
 
 on:
   pull_request:
@@ -13,12 +13,12 @@ permissions:
   contents: write
 
 jobs:
-  patch-build-and-cleanup:
-    if: github.event.pull_request.head.ref == 'clara-pdf-buffered-carousel'
+  integrate-build-and-cleanup:
+    if: github.event.pull_request.head.ref == 'clara-pdf-buffered-carousel-final'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out implementation branch
+      - name: Check out clean integration branch
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -26,45 +26,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Copy validated reader implementation
+        run: git checkout cedb8f375af277d087def425eef7c64ffc938b5f -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Extract reviewed patch script
-        shell: bash
-        run: |
-          set -o pipefail
-          python <<'PY_EXTRACT'
-          from pathlib import Path
-
-          workflow = Path('.github/workflows/clara-pdf-carousel-patch.yml').read_text(encoding='utf-8')
-          start_marker = "          python <<'PY'\n"
-          end_marker = "\n          PY\n"
-          start = workflow.index(start_marker) + len(start_marker)
-          end = workflow.index(end_marker, start)
-          raw_script = workflow[start:end]
-          script = "\n".join(
-              line[10:] if line.startswith("          ") else line
-              for line in raw_script.splitlines()
-          ) + "\n"
-          script = script.replace(
-              '    "transition-[opacity,transform] duration-300 ease-out ${\\n                  isVisible",\n',
-              '',
-          )
-          Path('/tmp/apply-clara-pdf-carousel.py').write_text(script, encoding='utf-8')
-          PY_EXTRACT
-          python /tmp/apply-clara-pdf-carousel.py 2>&1 | tee /tmp/clara-pdf-carousel-patch.log
-
-      - name: Upload patch failure log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: clara-pdf-carousel-patch-log
-          path: /tmp/clara-pdf-carousel-patch.log
-          if-no-files-found: warn
-          retention-days: 1
 
       - name: Install dependencies
         run: npm ci
@@ -75,17 +44,17 @@ jobs:
       - name: Build web app
         run: npm run build:web
 
-      - name: Verify and commit validated implementation
+      - name: Verify and commit clean implementation
         shell: bash
         run: |
           git diff --check
           git rm .github/workflows/clara-pdf-carousel-patch.yml
           git rm .github/workflows/clara-pdf-carousel-pr.yml
-          git rm .clara-pdf-buffered-carousel-trigger
+          git rm .clara-pdf-buffered-carousel-final-trigger
 
           mapfile -t changed < <(git diff --name-only HEAD | sort)
           expected=(
-            ".clara-pdf-buffered-carousel-trigger"
+            ".clara-pdf-buffered-carousel-final-trigger"
             ".github/workflows/clara-pdf-carousel-patch.yml"
             ".github/workflows/clara-pdf-carousel-pr.yml"
             "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
