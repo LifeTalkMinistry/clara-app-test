@@ -1,43 +1,37 @@
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 
-const targetPath = "src/pages/TransactionHub.jsx";
-let source = fs.readFileSync(targetPath, "utf8");
-const original = source;
-
-const importLine = 'import TransactionCard from "@/components/fresh/transaction-hub/ui/TransactionCard";\n';
-const importAnchor = '} from "@/components/fresh/transaction-hub/ui/TransactionHubPrimitives";\n';
-
-if (!source.includes(importLine.trim())) {
-  const index = source.indexOf(importAnchor);
-  if (index === -1) throw new Error("TransactionHubPrimitives import anchor not found.");
-  source = source.slice(0, index + importAnchor.length) + importLine + source.slice(index + importAnchor.length);
+function run(command) {
+  console.log(`> ${command}`);
+  execSync(command, { stdio: "inherit", shell: "/bin/bash" });
 }
 
-const startNeedle = "function TransactionCard({ item, onEdit }) {";
-const endNeedle = "function TimelineDropdown({";
-const start = source.indexOf(startNeedle);
-if (start !== -1) {
-  const end = source.indexOf(endNeedle, start);
-  if (end === -1) throw new Error("TimelineDropdown boundary not found after TransactionCard.");
-  source = source.slice(0, start) + source.slice(end);
+run("git fetch origin fix/reset-aware-budget-cycle");
+run("git checkout -B fix/reset-aware-budget-cycle origin/fix/reset-aware-budget-cycle");
+run("node scripts/apply-budget-cycle-reset-fix.mjs");
+run("node scripts/apply-budget-cycle-reset-actions.mjs");
+run("node scripts/apply-budget-cycle-reset-consumers.mjs");
+run("npm ci");
+run("npm run test:budget-cycle");
+run("npm run build");
+
+for (const file of [
+  "scripts/apply-budget-cycle-reset-fix.mjs",
+  "scripts/apply-budget-cycle-reset-actions.mjs",
+  "scripts/apply-budget-cycle-reset-consumers.mjs",
+  ".github/workflows/apply-budget-cycle-reset-fix.yml",
+]) {
+  if (fs.existsSync(file)) fs.rmSync(file);
 }
 
-if (source.includes(startNeedle)) {
-  throw new Error("Inline TransactionCard still exists after extraction.");
-}
+run('git config user.name "github-actions[bot]"');
+run('git config user.email "41898282+github-actions[bot]@users.noreply.github.com"');
+run("git add -A");
 
-if (!source.includes("<TransactionCard")) {
-  throw new Error("TransactionCard JSX usage missing after extraction.");
+const pending = execSync("git status --porcelain", { encoding: "utf8" }).trim();
+if (pending) {
+  run('git commit -m "fix: make budget cycle reset authoritative"');
+  run("git push origin HEAD:fix/reset-aware-budget-cycle");
+} else {
+  console.log("No budget cycle reset changes remained to commit.");
 }
-
-if (!source.includes("function TimelineDropdown({")) {
-  throw new Error("TimelineDropdown was removed unexpectedly.");
-}
-
-if (source === original) {
-  console.log("No TransactionCard extraction changes needed.");
-  process.exit(0);
-}
-
-fs.writeFileSync(targetPath, source);
-console.log(`Extracted TransactionCard, reduced TransactionHub.jsx by ${original.length - source.length} characters.`);
