@@ -189,20 +189,20 @@ export default function useDashboardMonthlyBudgetPlan({
     });
 
     const declared = hasActiveBudgetPlan ? rawDeclared : 0;
-    const allocated = hasActiveBudgetPlan ? rawAllocated : 0;
+    const allocated = rawAllocated;
     const plannedSpent = hasActiveBudgetPlan ? rawPlannedSpent : 0;
     const unplannedSpent = hasActiveBudgetPlan ? rawUnplannedSpent : 0;
     const undocumentedSpent = hasActiveBudgetPlan ? rawUndocumentedSpent : 0;
     const spent = hasActiveBudgetPlan ? rawSpent : 0;
-    const categories = hasActiveBudgetPlan ? rawCategories : [];
+    const categories = rawCategories;
     const unplannedItems = hasActiveBudgetPlan ? rawUnplannedItems : [];
     const undocumentedItems = hasActiveBudgetPlan ? rawUndocumentedItems : [];
     const outsidePlanItems = hasActiveBudgetPlan
-      ? [...rawUnplannedItems, ...rawUndocumentedItems].sort(
+      ? [...rawUnplannedItems, rawUndocumentedItems].flat().sort(
           (a, b) => firstValidNumber(b?.sortTime) - firstValidNumber(a?.sortTime)
         )
       : [];
-    const unallocated = hasActiveBudgetPlan ? Math.max(declared - allocated, 0) : 0;
+    const unallocated = rawDeclared > 0 ? Math.max(rawDeclared - rawAllocated, 0) : 0;
     const remaining = hasActiveBudgetPlan ? Math.max(declared - spent, 0) : 0;
     const complete = hasActiveBudgetPlan && categories.length > 0 &&
       allocated >= declared && unallocated <= 0;
