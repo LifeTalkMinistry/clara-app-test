@@ -30,8 +30,8 @@ const PDF_READING_ZOOM_SCALE = 1.75;
 const PDF_MAX_ZOOM_SCALE = 4;
 const PDF_ZOOM_EPSILON = 0.01;
 const PDF_MAX_RENDER_WIDTH = 3200;
-const PDF_PAGE_TURN_OUT_DURATION = 140;
-const PDF_PAGE_TURN_IN_DURATION = 180;
+const PDF_CAROUSEL_DURATION = 170;
+const PDF_CAROUSEL_FALLBACK_DURATION = 250;
 
 const clamp = (value, minimum, maximum) =>
   Math.min(Math.max(value, minimum), maximum);
@@ -137,8 +137,18 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const [isReaderMenuOpen, setIsReaderMenuOpen] = useState(false);
   const [pdfZoomScale, setPdfZoomScale] = useState(PDF_MIN_ZOOM_SCALE);
   const [announcedZoomPercentage, setAnnouncedZoomPercentage] = useState(100);
-  const [pdfPageTurnDirection, setPdfPageTurnDirection] = useState(null);
-  const [pdfPageTurnPhase, setPdfPageTurnPhase] = useState("idle");
+  const [carouselSlots, setCarouselSlots] = useState([
+    { globalPageIndex: 0, renderToken: 0 },
+    { globalPageIndex: null, renderToken: 0 },
+  ]);
+  const [activeCarouselSlot, setActiveCarouselSlot] = useState(0);
+  const [carouselPendingPageIndex, setCarouselPendingPageIndex] =
+    useState(null);
+  const [carouselDirection, setCarouselDirection] = useState(null);
+  const [carouselPhase, setCarouselPhase] = useState("idle");
+  const [carouselError, setCarouselError] = useState(null);
+  const [boundarySnapshot, setBoundarySnapshot] = useState(null);
+  const [hasRenderedPdfPage, setHasRenderedPdfPage] = useState(false);
   const touchStartRef = useRef({ x: null, y: null });
   const lastPdfTapTimeRef = useRef(0);
   const ignoreDoubleClickUntilRef = useRef(0);
@@ -150,10 +160,18 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const isMountedRef = useRef(true);
   const transitionLockRef = useRef(false);
   const pdfPageTurnLockRef = useRef(false);
-  const pdfPageTurnPhaseRef = useRef("idle");
-  const pdfPageTurnTimerRef = useRef(null);
-  const pdfPageTurnFrameRef = useRef(null);
-  const pdfPageTurnSettleFrameRef = useRef(null);
+  const carouselRequestTokenRef = useRef(0);
+  const carouselTransitionTimeoutRef = useRef(null);
+  const carouselFrameRef = useRef(null);
+  const carouselSettleFrameRef = useRef(null);
+  const carouselPendingPageIndexRef = useRef(null);
+  const carouselPendingSlotRef = useRef(null);
+  const carouselPhaseRef = useRef("idle");
+  const activeCarouselSlotRef = useRef(0);
+  const carouselReducedMotionRef = useRef(false);
+  const carouselFinalizeGuardRef = useRef(false);
+  const boundarySnapshotHostRef = useRef(null);
+  const boundarySnapshotCanvasRef = useRef(null);
   const pdfZoomScaleRef = useRef(PDF_MIN_ZOOM_SCALE);
   const pinchGestureRef = useRef({
     active: false,
@@ -180,9 +198,6 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   isOpenRef.current = isOpen;
   pdfZoomScaleRef.current = pdfZoomScale;
 
-  useEffect(() => {
-    pdfPageTurnPhaseRef.current = pdfPageTurnPhase;
-  }, [pdfPageTurnPhase]);
 
   const legacyPages = Array.isArray(material?.pages) ? material.pages : [];
   const pdfPartsManifest = useMemo(
@@ -213,20 +228,25 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       : legacyPages.length;
   const safePageIndex = pageCount > 0 ? Math.min(pageIndex, pageCount - 1) : 0;
   const currentPage = legacyPages[safePageIndex] ?? null;
-  const localPdfPageNumber = hasMultiPartPdf
-    ? getLocalPageNumber(safePageIndex, activePart)
-    : safePageIndex + 1;
+  const boundaryRenderGlobalPageIndex =
+    pendingGlobalPageIndex ?? safePageIndex;
   const isBoundaryTransition =
     hasMultiPartPdf && pendingGlobalPageIndex !== null;
+  const isCarouselBusy =
+    carouselPhase !== "idle" || carouselPendingPageIndex !== null;
   const canNavigate =
     pageCount > 0 &&
     (!hasPdf ||
-      (pdfStatus === "ready" && pendingGlobalPageIndex === null));
+      (pdfStatus === "ready" &&
+        hasRenderedPdfPage &&
+        pendingGlobalPageIndex === null &&
+        !isCarouselBusy));
   const canTogglePdfZoom =
     hasPdf &&
     pdfStatus === "ready" &&
     pdfRenderWidth > 0 &&
-    !isBoundaryTransition;
+    !isBoundaryTransition &&
+    !isCarouselBusy;
   const isPdfZoomed =
     pdfZoomScale > PDF_MIN_ZOOM_SCALE + PDF_ZOOM_EPSILON;
   const requestedPdfRenderWidth = pdfRenderWidth * pdfZoomScale;
@@ -253,9 +273,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   const titleId = "clara-learning-reader-title";
   const isInitialPdfLoad =
     hasPdf &&
-    pdfStatus !== "ready" &&
     !isBoundaryTransition &&
-    pdfPageCount === 0;
+    (pdfStatus !== "ready" || pdfPageCount === 0 || !hasRenderedPdfPage);
   const pageCounter = isInitialPdfLoad
     ? "— / —"
     : `${pageCount > 0 ? safePageIndex + 1 : 0} / ${pageCount}`;
@@ -276,86 +295,51 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   activeLoadTokenRef.current = activeDocumentKey;
 
-  const pdfPaperStyle = useMemo(() => {
-    const restingTransform =
-      "translate3d(0, 0, 0) rotateY(0deg) scale(1)";
-    const sharedStyle = {
-      transformStyle: "preserve-3d",
-      backfaceVisibility: "hidden",
-      willChange: pdfPageTurnDirection ? "transform, opacity" : "auto",
-    };
+  const getCarouselSlotStyle = useCallback(
+    (slotIndex) => {
+      const slot = carouselSlots[slotIndex];
+      const isActiveSlot = slotIndex === activeCarouselSlot;
+      const isIncomingSlot =
+        carouselPendingPageIndex !== null &&
+        slot?.globalPageIndex === carouselPendingPageIndex &&
+        slotIndex !== activeCarouselSlot;
+      let offset = 0;
 
-    if (!pdfPageTurnDirection) {
+      if (carouselPhase === "preparing") {
+        if (isIncomingSlot) {
+offset = carouselDirection === "forward" ? 100 : -100;
+        }
+      } else if (carouselPhase === "sliding") {
+        if (isActiveSlot) {
+offset = carouselDirection === "forward" ? -100 : 100;
+        } else if (isIncomingSlot) {
+offset = 0;
+        }
+      } else if (!isActiveSlot) {
+        offset = carouselDirection === "backward" ? -100 : 100;
+      }
+
       return {
-        ...sharedStyle,
-        transform: restingTransform,
-        opacity: 1,
-        transition: "none",
-        transformOrigin: "center center",
+        transform: `translate3d(${offset}%, 0, 0)`,
+        transition:
+carouselPhase === "sliding"
+  ? `transform ${PDF_CAROUSEL_DURATION}ms ease-out`
+  : "none",
+        willChange: carouselPhase === "idle" ? "auto" : "transform",
+        pointerEvents:
+isActiveSlot && carouselPhase === "idle" ? "auto" : "none",
+        visibility: slot?.globalPageIndex === null ? "hidden" : "visible",
+        zIndex: isIncomingSlot ? 2 : isActiveSlot ? 1 : 0,
       };
-    }
-
-    if (pdfPageTurnPhase === "leaving") {
-      const isNext = pdfPageTurnDirection === "next";
-      return {
-        ...sharedStyle,
-        transform: isNext
-          ? "translate3d(-6%, 0, 0) rotateY(-4deg) scale(0.985)"
-          : "translate3d(6%, 0, 0) rotateY(4deg) scale(0.985)",
-        opacity: 0.74,
-        transition: `transform ${PDF_PAGE_TURN_OUT_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,
-        transformOrigin: isNext ? "left center" : "right center",
-      };
-    }
-
-    if (pdfPageTurnPhase === "entering") {
-      const isNext = pdfPageTurnDirection === "next";
-      return {
-        ...sharedStyle,
-        transform: isNext
-          ? "translate3d(6%, 0, 0) rotateY(3deg) scale(0.985)"
-          : "translate3d(-6%, 0, 0) rotateY(-3deg) scale(0.985)",
-        opacity: 0.78,
-        transition: "none",
-        transformOrigin: isNext ? "right center" : "left center",
-      };
-    }
-
-    return {
-      ...sharedStyle,
-      transform: restingTransform,
-      opacity: 1,
-      transition: `transform ${PDF_PAGE_TURN_IN_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`,
-      transformOrigin:
-        pdfPageTurnDirection === "next" ? "right center" : "left center",
-    };
-  }, [pdfPageTurnDirection, pdfPageTurnPhase]);
-
-  const pdfPaperEdgeStyle = useMemo(() => {
-    const isNext = pdfPageTurnDirection === "next";
-    const isActivePhase =
-      pdfPageTurnPhase === "leaving" || pdfPageTurnPhase === "entering";
-    const opacity =
-      pdfPageTurnPhase === "leaving"
-        ? 1
-        : pdfPageTurnPhase === "entering"
-          ? 0.58
-          : 0;
-
-    return {
-      width: "44px",
-      left: pdfPageTurnDirection && !isNext ? 0 : "auto",
-      right: pdfPageTurnDirection && isNext ? 0 : "auto",
-      opacity: isActivePhase ? opacity : 0,
-      background: isNext
-        ? "linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 76%, rgba(0, 0, 0, 0.12) 96%, rgba(255, 255, 255, 0.1) 100%)"
-        : "linear-gradient(to left, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 76%, rgba(0, 0, 0, 0.12) 96%, rgba(255, 255, 255, 0.1) 100%)",
-      transition:
-        pdfPageTurnPhase === "idle"
-          ? `opacity ${PDF_PAGE_TURN_IN_DURATION}ms ease-out`
-          : `opacity ${PDF_PAGE_TURN_OUT_DURATION}ms ease-out`,
-    };
-  }, [pdfPageTurnDirection, pdfPageTurnPhase]);
+    },
+    [
+      activeCarouselSlot,
+      carouselDirection,
+      carouselPendingPageIndex,
+      carouselPhase,
+      carouselSlots,
+    ],
+  );
 
   const getEffectiveScaleForRequestedScale = useCallback(
     (requestedScale) => {
@@ -379,40 +363,132 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     ignoreDoubleClickUntilRef.current = 0;
   }, []);
 
-  const clearPdfPageTurnTimer = useCallback(() => {
-    if (pdfPageTurnTimerRef.current !== null) {
+  const clearCarouselTransitionTimeout = useCallback(() => {
+    if (carouselTransitionTimeoutRef.current !== null) {
       if (typeof window !== "undefined") {
-        window.clearTimeout(pdfPageTurnTimerRef.current);
+        window.clearTimeout(carouselTransitionTimeoutRef.current);
       }
-      pdfPageTurnTimerRef.current = null;
+      carouselTransitionTimeoutRef.current = null;
     }
   }, []);
 
-  const clearPdfPageTurnFrames = useCallback(() => {
+  const clearCarouselFrames = useCallback(() => {
     if (typeof window === "undefined") return;
 
-    if (pdfPageTurnFrameRef.current !== null) {
-      window.cancelAnimationFrame(pdfPageTurnFrameRef.current);
-      pdfPageTurnFrameRef.current = null;
+    if (carouselFrameRef.current !== null) {
+      window.cancelAnimationFrame(carouselFrameRef.current);
+      carouselFrameRef.current = null;
     }
 
-    if (pdfPageTurnSettleFrameRef.current !== null) {
-      window.cancelAnimationFrame(pdfPageTurnSettleFrameRef.current);
-      pdfPageTurnSettleFrameRef.current = null;
+    if (carouselSettleFrameRef.current !== null) {
+      window.cancelAnimationFrame(carouselSettleFrameRef.current);
+      carouselSettleFrameRef.current = null;
     }
   }, []);
 
-  const resetPdfPageTurnState = useCallback(() => {
-    clearPdfPageTurnTimer();
-    clearPdfPageTurnFrames();
-    pdfPageTurnLockRef.current = false;
-    pdfPageTurnPhaseRef.current = "idle";
+  const clearBoundarySnapshot = useCallback(() => {
+    boundarySnapshotHostRef.current?.replaceChildren();
+    boundarySnapshotCanvasRef.current = null;
 
     if (isMountedRef.current) {
-      setPdfPageTurnPhase("idle");
-      setPdfPageTurnDirection(null);
+      setBoundarySnapshot(null);
     }
-  }, [clearPdfPageTurnFrames, clearPdfPageTurnTimer]);
+  }, []);
+
+  const resetPdfCarouselState = useCallback(
+    ({ globalPageIndex = 0, preserveSnapshot = false } = {}) => {
+      carouselRequestTokenRef.current += 1;
+      clearCarouselTransitionTimeout();
+      clearCarouselFrames();
+      carouselPendingPageIndexRef.current = null;
+      carouselPendingSlotRef.current = null;
+      carouselPhaseRef.current = "idle";
+      activeCarouselSlotRef.current = 0;
+      carouselReducedMotionRef.current = false;
+      carouselFinalizeGuardRef.current = false;
+      pdfPageTurnLockRef.current = false;
+
+      if (!preserveSnapshot) {
+        clearBoundarySnapshot();
+      }
+
+      if (isMountedRef.current) {
+        setCarouselSlots([
+{ globalPageIndex, renderToken: 0 },
+{ globalPageIndex: null, renderToken: 0 },
+        ]);
+        setActiveCarouselSlot(0);
+        setCarouselPendingPageIndex(null);
+        setCarouselDirection(null);
+        setCarouselPhase("idle");
+        setCarouselError(null);
+      }
+    },
+    [clearBoundarySnapshot, clearCarouselFrames, clearCarouselTransitionTimeout],
+  );
+
+  const cancelCarouselRequest = useCallback(
+    (message = null) => {
+      carouselRequestTokenRef.current += 1;
+      clearCarouselTransitionTimeout();
+      clearCarouselFrames();
+      const currentActiveSlot = activeCarouselSlotRef.current;
+      carouselPendingPageIndexRef.current = null;
+      carouselPendingSlotRef.current = null;
+      carouselPhaseRef.current = "idle";
+      carouselReducedMotionRef.current = false;
+      carouselFinalizeGuardRef.current = false;
+      pdfPageTurnLockRef.current = false;
+
+      if (!isMountedRef.current) return;
+
+      setCarouselSlots((currentSlots) =>
+        currentSlots.map((slot, slotIndex) =>
+slotIndex === currentActiveSlot
+  ? slot
+  : { globalPageIndex: null, renderToken: 0 },
+        ),
+      );
+      setCarouselPendingPageIndex(null);
+      setCarouselDirection(null);
+      setCarouselPhase("idle");
+      if (message) setCarouselError(message);
+    },
+    [clearCarouselFrames, clearCarouselTransitionTimeout],
+  );
+
+  const createBoundarySnapshot = useCallback((direction) => {
+    if (typeof document === "undefined") return false;
+
+    const sourceCanvas = pdfContentRef.current?.querySelector?.("canvas");
+    const snapshotHost = boundarySnapshotHostRef.current;
+    if (!sourceCanvas || !snapshotHost) return false;
+
+    const sourceRect = sourceCanvas.getBoundingClientRect();
+    if (sourceCanvas.width <= 0 || sourceCanvas.height <= 0) return false;
+
+    const snapshotCanvas = document.createElement("canvas");
+    snapshotCanvas.width = sourceCanvas.width;
+    snapshotCanvas.height = sourceCanvas.height;
+    snapshotCanvas.setAttribute("aria-hidden", "true");
+    snapshotCanvas.style.display = "block";
+    snapshotCanvas.style.width = `${sourceRect.width}px`;
+    snapshotCanvas.style.height = `${sourceRect.height}px`;
+    snapshotCanvas.style.maxWidth = "100%";
+
+    const snapshotContext = snapshotCanvas.getContext("2d");
+    if (!snapshotContext) return false;
+
+    snapshotContext.drawImage(sourceCanvas, 0, 0);
+    snapshotHost.replaceChildren(snapshotCanvas);
+    boundarySnapshotCanvasRef.current = snapshotCanvas;
+    setBoundarySnapshot({
+      width: sourceRect.width,
+      height: sourceRect.height,
+      direction,
+    });
+    return true;
+  }, []);
 
   const clearGestureTracking = useCallback(() => {
     if (gestureAnimationFrameRef.current !== null) {
@@ -540,7 +616,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
   ]);
 
   const resetReaderState = useCallback(() => {
-    resetPdfPageTurnState();
+    resetPdfCarouselState({ globalPageIndex: 0 });
     setPageIndex(0);
     setActivePartIndex(0);
     setPendingGlobalPageIndex(null);
@@ -551,13 +627,18 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfRenderWidth(0);
     setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
+    setHasRenderedPdfPage(false);
     pdfZoomScaleRef.current = PDF_MIN_ZOOM_SCALE;
     setPdfZoomScale(PDF_MIN_ZOOM_SCALE);
     setAnnouncedZoomPercentage(100);
     clearGestureTracking();
     clearTapTracking();
     transitionLockRef.current = false;
-  }, [clearGestureTracking, clearTapTracking, resetPdfPageTurnState]);
+  }, [
+    clearGestureTracking,
+    clearTapTracking,
+    resetPdfCarouselState,
+  ]);
 
   const togglePdfZoom = useCallback(() => {
     if (
@@ -584,74 +665,62 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setReadingZoom,
   ]);
 
-  const navigateToGlobalPage = useCallback(
-    (targetGlobalPageIndex) => {
-      if (
-        !canNavigate ||
-        transitionLockRef.current ||
-        targetGlobalPageIndex < 0 ||
-        targetGlobalPageIndex >= pageCount ||
-        targetGlobalPageIndex === safePageIndex
-      ) {
-        return;
-      }
+  const finalizeCarouselTransition = useCallback(() => {
+    if (carouselFinalizeGuardRef.current) return;
 
-      if (hasPdf) {
-        resetPdfToFit({ announce: false });
-      }
+    const targetGlobalPageIndex = carouselPendingPageIndexRef.current;
+    const incomingSlot = carouselPendingSlotRef.current;
+    if (targetGlobalPageIndex === null || incomingSlot === null) return;
 
-      if (!hasMultiPartPdf) {
-        setPageIndex(targetGlobalPageIndex);
-        return;
-      }
+    carouselFinalizeGuardRef.current = true;
+    clearCarouselTransitionTimeout();
+    clearCarouselFrames();
+    setPageIndex(targetGlobalPageIndex);
+    setHasRenderedPdfPage(true);
+    setActiveCarouselSlot(incomingSlot);
+    activeCarouselSlotRef.current = incomingSlot;
+    setCarouselSlots((currentSlots) =>
+      currentSlots.map((slot, slotIndex) =>
+        slotIndex === incomingSlot
+? slot
+: { globalPageIndex: null, renderToken: 0 },
+      ),
+    );
 
-      const targetPartIndex = findPartForGlobalPage(
-        pdfParts,
-        targetGlobalPageIndex,
-      );
+    carouselPendingPageIndexRef.current = null;
+    carouselPendingSlotRef.current = null;
+    carouselPhaseRef.current = "idle";
+    carouselReducedMotionRef.current = false;
+    pdfPageTurnLockRef.current = false;
+    setCarouselPendingPageIndex(null);
+    setCarouselDirection(null);
+    setCarouselPhase("idle");
+    scrollToTop();
+  }, [clearCarouselFrames, clearCarouselTransitionTimeout, scrollToTop]);
 
-      if (targetPartIndex < 0) {
-        resetPdfPageTurnState();
-        resetPdfToFit({ announce: false });
-        setPdfStatus("error");
-        setPdfError("This section of the book is not configured correctly.");
-        return;
-      }
+  const beginCarouselSlide = useCallback(() => {
+    if (carouselReducedMotionRef.current) {
+      finalizeCarouselTransition();
+      return;
+    }
 
-      if (targetPartIndex === activePartIndex) {
-        setPageIndex(targetGlobalPageIndex);
-        return;
-      }
+    carouselPhaseRef.current = "sliding";
+    setCarouselPhase("sliding");
+    clearCarouselTransitionTimeout();
+    carouselTransitionTimeoutRef.current = window.setTimeout(() => {
+      carouselTransitionTimeoutRef.current = null;
+      finalizeCarouselTransition();
+    }, PDF_CAROUSEL_FALLBACK_DURATION);
+  }, [clearCarouselTransitionTimeout, finalizeCarouselTransition]);
 
-      transitionLockRef.current = true;
-      resetPdfToFit({ announce: false });
-      setPendingGlobalPageIndex(targetGlobalPageIndex);
-      setActivePartIndex(targetPartIndex);
-      setPdfPageCount(0);
-      setPdfError(null);
-      setPdfStatus("loading");
-      scrollToTop();
-    },
-    [
-      activePartIndex,
-      canNavigate,
-      hasMultiPartPdf,
-      hasPdf,
-      pageCount,
-      pdfParts,
-      resetPdfPageTurnState,
-      resetPdfToFit,
-      safePageIndex,
-      scrollToTop,
-    ],
-  );
-
-  const requestPdfPageTurn = useCallback(
+  const requestPdfPageChange = useCallback(
     (targetGlobalPageIndex) => {
       if (
         !canNavigate ||
         transitionLockRef.current ||
         pdfPageTurnLockRef.current ||
+        carouselPhaseRef.current !== "idle" ||
+        carouselPendingPageIndexRef.current !== null ||
         targetGlobalPageIndex < 0 ||
         targetGlobalPageIndex >= pageCount ||
         targetGlobalPageIndex === safePageIndex ||
@@ -661,7 +730,7 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       }
 
       if (!hasPdf) {
-        navigateToGlobalPage(targetGlobalPageIndex);
+        setPageIndex(targetGlobalPageIndex);
         return;
       }
 
@@ -670,66 +739,110 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         isBoundaryTransition ||
         isPdfZoomed ||
         Math.abs(effectivePdfZoomScale - PDF_MIN_ZOOM_SCALE) >
-          PDF_ZOOM_EPSILON
+PDF_ZOOM_EPSILON
       ) {
         return;
       }
 
+      const targetPartIndex = hasMultiPartPdf
+        ? findPartForGlobalPage(pdfParts, targetGlobalPageIndex)
+        : activePartIndex;
+
+      if (targetPartIndex < 0) {
+        setPdfStatus("error");
+        setPdfError("This section of the book is not configured correctly.");
+        return;
+      }
+
+      const direction =
+        targetGlobalPageIndex > safePageIndex ? "forward" : "backward";
+      const requestToken = carouselRequestTokenRef.current + 1;
+      carouselRequestTokenRef.current = requestToken;
+      carouselFinalizeGuardRef.current = false;
+      setCarouselError(null);
+      resetPdfToFit({ announce: false });
+
+      if (hasMultiPartPdf && targetPartIndex !== activePartIndex) {
+        if (!createBoundarySnapshot(direction)) {
+setCarouselError("The next section could not be prepared. Please try again.");
+return;
+        }
+
+        transitionLockRef.current = true;
+        pdfPageTurnLockRef.current = true;
+        carouselPendingPageIndexRef.current = null;
+        carouselPendingSlotRef.current = null;
+        carouselPhaseRef.current = "idle";
+        activeCarouselSlotRef.current = 0;
+        setCarouselSlots([
+{ globalPageIndex: targetGlobalPageIndex, renderToken: requestToken },
+{ globalPageIndex: null, renderToken: 0 },
+        ]);
+        setActiveCarouselSlot(0);
+        setCarouselPendingPageIndex(null);
+        setCarouselDirection(null);
+        setCarouselPhase("idle");
+        setPendingGlobalPageIndex(targetGlobalPageIndex);
+        setActivePartIndex(targetPartIndex);
+        setPdfPageCount(0);
+        setPdfError(null);
+        setPdfStatus("loading");
+        setHasRenderedPdfPage(false);
+        scrollToTop();
+        return;
+      }
+
+      const inactiveSlot = activeCarouselSlotRef.current === 0 ? 1 : 0;
       const prefersReducedMotion =
         typeof window !== "undefined" &&
         typeof window.matchMedia === "function" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      if (prefersReducedMotion) {
-        navigateToGlobalPage(targetGlobalPageIndex);
-        return;
-      }
-
-      const direction =
-        targetGlobalPageIndex > safePageIndex ? "next" : "previous";
-
-      clearPdfPageTurnTimer();
+      carouselPendingPageIndexRef.current = targetGlobalPageIndex;
+      carouselPendingSlotRef.current = inactiveSlot;
+      carouselPhaseRef.current = "preparing";
+      carouselReducedMotionRef.current = prefersReducedMotion;
       pdfPageTurnLockRef.current = true;
-      setPdfPageTurnDirection(direction);
-      pdfPageTurnPhaseRef.current = "leaving";
-      setPdfPageTurnPhase("leaving");
-
-      pdfPageTurnTimerRef.current = window.setTimeout(() => {
-        pdfPageTurnTimerRef.current = null;
-
-        if (!isMountedRef.current || !isOpenRef.current) {
-          resetPdfPageTurnState();
-          return;
-        }
-
-        pdfPageTurnPhaseRef.current = "entering";
-        setPdfPageTurnPhase("entering");
-        navigateToGlobalPage(targetGlobalPageIndex);
-      }, PDF_PAGE_TURN_OUT_DURATION);
+      setCarouselSlots((currentSlots) =>
+        currentSlots.map((slot, slotIndex) =>
+slotIndex === inactiveSlot
+  ? {
+      globalPageIndex: targetGlobalPageIndex,
+      renderToken: requestToken,
+    }
+  : slot,
+        ),
+      );
+      setCarouselPendingPageIndex(targetGlobalPageIndex);
+      setCarouselDirection(direction);
+      setCarouselPhase("preparing");
     },
     [
+      activePartIndex,
       canNavigate,
-      clearPdfPageTurnTimer,
+      createBoundarySnapshot,
       effectivePdfZoomScale,
+      hasMultiPartPdf,
       hasPdf,
       isBoundaryTransition,
       isPdfZoomed,
       isReaderMenuOpen,
-      navigateToGlobalPage,
       pageCount,
+      pdfParts,
       pdfStatus,
-      resetPdfPageTurnState,
+      resetPdfToFit,
       safePageIndex,
+      scrollToTop,
     ],
   );
 
   const goNext = useCallback(() => {
-    requestPdfPageTurn(Math.min(safePageIndex + 1, pageCount - 1));
-  }, [pageCount, requestPdfPageTurn, safePageIndex]);
+    requestPdfPageChange(Math.min(safePageIndex + 1, pageCount - 1));
+  }, [pageCount, requestPdfPageChange, safePageIndex]);
 
   const goPrevious = useCallback(() => {
-    requestPdfPageTurn(Math.max(safePageIndex - 1, 0));
-  }, [requestPdfPageTurn, safePageIndex]);
+    requestPdfPageChange(Math.max(safePageIndex - 1, 0));
+  }, [requestPdfPageChange, safePageIndex]);
 
   const closeReader = useCallback(() => {
     resetReaderState();
@@ -756,7 +869,6 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         : 0;
 
       if (nextPageCount === 0) {
-        resetPdfPageTurnState();
         setPdfPageCount(0);
         setPdfStatus("error");
         setPdfError("Check the PDF file and try again.");
@@ -765,48 +877,66 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
       if (hasMultiPartPdf) {
         if (!activePart || nextPageCount !== activePart.expectedPageCount) {
-          resetPdfPageTurnState();
-          setPdfPageCount(0);
-          setPdfStatus("error");
-          setPdfError(
-            "This section of the book does not match its expected page count.",
-          );
-          return;
+setPdfPageCount(0);
+setPdfStatus("error");
+setPdfError(
+  "This section of the book does not match its expected page count.",
+);
+return;
         }
 
         setPdfPageCount(nextPageCount);
+        setHasRenderedPdfPage(false);
 
         if (pendingGlobalPageIndex !== null) {
-          const pendingPartIndex = findPartForGlobalPage(
-            pdfParts,
-            pendingGlobalPageIndex,
-          );
+const pendingPartIndex = findPartForGlobalPage(
+  pdfParts,
+  pendingGlobalPageIndex,
+);
 
-          if (pendingPartIndex !== activePartIndex) {
-            resetPdfPageTurnState();
-            setPdfStatus("error");
-            setPdfError("This section of the book is not configured correctly.");
-            return;
-          }
+if (pendingPartIndex !== activePartIndex) {
+  setPdfStatus("error");
+  setPdfError("This section of the book is not configured correctly.");
+  return;
+}
 
-          setPageIndex(pendingGlobalPageIndex);
-          setPendingGlobalPageIndex(null);
+setPdfStatus("ready");
+setPdfError(null);
+scrollToTop();
+return;
         }
 
+        setCarouselSlots([
+{ globalPageIndex: safePageIndex, renderToken: 0 },
+{ globalPageIndex: null, renderToken: 0 },
+        ]);
+        setActiveCarouselSlot(0);
+        activeCarouselSlotRef.current = 0;
         setPdfStatus("ready");
         setPdfError(null);
         transitionLockRef.current = false;
+        pdfPageTurnLockRef.current = false;
         scrollToTop();
         return;
       }
 
-      setPdfPageCount(nextPageCount);
-      setPageIndex((currentIndex) =>
-        Math.min(Math.max(currentIndex, 0), nextPageCount - 1),
+      const nextPageIndex = Math.min(
+        Math.max(safePageIndex, 0),
+        nextPageCount - 1,
       );
+      setPdfPageCount(nextPageCount);
+      setPageIndex(nextPageIndex);
+      setCarouselSlots([
+        { globalPageIndex: nextPageIndex, renderToken: 0 },
+        { globalPageIndex: null, renderToken: 0 },
+      ]);
+      setActiveCarouselSlot(0);
+      activeCarouselSlotRef.current = 0;
+      setHasRenderedPdfPage(false);
       setPdfStatus("ready");
       setPdfError(null);
       transitionLockRef.current = false;
+      pdfPageTurnLockRef.current = false;
       scrollToTop();
     },
     [
@@ -815,8 +945,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
       hasMultiPartPdf,
       pdfParts,
       pendingGlobalPageIndex,
-      resetPdfPageTurnState,
       resetPdfToFit,
+      safePageIndex,
       scrollToTop,
     ],
   );
@@ -828,51 +958,86 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
         return;
       }
 
-      resetPdfPageTurnState();
+      carouselRequestTokenRef.current += 1;
+      clearCarouselTransitionTimeout();
+      clearCarouselFrames();
       resetPdfToFit({ announce: false });
       setPdfPageAspectRatio(0);
       setPdfPageCount(0);
-
-      if (!hasMultiPartPdf) {
-        setPageIndex(0);
-      }
-
       setPdfStatus("error");
       setPdfError("Check the PDF file and try again.");
+
+      if (pendingGlobalPageIndex !== null || boundarySnapshotCanvasRef.current) {
+        transitionLockRef.current = true;
+        pdfPageTurnLockRef.current = true;
+        carouselPendingPageIndexRef.current = null;
+        carouselPendingSlotRef.current = null;
+        carouselPhaseRef.current = "idle";
+        setCarouselPendingPageIndex(null);
+        setCarouselDirection(null);
+        setCarouselPhase("idle");
+        return;
+      }
+
+      setPageIndex(0);
+      setHasRenderedPdfPage(false);
+      transitionLockRef.current = false;
+      resetPdfCarouselState({ globalPageIndex: 0 });
       scrollToTop();
     },
     [
-      hasMultiPartPdf,
-      resetPdfPageTurnState,
+      clearCarouselFrames,
+      clearCarouselTransitionTimeout,
+      pendingGlobalPageIndex,
+      resetPdfCarouselState,
       resetPdfToFit,
       scrollToTop,
     ],
   );
 
   const retryPdf = useCallback(() => {
-    resetPdfPageTurnState();
+    carouselRequestTokenRef.current += 1;
+    clearCarouselTransitionTimeout();
+    clearCarouselFrames();
     resetPdfToFit({ announce: false });
     setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
-
-    if (!hasMultiPartPdf) {
-      setPageIndex(0);
-    }
-
     setPdfPageCount(0);
     setPdfError(null);
     setPdfStatus("loading");
+    setHasRenderedPdfPage(false);
+
+    if (pendingGlobalPageIndex !== null) {
+      const requestToken = carouselRequestTokenRef.current;
+      setCarouselSlots([
+        { globalPageIndex: pendingGlobalPageIndex, renderToken: requestToken },
+        { globalPageIndex: null, renderToken: 0 },
+      ]);
+      setActiveCarouselSlot(0);
+      activeCarouselSlotRef.current = 0;
+      transitionLockRef.current = true;
+      pdfPageTurnLockRef.current = true;
+    } else {
+      setPageIndex(0);
+      transitionLockRef.current = false;
+      resetPdfCarouselState({ globalPageIndex: 0 });
+      setPdfStatus("loading");
+    }
+
     setPdfReloadKey((currentKey) => currentKey + 1);
     scrollToTop();
   }, [
-    hasMultiPartPdf,
-    resetPdfPageTurnState,
+    clearCarouselFrames,
+    clearCarouselTransitionTimeout,
+    pendingGlobalPageIndex,
+    resetPdfCarouselState,
     resetPdfToFit,
     scrollToTop,
   ]);
 
   useEffect(() => {
-    resetPdfPageTurnState();
+    resetPdfCarouselState({ globalPageIndex: 0 });
+    clearBoundarySnapshot();
 
     if (!isOpen) {
       setIsVisible(false);
@@ -890,6 +1055,8 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     setPdfRenderWidth(0);
     setPdfPageAspectRatio(0);
     setIsReaderMenuOpen(false);
+    setHasRenderedPdfPage(false);
+    setCarouselError(null);
     pdfZoomScaleRef.current = PDF_MIN_ZOOM_SCALE;
     setPdfZoomScale(PDF_MIN_ZOOM_SCALE);
     setAnnouncedZoomPercentage(100);
@@ -905,13 +1072,14 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
     return () => window.cancelAnimationFrame(animationFrame);
   }, [
+    clearBoundarySnapshot,
     clearGestureTracking,
     clearTapTracking,
     hasPdf,
     isOpen,
     material?.id,
     pdfSourceSignature,
-    resetPdfPageTurnState,
+    resetPdfCarouselState,
     resetReaderState,
     scrollToTop,
   ]);
@@ -1450,10 +1618,20 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
     return () => {
       isMountedRef.current = false;
-      resetPdfPageTurnState();
+      carouselRequestTokenRef.current += 1;
+      clearCarouselTransitionTimeout();
+      clearCarouselFrames();
+      clearBoundarySnapshot();
+      resetPdfCarouselState({ globalPageIndex: 0 });
       clearGestureTracking();
     };
-  }, [clearGestureTracking, resetPdfPageTurnState]);
+  }, [
+    clearBoundarySnapshot,
+    clearCarouselFrames,
+    clearCarouselTransitionTimeout,
+    clearGestureTracking,
+    resetPdfCarouselState,
+  ]);
 
   const handlePdfDoubleClick = (event) => {
     event.preventDefault();
@@ -1470,53 +1648,79 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
     togglePdfZoom();
   };
 
-  const handlePdfPageRenderSuccess = useCallback(() => {
-    if (pendingFocalPointRef.current) {
-      window.requestAnimationFrame(() => {
-        applyPendingFocalPoint();
-        if (!pinchGestureRef.current.active) {
-          pendingFocalPointRef.current = null;
-        }
+  const handlePdfPageRenderSuccess = useCallback(
+    (slotIndex, renderToken, slotGlobalPageIndex) => {
+      if (!isMountedRef.current || !isOpenRef.current) return;
+
+      const isActiveSlot = slotIndex === activeCarouselSlotRef.current;
+      if (isActiveSlot && pendingFocalPointRef.current) {
+        window.requestAnimationFrame(() => {
+applyPendingFocalPoint();
+if (!pinchGestureRef.current.active) {
+  pendingFocalPointRef.current = null;
+}
+        });
+      }
+
+      if (
+        pendingGlobalPageIndex !== null &&
+        slotGlobalPageIndex === pendingGlobalPageIndex &&
+        renderToken === carouselRequestTokenRef.current
+      ) {
+        setHasRenderedPdfPage(true);
+        setPageIndex(pendingGlobalPageIndex);
+        setPendingGlobalPageIndex(null);
+        transitionLockRef.current = false;
+        pdfPageTurnLockRef.current = false;
+        clearBoundarySnapshot();
+        scrollToTop();
+        return;
+      }
+
+      if (isActiveSlot && slotGlobalPageIndex === safePageIndex) {
+        setHasRenderedPdfPage(true);
+      }
+
+      if (
+        slotIndex !== carouselPendingSlotRef.current ||
+        slotGlobalPageIndex !== carouselPendingPageIndexRef.current ||
+        renderToken !== carouselRequestTokenRef.current ||
+        carouselPhaseRef.current !== "preparing"
+      ) {
+        return;
+      }
+
+      clearCarouselFrames();
+      carouselFrameRef.current = window.requestAnimationFrame(() => {
+        carouselFrameRef.current = null;
+        carouselSettleFrameRef.current = window.requestAnimationFrame(() => {
+carouselSettleFrameRef.current = null;
+
+if (
+  !isMountedRef.current ||
+  !isOpenRef.current ||
+  renderToken !== carouselRequestTokenRef.current ||
+  slotIndex !== carouselPendingSlotRef.current ||
+  slotGlobalPageIndex !== carouselPendingPageIndexRef.current ||
+  carouselPhaseRef.current !== "preparing"
+) {
+  return;
+}
+
+beginCarouselSlide();
+        });
       });
-    }
-
-    if (
-      pdfPageTurnLockRef.current &&
-      pdfPageTurnPhaseRef.current === "entering"
-    ) {
-      clearPdfPageTurnFrames();
-      pdfPageTurnFrameRef.current = window.requestAnimationFrame(() => {
-        pdfPageTurnFrameRef.current = null;
-        pdfPageTurnSettleFrameRef.current = window.requestAnimationFrame(
-          () => {
-            pdfPageTurnSettleFrameRef.current = null;
-
-            if (!isMountedRef.current || !isOpenRef.current) {
-              resetPdfPageTurnState();
-              return;
-            }
-
-            pdfPageTurnPhaseRef.current = "idle";
-            setPdfPageTurnPhase("idle");
-            clearPdfPageTurnTimer();
-            pdfPageTurnTimerRef.current = window.setTimeout(() => {
-              pdfPageTurnTimerRef.current = null;
-              pdfPageTurnLockRef.current = false;
-
-              if (isMountedRef.current) {
-                setPdfPageTurnDirection(null);
-              }
-            }, PDF_PAGE_TURN_IN_DURATION);
-          },
-        );
-      });
-    }
-  }, [
-    applyPendingFocalPoint,
-    clearPdfPageTurnFrames,
-    clearPdfPageTurnTimer,
-    resetPdfPageTurnState,
-  ]);
+    },
+    [
+      applyPendingFocalPoint,
+      beginCarouselSlide,
+      clearBoundarySnapshot,
+      clearCarouselFrames,
+      pendingGlobalPageIndex,
+      safePageIndex,
+      scrollToTop,
+    ],
+  );
 
   const handlePdfPageLoadSuccess = useCallback((page) => {
     const pageViewport = page?.getViewport?.({ scale: 1 });
@@ -1574,9 +1778,6 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
 
   const isForwardBoundary =
     isBoundaryTransition && pendingGlobalPageIndex > safePageIndex;
-  const boundaryLoadingMessage = isForwardBoundary
-    ? "Preparing the next section..."
-    : "Preparing the previous section...";
   const boundaryErrorTitle = isForwardBoundary
     ? "The next section could not be loaded."
     : "The previous section could not be loaded.";
@@ -1690,148 +1891,218 @@ export default function LearningMaterialModal({ isOpen, material, onClose }) {
           {hasPdf ? (
             <div className="mx-auto flex min-h-full w-full max-w-[1040px] flex-col">
               <section
-                ref={pdfViewportRef}
-                aria-label={
-                  pdfStatus === "ready" && pageCount > 0
-                    ? `Page ${safePageIndex + 1} of ${pageCount} of ${material.title}`
-                    : `PDF reader for ${material.title}`
-                }
-                onDoubleClick={handlePdfDoubleClick}
-                className={`${
-                  isPdfZoomed ? "my-0" : "my-auto"
-                } w-full transition-[opacity,transform] duration-300 ease-out ${
-                  isVisible
-                    ? "translate-y-0 opacity-100"
-                    : "translate-y-2 opacity-0"
-                }`}
-                style={{ touchAction: isPdfZoomed ? "none" : "pan-y" }}
-              >
-                {pdfStatus !== "error" ? (
-                  <>
-                    <div className={isPdfZoomed ? "w-max min-w-full" : "w-full"}>
-                      <Document
-                        key={activeDocumentKey}
-                        file={pdfUrl}
-                        onLoadSuccess={(result) =>
-                          handlePdfLoadSuccess(result, activeDocumentKey)
-                        }
-                        onLoadError={() =>
-                          handlePdfLoadError(activeDocumentKey)
-                        }
-                        onSourceError={() =>
-                          handlePdfLoadError(activeDocumentKey)
-                        }
-                        loading={null}
-                        error={null}
-                        noData={null}
-                        className={
-                          isPdfZoomed
-                            ? "flex w-max min-w-full justify-start"
-                            : "flex w-full justify-center"
-                        }
-                      >
-                        {pdfStatus === "ready" &&
-                        pdfPageCount > 0 &&
-                        activePdfRenderWidth > 0 ? (
-                          <div
-                            className="relative shrink-0"
-                            style={pdfPaperStyle}
-                          >
-                            <Page
-                              pageNumber={localPdfPageNumber}
-                              inputRef={pdfContentRef}
-                              width={activePdfRenderWidth}
-                              renderTextLayer={true}
-                              renderAnnotationLayer={false}
-                              onLoadSuccess={handlePdfPageLoadSuccess}
-                              onLoadError={() =>
-                                handlePdfLoadError(activeDocumentKey)
-                              }
-                              onRenderError={() =>
-                                handlePdfLoadError(activeDocumentKey)
-                              }
-                              onRenderSuccess={handlePdfPageRenderSuccess}
-                              loading={
-                                <div
-                                  role="status"
-                                  aria-live="polite"
-                                  className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
-                                >
-                                  <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
-                                  <p className="text-sm font-medium text-white/65">
-                                    Preparing your page...
-                                  </p>
-                                </div>
-                              }
-                              error={null}
-                              className={`${
-                                isPdfZoomed ? "mx-0" : "mx-auto"
-                              } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
-                            />
-                            <div
-                              aria-hidden="true"
-                              className="pointer-events-none absolute inset-y-0"
-                              style={pdfPaperEdgeStyle}
-                            />
-                          </div>
-                        ) : null}
-                      </Document>
-                    </div>
+      ref={pdfViewportRef}
+      aria-label={
+        pdfStatus === "ready" && pageCount > 0
+          ? `Page ${safePageIndex + 1} of ${pageCount} of ${material.title}`
+          : `PDF reader for ${material.title}`
+      }
+      onDoubleClick={handlePdfDoubleClick}
+      className={`${
+        isPdfZoomed ? "my-0" : "my-auto"
+      } relative w-full opacity-100`}
+      style={{ touchAction: isPdfZoomed ? "none" : "pan-y" }}
+    >
+      <div className={isPdfZoomed ? "w-max min-w-full" : "w-full"}>
+        <div className="relative grid w-full overflow-hidden">
+          <div
+            ref={boundarySnapshotHostRef}
+            aria-hidden="true"
+            className={`col-start-1 row-start-1 z-20 flex w-full justify-center ${
+              boundarySnapshot
+                ? "visible"
+                : "pointer-events-none invisible"
+            }`}
+            style={{
+              minHeight: boundarySnapshot?.height
+                ? `${boundarySnapshot.height}px`
+                : undefined,
+            }}
+          />
 
-                    {(pdfStatus === "idle" ||
-                      pdfStatus === "loading" ||
-                      (pdfStatus === "ready" && pdfRenderWidth === 0)) && (
+          {pdfStatus !== "error" && (
+            <Document
+              key={activeDocumentKey}
+              file={pdfUrl}
+              onLoadSuccess={(result) =>
+                handlePdfLoadSuccess(result, activeDocumentKey)
+              }
+              onLoadError={() =>
+                handlePdfLoadError(activeDocumentKey)
+              }
+              onSourceError={() =>
+                handlePdfLoadError(activeDocumentKey)
+              }
+              loading={null}
+              error={null}
+              noData={null}
+              className={`col-start-1 row-start-1 ${
+                isPdfZoomed
+                  ? "flex w-max min-w-full justify-start"
+                  : "flex w-full justify-center"
+              }`}
+            >
+              {pdfStatus === "ready" &&
+              pdfPageCount > 0 &&
+              activePdfRenderWidth > 0 ? (
+                <div className="grid w-full">
+                  {carouselSlots.map((slot, slotIndex) => {
+                    const slotGlobalPageIndex = slot.globalPageIndex;
+                    if (slotGlobalPageIndex === null) {
+                      return (
+                        <div
+                          key={`pdf-carousel-slot-${slotIndex}`}
+                          className="col-start-1 row-start-1"
+                          style={getCarouselSlotStyle(slotIndex)}
+                        />
+                      );
+                    }
+
+                    const slotLocalPageNumber = hasMultiPartPdf
+                      ? getLocalPageNumber(
+                          slotGlobalPageIndex,
+                          activePart,
+                        )
+                      : slotGlobalPageIndex + 1;
+                    const isIncomingSlot =
+                      slotIndex === carouselPendingSlotRef.current;
+
+                    const handleSlotFailure = () => {
+                      if (
+                        isIncomingSlot &&
+                        slotGlobalPageIndex ===
+                          carouselPendingPageIndexRef.current &&
+                        slot.renderToken ===
+                          carouselRequestTokenRef.current
+                      ) {
+                        cancelCarouselRequest(
+                          "That page could not be prepared. Please try again.",
+                        );
+                        return;
+                      }
+
+                      handlePdfLoadError(activeDocumentKey);
+                    };
+
+                    return (
                       <div
-                        role="status"
-                        aria-live="polite"
-                        className="flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+                        key={`pdf-carousel-slot-${slotIndex}`}
+                        className={`col-start-1 row-start-1 flex w-full ${
+                          isPdfZoomed ? "justify-start" : "justify-center"
+                        }`}
+                        style={getCarouselSlotStyle(slotIndex)}
+                        onTransitionEnd={(event) => {
+                          if (
+                            event.propertyName === "transform" &&
+                            carouselPhaseRef.current === "sliding" &&
+                            slotIndex === carouselPendingSlotRef.current
+                          ) {
+                            finalizeCarouselTransition();
+                          }
+                        }}
                       >
-                        <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
-                        <div>
-                          <p className="text-sm font-semibold text-white/75">
-                            {isBoundaryTransition
-                              ? boundaryLoadingMessage
-                              : "Preparing your book..."}
-                          </p>
-                          <p className="mt-1 text-xs text-white/40">
-                            CLARA is setting up your reading page.
-                          </p>
+                        <div className="relative shrink-0">
+                          <Page
+                            key={`${slotGlobalPageIndex}:${slot.renderToken}`}
+                            pageNumber={slotLocalPageNumber}
+                            inputRef={
+                              slotIndex === activeCarouselSlot
+                                ? pdfContentRef
+                                : null
+                            }
+                            width={activePdfRenderWidth}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={false}
+                            onLoadSuccess={handlePdfPageLoadSuccess}
+                            onLoadError={handleSlotFailure}
+                            onRenderError={handleSlotFailure}
+                            onRenderSuccess={() =>
+                              handlePdfPageRenderSuccess(
+                                slotIndex,
+                                slot.renderToken,
+                                slotGlobalPageIndex,
+                              )
+                            }
+                            loading={null}
+                            error={null}
+                            className={`${
+                              isPdfZoomed ? "mx-0" : "mx-auto"
+                            } overflow-hidden rounded-[2px] bg-white shadow-[0_14px_42px_rgba(0,0,0,0.28)]`}
+                          />
                         </div>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div
-                    role="alert"
-                    className="flex min-h-[50vh] w-full flex-col items-center justify-center text-center"
+                    );
+                  })}
+                </div>
+              ) : null}
+            </Document>
+          )}
+
+          {!boundarySnapshot &&
+            (pdfStatus === "idle" ||
+              pdfStatus === "loading" ||
+              (pdfStatus === "ready" &&
+                (pdfRenderWidth === 0 || !hasRenderedPdfPage))) && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="col-start-1 row-start-1 z-30 flex min-h-[50vh] w-full flex-col items-center justify-center gap-4 text-center"
+              >
+                <div className="h-9 w-9 animate-pulse rounded-full border border-cyan-200/25 bg-cyan-300/10" />
+                <div>
+                  <p className="text-sm font-semibold text-white/75">
+                    Preparing your book...
+                  </p>
+                  <p className="mt-1 text-xs text-white/40">
+                    CLARA is setting up your reading page.
+                  </p>
+                </div>
+              </div>
+            )}
+
+          {pdfStatus === "error" && (
+            <div
+              role="alert"
+              className="col-start-1 row-start-1 z-30 flex min-h-[50vh] w-full flex-col items-center justify-center text-center"
+            >
+              <div className="max-w-sm rounded-3xl border border-white/10 bg-slate-950/90 px-6 py-7 shadow-2xl backdrop-blur-md">
+                <h3 className="text-base font-semibold text-white/90">
+                  {errorTitle}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-white/55">
+                  {pdfError ?? "Check the PDF file and try again."}
+                </p>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={retryPdf}
+                    className="min-h-11 rounded-2xl bg-cyan-300 px-5 text-sm font-semibold text-slate-950 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                   >
-                    <div className="max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] px-6 py-7 backdrop-blur-md">
-                      <h3 className="text-base font-semibold text-white/90">
-                        {errorTitle}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-white/55">
-                        {pdfError ?? "Check the PDF file and try again."}
-                      </p>
-                      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                        <button
-                          type="button"
-                          onClick={retryPdf}
-                          className="min-h-11 rounded-2xl bg-cyan-300 px-5 text-sm font-semibold text-slate-950 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                        >
-                          Retry
-                        </button>
-                        <button
-                          type="button"
-                          onClick={closeReader}
-                          className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.05] px-5 text-sm font-medium text-white/75 transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                        >
-                          Exit reader
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeReader}
+                    className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.05] px-5 text-sm font-medium text-white/75 transition hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                  >
+                    Exit reader
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {carouselError && (
+        <div
+          role="alert"
+          className="pointer-events-none absolute inset-x-4 bottom-4 z-40 mx-auto max-w-sm rounded-2xl border border-rose-300/20 bg-slate-950/92 px-4 py-3 text-center text-xs font-medium text-rose-100 shadow-xl backdrop-blur-xl"
+        >
+          {carouselError}
+        </div>
+      )}
+    </section>
             </div>
           ) : (
             <div className="mx-auto flex min-h-full w-full max-w-[600px] items-start py-[clamp(2.5rem,10vh,5.5rem)]">
