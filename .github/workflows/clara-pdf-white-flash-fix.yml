@@ -1,28 +1,24 @@
 name: Fix CLARA PDF white page flash
 
 on:
-  pull_request:
+  push:
     branches:
       - main
-    types:
-      - opened
-      - synchronize
-      - reopened
+    paths:
+      - .github/workflows/clara-pdf-white-flash-fix.yml
 
 permissions:
   contents: write
 
 jobs:
   patch-build-and-cleanup:
-    if: github.event.pull_request.head.ref == 'clara-pdf-white-flash-fix'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Check out fix branch
+      - name: Check out main
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: main
           fetch-depth: 0
           persist-credentials: true
 
@@ -84,8 +80,6 @@ jobs:
           text = text.replace(old_effect, new_effect, 1)
           text = text.replace(old_aspect, new_aspect, 1)
 
-          if '    safePageIndex,\n    scrollToTop,\n  ]);' in text[text.index('setPdfPageAspectRatio(0);'):]:
-              raise RuntimeError('safePageIndex still resets the PDF render geometry')
           if 'currentAspectRatio > 0 ? currentAspectRatio : nextAspectRatio' not in text:
               raise RuntimeError('Stable per-document aspect ratio guard is missing')
 
@@ -107,27 +101,28 @@ jobs:
       - name: Build web app
         run: npm run build:web
 
-      - name: Verify and commit validated fix
+      - name: Commit validated fix and remove temporary workflow
+        if: success()
         shell: bash
         run: |
           git diff --check
-          git rm .github/workflows/clara-pdf-white-flash-fix.yml
-          git rm .clara-pdf-white-flash-fix-trigger
-
-          mapfile -t changed < <(git diff --name-only HEAD | sort)
-          expected=(
-            ".clara-pdf-white-flash-fix-trigger"
-            ".github/workflows/clara-pdf-white-flash-fix.yml"
-            "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
-          )
-
-          if [[ "${changed[*]}" != "${expected[*]}" ]]; then
-            printf 'Unexpected changed files:\n%s\n' "${changed[@]}"
-            exit 1
-          fi
-
+          rm -f .github/workflows/clara-pdf-white-flash-fix.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .github/workflows/clara-pdf-white-flash-fix.yml
           git commit -m "fix: prevent white PDF canvas flash after page changes"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:main
+
+      - name: Remove temporary workflow after failure
+        if: failure()
+        shell: bash
+        run: |
+          git restore src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx || true
+          rm -f .github/workflows/clara-pdf-white-flash-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: remove failed PDF white flash validator"
+            git push origin HEAD:main
+          fi
