@@ -6,35 +6,45 @@ import {
   getBudgetTotal,
   getExpenseCategoryKey,
   getPHMonthKey,
-  getPHMonthRange,
-  getTransactionDate,
-  isInPHRange,
-  normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import {
+  doesBudgetRowBelongToCycle,
+  getBudgetCycleRange,
+  isBudgetHeader,
+  isBudgetRowInactive,
+  isExpenseInBudgetCycle,
+  selectDashboardBudgetHeaders,
+} from "@/lib/clara-budget-cycle-authority";
 
 export default function useDashboardBudgetSummaries({
   budgets = [],
   expenses = [],
+  budgetCycleHeader = null,
 } = {}) {
   return useMemo(() => {
-    const monthRange = getPHMonthRange();
-    const activeBudgets = (Array.isArray(budgets) ? budgets : []).filter((budget) => {
-      const month = normalizeString(budget?.month || budget?.budget_month);
-      return !month || month === getPHMonthKey();
-    });
+    const currentMonthKey = getPHMonthKey();
+    const resolvedCycleHeader =
+      budgetCycleHeader ||
+      selectDashboardBudgetHeaders({ budgets, currentMonthKey }).budgetCycleHeader;
+    const cycleRange = getBudgetCycleRange(resolvedCycleHeader || {}, currentMonthKey);
+    const activeBudgets = (Array.isArray(budgets) ? budgets : []).filter(
+      (budget) =>
+        !isBudgetHeader(budget) &&
+        !isBudgetRowInactive(budget) &&
+        doesBudgetRowBelongToCycle(budget, resolvedCycleHeader)
+    );
+    const activeCycleExpenses = (Array.isArray(expenses) ? expenses : []).filter(
+      (expense) => isExpenseInBudgetCycle(expense, cycleRange)
+    );
 
     return FINANCE_CATEGORIES.map((category) => {
       const allocated = activeBudgets.reduce((sum, budget) => {
-        const budgetCategory = getBudgetCategoryKey(budget);
-        if (budgetCategory !== category) return sum;
+        if (getBudgetCategoryKey(budget) !== category) return sum;
         return sum + getBudgetTotal(budget);
       }, 0);
 
-      const used = (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
+      const used = activeCycleExpenses.reduce((sum, expense) => {
         if (getExpenseCategoryKey(expense) !== category) return sum;
-        if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) {
-          return sum;
-        }
         return sum + firstValidNumber(expense?.amount);
       }, 0);
 
@@ -47,7 +57,7 @@ export default function useDashboardBudgetSummaries({
       };
     })
       .filter((item) => item.allocated > 0 || item.used > 0)
-      .sort((a, b) => b.used - a.used || b.allocated - a.allocated)
+      .sort((left, right) => right.used - left.used || right.allocated - left.allocated)
       .slice(0, 4);
-  }, [budgets, expenses]);
+  }, [budgetCycleHeader, budgets, expenses]);
 }
