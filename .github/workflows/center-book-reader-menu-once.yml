@@ -1,0 +1,81 @@
+name: Center CLARA book reader menu once
+
+on:
+  push:
+    branches:
+      - fix/center-book-reader-menu-20260610
+    paths:
+      - .github/workflows/center-book-reader-menu-once.yml
+      - docs/center-book-reader-menu.txt
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/center-book-reader-menu-20260610
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Center the three-dot reader control
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx")
+          source = path.read_text()
+
+          old_class = 'className="absolute left-1/2 z-30 flex h-11 min-h-11 w-11 min-w-11 -translate-x-1/2 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"'
+          new_class = 'className="absolute inset-x-0 z-30 mx-auto flex h-11 min-h-11 w-11 min-w-11 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"'
+
+          old_style = 'style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}'
+          new_style = '''style={{
+            top: "max(0.75rem, env(safe-area-inset-top))",
+            left: 0,
+            right: 0,
+            marginInline: "auto",
+            transform: "none",
+          }}'''
+
+          if source.count(old_class) != 1:
+              raise SystemExit(f"Expected one reader menu class match, found {source.count(old_class)}")
+          if source.count(old_style) != 1:
+              raise SystemExit(f"Expected one reader menu style match, found {source.count(old_style)}")
+
+          source = source.replace(old_class, new_class, 1)
+          source = source.replace(old_style, new_style, 1)
+
+          if "left-1/2" in source or "-translate-x-1/2" in source:
+              raise SystemExit("Legacy transformed centering remains in the reader menu")
+          if 'marginInline: "auto"' not in source or 'transform: "none"' not in source:
+              raise SystemExit("Transform-free centering fallback is missing")
+
+          path.write_text(source)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint shared reader
+        run: npx eslint src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+
+      - name: Build application
+        run: npm run build
+
+      - name: Commit validated correction
+        shell: bash
+        run: |
+          rm -f docs/center-book-reader-menu.txt
+          rm -f .github/workflows/center-book-reader-menu-once.yml
+          git diff --check
+          git config user.name "CLARA Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .github/workflows/center-book-reader-menu-once.yml docs/center-book-reader-menu.txt
+          git commit -m "fix(learning-hub): center reader options control [skip ci]"
+          git push origin HEAD:fix/center-book-reader-menu-20260610
