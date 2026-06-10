@@ -1,1 +1,2 @@
 Validate the stable per-document PDF render geometry fix.
+Synchronize the established validator.
