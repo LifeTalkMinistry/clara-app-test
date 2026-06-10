@@ -7,8 +7,6 @@ import {
   ChevronLeft,
   Compass,
   HeartHandshake,
-  Layers3,
-  Lock,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,67 +14,106 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
-import {
-  ENROLLMENT_APPROVED_STATUSES,
-  ENROLLMENT_PENDING_STATUSES,
-  hasAnyPaidSignal,
-  normalizeAccessValue,
-} from "@/lib/access-control";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
 
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
+const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
+const COMMITTED_VERSION_ROUTE = "/enroll?plan=committed_249&view=detail";
 
 const QUESTION_SETS = [
   {
-    id: "reason",
-    eyebrow: "A few quick questions",
-    title: "What brought you to CLARA today?",
-    description: "Choose the answer that feels closest right now.",
+    id: "commitment_level",
+    eyebrow: "Commitment check",
+    title: "How ready are you to work on your money right now?",
+    description: "No pressure. CLARA only needs to understand your readiness level.",
     options: [
-      { id: "track_money", label: "I want to track my money better", description: "I need a clearer view of what is happening." },
-      { id: "discipline", label: "I want more discipline", description: "I want more structure and consistency." },
-      { id: "stuck", label: "I feel financially stuck", description: "I need help getting momentum again." },
-      { id: "deeper_guidance", label: "I want deeper guidance", description: "I want something more hands-on and intentional." },
+      { id: "just_exploring", label: "I’m just exploring", description: "I want to look around and understand what CLARA can do." },
+      { id: "build_better_habits", label: "I want to build better habits", description: "I want my money routine to feel more consistent." },
+      { id: "take_seriously", label: "I’m ready to take this seriously", description: "I want structure, clarity, and a stronger direction." },
+      { id: "need_structure_now", label: "I badly need structure right now", description: "My money life feels heavy, and I need help organizing it." },
     ],
   },
   {
-    id: "challenge",
-    eyebrow: "Current friction",
-    title: "What feels hardest right now?",
-    description: "This helps CLARA point you in the right direction.",
+    id: "lifestyle_context",
+    eyebrow: "Lifestyle clarity",
+    title: "What kind of life is your money supporting right now?",
+    description: "This helps CLARA understand the responsibilities around your money.",
     options: [
-      { id: "overspending", label: "Overspending", description: "My money disappears faster than I want." },
-      { id: "consistency", label: "Lack of consistency", description: "I start strong, then lose rhythm." },
-      { id: "saving", label: "Saving money", description: "I want to hold onto more of what I earn." },
-      { id: "stress", label: "Stress about money", description: "Money feels heavy and mentally noisy." },
-      { id: "not_sure", label: "I'm not sure yet", description: "I know something needs to change, but I need clarity." },
+      { id: "just_myself", label: "Just myself", description: "My money mostly supports my own needs." },
+      { id: "family_household", label: "My family or household", description: "My money helps support people or responsibilities at home." },
+      { id: "partner_shared_expenses", label: "A partner or shared expenses", description: "I manage money with someone else or share regular costs." },
+      { id: "school_personal_needs", label: "School and personal needs", description: "My money has to support studies and everyday life." },
+      { id: "freelance_irregular_income", label: "Freelance or irregular income", description: "My income changes and is not always predictable." },
+      { id: "business_side_hustle", label: "Business or side hustle", description: "My money also supports income-building activities." },
+      { id: "debt_bills_pressure", label: "Debt, bills, or pressure from others", description: "A lot of my money is already pulled by obligations." },
     ],
   },
   {
-    id: "experience",
-    eyebrow: "How CLARA should feel",
-    title: "What kind of experience do you want right now?",
-    description: "You can always explore more later.",
+    id: "money_pressure_point",
+    eyebrow: "Current pressure",
+    title: "What feels heaviest in your money life right now?",
+    description: "CLARA will use this as your first pressure point to watch.",
     options: [
-      { id: "tools", label: "Just tools for now", description: "Keep it simple and practical." },
-      { id: "system", label: "A step-by-step system", description: "Give me structure and a guided path." },
-      { id: "guidance", label: "Personal guidance", description: "I want stronger support and accountability." },
+      { id: "bills", label: "Bills", description: "Regular payments are taking a lot of space." },
+      { id: "food_daily_needs", label: "Food and daily needs", description: "Everyday needs are the main pressure." },
+      { id: "family_responsibilities", label: "Family responsibilities", description: "Supporting others affects my money decisions." },
+      { id: "impulse_spending", label: "Impulse spending", description: "I sometimes spend before thinking it through." },
+      { id: "debt", label: "Debt", description: "Payments or balances feel hard to escape." },
+      { id: "irregular_income", label: "Irregular income", description: "My money timing is inconsistent." },
+      { id: "saving_money", label: "Saving money", description: "It is hard to keep money aside." },
+      { id: "not_sure_yet", label: "I’m not sure yet", description: "I need CLARA to help me see the pattern first." },
     ],
   },
   {
-    id: "readiness",
-    eyebrow: "Starting point",
-    title: "How ready are you to start?",
-    description: "This helps CLARA shape the handoff after setup.",
+    id: "spending_trigger",
+    eyebrow: "Ask before you spend",
+    title: "When do you usually need help before spending?",
+    description: "This tells CLARA when to help you pause before a risky decision.",
     options: [
-      { id: "exploring", label: "Just exploring", description: "I want to look around before committing deeply." },
-      { id: "habits", label: "Ready to build habits", description: "I want consistent structure and momentum." },
-      { id: "commit", label: "Ready to commit seriously", description: "I want a more intentional path right away." },
+      { id: "sudden_purchase", label: "When I want to buy something suddenly", description: "The decision happens fast." },
+      { id: "friends_family_invite", label: "When friends or family invite me out", description: "Social pressure can affect my spending." },
+      { id: "stress_spending", label: "When I feel stressed", description: "Emotions can push me to spend." },
+      { id: "sale_promo", label: "When I see a sale or promo", description: "Discounts make the purchase feel urgent." },
+      { id: "payday_arrives", label: "When payday arrives", description: "Fresh income can disappear quickly." },
+      { id: "affordability_uncertain", label: "When I’m not sure if I can afford it", description: "I need a clear check before deciding." },
+    ],
+  },
+  {
+    id: "spending_guidance_style",
+    eyebrow: "Spending check preference",
+    title: "What kind of spending check would help you most?",
+    description: "CLARA can be gentle, direct, or budget-based depending on what helps you act.",
+    options: [
+      { id: "simple_yes_no", label: "Simple yes or no guidance", description: "Just tell me if it looks okay or risky." },
+      { id: "short_explanation", label: "A short explanation", description: "Give me a quick reason behind the guidance." },
+      { id: "strict_warning", label: "A strict warning when risky", description: "Be firm when the decision can hurt my plan." },
+      { id: "softer_reminder", label: "A softer reminder", description: "Guide me without making it feel heavy." },
+      { id: "budget_based_check", label: "A budget-based check", description: "Compare the decision with my actual budget first." },
+    ],
+  },
+  {
+    id: "guidance_intensity",
+    eyebrow: "Real guidance",
+    title: "How do you want CLARA to guide you?",
+    description: "This shapes how strong CLARA’s coaching voice should feel.",
+    options: [
+      { id: "keep_simple", label: "Keep it simple", description: "I want clean guidance without too much detail." },
+      { id: "clear_next_steps", label: "Give me clear next steps", description: "Show me what to do next." },
+      { id: "risk_warnings", label: "Warn me when I’m at risk", description: "Help me catch problems before they grow." },
+      { id: "understand_patterns", label: "Help me understand my patterns", description: "Show me the behavior behind my money." },
+      { id: "money_coach", label: "Guide me like a money coach", description: "Give me stronger guidance and practical direction." },
     ],
   },
 ];
 
-const SLIDE_ICONS = [Layers3, Compass, HeartHandshake, Lock];
+const SUMMARY_ITEMS = [
+  { id: "commitment_level", label: "Commitment level" },
+  { id: "lifestyle_context", label: "Lifestyle context" },
+  { id: "money_pressure_point", label: "Main money pressure point" },
+  { id: "spending_trigger", label: "Spending trigger" },
+  { id: "spending_guidance_style", label: "Spending check" },
+  { id: "guidance_intensity", label: "Guidance style" },
+];
 
 const withTimeout = (promise, ms = 8000) =>
   Promise.race([
@@ -84,63 +121,32 @@ const withTimeout = (promise, ms = 8000) =>
     new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out.")), ms)),
   ]);
 
-function getRecommendation(answers) {
-  const scores = { tools: 0, system: 0, guidance: 0 };
-
-  if (answers.reason === "track_money") scores.tools += 2;
-  if (answers.reason === "discipline") scores.system += 2;
-  if (answers.reason === "stuck") {
-    scores.system += 1;
-    scores.guidance += 1;
-  }
-  if (answers.reason === "deeper_guidance") scores.guidance += 2;
-
-  if (answers.challenge === "overspending") {
-    scores.tools += 1;
-    scores.system += 1;
-  }
-  if (answers.challenge === "consistency") scores.system += 2;
-  if (answers.challenge === "saving") {
-    scores.tools += 1;
-    scores.system += 1;
-  }
-  if (answers.challenge === "stress") scores.guidance += 2;
-  if (answers.challenge === "not_sure") scores.tools += 1;
-
-  if (answers.experience === "tools") scores.tools += 3;
-  if (answers.experience === "system") scores.system += 3;
-  if (answers.experience === "guidance") scores.guidance += 3;
-
-  if (answers.readiness === "exploring") scores.tools += 2;
-  if (answers.readiness === "habits") scores.system += 2;
-  if (answers.readiness === "commit") {
-    scores.system += 1;
-    scores.guidance += 2;
-  }
-
-  const ordered = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  if (ordered[0][1] === ordered[1][1]) {
-    if (answers.experience === "guidance") return "guidance";
-    if (answers.experience === "system") return "system";
-  }
-  return ordered[0][0];
-}
-
 function getAnswerLabel(questionId, optionId) {
   const question = QUESTION_SETS.find((entry) => entry.id === questionId);
   return question?.options.find((option) => option.id === optionId)?.label || "";
 }
 
-function getCompletionDestination(profile) {
-  const enrollmentStatus = normalizeAccessValue(profile?.enrollment_status || profile?.status);
-  const isPaid = hasAnyPaidSignal(profile);
-  if (ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) return "/pending";
-  if (ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) || isPaid) return "/program-onboarding";
-  return "/enroll?plan=committed_249&view=detail";
+function getRecommendedAccessLevel(answers) {
+  const committedSignals = new Set([
+    "take_seriously",
+    "need_structure_now",
+    "strict_warning",
+    "budget_based_check",
+    "risk_warnings",
+    "money_coach",
+  ]);
+
+  const hasCommittedSignal = [
+    answers.commitment_level,
+    answers.spending_guidance_style,
+    answers.guidance_intensity,
+  ].some((value) => committedSignals.has(value));
+
+  return hasCommittedSignal ? "committed" : "free";
 }
 
-function getRecommendedAccessLevel(recommendation) {
-  return recommendation === "tools" ? "free" : "committed";
+function getMissingRequiredAnswer(answers) {
+  return QUESTION_SETS.find((question) => !answers[question.id]);
 }
 
 export default function UniversalOnboarding() {
@@ -190,43 +196,29 @@ export default function UniversalOnboarding() {
     };
   }, []);
 
-  const slides = content?.slides || [];
   const screens = useMemo(
     () => [
       { id: "welcome", type: "welcome" },
-      ...slides.map((_, index) => ({ id: `slide-${index}`, type: "slide", index })),
-      { id: "founder", type: "founder" },
       ...QUESTION_SETS.map((question, index) => ({ id: `question-${question.id}`, type: "question", index })),
+      { id: "mission", type: "mission" },
       { id: "result", type: "result" },
     ],
-    [slides]
+    []
   );
   const screen = screens[screenIndex];
-  const recommendation = useMemo(() => getRecommendation(answers), [answers]);
-  const resultContent = content?.results?.[recommendation] || {
-    title: "",
-    body: "",
-    primaryCta: "",
-    secondaryCta: "",
-  };
-  const reflectionText = useMemo(() => {
-    const reason = getAnswerLabel("reason", answers.reason);
-    const challenge = getAnswerLabel("challenge", answers.challenge);
-    if (!reason || !challenge) {
-      return "CLARA is setting up a starting point that feels clear, supportive, and realistic.";
-    }
-    return `You came here because ${reason.toLowerCase()}, and right now ${challenge.toLowerCase()} feels most important to address.`;
-  }, [answers.challenge, answers.reason]);
-  const readinessText = useMemo(() => {
-    const readiness = getAnswerLabel("readiness", answers.readiness);
-    const experience = getAnswerLabel("experience", answers.experience);
-    if (!readiness || !experience) {
-      return "This next step is designed to feel intentional, not overwhelming.";
-    }
-    return `Based on your answers, the best next move is an experience that feels ${experience.toLowerCase()} while matching the fact that you are ${readiness.toLowerCase()}.`;
-  }, [answers.experience, answers.readiness]);
+  const currentQuestion = screen?.type === "question" ? QUESTION_SETS[screen.index] : null;
+  const recommendedAccessLevel = useMemo(() => getRecommendedAccessLevel(answers), [answers]);
   const canGoBack = screenIndex > 0 && !saving;
   const progressValue = screens.length ? ((screenIndex + 1) / screens.length) * 100 : 0;
+
+  const summary = useMemo(
+    () =>
+      SUMMARY_ITEMS.map((item) => ({
+        ...item,
+        value: getAnswerLabel(item.id, answers[item.id]) || "Not answered yet",
+      })),
+    [answers]
+  );
 
   function goNext() {
     setScreenIndex((current) => Math.min(current + 1, screens.length - 1));
@@ -251,7 +243,7 @@ export default function UniversalOnboarding() {
     const { error } = await withTimeout(supabase.from("profiles").upsert(payload, { onConflict: "id" }), 8000);
     if (error) {
       console.error("Profile upsert error:", error);
-      throw new Error(error.message || "Failed to save profile.");
+      throw new Error(SAVE_ERROR_MESSAGE);
     }
   }
 
@@ -267,27 +259,42 @@ export default function UniversalOnboarding() {
     if (authUpdateError) console.error("Auth metadata update error:", authUpdateError);
   }
 
-  async function finishOnboarding(destination) {
+  async function finishOnboarding(destination = "/dashboard") {
     if (saving) return;
+
+    const missingAnswer = getMissingRequiredAnswer(answers);
+    if (missingAnswer) {
+      setNameError("Please complete your setup answers before continuing.");
+      setScreenIndex(screens.findIndex((entry) => entry.id === `question-${missingAnswer.id}`));
+      return;
+    }
+
     try {
       setSaving(true);
       setNameError("");
       await saveNameIfNeeded();
       await updateProfile({
         onboarding_completed: true,
-        onboarding_step: 4,
         has_completed_onboarding: true,
+        onboarding_step: screens.length,
         onboarding_answers: answers,
-        recommended_access_level: getRecommendedAccessLevel(recommendation),
+        commitment_level: answers.commitment_level,
+        lifestyle_context: answers.lifestyle_context,
+        money_pressure_point: answers.money_pressure_point,
+        spending_trigger: answers.spending_trigger,
+        spending_guidance_style: answers.spending_guidance_style,
+        guidance_intensity: answers.guidance_intensity,
+        recommended_access_level: recommendedAccessLevel,
+        onboarding_completed_at: new Date().toISOString(),
       });
       await refreshProfile?.();
       navigate(destination, {
         replace: true,
-        state: { fromOnboarding: true, onboardingRecommendation: recommendation },
+        state: { fromOnboarding: true, recommendedAccessLevel },
       });
     } catch (error) {
       console.error("Universal onboarding completion error:", error);
-      setNameError(error?.message || "Failed to continue.");
+      setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
     } finally {
       setSaving(false);
     }
@@ -311,15 +318,14 @@ export default function UniversalOnboarding() {
     );
   }
 
-  const currentQuestion = screen.type === "question" ? QUESTION_SETS[screen.index] : null;
   const motionProps = prefersReducedMotion
     ? { initial: { opacity: 1, y: 0 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 1, y: 0 }, transition: { duration: 0 } }
     : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -12 }, transition: { duration: 0.24, ease: "easeOut" } };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#08111f] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_33%),radial-gradient(circle_at_80%_20%,_rgba(18,129,92,0.16),_transparent_25%),linear-gradient(180deg,_#08111f_0%,_#0b1525_44%,_#08111f_100%)]" />
-      <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-40" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
+      <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-6 sm:px-6">
         <div className="w-full rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-6">
           <div className="flex items-center justify-between gap-4">
@@ -341,7 +347,7 @@ export default function UniversalOnboarding() {
             <Progress value={progressValue} className="h-2 rounded-full bg-white/10 [&>div]:bg-[linear-gradient(90deg,#f4cd71_0%,#34d399_100%)]" />
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1728]/80 p-5 sm:p-7">
+          <div className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-5 sm:p-7">
             <AnimatePresence mode="wait">
               <motion.div key={screen.id} {...motionProps} className="space-y-6">
                 {screen.type === "welcome" ? (
@@ -359,7 +365,7 @@ export default function UniversalOnboarding() {
                             {content.welcome.cta}
                             <ArrowRight className="h-4 w-4" />
                           </Button>
-                          <p className="text-sm text-white/52">A short setup designed to make your start feel clear.</p>
+                          <p className="text-sm text-white/52">A calm first coaching session, not a sales page.</p>
                         </div>
                       </div>
                       <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4">
@@ -369,77 +375,21 @@ export default function UniversalOnboarding() {
                           <div className="flex h-[260px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-5">
                             <div className="flex items-center gap-2 text-sm text-white/60">
                               <BadgeCheck className="h-4 w-4 text-[#f4cd71]" />
-                              Intentional by design
+                              Diagnosis before direction
                             </div>
                             <div className="space-y-3">
                               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Clarity</p>
-                                <p className="mt-2 text-sm text-white/78">Understand the habits behind your money.</p>
+                                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Lifestyle</p>
+                                <p className="mt-2 text-sm text-white/78">CLARA learns what your money is supporting.</p>
                               </div>
                               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Structure</p>
-                                <p className="mt-2 text-sm text-white/78">Move through a path that feels ordered, not noisy.</p>
+                                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Spending pause</p>
+                                <p className="mt-2 text-sm text-white/78">CLARA learns when you need help before spending.</p>
                               </div>
                             </div>
                           </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {screen.type === "slide" ? (
-                  <div className="space-y-6">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/55">
-                      What is CLARA?
-                    </div>
-                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4cd71]/12 text-[#f4cd71]">
-                        {(() => {
-                          const Icon = SLIDE_ICONS[screen.index] || Sparkles;
-                          return <Icon className="h-6 w-6" />;
-                        })()}
-                      </div>
-                      <h2 className="mt-6 max-w-lg text-3xl font-semibold leading-tight text-white sm:text-4xl">{slides[screen.index]?.title}</h2>
-                      <p className="mt-4 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">{slides[screen.index]?.description}</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm text-white/45">Slide {screen.index + 1} of {slides.length}</p>
-                      <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-white text-[#111827] hover:bg-white/90">
-                        Continue
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {screen.type === "founder" ? (
-                  <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-4">
-                      {content.founder.mediaUrl ? (
-                        <img src={content.founder.mediaUrl} alt="About the creator" className="h-[250px] w-full rounded-[22px] object-cover" />
-                      ) : (
-                        <div className="flex h-[250px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top_left,_rgba(82,230,167,0.16),_transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-5">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-[#8ce6c0]">
-                            <HeartHandshake className="h-6 w-6" />
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-xs uppercase tracking-[0.22em] text-white/45">Human, not generic</p>
-                            <p className="text-sm leading-6 text-white/72">CLARA is built to feel guided, clear, and grounded in real behavior.</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-5">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-[#8ce6c0]/20 bg-[#8ce6c0]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a7efd0]">
-                        {content.founder.badge}
-                      </div>
-                      <h2 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{content.founder.headline}</h2>
-                      <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">{content.founder.body}</p>
-                      <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7]">
-                        Continue setup
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 ) : null}
@@ -478,22 +428,58 @@ export default function UniversalOnboarding() {
                   </div>
                 ) : null}
 
+                {screen.type === "mission" ? (
+                  <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-4">
+                      <div className="flex h-[250px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top_left,_rgba(82,230,167,0.16),_transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-5">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-[#8ce6c0]">
+                          <HeartHandshake className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs uppercase tracking-[0.22em] text-white/45">Advocacy</p>
+                          <p className="text-sm leading-6 text-white/72">A softer mission note before CLARA prepares your starting path.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-5">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-[#8ce6c0]/20 bg-[#8ce6c0]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a7efd0]">
+                        <Compass className="h-3.5 w-3.5" />
+                        CLARA mission
+                      </div>
+                      <h2 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{content.mission.title}</h2>
+                      <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">{content.mission.body}</p>
+                      <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7]">
+                        {content.mission.cta}
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
                 {screen.type === "result" ? (
                   <div className="space-y-6">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
-                      Your starting direction
+                      CLARA starting path
                     </div>
                     <div className="grid gap-4">
                       <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-6">
-                        <p className="text-sm font-medium leading-7 text-white/70">{reflectionText}</p>
-                        <h2 className="mt-4 max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">{resultContent.title}</h2>
-                        <p className="mt-4 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">{resultContent.body}</p>
-                        <p className="mt-3 text-sm leading-6 text-white/58">{readinessText}</p>
+                        <h2 className="max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">{content.result.title}</h2>
+                        <p className="mt-4 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">{content.result.body}</p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {summary.map((item) => (
+                          <div key={item.id} className="rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">{item.label}</p>
+                            <p className="mt-2 text-sm font-semibold leading-6 text-white/82">{item.value}</p>
+                          </div>
+                        ))}
                       </div>
                       <div className="rounded-[28px] border border-[#34d399]/18 bg-[#34d399]/[0.06] p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9ceccb]">{content.teaser.badge}</p>
-                        <h3 className="mt-3 text-xl font-semibold text-white">{content.teaser.headline}</h3>
-                        <p className="mt-2 text-sm leading-6 text-white/68">{content.teaser.body}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9ceccb]">Access note</p>
+                        <h3 className="mt-3 text-xl font-semibold text-white">You can start with the Free Version.</h3>
+                        <p className="mt-2 text-sm leading-6 text-white/68">
+                          The Committed Version remains available when you want the deeper explanation and commitment flow.
+                        </p>
                       </div>
                       {needsNameFix ? (
                         <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
@@ -514,12 +500,12 @@ export default function UniversalOnboarding() {
                     </div>
                     {nameError ? <p className="text-sm text-red-300">{nameError}</p> : null}
                     <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button type="button" onClick={() => finishOnboarding(getCompletionDestination(profile, recommendation))} disabled={saving} className="h-12 flex-1 rounded-2xl bg-[#f4cd71] text-[#111827] hover:bg-[#f7d98e]">
-                        {saving ? "Saving..." : resultContent.primaryCta}
+                      <Button type="button" onClick={() => finishOnboarding("/dashboard")} disabled={saving} className="h-12 flex-1 rounded-2xl bg-[#f4cd71] text-[#111827] hover:bg-[#f7d98e]">
+                        {saving ? "Saving..." : content.result.primaryCta}
                         {!saving ? <ArrowRight className="h-4 w-4" /> : null}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => finishOnboarding("/enroll")} disabled={saving} className="h-12 flex-1 rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
-                        {resultContent.secondaryCta}
+                      <Button type="button" variant="outline" onClick={() => finishOnboarding(COMMITTED_VERSION_ROUTE)} disabled={saving} className="h-12 flex-1 rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
+                        {content.result.secondaryCta}
                       </Button>
                     </div>
                   </div>
