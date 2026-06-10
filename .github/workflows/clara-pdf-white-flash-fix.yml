@@ -9,14 +9,14 @@ on:
       - synchronize
       - reopened
     paths:
-      - .clara-pdf-white-flash-fix-v2-trigger
+      - .clara-pdf-white-flash-fix-trigger
 
 permissions:
   contents: write
 
 jobs:
   patch-build-and-cleanup:
-    if: github.event.pull_request.head.ref == 'clara-pdf-white-flash-fix-v2'
+    if: github.event.pull_request.head.ref == 'clara-pdf-white-flash-fix'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -112,11 +112,11 @@ jobs:
         run: |
           git diff --check
           git rm .github/workflows/clara-pdf-white-flash-fix.yml
-          git rm .clara-pdf-white-flash-fix-v2-trigger
+          git rm .clara-pdf-white-flash-fix-trigger
 
           mapfile -t changed < <(git diff --name-only HEAD | sort)
           expected=(
-            ".clara-pdf-white-flash-fix-v2-trigger"
+            ".clara-pdf-white-flash-fix-trigger"
             ".github/workflows/clara-pdf-white-flash-fix.yml"
             "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
           )
