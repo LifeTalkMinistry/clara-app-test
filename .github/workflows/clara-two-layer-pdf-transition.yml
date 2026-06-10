@@ -44,6 +44,25 @@ jobs:
               line[10:] if line.startswith("          ") else line
               for line in block.splitlines()
           )
+          final_cleanup = r'''
+          source = re.sub(
+              r'className=\{`w-full transition-\[opacity,transform\][\s\S]*?`\}',
+              'className="book-page w-full opacity-100 transform-none animate-none transition-none"',
+              source,
+              count=1,
+          )
+          source = source.replace("pdfPageTurnLockRef.current", "false")
+          source = re.sub(r'\s*\|\|\s*false', '', source)
+          source = re.sub(r'false\s*\|\|\s*', '', source)
+          source = re.sub(
+              r'\n\s*if \(false\) \{\n(?:\s+.*\n){1,5}\s*\}',
+              '',
+              source,
+          )
+          source = re.sub(r'\n\s*if \(false\) return;', '', source)
+          '''
+          script = "import re\n" + script
+          script = script.replace("forbidden = [", final_cleanup + "\nforbidden = [", 1)
           Path("/tmp/remove-book-transitions.py").write_text(script + "\n")
           PY
           python /tmp/remove-book-transitions.py
@@ -67,7 +86,7 @@ jobs:
           git diff --check
           test -z "$(git diff --name-only -- package.json package-lock.json)"
           test "$(grep -c '<Page' src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx)" = "1"
-          ! grep -E 'carousel|boundarySnapshot|pendingGlobalPageIndex|transitionLockRef|pdfPageTurnLockRef|onTransitionEnd|translate3d' src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+          ! grep -E 'carousel|boundarySnapshot|pendingGlobalPageIndex|transitionLockRef|pdfPageTurnLockRef|onTransitionEnd|translate3d|isVisible|transition-\[opacity,transform\]' src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
       - name: Commit validated reader correction
         working-directory: repo
