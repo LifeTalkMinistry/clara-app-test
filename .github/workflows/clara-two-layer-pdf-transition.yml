@@ -25,8 +25,11 @@ jobs:
         shell: bash
         run: |
           test -f .clara-direct-two-layer-trigger
-          test -f .clara-two-layer-payload.gz.b64
-          base64 --decode .clara-two-layer-payload.gz.b64 | gzip --decompress > /tmp/LearningMaterialModal.jsx
+          git fetch origin automation/clara-two-layer-pdf-transition --quiet
+          git show origin/automation/clara-two-layer-pdf-transition:.clara-two-layer-payload.gz.b64 \
+            | base64 --decode \
+            | gzip --decompress \
+            > /tmp/LearningMaterialModal.jsx
           test -s /tmp/LearningMaterialModal.jsx
           mv /tmp/LearningMaterialModal.jsx src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
@@ -48,7 +51,7 @@ jobs:
       - name: Confirm final one-file tree
         shell: bash
         run: |
-          rm -f .clara-direct-two-layer-trigger .clara-two-layer-payload.gz.b64 .github/workflows/clara-two-layer-pdf-transition.yml
+          rm -f .clara-direct-two-layer-trigger .github/workflows/clara-two-layer-pdf-transition.yml
           git diff --check
           test -z "$(git diff --name-only -- package.json package-lock.json)"
           changed="$(git diff --name-only 65e3aa7688fac80eb8976c599d7b4b13ebad53b5)"
@@ -59,6 +62,6 @@ jobs:
         run: |
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-direct-two-layer-trigger .clara-two-layer-payload.gz.b64 .github/workflows/clara-two-layer-pdf-transition.yml
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-direct-two-layer-trigger .github/workflows/clara-two-layer-pdf-transition.yml
           git commit -m "Fix PDF transition with two rendered layers"
           git push origin HEAD:main
