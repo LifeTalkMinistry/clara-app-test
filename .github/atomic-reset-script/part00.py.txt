@@ -1,0 +1,75 @@
+from pathlib import Path
+import json
+import re
+
+ROOT = Path.cwd()
+
+
+def read(path):
+    return (ROOT / path).read_text()
+
+
+def write(path, content):
+    target = ROOT / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content)
+    print(f"updated {path}")
+
+
+def replace_required(path, old, new):
+    source = read(path)
+    if old not in source:
+        raise RuntimeError(f"Required anchor not found in {path}: {old[:140]!r}")
+    write(path, source.replace(old, new, 1))
+
+
+def replace_regex(path, pattern, replacement, flags=re.S):
+    source = read(path)
+    next_source, count = re.subn(pattern, replacement, source, count=1, flags=flags)
+    if count != 1:
+        raise RuntimeError(f"Required regex not found in {path}: {pattern}")
+    write(path, next_source)
+
+
+def patch_package_json():
+    path = "package.json"
+    data = json.loads(read(path))
+    data.setdefault("scripts", {})["test:budget-reset"] = "node --test tests/atomic-budget-reset.test.mjs"
+    write(path, json.dumps(data, indent=2) + "\n")
+
+
+def patch_financial_data_hook():
+    path = "src/hooks/useFinancialData.js"
+    replace_required(
+        path,
+        'import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";\n',
+        'import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";\n'
+        'import { applyBudgetNoPlanToFinanceCache } from "@/lib/clara-budget-no-plan-state";\n'
+        'import {\n'
+        '  bumpFinanceRefreshRevision,\n'
+        '  getFinanceRefreshRevision,\n'
+        '  isFinanceRefreshRevisionCurrent,\n'
+        '} from "@/lib/clara-finance-refresh-guard";\n',
+    )
+    replace_required(
+        path,
+        '  const loadingPromiseRef = useRef(null);\n',
+        '  const loadingPromiseRef = useRef(null);\n  const lastBudgetResetOperationRef = useRef("");\n',
+    )
+    replace_regex(
+        path,
+        r'  const loadAll = useCallback\(async \(\{ background = false \} = \{\}\) => \{.*?\n  \}, \[buildSafeCache, cacheKey, hydrateFromCache, localUserId\]\);',
+        r'''  const loadAll = useCallback(async ({ background = false } = {}) => {
+    if (loadingPromiseRef.current) return loadingPromiseRef.current;
+    const requestRevision = getFinanceRefreshRevision();
+
+    if (mountedRef.current) {
+      if (!hydratedRef.current && !background) setLoading(true);
+      else setRefreshing(true);
+      setError(null);
+    }
+
+    let promise;
+    promise = (async () => {
+      try {
+        const [r
