@@ -1,0 +1,26 @@
+name: Validate membership migration
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build transformed membership source
+        shell: bash
+        run: |
+          git clone --quiet --depth 1 --branch "$GITHUB_HEAD_REF" https://github.com/LifeTalkMinistry/clara-app-test.git workspace
+          cd workspace
+          node scripts/apply-membership-migration.mjs
+          npm ci --silent
+          npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: validation-placeholder
+          VITE_GEMINI_API_KEY: validation-placeholder
