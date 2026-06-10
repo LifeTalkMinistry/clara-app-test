@@ -1,0 +1,101 @@
+goryName || financeForm.title);
+    const categoryAmount = Number(financeForm.totalBudget);
+    const declaredAmount = Number(financeForm.monthlyBudgetAmount);
+    const existingCategory = financeModal?.payload || null;
+    const monthKey = getPHMonthKey();
+    const shouldSaveCategory = saveCategory && Boolean(categoryName || financeForm.totalBudget || existingCategory?.id);
+    const draftHeader = (Array.isArray(budgets) ? budgets : []).find((row) => {
+      const status = normalizeLower(row?.status);
+      const isHeader = row?.is_plan_header === true || normalizeLower(row?.plan_type) === "monthly_budget" || normalizeLower(row?.category) === "__monthly_budget__";
+      const month = normalizeString(row?.month || row?.month_key || row?.budget_month);
+      return isHeader && status === "draft" && row?.is_active !== false && (!month || month === monthKey);
+    });
+    const workingHeader = monthlyBudgetHeader || draftHeader || null;
+    const planId = normalizeString(workingHeader?.id) || createBudgetIdentity("budget_plan");
+    const cycleId = normalizeString(workingHeader?.cycle_id) || createBudgetIdentity("budget_cycle");
+    const existingIsActive = Boolean(monthlyBudgetHeader?.id);
+    const workingCategories = (Array.isArray(budgets) ? budgets : []).filter((row) => {
+      if (row?.is_plan_header === true || normalizeLower(row?.plan_type) === "monthly_budget") return false;
+      if (row?.is_active === false || ["inactive", "archived", "deleted", "closed", "reset"].includes(normalizeLower(row?.status))) return false;
+      const parentId = normalizeString(row?.budget_plan_id);
+      if (parentId) return parentId === planId;
+      const rowCycleId = normalizeString(row?.cycle_id);
+      if (rowCycleId) return rowCycleId === cycleId;
+      return normalizeString(row?.month || row?.month_key || row?.budget_month) === monthKey;
+    });
+
+    if (!Number.isFinite(declaredAmount) || declaredAmount <= 0) {
+      showFinanceNotice("Please enter a valid declared monthly budget amount.");
+      return false;
+    }
+    if (shouldSaveCategory && !categoryName) {
+      showFinanceNotice("Please enter a budget category name.");
+      return false;
+    }
+    if (shouldSaveCategory && (!Number.isFinite(categoryAmount) || categoryAmount <= 0)) {
+      showFinanceNotice("Please enter a valid allocated amount.");
+      return false;
+    }
+
+    const currentAllocated = workingCategories.reduce((sum, row) => sum + getBudgetTotal(row), 0);
+    const existingAllocation = existingCategory?.id ? getBudgetTotal(existingCategory) : 0;
+    const projectedAllocated = shouldSaveCategory
+      ? currentAllocated - existingAllocation + categoryAmount
+      : currentAllocated;
+    const remainingToAllocate = Math.max(declaredAmount - (currentAllocated - existingAllocation), 0);
+    const projectedUnallocated = Math.max(declaredAmount - projectedAllocated, 0);
+
+    if (projectedAllocated > declaredAmount) {
+      showFinanceNotice(`This exceeds your declared monthly budget. You only have ${fmt(remainingToAllocate)} left to allocate.`);
+      return false;
+    }
+    if (finish && projectedUnallocated > 0) {
+      showFinanceNotice(`Assign the remaining ${fmt(projectedUnallocated)} before completing your budget.`);
+      return false;
+    }
+    if (finish && projectedAllocated !== declaredAmount) {
+      showFinanceNotice("Finish Budget is only available when your unallocated balance is exactly ₱0.");
+      return false;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const nowIso = new Date().toISOString();
+      const nextStatus = existingIsActive ? "active" : "draft";
+      const headerPayload = {
+        id: planId,
+        cycle_id: cycleId,
+        budget_plan_id: null,
+        is_active: true,
+        active: true,
+        status: nextStatus,
+        is_complete: existingIsActive,
+        complete: existingIsActive,
+        is_plan_header: true,
+        plan_type: "monthly_budget",
+        month: monthKey,
+        category: "__monthly_budget__",
+        budget_category: "__monthly_budget__",
+        title: "Monthly Spending Plan",
+        name: "Monthly Spending Plan",
+        declared_amount: declaredAmount,
+        declared_budget: declaredAmount,
+        monthly_budget_amount: declaredAmount,
+        total_declared_budget: declaredAmount,
+        total_budget: declaredAmount,
+        amount: declaredAmount,
+        updated_at: nowIso,
+        user_id: user?.id || workingHeader?.user_id || null,
+        user_email: user?.email || workingHeader?.user_email || workingHeader?.email || null,
+        email: user?.email || workingHeader?.email || null,
+        created_by: user?.email || workingHeader?.created_by || null,
+      };
+
+      if (workingHeader?.id) await updateBudgetData?.(String(workingHeader.id), headerPayload);
+      else await addBudgetData?.({ ...headerPayload, created_at: nowIso });
+
+      const optimisticBudgetRows = [{
+        ...(workingHeader || {}),
+        ...headerPayload,
+        id: planId,
+     

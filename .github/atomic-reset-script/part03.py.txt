@@ -1,0 +1,131 @@
+   created_at: workingHeader?.created_at || nowIso,
+      }];
+
+      if (shouldSaveCategory) {
+        const categoryId = normalizeString(existingCategory?.id) || createBudgetIdentity("budget_category");
+        const payload = {
+          id: categoryId,
+          budget_plan_id: planId,
+          cycle_id: cycleId,
+          is_active: true,
+          active: true,
+          status: nextStatus,
+          is_complete: existingIsActive,
+          complete: existingIsActive,
+          is_plan_header: false,
+          plan_type: "budget_category",
+          month: normalizeString(existingCategory?.month || existingCategory?.budget_month || monthKey) || monthKey,
+          category: categoryName,
+          budget_category: categoryName,
+          title: categoryName,
+          name: categoryName,
+          allocated_amount: categoryAmount,
+          budget_amount: categoryAmount,
+          total_budget: categoryAmount,
+          declared_amount: declaredAmount,
+          declared_budget: declaredAmount,
+          monthly_budget_amount: declaredAmount,
+          need_type: getBudgetNeedType({ ...existingCategory, category: categoryName }),
+          sort_order: firstValidNumber(existingCategory?.sort_order, existingCategory?.display_order, budgets.length + 1),
+          updated_at: nowIso,
+          user_id: user?.id || existingCategory?.user_id || null,
+          user_email: user?.email || existingCategory?.user_email || existingCategory?.email || null,
+          email: user?.email || existingCategory?.email || null,
+          created_by: user?.email || existingCategory?.created_by || null,
+        };
+        if (existingCategory?.id) await updateBudgetData?.(String(existingCategory.id), payload);
+        else await addBudgetData?.({ ...payload, created_at: nowIso });
+        optimisticBudgetRows.push({ ...(existingCategory || {}), ...payload, id: categoryId, created_at: existingCategory?.created_at || nowIso });
+      }
+
+      syncBudgetRowsIntoState(optimisticBudgetRows);
+
+      if (finish && !existingIsActive) {
+        const localUserId = getEffectiveDemoFinanceLocalUserId(user?.id || user?.email || "local-user");
+        await activateNewBudgetCycle({
+          localUserId,
+          headerId: planId,
+          declaredAmount,
+          activatedAt: nowIso,
+          operationId: createBudgetIdentity("budget_activation"),
+        });
+      }
+
+      await refreshFinanceSection();
+      setExpandedFinanceCard("budgets");
+      setBudgetExitConfirm(false);
+
+      if (exitAfterSave || finish) closeFinanceModal();
+      else {
+        setFinanceModal({ type: "save_budget", payload: null });
+        setFinanceForm((prev) => ({
+          ...prev,
+          title: "",
+          budgetCategoryName: "",
+          totalBudget: "",
+          monthlyBudgetAmount: String(declaredAmount),
+        }));
+      }
+
+      showFinanceNotice(
+        finish
+          ? "Budget activated. Only expenses from this exact moment will count in the new cycle."
+          : shouldSaveCategory
+            ? "Category saved as draft. Keep assigning the remaining budget."
+            : "Budget draft saved. You can continue later.",
+        "success"
+      );
+      return true;
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to save monthly budget plan.");
+      return false;
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    budgets,
+    closeFinanceModal,
+    financeForm.budgetCategoryName,
+    financeForm.monthlyBudgetAmount,
+    financeForm.title,
+    financeForm.totalBudget,
+    financeModal?.payload,
+    monthlyBudgetHeader,
+    refreshFinanceSection,
+    showFinanceNotice,
+    syncBudgetRowsIntoState,
+    addBudgetData,
+    updateBudgetData,
+    user?.email,
+    user?.id,
+  ]);
+
+  const handleBudgetModalClose'''
+    replace_regex(
+        path,
+        r'  const saveBudgetInline = useCallback\(async \(\{ finish = false, exitAfterSave = false, saveCategory = true \} = \{\}\) => \{.*?\n  \}\, \[.*?\n  \]\);\n\n  const handleBudgetModalClose',
+        save_budget,
+    )
+
+    replace_regex(
+        path,
+        r'  const resetBudgetInline = useCallback\(async \(\) => \{.*?\n  \}, \[closeFinanceModal, manualExpenseBudgetOptions, refreshFinanceSection, showFinanceNotice\]\);',
+        r'''  const resetBudgetInline = useCallback(async () => {
+    if (resetBudgetInFlightRef.current || financeActionLoading) return;
+
+    const previousBudgets = Array.isArray(budgets) ? budgets : [];
+    const operationId = createBudgetIdentity("budget_reset");
+    const resetAt = new Date().toISOString();
+    const localUserId = getEffectiveDemoFinanceLocalUserId(
+      user?.id || user?.email || "local-user"
+    );
+
+    try {
+      resetBudgetInFlightRef.current = true;
+      setFinanceActionLoading(true);
+      setBudgets(
+        buildOptimisticBudgetResetRows(previousBudgets, { resetAt, operationId })
+      );
+      publishBudgetNoPlanState({ cacheKey, operationId });
+
+      const result = await resetActiveBudge

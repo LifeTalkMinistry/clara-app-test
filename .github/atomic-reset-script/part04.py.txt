@@ -1,0 +1,122 @@
+tPlan({
+        localUserId,
+        operationId,
+        resetAt,
+      });
+
+      publishBudgetNoPlanState({ cacheKey, operationId });
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice(
+        "Budget reset. Your expense and wallet history were preserved.",
+        "success"
+      );
+      return result;
+    } catch (error) {
+      setBudgets(previousBudgets);
+      showFinanceNotice("CLARA could not reset this budget. Nothing was changed.");
+      return null;
+    } finally {
+      resetBudgetInFlightRef.current = false;
+      setFinanceActionLoading(false);
+    }
+  }, [
+    budgets,
+    cacheKey,
+    closeFinanceModal,
+    financeActionLoading,
+    refreshFinanceSection,
+    setBudgets,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+  ]);''',
+    )
+
+
+def patch_finance_modal_copy():
+    path = "src/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer.jsx"
+    replace_required(path, 'title="Reset budget tracking"', 'title="Reset budget"')
+    replace_required(
+        path,
+        'description="Start the active budget tracking window from right now."',
+        'description="End the active budget plan and return to No Plan."',
+    )
+    replace_required(path, 'submitLabel="Reset tracking"', 'submitLabel="Reset budget"')
+    replace_required(
+        path,
+        'This keeps your budget setup, but it resets the tracking start date to now.',
+        'Your expense and wallet history will stay, but the active budget plan and its categories will end.',
+    )
+
+
+def patch_legacy_finance_actions():
+    path = "src/components/fresh/main-dashboard/finance-form/useDashboardFinanceActions.js"
+    replace_required(
+        path,
+        'import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";\n',
+        'import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";\n'
+        'import { resetActiveBudgetPlan } from "@/lib/clara-budget-reset-service";\n'
+        'import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";\n',
+    )
+    replace_required(
+        path,
+        '  monthlyBudgetPlan = null,\n',
+        '  monthlyBudgetPlan = null,\n  budgets = [],\n  user = null,\n  localUserId = null,\n',
+    )
+    replace_regex(
+        path,
+        r'  const resetBudgetInline = useCallback\(.*?\n  \);\n\n  const saveSavingsGoalInline',
+        r'''  const resetBudgetInline = useCallback(
+    async () =>
+      runFinanceAction({
+        successMessage: "Budget reset. Your expense and wallet history were preserved.",
+        errorMessage: "CLARA could not reset this budget. Nothing was changed.",
+        action: async () =>
+          resetActiveBudgetPlan({
+            localUserId:
+              localUserId ||
+              getEffectiveDemoFinanceLocalUserId(user?.id || user?.email || "local-user"),
+            budgets,
+          }),
+      }),
+    [budgets, localUserId, runFinanceAction, user?.email, user?.id]
+  );
+
+  const saveSavingsGoalInline''',
+    )
+
+
+def patch_monthly_budget_plan():
+    path = "src/pages/MonthlyBudgetPlan.jsx"
+    replace_required(
+        path,
+        'import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan";\nimport { resetMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";\n',
+        'import { activateNewBudgetCycle, resetActiveBudgetPlan } from "@/lib/clara-budget-reset-service";\n',
+    )
+    replace_required(
+        path,
+        'const nowIso = () => new Date().toISOString();\n',
+        'const nowIso = () => new Date().toISOString();\n'
+        'const createBudgetIdentity = (prefix) => globalThis?.crypto?.randomUUID ? `${prefix}_${globalThis.crypto.randomUUID()}` : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;\n',
+    )
+    replace_regex(path, r'\nfunction getResetCycleWindow\(.*?\n}\n', '\n')
+
+    replace_regex(
+        path,
+        r'function headerPayload\(.*?\n}\n\nfunction categoryPayload\(.*?\n}\n',
+        r'''function headerPayload({ amount, done, user, cycle, planId, cycleId, activatedAt = null }) {
+  const now = new Date().toISOString();
+  const title = `${cycle.label} Spending Plan`;
+  const start = activatedAt || cycle.start;
+  return {
+    id: planId, cycle_id: cycleId, budget_plan_id: null,
+    month: getPHMonthKey(), month_key: getPHMonthKey(), title, name: title,
+    category: "__monthly_budget__", budget_category: "__monthly_budget__",
+    type: "monthly_budget", plan_type: "monthly_budget", is_plan_header: true,
+    budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
+    cycle_start: start, cycle_end: cycle.end, period_start: start, period_end: cycle.end,
+    tracking_started_at: activatedAt,
+    declared_amount: amount, declared_budget: amount, monthly_budget_amount: amount,
+    total_declared_budget: amount, total_budget: amount, amount,
+    is_complete: Boolean(do
