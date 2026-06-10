@@ -120,6 +120,7 @@ function AdminRescueButton({ show }) {
 function AppRoutes() {
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
+  const isUniversalOnboardingRoute = location.pathname === "/onboarding";
   const { user, profile, loading, refreshProfile } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
@@ -234,52 +235,56 @@ function AppRoutes() {
           path="/*"
           element={
             user ? (
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
+              isUniversalOnboardingRoute ? (
+                <UniversalOnboarding />
+              ) : (
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
 
-                  <Route path="/onboarding" element={<UniversalOnboarding />} />
-                  <Route path="/program-onboarding" element={<ProgramOnboarding />} />
-                  <Route path="/pending" element={<PendingScreen />} />
-                  <Route path="/enroll" element={<Enroll />} />
-                  <Route path="/tier-select" element={<TierSelect />} />
-                  <Route path="/activation" element={<Activation />} />
-                  <Route path="/advertiser" element={<AdvertiserDashboard />} />
+                    <Route path="/onboarding" element={<UniversalOnboarding />} />
+                    <Route path="/program-onboarding" element={<ProgramOnboarding />} />
+                    <Route path="/pending" element={<PendingScreen />} />
+                    <Route path="/enroll" element={<Enroll />} />
+                    <Route path="/tier-select" element={<TierSelect />} />
+                    <Route path="/activation" element={<Activation />} />
+                    <Route path="/advertiser" element={<AdvertiserDashboard />} />
 
-                  <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
-                  <Route path="/lifeos" element={guard(<LifeOS />, "/lifeos")} />
-                  <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
-                  <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
-                  <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
-                  <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
-                  <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
-                  <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
-                  <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
-                  <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
-                  <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
-                  <Route path="/modules" element={guard(<Modules />, "/modules")} />
-                  <Route path="/feed" element={guard(<Feed />, "/feed")} />
-                  <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
-                  <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
-                  <Route path="/community" element={guard(<Community />, "/community")} />
-                  <Route path="/messages" element={guard(<Messages />, "/messages")} />
-                  <Route path="/news" element={guard(<News />, "/news")} />
-                  <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
-                  <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
+                    <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
+                    <Route path="/lifeos" element={guard(<LifeOS />, "/lifeos")} />
+                    <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
+                    <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
+                    <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
+                    <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
+                    <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
+                    <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
+                    <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
+                    <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
+                    <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
+                    <Route path="/modules" element={guard(<Modules />, "/modules")} />
+                    <Route path="/feed" element={guard(<Feed />, "/feed")} />
+                    <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
+                    <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
+                    <Route path="/community" element={guard(<Community />, "/community")} />
+                    <Route path="/messages" element={guard(<Messages />, "/messages")} />
+                    <Route path="/news" element={guard(<News />, "/news")} />
+                    <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
+                    <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
 
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/settings/:section" element={<Settings />} />
-                  <Route path="/profile" element={<Profile />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/settings/:section" element={<Settings />} />
+                    <Route path="/profile" element={<Profile />} />
 
-                  <Route path="/admin" element={admin(<AdminPanel />)} />
-                  <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
-                  <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
-                  <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
-                  <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
+                    <Route path="/admin" element={admin(<AdminPanel />)} />
+                    <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
+                    <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
+                    <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
+                    <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
 
-                  <Route path="*" element={<PageNotFound />} />
-                </Routes>
-              </Layout>
+                    <Route path="*" element={<PageNotFound />} />
+                  </Routes>
+                </Layout>
+              )
             ) : (
               <Navigate to="/login" replace />
             )
