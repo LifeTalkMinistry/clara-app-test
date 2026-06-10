@@ -25,13 +25,11 @@ jobs:
           show-progress: false
 
       - name: Restore surgical component
-        id: patch
-        continue-on-error: true
         shell: bash
         run: |
           test -f .clara-two-layer-trigger
-          test -d .clara-two-layer-payload
-          cat .clara-two-layer-payload/chunk-* | base64 --decode > /tmp/LearningMaterialModal.jsx
+          test -f .clara-two-layer-payload.gz.b64
+          base64 --decode .clara-two-layer-payload.gz.b64 | gzip --decompress > /tmp/LearningMaterialModal.jsx
           test -s /tmp/LearningMaterialModal.jsx
           mv /tmp/LearningMaterialModal.jsx src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
@@ -53,13 +51,13 @@ jobs:
       - name: Confirm surgical final tree
         shell: bash
         run: |
-          rm -rf .clara-two-layer-payload .clara-two-layer-trigger
+          rm -rf .clara-two-layer-payload .clara-two-layer-payload.gz.b64 .clara-two-layer-trigger
           git diff --check
           test -z "$(git diff --name-only -- package.json package-lock.json)"
           git fetch origin main --quiet
-          changed="$(git diff --name-only origin/main -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-two-layer-payload .clara-two-layer-trigger)"
+          changed="$(git diff --name-only origin/main -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-two-layer-payload .clara-two-layer-payload.gz.b64 .clara-two-layer-trigger)"
           test "$changed" = "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
-          unexpected="$(git status --short | sed 's/^...//' | grep -Ev '^(src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx|.clara-two-layer-payload/.*|.clara-two-layer-trigger)$' || true)"
+          unexpected="$(git status --short | sed 's/^...//' | grep -Ev '^(src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx|.clara-two-layer-payload/.*|.clara-two-layer-payload.gz.b64|.clara-two-layer-trigger)$' || true)"
           test -z "$unexpected"
 
       - name: Commit validated implementation
@@ -67,6 +65,6 @@ jobs:
         run: |
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-two-layer-payload .clara-two-layer-trigger
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-two-layer-payload .clara-two-layer-payload.gz.b64 .clara-two-layer-trigger
           git commit -m "Fix PDF transition with two rendered layers [skip ci]"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
