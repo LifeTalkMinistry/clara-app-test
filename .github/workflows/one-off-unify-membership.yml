@@ -6,6 +6,11 @@ on:
       - fix/unify-membership-display
     paths:
       - .github/workflows/one-off-unify-membership.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-off-unify-membership.yml
 
 permissions:
   contents: write
