@@ -1,30 +1,33 @@
-name: CLARA two-layer PDF transition finalizer
+name: CLARA two-layer PDF transition final validation
 
 on:
-  push:
+  pull_request:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
     paths:
-      - .clara-direct-two-layer-trigger
+      - .clara-pr-final-trigger
 
 permissions:
   contents: write
 
 jobs:
-  build-validate-and-finalize:
+  build-validate-and-commit:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out main
+      - name: Check out pull-request branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           show-progress: false
 
       - name: Restore surgical component
         shell: bash
         run: |
-          test -f .clara-direct-two-layer-trigger
+          test -f .clara-pr-final-trigger
           git fetch origin automation/clara-two-layer-pdf-transition --quiet
           git show origin/automation/clara-two-layer-pdf-transition:.clara-two-layer-payload.gz.b64 \
             | base64 --decode \
@@ -48,20 +51,23 @@ jobs:
       - name: Build validation 2
         run: npm run build
 
-      - name: Confirm final one-file tree
+      - name: Confirm final one-file diff
         shell: bash
         run: |
-          rm -f .clara-direct-two-layer-trigger .github/workflows/clara-two-layer-pdf-transition.yml
+          rm -f .clara-pr-final-trigger
           git diff --check
           test -z "$(git diff --name-only -- package.json package-lock.json)"
-          changed="$(git diff --name-only 65e3aa7688fac80eb8976c599d7b4b13ebad53b5)"
+          git fetch origin main --quiet
+          changed="$(git diff --name-only origin/main)"
           test "$changed" = "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
+          unexpected="$(git status --short | sed 's/^...//' | grep -Ev '^(src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx|.clara-pr-final-trigger)$' || true)"
+          test -z "$unexpected"
 
-      - name: Commit final implementation
+      - name: Commit validated implementation
         shell: bash
         run: |
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-direct-two-layer-trigger .github/workflows/clara-two-layer-pdf-transition.yml
-          git commit -m "Fix PDF transition with two rendered layers"
-          git push origin HEAD:main
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .clara-pr-final-trigger
+          git commit -m "Fix PDF transition with two rendered layers [skip ci]"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
