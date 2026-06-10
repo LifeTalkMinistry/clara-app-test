@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Edit3, X } from "lucide-react";
 import BudgetHeader from "@/components/financial-carousel/cards/budget/ui/BudgetHeader";
 import BudgetSummaryStats from "@/components/financial-carousel/cards/budget/ui/BudgetSummaryStats";
@@ -331,6 +331,12 @@ export default function BudgetCardContent(props) {
     unplannedItems,
     undocumentedItems,
   });
+
+  useEffect(() => {
+    if (showDriftModal && outsidePlanSpent <= 0 && driftDetailItems.length === 0) {
+      setShowDriftModal(false);
+    }
+  }, [driftDetailItems.length, outsidePlanSpent, showDriftModal]);
 
   if (!expanded) {
     return (

@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test:budget-cycle": "node --test tests/budget-cycle-authority.test.mjs",
     "deploy": "npm run build:web && gh-pages -d dist"
   },
   "dependencies": {

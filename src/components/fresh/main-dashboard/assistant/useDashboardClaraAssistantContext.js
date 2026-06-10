@@ -110,6 +110,7 @@ export default function useDashboardClaraAssistantContext({
   topWallet = null,
   activeBudget = null,
   derivedActiveBudget = null,
+  monthlyBudgetPlan = null,
 } = {}) {
   return useMemo(() => {
     const safeWallets = safeArray(wallets);
@@ -127,6 +128,12 @@ export default function useDashboardClaraAssistantContext({
       const itemDate = getTransactionDate(expense);
       return Boolean(itemDate && getPHMonthKey(itemDate) === currentMonthKey);
     });
+    const explicitBudgetCycleExpenses = Array.isArray(monthlyBudgetPlan?.activeCycleExpenses)
+      ? monthlyBudgetPlan.activeCycleExpenses
+      : Array.isArray(monthlyBudgetPlan?.active_cycle_expenses)
+        ? monthlyBudgetPlan.active_cycle_expenses
+        : null;
+    const budgetCycleExpenses = explicitBudgetCycleExpenses || currentMonthExpenses;
 
     const monthlySpent =
       readNumber(thisMonthSpent) ??
@@ -150,25 +157,25 @@ export default function useDashboardClaraAssistantContext({
       ? walletBalances.reduce((sum, balance) => sum + balance, 0)
       : null;
 
-    const plannedExpenseRows = currentMonthExpenses.filter((expense) => {
+    const plannedExpenseRows = budgetCycleExpenses.filter((expense) => {
       const status = getExpensePlanningStatus(expense);
       return status === "planned" || status === "good decision";
     });
 
-    const unplannedExpenseRows = currentMonthExpenses.filter((expense) => {
+    const unplannedExpenseRows = budgetCycleExpenses.filter((expense) => {
       const status = getExpensePlanningStatus(expense);
       return status === "unplanned" || status === "budget risk";
     });
 
-    const needsExpenseRows = currentMonthExpenses.filter((expense) =>
+    const needsExpenseRows = budgetCycleExpenses.filter((expense) =>
       getExpenseNeedType(expense).includes("need")
     );
 
-    const wantsExpenseRows = currentMonthExpenses.filter((expense) =>
+    const wantsExpenseRows = budgetCycleExpenses.filter((expense) =>
       getExpenseNeedType(expense).includes("want")
     );
 
-    const categoryBreakdown = buildCategoryBreakdown(currentMonthExpenses);
+    const categoryBreakdown = buildCategoryBreakdown(budgetCycleExpenses);
     const recentExpenses = sortByNewestDate(safeExpenses).slice(0, 8);
 
     const savingsSaved =
@@ -203,6 +210,7 @@ export default function useDashboardClaraAssistantContext({
 
       currentMonthKey,
       currentMonthExpenses,
+      budgetCycleExpenses,
       recentExpenses,
       plannedExpensesThisMonth: plannedExpenseRows,
       unplannedExpensesThisMonth: unplannedExpenseRows,
@@ -256,5 +264,6 @@ export default function useDashboardClaraAssistantContext({
     topWallet,
     activeBudget,
     derivedActiveBudget,
+    monthlyBudgetPlan,
   ]);
 }

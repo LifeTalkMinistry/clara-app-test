@@ -288,7 +288,7 @@ export function buildClaraBudgetSnapshot(context = {}) {
   const source = { ...(context?.financeSnapshot || {}), ...(context?.dashboardSnapshot || {}), ...(context || {}) };
   const plan = source.monthlyBudgetPlan || source.budgetPlan || source.monthly_budget_plan || {};
   const activeHeader = getHeader(source);
-  const range = plan.monthRange || getCycleRange(activeHeader || {});
+  const range = plan.monthRange || getCycleRange(source.budgetCycleHeader || activeHeader || {});
   const expenses = firstArray(source, ["expenses", "monthlyExpensesList", "recentExpenses", "finance.expenses", "dashboardSnapshot.expenses"]);
   const activeExpenses = expenses.filter((expense) => isInRange(expense, range));
   const categories = getRawCategories(source).filter((row) => row && !isBudgetHeader(row) && !isInactive(row)).map((row) => normalizeCategory(row, activeExpenses));

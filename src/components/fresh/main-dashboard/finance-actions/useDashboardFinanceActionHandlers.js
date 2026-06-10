@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
+import { resetMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 import {
   firstValidNumber,
   getBudgetListTitle,
@@ -26,6 +27,7 @@ export default function useDashboardFinanceActionHandlers({
   addWalletData,
   budgetExitConfirm,
   budgetPlanIsComplete,
+  budgetCycleHeader,
   budgets,
   declaredMonthlyBudgetAmount,
   deleteBudgetData,
@@ -1069,35 +1071,79 @@ export default function useDashboardFinanceActionHandlers({
   ]);
 
   const resetBudgetInline = useCallback(async () => {
-    const currentMonthKey = getPHMonthKey();
-    const categoryIds = manualExpenseBudgetOptions
-      .map((item) => item.id)
-      .filter(Boolean);
-
-    if (!categoryIds.length) return;
+    const sourceHeader = budgetCycleHeader || monthlyBudgetHeader || activeBudget;
+    if (!sourceHeader?.id) return;
 
     try {
       setFinanceActionLoading(true);
       const nowIso = new Date().toISOString();
-      await Promise.all(
-        categoryIds.map((id) =>
-          updateBudgetData?.(String(id), {
-            tracking_start_date: nowIso,
-            range_start: nowIso,
-            updated_at: nowIso,
-          })
-        )
-      );
+      const currentMonthKey = normalizeString(
+        sourceHeader?.month || sourceHeader?.budget_month || sourceHeader?.month_key || getPHMonthKey()
+      ) || getPHMonthKey();
+      const cycleType = normalizeString(
+        sourceHeader?.budget_cycle || sourceHeader?.cycle_type || "monthly"
+      ) || "monthly";
+
+      await resetMonthlyBudgetCycle({
+        budgets,
+        headerPayload: {
+          month: currentMonthKey,
+          month_key: currentMonthKey,
+          title: "Monthly Spending Plan",
+          name: "Monthly Spending Plan",
+          category: "__monthly_budget__",
+          budget_category: "__monthly_budget__",
+          type: "monthly_budget",
+          plan_type: "monthly_budget",
+          is_plan_header: true,
+          budget_cycle: cycleType,
+          cycle_type: cycleType,
+          cycle_start: nowIso,
+          period_start: nowIso,
+          cycle_end: sourceHeader?.cycle_end || sourceHeader?.period_end || "",
+          period_end: sourceHeader?.period_end || sourceHeader?.cycle_end || "",
+          reset_start_at: nowIso,
+          declared_amount: 0,
+          declared_budget: 0,
+          monthly_budget_amount: 0,
+          total_budget: 0,
+          amount: 0,
+          is_complete: false,
+          status: "draft",
+          is_active: true,
+          active: true,
+          user_id: user?.id || sourceHeader?.user_id || null,
+          user_email: user?.email || sourceHeader?.user_email || sourceHeader?.email || null,
+          email: user?.email || sourceHeader?.email || null,
+          created_by: user?.email || sourceHeader?.created_by || null,
+        },
+        categoryPayloads: [],
+        addBudget: addBudgetData,
+        updateBudget: updateBudgetData,
+      });
 
       await refreshFinanceSection();
+      setExpandedFinanceCard("budgets");
       closeFinanceModal();
-      showFinanceNotice(`Budget tracking has been reset for ${currentMonthKey}.`, "success");
+      showFinanceNotice(`Budget cycle reset for ${currentMonthKey}. Transaction history was preserved.`, "success");
     } catch (error) {
       showFinanceNotice(error?.message || "Failed to reset budget.");
     } finally {
       setFinanceActionLoading(false);
     }
-  }, [closeFinanceModal, manualExpenseBudgetOptions, refreshFinanceSection, showFinanceNotice]);
+  }, [
+    activeBudget,
+    addBudgetData,
+    budgetCycleHeader,
+    budgets,
+    closeFinanceModal,
+    monthlyBudgetHeader,
+    refreshFinanceSection,
+    showFinanceNotice,
+    updateBudgetData,
+    user?.email,
+    user?.id,
+  ]);
 
   const saveSavingsGoalInline = useCallback(async () => {
     const goal = financeModal?.payload || null;
