@@ -38,14 +38,17 @@ jobs:
           set -o pipefail
           python <<'PY_EXTRACT'
           from pathlib import Path
-          import textwrap
 
           workflow = Path('.github/workflows/clara-pdf-carousel-patch.yml').read_text(encoding='utf-8')
           start_marker = "          python <<'PY'\n"
           end_marker = "\n          PY\n"
           start = workflow.index(start_marker) + len(start_marker)
           end = workflow.index(end_marker, start)
-          script = textwrap.dedent(workflow[start:end])
+          raw_script = workflow[start:end]
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in raw_script.splitlines()
+          ) + "\n"
           Path('/tmp/apply-clara-pdf-carousel.py').write_text(script, encoding='utf-8')
           PY_EXTRACT
           python /tmp/apply-clara-pdf-carousel.py 2>&1 | tee /tmp/clara-pdf-carousel-patch.log
