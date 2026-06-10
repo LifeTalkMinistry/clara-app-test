@@ -348,7 +348,7 @@ export default function UniversalOnboarding() {
       <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
         <div
           ref={onboardingShellRef}
-          className="max-h-[calc(100dvh-24px)] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] px-3 pb-4 pt-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6"
+          className="max-h-[calc(100dvh-24px)] w-full flex flex-col overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] px-3 pb-4 pt-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6"
         >
           <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
@@ -369,11 +369,11 @@ export default function UniversalOnboarding() {
             <Progress value={progressValue} className="h-2 rounded-full bg-white/10 [&>div]:bg-[linear-gradient(90deg,#f4cd71_0%,#34d399_100%)]" />
           </div>
 
-          <div className="mt-4 rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7">
+          <div className="mt-4 flex flex-1 rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7">
             <AnimatePresence mode="wait">
-              <motion.div key={screen.id} {...motionProps} className="space-y-4 sm:space-y-6">
+              <motion.div key={screen.id} {...motionProps} className="flex min-h-full w-full flex-col space-y-4 sm:space-y-6">
                 {screen.type === "welcome" ? (
-                  <div className="space-y-4 sm:space-y-6">
+                  <div className="flex min-h-full flex-col justify-between gap-5 sm:gap-6">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/30 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
                       <Sparkles className="h-3.5 w-3.5" />
                       {content.welcome.badge}
@@ -392,9 +392,9 @@ export default function UniversalOnboarding() {
                       </div>
                       <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-3 sm:p-5">
                         {content.welcome.mediaUrl ? (
-                          <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[180px] w-full rounded-[22px] object-cover sm:h-[260px]" />
+                          <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[240px] w-full rounded-[22px] object-cover sm:h-[260px]" />
                         ) : (
-                          <div className="flex min-h-[180px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 sm:h-[260px] sm:p-5">
+                          <div className="flex min-h-[240px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 sm:min-h-[260px] sm:p-5">
                             <div className="flex items-center gap-2 text-xs text-white/60 sm:text-sm">
                               <BadgeCheck className="h-4 w-4 text-[#f4cd71]" />
                               Diagnosis before direction
