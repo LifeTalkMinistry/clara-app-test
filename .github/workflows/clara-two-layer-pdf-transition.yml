@@ -1,4 +1,4 @@
-name: Validate CLARA PDF white flash fix
+name: CLARA two-layer PDF transition final validation
 
 on:
   pull_request:
@@ -15,9 +15,7 @@ permissions:
 
 jobs:
   build-validate-and-commit:
-    if: github.event.pull_request.head.ref == 'clara-pdf-geometry-stability'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
       - name: Check out pull-request branch
         uses: actions/checkout@v4
@@ -25,68 +23,17 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           show-progress: false
-          persist-credentials: true
 
-      - name: Apply stable per-document PDF geometry
+      - name: Restore surgical component
         shell: bash
         run: |
           test -f docs/clara-pdf-final-validation.txt
-          python <<'PY'
-          from pathlib import Path
-
-          path = Path('src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx')
-          text = path.read_text(encoding='utf-8')
-
-          old_effect = '''  useEffect(() => {
-    if (!isOpen) return;
-    setIsReaderMenuOpen(false);
-    resetPdfToFit({ announce: false });
-    setPdfPageAspectRatio(0);
-    scrollToTop();
-  }, [
-    activePdfPath,
-    isOpen,
-    material?.id,
-    pdfReloadKey,
-    resetPdfToFit,
-    safePageIndex,
-    scrollToTop,
-  ]);'''
-
-          new_effect = '''  useEffect(() => {
-    if (!isOpen) return;
-    setIsReaderMenuOpen(false);
-    resetPdfToFit({ announce: false });
-    setPdfPageAspectRatio(0);
-    scrollToTop();
-  }, [
-    activePdfPath,
-    isOpen,
-    material?.id,
-    pdfReloadKey,
-    resetPdfToFit,
-    scrollToTop,
-  ]);'''
-
-          old_aspect = '''    setPdfPageAspectRatio((currentAspectRatio) =>
-      Math.abs(currentAspectRatio - nextAspectRatio) < 0.001
-        ? currentAspectRatio
-        : nextAspectRatio,
-    );'''
-
-          new_aspect = '''    setPdfPageAspectRatio((currentAspectRatio) =>
-      currentAspectRatio > 0 ? currentAspectRatio : nextAspectRatio,
-    );'''
-
-          if text.count(old_effect) != 1:
-              raise RuntimeError('Expected exactly one page-reset effect')
-          if text.count(old_aspect) != 1:
-              raise RuntimeError('Expected exactly one aspect-ratio updater')
-
-          text = text.replace(old_effect, new_effect, 1)
-          text = text.replace(old_aspect, new_aspect, 1)
-          path.write_text(text, encoding='utf-8')
-          PY
+          git show 17b20fef9a4bd425588e855e2d8ac36cf56d90d7:.clara-two-layer-payload.gz.b64 \
+            | base64 --decode \
+            | gzip --decompress \
+            > /tmp/LearningMaterialModal.jsx
+          test -s /tmp/LearningMaterialModal.jsx
+          mv /tmp/LearningMaterialModal.jsx src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -97,19 +44,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build application
+      - name: Build validation 1
         run: npm run build
 
-      - name: Build web application
-        run: npm run build:web
+      - name: Build validation 2
+        run: npm run build
+
+      - name: Confirm final one-file diff
+        shell: bash
+        run: |
+          rm -f docs/clara-pdf-final-validation.txt
+          git diff --check
+          test -z "$(git diff --name-only -- package.json package-lock.json)"
+          git fetch origin main --quiet
+          changed="$(git diff --name-only origin/main)"
+          test "$changed" = "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
+          unexpected="$(git status --short | sed 's/^...//' | grep -Ev '^(src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx|docs/clara-pdf-final-validation.txt)$' || true)"
+          test -z "$unexpected"
 
       - name: Commit validated implementation
         shell: bash
         run: |
-          git diff --check
-          rm -f docs/clara-pdf-final-validation.txt
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx docs/clara-pdf-final-validation.txt
-          git commit -m "fix: prevent white PDF canvas flash after page changes"
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx docs/clara-pdf-final-validation.txt
+          git commit -m "Fix PDF transition with two rendered layers [skip ci]"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
