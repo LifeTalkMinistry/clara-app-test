@@ -44,6 +44,16 @@ function archivePatch(now) {
   };
 }
 
+function resetBoundaryFrom(payload = {}) {
+  return normalizeString(
+    payload.reset_start_at ||
+      payload.tracking_started_at ||
+      payload.tracking_start_date ||
+      payload.cycle_start ||
+      payload.period_start
+  );
+}
+
 export async function resetMonthlyBudgetCycle({
   budgets = [],
   headerPayload,
@@ -64,6 +74,7 @@ export async function resetMonthlyBudgetCycle({
   }
 
   const now = new Date().toISOString();
+  const resetBoundary = resetBoundaryFrom(headerPayload) || now;
   const activeHeader = (Array.isArray(budgets) ? budgets : []).find(
     (budget) => isBudgetHeader(budget) && !isInactive(budget)
   );
@@ -84,6 +95,11 @@ export async function resetMonthlyBudgetCycle({
 
   const newHeader = await addBudget({
     ...headerPayload,
+    reset_start_at: resetBoundary,
+    tracking_started_at: resetBoundary,
+    tracking_start_date: resetBoundary,
+    cycle_start: headerPayload.cycle_start || resetBoundary,
+    period_start: headerPayload.period_start || headerPayload.cycle_start || resetBoundary,
     is_active: true,
     active: true,
     status: headerPayload.status || "draft",
