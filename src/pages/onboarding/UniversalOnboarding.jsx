@@ -305,7 +305,7 @@ export default function UniversalOnboarding() {
       <div className="relative min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#08111f] text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(246,207,108,0.18),_transparent_36%),radial-gradient(circle_at_bottom,_rgba(17,120,80,0.18),_transparent_30%)]" />
         <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
-          <div className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:p-6">
+          <div className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-white/[0.04] px-3 pb-4 pt-3 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6">
             <div className="h-2 w-32 rounded-full bg-white/10" />
             <div className="mt-6 h-10 w-3/4 rounded-full bg-white/10" />
             <div className="mt-3 h-4 w-full rounded-full bg-white/[0.06]" />
@@ -327,7 +327,7 @@ export default function UniversalOnboarding() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
       <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
       <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
-        <div className="max-h-[calc(100dvh-24px)] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:p-6">
+        <div className="max-h-[calc(100dvh-24px)] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] px-3 pb-4 pt-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6">
           <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#f6cd71]">CLARA</p>
@@ -347,7 +347,7 @@ export default function UniversalOnboarding() {
             <Progress value={progressValue} className="h-2 rounded-full bg-white/10 [&>div]:bg-[linear-gradient(90deg,#f4cd71_0%,#34d399_100%)]" />
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7">
+          <div className="mt-4 rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7">
             <AnimatePresence mode="wait">
               <motion.div key={screen.id} {...motionProps} className="space-y-4 sm:space-y-6">
                 {screen.type === "welcome" ? (
@@ -368,23 +368,23 @@ export default function UniversalOnboarding() {
                           <p className="text-sm text-white/52">A calm first coaching session, not a sales page.</p>
                         </div>
                       </div>
-                      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4">
+                      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-3 sm:p-5">
                         {content.welcome.mediaUrl ? (
                           <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[180px] w-full rounded-[22px] object-cover sm:h-[260px]" />
                         ) : (
-                          <div className="flex h-[180px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 sm:h-[260px] sm:p-5">
-                            <div className="flex items-center gap-2 text-sm text-white/60">
+                          <div className="flex min-h-[180px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 sm:h-[260px] sm:p-5">
+                            <div className="flex items-center gap-2 text-xs text-white/60 sm:text-sm">
                               <BadgeCheck className="h-4 w-4 text-[#f4cd71]" />
                               Diagnosis before direction
                             </div>
                             <div className="space-y-2 sm:space-y-3">
                               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
-                                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Lifestyle</p>
-                                <p className="mt-2 text-sm text-white/78">CLARA learns what your money is supporting.</p>
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Lifestyle</p>
+                                <p className="mt-1.5 text-xs leading-5 text-white/78 sm:mt-2 sm:text-sm sm:leading-6">CLARA learns what your money is supporting.</p>
                               </div>
                               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
-                                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Spending pause</p>
-                                <p className="mt-2 text-sm text-white/78">CLARA learns when you need help before spending.</p>
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Spending pause</p>
+                                <p className="mt-1.5 text-xs leading-5 text-white/78 sm:mt-2 sm:text-sm sm:leading-6">CLARA learns when you need help before spending.</p>
                               </div>
                             </div>
                           </div>
@@ -395,10 +395,10 @@ export default function UniversalOnboarding() {
                 ) : null}
 
                 {screen.type === "question" && currentQuestion ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f4cd71]">{currentQuestion.eyebrow}</p>
-                      <h2 className="mt-3 max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">{currentQuestion.title}</h2>
+                      <h2 className="mt-3 max-w-xl text-[1.75rem] font-semibold leading-tight text-white sm:text-4xl">{currentQuestion.title}</h2>
                       <p className="mt-3 text-base leading-7 text-white/68">{currentQuestion.description}</p>
                     </div>
                     <div className="grid gap-3">
@@ -409,7 +409,7 @@ export default function UniversalOnboarding() {
                             key={option.id}
                             type="button"
                             onClick={() => handleSelectAnswer(currentQuestion.id, option.id)}
-                            className={`w-full rounded-[24px] border px-4 py-4 text-left transition-all ${isSelected ? "border-[#f4cd71]/60 bg-[#f4cd71]/12 shadow-[0_10px_30px_rgba(244,205,113,0.12)]" : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"}`}
+                            className={`w-full rounded-[24px] border px-4 py-3.5 text-left transition-all sm:py-4 ${isSelected ? "border-[#f4cd71]/60 bg-[#f4cd71]/12 shadow-[0_10px_30px_rgba(244,205,113,0.12)]" : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"}`}
                             aria-pressed={isSelected}
                           >
                             <div className="flex items-start gap-3">
@@ -418,7 +418,7 @@ export default function UniversalOnboarding() {
                               </div>
                               <div>
                                 <p className="text-base font-medium text-white">{option.label}</p>
-                                <p className="mt-1 text-sm leading-6 text-white/58">{option.description}</p>
+                                <p className="mt-1 text-sm leading-5 text-white/58 sm:leading-6">{option.description}</p>
                               </div>
                             </div>
                           </button>
