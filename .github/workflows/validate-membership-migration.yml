@@ -12,33 +12,14 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - name: Apply migration
-        run: node scripts/apply-membership-migration.mjs
-      - name: Install dependencies
-        run: npm ci
-      - name: Package changed files
+      - name: Build transformed membership source
         shell: bash
         run: |
-          { git diff --name-only; git ls-files --others --exclude-standard; } | sort -u > membership-files.txt
-          test -s membership-files.txt
-          zip -q membership-validated.zip -@ < membership-files.txt
-          git diff --check
-      - uses: actions/upload-artifact@v4
-        with:
-          name: membership-validated
-          path: |
-            membership-validated.zip
-            membership-files.txt
-          retention-days: 1
-      - name: Build
-        run: npm run build
+          git clone --quiet --depth 1 --branch "$GITHUB_HEAD_REF" https://github.com/LifeTalkMinistry/clara-app-test.git workspace
+          cd workspace
+          node scripts/apply-membership-migration.mjs
+          npm ci --silent
+          npm run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: validation-placeholder
