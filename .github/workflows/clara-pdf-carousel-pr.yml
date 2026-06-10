@@ -35,6 +35,7 @@ jobs:
       - name: Extract reviewed patch script
         shell: bash
         run: |
+          set -o pipefail
           python <<'PY_EXTRACT'
           from pathlib import Path
           import textwrap
@@ -47,7 +48,16 @@ jobs:
           script = textwrap.dedent(workflow[start:end])
           Path('/tmp/apply-clara-pdf-carousel.py').write_text(script, encoding='utf-8')
           PY_EXTRACT
-          python /tmp/apply-clara-pdf-carousel.py
+          python /tmp/apply-clara-pdf-carousel.py 2>&1 | tee /tmp/clara-pdf-carousel-patch.log
+
+      - name: Upload patch failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clara-pdf-carousel-patch-log
+          path: /tmp/clara-pdf-carousel-patch.log
+          if-no-files-found: warn
+          retention-days: 1
 
       - name: Install dependencies
         run: npm ci
