@@ -302,10 +302,10 @@ export default function UniversalOnboarding() {
 
   if (loadingContent || !content || !screen) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#08111f] text-white">
+      <div className="relative min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#08111f] text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(246,207,108,0.18),_transparent_36%),radial-gradient(circle_at_bottom,_rgba(17,120,80,0.18),_transparent_30%)]" />
-        <div className="relative flex min-h-screen items-center justify-center px-5 py-8">
-          <div className="w-full max-w-xl rounded-[32px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+        <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
+          <div className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:p-6">
             <div className="h-2 w-32 rounded-full bg-white/10" />
             <div className="mt-6 h-10 w-3/4 rounded-full bg-white/10" />
             <div className="mt-3 h-4 w-full rounded-full bg-white/[0.06]" />
@@ -323,15 +323,15 @@ export default function UniversalOnboarding() {
     : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -12 }, transition: { duration: 0.24, ease: "easeOut" } };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#08111f] text-white">
+    <div className="relative min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#08111f] text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
       <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-6 sm:px-6">
-        <div className="w-full rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-6">
-          <div className="flex items-center justify-between gap-4">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
+        <div className="max-h-[calc(100dvh-24px)] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:p-6">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#f6cd71]">CLARA</p>
-              <p className="mt-2 text-sm text-white/60">Guided setup {screenIndex + 1} of {screens.length}</p>
+              <p className="mt-1 text-sm text-white/60 sm:mt-2">Guided setup {screenIndex + 1} of {screens.length}</p>
             </div>
             {canGoBack ? (
               <Button type="button" variant="ghost" className="rounded-full border border-white/10 bg-white/[0.03] px-3 text-white hover:bg-white/[0.08]" onClick={goBack}>
@@ -343,22 +343,22 @@ export default function UniversalOnboarding() {
             )}
           </div>
 
-          <div className="mt-5">
+          <div className="mt-4 sm:mt-5">
             <Progress value={progressValue} className="h-2 rounded-full bg-white/10 [&>div]:bg-[linear-gradient(90deg,#f4cd71_0%,#34d399_100%)]" />
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-5 sm:p-7">
+          <div className="mt-4 overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7">
             <AnimatePresence mode="wait">
-              <motion.div key={screen.id} {...motionProps} className="space-y-6">
+              <motion.div key={screen.id} {...motionProps} className="space-y-4 sm:space-y-6">
                 {screen.type === "welcome" ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/30 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
                       <Sparkles className="h-3.5 w-3.5" />
                       {content.welcome.badge}
                     </div>
-                    <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+                    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-6">
                       <div className="space-y-4">
-                        <h1 className="max-w-lg text-4xl font-semibold leading-tight text-white sm:text-5xl">{content.welcome.headline}</h1>
+                        <h1 className="max-w-lg text-[2rem] font-semibold leading-tight text-white sm:text-5xl">{content.welcome.headline}</h1>
                         <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">{content.welcome.subheadline}</p>
                         <div className="flex flex-wrap items-center gap-3 pt-2">
                           <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-[#f4cd71] px-5 text-[#101010] hover:bg-[#f7d98e]">
@@ -370,19 +370,19 @@ export default function UniversalOnboarding() {
                       </div>
                       <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4">
                         {content.welcome.mediaUrl ? (
-                          <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[260px] w-full rounded-[22px] object-cover" />
+                          <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[180px] w-full rounded-[22px] object-cover sm:h-[260px]" />
                         ) : (
-                          <div className="flex h-[260px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-5">
+                          <div className="flex h-[180px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 sm:h-[260px] sm:p-5">
                             <div className="flex items-center gap-2 text-sm text-white/60">
                               <BadgeCheck className="h-4 w-4 text-[#f4cd71]" />
                               Diagnosis before direction
                             </div>
-                            <div className="space-y-3">
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                            <div className="space-y-2 sm:space-y-3">
+                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
                                 <p className="text-xs uppercase tracking-[0.18em] text-white/45">Lifestyle</p>
                                 <p className="mt-2 text-sm text-white/78">CLARA learns what your money is supporting.</p>
                               </div>
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
                                 <p className="text-xs uppercase tracking-[0.18em] text-white/45">Spending pause</p>
                                 <p className="mt-2 text-sm text-white/78">CLARA learns when you need help before spending.</p>
                               </div>
@@ -462,7 +462,7 @@ export default function UniversalOnboarding() {
                       CLARA starting path
                     </div>
                     <div className="grid gap-4">
-                      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-6">
+                      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-4 sm:p-6">
                         <h2 className="max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">{content.result.title}</h2>
                         <p className="mt-4 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">{content.result.body}</p>
                       </div>
