@@ -398,6 +398,7 @@ export default function EmergencyFundCard({
   const progressWidth = `${pct}%`;
 
   const walletSelectRef = useRef(null);
+  const hasAutoOpenedSurvivalSetupRef = useRef(false);
   const [editing, setEditing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sourceWalletId, setSourceWalletId] = useState('');
@@ -408,6 +409,24 @@ export default function EmergencyFundCard({
   const [useAmount, setUseAmount] = useState('');
   const [useReason, setUseReason] = useState('');
   const [useError, setUseError] = useState('');
+
+  useEffect(() => {
+    if (!expanded) {
+      hasAutoOpenedSurvivalSetupRef.current = false;
+      return;
+    }
+
+    if (
+      expanded &&
+      !isEmergencyFundSetupComplete &&
+      !hasMonthlySurvivalCost &&
+      !editing &&
+      !hasAutoOpenedSurvivalSetupRef.current
+    ) {
+      hasAutoOpenedSurvivalSetupRef.current = true;
+      setEditing(true);
+    }
+  }, [expanded, isEmergencyFundSetupComplete, hasMonthlySurvivalCost, editing]);
 
   useEffect(() => {
     if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0]));
@@ -506,10 +525,6 @@ export default function EmergencyFundCard({
   };
 
   const finishSetup = async () => {
-    if (!hasProtectionGoal) {
-      await changeTargetMonths(targetMonths);
-      return;
-    }
     if (!hasMonthlySurvivalCost) {
       setEditing(true);
       return;
@@ -519,10 +534,14 @@ export default function EmergencyFundCard({
       return;
     }
     if (!hasValidTargetAmount) return;
+
     const now = new Date().toISOString();
     setSaving(true);
     try {
       await persistEmergencyFund({
+        targetMonths,
+        target_months: targetMonths,
+        months_target: targetMonths,
         targetAmount: target,
         target_amount: target,
         target,
@@ -788,7 +807,8 @@ export default function EmergencyFundCard({
     </select>
   );
 
-  const setupPrimaryLabel = hasProtectionGoal && hasMonthlySurvivalCost && hasStorageWallet && hasValidTargetAmount ? 'Create emergency fund plan' : 'Continue setup';
+  const canFinalizeSetup = hasMonthlySurvivalCost && hasStorageWallet && hasValidTargetAmount;
+  const setupPrimaryLabel = canFinalizeSetup ? 'Create emergency fund plan' : 'Continue setup';
 
   const collapsedSetup = (
     <div className='relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5'>
@@ -929,6 +949,7 @@ export default function EmergencyFundCard({
       <SurvivalExpenseModal
         open={editing}
         initialValue={hasMonthlySurvivalCost ? monthlyExpense : 0}
+        userId={user?.id}
         onSaved={handleSurvivalSaved}
         onOpenChange={(open) => !open && setEditing(false)}
       />
@@ -993,5 +1014,3 @@ export default function EmergencyFundCard({
     </>
   );
 }
-
-export { premiumActionClass, expandButtonClass, EMERGENCY_GLOW_LAYERS };
