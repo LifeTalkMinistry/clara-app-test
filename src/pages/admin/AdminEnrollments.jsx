@@ -29,44 +29,22 @@ import { PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 import usePlanAccess from "@/hooks/usePlanAccess";
 
 const PLAN_DETAILS = {
-  pro_99: {
-    label: "PRO",
-    price: "₱99",
-    badge: "Monthly Subscription",
-    description: "Monthly PRO subscription through Google Play.",
+  committed_249: {
+    label: "Committed",
+    price: "₱249/month",
+    badge: "Monthly Commitment",
+    description: "CLARA Committed membership through Google Play.",
     benefits: [
-      "Full financial tools",
-      "Budgets, analytics, savings goals, and referrals",
-      "Monthly Google Play renewal",
+      "Complete CLARA financial system",
+      "Full AI guidance",
+      "All committed features",
     ],
   },
-  core_599: {
-    label: "CORE",
-    price: "PHP 199",
-    badge: "Most Popular",
-    description: "CORE subscription with advanced daily spending intelligence.",
-    benefits: [
-      "Advanced daily spending AI",
-      "Full CORE financial system",
-      "Google Play subscription",
-    ],
-  },
-  coaching_1299: {
-    label: "Life OS",
-    price: "PHP 499",
-    badge: "Premium",
-    description: "Life OS subscription with the broadest CLARA decision intelligence.",
-    benefits: [
-      "Full Life OS operating layer",
-      "Broader decision intelligence",
-      "Google Play subscription",
-    ],
-  },
-  basic: {
-    label: "Free",
-    price: "—",
+  free: {
+    label: "Free Version",
+    price: "₱0",
     badge: "Free",
-    description: "Basic free access.",
+    description: "CLARA Free Version.",
     benefits: [],
   },
 };

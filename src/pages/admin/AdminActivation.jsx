@@ -7,14 +7,14 @@ import { supabase } from "@/lib/supabaseClient";
 import { createActivationCode, formatActivationCode } from "@/lib/activation";
 import { PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
-const PLAN_OPTIONS = ["core_599", "coaching_1299"];
+const PLAN_OPTIONS = ["committed_249"];
 
 export default function AdminActivation() {
   const [codes, setCodes] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [plan, setPlan] = useState("core_599");
+  const [plan, setPlan] = useState("committed_249");
   const [assignedUserId, setAssignedUserId] = useState("");
 
   const loadData = useCallback(async () => {
@@ -54,7 +54,7 @@ export default function AdminActivation() {
 
   const eligibleProfiles = useMemo(() => {
     return profiles.filter((profile) =>
-      ["core_599", "coaching_1299"].includes(normalizePlanKey(profile.plan))
+      normalizePlanKey(profile.plan) === "committed_249"
     );
   }, [profiles]);
 

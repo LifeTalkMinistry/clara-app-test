@@ -59,7 +59,7 @@ export default function AdminOverview() {
           <p className="mt-3 text-xs text-muted-foreground">Total Users</p>
           <p className="text-2xl font-bold">{profiles.length}</p>
         </div>
-        {["free", "pro_99", "core_599", "coaching_1299"].map((key) => (
+        {["free", "committed_249", "committed_249", "committed_249"].map((key) => (
           <div key={key} className="rounded-2xl border bg-card p-4">
             <p className="text-xs text-muted-foreground">{PLAN_LABELS[key]}</p>
             <p className="mt-2 text-2xl font-bold">{tierCounts[key] || 0}</p>

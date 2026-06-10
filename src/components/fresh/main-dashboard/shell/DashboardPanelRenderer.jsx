@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Lock, LogOut, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  launchGooglePlayPurchase,
+  persistGooglePlayPurchase,
+  waitForGooglePlayEntitlement,
+} from "@/lib/google-play-billing";
+import {
+  COMMITTED_PLAN_KEY,
+  COMMITTED_PRODUCT_ID,
+  readDeveloperMembershipPreview,
+} from "@/lib/membership";
 import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
@@ -10,9 +20,8 @@ import {
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 
-const CLARA_COMMITMENT_PRODUCT_ID = "clara_commitment_249";
-const CLARA_COMMITMENT_UNLOCK_PLAN = "life_os_499";
-const CLARA_COMMITMENT_ACCESS_LEVEL = "life_os";
+const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
+const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
 
 const CLARA_COMMITMENT_BOOKLET_PAGES = [
   {
@@ -127,78 +136,16 @@ const CLARA_COMMITMENT_BOOKLET_PAGES = [
 ];
 
 function readPlanPreview() {
-  if (typeof window === "undefined") return "";
-
-  try {
-    const raw = window.localStorage.getItem("clara_dev_plan_preview") || "";
-    const clean = raw.trim();
-    if (!clean) return "";
-
-    if (clean.startsWith("{")) {
-      const parsed = JSON.parse(clean);
-      return String(parsed?.plan || parsed?.plan_key || "").trim();
-    }
-
-    return clean;
-  } catch {
-    return "";
-  }
+  return readDeveloperMembershipPreview();
 }
 
-async function openGooglePlayCommitmentPurchase() {
-  if (typeof window === "undefined") {
-    throw new Error("Google Play Billing is only available inside the installed Android app.");
-  }
-
-  const purchaseApi = window.CdvPurchase;
-  const store = purchaseApi?.store;
-
-  if (!store) {
-    throw new Error(
-      `Google Play Billing is not available in this preview. Build the Android app and create the ${CLARA_COMMITMENT_PRODUCT_ID} subscription product in Google Play Console.`
-    );
-  }
-
-  const platform = purchaseApi?.Platform?.GOOGLE_PLAY || "google-play";
-  const productType =
-    purchaseApi?.ProductType?.PAID_SUBSCRIPTION ||
-    purchaseApi?.ProductType?.SUBSCRIPTION ||
-    "paid subscription";
-
-  if (!store.__claraCommitmentProductRegistered) {
-    store.register([
-      {
-        id: CLARA_COMMITMENT_PRODUCT_ID,
-        type: productType,
-        platform,
-      },
-    ]);
-    store.__claraCommitmentProductRegistered = true;
-  }
-
-  if (!store.__claraCommitmentStoreInitialized) {
-    await Promise.resolve(store.initialize([platform]));
-    store.__claraCommitmentStoreInitialized = true;
-  } else if (typeof store.update === "function") {
-    await Promise.resolve(store.update());
-  }
-
-  const product = store.get?.(CLARA_COMMITMENT_PRODUCT_ID, platform) || store.get?.(CLARA_COMMITMENT_PRODUCT_ID);
-  const offer = product?.getOffer?.();
-
-  if (!offer?.order) {
-    throw new Error(
-      `Google Play product ${CLARA_COMMITMENT_PRODUCT_ID} is not ready yet. Make sure it is active in Play Console and synced in the Android build.`
-    );
-  }
-
-  const orderResult = await Promise.resolve(offer.order());
-
-  if (orderResult?.isError || orderResult?.error) {
-    throw new Error(orderResult?.message || orderResult?.error?.message || "Google Play purchase was not completed.");
-  }
-
-  return orderResult;
+async function openGooglePlayCommitmentPurchase({ userId, userEmail }) {
+  return launchGooglePlayPurchase({
+    productId: CLARA_COMMITMENT_PRODUCT_ID,
+    planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
+    userId,
+    userEmail,
+  });
 }
 
 function ClaraCommitmentBookletModal({ open, onClose }) {
@@ -224,44 +171,51 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
 
   if (!open) return null;
 
-  const activateCommitmentAccess = async () => {
+  const activateCommitmentAccess = async (purchaseResult) => {
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser();
 
     const activeUserId = user?.id || authUser?.id;
     const activeEmail = user?.email || authUser?.email || null;
+    const purchaseToken =
+      purchaseResult?.purchaseToken ||
+      purchaseResult?.purchase_token ||
+      purchaseResult?.raw?.purchaseToken ||
+      purchaseResult?.raw?.purchase_token ||
+      "";
+    const orderId =
+      purchaseResult?.orderId ||
+      purchaseResult?.order_id ||
+      purchaseResult?.raw?.orderId ||
+      purchaseResult?.raw?.order_id ||
+      "";
 
     if (!activeUserId) {
       throw new Error("Please sign in first before starting your CLARA commitment.");
     }
+    if (!purchaseToken) {
+      throw new Error("Google Play did not return a purchase token, so CLARA did not activate access.");
+    }
 
-    const now = new Date().toISOString();
+    await persistGooglePlayPurchase({
+      supabase,
+      userId: activeUserId,
+      planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
+      productId: CLARA_COMMITMENT_PRODUCT_ID,
+      purchaseToken,
+      orderId,
+      bridgePayload: purchaseResult?.raw || purchaseResult,
+    });
 
-    const { error } = await supabase.from("profiles").upsert(
-      {
-        id: activeUserId,
-        email: activeEmail,
-        plan: CLARA_COMMITMENT_UNLOCK_PLAN,
-        plan_key: CLARA_COMMITMENT_UNLOCK_PLAN,
-        subscription_plan: CLARA_COMMITMENT_UNLOCK_PLAN,
-        access_level: CLARA_COMMITMENT_ACCESS_LEVEL,
-        subscription_status: "active",
-        subscription_label: "CLARA Commitment",
-        enrollment_source: "google_play",
-        enrollment_status: "approved",
-        status: "active",
-        is_enrolled: true,
-        program_active: true,
-        entitlement_status: "active",
-        activation_status: "active",
-        is_activated: true,
-        activated_at: now,
-      },
-      { onConflict: "id" }
-    );
-
-    if (error) throw error;
+    const entitlement = await waitForGooglePlayEntitlement({
+      supabase,
+      userId: activeUserId,
+      expectedPlanKey: CLARA_COMMITMENT_UNLOCK_PLAN,
+    });
+    if (entitlement.status !== "active") {
+      throw new Error("Your purchase was verified, but membership activation is still syncing.");
+    }
 
     await refreshUser?.();
   };
@@ -273,9 +227,12 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     setPurchaseMessage("Opening Google Play...");
 
     try {
-      await openGooglePlayCommitmentPurchase();
-      setPurchaseMessage("Activating your CLARA commitment...");
-      await activateCommitmentAccess();
+      const purchaseResult = await openGooglePlayCommitmentPurchase({
+        userId: user?.id,
+        userEmail: user?.email,
+      });
+      setPurchaseMessage("Verifying your CLARA commitment...");
+      await activateCommitmentAccess(purchaseResult);
       setPurchaseMessage("Commitment active. Unlocking CLARA...");
       onClose();
     } catch (error) {

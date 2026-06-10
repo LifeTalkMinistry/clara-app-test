@@ -12,12 +12,12 @@ const REVISION_STATUSES = new Set(["rejected", "needs_revision"]);
 
 const PLAN_TO_EXPERIENCE_TIER = {
   free: "free",
-  pro: "pro_99",
-  pro_99: "pro_99",
-  core: "core_599",
-  core_599: "core_599",
-  coaching: "coaching_1299",
-  coaching_1299: "coaching_1299",
+  pro: "committed_249",
+  pro_99: "committed_249",
+  core: "committed_249",
+  core_599: "committed_249",
+  coaching: "committed_249",
+  coaching_1299: "committed_249",
 };
 
 export const EXPERIENCE_TIER_LABELS = {
@@ -165,12 +165,12 @@ export function taskSupportsTier(task, tier) {
   const tierAccess = normalizeTierAccess(task.tier_access);
   if (tierAccess.length === 0) return true;
 
-  if (tier === "coaching_1299") {
-    return tierAccess.includes("coaching_1299") || tierAccess.includes("core_599");
+  if (tier === "committed_249") {
+    return tierAccess.includes("committed_249") || tierAccess.includes("committed_249");
   }
 
-  if (tier === "core_599") {
-    return tierAccess.includes("core_599");
+  if (tier === "committed_249") {
+    return tierAccess.includes("committed_249");
   }
 
   return false;
@@ -264,7 +264,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     const submissionMeta = getSubmissionMeta(submission);
     const isPublished = task.is_active !== false && task.status !== "inactive";
     const isTierAllowed = taskSupportsTier(task, tier);
-    const isVisibleToPro = tier === "pro_99";
+    const isVisibleToPro = tier === "committed_249";
     const isUnlockedByDate =
       challengeStarted &&
       task.day <= unlockedDay &&
@@ -280,7 +280,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     } else if (!isTierAllowed || isVisibleToPro) {
       state = "locked";
       lockedReason =
-        tier === "pro_99"
+        tier === "committed_249"
           ? "Unlock CORE to start the 30-day program."
           : "This day is not available on your current tier.";
     } else if (!challengeStarted) {
@@ -405,9 +405,9 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (onboardingRequired) {
     return {
       kind: "onboarding",
-      eyebrow: journey.tier === "coaching_1299" ? "Life OS Journey" : "30-Day Reset",
+      eyebrow: journey.tier === "committed_249" ? "Life OS Journey" : "30-Day Reset",
       title:
-        journey.tier === "coaching_1299"
+        journey.tier === "committed_249"
             ? "Your Life OS layer is ready"
             : "Your guided reset is ready",
       body: "Complete your setup and begin the next step in your program.",
@@ -416,7 +416,7 @@ export function getProgramBubbleContent(journey, options = {}) {
     };
   }
 
-  if (journey.tier === "coaching_1299" && coachingSummary?.hasPendingSession) {
+  if (journey.tier === "committed_249" && coachingSummary?.hasPendingSession) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
     return {
       kind: "life_os_support_active",
@@ -433,7 +433,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.state === "available_not_started") {
     return {
       kind: "start_challenge",
-      eyebrow: journey.tier === "coaching_1299" ? "Life OS Journey" : "30-Day Program",
+      eyebrow: journey.tier === "committed_249" ? "Life OS Journey" : "30-Day Program",
       title: "Your CLARA challenge is ready",
       body: "Start the challenge when you are ready. Day 1 opens immediately, then each next day unlocks at 6:00 AM.",
       ctaLabel: "Start Challenge",
@@ -444,7 +444,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.todayItem) {
     return {
       kind: "task_reminder",
-      eyebrow: journey.tier === "coaching_1299" ? "Life OS Journey" : "Today's Task",
+      eyebrow: journey.tier === "committed_249" ? "Life OS Journey" : "Today's Task",
       title: `Continue Day ${journey.todayItem.day} of your reset`,
       body: journey.todayItem.title || "Your next guided task is ready.",
       ctaLabel: "Open Today's Task",

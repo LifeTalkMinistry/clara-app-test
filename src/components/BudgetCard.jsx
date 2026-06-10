@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
+import { writeDeveloperMembershipPreview } from "@/lib/membership";
 
 const BUDGET_GLOW_LAYERS = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-teal-300/[0.085] blur-[78px]",
@@ -15,24 +16,24 @@ const BUDGET_GLOW_LAYERS = [
 
 const PLAN_TEST_OPTIONS = [
   {
-    label: "Explorer Journey",
-    helper: "Preview the free CLARA experience.",
+    label: "Free Preview",
+    helper: "Preview the complete Free Version experience.",
     badge: "FREE",
-    value: "free",
+    value: { plan: "free", membershipStatus: "not_committed" },
   },
   {
-    label: "Committed Journey",
-    helper: "Preview the full CLARA experience.",
-    badge: "COMMITTED",
-    value: "life_os_499",
+    label: "Committed — Pending Preview",
+    helper: "Preview selected commitment with features still locked.",
+    badge: "PENDING",
+    value: { plan: "committed_249", membershipStatus: "pending" },
+  },
+  {
+    label: "Committed — Active Preview",
+    helper: "Preview the fully activated Committed Version.",
+    badge: "ACTIVE",
+    value: { plan: "committed_249", membershipStatus: "active" },
   },
 ];
-
-function savePlanPreview(value) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem("clara_dev_plan_preview", value);
-  window.dispatchEvent(new CustomEvent("clara-plan-preview-updated", { detail: { plan: value } }));
-}
 
 export default function BudgetCard({
   activeBudget = null,
@@ -131,7 +132,7 @@ export default function BudgetCard({
   }, [expanded]);
 
   const applyPlanPreview = (value) => {
-    savePlanPreview(value);
+    writeDeveloperMembershipPreview(value);
     setShowPlanPreview(false);
     window.location.reload();
   };
@@ -190,7 +191,7 @@ export default function BudgetCard({
                 </p>
                 <h3 className="mt-1 text-lg font-black text-white">Choose test journey state</h3>
                 <p className="mt-1 text-xs font-semibold leading-5 text-white/62">
-                  Local preview only. No Google Play purchase will run.
+                  DEVELOPER PREVIEW only. No Supabase write or Google Play purchase will run.
                 </p>
               </div>
               <button

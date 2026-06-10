@@ -590,14 +590,16 @@ const nextBillingLabel = billingRecord
 const hasBillingStart = billingStartLabel !== "Not recorded";
 const hasNextBilling = nextBillingLabel !== "Not recorded";
 const hasBillingDates = hasBillingStart || hasNextBilling;
-const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;
+const shouldShowBillingDates = membershipState.isActiveCommitted && !membershipState.isDeveloperPreview && hasBillingDates;
 const billingDetailsMessage =
   membershipState.membershipStatus === "loading"
     ? "Syncing membership…"
-    : membershipState.isActiveCommitted
-      ? billingLoading || !hasBillingDates
-        ? "Billing details are syncing."
-        : ""
+    : membershipState.isDeveloperPreview
+      ? "Developer preview does not create billing dates or modify your real membership."
+      : membershipState.isActiveCommitted
+        ? billingLoading || !hasBillingDates
+          ? "Billing details are syncing."
+          : ""
       : membershipState.isPendingActivation
         ? billingLoading
           ? "Activation details are syncing."
@@ -760,9 +762,16 @@ const renderPlanPage = () => (
     <DetailHeader title="Plan & Billing" />
 
     <section className="overflow-hidden rounded-[30px] border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_top_right,rgba(139,92,246,0.08),transparent_34%),rgba(255,255,255,0.055)] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/65">
-        Current membership
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/65">
+          Current membership
+        </p>
+        {membershipState.isDeveloperPreview ? (
+          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
+            Developer Preview
+          </span>
+        ) : null}
+      </div>
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

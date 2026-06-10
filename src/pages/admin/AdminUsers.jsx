@@ -27,32 +27,17 @@ const USER_ROLES = ["free_user", "paid_user", "admin"];
 
 const ADMIN_PLAN_OPTIONS = [
   { value: "free", label: "Free" },
-  { value: "pro", label: "Pro 99" },
-  { value: "core", label: "Core 199" },
-  { value: "life_os", label: "Life OS 499" },
+  { value: "committed_pending", label: "Committed — Pending" },
+  { value: "committed_active", label: "Committed — Active" },
 ];
 
 function normalizeAdminPlan(value) {
   const raw = String(value || "").toLowerCase().trim();
-
-  if (
-    raw === "life_os" ||
-    raw === "lifeos" ||
-    raw === "coaching_1299" ||
-    raw === "coaching" ||
-    raw === "life os"
-  ) {
-    return "life_os";
+  if (raw === "committed_active" || raw === "active") return "committed_active";
+  if (raw === "committed_pending" || raw === "committed_249" || raw === "committed") return "committed_pending";
+  if (["pro", "pro_99", "core", "core_199", "core_599", "life_os", "life_os_499", "lifeos", "coaching", "coaching_1299"].includes(raw)) {
+    return "committed_pending";
   }
-
-  if (raw === "core" || raw === "core_599") {
-    return "core";
-  }
-
-  if (raw === "pro" || raw === "pro_99") {
-    return "pro";
-  }
-
   return "free";
 }
 
@@ -190,40 +175,26 @@ export default function AdminUsers() {
   function updatePlan(id, selectedPlan) {
     const normalizedPlan = normalizeAdminPlan(selectedPlan);
     const isFree = normalizedPlan === "free";
-    const isPro = normalizedPlan === "pro";
-    const isCore = normalizedPlan === "core";
-    const isLifeOS = normalizedPlan === "life_os";
-
-    const role = isFree ? "free_user" : "paid_user";
-    const subscriptionStatus = isFree ? "free" : "active";
-
-    const updates = {
-      plan: normalizedPlan === "life_os" ? "lifeos" : normalizedPlan,
-      role,
-      access_level: normalizedPlan,
+    const isActive = normalizedPlan === "committed_active";
+    updateUser(id, {
+      plan: isFree ? "free" : "committed_249",
+      plan_key: isFree ? "free" : "committed_249",
+      subscription_plan: isFree ? "free" : "committed_249",
+      role: isFree ? "free_user" : "paid_user",
+      access_level: isFree ? "free" : "committed",
       access_source: "admin",
       admin_plan_override: true,
-      subscription_status: subscriptionStatus,
-      entitlement_status: isFree ? "free" : "admin_override",
-      purchase_source: "admin",
-      program_active: isCore || isLifeOS,
-      is_enrolled: isCore || isLifeOS,
-      activation_status: isCore || isLifeOS ? "pending" : "not_required",
-      is_activated: isPro || isCore || isLifeOS,
-      pro_subscription_status: isFree ? "inactive" : "active",
-    };
-
-    if (isFree) {
-      updates.purchase_source = null;
-      updates.play_product_id = null;
-      updates.play_purchase_token = null;
-      updates.program_active = false;
-      updates.is_enrolled = false;
-      updates.is_activated = false;
-      updates.activation_status = "not_required";
-    }
-
-    updateUser(id, updates);
+      subscription_status: isFree ? "free" : isActive ? "active" : "pending",
+      entitlement_status: isFree ? "free" : isActive ? "active" : "pending",
+      purchase_source: isFree ? null : "admin",
+      program_active: isActive,
+      is_enrolled: isActive,
+      activation_status: isFree ? "not_required" : isActive ? "active" : "pending",
+      is_activated: isActive,
+      activated_at: isActive ? new Date().toISOString() : null,
+      play_product_id: isFree ? null : "clara_commitment_249",
+      play_purchase_token: isFree ? null : undefined,
+    });
   }
 
   function grantFreeAccess(id) {

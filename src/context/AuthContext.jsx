@@ -8,7 +8,7 @@ import {
   useRef,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { normalizePlanKey, PLAN_LABELS } from "@/lib/plan-config";
+import { resolveMembership } from "@/lib/membership";
 import {
   clearAccessSnapshot,
   getAccessSnapshot,
@@ -32,8 +32,8 @@ const LOCAL_DEV_AUTH_USER = {
   display_name: "CLARA User",
   role: "user",
   subscription_status: "active",
-  subscription_label: "Life OS",
-  plan_key: "lifeos",
+  subscription_label: "Committed",
+  plan_key: "committed_249",
 };
 
 const withTimeout = (promise, ms = AUTH_TIMEOUT_MS) => {
@@ -61,119 +61,64 @@ const buildLocalFallbackUser = () => ({
 const isLocalFallbackUser = (authUser) => authUser?.id === LOCAL_DEV_AUTH_USER.id;
 
 const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
-  const enrollmentStatus = String(rawProfile?.enrollment_status || "none").toLowerCase();
-  const enrollmentSource = String(rawProfile?.enrollment_source || "").toLowerCase();
-  const profilePlan = String(rawProfile?.plan || rawProfile?.plan_key || "").toLowerCase();
-  const profileStatus = String(rawProfile?.status || "").toLowerCase();
-  const profileRole = String(rawProfile?.role || "user").toLowerCase();
-
-  const isGooglePlay = enrollmentSource === "google_play";
-  const isApproved = enrollmentStatus === "approved";
-  const isPaidPlan =
-    profilePlan === "pro_99" ||
-    profilePlan === "core_199" ||
-    profilePlan === "core_599" ||
-    profilePlan === "life_os_499" ||
-    profilePlan === "coaching_1299" ||
-    profilePlan === "pro" ||
-    profilePlan === "core" ||
-    profilePlan === "lifeos" ||
-    profilePlan === "life_os" ||
-    profilePlan === "premium" ||
-    profilePlan === "paid";
-
-  const isPaidStatus =
-    profileStatus === "approved" ||
-    profileStatus === "active" ||
-    profileStatus === "pro" ||
-    profileStatus === "premium";
-
-  const isPro = Boolean(isApproved || isGooglePlay || isPaidPlan || isPaidStatus);
-
-  const normalizedPlan = normalizePlanKey(rawProfile?.plan || rawProfile?.plan_key || (isPro ? "pro" : "free"));
-  const subscriptionStatus =
-    normalizedPlan === "free"
-      ? "free"
-      : normalizedPlan === "pro_99"
-        ? "pro"
-        : normalizedPlan === "core_199"
-          ? "core"
-          : "life_os";
-
+  const role = String(rawProfile?.role || "user").toLowerCase();
+  const membership = resolveMembership({
+    profile: rawProfile,
+    isAdmin: role === "admin",
+    isAdvertiser: role === "advertiser",
+  });
   const fullName =
     rawProfile?.full_name ||
     rawProfile?.display_name ||
     authUser?.user_metadata?.full_name ||
     authUser?.user_metadata?.name ||
     "";
-
   return {
+    ...rawProfile,
     id: rawProfile?.id || authUser?.id || null,
     email: rawProfile?.email || authUser?.email || null,
     display_name: rawProfile?.display_name || fullName,
     full_name: fullName,
-    plan: normalizedPlan,
-    plan_key: normalizedPlan,
-    access_level: rawProfile?.access_level || subscriptionStatus,
-    subscription_status: rawProfile?.subscription_status || subscriptionStatus,
-    activation_status: rawProfile?.activation_status || "not_required",
-    is_activated: Boolean(
-      rawProfile?.is_activated ||
-        rawProfile?.activated_at ||
-        ["active", "activated"].includes(
-          String(rawProfile?.activation_status || "").toLowerCase()
-        ) ||
-        rawProfile?.offline_limited_access
-    ),
-    activated_at: rawProfile?.activated_at || null,
-    subscription_label: rawProfile?.subscription_label || PLAN_LABELS[normalizedPlan] || "Free",
+    plan: membership.planKey,
+    plan_key: membership.planKey,
+    subscription_plan: membership.planKey,
+    access_level: membership.accessLevel,
+    subscription_status:
+      membership.membershipStatus === "active"
+        ? "active"
+        : membership.membershipStatus === "pending"
+          ? "pending"
+          : "free",
+    subscription_label: membership.planLabel,
     subscription: {
-      plan: normalizedPlan,
-      status: rawProfile?.subscription_status || subscriptionStatus,
-      label: rawProfile?.subscription_label || PLAN_LABELS[normalizedPlan] || "Free",
-      isPaid: normalizedPlan !== "free" || isPro,
-      isPro: isPro || normalizedPlan === "pro_99",
-      isCore: normalizedPlan === "core_199",
-      isLifeOS: normalizedPlan === "life_os_499",
+      plan: membership.planKey,
+      access_level: membership.accessLevel,
+      status: membership.membershipStatus,
+      label: membership.planLabel,
+      isPaid: membership.isActiveCommitted,
+      isCommitted: membership.isCommittedPlan,
+      isActiveCommitted: membership.isActiveCommitted,
     },
-    role: profileRole || "user",
+    role,
     enrollment_source: rawProfile?.enrollment_source || null,
-    enrollment_status: rawProfile?.enrollment_status || (isPro ? "approved" : "none"),
-    status: rawProfile?.status || (isPro ? "active" : "free"),
-    app_theme:
-      rawProfile?.app_theme ||
-      rawProfile?.theme_key ||
-      rawProfile?.dashboard_theme ||
-      null,
-    is_enrolled:
-      typeof rawProfile?.is_enrolled === "boolean" ? rawProfile.is_enrolled : isPro,
-    program_active:
-      typeof rawProfile?.program_active === "boolean"
-        ? rawProfile.program_active || isPro
-        : isPro,
+    enrollment_status: rawProfile?.enrollment_status || (membership.isActiveCommitted ? "approved" : membership.isPendingActivation ? "pending" : "none"),
+    status: rawProfile?.status || (membership.isActiveCommitted ? "active" : membership.isPendingActivation ? "pending" : "free"),
+    activation_status: rawProfile?.activation_status || (membership.isActiveCommitted ? "active" : membership.isPendingActivation ? "pending" : "not_required"),
+    is_activated: membership.isActiveCommitted,
+    activated_at: rawProfile?.activated_at || null,
+    is_enrolled: typeof rawProfile?.is_enrolled === "boolean" ? rawProfile.is_enrolled : membership.isActiveCommitted,
+    program_active: typeof rawProfile?.program_active === "boolean" ? rawProfile.program_active : membership.isActiveCommitted,
     onboarding_completed: Boolean(rawProfile?.onboarding_completed ?? false),
     onboarding_step: Number(rawProfile?.onboarding_step ?? 0),
     program_onboarding_completed: Boolean(rawProfile?.program_onboarding_completed ?? false),
-    has_completed_program_onboarding: Boolean(
-      rawProfile?.has_completed_program_onboarding ??
-        rawProfile?.program_onboarding_completed ??
-        false
-    ),
-    has_completed_universal_onboarding: Boolean(
-      rawProfile?.has_completed_universal_onboarding ??
-        rawProfile?.onboarding_completed ??
-        false
-    ),
-    has_seen_universal_onboarding: Boolean(
-      rawProfile?.has_seen_universal_onboarding ??
-        rawProfile?.onboarding_completed ??
-        false
-    ),
+    has_completed_program_onboarding: Boolean(rawProfile?.has_completed_program_onboarding ?? rawProfile?.program_onboarding_completed ?? false),
+    has_completed_universal_onboarding: Boolean(rawProfile?.has_completed_universal_onboarding ?? rawProfile?.onboarding_completed ?? false),
+    has_seen_universal_onboarding: Boolean(rawProfile?.has_seen_universal_onboarding ?? rawProfile?.onboarding_completed ?? false),
     offline_access: Boolean(rawProfile?.offline_access),
     offline_limited_access: Boolean(rawProfile?.offline_limited_access),
     offline_access_notice: rawProfile?.offline_access_notice || "",
     offline_access_snapshot: rawProfile?.offline_access_snapshot || null,
-    isPro,
+    isPro: membership.isActiveCommitted,
   };
 };
 
@@ -185,9 +130,9 @@ const buildLocalFallbackProfile = (authUser = buildLocalFallbackUser()) =>
       full_name: LOCAL_DEV_AUTH_USER.display_name,
       display_name: LOCAL_DEV_AUTH_USER.display_name,
       role: LOCAL_DEV_AUTH_USER.role,
-      plan: "life_os_499",
+      plan: "committed_249",
       plan_key: LOCAL_DEV_AUTH_USER.plan_key,
-      access_level: "life_os",
+      access_level: "committed",
       subscription_status: LOCAL_DEV_AUTH_USER.subscription_status,
       subscription_label: LOCAL_DEV_AUTH_USER.subscription_label,
       activation_status: "active",

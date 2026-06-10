@@ -1,8 +1,44 @@
-# Google Play Billing Checklist
+# CLARA Google Play Billing Checklist
 
-- Play Console package name must match the Android `applicationId`: `com.clara.moneytracker`.
-- Subscription products must exist and be active: `clara_pro_99`, `clara_core_199`, `clara_lifeos_499`.
-- Each subscription needs at least one active base plan or offer available to the tester account.
-- Test accounts must be opted into the testing track and added as license testers when using test purchases.
-- Purchase testing must use a Play-distributed internal, closed, open, or production build. Sideloaded debug APKs can report billing or product availability failures.
-- If the CLARA debug panel shows missing product IDs, confirm the product type is subscription and that the selected Google account can see that product.
+## Current customer subscription
+
+- Product ID: `clara_commitment_249`
+- Type: monthly subscription
+- Price: ₱249/month
+- Canonical plan: `committed_249`
+- Canonical access level: `committed`
+
+The current app must not query, display, or sell any retired product ID.
+
+## Trusted activation flow
+
+1. The Android client opens Google Play for `clara_commitment_249`.
+2. The client receives a purchase token.
+3. The token is sent to `verify-google-play-purchase`.
+4. The Edge Function authenticates the CLARA user and verifies the token with Google Play.
+5. The backend calls `process_google_play_purchase`.
+6. Supabase writes the canonical membership fields.
+7. The client refreshes the profile and the shared membership resolver unlocks access.
+
+A successful client-side order call alone must never activate membership.
+
+## Historical receipts
+
+Retired product IDs may remain only in the Edge Function and SQL product mapper as a legacy receipt allowlist. They are normalized to `committed_249` after trusted verification and are never offered for a new purchase.
+
+## Required profile result after verification
+
+- `plan = committed_249`
+- `plan_key = committed_249`
+- `subscription_plan = committed_249`
+- `access_level = committed`
+- `subscription_status = active`
+- `subscription_label = CLARA Commitment`
+- `enrollment_status = approved`
+- `status = active`
+- `is_enrolled = true`
+- `program_active = true`
+- `entitlement_status = active`
+- `activation_status = active`
+- `is_activated = true`
+- `activated_at` set by the backend

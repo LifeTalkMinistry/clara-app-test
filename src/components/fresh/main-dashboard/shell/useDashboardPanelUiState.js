@@ -1,16 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { CalendarDays, Home, Settings, User } from "lucide-react";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
+import { readDeveloperMembershipPreview, resolveMembership } from "@/lib/membership";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
-
-function readPlanPreview() {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem("clara_dev_plan_preview") || "";
-  } catch {
-    return "";
-  }
-}
 
 export default function useDashboardPanelUiState({
   activeDashboardPanel,
@@ -23,10 +15,11 @@ export default function useDashboardPanelUiState({
   hasVisibleFinanceData,
   financeDataLoading,
   financeDataRefreshing,
-  plan = "pro_99",
+  plan = "free",
 }) {
-  const planPreview = readPlanPreview();
-  const isFreePlan = (planPreview || plan) === "free";
+  const membershipPreview = readDeveloperMembershipPreview();
+  const membership = resolveMembership({ plan, preview: membershipPreview });
+  const isFreePlan = !membership.hasCommittedAccess;
 
   const openDashboardPanel = useCallback((panelKey) => {
     const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
@@ -68,22 +61,22 @@ export default function useDashboardPanelUiState({
       (financeDataLoading && hasVisibleFinanceData)
   );
 
-  const proBadge = {
+  const committedBadge = {
     type: "pill",
-    value: "PRO",
+    value: "COMMITTED",
     className: "border-white/10 bg-white/[0.08] text-white/62",
   };
 
   const headerQuickActions = useMemo(() => [
     { key: "home", label: "Home", icon: Home, badge: null },
-    { key: "me", label: "Me", icon: User, badge: isFreePlan ? proBadge : null, locked: isFreePlan },
+    { key: "me", label: "Me", icon: User, badge: isFreePlan ? committedBadge : null, locked: isFreePlan },
     {
       key: "schedule",
       label: "Schedule",
       icon: CalendarDays,
       locked: isFreePlan,
       badge: isFreePlan
-        ? proBadge
+        ? committedBadge
         : feedHasHighlight
           ? {
               type: "dot",

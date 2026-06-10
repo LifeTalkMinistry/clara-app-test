@@ -161,7 +161,7 @@ export default function AdminPlans() {
                     <option value="off">Off</option>
                     <option value="basic">Basic</option>
                     <option value="advanced">Advanced</option>
-                    <option value="life_os">Life OS</option>
+                    <option value="committed">Life OS</option>
                   </select>
                 </div>
 

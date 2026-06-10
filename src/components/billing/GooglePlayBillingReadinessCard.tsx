@@ -3,9 +3,9 @@ import React, { useCallback, useEffect, useState } from "react";
 type BillingProbeState = "idle" | "checking" | "ready" | "diagnostic" | "error";
 
 const PRODUCT_IDS = [
-  "pro_99",
-  "core_599",
-  "coaching_1299",
+  "committed_249",
+  "committed_249",
+  "committed_249",
 ];
 
 const billingBridge = {

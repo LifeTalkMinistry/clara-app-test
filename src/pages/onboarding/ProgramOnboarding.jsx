@@ -12,8 +12,8 @@ export default function ProgramOnboarding() {
 
   const plan = normalizePlanKey(profile?.plan || "free");
   const activated = Boolean(profile?.is_activated || profile?.activated_at);
-  const isCore = plan === "core_599";
-  const isLifeOS = plan === "coaching_1299";
+  const isCore = plan === "committed_249";
+  const isLifeOS = plan === "committed_249";
 
   const copy = useMemo(() => {
     if (isLifeOS && !activated) {

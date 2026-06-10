@@ -1,4 +1,4 @@
-name: Finalize validated membership migration
+name: Refactor Transaction Hub
 
 on:
   push:
@@ -6,55 +6,44 @@ on:
       - main
     paths:
       - ".github/workflows/refactor-transaction-hub.yml"
+      - ".github/scripts/extract-transaction-hub-utils.mjs"
+      - ".github/scripts/extract-transaction-hub-primitives.mjs"
+      - ".github/scripts/extract-transaction-card.mjs"
+      - "src/components/fresh/transaction-hub/logic/transactionHubUtils.js"
+      - "src/components/fresh/transaction-hub/ui/TransactionHubPrimitives.jsx"
+      - "src/components/fresh/transaction-hub/ui/TransactionCard.jsx"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  finalize-membership:
+  refactor-transaction-hub:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 2
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Apply validated membership migration
-        run: node scripts/apply-membership-migration.mjs
+      - name: Patch TransactionHub.jsx
+        run: node .github/scripts/extract-transaction-card.mjs
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build production app
+      - name: Build check
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: validation-placeholder
-          VITE_GEMINI_API_KEY: validation-placeholder
 
-      - name: Restore workflow and remove migration assets
-        shell: bash
+      - name: Commit Transaction Hub refactor
         run: |
-          git show HEAD^:.github/workflows/refactor-transaction-hub.yml > .github/workflows/refactor-transaction-hub.yml
-          rm -rf .github/membership-migration
-          rm -f .github/workflows/validate-membership-migration.yml
-          rm -f scripts/apply-membership-migration.mjs
-          rm -rf scripts/templates
+          if git diff --quiet; then
+            echo "No TransactionCard extraction changes needed."
+            exit 0
+          fi
 
-      - name: Commit final membership source
-        shell: bash
-        run: |
-          git config user.name "CLARA Build Bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "Retire legacy membership tiers"
-          git push origin HEAD:main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/TransactionHub.jsx
+          git commit -m "Extract Transaction Hub transaction card"
+          git push

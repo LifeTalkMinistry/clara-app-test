@@ -1,26 +1,14 @@
-import { CLARA_PRODUCTS, getClaraProductByPlan } from "@/lib/clara-entitlements";
+import { CLARA_PRODUCTS } from "@/lib/clara-entitlements";
+import { COMMITTED_PLAN_KEY, normalizePlanKey } from "@/lib/membership";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabaseClient";
 
 const PRODUCT_IDS = {
-  pro_99: CLARA_PRODUCTS.pro.productId,
-  pro: CLARA_PRODUCTS.pro.productId,
-  core_599: CLARA_PRODUCTS.program.productId,
-  core_199: CLARA_PRODUCTS.program.productId,
-  core: CLARA_PRODUCTS.program.productId,
-  program: CLARA_PRODUCTS.program.productId,
-  coaching_1299: CLARA_PRODUCTS.coaching.productId,
-  life_os: CLARA_PRODUCTS.coaching.productId,
-  lifeos: CLARA_PRODUCTS.coaching.productId,
-  life_os_499: CLARA_PRODUCTS.coaching.productId,
-  lifeos_499: CLARA_PRODUCTS.coaching.productId,
-  coach: CLARA_PRODUCTS.coaching.productId,
-  coaching: CLARA_PRODUCTS.coaching.productId,
+  [COMMITTED_PLAN_KEY]: CLARA_PRODUCTS.committed.productId,
+  committed: CLARA_PRODUCTS.committed.productId,
 };
 
 const PRODUCT_TYPES = {
-  [CLARA_PRODUCTS.pro.productId]: "subs",
-  [CLARA_PRODUCTS.program.productId]: "subs",
-  [CLARA_PRODUCTS.coaching.productId]: "subs",
+  [CLARA_PRODUCTS.committed.productId]: "subs",
 };
 
 const SUCCESS_STATUSES = new Set(["approved", "active"]);
@@ -47,7 +35,7 @@ async function getSupabaseAccessToken(supabase) {
 }
 
 export function getGooglePlayProductId(planKey) {
-  return PRODUCT_IDS[normalizeLower(planKey)] || "";
+  return PRODUCT_IDS[normalizePlanKey(planKey)] || "";
 }
 
 export function getAllGooglePlayProductIds() {
@@ -913,352 +901,101 @@ export async function persistGooglePlayPurchase({
   bridgePayload,
 }) {
   requireSupabaseClient(supabase);
-
   const safeUserId = requireAuthenticatedUserId(userId);
-  const safePlanKey = normalize(planKey);
+  const safePlanKey = normalizePlanKey(planKey);
   const safeProductId = normalize(productId);
-  const safePurchaseToken = normalize(purchaseToken) || null;
+  const safePurchaseToken = normalize(purchaseToken);
   const safeOrderId = normalize(orderId) || null;
-  const productType = getGooglePlayProductType(safeProductId);
-  const resolvedStatus = resolveEnrollmentStatus({
-    purchaseToken: safePurchaseToken,
-    orderId: safeOrderId,
-    bridgePayload,
-    productId: safeProductId,
-  });
 
-  if (!safePlanKey) {
-    throw makeError("Missing Google Play plan key.", {
+  if (safePlanKey !== COMMITTED_PLAN_KEY || safeProductId !== CLARA_PRODUCTS.committed.productId) {
+    throw makeError("Unsupported CLARA membership product.", {
       responseCode: "DEVELOPER_ERROR",
-      debugMessage: "persistGooglePlayPurchase() was called without planKey.",
+      debugMessage: "Only clara_commitment_249 may be purchased by the current app.",
     });
   }
-
-  if (!safeProductId) {
-    throw makeError("Missing Google Play product ID.", {
-      responseCode: "DEVELOPER_ERROR",
-      debugMessage: "persistGooglePlayPurchase() was called without productId.",
-    });
-  }
-
   if (!safePurchaseToken) {
     throw makeError("Missing Google Play purchase token.", {
       responseCode: "DEVELOPER_ERROR",
-      debugMessage:
-        "Google Play restore/purchase must include a purchaseToken before backend validation.",
+      debugMessage: "A purchase token is required before trusted backend verification.",
     });
   }
-
-  try {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw makeError("Supabase is not configured for billing validation.", {
-        responseCode: "VALIDATION_FAILED",
-        debugMessage: "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.",
-      });
-    }
-
-    const requestUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/verify-google-play-purchase`;
-    const accessToken = await getSupabaseAccessToken(supabase);
-    const payload = {
-      user_id: safeUserId,
-      plan_key: safePlanKey,
-      product_id: safeProductId,
-      purchase_token: safePurchaseToken,
-      order_id: safeOrderId,
-      package_name: "com.clara.moneytracker",
-      purchase_payload: bridgePayload || null,
-    };
-
-    billingDebug("backend validation request", {
-      requestUrl,
-      productId: safeProductId,
-      packageName: payload.package_name,
-      orderId: safeOrderId,
-      purchaseTokenPresent: Boolean(safePurchaseToken),
-      purchaseTokenPreview: maskToken(safePurchaseToken),
-      payload: {
-        ...payload,
-        purchase_token: maskToken(safePurchaseToken),
-      },
-    });
-
-    const response = await fetch(requestUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        apikey: supabaseAnonKey,
-        authorization: `Bearer ${accessToken || supabaseAnonKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const responseText = await response.text();
-    let data = null;
-    try {
-      data = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      data = { ok: false, error: responseText || "Non-JSON validation response." };
-    }
-
-    billingDebug("backend validation response", {
-      status: response.status,
-      ok: response.ok,
-      body: data,
-    });
-
-    if (!response.ok) {
-      throw makeError(data?.error || `Validation request failed with ${response.status}.`, {
-        responseCode: data?.code || "VALIDATION_FAILED",
-        debugMessage: responseText || response.statusText,
-        raw: data,
-      });
-    }
-
-    if (data?.ok) {
-      return data.enrollment_id || data.purchase_id || null;
-    }
-
-    throw makeError(data?.error || "Google Play purchase was not validated.", {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw makeError("Supabase is not configured for billing validation.", {
       responseCode: "VALIDATION_FAILED",
-      debugMessage: data?.error || "Backend verification returned a non-success response.",
-      raw: data,
-    });
-  } catch (error) {
-    throw makeError(error?.message || "Server-side Google Play verification failed.", {
-      responseCode: error?.responseCode || error?.code || "VALIDATION_FAILED",
-      debugMessage:
-        error?.debugMessage ||
-        error?.details ||
-        "The purchase was not persisted because backend validation did not succeed.",
-      raw: error,
+      debugMessage: "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.",
     });
   }
 
+  const requestUrl = supabaseUrl.replace(/\/+$/, "") + "/functions/v1/verify-google-play-purchase";
+  const accessToken = await getSupabaseAccessToken(supabase);
   const payload = {
     user_id: safeUserId,
-    plan: safePlanKey,
-    plan_key: safePlanKey,
-    tier_type: getClaraProductByPlan(safePlanKey)?.tierType || safePlanKey,
+    plan_key: COMMITTED_PLAN_KEY,
     product_id: safeProductId,
-    play_product_id: safeProductId,
-    product_type: productType,
-    play_product_type: productType,
     purchase_token: safePurchaseToken,
-    play_purchase_token: safePurchaseToken,
     order_id: safeOrderId,
-    subscription_id:
-      normalize(
-        bridgePayload?.subscriptionId || bridgePayload?.subscription_id
-      ) || (productType === "subs" ? safeProductId : null),
-    base_plan_id:
-      normalize(
-        bridgePayload?.basePlanId ||
-          bridgePayload?.base_plan_id ||
-          bridgePayload?.basePlan
-      ) || null,
-    offer_id:
-      normalize(
-        bridgePayload?.offerId ||
-          bridgePayload?.offer_id ||
-          bridgePayload?.offerToken ||
-          bridgePayload?.offer_token
-      ) || null,
-    source: "google_play",
-    purchase_source: "google_play",
-    status: resolvedStatus,
+    package_name: "com.clara.moneytracker",
     purchase_payload: bridgePayload || null,
   };
-
-  let existing = null;
-
-  if (safePurchaseToken) {
-    const { data, error } = await supabase
-      .from("enrollments")
-      .select("id, user_id")
-      .eq("purchase_token", safePurchaseToken)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (data?.user_id && normalize(data.user_id) !== safeUserId) {
-      throw makeError(
-        "This Google Play purchase is already linked to another account.",
-        {
-          responseCode: "ITEM_ALREADY_OWNED",
-          debugMessage:
-            "purchase_token already exists and belongs to a different CLARA user.",
-        }
-      );
-    }
-
-    existing = data || null;
+  const response = await fetch(requestUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: supabaseAnonKey,
+      authorization: "Bearer " + (accessToken || supabaseAnonKey),
+    },
+    body: JSON.stringify(payload),
+  });
+  const responseText = await response.text();
+  let data;
+  try {
+    data = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    data = { ok: false, error: responseText || "Non-JSON validation response." };
   }
-
-  if (!existing && safeOrderId) {
-    const { data, error } = await supabase
-      .from("enrollments")
-      .select("id, user_id")
-      .eq("order_id", safeOrderId)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (data?.user_id && normalize(data.user_id) !== safeUserId) {
-      throw makeError(
-        "This Google Play purchase is already linked to another account.",
-        {
-          responseCode: "ITEM_ALREADY_OWNED",
-          debugMessage:
-            "order_id already exists and belongs to a different CLARA user.",
-        }
-      );
-    }
-
-    existing = data || null;
+  if (!response.ok || !data?.ok) {
+    throw makeError(data?.error || "Google Play purchase was not validated.", {
+      responseCode: data?.code || "VALIDATION_FAILED",
+      debugMessage: responseText || response.statusText,
+      raw: data,
+    });
   }
-
-  if (!existing) {
-    const { data, error } = await supabase
-      .from("enrollments")
-      .select("id")
-      .eq("user_id", safeUserId)
-      .eq("product_id", safeProductId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    existing = data || null;
-  }
-
-  let enrollmentId = null;
-
-  if (existing?.id) {
-    const { error: updateError } = await supabase
-      .from("enrollments")
-      .update(payload)
-      .eq("id", existing.id);
-
-    if (updateError) throw updateError;
-    enrollmentId = existing.id;
-  } else {
-    const { data, error: insertError } = await supabase
-      .from("enrollments")
-      .insert([payload])
-      .select("id")
-      .single();
-
-    if (insertError) throw insertError;
-    enrollmentId = data?.id || null;
-  }
-
-  if (resolvedStatus === "approved" || resolvedStatus === "active") {
-    const product = getClaraProductByPlan(safePlanKey);
-    const accessLevel = product?.accessLevel || (safePlanKey === "coaching_1299" ? "life_os" : safePlanKey === "core_599" ? "core" : "pro");
-    const publicPlan = accessLevel === "life_os" ? "lifeos" : accessLevel;
-    const isProOnly = accessLevel === "pro";
-    const profilePatch = isProOnly
-      ? {
-          plan: "pro",
-          access_level: "pro",
-          tier_type: product?.tierType || "pro_tools",
-          purchase_source: "google_play",
-          access_source: "google_play",
-          subscription_status: "active",
-          play_product_id: safeProductId,
-          play_purchase_token: safePurchaseToken,
-          pro_subscription_status: "active",
-          entitlement_status: "pro_subscription",
-          is_enrolled: false,
-          program_active: false,
-          enrollment_status: resolvedStatus,
-        }
-      : {
-          plan: publicPlan,
-          access_level: accessLevel,
-          tier_type: product?.tierType || safePlanKey,
-          purchase_source: "google_play",
-          access_source: "google_play",
-          subscription_status: "active",
-          play_product_id: safeProductId,
-          play_purchase_token: safePurchaseToken,
-          is_enrolled: true,
-          program_active: false,
-          enrollment_status: resolvedStatus,
-          entitlement_status: "program_available",
-          coaching_credits_total:
-            safePlanKey === "coaching_1299" ? product?.coachingCredits || 2 : 0,
-        };
-
-    const { error: profileUpdateError } = await supabase
-      .from("profiles")
-      .update(profilePatch)
-      .eq("id", safeUserId);
-
-    if (profileUpdateError) {
-      throw profileUpdateError;
-    }
-  }
-
-  return enrollmentId;
+  return data.enrollment_id || data.purchase_id || null;
 }
 
 export async function waitForGooglePlayEntitlement({
   supabase,
   userId,
-  expectedPlanKey,
+  expectedPlanKey = COMMITTED_PLAN_KEY,
   timeoutMs = 20000,
   pollMs = 1500,
 }) {
   requireSupabaseClient(supabase);
-
   const safeUserId = requireAuthenticatedUserId(userId);
-  const expected = normalizeLower(expectedPlanKey);
+  const expected = normalizePlanKey(expectedPlanKey);
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    const [
-      { data: profile, error: profileError },
-      { data: enrollment, error: enrollmentError },
-    ] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", safeUserId).maybeSingle(),
-      supabase
-        .from("enrollments")
-        .select("*")
-        .eq("user_id", safeUserId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", safeUserId)
+      .maybeSingle();
+    if (error) throw error;
 
-    if (profileError) throw profileError;
-    if (enrollmentError) throw enrollmentError;
-
-    const enrollmentStatus = normalizeLower(enrollment?.status);
-    const enrollmentPlan = normalizeLower(
-      enrollment?.plan_key || enrollment?.plan
+    const plan = normalizePlanKey(profile?.plan || profile?.plan_key || profile?.subscription_plan);
+    const active = Boolean(
+      plan === expected &&
+        (profile?.is_activated === true ||
+          profile?.program_active === true ||
+          profile?.is_enrolled === true ||
+          ["active", "approved", "activated"].includes(normalizeLower(profile?.activation_status)) ||
+          ["active", "approved"].includes(normalizeLower(profile?.subscription_status)) ||
+          ["active", "approved"].includes(normalizeLower(profile?.entitlement_status)) ||
+          profile?.activated_at)
     );
-    const profilePlan = normalizeLower(profile?.plan);
-    const profileEnrollmentStatus = normalizeLower(profile?.enrollment_status);
-
-    const unlocked =
-      SUCCESS_STATUSES.has(enrollmentStatus) ||
-      SUCCESS_STATUSES.has(profileEnrollmentStatus) ||
-      profile?.program_active === true ||
-      profile?.is_enrolled === true ||
-      profilePlan === expected ||
-      (enrollmentPlan === expected && SUCCESS_STATUSES.has(enrollmentStatus));
-
-    if (unlocked) {
-      return {
-        status: "active",
-        profile,
-        enrollment,
-      };
-    }
-
+    if (active) return { status: "active", profile, enrollment: null };
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
-
   return { status: "pending" };
 }

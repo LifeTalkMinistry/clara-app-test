@@ -12,8 +12,8 @@ export function formatActivationCode(value) {
   return code.replace(/(.{4})/g, "$1-").replace(/-$/, "");
 }
 
-export function createActivationCode(planKey = "core_599") {
-  const prefix = normalizePlanKey(planKey) === "coaching_1299" ? "LIFE" : "CORE";
+export function createActivationCode(planKey = "committed_249") {
+  const prefix = normalizePlanKey(planKey) === "committed_249" ? "LIFE" : "CORE";
   const random =
     typeof crypto !== "undefined" && crypto.getRandomValues
       ? Array.from(crypto.getRandomValues(new Uint8Array(8)))

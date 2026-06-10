@@ -39,90 +39,30 @@ import {
 import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
 const CANONICAL_PLAN_KEYS = {
-  PRO: "pro_99",
-  PROGRAM: "core_599",
-  LIFE_OS: "coaching_1299",
+  COMMITTED: "committed_249",
 };
 
-const SUPPORTED_ENROLLMENT_PLAN_KEYS = new Set([
-  CANONICAL_PLAN_KEYS.PRO,
-  CANONICAL_PLAN_KEYS.PROGRAM,
-  CANONICAL_PLAN_KEYS.LIFE_OS,
-]);
-
-const LEGACY_PLAN_KEY_MAP = {
-  pro: CANONICAL_PLAN_KEYS.PRO,
-  pro_tools: CANONICAL_PLAN_KEYS.PRO,
-  protools: CANONICAL_PLAN_KEYS.PRO,
-
-  core: CANONICAL_PLAN_KEYS.PROGRAM,
-  program: CANONICAL_PLAN_KEYS.PROGRAM,
-
-  coach: CANONICAL_PLAN_KEYS.LIFE_OS,
-  coaching: CANONICAL_PLAN_KEYS.LIFE_OS,
-};
+const SUPPORTED_ENROLLMENT_PLAN_KEYS = new Set([CANONICAL_PLAN_KEYS.COMMITTED]);
 
 const PLAN_UI_META = {
-  [CANONICAL_PLAN_KEYS.PRO]: {
-    label: "PRO",
-    eyebrow: "Monthly Subscription",
-    badge: "Monthly subscription",
-    statement: "Unlock CLARA's PRO tools through Google Play Billing.",
+  [CANONICAL_PLAN_KEYS.COMMITTED]: {
+    label: "Committed",
+    eyebrow: "Monthly Commitment",
+    badge: "Complete CLARA",
+    statement: "Start your CLARA commitment and unlock the complete experience.",
     points: [
-      "Full financial tools",
-      "Budgets, analytics, savings goals, referrals",
-      "Does not include the 30-day program",
+      "Complete CLARA financial system",
+      "Full AI guidance and decision support",
+      "Me, Schedule, Learning Hub, and committed features",
       "Renews monthly through Google Play",
-    ],
-    accent: "from-cyan-400/22 via-sky-400/10 to-transparent",
-    border: "border-cyan-400/20",
-    button: "Subscribe to PRO",
-    successTitle: "PRO unlocked",
-    successBody: "Your PRO tools are active while your subscription is active.",
-    successCta: "Open Dashboard",
-    icon: Star,
-  },
-  [CANONICAL_PLAN_KEYS.PROGRAM]: {
-    label: "CORE",
-    eyebrow: "Advanced Spending AI",
-    badge: "Most popular",
-    statement:
-      "Choose CORE as your complete upgraded tier with advanced daily spending intelligence.",
-    points: [
-      "Complete CORE financial system",
-      "Advanced CLARA Companion for daily spending strategy",
-      "Guided support for today's spending decisions",
-      "Activation code unlocks the full CORE layer",
     ],
     accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
     border: "border-emerald-400/20",
-    button: "Unlock CORE",
-    successTitle: "CORE unlocked",
-    successBody:
-      "Your CORE tier is connected. Complete activation when your code is ready.",
-    successCta: "Open CORE",
+    button: "Start Your Commitment — ₱249/month",
+    successTitle: "Commitment active",
+    successBody: "Your Committed Version is now active.",
+    successCta: "Open Dashboard",
     icon: Target,
-  },
-  [CANONICAL_PLAN_KEYS.LIFE_OS]: {
-    label: "Life OS",
-    eyebrow: "Premium Decision System",
-    badge: "Premium support",
-    statement:
-      "Choose Life OS as CLARA's highest tier for broader life-operating intelligence.",
-    points: [
-      "Complete Life OS operating layer",
-      "Decision intelligence beyond daily spending",
-      "Life scheduling, organization, and deeper CLARA context",
-      "Activation code unlocks the full Life OS layer",
-    ],
-    accent: "from-amber-400/22 via-orange-400/10 to-transparent",
-    border: "border-amber-400/20",
-    button: "Unlock Life OS",
-    successTitle: "Life OS unlocked",
-    successBody:
-      "Your Life OS tier is connected. Complete activation when your code is ready.",
-    successCta: "Open Life OS",
-    icon: Gem,
   },
 };
 
@@ -149,8 +89,7 @@ function normalizeKey(value) {
 }
 
 function normalizePlanUiKey(value) {
-  const key = normalizeKey(value);
-  return LEGACY_PLAN_KEY_MAP[key] || key;
+  return normalizePlanKey(value);
 }
 
 function isSupportedEnrollmentPlanKey(value) {
@@ -281,16 +220,8 @@ function getSupportedPlanKeyFromEnrollment(enrollment) {
   return "";
 }
 
-function getSuccessDestination(planKey) {
-  const normalized = normalizePlanUiKey(planKey);
-  if (normalized === CANONICAL_PLAN_KEYS.PRO) return "/dashboard";
-  if (
-    normalized === CANONICAL_PLAN_KEYS.PROGRAM ||
-    normalized === CANONICAL_PLAN_KEYS.LIFE_OS
-  ) {
-    return "/tasks";
-  }
-  return "/tasks";
+function getSuccessDestination() {
+  return "/dashboard";
 }
 
 function formatDebugError(error) {

@@ -131,23 +131,16 @@ function getAnswerLabel(questionId, optionId) {
   return question?.options.find((option) => option.id === optionId)?.label || "";
 }
 
-function getCompletionDestination(profile, recommendation) {
+function getCompletionDestination(profile) {
   const enrollmentStatus = normalizeAccessValue(profile?.enrollment_status || profile?.status);
   const isPaid = hasAnyPaidSignal(profile);
   if (ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) return "/pending";
   if (ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) || isPaid) return "/program-onboarding";
-  const planByRecommendation = {
-    tools: "pro_99",
-    system: "core_599",
-    guidance: "coaching_1299",
-  };
-  return `/enroll?plan=${planByRecommendation[recommendation] || "pro_99"}&view=detail`;
+  return "/enroll?plan=committed_249&view=detail";
 }
 
 function getRecommendedAccessLevel(recommendation) {
-  if (recommendation === "guidance") return "life_os";
-  if (recommendation === "system") return "core";
-  return "pro";
+  return recommendation === "tools" ? "free" : "committed";
 }
 
 export default function UniversalOnboarding() {
