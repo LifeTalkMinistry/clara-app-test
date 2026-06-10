@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build-validate-and-commit:
-    if: github.event.pull_request.head.ref == 'clara-pdf-white-flash-fix'
+    if: github.event.pull_request.head.ref == 'clara-pdf-geometry-stability'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
