@@ -1,5 +1,6 @@
 import { ChevronDown, MoreHorizontal, Pencil, Plus, Repeat2, Trash2, WalletCards, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useAuth } from "@/context/AuthContext";
 import useInvestmentCardLogic, {
@@ -19,6 +20,9 @@ import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion"
 import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 const DETAIL_KEY = "investmentFund";
+const INCOME_MENU_WIDTH = 208;
+const INCOME_MENU_GAP = 8;
+const INCOME_MENU_VIEWPORT_PADDING = 12;
 
 const glowLayers = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-400/[0.07] blur-[78px]",
@@ -120,17 +124,12 @@ function SummaryTiles({ statOneLabel, statOneValue, statTwoLabel, statTwoValue, 
   );
 }
 
-function IncomeSourcePreviewRow({ source, menuOpen, onToggleMenu, onAction }) {
+function IncomeSourcePreviewRow({ source, menuOpen, onToggleMenu }) {
   const net = getSourceNet(source);
   const initial = String(source?.name || "I").trim().slice(0, 1).toUpperCase() || "I";
 
-  const handleMenuAction = (event, action) => {
-    stopIncomeSourceAction(event);
-    onAction(source, action);
-  };
-
   return (
-    <div className={`relative overflow-visible rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${menuOpen ? "z-[95]" : "z-0"}`}>
+    <div className="relative rounded-2xl border border-white/[0.06] bg-black/[0.10] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="absolute left-0 top-3 h-[calc(100%-24px)] w-[3px] rounded-full bg-emerald-300/70" />
       <div className="flex items-center gap-3 pl-1.5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-400/10 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -150,7 +149,7 @@ function IncomeSourcePreviewRow({ source, menuOpen, onToggleMenu, onAction }) {
             onTouchStartCapture={stopIncomeSourceGesture}
             onClick={(event) => {
               stopIncomeSourceAction(event);
-              onToggleMenu(source.id);
+              onToggleMenu(source, event.currentTarget);
             }}
             className={incomeMenuButtonClass}
             aria-expanded={menuOpen}
@@ -158,55 +157,139 @@ function IncomeSourcePreviewRow({ source, menuOpen, onToggleMenu, onAction }) {
           >
             <MoreHorizontal className="h-4.5 w-4.5" />
           </button>
-
-          {menuOpen ? (
-            <div
-              className="absolute right-0 top-10 z-[170] w-52 rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] ring-1 ring-cyan-200/10 backdrop-blur-xl"
-              onClick={stopIncomeSourceAction}
-              onPointerDownCapture={stopIncomeSourceGesture}
-              onMouseDownCapture={stopIncomeSourceGesture}
-              onTouchStartCapture={stopIncomeSourceGesture}
-              data-income-source-interactive="true"
-            >
-              <button
-                type="button"
-                onClick={(event) => handleMenuAction(event, "add_money")}
-                className={incomeMenuActionClass}
-              >
-                <Plus className="h-3.5 w-3.5 text-emerald-200" />
-                Add Money
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => handleMenuAction(event, "transfer_money")}
-                className={incomeMenuActionClass}
-              >
-                <Repeat2 className="h-3.5 w-3.5 text-sky-200" />
-                Transfer Money
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => handleMenuAction(event, "delete_income_source")}
-                className={`${incomeMenuActionClass} text-rose-100 hover:bg-rose-500/10`}
-              >
-                <Trash2 className="h-3.5 w-3.5 text-rose-200" />
-                Delete
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => handleMenuAction(event, "edit_income_source")}
-                className={incomeMenuActionClass}
-              >
-                <Pencil className="h-3.5 w-3.5 text-cyan-100" />
-                Edit
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function IncomeSourceActionMenu({ source, anchorElement, menuRef, onAction, onClose }) {
+  const [position, setPosition] = useState(null);
+
+  const updatePosition = useCallback(() => {
+    if (typeof window === "undefined" || !anchorElement || !menuRef.current) return;
+
+    if (!anchorElement.isConnected) {
+      onClose();
+      return;
+    }
+
+    const anchorRect = anchorElement.getBoundingClientRect();
+    const menuRect = menuRef.current.getBoundingClientRect();
+    const menuWidth = Math.min(
+      INCOME_MENU_WIDTH,
+      Math.max(0, window.innerWidth - INCOME_MENU_VIEWPORT_PADDING * 2),
+    );
+    const menuHeight = menuRect.height;
+    const spaceBelow = window.innerHeight - anchorRect.bottom;
+    const spaceAbove = anchorRect.top;
+    const openAbove = spaceBelow < menuHeight + INCOME_MENU_GAP && spaceAbove > spaceBelow;
+    const rawTop = openAbove
+      ? anchorRect.top - menuHeight - INCOME_MENU_GAP
+      : anchorRect.bottom + INCOME_MENU_GAP;
+    const maxTop = Math.max(
+      INCOME_MENU_VIEWPORT_PADDING,
+      window.innerHeight - menuHeight - INCOME_MENU_VIEWPORT_PADDING,
+    );
+    const top = Math.min(
+      Math.max(rawTop, INCOME_MENU_VIEWPORT_PADDING),
+      maxTop,
+    );
+    const maxLeft = Math.max(
+      INCOME_MENU_VIEWPORT_PADDING,
+      window.innerWidth - menuWidth - INCOME_MENU_VIEWPORT_PADDING,
+    );
+    const left = Math.min(
+      Math.max(anchorRect.right - menuWidth, INCOME_MENU_VIEWPORT_PADDING),
+      maxLeft,
+    );
+
+    setPosition((current) => {
+      if (
+        current?.top === top
+        && current?.left === left
+        && current?.width === menuWidth
+      ) {
+        return current;
+      }
+
+      return { top, left, width: menuWidth };
+    });
+  }, [anchorElement, menuRef, onClose]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    setPosition(null);
+    updatePosition();
+    const animationFrame = window.requestAnimationFrame(updatePosition);
+
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [updatePosition]);
+
+  const handleMenuAction = (event, action) => {
+    stopIncomeSourceAction(event);
+    onAction(source, action);
+  };
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[190] rounded-[22px] border border-white/[0.18] bg-[rgba(12,18,45,0.96)] p-1.5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] ring-1 ring-cyan-200/10 backdrop-blur-xl"
+      style={{
+        top: position?.top ?? INCOME_MENU_VIEWPORT_PADDING,
+        left: position?.left ?? INCOME_MENU_VIEWPORT_PADDING,
+        width: position?.width ?? INCOME_MENU_WIDTH,
+        visibility: position ? "visible" : "hidden",
+      }}
+      onClick={stopIncomeSourceAction}
+      onPointerDownCapture={stopIncomeSourceGesture}
+      onMouseDownCapture={stopIncomeSourceGesture}
+      onTouchStartCapture={stopIncomeSourceGesture}
+      data-income-source-interactive="true"
+    >
+      <button
+        type="button"
+        onClick={(event) => handleMenuAction(event, "add_money")}
+        className={incomeMenuActionClass}
+      >
+        <Plus className="h-3.5 w-3.5 text-emerald-200" />
+        Add Money
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => handleMenuAction(event, "transfer_money")}
+        className={incomeMenuActionClass}
+      >
+        <Repeat2 className="h-3.5 w-3.5 text-sky-200" />
+        Transfer Money
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => handleMenuAction(event, "delete_income_source")}
+        className={`${incomeMenuActionClass} text-rose-100 hover:bg-rose-500/10`}
+      >
+        <Trash2 className="h-3.5 w-3.5 text-rose-200" />
+        Delete
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => handleMenuAction(event, "edit_income_source")}
+        className={incomeMenuActionClass}
+      >
+        <Pencil className="h-3.5 w-3.5 text-cyan-100" />
+        Edit
+      </button>
     </div>
   );
 }
@@ -406,11 +489,26 @@ export default function InvestmentCardView({
   const { user } = useAuth();
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
   const localUserId = getIncomeHubLocalUserId(user);
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [incomeActionMenu, setIncomeActionMenu] = useState({ source: null, anchorElement: null });
   const [incomeSourceModal, setIncomeSourceModal] = useState({ type: null, source: null });
   const [sourceFormModal, setSourceFormModal] = useState({ open: false, source: null });
   const [removalSource, setRemovalSource] = useState(null);
   const [removalSaving, setRemovalSaving] = useState(false);
+  const incomeActionMenuRef = useRef(null);
+  const suppressRootClickUntilRef = useRef(0);
+
+  const closeIncomeActionMenu = useCallback(() => {
+    setIncomeActionMenu({ source: null, anchorElement: null });
+  }, []);
+
+  const toggleIncomeActionMenu = useCallback((source, anchorElement) => {
+    suppressRootClickUntilRef.current = 0;
+    setIncomeActionMenu((current) => (
+      current.source?.id === source?.id
+        ? { source: null, anchorElement: null }
+        : { source, anchorElement }
+    ));
+  }, []);
 
   const handleInvestmentToggle = () => {
     toggleExpandedFinanceCard({
@@ -443,15 +541,23 @@ export default function InvestmentCardView({
   } = computed;
 
   useEffect(() => {
-    if (!openMenuId || typeof window === "undefined") return undefined;
+    const { source, anchorElement } = incomeActionMenu;
+    if (!source || !anchorElement || typeof window === "undefined") return undefined;
 
     const closeMenuFromOutside = (event) => {
-      if (isIncomeSourceInteractiveTarget(event.target)) return;
-      setOpenMenuId(null);
+      if (
+        anchorElement.contains(event.target)
+        || incomeActionMenuRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+
+      suppressRootClickUntilRef.current = Date.now() + 500;
+      closeIncomeActionMenu();
     };
 
     const closeMenuFromEscape = (event) => {
-      if (event.key === "Escape") setOpenMenuId(null);
+      if (event.key === "Escape") closeIncomeActionMenu();
     };
 
     window.addEventListener("pointerdown", closeMenuFromOutside, true);
@@ -461,14 +567,32 @@ export default function InvestmentCardView({
       window.removeEventListener("pointerdown", closeMenuFromOutside, true);
       window.removeEventListener("keydown", closeMenuFromEscape, true);
     };
-  }, [openMenuId]);
+  }, [closeIncomeActionMenu, incomeActionMenu]);
+
+  useEffect(() => {
+    if (!incomeActionMenu.source) return;
+
+    const selectedSourceStillExists = incomeSources.some(
+      (source) => source.id === incomeActionMenu.source.id,
+    );
+
+    if (!isExpanded || !selectedSourceStillExists) {
+      closeIncomeActionMenu();
+    }
+  }, [closeIncomeActionMenu, incomeActionMenu.source, incomeSources, isExpanded]);
+
+  useEffect(() => {
+    if (incomeSourceModal.type || sourceFormModal.open || removalSource) {
+      closeIncomeActionMenu();
+    }
+  }, [closeIncomeActionMenu, incomeSourceModal.type, removalSource, sourceFormModal.open]);
 
   const sourceCount = readiness?.sourceCount || incomeSources.length || 0;
   const incomeSourceTitle = `${sourceCount} Income Source${sourceCount === 1 ? "" : "s"}`;
   const mainValue = readiness?.totalGenerated > 0 ? fmt(readiness.totalGenerated) : "Set source";
 
   const openCreateIncomeSourceModal = () => {
-    setOpenMenuId(null);
+    closeIncomeActionMenu();
     setSourceFormModal({ open: true, source: null });
   };
 
@@ -477,7 +601,7 @@ export default function InvestmentCardView({
   };
 
   const handleSourceAction = (source, action) => {
-    setOpenMenuId(null);
+    closeIncomeActionMenu();
 
     if (action === "add_money" || action === "transfer_money") {
       setIncomeSourceModal({ type: action, source });
@@ -515,11 +639,20 @@ export default function InvestmentCardView({
   };
 
   const handleRootClickCapture = (event) => {
-    if (isIncomeSourceInteractiveTarget(event.target)) return;
+    if (isIncomeSourceInteractiveTarget(event.target)) {
+      suppressRootClickUntilRef.current = 0;
+      return;
+    }
 
-    if (openMenuId) {
+    if (suppressRootClickUntilRef.current > Date.now()) {
+      suppressRootClickUntilRef.current = 0;
       event.stopPropagation();
-      setOpenMenuId(null);
+      return;
+    }
+
+    if (incomeActionMenu.source) {
+      event.stopPropagation();
+      closeIncomeActionMenu();
       return;
     }
 
@@ -633,9 +766,8 @@ export default function InvestmentCardView({
                               <IncomeSourcePreviewRow
                                 key={source.id}
                                 source={source}
-                                menuOpen={openMenuId === source.id}
-                                onToggleMenu={(sourceId) => setOpenMenuId((current) => (current === sourceId ? null : sourceId))}
-                                onAction={handleSourceAction}
+                                menuOpen={incomeActionMenu.source?.id === source.id}
+                                onToggleMenu={toggleIncomeActionMenu}
                               />
                             ))}
                           </div>
@@ -655,6 +787,21 @@ export default function InvestmentCardView({
           )}
         </FinanceCardShell>
       </div>
+
+      {incomeActionMenu.source
+        && incomeActionMenu.anchorElement
+        && typeof document !== "undefined"
+        ? createPortal(
+          <IncomeSourceActionMenu
+            source={incomeActionMenu.source}
+            anchorElement={incomeActionMenu.anchorElement}
+            menuRef={incomeActionMenuRef}
+            onAction={handleSourceAction}
+            onClose={closeIncomeActionMenu}
+          />,
+          document.body,
+        )
+        : null}
 
       <IncomeSourceAddMoneyModal
         open={incomeSourceModal.type === "add_money" || incomeSourceModal.type === "transfer_money"}
