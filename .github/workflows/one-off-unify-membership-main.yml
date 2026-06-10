@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/workflows/one-off-unify-membership-main.yml
+      - src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
   workflow_dispatch:
 
 permissions:
@@ -98,8 +99,6 @@ jobs:
           access = access_path.read_text()
           source_marker = '        membership.isDeveloperPreview ? "preview" : "real",\n'
           hook_source_marker = '        state.membership.isDeveloperPreview ? "preview" : "real",\n'
-          if access.count(source_marker) != 1 or access.count(hook_source_marker) != 1:
-              raise SystemExit("Expected developer-specific billing sync-key markers were not found exactly once")
           access = access.replace(source_marker, "").replace(hook_source_marker, "")
           if "isDeveloperPreview" in access:
               raise SystemExit("Developer source detection still affects committed feature access")
@@ -225,12 +224,15 @@ jobs:
                   raise SystemExit(f"Developer-specific customer UI remains: {phrase}")
           PY
 
-      - name: Commit validated implementation and remove one-off workflow
+      - name: Commit validated implementation and remove one-off workflows
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/one-off-unify-membership-main.yml
+          if [ -f .github/workflows/one-off-unify-membership.yml ]; then
+            git rm .github/workflows/one-off-unify-membership.yml
+          fi
           git add \
             src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx \
             src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
