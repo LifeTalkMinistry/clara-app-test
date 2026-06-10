@@ -21,12 +21,14 @@ export default function useDashboardManualExpenseBudgetOptions({
 } = {}) {
   return useMemo(() => {
     const currentMonthKey = getPHMonthKey();
-    const resolvedCycleHeader =
-      budgetCycleHeader ||
-      selectDashboardBudgetHeaders({ budgets, currentMonthKey, user }).budgetCycleHeader;
+    const selectedHeaders = selectDashboardBudgetHeaders({
+      budgets,
+      currentMonthKey,
+      user,
+    });
+    const resolvedCycleHeader = budgetCycleHeader || selectedHeaders.budgetCycleHeader;
     const seen = new Set();
-
-    return (Array.isArray(budgets) ? budgets : [])
+    const options = (Array.isArray(budgets) ? budgets : [])
       .filter((budget) => {
         const month = normalizeString(
           budget?.month || budget?.budget_month || budget?.month_key
@@ -83,5 +85,18 @@ export default function useDashboardManualExpenseBudgetOptions({
       .sort((left, right) =>
         left.sortOrder - right.sortOrder || left.title.localeCompare(right.title)
       );
+
+    Object.defineProperties(options, {
+      budgetCycleHeader: {
+        value: resolvedCycleHeader || null,
+        enumerable: false,
+      },
+      monthlyBudgetHeader: {
+        value: selectedHeaders.monthlyBudgetHeader || null,
+        enumerable: false,
+      },
+    });
+
+    return options;
   }, [budgetCycleHeader, budgets, user]);
 }
