@@ -317,12 +317,10 @@ export default function useBudgetCardLogic({
     (sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount ?? item?.used),
     0
   );
-  const plannedBreakdownSpent = safeNumber(activeBudget?.planned_spent) +
-    safeNumber(activeBudget?.plannedSpent) +
-    safeNumber(activeBudget?.unplanned_spent) +
-    safeNumber(activeBudget?.unplannedSpent) +
-    safeNumber(activeBudget?.undocumented_spent) +
-    safeNumber(activeBudget?.undocumentedSpent);
+  const plannedBreakdownSpent =
+    safeNumber(activeBudget?.planned_spent ?? activeBudget?.plannedSpent) +
+    safeNumber(activeBudget?.unplanned_spent ?? activeBudget?.unplannedSpent) +
+    safeNumber(activeBudget?.undocumented_spent ?? activeBudget?.undocumentedSpent);
   const activeBudgetSpent = hasResetBoundary(activeBudget)
     ? Math.max(plannedBreakdownSpent, categorySpent)
     : Math.max(
