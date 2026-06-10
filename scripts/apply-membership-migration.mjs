@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -11,3 +11,8 @@ for (const name of ["core", "ui-billing", "sql", "tighten"]) {
   execFileSync(process.execPath, ["--check", target], { stdio: "inherit" });
   execFileSync(process.execPath, [target], { stdio: "inherit" });
 }
+
+copyFileSync(
+  "scripts/templates/committedFeatureAccess.js",
+  "src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js"
+);
