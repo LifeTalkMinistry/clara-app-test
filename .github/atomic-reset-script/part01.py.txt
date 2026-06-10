@@ -1,0 +1,121 @@
+awExpenses, rawWallets, rawWalletTransactions, rawTransfers, rawBudgets, rawSavingsGoals, rawEmergencyFund] = await Promise.all([
+          getExpenses(localUserId),
+          getWallets(localUserId),
+          getWalletTransactions(localUserId),
+          getTransfers(localUserId),
+          getBudgets(localUserId),
+          getSavingsGoals(localUserId),
+          getEmergencyFund(localUserId),
+        ]);
+        const nextCache = buildSafeCache({ rawExpenses, rawWallets, rawWalletTransactions, rawTransfers, rawBudgets, rawSavingsGoals, rawEmergencyFund });
+
+        if (!isFinanceRefreshRevisionCurrent(requestRevision)) {
+          return { ...nextCache, stale: true };
+        }
+
+        financialDataCache = nextCache;
+        hydrateFromCache(nextCache);
+        return nextCache;
+      } catch (loadError) {
+        console.error("CLARA offline finance refresh error:", loadError);
+        const fallbackCache = { ...createEmptyFinancialCache(cacheKey), loaded: true, hydrated: true, error: loadError };
+
+        if (!isFinanceRefreshRevisionCurrent(requestRevision)) {
+          return { ...fallbackCache, stale: true };
+        }
+
+        financialDataCache = fallbackCache;
+        hydrateFromCache(fallbackCache);
+        return fallbackCache;
+      } finally {
+        if (loadingPromiseRef.current === promise) loadingPromiseRef.current = null;
+        if (mountedRef.current && isFinanceRefreshRevisionCurrent(requestRevision)) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    })();
+
+    loadingPromiseRef.current = promise;
+    return promise;
+  }, [buildSafeCache, cacheKey, hydrateFromCache, localUserId]);''',
+    )
+    replace_regex(
+        path,
+        r'  useEffect\(\(\) => \{\n    const bumpFinanceUser = \(\) => \{.*?\n  \}, \[\]\);',
+        r'''  useEffect(() => {
+    const handleFinanceUpdate = (event) => {
+      const budgetOnly = event?.detail?.scope === "budget";
+      const operationId = String(event?.detail?.operationId || "");
+
+      if (budgetOnly && operationId && lastBudgetResetOperationRef.current === operationId) {
+        return;
+      }
+      if (budgetOnly && operationId) {
+        lastBudgetResetOperationRef.current = operationId;
+      }
+
+      bumpFinanceRefreshRevision();
+      loadingPromiseRef.current = null;
+
+      if (budgetOnly) {
+        financialDataCache = applyBudgetNoPlanToFinanceCache({
+          ...financialDataCache,
+          key: cacheKey,
+        });
+        setBudgets([]);
+        void loadAll({ background: true });
+        return;
+      }
+
+      financialDataCache = createEmptyFinancialCache();
+      setFinanceUserVersion((version) => version + 1);
+    };
+
+    const events = [
+      "clara:demo-data-loaded",
+      "clara:finance-data-updated",
+      "clara-finance-updated",
+      "clara-local-finance-updated",
+      "clara-budgets-updated",
+      "storage",
+    ];
+    events.forEach((eventName) => window.addEventListener(eventName, handleFinanceUpdate));
+    return () => events.forEach((eventName) => window.removeEventListener(eventName, handleFinanceUpdate));
+  }, [cacheKey, loadAll]);''',
+    )
+    replace_required(path, '    loading, refreshing, error,\n', '    loading, refreshing, error, localUserId,\n')
+
+
+def patch_dashboard_action_handler():
+    path = "src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js"
+    replace_required(
+        path,
+        'import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";\n',
+        'import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";\n'
+        'import {\n'
+        '  activateNewBudgetCycle,\n'
+        '  buildOptimisticBudgetResetRows,\n'
+        '  resetActiveBudgetPlan,\n'
+        '} from "@/lib/clara-budget-reset-service";\n'
+        'import { publishBudgetNoPlanState } from "@/lib/clara-budget-cache-reset";\n'
+        'import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";\n',
+    )
+    replace_required(
+        path,
+        '} from "@/utils/dashboard/dashboardHelpers";\n\nexport default function useDashboardFinanceActionHandlers',
+        '} from "@/utils/dashboard/dashboardHelpers";\n\n'
+        'const createBudgetIdentity = (prefix) =>\n'
+        '  globalThis?.crypto?.randomUUID\n'
+        '    ? `${prefix}_${globalThis.crypto.randomUUID()}`\n'
+        '    : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;\n\n'
+        'export default function useDashboardFinanceActionHandlers',
+    )
+    replace_required(
+        path,
+        '  const longPressTriggeredRef = useRef(false);\n',
+        '  const longPressTriggeredRef = useRef(false);\n  const resetBudgetInFlightRef = useRef(false);\n',
+    )
+
+    save_budget = r'''  const saveBudgetInline = useCallback(async ({ finish = false, exitAfterSave = false, saveCategory = true } = {}) => {
+    const categoryName = normalizeString(financeForm.budgetCate
