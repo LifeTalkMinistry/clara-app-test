@@ -18,14 +18,17 @@ jobs:
   simplify-validate-and-commit:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out pull-request branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 1
-          show-progress: false
+      - name: Check out pull-request branch quietly
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git clone --quiet --depth 1 --branch "$HEAD_BRANCH" "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
 
       - name: Extract and run the surgical cleanup
+        working-directory: repo
         shell: bash
         run: |
           python <<'PY'
@@ -46,15 +49,19 @@ jobs:
           python /tmp/remove-book-transitions.py
 
       - name: Install dependencies
+        working-directory: repo
         run: npm ci
 
       - name: Lint shared reader
+        working-directory: repo
         run: npx eslint src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
       - name: Build application
+        working-directory: repo
         run: npm run build
 
       - name: Verify focused diff
+        working-directory: repo
         shell: bash
         run: |
           git diff --check
@@ -63,13 +70,15 @@ jobs:
           ! grep -E 'carousel|boundarySnapshot|pendingGlobalPageIndex|transitionLockRef|pdfPageTurnLockRef|onTransitionEnd|translate3d' src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
       - name: Commit validated reader correction
+        working-directory: repo
         shell: bash
         run: |
           rm -f docs/clara-remove-book-transitions.txt
+          rm -f docs/reader-check-revision.txt
           rm -f .github/workflows/clara-remove-book-transitions-once.yml
           rm -f .github/workflows/clara-two-layer-pdf-transition.yml
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .github/workflows/clara-two-layer-pdf-transition.yml .github/workflows/clara-remove-book-transitions-once.yml docs/clara-remove-book-transitions.txt
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .github/workflows/clara-two-layer-pdf-transition.yml .github/workflows/clara-remove-book-transitions-once.yml docs/clara-remove-book-transitions.txt docs/reader-check-revision.txt
           git commit -m "fix(learning-hub): remove book page transitions [skip ci]"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
