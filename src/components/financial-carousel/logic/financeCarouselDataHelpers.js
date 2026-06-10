@@ -21,8 +21,15 @@ const readCarouselArray = (...values) => {
   return [];
 };
 
+const hasResetBoundary = (plan = {}) => Boolean(
+  plan?.reset_start_at ||
+    plan?.tracking_started_at ||
+    plan?.tracking_start_date
+);
+
 export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => {
   const categories = Array.isArray(plan?.categories) ? plan.categories : [];
+  const resetBoundary = hasResetBoundary(plan);
 
   const declaredBudget = readCarouselNumber(
     plan?.declared_budget,
@@ -40,20 +47,22 @@ export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => 
   );
 
   const plannedBreakdownSpent =
-    readCarouselNumber(plan?.planned_spent) +
-    readCarouselNumber(plan?.unplanned_spent) +
-    readCarouselNumber(plan?.undocumented_spent);
+    readCarouselNumber(plan?.planned_spent, plan?.plannedSpent) +
+    readCarouselNumber(plan?.unplanned_spent, plan?.unplannedSpent) +
+    readCarouselNumber(plan?.undocumented_spent, plan?.undocumentedSpent);
 
-  const spentAmount = Math.max(
-    readCarouselNumber(liveExpenseTotal),
-    readCarouselNumber(plan?.spent_amount),
-    readCarouselNumber(plan?.spent),
-    readCarouselNumber(plan?.spent_total),
-    readCarouselNumber(plan?.total_spent),
-    readCarouselNumber(plan?.totalSpent),
-    plannedBreakdownSpent,
-    categorySpentAmount
-  );
+  const spentAmount = resetBoundary
+    ? Math.max(plannedBreakdownSpent, categorySpentAmount)
+    : Math.max(
+        readCarouselNumber(liveExpenseTotal),
+        readCarouselNumber(plan?.spent_amount),
+        readCarouselNumber(plan?.spent),
+        readCarouselNumber(plan?.spent_total),
+        readCarouselNumber(plan?.total_spent),
+        readCarouselNumber(plan?.totalSpent),
+        plannedBreakdownSpent,
+        categorySpentAmount
+      );
 
   const remainingAmount = Math.max(declaredBudget - spentAmount, 0);
   const unplannedItems = readCarouselArray(plan?.unplanned_items, plan?.unplannedItems);
@@ -78,11 +87,16 @@ export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => 
     },
     budgetCategories: categories,
     declaredBudget,
-    unallocatedAmount: readCarouselNumber(plan?.unallocated_amount),
+    unallocatedAmount: readCarouselNumber(
+      plan?.unallocated_amount,
+      plan?.unallocated,
+      plan?.unallocated_balance,
+      plan?.unallocatedBalance
+    ),
     budgetStatus: plan?.status || "",
     isComplete: plan?.is_complete === true,
-    unplannedSpent: readCarouselNumber(plan?.unplanned_spent),
-    undocumentedSpent: readCarouselNumber(plan?.undocumented_spent),
+    unplannedSpent: readCarouselNumber(plan?.unplanned_spent, plan?.unplannedSpent),
+    undocumentedSpent: readCarouselNumber(plan?.undocumented_spent, plan?.undocumentedSpent),
     unplannedItems,
     undocumentedItems,
     outsidePlanItems,
