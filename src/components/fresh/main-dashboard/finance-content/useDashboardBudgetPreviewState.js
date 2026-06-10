@@ -1,12 +1,10 @@
 import { useMemo } from "react";
+import { firstValidNumber, getBudgetSpent, getBudgetTotal } from "@/utils/dashboard/dashboardHelpers";
 import {
-  firstValidNumber,
-  getBudgetSpent,
-  getBudgetTotal,
-  isExpenseInsideBudgetWindow,
-  isTruthyActive,
-  normalizeLower,
-} from "@/utils/dashboard/dashboardHelpers";
+  getBudgetCycleRange,
+  isExpenseInBudgetCycle,
+  selectDashboardBudgetHeaders,
+} from "@/lib/clara-budget-cycle-authority";
 
 export default function useDashboardBudgetPreviewState({
   budgets = [],
@@ -15,46 +13,43 @@ export default function useDashboardBudgetPreviewState({
   const safeBudgets = Array.isArray(budgets) ? budgets : [];
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
 
-  const activeBudget = useMemo(() => {
-    if (!safeBudgets.length) return null;
-
-    return (
-      safeBudgets.find(
-        (budget) =>
-          isTruthyActive(budget?.is_active) ||
-          normalizeLower(budget?.status) === "active"
-      ) ||
-      safeBudgets[0] ||
-      null
-    );
-  }, [safeBudgets]);
+  const { budgetCycleHeader, monthlyBudgetHeader } = useMemo(
+    () => selectDashboardBudgetHeaders({ budgets: safeBudgets }),
+    [safeBudgets]
+  );
 
   const derivedActiveBudget = useMemo(() => {
-    if (!activeBudget) return null;
+    if (!monthlyBudgetHeader) return null;
 
+    const cycleRange = getBudgetCycleRange(
+      budgetCycleHeader || monthlyBudgetHeader
+    );
     const spentFromExpenses = safeExpenses.reduce((sum, expense) => {
-      if (!isExpenseInsideBudgetWindow(expense, activeBudget)) return sum;
+      if (!isExpenseInBudgetCycle(expense, cycleRange)) return sum;
       return sum + firstValidNumber(expense?.amount);
     }, 0);
-
-    const explicitSpent = getBudgetSpent(activeBudget);
+    const explicitSpent = getBudgetSpent(monthlyBudgetHeader);
     const spent = spentFromExpenses > 0 ? spentFromExpenses : explicitSpent;
-    const total = getBudgetTotal(activeBudget);
+    const total = getBudgetTotal(monthlyBudgetHeader);
     const remaining = Math.max(total - spent, 0);
 
     return {
-      ...activeBudget,
+      ...monthlyBudgetHeader,
       spent,
       spent_amount: spent,
       total_spent: spent,
       remaining,
       remaining_amount: remaining,
       amount_left: remaining,
+      cycle_start: cycleRange.start,
+      cycle_end: cycleRange.end,
+      reset_start_at: budgetCycleHeader?.reset_start_at || null,
     };
-  }, [activeBudget, safeExpenses]);
+  }, [budgetCycleHeader, monthlyBudgetHeader, safeExpenses]);
 
   return {
-    activeBudget,
+    budgetCycleHeader,
+    activeBudget: monthlyBudgetHeader,
     derivedActiveBudget,
   };
 }
