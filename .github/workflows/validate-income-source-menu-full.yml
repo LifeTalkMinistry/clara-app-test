@@ -62,6 +62,11 @@ jobs:
 
           printf '%s\n' "${component_lint_exit}" > /tmp/component-lint-exit
           printf '%s\n' "${production_build_exit}" > /tmp/production-build-exit
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GEMINI_MODEL: gemini-2.5-flash
 
       - name: Publish validation result to branch
         run: |
@@ -75,8 +80,3 @@ jobs:
         run: |
           test "$(cat /tmp/component-lint-exit)" -eq 0
           test "$(cat /tmp/production-build-exit)" -eq 0
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
-          VITE_GEMINI_MODEL: gemini-2.5-flash
