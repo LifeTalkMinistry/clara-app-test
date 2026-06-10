@@ -28,8 +28,7 @@ jobs:
         shell: bash
         run: |
           test -f .clara-pr-final-trigger
-          git fetch origin automation/clara-two-layer-pdf-transition --quiet
-          git show origin/automation/clara-two-layer-pdf-transition:.clara-two-layer-payload.gz.b64 \
+          git show 17b20fef9a4bd425588e855e2d8ac36cf56d90d7:.clara-two-layer-payload.gz.b64 \
             | base64 --decode \
             | gzip --decompress \
             > /tmp/LearningMaterialModal.jsx
