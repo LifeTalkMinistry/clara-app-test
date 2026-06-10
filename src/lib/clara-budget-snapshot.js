@@ -44,6 +44,16 @@ const toTime = (value) => {
   const time = value ? new Date(value).getTime() : NaN;
   return Number.isNaN(time) ? null : time;
 };
+const toEndTime = (value) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnly) {
+    const time = new Date(`${dateOnly[1]}T23:59:59.999`).getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  return toTime(value);
+};
 const toDateOnly = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -55,6 +65,13 @@ function currentMonthRange() {
   const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   return { start, end, hasTimestampStart: false };
+}
+function hasResetBoundary(source = {}) {
+  return Boolean(
+    source?.reset_start_at ||
+      source?.tracking_started_at ||
+      source?.tracking_start_date
+  );
 }
 function cycleRange(header = {}) {
   const fallback = currentMonthRange();
@@ -76,7 +93,7 @@ function inRange(expense, range) {
   if (range?.hasTimestampStart) {
     const time = toTime(value);
     const start = toTime(range.start);
-    const end = toTime(range.end);
+    const end = toEndTime(range.end);
     return !(start !== null && (time === null || time < start)) &&
       !(end !== null && time !== null && time > end);
   }
@@ -122,7 +139,7 @@ const categoryAllocated = (row = {}) => numberFrom(
   row.allocated, row.allocated_amount, row.amount, row.limit, row.total,
   row.total_budget, row.budget_amount, row.budget
 ) ?? 0;
-function normalizeCategory(row, activeExpenses) {
+function normalizeCategory(row, activeExpenses, resetBoundary = false) {
   const id = categoryId(row);
   const name = categoryName(row);
   const allocated = categoryAllocated(row);
@@ -132,9 +149,10 @@ function normalizeCategory(row, activeExpenses) {
     return (id && expenseBudgetId(expense) === String(id)) ||
       (name && lower(expenseCategory(expense)) === lower(name));
   }).map(expenseAmount));
-  const spent = explicitSpent !== null ? explicitSpent : matchedSpent;
-  const remaining = numberFrom(row.remaining, row.left, row.available, row.remaining_amount) ??
-    Math.max(allocated - spent, 0);
+  const spent = resetBoundary ? matchedSpent : explicitSpent !== null ? explicitSpent : matchedSpent;
+  const remaining = resetBoundary
+    ? Math.max(allocated - spent, 0)
+    : numberFrom(row.remaining, row.left, row.available, row.remaining_amount) ?? Math.max(allocated - spent, 0);
   return {
     ...row, id, key: row.key || id, name, title: row.title || name, category: name,
     allocated, spent, used: spent, remaining,
@@ -231,7 +249,9 @@ export function buildClaraBudgetSnapshot(context = {}) {
     fallbackActive: source.hasActiveBudgetPlan === true ||
       source.has_active_budget_plan === true || isFinishedBudgetPlan(plan),
   });
-  const range = plan.monthRange || cycleRange(header || plan || {});
+  const boundarySource = header || plan || {};
+  const resetBoundary = hasResetBoundary(header) || hasResetBoundary(plan);
+  const range = resetBoundary ? cycleRange(boundarySource) : plan.monthRange || cycleRange(boundarySource);
   const expenses = firstArray(source, [
     "expenses", "monthlyExpensesList", "recentExpenses",
     "finance.expenses", "dashboardSnapshot.expenses",
@@ -239,24 +259,34 @@ export function buildClaraBudgetSnapshot(context = {}) {
   const activeExpenses = expenses.filter((expense) => inRange(expense, range));
   const rawCategoryRows = rawCategories(source)
     .filter((row) => row && !isBudgetHeader(row) && !isInactiveBudgetPlan(row))
-    .map((row) => normalizeCategory(row, activeExpenses));
-  const rawAllocated = firstNumber(plan, ["allocated", "allocated_total", "totalAllocated"]) ??
-    firstNumber(source, ["budgetAllocated", "totalBudgetAllocated", "budgetSummary.allocatedBudget"]) ??
-    sum(rawCategoryRows.map((category) => category.allocated));
-  const rawPlanned = firstNumber(plan, ["plannedSpent", "planned_spent"]) ??
-    sum(rawCategoryRows.map((category) => category.spent));
-  const rawUnplanned = firstNumber(plan, ["unplannedSpent", "unplanned_spent"]) ??
-    sum(activeExpenses.filter((expense) => expenseStatus(expense) === "unplanned").map(expenseAmount));
-  const rawUndocumented = firstNumber(plan, ["undocumentedSpent", "undocumented_spent"]) ??
-    sum(activeExpenses.filter((expense) => expenseStatus(expense) === "undocumented").map(expenseAmount));
+    .map((row) => normalizeCategory(row, activeExpenses, resetBoundary));
+  const categoryAllocatedTotal = sum(rawCategoryRows.map((category) => category.allocated));
+  const rawAllocated = rawCategoryRows.length > 0
+    ? categoryAllocatedTotal
+    : firstNumber(plan, ["allocated", "allocated_total", "totalAllocated"]) ??
+      firstNumber(source, ["budgetAllocated", "totalBudgetAllocated", "budgetSummary.allocatedBudget"]) ??
+      categoryAllocatedTotal;
+  const rawPlanned = resetBoundary
+    ? sum(rawCategoryRows.map((category) => category.spent))
+    : firstNumber(plan, ["plannedSpent", "planned_spent"]) ?? sum(rawCategoryRows.map((category) => category.spent));
+  const rawUnplanned = resetBoundary
+    ? sum(activeExpenses.filter((expense) => expenseStatus(expense) === "unplanned").map(expenseAmount))
+    : firstNumber(plan, ["unplannedSpent", "unplanned_spent"]) ??
+      sum(activeExpenses.filter((expense) => expenseStatus(expense) === "unplanned").map(expenseAmount));
+  const rawUndocumented = resetBoundary
+    ? sum(activeExpenses.filter((expense) => expenseStatus(expense) === "undocumented").map(expenseAmount))
+    : firstNumber(plan, ["undocumentedSpent", "undocumented_spent"]) ??
+      sum(activeExpenses.filter((expense) => expenseStatus(expense) === "undocumented").map(expenseAmount));
   const computed = rawPlanned + rawUnplanned + rawUndocumented;
   const fallbackSpent = firstNumber(source, [
     "monthlySpent", "budgetSpent", "totalBudgetSpent", "totalExpensesThisMonth",
     "thisMonthSpent", "monthlyExpenses", "spentThisMonth", "finance.monthlySpent",
   ]);
-  const rawSpent = firstNumber(plan, [
-    "spent", "spent_amount", "spent_total", "total_spent", "totalSpent", "budgetSpent",
-  ]) ?? (computed > 0 ? computed : fallbackSpent ?? sum(activeExpenses.map(expenseAmount)));
+  const rawSpent = resetBoundary
+    ? computed
+    : firstNumber(plan, [
+        "spent", "spent_amount", "spent_total", "total_spent", "totalSpent", "budgetSpent",
+      ]) ?? (computed > 0 ? computed : fallbackSpent ?? sum(activeExpenses.map(expenseAmount)));
 
   const declared = active ? rawDeclared : 0;
   const allocated = active ? rawAllocated : 0;
