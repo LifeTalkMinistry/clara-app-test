@@ -50,13 +50,16 @@ function getResetCycleWindow(type, end) {
 function headerPayload({ amount, done, user, cycle }) {
   const now = new Date().toISOString();
   const title = `${cycle.label} Spending Plan`;
+  const resetBoundary = cycle.reset_start_at || null;
   return {
     month: getPHMonthKey(), month_key: getPHMonthKey(), title, name: title,
     category: "__monthly_budget__", budget_category: "__monthly_budget__",
     type: "monthly_budget", plan_type: "monthly_budget", is_plan_header: true,
     budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
     cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
-    reset_start_at: cycle.reset_start_at || null,
+    reset_start_at: resetBoundary,
+    tracking_started_at: resetBoundary,
+    tracking_start_date: resetBoundary,
     declared_amount: amount, declared_budget: amount, monthly_budget_amount: amount,
     total_declared_budget: amount, total_budget: amount, amount,
     is_complete: Boolean(done), status: done ? "active" : "draft", is_active: true, active: true,
@@ -149,11 +152,8 @@ export default function MonthlyBudgetPlan() {
       setSaving(true);
       setNotice("");
       const resetCycleWindow = getResetCycleWindow(cycleType, cycleEnd);
-      for (const row of budgets.filter((item) => item?.id)) {
-        await deleteBudget(row.id);
-      }
       await resetMonthlyBudgetCycle({
-        budgets: [],
+        budgets,
         headerPayload: headerPayload({ amount, done: false, user, cycle: resetCycleWindow }),
         categoryPayloads: [],
         addBudget,
