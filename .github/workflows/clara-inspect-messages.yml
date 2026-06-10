@@ -1,63 +1,142 @@
-name: CLARA Extract Dashboard Primitives
+name: Center CLARA book reader menu
 
 on:
   push:
+    branches:
+      - main
     paths:
       - ".github/workflows/clara-inspect-messages.yml"
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  extract:
+  center-validate-and-restore:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove extracted dashboard primitive blocks
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Center the three-dot reader control
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('src/pages/Dashboard.jsx')
-          src = path.read_text()
-          marker = 'import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";'
-          primitive_import_lines = [
-              'import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";',
-              'import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";',
-              'import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";',
-              'import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";',
-          ]
-          if 'dashboard-primitives/FinanceActionModal' not in src:
-              src = src.replace(marker, marker + '\n' + '\n'.join(primitive_import_lines), 1)
-          else:
-              anchor = 'import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";'
-              if 'dashboard-primitives/QuickActionDropdown' not in src:
-                  src = src.replace('import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";', 'import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";\n' + anchor, 1)
-              if 'dashboard-primitives/FinanceField' not in src:
-                  src = src.replace(anchor, anchor + '\nimport FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";', 1)
 
-          start = src.find('const FinanceActionModal = ({')
-          end = src.find('const QuickActionDropdown = ({', start)
-          if start != -1 and end != -1:
-              src = src[:start] + src[end:]
+          path = Path('src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx')
+          source = path.read_text()
 
-          start = src.find('const QuickActionDropdown = ({')
-          end = src.find('const FinanceField = ({', start)
-          if start != -1 and end != -1:
-              src = src[:start] + src[end:]
+          old_class = 'className="absolute left-1/2 z-30 flex h-11 min-h-11 w-11 min-w-11 -translate-x-1/2 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"'
+          new_class = 'className="absolute inset-x-0 z-30 mx-auto flex h-11 min-h-11 w-11 min-w-11 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"'
 
-          start = src.find('const FinanceField = ({')
-          end = src.find('const financeInputClassName =', start)
-          if start != -1 and end != -1:
-              src = src[:start] + src[end:]
+          old_style = 'style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}'
+          new_style = '''style={{
+            top: "max(0.75rem, env(safe-area-inset-top))",
+            left: 0,
+            right: 0,
+            marginInline: "auto",
+            transform: "none",
+          }}'''
 
-          path.write_text(src)
+          if source.count(old_class) != 1:
+              raise SystemExit(f'Expected one reader-menu class match, found {source.count(old_class)}')
+          if source.count(old_style) != 1:
+              raise SystemExit(f'Expected one reader-menu style match, found {source.count(old_style)}')
+
+          source = source.replace(old_class, new_class, 1)
+          source = source.replace(old_style, new_style, 1)
+
+          if 'absolute left-1/2' in source or '-translate-x-1/2' in source:
+              raise SystemExit('Legacy transformed reader-menu centering remains')
+          if 'absolute inset-x-0' not in source:
+              raise SystemExit('Full-width centering anchor is missing')
+          if 'marginInline: "auto"' not in source or 'transform: "none"' not in source:
+              raise SystemExit('Transform-free centering fallback is missing')
+
+          path.write_text(source)
           PY
-      - name: Build check
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint shared reader
+        run: npx eslint src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+
+      - name: Build application
+        run: npm run build
+
+      - name: Restore original workflow definition
+        shell: bash
         run: |
-          npm ci
-          npm run build
+          cat > .github/workflows/clara-inspect-messages.yml <<'YAML'
+          name: CLARA Extract Dashboard Primitives
+
+          on:
+            push:
+              paths:
+                - ".github/workflows/clara-inspect-messages.yml"
+            workflow_dispatch:
+
+          permissions:
+            contents: write
+
+          jobs:
+            extract:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - name: Remove extracted dashboard primitive blocks
+                  run: |
+                    python - <<'PY'
+                    from pathlib import Path
+                    path = Path('src/pages/Dashboard.jsx')
+                    src = path.read_text()
+                    marker = 'import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";'
+                    primitive_import_lines = [
+                        'import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";',
+                        'import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";',
+                        'import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";',
+                        'import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";',
+                    ]
+                    if 'dashboard-primitives/FinanceActionModal' not in src:
+                        src = src.replace(marker, marker + '\n' + '\n'.join(primitive_import_lines), 1)
+                    else:
+                        anchor = 'import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";'
+                        if 'dashboard-primitives/QuickActionDropdown' not in src:
+                            src = src.replace('import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";', 'import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";\n' + anchor, 1)
+                        if 'dashboard-primitives/FinanceField' not in src:
+                            src = src.replace(anchor, anchor + '\nimport FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";', 1)
+
+                    start = src.find('const FinanceActionModal = ({')
+                    end = src.find('const QuickActionDropdown = ({', start)
+                    if start != -1 and end != -1:
+                        src = src[:start] + src[end:]
+
+                    start = src.find('const QuickActionDropdown = ({')
+                    end = src.find('const FinanceField = ({', start)
+                    if start != -1 and end != -1:
+                        src = src[:start] + src[end:]
+
+                    start = src.find('const FinanceField = ({')
+                    end = src.find('const financeInputClassName =', start)
+                    if start != -1 and end != -1:
+                        src = src[:start] + src[end:]
+
+                    path.write_text(src)
+                    PY
+                - name: Build check
+                  run: |
+                    npm ci
+                    npm run build
+                - uses: stefanzweifel/git-auto-commit-action@v5
+                  with:
+                    commit_message: Extract dashboard finance field primitive from Dashboard
+                    file_pattern: src/pages/Dashboard.jsx
+          YAML
+
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: Extract dashboard finance field primitive from Dashboard
-          file_pattern: src/pages/Dashboard.jsx
+          commit_message: "fix(learning-hub): center reader options control [skip ci]"
+          file_pattern: "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .github/workflows/clara-inspect-messages.yml"
