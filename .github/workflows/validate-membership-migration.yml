@@ -23,13 +23,8 @@ jobs:
         run: node scripts/apply-membership-migration.mjs
       - name: Install dependencies
         run: npm ci
-      - name: Build
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: validation-placeholder
-          VITE_GEMINI_API_KEY: validation-placeholder
       - name: Package changed files
+        shell: bash
         run: |
           { git diff --name-only; git ls-files --others --exclude-standard; } | sort -u > membership-files.txt
           test -s membership-files.txt
@@ -42,3 +37,9 @@ jobs:
             membership-validated.zip
             membership-files.txt
           retention-days: 1
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: validation-placeholder
+          VITE_GEMINI_API_KEY: validation-placeholder
