@@ -438,15 +438,19 @@ export default function Dashboard() {
   });
 
   const {
+    budgetCycleHeader,
     monthlyBudgetHeader,
     declaredMonthlyBudgetAmount,
   } = useDashboardMonthlyBudgetHeader({
     budgets,
+    user,
   });
 
   const manualExpenseBudgetOptions =
     useDashboardManualExpenseBudgetOptions({
       budgets,
+      budgetCycleHeader,
+      user,
     });
 
   const {
@@ -473,6 +477,8 @@ export default function Dashboard() {
     manualExpenseBudgetOptions,
     expenses,
     declaredMonthlyBudgetAmount,
+    budgetCycleHeader,
+    monthlyBudgetHeader,
   });
 
   const budgetPlanIsComplete = monthlyBudgetPlan.is_complete === true;
@@ -659,6 +665,7 @@ export default function Dashboard() {
     addWalletData,
     budgetExitConfirm,
     budgetPlanIsComplete,
+    budgetCycleHeader,
     budgets,
     declaredMonthlyBudgetAmount,
     deleteBudgetData,

@@ -138,11 +138,16 @@ function buildBudgetCard(baseCard, context) {
   const totalSpent = expensesThisMonth.reduce((sum, expense) => sum + getExpenseAmount(expense), 0);
   const totalBudgetFromRecords = budgets.reduce((sum, budget) => sum + getBudgetAmount(budget), 0);
   const plan = context.monthlyBudgetPlan || (budgets.length === 1 ? budgets[0] : { declared_budget: totalBudgetFromRecords, categories: budgets });
-  const normalizedPlan = normalizeCarouselBudgetPlan(plan, totalSpent);
+  const hasAuthoritativePlan = Boolean(context.monthlyBudgetPlan);
+  const normalizedPlan = normalizeCarouselBudgetPlan(plan, hasAuthoritativePlan ? 0 : totalSpent);
   const declaredBudget = firstNumber(normalizedPlan.declaredBudget, totalBudgetFromRecords, context.dashboardSummarySnapshot?.budgetDeclaredAmount) ?? 0;
-  const spentAmount = Math.max(cleanNumber(normalizedPlan.totalSpent), totalSpent);
+  const spentAmount = hasAuthoritativePlan
+    ? cleanNumber(normalizedPlan.totalSpent)
+    : Math.max(cleanNumber(normalizedPlan.totalSpent), totalSpent);
   const remaining = declaredBudget > 0 ? Math.max(declaredBudget - spentAmount, 0) : cleanNumber(context.dashboardSummarySnapshot?.budgetRemaining ?? normalizedPlan.remainingAmount);
-  const unplannedCount = expensesThisMonth.filter((expense) => getExpensePlanningStatus(expense) === "unplanned").length + safeArray(normalizedPlan.outsidePlanItems).length;
+  const unplannedCount = hasAuthoritativePlan
+    ? safeArray(normalizedPlan.outsidePlanItems).length
+    : expensesThisMonth.filter((expense) => getExpensePlanningStatus(expense) === "unplanned").length + safeArray(normalizedPlan.outsidePlanItems).length;
   if (!budgets.length && declaredBudget <= 0) return { ...baseCard, status: "empty", primaryValue: peso(0), secondaryValue: "No budget set yet", recordCount: 0, attentionLevel: "high", reason: "Budget Hub has no active budget records yet.", source: "budgets+expenses+dashboardSummarySnapshot" };
   const overBudget = declaredBudget > 0 && spentAmount > declaredBudget;
   const lowRemaining = declaredBudget > 0 && remaining <= declaredBudget * 0.15;

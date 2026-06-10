@@ -38,6 +38,10 @@ function getCycleWindow(type, start, end) {
   if (safeType === "biweekly") return { start: safeStart, end: addDays(safeStart, 13), label: "Bi-weekly" };
   if (safeType === "custom") return { start: safeStart, end: end || String(safeStart).slice(0, 10), label: "Custom" };
   const month = getPHMonthKey();
+  const exactResetStart = String(start || "").includes("T") ? String(start) : "";
+  if (exactResetStart) {
+    return { start: exactResetStart, end: "", label: "Monthly", reset_start_at: exactResetStart };
+  }
   return { start: `${month}-01`, end: "", label: "Monthly" };
 }
 
@@ -56,7 +60,7 @@ function headerPayload({ amount, done, user, cycle }) {
     type: "monthly_budget", plan_type: "monthly_budget", is_plan_header: true,
     budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
     cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
-    reset_start_at: cycle.reset_start_at || null,
+    ...(cycle.reset_start_at ? { reset_start_at: cycle.reset_start_at } : {}),
     declared_amount: amount, declared_budget: amount, monthly_budget_amount: amount,
     total_declared_budget: amount, total_budget: amount, amount,
     is_complete: Boolean(done), status: done ? "active" : "draft", is_active: true, active: true,
@@ -73,7 +77,7 @@ function categoryPayload({ title, amount, order, user, cycle }) {
     budget_amount: amount, total_budget: amount, amount, sort_order: order, display_order: order, position: order,
     budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
     cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
-    reset_start_at: cycle.reset_start_at || null,
+    ...(cycle.reset_start_at ? { reset_start_at: cycle.reset_start_at } : {}),
     is_active: true, active: true, status: "active", updated_at: now,
     created_by: user?.email || null, email: user?.email || null, user_id: user?.id || null,
   };
@@ -88,15 +92,16 @@ export default function MonthlyBudgetPlan() {
   const location = useLocation();
   const { user } = useUserRole();
   const { budgets = [], expenses = [], addBudget, updateBudget, deleteBudget, refreshData, loading } = useFinancialData(user);
-  const { monthlyBudgetHeader, declaredMonthlyBudgetAmount } = useDashboardMonthlyBudgetHeader({ budgets });
-  const budgetOptions = useDashboardManualExpenseBudgetOptions({ budgets });
-  const plan = useDashboardMonthlyBudgetPlan({ manualExpenseBudgetOptions: budgetOptions, expenses, declaredMonthlyBudgetAmount, monthlyBudgetHeader });
+  const { budgetCycleHeader, monthlyBudgetHeader, declaredMonthlyBudgetAmount } = useDashboardMonthlyBudgetHeader({ budgets, user });
+  const budgetOptions = useDashboardManualExpenseBudgetOptions({ budgets, budgetCycleHeader, user });
+  const plan = useDashboardMonthlyBudgetPlan({ manualExpenseBudgetOptions: budgetOptions, expenses, declaredMonthlyBudgetAmount, budgetCycleHeader, monthlyBudgetHeader });
   const editId = String(location.state?.editCategoryId || "");
   const editing = useMemo(() => editId ? budgetOptions.find((b) => String(b.id || b.key) === editId) || null : null, [budgetOptions, editId]);
 
-  const [cycleType, setCycleType] = useState(normalizeCycleType(monthlyBudgetHeader?.cycle_type || monthlyBudgetHeader?.budget_cycle || "monthly"));
-  const [cycleStart, setCycleStart] = useState(monthlyBudgetHeader?.cycle_start || today());
-  const [cycleEnd, setCycleEnd] = useState(monthlyBudgetHeader?.cycle_end || addDays(today(), 6));
+  const activeCycleHeader = budgetCycleHeader || monthlyBudgetHeader;
+  const [cycleType, setCycleType] = useState(normalizeCycleType(activeCycleHeader?.cycle_type || activeCycleHeader?.budget_cycle || "monthly"));
+  const [cycleStart, setCycleStart] = useState(activeCycleHeader?.reset_start_at || activeCycleHeader?.cycle_start || today());
+  const [cycleEnd, setCycleEnd] = useState(activeCycleHeader?.cycle_end || addDays(today(), 6));
   const [declaredInput, setDeclaredInput] = useState("");
   const [categoryName, setCategoryName] = useState("");
   const [categoryAmount, setCategoryAmount] = useState("");
@@ -123,7 +128,8 @@ export default function MonthlyBudgetPlan() {
     const amount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
     if (amount <= 0) throw new Error("Please enter your budget first.");
     const payload = headerPayload({ amount, done: Boolean(done || isActiveBudget), user, cycle });
-    if (monthlyBudgetHeader?.id && typeof updateBudget === "function") return updateBudget(monthlyBudgetHeader.id, payload);
+    const editableHeader = monthlyBudgetHeader || (String(budgetCycleHeader?.status || "").toLowerCase() === "draft" ? budgetCycleHeader : null);
+    if (editableHeader?.id && typeof updateBudget === "function") return updateBudget(editableHeader.id, payload);
     return addBudget?.(payload);
   };
 
@@ -149,11 +155,8 @@ export default function MonthlyBudgetPlan() {
       setSaving(true);
       setNotice("");
       const resetCycleWindow = getResetCycleWindow(cycleType, cycleEnd);
-      for (const row of budgets.filter((item) => item?.id)) {
-        await deleteBudget(row.id);
-      }
       await resetMonthlyBudgetCycle({
-        budgets: [],
+        budgets,
         headerPayload: headerPayload({ amount, done: false, user, cycle: resetCycleWindow }),
         categoryPayloads: [],
         addBudget,
