@@ -1,39 +1,14 @@
-function normalizeString(value) {
-  return String(value || "").trim();
-}
+import {
+  belongsToBudgetOwner,
+  doesBudgetRowBelongToCycle,
+  getBudgetMonthKey,
+  isBudgetHeader,
+  isBudgetRowInactive,
+  normalizeBudgetString,
+  selectDashboardBudgetHeaders,
+} from "./clara-budget-cycle-authority.js";
 
-function normalizeLower(value) {
-  return normalizeString(value).toLowerCase();
-}
-
-function isBudgetHeader(row = {}) {
-  return (
-    row?.is_plan_header === true ||
-    row?.plan_type === "monthly_budget" ||
-    normalizeLower(row?.category) === "__monthly_budget__" ||
-    normalizeLower(row?.budget_category) === "__monthly_budget__" ||
-    normalizeLower(row?.type) === "monthly_budget"
-  );
-}
-
-function isInactive(row = {}) {
-  const status = normalizeLower(row?.status);
-  return row?.is_active === false || row?.active === false || ["inactive", "archived", "deleted", "closed"].includes(status);
-}
-
-function sameCycle(row = {}, header = {}) {
-  if (!header) return false;
-  const headerMonth = normalizeString(header.month || header.month_key || header.budget_month);
-  const rowMonth = normalizeString(row.month || row.month_key || row.budget_month);
-  const headerCycleStart = normalizeString(header.cycle_start || header.period_start || header.budget_cycle_start);
-  const rowCycleStart = normalizeString(row.cycle_start || row.period_start || row.budget_cycle_start);
-
-  if (headerCycleStart && rowCycleStart && headerCycleStart === rowCycleStart) return true;
-  if (headerMonth && rowMonth && headerMonth === rowMonth) return true;
-  return false;
-}
-
-function archivePatch(now) {
+function archivePatch(now, extra = {}) {
   return {
     is_active: false,
     active: false,
@@ -41,7 +16,29 @@ function archivePatch(now) {
     archived_at: now,
     closed_at: now,
     updated_at: now,
+    ...extra,
   };
+}
+
+function restorePatch(row = {}, now) {
+  return {
+    is_active: row?.is_active !== false,
+    active: row?.active !== false,
+    status: row?.status || "active",
+    archived_at: row?.archived_at ?? null,
+    closed_at: row?.closed_at ?? null,
+    updated_at: now,
+  };
+}
+
+function unwrapCreatedRow(result) {
+  return result?.budget || result?.record || result?.data || result || null;
+}
+
+function sameTargetMonth(row = {}, headerPayload = {}) {
+  const rowMonth = getBudgetMonthKey(row);
+  const targetMonth = getBudgetMonthKey(headerPayload);
+  return !rowMonth || !targetMonth || rowMonth === targetMonth;
 }
 
 export async function resetMonthlyBudgetCycle({
@@ -63,51 +60,104 @@ export async function resetMonthlyBudgetCycle({
     throw new Error("A new budget header payload is required.");
   }
 
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
   const now = new Date().toISOString();
-  const activeHeader = (Array.isArray(budgets) ? budgets : []).find(
-    (budget) => isBudgetHeader(budget) && !isInactive(budget)
+  const resetStartAt = headerPayload.reset_start_at || now;
+  const owner = {
+    user_id: headerPayload.user_id,
+    userId: headerPayload.userId,
+    email: headerPayload.email,
+    user_email: headerPayload.user_email,
+    created_by: headerPayload.created_by,
+  };
+  const { budgetCycleHeader: activeHeader } = selectDashboardBudgetHeaders({
+    budgets: safeBudgets.filter(
+      (row) => sameTargetMonth(row, headerPayload) && belongsToBudgetOwner(row, owner)
+    ),
+    currentMonthKey: getBudgetMonthKey(headerPayload),
+    user: owner,
+  });
+  const activeCategories = safeBudgets.filter(
+    (row) =>
+      !isBudgetHeader(row) &&
+      !isBudgetRowInactive(row) &&
+      sameTargetMonth(row, headerPayload) &&
+      belongsToBudgetOwner(row, owner) &&
+      (!activeHeader || doesBudgetRowBelongToCycle(row, activeHeader))
   );
 
-  const activeCategories = (Array.isArray(budgets) ? budgets : []).filter(
-    (budget) => !isBudgetHeader(budget) && !isInactive(budget) && (!activeHeader || sameCycle(budget, activeHeader))
-  );
-
-  if (activeHeader?.id) {
-    await updateBudget(activeHeader.id, archivePatch(now));
-  }
-
-  for (const category of activeCategories) {
-    if (category?.id) {
-      await updateBudget(category.id, archivePatch(now));
-    }
-  }
-
-  const newHeader = await addBudget({
+  const createdHeaderResult = await addBudget({
     ...headerPayload,
     is_active: true,
     active: true,
     status: headerPayload.status || "draft",
+    is_complete: false,
     reset_from_budget_id: activeHeader?.id || null,
+    reset_start_at: resetStartAt,
     reset_at: now,
     created_at: headerPayload.created_at || now,
     updated_at: now,
   });
+  const newHeader = unwrapCreatedRow(createdHeaderResult);
+  const newHeaderId = normalizeBudgetString(newHeader?.id || createdHeaderResult?.id);
 
+  if (!newHeaderId) {
+    throw new Error("The new budget cycle marker was not persisted with an id.");
+  }
+
+  const archivedRows = [];
   const newCategories = [];
-  for (const payload of Array.isArray(categoryPayloads) ? categoryPayloads : []) {
-    if (!payload) continue;
-    newCategories.push(
-      await addBudget({
+
+  try {
+    if (activeHeader?.id && String(activeHeader.id) !== newHeaderId) {
+      await updateBudget(activeHeader.id, archivePatch(now));
+      archivedRows.push(activeHeader);
+    }
+
+    for (const category of activeCategories) {
+      if (!category?.id) continue;
+      await updateBudget(category.id, archivePatch(now));
+      archivedRows.push(category);
+    }
+
+    for (const payload of Array.isArray(categoryPayloads) ? categoryPayloads : []) {
+      if (!payload) continue;
+      const createdCategoryResult = await addBudget({
         ...payload,
         is_active: true,
         active: true,
         status: payload.status || "active",
         reset_from_budget_id: activeHeader?.id || null,
+        reset_start_at: payload.reset_start_at || resetStartAt,
         reset_at: now,
         created_at: payload.created_at || now,
         updated_at: now,
-      })
-    );
+      });
+      newCategories.push(unwrapCreatedRow(createdCategoryResult));
+    }
+  } catch (error) {
+    for (const row of [...archivedRows].reverse()) {
+      if (!row?.id) continue;
+      try {
+        await updateBudget(row.id, restorePatch(row, new Date().toISOString()));
+      } catch (restoreError) {
+        console.error("CLARA budget reset rollback could not restore a row.", restoreError);
+      }
+    }
+
+    try {
+      await updateBudget(
+        newHeaderId,
+        archivePatch(new Date().toISOString(), {
+          reset_failed_at: new Date().toISOString(),
+          reset_failure_reason: error?.message || "Budget reset archival failed.",
+        })
+      );
+    } catch (rollbackError) {
+      console.error("CLARA budget reset rollback could not archive the new marker.", rollbackError);
+    }
+
+    throw error;
   }
 
   return {
@@ -115,5 +165,6 @@ export async function resetMonthlyBudgetCycle({
     archivedCategoryIds: activeCategories.map((category) => category.id).filter(Boolean),
     newHeader,
     newCategories,
+    resetStartAt,
   };
 }
