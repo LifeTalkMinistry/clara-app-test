@@ -49,6 +49,10 @@ jobs:
               line[10:] if line.startswith("          ") else line
               for line in raw_script.splitlines()
           ) + "\n"
+          script = script.replace(
+              '    "transition-[opacity,transform] duration-300 ease-out ${\\n                  isVisible",\n',
+              '',
+          )
           Path('/tmp/apply-clara-pdf-carousel.py').write_text(script, encoding='utf-8')
           PY_EXTRACT
           python /tmp/apply-clara-pdf-carousel.py 2>&1 | tee /tmp/clara-pdf-carousel-patch.log
