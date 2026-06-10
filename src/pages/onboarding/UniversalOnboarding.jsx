@@ -394,23 +394,23 @@ export default function UniversalOnboarding() {
                         {content.welcome.mediaUrl ? (
                           <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[240px] w-full rounded-[22px] object-cover sm:h-[260px]" />
                         ) : (
-                          <div className="flex min-h-[300px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 sm:min-h-[320px] sm:p-5">
+                          <div className="flex min-h-[220px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 sm:min-h-[240px] sm:p-5">
                             <div className="flex items-center gap-2 text-xs text-white/60 sm:text-sm">
                               <BadgeCheck className="h-4 w-4 text-[#f4cd71]" />
                               Diagnosis before direction
                             </div>
-                            <div className="space-y-2 sm:space-y-3">
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
+                            <div className="space-y-2 sm:space-y-2.5">
+                              <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
                                 <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Commitment</p>
-                                <p className="mt-1.5 text-xs leading-5 text-white/78 sm:mt-2 sm:text-sm sm:leading-6">CLARA learns how ready you are to work on your money.</p>
+                                <p className="mt-1 text-xs leading-5 text-white/70 sm:text-sm">Your readiness</p>
                               </div>
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
+                              <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
                                 <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Lifestyle Clarity</p>
-                                <p className="mt-1.5 text-xs leading-5 text-white/78 sm:mt-2 sm:text-sm sm:leading-6">CLARA learns what your money is supporting.</p>
+                                <p className="mt-1 text-xs leading-5 text-white/70 sm:text-sm">What your money supports</p>
                               </div>
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
+                              <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
                                 <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Ask Before You Spend</p>
-                                <p className="mt-1.5 text-xs leading-5 text-white/78 sm:mt-2 sm:text-sm sm:leading-6">CLARA learns when you need help before spending.</p>
+                                <p className="mt-1 text-xs leading-5 text-white/70 sm:text-sm">When you need a pause</p>
                               </div>
                             </div>
                           </div>
