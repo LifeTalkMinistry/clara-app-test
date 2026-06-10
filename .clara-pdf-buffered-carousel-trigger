@@ -1,3 +1,4 @@
 Run the buffered PDF carousel implementation and validation.
 Retry with captured patch logs.
 Retry with normalized YAML indentation.
+Retry with legacy text fade excluded from PDF-only validation.
