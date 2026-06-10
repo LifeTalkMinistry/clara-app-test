@@ -161,6 +161,7 @@ export default function UniversalOnboarding() {
   const [fullName, setFullName] = useState("");
   const [nameError, setNameError] = useState("");
   const advanceTimerRef = useRef(null);
+  const onboardingShellRef = useRef(null);
 
   const needsNameFix = useMemo(() => {
     const storedName = profile?.full_name?.trim();
@@ -195,6 +196,24 @@ export default function UniversalOnboarding() {
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      onboardingShellRef.current?.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto",
+      });
+
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto",
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [screenIndex]);
 
   const screens = useMemo(
     () => [
@@ -327,7 +346,10 @@ export default function UniversalOnboarding() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
       <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
       <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
-        <div className="max-h-[calc(100dvh-24px)] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] px-3 pb-4 pt-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6">
+        <div
+          ref={onboardingShellRef}
+          className="max-h-[calc(100dvh-24px)] w-full overflow-y-auto rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] px-3 pb-4 pt-3 shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6"
+        >
           <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#f6cd71]">CLARA</p>
