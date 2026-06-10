@@ -10,21 +10,26 @@ export default function useDashboardMonthlyBudgetPlan({
   budgetCycleHeader = null,
   monthlyBudgetHeader = null,
 } = {}) {
+  const resolvedBudgetCycleHeader =
+    budgetCycleHeader || manualExpenseBudgetOptions?.budgetCycleHeader || null;
+  const resolvedMonthlyBudgetHeader =
+    monthlyBudgetHeader || manualExpenseBudgetOptions?.monthlyBudgetHeader || null;
+
   return useMemo(
     () =>
       buildDashboardMonthlyBudgetPlan({
         manualExpenseBudgetOptions,
         expenses,
         declaredMonthlyBudgetAmount,
-        budgetCycleHeader,
-        monthlyBudgetHeader,
+        budgetCycleHeader: resolvedBudgetCycleHeader,
+        monthlyBudgetHeader: resolvedMonthlyBudgetHeader,
       }),
     [
-      budgetCycleHeader,
       declaredMonthlyBudgetAmount,
       expenses,
       manualExpenseBudgetOptions,
-      monthlyBudgetHeader,
+      resolvedBudgetCycleHeader,
+      resolvedMonthlyBudgetHeader,
     ]
   );
 }
