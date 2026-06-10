@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isActiveBudgetHeader } from "@/lib/clara-budget-plan-truth";
 import {
   firstValidNumber,
   getPHMonthKey,
@@ -31,7 +32,10 @@ function getCycleStart(budget) {
 
 function getCycleEnd(budget) {
   return toDateOnly(
-    budget?.cycle_end || budget?.budget_cycle_end || budget?.period_end || budget?.range_end
+    budget?.cycle_end ||
+      budget?.budget_cycle_end ||
+      budget?.period_end ||
+      budget?.range_end
   );
 }
 
@@ -46,31 +50,22 @@ function isInsideCycle(budget, currentDate = todayKey()) {
 
 function getBudgetCycleType(budget) {
   return normalizeLower(
-    budget?.budget_cycle || budget?.cycle_type || budget?.budget_rhythm || budget?.period_type || "monthly"
+    budget?.budget_cycle ||
+      budget?.cycle_type ||
+      budget?.budget_rhythm ||
+      budget?.period_type ||
+      "monthly"
   );
 }
 
 function getBudgetCycleLabel(budget) {
   const type = getBudgetCycleType(budget);
   if (type === "weekly") return "Weekly";
-  if (type === "biweekly" || type === "bi-weekly" || type === "2 weeks") return "Bi-weekly";
+  if (type === "biweekly" || type === "bi-weekly" || type === "2 weeks") {
+    return "Bi-weekly";
+  }
   if (type === "custom") return "Custom";
   return "Monthly";
-}
-
-function isFinishedBudgetHeader(budget = {}) {
-  const status = normalizeLower(budget?.status);
-  return (
-    budget?.is_complete === true ||
-    budget?.complete === true ||
-    budget?.planIsComplete === true ||
-    budget?.plan_is_complete === true ||
-    status === "active" ||
-    status === "activated" ||
-    status === "complete" ||
-    status === "completed" ||
-    status === "finished"
-  );
 }
 
 export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
@@ -82,22 +77,8 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
         budget?.month || budget?.budget_month || budget?.month_key
       );
       const isCurrentMonth = !month || month === currentMonthKey;
-      const status = normalizeLower(budget?.status);
-      const isActive = budget?.is_active !== false && budget?.active !== false;
-      const isHeader =
-        budget?.is_plan_header === true ||
-        budget?.plan_type === "monthly_budget" ||
-        normalizeLower(budget?.category) === "__monthly_budget__" ||
-        normalizeLower(budget?.budget_category) === "__monthly_budget__" ||
-        normalizeLower(budget?.type) === "monthly_budget";
 
-      return (
-        isCurrentMonth &&
-        isActive &&
-        !["inactive", "archived", "deleted", "closed", "draft"].includes(status) &&
-        isHeader &&
-        isFinishedBudgetHeader(budget)
-      );
+      return isCurrentMonth && isActiveBudgetHeader(budget);
     });
 
     return (
@@ -108,7 +89,7 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
   }, [budgets]);
 
   const declaredMonthlyBudgetAmount = useMemo(() => {
-    if (!monthlyBudgetHeader || !isFinishedBudgetHeader(monthlyBudgetHeader)) return 0;
+    if (!isActiveBudgetHeader(monthlyBudgetHeader)) return 0;
 
     return firstValidNumber(
       monthlyBudgetHeader?.declared_amount,
@@ -124,6 +105,7 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
   const budgetCycle = useMemo(() => {
     const start = getCycleStart(monthlyBudgetHeader);
     const end = getCycleEnd(monthlyBudgetHeader);
+
     return {
       type: getBudgetCycleType(monthlyBudgetHeader),
       label: getBudgetCycleLabel(monthlyBudgetHeader),
@@ -137,5 +119,6 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
     monthlyBudgetHeader,
     declaredMonthlyBudgetAmount,
     budgetCycle,
+    hasActiveBudgetPlan: Boolean(monthlyBudgetHeader),
   };
 }
