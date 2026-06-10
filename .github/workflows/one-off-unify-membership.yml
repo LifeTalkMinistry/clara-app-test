@@ -1,0 +1,191 @@
+name: One-off unify membership display
+
+on:
+  push:
+    branches:
+      - fix/unify-membership-display
+    paths:
+      - .github/workflows/one-off-unify-membership.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/unify-membership-display
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply source-neutral membership UI patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
+          text = path.read_text()
+
+          old_dates = "const shouldShowBillingDates = membershipState.isActiveCommitted && !membershipState.isDeveloperPreview && hasBillingDates;"
+          new_dates = "const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;"
+          if text.count(old_dates) != 1:
+              raise SystemExit(f"Expected one developer-specific billing-date condition, found {text.count(old_dates)}")
+          text = text.replace(old_dates, new_dates)
+
+          old_message = '''const billingDetailsMessage =
+  membershipState.membershipStatus === "loading"
+    ? "Syncing membership…"
+    : membershipState.isDeveloperPreview
+      ? "Developer preview does not create billing dates or modify your real membership."
+      : membershipState.isActiveCommitted
+        ? billingLoading || !hasBillingDates
+          ? "Billing details are syncing."
+          : ""
+      : membershipState.isPendingActivation
+        ? billingLoading
+          ? "Activation details are syncing."
+          : "Activation is awaiting confirmation."
+        : "No active billing. You will only be charged after starting and activating your commitment.";'''
+          new_message = '''const billingDetailsMessage =
+  membershipState.membershipStatus === "loading"
+    ? "Syncing membership…"
+    : membershipState.isActiveCommitted
+      ? billingLoading
+        ? "Billing details are syncing."
+        : ""
+      : membershipState.isPendingActivation
+        ? "Activation is awaiting confirmation."
+        : "No active billing. You will only be charged after starting and activating your commitment.";'''
+          if text.count(old_message) != 1:
+              raise SystemExit(f"Expected one developer-specific billing message block, found {text.count(old_message)}")
+          text = text.replace(old_message, new_message)
+
+          old_badge = '''        {membershipState.isDeveloperPreview ? (
+          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
+            Developer Preview
+          </span>
+        ) : null}
+'''
+          if text.count(old_badge) != 1:
+              raise SystemExit(f"Expected one Developer Preview badge, found {text.count(old_badge)}")
+          text = text.replace(old_badge, "")
+
+          prohibited = [
+              "Developer Preview",
+              "Developer membership",
+              "Preview Mode",
+              "Test membership",
+              "Simulated membership",
+              "Fake activation",
+              "membershipState.isDeveloperPreview",
+          ]
+          for phrase in prohibited:
+              if phrase in text:
+                  raise SystemExit(f"Prohibited Plan & Billing phrase or branch remains: {phrase}")
+
+          path.write_text(text)
+          PY
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate canonical membership states
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import {
+            COMMITTED_PLAN_KEY,
+            FREE_PLAN_KEY,
+            resolveMembership,
+          } from "./src/lib/membership.js";
+
+          const visible = (state) => ({
+            planKey: state.planKey,
+            membershipStatus: state.membershipStatus,
+            isActiveCommitted: state.isActiveCommitted,
+            hasCommittedAccess: state.hasCommittedAccess,
+            planLabel: state.planLabel,
+            priceLabel: state.priceLabel,
+            statusLabel: state.statusLabel,
+            description: state.description,
+            featureDescription: state.featureDescription,
+          });
+
+          const googlePlayActive = resolveMembership({
+            profile: {
+              plan_key: COMMITTED_PLAN_KEY,
+              subscription_status: "active",
+              is_activated: true,
+            },
+          });
+          const developerActive = resolveMembership({
+            preview: { plan: COMMITTED_PLAN_KEY, membershipStatus: "active" },
+          });
+          assert.deepEqual(visible(developerActive), visible(googlePlayActive));
+
+          const developerPending = resolveMembership({
+            preview: { plan: COMMITTED_PLAN_KEY, membershipStatus: "pending" },
+          });
+          assert.equal(developerPending.membershipStatus, "pending");
+          assert.equal(developerPending.isActiveCommitted, false);
+          assert.equal(developerPending.hasCommittedAccess, false);
+
+          const developerFree = resolveMembership({
+            preview: { plan: FREE_PLAN_KEY, membershipStatus: "not_committed" },
+          });
+          assert.equal(developerFree.membershipStatus, "not_committed");
+          assert.equal(developerFree.hasCommittedAccess, false);
+
+          const freeAdmin = resolveMembership({
+            profile: { plan_key: FREE_PLAN_KEY },
+            isAdmin: true,
+          });
+          assert.equal(freeAdmin.membershipStatus, "not_committed");
+          assert.equal(freeAdmin.isActiveCommitted, false);
+          assert.equal(freeAdmin.hasCommittedAccess, true);
+          NODE
+
+      - name: Lint audited membership files
+        run: >-
+          npx eslint
+          src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
+          src/lib/membership.js
+          src/hooks/useUserRole.js
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Validate no developer-specific customer UI remains
+        shell: bash
+        run: |
+          ! grep -nE 'Developer Preview|Developer membership|Preview Mode|Test membership|Simulated membership|Fake activation|membershipState\.isDeveloperPreview' \
+            src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          ! grep -n 'isDeveloperPreview' \
+            src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
+          grep -n 'const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;' \
+            src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          grep -n 'writeDeveloperMembershipPreview' src/lib/membership.js
+          grep -n 'window.localStorage.setItem' src/lib/membership.js
+
+      - name: Commit validated implementation and remove one-off workflow
+        shell: bash
+        run: |
+          git config user.name "CLARA Membership Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/one-off-unify-membership.yml
+          git add \
+            src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx \
+            src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
+          git commit -m "fix: unify developer and Google Play membership display"
+          git push origin HEAD:fix/unify-membership-display
