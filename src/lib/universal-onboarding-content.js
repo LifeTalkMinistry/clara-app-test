@@ -1,49 +1,21 @@
 import { supabase } from "@/lib/supabaseClient";
 
 export const UNIVERSAL_ONBOARDING_SETTINGS_DEFAULTS = {
-  onboarding_welcome_badge: "A Guided Arrival",
+  onboarding_welcome_badge: "Guided setup",
   onboarding_welcome_headline: "Welcome to CLARA.",
   onboarding_welcome_subheadline:
-    "A calm, structured system that helps you understand your money, build discipline, and move forward with clarity.",
-  onboarding_welcome_cta: "Start your setup",
+    "Let’s understand your starting point, lifestyle, spending pressure, and the kind of guidance that would help you most.",
+  onboarding_welcome_cta: "Start my setup",
   onboarding_welcome_media_url: "",
-  onboarding_slide_1_title: "More than a tracker",
-  onboarding_slide_1_description:
-    "CLARA helps you understand the behavior behind your money, not just the numbers on a screen.",
-  onboarding_slide_2_title: "Built for real progress",
-  onboarding_slide_2_description:
-    "You get guided structure, clear next steps, and tools that support consistency without overwhelming you.",
-  onboarding_slide_3_title: "Designed to meet you where you are",
-  onboarding_slide_3_description:
-    "Some people need simple tools. Others want a guided system. CLARA is built to support both.",
-  onboarding_slide_4_title: "A better starting point",
-  onboarding_slide_4_description:
-    "Your first steps should feel focused, trustworthy, and worth continuing. That is what this setup is for.",
-  onboarding_founder_badge: "Why CLARA Exists",
-  onboarding_founder_headline: "Created to bring clarity where money often feels heavy.",
-  onboarding_founder_body:
-    "CLARA was built for people who want more than generic budgeting. It exists to give structure, reduce noise, and make progress feel possible again one clear step at a time.",
-  onboarding_founder_media_url: "",
-  onboarding_teaser_badge: "Next Layer",
-  onboarding_teaser_headline: "There is more guidance available when you want it.",
-  onboarding_teaser_body:
-    "CLARA can stay lightweight, or it can guide you through a more structured path when you are ready for deeper support.",
-  onboarding_teaser_cta: "Explore guided options",
-  onboarding_result_tools_title: "PRO is your cleanest starting point.",
-  onboarding_result_tools_body:
-    "A simple entry into CLARA focused on essential financial visibility, tracking, and beginner-friendly control.",
-  onboarding_result_tools_primary_cta: "Choose PRO",
-  onboarding_result_tools_secondary_cta: "View all tiers",
-  onboarding_result_system_title: "CORE fits your daily spending needs best.",
-  onboarding_result_system_body:
-    "Your answers point toward more guidance, structure, and advanced daily spending intelligence through CLARA Companion.",
-  onboarding_result_system_primary_cta: "Choose CORE",
-  onboarding_result_system_secondary_cta: "View all tiers",
-  onboarding_result_guidance_title: "Life OS may be the right fit.",
-  onboarding_result_guidance_body:
-    "Your answers suggest you want broader decision support, planning context, and CLARA's deepest operating-system intelligence.",
-  onboarding_result_guidance_primary_cta: "Choose Life OS",
-  onboarding_result_guidance_secondary_cta: "View all tiers",
+  onboarding_mission_title: "CLARA was built for more than tracking money.",
+  onboarding_mission_body:
+    "CLARA exists to help people make better money decisions. As it grows, the goal is also to support students, families, and communities in need through the CLARA Charity Fund.",
+  onboarding_mission_cta: "Prepare my starting path",
+  onboarding_result_title: "Your CLARA starting path is ready.",
+  onboarding_result_body:
+    "Based on your answers, CLARA will start by helping you understand your lifestyle, notice your spending pressure points, and pause before risky money decisions.",
+  onboarding_result_primary_cta: "Enter my dashboard",
+  onboarding_result_secondary_cta: "Learn about Committed Version",
 };
 
 export const UNIVERSAL_ONBOARDING_SETTINGS_KEYS = Object.keys(
@@ -64,42 +36,16 @@ export function buildUniversalOnboardingContent(settings = {}) {
       cta: merged.onboarding_welcome_cta,
       mediaUrl: merged.onboarding_welcome_media_url,
     },
-    slides: [1, 2, 3, 4].map((index) => ({
-      id: `slide-${index}`,
-      title: merged[`onboarding_slide_${index}_title`],
-      description: merged[`onboarding_slide_${index}_description`],
-    })),
-    founder: {
-      badge: merged.onboarding_founder_badge,
-      headline: merged.onboarding_founder_headline,
-      body: merged.onboarding_founder_body,
-      mediaUrl: merged.onboarding_founder_media_url,
+    mission: {
+      title: merged.onboarding_mission_title,
+      body: merged.onboarding_mission_body,
+      cta: merged.onboarding_mission_cta,
     },
-    teaser: {
-      badge: merged.onboarding_teaser_badge,
-      headline: merged.onboarding_teaser_headline,
-      body: merged.onboarding_teaser_body,
-      cta: merged.onboarding_teaser_cta,
-    },
-    results: {
-      tools: {
-        title: merged.onboarding_result_tools_title,
-        body: merged.onboarding_result_tools_body,
-        primaryCta: merged.onboarding_result_tools_primary_cta,
-        secondaryCta: merged.onboarding_result_tools_secondary_cta,
-      },
-      system: {
-        title: merged.onboarding_result_system_title,
-        body: merged.onboarding_result_system_body,
-        primaryCta: merged.onboarding_result_system_primary_cta,
-        secondaryCta: merged.onboarding_result_system_secondary_cta,
-      },
-      guidance: {
-        title: merged.onboarding_result_guidance_title,
-        body: merged.onboarding_result_guidance_body,
-        primaryCta: merged.onboarding_result_guidance_primary_cta,
-        secondaryCta: merged.onboarding_result_guidance_secondary_cta,
-      },
+    result: {
+      title: merged.onboarding_result_title,
+      body: merged.onboarding_result_body,
+      primaryCta: merged.onboarding_result_primary_cta,
+      secondaryCta: merged.onboarding_result_secondary_cta,
     },
   };
 }
