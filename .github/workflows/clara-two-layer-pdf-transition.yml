@@ -1,4 +1,4 @@
-name: CLARA two-layer PDF transition final validation
+name: CLARA remove book page transitions validation
 
 on:
   pull_request:
@@ -8,13 +8,14 @@ on:
       - opened
       - synchronize
     paths:
-      - docs/clara-pdf-final-validation.txt
+      - docs/clara-remove-book-transitions.txt
+      - .github/workflows/clara-remove-book-transitions-once.yml
 
 permissions:
   contents: write
 
 jobs:
-  build-validate-and-commit:
+  simplify-validate-and-commit:
     runs-on: ubuntu-latest
     steps:
       - name: Check out pull-request branch
@@ -24,49 +25,51 @@ jobs:
           fetch-depth: 0
           show-progress: false
 
-      - name: Restore surgical component
+      - name: Extract and run the surgical cleanup
         shell: bash
         run: |
-          test -f docs/clara-pdf-final-validation.txt
-          git show 17b20fef9a4bd425588e855e2d8ac36cf56d90d7:.clara-two-layer-payload.gz.b64 \
-            | base64 --decode \
-            | gzip --decompress \
-            > /tmp/LearningMaterialModal.jsx
-          test -s /tmp/LearningMaterialModal.jsx
-          mv /tmp/LearningMaterialModal.jsx src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+          python <<'PY'
+          from pathlib import Path
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+          workflow = Path(".github/workflows/clara-remove-book-transitions-once.yml").read_text()
+          start_marker = "          python <<'PY'\n"
+          end_marker = "\n          PY\n"
+          start = workflow.index(start_marker) + len(start_marker)
+          end = workflow.index(end_marker, start)
+          block = workflow[start:end]
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in block.splitlines()
+          )
+          Path("/tmp/remove-book-transitions.py").write_text(script + "\n")
+          PY
+          python /tmp/remove-book-transitions.py
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build validation 1
+      - name: Lint shared reader
+        run: npx eslint src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
+
+      - name: Build application
         run: npm run build
 
-      - name: Build validation 2
-        run: npm run build
-
-      - name: Confirm final one-file diff
+      - name: Verify focused diff
         shell: bash
         run: |
-          rm -f docs/clara-pdf-final-validation.txt
           git diff --check
           test -z "$(git diff --name-only -- package.json package-lock.json)"
-          git fetch origin main --quiet
-          changed="$(git diff --name-only origin/main)"
-          test "$changed" = "src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
-          unexpected="$(git status --short | sed 's/^...//' | grep -Ev '^(src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx|docs/clara-pdf-final-validation.txt)$' || true)"
-          test -z "$unexpected"
+          test "$(grep -c '<Page' src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx)" = "1"
+          ! grep -E 'carousel|boundarySnapshot|pendingGlobalPageIndex|transitionLockRef|pdfPageTurnLockRef|onTransitionEnd|translate3d' src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx
 
-      - name: Commit validated implementation
+      - name: Commit validated reader correction
         shell: bash
         run: |
+          rm -f docs/clara-remove-book-transitions.txt
+          rm -f .github/workflows/clara-remove-book-transitions-once.yml
+          rm -f .github/workflows/clara-two-layer-pdf-transition.yml
           git config user.name "CLARA Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx docs/clara-pdf-final-validation.txt
-          git commit -m "Fix PDF transition with two rendered layers [skip ci]"
+          git add -A -- src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx .github/workflows/clara-two-layer-pdf-transition.yml .github/workflows/clara-remove-book-transitions-once.yml docs/clara-remove-book-transitions.txt
+          git commit -m "fix(learning-hub): remove book page transitions [skip ci]"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
