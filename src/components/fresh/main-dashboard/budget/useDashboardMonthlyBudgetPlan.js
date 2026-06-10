@@ -15,6 +15,16 @@ const toTime = (value) => {
   const time = value ? new Date(value).getTime() : NaN;
   return Number.isNaN(time) ? null : time;
 };
+const toEndTime = (value) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnly) {
+    const time = new Date(`${dateOnly[1]}T23:59:59.999`).getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  return toTime(value);
+};
 const toDateOnly = (value) => {
   if (!value) return "";
   const raw = String(value).trim();
@@ -54,7 +64,7 @@ function cycleRange(source) {
 function inCycle(expense, range) {
   if (range.hasTimestampStart) {
     const start = toTime(range.start);
-    const end = toTime(range.end);
+    const end = toEndTime(range.end);
     const time = toTime(expenseDate(expense, range.start));
     return !(start !== null && (time === null || time < start)) &&
       !(end !== null && time !== null && time > end);
@@ -105,9 +115,9 @@ function matchingOption(expense, options) {
 
 function outsideItem(expense, type, index) {
   const amount = firstValidNumber(expense?.amount, expense?.spent, expense?.value, expense?.total);
-  const date = expense?.date || expense?.transaction_date || expense?.transactionDate ||
-    expense?.spent_at || expense?.created_at || expense?.createdAt || expense?.logged_at ||
-    getTransactionDate(expense);
+  const date = expense?.created_at || expense?.createdAt || expense?.logged_at ||
+    expense?.spent_at || expense?.transaction_date || expense?.transactionDate ||
+    expense?.date || getTransactionDate(expense);
   return {
     ...expense,
     id: expense?.id || expense?.key || `${type}-${index}-${date || amount}`,
@@ -136,6 +146,7 @@ export default function useDashboardMonthlyBudgetPlan({
     const monthKey = normalizeString(source?.month || source?.budget_month || source?.month_key || getPHMonthKey());
     const monthRange = cycleRange(source);
     const type = cycleType(source);
+    const resetStartAt = source?.reset_start_at || source?.tracking_started_at || source?.tracking_start_date || "";
     const activeExpenses = allExpenses.filter((expense) => inCycle(expense, monthRange));
 
     const rawCategories = options.map((item) => {
@@ -212,6 +223,9 @@ export default function useDashboardMonthlyBudgetPlan({
       budget_cycle: type, cycle_type: type, budget_rhythm: type, period_type: type,
       cycle_label: cycleLabel(type), cycle_start: monthRange.start, cycle_end: monthRange.end,
       period_start: monthRange.start, period_end: monthRange.end,
+      reset_start_at: resetStartAt || null,
+      tracking_started_at: resetStartAt || null,
+      tracking_start_date: resetStartAt || null,
       declared_budget: declared, declaredBudget: declared, declaredAmount: declared,
       allocated, allocated_total: allocated, totalAllocated: allocated,
       planned_spent: plannedSpent, plannedSpent,
