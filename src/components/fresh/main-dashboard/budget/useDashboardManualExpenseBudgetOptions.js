@@ -7,10 +7,23 @@ import {
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import {
+  doesBudgetRowBelongToCycle,
+  isBudgetHeader,
+  isBudgetRowInactive,
+  selectDashboardBudgetHeaders,
+} from "@/lib/clara-budget-cycle-authority";
 
-export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } = {}) {
+export default function useDashboardManualExpenseBudgetOptions({
+  budgets = [],
+  budgetCycleHeader = null,
+  user = null,
+} = {}) {
   return useMemo(() => {
     const currentMonthKey = getPHMonthKey();
+    const resolvedCycleHeader =
+      budgetCycleHeader ||
+      selectDashboardBudgetHeaders({ budgets, currentMonthKey, user }).budgetCycleHeader;
     const seen = new Set();
 
     return (Array.isArray(budgets) ? budgets : [])
@@ -18,17 +31,13 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
         const month = normalizeString(
           budget?.month || budget?.budget_month || budget?.month_key
         );
-        const status = normalizeLower(budget?.status);
-        const isActive = budget?.is_active !== false && budget?.active !== false;
-        const isClosed = ["inactive", "archived", "deleted", "closed"].includes(status);
-        const isHeader =
-          budget?.is_plan_header === true ||
-          budget?.plan_type === "monthly_budget" ||
-          normalizeLower(budget?.category) === "__monthly_budget__" ||
-          normalizeLower(budget?.budget_category) === "__monthly_budget__" ||
-          normalizeLower(budget?.type) === "monthly_budget";
 
-        return !isHeader && isActive && !isClosed && (!month || month === currentMonthKey);
+        return (
+          !isBudgetHeader(budget) &&
+          !isBudgetRowInactive(budget) &&
+          (!month || month === currentMonthKey) &&
+          doesBudgetRowBelongToCycle(budget, resolvedCycleHeader)
+        );
       })
       .map((budget, index) => {
         const title = getBudgetListTitle(budget);
@@ -71,6 +80,8 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
         seen.add(signature);
         return true;
       })
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
-  }, [budgets]);
+      .sort((left, right) =>
+        left.sortOrder - right.sortOrder || left.title.localeCompare(right.title)
+      );
+  }, [budgetCycleHeader, budgets, user]);
 }
