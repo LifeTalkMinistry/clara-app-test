@@ -30,7 +30,6 @@ export function resolveCommittedMembershipState(options = {}) {
       options.user?.id || "guest",
       membership.planKey,
       membership.membershipStatus,
-      membership.isDeveloperPreview ? "preview" : "real",
     ].join(":"),
   };
 }
@@ -56,7 +55,6 @@ export function useCommittedMembershipState({
         state.user?.id || "guest",
         state.membership.planKey,
         state.membership.membershipStatus,
-        state.membership.isDeveloperPreview ? "preview" : "real",
       ].join(":"),
     };
   }
