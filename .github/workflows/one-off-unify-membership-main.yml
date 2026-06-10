@@ -1,0 +1,239 @@
+name: One-off unify membership display
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-off-unify-membership-main.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-off-unify-membership-display
+  cancel-in-progress: false
+
+jobs:
+  patch-validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply source-neutral membership patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          settings_path = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx")
+          settings = settings_path.read_text()
+
+          old_dates = "const shouldShowBillingDates = membershipState.isActiveCommitted && !membershipState.isDeveloperPreview && hasBillingDates;"
+          new_dates = "const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;"
+          if settings.count(old_dates) != 1:
+              raise SystemExit(f"Expected one developer-specific billing-date condition, found {settings.count(old_dates)}")
+          settings = settings.replace(old_dates, new_dates)
+
+          old_message = '''const billingDetailsMessage =
+  membershipState.membershipStatus === "loading"
+    ? "Syncing membership…"
+    : membershipState.isDeveloperPreview
+      ? "Developer preview does not create billing dates or modify your real membership."
+      : membershipState.isActiveCommitted
+        ? billingLoading || !hasBillingDates
+          ? "Billing details are syncing."
+          : ""
+      : membershipState.isPendingActivation
+        ? billingLoading
+          ? "Activation details are syncing."
+          : "Activation is awaiting confirmation."
+        : "No active billing. You will only be charged after starting and activating your commitment.";'''
+          new_message = '''const billingDetailsMessage =
+  membershipState.membershipStatus === "loading"
+    ? "Syncing membership…"
+    : membershipState.isActiveCommitted
+      ? billingLoading
+        ? "Billing details are syncing."
+        : ""
+      : membershipState.isPendingActivation
+        ? "Activation is awaiting confirmation."
+        : "No active billing. You will only be charged after starting and activating your commitment.";'''
+          if settings.count(old_message) != 1:
+              raise SystemExit(f"Expected one developer-specific billing message block, found {settings.count(old_message)}")
+          settings = settings.replace(old_message, new_message)
+
+          old_badge = '''        {membershipState.isDeveloperPreview ? (
+          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
+            Developer Preview
+          </span>
+        ) : null}
+'''
+          if settings.count(old_badge) != 1:
+              raise SystemExit(f"Expected one Developer Preview badge, found {settings.count(old_badge)}")
+          settings = settings.replace(old_badge, "")
+
+          prohibited = [
+              "Developer Preview",
+              "Developer membership",
+              "Preview Mode",
+              "Test membership",
+              "Simulated membership",
+              "Fake activation",
+              "membershipState.isDeveloperPreview",
+          ]
+          for phrase in prohibited:
+              if phrase in settings:
+                  raise SystemExit(f"Prohibited customer-facing developer branch remains: {phrase}")
+
+          settings_path.write_text(settings)
+
+          access_path = Path("src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js")
+          access = access_path.read_text()
+          source_marker = '        membership.isDeveloperPreview ? "preview" : "real",\n'
+          hook_source_marker = '        state.membership.isDeveloperPreview ? "preview" : "real",\n'
+          if access.count(source_marker) != 1 or access.count(hook_source_marker) != 1:
+              raise SystemExit("Expected developer-specific billing sync-key markers were not found exactly once")
+          access = access.replace(source_marker, "").replace(hook_source_marker, "")
+          if "isDeveloperPreview" in access:
+              raise SystemExit("Developer source detection still affects committed feature access")
+          access_path.write_text(access)
+          PY
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate canonical membership states
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import {
+            COMMITTED_PLAN_KEY,
+            FREE_PLAN_KEY,
+            resolveMembership,
+          } from "./src/lib/membership.js";
+
+          const visibleAndAccess = (state) => ({
+            planKey: state.planKey,
+            membershipStatus: state.membershipStatus,
+            isActiveCommitted: state.isActiveCommitted,
+            hasCommittedAccess: state.hasCommittedAccess,
+            planLabel: state.planLabel,
+            priceLabel: state.priceLabel,
+            statusLabel: state.statusLabel,
+            description: state.description,
+            featureDescription: state.featureDescription,
+          });
+
+          const googlePlayActive = resolveMembership({
+            profile: {
+              plan_key: COMMITTED_PLAN_KEY,
+              subscription_status: "active",
+              is_activated: true,
+            },
+          });
+          const developerActive = resolveMembership({
+            preview: { plan: COMMITTED_PLAN_KEY, membershipStatus: "active" },
+          });
+          assert.deepEqual(visibleAndAccess(developerActive), visibleAndAccess(googlePlayActive));
+
+          const developerPending = resolveMembership({
+            preview: { plan: COMMITTED_PLAN_KEY, membershipStatus: "pending" },
+          });
+          assert.equal(developerPending.membershipStatus, "pending");
+          assert.equal(developerPending.isActiveCommitted, false);
+          assert.equal(developerPending.hasCommittedAccess, false);
+
+          const developerFree = resolveMembership({
+            preview: { plan: FREE_PLAN_KEY, membershipStatus: "not_committed" },
+          });
+          assert.equal(developerFree.membershipStatus, "not_committed");
+          assert.equal(developerFree.isActiveCommitted, false);
+          assert.equal(developerFree.hasCommittedAccess, false);
+
+          const freeAdmin = resolveMembership({
+            profile: { plan_key: FREE_PLAN_KEY },
+            isAdmin: true,
+          });
+          assert.equal(freeAdmin.membershipStatus, "not_committed");
+          assert.equal(freeAdmin.isActiveCommitted, false);
+          assert.equal(freeAdmin.hasCommittedAccess, true);
+          NODE
+
+      - name: Confirm local-only developer override
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          membership = Path("src/lib/membership.js").read_text()
+          start = membership.index("export function readDeveloperMembershipPreview")
+          end = membership.index("export function resolveMembership")
+          developer_override = membership[start:end]
+          required = ["window.localStorage.getItem", "window.localStorage.setItem", "window.localStorage.removeItem"]
+          for token in required:
+              if token not in developer_override:
+                  raise SystemExit(f"Missing local-only developer override operation: {token}")
+          prohibited = ["supabase", "purchaseToken", "transaction_id", "Google Play", "enrollments", ".insert(", ".upsert(", ".update("]
+          for token in prohibited:
+              if token in developer_override:
+                  raise SystemExit(f"Developer override contains forbidden billing/database operation: {token}")
+          PY
+
+      - name: Lint audited membership files
+        run: >-
+          npx eslint
+          src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
+          src/lib/membership.js
+          src/hooks/useUserRole.js
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Confirm final customer-facing decision tree
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          settings = Path("src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx").read_text()
+          assertions = [
+              "const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;",
+              '? "Syncing membership…"',
+              '? "Billing details are syncing."',
+              '? "Activation is awaiting confirmation."',
+              ': "No active billing. You will only be charged after starting and activating your commitment.";',
+          ]
+          for assertion in assertions:
+              if assertion not in settings:
+                  raise SystemExit(f"Missing expected billing decision-tree statement: {assertion}")
+          prohibited = ["Developer Preview", "Developer preview does not create billing dates", "membershipState.isDeveloperPreview"]
+          for phrase in prohibited:
+              if phrase in settings:
+                  raise SystemExit(f"Developer-specific customer UI remains: {phrase}")
+          PY
+
+      - name: Commit validated implementation and remove one-off workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-off-unify-membership-main.yml
+          git add \
+            src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx \
+            src/components/fresh/main-dashboard/program-access/committedFeatureAccess.js
+          git commit -m "fix: unify developer and Google Play membership display"
+          git pull --rebase origin main
+          git push origin HEAD:main
