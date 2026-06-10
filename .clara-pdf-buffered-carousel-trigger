@@ -1,2 +1,3 @@
 Run the buffered PDF carousel implementation and validation.
 Retry with captured patch logs.
+Retry with normalized YAML indentation.
