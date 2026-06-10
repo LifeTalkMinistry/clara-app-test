@@ -80,7 +80,10 @@ function getMonthRange(monthKey = "") {
 function getCycleRange(activeBudget, monthKey) {
   const fallback = getMonthRange(monthKey);
   const start = toDateOnly(
-    activeBudget?.cycle_start ||
+    activeBudget?.reset_start_at ||
+      activeBudget?.tracking_started_at ||
+      activeBudget?.tracking_start_date ||
+      activeBudget?.cycle_start ||
       activeBudget?.budget_cycle_start ||
       activeBudget?.period_start ||
       activeBudget?.range_start ||
@@ -98,6 +101,14 @@ function getCycleRange(activeBudget, monthKey) {
     start: start || fallback.start,
     end: end || fallback.end,
   };
+}
+
+function hasResetBoundary(activeBudget = {}) {
+  return Boolean(
+    activeBudget?.reset_start_at ||
+      activeBudget?.tracking_started_at ||
+      activeBudget?.tracking_start_date
+  );
 }
 
 function getCycleLabel(activeBudget) {
@@ -306,15 +317,23 @@ export default function useBudgetCardLogic({
     (sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount ?? item?.used),
     0
   );
-  const activeBudgetSpent = Math.max(
-    safeNumber(activeBudget?.spent),
-    safeNumber(activeBudget?.spent_amount),
-    safeNumber(activeBudget?.spent_total),
-    safeNumber(activeBudget?.total_spent),
-    safeNumber(activeBudget?.totalSpent),
-    safeNumber(activeBudget?.planned_spent) + safeNumber(activeBudget?.unplanned_spent) + safeNumber(activeBudget?.undocumented_spent),
-    categorySpent
-  );
+  const plannedBreakdownSpent = safeNumber(activeBudget?.planned_spent) +
+    safeNumber(activeBudget?.plannedSpent) +
+    safeNumber(activeBudget?.unplanned_spent) +
+    safeNumber(activeBudget?.unplannedSpent) +
+    safeNumber(activeBudget?.undocumented_spent) +
+    safeNumber(activeBudget?.undocumentedSpent);
+  const activeBudgetSpent = hasResetBoundary(activeBudget)
+    ? Math.max(plannedBreakdownSpent, categorySpent)
+    : Math.max(
+        safeNumber(activeBudget?.spent),
+        safeNumber(activeBudget?.spent_amount),
+        safeNumber(activeBudget?.spent_total),
+        safeNumber(activeBudget?.total_spent),
+        safeNumber(activeBudget?.totalSpent),
+        plannedBreakdownSpent,
+        categorySpent
+      );
 
   const declared = safeNumber(
     declaredBudget ||
@@ -323,22 +342,24 @@ export default function useBudgetCardLogic({
       activeBudget?.monthly_budget_amount
   );
 
-  const allocated = safeNumber(
-    activeBudget?.allocated_amount ??
-      activeBudget?.allocated_total ??
-      activeBudget?.total_budget ??
-      categories.reduce(
-        (sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount),
-        0
-      )
+  const categoryAllocatedTotal = categories.reduce(
+    (sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount),
+    0
   );
+  const explicitAllocated = safeNumber(
+    activeBudget?.allocated ??
+      activeBudget?.allocated_amount ??
+      activeBudget?.allocated_total ??
+      activeBudget?.totalAllocated
+  );
+  const allocated = categories.length > 0 ? categoryAllocatedTotal : explicitAllocated;
 
   const spent = activeBudgetSpent;
 
   const remaining = Math.max(declared - spent, 0);
 
   const unallocated = Math.max(
-    safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? declared - allocated),
+    safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? activeBudget?.unallocated ?? activeBudget?.unallocated_balance ?? activeBudget?.unallocatedBalance ?? declared - allocated),
     0
   );
 
