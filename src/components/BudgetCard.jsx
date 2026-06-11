@@ -22,12 +22,6 @@ const PLAN_TEST_OPTIONS = [
     value: { plan: "free", membershipStatus: "not_committed" },
   },
   {
-    label: "Committed — Pending Preview",
-    helper: "Preview selected commitment with features still locked.",
-    badge: "PENDING",
-    value: { plan: "committed_249", membershipStatus: "pending" },
-  },
-  {
     label: "Committed — Active Preview",
     helper: "Preview the fully activated Committed Version.",
     badge: "ACTIVE",
@@ -206,7 +200,7 @@ export default function BudgetCard({
             <div className="space-y-2">
               {PLAN_TEST_OPTIONS.map((option) => (
                 <button
-                  key={option.value}
+                  key={`${option.value.plan}-${option.value.membershipStatus}`}
                   type="button"
                   onClick={() => applyPlanPreview(option.value)}
                   className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10]"
