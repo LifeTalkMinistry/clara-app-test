@@ -15,7 +15,29 @@ const formatPhpAmount = (value) =>
     minimumFractionDigits: 0,
   }).format(Number(value) || 0);
 
-export const fmt = (value) => formatMoneyWithVisibility(value, formatPhpAmount);
+const formatIncomeSourceCount = (count) => `${count} source${count === 1 ? "" : "s"}`;
+
+const createIncomeSourceCountValue = (count) => ({
+  __incomeHubSourceCountValue: true,
+  sourceCount: Number(count) || 0,
+  valueOf() {
+    return this.sourceCount;
+  },
+  toString() {
+    return formatIncomeSourceCount(this.sourceCount);
+  },
+});
+
+const isIncomeSourceCountValue = (value) =>
+  Boolean(value && typeof value === "object" && value.__incomeHubSourceCountValue);
+
+export const fmt = (value) => {
+  if (isIncomeSourceCountValue(value)) {
+    return formatIncomeSourceCount(value.sourceCount);
+  }
+
+  return formatMoneyWithVisibility(value, formatPhpAmount);
+};
 
 export const toNumber = (value) => toIncomeHubNumber(value);
 
@@ -54,18 +76,19 @@ export function buildInvestmentReadiness({ sources = [] } = {}) {
   );
 
   const sourceCount = incomeSources.length;
-  const totalGenerated = incomeSources.reduce((sum, source) => sum + getSourceMoneyIn(source), 0);
+  const totalMoneyIn = incomeSources.reduce((sum, source) => sum + getSourceMoneyIn(source), 0);
   const totalOut = incomeSources.reduce((sum, source) => sum + getSourceMoneyOut(source), 0);
   const netGenerated = incomeSources.reduce((sum, source) => sum + getSourceNet(source), 0);
   const topSource = [...incomeSources].sort((a, b) => getSourceMoneyIn(b) - getSourceMoneyIn(a))[0] || null;
   const topSourceAmount = topSource ? getSourceMoneyIn(topSource) : 0;
-  const mainSourceShare = topSource && totalGenerated > 0 ? clampProgress((topSourceAmount / totalGenerated) * 100) : 0;
+  const mainSourceShare = topSource && totalMoneyIn > 0 ? clampProgress((topSourceAmount / totalMoneyIn) * 100) : 0;
 
   return {
     readinessStatus: INVESTMENT_READINESS.READY_TO_TEST,
     sourceCount,
-    monthlyGenerated: totalGenerated,
-    totalGenerated,
+    monthlyGenerated: totalMoneyIn,
+    totalGenerated: createIncomeSourceCountValue(sourceCount),
+    totalMoneyIn,
     totalOut,
     netGenerated,
     topSourceName: topSource?.name || "No source yet",
@@ -83,7 +106,7 @@ const getStatusMeta = (sourceCount) => {
       badge: `${sourceCount} sources`,
       mainLabel: "Income sources",
       statusValue: "Mapped",
-      description: "Track every place where money comes from.",
+      description: "Track where money comes from.",
       primaryAction: "Open Income Hub",
       secondaryAction: "Ask CLARA About Income",
     };
@@ -96,7 +119,7 @@ const getStatusMeta = (sourceCount) => {
       badge: "1 source",
       mainLabel: "Income sources",
       statusValue: "Tracked",
-      description: "CLARA can see where your money starts before it enters your wallets.",
+      description: "Track where money comes from.",
       primaryAction: "Open Income Hub",
       secondaryAction: "Ask CLARA About Income",
     };
@@ -108,7 +131,7 @@ const getStatusMeta = (sourceCount) => {
     badge: "Set up",
     mainLabel: "Income sources",
     statusValue: "Empty",
-    description: "Start with salary, business, side hustle, allowance, or freelance income.",
+    description: "Add your first income source.",
     primaryAction: "Open Income Hub",
     secondaryAction: "Ask CLARA About Income",
   };
@@ -156,7 +179,7 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
   const data = item?.data || {};
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "cyan");
   const title = data.title || "Income Hub";
-  const subtitle = data.subtitle || "Where your money comes from before it enters your wallets.";
+  const subtitle = data.subtitle || "Where your money comes from";
 
   const readiness = useMemo(
     () =>
@@ -169,7 +192,7 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
   const statusMeta = getStatusMeta(readiness.sourceCount);
   const readinessProgress = readiness.sourceCount > 0 ? 100 : 20;
   const selectedType = readiness.topSourceName;
-  const safeToInvest = readiness.totalGenerated;
+  const safeToInvest = readiness.totalMoneyIn;
   const safeRangeMin = 0;
   const amountStatus =
     readiness.sourceCount > 0
@@ -186,7 +209,7 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
           prompt,
           incomeHubContext: {
             sourceCount: readiness.sourceCount,
-            totalMoneyIn: readiness.totalGenerated,
+            totalMoneyIn: readiness.totalMoneyIn,
             totalMoneyOut: readiness.totalOut,
             netIncome: readiness.netGenerated,
             topSourceName: readiness.topSourceName,
@@ -202,7 +225,7 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
 
   const handlePlanInvestment = () => {
     dispatchInvestmentPrompt(
-      `Review my Income Hub as a behavioral money coach. I have ${readiness.sourceCount} tracked income sources. Income Hub money in is ${fmt(readiness.totalGenerated)}, money out is ${fmt(readiness.totalOut)}, and net is ${fmt(readiness.netGenerated)}. My top source is ${readiness.topSourceName}. Help me understand income dependency and what source I should protect or grow next.`,
+      `Review my Income Hub as a behavioral money coach. I have ${readiness.sourceCount} tracked income sources. Income Hub money in is ${fmt(readiness.totalMoneyIn)}, money out is ${fmt(readiness.totalOut)}, and net is ${fmt(readiness.netGenerated)}. My top source is ${readiness.topSourceName}. Help me understand income dependency and what source I should protect or grow next.`,
       { action: "review_income_hub" }
     );
   };
@@ -245,7 +268,7 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
       selectedType,
       amountStatus,
       statOneLabel: data.statOneLabel || "Money in",
-      statOneValue: data.statOneValue || fmt(readiness.totalGenerated),
+      statOneValue: data.statOneValue || fmt(readiness.totalMoneyIn),
       statTwoLabel: data.statTwoLabel || "Top source",
       statTwoValue: data.statTwoValue || (readiness.sourceCount > 0 ? readiness.topSourceName : "None"),
       statThreeLabel: data.statThreeLabel || "Status",
