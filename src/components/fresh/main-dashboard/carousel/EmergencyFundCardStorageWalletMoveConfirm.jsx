@@ -228,6 +228,87 @@ function EmergencySetupEmptyState({ expanded = false, onSetup }) {
   );
 }
 
+function SetupSummaryBoard({ monthlyExpense, targetMonths, target, storageWalletId, storageWalletName, safeWallets, saving, movingFund, onChangeTargetMonths, onChangeStorageWallet }) {
+  return (
+    <div className="relative overflow-hidden rounded-[26px] border border-cyan-200/[0.09] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.085),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.105),transparent_48%),rgba(0,0,0,0.12)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.055] blur-[58px]" />
+      <div className="pointer-events-none absolute -bottom-24 -left-20 h-48 w-48 rounded-full bg-violet-500/[0.08] blur-[64px]" />
+
+      <div className="relative mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/48">Emergency setup</p>
+          <p className="mt-1 text-sm font-black leading-tight text-white/92">Your saved safety definition</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-emerald-300/16 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-black text-emerald-100/90">
+          {targetMonths} months
+        </span>
+      </div>
+
+      <div className="relative grid grid-cols-2 gap-2.5">
+        <div className="rounded-2xl border border-white/[0.055] bg-white/[0.045] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/34">Monthly survival</p>
+          <p className="mt-2 text-[15px] font-black leading-none text-white/92">{fmt(monthlyExpense)}</p>
+          <p className="mt-2 text-[10.5px] font-semibold leading-4 text-white/40">Essentials only</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/[0.055] bg-white/[0.045] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/34">Target amount</p>
+          <p className="mt-2 text-[15px] font-black leading-none text-white/92">{fmt(target)}</p>
+          <p className="mt-2 text-[10.5px] font-semibold leading-4 text-white/40">{targetMonths} × survival cost</p>
+        </div>
+      </div>
+
+      <div className="relative mt-2.5 rounded-2xl border border-white/[0.055] bg-black/[0.12] px-3 py-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Protection goal</p>
+          <p className="text-[10.5px] font-black text-cyan-100/78">{targetMonths} Months</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {TARGET_MONTHS.map((item) => {
+            const active = targetMonths === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onChangeTargetMonths(item)}
+                disabled={saving}
+                className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                  active
+                    ? "border-emerald-300/24 bg-emerald-400/[0.10] text-emerald-100 shadow-[0_0_14px_rgba(52,211,153,0.10)]"
+                    : "border-white/[0.055] bg-white/[0.035] text-white/62 hover:bg-white/[0.055] hover:text-white/86"
+                }`}
+              >
+                {item}M
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="relative mt-2.5 rounded-2xl border border-white/[0.055] bg-black/[0.12] px-3 py-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Storage wallet</p>
+          <p className="max-w-[52%] truncate text-[10.5px] font-black text-cyan-100/78">{storageWalletName}</p>
+        </div>
+        <select
+          value={storageWalletId || ""}
+          onChange={(event) => onChangeStorageWallet(event.target.value)}
+          disabled={saving || movingFund || !safeWallets.length}
+          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.055] px-3.5 py-3 text-xs font-black text-white outline-none transition focus:border-cyan-300/24 disabled:opacity-60"
+        >
+          <option value="" className="bg-slate-950">Choose storage wallet</option>
+          {safeWallets.map((wallet) => (
+            <option key={getWalletId(wallet)} value={getWalletId(wallet)} className="bg-slate-950">
+              {getWalletName(wallet)} • {fmt(getWalletBalance(wallet))}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-[10.5px] font-semibold leading-5 text-cyan-50/52">This is where CLARA tracks and protects your emergency money.</p>
+      </div>
+    </div>
+  );
+}
+
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
     <div className="shrink-0 border-t border-white/[0.035] pt-3">
@@ -364,7 +445,6 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
   const storageWalletName = activeStorageWallet ? getWalletName(activeStorageWallet) : storedWalletName || "Choose wallet";
   const hasMonthlySurvivalCost = monthlyExpense > 0;
   const coverageLabel = hasMonthlySurvivalCost ? `${months.toFixed(1)} months` : "Set expense";
-  const targetLabel = `${targetMonths}-Month Safety`;
   const safetyStage = monthlyExpense <= 0 ? "Needs setup" : savedAmount >= target ? "Protected" : pct >= 33 ? "Building safety" : "Getting started";
 
   const [editing, setEditing] = useState(false);
@@ -582,7 +662,7 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
         ) : isEmergencyFundUnconfigured ? (
           <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><EmergencySetupEmptyState expanded onSetup={() => setShowSetupFlow(true)} /><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /></div></div>
         ) : (
-          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><div className="shrink-0"><p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p></div><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /><div className="min-h-0 flex-1 overflow-hidden pt-1"><FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1"><div><div className="mb-2.5 flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-xs font-semibold text-white/84">Goal</span><p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/46">Choose how many months CLARA should protect.</p></div><span className="shrink-0 text-[10px] font-semibold text-white/48">{targetLabel}</span></div><div className="grid grid-cols-3 gap-2">{TARGET_MONTHS.map((item) => { const active = targetMonths === item; return <button key={item} type="button" onClick={() => changeTargetMonths(item)} disabled={saving} className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${active ? "border-emerald-300/22 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.12)]" : "border-white/[0.05] bg-black/[0.105] text-white/72 hover:bg-white/[0.04] hover:text-white/88"}`}><span className="block">{item} Months</span>{active ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.70)]" /> : null}</button>; })}</div></div><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span><span className={`text-[11px] font-black ${status.text}`}>{safetyStage}</span></div><div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58"><div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3"><p className="text-white/34">Monthly survival cost</p><p className="mt-1.5 text-sm font-black text-white/84">{fmt(monthlyExpense)}</p></div><div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3"><p className="text-white/34">Target amount</p><p className="mt-1.5 text-sm font-black text-white/84">{fmt(target)}</p></div></div></div><div className="rounded-2xl border border-cyan-300/12 bg-cyan-400/[0.055] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/48">Stored in</span><span className="max-w-[45%] truncate text-[10px] font-semibold text-white/50">{storageWalletName}</span></div><select value={storageWalletId || ""} onChange={(event) => requestStorageWalletChange(event.target.value)} disabled={saving || movingFund || !safeWallets.length} className="w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-3.5 py-3 text-xs font-black text-white outline-none transition focus:border-cyan-300/24 disabled:opacity-60"><option value="" className="bg-slate-950">Choose storage wallet</option>{safeWallets.map((wallet) => <option key={getWalletId(wallet)} value={getWalletId(wallet)} className="bg-slate-950">{getWalletName(wallet)} • {fmt(getWalletBalance(wallet))}</option>)}</select><p className="mt-2 text-[10.5px] font-semibold leading-5 text-cyan-50/58">Where your Emergency Fund is protected.</p></div><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span><span className="text-[10px] font-semibold text-white/38">Private log</span></div><ActivityList activity={activity} /></div><div className="grid grid-cols-2 gap-2 pt-1.5"><button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit</button><button type="button" onClick={() => setShowAddModal(true)} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button><button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button><button type="button" onClick={resetEmergencyFund} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button></div><div aria-hidden="true" className="h-5 shrink-0" /></FinanceCardExpandedPanel></div></div></div>
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><div className="shrink-0"><p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p></div><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /><div className="min-h-0 flex-1 overflow-hidden pt-1"><FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1"><SetupSummaryBoard monthlyExpense={monthlyExpense} targetMonths={targetMonths} target={target} storageWalletId={storageWalletId} storageWalletName={storageWalletName} safeWallets={safeWallets} saving={saving} movingFund={movingFund} onChangeTargetMonths={changeTargetMonths} onChangeStorageWallet={requestStorageWalletChange} /><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span><span className="text-[10px] font-semibold text-white/38">Private log</span></div><ActivityList activity={activity} /></div><div className="grid grid-cols-2 gap-2 pt-1.5"><button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit setup</button><button type="button" onClick={() => { if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0])); setShowAddModal(true); }} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button><button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button><button type="button" onClick={resetEmergencyFund} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button></div><div aria-hidden="true" className="h-5 shrink-0" /></FinanceCardExpandedPanel></div></div></div>
         )}
       </FinanceCardShell>
     </>
