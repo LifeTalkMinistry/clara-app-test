@@ -19,7 +19,6 @@ import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/pe
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
-const WelcomeBack = lazy(() => import("./pages/WelcomeBack"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LifeOS = lazy(() => import("./pages/LifeOS"));
 const InvestmentPlan = lazy(() => import("./pages/InvestmentPlan"));
@@ -227,10 +226,6 @@ function AppRoutes() {
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route
-          path="/welcome-back"
-          element={user ? <WelcomeBack /> : <Navigate to="/login" replace />}
-        />
         <Route
           path="/*"
           element={
