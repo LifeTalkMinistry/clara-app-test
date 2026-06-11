@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Lock } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, Lock } from "lucide-react";
 import DailyTipCard from "../../daily-tip";
 import LearningMaterialCard from "./LearningMaterialCard";
 
@@ -17,9 +17,14 @@ const learningHubToggleSurface = {
 };
 
 export default function LearningHubCarousel({
+  items = null,
   materials = [],
+  activeCategory = null,
+  activeCategoryLabel = "",
   hasCommittedAccess = true,
+  onBackToCategories,
   onOpenCommitmentBooklet,
+  onOpenItem,
   onOpenMaterial,
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -31,9 +36,19 @@ export default function LearningHubCarousel({
   const resumeTimerRef = useRef(null);
   const headerSwipeHandledRef = useRef(false);
 
-  const safeMaterials = useMemo(() => materials.filter(Boolean), [materials]);
-  const total = safeMaterials.length;
+  const sourceItems = Array.isArray(items) ? items : materials;
+  const safeItems = useMemo(() => sourceItems.filter(Boolean), [sourceItems]);
+  const itemsSignature = useMemo(
+    () => safeItems.map((item) => item?.id || item?.title || "item").join("|"),
+    [safeItems],
+  );
+  const total = safeItems.length;
   const isLocked = !hasCommittedAccess;
+  const isInsideCategory = Boolean(activeCategory);
+  const headerLabel = isInsideCategory
+    ? activeCategoryLabel || "Learning Category"
+    : "Learning Hub";
+  const openItemHandler = onOpenItem || onOpenMaterial;
 
   const toggleExpanded = () => {
     if (isLocked) {
@@ -105,6 +120,13 @@ export default function LearningHubCarousel({
       return;
     }
 
+    if (isInsideCategory) {
+      onBackToCategories?.();
+      setIsExpanded(true);
+      setIsPaused(false);
+      return;
+    }
+
     toggleExpanded();
   };
 
@@ -161,6 +183,17 @@ export default function LearningHubCarousel({
   };
 
   useEffect(() => {
+    setActiveIndex(0);
+    setTouchStartX(null);
+    setHeaderTouchStartY(null);
+    setIsPaused(false);
+
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+    }
+  }, [activeCategory, itemsSignature]);
+
+  useEffect(() => {
     if (isLocked || !isExpanded || isPaused || total <= 1) return undefined;
 
     const interval = setInterval(moveToNext, AUTO_SCROLL_DELAY);
@@ -200,9 +233,11 @@ export default function LearningHubCarousel({
         aria-label={
           isLocked
             ? "Open the Committed Version to unlock Learning Hub."
-            : isExpanded
-              ? "Collapse Learning Hub."
-              : "Open Learning Hub."
+            : isInsideCategory
+              ? "Back to Learning Hub categories."
+              : isExpanded
+                ? "Collapse Learning Hub."
+                : "Open Learning Hub."
         }
         onClick={handleHeaderClick}
         onTouchStart={isLocked ? undefined : handleHeaderTouchStart}
@@ -214,10 +249,14 @@ export default function LearningHubCarousel({
         <span className="pointer-events-none absolute -bottom-14 right-0 z-0 h-24 w-24 rounded-full bg-blue-400/[0.08]" />
         <span className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.05] via-transparent to-black/8 backdrop-blur-[1px]" />
 
-        <BookOpen size={16} className="relative z-10 text-cyan-100/62" />
+        {isInsideCategory ? (
+          <ChevronLeft size={16} className="relative z-10 text-cyan-100/62" />
+        ) : (
+          <BookOpen size={16} className="relative z-10 text-cyan-100/62" />
+        )}
 
-        <span className="relative z-10 whitespace-nowrap text-white/76">
-          Learning Hub
+        <span className="relative z-10 max-w-[185px] truncate whitespace-nowrap text-white/76">
+          {headerLabel}
         </span>
 
         {isLocked ? (
@@ -225,7 +264,7 @@ export default function LearningHubCarousel({
             <Lock className="h-2.5 w-2.5" />
             PRO
           </span>
-        ) : (
+        ) : isInsideCategory ? null : (
           <ChevronDown
             size={15}
             className={`relative z-10 text-cyan-100/42 transition-transform duration-300 ${
@@ -268,7 +307,7 @@ export default function LearningHubCarousel({
             <div className="pointer-events-none absolute inset-x-0 top-0 z-[89] h-7 bg-gradient-to-b from-[#020617]/82 to-transparent" />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[89] h-7 bg-gradient-to-t from-[#020617]/82 to-transparent" />
 
-            {safeMaterials.map((item, index) => {
+            {safeItems.map((item, index) => {
               const rawOffset = index - activeIndex;
 
               const wrappedOffset =
@@ -292,7 +331,7 @@ export default function LearningHubCarousel({
                   total={total}
                   onClick={() => {
                     if (isActive) {
-                      onOpenMaterial?.(item);
+                      openItemHandler?.(item);
                       return;
                     }
 
