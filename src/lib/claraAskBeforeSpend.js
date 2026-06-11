@@ -76,10 +76,6 @@ function getBudgetRemaining(category) {
   return getBudgetAllocated(category) - getBudgetSpent(category);
 }
 
-function getExpenseAmount(expense) {
-  return safeNumber(expense?.amount ?? expense?.value ?? expense?.total);
-}
-
 function getExpenseCategory(expense) {
   return expense?.category || expense?.category_name || expense?.budget_category || expense?.budgetName || "";
 }
@@ -154,8 +150,25 @@ function getCurrentMonthCategoryFrequency(expenses = [], categoryName = "") {
   }).length;
 }
 
+function getProtectionReasons(finance = {}) {
+  const protection = finance.protectedBudgetCommitments || finance.budgetSummaries?.protectedBudgetCommitments || finance.budgetSummaries?.protected_budget_commitments || null;
+  if (!protection) return [];
+
+  const reasons = [];
+  const savingsAmount = safeNumber(protection.savingsGoalsAmount);
+  const emergencyAmount = safeNumber(protection.emergencyFundAmount);
+  const total = safeNumber(protection.totalProtectedCommitments);
+
+  if (savingsAmount > 0) reasons.push(`Savings Goals protected: ${formatPeso(savingsAmount)} reserved`);
+  if (emergencyAmount > 0) reasons.push(`Emergency Fund protection: ${formatPeso(emergencyAmount)} reserved`);
+  if (total > 0 && !reasons.length) reasons.push(`Protected commitments: ${formatPeso(total)}`);
+  if (protection.setupCompleted === false) reasons.push("Budget protection setup not completed");
+
+  return reasons;
+}
+
 function buildDecision({ status, label, headline, body, nextAction, reasons }) {
-  return { status, label, headline, body, nextAction, reasons: reasons.filter(Boolean).slice(0, 3) };
+  return { status, label, headline, body, nextAction, reasons: reasons.filter(Boolean).slice(0, 5) };
 }
 
 export function getDefaultCoachState(finance = {}) {
@@ -164,6 +177,7 @@ export function getDefaultCoachState(finance = {}) {
   const riskyCategory = Array.isArray(finance.budgetSummaries?.highRiskCategories)
     ? finance.budgetSummaries.highRiskCategories[0]
     : null;
+  const protectionReasons = getProtectionReasons(finance);
   return {
     status: "idle",
     label: finance.loading ? "Loading" : "Ready",
@@ -176,7 +190,7 @@ export function getDefaultCoachState(finance = {}) {
           ? `You've spent ${formatPeso(currentExpenses)} this month so far.`
           : "I’ll check your budget, wallet, and spending pattern before you decide.",
     nextAction: "Type item + price to get a clear decision.",
-    reasons: [moneyLeft > 0 ? `Money left: ${formatPeso(moneyLeft)}` : "Budget check ready", "Decision lens active"],
+    reasons: [moneyLeft > 0 ? `After budget/protection: ${formatPeso(moneyLeft)} available` : "Budget check ready", ...protectionReasons, "Decision lens active"],
   };
 }
 
@@ -192,42 +206,43 @@ export function evaluateClaraPurchaseDecision(prompt, finance = {}) {
   const categoryAllocated = categoryBudget ? getBudgetAllocated(categoryBudget) : 0;
   const categorySpent = categoryBudget ? getBudgetSpent(categoryBudget) : 0;
   const frequency = getCurrentMonthCategoryFrequency(finance.expenses, categoryName);
+  const protectionReasons = getProtectionReasons(finance);
 
   if (!parsed.raw) return getDefaultCoachState(finance);
   if (!amount || amount <= 0) {
-    return buildDecision({ status: "yellow", label: "Need price", headline: "Give me the amount too.", body: "I can judge the purchase properly once I know the item and price.", nextAction: "Try: coffee ₱180 or shoes ₱1,200.", reasons: ["Item detected", "Price missing"] });
+    return buildDecision({ status: "yellow", label: "Need price", headline: "Give me the amount too.", body: "I can judge the purchase properly once I know the item and price.", nextAction: "Try: coffee ₱180 or shoes ₱1,200.", reasons: ["Item detected", "Price missing", ...protectionReasons] });
   }
   if (!categories.length) {
     return buildDecision({
       status: moneyLeft > 0 && amount <= moneyLeft * 0.08 ? "yellow" : "orange",
       label: "Limited check",
       headline: moneyLeft > 0 && amount <= moneyLeft * 0.08 ? "Probably okay, but log it." : "Better pause first.",
-      body: moneyLeft > 0 ? `I can see your money left, but no budget category is set yet. This purchase would use ${formatPeso(amount)}.` : "I need your budget or wallet data to give a confident answer.",
+      body: moneyLeft > 0 ? `After your budget and protected commitments, you have ${formatPeso(moneyLeft)} available. This purchase would use ${formatPeso(amount)}.` : "I need your budget or wallet data to give a confident answer.",
       nextAction: "Set this as planned before buying so CLARA can track the pattern.",
-      reasons: [moneyLeft > 0 ? `Money left: ${formatPeso(moneyLeft)}` : "No wallet context", "No budget categories"],
+      reasons: [moneyLeft > 0 ? `Available after protection: ${formatPeso(moneyLeft)}` : "No wallet context", ...protectionReasons, "No budget categories"],
     });
   }
   if (moneyLeft > 0 && amount > moneyLeft) {
-    return buildDecision({ status: "red", label: "Not recommended", headline: "Not now.", body: `${formatPeso(amount)} is higher than your current money left of ${formatPeso(moneyLeft)}.`, nextAction: "Delay it, lower the amount, or move money intentionally before buying.", reasons: [`Money left: ${formatPeso(moneyLeft)}`, `Purchase: ${formatPeso(amount)}`] });
+    return buildDecision({ status: "red", label: "Not recommended", headline: "Not now.", body: `${formatPeso(amount)} is higher than your available money after budget/protection: ${formatPeso(moneyLeft)}.`, nextAction: "Delay it, lower the amount, or move money intentionally before buying.", reasons: [`Available after protection: ${formatPeso(moneyLeft)}`, `Purchase: ${formatPeso(amount)}`, ...protectionReasons] });
   }
   if (!categoryBudget) {
-    return buildDecision({ status: amount > Math.max(moneyLeft * 0.12, 500) ? "orange" : "yellow", label: "Unplanned", headline: amount > Math.max(moneyLeft * 0.12, 500) ? "Better delay this." : "Okay only if intentional.", body: `I don't see a matching budget category for ${parsed.item}. That makes this an unplanned purchase.`, nextAction: "Create or choose a budget category before buying.", reasons: [categoryName ? `Detected: ${categoryName}` : "No category match", `Amount: ${formatPeso(amount)}`] });
+    return buildDecision({ status: amount > Math.max(moneyLeft * 0.12, 500) ? "orange" : "yellow", label: "Unplanned", headline: amount > Math.max(moneyLeft * 0.12, 500) ? "Better delay this." : "Okay only if intentional.", body: `I don't see a matching budget category for ${parsed.item}. That makes this an unplanned purchase.`, nextAction: "Create or choose a budget category before buying.", reasons: [categoryName ? `Detected: ${categoryName}` : "No category match", `Amount: ${formatPeso(amount)}`, ...protectionReasons] });
   }
 
   const afterRemaining = categoryRemaining - amount;
   const categoryUsageAfter = categoryAllocated > 0 ? (categorySpent + amount) / categoryAllocated : 1;
   const categoryLabel = getBudgetName(categoryBudget);
   if (amount > categoryRemaining) {
-    return buildDecision({ status: "orange", label: "Delay", headline: "Better delay this.", body: `${categoryLabel} only has ${formatPeso(categoryRemaining)} left, and this costs ${formatPeso(amount)}.`, nextAction: "Wait, reduce the amount, or re-balance your budget first.", reasons: [`${categoryLabel}: ${formatPeso(categoryRemaining)} left`, `Short by ${formatPeso(Math.abs(afterRemaining))}`] });
+    return buildDecision({ status: "orange", label: "Delay", headline: "Better delay this.", body: `${categoryLabel} only has ${formatPeso(categoryRemaining)} left, and this costs ${formatPeso(amount)}.`, nextAction: "Wait, reduce the amount, or re-balance your budget first.", reasons: [`${categoryLabel}: ${formatPeso(categoryRemaining)} left`, `Short by ${formatPeso(Math.abs(afterRemaining))}`, ...protectionReasons] });
   }
   if (categoryUsageAfter >= 0.9) {
-    return buildDecision({ status: "orange", label: "High risk", headline: "You can, but it will tighten your budget.", body: `After this, ${categoryLabel} will be almost used up for the month.`, nextAction: "Buy only if this is planned or important today.", reasons: [`After: ${formatPeso(afterRemaining)} left`, `Usage: ${Math.round(categoryUsageAfter * 100)}%`] });
+    return buildDecision({ status: "orange", label: "High risk", headline: "You can, but it will tighten your budget.", body: `After this, ${categoryLabel} will be almost used up for the month.`, nextAction: "Buy only if this is planned or important today.", reasons: [`After: ${formatPeso(afterRemaining)} left`, `Usage: ${Math.round(categoryUsageAfter * 100)}%`, ...protectionReasons] });
   }
   if (frequency >= 3) {
-    return buildDecision({ status: "yellow", label: "Pattern check", headline: "Okay, but control the pattern.", body: `You've already spent in ${categoryLabel} ${frequency} times this month.`, nextAction: "Keep this one within limit, then stop repeating it this week.", reasons: [`${frequency}x this month`, `${formatPeso(afterRemaining)} left after`] });
+    return buildDecision({ status: "yellow", label: "Pattern check", headline: "Okay, but control the pattern.", body: `You've already spent in ${categoryLabel} ${frequency} times this month.`, nextAction: "Keep this one within limit, then stop repeating it this week.", reasons: [`${frequency}x this month`, `${formatPeso(afterRemaining)} left after`, ...protectionReasons] });
   }
   if (amount > categoryRemaining * 0.4) {
-    return buildDecision({ status: "yellow", label: "With limit", headline: "Okay, but keep it intentional.", body: `This uses a big part of your remaining ${categoryLabel} budget.`, nextAction: `Try to keep it under ${formatPeso(Math.max(0, categoryRemaining * 0.3))} if possible.`, reasons: [`${categoryLabel}: ${formatPeso(categoryRemaining)} left`, `After: ${formatPeso(afterRemaining)} left`] });
+    return buildDecision({ status: "yellow", label: "With limit", headline: "Okay, but keep it intentional.", body: `This uses a big part of your remaining ${categoryLabel} budget.`, nextAction: `Try to keep it under ${formatPeso(Math.max(0, categoryRemaining * 0.3))} if possible.`, reasons: [`${categoryLabel}: ${formatPeso(categoryRemaining)} left`, `After: ${formatPeso(afterRemaining)} left`, ...protectionReasons] });
   }
-  return buildDecision({ status: "green", label: "Safe", headline: "Safe to spend.", body: `This fits inside your ${categoryLabel} budget and still leaves ${formatPeso(afterRemaining)} after.`, nextAction: "Buy it only if it still feels intentional, then log it.", reasons: [`Amount: ${formatPeso(amount)}`, `Month spent: ${formatPeso(currentExpenses)}`] });
+  return buildDecision({ status: "green", label: "Safe", headline: "Safe to spend.", body: `This fits inside your ${categoryLabel} budget and still leaves ${formatPeso(afterRemaining)} after.`, nextAction: "Buy it only if it still feels intentional, then log it.", reasons: [`Amount: ${formatPeso(amount)}`, `Month spent: ${formatPeso(currentExpenses)}`, ...protectionReasons] });
 }
