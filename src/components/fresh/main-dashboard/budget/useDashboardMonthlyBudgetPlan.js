@@ -87,6 +87,13 @@ const readBudgetProtectionSettings = () => {
     return cleanSettings();
   }
 };
+const readProtectionContext = () => {
+  try {
+    return typeof window !== "undefined" ? window.__CLARA_BUDGET_PROTECTION_CONTEXT || {} : {};
+  } catch {
+    return {};
+  }
+};
 const goalId = (goal = {}, index = 0) => String(goal.id || goal.goal_id || goal.key || `goal-${index}`);
 const goalTitle = (goal = {}, index = 0) => String(goal.title || goal.name || goal.goal_name || `Savings Goal ${index + 1}`);
 const goalTarget = (goal = {}) => protectionNumber(goal.target_amount ?? goal.targetAmount ?? goal.goal_amount ?? goal.target ?? goal.goal);
@@ -305,13 +312,17 @@ export default function useDashboardMonthlyBudgetPlan({
   declaredMonthlyBudgetAmount = 0,
   monthlyBudgetHeader = null,
   savingsGoals = [],
-  emergencyFund = null,
+  emergencyFund = undefined,
 } = {}) {
   const [budgetProtectionSettings, setBudgetProtectionSettings] = useState(() => readBudgetProtectionSettings());
+  const [budgetProtectionContextTick, setBudgetProtectionContextTick] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const syncProtectionSettings = () => setBudgetProtectionSettings(readBudgetProtectionSettings());
+    const syncProtectionSettings = () => {
+      setBudgetProtectionSettings(readBudgetProtectionSettings());
+      setBudgetProtectionContextTick((current) => current + 1);
+    };
     window.addEventListener("storage", syncProtectionSettings);
     window.addEventListener(BUDGET_PROTECTION_UPDATED_EVENT, syncProtectionSettings);
     return () => {
@@ -379,9 +390,14 @@ export default function useDashboardMonthlyBudgetPlan({
       declaredBudget: rawDeclared,
       fallbackActive: rawDeclared > 0,
     });
+    const globalProtectionContext = readProtectionContext();
+    const effectiveSavingsGoals = safeArray(savingsGoals).length ? savingsGoals : safeArray(globalProtectionContext.savingsGoals);
+    const effectiveEmergencyFund = emergencyFund !== null && emergencyFund !== undefined
+      ? emergencyFund
+      : globalProtectionContext.emergencyFund;
     const protectedBudgetCommitments = buildProtectedBudgetCommitments(budgetProtectionSettings, {
-      savingsGoals,
-      emergencyFund,
+      savingsGoals: effectiveSavingsGoals,
+      emergencyFund: effectiveEmergencyFund,
       budgetCategories: rawCategories,
     });
     const protectedCommitmentsTotal = hasActiveBudgetPlan || rawDeclared > 0
@@ -438,5 +454,5 @@ export default function useDashboardMonthlyBudgetPlan({
       status: hasActiveBudgetPlan ? "active" : "no_plan",
       normalizedBudgetStatus: hasActiveBudgetPlan ? "active" : "no_plan",
     };
-  }, [budgetProtectionSettings, declaredMonthlyBudgetAmount, emergencyFund, expenses, manualExpenseBudgetOptions, monthlyBudgetHeader, savingsGoals]);
+  }, [budgetProtectionContextTick, budgetProtectionSettings, declaredMonthlyBudgetAmount, emergencyFund, expenses, manualExpenseBudgetOptions, monthlyBudgetHeader, savingsGoals]);
 }
