@@ -47,6 +47,14 @@ const clonePlain = (value) => {
   }
 };
 
+const hasCompletedUniversalOnboarding = (profile = {}) =>
+  Boolean(
+    profile?.onboarding_completed ||
+      profile?.has_completed_onboarding ||
+      profile?.has_completed_universal_onboarding ||
+      profile?.has_seen_universal_onboarding
+  );
+
 // ================================
 // OFFLINE QUEUE SYSTEM (NEW)
 // ================================
@@ -115,6 +123,9 @@ export function normalizeAccessSnapshot(snapshot = {}) {
     subscriptionStatus: safeLower(
       source.subscriptionStatus || profile.subscription_status || "free"
     ),
+    onboardingCompleted: Boolean(
+      source.onboardingCompleted ?? hasCompletedUniversalOnboarding(profile)
+    ),
     lastResolvedAppFlow: safeText(source.lastResolvedAppFlow || "normal"),
     lastValidRoute: safeText(source.lastValidRoute || DASHBOARD_ROUTE),
     enrollment: clonePlain(source.enrollment),
@@ -138,6 +149,7 @@ export function getAccessSnapshotSignature(snapshot = null) {
     s.role,
     s.plan,
     s.subscriptionStatus,
+    s.onboardingCompleted ? "onboarding-complete" : "onboarding-incomplete",
     s.lastResolvedAppFlow,
     s.lastValidRoute,
   ]
@@ -250,6 +262,7 @@ export function buildAccessSnapshot({
     role: accessState?.role,
     plan: accessState?.plan,
     subscriptionStatus: profile?.subscription_status,
+    onboardingCompleted: hasCompletedUniversalOnboarding(profile),
     lastResolvedAppFlow: flow,
     lastValidRoute: currentPath,
     enrollment,
