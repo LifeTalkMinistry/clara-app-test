@@ -150,3 +150,25 @@ body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] >
 [role="dialog"][aria-label$="PDF reader"] .react-pdf__Page {
   background-color: #080a0f !important;
 }
+
+/* CLARA Learning Hub PDF reader: force the options button to the top-right corner. */
+#root button[aria-label="Open reader options"][aria-controls="clara-reader-options"] {
+  position: fixed !important;
+  top: max(0.75rem, env(safe-area-inset-top)) !important;
+  right: max(0.85rem, env(safe-area-inset-right)) !important;
+  bottom: auto !important;
+  left: auto !important;
+  inset-inline-start: auto !important;
+  inset-inline-end: max(0.85rem, env(safe-area-inset-right)) !important;
+  margin: 0 !important;
+  margin-inline: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  opacity: 0.5 !important;
+  transform: none !important;
+  z-index: 10000 !important;
+}
+
+#root button[aria-label="Open reader options"][aria-controls="clara-reader-options"]:hover {
+  opacity: 0.8 !important;
+}
