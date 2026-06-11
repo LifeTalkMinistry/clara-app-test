@@ -16,6 +16,13 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
 import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
+import { COMMITTED_PLAN_KEY } from "@/lib/membership";
+import {
+  getGooglePlayProductId,
+  launchGooglePlayPurchase,
+  persistGooglePlayPurchase,
+  waitForGooglePlayEntitlement,
+} from "@/lib/google-play-billing";
 
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
 const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
@@ -366,36 +373,42 @@ export default function UniversalOnboarding() {
     if (authUpdateError) console.error("Auth metadata update error:", authUpdateError);
   }
 
-  async function finishOnboarding(destination = FREE_VERSION_ROUTE) {
-    if (saving) return;
-
+  async function completeOnboardingSetup() {
     const missingAnswer = getMissingRequiredAnswer(answers);
     if (missingAnswer) {
       setNameError("Please complete your setup answers before continuing.");
       setScreenIndex(screens.findIndex((entry) => entry.id === `question-${missingAnswer.id}`));
-      return;
+      return false;
     }
+
+    await saveNameIfNeeded();
+    await updateProfile({
+      onboarding_completed: true,
+      has_completed_onboarding: true,
+      onboarding_step: screens.length,
+      onboarding_answers: answers,
+      commitment_level: answers.commitment_level,
+      lifestyle_context: answers.lifestyle_context,
+      money_pressure_point: answers.money_pressure_point,
+      spending_trigger: answers.spending_trigger,
+      spending_guidance_style: answers.spending_guidance_style,
+      guidance_intensity: answers.guidance_intensity,
+      recommended_access_level: recommendedAccessLevel,
+      onboarding_completed_at: new Date().toISOString(),
+    });
+    saveOnboardingAnswersToLocalMemory(user.id, answers);
+    await refreshProfile?.();
+    return true;
+  }
+
+  async function finishOnboarding(destination = FREE_VERSION_ROUTE) {
+    if (saving) return;
 
     try {
       setSaving(true);
       setNameError("");
-      await saveNameIfNeeded();
-      await updateProfile({
-        onboarding_completed: true,
-        has_completed_onboarding: true,
-        onboarding_step: screens.length,
-        onboarding_answers: answers,
-        commitment_level: answers.commitment_level,
-        lifestyle_context: answers.lifestyle_context,
-        money_pressure_point: answers.money_pressure_point,
-        spending_trigger: answers.spending_trigger,
-        spending_guidance_style: answers.spending_guidance_style,
-        guidance_intensity: answers.guidance_intensity,
-        recommended_access_level: recommendedAccessLevel,
-        onboarding_completed_at: new Date().toISOString(),
-      });
-      saveOnboardingAnswersToLocalMemory(user.id, answers);
-      await refreshProfile?.();
+      const completed = await completeOnboardingSetup();
+      if (!completed) return;
       navigate(destination, {
         replace: true,
         state: { fromOnboarding: true, recommendedAccessLevel },
@@ -403,6 +416,73 @@ export default function UniversalOnboarding() {
     } catch (error) {
       console.error("Universal onboarding completion error:", error);
       setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleExploreClaraTrial() {
+    if (saving) return;
+
+    try {
+      setSaving(true);
+      setNameError("");
+      const completed = await completeOnboardingSetup();
+      if (!completed) return;
+
+      const productId = getGooglePlayProductId(COMMITTED_PLAN_KEY);
+      if (!productId) throw new Error("Google Play product is not configured yet.");
+
+      const purchase = await launchGooglePlayPurchase({
+        productId,
+        planKey: COMMITTED_PLAN_KEY,
+        userId: user.id,
+        userEmail: user.email || profile?.email || "",
+      });
+
+      if (purchase?.cancelled) {
+        navigate(CLARA_TRIAL_ROUTE, {
+          replace: true,
+          state: { fromOnboarding: true, recommendedAccessLevel },
+        });
+        return;
+      }
+
+      if (!purchase?.ok && !purchase?.restored) {
+        throw new Error("Google Play did not confirm the purchase.");
+      }
+
+      await persistGooglePlayPurchase({
+        supabase,
+        userId: user.id,
+        planKey: COMMITTED_PLAN_KEY,
+        productId,
+        purchaseToken: purchase.purchaseToken,
+        orderId: purchase.orderId,
+        bridgePayload: purchase.raw,
+      });
+
+      const entitlement = await waitForGooglePlayEntitlement({
+        supabase,
+        userId: user.id,
+        expectedPlanKey: COMMITTED_PLAN_KEY,
+      });
+
+      await refreshProfile?.();
+      navigate(entitlement?.status === "active" ? FREE_VERSION_ROUTE : "/pending", {
+        replace: true,
+        state: { fromOnboarding: true, recommendedAccessLevel },
+      });
+    } catch (error) {
+      console.error("CLARA trial Google Play launch failed:", error);
+      navigate(CLARA_TRIAL_ROUTE, {
+        replace: true,
+        state: {
+          fromOnboarding: true,
+          recommendedAccessLevel,
+          purchaseAutoStartError: error?.message || "Google Play could not open automatically.",
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -580,8 +660,8 @@ export default function UniversalOnboarding() {
                               <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">
                                 7 days free, then ₱249/month. Cancel anytime before renewal.
                               </p>
-                              <Button type="button" onClick={() => finishOnboarding(CLARA_TRIAL_ROUTE)} disabled={saving} className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]">
-                                {saving ? "Saving..." : "Explore CLARA for 7 days"}
+                              <Button type="button" onClick={handleExploreClaraTrial} disabled={saving} className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]">
+                                {saving ? "Opening Google Play..." : "Explore CLARA for 7 days"}
                                 {!saving ? <ArrowRight className="h-4 w-4" /> : null}
                               </Button>
                             </div>
