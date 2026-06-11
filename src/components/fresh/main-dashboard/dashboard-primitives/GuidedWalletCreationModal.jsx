@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronRight, X } from "lucide-react";
 import {
   getWalletProvider,
-  WALLET_PROVIDER_GROUPS,
   WALLET_PROVIDERS,
 } from "@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry";
 
 const POPULAR_PROVIDER_KEYS = ["custom", "gcash", "maya_wallet", "cash", "bdo"];
+const OTHER_PROVIDER_GROUP_KEY = "other_banks_and_wallets";
 const STEPS = {
   choose_wallet: ["Where will your money live?", "Choose the wallet, bank, or money container you want to track."],
   custom_name: ["Name your custom wallet", "Give this wallet a name you’ll recognize later."],
@@ -81,6 +81,10 @@ export default function GuidedWalletCreationModal({
     [financeForm.incomeSourceId, incomeSources]
   );
   const popularProviders = useMemo(() => POPULAR_PROVIDER_KEYS.map((key) => WALLET_PROVIDERS.find((provider) => provider.key === key)).filter(Boolean), []);
+  const otherProviders = useMemo(
+    () => WALLET_PROVIDERS.filter((provider) => !POPULAR_PROVIDER_KEYS.includes(provider.key)).sort((a, b) => String(a.label || "").localeCompare(String(b.label || ""))),
+    []
+  );
   const filteredProviders = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return [];
@@ -102,7 +106,12 @@ export default function GuidedWalletCreationModal({
   const stepIndex = isCustom
     ? { choose_wallet: 1, custom_name: 2, money_setup: 3, review: 4 }[step] || 1
     : { choose_wallet: 1, money_setup: 2, review: 3 }[step] || 1;
-  const activeGroup = WALLET_PROVIDER_GROUPS.find((group) => group.key === activeGroupKey) || null;
+  const activeGroup = activeGroupKey === OTHER_PROVIDER_GROUP_KEY ? {
+    key: OTHER_PROVIDER_GROUP_KEY,
+    label: "Other Banks / Wallets",
+    description: "All remaining banks, e-wallets, and money containers.",
+    providers: otherProviders,
+  } : null;
   const [title, subtitle] = STEPS[step] || STEPS.choose_wallet;
 
   const selectProvider = (provider) => {
@@ -185,10 +194,10 @@ export default function GuidedWalletCreationModal({
                   <div className="grid gap-2">{filteredProviders.length ? filteredProviders.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />) : <p className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4 text-sm font-semibold text-white/55">No match. Try Custom Wallet.</p>}</div>
                 ) : activeGroup ? (
                   <div className="space-y-3">
-                    <button type="button" onClick={() => setActiveGroupKey("")} className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100/68">← Categories</button>
+                    <button type="button" onClick={() => setActiveGroupKey("")} className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100/68">← Popular</button>
                     <div className="rounded-[24px] border border-white/[0.09] bg-white/[0.035] p-3">
                       <p className="text-[11px] font-black uppercase tracking-[0.16em]">{activeGroup.label}</p>
-                      <p className="mt-1 text-[11px] font-semibold text-white/46">Swipe sideways. Choose one wallet identity.</p>
+                      <p className="mt-1 text-[11px] font-semibold text-white/46">Alphabetical list. Swipe sideways to choose one.</p>
                       <div className="mt-3 flex snap-x gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         {activeGroup.providers.map((provider) => <div key={provider.key} className="w-[205px] shrink-0 snap-start"><ProviderButton provider={provider} selected={selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} /></div>)}
                       </div>
@@ -199,12 +208,10 @@ export default function GuidedWalletCreationModal({
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/48">Popular</p>
                     <div className="grid gap-2">{popularProviders.map((provider) => <ProviderButton key={provider.key} provider={provider} selected={selectedProvider.key === provider.key} onClick={() => selectProvider(provider)} />)}</div>
                     <div className="grid gap-2 pt-1">
-                      {WALLET_PROVIDER_GROUPS.map((group) => (
-                        <button key={group.key} type="button" onClick={() => setActiveGroupKey(group.key)} className="flex items-center justify-between gap-3 rounded-[22px] border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left">
-                          <div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-[0.15em]">{group.label}</p><p className="truncate text-[10px] font-semibold text-white/42">{group.description}</p></div>
-                          <div className="flex shrink-0 items-center gap-2"><span className="rounded-full border border-white/14 bg-white/[0.045] px-2.5 py-1 text-[10px] font-bold text-white/68">{group.providers.length}</span><ChevronRight className="h-4 w-4 text-white/48" /></div>
-                        </button>
-                      ))}
+                      <button type="button" onClick={() => setActiveGroupKey(OTHER_PROVIDER_GROUP_KEY)} className="flex items-center justify-between gap-3 rounded-[22px] border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left">
+                        <div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-[0.15em]">Other Banks / Wallets</p><p className="truncate text-[10px] font-semibold text-white/42">Alphabetical list of other banks and money apps.</p></div>
+                        <div className="flex shrink-0 items-center gap-2"><span className="rounded-full border border-white/14 bg-white/[0.045] px-2.5 py-1 text-[10px] font-bold text-white/68">{otherProviders.length}</span><ChevronRight className="h-4 w-4 text-white/48" /></div>
+                      </button>
                     </div>
                   </>
                 )}
