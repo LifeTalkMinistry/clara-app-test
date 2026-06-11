@@ -384,9 +384,15 @@ export default function useEmergencyFundCard({
 
   const effectiveExpense = hasEmergencyFundReset ? 0 : emergencySurvivalExpense;
   const safeMoneyLeft = effectiveSavedAmount;
-  const target = useMemo(() => (sourceWalletMissing ? 0 : effectiveExpense * targetMonths), [effectiveExpense, targetMonths, sourceWalletMissing]);
-  const months = useMemo(() => (sourceWalletMissing || effectiveExpense <= 0 ? 0 : safeMoneyLeft / effectiveExpense), [safeMoneyLeft, effectiveExpense, sourceWalletMissing]);
-  const pct = useMemo(() => (sourceWalletMissing || target <= 0 ? 0 : Math.min((safeMoneyLeft / target) * 100, 100)), [safeMoneyLeft, target, sourceWalletMissing]);
+  const linkedWalletId = linkedWallet?.id || linkedWalletIdFromFund || "";
+  const rawLinkedWalletName = linkedWallet?.name || linkedWalletNameFromFund || "";
+  const linkedWalletName = rawLinkedWalletName || "Not linked yet";
+  const hasLinkedWalletSelection = Boolean(linkedWalletId || rawLinkedWalletName);
+  const isEmergencyFundConfigured = effectiveExpense > 0 && targetMonths > 0 && hasLinkedWalletSelection && !hasEmergencyFundReset;
+  const isEmergencyFundUnconfigured = hasEmergencyFundReset || effectiveExpense <= 0 || !hasLinkedWalletSelection;
+  const target = useMemo(() => (sourceWalletMissing || isEmergencyFundUnconfigured ? 0 : effectiveExpense * targetMonths), [effectiveExpense, targetMonths, sourceWalletMissing, isEmergencyFundUnconfigured]);
+  const months = useMemo(() => (sourceWalletMissing || effectiveExpense <= 0 || isEmergencyFundUnconfigured ? 0 : safeMoneyLeft / effectiveExpense), [safeMoneyLeft, effectiveExpense, sourceWalletMissing, isEmergencyFundUnconfigured]);
+  const pct = useMemo(() => (sourceWalletMissing || target <= 0 || isEmergencyFundUnconfigured ? 0 : Math.min((safeMoneyLeft / target) * 100, 100)), [safeMoneyLeft, target, sourceWalletMissing, isEmergencyFundUnconfigured]);
   const amountNeeded = Math.max(target - safeMoneyLeft, 0);
   const emergencyAdvisor = useMemo(() => buildEmergencyAdvisor({ incomeRows, effectiveExpense, amountNeeded, targetMonths }), [incomeRows, effectiveExpense, amountNeeded, targetMonths]);
 
@@ -395,8 +401,6 @@ export default function useEmergencyFundCard({
   const selectedWalletIsLinked = Boolean(selectedWallet?.id && selectedWallet.id === (linkedWallet?.id || linkedWalletIdFromFund));
   const selectedWalletProtected = selectedWalletIsLinked ? storedSavedAmount : toNumber(selectedWallet?.emergencyProtectedAmount ?? selectedWallet?.emergency_protected_amount);
   const selectedWalletSpendableBalance = Math.max(selectedWalletBalance - Math.min(selectedWalletProtected, selectedWalletBalance), 0);
-  const linkedWalletName = linkedWallet?.name || linkedWalletNameFromFund || "Not linked yet";
-  const linkedWalletId = linkedWallet?.id || linkedWalletIdFromFund || "";
 
   const rawStatus = getStatus(months, targetMonths);
   const status = sourceWalletMissing
@@ -424,6 +428,10 @@ export default function useEmergencyFundCard({
       autoPromptTimeoutRef.current = null;
     }
     if (!canAutoPrompt || hasPrompted.current) return;
+    if (isEmergencyFundUnconfigured) {
+      hasPrompted.current = true;
+      return;
+    }
     if (hasSurvivalSetup || effectiveExpense > 0) {
       hasPrompted.current = true;
       return;
@@ -434,7 +442,7 @@ export default function useEmergencyFundCard({
       hasPrompted.current = true;
       autoPromptTimeoutRef.current = null;
     }, 350);
-  }, [canAutoPrompt, hasSurvivalSetup, effectiveExpense]);
+  }, [canAutoPrompt, hasSurvivalSetup, effectiveExpense, isEmergencyFundUnconfigured]);
 
   const persistEmergencyFund = async (patch) => {
     if (typeof updateEmergencyFund !== "function") return;
@@ -471,10 +479,68 @@ export default function useEmergencyFundCard({
     onSurvivalSaved?.(num);
   };
 
+  const handleSetupComplete = async ({ monthlySurvivalCost, walletId, walletName: nextWalletName, targetMonths: nextTargetMonths } = {}) => {
+    const num = toNumber(monthlySurvivalCost);
+    const safeTargetMonths = VALID_TARGET_MONTHS.includes(toNumber(nextTargetMonths)) ? toNumber(nextTargetMonths) : 3;
+    const safeWalletId = String(walletId || "").trim();
+    const walletFromList = safeWallets.find((wallet) => wallet.id === safeWalletId);
+    const safeWalletName = String(nextWalletName || walletFromList?.name || "").trim();
+
+    if (num <= 0) throw new Error("Emergency Fund setup needs a monthly survival cost greater than 0.");
+    if (!safeWalletId || !safeWalletName) throw new Error("Emergency Fund setup needs a linked wallet.");
+
+    const nextTarget = num * safeTargetMonths;
+    const now = new Date().toISOString();
+
+    setTargetMonths(safeTargetMonths);
+    setTopUpWalletId(safeWalletId);
+    setEditing(false);
+    setShowModal(false);
+    hasPrompted.current = true;
+
+    await persistEmergencyFund({
+      survivalExpense: num,
+      survival_expense: num,
+      monthlyExpense: num,
+      monthly_expense: num,
+      monthly_survival_expense: num,
+
+      targetAmount: nextTarget,
+      target_amount: nextTarget,
+      target: nextTarget,
+
+      targetMonths: safeTargetMonths,
+      target_months: safeTargetMonths,
+      months_target: safeTargetMonths,
+
+      linkedWalletId: safeWalletId,
+      linked_wallet_id: safeWalletId,
+      linkedWalletName: safeWalletName,
+      linked_wallet_name: safeWalletName,
+
+      reserveWalletId: safeWalletId,
+      reserve_wallet_id: safeWalletId,
+      reserveWalletName: safeWalletName,
+      reserve_wallet_name: safeWalletName,
+
+      sourceWalletId: safeWalletId,
+      source_wallet_id: safeWalletId,
+      sourceWalletName: safeWalletName,
+      source_wallet_name: safeWalletName,
+
+      resetAt: null,
+      reset_at: null,
+      updatedAt: now,
+      updated_at: now,
+    });
+
+    onSurvivalSaved?.(num);
+  };
+
   const changeTargetMonths = async (next) => {
     if (!VALID_TARGET_MONTHS.includes(next)) return;
     setTargetMonths(next);
-    const nextTarget = effectiveExpense * next;
+    const nextTarget = isEmergencyFundUnconfigured ? 0 : effectiveExpense * next;
     await persistEmergencyFund({ targetMonths: next, target_months: next, months_target: next, targetAmount: nextTarget, target_amount: nextTarget, target: nextTarget });
   };
 
@@ -693,8 +759,8 @@ export default function useEmergencyFundCard({
 
   return {
     state: { isExpanded, editing, showModal, targetMonths, wallpaper, wallpaperOpacity, showWallpaperModal, draftWallpaper, draftOpacity, showTopUpModal, topUpAmount, topUpWalletId, topUpError, saving },
-    computed: { safeWallets, effectiveExpense, safeMoneyLeft, storedSavedAmount, effectiveSavedAmount, sourceWalletMissing, needsWallet, emergencyWarningTitle, emergencyWarningMessage, target, months, pct, selectedWallet, selectedWalletBalance, selectedWalletSpendableBalance, linkedWallet, linkedWalletId, linkedWalletName, status, progression, milestone, themeClasses, resolvedWallpaperOpacity, retentionRate, emergencyAdvisor, validTargetMonths: VALID_TARGET_MONTHS },
-    handlers: { setEditing, setShowModal, setShowWallpaperModal, setDraftWallpaper, setDraftOpacity, setShowTopUpModal, setTopUpAmount, setTopUpWalletId, setTopUpError, handleSaved, changeTargetMonths, handleOrbPointerDown, handleOrbPointerUp, handleOrbPointerCancel, handleOrbClick, openWallpaperModal, handleWallpaperUpload, handleWallpaperSave, handleWallpaperRemove, openTopUpModal, handleTopUpSave },
+    computed: { safeWallets, effectiveExpense, safeMoneyLeft, storedSavedAmount, effectiveSavedAmount, sourceWalletMissing, needsWallet, emergencyWarningTitle, emergencyWarningMessage, target, months, pct, selectedWallet, selectedWalletBalance, selectedWalletSpendableBalance, linkedWallet, linkedWalletId, linkedWalletName, hasEmergencyFundReset, isEmergencyFundConfigured, isEmergencyFundUnconfigured, status, progression, milestone, themeClasses, resolvedWallpaperOpacity, retentionRate, emergencyAdvisor, validTargetMonths: VALID_TARGET_MONTHS },
+    handlers: { setEditing, setShowModal, setShowWallpaperModal, setDraftWallpaper, setDraftOpacity, setShowTopUpModal, setTopUpAmount, setTopUpWalletId, setTopUpError, handleSaved, handleSetupComplete, changeTargetMonths, handleOrbPointerDown, handleOrbPointerUp, handleOrbPointerCancel, handleOrbClick, openWallpaperModal, handleWallpaperUpload, handleWallpaperSave, handleWallpaperRemove, openTopUpModal, handleTopUpSave },
     refs: { hasPrompted, autoPromptTimeoutRef, longPressTimeoutRef, longPressTriggeredRef, orbTapTimeoutRef, orbTapCountRef },
   };
 }
