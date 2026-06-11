@@ -20,6 +20,8 @@ import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
 const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
 const COMMITTED_VERSION_ROUTE = "/enroll?plan=committed_249&view=detail";
+const CLARA_TRIAL_ROUTE = `${COMMITTED_VERSION_ROUTE}&trial=7d`;
+const FREE_VERSION_ROUTE = "/dashboard";
 const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
 
 const QUESTION_SETS = [
@@ -337,6 +339,7 @@ export default function UniversalOnboarding() {
   const recommendedAccessLevel = useMemo(() => getRecommendedAccessLevel(answers), [answers]);
   const canGoBack = screenIndex > 0 && !saving;
   const progressValue = screens.length ? ((screenIndex + 1) / screens.length) * 100 : 0;
+  const setupHelperText = screen?.type === "result" ? "Setup complete" : `Guided setup ${screenIndex + 1} of ${screens.length}`;
 
   const summary = useMemo(
     () =>
@@ -386,7 +389,7 @@ export default function UniversalOnboarding() {
     if (authUpdateError) console.error("Auth metadata update error:", authUpdateError);
   }
 
-  async function finishOnboarding(destination = "/dashboard") {
+  async function finishOnboarding(destination = FREE_VERSION_ROUTE) {
     if (saving) return;
 
     const missingAnswer = getMissingRequiredAnswer(answers);
@@ -462,7 +465,7 @@ export default function UniversalOnboarding() {
           <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#f6cd71]">CLARA</p>
-              <p className="mt-1 text-sm text-white/60 sm:mt-2">Guided setup {screenIndex + 1} of {screens.length}</p>
+              <p className="mt-1 text-sm text-white/60 sm:mt-2">{setupHelperText}</p>
             </div>
             {canGoBack ? (
               <Button type="button" variant="ghost" className="rounded-full border border-white/10 bg-white/[0.03] px-3 text-white hover:bg-white/[0.08]" onClick={goBack}>
@@ -574,32 +577,68 @@ export default function UniversalOnboarding() {
                 ) : null}
 
                 {screen.type === "result" ? (
-                  <div className="space-y-6">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
-                      CLARA starting path
-                    </div>
-                    <div className="grid gap-4">
-                      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] p-4 sm:p-6">
-                        <h2 className="max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">{content.result.title}</h2>
-                        <p className="mt-4 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">{content.result.body}</p>
+                  <div className="flex min-h-full flex-col justify-between gap-4 sm:gap-5">
+                    <div className="space-y-4 sm:space-y-5">
+                      <div className="space-y-3">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
+                          CLARA STARTING PATH
+                        </div>
+                        <div>
+                          <h2 className="max-w-xl text-[1.9rem] font-semibold leading-tight text-white sm:text-4xl">Choose how you want to start with CLARA.</h2>
+                          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68 sm:text-base sm:leading-7">
+                            Your setup is ready. You can explore the full CLARA experience for 7 days, or start with the Free Version and upgrade later.
+                          </p>
+                        </div>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {summary.map((item) => (
-                          <div key={item.id} className="rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">{item.label}</p>
-                            <p className="mt-2 text-sm font-semibold leading-6 text-white/82">{item.value}</p>
+
+                      <div className="grid gap-3">
+                        <div className="rounded-[28px] border border-[#f4cd71]/28 bg-[linear-gradient(180deg,rgba(244,205,113,0.13),rgba(52,211,153,0.055)_55%,rgba(255,255,255,0.025))] p-4 shadow-[0_18px_50px_rgba(244,205,113,0.08)] sm:p-5">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f4cd71]/16 text-[#f7d98e]">
+                              <Sparkles className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-xl font-semibold text-white">Explore CLARA</h3>
+                                <span className="rounded-full border border-[#34d399]/20 bg-[#34d399]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a7efd0]">7-day trial</span>
+                              </div>
+                              <p className="mt-2 text-sm leading-6 text-white/68">
+                                Start your 7-day CLARA trial and experience the guided money clarity journey.
+                              </p>
+                              <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">
+                                7 days free, then ₱249/month. Cancel anytime before renewal.
+                              </p>
+                              <Button type="button" onClick={() => finishOnboarding(CLARA_TRIAL_ROUTE)} disabled={saving} className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]">
+                                {saving ? "Saving..." : "Explore CLARA for 7 days"}
+                                {!saving ? <ArrowRight className="h-4 w-4" /> : null}
+                              </Button>
+                              <p className="mt-3 text-xs leading-5 text-white/48">
+                                Trial and renewal are handled securely through the app’s purchase flow.
+                              </p>
+                            </div>
                           </div>
-                        ))}
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-4 sm:p-5">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/72">
+                              <BadgeCheck className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-xl font-semibold text-white">Free Version</h3>
+                              <p className="mt-2 text-sm leading-6 text-white/62">
+                                Start with basic CLARA clarity tools. You can explore first and upgrade when you are ready.
+                              </p>
+                              <Button type="button" variant="outline" onClick={() => finishOnboarding(FREE_VERSION_ROUTE)} disabled={saving} className="mt-4 h-12 w-full rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
+                                Let’s stick with the Free Version
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="rounded-[28px] border border-[#34d399]/18 bg-[#34d399]/[0.06] p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9ceccb]">Access note</p>
-                        <h3 className="mt-3 text-xl font-semibold text-white">You can start with the Free Version.</h3>
-                        <p className="mt-2 text-sm leading-6 text-white/68">
-                          The Committed Version remains available when you want the deeper explanation and commitment flow.
-                        </p>
-                      </div>
+
                       {needsNameFix ? (
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+                        <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
                           <p className="text-sm font-semibold text-white">One last detail before you continue</p>
                           <p className="mt-2 text-sm leading-6 text-white/60">What name should CLARA use in your profile and future guidance?</p>
                           <Input
@@ -614,17 +653,20 @@ export default function UniversalOnboarding() {
                           />
                         </div>
                       ) : null}
+
+                      <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Setup snapshot</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                          {summary.slice(0, 3).map((item) => (
+                            <div key={item.id} className="rounded-2xl border border-white/8 bg-black/10 p-3">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">{item.label}</p>
+                              <p className="mt-1 text-xs font-semibold leading-5 text-white/74">{item.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                     {nameError ? <p className="text-sm text-red-300">{nameError}</p> : null}
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button type="button" onClick={() => finishOnboarding("/dashboard")} disabled={saving} className="h-12 flex-1 rounded-2xl bg-[#f4cd71] text-[#111827] hover:bg-[#f7d98e]">
-                        {saving ? "Saving..." : content.result.primaryCta}
-                        {!saving ? <ArrowRight className="h-4 w-4" /> : null}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => finishOnboarding(COMMITTED_VERSION_ROUTE)} disabled={saving} className="h-12 flex-1 rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
-                        {content.result.secondaryCta}
-                      </Button>
-                    </div>
                   </div>
                 ) : null}
               </motion.div>
