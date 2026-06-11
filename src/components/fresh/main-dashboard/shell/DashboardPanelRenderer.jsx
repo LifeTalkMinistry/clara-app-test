@@ -38,7 +38,6 @@ const CLARA_COMMITMENT_BOOKLET_PAGES = [
       "But that's not what CLARA was built to do.",
       "Let's discover CLARA one letter at a time.",
     ],
-    hint: "Swipe to continue →",
   },
   {
     label: "Page 2",
@@ -57,9 +56,8 @@ const CLARA_COMMITMENT_BOOKLET_PAGES = [
       "Consistency is.",
       "That's why CLARA begins with a commitment.",
       "Not because you need another subscription.",
-      "But because meaningful change usually starts when someone decides:",
+      "But because meaningful change usually starts when someone decides.",
     ],
-    quote: "I'm ready to take this seriously.",
   },
   {
     label: "Page 3",
@@ -203,7 +201,6 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
     } = await supabase.auth.getUser();
 
     const activeUserId = user?.id || authUser?.id;
-    const activeEmail = user?.email || authUser?.email || null;
     const purchaseToken =
       purchaseResult?.purchaseToken ||
       purchaseResult?.purchase_token ||
@@ -253,7 +250,7 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
     if (purchaseBusy) return;
 
     setPurchaseBusy(true);
-    setPurchaseMessage(isTrialIntent ? "Opening your 7-day trial in Google Play..." : "Opening Google Play...");
+    setPurchaseMessage(isTrialIntent ? "Opening Google Play..." : "Opening Google Play...");
 
     try {
       const purchaseResult = await openGooglePlayCommitmentPurchase({
@@ -325,7 +322,6 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
 
           <div className={pageTextClass}>
             {bookletItem.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-            {bookletItem.quote ? <p className="rounded-2xl border border-white/14 bg-white/[0.08] px-4 py-3 text-white">“{bookletItem.quote}”</p> : null}
 
             {bookletItem.bullets ? (
               <ul className="space-y-2">
@@ -390,9 +386,6 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
 
         <div className="relative z-10 shrink-0 pr-12 text-center">
           <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/58">CLARA Commitment Booklet</p>
-          <p className="mx-auto mt-2 max-w-[220px] text-[12px] font-bold leading-5 text-slate-300/62">
-            {isTrialIntent ? "7 days free, then ₱249/month." : "Swipe to next"}
-          </p>
         </div>
 
         <div
@@ -439,27 +432,27 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
               </button>
 
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
-                {isTrialIntent ? "7-Day Trial" : "Monthly Commitment"}
+                {isTrialIntent ? "Trial Offer" : "Monthly Commitment"}
               </p>
               <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">So? You are ready to commit?</h3>
               <p className="mx-auto mt-3 max-w-[260px] text-sm font-bold leading-6 text-white/68">
                 {isTrialIntent
-                  ? "Start 7 days free, then continue CLARA’s guided money decision experience for ₱249/month."
+                  ? "Start free first, then continue CLARA’s guided money decision experience for ₱249/month."
                   : "Start your journey toward financial freedom with CLARA’s guided money decision experience."}
               </p>
 
               <div className="mt-5 rounded-[26px] border border-white/14 bg-white/[0.08] px-5 py-5">
-                <p className="text-[3rem] font-black leading-none tracking-[-0.08em] text-white">
-                  {isTrialIntent ? "7 days" : "₱249"}
+                <p className="text-[2.05rem] font-black leading-tight tracking-[-0.065em] text-white">
+                  CLARA Commitment
                 </p>
-                <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/48">
-                  {isTrialIntent ? "free, then ₱249/month" : "per month"}
+                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
+                  {isTrialIntent ? "₱249/month after trial" : "₱249/month"}
                 </p>
               </div>
 
               <p className="mt-4 text-xs font-bold leading-5 text-white/52">
                 {isTrialIntent
-                  ? "Google Play must show the 7-day trial before you confirm. Cancel anytime before renewal."
+                  ? "Google Play must show the free trial before you confirm. Cancel anytime before renewal."
                   : "10% of every monthly commitment goes into the CLARA Charity Fund."}
               </p>
 
