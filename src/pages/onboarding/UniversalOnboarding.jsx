@@ -110,15 +110,6 @@ const QUESTION_SETS = [
   },
 ];
 
-const SUMMARY_ITEMS = [
-  { id: "commitment_level", label: "Commitment level" },
-  { id: "lifestyle_context", label: "Lifestyle context" },
-  { id: "money_pressure_point", label: "Main money pressure point" },
-  { id: "spending_trigger", label: "Spending trigger" },
-  { id: "spending_guidance_style", label: "Spending check" },
-  { id: "guidance_intensity", label: "Guidance style" },
-];
-
 const ONBOARDING_MEMORY_MAPPINGS = {
   commitment_level: {
     category: "onboarding_commitment",
@@ -192,11 +183,6 @@ const withTimeout = (promise, ms = 8000) =>
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out.")), ms)),
   ]);
-
-function getAnswerLabel(questionId, optionId) {
-  const question = QUESTION_SETS.find((entry) => entry.id === questionId);
-  return question?.options.find((option) => option.id === optionId)?.label || "";
-}
 
 function getRecommendedAccessLevel(answers) {
   const committedSignals = new Set([
@@ -340,15 +326,6 @@ export default function UniversalOnboarding() {
   const canGoBack = screenIndex > 0 && !saving;
   const progressValue = screens.length ? ((screenIndex + 1) / screens.length) * 100 : 0;
   const setupHelperText = screen?.type === "result" ? "Setup complete" : `Guided setup ${screenIndex + 1} of ${screens.length}`;
-
-  const summary = useMemo(
-    () =>
-      SUMMARY_ITEMS.map((item) => ({
-        ...item,
-        value: getAnswerLabel(item.id, answers[item.id]) || "Not answered yet",
-      })),
-    [answers]
-  );
 
   function goNext() {
     setScreenIndex((current) => Math.min(current + 1, screens.length - 1));
@@ -583,12 +560,7 @@ export default function UniversalOnboarding() {
                         <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
                           CLARA STARTING PATH
                         </div>
-                        <div>
-                          <h2 className="max-w-xl text-[1.9rem] font-semibold leading-tight text-white sm:text-4xl">Choose how you want to start with CLARA.</h2>
-                          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68 sm:text-base sm:leading-7">
-                            Your setup is ready. You can explore the full CLARA experience for 7 days, or start with the Free Version and upgrade later.
-                          </p>
-                        </div>
+                        <h2 className="max-w-xl text-[1.9rem] font-semibold leading-tight text-white sm:text-4xl">Choose how you want to start with CLARA.</h2>
                       </div>
 
                       <div className="grid gap-3">
@@ -612,9 +584,6 @@ export default function UniversalOnboarding() {
                                 {saving ? "Saving..." : "Explore CLARA for 7 days"}
                                 {!saving ? <ArrowRight className="h-4 w-4" /> : null}
                               </Button>
-                              <p className="mt-3 text-xs leading-5 text-white/48">
-                                Trial and renewal are handled securely through the app’s purchase flow.
-                              </p>
                             </div>
                           </div>
                         </div>
@@ -653,18 +622,6 @@ export default function UniversalOnboarding() {
                           />
                         </div>
                       ) : null}
-
-                      <div className="rounded-[24px] border border-white/10 bg-white/[0.025] p-4">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">Setup snapshot</p>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                          {summary.slice(0, 3).map((item) => (
-                            <div key={item.id} className="rounded-2xl border border-white/8 bg-black/10 p-3">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">{item.label}</p>
-                              <p className="mt-1 text-xs font-semibold leading-5 text-white/74">{item.value}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
                     </div>
                     {nameError ? <p className="text-sm text-red-300">{nameError}</p> : null}
                   </div>
