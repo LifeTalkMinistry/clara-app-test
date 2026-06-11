@@ -30,6 +30,7 @@ const COMMITTED_VERSION_ROUTE = "/enroll?plan=committed_249&view=detail";
 const CLARA_TRIAL_ROUTE = `${COMMITTED_VERSION_ROUTE}&trial=7d`;
 const FREE_VERSION_ROUTE = "/dashboard";
 const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
+const UNIVERSAL_ONBOARDING_DRAFT_KEY = "clara_universal_onboarding_answers_draft";
 
 const QUESTION_SETS = [
   {
@@ -191,6 +192,53 @@ const withTimeout = (promise, ms = 8000) =>
     new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out.")), ms)),
   ]);
 
+function warnInDevelopment(...args) {
+  if (import.meta.env?.DEV) {
+    console.warn(...args);
+  }
+}
+
+function isPlainObject(value) {
+  if (!value || typeof value !== "object") return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function safelyParseOnboardingDraft() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawDraft = window.sessionStorage?.getItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
+    if (!rawDraft) return null;
+
+    const parsedDraft = JSON.parse(rawDraft);
+    return isPlainObject(parsedDraft) ? parsedDraft : null;
+  } catch (error) {
+    warnInDevelopment("CLARA onboarding draft parse failed:", error);
+    return null;
+  }
+}
+
+function persistOnboardingDraft(nextAnswers) {
+  if (typeof window === "undefined" || !isPlainObject(nextAnswers)) return;
+
+  try {
+    window.sessionStorage?.setItem(UNIVERSAL_ONBOARDING_DRAFT_KEY, JSON.stringify(nextAnswers));
+  } catch {
+    // Session draft persistence is best effort only.
+  }
+}
+
+function clearOnboardingDraft() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage?.removeItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
+  } catch {
+    // Draft cleanup is best effort only.
+  }
+}
+
 function getRecommendedAccessLevel(answers) {
   const committedSignals = new Set([
     "take_seriously",
@@ -248,7 +296,7 @@ function saveOnboardingAnswersToLocalMemory(userId, answers) {
       );
     }
   } catch (error) {
-    console.warn("CLARA onboarding local memory save skipped:", error);
+    warnInDevelopment("CLARA onboarding local memory save skipped:", error);
   }
 }
 
@@ -264,12 +312,37 @@ export default function UniversalOnboarding() {
   const [fullName, setFullName] = useState("");
   const [nameError, setNameError] = useState("");
   const advanceTimerRef = useRef(null);
+  const answersRef = useRef({});
+  const hasHydratedAnswersRef = useRef(false);
   const onboardingShellRef = useRef(null);
 
   const needsNameFix = useMemo(() => {
     const storedName = profile?.full_name?.trim();
     return !storedName || INVALID_STORED_NAMES.includes(storedName);
   }, [profile]);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    const currentAnswers = isPlainObject(answersRef.current) ? answersRef.current : {};
+    const hasCurrentAnswers = Object.keys(currentAnswers).length > 0;
+
+    if (hasHydratedAnswersRef.current && hasCurrentAnswers) return;
+
+    const profileAnswers = isPlainObject(profile?.onboarding_answers) && Object.keys(profile.onboarding_answers).length > 0
+      ? profile.onboarding_answers
+      : null;
+    const draftAnswers = profileAnswers ? null : safelyParseOnboardingDraft();
+    const nextAnswers = profileAnswers || draftAnswers || {};
+
+    if (!isPlainObject(nextAnswers)) return;
+
+    hasHydratedAnswersRef.current = true;
+    answersRef.current = nextAnswers;
+    setAnswers(nextAnswers);
+  }, [profile?.onboarding_answers]);
 
   useEffect(() => {
     setFullName(
@@ -296,7 +369,10 @@ export default function UniversalOnboarding() {
 
   useEffect(() => {
     return () => {
-      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      if (advanceTimerRef.current) {
+        clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -334,6 +410,18 @@ export default function UniversalOnboarding() {
   const progressValue = screens.length ? ((screenIndex + 1) / screens.length) * 100 : 0;
   const setupHelperText = screen?.type === "result" ? "Setup complete" : `Guided setup ${screenIndex + 1} of ${screens.length}`;
 
+  function clearAdvanceTimer() {
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }
+
+  function getStableAnswersSnapshot() {
+    const currentAnswers = isPlainObject(answersRef.current) ? answersRef.current : answers;
+    return isPlainObject(currentAnswers) ? { ...currentAnswers } : {};
+  }
+
   function goNext() {
     setScreenIndex((current) => Math.min(current + 1, screens.length - 1));
   }
@@ -345,10 +433,18 @@ export default function UniversalOnboarding() {
   }
 
   function handleSelectAnswer(questionId, optionId) {
-    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+    const nextAnswers = { ...getStableAnswersSnapshot(), [questionId]: optionId };
+
+    answersRef.current = nextAnswers;
+    setAnswers(nextAnswers);
+    persistOnboardingDraft(nextAnswers);
     setNameError("");
-    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
-    advanceTimerRef.current = setTimeout(() => goNext(), prefersReducedMotion ? 0 : 180);
+
+    clearAdvanceTimer();
+    advanceTimerRef.current = setTimeout(() => {
+      advanceTimerRef.current = null;
+      goNext();
+    }, prefersReducedMotion ? 0 : 180);
   }
 
   async function updateProfile(updates) {
@@ -374,44 +470,62 @@ export default function UniversalOnboarding() {
   }
 
   async function completeOnboardingSetup() {
-    const missingAnswer = getMissingRequiredAnswer(answers);
+    clearAdvanceTimer();
+
+    const answerSnapshot = getStableAnswersSnapshot();
+    const missingAnswer = getMissingRequiredAnswer(answerSnapshot);
     if (missingAnswer) {
+      if (screen?.type === "result") {
+        setNameError("Some setup answers did not save correctly. Please review the missing step.");
+        warnInDevelopment("CLARA onboarding missing answer detected on result screen:", {
+          missingQuestionId: missingAnswer.id,
+          answerSnapshot,
+        });
+        return false;
+      }
+
       setNameError("Please complete your setup answers before continuing.");
-      setScreenIndex(screens.findIndex((entry) => entry.id === `question-${missingAnswer.id}`));
+      const missingScreenIndex = screens.findIndex((entry) => entry.id === `question-${missingAnswer.id}`);
+      if (missingScreenIndex >= 0) setScreenIndex(missingScreenIndex);
       return false;
     }
+
+    const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
 
     await saveNameIfNeeded();
     await updateProfile({
       onboarding_completed: true,
       has_completed_onboarding: true,
       onboarding_step: screens.length,
-      onboarding_answers: answers,
-      commitment_level: answers.commitment_level,
-      lifestyle_context: answers.lifestyle_context,
-      money_pressure_point: answers.money_pressure_point,
-      spending_trigger: answers.spending_trigger,
-      spending_guidance_style: answers.spending_guidance_style,
-      guidance_intensity: answers.guidance_intensity,
-      recommended_access_level: recommendedAccessLevel,
+      onboarding_answers: answerSnapshot,
+      commitment_level: answerSnapshot.commitment_level,
+      lifestyle_context: answerSnapshot.lifestyle_context,
+      money_pressure_point: answerSnapshot.money_pressure_point,
+      spending_trigger: answerSnapshot.spending_trigger,
+      spending_guidance_style: answerSnapshot.spending_guidance_style,
+      guidance_intensity: answerSnapshot.guidance_intensity,
+      recommended_access_level: recommendedAccessSnapshot,
       onboarding_completed_at: new Date().toISOString(),
     });
-    saveOnboardingAnswersToLocalMemory(user.id, answers);
+    clearOnboardingDraft();
+    saveOnboardingAnswersToLocalMemory(user.id, answerSnapshot);
     await refreshProfile?.();
     return true;
   }
 
   async function finishOnboarding(destination = FREE_VERSION_ROUTE) {
     if (saving) return;
+    clearAdvanceTimer();
 
     try {
       setSaving(true);
       setNameError("");
       const completed = await completeOnboardingSetup();
       if (!completed) return;
+      const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
       navigate(destination, {
         replace: true,
-        state: { fromOnboarding: true, recommendedAccessLevel },
+        state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
       });
     } catch (error) {
       console.error("Universal onboarding completion error:", error);
@@ -423,6 +537,7 @@ export default function UniversalOnboarding() {
 
   async function handleExploreClaraTrial() {
     if (saving) return;
+    clearAdvanceTimer();
 
     try {
       setSaving(true);
@@ -430,6 +545,7 @@ export default function UniversalOnboarding() {
       const completed = await completeOnboardingSetup();
       if (!completed) return;
 
+      const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
       const productId = getGooglePlayProductId(COMMITTED_PLAN_KEY);
       if (!productId) throw new Error("Google Play product is not configured yet.");
 
@@ -441,9 +557,10 @@ export default function UniversalOnboarding() {
       });
 
       if (purchase?.cancelled) {
+        warnInDevelopment("CLARA Google Play purchase cancelled; routing to enrollment fallback.");
         navigate(CLARA_TRIAL_ROUTE, {
           replace: true,
-          state: { fromOnboarding: true, recommendedAccessLevel },
+          state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
         });
         return;
       }
@@ -471,15 +588,16 @@ export default function UniversalOnboarding() {
       await refreshProfile?.();
       navigate(entitlement?.status === "active" ? FREE_VERSION_ROUTE : "/pending", {
         replace: true,
-        state: { fromOnboarding: true, recommendedAccessLevel },
+        state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
       });
     } catch (error) {
-      console.error("CLARA trial Google Play launch failed:", error);
+      const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
+      warnInDevelopment("CLARA Google Play fallback triggered:", error);
       navigate(CLARA_TRIAL_ROUTE, {
         replace: true,
         state: {
           fromOnboarding: true,
-          recommendedAccessLevel,
+          recommendedAccessLevel: recommendedAccessSnapshot,
           purchaseAutoStartError: error?.message || "Google Play could not open automatically.",
         },
       });
