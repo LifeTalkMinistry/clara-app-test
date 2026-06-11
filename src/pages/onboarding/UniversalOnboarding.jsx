@@ -17,20 +17,15 @@ import { useAuth } from "../../context/AuthContext";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
 import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
 import { COMMITTED_PLAN_KEY } from "@/lib/membership";
-import {
-  getGooglePlayProductId,
-  launchGooglePlayPurchase,
-  persistGooglePlayPurchase,
-  waitForGooglePlayEntitlement,
-} from "@/lib/google-play-billing";
 
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
 const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
-const COMMITTED_VERSION_ROUTE = "/enroll?plan=committed_249&view=detail";
-const CLARA_TRIAL_ROUTE = `${COMMITTED_VERSION_ROUTE}&trial=7d`;
 const FREE_VERSION_ROUTE = "/dashboard";
 const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
 const UNIVERSAL_ONBOARDING_DRAFT_KEY = "clara_universal_onboarding_answers_draft";
+const POST_ONBOARDING_BOOKLET_INTENT_KEY = "clara_open_commitment_booklet_after_onboarding";
+const TRIAL_PURCHASE_INTENT = "trial_7d";
+const CLARA_COMMITMENT_PRODUCT_ID = "clara_commitment_249";
 
 const QUESTION_SETS = [
   {
@@ -193,9 +188,7 @@ const withTimeout = (promise, ms = 8000) =>
   ]);
 
 function warnInDevelopment(...args) {
-  if (import.meta.env?.DEV) {
-    console.warn(...args);
-  }
+  if (import.meta.env?.DEV) console.warn(...args);
 }
 
 function isPlainObject(value) {
@@ -206,11 +199,9 @@ function isPlainObject(value) {
 
 function safelyParseOnboardingDraft() {
   if (typeof window === "undefined") return null;
-
   try {
     const rawDraft = window.sessionStorage?.getItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
     if (!rawDraft) return null;
-
     const parsedDraft = JSON.parse(rawDraft);
     return isPlainObject(parsedDraft) ? parsedDraft : null;
   } catch (error) {
@@ -221,7 +212,6 @@ function safelyParseOnboardingDraft() {
 
 function persistOnboardingDraft(nextAnswers) {
   if (typeof window === "undefined" || !isPlainObject(nextAnswers)) return;
-
   try {
     window.sessionStorage?.setItem(UNIVERSAL_ONBOARDING_DRAFT_KEY, JSON.stringify(nextAnswers));
   } catch {
@@ -231,11 +221,27 @@ function persistOnboardingDraft(nextAnswers) {
 
 function clearOnboardingDraft() {
   if (typeof window === "undefined") return;
-
   try {
     window.sessionStorage?.removeItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
   } catch {
     // Draft cleanup is best effort only.
+  }
+}
+
+function persistPostOnboardingBookletIntent() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage?.setItem(
+      POST_ONBOARDING_BOOKLET_INTENT_KEY,
+      JSON.stringify({
+        intent: TRIAL_PURCHASE_INTENT,
+        planKey: COMMITTED_PLAN_KEY,
+        productId: CLARA_COMMITMENT_PRODUCT_ID,
+        openedAt: Date.now(),
+      })
+    );
+  } catch (error) {
+    warnInDevelopment("CLARA onboarding booklet intent persistence skipped:", error);
   }
 }
 
@@ -248,13 +254,11 @@ function getRecommendedAccessLevel(answers) {
     "risk_warnings",
     "money_coach",
   ]);
-
   const hasCommittedSignal = [
     answers.commitment_level,
     answers.spending_guidance_style,
     answers.guidance_intensity,
   ].some((value) => committedSignals.has(value));
-
   return hasCommittedSignal ? "committed" : "free";
 }
 
@@ -276,11 +280,12 @@ function saveOnboardingAnswersToLocalMemory(userId, answers) {
 
   try {
     const cleanedMemories = getMemories(userId).filter(
-      (memory) => !String(memory?.category || "").startsWith("onboarding_"),
+      (memory) => !String(memory?.category || "").startsWith("onboarding_")
     );
+    const memoryEntries = buildOnboardingMemoryEntries(answers);
 
     setMemories(userId, cleanedMemories);
-    buildOnboardingMemoryEntries(answers).forEach((memory) => appendMemory(userId, memory));
+    memoryEntries.forEach((memory) => appendMemory(userId, memory));
 
     if (typeof window !== "undefined") {
       try {
@@ -291,8 +296,8 @@ function saveOnboardingAnswersToLocalMemory(userId, answers) {
 
       window.dispatchEvent(
         new CustomEvent("clara-onboarding-memory-updated", {
-          detail: { userId, categories: buildOnboardingMemoryEntries(answers).map((memory) => memory.category) },
-        }),
+          detail: { userId, categories: memoryEntries.map((memory) => memory.category) },
+        })
       );
     }
   } catch (error) {
@@ -325,7 +330,6 @@ export default function UniversalOnboarding() {
   useEffect(() => {
     const currentAnswers = isPlainObject(answersRef.current) ? answersRef.current : {};
     const hasCurrentAnswers = Object.keys(currentAnswers).length > 0;
-
     if (hasHydratedAnswersRef.current && hasCurrentAnswers) return;
 
     const profileAnswers = isPlainObject(profile?.onboarding_answers) && Object.keys(profile.onboarding_answers).length > 0
@@ -333,7 +337,6 @@ export default function UniversalOnboarding() {
       : null;
     const draftAnswers = profileAnswers ? null : safelyParseOnboardingDraft();
     const nextAnswers = profileAnswers || draftAnswers || {};
-
     if (!isPlainObject(nextAnswers)) return;
 
     hasHydratedAnswersRef.current = true;
@@ -375,19 +378,9 @@ export default function UniversalOnboarding() {
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      onboardingShellRef.current?.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: "auto",
-      });
-
-      window.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: "auto",
-      });
+      onboardingShellRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
-
     return () => cancelAnimationFrame(frame);
   }, [screenIndex]);
 
@@ -431,7 +424,6 @@ export default function UniversalOnboarding() {
 
   function handleSelectAnswer(questionId, optionId) {
     const nextAnswers = { ...getStableAnswersSnapshot(), [questionId]: optionId };
-
     answersRef.current = nextAnswers;
     setAnswers(nextAnswers);
     persistOnboardingDraft(nextAnswers);
@@ -488,7 +480,6 @@ export default function UniversalOnboarding() {
     }
 
     const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
-
     await saveNameIfNeeded();
     await updateProfile({
       onboarding_completed: true,
@@ -543,64 +534,18 @@ export default function UniversalOnboarding() {
       if (!completed) return;
 
       const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
-
-      try {
-        const productId = getGooglePlayProductId(COMMITTED_PLAN_KEY);
-        if (!productId) throw new Error("Google Play product is not configured yet.");
-
-        const purchase = await launchGooglePlayPurchase({
-          productId,
-          planKey: COMMITTED_PLAN_KEY,
-          userId: user.id,
-          userEmail: user.email || profile?.email || "",
-        });
-
-        if (purchase?.cancelled) {
-          warnInDevelopment("CLARA Google Play purchase cancelled; routing to enrollment fallback.");
-          navigate(CLARA_TRIAL_ROUTE, {
-            replace: true,
-            state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
-          });
-          return;
-        }
-
-        if (!purchase?.ok && !purchase?.restored) {
-          throw new Error("Google Play did not confirm the purchase.");
-        }
-
-        await persistGooglePlayPurchase({
-          supabase,
-          userId: user.id,
-          planKey: COMMITTED_PLAN_KEY,
-          productId,
-          purchaseToken: purchase.purchaseToken,
-          orderId: purchase.orderId,
-          bridgePayload: purchase.raw,
-        });
-
-        const entitlement = await waitForGooglePlayEntitlement({
-          supabase,
-          userId: user.id,
-          expectedPlanKey: COMMITTED_PLAN_KEY,
-        });
-
-        await refreshProfile?.();
-        navigate(entitlement?.status === "active" ? FREE_VERSION_ROUTE : "/pending", {
-          replace: true,
-          state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
-        });
-      } catch (error) {
-        warnInDevelopment("CLARA Google Play fallback triggered:", error);
-        navigate(CLARA_TRIAL_ROUTE, {
-          replace: true,
-          state: {
-            fromOnboarding: true,
-            recommendedAccessLevel: recommendedAccessSnapshot,
-            purchaseAutoStartError: error?.message || "Google Play could not open automatically.",
-          },
-        });
-      }
+      persistPostOnboardingBookletIntent();
+      navigate(FREE_VERSION_ROUTE, {
+        replace: true,
+        state: {
+          fromOnboarding: true,
+          openCommitmentBooklet: true,
+          purchaseIntent: TRIAL_PURCHASE_INTENT,
+          recommendedAccessLevel: recommendedAccessSnapshot,
+        },
+      });
     } catch (error) {
+      console.error("Universal onboarding trial routing error:", error);
       setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
     } finally {
       setSaving(false);
@@ -614,9 +559,7 @@ export default function UniversalOnboarding() {
         <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
           <div className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/10 bg-white/[0.04] px-3 pb-4 pt-3 shadow-[0_28px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-h-[calc(100dvh-48px)] sm:rounded-[32px] sm:px-6 sm:pb-6 sm:pt-6">
             <div className="h-2 w-32 rounded-full bg-white/10" />
-            <div className="mt-6 h-10 w-3/4 rounded-full bg-white/10" />
-            <div className="mt-3 h-4 w-full rounded-full bg-white/[0.06]" />
-            <div className="mt-2 h-4 w-5/6 rounded-full bg-white/[0.06]" />
+            <div className="mt-6 h-10 w-3/4 rounded-2xl bg-white/10" />
             <div className="mt-8 h-48 rounded-[28px] bg-white/[0.05]" />
             <div className="mt-8 h-12 rounded-2xl bg-white/10" />
           </div>
@@ -682,10 +625,8 @@ export default function UniversalOnboarding() {
                     <div className="max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-3 sm:p-4">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#f4cd71]/75">Setup preview</p>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {['Commitment', 'Lifestyle Clarity', 'Ask Before You Spend'].map((item) => (
-                          <span key={item} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/72">
-                            {item}
-                          </span>
+                        {["Commitment", "Lifestyle Clarity", "Ask Before You Spend"].map((item) => (
+                          <span key={item} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/72">{item}</span>
                         ))}
                       </div>
                     </div>
@@ -756,9 +697,7 @@ export default function UniversalOnboarding() {
                   <div className="flex min-h-full flex-col justify-between gap-4 sm:gap-5">
                     <div className="space-y-4 sm:space-y-5">
                       <div className="space-y-3">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
-                          CLARA STARTING PATH
-                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">CLARA STARTING PATH</div>
                         <h2 className="max-w-xl text-[1.9rem] font-semibold leading-tight text-white sm:text-4xl">Choose how you want to start with CLARA.</h2>
                       </div>
 
@@ -773,14 +712,10 @@ export default function UniversalOnboarding() {
                                 <h3 className="text-xl font-semibold text-white">Explore CLARA</h3>
                                 <span className="rounded-full border border-[#34d399]/20 bg-[#34d399]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a7efd0]">7-day trial</span>
                               </div>
-                              <p className="mt-2 text-sm leading-6 text-white/68">
-                                Start your 7-day CLARA trial and experience the guided money clarity journey.
-                              </p>
-                              <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">
-                                7 days free, then ₱249/month. Cancel anytime before renewal.
-                              </p>
+                              <p className="mt-2 text-sm leading-6 text-white/68">Start your 7-day CLARA trial and experience the guided money clarity journey.</p>
+                              <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">7 days free, then ₱249/month. Cancel anytime before renewal.</p>
                               <Button type="button" onClick={handleExploreClaraTrial} disabled={saving} className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]">
-                                {saving ? "Opening Google Play..." : "Explore CLARA for 7 days"}
+                                {saving ? "Preparing your booklet..." : "Explore CLARA for 7 days"}
                                 {!saving ? <ArrowRight className="h-4 w-4" /> : null}
                               </Button>
                             </div>
@@ -794,9 +729,7 @@ export default function UniversalOnboarding() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <h3 className="text-xl font-semibold text-white">Free Version</h3>
-                              <p className="mt-2 text-sm leading-6 text-white/62">
-                                Start with basic CLARA clarity tools. You can explore first and upgrade when you are ready.
-                              </p>
+                              <p className="mt-2 text-sm leading-6 text-white/62">Start with basic CLARA clarity tools. You can explore first and upgrade when you are ready.</p>
                               <Button type="button" variant="outline" onClick={() => finishOnboarding(FREE_VERSION_ROUTE)} disabled={saving} className="mt-4 h-12 w-full rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
                                 Let’s stick with the Free Version
                               </Button>
