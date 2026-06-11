@@ -21,6 +21,8 @@ export const safeNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+const hasValue = (value) => value !== null && value !== undefined && value !== "";
+
 const hasResetBoundary = (activeBudget = {}) => Boolean(
   activeBudget?.reset_start_at ||
     activeBudget?.tracking_started_at ||
@@ -230,7 +232,27 @@ export default function useBudgetCardLogic({
     ? categories.reduce((sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount), 0)
     : safeNumber(activeBudget?.allocated ?? activeBudget?.allocated_amount ?? activeBudget?.allocated_total ?? activeBudget?.totalAllocated);
   const spent = activeBudgetSpent;
-  const remaining = Math.max(declared - spent, 0);
+  const protectedCommitments = safeNumber(
+    activeBudget?.totalProtectedCommitments ??
+      activeBudget?.protected_commitments_total ??
+      activeBudget?.protectedBudgetCommitments?.totalProtectedCommitments ??
+      activeBudget?.protected_budget_commitments?.totalProtectedCommitments ??
+      activeBudget?.protected_budget_commitments?.total_protected_commitments
+  );
+  const protectedRowsTotal = categories.reduce(
+    (sum, item) => isProtectedBudgetCommitment(item) ? sum + safeNumber(item?.allocated ?? item?.allocated_amount) : sum,
+    0
+  );
+  const protectedReserved = Math.max(protectedCommitments, protectedRowsTotal);
+  const explicitRemaining = safeNumber(
+    activeBudget?.remaining ?? activeBudget?.remaining_amount ?? activeBudget?.amount_left ?? activeBudget?.totalRemaining
+  );
+  const hasExplicitRemaining = hasValue(activeBudget?.remaining) || hasValue(activeBudget?.remaining_amount) || hasValue(activeBudget?.amount_left) || hasValue(activeBudget?.totalRemaining);
+  const remaining = protectedReserved > 0
+    ? Math.max(declared - spent - protectedReserved, 0)
+    : hasExplicitRemaining
+      ? Math.max(explicitRemaining, 0)
+      : Math.max(declared - spent, 0);
   const unallocated = Math.max(
     safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? activeBudget?.unallocated ?? activeBudget?.unallocated_balance ?? activeBudget?.unallocatedBalance ?? declared - allocated),
     0
