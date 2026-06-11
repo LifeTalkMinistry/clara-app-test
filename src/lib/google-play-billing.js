@@ -934,7 +934,7 @@ export async function persistGooglePlayPurchase({
     product_id: safeProductId,
     purchase_token: safePurchaseToken,
     order_id: safeOrderId,
-    package_name: "com.clara.moneytracker",
+    package_name: "com.clara.lifeos.app",
     purchase_payload: bridgePayload || null,
   };
   const response = await fetch(requestUrl, {
