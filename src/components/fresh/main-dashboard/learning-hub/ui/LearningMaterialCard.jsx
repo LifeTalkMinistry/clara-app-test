@@ -33,6 +33,24 @@ export default function LearningMaterialCard({
   const contentLeftPadding = isActive ? 18 : 12;
   const thumbnailSrc = item?.thumbnail || "";
   const hasThumbnail = Boolean(thumbnailSrc);
+  const isCategory = item?.kind === "category" || item?.type === "category";
+  const activeBadgeLabel = isCategory
+    ? "Category"
+    : item?.featured
+      ? "Featured"
+      : item?.status === "coming-soon"
+        ? "Coming Soon"
+        : "Lesson";
+  const coverLabel = isCategory
+    ? item?.coverLabel || "Explore"
+    : item?.coverLabel || item?.duration || "Guide";
+  const ctaLabel = isCategory
+    ? "Explore"
+    : item?.type === "book"
+      ? "Read"
+      : item?.status === "available"
+        ? "Start Lesson"
+        : "Preview";
 
   return (
     <div
@@ -153,7 +171,7 @@ export default function LearningMaterialCard({
                 <div>
                   {isActive && (
                     <div className="mb-2 inline-flex rounded-full border border-cyan-100/16 bg-white/[0.075] px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                      Featured
+                      {activeBadgeLabel}
                     </div>
                   )}
                   <div
@@ -161,7 +179,7 @@ export default function LearningMaterialCard({
                       isActive ? "text-[8.5px] tracking-[0.22em]" : "text-[7.5px] tracking-[0.18em]"
                     }`}
                   >
-                    {item.coverLabel || "Guide"}
+                    {coverLabel}
                   </div>
                 </div>
 
@@ -187,7 +205,7 @@ export default function LearningMaterialCard({
                 {isActive && (
                   <div className="mt-auto flex items-center justify-between gap-2">
                     <span className="rounded-full border border-white/10 bg-white/[0.085] px-3 py-1.5 text-[9px] font-semibold text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                      Start Lesson
+                      {ctaLabel}
                     </span>
                     <span className="shrink-0 rounded-full border border-cyan-100/14 bg-white/[0.045] px-2.5 py-1 text-[8.5px] font-semibold text-white/62">
                       {position} / {total}
