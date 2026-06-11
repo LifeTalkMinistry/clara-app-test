@@ -316,10 +316,7 @@ export default function UniversalOnboarding() {
   const hasHydratedAnswersRef = useRef(false);
   const onboardingShellRef = useRef(null);
 
-  const needsNameFix = useMemo(() => {
-    const storedName = profile?.full_name?.trim();
-    return !storedName || INVALID_STORED_NAMES.includes(storedName);
-  }, [profile]);
+  const needsNameFix = false;
 
   useEffect(() => {
     answersRef.current = answers;
