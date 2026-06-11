@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Lock, LogOut, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import {
   launchGooglePlayPurchase,
@@ -22,6 +22,8 @@ import {
 
 const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
 const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
+const POST_ONBOARDING_BOOKLET_INTENT_KEY = "clara_open_commitment_booklet_after_onboarding";
+const TRIAL_PURCHASE_INTENT = "trial_7d";
 
 const CLARA_COMMITMENT_BOOKLET_PAGES = [
   {
@@ -139,22 +141,46 @@ function readPlanPreview() {
   return readDeveloperMembershipPreview();
 }
 
-async function openGooglePlayCommitmentPurchase({ userId, userEmail }) {
+function readTrialIntentFromSession() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawIntent = window.sessionStorage.getItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
+    if (!rawIntent) return null;
+    window.sessionStorage.removeItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
+
+    const parsed = JSON.parse(rawIntent);
+    return parsed?.intent === TRIAL_PURCHASE_INTENT ? parsed : null;
+  } catch (error) {
+    console.warn("Unable to read CLARA post-onboarding booklet intent", error);
+    try {
+      window.sessionStorage.removeItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
+    } catch {
+      // Best effort cleanup only.
+    }
+    return null;
+  }
+}
+
+async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseIntent }) {
   return launchGooglePlayPurchase({
     productId: CLARA_COMMITMENT_PRODUCT_ID,
     planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
     userId,
     userEmail,
+    purchaseIntent,
+    trialDays: purchaseIntent === TRIAL_PURCHASE_INTENT ? 7 : undefined,
   });
 }
 
-function ClaraCommitmentBookletModal({ open, onClose }) {
+function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
   const [bookletPage, setBookletPage] = useState(0);
   const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const carouselRef = useRef(null);
   const { user, refreshUser } = useUserRole();
+  const isTrialIntent = purchaseIntent === TRIAL_PURCHASE_INTENT;
 
   useEffect(() => {
     if (!open) return;
@@ -167,7 +193,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     window.requestAnimationFrame(() => {
       carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
     });
-  }, [open]);
+  }, [open, purchaseIntent]);
 
   if (!open) return null;
 
@@ -205,7 +231,10 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
       productId: CLARA_COMMITMENT_PRODUCT_ID,
       purchaseToken,
       orderId,
-      bridgePayload: purchaseResult?.raw || purchaseResult,
+      bridgePayload: {
+        ...(purchaseResult?.raw || purchaseResult),
+        purchaseIntent,
+      },
     });
 
     const entitlement = await waitForGooglePlayEntitlement({
@@ -213,7 +242,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
       userId: activeUserId,
       expectedPlanKey: CLARA_COMMITMENT_UNLOCK_PLAN,
     });
-    if (entitlement.status !== "active") {
+    if (!["active", "trialing"].includes(entitlement.status)) {
       throw new Error("Your purchase was verified, but membership activation is still syncing.");
     }
 
@@ -224,12 +253,13 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     if (purchaseBusy) return;
 
     setPurchaseBusy(true);
-    setPurchaseMessage("Opening Google Play...");
+    setPurchaseMessage(isTrialIntent ? "Opening your 7-day trial in Google Play..." : "Opening Google Play...");
 
     try {
       const purchaseResult = await openGooglePlayCommitmentPurchase({
         userId: user?.id,
         userEmail: user?.email,
+        purchaseIntent,
       });
       setPurchaseMessage("Verifying your CLARA commitment...");
       await activateCommitmentAccess(purchaseResult);
@@ -244,10 +274,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
   };
 
   const goToPage = (targetPage) => {
-    const nextPage = Math.min(
-      Math.max(targetPage, 0),
-      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
-    );
+    const nextPage = Math.min(Math.max(targetPage, 0), CLARA_COMMITMENT_BOOKLET_PAGES.length - 1);
     const carousel = carouselRef.current;
 
     setBookletPage(nextPage);
@@ -265,14 +292,9 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     if (!carousel.clientWidth) return;
 
     const currentPage = Math.round(carousel.scrollLeft / carousel.clientWidth);
-    const safePage = Math.min(
-      Math.max(currentPage, 0),
-      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
-    );
+    const safePage = Math.min(Math.max(currentPage, 0), CLARA_COMMITMENT_BOOKLET_PAGES.length - 1);
 
-    if (safePage !== bookletPage) {
-      setBookletPage(safePage);
-    }
+    if (safePage !== bookletPage) setBookletPage(safePage);
   };
 
   const renderBookletPage = (bookletItem, index) => {
@@ -286,14 +308,13 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
     const pageTextClass = isDensePage
       ? "mt-4 space-y-2.5 text-[clamp(0.84rem,2.95vw,0.98rem)] font-bold leading-[1.5] text-slate-100/88"
       : "mt-5 space-y-3 text-[clamp(0.92rem,3.05vw,1.03rem)] font-bold leading-[1.62] text-slate-100/88";
-    const contentOffsetClass = isDensePage ? "" : "-translate-y-[3%]";
 
     return (
       <article
         key={bookletItem.label}
         className="flex h-full min-h-0 w-full min-w-full snap-center snap-always flex-col justify-center overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,#108b90_0%,#1d2f6d_44%,#2c1664_100%)] px-[clamp(24px,6vw,32px)] py-[clamp(24px,5.2vw,32px)] text-left shadow-[0_22px_58px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-24px_42px_rgba(0,0,0,0.16)]"
       >
-        <div className={contentOffsetClass}>
+        <div className={isDensePage ? "" : "-translate-y-[3%]"}>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
             {index + 1 < 10 ? `0${index + 1}` : index + 1} / {bookletItem.label.toUpperCase()}
           </p>
@@ -303,9 +324,8 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
           </h2>
 
           <div className={pageTextClass}>
-            {bookletItem.paragraphs?.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
+            {bookletItem.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            {bookletItem.quote ? <p className="rounded-2xl border border-white/14 bg-white/[0.08] px-4 py-3 text-white">“{bookletItem.quote}”</p> : null}
 
             {bookletItem.bullets ? (
               <ul className="space-y-2">
@@ -329,9 +349,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
               </ul>
             ) : null}
 
-            {bookletItem.closingParagraphs?.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
+            {bookletItem.closingParagraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
 
             {isFinalPage ? (
               <button
@@ -343,7 +361,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                 }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
               >
-                Start My Commitment
+                {isTrialIntent ? "Start 7-day trial" : "Start My Commitment"}
               </button>
             ) : null}
           </div>
@@ -371,11 +389,9 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
         </button>
 
         <div className="relative z-10 shrink-0 pr-12 text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/58">
-            CLARA Commitment Booklet
-          </p>
-          <p className="mx-auto mt-2 max-w-[180px] text-[12px] font-bold leading-5 text-slate-300/62">
-            Swipe to next
+          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/58">CLARA Commitment Booklet</p>
+          <p className="mx-auto mt-2 max-w-[220px] text-[12px] font-bold leading-5 text-slate-300/62">
+            {isTrialIntent ? "7 days free, then ₱249/month." : "Swipe to next"}
           </p>
         </div>
 
@@ -393,9 +409,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
               key={bookletItem.label}
               type="button"
               onClick={() => goToPage(index)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                index === bookletPage ? "w-6 bg-cyan-100/64" : "w-1.5 bg-cyan-100/22"
-              }`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${index === bookletPage ? "w-6 bg-cyan-100/64" : "w-1.5 bg-cyan-100/22"}`}
               aria-label={`Go to ${bookletItem.label}`}
             />
           ))}
@@ -425,32 +439,32 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
               </button>
 
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
-                Monthly Commitment
+                {isTrialIntent ? "7-Day Trial" : "Monthly Commitment"}
               </p>
-              <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">
-                So? You are ready to commit?
-              </h3>
+              <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">So? You are ready to commit?</h3>
               <p className="mx-auto mt-3 max-w-[260px] text-sm font-bold leading-6 text-white/68">
-                Start your journey toward financial freedom with CLARA’s guided money decision experience.
+                {isTrialIntent
+                  ? "Start 7 days free, then continue CLARA’s guided money decision experience for ₱249/month."
+                  : "Start your journey toward financial freedom with CLARA’s guided money decision experience."}
               </p>
 
               <div className="mt-5 rounded-[26px] border border-white/14 bg-white/[0.08] px-5 py-5">
                 <p className="text-[3rem] font-black leading-none tracking-[-0.08em] text-white">
-                  ₱249
+                  {isTrialIntent ? "7 days" : "₱249"}
                 </p>
                 <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/48">
-                  per month
+                  {isTrialIntent ? "free, then ₱249/month" : "per month"}
                 </p>
               </div>
 
               <p className="mt-4 text-xs font-bold leading-5 text-white/52">
-                10% of every monthly commitment goes into the CLARA Charity Fund.
+                {isTrialIntent
+                  ? "Google Play must show the 7-day trial before you confirm. Cancel anytime before renewal."
+                  : "10% of every monthly commitment goes into the CLARA Charity Fund."}
               </p>
 
               {purchaseMessage ? (
-                <p className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-bold leading-5 text-white/62">
-                  {purchaseMessage}
-                </p>
+                <p className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-bold leading-5 text-white/62">{purchaseMessage}</p>
               ) : null}
 
               <div className="mt-5 grid grid-cols-1 gap-2">
@@ -460,7 +474,7 @@ function ClaraCommitmentBookletModal({ open, onClose }) {
                   disabled={purchaseBusy}
                   className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {purchaseBusy ? "Opening Google Play..." : "Continue for ₱249"}
+                  {purchaseBusy ? "Opening Google Play..." : isTrialIntent ? "Start 7-day trial" : "Continue for ₱249"}
                 </button>
                 <button
                   type="button"
@@ -495,21 +509,15 @@ function LockedPanelPreview({ children, onOpenCommitmentBooklet }) {
         event.stopPropagation();
       }}
     >
-      <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">
-        {children}
-      </div>
+      <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">{children}</div>
       <div className="absolute inset-0 z-[220] flex items-center justify-center rounded-[30px] bg-black/[0.18] backdrop-blur-[1px]">
         <div className="mx-7 max-w-[280px] rounded-[28px] border border-white/14 bg-[rgba(9,18,36,0.76)] px-5 py-4 text-center text-white shadow-[0_22px_60px_rgba(0,0,0,0.42)] backdrop-blur-xl">
           <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.08] text-white/78">
             <Lock className="h-4.5 w-4.5" />
           </div>
-          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/52">
-            COMMITTED VERSION
-          </p>
+          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/52">COMMITTED VERSION</p>
           <p className="mt-1 text-lg font-black tracking-[-0.03em] text-white/92">Ready to Commit?</p>
-          <p className="mt-1.5 text-xs font-semibold leading-5 text-white/58">
-            Tap to see more.
-          </p>
+          <p className="mt-1.5 text-xs font-semibold leading-5 text-white/58">Tap to see more.</p>
         </div>
       </div>
     </div>
@@ -539,20 +547,14 @@ function SettingsLogoutButton() {
         <LogOut className="h-4 w-4" />
         Log out
       </button>
-
-      <p className="px-3 text-center text-[10px] font-semibold leading-4 text-white/32">
-        You can log back in anytime using your CLARA account.
-      </p>
+      <p className="px-3 text-center text-[10px] font-semibold leading-4 text-white/32">You can log back in anytime using your CLARA account.</p>
     </div>
   );
 }
 
 function renderSettingsWithLogout(renderSettings, fallback) {
   const settingsContent = renderSettings?.() ?? fallback;
-
-  if (!settingsContent) {
-    return <SettingsLogoutButton />;
-  }
+  if (!settingsContent) return <SettingsLogoutButton />;
 
   return (
     <>
@@ -572,10 +574,16 @@ export default function DashboardPanelRenderer({
   renderMe,
   fallback = null,
 }) {
+  const location = useLocation();
   const previewPlan = readPlanPreview();
   const hasCommittedAccess = useCommittedFeatureAccess({ previewPlan });
   const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
-  const openCommitmentBooklet = () => setCommitmentBookletOpen(true);
+  const [purchaseIntent, setPurchaseIntent] = useState("");
+
+  const openCommitmentBooklet = (nextPurchaseIntent = "") => {
+    setPurchaseIntent(nextPurchaseIntent);
+    setCommitmentBookletOpen(true);
+  };
   const closeCommitmentBooklet = () => setCommitmentBookletOpen(false);
 
   useEffect(() => {
@@ -583,31 +591,39 @@ export default function DashboardPanelRenderer({
 
     const handleOpenCommitmentBooklet = () => openCommitmentBooklet();
 
-    window.addEventListener(
-      OPEN_COMMITMENT_BOOKLET_EVENT,
-      handleOpenCommitmentBooklet
-    );
-
-    return () => {
-      window.removeEventListener(
-        OPEN_COMMITMENT_BOOKLET_EVENT,
-        handleOpenCommitmentBooklet
-      );
-    };
+    window.addEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
+    return () => window.removeEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
   }, []);
+
+  useEffect(() => {
+    const sessionIntent = readTrialIntentFromSession();
+    const locationWantsBooklet = location.state?.openCommitmentBooklet === true;
+    const locationIntent = location.state?.purchaseIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : "";
+
+    if (sessionIntent?.intent === TRIAL_PURCHASE_INTENT) {
+      openCommitmentBooklet(TRIAL_PURCHASE_INTENT);
+      return;
+    }
+
+    if (locationWantsBooklet) {
+      openCommitmentBooklet(locationIntent);
+    }
+  }, [location.key, location.state]);
+
+  const booklet = (
+    <ClaraCommitmentBookletModal
+      open={commitmentBookletOpen}
+      onClose={closeCommitmentBooklet}
+      purchaseIntent={purchaseIntent}
+    />
+  );
 
   if (activePanel === "me") {
     const content = renderMe?.() ?? <DashboardMeLifePanel />;
     return (
       <>
-        {!hasCommittedAccess ? (
-          <LockedPanelPreview onOpenCommitmentBooklet={openCommitmentBooklet}>
-            {content}
-          </LockedPanelPreview>
-        ) : (
-          content
-        )}
-        <ClaraCommitmentBookletModal open={commitmentBookletOpen} onClose={closeCommitmentBooklet} />
+        {!hasCommittedAccess ? <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet()}>{content}</LockedPanelPreview> : content}
+        {booklet}
       </>
     );
   }
@@ -616,14 +632,8 @@ export default function DashboardPanelRenderer({
     const content = <DashboardSchedulePanel />;
     return (
       <>
-        {!hasCommittedAccess ? (
-          <LockedPanelPreview onOpenCommitmentBooklet={openCommitmentBooklet}>
-            {content}
-          </LockedPanelPreview>
-        ) : (
-          content
-        )}
-        <ClaraCommitmentBookletModal open={commitmentBookletOpen} onClose={closeCommitmentBooklet} />
+        {!hasCommittedAccess ? <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet()}>{content}</LockedPanelPreview> : content}
+        {booklet}
       </>
     );
   }
@@ -636,10 +646,7 @@ export default function DashboardPanelRenderer({
   return (
     <>
       {renderHome?.() ?? fallback}
-      <ClaraCommitmentBookletModal
-        open={commitmentBookletOpen}
-        onClose={closeCommitmentBooklet}
-      />
+      {booklet}
     </>
   );
 }
