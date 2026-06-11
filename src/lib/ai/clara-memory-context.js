@@ -7,6 +7,30 @@
  * relevant memories and phrase them in a friendly, human-like way.
  */
 
+const ONBOARDING_MEMORY_CATEGORY_ORDER = [
+  "onboarding_commitment",
+  "onboarding_lifestyle_clarity",
+  "onboarding_money_pressure",
+  "onboarding_spending_trigger",
+  "onboarding_guidance_style",
+  "onboarding_guidance_intensity",
+];
+
+const ONBOARDING_MEMORY_CATEGORIES = new Set(ONBOARDING_MEMORY_CATEGORY_ORDER);
+
+function isOnboardingMemory(mem = {}) {
+  return ONBOARDING_MEMORY_CATEGORIES.has(mem.category);
+}
+
+function onboardingSortOrder(mem = {}) {
+  const index = ONBOARDING_MEMORY_CATEGORY_ORDER.indexOf(mem.category);
+  return index === -1 ? ONBOARDING_MEMORY_CATEGORY_ORDER.length : index;
+}
+
+function normalizeSentence(value = "") {
+  return String(value || "").trim().replace(/[.?!]+$/g, "");
+}
+
 /**
  * Build a natural language summary from a memory entry. Each memory
  * category uses a slightly different phrasing template.
@@ -39,6 +63,13 @@ function memoryToSentence(mem) {
       return `you prefer ${content}`;
     case "accountability":
       return `you asked to ${content}`;
+    case "onboarding_commitment":
+    case "onboarding_lifestyle_clarity":
+    case "onboarding_money_pressure":
+    case "onboarding_spending_trigger":
+    case "onboarding_guidance_style":
+    case "onboarding_guidance_intensity":
+      return content;
     default:
       return `you mentioned ${content}`;
   }
@@ -58,19 +89,34 @@ function memoryToSentence(mem) {
  */
 export function buildMemoryContext(memories, maxEntries = 3) {
   if (!Array.isArray(memories) || memories.length === 0) return "";
-  // Sort by newest first
   const sorted = memories.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  const sentences = [];
+  const latestOnboardingByCategory = new Map();
+
   for (const mem of sorted) {
-    const sentence = memoryToSentence(mem);
+    if (!isOnboardingMemory(mem) || latestOnboardingByCategory.has(mem.category)) continue;
+    latestOnboardingByCategory.set(mem.category, mem);
+  }
+
+  const onboardingMemories = Array.from(latestOnboardingByCategory.values()).sort(
+    (a, b) => onboardingSortOrder(a) - onboardingSortOrder(b),
+  );
+  const maxWithOnboarding = Math.max(maxEntries, onboardingMemories.length);
+  const selected = onboardingMemories.length
+    ? [
+        ...onboardingMemories,
+        ...sorted.filter((mem) => !isOnboardingMemory(mem)).slice(0, maxWithOnboarding - onboardingMemories.length),
+      ]
+    : sorted.slice(0, maxEntries);
+
+  const sentences = [];
+  for (const mem of selected) {
+    const sentence = normalizeSentence(memoryToSentence(mem));
     if (sentence) {
       sentences.push(sentence);
     }
-    if (sentences.length >= maxEntries) break;
+    if (sentences.length >= maxWithOnboarding) break;
   }
   if (sentences.length === 0) return "";
-  // Join sentences into one coherent paragraph with natural separators
-  // Capitalise the first letter of the summary
   const summary = sentences.join(". ");
   return summary.charAt(0).toUpperCase() + summary.slice(1) + ".";
 }
@@ -87,9 +133,24 @@ export function buildMemoryContext(memories, maxEntries = 3) {
  * @returns {Array<Object>} A subset of memories.
  */
 export function selectRelevantMemories(memories, text, maxEntries = 3) {
-  // Future: perform keyword matching between text and memory content.
-  // For now, simply return the newest few memories.
   if (!Array.isArray(memories) || memories.length === 0) return [];
   const sorted = memories.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  return sorted.slice(0, maxEntries);
+  const onboarding = [];
+  const seenOnboarding = new Set();
+
+  for (const mem of sorted) {
+    if (!isOnboardingMemory(mem) || seenOnboarding.has(mem.category)) continue;
+    seenOnboarding.add(mem.category);
+    onboarding.push(mem);
+  }
+
+  if (!onboarding.length) return sorted.slice(0, maxEntries);
+
+  const orderedOnboarding = onboarding.sort((a, b) => onboardingSortOrder(a) - onboardingSortOrder(b));
+  const limit = Math.max(maxEntries, orderedOnboarding.length);
+
+  return [
+    ...orderedOnboarding,
+    ...sorted.filter((mem) => !isOnboardingMemory(mem)).slice(0, limit - orderedOnboarding.length),
+  ];
 }
