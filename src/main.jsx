@@ -25,6 +25,7 @@ import "./clara-assistant-buy-check-tab";
 import "./clara-assistant-forecast-tab";
 import "./clara-assistant-analytic-tab";
 import "./clara-assistant-memory-tab";
+import "./clara-onboarding-memory-review-bridge";
 import "./clara-memory-cabinet-autosave";
 import "./clara-settings-memory-entry";
 import "./clara-me-panel";
