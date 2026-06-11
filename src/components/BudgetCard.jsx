@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
-import { writeDeveloperMembershipPreview } from "@/lib/membership";
+import { useAuth } from "@/context/AuthContext";
+import { clearDeveloperMembershipPreview, writeDeveloperMembershipPreview } from "@/lib/membership";
+import { resetUserAccount } from "@/lib/admin-user-reset";
+import { clearMemories } from "@/lib/ai/clara-memory";
+import { clearLocalUserVault } from "@/lib/localFinanceStore";
+import { clearAccessSnapshot } from "@/lib/offline-access-cache";
 
 const BUDGET_GLOW_LAYERS = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-teal-300/[0.085] blur-[78px]",
@@ -16,18 +21,29 @@ const BUDGET_GLOW_LAYERS = [
 
 const PLAN_PREVIEW_OPTIONS = [
   {
-    label: "Free Version",
+    label: "Free Preview",
     helper: "View the complete Free Version experience.",
     badge: "FREE",
     value: { plan: "free", membershipStatus: "not_committed" },
   },
   {
-    label: "Committed — Active",
+    label: "Committed — Active Preview",
     helper: "View the fully activated Committed Version.",
     badge: "ACTIVE",
     value: { plan: "committed_249", membershipStatus: "active" },
   },
 ];
+
+const RESET_CACHE_KEYS = [
+  "CLARA_USER_CONTEXT_STORY_V1",
+  "CLARA_LIVE_USER_MESSAGE_HISTORY",
+  "clara_behavioral_memory_v1",
+  "clara_active_memory_user_id",
+];
+
+function getErrorMessage(error) {
+  return error?.message || "Reset failed. Please check permissions and try again.";
+}
 
 export default function BudgetCard({
   activeBudget = null,
@@ -47,8 +63,11 @@ export default function BudgetCard({
   onDeleteBudgetCategory,
 }) {
   const navigate = useNavigate();
+  const { user, profile, refreshProfile } = useAuth();
   const cardRef = useRef(null);
   const [showPlanPreview, setShowPlanPreview] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [isResettingAccount, setIsResettingAccount] = useState(false);
 
   const {
     categories,
@@ -101,6 +120,7 @@ export default function BudgetCard({
     const openPlanPreview = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      setResetError("");
       setShowPlanPreview(true);
     };
 
@@ -125,9 +145,63 @@ export default function BudgetCard({
   }, [expanded]);
 
   const applyPlanPreview = (value) => {
+    setResetError("");
     writeDeveloperMembershipPreview(value);
     setShowPlanPreview(false);
     window.location.reload();
+  };
+
+  const clearLocalResetCaches = () => {
+    if (typeof window === "undefined" || !window.localStorage) return;
+
+    RESET_CACHE_KEYS.forEach((key) => {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (error) {
+        console.warn(`Unable to clear ${key}`, error);
+      }
+    });
+  };
+
+  const handleResetAccount = async () => {
+    if (isResettingAccount) return;
+
+    const confirmed = window.confirm("Continue with Reset Account for this signed-in test user?");
+    if (!confirmed) return;
+
+    if (!user?.id) {
+      setResetError("Missing logged-in user. Please sign in again before resetting.");
+      return;
+    }
+
+    const resetEmail = profile?.email || user.email || "";
+
+    setIsResettingAccount(true);
+    setResetError("");
+
+    try {
+      clearDeveloperMembershipPreview();
+      await resetUserAccount({ userId: user.id, email: resetEmail });
+      clearMemories(user.id);
+
+      try {
+        await clearLocalUserVault(user.id);
+      } catch (localVaultError) {
+        console.warn("Unable to clear local CLARA finance vault during account reset.", localVaultError);
+      }
+
+      clearAccessSnapshot(user.id);
+      if (resetEmail) clearAccessSnapshot(resetEmail);
+      clearLocalResetCaches();
+
+      await refreshProfile?.();
+      navigate("/onboarding", { replace: true });
+    } catch (error) {
+      console.error("CLARA account reset failed", error);
+      setResetError(getErrorMessage(error));
+    } finally {
+      setIsResettingAccount(false);
+    }
   };
 
   return (
@@ -184,13 +258,14 @@ export default function BudgetCard({
                 </p>
                 <h3 className="mt-1 text-lg font-black text-white">Choose journey state</h3>
                 <p className="mt-1 text-xs font-semibold leading-5 text-white/62">
-                  Local preview only. No billing or account changes will run.
+                  Developer tools for previewing and resetting the signed-in test account.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPlanPreview(false)}
-                className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-bold text-white/75"
+                disabled={isResettingAccount}
+                className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Close
               </button>
@@ -202,7 +277,8 @@ export default function BudgetCard({
                   key={`${option.value.plan}-${option.value.membershipStatus}`}
                   type="button"
                   onClick={() => applyPlanPreview(option.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10]"
+                  disabled={isResettingAccount}
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.10] disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-black">{option.label}</span>
@@ -214,6 +290,33 @@ export default function BudgetCard({
                 </button>
               ))}
             </div>
+
+            <div className="my-4 h-px bg-white/10" />
+
+            <button
+              type="button"
+              onClick={handleResetAccount}
+              disabled={isResettingAccount}
+              className="w-full rounded-2xl border border-rose-200/15 bg-rose-500/[0.08] px-4 py-3 text-left text-rose-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-rose-500/[0.13] disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-black">
+                  {isResettingAccount ? "Resetting account..." : "Reset Account"}
+                </span>
+                <span className="rounded-full border border-rose-200/15 bg-rose-400/[0.10] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-rose-100/76">
+                  TEST
+                </span>
+              </div>
+              <p className="mt-1 text-xs font-semibold leading-5 text-rose-100/58">
+                Return this account to the onboarding journey.
+              </p>
+            </button>
+
+            {resetError && (
+              <p className="mt-3 rounded-2xl border border-rose-200/15 bg-rose-500/[0.08] px-3 py-2 text-xs font-semibold leading-5 text-rose-100/85">
+                {resetError}
+              </p>
+            )}
           </div>
         </div>
       )}
