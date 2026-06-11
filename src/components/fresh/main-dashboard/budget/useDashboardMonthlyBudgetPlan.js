@@ -374,6 +374,11 @@ export default function useDashboardMonthlyBudgetPlan({
       (sum, item) => sum + firstValidNumber(item?.allocated), 0
     );
     const rawDeclared = firstValidNumber(declaredMonthlyBudgetAmount);
+    const hasActiveBudgetPlan = resolveActivePlan({
+      header: monthlyBudgetHeader,
+      declaredBudget: rawDeclared,
+      fallbackActive: rawDeclared > 0,
+    });
     const protectedBudgetCommitments = buildProtectedBudgetCommitments(budgetProtectionSettings, {
       savingsGoals,
       emergencyFund,
@@ -382,11 +387,6 @@ export default function useDashboardMonthlyBudgetPlan({
     const protectedCommitmentsTotal = hasActiveBudgetPlan || rawDeclared > 0
       ? firstValidNumber(protectedBudgetCommitments.totalProtectedCommitments)
       : 0;
-    const hasActiveBudgetPlan = resolveActivePlan({
-      header: monthlyBudgetHeader,
-      declaredBudget: rawDeclared,
-      fallbackActive: rawDeclared > 0,
-    });
 
     const declared = hasActiveBudgetPlan ? rawDeclared : 0;
     const allocated = rawAllocated + protectedCommitmentsTotal;
