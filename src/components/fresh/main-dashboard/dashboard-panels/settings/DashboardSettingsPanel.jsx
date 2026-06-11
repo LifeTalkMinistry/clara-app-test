@@ -590,16 +590,14 @@ const nextBillingLabel = billingRecord
 const hasBillingStart = billingStartLabel !== "Not recorded";
 const hasNextBilling = nextBillingLabel !== "Not recorded";
 const hasBillingDates = hasBillingStart || hasNextBilling;
-const shouldShowBillingDates = membershipState.isActiveCommitted && !membershipState.isDeveloperPreview && hasBillingDates;
+const shouldShowBillingDates = membershipState.isActiveCommitted && hasBillingDates;
 const billingDetailsMessage =
   membershipState.membershipStatus === "loading"
     ? "Syncing membership…"
-    : membershipState.isDeveloperPreview
-      ? "Developer preview does not create billing dates or modify your real membership."
-      : membershipState.isActiveCommitted
-        ? billingLoading || !hasBillingDates
-          ? "Billing details are syncing."
-          : ""
+    : membershipState.isActiveCommitted
+      ? billingLoading || !hasBillingDates
+        ? "Billing details are syncing."
+        : ""
       : membershipState.isPendingActivation
         ? billingLoading
           ? "Activation details are syncing."
@@ -766,11 +764,6 @@ const renderPlanPage = () => (
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/65">
           Current membership
         </p>
-        {membershipState.isDeveloperPreview ? (
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100">
-            Developer Preview
-          </span>
-        ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
