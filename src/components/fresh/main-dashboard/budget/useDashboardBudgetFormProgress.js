@@ -31,13 +31,19 @@ export default function useDashboardBudgetFormProgress({
       return sum + firstValidNumber(category?.allocated);
     }, 0);
 
+    const protectedCommitments = firstValidNumber(
+      safeMonthlyBudgetPlan.totalProtectedCommitments,
+      safeMonthlyBudgetPlan.protected_commitments_total,
+      safeMonthlyBudgetPlan.protectedBudgetCommitments?.totalProtectedCommitments
+    );
     const budgetProjectedAllocated = savedAllocated + formCategoryAmount;
+    const budgetProjectedCovered = budgetProjectedAllocated + protectedCommitments;
     const budgetProjectedUnallocated = Math.max(
-      budgetFormDeclaredAmount - budgetProjectedAllocated,
+      budgetFormDeclaredAmount - budgetProjectedCovered,
       0
     );
     const budgetProjectedOverAllocated = Math.max(
-      budgetProjectedAllocated - budgetFormDeclaredAmount,
+      budgetProjectedCovered - budgetFormDeclaredAmount,
       0
     );
     const budgetCanFinish =
@@ -52,7 +58,7 @@ export default function useDashboardBudgetFormProgress({
     } else if (!safeCategories.length && formCategoryAmount <= 0) {
       budgetFinishHelper = "Add at least one budget category before finishing.";
     } else if (budgetProjectedOverAllocated > 0) {
-      budgetFinishHelper = "Your categories are above your declared monthly budget.";
+      budgetFinishHelper = "Your categories and protected commitments are above your declared monthly budget.";
     } else if (budgetProjectedUnallocated > 0) {
       budgetFinishHelper = "Assign the remaining balance before finishing your budget.";
     }
@@ -60,8 +66,10 @@ export default function useDashboardBudgetFormProgress({
     return {
       budgetFormDeclaredAmount,
       budgetProjectedAllocated,
+      budgetProjectedCovered,
       budgetProjectedUnallocated,
       budgetProjectedOverAllocated,
+      protectedCommitments,
       budgetCanFinish,
       budgetFinishHelper,
     };
