@@ -6,7 +6,7 @@ import {
   WALLET_PROVIDERS,
 } from "@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry";
 
-const POPULAR_PROVIDER_KEYS = ["gcash", "maya_wallet", "cash", "bdo", "bpi"];
+const POPULAR_PROVIDER_KEYS = ["custom", "gcash", "maya_wallet", "cash", "bdo"];
 const STEPS = {
   choose_wallet: ["Where will your money live?", "Choose the wallet, bank, or money container you want to track."],
   custom_name: ["Name your custom wallet", "Give this wallet a name you’ll recognize later."],
