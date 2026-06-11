@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer";
 import GuidedWalletCreationModal from "@/components/fresh/main-dashboard/dashboard-primitives/GuidedWalletCreationModal";
@@ -49,11 +49,6 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
 
   const createWalletOpen = financeModal?.type === "create_wallet";
   const formatMoney = useCallback((value) => (typeof fmt === "function" ? fmt(value) : formatFallbackMoney(value)), [fmt]);
-
-  const selectedIncomeSource = useMemo(
-    () => incomeSources.find((source) => String(source.id) === String(financeForm.incomeSourceId || "")) || null,
-    [financeForm.incomeSourceId, incomeSources]
-  );
 
   const loadIncomeSources = useCallback(async () => {
     if (!createWalletOpen) return;
