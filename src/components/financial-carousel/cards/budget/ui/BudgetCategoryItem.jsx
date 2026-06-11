@@ -16,6 +16,9 @@ export default function BudgetCategoryItem({
   onEditBudgetCategory,
   onDeleteBudgetCategory,
 }) {
+  const isProtected =
+    item?.isProtectedCommitment === true ||
+    item?.is_protected_commitment === true;
   const categoryAllocated = safeNumber(item.allocated ?? item.allocated_amount);
   const categorySpent = safeNumber(item.spent ?? item.spent_amount);
   const categoryRemaining = Math.max(categoryAllocated - categorySpent, 0);
@@ -34,30 +37,40 @@ export default function BudgetCategoryItem({
             {item.title}
           </p>
           <p className="mt-1 text-[12px] font-semibold leading-relaxed text-white/66">
-            {fmt(categorySpent)} spent • {fmt(categoryRemaining)} left
+            {isProtected
+              ? `${fmt(categoryAllocated)} reserved • protected first`
+              : `${fmt(categorySpent)} spent • ${fmt(categoryRemaining)} left`}
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => onEditBudgetCategory?.(item)}
-            disabled={financeActionLoading}
-            className={`${softButton} flex h-8 w-8 items-center justify-center`}
-            aria-label={`Edit ${item.title}`}
-          >
-            <Edit3 className="h-3.5 w-3.5" />
-          </button>
+          {isProtected ? (
+            <span className="rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black text-emerald-100">
+              Protected
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => onEditBudgetCategory?.(item)}
+                disabled={financeActionLoading}
+                className={`${softButton} flex h-8 w-8 items-center justify-center`}
+                aria-label={`Edit ${item.title}`}
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+              </button>
 
-          <button
-            type="button"
-            onClick={() => onDeleteBudgetCategory?.(item)}
-            disabled={financeActionLoading}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/[0.14] bg-rose-400/[0.075] text-rose-100/78 transition hover:border-rose-200/24 hover:bg-rose-400/[0.13] hover:text-rose-50 disabled:opacity-50"
-            aria-label={`Delete ${item.title}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+              <button
+                type="button"
+                onClick={() => onDeleteBudgetCategory?.(item)}
+                disabled={financeActionLoading}
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/[0.14] bg-rose-400/[0.075] text-rose-100/78 transition hover:border-rose-200/24 hover:bg-rose-400/[0.13] hover:text-rose-50 disabled:opacity-50"
+                aria-label={`Delete ${item.title}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
