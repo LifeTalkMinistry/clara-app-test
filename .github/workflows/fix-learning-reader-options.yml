@@ -1,0 +1,118 @@
+name: One-time Learning Reader Options Placement Fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/fix-learning-reader-options.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-reader-options:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Patch reader options button placement
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          modal_path = Path("src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx")
+          css_path = Path("src/index.css")
+          workflow_path = Path(".github/workflows/fix-learning-reader-options.yml")
+
+          modal_text = modal_path.read_text()
+
+          old_class = 'className="absolute inset-x-0 z-30 mx-auto flex h-11 min-h-11 w-11 min-w-11 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"'
+          new_class = 'className="absolute z-30 flex h-11 min-h-11 w-11 min-w-11 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"'
+
+          old_style = '''style={{
+  top: "max(0.75rem, env(safe-area-inset-top))",
+  left: 0,
+  right: 0,
+  marginInline: "auto",
+  transform: "none",
+}}'''
+          new_style = '''style={{
+  top: "max(0.75rem, env(safe-area-inset-top))",
+  right: "max(0.85rem, env(safe-area-inset-right))",
+  left: "auto",
+  marginInline: 0,
+  opacity: 0.5,
+  transform: "none",
+}}'''
+
+          if old_class not in modal_text:
+              raise SystemExit("Expected reader options button className was not found.")
+          if old_style not in modal_text:
+              raise SystemExit("Expected reader options button inline style was not found.")
+
+          modal_text = modal_text.replace(old_class, new_class, 1)
+          modal_text = modal_text.replace(old_style, new_style, 1)
+          modal_path.write_text(modal_text)
+
+          css_text = css_path.read_text()
+          old_override = '''
+/* CLARA Learning Hub PDF reader: keep the top options button quiet and away from the reading center. */
+#root button[aria-label="Open reader options"][aria-controls="clara-reader-options"] {
+  inset-inline-start: auto !important;
+  inset-inline-end: max(0.85rem, env(safe-area-inset-right)) !important;
+  left: auto !important;
+  right: max(0.85rem, env(safe-area-inset-right)) !important;
+  margin-inline: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  opacity: 0.5 !important;
+  transform: none !important;
+}
+'''
+
+          if old_override not in css_text:
+              raise SystemExit("Expected temporary reader options CSS override was not found.")
+
+          css_text = css_text.replace(old_override, "\n", 1).rstrip() + "\n"
+          css_path.write_text(css_text)
+
+          workflow_path.unlink()
+          PY
+
+      - name: Verify patch
+        run: |
+          modal="src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx"
+          css="src/index.css"
+
+          if grep -Fq 'className="absolute inset-x-0 z-30 mx-auto flex h-11' "$modal"; then
+            echo "Center-forcing className still exists."
+            exit 1
+          fi
+
+          if grep -Fq 'marginInline: "auto"' "$modal"; then
+            echo "Center-forcing inline margin still exists."
+            exit 1
+          fi
+
+          if grep -Fq 'button[aria-label="Open reader options"][aria-controls="clara-reader-options"]' "$css"; then
+            echo "Temporary global CSS override still exists."
+            exit 1
+          fi
+
+          grep -Fq 'right: "max(0.85rem, env(safe-area-inset-right))"' "$modal"
+          grep -Fq 'opacity: 0.5' "$modal"
+
+      - name: Commit patched files
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/learning-hub/modal/LearningMaterialModal.jsx src/index.css .github/workflows/fix-learning-reader-options.yml
+          git commit -m "Fix learning reader options button placement"
+          git push
