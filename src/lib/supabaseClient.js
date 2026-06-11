@@ -5,7 +5,7 @@ export const supabaseAnonKey = import.meta.env["VITE_SUPABASE_" + "ANON_KEY"] ||
 
 export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey);
 
-const REMOTE_TABLE_ALLOWLIST = new Set(["profiles"]);
+const REMOTE_TABLE_ALLOWLIST = new Set(["profiles", "plans", "enrollments"]);
 
 let supabaseInstance = null;
 
