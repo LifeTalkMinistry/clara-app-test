@@ -77,49 +77,61 @@ function getEmergencyActivityLog(emergencyFund) {
 
 function getSavedEmergencyAmount(emergencyFund) {
   return toNumber(
-    firstValue(emergencyFund, [
-      "protectedBalance",
-      "protected_balance",
-      "reserveBalance",
-      "reserve_balance",
-      "savedAmount",
-      "saved_amount",
-      "currentAmount",
-      "current_amount",
-      "amount",
-      "balance",
-      "moneyLeft",
-    ], 0)
+    firstValue(
+      emergencyFund,
+      [
+        "protectedBalance",
+        "protected_balance",
+        "reserveBalance",
+        "reserve_balance",
+        "savedAmount",
+        "saved_amount",
+        "currentAmount",
+        "current_amount",
+        "amount",
+        "balance",
+        "moneyLeft",
+      ],
+      0
+    )
   );
 }
 
 function getLinkedWalletId(emergencyFund) {
   return String(
-    firstValue(emergencyFund, [
-      "linkedWalletId",
-      "linked_wallet_id",
-      "reserveWalletId",
-      "reserve_wallet_id",
-      "sourceWalletId",
-      "source_wallet_id",
-      "walletId",
-      "wallet_id",
-    ], "") || ""
+    firstValue(
+      emergencyFund,
+      [
+        "linkedWalletId",
+        "linked_wallet_id",
+        "reserveWalletId",
+        "reserve_wallet_id",
+        "sourceWalletId",
+        "source_wallet_id",
+        "walletId",
+        "wallet_id",
+      ],
+      ""
+    ) || ""
   ).trim();
 }
 
 function getLinkedWalletName(emergencyFund) {
   return String(
-    firstValue(emergencyFund, [
-      "linkedWalletName",
-      "linked_wallet_name",
-      "reserveWalletName",
-      "reserve_wallet_name",
-      "sourceWalletName",
-      "source_wallet_name",
-      "walletName",
-      "wallet_name",
-    ], "") || ""
+    firstValue(
+      emergencyFund,
+      [
+        "linkedWalletName",
+        "linked_wallet_name",
+        "reserveWalletName",
+        "reserve_wallet_name",
+        "sourceWalletName",
+        "source_wallet_name",
+        "walletName",
+        "wallet_name",
+      ],
+      ""
+    ) || ""
   ).trim();
 }
 
@@ -229,7 +241,14 @@ function buildEmergencyAdvisor({ incomeRows = [], effectiveExpense = 0, amountNe
     estimatedMonthsToTarget: recommendedMonthlyAmount > 0 && amountNeeded > 0 ? Math.ceil(amountNeeded / recommendedMonthlyAmount) : 0,
     selectedTargetMonths: targetMonths,
     hasIncomeSignal: averageMonthlyIncome > 0 && count > 0,
-    tone: stability === "stable" ? "Your income pattern looks stable enough for a consistent protection pace." : stability === "mixed" ? "Your income pattern moves a bit, so CLARA is keeping this pace flexible." : stability === "irregular" ? "Your income changes often, so CLARA is choosing a gentler protection pace." : "CLARA needs more income history before giving a precise pace.",
+    tone:
+      stability === "stable"
+        ? "Your income pattern looks stable enough for a consistent protection pace."
+        : stability === "mixed"
+          ? "Your income pattern moves a bit, so CLARA is keeping this pace flexible."
+          : stability === "irregular"
+            ? "Your income changes often, so CLARA is choosing a gentler protection pace."
+            : "CLARA needs more income history before giving a precise pace.",
   };
 }
 
@@ -299,7 +318,18 @@ export default function useEmergencyFundCard({
   const linkedWalletNameFromFund = getLinkedWalletName(emergencyFund);
   const storedSavedAmount = getSavedEmergencyAmount(emergencyFund);
   const emergencyTargetMonths = toNumber(firstValue(emergencyFund, ["targetMonths", "target_months", "months_target"], 3)) || 3;
-  const emergencySurvivalExpense = toNumber(firstValue(emergencyFund, ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"], survivalExpense));
+  const hasEmergencyFundReset = Boolean(emergencyFund?.resetAt || emergencyFund?.reset_at);
+  const survivalExpenseValueFromFund = firstValue(
+    emergencyFund,
+    ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense", "monthly_survival_expense"],
+    undefined
+  );
+  const hasEmergencySurvivalExpense = survivalExpenseValueFromFund !== undefined && survivalExpenseValueFromFund !== null && survivalExpenseValueFromFund !== "";
+  const emergencySurvivalExpense = hasEmergencyFundReset
+    ? 0
+    : hasEmergencySurvivalExpense
+      ? toNumber(survivalExpenseValueFromFund)
+      : toNumber(survivalExpense);
   const emergencyWallpaper = firstValue(emergencyFund, ["wallpaper", "background", "image"], "") || "";
   const emergencyWallpaperOpacity = clampOpacity(firstValue(emergencyFund, ["wallpaperOpacity", "wallpaper_opacity", "backgroundOpacity"], 0.3));
 
@@ -352,7 +382,7 @@ export default function useEmergencyFundCard({
     if (orbTapTimeoutRef.current) window.clearTimeout(orbTapTimeoutRef.current);
   }, []);
 
-  const effectiveExpense = emergencySurvivalExpense || toNumber(survivalExpense);
+  const effectiveExpense = hasEmergencyFundReset ? 0 : emergencySurvivalExpense;
   const safeMoneyLeft = effectiveSavedAmount;
   const target = useMemo(() => (sourceWalletMissing ? 0 : effectiveExpense * targetMonths), [effectiveExpense, targetMonths, sourceWalletMissing]);
   const months = useMemo(() => (sourceWalletMissing || effectiveExpense <= 0 ? 0 : safeMoneyLeft / effectiveExpense), [safeMoneyLeft, effectiveExpense, sourceWalletMissing]);
@@ -423,7 +453,21 @@ export default function useEmergencyFundCard({
     setEditing(false);
     setShowModal(false);
     hasPrompted.current = true;
-    await persistEmergencyFund({ survivalExpense: num, survival_expense: num, monthlyExpense: num, monthly_expense: num, targetAmount: nextTarget, target_amount: nextTarget, target: nextTarget });
+    await persistEmergencyFund({
+      survivalExpense: num,
+      survival_expense: num,
+      monthlyExpense: num,
+      monthly_expense: num,
+      monthly_survival_expense: num,
+      targetAmount: nextTarget,
+      target_amount: nextTarget,
+      target: nextTarget,
+      targetMonths,
+      target_months: targetMonths,
+      months_target: targetMonths,
+      resetAt: null,
+      reset_at: null,
+    });
     onSurvivalSaved?.(num);
   };
 
