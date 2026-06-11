@@ -182,27 +182,87 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
     window.dispatchEvent(
       new CustomEvent("clara:open-ai-chat", {
         detail: {
+          source: "income-hub-card",
           prompt,
-          source: "investment-card",
-          ...extra,
+          incomeHubContext: {
+            sourceCount: readiness.sourceCount,
+            totalMoneyIn: readiness.totalGenerated,
+            totalMoneyOut: readiness.totalOut,
+            netIncome: readiness.netGenerated,
+            topSourceName: readiness.topSourceName,
+            topSourceAmount: readiness.topSourceAmount,
+            mainSourceShare: readiness.mainSourceShare,
+            sources: incomeSources,
+            ...extra,
+          },
         },
       })
     );
   };
 
+  const handlePlanInvestment = () => {
+    dispatchInvestmentPrompt(
+      `Review my Income Hub as a behavioral money coach. I have ${readiness.sourceCount} tracked income sources. Income Hub money in is ${fmt(readiness.totalGenerated)}, money out is ${fmt(readiness.totalOut)}, and net is ${fmt(readiness.netGenerated)}. My top source is ${readiness.topSourceName}. Help me understand income dependency and what source I should protect or grow next.`,
+      { action: "review_income_hub" }
+    );
+  };
+
+  const handleAskClara = () => {
+    dispatchInvestmentPrompt(
+      `Help me understand where my money comes from based only on my Income Hub sources. Check whether I depend too much on one source and what I should track next.`,
+      { action: "ask_income_hub" }
+    );
+  };
+
+  const handleToggleDetails = () => {
+    if (isControlled) {
+      onToggleDetails?.();
+      return;
+    }
+
+    setLocalExpanded((value) => !value);
+  };
+
   return {
-    isExpanded,
-    setLocalExpanded,
-    tone,
-    title,
-    subtitle,
-    statusMeta,
-    readiness,
-    readinessProgress,
-    selectedType,
-    safeToInvest,
-    safeRangeMin,
-    amountStatus,
-    dispatchInvestmentPrompt,
+    state: {
+      investmentType: "income_hub",
+      plannedAmount: "",
+      riskLevel: "",
+      timeHorizon: "",
+      isExpanded,
+    },
+    computed: {
+      tone,
+      title,
+      subtitle,
+      statusLabel: data.statusLabel || statusMeta.badge,
+      mainLabel: data.mainLabel || statusMeta.mainLabel,
+      description: statusMeta.description,
+      readinessProgress,
+      canSafelyInvest: true,
+      safeToInvest,
+      safeRangeMin,
+      selectedType,
+      amountStatus,
+      statOneLabel: data.statOneLabel || "Money in",
+      statOneValue: data.statOneValue || fmt(readiness.totalGenerated),
+      statTwoLabel: data.statTwoLabel || "Top source",
+      statTwoValue: data.statTwoValue || (readiness.sourceCount > 0 ? readiness.topSourceName : "None"),
+      statThreeLabel: data.statThreeLabel || "Status",
+      statThreeValue: data.statThreeValue || statusMeta.statusValue,
+      readinessStatus: readiness.readinessStatus,
+      statusMeta,
+      readiness,
+      incomeSources,
+    },
+    handlers: {
+      setInvestmentType: () => {},
+      setPlannedAmount: () => {},
+      setRiskLevel: () => {},
+      setTimeHorizon: () => {},
+      handlePlanInvestment,
+      handleAskClara,
+      handleToggleDetails,
+    },
   };
 }
