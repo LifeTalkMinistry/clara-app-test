@@ -38,6 +38,11 @@ import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile
 
 const FINANCE_INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
+const FINANCE_UPDATE_EVENTS = [
+  "clara-finance-updated",
+  "clara:finance-data-updated",
+  "clara-local-finance-updated",
+];
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -76,8 +81,108 @@ const readFirstText = (source, keys = []) => {
 };
 
 const getEmergencyProtectedAmount = (emergencyFund) => readFirstNumber(emergencyFund, ["protectedBalance", "protected_balance", "reserveBalance", "reserve_balance", "savedAmount", "saved_amount", "currentAmount", "current_amount", "amount", "balance", "moneyLeft"]);
-const getEmergencyLinkedWalletId = (emergencyFund) => readFirstText(emergencyFund, ["linkedWalletId", "linked_wallet_id", "reserveWalletId", "reserve_wallet_id", "sourceWalletId", "source_wallet_id", "walletId", "wallet_id"]);
-const getEmergencyLinkedWalletName = (emergencyFund) => readFirstText(emergencyFund, ["linkedWalletName", "linked_wallet_name", "reserveWalletName", "reserve_wallet_name", "sourceWalletName", "source_wallet_name", "walletName", "wallet_name"]);
+const getEmergencyLinkedWalletId = (emergencyFund) => readFirstText(emergencyFund, ["linkedWalletId", "linked_wallet_id", "reserveWalletId", "reserve_wallet_id", "sourceWalletId", "source_wallet_id", "walletId", "wallet_id", "storageWalletId", "storage_wallet_id"]);
+const getEmergencyLinkedWalletName = (emergencyFund) => readFirstText(emergencyFund, ["linkedWalletName", "linked_wallet_name", "reserveWalletName", "reserve_wallet_name", "sourceWalletName", "source_wallet_name", "walletName", "wallet_name", "storageWalletName", "storage_wallet_name"]);
+
+function isEmergencyFundResetPatch(updates = {}) {
+  return Boolean(updates?.resetAt || updates?.reset_at);
+}
+
+function buildEmergencyFundResetPayload(liveEmergencyFund, now) {
+  return {
+    ...(liveEmergencyFund || {}),
+
+    savedAmount: 0,
+    saved_amount: 0,
+    currentAmount: 0,
+    current_amount: 0,
+    amount: 0,
+    balance: 0,
+    moneyLeft: 0,
+
+    protectedBalance: 0,
+    protected_balance: 0,
+    reserveBalance: 0,
+    reserve_balance: 0,
+
+    targetAmount: 0,
+    target_amount: 0,
+    target: 0,
+    monthlyTarget: 0,
+    monthly_target: 0,
+
+    survivalExpense: 0,
+    survival_expense: 0,
+    monthlyExpense: 0,
+    monthly_expense: 0,
+    monthly_survival_expense: 0,
+
+    targetMonths: 3,
+    target_months: 3,
+    months_target: 3,
+
+    linkedWalletId: null,
+    linked_wallet_id: null,
+    linkedWalletName: null,
+    linked_wallet_name: null,
+
+    reserveWalletId: null,
+    reserve_wallet_id: null,
+    reserveWalletName: null,
+    reserve_wallet_name: null,
+
+    sourceWalletId: null,
+    source_wallet_id: null,
+    sourceWalletName: null,
+    source_wallet_name: null,
+
+    walletId: null,
+    wallet_id: null,
+    walletName: null,
+    wallet_name: null,
+
+    storageWalletId: null,
+    storage_wallet_id: null,
+    storageWalletName: null,
+    storage_wallet_name: null,
+
+    lastTopUpAmount: null,
+    last_top_up_amount: null,
+    lastTopUpWalletId: null,
+    last_top_up_wallet_id: null,
+
+    lastReserveAllocationAt: null,
+    last_reserve_allocation_at: null,
+    lastReserveTransferAt: null,
+    last_reserve_transfer_at: null,
+
+    lastEmergencySpendAmount: null,
+    last_emergency_spend_amount: null,
+    lastEmergencySpendReason: null,
+    last_emergency_spend_reason: null,
+    lastEmergencySpendAt: null,
+    last_emergency_spend_at: null,
+
+    emergencyActivityLog: [],
+    emergency_activity_log: [],
+    activityLog: [],
+    activity_log: [],
+    usageLog: [],
+    usage_log: [],
+
+    resetAt: now,
+    reset_at: now,
+    updatedAt: now,
+    updated_at: now,
+  };
+}
+
+function dispatchFinanceUpdateEvents() {
+  if (typeof window === "undefined") return;
+  FINANCE_UPDATE_EVENTS.forEach((eventName) => {
+    window.dispatchEvent(new CustomEvent(eventName));
+  });
+}
 
 const getWalletIdentity = (wallet) => String(wallet?.id || wallet?.wallet_id || wallet?.walletId || wallet?.local_id || "").trim();
 const getWalletName = (wallet) => String(wallet?.name || wallet?.wallet_name || wallet?.title || wallet?.label || "").trim();
@@ -228,7 +333,7 @@ function useFinancialData(user) {
       financialDataCache = createEmptyFinancialCache();
       setFinanceUserVersion((version) => version + 1);
     };
-    const events = ["clara:demo-data-loaded", "clara:finance-data-updated", "clara-finance-updated", "clara-local-finance-updated", "storage"];
+    const events = ["clara:demo-data-loaded", ...FINANCE_UPDATE_EVENTS, "storage"];
     events.forEach((eventName) => window.addEventListener(eventName, bumpFinanceUser));
     return () => events.forEach((eventName) => window.removeEventListener(eventName, bumpFinanceUser));
   }, []);
@@ -287,7 +392,17 @@ function useFinancialData(user) {
   const addSavingsGoal = useCallback(async (goal) => { const result = await repoUpsertSavingsGoal(localUserId, { ...(goal || {}), deletedAt: null, deleted_at: null }); await refreshData(); return result; }, [localUserId, refreshData]);
   const updateSavingsGoal = useCallback(async (id, updates = {}) => { const result = await repoUpsertSavingsGoal(localUserId, { ...(updates || {}), id, updatedAt: new Date().toISOString() }); await refreshData(); return result; }, [localUserId, refreshData]);
   const deleteSavingsGoal = useCallback(async (id) => { const now = new Date().toISOString(); const result = await repoUpsertSavingsGoal(localUserId, { id, deletedAt: now, deleted_at: now, updatedAt: now, updated_at: now }); await refreshData(); return result; }, [localUserId, refreshData]);
-  const updateEmergencyFund = useCallback(async (updates = {}) => { const result = await repoUpsertEmergencyFund(localUserId, { ...(updates || {}), updatedAt: new Date().toISOString() }); await refreshData(); return result; }, [localUserId, refreshData]);
+  const updateEmergencyFund = useCallback(async (updates = {}) => {
+    const now = new Date().toISOString();
+    const isReset = isEmergencyFundResetPatch(updates);
+    const payload = isReset
+      ? buildEmergencyFundResetPayload({ ...(emergencyFund || {}), ...(updates || {}) }, now)
+      : { ...(updates || {}), updatedAt: now };
+    const result = await repoUpsertEmergencyFund(localUserId, payload);
+    await refreshData();
+    if (isReset) dispatchFinanceUpdateEvents();
+    return result;
+  }, [emergencyFund, localUserId, refreshData]);
 
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeIncomes = Array.isArray(incomes) ? incomes : [];
