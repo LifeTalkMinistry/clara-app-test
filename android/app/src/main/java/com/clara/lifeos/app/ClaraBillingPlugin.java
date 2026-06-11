@@ -33,9 +33,16 @@ import java.util.List;
 public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListener {
 
     private static final String TAG = "ClaraBilling";
+    private static final String TRIAL_PURCHASE_INTENT = "trial_7d";
+    private static final String SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE =
+            "The 7-day trial offer is not available for this Google Play account yet.";
 
     private BillingClient billingClient;
     private PluginCall savedCall;
+    private String pendingOfferToken = "";
+    private String pendingOfferId = "";
+    private String pendingBasePlanId = "";
+    private boolean pendingTrialOffer = false;
 
     private String normalizeProductType(String value) {
         if (value == null) return BillingClient.ProductType.INAPP;
@@ -63,6 +70,15 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         }
     }
 
+    private boolean isPackageInstalled(String packageName) {
+        try {
+            getContext().getPackageManager().getPackageInfo(packageName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
+            return false;
+        }
+    }
+
     private void addDeviceDiagnostics(JSObject ret) {
         String installer = getInstallerPackageName();
         ret.put("packageName", getContext().getPackageName());
@@ -72,7 +88,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         ret.put("isGooglePlayServicesAvailable", isPackageInstalled("com.google.android.gms"));
         ret.put("billingReady", billingClient != null && billingClient.isReady());
         ret.put("billingBridge", "ClaraBillingPlugin");
-        ret.put("pluginVersion", "2026.04.billing-v3-product-details");
+        ret.put("pluginVersion", "2026.06.billing-v4-trial-offer-token");
     }
 
     private void addFeatureDiagnostics(JSObject ret) {
@@ -96,20 +112,97 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         ret.put("subscriptionsSupportMessage", subscriptionsSupport.getDebugMessage());
     }
 
-    private boolean hasPurchasableSubscriptionOffer(ProductDetails productDetails) {
-        return productDetails.getSubscriptionOfferDetails() != null
-                && !productDetails.getSubscriptionOfferDetails().isEmpty()
-                && productDetails.getSubscriptionOfferDetails().get(0).getOfferToken() != null
-                && !productDetails.getSubscriptionOfferDetails().get(0).getOfferToken().trim().isEmpty();
+    private ProductDetails.SubscriptionOfferDetails firstPurchasableSubscriptionOffer(ProductDetails productDetails) {
+        if (productDetails.getSubscriptionOfferDetails() == null) return null;
+        for (ProductDetails.SubscriptionOfferDetails offer : productDetails.getSubscriptionOfferDetails()) {
+            String token = offer.getOfferToken();
+            if (token != null && !token.trim().isEmpty()) return offer;
+        }
+        return null;
     }
 
-    private boolean isPackageInstalled(String packageName) {
-        try {
-            getContext().getPackageManager().getPackageInfo(packageName, 0);
-            return true;
-        } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
+    private boolean isSevenDayFreeTrialPhase(ProductDetails.PricingPhase phase) {
+        return phase != null
+                && phase.getPriceAmountMicros() == 0
+                && "P7D".equalsIgnoreCase(phase.getBillingPeriod());
+    }
+
+    private boolean offerHasSevenDayFreeTrial(ProductDetails.SubscriptionOfferDetails offer) {
+        if (offer == null || offer.getPricingPhases() == null
+                || offer.getPricingPhases().getPricingPhaseList() == null) {
             return false;
         }
+
+        for (ProductDetails.PricingPhase phase : offer.getPricingPhases().getPricingPhaseList()) {
+            if (isSevenDayFreeTrialPhase(phase)) return true;
+        }
+
+        return false;
+    }
+
+    private ProductDetails.SubscriptionOfferDetails selectSubscriptionOffer(
+            ProductDetails productDetails,
+            boolean requireSevenDayTrial
+    ) {
+        if (productDetails.getSubscriptionOfferDetails() == null
+                || productDetails.getSubscriptionOfferDetails().isEmpty()) {
+            return null;
+        }
+
+        if (requireSevenDayTrial) {
+            for (ProductDetails.SubscriptionOfferDetails offer : productDetails.getSubscriptionOfferDetails()) {
+                String token = offer.getOfferToken();
+                if (token != null && !token.trim().isEmpty() && offerHasSevenDayFreeTrial(offer)) {
+                    return offer;
+                }
+            }
+            return null;
+        }
+
+        return firstPurchasableSubscriptionOffer(productDetails);
+    }
+
+    private void rememberSelectedOffer(ProductDetails.SubscriptionOfferDetails offer, boolean isTrialOffer) {
+        pendingOfferToken = offer != null && offer.getOfferToken() != null ? offer.getOfferToken() : "";
+        pendingOfferId = offer != null && offer.getOfferId() != null ? offer.getOfferId() : "";
+        pendingBasePlanId = offer != null && offer.getBasePlanId() != null ? offer.getBasePlanId() : "";
+        pendingTrialOffer = isTrialOffer;
+    }
+
+    private void resetPendingOffer() {
+        pendingOfferToken = "";
+        pendingOfferId = "";
+        pendingBasePlanId = "";
+        pendingTrialOffer = false;
+    }
+
+    private JSObject serializePricingPhase(ProductDetails.PricingPhase phase) {
+        JSObject item = new JSObject();
+        item.put("formattedPrice", phase.getFormattedPrice());
+        item.put("priceCurrencyCode", phase.getPriceCurrencyCode());
+        item.put("priceAmountMicros", phase.getPriceAmountMicros());
+        item.put("billingPeriod", phase.getBillingPeriod());
+        item.put("recurrenceMode", phase.getRecurrenceMode());
+        item.put("billingCycleCount", phase.getBillingCycleCount());
+        item.put("isSevenDayFreeTrial", isSevenDayFreeTrialPhase(phase));
+        return item;
+    }
+
+    private JSObject serializeSubscriptionOffer(ProductDetails.SubscriptionOfferDetails offer) {
+        JSObject offerDetail = new JSObject();
+        offerDetail.put("basePlanId", offer.getBasePlanId());
+        offerDetail.put("offerId", offer.getOfferId() != null ? offer.getOfferId() : "");
+        offerDetail.put("offerToken", offer.getOfferToken());
+        offerDetail.put("hasSevenDayFreeTrial", offerHasSevenDayFreeTrial(offer));
+
+        JSArray phases = new JSArray();
+        if (offer.getPricingPhases() != null && offer.getPricingPhases().getPricingPhaseList() != null) {
+            for (ProductDetails.PricingPhase phase : offer.getPricingPhases().getPricingPhaseList()) {
+                phases.put(serializePricingPhase(phase));
+            }
+        }
+        offerDetail.put("pricingPhases", phases);
+        return offerDetail;
     }
 
     @Override
@@ -168,14 +261,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
             @Override
             public void onBillingServiceDisconnected() {
-                JSObject ret = new JSObject();
-                ret.put("ok", false);
-                ret.put("responseCode", -1);
-                ret.put("debugMessage", "Billing disconnected");
-                addDeviceDiagnostics(ret);
-                addFeatureDiagnostics(ret);
                 Log.w(TAG, "billing service disconnected");
-                call.resolve(ret);
             }
         });
     }
@@ -239,9 +325,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                     String productType = fallbackProductType;
                     if (productTypes != null) {
                         Object mappedType = productTypes.opt(id.trim());
-                        if (mappedType != null) {
-                            productType = normalizeProductType(String.valueOf(mappedType));
-                        }
+                        if (mappedType != null) productType = normalizeProductType(String.valueOf(mappedType));
                     }
                     queryLog.add(id.trim() + ":" + productType);
                     productList.add(
@@ -267,8 +351,6 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 .build();
 
         Log.d(TAG, "queryProducts start " + queryLog);
-        // If these come back unfetched, check Play Console product activation, Play test track install,
-        // tester access, and whether each subscription has a valid base plan/offer for this account.
         billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
             JSObject ret = new JSObject();
             ret.put("ok", billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK);
@@ -296,18 +378,30 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                     detail.put("description", pd.getDescription());
 
                     if (pd.getSubscriptionOfferDetails() != null && !pd.getSubscriptionOfferDetails().isEmpty()) {
-                        ProductDetails.SubscriptionOfferDetails offer = pd.getSubscriptionOfferDetails().get(0);
-                        if (offer.getPricingPhases() != null
-                                && offer.getPricingPhases().getPricingPhaseList() != null
-                                && !offer.getPricingPhases().getPricingPhaseList().isEmpty()) {
-                            ProductDetails.PricingPhase phase = offer.getPricingPhases().getPricingPhaseList().get(0);
+                        JSArray offerDetails = new JSArray();
+                        boolean hasSevenDayTrial = false;
+                        for (ProductDetails.SubscriptionOfferDetails offer : pd.getSubscriptionOfferDetails()) {
+                            if (offerHasSevenDayFreeTrial(offer)) hasSevenDayTrial = true;
+                            offerDetails.put(serializeSubscriptionOffer(offer));
+                        }
+
+                        ProductDetails.SubscriptionOfferDetails firstOffer = firstPurchasableSubscriptionOffer(pd);
+                        if (firstOffer != null
+                                && firstOffer.getPricingPhases() != null
+                                && firstOffer.getPricingPhases().getPricingPhaseList() != null
+                                && !firstOffer.getPricingPhases().getPricingPhaseList().isEmpty()) {
+                            ProductDetails.PricingPhase phase = firstOffer.getPricingPhases().getPricingPhaseList().get(0);
                             detail.put("formattedPrice", phase.getFormattedPrice());
                             detail.put("priceCurrencyCode", phase.getPriceCurrencyCode());
                             detail.put("billingPeriod", phase.getBillingPeriod());
                         }
-                        detail.put("basePlanId", offer.getBasePlanId());
-                        detail.put("offerToken", offer.getOfferToken());
+
+                        detail.put("basePlanId", firstOffer != null ? firstOffer.getBasePlanId() : "");
+                        detail.put("offerToken", firstOffer != null ? firstOffer.getOfferToken() : "");
+                        detail.put("offerId", firstOffer != null && firstOffer.getOfferId() != null ? firstOffer.getOfferId() : "");
                         detail.put("offerCount", pd.getSubscriptionOfferDetails().size());
+                        detail.put("hasSevenDayTrialOffer", hasSevenDayTrial);
+                        detail.put("subscriptionOfferDetails", offerDetails);
                     } else if (BillingClient.ProductType.SUBS.equals(pd.getProductType())) {
                         JSObject item = new JSObject();
                         item.put("productId", pd.getProductId());
@@ -350,9 +444,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                     String productType = fallbackProductType;
                     if (productTypes != null) {
                         Object mappedType = productTypes.opt(id.trim());
-                        if (mappedType != null) {
-                            productType = normalizeProductType(String.valueOf(mappedType));
-                        }
+                        if (mappedType != null) productType = normalizeProductType(String.valueOf(mappedType));
                     }
                     queriedTypes.put(id, productType);
 
@@ -365,9 +457,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                         }
                     }
 
-                    if (!exists) {
-                        missing.put(id);
-                    }
+                    if (!exists) missing.put(id);
                 }
             } catch (JSONException ignored) {
             }
@@ -435,6 +525,14 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
         String productId = call.getString("productId");
         String productType = normalizeProductType(call.getString("productType"));
+        String purchaseIntent = call.getString("purchaseIntent", "");
+        Boolean requireTrialFlag = call.getBoolean("requireFreeTrialOffer", false);
+        Integer trialDaysValue = call.getInt("trialDays", 0);
+        int trialDays = trialDaysValue != null ? trialDaysValue : 0;
+        boolean requireSevenDayTrial = Boolean.TRUE.equals(requireTrialFlag)
+                || TRIAL_PURCHASE_INTENT.equals(purchaseIntent)
+                || trialDays == 7;
+
         if (productId == null || productId.trim().isEmpty()) {
             call.reject("Missing productId");
             return;
@@ -455,6 +553,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         }
 
         savedCall = call;
+        resetPendingOffer();
 
         List<QueryProductDetailsParams.Product> productList = new ArrayList<>();
         productList.add(
@@ -468,7 +567,10 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 .setProductList(productList)
                 .build();
 
-        Log.d(TAG, "purchase query start productId=" + productId.trim() + " type=" + productType);
+        Log.d(TAG, "purchase query start productId=" + productId.trim()
+                + " type=" + productType
+                + " purchaseIntent=" + purchaseIntent
+                + " requireSevenDayTrial=" + requireSevenDayTrial);
         billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
             if (savedCall == null) return;
 
@@ -477,6 +579,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                         + " message=" + billingResult.getDebugMessage());
                 savedCall.reject("Query failed: " + billingResult.getDebugMessage(), String.valueOf(billingResult.getResponseCode()));
                 savedCall = null;
+                resetPendingOffer();
                 return;
             }
 
@@ -495,6 +598,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                         + productId.trim() + " type=" + productType);
                 savedCall.reject("Product not found: " + productId.trim(), String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE));
                 savedCall = null;
+                resetPendingOffer();
                 return;
             }
 
@@ -512,19 +616,31 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                             .setProductDetails(productDetails);
 
             if (BillingClient.ProductType.SUBS.equals(productType)) {
-                if (!hasPurchasableSubscriptionOffer(productDetails)) {
-                    savedCall.reject(
-                            "Subscription has no eligible base plan/offer for this user: " + productId.trim(),
-                            String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE)
-                    );
-                    Log.w(TAG, "purchase blocked: subscription has no eligible offer productId="
-                            + productId.trim());
+                ProductDetails.SubscriptionOfferDetails selectedOffer =
+                        selectSubscriptionOffer(productDetails, requireSevenDayTrial);
+
+                if (selectedOffer == null) {
+                    String message = requireSevenDayTrial
+                            ? SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE
+                            : "Subscription has no eligible base plan/offer for this user: " + productId.trim();
+                    savedCall.reject(message, String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE));
+                    Log.w(TAG, "purchase blocked: " + message + " productId=" + productId.trim());
                     savedCall = null;
+                    resetPendingOffer();
                     return;
                 }
-                detailsBuilder.setOfferToken(
-                        productDetails.getSubscriptionOfferDetails().get(0).getOfferToken()
-                );
+
+                boolean selectedTrialOffer = offerHasSevenDayFreeTrial(selectedOffer);
+                if (requireSevenDayTrial && !selectedTrialOffer) {
+                    savedCall.reject(SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE, String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE));
+                    Log.w(TAG, "purchase blocked: selected offer is not a free P7D trial productId=" + productId.trim());
+                    savedCall = null;
+                    resetPendingOffer();
+                    return;
+                }
+
+                rememberSelectedOffer(selectedOffer, selectedTrialOffer);
+                detailsBuilder.setOfferToken(selectedOffer.getOfferToken());
             }
 
             paramsList.add(detailsBuilder.build());
@@ -537,6 +653,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             if (activity == null) {
                 savedCall.reject("Activity is not available.");
                 savedCall = null;
+                resetPendingOffer();
                 return;
             }
 
@@ -546,8 +663,12 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                         + " message=" + launchResult.getDebugMessage());
                 savedCall.reject("Launch failed: " + launchResult.getDebugMessage(), String.valueOf(launchResult.getResponseCode()));
                 savedCall = null;
+                resetPendingOffer();
             } else {
-                Log.d(TAG, "launchBillingFlow started productId=" + productId.trim());
+                Log.d(TAG, "launchBillingFlow started productId=" + productId.trim()
+                        + " basePlanId=" + pendingBasePlanId
+                        + " offerId=" + pendingOfferId
+                        + " trialOffer=" + pendingTrialOffer);
             }
         });
     }
@@ -580,9 +701,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             try {
                 for (int i = 0; i < productIdsArray.length(); i++) {
                     String id = productIdsArray.getString(i);
-                    if (id != null && !id.trim().isEmpty()) {
-                        targetIds.add(id.trim());
-                    }
+                    if (id != null && !id.trim().isEmpty()) targetIds.add(id.trim());
                 }
             } catch (JSONException e) {
                 call.reject("Invalid productIds");
@@ -624,15 +743,11 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && list != null) {
                 for (Purchase purchase : list) {
                     List<String> products = purchase.getProducts();
-                    if (!shouldIncludePurchase(productType, productTypes, targetIds, products)) {
-                        continue;
-                    }
+                    if (!shouldIncludePurchase(productType, productTypes, targetIds, products)) continue;
 
                     JSObject item = new JSObject();
                     JSArray productIds = new JSArray();
-                    for (String product : products) {
-                        productIds.put(product);
-                    }
+                    for (String product : products) productIds.put(product);
                     item.put("productIds", productIds);
                     item.put("productId", products != null && !products.isEmpty() ? products.get(0) : "");
                     item.put("purchaseToken", purchase.getPurchaseToken());
@@ -652,19 +767,12 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             List<String> targetIds,
             List<String> products
     ) {
-        if (products == null || products.isEmpty()) {
-            return false;
-        }
-
-        if (targetIds == null || targetIds.isEmpty()) {
-            return true;
-        }
+        if (products == null || products.isEmpty()) return false;
+        if (targetIds == null || targetIds.isEmpty()) return true;
 
         for (String product : products) {
             if (targetIds.contains(product)) {
-                if (productTypes == null) {
-                    return true;
-                }
+                if (productTypes == null) return true;
                 Object mappedType = productTypes.opt(product);
                 return mappedType == null || normalizeProductType(String.valueOf(mappedType)).equals(productType);
             }
@@ -680,6 +788,10 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         JSObject ret = new JSObject();
         ret.put("responseCode", billingResult.getResponseCode());
         ret.put("debugMessage", billingResult.getDebugMessage());
+        ret.put("basePlanId", pendingBasePlanId);
+        ret.put("offerId", pendingOfferId);
+        ret.put("offerToken", pendingOfferToken);
+        ret.put("trialOffer", pendingTrialOffer);
 
         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
                 && purchases != null
@@ -687,9 +799,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
             Purchase purchase = purchases.get(0);
             JSArray productIds = new JSArray();
-            for (String product : purchase.getProducts()) {
-                productIds.put(product);
-            }
+            for (String product : purchase.getProducts()) productIds.put(product);
             ret.put("ok", true);
             ret.put("cancelled", false);
             ret.put("productIds", productIds);
@@ -713,5 +823,6 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         }
 
         savedCall = null;
+        resetPendingOffer();
     }
 }

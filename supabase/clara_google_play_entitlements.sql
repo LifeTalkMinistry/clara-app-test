@@ -2,13 +2,21 @@ create extension if not exists pgcrypto;
 
 alter table if exists public.profiles
   add column if not exists tier_type text,
+  add column if not exists plan_key text,
+  add column if not exists subscription_plan text,
   add column if not exists access_level text default 'free',
   add column if not exists purchase_source text,
+  add column if not exists enrollment_source text,
   add column if not exists access_source text,
   add column if not exists admin_plan_override boolean not null default false,
   add column if not exists subscription_status text default 'free',
+  add column if not exists subscription_expires_at timestamptz,
+  add column if not exists trial_started_at timestamptz,
+  add column if not exists trial_ends_at timestamptz,
   add column if not exists play_product_id text,
   add column if not exists play_purchase_token text,
+  add column if not exists recommended_access_level text,
+  add column if not exists onboarding_answers jsonb,
   add column if not exists program_started_at timestamptz,
   add column if not exists program_ends_at timestamptz,
   add column if not exists program_completed_at timestamptz,
@@ -43,6 +51,7 @@ alter table if exists public.enrollments
   add column if not exists last_billing_sync_at timestamptz;
 
 alter table if exists public.plans
+  add column if not exists access_config jsonb,
   add column if not exists product_id text,
   add column if not exists billing_type text;
 
@@ -113,23 +122,33 @@ create or replace function public.clara_product_plan(product_id text)
 returns text
 language sql
 immutable
-as $
+as $$
   select case
-    when product_id in ('clara_commitment_249','clara_pro_99','clara_core_199','clara_lifeos_499','pro_99','core_199','lifeos_499','core_599','coaching_1299') then 'committed_249'
+    when product_id in (
+      'clara_commitment_249',
+      'clara_pro_99',
+      'clara_core_199',
+      'clara_lifeos_499',
+      'pro_99',
+      'core_199',
+      'lifeos_499',
+      'core_599',
+      'coaching_1299'
+    ) then 'committed_249'
     else null
   end
-$;
+$$;
 
 create or replace function public.clara_product_tier(product_id text)
 returns text
 language sql
 immutable
-as $
+as $$
   select case
     when public.clara_product_plan(product_id) = 'committed_249' then 'clara_commitment'
     else null
   end
-$;
+$$;
 
 create or replace function public.process_google_play_purchase(
   p_user_id uuid,
@@ -143,7 +162,7 @@ returns table(purchase_id uuid, enrollment_id uuid, entitlement_status text)
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_plan text := public.clara_product_plan(p_product_id);
   v_tier text := public.clara_product_tier(p_product_id);
@@ -152,40 +171,164 @@ declare
   v_existing public.google_play_purchases%rowtype;
   v_now timestamptz := timezone('utc', now());
   v_expires_at timestamptz := case
-    when coalesce(p_payload->>'expiryTimeMillis', '') ~ '^[0-9]+(p_user_id uuid)
+    when coalesce(p_payload->>'expiryTimeMillis', '') ~ '^[0-9]+$'
+      then to_timestamp(((p_payload->>'expiryTimeMillis')::numeric / 1000.0))
+    else null
+  end;
+  v_payload_text text := lower(coalesce(p_payload::text, ''));
+  v_is_trial boolean :=
+    coalesce(p_payload->>'paymentState', '') = '2'
+    or lower(coalesce(p_payload->>'subscriptionStatus', '')) in ('trialing', 'trial', 'free_trial')
+    or lower(coalesce(p_payload->>'purchaseStatus', '')) in ('trialing', 'trial', 'free_trial')
+    or v_payload_text like '%free_trial%'
+    or v_payload_text like '%trialing%';
+  v_subscription_status text := case when v_is_trial then 'trialing' else 'active' end;
+begin
+  if p_user_id is null or p_purchase_token is null or length(trim(p_purchase_token)) = 0 then
+    raise exception 'Missing required purchase fields';
+  end if;
+
+  if v_plan <> 'committed_249' or v_tier is null then
+    raise exception 'Unsupported CLARA product %', p_product_id;
+  end if;
+
+  select * into v_existing
+  from public.google_play_purchases
+  where purchase_token = p_purchase_token;
+
+  if found and v_existing.user_id <> p_user_id then
+    raise exception 'Google Play purchase is already linked to another user';
+  end if;
+
+  insert into public.google_play_purchases (
+    user_id,
+    plan_key,
+    tier_type,
+    product_id,
+    purchase_token,
+    order_id,
+    purchase_state,
+    acknowledgement_state,
+    verified_at,
+    processed_at,
+    raw_payload
+  ) values (
+    p_user_id,
+    'committed_249',
+    'clara_commitment',
+    p_product_id,
+    p_purchase_token,
+    p_order_id,
+    coalesce(p_payload->>'purchaseState', 'purchased'),
+    coalesce(p_payload->>'acknowledgementState', 'acknowledged'),
+    v_now,
+    v_now,
+    p_payload
+  ) on conflict (purchase_token) do update set
+    plan_key = 'committed_249',
+    tier_type = 'clara_commitment',
+    raw_payload = excluded.raw_payload,
+    verified_at = excluded.verified_at,
+    processed_at = coalesce(public.google_play_purchases.processed_at, excluded.processed_at),
+    updated_at = v_now
+  returning id into v_purchase_id;
+
+  insert into public.enrollments (
+    user_id,
+    plan,
+    plan_key,
+    tier_type,
+    source,
+    purchase_source,
+    product_id,
+    play_product_id,
+    purchase_token,
+    play_purchase_token,
+    order_id,
+    status,
+    purchase_payload,
+    last_billing_sync_at
+  ) values (
+    p_user_id,
+    'committed_249',
+    'committed_249',
+    'clara_commitment',
+    'google_play',
+    'google_play',
+    p_product_id,
+    p_product_id,
+    p_purchase_token,
+    p_purchase_token,
+    p_order_id,
+    v_subscription_status,
+    p_payload,
+    v_now
+  ) on conflict do nothing
+  returning id into v_enrollment_id;
+
+  if v_enrollment_id is null then
+    select id into v_enrollment_id
+    from public.enrollments
+    where user_id = p_user_id
+      and (play_purchase_token = p_purchase_token or purchase_token = p_purchase_token)
+    order by created_at desc
+    limit 1;
+  end if;
+
+  update public.profiles set
+    plan = 'committed_249',
+    plan_key = 'committed_249',
+    subscription_plan = 'committed_249',
+    access_level = 'committed',
+    tier_type = 'clara_commitment',
+    enrollment_source = 'google_play',
+    purchase_source = 'google_play',
+    access_source = 'google_play',
+    admin_plan_override = false,
+    subscription_status = v_subscription_status,
+    subscription_label = 'CLARA Commitment',
+    subscription_expires_at = v_expires_at,
+    trial_started_at = case when v_is_trial then coalesce(trial_started_at, v_now) else trial_started_at end,
+    trial_ends_at = case when v_is_trial then v_expires_at else trial_ends_at end,
+    play_product_id = p_product_id,
+    play_purchase_token = p_purchase_token,
+    entitlement_status = 'active',
+    status = 'active',
+    enrollment_status = 'approved',
+    is_enrolled = true,
+    program_active = true,
+    activation_status = 'active',
+    is_activated = true,
+    activated_at = coalesce(activated_at, v_now),
+    last_billing_sync_at = v_now
+  where id = p_user_id;
+
+  purchase_id := v_purchase_id;
+  enrollment_id := v_enrollment_id;
+  entitlement_status := case when v_is_trial then 'trialing' else 'active' end;
+  return next;
+end;
+$$;
+
+create or replace function public.refresh_clara_entitlement_summary(p_user_id uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_profile public.profiles%rowtype;
-  v_now timestamptz := timezone('utc', now());
 begin
-  select * into v_profile from public.profiles where id = p_user_id;
-  if not found then return; end if;
-
-  if v_profile.program_completed_at is not null then
-    if v_profile.continuation_pro_ends_at is not null and v_profile.continuation_pro_ends_at > v_now then
-      update public.profiles
-      set plan = 'pro_99', entitlement_status = 'continuation_pro', program_active = false, is_enrolled = false
-      where id = p_user_id;
-    elsif coalesce(v_profile.pro_subscription_status, '') = 'active'
-       or (v_profile.pro_subscription_expires_at is not null and v_profile.pro_subscription_expires_at > v_now) then
-      update public.profiles
-      set plan = 'pro_99', entitlement_status = 'pro_subscription', program_active = false, is_enrolled = false
-      where id = p_user_id;
-    else
-      update public.profiles
-      set plan = 'free', status = 'free', enrollment_status = 'completed', entitlement_status = 'free', program_active = false, is_enrolled = false
-      where id = p_user_id;
-    end if;
-  end if;
+  update public.profiles
+  set
+    plan = case when lower(coalesce(plan, plan_key, subscription_plan, '')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed_249' else 'free' end,
+    plan_key = case when lower(coalesce(plan, plan_key, subscription_plan, '')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed_249' else 'free' end,
+    subscription_plan = case when lower(coalesce(plan, plan_key, subscription_plan, '')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed_249' else 'free' end,
+    access_level = case when lower(coalesce(plan, plan_key, subscription_plan, '')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed' else 'free' end
+  where id = p_user_id;
 end;
 $$;
 
 delete from public.plans
-where lower(coalesce(plan_key, '')) not in ('pro_99', 'core_599', 'coaching_1299');
+where lower(coalesce(plan_key, '')) not in ('free', 'committed_249');
 
 insert into public.plans (
   name,
@@ -198,172 +341,36 @@ insert into public.plans (
   popular,
   sort_order,
   product_id,
-  billing_type
+  billing_type,
+  access_config
 )
 values
   (
-    'PRO',
-    'clara_pro_99',
-    99,
-    'Unlock CLARA PRO tools with a Google Play monthly subscription.',
-    array['Full financial tools', 'PRO-only tool access', 'Monthly Google Play subscription'],
-    'Subscribe to PRO',
+    'Free Version',
+    'free',
+    0,
+    'Use CLARA''s essential money tracking tools for free.',
+    array['Dashboard access', 'Expense tracking', 'Wallet tracking', 'Budget tracking', 'News and updates'],
+    'Start Free',
     true,
     false,
     1,
-    'pro_99',
-    'subscription'
-  ),
-  (
-    'CORE',
-    'core_599',
-    199,
-    'Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.',
-    array['Complete CORE financial system', 'Advanced daily spending AI through CLARA Companion', 'Guided spending strategy and practical next steps'],
-    'Unlock CORE',
-    true,
-    true,
-    2,
-    'clara_core_199',
-    'subscription'
-  ),
-  (
-    'Life OS',
-    'coaching_1299',
-    499,
-    'Unlock Life OS, CLARA''s broadest decision-intelligence layer for money, planning, and life organization.',
-    array['Complete Life OS operating layer', 'Broader decision intelligence beyond daily spending', 'Life scheduling, organization, and deeper CLARA context'],
-    'Unlock Life OS',
-    true,
-    false,
-    3,
-    'clara_lifeos_499',
-    'subscription'
-  )
-on conflict (plan_key) do update
-set
-  name = excluded.name,
-  price = excluded.price,
-  description = excluded.description,
-  features = excluded.features,
-  cta_label = excluded.cta_label,
-  active = excluded.active,
-  popular = excluded.popular,
-  sort_order = excluded.sort_order,
-  product_id = excluded.product_id,
-  billing_type = excluded.billing_type;
-
-      then to_timestamp(((p_payload->>'expiryTimeMillis')::numeric / 1000.0))
-    else null
-  end;
-begin
-  if p_user_id is null or p_purchase_token is null or length(trim(p_purchase_token)) = 0 then
-    raise exception 'Missing required purchase fields';
-  end if;
-  if v_plan <> 'committed_249' or v_tier is null then
-    raise exception 'Unsupported CLARA product %', p_product_id;
-  end if;
-
-  select * into v_existing from public.google_play_purchases where purchase_token = p_purchase_token;
-  if found and v_existing.user_id <> p_user_id then
-    raise exception 'Google Play purchase is already linked to another user';
-  end if;
-
-  insert into public.google_play_purchases (
-    user_id, plan_key, tier_type, product_id, purchase_token, order_id,
-    purchase_state, acknowledgement_state, verified_at, processed_at, raw_payload
-  ) values (
-    p_user_id, 'committed_249', 'clara_commitment', p_product_id, p_purchase_token, p_order_id,
-    coalesce(p_payload->>'purchaseState','purchased'), coalesce(p_payload->>'acknowledgementState','acknowledged'),
-    v_now, v_now, p_payload
-  ) on conflict (purchase_token) do update set
-    plan_key='committed_249', tier_type='clara_commitment', raw_payload=excluded.raw_payload,
-    verified_at=excluded.verified_at, processed_at=coalesce(public.google_play_purchases.processed_at,excluded.processed_at), updated_at=v_now
-  returning id into v_purchase_id;
-
-  insert into public.enrollments (
-    user_id, plan, plan_key, tier_type, source, purchase_source, product_id, play_product_id,
-    purchase_token, play_purchase_token, order_id, status, purchase_payload, last_billing_sync_at
-  ) values (
-    p_user_id, 'committed_249', 'committed_249', 'clara_commitment', 'google_play', 'google_play',
-    p_product_id, p_product_id, p_purchase_token, p_purchase_token, p_order_id, 'active', p_payload, v_now
-  ) on conflict do nothing returning id into v_enrollment_id;
-
-  if v_enrollment_id is null then
-    select id into v_enrollment_id from public.enrollments
-    where user_id=p_user_id and (play_purchase_token=p_purchase_token or purchase_token=p_purchase_token)
-    order by created_at desc limit 1;
-  end if;
-
-  update public.profiles set
-    plan='committed_249', plan_key='committed_249', subscription_plan='committed_249', access_level='committed',
-    tier_type='clara_commitment', purchase_source='google_play', access_source='google_play', admin_plan_override=false,
-    subscription_status='active', subscription_label='CLARA Commitment', play_product_id=p_product_id,
-    play_purchase_token=p_purchase_token, entitlement_status='active', status='active', enrollment_status='approved',
-    is_enrolled=true, program_active=true, activation_status='active', is_activated=true,
-    activated_at=coalesce(activated_at,v_now), last_billing_sync_at=v_now
-  where id=p_user_id;
-
-  purchase_id := v_purchase_id;
-  enrollment_id := v_enrollment_id;
-  entitlement_status := 'processed';
-  return next;
-end;
-$;
-
-create or replace function public.refresh_clara_entitlement_summary(p_user_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $
-begin
-  update public.profiles
-  set
-    plan = case when lower(coalesce(plan,plan_key,subscription_plan,'')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed_249' else 'free' end,
-    plan_key = case when lower(coalesce(plan,plan_key,subscription_plan,'')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed_249' else 'free' end,
-    subscription_plan = case when lower(coalesce(plan,plan_key,subscription_plan,'')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed_249' else 'free' end,
-    access_level = case when lower(coalesce(plan,plan_key,subscription_plan,'')) in ('pro','pro_99','core','core_199','core_599','life_os','lifeos','life_os_499','lifeos_499','coach','coaching','coaching_1299','paid','premium','committed_249') then 'committed' else 'free' end
-  where id = p_user_id;
-end;
-$;
-
-alter table if exists public.plans
-  add column if not exists access_config jsonb,
-  add column if not exists product_id text,
-  add column if not exists billing_type text;
-
-alter table if exists public.profiles
-  add column if not exists plan_key text,
-  add column if not exists subscription_plan text,
-  add column if not exists access_level text default 'free',
-  add column if not exists access_source text,
-  add column if not exists admin_plan_override boolean not null default false,
-  add column if not exists subscription_status text default 'free',
-  add column if not exists recommended_access_level text,
-  add column if not exists onboarding_answers jsonb;
-
-create unique index if not exists plans_plan_key_unique on public.plans(plan_key);
-
-delete from public.plans where lower(coalesce(plan_key, '')) not in ('free', 'committed_249');
-
-insert into public.plans (
-  name, plan_key, price, description, features, cta_label,
-  active, popular, sort_order, product_id, billing_type, access_config
-)
-values
-  (
-    'Free Version', 'free', 0,
-    'Use CLARA''s essential money tracking tools for free.',
-    array['Dashboard access', 'Expense tracking', 'Wallet tracking', 'Budget tracking', 'News and updates'],
-    'Start Free', true, false, 1, null, null,
+    null,
+    null,
     '{"dashboard":"full","feed":"full","expenses":"full","wallets":"full","budgets":"full","analytics":"off","ai":"off","customization":"off","savings_goals":"off","tasks":"off","modules":"off","community":"off","messages":"off","coaching":"off","news":"full","referrals":"off"}'::jsonb
   ),
   (
-    'Committed', 'committed_249', 249,
+    'Committed',
+    'committed_249',
+    249,
     'Unlock the complete CLARA experience through one monthly commitment.',
     array['Complete CLARA financial system', 'Full AI guidance', 'Me and Schedule access', 'Learning Hub and committed features'],
-    'Start Your Commitment', true, true, 2, 'clara_commitment_249', 'subscription',
+    'Start Your Commitment',
+    true,
+    true,
+    2,
+    'clara_commitment_249',
+    'subscription',
     '{"dashboard":"full","feed":"full","expenses":"full","wallets":"full","budgets":"full","analytics":"full","ai":"full","customization":"full","savings_goals":"full","tasks":"full","modules":"full","community":"full","messages":"full","coaching":"full","news":"full","referrals":"full"}'::jsonb
   )
 on conflict (plan_key) do update set
