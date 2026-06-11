@@ -373,48 +373,32 @@ export default function UniversalOnboarding() {
             <AnimatePresence mode="wait">
               <motion.div key={screen.id} {...motionProps} className="flex min-h-full w-full flex-col space-y-4 sm:space-y-6">
                 {screen.type === "welcome" ? (
-                  <div className="flex min-h-full flex-col justify-between gap-5 sm:gap-6">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/30 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      {content.welcome.badge}
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-6">
-                      <div className="space-y-4">
-                        <h1 className="max-w-lg text-[2rem] font-semibold leading-tight text-white sm:text-5xl">{content.welcome.headline}</h1>
-                        <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">{content.welcome.subheadline}</p>
-                        <div className="flex flex-wrap items-center gap-3 pt-2">
-                          <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-[#f4cd71] px-5 text-[#101010] hover:bg-[#f7d98e]">
-                            {content.welcome.cta}
-                            <ArrowRight className="h-4 w-4" />
-                          </Button>
-                          <p className="text-sm text-white/52">No judgment. Just clarity before guidance.</p>
-                        </div>
+                  <div className="flex min-h-full flex-col justify-center gap-8 sm:gap-10">
+                    <div className="max-w-xl space-y-5">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {content.welcome.badge}
                       </div>
-                      <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-3 sm:p-5">
-                        {content.welcome.mediaUrl ? (
-                          <img src={content.welcome.mediaUrl} alt="CLARA welcome" className="h-[240px] w-full rounded-[22px] object-cover sm:h-[260px]" />
-                        ) : (
-                          <div className="flex min-h-[220px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.18),_transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-3 sm:min-h-[240px] sm:p-5">
-                            <div className="flex items-center gap-2 text-xs text-white/60 sm:text-sm">
-                              <BadgeCheck className="h-4 w-4 text-[#f4cd71]" />
-                              Diagnosis before direction
-                            </div>
-                            <div className="space-y-2 sm:space-y-2.5">
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
-                                <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Commitment</p>
-                                <p className="mt-1 text-xs leading-5 text-white/70 sm:text-sm">Your readiness</p>
-                              </div>
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
-                                <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Lifestyle Clarity</p>
-                                <p className="mt-1 text-xs leading-5 text-white/70 sm:text-sm">What your money supports</p>
-                              </div>
-                              <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2.5 sm:px-4 sm:py-3">
-                                <p className="text-[10px] uppercase tracking-[0.18em] text-white/45 sm:text-xs">Ask Before You Spend</p>
-                                <p className="mt-1 text-xs leading-5 text-white/70 sm:text-sm">When you need a pause</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                      <div className="space-y-4">
+                        <h1 className="max-w-lg text-[2.15rem] font-semibold leading-tight text-white sm:text-5xl">{content.welcome.headline}</h1>
+                        <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">{content.welcome.subheadline}</p>
+                      </div>
+                      <div className="space-y-3 pt-1">
+                        <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-[#f4cd71] px-5 text-[#101010] hover:bg-[#f7d98e]">
+                          {content.welcome.cta}
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                        <p className="text-sm text-white/52">No judgment. Just clarity before guidance.</p>
+                      </div>
+                    </div>
+                    <div className="max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-3 sm:p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#f4cd71]/75">Setup preview</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {['Commitment', 'Lifestyle Clarity', 'Ask Before You Spend'].map((item) => (
+                          <span key={item} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/72">
+                            {item}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
