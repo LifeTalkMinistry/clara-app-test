@@ -153,8 +153,11 @@ body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] >
 
 /* CLARA Learning Hub PDF reader: keep the top options button quiet and away from the reading center. */
 #root button[aria-label="Open reader options"][aria-controls="clara-reader-options"] {
+  inset-inline-start: auto !important;
+  inset-inline-end: max(0.85rem, env(safe-area-inset-right)) !important;
   left: auto !important;
   right: max(0.85rem, env(safe-area-inset-right)) !important;
+  margin-inline: 0 !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   opacity: 0.5 !important;
