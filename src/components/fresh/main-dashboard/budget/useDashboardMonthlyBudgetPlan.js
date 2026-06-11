@@ -207,6 +207,60 @@ function buildProtectedBudgetCommitments(settings, { savingsGoals = [], emergenc
   };
 }
 
+function buildProtectedDisplayRows(protectedBudgetCommitments = {}) {
+  const protectedDisplayRows = [];
+  const emergencyFundAmount = firstValidNumber(protectedBudgetCommitments?.emergencyFundAmount);
+
+  if (emergencyFundAmount > 0) {
+    protectedDisplayRows.push({
+      id: "protected-emergency-fund",
+      key: "protected-emergency-fund",
+      title: "Emergency Fund",
+      name: "Emergency Fund",
+      category: "Emergency Fund",
+      allocated: emergencyFundAmount,
+      allocated_amount: emergencyFundAmount,
+      spent: 0,
+      spent_amount: 0,
+      used: 0,
+      remaining: emergencyFundAmount,
+      isProtectedCommitment: true,
+      is_protected_commitment: true,
+      protectionType: "emergency",
+      protection_type: "emergency",
+    });
+  }
+
+  safeArray(protectedBudgetCommitments?.includedSavingsGoals).forEach((goal, index) => {
+    const amount = firstValidNumber(goal?.amount);
+
+    if (amount <= 0) return;
+
+    const id = String(goal?.id || `goal-${index}`);
+    const title = normalizeString(goal?.title || "Savings Goal") || "Savings Goal";
+
+    protectedDisplayRows.push({
+      id: `protected-savings-${id}`,
+      key: `protected-savings-${id}`,
+      title,
+      name: title,
+      category: title,
+      allocated: amount,
+      allocated_amount: amount,
+      spent: 0,
+      spent_amount: 0,
+      used: 0,
+      remaining: amount,
+      isProtectedCommitment: true,
+      is_protected_commitment: true,
+      protectionType: "savings",
+      protection_type: "savings",
+    });
+  });
+
+  return protectedDisplayRows;
+}
+
 function expenseDate(expense = {}, start = "") {
   if (!hasTime(start)) return getTransactionDate(expense);
   return expense.created_at || expense.createdAt || expense.logged_at || expense.spent_at ||
@@ -411,6 +465,13 @@ export default function useDashboardMonthlyBudgetPlan({
     const undocumentedSpent = hasActiveBudgetPlan ? rawUndocumentedSpent : 0;
     const spent = hasActiveBudgetPlan ? rawSpent : 0;
     const categories = rawCategories;
+    const protectedDisplayRows = protectedCommitmentsTotal > 0
+      ? buildProtectedDisplayRows(protectedBudgetCommitments)
+      : [];
+    const budgetDisplayCategories = [
+      ...protectedDisplayRows,
+      ...categories,
+    ];
     const unplannedItems = hasActiveBudgetPlan ? rawUnplannedItems : [];
     const undocumentedItems = hasActiveBudgetPlan ? rawUndocumentedItems : [];
     const outsidePlanItems = hasActiveBudgetPlan
@@ -446,6 +507,10 @@ export default function useDashboardMonthlyBudgetPlan({
       remaining, remaining_amount: remaining, amount_left: remaining, totalRemaining: remaining,
       unallocated, unallocated_balance: unallocated, unallocatedBalance: unallocated,
       categories, categoryRows: categories,
+      budgetDisplayCategories,
+      budget_display_categories: budgetDisplayCategories,
+      displayCategories: budgetDisplayCategories,
+      display_categories: budgetDisplayCategories,
       active_cycle_expense_count: hasActiveBudgetPlan ? activeExpenses.length : 0,
       is_complete: complete, isComplete: complete,
       hasActiveBudgetPlan, has_active_budget_plan: hasActiveBudgetPlan,
