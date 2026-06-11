@@ -1318,14 +1318,15 @@ useEffect(() => {
           aria-haspopup="dialog"
           aria-expanded={isReaderMenuOpen}
           aria-controls="clara-reader-options"
-          className="absolute inset-x-0 z-30 mx-auto flex h-11 min-h-11 w-11 min-w-11 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"
+          className="absolute z-30 flex h-11 min-h-11 w-11 min-w-11 items-center justify-center rounded-full border border-white/[0.14] bg-black/55 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a0f]"
           style={{
-  top: "max(0.75rem, env(safe-area-inset-top))",
-  left: 0,
-  right: 0,
-  marginInline: "auto",
-  transform: "none",
-}}
+            top: "max(0.75rem, env(safe-area-inset-top))",
+            right: "max(0.85rem, env(safe-area-inset-right))",
+            left: "auto",
+            marginInline: 0,
+            opacity: 0.5,
+            transform: "none",
+          }}
         >
           <MoreHorizontal aria-hidden="true" size={22} strokeWidth={2} />
         </button>
