@@ -10,9 +10,13 @@ import {
 
 export default function LearningHub() {
   const {
-    materials,
+    activeCategory,
+    activeCategoryMeta,
+    backToHome,
+    carouselItems,
     selectedMaterial,
     isOpen,
+    openCategory,
     openMaterial,
     closeMaterial,
     launcherMaterial,
@@ -20,26 +24,31 @@ export default function LearningHub() {
     closeLauncher,
   } = useLearningHub();
   const hasCommittedAccess = useCommittedFeatureAccess();
-  const videoMaterials = materials.filter(({ type }) => type === "video");
-  const bookMaterials = materials.filter(({ type }) => type === "book");
-  const compactMaterials = [...videoMaterials, ...bookMaterials];
 
-  const handleOpenMaterial = (material) => {
+  const handleOpenItem = (item) => {
     if (!hasCommittedAccess) {
       openCommittedVersionModal();
       return;
     }
 
-    openMaterial(material);
+    if (item?.kind === "category") {
+      openCategory(item.id);
+      return;
+    }
+
+    openMaterial(item);
   };
 
   return (
     <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
       <LearningHubCarousel
-        materials={compactMaterials}
+        items={carouselItems}
+        activeCategory={activeCategory}
+        activeCategoryLabel={activeCategoryMeta?.title || ""}
         hasCommittedAccess={hasCommittedAccess}
+        onBackToCategories={backToHome}
         onOpenCommitmentBooklet={openCommittedVersionModal}
-        onOpenMaterial={handleOpenMaterial}
+        onOpenItem={handleOpenItem}
       />
 
       <LearningMaterialModal
@@ -61,6 +70,13 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
   if (!isOpen || !material || typeof document === "undefined") return null;
 
   const isVideo = material.type === "video";
+  const materialTypeLabel = {
+    video: "Video Material",
+    practice: "Practice Tool",
+    game: "Money Game",
+    challenge: "Challenge",
+    book: "Book Material",
+  }[material.type] || "Learning Material";
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex min-h-[100dvh] items-end justify-center bg-black/70 px-3 pb-3 pt-8 text-white backdrop-blur-md sm:items-center sm:p-6">
@@ -84,7 +100,7 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
         </span>
 
         <p className="mt-4 text-[10px] font-black uppercase tracking-[0.20em] text-cyan-100/54">
-          {isVideo ? "Video Material" : "Learning Material"}
+          {materialTypeLabel}
         </p>
         <h3 className="mt-1.5 pr-10 text-[22px] font-black leading-tight tracking-[-0.02em] text-white">
           {material.title}
@@ -95,9 +111,7 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
 
         <div className="mt-5 rounded-[22px] border border-white/10 bg-black/18 p-4">
           <p className="text-[13px] leading-relaxed text-white/66">
-            {isVideo
-              ? "This video card is already placed in the compact Learning Hub carousel. Once the real video is connected, it can open a player here without changing the dashboard layout."
-              : "This material is reserved for a future CLARA Learning Hub release."}
+            This CLARA material is being prepared. It already has a place in the Learning Hub.
           </p>
         </div>
 
