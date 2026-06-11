@@ -17,6 +17,7 @@ import { useAuth } from "../../context/AuthContext";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
 import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
 import { COMMITTED_PLAN_KEY } from "@/lib/membership";
+import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
 const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
@@ -444,22 +445,47 @@ export default function UniversalOnboarding() {
   }
 
   async function saveRequiredOnboardingCompletion() {
-    try {
-      await updateProfile({
+    const completionPayloads = [
+      {
         onboarding_completed: true,
         has_completed_onboarding: true,
         onboarding_step: screens.length,
-        onboarding_completed_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("CLARA required onboarding completion save failed:", error);
-      throw new Error(SAVE_ERROR_MESSAGE);
+      },
+      {
+        onboarding_completed: true,
+        has_completed_onboarding: true,
+      },
+      {
+        onboarding_completed: true,
+      },
+      {
+        has_completed_onboarding: true,
+      },
+    ];
+
+    let lastError = null;
+
+    for (const payload of completionPayloads) {
+      try {
+        await updateProfile(payload);
+        return;
+      } catch (error) {
+        lastError = error;
+        console.warn("CLARA required onboarding completion save fallback failed:", {
+          attemptedFields: Object.keys(payload),
+          error,
+        });
+      }
     }
+
+    console.error("CLARA required onboarding completion save failed:", lastError);
+    throw new Error(SAVE_ERROR_MESSAGE);
   }
 
   async function saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot) {
     try {
       await updateProfile({
+        onboarding_completed_at: new Date().toISOString(),
         onboarding_answers: answerSnapshot,
         commitment_level: answerSnapshot.commitment_level,
         lifestyle_context: answerSnapshot.lifestyle_context,
@@ -471,6 +497,47 @@ export default function UniversalOnboarding() {
       });
     } catch (error) {
       console.warn("CLARA optional onboarding answer save skipped:", error);
+    }
+  }
+
+  function saveCompletedOnboardingAccessSnapshot(answerSnapshot, recommendedAccessSnapshot) {
+    if (!user?.id) return;
+
+    try {
+      const planKey = profile?.plan_key || profile?.plan || "free";
+      const accessStatus = profile?.status || profile?.subscription_status || "free";
+      const subscriptionStatus = profile?.subscription_status || accessStatus;
+      const completedProfileSnapshot = {
+        ...(profile || {}),
+        id: user.id,
+        email: user.email || profile?.email || null,
+        role: profile?.role || "user",
+        plan: planKey,
+        plan_key: planKey,
+        subscription_status: subscriptionStatus,
+        status: accessStatus,
+        onboarding_completed: true,
+        has_completed_onboarding: true,
+        has_completed_universal_onboarding: true,
+        has_seen_universal_onboarding: true,
+        onboarding_step: screens.length,
+        onboarding_answers: answerSnapshot,
+        recommended_access_level: recommendedAccessSnapshot,
+      };
+
+      saveAccessSnapshot({
+        user,
+        profile: completedProfileSnapshot,
+        role: completedProfileSnapshot.role,
+        plan: planKey,
+        planLabel: profile?.subscription_label || "Free",
+        subscriptionStatus,
+        accessStatus,
+        lastResolvedAppFlow: "normal",
+        lastValidRoute: FREE_VERSION_ROUTE,
+      });
+    } catch (error) {
+      warnInDevelopment("CLARA onboarding completion access snapshot skipped:", error);
     }
   }
 
@@ -512,6 +579,7 @@ export default function UniversalOnboarding() {
     const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
     await saveNameIfNeeded();
     await saveRequiredOnboardingCompletion();
+    saveCompletedOnboardingAccessSnapshot(answerSnapshot, recommendedAccessSnapshot);
     await saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot);
     clearOnboardingDraft();
     saveOnboardingAnswersToLocalMemory(user.id, answerSnapshot);
