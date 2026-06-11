@@ -21,6 +21,16 @@ const readCarouselArray = (...values) => {
   return [];
 };
 
+const readBudgetPlanCategories = (plan = {}) => {
+  if (Array.isArray(plan?.budgetDisplayCategories)) return plan.budgetDisplayCategories;
+  if (Array.isArray(plan?.budget_display_categories)) return plan.budget_display_categories;
+  if (Array.isArray(plan?.displayCategories)) return plan.displayCategories;
+  if (Array.isArray(plan?.display_categories)) return plan.display_categories;
+  if (Array.isArray(plan?.categories)) return plan.categories;
+
+  return [];
+};
+
 const hasResetBoundary = (plan = {}) => Boolean(
   plan?.reset_start_at ||
     plan?.tracking_started_at ||
@@ -28,7 +38,7 @@ const hasResetBoundary = (plan = {}) => Boolean(
 );
 
 export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => {
-  const categories = Array.isArray(plan?.categories) ? plan.categories : [];
+  const categories = readBudgetPlanCategories(plan);
   const resetBoundary = hasResetBoundary(plan);
 
   const declaredBudget = readCarouselNumber(
