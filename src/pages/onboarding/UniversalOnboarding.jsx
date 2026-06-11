@@ -546,61 +546,65 @@ export default function UniversalOnboarding() {
       if (!completed) return;
 
       const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
-      const productId = getGooglePlayProductId(COMMITTED_PLAN_KEY);
-      if (!productId) throw new Error("Google Play product is not configured yet.");
 
-      const purchase = await launchGooglePlayPurchase({
-        productId,
-        planKey: COMMITTED_PLAN_KEY,
-        userId: user.id,
-        userEmail: user.email || profile?.email || "",
-      });
+      try {
+        const productId = getGooglePlayProductId(COMMITTED_PLAN_KEY);
+        if (!productId) throw new Error("Google Play product is not configured yet.");
 
-      if (purchase?.cancelled) {
-        warnInDevelopment("CLARA Google Play purchase cancelled; routing to enrollment fallback.");
-        navigate(CLARA_TRIAL_ROUTE, {
+        const purchase = await launchGooglePlayPurchase({
+          productId,
+          planKey: COMMITTED_PLAN_KEY,
+          userId: user.id,
+          userEmail: user.email || profile?.email || "",
+        });
+
+        if (purchase?.cancelled) {
+          warnInDevelopment("CLARA Google Play purchase cancelled; routing to enrollment fallback.");
+          navigate(CLARA_TRIAL_ROUTE, {
+            replace: true,
+            state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
+          });
+          return;
+        }
+
+        if (!purchase?.ok && !purchase?.restored) {
+          throw new Error("Google Play did not confirm the purchase.");
+        }
+
+        await persistGooglePlayPurchase({
+          supabase,
+          userId: user.id,
+          planKey: COMMITTED_PLAN_KEY,
+          productId,
+          purchaseToken: purchase.purchaseToken,
+          orderId: purchase.orderId,
+          bridgePayload: purchase.raw,
+        });
+
+        const entitlement = await waitForGooglePlayEntitlement({
+          supabase,
+          userId: user.id,
+          expectedPlanKey: COMMITTED_PLAN_KEY,
+        });
+
+        await refreshProfile?.();
+        navigate(entitlement?.status === "active" ? FREE_VERSION_ROUTE : "/pending", {
           replace: true,
           state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
         });
-        return;
+      } catch (error) {
+        warnInDevelopment("CLARA Google Play fallback triggered:", error);
+        navigate(CLARA_TRIAL_ROUTE, {
+          replace: true,
+          state: {
+            fromOnboarding: true,
+            recommendedAccessLevel: recommendedAccessSnapshot,
+            purchaseAutoStartError: error?.message || "Google Play could not open automatically.",
+          },
+        });
       }
-
-      if (!purchase?.ok && !purchase?.restored) {
-        throw new Error("Google Play did not confirm the purchase.");
-      }
-
-      await persistGooglePlayPurchase({
-        supabase,
-        userId: user.id,
-        planKey: COMMITTED_PLAN_KEY,
-        productId,
-        purchaseToken: purchase.purchaseToken,
-        orderId: purchase.orderId,
-        bridgePayload: purchase.raw,
-      });
-
-      const entitlement = await waitForGooglePlayEntitlement({
-        supabase,
-        userId: user.id,
-        expectedPlanKey: COMMITTED_PLAN_KEY,
-      });
-
-      await refreshProfile?.();
-      navigate(entitlement?.status === "active" ? FREE_VERSION_ROUTE : "/pending", {
-        replace: true,
-        state: { fromOnboarding: true, recommendedAccessLevel: recommendedAccessSnapshot },
-      });
     } catch (error) {
-      const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
-      warnInDevelopment("CLARA Google Play fallback triggered:", error);
-      navigate(CLARA_TRIAL_ROUTE, {
-        replace: true,
-        state: {
-          fromOnboarding: true,
-          recommendedAccessLevel: recommendedAccessSnapshot,
-          purchaseAutoStartError: error?.message || "Google Play could not open automatically.",
-        },
-      });
+      setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
     } finally {
       setSaving(false);
     }
