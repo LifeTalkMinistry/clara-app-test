@@ -1,14 +1,6 @@
 import { useMemo, useState } from "react";
 
 const PH_TIME_ZONE = "Asia/Manila";
-
-const PH_DATE_KEY_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  timeZone: PH_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
 const PHP_CURRENCY_FORMATTER = new Intl.NumberFormat("en-PH", {
   style: "currency",
   currency: "PHP",
@@ -16,102 +8,50 @@ const PHP_CURRENCY_FORMATTER = new Intl.NumberFormat("en-PH", {
   maximumFractionDigits: 0,
 });
 
-function formatDateKeyInPH(value = new Date()) {
-  const date = value instanceof Date ? value : new Date(value);
+const MONTH_FORMATTER = new Intl.DateTimeFormat("en-PH", {
+  timeZone: PH_TIME_ZONE,
+  month: "short",
+  year: "numeric",
+});
 
-  if (Number.isNaN(date.getTime())) return "";
-
-  const parts = PH_DATE_KEY_FORMATTER.formatToParts(date);
-
-  const year = parts.find((part) => part.type === "year")?.value || "";
-  const month = parts.find((part) => part.type === "month")?.value || "";
-  const day = parts.find((part) => part.type === "day")?.value || "";
-
-  return year && month && day ? `${year}-${month}-${day}` : "";
-}
-
-function getPHMonthKey(value = new Date()) {
-  return formatDateKeyInPH(value).slice(0, 7);
-}
-
-export const fmt = (n) =>
-  PHP_CURRENCY_FORMATTER.format(Number(n || 0));
+export const fmt = (n) => PHP_CURRENCY_FORMATTER.format(Number(n || 0));
 
 export const safeNumber = (value) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 };
 
-function toDateOnly(value) {
-  if (!value) return "";
+const hasResetBoundary = (activeBudget = {}) => Boolean(
+  activeBudget?.reset_start_at ||
+    activeBudget?.tracking_started_at ||
+    activeBudget?.tracking_start_date
+);
 
-  const raw = String(value).trim();
-  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (dateOnly) return dateOnly[1];
+const isProtectedBudgetCommitment = (item = {}) =>
+  item?.isProtectedCommitment === true || item?.is_protected_commitment === true;
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return raw.slice(0, 10);
+const readBudgetCategories = (activeBudget = {}) => {
+  if (Array.isArray(activeBudget?.budgetDisplayCategories)) return activeBudget.budgetDisplayCategories;
+  if (Array.isArray(activeBudget?.budget_display_categories)) return activeBudget.budget_display_categories;
+  if (Array.isArray(activeBudget?.displayCategories)) return activeBudget.displayCategories;
+  if (Array.isArray(activeBudget?.display_categories)) return activeBudget.display_categories;
+  if (Array.isArray(activeBudget?.categories)) return activeBudget.categories;
 
-  return formatDateKeyInPH(parsed);
+  return [];
+};
+
+function getPHMonthKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+  });
+  return formatter.format(date);
 }
 
-function todayKey() {
-  return formatDateKeyInPH(new Date());
-}
-
-function daysBetween(start, end) {
-  const startDate = new Date(`${start}T00:00:00`);
-  const endDate = new Date(`${end}T00:00:00`);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 0;
-  return Math.floor((endDate - startDate) / 86400000);
-}
-
-function getMonthRange(monthKey = "") {
-  const safeMonth = /^\d{4}-\d{2}$/.test(monthKey)
-    ? monthKey
-    : getPHMonthKey();
-  const [year, month] = safeMonth.split("-").map(Number);
-  const start = `${safeMonth}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const end = `${safeMonth}-${String(lastDay).padStart(2, "0")}`;
-  return { start, end };
-}
-
-function getCycleRange(activeBudget, monthKey) {
-  const fallback = getMonthRange(monthKey);
-  const start = toDateOnly(
-    activeBudget?.reset_start_at ||
-      activeBudget?.tracking_started_at ||
-      activeBudget?.tracking_start_date ||
-      activeBudget?.cycle_start ||
-      activeBudget?.budget_cycle_start ||
-      activeBudget?.period_start ||
-      activeBudget?.range_start ||
-      activeBudget?.monthRange?.start
-  );
-  const end = toDateOnly(
-    activeBudget?.cycle_end ||
-      activeBudget?.budget_cycle_end ||
-      activeBudget?.period_end ||
-      activeBudget?.range_end ||
-      activeBudget?.monthRange?.end
-  );
-
-  return {
-    start: start || fallback.start,
-    end: end || fallback.end,
-  };
-}
-
-function hasResetBoundary(activeBudget = {}) {
-  return Boolean(
-    activeBudget?.reset_start_at ||
-      activeBudget?.tracking_started_at ||
-      activeBudget?.tracking_start_date
-  );
-}
-
-function getCycleLabel(activeBudget) {
+function getCycleLabel(activeBudget = {}) {
   const raw = String(
     activeBudget?.budget_cycle ||
       activeBudget?.cycle_type ||
@@ -126,81 +66,15 @@ function getCycleLabel(activeBudget) {
   return "Monthly";
 }
 
-function getPaceState({ declared, spent, remaining, activeBudget, monthKey }) {
-  const cycleRange = getCycleRange(activeBudget, monthKey);
-  const today = todayKey();
-  const totalDays = Math.max(daysBetween(cycleRange.start, cycleRange.end) + 1, 1);
-  const elapsedDays = Math.min(
-    Math.max(daysBetween(cycleRange.start, today) + 1, 1),
-    totalDays
-  );
-  const daysLeft = Math.max(daysBetween(today, cycleRange.end) + 1, 1);
-  const expectedSpend = declared > 0 ? (declared * elapsedDays) / totalDays : 0;
-  const paceRatio = expectedSpend > 0 ? (spent / expectedSpend) * 100 : 0;
-  const safeDailyPace = remaining > 0 ? remaining / daysLeft : 0;
-  const cycleLabel = getCycleLabel(activeBudget);
+function getCycleDisplayLabel(activeBudget = {}, monthKey = "") {
+  const explicitStart = activeBudget?.cycle_start || activeBudget?.period_start || activeBudget?.reset_start_at;
+  const explicitEnd = activeBudget?.cycle_end || activeBudget?.period_end;
 
-  if (declared <= 0) {
-    return {
-      cycleLabel,
-      cycleRange,
-      totalDays,
-      elapsedDays,
-      daysLeft,
-      safeDailyPace,
-      paceRatio,
-      label: "No plan yet",
-      message: "Declare a budget to see your safe daily pace.",
-      tone: "border-white/10 bg-white/[0.04] text-white/70",
-      valueTone: "text-white/80",
-    };
-  }
+  if (explicitStart && explicitEnd) return `${String(explicitStart).slice(0, 10)} - ${String(explicitEnd).slice(0, 10)}`;
+  if (explicitStart) return `Since ${String(explicitStart).slice(0, 10)}`;
 
-  if (paceRatio > 120) {
-    return {
-      cycleLabel,
-      cycleRange,
-      totalDays,
-      elapsedDays,
-      daysLeft,
-      safeDailyPace,
-      paceRatio,
-      label: "Fast pace",
-      message: "You are spending faster than this cycle allows.",
-      tone: "border-rose-300/20 bg-rose-500/10 text-rose-50",
-      valueTone: "text-rose-200",
-    };
-  }
-
-  if (paceRatio > 100) {
-    return {
-      cycleLabel,
-      cycleRange,
-      totalDays,
-      elapsedDays,
-      daysLeft,
-      safeDailyPace,
-      paceRatio,
-      label: "Slightly fast",
-      message: "You are a little ahead of your planned spending pace.",
-      tone: "border-amber-300/20 bg-amber-400/10 text-amber-50",
-      valueTone: "text-amber-200",
-    };
-  }
-
-  return {
-    cycleLabel,
-    cycleRange,
-    totalDays,
-    elapsedDays,
-    daysLeft,
-    safeDailyPace,
-    paceRatio,
-    label: "Sustainable",
-    message: "Your current pace is sustainable for this cycle.",
-    tone: "border-emerald-300/18 bg-emerald-400/10 text-emerald-50",
-    valueTone: "text-emerald-200",
-  };
+  const date = monthKey ? new Date(`${monthKey}-01T00:00:00`) : new Date();
+  return Number.isNaN(date.getTime()) ? "" : MONTH_FORMATTER.format(date);
 }
 
 function getCategoryRisk(category) {
@@ -255,25 +129,40 @@ export function getBudgetStatus(progress) {
 }
 
 export function getRemainingAmountColor(progress) {
-  if (progress < 60) {
-    return "text-emerald-200 drop-shadow-[0_0_10px_rgba(52,211,153,0.18)]";
-  }
-
-  if (progress <= 85) {
-    return "text-amber-200 drop-shadow-[0_0_10px_rgba(251,191,36,0.18)]";
-  }
-
+  if (progress < 60) return "text-emerald-200 drop-shadow-[0_0_10px_rgba(52,211,153,0.18)]";
+  if (progress <= 85) return "text-amber-200 drop-shadow-[0_0_10px_rgba(251,191,36,0.18)]";
   return "text-rose-200 drop-shadow-[0_0_10px_rgba(244,63,94,0.18)]";
 }
 
 export function getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining) {
-  if (!hasDeclaredBudget) return "Declare this cycle’s spending amount first.";
+  if (!hasDeclaredBudget) return "Declare this cycle's spending amount first.";
   if (!hasCategories) return "Now distribute your declared budget into categories.";
-  if (remaining <= 0) return "You’ve fully used this cycle’s allocated budget.";
+  if (remaining <= 0) return "You've fully used this cycle's allocated budget.";
   if (progress <= 50) return "You still have strong room left this cycle.";
-  if (progress <= 80) return "You’re doing fine. Just stay intentional from here.";
-  if (progress < 100) return "You’re close to the limit. Spend carefully now.";
+  if (progress <= 80) return "You're doing fine. Just stay intentional from here.";
+  if (progress < 100) return "You're close to the limit. Spend carefully now.";
   return "This budget cycle is already fully consumed.";
+}
+
+function buildBudgetPace({ activeBudget, monthKey, declared, spent, remaining }) {
+  const cycleLabel = getCycleLabel(activeBudget);
+  const cycleDisplayLabel = getCycleDisplayLabel(activeBudget, monthKey);
+  const paceRatio = declared > 0 ? Math.min(999, (spent / declared) * 100) : 0;
+
+  return {
+    cycleLabel,
+    cycleDisplayLabel,
+    cycleRange: null,
+    totalDays: 0,
+    elapsedDays: 0,
+    daysLeft: 0,
+    safeDailyPace: remaining,
+    paceRatio,
+    label: paceRatio > 100 ? "Watch pace" : "Sustainable",
+    message: paceRatio > 100 ? "You are ahead of your planned spending pace." : "Your current pace is sustainable for this cycle.",
+    tone: paceRatio > 100 ? "border-amber-300/20 bg-amber-400/10 text-amber-50" : "border-emerald-300/18 bg-emerald-400/10 text-emerald-50",
+    valueTone: paceRatio > 100 ? "text-amber-200" : "text-emerald-200",
+  };
 }
 
 export default function useBudgetCardLogic({
@@ -286,22 +175,20 @@ export default function useBudgetCardLogic({
   const [showModal, setShowModal] = useState(false);
 
   const rawCategories = useMemo(
-    () =>
-      Array.isArray(budgetCategories)
-        ? budgetCategories
-        : Array.isArray(activeBudget?.categories)
-          ? activeBudget.categories
-          : [],
-    [activeBudget?.categories, budgetCategories]
+    () => (Array.isArray(budgetCategories) && budgetCategories.length ? budgetCategories : readBudgetCategories(activeBudget)),
+    [activeBudget, budgetCategories]
   );
 
   const categories = useMemo(() => {
     return [...rawCategories]
-      .map((item) => ({
-        ...item,
-        risk: getCategoryRisk(item),
-      }))
+      .map((item) => ({ ...item, risk: getCategoryRisk(item) }))
       .sort((a, b) => {
+        const aProtected = isProtectedBudgetCommitment(a);
+        const bProtected = isProtectedBudgetCommitment(b);
+
+        if (aProtected !== bProtected) return aProtected ? -1 : 1;
+        if (aProtected && bProtected) return 0;
+
         const aAllocated = safeNumber(a?.allocated ?? a?.allocated_amount);
         const bAllocated = safeNumber(b?.allocated ?? b?.allocated_amount);
         const aSpent = safeNumber(a?.spent ?? a?.spent_amount ?? a?.used);
@@ -339,33 +226,20 @@ export default function useBudgetCardLogic({
       activeBudget?.declared_amount ||
       activeBudget?.monthly_budget_amount
   );
-
-  const categoryAllocatedTotal = categories.reduce(
-    (sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount),
-    0
-  );
-  const explicitAllocated = safeNumber(
-    activeBudget?.allocated ??
-      activeBudget?.allocated_amount ??
-      activeBudget?.allocated_total ??
-      activeBudget?.totalAllocated
-  );
-  const allocated = categories.length > 0 ? categoryAllocatedTotal : explicitAllocated;
-
+  const allocated = categories.length > 0
+    ? categories.reduce((sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount), 0)
+    : safeNumber(activeBudget?.allocated ?? activeBudget?.allocated_amount ?? activeBudget?.allocated_total ?? activeBudget?.totalAllocated);
   const spent = activeBudgetSpent;
-
   const remaining = Math.max(declared - spent, 0);
-
   const unallocated = Math.max(
     safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? activeBudget?.unallocated ?? activeBudget?.unallocated_balance ?? activeBudget?.unallocatedBalance ?? declared - allocated),
     0
   );
-
-  const progress = useMemo(
-    () => (declared > 0 ? Math.min(100, (spent / declared) * 100) : allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0),
-    [spent, allocated, declared]
-  );
-
+  const progress = declared > 0
+    ? Math.min(100, (spent / declared) * 100)
+    : allocated > 0
+      ? Math.min(100, (spent / allocated) * 100)
+      : 0;
   const hasDeclaredBudget = declared > 0;
   const hasCategories = categories.length > 0 && allocated > 0;
   const planIsComplete =
@@ -377,13 +251,8 @@ export default function useBudgetCardLogic({
   const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
   const remainingAmountColor = getRemainingAmountColor(progress);
   const monthKey = activeBudget?.month || activeBudget?.month_key || getPHMonthKey();
-  const budgetPace = getPaceState({ declared, spent, remaining, activeBudget, monthKey });
-  const badgeLabel =
-    normalizedBudgetStatus === "active"
-      ? "Active"
-      : normalizedBudgetStatus === "draft"
-        ? "Draft"
-        : "No Plan";
+  const budgetPace = buildBudgetPace({ activeBudget, monthKey, declared, spent, remaining });
+  const badgeLabel = normalizedBudgetStatus === "active" ? "Active" : normalizedBudgetStatus === "draft" ? "Draft" : "No Plan";
 
   return {
     showModal,
