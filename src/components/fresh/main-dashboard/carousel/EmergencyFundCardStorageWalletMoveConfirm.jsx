@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, Edit2, MinusCircle, Plus, RotateCcw, Shield, X } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -7,6 +7,7 @@ import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
+import EmergencyFundSetupFlow from "./EmergencyFundSetupFlow";
 
 const fmt = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -137,6 +138,8 @@ function getEmergencyStorageWalletId(emergencyFund) {
       "linked_wallet_id",
       "reserveWalletId",
       "reserve_wallet_id",
+      "sourceWalletId",
+      "source_wallet_id",
       "walletId",
       "wallet_id",
     ], "") || ""
@@ -152,6 +155,8 @@ function getEmergencyStorageWalletName(emergencyFund) {
       "linked_wallet_name",
       "reserveWalletName",
       "reserve_wallet_name",
+      "sourceWalletName",
+      "source_wallet_name",
       "walletName",
       "wallet_name",
     ], "") || ""
@@ -190,6 +195,34 @@ function EmergencyHeader({ status }) {
           </div>
           <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>{status.label}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EmergencySetupEmptyState({ expanded = false, onSetup }) {
+  return (
+    <div className={`relative overflow-hidden rounded-[28px] border border-white/[0.045] bg-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] ${expanded ? "flex min-h-[360px] flex-1 flex-col justify-center px-5 py-7" : "px-4 py-5"}`}>
+      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.07] blur-[58px]" />
+      <div className="pointer-events-none absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-violet-500/[0.10] blur-[62px]" />
+      <div className="relative">
+        <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-200/18 bg-cyan-300/[0.08] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
+          <Shield className="h-5 w-5" />
+        </div>
+        <p className="text-xl font-black tracking-[-0.025em] text-white">Emergency Fund</p>
+        <p className="mt-3 max-w-[320px] text-sm font-semibold leading-6 text-white/70">
+          Before CLARA can protect you, let’s define what “safe” means for your real life.
+        </p>
+        <button
+          type="button"
+          onClick={onSetup}
+          className="mt-5 flex w-full items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.11] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-300/[0.16]"
+        >
+          Set up my emergency fund
+        </button>
+        <p className="mt-3 text-center text-[11px] font-semibold leading-5 text-white/42">
+          You’ll choose your monthly survival cost, storage wallet, and protection goal.
+        </p>
       </div>
     </div>
   );
@@ -306,25 +339,34 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
   const { user } = useAuth();
   const { emergencyFund, wallets = [], updateEmergencyFund, addExpense, transferBetweenWallets, refreshData } = useFinancialData(user);
   const safeWallets = useMemo(() => (Array.isArray(wallets) ? wallets.filter(isActiveWallet) : []), [wallets]);
-  const savedAmount = getEmergencyAmount(emergencyFund);
-  const monthlyExpense = getEmergencyMonthlyExpense(emergencyFund, survivalExpense || 0);
-  const targetMonths = getEmergencyTargetMonths(emergencyFund);
-  const target = monthlyExpense * targetMonths;
-  const months = monthlyExpense > 0 ? savedAmount / monthlyExpense : 0;
-  const pct = target > 0 ? Math.min((savedAmount / target) * 100, 100) : 0;
-  const status = getStatus(months, targetMonths);
-  const activity = getEmergencyActivityLog(emergencyFund);
+  const setupWallets = useMemo(
+    () => safeWallets.map((wallet) => ({ ...wallet, id: getWalletId(wallet), name: getWalletName(wallet), balance: getWalletSpendable(wallet), spendableBalance: getWalletSpendable(wallet), spendable_balance: getWalletSpendable(wallet) })),
+    [safeWallets]
+  );
+
+  const hasEmergencyFundReset = Boolean(emergencyFund?.resetAt || emergencyFund?.reset_at);
   const storedWalletId = getEmergencyStorageWalletId(emergencyFund);
   const storedWalletName = getEmergencyStorageWalletName(emergencyFund);
+  const hasLinkedWalletReference = Boolean(storedWalletId || storedWalletName);
+  const monthlyExpense = hasEmergencyFundReset ? 0 : getEmergencyMonthlyExpense(emergencyFund, survivalExpense || 0);
+  const targetMonths = getEmergencyTargetMonths(emergencyFund);
+  const isEmergencyFundConfigured = monthlyExpense > 0 && targetMonths > 0 && hasLinkedWalletReference && !hasEmergencyFundReset;
+  const isEmergencyFundUnconfigured = hasEmergencyFundReset || monthlyExpense <= 0 || !hasLinkedWalletReference;
+  const rawSavedAmount = getEmergencyAmount(emergencyFund);
+  const savedAmount = isEmergencyFundUnconfigured ? 0 : rawSavedAmount;
+  const target = isEmergencyFundUnconfigured ? 0 : monthlyExpense * targetMonths;
+  const months = !isEmergencyFundUnconfigured && monthlyExpense > 0 ? savedAmount / monthlyExpense : 0;
+  const pct = !isEmergencyFundUnconfigured && target > 0 ? Math.min((savedAmount / target) * 100, 100) : 0;
+  const status = getStatus(months, targetMonths);
+  const activity = getEmergencyActivityLog(emergencyFund);
   const activeStorageWallet = safeWallets.find((wallet) => getWalletId(wallet) === storedWalletId) || (!storedWalletId && storedWalletName ? safeWallets.find((wallet) => getWalletName(wallet) === storedWalletName) : null);
-  const storageWalletId = activeStorageWallet ? getWalletId(activeStorageWallet) : "";
-  const storageWalletName = activeStorageWallet ? getWalletName(activeStorageWallet) : "Choose wallet";
+  const storageWalletId = activeStorageWallet ? getWalletId(activeStorageWallet) : storedWalletId;
+  const storageWalletName = activeStorageWallet ? getWalletName(activeStorageWallet) : storedWalletName || "Choose wallet";
   const hasMonthlySurvivalCost = monthlyExpense > 0;
   const coverageLabel = hasMonthlySurvivalCost ? `${months.toFixed(1)} months` : "Set expense";
   const targetLabel = `${targetMonths}-Month Safety`;
   const safetyStage = monthlyExpense <= 0 ? "Needs setup" : savedAmount >= target ? "Protected" : pct >= 33 ? "Building safety" : "Getting started";
 
-  const hasAutoOpenedSurvivalSetupRef = useRef(false);
   const [editing, setEditing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sourceWalletId, setSourceWalletId] = useState("");
@@ -338,22 +380,7 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
   const [pendingStorageWalletId, setPendingStorageWalletId] = useState("");
   const [moveError, setMoveError] = useState("");
   const [movingFund, setMovingFund] = useState(false);
-
-  useEffect(() => {
-    if (!expanded) {
-      hasAutoOpenedSurvivalSetupRef.current = false;
-      return;
-    }
-
-    if (expanded && !hasMonthlySurvivalCost && !editing && !hasAutoOpenedSurvivalSetupRef.current) {
-      hasAutoOpenedSurvivalSetupRef.current = true;
-      setEditing(true);
-    }
-  }, [expanded, hasMonthlySurvivalCost, editing]);
-
-  useEffect(() => {
-    if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0]));
-  }, [safeWallets, sourceWalletId]);
+  const [showSetupFlow, setShowSetupFlow] = useState(false);
 
   const pendingStorageWallet = safeWallets.find((wallet) => getWalletId(wallet) === pendingStorageWalletId) || null;
 
@@ -362,6 +389,51 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
     const now = new Date().toISOString();
     await updateEmergencyFund({ ...(emergencyFund || {}), ...patch, updatedAt: now, updated_at: now });
     await refreshData?.();
+  };
+
+  const handleSetupComplete = async ({ monthlySurvivalCost, walletId, walletName, targetMonths: nextTargetMonths } = {}) => {
+    const monthly = toNumber(monthlySurvivalCost);
+    const safeTargetMonths = TARGET_MONTHS.includes(toNumber(nextTargetMonths)) ? toNumber(nextTargetMonths) : 3;
+    const nextWalletId = String(walletId || "").trim();
+    const wallet = safeWallets.find((item) => getWalletId(item) === nextWalletId);
+    const nextWalletName = String(walletName || (wallet ? getWalletName(wallet) : "")).trim();
+
+    if (monthly <= 0) throw new Error("Emergency Fund setup needs a monthly survival cost greater than 0.");
+    if (!nextWalletId || !nextWalletName) throw new Error("Emergency Fund setup needs a linked wallet.");
+
+    const nextTarget = monthly * safeTargetMonths;
+    await persistEmergencyFund({
+      survivalExpense: monthly,
+      survival_expense: monthly,
+      monthlyExpense: monthly,
+      monthly_expense: monthly,
+      monthly_survival_expense: monthly,
+      targetAmount: nextTarget,
+      target_amount: nextTarget,
+      target: nextTarget,
+      targetMonths: safeTargetMonths,
+      target_months: safeTargetMonths,
+      months_target: safeTargetMonths,
+      linkedWalletId: nextWalletId,
+      linked_wallet_id: nextWalletId,
+      linkedWalletName: nextWalletName,
+      linked_wallet_name: nextWalletName,
+      reserveWalletId: nextWalletId,
+      reserve_wallet_id: nextWalletId,
+      reserveWalletName: nextWalletName,
+      reserve_wallet_name: nextWalletName,
+      sourceWalletId: nextWalletId,
+      source_wallet_id: nextWalletId,
+      sourceWalletName: nextWalletName,
+      source_wallet_name: nextWalletName,
+      storageWalletId: nextWalletId,
+      storage_wallet_id: nextWalletId,
+      storageWalletName: nextWalletName,
+      storage_wallet_name: nextWalletName,
+      resetAt: null,
+      reset_at: null,
+    });
+    onSurvivalSaved?.(monthly);
   };
 
   const requestStorageWalletChange = (walletId) => {
@@ -415,19 +487,21 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
 
   const handleSurvivalSaved = async (value) => {
     const monthly = toNumber(value);
-    await persistEmergencyFund({ survivalExpense: monthly, survival_expense: monthly, monthlyExpense: monthly, monthly_expense: monthly, monthly_survival_expense: monthly, targetAmount: monthly * targetMonths, target_amount: monthly * targetMonths, target: monthly * targetMonths });
+    await persistEmergencyFund({ survivalExpense: monthly, survival_expense: monthly, monthlyExpense: monthly, monthly_expense: monthly, monthly_survival_expense: monthly, targetAmount: monthly * targetMonths, target_amount: monthly * targetMonths, target: monthly * targetMonths, resetAt: null, reset_at: null });
     setEditing(false);
     onSurvivalSaved?.(monthly);
   };
 
   const changeTargetMonths = async (nextMonths) => {
-    await persistEmergencyFund({ targetMonths: nextMonths, target_months: nextMonths, months_target: nextMonths, targetAmount: monthlyExpense * nextMonths, target_amount: monthlyExpense * nextMonths, target: monthlyExpense * nextMonths });
+    const nextTarget = isEmergencyFundUnconfigured ? 0 : monthlyExpense * nextMonths;
+    await persistEmergencyFund({ targetMonths: nextMonths, target_months: nextMonths, months_target: nextMonths, targetAmount: nextTarget, target_amount: nextTarget, target: nextTarget });
   };
 
   const addEmergencyMoney = async () => {
     const amount = toNumber(addAmount);
     const sourceWallet = safeWallets.find((wallet) => getWalletId(wallet) === sourceWalletId);
     const finalStorageWallet = activeStorageWallet || sourceWallet;
+    if (!isEmergencyFundConfigured) return setAddError("Set up your Emergency Fund first.");
     if (!sourceWallet) return setAddError("Choose a valid source wallet.");
     if (amount <= 0) return setAddError("Enter a valid amount.");
     if (getWalletSpendable(sourceWallet) < amount) return setAddError("This wallet does not have enough spendable balance.");
@@ -476,9 +550,10 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
   };
 
   const resetEmergencyFund = async () => {
+    const now = new Date().toISOString();
     setSaving(true);
     try {
-      await persistEmergencyFund({ savedAmount: 0, saved_amount: 0, currentAmount: 0, current_amount: 0, amount: 0, balance: 0, moneyLeft: 0, protectedBalance: 0, protected_balance: 0, reserveBalance: 0, reserve_balance: 0, targetAmount: 0, target_amount: 0, target: 0, linkedWalletId: null, linked_wallet_id: null, reserveWalletId: null, reserve_wallet_id: null, storageWalletId: null, storage_wallet_id: null, linkedWalletName: null, linked_wallet_name: null, reserveWalletName: null, reserve_wallet_name: null, storageWalletName: null, storage_wallet_name: null, emergencyActivityLog: [], emergency_activity_log: [], activityLog: [], activity_log: [], usageLog: [], usage_log: [] });
+      await persistEmergencyFund({ savedAmount: 0, saved_amount: 0, currentAmount: 0, current_amount: 0, amount: 0, balance: 0, moneyLeft: 0, protectedBalance: 0, protected_balance: 0, reserveBalance: 0, reserve_balance: 0, survivalExpense: 0, survival_expense: 0, monthlyExpense: 0, monthly_expense: 0, monthly_survival_expense: 0, targetAmount: 0, target_amount: 0, target: 0, targetMonths: 3, target_months: 3, months_target: 3, linkedWalletId: null, linked_wallet_id: null, reserveWalletId: null, reserve_wallet_id: null, sourceWalletId: null, source_wallet_id: null, storageWalletId: null, storage_wallet_id: null, linkedWalletName: null, linked_wallet_name: null, reserveWalletName: null, reserve_wallet_name: null, sourceWalletName: null, source_wallet_name: null, storageWalletName: null, storage_wallet_name: null, emergencyActivityLog: [], emergency_activity_log: [], activityLog: [], activity_log: [], usageLog: [], usage_log: [], resetAt: now, reset_at: now });
       onSurvivalSaved?.(0);
     } finally {
       setSaving(false);
@@ -487,13 +562,25 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
 
   return (
     <>
-      <SurvivalExpenseModal open={editing} initialValue={monthlyExpense} userId={user?.id} onSaved={handleSurvivalSaved} onOpenChange={(open) => !open && setEditing(false)} />
-      <EmergencyMoveModal open={Boolean(pendingStorageWallet)} onClose={() => { if (!movingFund) { setPendingStorageWalletId(""); setMoveError(""); } }} onConfirm={confirmStorageWalletMove} currentWallet={activeStorageWallet} nextWallet={pendingStorageWallet} amount={savedAmount} error={moveError} moving={movingFund} />
-      <EmergencyAddModal open={showAddModal} onClose={() => { setShowAddModal(false); setAddError(""); }} wallets={safeWallets} sourceWalletId={sourceWalletId} setSourceWalletId={(value) => { setSourceWalletId(value); setAddError(""); }} amount={addAmount} setAmount={(value) => { setAddAmount(value); setAddError(""); }} error={addError} saving={saving} onSave={addEmergencyMoney} />
-      <EmergencyUseModal open={showUseModal} onClose={() => { setShowUseModal(false); setUseError(""); }} amount={useAmount} setAmount={(value) => { setUseAmount(value); setUseError(""); }} reason={useReason} setReason={(value) => { setUseReason(value); setUseError(""); }} error={useError} saving={saving} onSave={useEmergencyMoney} currentReserve={savedAmount} />
+      <SurvivalExpenseModal open={!isEmergencyFundUnconfigured && editing} initialValue={monthlyExpense > 0 ? monthlyExpense : ""} userId={user?.id} onSaved={handleSurvivalSaved} onOpenChange={(open) => !open && setEditing(false)} />
+      <EmergencyFundSetupFlow open={showSetupFlow} onClose={() => setShowSetupFlow(false)} safeWallets={setupWallets} targetMonths={targetMonths} validTargetMonths={TARGET_MONTHS} onComplete={handleSetupComplete} fmt={fmt} saving={saving} />
+      <EmergencyMoveModal open={!isEmergencyFundUnconfigured && Boolean(pendingStorageWallet)} onClose={() => { if (!movingFund) { setPendingStorageWalletId(""); setMoveError(""); } }} onConfirm={confirmStorageWalletMove} currentWallet={activeStorageWallet} nextWallet={pendingStorageWallet} amount={savedAmount} error={moveError} moving={movingFund} />
+      <EmergencyAddModal open={!isEmergencyFundUnconfigured && showAddModal} onClose={() => { setShowAddModal(false); setAddError(""); }} wallets={safeWallets} sourceWalletId={sourceWalletId} setSourceWalletId={(value) => { setSourceWalletId(value); setAddError(""); }} amount={addAmount} setAmount={(value) => { setAddAmount(value); setAddError(""); }} error={addError} saving={saving} onSave={addEmergencyMoney} />
+      <EmergencyUseModal open={!isEmergencyFundUnconfigured && showUseModal} onClose={() => { setShowUseModal(false); setUseError(""); }} amount={useAmount} setAmount={(value) => { setUseAmount(value); setUseError(""); }} reason={useReason} setReason={(value) => { setUseReason(value); setUseError(""); }} error={useError} saving={saving} onSave={useEmergencyMoney} currentReserve={savedAmount} />
       <FinanceCardShell cardKey="emergencyFund" expanded={expanded} ringClass={status.ring || ""} roundedClass="rounded-3xl" glowLayerClassNames={EMERGENCY_GLOW_LAYERS} surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]" shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]">
         {!expanded ? (
-          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-col gap-4"><div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]"><EmergencyHeader status={status} /><div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3"><p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-sm font-semibold leading-tight text-white/70">Protection covered right now.</p><div className="mt-3 grid grid-cols-3 divide-x divide-white/[0.055] overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105]"><div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(savedAmount)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Saved</p></div><div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(target)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Target</p></div><div className="px-2.5 py-2.5 text-center"><p className={`truncate text-[13px] font-black ${status.text}`}>{status.label}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Status</p></div></div></div></div><ExpandButtonRow expanded={false} onToggleDetails={onToggleDetails} /></div></div>
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="relative flex min-h-0 flex-col gap-4">
+              {isEmergencyFundUnconfigured ? (
+                <EmergencySetupEmptyState onSetup={() => setShowSetupFlow(true)} />
+              ) : (
+                <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]"><EmergencyHeader status={status} /><div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3"><p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-sm font-semibold leading-tight text-white/70">Protection covered right now.</p><div className="mt-3 grid grid-cols-3 divide-x divide-white/[0.055] overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105]"><div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(savedAmount)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Saved</p></div><div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(target)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Target</p></div><div className="px-2.5 py-2.5 text-center"><p className={`truncate text-[13px] font-black ${status.text}`}>{status.label}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Status</p></div></div></div></div>
+              )}
+              <ExpandButtonRow expanded={false} onToggleDetails={onToggleDetails} />
+            </div>
+          </div>
+        ) : isEmergencyFundUnconfigured ? (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><EmergencySetupEmptyState expanded onSetup={() => setShowSetupFlow(true)} /><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /></div></div>
         ) : (
           <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><div className="shrink-0"><p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p></div><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /><div className="min-h-0 flex-1 overflow-hidden pt-1"><FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1"><div><div className="mb-2.5 flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-xs font-semibold text-white/84">Goal</span><p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/46">Choose how many months CLARA should protect.</p></div><span className="shrink-0 text-[10px] font-semibold text-white/48">{targetLabel}</span></div><div className="grid grid-cols-3 gap-2">{TARGET_MONTHS.map((item) => { const active = targetMonths === item; return <button key={item} type="button" onClick={() => changeTargetMonths(item)} disabled={saving} className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${active ? "border-emerald-300/22 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.12)]" : "border-white/[0.05] bg-black/[0.105] text-white/72 hover:bg-white/[0.04] hover:text-white/88"}`}><span className="block">{item} Months</span>{active ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.70)]" /> : null}</button>; })}</div></div><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Current setup</span><span className={`text-[11px] font-black ${status.text}`}>{safetyStage}</span></div><div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58"><div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3"><p className="text-white/34">Monthly survival cost</p><p className="mt-1.5 text-sm font-black text-white/84">{fmt(monthlyExpense)}</p></div><div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3"><p className="text-white/34">Target amount</p><p className="mt-1.5 text-sm font-black text-white/84">{fmt(target)}</p></div></div></div><div className="rounded-2xl border border-cyan-300/12 bg-cyan-400/[0.055] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/48">Stored in</span><span className="max-w-[45%] truncate text-[10px] font-semibold text-white/50">{storageWalletName}</span></div><select value={storageWalletId || ""} onChange={(event) => requestStorageWalletChange(event.target.value)} disabled={saving || movingFund || !safeWallets.length} className="w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-3.5 py-3 text-xs font-black text-white outline-none transition focus:border-cyan-300/24 disabled:opacity-60"><option value="" className="bg-slate-950">Choose storage wallet</option>{safeWallets.map((wallet) => <option key={getWalletId(wallet)} value={getWalletId(wallet)} className="bg-slate-950">{getWalletName(wallet)} • {fmt(getWalletBalance(wallet))}</option>)}</select><p className="mt-2 text-[10.5px] font-semibold leading-5 text-cyan-50/58">Where your Emergency Fund is protected.</p></div><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span><span className="text-[10px] font-semibold text-white/38">Private log</span></div><ActivityList activity={activity} /></div><div className="grid grid-cols-2 gap-2 pt-1.5"><button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit</button><button type="button" onClick={() => setShowAddModal(true)} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button><button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button><button type="button" onClick={resetEmergencyFund} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button></div><div aria-hidden="true" className="h-5 shrink-0" /></FinanceCardExpandedPanel></div></div></div>
         )}
