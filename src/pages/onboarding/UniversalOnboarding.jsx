@@ -439,41 +439,28 @@ export default function UniversalOnboarding() {
                 ) : null}
 
                 {screen.type === "mission" ? (
-                  <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-                    <div className="rounded-[28px] border border-[#34d399]/18 bg-[linear-gradient(180deg,rgba(52,211,153,0.08),rgba(255,255,255,0.02))] p-4">
-                      <div className="flex min-h-[250px] flex-col justify-between rounded-[22px] bg-[radial-gradient(circle_at_top_left,_rgba(82,230,167,0.18),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#34d399]/15 text-[#8ce6c0]">
-                          <HeartHandshake className="h-6 w-6" />
-                        </div>
-                        <div className="space-y-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9ceccb]">CLARA Advocacy</p>
-                          <p className="text-lg font-semibold leading-7 text-white">Your clarity can become part of something bigger.</p>
-                          <p className="text-sm leading-6 text-white/66">As CLARA grows, the mission is to support students, families, and communities in need through the CLARA Charity Fund.</p>
-                        </div>
+                  <div className="flex min-h-full flex-col justify-center space-y-5">
+                    <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#8ce6c0]/20 bg-[#8ce6c0]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a7efd0]">
+                      <Compass className="h-3.5 w-3.5" />
+                      CLARA advocacy
+                    </div>
+                    <div className="rounded-[28px] border border-[#34d399]/18 bg-[linear-gradient(180deg,rgba(52,211,153,0.08),rgba(255,255,255,0.025))] p-5 sm:p-6">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#34d399]/15 text-[#8ce6c0]">
+                        <HeartHandshake className="h-6 w-6" />
+                      </div>
+                      <h2 className="mt-5 max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">CLARA was built for more than tracking money.</h2>
+                      <p className="mt-4 max-w-xl text-base leading-7 text-white/72 sm:text-lg">
+                        CLARA helps you build money clarity first. As it grows, the mission is to support students, families, and communities in need through the CLARA Charity Fund.
+                      </p>
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70">For your clarity</span>
+                        <span className="rounded-full border border-[#34d399]/15 bg-[#34d399]/[0.07] px-3 py-1.5 text-xs font-medium text-[#a7efd0]">For others later</span>
                       </div>
                     </div>
-                    <div className="space-y-5">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-[#8ce6c0]/20 bg-[#8ce6c0]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a7efd0]">
-                        <Compass className="h-3.5 w-3.5" />
-                        CLARA mission
-                      </div>
-                      <h2 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{content.mission.title}</h2>
-                      <p className="max-w-xl text-base leading-7 text-white/72 sm:text-lg">{content.mission.body}</p>
-                      <div className="grid gap-3">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42">For you</p>
-                          <p className="mt-2 text-sm leading-6 text-white/72">CLARA helps you understand your money and make better decisions.</p>
-                        </div>
-                        <div className="rounded-2xl border border-[#34d399]/15 bg-[#34d399]/[0.055] p-4">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9ceccb]">For others</p>
-                          <p className="mt-2 text-sm leading-6 text-white/72">The long-term mission is to turn CLARA’s growth into support for people who need help.</p>
-                        </div>
-                      </div>
-                      <Button type="button" onClick={goNext} className="h-12 rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7]">
-                        {content.mission.cta}
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button type="button" onClick={goNext} className="h-12 w-fit rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7]">
+                      {content.mission.cta}
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 ) : null}
 
