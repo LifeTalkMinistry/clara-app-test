@@ -228,7 +228,7 @@ function EmergencySetupEmptyState({ expanded = false, onSetup }) {
   );
 }
 
-function SetupSummaryBoard({ monthlyExpense, targetMonths, target, storageWalletId, storageWalletName, safeWallets, saving, movingFund, onChangeTargetMonths, onChangeStorageWallet }) {
+function SetupSummaryBoard({ monthlyExpense, targetMonths, target, storageWalletId, storageWalletName, safeWallets, saving, movingFund, onChangeStorageWallet }) {
   return (
     <div className="relative overflow-hidden rounded-[26px] border border-cyan-200/[0.09] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.085),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.105),transparent_48%),rgba(0,0,0,0.12)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.055] blur-[58px]" />
@@ -255,33 +255,6 @@ function SetupSummaryBoard({ monthlyExpense, targetMonths, target, storageWallet
           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/34">Target amount</p>
           <p className="mt-2 text-[15px] font-black leading-none text-white/92">{fmt(target)}</p>
           <p className="mt-2 text-[10.5px] font-semibold leading-4 text-white/40">{targetMonths} × survival cost</p>
-        </div>
-      </div>
-
-      <div className="relative mt-2.5 rounded-2xl border border-white/[0.055] bg-black/[0.12] px-3 py-3">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Protection goal</p>
-          <p className="text-[10.5px] font-black text-cyan-100/78">{targetMonths} Months</p>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {TARGET_MONTHS.map((item) => {
-            const active = targetMonths === item;
-            return (
-              <button
-                key={item}
-                type="button"
-                onClick={() => onChangeTargetMonths(item)}
-                disabled={saving}
-                className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                  active
-                    ? "border-emerald-300/24 bg-emerald-400/[0.10] text-emerald-100 shadow-[0_0_14px_rgba(52,211,153,0.10)]"
-                    : "border-white/[0.055] bg-white/[0.035] text-white/62 hover:bg-white/[0.055] hover:text-white/86"
-                }`}
-              >
-                {item}M
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -662,7 +635,7 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
         ) : isEmergencyFundUnconfigured ? (
           <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><EmergencySetupEmptyState expanded onSetup={() => setShowSetupFlow(true)} /><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /></div></div>
         ) : (
-          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><div className="shrink-0"><p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p></div><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /><div className="min-h-0 flex-1 overflow-hidden pt-1"><FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1"><SetupSummaryBoard monthlyExpense={monthlyExpense} targetMonths={targetMonths} target={target} storageWalletId={storageWalletId} storageWalletName={storageWalletName} safeWallets={safeWallets} saving={saving} movingFund={movingFund} onChangeTargetMonths={changeTargetMonths} onChangeStorageWallet={requestStorageWalletChange} /><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span><span className="text-[10px] font-semibold text-white/38">Private log</span></div><ActivityList activity={activity} /></div><div className="grid grid-cols-2 gap-2 pt-1.5"><button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit setup</button><button type="button" onClick={() => { if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0])); setShowAddModal(true); }} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button><button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button><button type="button" onClick={resetEmergencyFund} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button></div><div aria-hidden="true" className="h-5 shrink-0" /></FinanceCardExpandedPanel></div></div></div>
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><div className="shrink-0"><p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p></div><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /><div className="min-h-0 flex-1 overflow-hidden pt-1"><FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1"><SetupSummaryBoard monthlyExpense={monthlyExpense} targetMonths={targetMonths} target={target} storageWalletId={storageWalletId} storageWalletName={storageWalletName} safeWallets={safeWallets} saving={saving} movingFund={movingFund} onChangeStorageWallet={requestStorageWalletChange} /><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span><span className="text-[10px] font-semibold text-white/38">Private log</span></div><ActivityList activity={activity} /></div><div className="grid grid-cols-2 gap-2 pt-1.5"><button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit setup</button><button type="button" onClick={() => { if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0])); setShowAddModal(true); }} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button><button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button><button type="button" onClick={resetEmergencyFund} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button></div><div aria-hidden="true" className="h-5 shrink-0" /></FinanceCardExpandedPanel></div></div></div>
         )}
       </FinanceCardShell>
     </>
