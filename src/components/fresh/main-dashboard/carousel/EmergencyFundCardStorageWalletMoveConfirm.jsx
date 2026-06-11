@@ -360,6 +360,57 @@ function EmergencyMoveModal({ open, onClose, onConfirm, currentWallet, nextWalle
   );
 }
 
+function EmergencyResetConfirmModal({ open, onClose, onConfirm, saving = false }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[116] flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close reset confirmation"
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={onClose}
+        disabled={saving}
+      />
+
+      <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.07] bg-[#061224]/95 shadow-2xl backdrop-blur-2xl">
+        <div className="border-b border-white/[0.06] p-4">
+          <p className="text-base font-black text-white">Reset Emergency Fund?</p>
+          <p className="mt-1 text-xs font-semibold text-white/48">Please confirm before CLARA clears this setup.</p>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div className="rounded-2xl border border-rose-300/16 bg-rose-400/[0.08] px-4 py-3 text-xs font-semibold leading-6 text-rose-50/86">
+            This will reset your Emergency Fund setup, including your monthly survival cost, protection target, storage wallet, saved emergency amount, and activity log.
+          </div>
+
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-100/72">This cannot be undone.</p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="rounded-2xl border border-white/[0.06] bg-black/[0.12] px-4 py-3 text-sm font-semibold text-white/78 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-60"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={saving}
+              className="rounded-2xl border border-rose-300/22 bg-rose-400/[0.10] px-4 py-3 text-sm font-black text-rose-100 transition hover:bg-rose-400/[0.15] disabled:opacity-60"
+            >
+              {saving ? "Resetting..." : "Continue reset"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmergencyAddModal({ open, onClose, wallets, sourceWalletId, setSourceWalletId, amount, setAmount, error, saving, onSave }) {
   if (!open) return null;
   return (
@@ -434,6 +485,7 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
   const [moveError, setMoveError] = useState("");
   const [movingFund, setMovingFund] = useState(false);
   const [showSetupFlow, setShowSetupFlow] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const pendingStorageWallet = safeWallets.find((wallet) => getWalletId(wallet) === pendingStorageWalletId) || null;
 
@@ -615,6 +667,17 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
       <EmergencyMoveModal open={!isEmergencyFundUnconfigured && Boolean(pendingStorageWallet)} onClose={() => { if (!movingFund) { setPendingStorageWalletId(""); setMoveError(""); } }} onConfirm={confirmStorageWalletMove} currentWallet={activeStorageWallet} nextWallet={pendingStorageWallet} amount={savedAmount} error={moveError} moving={movingFund} />
       <EmergencyAddModal open={!isEmergencyFundUnconfigured && showAddModal} onClose={() => { setShowAddModal(false); setAddError(""); }} wallets={safeWallets} sourceWalletId={sourceWalletId} setSourceWalletId={(value) => { setSourceWalletId(value); setAddError(""); }} amount={addAmount} setAmount={(value) => { setAddAmount(value); setAddError(""); }} error={addError} saving={saving} onSave={addEmergencyMoney} />
       <EmergencyUseModal open={!isEmergencyFundUnconfigured && showUseModal} onClose={() => { setShowUseModal(false); setUseError(""); }} amount={useAmount} setAmount={(value) => { setUseAmount(value); setUseError(""); }} reason={useReason} setReason={(value) => { setUseReason(value); setUseError(""); }} error={useError} saving={saving} onSave={useEmergencyMoney} currentReserve={savedAmount} />
+      <EmergencyResetConfirmModal
+        open={!isEmergencyFundUnconfigured && showResetConfirm}
+        onClose={() => {
+          if (!saving) setShowResetConfirm(false);
+        }}
+        onConfirm={async () => {
+          await resetEmergencyFund();
+          setShowResetConfirm(false);
+        }}
+        saving={saving}
+      />
       <FinanceCardShell cardKey="emergencyFund" expanded={expanded} ringClass={status.ring || ""} roundedClass="rounded-3xl" glowLayerClassNames={EMERGENCY_GLOW_LAYERS} surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]" shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]">
         {!expanded ? (
           <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
@@ -622,15 +685,58 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
               {isEmergencyFundUnconfigured ? (
                 <EmergencySetupEmptyState onSetup={() => setShowSetupFlow(true)} />
               ) : (
-                <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]"><EmergencyHeader status={status} /><div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3"><p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-sm font-semibold leading-tight text-white/70">Protection covered right now.</p><div className="mt-3 grid grid-cols-3 divide-x divide-white/[0.055] overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105]"><div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(savedAmount)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Saved</p></div><div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(target)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Target</p></div><div className="px-2.5 py-2.5 text-center"><p className={`truncate text-[13px] font-black ${status.text}`}>{status.label}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Status</p></div></div></div></div>
+                <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+                  <EmergencyHeader status={status} />
+                  <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+                    <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p>
+                    <p className="mt-2 text-sm font-semibold leading-tight text-white/70">Protection covered right now.</p>
+                    <div className="mt-3 grid grid-cols-3 divide-x divide-white/[0.055] overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105]">
+                      <div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(savedAmount)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Saved</p></div>
+                      <div className="px-2.5 py-2.5 text-center"><p className="truncate text-[13px] font-black text-white/88">{fmt(target)}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Target</p></div>
+                      <div className="px-2.5 py-2.5 text-center"><p className={`truncate text-[13px] font-black ${status.text}`}>{status.label}</p><p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Status</p></div>
+                    </div>
+                  </div>
+                </div>
               )}
               <ExpandButtonRow expanded={false} onToggleDetails={onToggleDetails} />
             </div>
           </div>
         ) : isEmergencyFundUnconfigured ? (
-          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><EmergencySetupEmptyState expanded onSetup={() => setShowSetupFlow(true)} /><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /></div></div>
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+              <EmergencySetupEmptyState expanded onSetup={() => setShowSetupFlow(true)} />
+              <ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} />
+            </div>
+          </div>
         ) : (
-          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5"><div className="relative flex min-h-0 flex-1 flex-col gap-4"><div className="shrink-0"><p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p><p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p></div><ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} /><div className="min-h-0 flex-1 overflow-hidden pt-1"><FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1"><SetupSummaryBoard monthlyExpense={monthlyExpense} targetMonths={targetMonths} target={target} storageWalletId={storageWalletId} storageWalletName={storageWalletName} safeWallets={safeWallets} saving={saving} movingFund={movingFund} onChangeStorageWallet={requestStorageWalletChange} /><div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]"><div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span><span className="text-[10px] font-semibold text-white/38">Private log</span></div><ActivityList activity={activity} /></div><div className="grid grid-cols-2 gap-2 pt-1.5"><button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit setup</button><button type="button" onClick={() => { if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0])); setShowAddModal(true); }} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button><button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button><button type="button" onClick={resetEmergencyFund} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button></div><div aria-hidden="true" className="h-5 shrink-0" /></FinanceCardExpandedPanel></div></div></div>
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+              <div className="shrink-0">
+                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>{coverageLabel}</p>
+                <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">Protection covered right now.</p>
+              </div>
+              <ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} />
+              <div className="min-h-0 flex-1 overflow-hidden pt-1">
+                <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
+                  <SetupSummaryBoard monthlyExpense={monthlyExpense} targetMonths={targetMonths} target={target} storageWalletId={storageWalletId} storageWalletName={storageWalletName} safeWallets={safeWallets} saving={saving} movingFund={movingFund} onChangeStorageWallet={requestStorageWalletChange} />
+                  <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Emergency activity</span>
+                      <span className="text-[10px] font-semibold text-white/38">Private log</span>
+                    </div>
+                    <ActivityList activity={activity} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1.5">
+                    <button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit setup</button>
+                    <button type="button" onClick={() => { if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0])); setShowAddModal(true); }} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button>
+                    <button type="button" onClick={() => setShowUseModal(true)} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button>
+                    <button type="button" onClick={() => setShowResetConfirm(true)} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button>
+                  </div>
+                  <div aria-hidden="true" className="h-5 shrink-0" />
+                </FinanceCardExpandedPanel>
+              </div>
+            </div>
+          </div>
         )}
       </FinanceCardShell>
     </>
