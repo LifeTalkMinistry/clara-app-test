@@ -15,10 +15,12 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
+import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
 
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
 const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
 const COMMITTED_VERSION_ROUTE = "/enroll?plan=committed_249&view=detail";
+const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
 
 const QUESTION_SETS = [
   {
@@ -115,6 +117,74 @@ const SUMMARY_ITEMS = [
   { id: "guidance_intensity", label: "Guidance style" },
 ];
 
+const ONBOARDING_MEMORY_MAPPINGS = {
+  commitment_level: {
+    category: "onboarding_commitment",
+    content: {
+      just_exploring: "User is exploring CLARA and may need gentle guidance.",
+      build_better_habits: "User wants to build better money habits and consistency.",
+      take_seriously: "User is ready to take money management seriously.",
+      need_structure_now: "User needs structure urgently and may feel financially overwhelmed.",
+    },
+  },
+  lifestyle_context: {
+    category: "onboarding_lifestyle_clarity",
+    content: {
+      just_myself: "User’s money mostly supports personal needs.",
+      family_household: "User’s money supports family or household responsibilities.",
+      partner_shared_expenses: "User manages money with a partner or shared expenses.",
+      school_personal_needs: "User’s money supports school and personal needs.",
+      freelance_irregular_income: "User has freelance or irregular income patterns.",
+      business_side_hustle: "User’s money also supports a business or side hustle.",
+      debt_bills_pressure: "User’s money is pressured by debt, bills, or obligations to others.",
+    },
+  },
+  money_pressure_point: {
+    category: "onboarding_money_pressure",
+    content: {
+      bills: "Bills are the user’s heaviest current money pressure.",
+      food_daily_needs: "Food and daily needs are the user’s main money pressure.",
+      family_responsibilities: "Family responsibilities strongly affect the user’s money decisions.",
+      impulse_spending: "Impulse spending is a major pressure point for the user.",
+      debt: "Debt is a major financial pressure for the user.",
+      irregular_income: "Irregular income makes the user’s money timing unstable.",
+      saving_money: "Saving money is difficult for the user right now.",
+      not_sure_yet: "User is not yet sure what their main money pressure is.",
+    },
+  },
+  spending_trigger: {
+    category: "onboarding_spending_trigger",
+    content: {
+      sudden_purchase: "Sudden purchases are a spending risk moment for the user.",
+      friends_family_invite: "Social invitations can pressure the user to spend.",
+      stress_spending: "Stress can trigger the user’s spending.",
+      sale_promo: "Sales and promos can trigger the user’s spending.",
+      payday_arrives: "Payday is a high-risk spending moment for the user.",
+      affordability_uncertain: "User needs help when they are unsure if they can afford something.",
+    },
+  },
+  spending_guidance_style: {
+    category: "onboarding_guidance_style",
+    content: {
+      simple_yes_no: "User prefers simple yes-or-no spending guidance.",
+      short_explanation: "User prefers short explanations behind CLARA’s guidance.",
+      strict_warning: "User wants strict warnings when a decision is risky.",
+      softer_reminder: "User prefers softer reminders instead of heavy warnings.",
+      budget_based_check: "User prefers spending checks based on actual budget data.",
+    },
+  },
+  guidance_intensity: {
+    category: "onboarding_guidance_intensity",
+    content: {
+      keep_simple: "User wants simple and clean money guidance.",
+      clear_next_steps: "User wants clear next steps.",
+      risk_warnings: "User wants CLARA to warn them when they are at risk.",
+      understand_patterns: "User wants CLARA to help them understand money patterns.",
+      money_coach: "User wants practical money-coach style guidance.",
+    },
+  },
+};
+
 const withTimeout = (promise, ms = 8000) =>
   Promise.race([
     promise,
@@ -147,6 +217,44 @@ function getRecommendedAccessLevel(answers) {
 
 function getMissingRequiredAnswer(answers) {
   return QUESTION_SETS.find((question) => !answers[question.id]);
+}
+
+function buildOnboardingMemoryEntries(answers) {
+  return Object.entries(ONBOARDING_MEMORY_MAPPINGS)
+    .map(([answerKey, mapping]) => {
+      const content = mapping.content[answers[answerKey]];
+      return content ? { category: mapping.category, content } : null;
+    })
+    .filter(Boolean);
+}
+
+function saveOnboardingAnswersToLocalMemory(userId, answers) {
+  if (!userId) return;
+
+  try {
+    const cleanedMemories = getMemories(userId).filter(
+      (memory) => !String(memory?.category || "").startsWith("onboarding_"),
+    );
+
+    setMemories(userId, cleanedMemories);
+    buildOnboardingMemoryEntries(answers).forEach((memory) => appendMemory(userId, memory));
+
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage?.setItem(ACTIVE_MEMORY_USER_ID_KEY, userId);
+      } catch {
+        // Memory review bridge can still fall back to scanning local CLARA memory keys.
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("clara-onboarding-memory-updated", {
+          detail: { userId, categories: buildOnboardingMemoryEntries(answers).map((memory) => memory.category) },
+        }),
+      );
+    }
+  } catch (error) {
+    console.warn("CLARA onboarding local memory save skipped:", error);
+  }
 }
 
 export default function UniversalOnboarding() {
@@ -306,6 +414,7 @@ export default function UniversalOnboarding() {
         recommended_access_level: recommendedAccessLevel,
         onboarding_completed_at: new Date().toISOString(),
       });
+      saveOnboardingAnswersToLocalMemory(user.id, answers);
       await refreshProfile?.();
       navigate(destination, {
         replace: true,
