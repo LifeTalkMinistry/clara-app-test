@@ -1,0 +1,55 @@
+name: Apply Income Hub Sync Fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-income-hub-sync-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-income-hub:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Patch compact Income Hub setup state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/financial-carousel/cards/investment/ui/InvestmentCardView.jsx")
+          text = path.read_text()
+
+          old = '''  const sourceCount = readiness?.sourceCount || incomeSources.length || 0;
+  const incomeSourceTitle = `${sourceCount} Income Source${sourceCount === 1 ? "" : "s"}`;
+  const mainValue = readiness?.totalGenerated > 0 ? fmt(readiness.totalGenerated) : "Set source";
+'''
+
+          new = '''  const sourceCount = readiness?.sourceCount || incomeSources.length || 0;
+  const hasIncomeSources = sourceCount > 0;
+  const incomeSourceTitle = `${sourceCount} Income Source${sourceCount === 1 ? "" : "s"}`;
+  const mainValue = hasIncomeSources
+    ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}`
+    : "Set source";
+'''
+
+          if old not in text:
+              raise SystemExit("Target Income Hub compact-state snippet was not found.")
+
+          path.write_text(text.replace(old, new, 1))
+          Path(".github/workflows/apply-income-hub-sync-fix.yml").unlink()
+          PY
+
+      - name: Commit fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/financial-carousel/cards/investment/ui/InvestmentCardView.jsx .github/workflows/apply-income-hub-sync-fix.yml
+          git commit -m "Fix Income Hub compact source state"
+          git push
