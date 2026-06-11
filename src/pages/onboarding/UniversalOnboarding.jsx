@@ -440,9 +440,37 @@ export default function UniversalOnboarding() {
     if (!user?.id) throw new Error("No logged-in user found.");
     const payload = { id: user.id, email: user.email || profile?.email || null, ...updates };
     const { error } = await withTimeout(supabase.from("profiles").upsert(payload, { onConflict: "id" }), 8000);
-    if (error) {
-      console.error("Profile upsert error:", error);
+    if (error) throw error;
+  }
+
+  async function saveRequiredOnboardingCompletion() {
+    try {
+      await updateProfile({
+        onboarding_completed: true,
+        has_completed_onboarding: true,
+        onboarding_step: screens.length,
+        onboarding_completed_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("CLARA required onboarding completion save failed:", error);
       throw new Error(SAVE_ERROR_MESSAGE);
+    }
+  }
+
+  async function saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot) {
+    try {
+      await updateProfile({
+        onboarding_answers: answerSnapshot,
+        commitment_level: answerSnapshot.commitment_level,
+        lifestyle_context: answerSnapshot.lifestyle_context,
+        money_pressure_point: answerSnapshot.money_pressure_point,
+        spending_trigger: answerSnapshot.spending_trigger,
+        spending_guidance_style: answerSnapshot.spending_guidance_style,
+        guidance_intensity: answerSnapshot.guidance_intensity,
+        recommended_access_level: recommendedAccessSnapshot,
+      });
+    } catch (error) {
+      console.warn("CLARA optional onboarding answer save skipped:", error);
     }
   }
 
@@ -465,7 +493,7 @@ export default function UniversalOnboarding() {
     const missingAnswer = getMissingRequiredAnswer(answerSnapshot);
     if (missingAnswer) {
       if (screen?.type === "result") {
-        setNameError("Some setup answers did not save correctly. Please review the missing step.");
+        setNameError("Some setup answers are missing. Please review your setup before continuing.");
         warnInDevelopment("CLARA onboarding missing answer detected on result screen:", {
           missingQuestionId: missingAnswer.id,
           answerSnapshot,
@@ -475,26 +503,16 @@ export default function UniversalOnboarding() {
 
       setNameError("Please complete your setup answers before continuing.");
       const missingScreenIndex = screens.findIndex((entry) => entry.id === `question-${missingAnswer.id}`);
-      if (missingScreenIndex >= 0) setScreenIndex(missingScreenIndex);
+      if (missingScreenIndex >= 0 && missingScreenIndex < screenIndex) {
+        setScreenIndex(missingScreenIndex);
+      }
       return false;
     }
 
     const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
     await saveNameIfNeeded();
-    await updateProfile({
-      onboarding_completed: true,
-      has_completed_onboarding: true,
-      onboarding_step: screens.length,
-      onboarding_answers: answerSnapshot,
-      commitment_level: answerSnapshot.commitment_level,
-      lifestyle_context: answerSnapshot.lifestyle_context,
-      money_pressure_point: answerSnapshot.money_pressure_point,
-      spending_trigger: answerSnapshot.spending_trigger,
-      spending_guidance_style: answerSnapshot.spending_guidance_style,
-      guidance_intensity: answerSnapshot.guidance_intensity,
-      recommended_access_level: recommendedAccessSnapshot,
-      onboarding_completed_at: new Date().toISOString(),
-    });
+    await saveRequiredOnboardingCompletion();
+    await saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot);
     clearOnboardingDraft();
     saveOnboardingAnswersToLocalMemory(user.id, answerSnapshot);
     await refreshProfile?.();
