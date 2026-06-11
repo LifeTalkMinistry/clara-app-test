@@ -53,3 +53,5 @@ jobs:
           git add src/components/financial-carousel/cards/investment/ui/InvestmentCardView.jsx .github/workflows/apply-income-hub-sync-fix.yml
           git commit -m "Fix Income Hub compact source state"
           git push
+
+# retrigger: 2026-06-11
