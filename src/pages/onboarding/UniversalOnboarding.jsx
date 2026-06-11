@@ -468,7 +468,7 @@ export default function UniversalOnboarding() {
     for (const payload of completionPayloads) {
       try {
         await updateProfile(payload);
-        return;
+        return true;
       } catch (error) {
         lastError = error;
         console.warn("CLARA required onboarding completion save fallback failed:", {
@@ -478,8 +478,8 @@ export default function UniversalOnboarding() {
       }
     }
 
-    console.error("CLARA required onboarding completion save failed:", lastError);
-    throw new Error(SAVE_ERROR_MESSAGE);
+    console.warn("CLARA required onboarding completion remote save skipped:", lastError);
+    return false;
   }
 
   async function saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot) {
@@ -533,6 +533,7 @@ export default function UniversalOnboarding() {
         planLabel: profile?.subscription_label || "Free",
         subscriptionStatus,
         accessStatus,
+        onboardingCompleted: true,
         lastResolvedAppFlow: "normal",
         lastValidRoute: FREE_VERSION_ROUTE,
       });
@@ -578,12 +579,19 @@ export default function UniversalOnboarding() {
 
     const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
     await saveNameIfNeeded();
-    await saveRequiredOnboardingCompletion();
+
     saveCompletedOnboardingAccessSnapshot(answerSnapshot, recommendedAccessSnapshot);
-    await saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot);
     clearOnboardingDraft();
     saveOnboardingAnswersToLocalMemory(user.id, answerSnapshot);
-    await refreshProfile?.();
+
+    Promise.resolve()
+      .then(() => saveRequiredOnboardingCompletion())
+      .then(() => saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot))
+      .then(() => refreshProfile?.())
+      .catch((error) => {
+        console.warn("CLARA onboarding remote completion sync skipped:", error);
+      });
+
     return true;
   }
 
