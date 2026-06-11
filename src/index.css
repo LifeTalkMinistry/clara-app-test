@@ -150,3 +150,12 @@ body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] >
 [role="dialog"][aria-label$="PDF reader"] .react-pdf__Page {
   background-color: #080a0f !important;
 }
+
+/* CLARA Learning Hub PDF reader: keep the top options button on the true visual center. */
+#root button[aria-label="Open reader options"][aria-controls="clara-reader-options"] {
+  left: 50% !important;
+  right: auto !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  transform: translateX(-50%) !important;
+}
