@@ -9,7 +9,20 @@ import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/bud
 import { resetMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
 import { firstValidNumber, getPHMonthKey, normalizeString } from "@/utils/dashboard/dashboardHelpers";
 
-const fmt = (v = 0) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(firstValidNumber(v));
+const amountValue = (value, fallback = 0) => {
+  if (value === null || value === undefined || value === "") return fallback;
+  const numeric = Number(String(value).replace(/php/gi, "").replace(/[₱,\s]/g, ""));
+  return Number.isFinite(numeric) ? numeric : fallback;
+};
+const firstAmount = (...values) => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const numeric = amountValue(value, NaN);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return 0;
+};
+const fmt = (v = 0) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amountValue(v));
 const today = () => new Date().toISOString().slice(0, 10);
 const nowIso = () => new Date().toISOString();
 const addDays = (date, days) => { const d = new Date(`${String(date || today()).slice(0, 10)}T00:00:00`); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
@@ -51,7 +64,7 @@ function cleanProtectionSettings(settings = {}) {
     savingsGoalMonthlyAmounts: settings.savingsGoalMonthlyAmounts && typeof settings.savingsGoalMonthlyAmounts === "object" ? settings.savingsGoalMonthlyAmounts : {},
     includeEmergencyFund: settings.includeEmergencyFund === true,
     emergencyFundContributionMode: ["fixed", "setupTarget", "leftover"].includes(settings.emergencyFundContributionMode) ? settings.emergencyFundContributionMode : "fixed",
-    emergencyFundMonthlyAmount: Math.max(0, firstValidNumber(settings.emergencyFundMonthlyAmount)),
+    emergencyFundMonthlyAmount: Math.max(0, amountValue(settings.emergencyFundMonthlyAmount)),
   };
 }
 
@@ -82,8 +95,8 @@ function saveProtectionSettings(settings = {}) {
 
 function goalId(goal = {}, index = 0) { return String(goal.id || goal.goal_id || goal.key || `goal-${index}`); }
 function goalTitle(goal = {}, index = 0) { return String(goal.title || goal.name || goal.goal_name || `Savings Goal ${index + 1}`); }
-function goalTarget(goal = {}) { return firstValidNumber(goal.target_amount, goal.targetAmount, goal.goal_amount, goal.target, goal.goal); }
-function goalSaved(goal = {}) { return firstValidNumber(goal.saved_amount, goal.current_amount, goal.saved, goal.current, goal.amount); }
+function goalTarget(goal = {}) { return firstAmount(goal.target_amount, goal.targetAmount, goal.goal_amount, goal.target, goal.goal); }
+function goalSaved(goal = {}) { return firstAmount(goal.saved_amount, goal.current_amount, goal.saved, goal.current, goal.amount); }
 function isActiveGoal(goal = {}) {
   const status = String(goal.status || goal.goal_status || goal.state || "active").toLowerCase();
   if (["done", "completed", "complete", "archived", "inactive"].includes(status)) return false;
@@ -165,13 +178,13 @@ function ProtectionSetupModal({ open, settings, savingsGoals = [], emergencyFund
     setDraft(cleanProtectionSettings(settings));
     setStep(1);
     setMessage("");
-  }, [open, settings]);
+  }, [open]);
 
   if (!open) return null;
 
   const commit = (nextDraft = draft) => {
     const clean = cleanProtectionSettings({ ...nextDraft, setupCompleted: true });
-    if (clean.includeEmergencyFund && clean.emergencyFundContributionMode === "fixed" && firstValidNumber(clean.emergencyFundMonthlyAmount) <= 0) {
+    if (clean.includeEmergencyFund && clean.emergencyFundContributionMode === "fixed" && amountValue(clean.emergencyFundMonthlyAmount) <= 0) {
       setMessage("Put a monthly Emergency Fund amount above ₱0, or choose target/leftover.");
       setStep(3);
       return;
@@ -193,7 +206,7 @@ function ProtectionSetupModal({ open, settings, savingsGoals = [], emergencyFund
       <p className="mt-3 text-sm font-semibold leading-6 text-white/58">CLARA can include Savings Goals and Emergency Fund in your monthly budget so they are protected before extra spending.</p>
       {message ? <p className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-xs font-bold leading-5 text-amber-100">{message}</p> : null}
 
-      {step === 1 ? <div className="mt-5 space-y-3"><button type="button" onClick={skip} className="w-full rounded-2xl border border-white/15 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70">No, skip this</button><button type="button" onClick={()=>setStep(2)} className="w-full rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-black text-white shadow-[0_14px_34px_rgba(16,185,129,0.22)]">Yes, include them</button></div> : null}
+      {step === 1 ? <div className="mt-5 space-y-3"><button type="button" onClick={skip} className="w-full rounded-2xl border border-white/15 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70">No, skip this</button><button type="button" onClick={(event)=>{ event.stopPropagation(); setStep(2); }} className="w-full rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-black text-white shadow-[0_14px_34px_rgba(16,185,129,0.22)]">Yes, include them</button></div> : null}
 
       {step === 2 ? <div className="mt-5 space-y-3"><p className="text-sm font-black">Should Savings Goals be part of your monthly budget?</p><button type="button" onClick={()=>setDraft((c)=>({...c,includeSavingsGoals:false,savingsGoalMode:"none",selectedSavingsGoalIds:[]}))} className={optionClass(!draft.includeSavingsGoals)}><span className="text-sm font-black">No, keep goals separate</span></button><button type="button" onClick={()=>setDraft((c)=>({...c,includeSavingsGoals:true,savingsGoalMode:"all"}))} className={optionClass(draft.includeSavingsGoals && draft.savingsGoalMode === "all")}><span className="block text-sm font-black">Yes, include all active goals</span><span className="mt-1 block text-xs text-white/45">{activeGoals.length} active goal{activeGoals.length===1?"":"s"} found</span></button><button type="button" onClick={()=>setDraft((c)=>({...c,includeSavingsGoals:true,savingsGoalMode:"selected"}))} className={optionClass(draft.includeSavingsGoals && draft.savingsGoalMode === "selected")}><span className="text-sm font-black">Yes, let me choose goals</span></button>{draft.includeSavingsGoals && draft.savingsGoalMode === "selected" ? <div className="space-y-2 rounded-2xl border border-white/12 bg-white/[0.035] p-3">{activeGoals.length ? activeGoals.map((goal,index)=>{ const id = goalId(goal,index); const selected = draft.selectedSavingsGoalIds.includes(id); return <button key={id} type="button" onClick={()=>toggleGoal(id)} className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left ${selected ? "border-emerald-300/25 bg-emerald-400/10" : "border-white/10 bg-black/10"}`}><span className="text-xs font-bold">{goalTitle(goal,index)}</span>{selected ? <CheckCircle2 className="h-4 w-4 text-emerald-200"/> : null}</button>; }) : <p className="text-xs leading-5 text-white/50">No savings goals yet. You can skip this for now.</p>}</div> : null}<button type="button" onClick={()=>setStep(3)} className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950">Continue</button></div> : null}
 
@@ -226,7 +239,7 @@ export default function MonthlyBudgetPlan() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
 
-  useEffect(() => { if (declaredMonthlyBudgetAmount > 0) setDeclaredInput(String(declaredMonthlyBudgetAmount)); }, [declaredMonthlyBudgetAmount]);
+  useEffect(() => { if (firstAmount(declaredMonthlyBudgetAmount) > 0) setDeclaredInput(String(declaredMonthlyBudgetAmount)); }, [declaredMonthlyBudgetAmount]);
   useEffect(() => { if (editing) { setCategoryName(editing.title || ""); setCategoryAmount(String(editing.allocated || "")); } }, [editing]);
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -238,14 +251,13 @@ export default function MonthlyBudgetPlan() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.__CLARA_BUDGET_PROTECTION_CONTEXT = { savingsGoals, emergencyFund };
-    window.dispatchEvent(new CustomEvent(BUDGET_PROTECTION_UPDATED_EVENT, { detail: { settings: readProtectionSettings() } }));
   }, [emergencyFund, savingsGoals]);
   useEffect(() => { if (!protectionSettings.setupCompleted) setProtectionOpen(true); }, [protectionSettings.setupCompleted]);
 
   const cycle = getCycleWindow(cycleType, cycleStart, cycleEnd);
-  const declared = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
-  const allocated = plan.allocated;
-  const protectedAmount = firstValidNumber(plan.totalProtectedCommitments, plan.protected_commitments_total);
+  const declared = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
+  const allocated = firstAmount(plan.allocated);
+  const protectedAmount = firstAmount(plan.totalProtectedCommitments, plan.protected_commitments_total);
   const left = Math.max(declared - allocated, 0);
   const canFinish = declared > 0 && budgetOptions.length > 0 && left <= 0;
   const headerStatus = String(monthlyBudgetHeader?.status || "").trim().toLowerCase();
@@ -257,7 +269,7 @@ export default function MonthlyBudgetPlan() {
 
   const refresh = async () => { await refreshData?.(); fireBudgetEvents(); };
   const saveHeader = async (done = false) => {
-    const amount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
+    const amount = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
     if (amount <= 0) throw new Error("Please enter your budget first.");
     const payload = headerPayload({ amount, done: Boolean(done || isActiveBudget), user, cycle });
     if (monthlyBudgetHeader?.id && typeof updateBudget === "function") return updateBudget(monthlyBudgetHeader.id, payload);
@@ -266,17 +278,17 @@ export default function MonthlyBudgetPlan() {
 
   const saveDraft = async () => { try { setSaving(true); setNotice(""); await saveHeader(false); await refresh(); setNotice(isActiveBudget ? "Budget plan updated. Spending history stayed in this cycle." : "Budget draft saved."); } catch (e) { setNotice(e?.message || "CLARA could not save this budget yet."); } finally { setSaving(false); } };
   const addCategory = async () => {
-    const title = normalizeString(categoryName); const amount = firstValidNumber(categoryAmount);
+    const title = normalizeString(categoryName); const amount = firstAmount(categoryAmount);
     if (!title) return setNotice("Please enter a category name.");
     if (amount <= 0) return setNotice("Please enter an amount to assign.");
-    const current = editing ? Math.max(allocated - firstValidNumber(editing.allocated), 0) : allocated;
+    const current = editing ? Math.max(allocated - firstAmount(editing.allocated), 0) : allocated;
     if (declared > 0 && current + amount > declared) return setNotice(`This exceeds your budget. You only have ${fmt(Math.max(declared - current, 0))} left.`);
     try { setSaving(true); setNotice(""); await saveHeader(false); const payload = categoryPayload({ title, amount, order: editing?.sortOrder ?? budgetOptions.length, user, cycle }); if (editing?.id && typeof updateBudget === "function") await updateBudget(editing.id, payload); else await addBudget?.(payload); setCategoryName(""); setCategoryAmount(""); await refresh(); setNotice(editing ? "Category updated. Existing spending stayed counted in this cycle." : "Category added."); if (editing) navigate("/budget-plan", { replace: true }); } catch (e) { setNotice(e?.message || "CLARA could not save this category yet."); } finally { setSaving(false); }
   };
   const removeCategory = async (item) => { if (!item?.id || typeof deleteBudget !== "function") return; try { setSaving(true); await deleteBudget(item.id); await refresh(); setNotice("Category removed."); } catch (e) { setNotice(e?.message || "CLARA could not remove this category yet."); } finally { setSaving(false); } };
   const finish = async () => { if (isActiveBudget) return setNotice("This budget plan is already active. Use Save Changes to edit, or Reset Cycle to start clean."); if (!canActivate) return setNotice(helper); try { setSaving(true); await saveHeader(true); await refresh(); navigate("/dashboard"); } catch (e) { setNotice(e?.message || "CLARA could not activate this budget yet."); } finally { setSaving(false); } };
   const resetCycle = async () => {
-    const amount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
+    const amount = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
     if (amount <= 0) return setNotice("Please enter your new budget amount first.");
     if (typeof window !== "undefined") {
       const ok = window.confirm("Reset budget cycle? Transaction history stays, but the Budget Card, Watch Zone, and categories start clean from this exact moment.");
