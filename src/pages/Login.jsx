@@ -294,9 +294,9 @@ export default function Login() {
 
         if (typeof window !== "undefined") {
           const basePath = `${window.location.origin}${window.location.pathname}${window.location.search}`;
-          window.location.replace(`${basePath}#/welcome-back`);
+          window.location.replace(`${basePath}#/`);
         } else {
-          navigate("/welcome-back", { replace: true });
+          navigate("/", { replace: true });
         }
       }
     } catch (error) {
