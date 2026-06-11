@@ -228,6 +228,16 @@ function EmergencySetupEmptyState({ expanded = false, onSetup }) {
   );
 }
 
+function SetupMetricCard({ label, value, helper }) {
+  return (
+    <div className="flex min-h-[104px] flex-col rounded-2xl border border-white/[0.055] bg-white/[0.045] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <p className="text-[11px] font-black leading-tight tracking-[-0.01em] text-white/62">{label}</p>
+      <p className="mt-2 text-[17px] font-black leading-none tracking-[-0.02em] text-white/94">{value}</p>
+      <p className="mt-auto pt-2 text-[10.5px] font-semibold leading-4 text-white/38">{helper}</p>
+    </div>
+  );
+}
+
 function SetupSummaryBoard({ monthlyExpense, targetMonths, target, storageWalletId, storageWalletName, safeWallets, saving, movingFund, onChangeStorageWallet }) {
   return (
     <div className="relative overflow-hidden rounded-[26px] border border-cyan-200/[0.09] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.085),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.105),transparent_48%),rgba(0,0,0,0.12)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
@@ -237,37 +247,28 @@ function SetupSummaryBoard({ monthlyExpense, targetMonths, target, storageWallet
       <div className="relative mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/48">Emergency setup</p>
-          <p className="mt-1 text-sm font-black leading-tight text-white/92">Your saved safety definition</p>
+          <p className="mt-1 text-[15px] font-black leading-tight tracking-[-0.015em] text-white/92">Your saved safety definition</p>
         </div>
-        <span className="shrink-0 rounded-full border border-emerald-300/16 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-black text-emerald-100/90">
+        <span className="shrink-0 rounded-full border border-emerald-300/16 bg-emerald-400/[0.08] px-2.5 py-1 text-[10.5px] font-black text-emerald-100/90">
           {targetMonths} months
         </span>
       </div>
 
       <div className="relative grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-white/[0.055] bg-white/[0.045] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/34">Monthly survival</p>
-          <p className="mt-2 text-[15px] font-black leading-none text-white/92">{fmt(monthlyExpense)}</p>
-          <p className="mt-2 text-[10.5px] font-semibold leading-4 text-white/40">Essentials only</p>
-        </div>
-
-        <div className="rounded-2xl border border-white/[0.055] bg-white/[0.045] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/34">Target amount</p>
-          <p className="mt-2 text-[15px] font-black leading-none text-white/92">{fmt(target)}</p>
-          <p className="mt-2 text-[10.5px] font-semibold leading-4 text-white/40">{targetMonths} × survival cost</p>
-        </div>
+        <SetupMetricCard label="Monthly survival" value={fmt(monthlyExpense)} helper="Essentials only" />
+        <SetupMetricCard label="Target amount" value={fmt(target)} helper={`${targetMonths} × survival cost`} />
       </div>
 
       <div className="relative mt-2.5 rounded-2xl border border-white/[0.055] bg-black/[0.12] px-3 py-3">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Storage wallet</p>
-          <p className="max-w-[52%] truncate text-[10.5px] font-black text-cyan-100/78">{storageWalletName}</p>
+          <p className="text-[11px] font-black leading-tight tracking-[-0.01em] text-white/62">Storage wallet</p>
+          <p className="max-w-[52%] truncate text-[11px] font-black tracking-[-0.01em] text-cyan-100/80">{storageWalletName}</p>
         </div>
         <select
           value={storageWalletId || ""}
           onChange={(event) => onChangeStorageWallet(event.target.value)}
           disabled={saving || movingFund || !safeWallets.length}
-          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.055] px-3.5 py-3 text-xs font-black text-white outline-none transition focus:border-cyan-300/24 disabled:opacity-60"
+          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.055] px-3.5 py-3 text-[13px] font-black tracking-[-0.01em] text-white outline-none transition focus:border-cyan-300/24 disabled:opacity-60"
         >
           <option value="" className="bg-slate-950">Choose storage wallet</option>
           {safeWallets.map((wallet) => (
@@ -418,7 +419,6 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
   const storageWalletName = activeStorageWallet ? getWalletName(activeStorageWallet) : storedWalletName || "Choose wallet";
   const hasMonthlySurvivalCost = monthlyExpense > 0;
   const coverageLabel = hasMonthlySurvivalCost ? `${months.toFixed(1)} months` : "Set expense";
-  const safetyStage = monthlyExpense <= 0 ? "Needs setup" : savedAmount >= target ? "Protected" : pct >= 33 ? "Building safety" : "Getting started";
 
   const [editing, setEditing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -543,11 +543,6 @@ export default function EmergencyFundCard({ moneyLeft = 0, survivalExpense = 0, 
     await persistEmergencyFund({ survivalExpense: monthly, survival_expense: monthly, monthlyExpense: monthly, monthly_expense: monthly, monthly_survival_expense: monthly, targetAmount: monthly * targetMonths, target_amount: monthly * targetMonths, target: monthly * targetMonths, resetAt: null, reset_at: null });
     setEditing(false);
     onSurvivalSaved?.(monthly);
-  };
-
-  const changeTargetMonths = async (nextMonths) => {
-    const nextTarget = isEmergencyFundUnconfigured ? 0 : monthlyExpense * nextMonths;
-    await persistEmergencyFund({ targetMonths: nextMonths, target_months: nextMonths, months_target: nextMonths, targetAmount: nextTarget, target_amount: nextTarget, target: nextTarget });
   };
 
   const addEmergencyMoney = async () => {
