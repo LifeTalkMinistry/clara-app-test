@@ -74,7 +74,15 @@ export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => 
         categorySpentAmount
       );
 
-  const remainingAmount = Math.max(declaredBudget - spentAmount, 0);
+  const protectedCommitmentsAmount = readCarouselNumber(
+    plan?.totalProtectedCommitments,
+    plan?.protected_commitments_total,
+    plan?.protectedBudgetCommitments?.totalProtectedCommitments,
+    plan?.protected_budget_commitments?.totalProtectedCommitments,
+    plan?.protectedBudgetCommitments?.totalProtectedCommitments,
+    plan?.protected_budget_commitments?.total_protected_commitments
+  );
+  const remainingAmount = Math.max(declaredBudget - spentAmount - protectedCommitmentsAmount, 0);
   const unplannedItems = readCarouselArray(plan?.unplanned_items, plan?.unplannedItems);
   const undocumentedItems = readCarouselArray(plan?.undocumented_items, plan?.undocumentedItems);
   const outsidePlanItems = readCarouselArray(
