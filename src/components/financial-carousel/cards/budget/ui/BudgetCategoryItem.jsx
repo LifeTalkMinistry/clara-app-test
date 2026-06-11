@@ -24,6 +24,13 @@ export default function BudgetCategoryItem({
   const categoryRemaining = Math.max(categoryAllocated - categorySpent, 0);
   const categoryProgress =
     categoryAllocated > 0 ? Math.min(100, (categorySpent / categoryAllocated) * 100) : 0;
+  const displayProgress = isProtected && categoryAllocated > 0 ? 100 : categoryProgress;
+  const progressLabel = isProtected
+    ? "100% protected"
+    : `${Math.round(categoryProgress)}% used`;
+  const amountLabel = isProtected
+    ? `${fmt(categoryAllocated)} reserved`
+    : `${fmt(categoryAllocated)} allocated`;
 
   return (
     <div className={`rounded-[20px] p-3.5 ${glassPanel}`}>
@@ -77,13 +84,13 @@ export default function BudgetCategoryItem({
       <div className="relative h-1.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.22]">
         <div
           className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-300 shadow-[0_0_12px_rgba(94,234,212,0.24)] transition-all duration-500"
-          style={{ width: `${categoryProgress}%` }}
+          style={{ width: `${displayProgress}%` }}
         />
       </div>
 
       <div className="relative mt-2.5 flex items-center justify-between text-[10px] font-black text-white/58">
-        <span>{Math.round(categoryProgress)}% used</span>
-        <span>{fmt(categoryAllocated)} allocated</span>
+        <span>{progressLabel}</span>
+        <span>{amountLabel}</span>
       </div>
     </div>
   );
