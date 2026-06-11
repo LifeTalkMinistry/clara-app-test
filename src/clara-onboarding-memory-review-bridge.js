@@ -69,7 +69,11 @@ function readOnboardingMemories() {
   return ONBOARDING_MEMORY_ORDER.map((category) => newestByCategory.get(category)).filter(Boolean);
 }
 
-function createOnboardingSectionHtml(memories = []) {
+function getMemorySignature(memories = []) {
+  return JSON.stringify(memories.map((memory) => [memory.category, memory.content, memory.timestamp]));
+}
+
+function createOnboardingSectionHtml(memories = [], signature = "") {
   const items = memories
     .map((memory) => {
       const label = ONBOARDING_MEMORY_LABELS[memory.category] || "Onboarding";
@@ -78,7 +82,7 @@ function createOnboardingSectionHtml(memories = []) {
     .join("");
 
   return `
-    <section id="${ONBOARDING_MEMORY_REVIEW_SECTION_ID}" class="clara-memory-section">
+    <section id="${ONBOARDING_MEMORY_REVIEW_SECTION_ID}" class="clara-memory-section" data-onboarding-memory-signature="${escapeHtml(signature)}">
       <h4>Starting Profile</h4>
       <ul>${items}</ul>
     </section>
@@ -89,15 +93,26 @@ function installOnboardingMemoryReviewSection() {
   if (typeof document === "undefined") return;
 
   const reviewList = document.querySelector("#clara-assistant-memory-panel .clara-memory-review-list");
-  document.getElementById(ONBOARDING_MEMORY_REVIEW_SECTION_ID)?.remove();
-  if (!reviewList) return;
+  const existingSection = document.getElementById(ONBOARDING_MEMORY_REVIEW_SECTION_ID);
+  if (!reviewList) {
+    existingSection?.remove();
+    return;
+  }
 
   const memories = readOnboardingMemories();
-  if (!memories.length) return;
+  if (!memories.length) {
+    existingSection?.remove();
+    return;
+  }
+
+  const signature = getMemorySignature(memories);
+  if (existingSection?.dataset?.onboardingMemorySignature === signature) return;
+
+  existingSection?.remove();
 
   const anchor = reviewList.querySelector(".clara-memory-context-disclaimer") || reviewList.firstElementChild;
   const wrapper = document.createElement("div");
-  wrapper.innerHTML = createOnboardingSectionHtml(memories).trim();
+  wrapper.innerHTML = createOnboardingSectionHtml(memories, signature).trim();
   const section = wrapper.firstElementChild;
 
   if (anchor?.nextSibling) {
