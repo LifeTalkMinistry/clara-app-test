@@ -1,12 +1,123 @@
+export const learningHubCategories = [
+  {
+    id: "video",
+    type: "video",
+    title: "Video Materials",
+    subtitle: "Watch short CLARA coaching lessons.",
+    description: "Start with simple coaching videos that explain money behavior before money math.",
+    order: 1,
+    ctaLabel: "See all videos",
+  },
+  {
+    id: "book",
+    type: "book",
+    title: "Books & Guides",
+    subtitle: "Read deeper CLARA lessons.",
+    description: "Use CLARA guides when you want a slower, deeper explanation of each money system.",
+    order: 2,
+    ctaLabel: "See all guides",
+  },
+  {
+    id: "practice",
+    type: "practice",
+    title: "Practice Tools",
+    subtitle: "Apply what you learned with guided money exercises.",
+    description: "Turn lessons into small guided money decisions and checks.",
+    order: 3,
+    ctaLabel: "See all tools",
+  },
+  {
+    id: "game",
+    type: "game",
+    title: "Money Games",
+    subtitle: "Train your financial decisions through simple money games.",
+    description: "Practice decisions in a low-pressure, interactive way.",
+    order: 4,
+    ctaLabel: "See all games",
+  },
+  {
+    id: "challenge",
+    type: "challenge",
+    title: "Challenges",
+    subtitle: "Build financial discipline through small guided actions.",
+    description: "Use short challenges to turn financial awareness into daily behavior.",
+    order: 5,
+    ctaLabel: "See all challenges",
+  },
+];
+
 export const learningHubData = [
+  {
+    id: "ask-before-you-spend-video",
+    type: "video",
+    category: "video",
+    title: "Ask Before You Spend",
+    subtitle: "The habit that protects your wallet before emotion reacts.",
+    description:
+      "A short CLARA coaching lesson about pausing before spending and checking if a purchase fits your real life.",
+    status: "coming-soon",
+    featured: true,
+    order: 1,
+    duration: "4 min",
+    coverLabel: "Featured Video",
+    tags: ["behavior", "spending", "pause"],
+  },
+  {
+    id: "why-payday-disappears-video",
+    type: "video",
+    category: "video",
+    title: "Why Payday Disappears Fast",
+    subtitle: "See the behavior behind the payday leak pattern.",
+    description:
+      "A coaching video about why money can feel gone even when income arrived recently.",
+    status: "coming-soon",
+    order: 2,
+    duration: "5 min",
+    coverLabel: "Video Lesson",
+    tags: ["payday", "cash flow", "awareness"],
+  },
+  {
+    id: "bills-first-mindset-video",
+    type: "video",
+    category: "video",
+    title: "Bills First Mindset",
+    subtitle: "Protect essentials before wants compete for attention.",
+    description:
+      "A simple coaching lesson on why bills and essentials need priority before flexible spending.",
+    status: "coming-soon",
+    order: 3,
+    duration: "3 min",
+    coverLabel: "Video Lesson",
+    tags: ["bills", "priority", "budget"],
+  },
+  {
+    id: "emotional-spending-pause-video",
+    type: "video",
+    category: "video",
+    title: "Emotional Spending Pause",
+    subtitle: "Slow down when stress, reward, or pressure wants control.",
+    description:
+      "A behavioral money lesson about separating real need from emotional urgency.",
+    status: "coming-soon",
+    order: 4,
+    duration: "4 min",
+    coverLabel: "Video Lesson",
+    tags: ["emotion", "discipline", "spending"],
+  },
   {
     id: "income-hub",
     title: "Income Hub",
     subtitle: "Understand where your money comes from",
     type: "book",
+    category: "book",
+    status: "available",
+    featured: true,
+    order: 1,
     accent: "cyan",
     coverLabel: "Money Source",
+    coverImage: "images/learning-hub/income-hub.webp.png",
     thumbnail: "images/learning-hub/income-hub.webp.png",
+    tags: ["income", "stability", "starting point"],
     pdfParts: [
       {
         id: "part-1",
@@ -27,179 +138,373 @@ export const learningHubData = [
     pages: [
       {
         title: "The Reality",
-        body: "Before you can manage money well, you need to understand where your money comes from and how stable it really is."
+        body: "Before you can manage money well, you need to understand where your money comes from and how stable it really is.",
       },
       {
         title: "The Pattern",
-        body: "Income can come from salary, side income, freelance work, business, support, or irregular sources. Not all income has the same reliability."
+        body: "Income can come from salary, side income, freelance work, business, support, or irregular sources. Not all income has the same reliability.",
       },
       {
         title: "The Move",
-        body: "List every income source, how often it comes, and how stable it is. CLARA uses this to understand your financial starting point."
+        body: "List every income source, how often it comes, and how stable it is. CLARA uses this to understand your financial starting point.",
       },
       {
         title: "Grow the Source",
-        body: "Income growth can come from upskilling, better work, side projects, business, or improving consistency. More income should create more direction, not just more spending."
+        body: "Income growth can come from upskilling, better work, side projects, business, or improving consistency. More income should create more direction, not just more spending.",
       },
       {
         title: "CLARA Application",
-        body: "Income Hub helps CLARA see your money source, income rhythm, and earning stability before giving financial guidance."
-      }
-    ]
+        body: "Income Hub helps CLARA see your money source, income rhythm, and earning stability before giving financial guidance.",
+      },
+    ],
   },
   {
     id: "wallet-hub",
     title: "Wallet Hub",
     subtitle: "Organize money by purpose",
     type: "book",
+    category: "book",
+    status: "available",
+    order: 2,
     accent: "teal",
     coverLabel: "Money System",
+    coverImage: "images/learning-hub/wallet-hub.webp.png",
     thumbnail: "images/learning-hub/wallet-hub.webp.png",
+    tags: ["wallets", "organization", "purpose"],
     pages: [
       {
         title: "The Reality",
-        body: "A wallet is not just a place where money sits. It can become a boundary that tells your money what it is allowed to do."
+        body: "A wallet is not just a place where money sits. It can become a boundary that tells your money what it is allowed to do.",
       },
       {
         title: "The Pattern",
-        body: "When all money is mixed together, bills, savings, spending, and goals can blur. Money with no clear purpose is easier to spend accidentally."
+        body: "When all money is mixed together, bills, savings, spending, and goals can blur. Money with no clear purpose is easier to spend accidentally.",
       },
       {
         title: "The Move",
-        body: "Create wallets for specific purposes such as daily spending, bills, savings, emergency fund, and goals."
+        body: "Create wallets for specific purposes such as daily spending, bills, savings, emergency fund, and goals.",
       },
       {
         title: "Psychology of Wallets",
-        body: "A designated wallet makes money feel assigned. Savings money feels less touchable when it is separated from spending money."
+        body: "A designated wallet makes money feel assigned. Savings money feels less touchable when it is separated from spending money.",
       },
       {
         title: "CLARA Application",
-        body: "Wallet Hub helps CLARA understand how your money is separated, protected, and prepared for real-life use."
-      }
-    ]
+        body: "Wallet Hub helps CLARA understand how your money is separated, protected, and prepared for real-life use.",
+      },
+    ],
   },
   {
     id: "budget-hub",
     title: "Budget Hub",
     subtitle: "Give your money clear direction",
     type: "book",
+    category: "book",
+    status: "available",
+    order: 3,
     accent: "emerald",
     coverLabel: "Money Plan",
+    coverImage: "images/learning-hub/budget-hub.webp.png",
     thumbnail: "images/learning-hub/budget-hub.webp.png",
+    tags: ["budget", "plan", "direction"],
     pages: [
       {
         title: "The Reality",
-        body: "A budget is not punishment. It is a direction for your money before emotion, pressure, and habits decide for you."
+        body: "A budget is not punishment. It is a direction for your money before emotion, pressure, and habits decide for you.",
       },
       {
         title: "The Pattern",
-        body: "Budgets often fail when they are too strict, unrealistic, outdated, or disconnected from real spending behavior."
+        body: "Budgets often fail when they are too strict, unrealistic, outdated, or disconnected from real spending behavior.",
       },
       {
         title: "The Move",
-        body: "Build budget categories for bills, food, transport, debt, savings, family support, and safe spending."
+        body: "Build budget categories for bills, food, transport, debt, savings, family support, and safe spending.",
       },
       {
         title: "Realistic Budgeting",
-        body: "A strong budget should adjust with real life. The goal is not perfection, but honest control."
+        body: "A strong budget should adjust with real life. The goal is not perfection, but honest control.",
       },
       {
         title: "CLARA Application",
-        body: "Budget Hub helps CLARA compare your plan with your actual behavior so you can see where money is following or breaking the plan."
-      }
-    ]
+        body: "Budget Hub helps CLARA compare your plan with your actual behavior so you can see where money is following or breaking the plan.",
+      },
+    ],
   },
   {
     id: "emergency-fund",
     title: "Emergency Fund",
     subtitle: "Build protection before pressure hits",
     type: "book",
+    category: "book",
+    status: "available",
+    order: 4,
     accent: "teal",
     coverLabel: "Protection",
+    coverImage: "images/learning-hub/emergency-fund.webp.png",
     thumbnail: "images/learning-hub/emergency-fund.webp.png",
+    tags: ["emergency fund", "protection", "buffer"],
     pages: [
       {
         title: "The Reality",
-        body: "An emergency fund is protection money. It helps you handle urgent needs without immediately depending on debt."
+        body: "An emergency fund is protection money. It helps you handle urgent needs without immediately depending on debt.",
       },
       {
         title: "The Pattern",
-        body: "Without a buffer, one medical need, family emergency, lost workday, delayed income, or repair can disturb the whole month."
+        body: "Without a buffer, one medical need, family emergency, lost workday, delayed income, or repair can disturb the whole month.",
       },
       {
         title: "The Move",
-        body: "Start with a small target and build consistently. Protection grows through repeated deposits, not one perfect amount."
+        body: "Start with a small target and build consistently. Protection grows through repeated deposits, not one perfect amount.",
       },
       {
         title: "Emergency or Not",
-        body: "Not every pressure is an emergency. Separate true urgent needs from cravings, wants, and emotional spending."
+        body: "Not every pressure is an emergency. Separate true urgent needs from cravings, wants, and emotional spending.",
       },
       {
         title: "CLARA Application",
-        body: "Emergency Fund helps CLARA understand how protected you are when life suddenly becomes expensive."
-      }
-    ]
+        body: "Emergency Fund helps CLARA understand how protected you are when life suddenly becomes expensive.",
+      },
+    ],
   },
   {
     id: "savings-goals",
     title: "Savings Goals",
     subtitle: "Turn saving into visible progress",
     type: "book",
+    category: "book",
+    status: "available",
+    order: 5,
     accent: "blue",
     coverLabel: "Money Progress",
+    coverImage: "images/learning-hub/savings-goals.webp.png",
     thumbnail: "images/learning-hub/savings-goals.webp.png",
+    tags: ["saving", "goals", "progress"],
     pages: [
       {
         title: "The Reality",
-        body: "Saving becomes easier when money has a clear destination. A goal gives your money emotional meaning."
+        body: "Saving becomes easier when money has a clear destination. A goal gives your money emotional meaning.",
       },
       {
         title: "The Pattern",
-        body: "Without a target, saving can feel vague. Money that is only “extra” often gets spent before it becomes progress."
+        body: "Without a target, saving can feel vague. Money that is only “extra” often gets spent before it becomes progress.",
       },
       {
         title: "The Move",
-        body: "Define the goal amount, deadline, reason, and regular contribution. Break the target into smaller payday or monthly steps."
+        body: "Define the goal amount, deadline, reason, and regular contribution. Break the target into smaller payday or monthly steps.",
       },
       {
         title: "Protect the Goal",
-        body: "Do not mix goal money with daily spending. A savings goal should be protected from impulse and temporary emotions."
+        body: "Do not mix goal money with daily spending. A savings goal should be protected from impulse and temporary emotions.",
       },
       {
         title: "CLARA Application",
-        body: "Savings Goals helps CLARA show progress, not just balance, so users can see that small consistent saving is moving somewhere."
-      }
-    ]
+        body: "Savings Goals helps CLARA show progress, not just balance, so users can see that small consistent saving is moving somewhere.",
+      },
+    ],
   },
   {
     id: "debt-obligations",
     title: "Debt / Obligations",
     subtitle: "See what your income already owes",
     type: "book",
+    category: "book",
+    status: "available",
+    order: 6,
     accent: "rose",
     coverLabel: "Money Pressure",
+    coverImage: "images/learning-hub/debt-obligations.webp.png",
     thumbnail: "images/learning-hub/debt-obligations.webp.png",
+    tags: ["debt", "obligations", "pressure"],
     pages: [
       {
         title: "The Reality",
-        body: "Debt and obligations are money commitments that already have a claim on your future income."
+        body: "Debt and obligations are money commitments that already have a claim on your future income.",
       },
       {
         title: "The Pattern",
-        body: "Debt feels heavy when due dates, balances, minimum payments, interest, family obligations, and recurring commitments are unclear."
+        body: "Debt feels heavy when due dates, balances, minimum payments, interest, family obligations, and recurring commitments are unclear.",
       },
       {
         title: "The Move",
-        body: "List every obligation with the amount, due date, minimum payment, and priority. Visibility reduces panic."
+        body: "List every obligation with the amount, due date, minimum payment, and priority. Visibility reduces panic.",
       },
       {
         title: "Recovery Direction",
-        body: "Keep minimum payments active, focus extra money on one priority, and avoid adding new debt while recovering."
+        body: "Keep minimum payments active, focus extra money on one priority, and avoid adding new debt while recovering.",
       },
       {
         title: "CLARA Application",
-        body: "Debt / Obligations helps CLARA understand how much of your income is already committed before recommending spending, saving, or budgeting moves."
-      }
-    ]
-  }
+        body: "Debt / Obligations helps CLARA understand how much of your income is already committed before recommending spending, saving, or budgeting moves.",
+      },
+    ],
+  },
+  {
+    id: "budget-fit-checker",
+    type: "practice",
+    category: "practice",
+    title: "Budget Fit Checker",
+    subtitle: "Check if a purchase fits your real budget before spending.",
+    description:
+      "A guided practice tool that compares a spending idea against your budget room, wallet balance, and priority needs.",
+    status: "coming-soon",
+    order: 1,
+    coverLabel: "Practice Tool",
+    tags: ["budget", "spending check", "practice"],
+  },
+  {
+    id: "payday-leak-finder",
+    type: "practice",
+    category: "practice",
+    title: "Payday Leak Finder",
+    subtitle: "Find where your salary usually disappears first.",
+    description:
+      "A guided exercise for spotting the first leaks after income arrives.",
+    status: "coming-soon",
+    order: 2,
+    coverLabel: "Practice Tool",
+    tags: ["payday", "cash flow", "awareness"],
+  },
+  {
+    id: "bills-first-sorter",
+    type: "practice",
+    category: "practice",
+    title: "Bills First Sorter",
+    subtitle: "Sort essentials before flexible spending.",
+    description:
+      "A simple guided sorter that helps users separate must-pay items from optional spending.",
+    status: "coming-soon",
+    order: 3,
+    coverLabel: "Practice Tool",
+    tags: ["bills", "priority", "essentials"],
+  },
+  {
+    id: "survive-until-payday",
+    type: "game",
+    category: "game",
+    title: "Survive Until Payday",
+    subtitle: "Make decisions that keep your money alive until the next income date.",
+    description:
+      "A simple decision game where every choice affects your money left before payday.",
+    status: "coming-soon",
+    order: 1,
+    coverLabel: "Money Game",
+    tags: ["payday", "decision", "game"],
+  },
+  {
+    id: "needs-vs-wants",
+    type: "game",
+    category: "game",
+    title: "Needs vs Wants",
+    subtitle: "Train your ability to separate essentials from desires.",
+    description:
+      "A fast sorting game for recognizing needs, wants, and emotional pressure.",
+    status: "coming-soon",
+    order: 2,
+    coverLabel: "Money Game",
+    tags: ["needs", "wants", "discipline"],
+  },
+  {
+    id: "budget-battle",
+    type: "game",
+    category: "game",
+    title: "Budget Battle",
+    subtitle: "Protect your budget while real-life expenses compete for space.",
+    description:
+      "A money decision game about tradeoffs, limits, and priority spending.",
+    status: "coming-soon",
+    order: 3,
+    coverLabel: "Money Game",
+    tags: ["budget", "tradeoffs", "game"],
+  },
+  {
+    id: "impulse-monster",
+    type: "game",
+    category: "game",
+    title: "Impulse Monster",
+    subtitle: "Beat quick urges before they eat your wallet.",
+    description:
+      "A playful game about recognizing impulse triggers before they become expenses.",
+    status: "coming-soon",
+    order: 4,
+    coverLabel: "Money Game",
+    tags: ["impulse", "emotion", "spending"],
+  },
+  {
+    id: "emergency-hit",
+    type: "game",
+    category: "game",
+    title: "Emergency Hit",
+    subtitle: "See how protection money changes the outcome when life hits.",
+    description:
+      "A scenario game showing why emergency buffers matter.",
+    status: "coming-soon",
+    order: 5,
+    coverLabel: "Money Game",
+    tags: ["emergency", "buffer", "protection"],
+  },
+  {
+    id: "three-day-spend-awareness",
+    type: "challenge",
+    category: "challenge",
+    title: "3-Day Spend Awareness Challenge",
+    subtitle: "Notice every peso before trying to change everything.",
+    description:
+      "A short challenge focused on awareness before correction.",
+    status: "coming-soon",
+    order: 1,
+    coverLabel: "Challenge",
+    tags: ["awareness", "tracking", "discipline"],
+  },
+  {
+    id: "seven-day-ask-before-spend",
+    type: "challenge",
+    category: "challenge",
+    title: "7-Day Ask Before You Spend Challenge",
+    subtitle: "Build the habit of checking first before spending.",
+    description:
+      "A week-long behavior challenge built around CLARA's Ask Before You Spend habit.",
+    status: "coming-soon",
+    order: 2,
+    coverLabel: "Challenge",
+    tags: ["ask before you spend", "habit", "discipline"],
+  },
+  {
+    id: "bills-first-challenge",
+    type: "challenge",
+    category: "challenge",
+    title: "Bills First Challenge",
+    subtitle: "Protect essentials before money becomes flexible.",
+    description:
+      "A guided challenge for prioritizing essentials before wants.",
+    status: "coming-soon",
+    order: 3,
+    coverLabel: "Challenge",
+    tags: ["bills", "essentials", "priority"],
+  },
+  {
+    id: "no-random-spending-weekend",
+    type: "challenge",
+    category: "challenge",
+    title: "No Random Spending Weekend",
+    subtitle: "Avoid unplanned spending for one weekend.",
+    description:
+      "A small weekend challenge to practice discipline without overcomplicating the month.",
+    status: "coming-soon",
+    order: 4,
+    coverLabel: "Challenge",
+    tags: ["spending", "weekend", "discipline"],
+  },
+  {
+    id: "emergency-fund-starter-challenge",
+    type: "challenge",
+    category: "challenge",
+    title: "Emergency Fund Starter Challenge",
+    subtitle: "Start protection with one small committed move.",
+    description:
+      "A beginner challenge for creating the first emergency fund action.",
+    status: "coming-soon",
+    order: 5,
+    coverLabel: "Challenge",
+    tags: ["emergency fund", "saving", "protection"],
+  },
 ];
