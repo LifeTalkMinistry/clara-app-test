@@ -1,19 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  persistMoneySummaryVisibility,
-  readMoneySummaryVisibility,
-} from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
+import { useCallback } from "react";
+import useMoneyVisibilityPreference from "@/components/hooks/useMoneyVisibilityPreference";
 
-export default function useMoneySummaryVisibility(userId) {
-  const storageUserId = userId || "guest";
-
-  const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>
-    readMoneySummaryVisibility(storageUserId)
-  );
-
-  useEffect(() => {
-    setMoneySummaryVisible(readMoneySummaryVisibility(storageUserId));
-  }, [storageUserId]);
+export default function useMoneySummaryVisibility() {
+  const {
+    moneyAmountsVisible,
+    isMoneyVisibilityLoaded,
+    toggleMoneyVisibility,
+  } = useMoneyVisibilityPreference();
 
   const toggleMoneySummaryVisibility = useCallback(
     (event) => {
@@ -21,14 +14,14 @@ export default function useMoneySummaryVisibility(userId) {
       event?.stopPropagation?.();
       event?.nativeEvent?.stopImmediatePropagation?.();
 
-      setMoneySummaryVisible((current) => {
-        const nextVisible = !current;
-        persistMoneySummaryVisibility(nextVisible, storageUserId);
-        return nextVisible;
-      });
+      toggleMoneyVisibility();
     },
-    [storageUserId]
+    [toggleMoneyVisibility]
   );
 
-  return [moneySummaryVisible, toggleMoneySummaryVisibility];
+  return [
+    moneyAmountsVisible,
+    toggleMoneySummaryVisibility,
+    isMoneyVisibilityLoaded,
+  ];
 }
