@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, LogOut, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
@@ -568,16 +568,47 @@ export default function DashboardPanelRenderer({
   fallback = null,
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const previewPlan = readPlanPreview();
   const hasCommittedAccess = useCommittedFeatureAccess({ previewPlan });
   const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
   const [purchaseIntent, setPurchaseIntent] = useState("");
 
-  const openCommitmentBooklet = (nextPurchaseIntent = "") => {
+  const openCommitmentBooklet = useCallback((nextPurchaseIntent = "") => {
     setPurchaseIntent(nextPurchaseIntent);
     setCommitmentBookletOpen(true);
-  };
-  const closeCommitmentBooklet = () => setCommitmentBookletOpen(false);
+  }, []);
+
+  const closeCommitmentBooklet = useCallback(() => {
+    setCommitmentBookletOpen(false);
+  }, []);
+
+  const clearConsumedBookletRouteState = useCallback(() => {
+    const currentState = location.state || {};
+    const hasBookletState =
+      currentState.openCommitmentBooklet === true ||
+      currentState.purchaseIntent === TRIAL_PURCHASE_INTENT;
+
+    if (!hasBookletState) return;
+
+    const {
+      openCommitmentBooklet: _openCommitmentBooklet,
+      purchaseIntent: _purchaseIntent,
+      ...cleanState
+    } = currentState;
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      },
+      {
+        replace: true,
+        state: Object.keys(cleanState).length > 0 ? cleanState : null,
+      }
+    );
+  }, [location.hash, location.pathname, location.search, location.state, navigate]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -586,22 +617,32 @@ export default function DashboardPanelRenderer({
 
     window.addEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
     return () => window.removeEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
-  }, []);
+  }, [openCommitmentBooklet]);
 
   useEffect(() => {
     const sessionIntent = readTrialIntentFromSession();
     const locationWantsBooklet = location.state?.openCommitmentBooklet === true;
-    const locationIntent = location.state?.purchaseIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : "";
+    const locationIntent =
+      location.state?.purchaseIntent === TRIAL_PURCHASE_INTENT
+        ? TRIAL_PURCHASE_INTENT
+        : "";
 
     if (sessionIntent?.intent === TRIAL_PURCHASE_INTENT) {
+      clearConsumedBookletRouteState();
       openCommitmentBooklet(TRIAL_PURCHASE_INTENT);
       return;
     }
 
     if (locationWantsBooklet) {
+      clearConsumedBookletRouteState();
       openCommitmentBooklet(locationIntent);
     }
-  }, [location.key, location.state]);
+  }, [
+    location.key,
+    location.state,
+    clearConsumedBookletRouteState,
+    openCommitmentBooklet,
+  ]);
 
   const booklet = (
     <ClaraCommitmentBookletModal
