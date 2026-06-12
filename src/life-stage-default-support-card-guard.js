@@ -68,31 +68,31 @@ function clearSupportSignalState(card) {
 const DEFAULT_STAGE_SUPPORT_COPY = {
   "Young Professional": {
     title: "Your independence is forming.",
-    body: "Salary, bills, commute, career pressure, and lifestyle choices can pull from the same paycheck. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Salary, bills, commute, and lifestyle choices can pull from the same paycheck. Tap the closest signal below, then press the heart for guidance.",
   },
   "Living with Partner": {
     title: "Shared life needs shared clarity.",
-    body: "Many couples quietly manage rent, food, fairness, family pressure, and future plans at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Rent, food, fairness, family pressure, and future plans can pull on the same money. Tap the closest signal below, then press the heart for guidance.",
   },
   "Family Household": {
     title: "Home support needs structure.",
-    body: "Many family households quietly manage home bills, shared needs, support requests, personal boundaries, and family expectations at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Home bills, support requests, personal needs, and family expectations can pull from the same income. Tap the closest signal below, then press the heart for guidance.",
   },
   "Single Parent": {
     title: "Your priority is protection.",
-    body: "Many single parents quietly manage child needs, essentials, time pressure, emergencies, emotional energy, and future protection at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Child needs, emergencies, and daily essentials can pull from the same income. Tap the closest signal below, then press the heart for guidance.",
   },
   "Full-Time Earner": {
     title: "Your salary needs direction.",
-    body: "Many full-time earners quietly manage salary cycles, bills, fatigue, obligations, lifestyle creep, and future goals at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Salary cycles, bills, fatigue, obligations, and lifestyle creep can drain the same paycheck. Tap the closest signal below, then press the heart for guidance.",
   },
   "Freelance Season": {
     title: "Flexible income needs a buffer.",
-    body: "Many freelancers quietly manage irregular income, client timing, dry weeks, project pressure, work costs, rest, and cash-flow buffers at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Irregular income, client timing, dry weeks, work costs, and rest all need a buffer. Tap the closest signal below, then press the heart for guidance.",
   },
   "Business Builder": {
     title: "Growth needs boundaries.",
-    body: "Many business builders quietly manage sales timing, cash flow, reinvestment, operating costs, owner pay, growth pressure, and personal stability at the same time. Tap the signal below that feels closest to your situation, then press the heart for a solution.",
+    body: "Sales timing, cash flow, reinvestment, owner pay, and personal stability need clear boundaries. Tap the closest signal below, then press the heart for guidance.",
   },
 };
 
