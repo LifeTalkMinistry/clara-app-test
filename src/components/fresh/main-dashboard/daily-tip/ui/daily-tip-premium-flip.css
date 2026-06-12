@@ -1,0 +1,48 @@
+.clara-daily-tip-scene {
+  height: 150px;
+  width: 100%;
+  perspective: 1700px;
+  perspective-origin: center center;
+  transform: translateZ(0);
+  contain: layout paint;
+}
+
+.clara-daily-tip-flipper {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  transform-style: preserve-3d;
+  transform: translate3d(0, 0, 0) rotateY(0deg);
+  transition-property: transform;
+  transition-duration: 820ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  contain: layout paint;
+}
+
+.clara-daily-tip-flipper--flipped {
+  transform: translate3d(0, 0, 0) rotateY(180deg);
+}
+
+.clara-daily-tip-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.clara-daily-tip-face--front {
+  transform: translateZ(0.5px);
+}
+
+.clara-daily-tip-face--back {
+  transform: rotateY(180deg) translateZ(0.5px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clara-daily-tip-flipper {
+    transition-duration: 1ms;
+  }
+}
