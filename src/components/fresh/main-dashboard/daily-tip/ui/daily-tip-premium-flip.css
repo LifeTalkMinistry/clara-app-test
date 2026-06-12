@@ -18,7 +18,7 @@
   -webkit-transform-style: preserve-3d;
   transform-origin: center center;
   -webkit-transform-origin: center center;
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .clara-daily-tip-flipper--front {
@@ -79,63 +79,135 @@
 
 .clara-daily-tip-face--front {
   transform: translate3d(0, 0, 1px);
+  opacity: 1;
 }
 
 .clara-daily-tip-face--back {
   transform: rotateY(180deg) translate3d(0, 0, 1px);
+  opacity: 1;
+}
+
+.clara-daily-tip-flipper--back .clara-daily-tip-face--front {
+  opacity: 0;
+}
+
+.clara-daily-tip-flipper--back .clara-daily-tip-face--back {
+  opacity: 1;
+}
+
+.clara-daily-tip-flipper--front .clara-daily-tip-face--front {
+  opacity: 1;
+}
+
+.clara-daily-tip-flipper--front .clara-daily-tip-face--back {
+  opacity: 0;
+}
+
+.clara-daily-tip-flipper--flip-forward .clara-daily-tip-face--front {
+  animation: clara-daily-tip-front-face-forward 820ms linear both;
+}
+
+.clara-daily-tip-flipper--flip-forward .clara-daily-tip-face--back {
+  animation: clara-daily-tip-back-face-forward 820ms linear both;
+}
+
+.clara-daily-tip-flipper--flip-backward .clara-daily-tip-face--front {
+  animation: clara-daily-tip-front-face-backward 820ms linear both;
+}
+
+.clara-daily-tip-flipper--flip-backward .clara-daily-tip-face--back {
+  animation: clara-daily-tip-back-face-backward 820ms linear both;
 }
 
 @keyframes clara-daily-tip-physical-flip-forward {
   0% {
     transform: translate3d(0, 0, 0) rotateY(0deg) scale(1);
-    filter: brightness(1);
   }
 
   18% {
     transform: translate3d(0, -1px, 18px) rotateY(28deg) scale(1.006);
-    filter: brightness(1.04);
   }
 
   48% {
     transform: translate3d(0, -2px, 42px) rotateY(92deg) scale(1.012);
-    filter: brightness(0.92);
   }
 
   72% {
     transform: translate3d(0, -1px, 20px) rotateY(154deg) scale(1.004);
-    filter: brightness(1.03);
   }
 
   100% {
     transform: translate3d(0, 0, 0) rotateY(180deg) scale(1);
-    filter: brightness(1);
   }
 }
 
 @keyframes clara-daily-tip-physical-flip-backward {
   0% {
     transform: translate3d(0, 0, 0) rotateY(180deg) scale(1);
-    filter: brightness(1);
   }
 
   18% {
     transform: translate3d(0, -1px, 20px) rotateY(154deg) scale(1.004);
-    filter: brightness(1.03);
   }
 
   48% {
     transform: translate3d(0, -2px, 42px) rotateY(88deg) scale(1.012);
-    filter: brightness(0.92);
   }
 
   72% {
     transform: translate3d(0, -1px, 18px) rotateY(28deg) scale(1.006);
-    filter: brightness(1.04);
   }
 
   100% {
     transform: translate3d(0, 0, 0) rotateY(0deg) scale(1);
-    filter: brightness(1);
+  }
+}
+
+@keyframes clara-daily-tip-front-face-forward {
+  0%,
+  47% {
+    opacity: 1;
+  }
+
+  53%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes clara-daily-tip-back-face-forward {
+  0%,
+  47% {
+    opacity: 0;
+  }
+
+  53%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes clara-daily-tip-front-face-backward {
+  0%,
+  47% {
+    opacity: 0;
+  }
+
+  53%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes clara-daily-tip-back-face-backward {
+  0%,
+  47% {
+    opacity: 1;
+  }
+
+  53%,
+  100% {
+    opacity: 0;
   }
 }
 
@@ -183,7 +255,11 @@
   .clara-daily-tip-flipper--flip-forward,
   .clara-daily-tip-flipper--flip-backward,
   .clara-daily-tip-flipper--flip-forward::after,
-  .clara-daily-tip-flipper--flip-backward::after {
+  .clara-daily-tip-flipper--flip-backward::after,
+  .clara-daily-tip-flipper--flip-forward .clara-daily-tip-face--front,
+  .clara-daily-tip-flipper--flip-forward .clara-daily-tip-face--back,
+  .clara-daily-tip-flipper--flip-backward .clara-daily-tip-face--front,
+  .clara-daily-tip-flipper--flip-backward .clara-daily-tip-face--back {
     animation-duration: 1ms;
   }
 }
