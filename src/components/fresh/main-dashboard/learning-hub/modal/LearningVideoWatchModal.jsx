@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const PLAYER_LOAD_TIMEOUT_MS = 6000;
-const PRIMARY_PLAYER_HOST = "www.youtube-nocookie.com";
-const BACKUP_PLAYER_HOST = "www.youtube.com";
-const EMBED_BLOCKED_MESSAGE = "The embedded player could not connect here. Please check your connection and try again.";
+const PRIMARY_PLAYER_HOST = "www.youtube.com";
+const BACKUP_PLAYER_HOST = "www.youtube-nocookie.com";
 
 const isTrustedYouTubeOrigin = (origin) =>
   /^https:\/\/(www\.)?youtube(-nocookie)?\.com$/i.test(origin) ||
@@ -26,13 +25,17 @@ const getSafeWindowOrigin = () => {
   return /^https?:\/\//i.test(window.location.origin) ? window.location.origin : "";
 };
 
-const addYouTubePlayerParams = (url, startSeconds) => {
+const addYouTubePlayerParams = (url, startSeconds, shouldAutoplay = false) => {
   url.searchParams.set("enablejsapi", "1");
   url.searchParams.set("playsinline", "1");
   url.searchParams.set("controls", "1");
   url.searchParams.set("fs", "1");
   url.searchParams.set("rel", "0");
   url.searchParams.set("modestbranding", "1");
+
+  if (shouldAutoplay) {
+    url.searchParams.set("autoplay", "1");
+  }
 
   const origin = getSafeWindowOrigin();
   if (origin) {
@@ -79,13 +82,13 @@ const getYouTubeStartSeconds = (material) => {
   }
 };
 
-function getYouTubePlayerSrc(material, playerHost = PRIMARY_PLAYER_HOST) {
+function getYouTubePlayerSrc(material, playerHost = PRIMARY_PLAYER_HOST, shouldAutoplay = false) {
   const youtubeId = typeof material?.youtubeId === "string" ? material.youtubeId.trim() : "";
   const safePlayerHost = playerHost || PRIMARY_PLAYER_HOST;
 
   if (youtubeId) {
     const url = new URL(`https://${safePlayerHost}/embed/${encodeURIComponent(youtubeId)}`);
-    addYouTubePlayerParams(url, getYouTubeStartSeconds(material));
+    addYouTubePlayerParams(url, getYouTubeStartSeconds(material), shouldAutoplay);
     return url.toString();
   }
 
@@ -97,7 +100,7 @@ function getYouTubePlayerSrc(material, playerHost = PRIMARY_PLAYER_HOST) {
 
     if (url.hostname.includes("youtube.com") || url.hostname.includes("youtube-nocookie.com")) {
       url.hostname = safePlayerHost;
-      addYouTubePlayerParams(url, getYouTubeStartSeconds(material));
+      addYouTubePlayerParams(url, getYouTubeStartSeconds(material), shouldAutoplay);
     }
 
     return url.toString();
@@ -108,35 +111,33 @@ function getYouTubePlayerSrc(material, playerHost = PRIMARY_PLAYER_HOST) {
 
 export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const iframeRef = useRef(null);
+  const playCommandTimerRef = useRef(null);
   const [playerHost, setPlayerHost] = useState(PRIMARY_PLAYER_HOST);
   const [hasPlayerSignal, setHasPlayerSignal] = useState(false);
-  const [showEmbedFallback, setShowEmbedFallback] = useState(false);
+  const [shouldLoadPlayer, setShouldLoadPlayer] = useState(false);
 
-  const playerSrc = useMemo(() => getYouTubePlayerSrc(material, playerHost), [material, playerHost]);
+  const playerSrc = useMemo(
+    () => (shouldLoadPlayer ? getYouTubePlayerSrc(material, playerHost, true) : ""),
+    [material, playerHost, shouldLoadPlayer],
+  );
 
   useEffect(() => {
     setPlayerHost(PRIMARY_PLAYER_HOST);
     setHasPlayerSignal(false);
-    setShowEmbedFallback(false);
+    setShouldLoadPlayer(false);
+    window.clearTimeout(playCommandTimerRef.current);
   }, [material?.id]);
 
   useEffect(() => {
     setHasPlayerSignal(false);
-    setShowEmbedFallback(false);
   }, [playerSrc]);
 
   useEffect(() => {
     if (!playerSrc || hasPlayerSignal) return undefined;
 
     const retryTimer = window.setTimeout(() => {
-      if (hasPlayerSignal) return;
-
-      if (playerHost === PRIMARY_PLAYER_HOST) {
-        setPlayerHost(BACKUP_PLAYER_HOST);
-        return;
-      }
-
-      setShowEmbedFallback(true);
+      if (hasPlayerSignal || playerHost !== PRIMARY_PLAYER_HOST) return;
+      setPlayerHost(BACKUP_PLAYER_HOST);
     }, PLAYER_LOAD_TIMEOUT_MS);
 
     return () => window.clearTimeout(retryTimer);
@@ -153,22 +154,18 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
 
       if (data.event === "onReady" || data.event === "infoDelivery") {
         setHasPlayerSignal(true);
-        setShowEmbedFallback(false);
       }
 
-      if (data.event === "onError") {
-        if (playerHost === PRIMARY_PLAYER_HOST) {
-          setPlayerHost(BACKUP_PLAYER_HOST);
-          return;
-        }
-
-        setShowEmbedFallback(true);
+      if (data.event === "onError" && playerHost === PRIMARY_PLAYER_HOST) {
+        setPlayerHost(BACKUP_PLAYER_HOST);
       }
     };
 
     window.addEventListener("message", handleYouTubeMessage);
     return () => window.removeEventListener("message", handleYouTubeMessage);
   }, [playerHost, playerSrc]);
+
+  useEffect(() => () => window.clearTimeout(playCommandTimerRef.current), []);
 
   if (!isOpen || !material || typeof document === "undefined") return null;
 
@@ -188,6 +185,16 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
       }),
       "*",
     );
+  };
+
+  const startPlayer = () => {
+    setShouldLoadPlayer(true);
+    window.clearTimeout(playCommandTimerRef.current);
+    playCommandTimerRef.current = window.setTimeout(() => sendYouTubeCommand("playVideo"), 950);
+  };
+
+  const pausePlayer = () => {
+    sendYouTubeCommand("pauseVideo");
   };
 
   return createPortal(
@@ -244,46 +251,38 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
           <div className="w-full max-w-5xl overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
             <div className="relative w-full landscape:h-full landscape:max-h-[100dvh] landscape:max-w-[calc(100dvh*16/9)]" style={{ aspectRatio: "16 / 9" }}>
               {playerSrc ? (
-                <>
-                  <iframe
-                    key={playerSrc}
-                    ref={iframeRef}
-                    className="absolute inset-0 h-full w-full landscape:relative"
-                    src={playerSrc}
-                    title={material.title}
-                    loading="eager"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    onError={() => {
-                      if (playerHost === PRIMARY_PLAYER_HOST) {
-                        setPlayerHost(BACKUP_PLAYER_HOST);
-                        return;
-                      }
-
-                      setShowEmbedFallback(true);
-                    }}
-                  />
-                  {showEmbedFallback && (
-                    <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 rounded-[18px] border border-amber-100/18 bg-black/76 px-4 py-3 text-center shadow-[0_16px_40px_rgba(0,0,0,0.38)] backdrop-blur-md">
-                      <p className="text-[12px] font-black uppercase tracking-[0.16em] text-amber-50/86">
-                        Playback blocked
-                      </p>
-                      <p className="mt-1 text-[12px] leading-relaxed text-white/68">
-                        {EMBED_BLOCKED_MESSAGE}
-                      </p>
-                    </div>
-                  )}
-                </>
+                <iframe
+                  key={playerSrc}
+                  ref={iframeRef}
+                  className="absolute inset-0 h-full w-full landscape:relative"
+                  src={playerSrc}
+                  title={material.title}
+                  loading="eager"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  onError={() => {
+                    if (playerHost === PRIMARY_PLAYER_HOST) {
+                      setPlayerHost(BACKUP_PLAYER_HOST);
+                    }
+                  }}
+                />
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_45%),#020617] px-6 text-center">
-                  <p className="text-[13px] font-black uppercase tracking-[0.18em] text-cyan-50/72">
-                    Video link needed
-                  </p>
-                  <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-white/56">
-                    Add the YouTube ID for this curated lesson to load the video here.
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={startPlayer}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_45%),#020617] px-6 text-center transition hover:bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.18),transparent_45%),#020617] active:scale-[0.995]"
+                >
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.08] text-[24px] text-cyan-50 shadow-[0_20px_50px_rgba(0,0,0,0.36)] backdrop-blur-md">
+                    ▶
+                  </span>
+                  <span className="mt-4 text-[12px] font-black uppercase tracking-[0.18em] text-cyan-50/78">
+                    Press play to start
+                  </span>
+                  <span className="mt-2 max-w-xs text-[12px] leading-relaxed text-white/54">
+                    The YouTube player will load inside CLARA after your tap.
+                  </span>
+                </button>
               )}
             </div>
           </div>
@@ -293,14 +292,14 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
           <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
             <button
               type="button"
-              onClick={() => sendYouTubeCommand("playVideo")}
+              onClick={startPlayer}
               className="inline-flex items-center justify-center rounded-full border border-cyan-100/16 bg-cyan-100/[0.12] px-4 py-3 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.18] active:scale-[0.98]"
             >
               Play
             </button>
             <button
               type="button"
-              onClick={() => sendYouTubeCommand("pauseVideo")}
+              onClick={pausePlayer}
               className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.08] px-4 py-3 text-[12px] font-black text-white/82 transition hover:bg-white/[0.12] active:scale-[0.98]"
             >
               Pause
