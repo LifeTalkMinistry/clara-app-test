@@ -473,6 +473,9 @@ export default function Dashboard() {
     manualExpenseBudgetOptions,
     expenses,
     declaredMonthlyBudgetAmount,
+    monthlyBudgetHeader,
+    savingsGoals,
+    emergencyFund,
   });
 
   const budgetPlanIsComplete = monthlyBudgetPlan.is_complete === true;
