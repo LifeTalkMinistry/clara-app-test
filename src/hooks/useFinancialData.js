@@ -37,11 +37,33 @@ import {
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 
 const FINANCE_INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
+const EXPENSE_STORE = LOCAL_FINANCE_STORES?.expenses || "expenses";
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
 const FINANCE_UPDATE_EVENTS = [
   "clara-finance-updated",
   "clara:finance-data-updated",
   "clara-local-finance-updated",
+];
+const EMERGENCY_AMOUNT_KEYS = [
+  "protectedBalance",
+  "protected_balance",
+  "reserveBalance",
+  "reserve_balance",
+  "savedAmount",
+  "saved_amount",
+  "currentAmount",
+  "current_amount",
+  "amount",
+  "balance",
+  "moneyLeft",
+];
+const EMERGENCY_ACTIVITY_KEYS = [
+  "emergencyActivityLog",
+  "emergency_activity_log",
+  "activityLog",
+  "activity_log",
+  "usageLog",
+  "usage_log",
 ];
 
 const toNumber = (value) => {
@@ -80,9 +102,85 @@ const readFirstText = (source, keys = []) => {
   return "";
 };
 
-const getEmergencyProtectedAmount = (emergencyFund) => readFirstNumber(emergencyFund, ["protectedBalance", "protected_balance", "reserveBalance", "reserve_balance", "savedAmount", "saved_amount", "currentAmount", "current_amount", "amount", "balance", "moneyLeft"]);
+const getEmergencyProtectedAmount = (emergencyFund) => readFirstNumber(emergencyFund, EMERGENCY_AMOUNT_KEYS);
 const getEmergencyLinkedWalletId = (emergencyFund) => readFirstText(emergencyFund, ["linkedWalletId", "linked_wallet_id", "reserveWalletId", "reserve_wallet_id", "sourceWalletId", "source_wallet_id", "walletId", "wallet_id", "storageWalletId", "storage_wallet_id"]);
 const getEmergencyLinkedWalletName = (emergencyFund) => readFirstText(emergencyFund, ["linkedWalletName", "linked_wallet_name", "reserveWalletName", "reserve_wallet_name", "sourceWalletName", "source_wallet_name", "walletName", "wallet_name", "storageWalletName", "storage_wallet_name"]);
+
+function getEmergencyTransactionText(item = {}) {
+  return [
+    item?.title,
+    item?.name,
+    item?.category,
+    item?.budget_category,
+    item?.budgetCategory,
+    item?.reason,
+    item?.notes,
+    item?.note,
+    item?.description,
+    item?.type,
+    item?.source_type,
+    item?.sourceType,
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+}
+
+function isEmergencyFundAllocationRecord(item = {}) {
+  const raw = item?.raw || item || {};
+  const text = getEmergencyTransactionText(raw);
+
+  return Boolean(
+    raw.emergency_fund_transaction_id ||
+      raw.emergencyFundTransactionId ||
+      raw.emergency_fund_id ||
+      raw.emergencyFundId ||
+      text.includes("emergency fund allocation") ||
+      text.includes("moved to emergency fund") ||
+      text.includes("emergency allocation")
+  );
+}
+
+function getEmergencyActivitySource(emergencyFund = {}) {
+  for (const key of EMERGENCY_ACTIVITY_KEYS) {
+    if (Array.isArray(emergencyFund?.[key])) return emergencyFund[key].filter(Boolean);
+  }
+  return [];
+}
+
+function filterEmergencyActivityLog(log = [], amount, activityId) {
+  const safeActivityId = String(activityId || "").trim();
+  let removedFallback = false;
+
+  return (Array.isArray(log) ? log : []).filter((item) => {
+    if (!item) return false;
+
+    if (
+      safeActivityId &&
+      (String(item?.id || "") === safeActivityId ||
+        String(item?.emergency_fund_transaction_id || "") === safeActivityId ||
+        String(item?.emergencyFundTransactionId || "") === safeActivityId)
+    ) {
+      return false;
+    }
+
+    if (!removedFallback) {
+      const entryAmount = Math.abs(toNumber(item?.amount ?? item?.value ?? item?.total ?? 0));
+      const text = getEmergencyTransactionText(item);
+      const isAllocationText =
+        text.includes("emergency fund allocation") ||
+        text.includes("moved to emergency fund") ||
+        text.includes("emergency allocation") ||
+        String(item?.type || "").toLowerCase().includes("allocation");
+
+      if (entryAmount === amount && isAllocationText) {
+        removedFallback = true;
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
 
 function isEmergencyFundResetPatch(updates = {}) {
   return Boolean(updates?.resetAt || updates?.reset_at);
@@ -357,7 +455,7 @@ function useFinancialData(user) {
 
   const addExpense = useCallback(async (expense) => { const result = await repoAddExpense(localUserId, expense); await refreshData(); return result; }, [localUserId, refreshData]);
   const updateExpense = useCallback(async (id, updates) => { const result = await repoUpdateExpense(localUserId, id, updates); await refreshData(); return result; }, [localUserId, refreshData]);
-  const deleteExpense = useCallback(async (id) => { const result = await repoDeleteExpense(localUserId, id); await refreshData(); return result; }, [localUserId, refreshData]);
+  const deleteExpenseRecord = useCallback(async (id) => { const result = await repoDeleteExpense(localUserId, id); await refreshData(); return result; }, [localUserId, refreshData]);
   const addWallet = useCallback(async (wallet) => { const result = await repoAddWallet(localUserId, wallet); await refreshData(); return result; }, [localUserId, refreshData]);
   const updateWallet = useCallback(async (id, updates) => { const result = await repoUpdateWallet(localUserId, id, updates); await refreshData(); return result; }, [localUserId, refreshData]);
   const deleteWallet = useCallback(async (id) => { const result = await repoDeleteWallet(localUserId, id); await refreshData(); return result; }, [localUserId, refreshData]);
@@ -404,6 +502,79 @@ function useFinancialData(user) {
     return result;
   }, [emergencyFund, localUserId, refreshData]);
 
+  const deleteEmergencyFundAllocation = useCallback(async (transaction) => {
+    const raw = transaction?.raw || transaction || {};
+    const amount = Math.abs(toNumber(raw.amount ?? transaction?.amount ?? transaction?.signedAmount ?? raw.signedAmount ?? 0));
+    const expenseId = readFirstText(raw, ["id", "expense_id", "expenseId", "local_id", "localId"]);
+    const activityId = readFirstText(
+      { ...(transaction || {}), ...(raw || {}) },
+      [
+        "emergency_fund_transaction_id",
+        "emergencyFundTransactionId",
+        "emergency_fund_id",
+        "emergencyFundId",
+      ]
+    );
+
+    if (!expenseId) throw new Error("Emergency Fund allocation is missing its linked expense id.");
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error("Emergency Fund allocation amount is invalid.");
+
+    await deleteExpenseRecord(expenseId);
+
+    const now = new Date().toISOString();
+    const liveEmergencyFund = emergencyFund || {};
+    const currentEmergencyAmount = getEmergencyProtectedAmount(liveEmergencyFund);
+    const nextSaved = Math.max(currentEmergencyAmount - amount, 0);
+    const primaryActivity = getEmergencyActivitySource(liveEmergencyFund);
+    const nextActivityLogs = EMERGENCY_ACTIVITY_KEYS.reduce((acc, key) => {
+      const sourceLog = Array.isArray(liveEmergencyFund?.[key]) ? liveEmergencyFund[key] : primaryActivity;
+      acc[key] = filterEmergencyActivityLog(sourceLog, amount, activityId);
+      return acc;
+    }, {});
+    const deletedLastTopUp = Math.abs(toNumber(liveEmergencyFund?.lastTopUpAmount ?? liveEmergencyFund?.last_top_up_amount ?? 0)) === amount;
+
+    const payload = {
+      ...liveEmergencyFund,
+      savedAmount: nextSaved,
+      saved_amount: nextSaved,
+      currentAmount: nextSaved,
+      current_amount: nextSaved,
+      amount: nextSaved,
+      balance: nextSaved,
+      moneyLeft: nextSaved,
+      protectedBalance: nextSaved,
+      protected_balance: nextSaved,
+      reserveBalance: nextSaved,
+      reserve_balance: nextSaved,
+      ...nextActivityLogs,
+      lastTopUpAmount: deletedLastTopUp ? null : liveEmergencyFund?.lastTopUpAmount ?? liveEmergencyFund?.last_top_up_amount ?? null,
+      last_top_up_amount: deletedLastTopUp ? null : liveEmergencyFund?.last_top_up_amount ?? liveEmergencyFund?.lastTopUpAmount ?? null,
+      updatedAt: now,
+      updated_at: now,
+    };
+
+    await repoUpsertEmergencyFund(localUserId, payload);
+    await refreshData();
+    dispatchFinanceUpdateEvents();
+
+    return {
+      deletedExpenseId: expenseId,
+      reversedEmergencyAmount: amount,
+      nextEmergencySaved: nextSaved,
+    };
+  }, [deleteExpenseRecord, emergencyFund, localUserId, refreshData]);
+
+  const deleteExpense = useCallback(async (id) => {
+    if (!id) throw new Error("Expense id is required.");
+    const existing = await getLocalRecordById(EXPENSE_STORE, id, localUserId);
+
+    if (existing && isEmergencyFundAllocationRecord(existing)) {
+      return deleteEmergencyFundAllocation(existing);
+    }
+
+    return deleteExpenseRecord(id);
+  }, [deleteEmergencyFundAllocation, deleteExpenseRecord, localUserId]);
+
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeIncomes = Array.isArray(incomes) ? incomes : [];
   const safeWallets = Array.isArray(wallets) ? wallets : [];
@@ -430,7 +601,7 @@ function useFinancialData(user) {
     addIncome, addMoney, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets, updateTransfer, deleteTransfer,
     addBudget, updateBudget, deleteBudget, upsertBudget,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
-    updateEmergencyFund,
+    updateEmergencyFund, deleteEmergencyFundAllocation,
   };
 }
 
