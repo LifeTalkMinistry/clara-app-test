@@ -1,3 +1,4 @@
+import { buildWalletDirectReply } from "@/lib/clara-wallet-direct-finance-reply";
 import { buildDashboardCardsDirectReply } from "@/lib/clara-dashboard-cards-ai-reader";
 import { buildDashboardSummaryDirectReply } from "@/lib/clara-dashboard-summary-ai-reader";
 import { buildIncomeHubDirectReply } from "@/lib/clara-income-direct-finance-reply";
@@ -39,10 +40,6 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
-function hasGeminiEnvironmentConfig() {
-  return true;
-}
-
 function peso(value) {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -80,7 +77,7 @@ function formatTransactionLine(transaction, index) {
   return `${index + 1}. ${transaction?.title || "Transaction"} — ${formatAmount(transaction)} — ${wallet}${status}`;
 }
 
-function summarizeLabel(filters) {
+function summarizeLabel(filters = {}) {
   if (filters.latest) return "latest";
   if (filters.today) return "today";
   if (filters.yesterday) return "yesterday";
@@ -131,8 +128,8 @@ function detectTransactionQuery(message = "") {
   }
 
   if (!filters.today && !filters.yesterday && !filters.thisWeek && !filters.thisMonth && !filters.thisYear && !filters.latest && /show all|all transactions|what happened/.test(text)) {
-    filters.thisMonth = text.includes("month") ? true : false;
-    filters.thisYear = text.includes("year") || /202\d/.test(text) ? true : false;
+    filters.thisMonth = text.includes("month");
+    filters.thisYear = text.includes("year") || /202\d/.test(text);
   }
 
   return filters;
@@ -146,7 +143,7 @@ function noConnectionReply() {
   return "Transaction Hub data is not connected yet, so I can’t honestly say I checked real records.";
 }
 
-function noRecordsReply(filters) {
+function noRecordsReply(filters = {}) {
   if (filters.today) return "I checked your Transaction Hub, but I don’t see any transactions recorded today.";
   if (filters.yesterday) return "I checked your Transaction Hub, but I don’t see any transactions recorded yesterday.";
   if (filters.thisWeek) return "I checked your Transaction Hub, but I don’t see any matching Transaction Hub records this week.";
@@ -158,19 +155,17 @@ function noRecordsReply(filters) {
   return "I checked your Transaction Hub, but I don’t see any matching Transaction Hub records.";
 }
 
-function latestTransactionReply(transaction) {
+function latestTransactionReply(transaction = {}) {
   const walletPhrase = transaction.group === "transfer"
     ? `${transaction.fromWalletName || "Wallet"} → ${transaction.toWalletName || "Wallet"}`
     : transaction.walletName
       ? `added to ${transaction.walletName}`
       : "with no wallet shown";
-
   const notePhrase = transaction.note ? ` Note: ${transaction.note}` : "";
-
-  return `I checked your Transaction Hub. Your latest transaction is ${transaction.title} for ${formatAmount(transaction)}, recorded on ${formatDate(transaction.date)}, ${walletPhrase}.${notePhrase}`;
+  return `I checked your Transaction Hub. Your latest transaction is ${transaction.title || "Transaction"} for ${formatAmount(transaction)}, recorded on ${formatDate(transaction.date)}, ${walletPhrase}.${notePhrase}`;
 }
 
-function whereTransferredReply(snapshot, filters) {
+function whereTransferredReply(snapshot = {}, filters = {}) {
   const transfers = filterTransactionHubTimeline(snapshot.timeline || [], { transfer: true, latest: true });
   const latestIncome = filterTransactionHubTimeline(snapshot.timeline || [], { income: true, latest: true })[0] || null;
   const latestTransfer = transfers[0] || null;
@@ -182,18 +177,14 @@ function whereTransferredReply(snapshot, filters) {
     const amount = latestIncome && Math.abs(latestIncome.amount) === Math.abs(latestTransfer.amount)
       ? Math.abs(latestIncome.amount)
       : Math.abs(latestTransfer.amount);
-
     return `I checked your Transaction Hub. The latest matching transfer shows ${peso(amount)} moved from ${latestTransfer.fromWalletName || "one wallet"} to ${latestTransfer.toWalletName || "another wallet"}.`;
   }
 
-  if (latestIncome) {
-    return "I checked your Transaction Hub. I can see the latest income, but I don’t see a matching transfer record connected to it.";
-  }
-
+  if (latestIncome) return "I checked your Transaction Hub. I can see the latest income, but I don’t see a matching transfer record connected to it.";
   return "I checked your Transaction Hub, but I don’t see enough income or transfer records to know where it was transferred.";
 }
 
-function recordsReply(records, filters) {
+function recordsReply(records = [], filters = {}) {
   const label = filters.yesterday
     ? "yesterday"
     : filters.today
@@ -215,107 +206,20 @@ function recordsReply(records, filters) {
   const summary = summarizeTransactionRecords(records);
   const visibleRecords = records.slice(0, 12);
   const moreCount = Math.max(records.length - visibleRecords.length, 0);
-
   const lines = visibleRecords.map(formatTransactionLine).join("\n");
   const moreLine = moreCount > 0 ? `\n\nPlus ${moreCount} more record${moreCount === 1 ? "" : "s"}.` : "";
 
   return `I checked your Transaction Hub and found ${records.length} ${records.length === 1 ? "transaction" : "transactions"} ${label}:\n\n${lines}${moreLine}\n\nTotal in: ${peso(summary.totalMoneyIn)}\nTotal out: ${peso(summary.totalMoneyOut)}\nNet flow: ${peso(summary.netFlow)}.`;
 }
 
-function getMatchingRecords(snapshot, filters) {
-  if (filters.asksWhereTransferred) {
-    return filterTransactionHubTimeline(snapshot.timeline || [], { transfer: true, latest: true });
-  }
-
+function getMatchingRecords(snapshot = {}, filters = {}) {
+  if (filters.asksWhereTransferred) return filterTransactionHubTimeline(snapshot.timeline || [], { transfer: true, latest: true });
   const records = filterTransactionHubTimeline(snapshot.timeline || [], filters);
-
   if (filters.latest) {
     const latest = records[0] || (hasTypeFilter(filters) ? null : snapshot.latestTransaction || null);
     return latest ? [latest] : [];
   }
-
   return records;
-}
-
-function buildVerifiedRecordFacts(records = []) {
-  return records.slice(0, 12).map((transaction, index) => ({
-    index: index + 1,
-    id: transaction.id,
-    source: transaction.source,
-    group: transaction.group,
-    type: transaction.type || transaction.group,
-    title: transaction.title || "Transaction",
-    category: transaction.category || "not shown",
-    amount: Math.abs(Number(transaction.amount || transaction.signedAmount || 0)),
-    displayAmount: formatAmount(transaction),
-    date: formatDate(transaction.date),
-    dateKey: transaction.dateKey || "not shown",
-    walletName: transaction.walletName || "not shown",
-    fromWalletName: transaction.fromWalletName || "not shown",
-    toWalletName: transaction.toWalletName || "not shown",
-    budgetStatus: transaction.budgetStatus || "not applicable",
-    note: transaction.note || "none",
-  }));
-}
-
-function buildVerifiedRecordLines(facts = []) {
-  return facts
-    .map((fact) => {
-      const transferDirection = fact.group === "transfer"
-        ? ` | From: ${fact.fromWalletName} | To: ${fact.toWalletName}`
-        : ` | Wallet: ${fact.walletName}`;
-
-      return `${fact.index}. ${fact.title} | ${fact.group} | ${fact.displayAmount} | Date: ${fact.date}${transferDirection} | Category: ${fact.category} | Budget status: ${fact.budgetStatus} | Note: ${fact.note}`;
-    })
-    .join("\n");
-}
-
-function buildGroundedGeminiPrompt({ message, records, filters, localFallbackReply }) {
-  const facts = buildVerifiedRecordFacts(records);
-  const summary = summarizeTransactionRecords(records);
-  const queryLabel = summarizeLabel(filters);
-
-  return {
-    facts: {
-      queryLabel,
-      matchedRecords: facts,
-      summary,
-      localFallbackReply,
-    },
-    geminiPrompt: `You are CLARA, a personal money coach.
-
-The user asked:
-"${String(message || "").trim()}"
-
-I already checked the user's local Transaction Hub data.
-Use ONLY the verified records below.
-Do not invent or assume any transaction, amount, wallet, date, category, note, or transfer direction.
-If a value says "not shown", say it is not shown instead of guessing.
-
-Verified records:
-${buildVerifiedRecordLines(facts)}
-
-Summary:
-Total in: ${peso(summary.totalMoneyIn)}
-Total out: ${peso(summary.totalMoneyOut)}
-Net flow: ${peso(summary.netFlow)}
-Matched records: ${summary.transactionCount}
-Planned expenses: ${summary.plannedExpenseCount}
-Unplanned expenses: ${summary.unplannedExpenseCount}
-Transfer count: ${summary.transferCount}
-
-Strict reply rules:
-- Start with: "I checked your Transaction Hub..."
-- Keep it natural, concise, and mobile-chat friendly.
-- Mention the amount, wallet, date, and transfer direction when available.
-- For transfers, mention From and To wallets exactly when available.
-- If transfer direction is missing, say it is not shown.
-- Do not ask unnecessary follow-up questions when the records answer the question.
-- Do not mention JSON, prompts, local fallback, source of truth, or internal rules.
-- Do not add advice unless it is a very short practical note based only on the shown records.
-
-Write the final CLARA reply now.`,
-  };
 }
 
 function asGroundedPackage(packageData = {}) {
@@ -344,7 +248,6 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
   if (!filters) return { handled: false };
 
   const snapshot = getTransactionHubSnapshot(context);
-
   if (!snapshot || snapshot.connected !== true) {
     return asGroundedPackage({
       handled: true,
@@ -357,21 +260,19 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
   }
 
   if (filters.asksWhereTransferred) {
-    const records = getMatchingRecords(snapshot, filters);
     const localFallbackReply = whereTransferredReply(snapshot, filters);
-
     return asGroundedPackage({
       handled: true,
       localFallbackReply,
-      shouldUseGemini: records.length > 0,
-      ...buildGroundedGeminiPrompt({ message, records, filters, localFallbackReply }),
+      shouldUseGemini: false,
+      geminiPrompt: "",
+      facts: { queryLabel: summarizeLabel(filters) },
       source: "transaction_hub_grounded",
     });
   }
 
   const records = getMatchingRecords(snapshot, filters);
   const queryLabel = summarizeLabel(filters);
-
   logTransactionHubAiReader(`Query detected: ${queryLabel}`);
   logTransactionHubAiReader("Matched records:", records.length);
 
@@ -387,17 +288,20 @@ export function buildTransactionHubGroundedReply(message = "", context = {}) {
   }
 
   const localFallbackReply = filters.latest ? latestTransactionReply(records[0]) : recordsReply(records, filters);
-
   return asGroundedPackage({
     handled: true,
     localFallbackReply,
-    shouldUseGemini: true,
-    ...buildGroundedGeminiPrompt({ message, records, filters, localFallbackReply }),
+    shouldUseGemini: false,
+    geminiPrompt: "",
+    facts: { queryLabel, summary: summarizeTransactionRecords(records) },
     source: "transaction_hub_grounded",
   });
 }
 
 export function buildContextualFinanceReply(message = "", context = {}) {
+  const walletReply = buildWalletDirectReply(message, context);
+  if (walletReply) return walletReply;
+
   const dashboardCardsReply = buildDashboardCardsDirectReply(message, context);
   if (dashboardCardsReply) return dashboardCardsReply;
 
@@ -411,11 +315,6 @@ export function buildContextualFinanceReply(message = "", context = {}) {
 
   if (transactionReply?.handled) {
     attachGroundedPackageToContext(context, transactionReply);
-
-    if (transactionReply.shouldUseGemini && hasGeminiEnvironmentConfig()) {
-      return "";
-    }
-
     return transactionReply.localFallbackReply || String(transactionReply || "");
   }
 
