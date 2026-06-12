@@ -5,6 +5,7 @@ import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professiona
 import "./daily-tip-premium-flip.css";
 
 const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+const FLIP_UNLOCK_DELAY_MS = 700;
 
 function readActiveCurrentState() {
   if (typeof window === "undefined") return null;
@@ -27,6 +28,7 @@ export default function DailyTipCard({
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const isFlippingRef = useRef(false);
+  const flipUnlockTimerRef = useRef(null);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
@@ -43,6 +45,24 @@ export default function DailyTipCard({
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (flipUnlockTimerRef.current) {
+        window.clearTimeout(flipUnlockTimerRef.current);
+      }
+    };
+  }, []);
+
+  const releaseFlipLock = () => {
+    if (flipUnlockTimerRef.current) {
+      window.clearTimeout(flipUnlockTimerRef.current);
+      flipUnlockTimerRef.current = null;
+    }
+
+    isFlippingRef.current = false;
+    setIsFlipping(false);
+  };
+
   const handleFlip = () => {
     if (!hasCommittedAccess) {
       onOpenCommitmentBooklet?.();
@@ -51,20 +71,24 @@ export default function DailyTipCard({
 
     if (isFlippingRef.current) return;
 
+    const willRevealTip = !flipped;
+
     isFlippingRef.current = true;
     setIsFlipping(true);
     setFlipped((current) => !current);
+
+    if (willRevealTip && !hasSeenToday) {
+      markSeenToday();
+    }
+
+    flipUnlockTimerRef.current = window.setTimeout(releaseFlipLock, FLIP_UNLOCK_DELAY_MS);
   };
 
   const handleFlipTransitionEnd = (event) => {
     if (event.target !== event.currentTarget) return;
+    if (event.propertyName !== "transform") return;
 
-    isFlippingRef.current = false;
-    setIsFlipping(false);
-
-    if (flipped && !hasSeenToday) {
-      markSeenToday();
-    }
+    releaseFlipLock();
   };
 
   const handleExitCurrentState = async () => {
