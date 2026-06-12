@@ -64,10 +64,13 @@ export default function LearningMaterialCard({
   const isCategory = item?.kind === "category" || item?.type === "category";
   const isCuratedVideoLesson =
     item?.sourceType === "youtube" || item?.category === "money-foundations";
-  const isMoneyFoundationsCover =
-    item?.id === "money-foundations" || item?.category === "money-foundations";
+  const isMoneyFoundationsUploadedCover =
+    hasThumbnail &&
+    typeof rawThumbnailSrc === "string" &&
+    (rawThumbnailSrc === "/learning-hub/money-foundations/category.png" ||
+      rawThumbnailSrc.startsWith("/learning-hub/money-foundations/lesson-"));
   const shouldShowTextLayer =
-    !hasThumbnail || (!isMoneyFoundationsCover && (isCategory || isCuratedVideoLesson));
+    !isMoneyFoundationsUploadedCover && (isCategory || isCuratedVideoLesson || !hasThumbnail);
   const activeBadgeLabel = isCategory
     ? "Category"
     : item?.lessonNumber
