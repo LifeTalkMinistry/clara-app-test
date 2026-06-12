@@ -64,7 +64,10 @@ export default function LearningMaterialCard({
   const isCategory = item?.kind === "category" || item?.type === "category";
   const isCuratedVideoLesson =
     item?.sourceType === "youtube" || item?.category === "money-foundations";
-  const shouldShowTextLayer = isCategory || isCuratedVideoLesson || !hasThumbnail;
+  const isMoneyFoundationsCover =
+    item?.id === "money-foundations" || item?.category === "money-foundations";
+  const shouldShowTextLayer =
+    !hasThumbnail || (!isMoneyFoundationsCover && (isCategory || isCuratedVideoLesson));
   const activeBadgeLabel = isCategory
     ? "Category"
     : item?.lessonNumber
