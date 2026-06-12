@@ -26,9 +26,7 @@ export default function DailyTipCard({
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState("forward");
   const isFlippingRef = useRef(false);
-  const pendingFlippedRef = useRef(false);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
@@ -53,24 +51,18 @@ export default function DailyTipCard({
 
     if (isFlippingRef.current) return;
 
-    const nextFlipped = !flipped;
-
-    pendingFlippedRef.current = nextFlipped;
     isFlippingRef.current = true;
-    setFlipDirection(nextFlipped ? "forward" : "backward");
     setIsFlipping(true);
+    setFlipped((current) => !current);
   };
 
-  const handleFlipAnimationEnd = (event) => {
-    if (event.target !== event.currentTarget || event.pseudoElement) return;
-
-    const nextFlipped = pendingFlippedRef.current;
+  const handleFlipTransitionEnd = (event) => {
+    if (event.target !== event.currentTarget) return;
 
     isFlippingRef.current = false;
     setIsFlipping(false);
-    setFlipped(nextFlipped);
 
-    if (nextFlipped && !hasSeenToday) {
+    if (flipped && !hasSeenToday) {
       markSeenToday();
     }
   };
@@ -92,8 +84,6 @@ export default function DailyTipCard({
       setExiting(false);
     }
   };
-
-  const visibleFlipped = isFlipping ? flipDirection === "backward" : flipped;
 
   if (activeCurrentState) {
     return (
@@ -146,20 +136,14 @@ export default function DailyTipCard({
         }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
-        className="group relative h-[150px] w-full cursor-pointer overflow-visible rounded-2xl bg-transparent text-left outline-none"
-        style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
+        style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <div className="clara-daily-tip-scene">
           <div
-            onAnimationEnd={handleFlipAnimationEnd}
+            onTransitionEnd={handleFlipTransitionEnd}
             className={`clara-preserve-flip-motion clara-daily-tip-flipper ${
-              visibleFlipped ? "clara-daily-tip-flipper--back" : "clara-daily-tip-flipper--front"
-            } ${
-              isFlipping
-                ? flipDirection === "forward"
-                  ? "clara-daily-tip-flipper--flip-forward"
-                  : "clara-daily-tip-flipper--flip-backward"
-                : ""
+              flipped ? "clara-daily-tip-flipper--flipped" : ""
             } ${
               hasCommittedAccess
                 ? ""
