@@ -131,7 +131,38 @@ export const getLast12Months = () => {
   });
 };
 
+export function isEmergencyFundAllocation(item = {}) {
+  const raw = item?.raw || item || {};
+  const text = [
+    raw.title,
+    raw.name,
+    raw.category,
+    raw.budget_category,
+    raw.budgetCategory,
+    raw.reason,
+    raw.notes,
+    raw.note,
+    raw.description,
+    raw.type,
+    raw.source_type,
+    raw.sourceType,
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+
+  return Boolean(
+    raw.emergency_fund_transaction_id ||
+      raw.emergencyFundTransactionId ||
+      raw.emergency_fund_id ||
+      raw.emergencyFundId ||
+      text.includes("emergency fund allocation") ||
+      text.includes("moved to emergency fund") ||
+      text.includes("emergency allocation")
+  );
+}
+
 export const getGroup = (item) => {
+  if (isEmergencyFundAllocation(item)) return "savings";
   if (item?.__activityGroup) return item.__activityGroup;
 
   const type = normalizeText(item?.type);
