@@ -1,0 +1,74 @@
+name: Complete EF Orphan Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/budget-reset-boundary
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Complete Emergency Fund orphan repair wiring') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/budget-reset-boundary
+
+      - name: Patch source files
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const hookPath = 'src/hooks/useFinancialData.js';
+          let hook = fs.readFileSync(hookPath, 'utf8');
+          hook = hook.replace(
+            '    if (!removedFallback) {\n      const entryAmount = Math.abs(toNumber(item?.amount ?? item?.value ?? item?.total ?? 0));',
+            '    if (!safeActivityId && !removedFallback) {\n      const entryAmount = Math.abs(toNumber(item?.amount ?? item?.value ?? item?.total ?? 0));'
+          );
+          hook = hook.replace(
+            '    const lookup = { ...(transaction || {}), ...(raw || {}) };\n    const amount = Math.abs(',
+            '    const lookup = { ...(transaction || {}), ...(raw || {}) };\n    const expenseLookup = {\n      id: raw?.id,\n      rawId: transaction?.rawId,\n      transactionId: transaction?.id,\n      expense_id: raw?.expense_id ?? transaction?.expense_id,\n      expenseId: raw?.expenseId ?? transaction?.expenseId,\n      local_id: raw?.local_id ?? transaction?.local_id,\n      localId: raw?.localId ?? transaction?.localId,\n    };\n    const amount = Math.abs('
+          );
+          hook = hook.replace(
+            '    const expenseId = readFirstText(lookup, [\n      "id",\n      "rawId",\n      "expense_id",\n      "expenseId",\n      "local_id",\n      "localId",\n    ]);',
+            '    const expenseId = readFirstText(expenseLookup, [\n      "id",\n      "rawId",\n      "transactionId",\n      "expense_id",\n      "expenseId",\n      "local_id",\n      "localId",\n    ]);'
+          );
+          hook = hook.replace(
+            '    const allocationActivity = primaryActivity.filter(isEmergencyAllocationActivity);\n    const hasUnsafeHistory = primaryActivity.some((item) => !isEmergencyAllocationActivity(item));',
+            '    const allocationActivity = primaryActivity.filter(isEmergencyAllocationActivity);\n    const currentEmergencyAmount = getEmergencyProtectedAmount(liveEmergencyFund);\n    const hasUnsafeHistory = primaryActivity.some((item) => !isEmergencyAllocationActivity(item));'
+          );
+          hook = hook.replace(
+            '    if (!primaryActivity.length || !allocationActivity.length || hasUnsafeHistory) {',
+            '    if (currentEmergencyAmount <= 0 || !primaryActivity.length || !allocationActivity.length || hasUnsafeHistory) {'
+          );
+          fs.writeFileSync(hookPath, hook);
+
+          const cardPath = 'src/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWallet.jsx';
+          let card = fs.readFileSync(cardPath, 'utf8');
+          card = card.replace(
+            '    updateEmergencyFund,\n    addExpense,\n    refreshData,\n  } = useFinancialData(user);',
+            '    updateEmergencyFund,\n    addExpense,\n    refreshData,\n    repairEmergencyFundAllocationBalance,\n  } = useFinancialData(user);'
+          );
+          card = card.replace(
+            '  const walletSelectRef = useRef(null);\n  const hasAutoOpenedSurvivalSetupRef = useRef(false);',
+            '  const walletSelectRef = useRef(null);\n  const hasAutoOpenedSurvivalSetupRef = useRef(false);\n  const repairCheckedRef = useRef(false);'
+          );
+          card = card.replace(
+            '  useEffect(() => {\n    if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0]));\n  }, [safeWallets, sourceWalletId]);\n\n  const persistEmergencyFund = async (patch) => {',
+            '  useEffect(() => {\n    if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0]));\n  }, [safeWallets, sourceWalletId]);\n\n  useEffect(() => {\n    if (repairCheckedRef.current) return;\n    if (!expanded) return;\n    if (savedAmount <= 0) return;\n    if (typeof repairEmergencyFundAllocationBalance !== \'function\') return;\n\n    repairCheckedRef.current = true;\n\n    repairEmergencyFundAllocationBalance().catch((error) => {\n      console.warn(\'Emergency Fund allocation repair skipped:\', error);\n    });\n  }, [expanded, savedAmount, repairEmergencyFundAllocationBalance]);\n\n  const persistEmergencyFund = async (patch) => {'
+          );
+          fs.writeFileSync(cardPath, card);
+          NODE
+
+      - name: Commit source patch
+        run: |
+          rm .github/workflows/complete-ef-orphan-repair.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/hooks/useFinancialData.js src/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWallet.jsx .github/workflows/complete-ef-orphan-repair.yml
+          git commit -m "Complete Emergency Fund orphan repair wiring"
+          git push origin HEAD:fix/budget-reset-boundary
