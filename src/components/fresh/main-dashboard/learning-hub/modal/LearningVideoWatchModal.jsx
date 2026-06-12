@@ -1,11 +1,64 @@
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 
+const getYouTubeStartSeconds = (material) => {
+  const sourceUrl =
+    typeof material?.sourceUrl === "string" && material.sourceUrl.trim().length > 0
+      ? material.sourceUrl.trim()
+      : typeof material?.externalUrl === "string" && material.externalUrl.trim().length > 0
+        ? material.externalUrl.trim()
+        : "";
+
+  if (!sourceUrl) return 0;
+
+  try {
+    const url = new URL(sourceUrl);
+    const timestamp = url.searchParams.get("t") || url.searchParams.get("start");
+    if (!timestamp) return 0;
+
+    const normalizedTimestamp = timestamp.toLowerCase().trim();
+    const hourMatch = normalizedTimestamp.match(/(\d+)h/);
+    const minuteMatch = normalizedTimestamp.match(/(\d+)m/);
+    const secondMatch = normalizedTimestamp.match(/(\d+)s/);
+
+    if (hourMatch || minuteMatch || secondMatch) {
+      return (
+        Number(hourMatch?.[1] || 0) * 3600 +
+        Number(minuteMatch?.[1] || 0) * 60 +
+        Number(secondMatch?.[1] || 0)
+      );
+    }
+
+    const numericSeconds = Number.parseInt(normalizedTimestamp, 10);
+    return Number.isFinite(numericSeconds) && numericSeconds > 0 ? numericSeconds : 0;
+  } catch {
+    return 0;
+  }
+};
+
 function getYouTubePlayerSrc(material) {
   const youtubeId = typeof material?.youtubeId === "string" ? material.youtubeId.trim() : "";
 
   if (youtubeId) {
-    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}`;
+    const url = new URL(`https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}`);
+    const startSeconds = getYouTubeStartSeconds(material);
+
+    url.searchParams.set("enablejsapi", "1");
+    url.searchParams.set("playsinline", "1");
+    url.searchParams.set("controls", "1");
+    url.searchParams.set("fs", "1");
+    url.searchParams.set("rel", "0");
+    url.searchParams.set("modestbranding", "1");
+
+    if (typeof window !== "undefined" && window.location?.origin) {
+      url.searchParams.set("origin", window.location.origin);
+    }
+
+    if (startSeconds > 0) {
+      url.searchParams.set("start", String(startSeconds));
+    }
+
+    return url.toString();
   }
 
   const embedUrl = material?.embedUrl;
@@ -15,11 +68,17 @@ function getYouTubePlayerSrc(material) {
     const url = new URL(embedUrl);
 
     if (url.hostname.includes("youtube.com") || url.hostname.includes("youtube-nocookie.com")) {
-      url.hostname = "www.youtube-nocookie.com";
+      url.hostname = "www.youtube.com";
       url.searchParams.set("enablejsapi", "1");
       url.searchParams.set("playsinline", "1");
       url.searchParams.set("controls", "1");
       url.searchParams.set("fs", "1");
+      url.searchParams.set("rel", "0");
+      url.searchParams.set("modestbranding", "1");
+
+      if (typeof window !== "undefined" && window.location?.origin) {
+        url.searchParams.set("origin", window.location.origin);
+      }
     }
 
     return url.toString();
@@ -131,7 +190,7 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
                   src={playerSrc}
                   title={material.title}
                   loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
               ) : (
