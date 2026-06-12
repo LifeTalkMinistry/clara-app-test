@@ -205,6 +205,21 @@ function filterEmergencyActivityLog(log = [], amount, activityId) {
   });
 }
 
+function removeEmergencyActivityById(log = [], removeOrphanAllocationId) {
+  const safeId = String(removeOrphanAllocationId || "").trim();
+  const sourceLog = Array.isArray(log) ? log.filter(Boolean) : [];
+
+  if (!safeId) return sourceLog;
+
+  return sourceLog.filter((item) => {
+    return !(
+      String(item?.id || "") === safeId ||
+      String(item?.emergency_fund_transaction_id || "") === safeId ||
+      String(item?.emergencyFundTransactionId || "") === safeId
+    );
+  });
+}
+
 function buildActiveEmergencyAllocationIdSet(rawExpenses = []) {
   const ids = new Set();
   removeDeletedRows(rawExpenses)
@@ -684,6 +699,113 @@ function useFinancialData(user) {
     };
   }, [deleteExpenseRecord, emergencyFund, localUserId, refreshData]);
 
+  const correctEmergencyFundBalance = useCallback(async ({ amount, reason, removeOrphanAllocationId, mode } = {}) => {
+    const correctionAmount = Math.abs(toNumber(amount));
+    const safeReason = String(reason || "").trim() || "Balance correction";
+    const safeRemoveId = String(removeOrphanAllocationId || "").trim();
+
+    if (!Number.isFinite(correctionAmount) || correctionAmount <= 0) {
+      throw new Error("Emergency Fund correction amount is invalid.");
+    }
+
+    const liveEmergencyFund = (await getEmergencyFund(localUserId)) || emergencyFund || {};
+    const currentEmergencyAmount = getEmergencyProtectedAmount(liveEmergencyFund);
+    const nextSaved = Math.max(currentEmergencyAmount - correctionAmount, 0);
+    const now = new Date().toISOString();
+    const primaryActivity = getEmergencyActivitySource(liveEmergencyFund);
+    const correctionActivity = {
+      id: `emergency_correction_${Date.now()}`,
+      type: "correction",
+      amount: correctionAmount,
+      title: "Emergency Fund Balance Correction",
+      reason: safeReason,
+      note: "Manual balance correction. Not emergency spending.",
+      balanceBefore: currentEmergencyAmount,
+      balanceAfter: nextSaved,
+      createdAt: now,
+      created_at: now,
+    };
+
+    const emergencyActivityLog = safeRemoveId
+      ? removeEmergencyActivityById(
+          Array.isArray(liveEmergencyFund?.emergencyActivityLog) ? liveEmergencyFund.emergencyActivityLog : primaryActivity,
+          safeRemoveId
+        )
+      : Array.isArray(liveEmergencyFund?.emergencyActivityLog) ? liveEmergencyFund.emergencyActivityLog.filter(Boolean) : primaryActivity;
+    const emergencyActivityLogSnake = safeRemoveId
+      ? removeEmergencyActivityById(
+          Array.isArray(liveEmergencyFund?.emergency_activity_log) ? liveEmergencyFund.emergency_activity_log : primaryActivity,
+          safeRemoveId
+        )
+      : Array.isArray(liveEmergencyFund?.emergency_activity_log) ? liveEmergencyFund.emergency_activity_log.filter(Boolean) : primaryActivity;
+    const activityLogBase = safeRemoveId
+      ? removeEmergencyActivityById(
+          Array.isArray(liveEmergencyFund?.activityLog) ? liveEmergencyFund.activityLog : primaryActivity,
+          safeRemoveId
+        )
+      : Array.isArray(liveEmergencyFund?.activityLog) ? liveEmergencyFund.activityLog.filter(Boolean) : primaryActivity;
+    const activityLogSnakeBase = safeRemoveId
+      ? removeEmergencyActivityById(
+          Array.isArray(liveEmergencyFund?.activity_log) ? liveEmergencyFund.activity_log : primaryActivity,
+          safeRemoveId
+        )
+      : Array.isArray(liveEmergencyFund?.activity_log) ? liveEmergencyFund.activity_log.filter(Boolean) : primaryActivity;
+    const usageLog = safeRemoveId
+      ? removeEmergencyActivityById(
+          Array.isArray(liveEmergencyFund?.usageLog) ? liveEmergencyFund.usageLog : primaryActivity,
+          safeRemoveId
+        )
+      : Array.isArray(liveEmergencyFund?.usageLog) ? liveEmergencyFund.usageLog.filter(Boolean) : primaryActivity;
+    const usageLogSnake = safeRemoveId
+      ? removeEmergencyActivityById(
+          Array.isArray(liveEmergencyFund?.usage_log) ? liveEmergencyFund.usage_log : primaryActivity,
+          safeRemoveId
+        )
+      : Array.isArray(liveEmergencyFund?.usage_log) ? liveEmergencyFund.usage_log.filter(Boolean) : primaryActivity;
+    const nextActivityLog = [correctionActivity, ...activityLogBase].slice(0, 60);
+    const nextActivityLogSnake = [correctionActivity, ...activityLogSnakeBase].slice(0, 60);
+
+    const payload = {
+      ...liveEmergencyFund,
+      savedAmount: nextSaved,
+      saved_amount: nextSaved,
+      currentAmount: nextSaved,
+      current_amount: nextSaved,
+      amount: nextSaved,
+      balance: nextSaved,
+      moneyLeft: nextSaved,
+      protectedBalance: nextSaved,
+      protected_balance: nextSaved,
+      reserveBalance: nextSaved,
+      reserve_balance: nextSaved,
+      emergencyActivityLog,
+      emergency_activity_log: emergencyActivityLogSnake,
+      activityLog: nextActivityLog,
+      activity_log: nextActivityLogSnake,
+      usageLog,
+      usage_log: usageLogSnake,
+      lastCorrectionAmount: correctionAmount,
+      last_correction_amount: correctionAmount,
+      lastCorrectionReason: safeReason,
+      last_correction_reason: safeReason,
+      lastCorrectionAt: now,
+      last_correction_at: now,
+      updatedAt: now,
+      updated_at: now,
+    };
+
+    await repoUpsertEmergencyFund(localUserId, payload);
+    await refreshData();
+    dispatchFinanceUpdateEvents();
+
+    return {
+      corrected: true,
+      correctedAmount: correctionAmount,
+      nextEmergencySaved: nextSaved,
+      mode,
+    };
+  }, [emergencyFund, localUserId, refreshData]);
+
   const deleteExpense = useCallback(async (id) => {
     if (!id) throw new Error("Expense id is required.");
     return deleteExpenseRecord(id);
@@ -787,7 +909,7 @@ function useFinancialData(user) {
     addIncome, addMoney, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets, updateTransfer, deleteTransfer,
     addBudget, updateBudget, deleteBudget, upsertBudget,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
-    updateEmergencyFund, deleteEmergencyFundAllocation, repairEmergencyFundAllocationBalance,
+    updateEmergencyFund, deleteEmergencyFundAllocation, correctEmergencyFundBalance, repairEmergencyFundAllocationBalance,
   };
 }
 
