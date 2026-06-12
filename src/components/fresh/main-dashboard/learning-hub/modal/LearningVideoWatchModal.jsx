@@ -1,5 +1,23 @@
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+
+const PLAYER_LOAD_TIMEOUT_MS = 6500;
+const EMBED_BLOCKED_MESSAGE = "Embedded playback is blocked in this browser. Tap Watch on YouTube.";
+
+const isTrustedYouTubeOrigin = (origin) =>
+  /^https:\/\/(www\.)?youtube(-nocookie)?\.com$/i.test(origin) ||
+  /^https:\/\/www\.youtube\.com$/i.test(origin);
+
+const parseYouTubeMessage = (data) => {
+  if (!data) return null;
+  if (typeof data === "object") return data;
+
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+};
 
 const getYouTubeStartSeconds = (material) => {
   const sourceUrl =
@@ -50,10 +68,6 @@ function getYouTubePlayerSrc(material) {
     url.searchParams.set("rel", "0");
     url.searchParams.set("modestbranding", "1");
 
-    if (typeof window !== "undefined" && window.location?.origin) {
-      url.searchParams.set("origin", window.location.origin);
-    }
-
     if (startSeconds > 0) {
       url.searchParams.set("start", String(startSeconds));
     }
@@ -75,10 +89,6 @@ function getYouTubePlayerSrc(material) {
       url.searchParams.set("fs", "1");
       url.searchParams.set("rel", "0");
       url.searchParams.set("modestbranding", "1");
-
-      if (typeof window !== "undefined" && window.location?.origin) {
-        url.searchParams.set("origin", window.location.origin);
-      }
     }
 
     return url.toString();
@@ -107,13 +117,55 @@ const getWatchUrl = (material) => {
 
 export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const iframeRef = useRef(null);
+  const [hasIframeLoaded, setHasIframeLoaded] = useState(false);
+  const [hasPlayerSignal, setHasPlayerSignal] = useState(false);
+  const [showEmbedFallback, setShowEmbedFallback] = useState(false);
+
+  const playerSrc = useMemo(() => getYouTubePlayerSrc(material), [material]);
+  const watchUrl = useMemo(() => getWatchUrl(material), [material]);
+
+  useEffect(() => {
+    setHasIframeLoaded(false);
+    setHasPlayerSignal(false);
+    setShowEmbedFallback(false);
+  }, [playerSrc]);
+
+  useEffect(() => {
+    if (!playerSrc) return undefined;
+
+    const fallbackTimer = window.setTimeout(() => {
+      setShowEmbedFallback((currentValue) => currentValue || (!hasIframeLoaded && !hasPlayerSignal));
+    }, PLAYER_LOAD_TIMEOUT_MS);
+
+    return () => window.clearTimeout(fallbackTimer);
+  }, [hasIframeLoaded, hasPlayerSignal, playerSrc]);
+
+  useEffect(() => {
+    if (!playerSrc) return undefined;
+
+    const handleYouTubeMessage = (event) => {
+      if (!isTrustedYouTubeOrigin(event.origin)) return;
+
+      const data = parseYouTubeMessage(event.data);
+      if (!data || typeof data !== "object") return;
+
+      if (data.event === "onReady" || data.event === "infoDelivery") {
+        setHasPlayerSignal(true);
+      }
+
+      if (data.event === "onError") {
+        setShowEmbedFallback(true);
+      }
+    };
+
+    window.addEventListener("message", handleYouTubeMessage);
+    return () => window.removeEventListener("message", handleYouTubeMessage);
+  }, [playerSrc]);
 
   if (!isOpen || !material || typeof document === "undefined") return null;
 
   const titleId = "clara-learning-video-watch-title";
   const subtitleId = "clara-learning-video-watch-subtitle";
-  const playerSrc = getYouTubePlayerSrc(material);
-  const watchUrl = getWatchUrl(material);
   const eyebrowLabel = material.contentTypeLabel || material.coverLabel || "Curated Video Lesson";
 
   const sendYouTubeCommand = (func) => {
@@ -184,15 +236,31 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
           <div className="w-full max-w-5xl overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
             <div className="relative w-full landscape:h-full landscape:max-h-[100dvh] landscape:max-w-[calc(100dvh*16/9)]" style={{ aspectRatio: "16 / 9" }}>
               {playerSrc ? (
-                <iframe
-                  ref={iframeRef}
-                  className="absolute inset-0 h-full w-full landscape:relative"
-                  src={playerSrc}
-                  title={material.title}
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
+                <>
+                  <iframe
+                    key={playerSrc}
+                    ref={iframeRef}
+                    className="absolute inset-0 h-full w-full landscape:relative"
+                    src={playerSrc}
+                    title={material.title}
+                    loading="eager"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    onLoad={() => setHasIframeLoaded(true)}
+                    onError={() => setShowEmbedFallback(true)}
+                  />
+                  {showEmbedFallback && (
+                    <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 rounded-[18px] border border-amber-100/18 bg-black/76 px-4 py-3 text-center shadow-[0_16px_40px_rgba(0,0,0,0.38)] backdrop-blur-md">
+                      <p className="text-[12px] font-black uppercase tracking-[0.16em] text-amber-50/86">
+                        Playback blocked
+                      </p>
+                      <p className="mt-1 text-[12px] leading-relaxed text-white/68">
+                        {EMBED_BLOCKED_MESSAGE}
+                      </p>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_45%),#020617] px-6 text-center">
                   <p className="text-[13px] font-black uppercase tracking-[0.18em] text-cyan-50/72">
