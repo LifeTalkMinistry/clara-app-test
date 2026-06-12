@@ -314,7 +314,6 @@ export default function BudgetCardContent(props) {
     status,
     message,
     remainingAmountColor,
-    monthKey,
     badgeLabel,
     budgetPace,
     openBudgetModal,
@@ -324,7 +323,6 @@ export default function BudgetCardContent(props) {
   const outsidePlanSpent = Number(unplannedSpent || 0) + Number(undocumentedSpent || 0);
   const driftState = getBudgetDriftState({ outsidePlanSpent, spent, declared });
   const cycleLabel = budgetPace?.cycleLabel || "Monthly";
-  const cycleRange = budgetPace?.cycleRange || null;
   const cycleDisplayLabel = budgetPace?.cycleDisplayLabel || "";
   const driftDetailItems = buildDriftDetailItems({
     outsidePlanItems,
@@ -344,12 +342,9 @@ export default function BudgetCardContent(props) {
         <div className="relative flex min-h-0 flex-1 flex-col gap-4">
           <div className="flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
             <BudgetHeader
-              monthKey={monthKey}
               badgeLabel={badgeLabel}
               status={status}
               cycleLabel={cycleLabel}
-              cycleRange={cycleRange}
-              cycleDisplayLabel={cycleDisplayLabel}
             />
 
             <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
