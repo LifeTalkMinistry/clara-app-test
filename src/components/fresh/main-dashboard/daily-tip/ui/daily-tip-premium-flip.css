@@ -30,12 +30,14 @@
   height: 100%;
   width: 100%;
   transform: translate3d(0, 0, 0) rotateY(0deg);
-  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 
 .clara-daily-tip-flipper--flipped {
-  transform: translate3d(0, 0, 0) rotateY(-6deg);
+  transform: translate3d(0, 0, 0) rotateY(180deg);
 }
 
 .clara-daily-tip-face {
@@ -43,39 +45,33 @@
   inset: 0;
   overflow: hidden;
   border-radius: 1rem;
-  transition:
-    opacity 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
 }
 
 .clara-daily-tip-face--front {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) rotateY(0deg) scale(1);
+  transform: translate3d(0, 0, 1px) rotateY(0deg);
   pointer-events: auto;
 }
 
 .clara-daily-tip-face--back {
-  opacity: 0;
-  transform: translate3d(0, 0, 0) rotateY(12deg) scale(0.985);
+  transform: translate3d(0, 0, 1px) rotateY(180deg);
   pointer-events: none;
 }
 
 .clara-daily-tip-flipper--flipped .clara-daily-tip-face--front {
-  opacity: 0;
-  transform: translate3d(0, 0, 0) rotateY(-12deg) scale(0.985);
   pointer-events: none;
 }
 
 .clara-daily-tip-flipper--flipped .clara-daily-tip-face--back {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) rotateY(0deg) scale(1);
   pointer-events: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clara-daily-tip-flipper,
-  .clara-daily-tip-face {
+  .clara-daily-tip-flipper {
     transition-duration: 1ms;
   }
 }
