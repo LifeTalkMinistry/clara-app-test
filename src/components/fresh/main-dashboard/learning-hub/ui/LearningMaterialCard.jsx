@@ -1,3 +1,29 @@
+import { useState } from "react";
+
+const resolveAssetSrc = (assetPath) => {
+  if (typeof assetPath !== "string" || assetPath.trim().length === 0) return "";
+
+  const trimmedPath = assetPath.trim();
+
+  if (
+    trimmedPath.startsWith("http://") ||
+    trimmedPath.startsWith("https://") ||
+    trimmedPath.startsWith("data:") ||
+    trimmedPath.startsWith("blob:")
+  ) {
+    return trimmedPath;
+  }
+
+  if (trimmedPath.startsWith("/")) {
+    const baseUrl = import.meta.env.BASE_URL || "/";
+    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+
+    return `${normalizedBaseUrl}${trimmedPath.replace(/^\/+/, "")}`;
+  }
+
+  return trimmedPath;
+};
+
 export default function LearningMaterialCard({
   item,
   isActive,
@@ -7,6 +33,7 @@ export default function LearningMaterialCard({
   total,
   onClick,
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const absOffset = Math.abs(offset);
   const direction = offset < 0 ? -1 : 1;
 
@@ -31,26 +58,39 @@ export default function LearningMaterialCard({
   const pageEdgeWidth = isActive ? 4 : 5;
   const depthOffset = isActive ? 3 : 2;
   const contentLeftPadding = isActive ? 18 : 12;
-  const thumbnailSrc = item?.thumbnail || "";
-  const hasThumbnail = Boolean(thumbnailSrc);
+  const rawThumbnailSrc = item?.thumbnail || "";
+  const thumbnailSrc = resolveAssetSrc(rawThumbnailSrc);
+  const hasThumbnail = Boolean(thumbnailSrc) && !imageFailed;
   const isCategory = item?.kind === "category" || item?.type === "category";
+  const isCuratedVideoLesson =
+    item?.sourceType === "youtube" || item?.category === "money-foundations";
+  const shouldShowTextLayer = isCategory || isCuratedVideoLesson || !hasThumbnail;
   const activeBadgeLabel = isCategory
     ? "Category"
-    : item?.featured
-      ? "Featured"
-      : item?.status === "coming-soon"
-        ? "Coming Soon"
-        : "Lesson";
+    : item?.lessonNumber
+      ? `Lesson ${item.lessonNumber}`
+      : item?.featured
+        ? "Featured"
+        : item?.status === "coming-soon"
+          ? "Coming Soon"
+          : "Lesson";
   const coverLabel = isCategory
-    ? item?.coverLabel || "Explore"
+    ? item?.badge || item?.coverLabel || "Explore"
     : item?.coverLabel || item?.duration || "Guide";
   const ctaLabel = isCategory
-    ? "Explore"
-    : item?.type === "book"
-      ? "Read"
-      : item?.status === "available"
-        ? "Start Lesson"
-        : "Preview";
+    ? item?.contentTypeLabel || item?.ctaLabel || "Explore"
+    : isCuratedVideoLesson && item?.status === "available"
+      ? "Watch Lesson"
+      : item?.type === "book"
+        ? "Read"
+        : item?.status === "available"
+          ? "Start Lesson"
+          : "Preview";
+  const progressLabel = isCategory
+    ? item?.progressText || item?.progressLabel || `${position} / ${total}`
+    : item?.completed || item?.isCompleted || item?.status === "completed"
+      ? "Done"
+      : item?.progressText || `${position} / ${total}`;
 
   return (
     <div
@@ -91,7 +131,25 @@ export default function LearningMaterialCard({
               : "border-cyan-200/8 bg-slate-950/84 shadow-[0_10px_18px_rgba(0,0,0,0.15)]"
           }`}
         >
-          {hasThumbnail ? (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500" />
+          <div
+            className={`absolute inset-0 bg-gradient-to-b from-white/[0.07] via-transparent to-black/30 transition-opacity duration-500 ${
+              isActive ? "opacity-100" : "opacity-42"
+            }`}
+          />
+          <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/5" : "ring-white/8"}`} />
+          <div
+            className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
+              isActive ? "opacity-80" : "opacity-20"
+            }`}
+          />
+          <div
+            className={`absolute inset-x-0 top-0 h-[44%] bg-[linear-gradient(135deg,rgba(255,255,255,0.075),transparent_56%)] transition-opacity duration-500 ${
+              isActive ? "opacity-72" : "opacity-24"
+            }`}
+          />
+
+          {hasThumbnail && (
             <div
               className="absolute inset-0 overflow-hidden rounded-[18px]"
               style={{
@@ -108,31 +166,19 @@ export default function LearningMaterialCard({
                   transform: "translateZ(0)",
                   backfaceVisibility: "hidden",
                 }}
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
+                onError={() => {
+                  setImageFailed(true);
                 }}
               />
             </div>
-          ) : (
-            <>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500" />
-              <div
-                className={`absolute inset-0 bg-gradient-to-b from-white/[0.07] via-transparent to-black/30 transition-opacity duration-500 ${
-                  isActive ? "opacity-100" : "opacity-42"
-                }`}
-              />
-              <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/5" : "ring-white/8"}`} />
-              <div
-                className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
-                  isActive ? "opacity-80" : "opacity-20"
-                }`}
-              />
-              <div
-                className={`absolute inset-x-0 top-0 h-[44%] bg-[linear-gradient(135deg,rgba(255,255,255,0.075),transparent_56%)] transition-opacity duration-500 ${
-                  isActive ? "opacity-72" : "opacity-24"
-                }`}
-              />
+          )}
 
+          {hasThumbnail && shouldShowTextLayer && (
+            <div className="absolute inset-0 bg-gradient-to-b from-black/24 via-black/20 to-black/72" />
+          )}
+
+          {shouldShowTextLayer && (
+            <>
               <div
                 className={`absolute transition-opacity duration-500 ${
                   isActive ? "rounded-r-[10px] opacity-[0.22]" : "bottom-2 top-2 rounded-r-[12px] border-l border-cyan-50/8 opacity-18"
@@ -209,7 +255,7 @@ export default function LearningMaterialCard({
                       {ctaLabel}
                     </span>
                     <span className="shrink-0 rounded-full border border-cyan-100/14 bg-white/[0.045] px-2.5 py-1 text-[8.5px] font-semibold text-white/62">
-                      {position} / {total}
+                      {progressLabel}
                     </span>
                   </div>
                 )}
