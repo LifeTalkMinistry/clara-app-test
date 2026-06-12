@@ -22,6 +22,8 @@ export default function useLearningHub() {
   const [isOpen, setIsOpen] = useState(false);
   const [launcherMaterial, setLauncherMaterial] = useState(null);
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
 
   const categories = useMemo(
     () =>
@@ -115,6 +117,16 @@ export default function useLearningHub() {
       return;
     }
 
+    if (
+      material.type === "video" &&
+      material.status === "available" &&
+      material.embedUrl
+    ) {
+      setSelectedVideo(material);
+      setIsVideoOpen(true);
+      return;
+    }
+
     setLauncherMaterial(material);
     setIsLauncherOpen(true);
   };
@@ -129,6 +141,11 @@ export default function useLearningHub() {
     setIsLauncherOpen(false);
   };
 
+  const closeVideo = () => {
+    setSelectedVideo(null);
+    setIsVideoOpen(false);
+  };
+
   return {
     activeCategory,
     activeCategoryMeta,
@@ -137,16 +154,19 @@ export default function useLearningHub() {
     categories,
     closeLauncher,
     closeMaterial,
+    closeVideo,
     featuredBook,
     featuredVideo,
     getMaterialsByCategory,
     isLauncherOpen,
     isOpen,
+    isVideoOpen,
     launcherMaterial,
     materials,
     materialsByCategory,
     openCategory,
     openMaterial,
     selectedMaterial,
+    selectedVideo,
   };
 }
