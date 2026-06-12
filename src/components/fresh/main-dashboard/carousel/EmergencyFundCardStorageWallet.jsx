@@ -165,16 +165,47 @@ function getEmergencyLinkedWalletName(emergencyFund) {
   ).trim();
 }
 
+function getEmergencyActivityItemId(item) {
+  return String(item?.id || item?.emergency_fund_transaction_id || item?.emergencyFundTransactionId || '').trim();
+}
+
+function isEmergencyAllocationActivity(item) {
+  const type = String(item?.type || '').toLowerCase();
+  const text = [item?.title, item?.reason, item?.note, item?.notes, item?.description]
+    .map((value) => String(value || '').toLowerCase())
+    .join(' ');
+
+  return Boolean(
+    type.includes('allocation') ||
+      text.includes('emergency fund allocation') ||
+      text.includes('moved to emergency fund') ||
+      text.includes('emergency allocation')
+  );
+}
+
 function getEmergencyActivityLog(emergencyFund) {
-  const source =
-    emergencyFund?.emergencyActivityLog ||
-    emergencyFund?.emergency_activity_log ||
-    emergencyFund?.activityLog ||
-    emergencyFund?.activity_log ||
-    emergencyFund?.usageLog ||
-    emergencyFund?.usage_log ||
-    [];
-  return Array.isArray(source) ? source.filter(Boolean) : [];
+  const sources = [
+    emergencyFund?.emergencyActivityLog,
+    emergencyFund?.emergency_activity_log,
+    emergencyFund?.activityLog,
+    emergencyFund?.activity_log,
+    emergencyFund?.usageLog,
+    emergencyFund?.usage_log,
+  ];
+  const seen = new Set();
+  const merged = [];
+
+  sources.forEach((source) => {
+    if (!Array.isArray(source)) return;
+    source.filter(Boolean).forEach((item) => {
+      const key = getEmergencyActivityItemId(item) || `${item?.type || 'activity'}-${item?.createdAt || item?.created_at || item?.date || ''}-${item?.amount || 0}-${item?.title || item?.reason || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push(item);
+    });
+  });
+
+  return merged.sort((a, b) => new Date(b?.createdAt || b?.created_at || b?.date || 0).getTime() - new Date(a?.createdAt || a?.created_at || a?.date || 0).getTime());
 }
 
 function getStatus(isSetupComplete, savedAmount, target) {
@@ -262,17 +293,20 @@ function ActivityList({ activity }) {
       {latest.map((item) => {
         const type = String(item?.type || '').toLowerCase();
         const isUse = type.includes('use') || type.includes('withdraw') || type.includes('expense');
+        const isCorrection = type.includes('correction');
+        const isDecrease = isUse || isCorrection;
         const amount = toNumber(item?.amount);
         const createdAt = item?.createdAt || item?.created_at || item?.date || new Date().toISOString();
         const dateLabel = new Date(createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+        const amountClass = isCorrection ? 'text-cyan-100' : isDecrease ? 'text-amber-100' : 'text-emerald-200';
 
         return (
           <div key={item?.id || `${createdAt}-${amount}`} className='flex items-center justify-between gap-3 rounded-2xl border border-white/[0.045] bg-black/[0.09] px-3.5 py-3'>
             <div className='min-w-0'>
-              <p className='truncate text-[12px] font-black text-white/84'>{item?.title || item?.reason || (isUse ? 'Emergency usage' : 'Emergency deposit')}</p>
+              <p className='truncate text-[12px] font-black text-white/84'>{item?.title || item?.reason || (isCorrection ? 'Balance correction' : isUse ? 'Emergency usage' : 'Emergency deposit')}</p>
               <p className='mt-1 text-[10px] font-semibold text-white/38'>{dateLabel}{item?.note ? ` • ${item.note}` : ''}</p>
             </div>
-            <p className={`shrink-0 text-[12px] font-black ${isUse ? 'text-amber-100' : 'text-emerald-200'}`}>{isUse ? '-' : '+'}{fmt(amount)}</p>
+            <p className={`shrink-0 text-[12px] font-black ${amountClass}`}>{isDecrease ? '-' : '+'}{fmt(amount)}</p>
           </div>
         );
       })}
@@ -280,9 +314,15 @@ function ActivityList({ activity }) {
   );
 }
 
-function MoneyModal({ open, mode, onClose, wallets = [], sourceWalletId, setSourceWalletId, amount, setAmount, reason, setReason, error, saving, onSave, currentReserve }) {
+function MoneyModal({ open, mode, onClose, wallets = [], sourceWalletId, setSourceWalletId, amount, setAmount, reason, setReason, error, saving, onSave, currentReserve, actionType = 'expense', setActionType, orphanAllocation, onReverseOrphanAllocation }) {
   if (!open) return null;
   const isUse = mode === 'use';
+  const isCorrection = isUse && actionType === 'correction';
+  const actionOptions = [
+    { value: 'expense', label: 'Emergency expense' },
+    { value: 'correction', label: 'Balance correction' },
+  ];
+  const orphanAmount = toNumber(orphanAllocation?.amount ?? orphanAllocation?.value ?? orphanAllocation?.total ?? 0);
 
   return (
     <div className='fixed inset-0 z-[111] flex items-center justify-center p-4'>
@@ -290,8 +330,8 @@ function MoneyModal({ open, mode, onClose, wallets = [], sourceWalletId, setSour
       <div className='theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.07] bg-[#061224]/95 shadow-2xl backdrop-blur-2xl'>
         <div className='flex items-center justify-between border-b border-white/[0.06] p-4'>
           <div>
-            <p className='text-base font-semibold text-white'>{isUse ? 'Use Emergency Fund' : 'Add Emergency Fund'}</p>
-            <p className='mt-0.5 text-xs text-white/45'>{isUse ? 'Log protected money used for a real emergency.' : 'Use any wallet as the funding source.'}</p>
+            <p className='text-base font-semibold text-white'>{isUse ? 'Emergency Fund Action' : 'Add Emergency Fund'}</p>
+            <p className='mt-0.5 text-xs text-white/45'>{isUse ? 'Choose whether this is real emergency usage or a balance correction.' : 'Use any wallet as the funding source.'}</p>
           </div>
           <button type='button' onClick={onClose} disabled={saving} className='flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-black/[0.12] text-white/70 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-60'>
             <X className='h-4 w-4' />
@@ -299,8 +339,26 @@ function MoneyModal({ open, mode, onClose, wallets = [], sourceWalletId, setSour
         </div>
         <div className='space-y-4 p-4'>
           {isUse ? (
-            <div className='rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-4 py-3 text-xs font-semibold leading-5 text-amber-50/82'>
-              This will reduce your emergency reserve from {fmt(currentReserve)}.
+            <div className='space-y-2'>
+              <label className='block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45'>Action type</label>
+              <div className='grid grid-cols-2 gap-2 rounded-2xl border border-white/[0.055] bg-black/[0.13] p-1'>
+                {actionOptions.map((option) => {
+                  const active = actionType === option.value;
+                  return (
+                    <button key={option.value} type='button' onClick={() => setActionType?.(option.value)} disabled={saving} className={`rounded-xl px-3 py-2.5 text-[11px] font-black transition disabled:opacity-60 ${active ? 'border border-cyan-200/18 bg-cyan-300/[0.11] text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,0.08)]' : 'text-white/52 hover:bg-white/[0.045] hover:text-white/78'}`}>
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {isUse ? (
+            <div className={`rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${isCorrection ? 'border-cyan-300/18 bg-cyan-400/[0.075] text-cyan-50/82' : 'border-amber-300/18 bg-amber-400/[0.08] text-amber-50/82'}`}>
+              {isCorrection
+                ? 'Use this only to fix an incorrect Emergency Fund balance. This will not be recorded as emergency spending.'
+                : `This will reduce your emergency reserve from ${fmt(currentReserve)}.`}
             </div>
           ) : (
             <div>
@@ -314,12 +372,28 @@ function MoneyModal({ open, mode, onClose, wallets = [], sourceWalletId, setSour
               </select>
             </div>
           )}
-          <input type='number' min='0' value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={isUse ? 'Amount used' : 'Amount'} className='w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/30' />
-          {isUse ? <input type='text' value={reason} onChange={(event) => setReason(event.target.value)} placeholder='Emergency reason' className='w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/30' /> : null}
+
+          {isCorrection && orphanAllocation ? (
+            <div className='rounded-2xl border border-cyan-300/14 bg-cyan-400/[0.055] px-4 py-3'>
+              <p className='text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100/54'>Detected possible orphan allocation</p>
+              <div className='mt-2 flex items-center justify-between gap-3'>
+                <div className='min-w-0'>
+                  <p className='truncate text-[12px] font-black text-white/84'>{orphanAllocation?.title || 'Emergency Fund Allocation'}</p>
+                  <p className='mt-1 text-[10px] font-semibold text-white/44'>{fmt(orphanAmount)}</p>
+                </div>
+                <button type='button' onClick={onReverseOrphanAllocation} disabled={saving || orphanAmount <= 0} className='shrink-0 rounded-xl border border-cyan-200/18 bg-cyan-300/[0.10] px-3 py-2 text-[11px] font-black text-cyan-50 transition hover:bg-cyan-300/[0.14] disabled:opacity-50'>
+                  Reverse this allocation
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <input type='number' min='0' value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={isCorrection ? 'Correction amount' : isUse ? 'Amount used' : 'Amount'} className='w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/30' />
+          {isUse ? <input type='text' value={reason} onChange={(event) => setReason(event.target.value)} placeholder={isCorrection ? 'Correction reason' : 'Emergency reason'} className='w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/30' /> : null}
           {error ? <div className='rounded-2xl border border-rose-300/16 bg-rose-400/[0.075] px-4 py-3 text-xs font-semibold text-rose-200'>{error}</div> : null}
-          <button type='button' onClick={onSave} disabled={saving || (!isUse && wallets.length === 0)} className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${isUse ? 'border-amber-300/22 bg-amber-400/[0.10] text-amber-100 hover:bg-amber-400/[0.15]' : 'border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-200 hover:bg-emerald-400/[0.13]'}`}>
-            {isUse ? <MinusCircle className='h-4 w-4' /> : <Check className='h-4 w-4' />}
-            {saving ? (isUse ? 'Logging...' : 'Saving...') : (isUse ? 'Use Fund' : 'Add to Emergency Fund')}
+          <button type='button' onClick={onSave} disabled={saving || (!isUse && wallets.length === 0)} className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${isCorrection ? 'border-cyan-300/22 bg-cyan-400/[0.10] text-cyan-100 hover:bg-cyan-400/[0.15]' : isUse ? 'border-amber-300/22 bg-amber-400/[0.10] text-amber-100 hover:bg-amber-400/[0.15]' : 'border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-200 hover:bg-emerald-400/[0.13]'}`}>
+            {isCorrection ? <RotateCcw className='h-4 w-4' /> : isUse ? <MinusCircle className='h-4 w-4' /> : <Check className='h-4 w-4' />}
+            {saving ? (isCorrection ? 'Applying...' : isUse ? 'Logging...' : 'Saving...') : (isCorrection ? 'Apply Correction' : isUse ? 'Use Fund' : 'Add to Emergency Fund')}
           </button>
         </div>
       </div>
@@ -366,7 +440,7 @@ export default function EmergencyFundCard({
     updateEmergencyFund,
     addExpense,
     refreshData,
-    repairEmergencyFundAllocationBalance,
+    correctEmergencyFundBalance,
   } = useFinancialData(user);
 
   const safeWallets = useMemo(
@@ -382,6 +456,7 @@ export default function EmergencyFundCard({
   const months = monthlyExpense > 0 ? savedAmount / monthlyExpense : 0;
   const pct = target > 0 ? Math.min((savedAmount / target) * 100, 100) : 0;
   const activity = getEmergencyActivityLog(emergencyFund);
+  const orphanAllocation = useMemo(() => activity.find((item) => isEmergencyAllocationActivity(item)) || null, [activity]);
   const linkedWalletId = getEmergencyLinkedWalletId(emergencyFund);
   const linkedWalletName = getEmergencyLinkedWalletName(emergencyFund);
   const linkedWallet = safeWallets.find((wallet) => getWalletId(wallet) === linkedWalletId) || safeWallets.find((wallet) => linkedWalletName && getWalletName(wallet) === linkedWalletName) || null;
@@ -400,8 +475,6 @@ export default function EmergencyFundCard({
 
   const walletSelectRef = useRef(null);
   const hasAutoOpenedSurvivalSetupRef = useRef(false);
-  const repairCheckedRef = useRef(false);
-  const repairCheckedRef = useRef(false);
   const [editing, setEditing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sourceWalletId, setSourceWalletId] = useState('');
@@ -412,6 +485,8 @@ export default function EmergencyFundCard({
   const [useAmount, setUseAmount] = useState('');
   const [useReason, setUseReason] = useState('');
   const [useError, setUseError] = useState('');
+  const [emergencyActionType, setEmergencyActionType] = useState('expense');
+  const [correctionOrphanId, setCorrectionOrphanId] = useState('');
 
   useEffect(() => {
     if (!expanded) {
@@ -435,18 +510,28 @@ export default function EmergencyFundCard({
     if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0]));
   }, [safeWallets, sourceWalletId]);
 
-  useEffect(() => {
-    if (repairCheckedRef.current) return;
-    if (!expanded) return;
-    if (savedAmount <= 0) return;
-    if (typeof repairEmergencyFundAllocationBalance !== 'function') return;
+  const openUseModal = () => {
+    setEmergencyActionType('expense');
+    setCorrectionOrphanId('');
+    setUseError('');
+    setShowUseModal(true);
+  };
 
-    repairCheckedRef.current = true;
+  const handleEmergencyActionTypeChange = (nextType) => {
+    setEmergencyActionType(nextType);
+    setUseError('');
+    if (nextType !== 'correction') setCorrectionOrphanId('');
+  };
 
-    repairEmergencyFundAllocationBalance().catch((error) => {
-      console.warn('Emergency Fund allocation repair skipped:', error);
-    });
-  }, [expanded, savedAmount, repairEmergencyFundAllocationBalance]);
+  const reverseOrphanAllocation = () => {
+    if (!orphanAllocation) return;
+    const orphanAmount = toNumber(orphanAllocation?.amount ?? orphanAllocation?.value ?? orphanAllocation?.total ?? 0);
+    if (orphanAmount <= 0) return;
+    setUseAmount(String(orphanAmount));
+    setUseReason('Orphan allocation correction');
+    setCorrectionOrphanId(getEmergencyActivityItemId(orphanAllocation));
+    setUseError('');
+  };
 
   const persistEmergencyFund = async (patch) => {
     if (typeof updateEmergencyFund !== 'function') return;
@@ -735,9 +820,45 @@ export default function EmergencyFundCard({
       setShowUseModal(false);
       setUseAmount('');
       setUseReason('');
+      setEmergencyActionType('expense');
+      setCorrectionOrphanId('');
     } catch (error) {
       console.error('Unable to use Emergency Fund:', error);
       setUseError('CLARA could not log this usage yet. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyEmergencyCorrection = async () => {
+    const amount = toNumber(useAmount);
+    const reason = String(useReason || '').trim() || 'Balance correction';
+
+    if (amount <= 0) return setUseError('Enter a valid correction amount.');
+    if (amount > savedAmount) return setUseError('This is higher than your current reserve.');
+    if (typeof correctEmergencyFundBalance !== 'function') {
+      return setUseError('Emergency Fund correction is not available yet.');
+    }
+
+    setSaving(true);
+    setUseError('');
+
+    try {
+      await correctEmergencyFundBalance({
+        amount,
+        reason,
+        removeOrphanAllocationId: correctionOrphanId || undefined,
+        mode: 'manual_correction',
+      });
+
+      setShowUseModal(false);
+      setUseAmount('');
+      setUseReason('');
+      setEmergencyActionType('expense');
+      setCorrectionOrphanId('');
+    } catch (error) {
+      console.error('Unable to correct Emergency Fund balance:', error);
+      setUseError('CLARA could not apply this correction yet. Try again.');
     } finally {
       setSaving(false);
     }
@@ -949,7 +1070,7 @@ export default function EmergencyFundCard({
             <div className='grid grid-cols-2 gap-2 pt-1.5'>
               <button type='button' onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className='h-4 w-4' />Edit</button>
               <button type='button' onClick={() => setShowAddModal(true)} disabled={saving || !hasStorageWallet} className='flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45'><Plus className='h-4 w-4' />Add</button>
-              <button type='button' onClick={() => setShowUseModal(true)} disabled={saving || savedAmount <= 0} className='flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45'><MinusCircle className='h-4 w-4' />Use</button>
+              <button type='button' onClick={openUseModal} disabled={saving || savedAmount <= 0} className='flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45'><MinusCircle className='h-4 w-4' />Use</button>
               <button type='button' onClick={resetEmergencyFund} disabled={saving} className='flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60'><RotateCcw className='h-4 w-4' />Reset</button>
             </div>
 
@@ -999,10 +1120,13 @@ export default function EmergencyFundCard({
         onClose={() => {
           setShowUseModal(false);
           setUseError('');
+          setEmergencyActionType('expense');
+          setCorrectionOrphanId('');
         }}
         amount={useAmount}
         setAmount={(value) => {
           setUseAmount(value);
+          setCorrectionOrphanId('');
           setUseError('');
         }}
         reason={useReason}
@@ -1012,8 +1136,12 @@ export default function EmergencyFundCard({
         }}
         error={useError}
         saving={saving}
-        onSave={useEmergencyMoney}
+        onSave={emergencyActionType === 'correction' ? applyEmergencyCorrection : useEmergencyMoney}
         currentReserve={savedAmount}
+        actionType={emergencyActionType}
+        setActionType={handleEmergencyActionTypeChange}
+        orphanAllocation={orphanAllocation}
+        onReverseOrphanAllocation={reverseOrphanAllocation}
       />
 
       <FinanceCardShell
