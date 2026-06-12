@@ -55,7 +55,7 @@ export default function LearningMaterialCard({
   return (
     <div
       onClick={onClick}
-      className="clara-learning-hub-card clara-learning-motion absolute left-1/2 top-1/2 cursor-pointer transition-[transform,opacity,width,height] duration-500 ease-out"
+      className="clara-learning-hub-card clara-learning-motion absolute left-1/2 top-1/2 cursor-pointer transition-[transform,opacity] duration-500 ease-out"
       style={{
         width,
         height,
@@ -65,6 +65,7 @@ export default function LearningMaterialCard({
         transformOrigin: origin,
         transformStyle: "preserve-3d",
         pointerEvents: visible ? "auto" : "none",
+        willChange: "transform, opacity",
       }}
     >
       <div className="relative h-full w-full overflow-visible" style={{ transformStyle: "preserve-3d" }}>
@@ -76,18 +77,18 @@ export default function LearningMaterialCard({
             transform: isActive
               ? "translate3d(0px, 2px, -18px)"
               : `translate3d(${depthOffset}px, ${depthOffset}px, -18px)`,
-            filter: isActive ? "blur(18px)" : "blur(1px)",
+            filter: isActive ? "blur(6px)" : "none",
             boxShadow: isActive
-              ? "0 24px 46px rgba(0,0,0,0.34), 0 0 28px rgba(34,211,238,0.055)"
-              : "0 14px 24px rgba(0,0,0,0.20)",
+              ? "0 16px 28px rgba(0,0,0,0.28)"
+              : "0 10px 18px rgba(0,0,0,0.16)",
           }}
         />
 
         <div
           className={`relative z-10 h-full w-full overflow-hidden rounded-[18px] border transition-[border-color,background-color,box-shadow] duration-500 ${
             isActive
-              ? "border-cyan-100/14 bg-slate-950 shadow-[0_20px_40px_rgba(0,0,0,0.34),0_0_18px_rgba(34,211,238,0.035)]"
-              : "border-cyan-200/8 bg-slate-950/84 shadow-[0_12px_22px_rgba(0,0,0,0.17)]"
+              ? "border-cyan-100/14 bg-slate-950 shadow-[0_16px_28px_rgba(0,0,0,0.28)]"
+              : "border-cyan-200/8 bg-slate-950/84 shadow-[0_10px_18px_rgba(0,0,0,0.15)]"
           }`}
         >
           {hasThumbnail ? (
@@ -123,12 +124,12 @@ export default function LearningMaterialCard({
               <div className={`absolute inset-0 rounded-[18px] ring-1 ring-inset ${isActive ? "ring-white/5" : "ring-white/8"}`} />
               <div
                 className={`absolute -right-10 -top-16 h-28 w-16 rotate-[28deg] bg-white/[0.045] blur-[1px] transition-opacity duration-500 ${
-                  isActive ? "opacity-100" : "opacity-28"
+                  isActive ? "opacity-80" : "opacity-20"
                 }`}
               />
               <div
                 className={`absolute inset-x-0 top-0 h-[44%] bg-[linear-gradient(135deg,rgba(255,255,255,0.075),transparent_56%)] transition-opacity duration-500 ${
-                  isActive ? "opacity-80" : "opacity-30"
+                  isActive ? "opacity-72" : "opacity-24"
                 }`}
               />
 
