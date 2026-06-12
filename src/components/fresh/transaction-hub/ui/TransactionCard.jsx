@@ -13,6 +13,7 @@ import {
   getEditableRawId,
   getIcon,
   getToneClasses,
+  isEmergencyFundAllocation,
   peso,
   titleCase,
   toInputDate,
@@ -62,8 +63,10 @@ export default function TransactionCard({ item, onEdit }) {
   const tone = getToneClasses(item.group, item.signedAmount);
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
   const raw = item.raw || {};
-  const rawPlanningStatus =
-    raw.planning_status || raw.planningStatus || item.planningStatus || item.budgetStatus;
+  const isEmergencyAllocation = isEmergencyFundAllocation(item);
+  const rawPlanningStatus = isEmergencyAllocation
+    ? "planned"
+    : raw.planning_status || raw.planningStatus || item.planningStatus || item.budgetStatus;
   const behaviorReason = firstTextValue(
     item.unplannedReason,
     item.unexpectedReason,
@@ -88,6 +91,7 @@ export default function TransactionCard({ item, onEdit }) {
     raw.emotionalTrigger
   );
   const shouldShowBehaviorNote =
+    !isEmergencyAllocation &&
     item.group === "expense" &&
     (behaviorReason || behaviorTag || emotionalTrigger) &&
     String(rawPlanningStatus || "").toLowerCase() !== "planned";
@@ -151,7 +155,13 @@ export default function TransactionCard({ item, onEdit }) {
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <StatusBadge icon={Tag}>{titleCase(item.group)}</StatusBadge>
 
-            {item.group === "expense" && item.budgetStatus ? (
+            {isEmergencyAllocation ? (
+              <StatusBadge icon={CheckCircle2} tone="good">
+                Protected Allocation
+              </StatusBadge>
+            ) : null}
+
+            {!isEmergencyAllocation && item.group === "expense" && item.budgetStatus ? (
               <StatusBadge
                 icon={CheckCircle2}
                 tone={item.budgetStatus === "planned" ? "good" : "warn"}
@@ -160,25 +170,25 @@ export default function TransactionCard({ item, onEdit }) {
               </StatusBadge>
             ) : null}
 
-            {item.isBudgetRisk ? (
+            {!isEmergencyAllocation && item.isBudgetRisk ? (
               <StatusBadge icon={ShieldAlert} tone="bad">
                 Budget Risk
               </StatusBadge>
             ) : null}
 
-            {item.isGoodDecision ? (
+            {!isEmergencyAllocation && item.isGoodDecision ? (
               <StatusBadge icon={CheckCircle2} tone="good">
                 Good Decision
               </StatusBadge>
             ) : null}
 
-            {item.isFrequent ? (
+            {!isEmergencyAllocation && item.isFrequent ? (
               <StatusBadge icon={Flame} tone="warn">
                 Frequent
               </StatusBadge>
             ) : null}
 
-            {item.isHighSpend ? (
+            {!isEmergencyAllocation && item.isHighSpend ? (
               <StatusBadge icon={TrendingUp} tone="bad">
                 High Spend
               </StatusBadge>
