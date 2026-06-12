@@ -3,6 +3,7 @@ import { PlayCircle, Sparkles, X } from "lucide-react";
 import useLearningHub from "./logic/useLearningHub";
 import LearningHubCarousel from "./ui/LearningHubCarousel";
 import LearningMaterialModal from "./modal/LearningMaterialModal";
+import LearningVideoWatchModal from "./modal/LearningVideoWatchModal";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
@@ -16,6 +17,9 @@ export default function LearningHub() {
     carouselItems,
     selectedMaterial,
     isOpen,
+    selectedVideo,
+    isVideoOpen,
+    closeVideo,
     openCategory,
     openMaterial,
     closeMaterial,
@@ -55,6 +59,12 @@ export default function LearningHub() {
         isOpen={hasCommittedAccess && isOpen}
         material={selectedMaterial}
         onClose={closeMaterial}
+      />
+
+      <LearningVideoWatchModal
+        isOpen={hasCommittedAccess && isVideoOpen}
+        material={selectedVideo}
+        onClose={closeVideo}
       />
 
       <LearningComingSoonModal
