@@ -41,6 +41,7 @@ const EXPENSE_STORE = LOCAL_FINANCE_STORES?.expenses || "expenses";
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
 const FINANCE_UPDATE_EVENTS = [
   "clara-finance-updated",
+  "clara-wallets-updated",
   "clara:finance-data-updated",
   "clara-local-finance-updated",
 ];
@@ -550,14 +551,26 @@ function useFinancialData(user) {
   }, [buildSafeCache, cacheKey, hydrateFromCache, localUserId]);
 
   useEffect(() => {
-    const bumpFinanceUser = () => {
-      financialDataCache = createEmptyFinancialCache();
+    if (typeof window === "undefined") return undefined;
+
+    const refreshFromFinanceEvent = () => {
+      financialDataCache = createEmptyFinancialCache(cacheKey);
       setFinanceUserVersion((version) => version + 1);
+      loadAll({ background: true });
     };
+
     const events = ["clara:demo-data-loaded", ...FINANCE_UPDATE_EVENTS, "storage"];
-    events.forEach((eventName) => window.addEventListener(eventName, bumpFinanceUser));
-    return () => events.forEach((eventName) => window.removeEventListener(eventName, bumpFinanceUser));
-  }, []);
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, refreshFromFinanceEvent);
+    });
+
+    return () => {
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, refreshFromFinanceEvent);
+      });
+    };
+  }, [cacheKey, loadAll]);
 
   useEffect(() => {
     mountedRef.current = true;
