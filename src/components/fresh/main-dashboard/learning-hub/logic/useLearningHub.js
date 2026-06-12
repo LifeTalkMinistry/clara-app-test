@@ -113,13 +113,18 @@ export default function useLearningHub() {
         const categoryMaterials = materialsByCategory[category.id] || [];
         const totalLessons = categoryMaterials.length;
         const completedLessons = categoryMaterials.filter(isCompletedLearningItem).length;
+        const shouldShowProgress = category.id === "money-foundations";
 
         return {
           ...category,
           totalLessons,
           completedLessons,
-          progressText: `${completedLessons}/${totalLessons}`,
-          progressLabel: `${completedLessons} / ${totalLessons}`,
+          ...(shouldShowProgress
+            ? {
+                progressText: `${completedLessons}/${totalLessons}`,
+                progressLabel: `${completedLessons} / ${totalLessons}`,
+              }
+            : {}),
         };
       }),
     [baseCategories, materialsByCategory],
