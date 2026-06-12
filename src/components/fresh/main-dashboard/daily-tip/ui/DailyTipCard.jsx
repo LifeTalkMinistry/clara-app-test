@@ -28,6 +28,7 @@ export default function DailyTipCard({
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState("forward");
   const isFlippingRef = useRef(false);
+  const pendingFlippedRef = useRef(false);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
@@ -54,19 +55,22 @@ export default function DailyTipCard({
 
     const nextFlipped = !flipped;
 
+    pendingFlippedRef.current = nextFlipped;
     isFlippingRef.current = true;
     setFlipDirection(nextFlipped ? "forward" : "backward");
     setIsFlipping(true);
-    setFlipped(nextFlipped);
   };
 
   const handleFlipAnimationEnd = (event) => {
-    if (event.target !== event.currentTarget) return;
+    if (event.target !== event.currentTarget || event.pseudoElement) return;
+
+    const nextFlipped = pendingFlippedRef.current;
 
     isFlippingRef.current = false;
     setIsFlipping(false);
+    setFlipped(nextFlipped);
 
-    if (flipped && !hasSeenToday) {
+    if (nextFlipped && !hasSeenToday) {
       markSeenToday();
     }
   };
@@ -88,6 +92,8 @@ export default function DailyTipCard({
       setExiting(false);
     }
   };
+
+  const visibleFlipped = isFlipping ? flipDirection === "backward" : flipped;
 
   if (activeCurrentState) {
     return (
@@ -147,7 +153,7 @@ export default function DailyTipCard({
           <div
             onAnimationEnd={handleFlipAnimationEnd}
             className={`clara-preserve-flip-motion clara-daily-tip-flipper ${
-              flipped ? "clara-daily-tip-flipper--back" : "clara-daily-tip-flipper--front"
+              visibleFlipped ? "clara-daily-tip-flipper--back" : "clara-daily-tip-flipper--front"
             } ${
               isFlipping
                 ? flipDirection === "forward"
