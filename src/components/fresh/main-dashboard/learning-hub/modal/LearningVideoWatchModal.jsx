@@ -1,13 +1,21 @@
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 
-function getYouTubePlayerSrc(embedUrl) {
+function getYouTubePlayerSrc(material) {
+  const youtubeId = typeof material?.youtubeId === "string" ? material.youtubeId.trim() : "";
+
+  if (youtubeId) {
+    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}`;
+  }
+
+  const embedUrl = material?.embedUrl;
   if (!embedUrl) return "";
 
   try {
     const url = new URL(embedUrl);
 
-    if (url.hostname.includes("youtube.com")) {
+    if (url.hostname.includes("youtube.com") || url.hostname.includes("youtube-nocookie.com")) {
+      url.hostname = "www.youtube-nocookie.com";
       url.searchParams.set("enablejsapi", "1");
       url.searchParams.set("playsinline", "1");
       url.searchParams.set("controls", "1");
@@ -20,6 +28,24 @@ function getYouTubePlayerSrc(embedUrl) {
   }
 }
 
+const getWatchUrl = (material) => {
+  const sourceUrl =
+    typeof material?.sourceUrl === "string" && material.sourceUrl.trim().length > 0
+      ? material.sourceUrl.trim()
+      : typeof material?.externalUrl === "string" && material.externalUrl.trim().length > 0
+        ? material.externalUrl.trim()
+        : "";
+
+  if (!sourceUrl) return "";
+
+  try {
+    const url = new URL(sourceUrl);
+    return url.protocol === "http:" || url.protocol === "https:" ? sourceUrl : "";
+  } catch {
+    return "";
+  }
+};
+
 export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const iframeRef = useRef(null);
 
@@ -27,7 +53,9 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
 
   const titleId = "clara-learning-video-watch-title";
   const subtitleId = "clara-learning-video-watch-subtitle";
-  const playerSrc = getYouTubePlayerSrc(material.embedUrl);
+  const playerSrc = getYouTubePlayerSrc(material);
+  const watchUrl = getWatchUrl(material);
+  const eyebrowLabel = material.contentTypeLabel || material.coverLabel || "Curated Video Lesson";
 
   const sendYouTubeCommand = (func) => {
     const playerWindow = iframeRef.current?.contentWindow;
@@ -55,7 +83,7 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-4 pb-3 pt-[max(18px,env(safe-area-inset-top))] landscape:absolute landscape:left-0 landscape:right-0 landscape:top-0 landscape:bg-gradient-to-b landscape:from-black/72 landscape:to-transparent landscape:px-3 landscape:pb-8 landscape:pt-[max(10px,env(safe-area-inset-top))]">
           <div className="min-w-0 pr-2 landscape:hidden">
             <p className="inline-flex rounded-full border border-cyan-100/18 bg-white/[0.08] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.20em] text-cyan-50/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]">
-              {material.coverLabel || "Masterclass Episode"}
+              {eyebrowLabel}
             </p>
             <h3
               id={titleId}
@@ -73,7 +101,7 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
 
           <div className="hidden min-w-0 pr-14 landscape:block">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50/68">
-              {material.coverLabel || "Masterclass Episode"}
+              {eyebrowLabel}
             </p>
             <h3
               id={`${titleId}-landscape`}
@@ -96,14 +124,26 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         <main className="flex min-h-0 flex-1 items-center justify-center px-4 pb-4 landscape:h-full landscape:w-full landscape:flex-none landscape:p-0">
           <div className="w-full max-w-5xl overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
             <div className="relative w-full landscape:h-full landscape:max-h-[100dvh] landscape:max-w-[calc(100dvh*16/9)]" style={{ aspectRatio: "16 / 9" }}>
-              <iframe
-                ref={iframeRef}
-                className="absolute inset-0 h-full w-full landscape:relative"
-                src={playerSrc}
-                title={material.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
+              {playerSrc ? (
+                <iframe
+                  ref={iframeRef}
+                  className="absolute inset-0 h-full w-full landscape:relative"
+                  src={playerSrc}
+                  title={material.title}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_45%),#020617] px-6 text-center">
+                  <p className="text-[13px] font-black uppercase tracking-[0.18em] text-cyan-50/72">
+                    Video link needed
+                  </p>
+                  <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-white/56">
+                    Add the YouTube ID for this curated lesson to load the video here.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </main>
@@ -125,6 +165,22 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
               >
                 Pause
               </button>
+            </div>
+
+            <div className="rounded-[18px] border border-white/10 bg-white/[0.045] p-3">
+              <p className="text-[11.5px] leading-relaxed text-white/58">
+                External YouTube lesson curated by CLARA. Video belongs to its original creator.
+              </p>
+              {watchUrl && (
+                <a
+                  href={watchUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-cyan-100/14 bg-cyan-100/[0.10] px-4 py-2.5 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.16] active:scale-[0.98]"
+                >
+                  Watch on YouTube
+                </a>
+              )}
             </div>
 
             <p className="text-[12px] leading-relaxed text-white/58">
