@@ -20,11 +20,6 @@ const parseYouTubeMessage = (data) => {
   }
 };
 
-const getSafeWindowOrigin = () => {
-  if (typeof window === "undefined" || !window.location?.origin) return "";
-  return /^https?:\/\//i.test(window.location.origin) ? window.location.origin : "";
-};
-
 const addYouTubePlayerParams = (url, startSeconds, shouldAutoplay = false) => {
   url.searchParams.set("enablejsapi", "1");
   url.searchParams.set("playsinline", "1");
@@ -35,11 +30,6 @@ const addYouTubePlayerParams = (url, startSeconds, shouldAutoplay = false) => {
 
   if (shouldAutoplay) {
     url.searchParams.set("autoplay", "1");
-  }
-
-  const origin = getSafeWindowOrigin();
-  if (origin) {
-    url.searchParams.set("origin", origin);
   }
 
   if (startSeconds > 0) {
