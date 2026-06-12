@@ -454,7 +454,17 @@ export default function useDashboardMonthlyBudgetPlan({
         return matches && [...PLANNED_STATUSES, "unplanned"].includes(expenseStatus(expense))
           ? sum + firstValidNumber(expense?.amount) : sum;
       }, 0);
-      const allocated = firstValidNumber(item?.allocated);
+      const allocated = firstValidNumber(
+        item?.allocated,
+        item?.allocated_amount,
+        item?.budget_amount,
+        item?.total_budget,
+        item?.amount,
+        item?.budget?.allocated_amount,
+        item?.budget?.budget_amount,
+        item?.budget?.total_budget,
+        item?.budget?.amount
+      );
       return {
         ...item,
         allocated,
