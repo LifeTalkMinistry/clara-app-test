@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Shield, Wallet, X } from "lucide-react";
 
 const noop = () => {};
+export const EmergencyFundCreateWalletContext = createContext(noop);
 const DEFAULT_TARGET_MONTHS = [3, 6, 12];
 
 function toNumber(value) {
@@ -48,6 +49,7 @@ export default function EmergencyFundSetupFlow({
   safeWallets = [],
   validTargetMonths = DEFAULT_TARGET_MONTHS,
   onComplete = noop,
+  onCreateWallet = noop,
   fmt = (value) => `₱${Number(value || 0).toLocaleString("en-PH")}`,
   saving = false,
 }) {
@@ -84,6 +86,8 @@ export default function EmergencyFundSetupFlow({
   const numericMonthlyCost = toNumber(monthlySurvivalCost);
   const targetAmount = numericMonthlyCost * targetMonths;
   const isBusy = saving || localSaving;
+  const contextCreateWallet = useContext(EmergencyFundCreateWalletContext);
+  const handleCreateWallet = onCreateWallet !== noop ? onCreateWallet : contextCreateWallet;
 
   useEffect(() => {
     if (!open) return;
@@ -94,6 +98,15 @@ export default function EmergencyFundSetupFlow({
     setError("");
     setLocalSaving(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectedWalletId) return;
+    if (wallets.length === 1) {
+      setSelectedWalletId(wallets[0].id);
+      setError("");
+    }
+  }, [open, wallets, selectedWalletId]);
 
   if (!open) return null;
 
@@ -303,7 +316,19 @@ export default function EmergencyFundSetupFlow({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-4 py-4 text-sm font-semibold leading-6 text-amber-50/82">
-                  Create or link a wallet first before setting up your Emergency Fund.
+                  <p>Create or link a wallet first before setting up your Emergency Fund.</p>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError("");
+                      handleCreateWallet?.();
+                    }}
+                    disabled={isBusy}
+                    className="mt-3 flex w-full items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.12] px-4 py-3 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-300/[0.16] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Create wallet now
+                  </button>
                 </div>
               )}
             </div>
