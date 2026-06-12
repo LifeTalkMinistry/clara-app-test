@@ -449,7 +449,7 @@ export default function BudgetCardContent(props) {
                 className="flex items-center justify-center gap-2 rounded-[20px] border border-emerald-100/[0.11] bg-[linear-gradient(135deg,rgba(16,185,129,0.10),rgba(255,255,255,0.045)_48%,rgba(168,85,247,0.055))] px-4 py-3 text-sm font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)] transition hover:border-emerald-100/20 hover:bg-white/[0.08]"
               >
                 <Edit3 className="h-4 w-4" />
-                Manage Budget
+                Manage Plan
               </button>
 
               <details className="group rounded-[20px] border border-white/[0.055] bg-black/[0.09] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
