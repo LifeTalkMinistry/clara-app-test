@@ -110,6 +110,64 @@ function goalProgressText(goal = {}) {
   return saved > 0 ? `${fmt(saved)} saved` : "Target not set yet";
 }
 
+function hasEmergencyFundSetup(emergencyFund) {
+  if (!emergencyFund || typeof emergencyFund !== "object") return false;
+  if (emergencyFund.resetAt || emergencyFund.reset_at) return false;
+
+  const status = String(
+    emergencyFund.status ||
+    emergencyFund.state ||
+    emergencyFund.setup_status ||
+    ""
+  ).trim().toLowerCase();
+
+  if (["reset", "inactive", "archived", "deleted", "not_setup", "not set"].includes(status)) return false;
+
+  const hasSetupFlag =
+    emergencyFund.is_setup === true ||
+    emergencyFund.isSetup === true ||
+    emergencyFund.setup_complete === true ||
+    emergencyFund.setupComplete === true ||
+    emergencyFund.setupCompleted === true ||
+    emergencyFund.is_configured === true ||
+    emergencyFund.isConfigured === true;
+
+  const hasSetupStatus = ["active", "setup", "configured", "complete", "completed", "ready"].includes(status);
+
+  const survivalCost = firstAmount(
+    emergencyFund.monthly_survival_cost,
+    emergencyFund.monthlySurvivalCost,
+    emergencyFund.survival_expense,
+    emergencyFund.survivalExpense,
+    emergencyFund.monthlyExpense,
+    emergencyFund.monthly_expense,
+    emergencyFund.monthly_survival_expense
+  );
+
+  const targetAmount = firstAmount(
+    emergencyFund.target_amount,
+    emergencyFund.targetAmount,
+    emergencyFund.target,
+    emergencyFund.goal_amount
+  );
+
+  const walletId = String(
+    emergencyFund.linkedWalletId ||
+    emergencyFund.linked_wallet_id ||
+    emergencyFund.reserveWalletId ||
+    emergencyFund.reserve_wallet_id ||
+    emergencyFund.sourceWalletId ||
+    emergencyFund.source_wallet_id ||
+    emergencyFund.storageWalletId ||
+    emergencyFund.storage_wallet_id ||
+    emergencyFund.walletId ||
+    emergencyFund.wallet_id ||
+    ""
+  ).trim();
+
+  return hasSetupFlag || hasSetupStatus || survivalCost > 0 || targetAmount > 0 || Boolean(walletId);
+}
+
 function normalizeCycleType(value) {
   const clean = String(value || "").trim().toLowerCase().replace(/\s+/g, "");
   if (["weekly", "week"].includes(clean)) return "weekly";
@@ -173,21 +231,11 @@ function Tile({ label, value, accent }) {
   return <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-2 py-2 text-center"><p className={`truncate text-xs font-black ${accent ? "text-emerald-200" : "text-white/82"}`}>{value}</p><p className="mt-1 text-[7px] font-black uppercase tracking-[0.14em] text-white/34">{label}</p></div>;
 }
 
-function ProtectionSetupModal({ open, settings, savingsGoals = [], onClose, onSave }) {
+function ProtectionSetupModal({ open, settings, savingsGoals = [], hasEmergencyFundSetup = false, onClose, onSave }) {
   const [draft, setDraft] = useState(() => cleanProtectionSettings(settings));
   const [step, setStep] = useState("emergency-choice");
   const [message, setMessage] = useState("");
   const activeGoals = useMemo(() => (Array.isArray(savingsGoals) ? savingsGoals : []).filter(isActiveGoal), [savingsGoals]);
-
-  useEffect(() => {
-    if (!open) return;
-    setDraft(cleanProtectionSettings(settings));
-    setStep("emergency-choice");
-    setMessage("");
-  }, [open]);
-
-  if (!open) return null;
-
   const selectedGoalItems = activeGoals
     .map((goal, index) => ({ goal, index, id: goalId(goal, index), title: goalTitle(goal, index) }))
     .filter((item) => draft.selectedSavingsGoalIds.includes(item.id));
@@ -220,6 +268,7 @@ function ProtectionSetupModal({ open, settings, savingsGoals = [], onClose, onSa
   const finishSettings = (rawDraft = draft) => {
     const selectedIds = Array.isArray(rawDraft.selectedSavingsGoalIds) ? rawDraft.selectedSavingsGoalIds.map(String).filter(Boolean) : [];
     const includeSavingsGoals = rawDraft.includeSavingsGoals === true && selectedIds.length > 0;
+    const includeEmergencyFund = hasEmergencyFundSetup && rawDraft.includeEmergencyFund === true;
     const selectedAmountMap = includeSavingsGoals ? selectedIds.reduce((map, id) => {
       const amount = amountValue(rawDraft.savingsGoalMonthlyAmounts?.[id]);
       if (amount > 0) map[id] = amount;
@@ -227,9 +276,9 @@ function ProtectionSetupModal({ open, settings, savingsGoals = [], onClose, onSa
     }, {}) : {};
     const finalSettings = cleanProtectionSettings({
       setupCompleted: true,
-      includeEmergencyFund: rawDraft.includeEmergencyFund === true,
+      includeEmergencyFund,
       emergencyFundContributionMode: "fixed",
-      emergencyFundMonthlyAmount: rawDraft.includeEmergencyFund === true ? amountValue(rawDraft.emergencyFundMonthlyAmount) : 0,
+      emergencyFundMonthlyAmount: includeEmergencyFund ? amountValue(rawDraft.emergencyFundMonthlyAmount) : 0,
       includeSavingsGoals,
       savingsGoalMode: includeSavingsGoals ? "selected" : "none",
       selectedSavingsGoalIds: includeSavingsGoals ? selectedIds : [],
@@ -287,6 +336,21 @@ function ProtectionSetupModal({ open, settings, savingsGoals = [], onClose, onSa
     setMessage("");
     setStep("savings-amount");
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const clean = cleanProtectionSettings(settings);
+    if (!hasEmergencyFundSetup) {
+      clean.includeEmergencyFund = false;
+      clean.emergencyFundMonthlyAmount = 0;
+    }
+    setDraft(clean);
+    setMessage("");
+    if (hasEmergencyFundSetup) setStep("emergency-choice");
+    else setStep(activeGoals.length === 1 ? "savings-one" : "savings-many");
+  }, [open, settings, hasEmergencyFundSetup, activeGoals.length]);
+
+  if (!open) return null;
 
   return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[#020713]/82 p-0 backdrop-blur-md sm:items-center sm:p-4" onClick={onClose}>
     <div role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()} className="max-h-[92svh] w-full max-w-[430px] overflow-y-auto rounded-t-[32px] border border-white/15 bg-[#07111f] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.58)] sm:rounded-[32px]">
@@ -363,7 +427,11 @@ export default function MonthlyBudgetPlan() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const liveDeclaredBudgetAmount = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
-  const emergencyFundForProtection = useMemo(() => emergencyFund || { setupCompleted: true, is_configured: true }, [emergencyFund]);
+  const hasEmergencyProtectionSetup = useMemo(() => hasEmergencyFundSetup(emergencyFund), [emergencyFund]);
+  const activeSavingsGoals = useMemo(() => (Array.isArray(savingsGoals) ? savingsGoals : []).filter(isActiveGoal), [savingsGoals]);
+  const hasActiveSavingsGoals = activeSavingsGoals.length > 0;
+  const hasAnyBudgetProtection = hasEmergencyProtectionSetup || hasActiveSavingsGoals;
+  const emergencyFundForProtection = hasEmergencyProtectionSetup ? emergencyFund : null;
   const plan = useDashboardMonthlyBudgetPlan({ manualExpenseBudgetOptions: budgetOptions, expenses, declaredMonthlyBudgetAmount: liveDeclaredBudgetAmount, monthlyBudgetHeader, savingsGoals, emergencyFund: emergencyFundForProtection });
   const editId = String(location.state?.editCategoryId || "");
   const editing = useMemo(() => editId ? budgetOptions.find((b) => String(b.id || b.key) === editId) || null : null, [budgetOptions, editId]);
@@ -381,7 +449,19 @@ export default function MonthlyBudgetPlan() {
     if (typeof window === "undefined") return;
     window.__CLARA_BUDGET_PROTECTION_CONTEXT = { savingsGoals, emergencyFund: emergencyFundForProtection };
   }, [emergencyFundForProtection, savingsGoals]);
-  useEffect(() => { if (!protectionSettings.setupCompleted) setProtectionOpen(true); }, [protectionSettings.setupCompleted]);
+  useEffect(() => {
+    if (hasEmergencyProtectionSetup) return;
+    const clean = cleanProtectionSettings(readProtectionSettings());
+    if (clean.includeEmergencyFund || clean.emergencyFundMonthlyAmount > 0) {
+      const next = saveProtectionSettings({ ...clean, includeEmergencyFund: false, emergencyFundMonthlyAmount: 0 });
+      setProtectionSettings(next);
+      fireBudgetEvents();
+    }
+    setProtectionOpen(false);
+  }, [hasEmergencyProtectionSetup]);
+  useEffect(() => {
+    if (!protectionSettings.setupCompleted && hasAnyBudgetProtection) setProtectionOpen(true);
+  }, [protectionSettings.setupCompleted, hasAnyBudgetProtection]);
 
   const cycle = getCycleWindow(cycleType, cycleStart, cycleEnd);
   const declared = liveDeclaredBudgetAmount;
@@ -395,6 +475,11 @@ export default function MonthlyBudgetPlan() {
   const pageBadge = isActiveBudget ? "Active" : canFinish ? "Ready" : "Draft";
   const busy = saving || loading;
   const helper = isActiveBudget ? "You already have an active budget plan. Editing keeps the same cycle and spending history." : canFinish ? "Ready to activate." : declared <= 0 ? "Enter your budget first." : budgetOptions.length === 0 ? "Add at least one category." : `Assign the remaining ${fmt(left)}.`;
+  const budgetProtectionLabel = hasEmergencyProtectionSetup && hasActiveSavingsGoals
+    ? "Emergency Fund and Savings Goals reserved before extra spending."
+    : hasEmergencyProtectionSetup
+      ? "Emergency Fund reserved before extra spending."
+      : "Savings Goals reserved before extra spending.";
 
   const refresh = async () => { await refreshData?.(); fireBudgetEvents(); };
   const saveHeader = async (done = false) => {
@@ -449,7 +534,7 @@ export default function MonthlyBudgetPlan() {
   };
 
   return <div className="min-h-[100svh] w-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.24),transparent_38%),linear-gradient(135deg,#04171e,#071430_48%,#170d36)] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.7rem+env(safe-area-inset-top))] text-white">
-    <ProtectionSetupModal open={protectionOpen} settings={protectionSettings} savingsGoals={savingsGoals} onClose={() => setProtectionOpen(false)} onSave={(saved) => { setProtectionSettings(saved); setProtectionOpen(false); fireBudgetEvents(); }} />
+    <ProtectionSetupModal open={protectionOpen && hasAnyBudgetProtection} settings={protectionSettings} savingsGoals={savingsGoals} hasEmergencyFundSetup={hasEmergencyProtectionSetup} onClose={() => setProtectionOpen(false)} onSave={(saved) => { setProtectionSettings(saved); setProtectionOpen(false); fireBudgetEvents(); }} />
     <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
       <header className="sticky top-0 z-30 -mx-4 border-b border-white/8 bg-[#06101d]/75 px-4 pb-2.5 pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur-2xl"><div className="mx-auto flex max-w-[430px] items-center gap-3"><button type="button" onClick={() => navigate("/dashboard")} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/80"><ArrowLeft className="h-4 w-4" /></button><div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/50">Budget setup</p><h1 className="truncate text-lg font-black tracking-[-0.035em]">{cycle.label} Budget Plan</h1></div><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${isActiveBudget || canFinish ? "border-emerald-300/25 bg-emerald-400/12 text-emerald-100" : "border-amber-300/20 bg-amber-400/10 text-amber-100"}`}>{pageBadge}</span></div></header>
 
@@ -469,13 +554,13 @@ export default function MonthlyBudgetPlan() {
         <p className={`${hint} mt-2.5 ${isActiveBudget ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-50" : ""}`}>{helper}</p>
       </section>
 
-      <section className={`${card} border-emerald-300/14 bg-emerald-400/[0.055]`}>
+      {hasAnyBudgetProtection ? <section className={`${card} border-emerald-300/14 bg-emerald-400/[0.055]`}>
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0"><p className="text-sm font-black text-emerald-50">Budget Protection</p><p className="mt-1 text-xs font-semibold leading-5 text-emerald-50/58">Emergency Fund and Savings Goals reserved before extra spending.</p></div>
+          <div className="min-w-0"><p className="text-sm font-black text-emerald-50">Budget Protection</p><p className="mt-1 text-xs font-semibold leading-5 text-emerald-50/58">{budgetProtectionLabel}</p></div>
           <button type="button" onClick={()=>setProtectionOpen(true)} className="shrink-0 rounded-2xl border border-emerald-300/25 bg-emerald-400/12 px-3 py-2 text-xs font-black text-emerald-50">{protectionSettings.setupCompleted ? "Edit" : "Setup"}</button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2"><Tile label="Protected" value={fmt(protectedAmount)} accent/><Tile label="Status" value={protectionSettings.setupCompleted ? "Ready" : "Not Set"}/></div>
-      </section>
+      </section> : null}
 
       {isActiveBudget ? <section className={`${card} border-amber-300/14 bg-amber-400/[0.055]`}><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-amber-50">Reset cycle</p><p className="mt-1 text-xs font-semibold leading-5 text-amber-50/60">Starts a fresh budget from now. Transaction history stays, but Watch Zone and categories reset.</p></div><button type="button" onClick={resetCycle} disabled={busy} className="shrink-0 rounded-2xl border border-amber-300/25 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50">Reset</button></div></section> : null}
 
