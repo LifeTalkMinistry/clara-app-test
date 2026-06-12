@@ -460,7 +460,14 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         source: selectedSource?.name || "",
       });
 
-      dispatchClaraEvent("clara-finance-updated");
+      dispatchClaraEvent("clara-wallets-updated", {
+        reason: "wallet-created",
+      });
+
+      dispatchClaraEvent("clara-finance-updated", {
+        reason: "wallet-created",
+      });
+
       await financial.refreshData?.();
       closeFinanceModal?.();
       showFinanceNotice?.("Wallet created successfully.", "success");
