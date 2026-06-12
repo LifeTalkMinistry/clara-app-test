@@ -1070,24 +1070,139 @@ export default function useDashboardFinanceActionHandlers({
 
   const resetBudgetInline = useCallback(async () => {
     const currentMonthKey = getPHMonthKey();
-    const categoryIds = manualExpenseBudgetOptions
-      .map((item) => item.id)
-      .filter(Boolean);
+    const nowIso = new Date().toISOString();
 
-    if (!categoryIds.length) return;
+    const declared = firstValidNumber(
+      monthlyBudgetPlan?.declared_budget,
+      monthlyBudgetPlan?.declared_amount,
+      monthlyBudgetPlan?.declaredBudget,
+      monthlyBudgetPlan?.declaredAmount,
+      declaredMonthlyBudgetAmount,
+      activeBudget?.declared_amount,
+      activeBudget?.declared_budget,
+      activeBudget?.monthly_budget_amount
+    );
+
+    const protectedAmount = firstValidNumber(
+      monthlyBudgetPlan?.totalProtectedCommitments,
+      monthlyBudgetPlan?.protected_commitments_total,
+      monthlyBudgetPlan?.protectedBudgetCommitments?.totalProtectedCommitments,
+      monthlyBudgetPlan?.protected_budget_commitments?.totalProtectedCommitments,
+      monthlyBudgetPlan?.protected_budget_commitments?.total_protected_commitments
+    );
+
+    const headerRemaining = Math.max(declared - protectedAmount, 0);
+
+    const headerResetPatch = {
+      reset_start_at: nowIso,
+      tracking_started_at: nowIso,
+      tracking_start_date: nowIso,
+      cycle_start: nowIso,
+      period_start: nowIso,
+      range_start: nowIso,
+
+      spent: 0,
+      spent_amount: 0,
+      spent_total: 0,
+      total_spent: 0,
+      totalSpent: 0,
+
+      planned_spent: 0,
+      plannedSpent: 0,
+      unplanned_spent: 0,
+      unplannedSpent: 0,
+      undocumented_spent: 0,
+      undocumentedSpent: 0,
+
+      remaining: headerRemaining,
+      remaining_amount: headerRemaining,
+      amount_left: headerRemaining,
+      totalRemaining: headerRemaining,
+
+      updated_at: nowIso,
+    };
+
+    const activeCategories = manualExpenseBudgetOptions.filter((item) => item?.id);
+
+    if (!activeCategories.length && !monthlyBudgetHeader?.id) return;
 
     try {
       setFinanceActionLoading(true);
-      const nowIso = new Date().toISOString();
-      await Promise.all(
-        categoryIds.map((id) =>
-          updateBudgetData?.(String(id), {
-            tracking_start_date: nowIso,
-            range_start: nowIso,
-            updated_at: nowIso,
-          })
-        )
-      );
+
+      const categoryPatchFor = (item) => {
+        const allocated = firstValidNumber(
+          item?.allocated,
+          item?.allocated_amount,
+          item?.budget_amount,
+          item?.total_budget,
+          item?.amount,
+          item?.budget?.allocated_amount,
+          item?.budget?.budget_amount,
+          item?.budget?.total_budget,
+          item?.budget?.amount
+        );
+
+        return {
+          reset_start_at: nowIso,
+          tracking_started_at: nowIso,
+          tracking_start_date: nowIso,
+          range_start: nowIso,
+
+          spent: 0,
+          spent_amount: 0,
+          spent_total: 0,
+          total_spent: 0,
+          totalSpent: 0,
+          used: 0,
+          used_amount: 0,
+
+          remaining: allocated,
+          remaining_amount: allocated,
+          amount_left: allocated,
+
+          updated_at: nowIso,
+        };
+      };
+
+      const updates = [];
+
+      if (monthlyBudgetHeader?.id) {
+        updates.push(updateBudgetData?.(String(monthlyBudgetHeader.id), headerResetPatch));
+      }
+
+      activeCategories.forEach((item) => {
+        updates.push(updateBudgetData?.(String(item.id), categoryPatchFor(item)));
+      });
+
+      await Promise.all(updates.filter(Boolean));
+
+      setBudgets((previousBudgets) => {
+        const safeBudgets = Array.isArray(previousBudgets) ? previousBudgets : [];
+
+        return safeBudgets.map((budget) => {
+          const id = String(budget?.id || "");
+
+          if (monthlyBudgetHeader?.id && id === String(monthlyBudgetHeader.id)) {
+            return {
+              ...budget,
+              ...headerResetPatch,
+            };
+          }
+
+          const matchingCategory = activeCategories.find(
+            (item) => String(item.id || "") === id
+          );
+
+          if (matchingCategory) {
+            return {
+              ...budget,
+              ...categoryPatchFor(matchingCategory),
+            };
+          }
+
+          return budget;
+        });
+      });
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -1097,7 +1212,19 @@ export default function useDashboardFinanceActionHandlers({
     } finally {
       setFinanceActionLoading(false);
     }
-  }, [closeFinanceModal, manualExpenseBudgetOptions, refreshFinanceSection, showFinanceNotice]);
+  }, [
+    activeBudget,
+    closeFinanceModal,
+    declaredMonthlyBudgetAmount,
+    manualExpenseBudgetOptions,
+    monthlyBudgetHeader,
+    monthlyBudgetPlan,
+    refreshFinanceSection,
+    setBudgets,
+    setFinanceActionLoading,
+    showFinanceNotice,
+    updateBudgetData,
+  ]);
 
   const saveSavingsGoalInline = useCallback(async () => {
     const goal = financeModal?.payload || null;
