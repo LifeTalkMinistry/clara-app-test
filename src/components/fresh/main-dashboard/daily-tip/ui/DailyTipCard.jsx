@@ -137,7 +137,7 @@ export default function DailyTipCard({
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
         className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
-        style={{ WebkitTapHighlightColor: "transparent" }}
+        style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
       >
         <div className="clara-daily-tip-scene">
           <div
@@ -149,6 +149,10 @@ export default function DailyTipCard({
                 ? ""
                 : "pointer-events-none opacity-45 grayscale-[0.78] saturate-[0.68]"
             }`}
+            style={{
+              "--clara-flip-duration": "860ms",
+              "--clara-flip-easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
           >
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
