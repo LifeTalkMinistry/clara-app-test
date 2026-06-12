@@ -52,7 +52,7 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             aria-label="Close video"
             className="absolute right-4 top-[max(18px,env(safe-area-inset-top))] z-30 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/42 text-white/76 backdrop-blur-md transition hover:bg-white/[0.10] hover:text-white active:scale-[0.98] landscape:right-3 landscape:top-[max(10px,env(safe-area-inset-top))] landscape:h-9 landscape:w-9"
           >
-            ×
+            &#215;
           </button>
         </header>
 
@@ -71,21 +71,10 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         </main>
 
         <footer className="relative z-20 shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] landscape:hidden">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
+          <div className="mx-auto flex w-full max-w-5xl rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
             <p className="text-[12px] leading-relaxed text-white/58">
-              Use the YouTube controls inside the frame for play, pause, timeline, volume, and fullscreen.
+              Tap the video to play or pause. Use the YouTube controls inside the frame for timeline, volume, and fullscreen.
             </p>
-
-            {material.externalUrl ? (
-              <a
-                href={material.externalUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-full border border-cyan-100/16 bg-cyan-100/[0.10] px-4 py-2.5 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.16] active:scale-[0.98]"
-              >
-                Open on YouTube
-              </a>
-            ) : null}
           </div>
         </footer>
       </div>
