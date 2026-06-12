@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const PLAYER_LOAD_TIMEOUT_MS = 6500;
-const EMBED_BLOCKED_MESSAGE = "Embedded playback is blocked in this browser. Tap Watch on YouTube.";
+const PLAYER_LOAD_TIMEOUT_MS = 6000;
+const PRIMARY_PLAYER_HOST = "www.youtube-nocookie.com";
+const BACKUP_PLAYER_HOST = "www.youtube.com";
+const EMBED_BLOCKED_MESSAGE = "The embedded player could not connect here. Please check your connection and try again.";
 
 const isTrustedYouTubeOrigin = (origin) =>
   /^https:\/\/(www\.)?youtube(-nocookie)?\.com$/i.test(origin) ||
@@ -16,6 +18,29 @@ const parseYouTubeMessage = (data) => {
     return JSON.parse(data);
   } catch {
     return null;
+  }
+};
+
+const getSafeWindowOrigin = () => {
+  if (typeof window === "undefined" || !window.location?.origin) return "";
+  return /^https?:\/\//i.test(window.location.origin) ? window.location.origin : "";
+};
+
+const addYouTubePlayerParams = (url, startSeconds) => {
+  url.searchParams.set("enablejsapi", "1");
+  url.searchParams.set("playsinline", "1");
+  url.searchParams.set("controls", "1");
+  url.searchParams.set("fs", "1");
+  url.searchParams.set("rel", "0");
+  url.searchParams.set("modestbranding", "1");
+
+  const origin = getSafeWindowOrigin();
+  if (origin) {
+    url.searchParams.set("origin", origin);
+  }
+
+  if (startSeconds > 0) {
+    url.searchParams.set("start", String(startSeconds));
   }
 };
 
@@ -54,24 +79,13 @@ const getYouTubeStartSeconds = (material) => {
   }
 };
 
-function getYouTubePlayerSrc(material) {
+function getYouTubePlayerSrc(material, playerHost = PRIMARY_PLAYER_HOST) {
   const youtubeId = typeof material?.youtubeId === "string" ? material.youtubeId.trim() : "";
+  const safePlayerHost = playerHost || PRIMARY_PLAYER_HOST;
 
   if (youtubeId) {
-    const url = new URL(`https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}`);
-    const startSeconds = getYouTubeStartSeconds(material);
-
-    url.searchParams.set("enablejsapi", "1");
-    url.searchParams.set("playsinline", "1");
-    url.searchParams.set("controls", "1");
-    url.searchParams.set("fs", "1");
-    url.searchParams.set("rel", "0");
-    url.searchParams.set("modestbranding", "1");
-
-    if (startSeconds > 0) {
-      url.searchParams.set("start", String(startSeconds));
-    }
-
+    const url = new URL(`https://${safePlayerHost}/embed/${encodeURIComponent(youtubeId)}`);
+    addYouTubePlayerParams(url, getYouTubeStartSeconds(material));
     return url.toString();
   }
 
@@ -82,13 +96,8 @@ function getYouTubePlayerSrc(material) {
     const url = new URL(embedUrl);
 
     if (url.hostname.includes("youtube.com") || url.hostname.includes("youtube-nocookie.com")) {
-      url.hostname = "www.youtube.com";
-      url.searchParams.set("enablejsapi", "1");
-      url.searchParams.set("playsinline", "1");
-      url.searchParams.set("controls", "1");
-      url.searchParams.set("fs", "1");
-      url.searchParams.set("rel", "0");
-      url.searchParams.set("modestbranding", "1");
+      url.hostname = safePlayerHost;
+      addYouTubePlayerParams(url, getYouTubeStartSeconds(material));
     }
 
     return url.toString();
@@ -97,48 +106,41 @@ function getYouTubePlayerSrc(material) {
   }
 }
 
-const getWatchUrl = (material) => {
-  const sourceUrl =
-    typeof material?.sourceUrl === "string" && material.sourceUrl.trim().length > 0
-      ? material.sourceUrl.trim()
-      : typeof material?.externalUrl === "string" && material.externalUrl.trim().length > 0
-        ? material.externalUrl.trim()
-        : "";
-
-  if (!sourceUrl) return "";
-
-  try {
-    const url = new URL(sourceUrl);
-    return url.protocol === "http:" || url.protocol === "https:" ? sourceUrl : "";
-  } catch {
-    return "";
-  }
-};
-
 export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const iframeRef = useRef(null);
-  const [hasIframeLoaded, setHasIframeLoaded] = useState(false);
+  const [playerHost, setPlayerHost] = useState(PRIMARY_PLAYER_HOST);
   const [hasPlayerSignal, setHasPlayerSignal] = useState(false);
   const [showEmbedFallback, setShowEmbedFallback] = useState(false);
 
-  const playerSrc = useMemo(() => getYouTubePlayerSrc(material), [material]);
-  const watchUrl = useMemo(() => getWatchUrl(material), [material]);
+  const playerSrc = useMemo(() => getYouTubePlayerSrc(material, playerHost), [material, playerHost]);
 
   useEffect(() => {
-    setHasIframeLoaded(false);
+    setPlayerHost(PRIMARY_PLAYER_HOST);
+    setHasPlayerSignal(false);
+    setShowEmbedFallback(false);
+  }, [material?.id]);
+
+  useEffect(() => {
     setHasPlayerSignal(false);
     setShowEmbedFallback(false);
   }, [playerSrc]);
 
   useEffect(() => {
-    if (!playerSrc) return undefined;
+    if (!playerSrc || hasPlayerSignal) return undefined;
 
-    const fallbackTimer = window.setTimeout(() => {
-      setShowEmbedFallback((currentValue) => currentValue || (!hasIframeLoaded && !hasPlayerSignal));
+    const retryTimer = window.setTimeout(() => {
+      if (hasPlayerSignal) return;
+
+      if (playerHost === PRIMARY_PLAYER_HOST) {
+        setPlayerHost(BACKUP_PLAYER_HOST);
+        return;
+      }
+
+      setShowEmbedFallback(true);
     }, PLAYER_LOAD_TIMEOUT_MS);
 
-    return () => window.clearTimeout(fallbackTimer);
-  }, [hasIframeLoaded, hasPlayerSignal, playerSrc]);
+    return () => window.clearTimeout(retryTimer);
+  }, [hasPlayerSignal, playerHost, playerSrc]);
 
   useEffect(() => {
     if (!playerSrc) return undefined;
@@ -151,16 +153,22 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
 
       if (data.event === "onReady" || data.event === "infoDelivery") {
         setHasPlayerSignal(true);
+        setShowEmbedFallback(false);
       }
 
       if (data.event === "onError") {
+        if (playerHost === PRIMARY_PLAYER_HOST) {
+          setPlayerHost(BACKUP_PLAYER_HOST);
+          return;
+        }
+
         setShowEmbedFallback(true);
       }
     };
 
     window.addEventListener("message", handleYouTubeMessage);
     return () => window.removeEventListener("message", handleYouTubeMessage);
-  }, [playerSrc]);
+  }, [playerHost, playerSrc]);
 
   if (!isOpen || !material || typeof document === "undefined") return null;
 
@@ -247,8 +255,14 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                     referrerPolicy="strict-origin-when-cross-origin"
-                    onLoad={() => setHasIframeLoaded(true)}
-                    onError={() => setShowEmbedFallback(true)}
+                    onError={() => {
+                      if (playerHost === PRIMARY_PLAYER_HOST) {
+                        setPlayerHost(BACKUP_PLAYER_HOST);
+                        return;
+                      }
+
+                      setShowEmbedFallback(true);
+                    }}
                   />
                   {showEmbedFallback && (
                     <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 rounded-[18px] border border-amber-100/18 bg-black/76 px-4 py-3 text-center shadow-[0_16px_40px_rgba(0,0,0,0.38)] backdrop-blur-md">
@@ -276,43 +290,21 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         </main>
 
         <footer className="relative z-20 shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] landscape:hidden">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => sendYouTubeCommand("playVideo")}
-                className="inline-flex items-center justify-center rounded-full border border-cyan-100/16 bg-cyan-100/[0.12] px-4 py-3 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.18] active:scale-[0.98]"
-              >
-                Play
-              </button>
-              <button
-                type="button"
-                onClick={() => sendYouTubeCommand("pauseVideo")}
-                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.08] px-4 py-3 text-[12px] font-black text-white/82 transition hover:bg-white/[0.12] active:scale-[0.98]"
-              >
-                Pause
-              </button>
-            </div>
-
-            <div className="rounded-[18px] border border-white/10 bg-white/[0.045] p-3">
-              <p className="text-[11.5px] leading-relaxed text-white/58">
-                External YouTube lesson curated by CLARA. Video belongs to its original creator.
-              </p>
-              {watchUrl && (
-                <a
-                  href={watchUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-cyan-100/14 bg-cyan-100/[0.10] px-4 py-2.5 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.16] active:scale-[0.98]"
-                >
-                  Watch on YouTube
-                </a>
-              )}
-            </div>
-
-            <p className="text-[12px] leading-relaxed text-white/58">
-              Use CLARA controls for play and pause. Use the YouTube controls inside the frame for timeline, volume, and fullscreen.
-            </p>
+          <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => sendYouTubeCommand("playVideo")}
+              className="inline-flex items-center justify-center rounded-full border border-cyan-100/16 bg-cyan-100/[0.12] px-4 py-3 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.18] active:scale-[0.98]"
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              onClick={() => sendYouTubeCommand("pauseVideo")}
+              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.08] px-4 py-3 text-[12px] font-black text-white/82 transition hover:bg-white/[0.12] active:scale-[0.98]"
+            >
+              Pause
+            </button>
           </div>
         </footer>
       </div>
