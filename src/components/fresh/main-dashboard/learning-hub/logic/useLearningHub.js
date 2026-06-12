@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { learningHubCategories, learningHubData } from "./learningHubData";
 
 const CATEGORY_COVER_LABELS = {
+  "money-foundations": "Watch First",
   video: "Watch First",
   book: "Read Deeper",
   practice: "Practice",
@@ -16,6 +17,45 @@ const sortByOrder = (first, second) => {
   return firstOrder - secondOrder;
 };
 
+const padLessonNumber = (lessonNumber) =>
+  String(lessonNumber || "").padStart(2, "0");
+
+const isCompletedLearningItem = (item) =>
+  item?.completed === true ||
+  item?.isCompleted === true ||
+  item?.status === "completed" ||
+  Boolean(item?.completedAt);
+
+const buildCategoryLessonMaterials = () =>
+  learningHubCategories.flatMap((category) => {
+    if (!Array.isArray(category?.lessons)) return [];
+
+    return category.lessons.filter(Boolean).map((lesson, index) => {
+      const lessonNumber = Number.isFinite(lesson.lessonNumber)
+        ? lesson.lessonNumber
+        : index + 1;
+      const order = Number.isFinite(lesson.order) ? lesson.order : lessonNumber;
+      const coverLabel =
+        lesson.coverLabel ||
+        (lessonNumber ? `Lesson ${padLessonNumber(lessonNumber)}` : category.badge || "Lesson");
+
+      return {
+        kind: "material",
+        type: lesson.type || "video",
+        category: category.id,
+        status: lesson.status || "available",
+        provider: lesson.provider || category.sourceType,
+        sourceType: lesson.sourceType || category.sourceType,
+        contentTypeLabel: lesson.contentTypeLabel || category.contentTypeLabel,
+        coverLabel,
+        order,
+        ...lesson,
+        lessonNumber,
+        order,
+      };
+    });
+  });
+
 export default function useLearningHub() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
@@ -25,7 +65,7 @@ export default function useLearningHub() {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
 
-  const categories = useMemo(
+  const baseCategories = useMemo(
     () =>
       [...learningHubCategories]
         .filter(Boolean)
@@ -34,8 +74,9 @@ export default function useLearningHub() {
           kind: "category",
           type: "category",
           categoryId: category.id,
+          sourceType: category.sourceType || category.type,
           coverLabel:
-            category.coverLabel || CATEGORY_COVER_LABELS[category.id] || "Explore",
+            category.coverLabel || category.badge || CATEGORY_COVER_LABELS[category.id] || "Explore",
           status: category.status || "available",
         }))
         .sort(sortByOrder),
@@ -44,7 +85,7 @@ export default function useLearningHub() {
 
   const materials = useMemo(
     () =>
-      [...learningHubData]
+      [...buildCategoryLessonMaterials(), ...learningHubData]
         .filter(Boolean)
         .map((material) => ({
           kind: "material",
@@ -57,14 +98,32 @@ export default function useLearningHub() {
   );
 
   const materialsByCategory = useMemo(() => {
-    return categories.reduce((groupedMaterials, category) => {
+    return baseCategories.reduce((groupedMaterials, category) => {
       groupedMaterials[category.id] = materials
         .filter((material) => (material.category || material.type) === category.id)
         .sort(sortByOrder);
 
       return groupedMaterials;
     }, {});
-  }, [categories, materials]);
+  }, [baseCategories, materials]);
+
+  const categories = useMemo(
+    () =>
+      baseCategories.map((category) => {
+        const categoryMaterials = materialsByCategory[category.id] || [];
+        const totalLessons = categoryMaterials.length;
+        const completedLessons = categoryMaterials.filter(isCompletedLearningItem).length;
+
+        return {
+          ...category,
+          totalLessons,
+          completedLessons,
+          progressText: `${completedLessons}/${totalLessons}`,
+          progressLabel: `${completedLessons} / ${totalLessons}`,
+        };
+      }),
+    [baseCategories, materialsByCategory],
+  );
 
   const featuredVideo = useMemo(() => {
     const videoMaterials = materialsByCategory.video || [];
@@ -120,7 +179,7 @@ export default function useLearningHub() {
     if (
       material.type === "video" &&
       material.status === "available" &&
-      material.embedUrl
+      (material.embedUrl || material.youtubeId)
     ) {
       setSelectedVideo(material);
       setIsVideoOpen(true);
