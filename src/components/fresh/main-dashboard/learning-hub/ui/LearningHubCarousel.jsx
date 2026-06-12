@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, Lock } from "lucide-react";
 import DailyTipCard from "../../daily-tip";
 import LearningMaterialCard from "./LearningMaterialCard";
 
 const AUTO_SCROLL_DELAY = 4200;
 const RESUME_AFTER_TOUCH = 7000;
+const OPEN_SETTLE_DELAY = 750;
 const SWIPE_THRESHOLD = 34;
 const LEARNING_HUB_STAGE_HEIGHT = 244;
 
@@ -30,10 +31,13 @@ export default function LearningHubCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [autoScrollReady, setAutoScrollReady] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
   const [headerTouchStartY, setHeaderTouchStartY] = useState(null);
 
   const resumeTimerRef = useRef(null);
+  const openSettleTimerRef = useRef(null);
   const headerSwipeHandledRef = useRef(false);
 
   const sourceItems = Array.isArray(items) ? items : materials;
@@ -89,17 +93,17 @@ export default function LearningHubCarousel({
     }, RESUME_AFTER_TOUCH);
   };
 
-  const moveToNext = () => {
+  const moveToNext = useCallback(() => {
     if (isLocked || !total) return;
 
     setActiveIndex((current) => (current + 1) % total);
-  };
+  }, [isLocked, total]);
 
-  const moveToPrev = () => {
+  const moveToPrev = useCallback(() => {
     if (isLocked || !total) return;
 
     setActiveIndex((current) => (current - 1 + total) % total);
-  };
+  }, [isLocked, total]);
 
   const moveToIndex = (index) => {
     if (isLocked || !total) return;
@@ -183,6 +187,25 @@ export default function LearningHubCarousel({
   };
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const syncMobileViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    syncMobileViewport();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncMobileViewport);
+      return () => mediaQuery.removeEventListener("change", syncMobileViewport);
+    }
+
+    mediaQuery.addListener(syncMobileViewport);
+    return () => mediaQuery.removeListener(syncMobileViewport);
+  }, []);
+
+  useEffect(() => {
     setActiveIndex(0);
     setTouchStartX(null);
     setHeaderTouchStartY(null);
@@ -194,18 +217,52 @@ export default function LearningHubCarousel({
   }, [activeCategory, itemsSignature]);
 
   useEffect(() => {
-    if (isLocked || !isExpanded || isPaused || total <= 1) return undefined;
+    if (openSettleTimerRef.current) {
+      clearTimeout(openSettleTimerRef.current);
+      openSettleTimerRef.current = null;
+    }
+
+    setAutoScrollReady(false);
+
+    if (!isExpanded || isLocked) {
+      return undefined;
+    }
+
+    openSettleTimerRef.current = setTimeout(() => {
+      setAutoScrollReady(true);
+    }, OPEN_SETTLE_DELAY);
+
+    return () => {
+      if (openSettleTimerRef.current) {
+        clearTimeout(openSettleTimerRef.current);
+        openSettleTimerRef.current = null;
+      }
+    };
+  }, [isExpanded, isLocked]);
+
+  useEffect(() => {
+    if (
+      isLocked ||
+      !isExpanded ||
+      !autoScrollReady ||
+      isMobileViewport ||
+      isPaused ||
+      total <= 1
+    ) {
+      return undefined;
+    }
 
     const interval = setInterval(moveToNext, AUTO_SCROLL_DELAY);
 
     return () => clearInterval(interval);
-  }, [isExpanded, isLocked, isPaused, total]);
+  }, [autoScrollReady, isExpanded, isLocked, isMobileViewport, isPaused, moveToNext, total]);
 
   useEffect(() => {
     if (!isLocked) return;
 
     setIsExpanded(false);
     setIsPaused(false);
+    setAutoScrollReady(false);
     setTouchStartX(null);
     setHeaderTouchStartY(null);
   }, [isLocked]);
@@ -214,6 +271,10 @@ export default function LearningHubCarousel({
     return () => {
       if (resumeTimerRef.current) {
         clearTimeout(resumeTimerRef.current);
+      }
+
+      if (openSettleTimerRef.current) {
+        clearTimeout(openSettleTimerRef.current);
       }
     };
   }, []);
@@ -276,11 +337,15 @@ export default function LearningHubCarousel({
 
       <div
         data-learning-hub-expanded={isExpanded ? "true" : "false"}
-        className="clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out"
+        aria-hidden={!isExpanded}
+        className="clara-learning-hub-expanded clara-learning-motion overflow-hidden transition-[opacity,transform] duration-300 ease-out"
         style={{
-          gridTemplateRows: isExpanded ? `${LEARNING_HUB_STAGE_HEIGHT}px` : "0px",
+          height: isExpanded ? `${LEARNING_HUB_STAGE_HEIGHT}px` : "0px",
           opacity: isExpanded ? 1 : 0,
           marginTop: isExpanded ? "0.75rem" : "0rem",
+          transform: isExpanded ? "translateY(0) scaleY(1)" : "translateY(-6px) scaleY(0.98)",
+          transformOrigin: "top center",
+          pointerEvents: isExpanded ? "auto" : "none",
         }}
       >
         <div className="clara-learning-hub-clip min-h-0 overflow-visible">
@@ -317,8 +382,11 @@ export default function LearningHubCarousel({
                     ? rawOffset + total
                     : rawOffset;
 
+              const shouldRender = Math.abs(wrappedOffset) <= 2;
+
+              if (!shouldRender) return null;
+
               const isActive = wrappedOffset === 0;
-              const visible = Math.abs(wrappedOffset) <= 2;
 
               return (
                 <LearningMaterialCard
@@ -326,7 +394,7 @@ export default function LearningHubCarousel({
                   item={item}
                   isActive={isActive}
                   offset={wrappedOffset}
-                  visible={visible}
+                  visible={shouldRender}
                   position={index + 1}
                   total={total}
                   onClick={() => {
