@@ -511,12 +511,7 @@ function useFinancialData(user) {
           getSavingsGoals(localUserId),
           getEmergencyFund(localUserId),
         ]);
-        const repairedEmergencyFund = await repairDeletedEmergencyAllocationOrphans(
-          localUserId,
-          rawEmergencyFund,
-          rawExpenses
-        );
-        const nextCache = buildSafeCache({ rawExpenses, rawWallets, rawWalletTransactions, rawTransfers, rawBudgets, rawSavingsGoals, rawEmergencyFund: repairedEmergencyFund });
+        const nextCache = buildSafeCache({ rawExpenses, rawWallets, rawWalletTransactions, rawTransfers, rawBudgets, rawSavingsGoals, rawEmergencyFund: rawEmergencyFund || null });
         financialDataCache = nextCache;
         hydrateFromCache(nextCache);
         return nextCache;
@@ -617,12 +612,19 @@ function useFinancialData(user) {
 
   const deleteEmergencyFundAllocation = useCallback(async (transaction) => {
     const raw = transaction?.raw || transaction || {};
-    const amount = Math.abs(toNumber(raw.amount ?? transaction?.amount ?? transaction?.signedAmount ?? raw.signedAmount ?? 0));
-    const expenseId = readFirstText(raw, ["id", "expense_id", "expenseId", "local_id", "localId"]);
-    const activityId = readFirstText(
-      { ...(transaction || {}), ...(raw || {}) },
-      EMERGENCY_LINK_KEYS
+    const lookup = { ...(transaction || {}), ...(raw || {}) };
+    const amount = Math.abs(
+      toNumber(raw.amount ?? transaction?.amount ?? raw.signedAmount ?? transaction?.signedAmount ?? 0)
     );
+    const expenseId = readFirstText(lookup, [
+      "id",
+      "rawId",
+      "expense_id",
+      "expenseId",
+      "local_id",
+      "localId",
+    ]);
+    const activityId = readFirstText(lookup, EMERGENCY_LINK_KEYS);
 
     if (!expenseId) throw new Error("Emergency Fund allocation is missing its linked expense id.");
     if (!Number.isFinite(amount) || amount <= 0) throw new Error("Emergency Fund allocation amount is invalid.");
@@ -630,7 +632,7 @@ function useFinancialData(user) {
     await deleteExpenseRecord(expenseId);
 
     const now = new Date().toISOString();
-    const liveEmergencyFund = emergencyFund || {};
+    const liveEmergencyFund = (await getEmergencyFund(localUserId)) || emergencyFund || {};
     const currentEmergencyAmount = getEmergencyProtectedAmount(liveEmergencyFund);
     const nextSaved = Math.max(currentEmergencyAmount - amount, 0);
     const primaryActivity = getEmergencyActivitySource(liveEmergencyFund);
@@ -674,14 +676,79 @@ function useFinancialData(user) {
 
   const deleteExpense = useCallback(async (id) => {
     if (!id) throw new Error("Expense id is required.");
-    const existing = await getLocalRecordById(EXPENSE_STORE, id, localUserId);
+    return deleteExpenseRecord(id);
+  }, [deleteExpenseRecord]);
 
-    if (existing && isEmergencyFundAllocationRecord(existing)) {
-      return deleteEmergencyFundAllocation(existing);
+  const repairEmergencyFundAllocationBalance = useCallback(async () => {
+    const [rawExpenses, liveEmergencyFund] = await Promise.all([
+      getExpenses(localUserId),
+      getEmergencyFund(localUserId),
+    ]);
+
+    if (!liveEmergencyFund) {
+      return { repaired: false, reason: "No Emergency Fund record found." };
     }
 
-    return deleteExpenseRecord(id);
-  }, [deleteEmergencyFundAllocation, deleteExpenseRecord, localUserId]);
+    const activeAllocations = removeDeletedRows(rawExpenses).filter(isEmergencyFundAllocationRecord);
+    const primaryActivity = getEmergencyActivitySource(liveEmergencyFund);
+    const allocationActivity = primaryActivity.filter(isEmergencyAllocationActivity);
+    const hasUnsafeHistory = primaryActivity.some((item) => !isEmergencyAllocationActivity(item));
+
+    if (activeAllocations.length > 0) {
+      return { repaired: false, reason: "Active Emergency Fund allocations still exist." };
+    }
+
+    if (!primaryActivity.length || !allocationActivity.length || hasUnsafeHistory) {
+      return { repaired: false, reason: "Emergency Fund history is not safe for automatic repair." };
+    }
+
+    const activeAllocationIds = buildActiveEmergencyAllocationIdSet(rawExpenses);
+    const orphanedAllocations = allocationActivity.filter((item) =>
+      isOrphanedEmergencyAllocationActivity(item, activeAllocationIds)
+    );
+
+    if (orphanedAllocations.length !== allocationActivity.length) {
+      return { repaired: false, reason: "Some allocation activity still matches active expenses." };
+    }
+
+    const now = new Date().toISOString();
+    const payload = {
+      ...liveEmergencyFund,
+      savedAmount: 0,
+      saved_amount: 0,
+      currentAmount: 0,
+      current_amount: 0,
+      amount: 0,
+      balance: 0,
+      moneyLeft: 0,
+      protectedBalance: 0,
+      protected_balance: 0,
+      reserveBalance: 0,
+      reserve_balance: 0,
+      emergencyActivityLog: [],
+      emergency_activity_log: [],
+      activityLog: [],
+      activity_log: [],
+      usageLog: [],
+      usage_log: [],
+      lastTopUpAmount: null,
+      last_top_up_amount: null,
+      updatedAt: now,
+      updated_at: now,
+      emergencyAllocationRepairAt: now,
+      emergency_allocation_repair_at: now,
+    };
+
+    await repoUpsertEmergencyFund(localUserId, payload);
+    await refreshData();
+    dispatchFinanceUpdateEvents();
+
+    return {
+      repaired: true,
+      nextEmergencySaved: 0,
+      removedActivityCount: orphanedAllocations.length,
+    };
+  }, [localUserId, refreshData]);
 
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeIncomes = Array.isArray(incomes) ? incomes : [];
@@ -709,7 +776,7 @@ function useFinancialData(user) {
     addIncome, addMoney, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets, updateTransfer, deleteTransfer,
     addBudget, updateBudget, deleteBudget, upsertBudget,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
-    updateEmergencyFund, deleteEmergencyFundAllocation,
+    updateEmergencyFund, deleteEmergencyFundAllocation, repairEmergencyFundAllocationBalance,
   };
 }
 

@@ -50,6 +50,7 @@ import {
   getToneClasses,
   hasValue,
   isDeletedRecord,
+  isEmergencyFundAllocation,
   isJsonLike,
   isLinkedExpenseWalletTransaction,
   monthKey,
@@ -1168,8 +1169,12 @@ export default function TransactionHub() {
       return;
     }
 
+    const isEmergencyAllocation = isEmergencyFundAllocation(selectedTransaction);
+
     const confirmCopy =
-      selectedTransaction.group === "transfer"
+      isEmergencyAllocation
+        ? "Delete this Emergency Fund allocation? This will remove the transaction, return the amount to the source wallet, and reduce your Emergency Fund balance."
+        : selectedTransaction.group === "transfer"
         ? buildTransferDeleteConfirmation(selectedTransaction)
         : selectedTransaction.group === "expense"
         ? "Delete this transaction? This will remove the record and reverse its wallet effect. This will return the amount to the wallet."
@@ -1185,6 +1190,22 @@ export default function TransactionHub() {
     try {
       setDeleteSaving(true);
       setEditError("");
+
+      if (isEmergencyAllocation) {
+        if (typeof financial.deleteEmergencyFundAllocation !== "function") {
+          throw new Error("Emergency Fund allocation delete handler is not available.");
+        }
+
+        await financial.deleteEmergencyFundAllocation(selectedTransaction);
+        setNotice(
+          "Emergency Fund allocation deleted. Wallet and Emergency Fund balance were reversed."
+        );
+        setIsEditOpen(false);
+        setSelectedTransaction(null);
+        setEditForm(buildEditFormFromTransaction(null));
+        setEditError("");
+        return;
+      }
 
       if (selectedTransaction.group === "expense") {
         if (typeof financial.deleteExpense !== "function") {
