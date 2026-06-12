@@ -366,6 +366,7 @@ export default function EmergencyFundCard({
     updateEmergencyFund,
     addExpense,
     refreshData,
+    repairEmergencyFundAllocationBalance,
   } = useFinancialData(user);
 
   const safeWallets = useMemo(
@@ -399,6 +400,7 @@ export default function EmergencyFundCard({
 
   const walletSelectRef = useRef(null);
   const hasAutoOpenedSurvivalSetupRef = useRef(false);
+  const repairCheckedRef = useRef(false);
   const [editing, setEditing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sourceWalletId, setSourceWalletId] = useState('');
@@ -431,6 +433,19 @@ export default function EmergencyFundCard({
   useEffect(() => {
     if (!sourceWalletId && safeWallets.length) setSourceWalletId(getWalletId(safeWallets[0]));
   }, [safeWallets, sourceWalletId]);
+
+  useEffect(() => {
+    if (repairCheckedRef.current) return;
+    if (!expanded) return;
+    if (savedAmount <= 0) return;
+    if (typeof repairEmergencyFundAllocationBalance !== 'function') return;
+
+    repairCheckedRef.current = true;
+
+    repairEmergencyFundAllocationBalance().catch((error) => {
+      console.warn('Emergency Fund allocation repair skipped:', error);
+    });
+  }, [expanded, savedAmount, repairEmergencyFundAllocationBalance]);
 
   const persistEmergencyFund = async (patch) => {
     if (typeof updateEmergencyFund !== 'function') return;

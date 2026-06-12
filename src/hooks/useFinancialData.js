@@ -186,7 +186,7 @@ function filterEmergencyActivityLog(log = [], amount, activityId) {
       return false;
     }
 
-    if (!removedFallback) {
+    if (!safeActivityId && !removedFallback) {
       const entryAmount = Math.abs(toNumber(item?.amount ?? item?.value ?? item?.total ?? 0));
       const text = getEmergencyTransactionText(item);
       const isAllocationText =
@@ -613,12 +613,22 @@ function useFinancialData(user) {
   const deleteEmergencyFundAllocation = useCallback(async (transaction) => {
     const raw = transaction?.raw || transaction || {};
     const lookup = { ...(transaction || {}), ...(raw || {}) };
+    const expenseLookup = {
+      id: raw?.id,
+      rawId: transaction?.rawId,
+      transactionId: transaction?.id,
+      expense_id: raw?.expense_id ?? transaction?.expense_id,
+      expenseId: raw?.expenseId ?? transaction?.expenseId,
+      local_id: raw?.local_id ?? transaction?.local_id,
+      localId: raw?.localId ?? transaction?.localId,
+    };
     const amount = Math.abs(
       toNumber(raw.amount ?? transaction?.amount ?? raw.signedAmount ?? transaction?.signedAmount ?? 0)
     );
-    const expenseId = readFirstText(lookup, [
+    const expenseId = readFirstText(expenseLookup, [
       "id",
       "rawId",
+      "transactionId",
       "expense_id",
       "expenseId",
       "local_id",
@@ -692,13 +702,14 @@ function useFinancialData(user) {
     const activeAllocations = removeDeletedRows(rawExpenses).filter(isEmergencyFundAllocationRecord);
     const primaryActivity = getEmergencyActivitySource(liveEmergencyFund);
     const allocationActivity = primaryActivity.filter(isEmergencyAllocationActivity);
+    const currentEmergencyAmount = getEmergencyProtectedAmount(liveEmergencyFund);
     const hasUnsafeHistory = primaryActivity.some((item) => !isEmergencyAllocationActivity(item));
 
     if (activeAllocations.length > 0) {
       return { repaired: false, reason: "Active Emergency Fund allocations still exist." };
     }
 
-    if (!primaryActivity.length || !allocationActivity.length || hasUnsafeHistory) {
+    if (currentEmergencyAmount <= 0 || !primaryActivity.length || !allocationActivity.length || hasUnsafeHistory) {
       return { repaired: false, reason: "Emergency Fund history is not safe for automatic repair." };
     }
 
