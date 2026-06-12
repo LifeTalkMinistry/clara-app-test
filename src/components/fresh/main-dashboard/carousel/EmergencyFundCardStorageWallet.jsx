@@ -401,6 +401,7 @@ export default function EmergencyFundCard({
   const walletSelectRef = useRef(null);
   const hasAutoOpenedSurvivalSetupRef = useRef(false);
   const repairCheckedRef = useRef(false);
+  const repairCheckedRef = useRef(false);
   const [editing, setEditing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sourceWalletId, setSourceWalletId] = useState('');
