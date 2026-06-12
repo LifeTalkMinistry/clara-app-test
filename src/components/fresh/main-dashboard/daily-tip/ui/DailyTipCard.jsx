@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 import useDailyTip from "../logic/useDailyTip";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
+import "./daily-tip-premium-flip.css";
 
 const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
 
@@ -24,6 +25,8 @@ export default function DailyTipCard({
 }) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const [flipped, setFlipped] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const isFlippingRef = useRef(false);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
@@ -46,14 +49,21 @@ export default function DailyTipCard({
       return;
     }
 
-    setFlipped((current) => !current);
+    if (isFlippingRef.current) return;
 
-    if (!hasSeenToday) {
-      window.requestAnimationFrame(() => {
-        window.setTimeout(() => {
-          markSeenToday();
-        }, 120);
-      });
+    isFlippingRef.current = true;
+    setIsFlipping(true);
+    setFlipped((current) => !current);
+  };
+
+  const handleFlipTransitionEnd = (event) => {
+    if (event.target !== event.currentTarget) return;
+
+    isFlippingRef.current = false;
+    setIsFlipping(false);
+
+    if (flipped && !hasSeenToday) {
+      markSeenToday();
     }
   };
 
@@ -124,61 +134,45 @@ export default function DailyTipCard({
             ? "Flip Daily Money Tip"
             : "Open the Committed Version to unlock Daily Money Tip"
         }
-        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left transform-gpu transition-transform duration-200 active:scale-[0.985]"
-        style={{ perspective: "1500px", WebkitTapHighlightColor: "transparent" }}
+        aria-pressed={flipped}
+        aria-disabled={isFlipping && hasCommittedAccess}
+        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
+        style={{ WebkitTapHighlightColor: "transparent" }}
       >
-        <div
-          className={`clara-preserve-flip-motion absolute inset-0 rounded-2xl transform-gpu transition-transform duration-700 will-change-transform ${
-            hasCommittedAccess
-              ? ""
-              : "pointer-events-none opacity-45 grayscale-[0.78] saturate-[0.68]"
-          }`}
-          style={{
-            transformStyle: "preserve-3d",
-            transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-            "--clara-flip-duration": "700ms",
-            "--clara-flip-easing": "cubic-bezier(0.22, 1, 0.36, 1)",
-            transform: flipped
-              ? "translate3d(0,0,0) rotateY(180deg)"
-              : "translate3d(0,0,0) rotateY(0deg)",
-          }}
-        >
+        <div className="clara-daily-tip-scene">
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10"
-            style={{
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transform: "translateZ(1px)",
-            }}
+            onTransitionEnd={handleFlipTransitionEnd}
+            className={`clara-preserve-flip-motion clara-daily-tip-flipper ${
+              flipped ? "clara-daily-tip-flipper--flipped" : ""
+            } ${
+              hasCommittedAccess
+                ? ""
+                : "pointer-events-none opacity-45 grayscale-[0.78] saturate-[0.68]"
+            }`}
           >
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
+            <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
+              <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
-            <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
-              <div>
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300">
-                  Daily Money Tip
-                </div>
-                <div className="text-sm font-semibold text-white/75">
-                  Tap to flip
+              <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
+                <div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300">
+                    Daily Money Tip
+                  </div>
+                  <div className="text-sm font-semibold text-white/75">
+                    Tap to flip
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10"
-            style={{
-              transform: "rotateY(180deg) translateZ(1px)",
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-            }}
-          >
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
+            <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10">
+              <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
-            <div className="relative flex h-full items-center justify-center px-6 text-center text-white">
-              <p className="max-w-[20rem] text-sm font-semibold leading-relaxed text-white/90">
-                {tip}
-              </p>
+              <div className="relative flex h-full items-center justify-center px-6 text-center text-white">
+                <p className="max-w-[20rem] text-sm font-semibold leading-relaxed text-white/90">
+                  {tip}
+                </p>
+              </div>
             </div>
           </div>
         </div>
