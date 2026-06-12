@@ -102,6 +102,7 @@ export default function CarouselItemCard(props) {
         toggleFinanceDetails={toggleFinanceDetails}
         onQuickExpense={onQuickExpense}
         onSurvivalSaved={onSurvivalSaved}
+        onCreateWallet={onCreateWallet}
         startClaraAiLongPress={startClaraAiLongPress}
         endClaraAiLongPress={endClaraAiLongPress}
         handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
