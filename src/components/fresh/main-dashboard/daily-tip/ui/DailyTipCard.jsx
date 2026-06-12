@@ -24,7 +24,7 @@ export default function DailyTipCard({
 }) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const [flipped, setFlipped] = useState(false);
-  const [isFlipping, setIsFlipping] = useState(false);
+  const [, setIsFlipping] = useState(false);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
