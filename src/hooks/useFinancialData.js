@@ -65,6 +65,12 @@ const EMERGENCY_ACTIVITY_KEYS = [
   "usageLog",
   "usage_log",
 ];
+const EMERGENCY_LINK_KEYS = [
+  "emergency_fund_transaction_id",
+  "emergencyFundTransactionId",
+  "emergency_fund_id",
+  "emergencyFundId",
+];
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -125,18 +131,35 @@ function getEmergencyTransactionText(item = {}) {
     .join(" ");
 }
 
+function getEmergencyAllocationIds(item = {}, includeOwnId = false) {
+  const raw = item?.raw || item || {};
+  const keys = includeOwnId ? ["id", ...EMERGENCY_LINK_KEYS] : EMERGENCY_LINK_KEYS;
+  return keys
+    .map((key) => raw?.[key])
+    .filter((value) => value !== undefined && value !== null && String(value).trim() !== "")
+    .map((value) => String(value).trim());
+}
+
 function isEmergencyFundAllocationRecord(item = {}) {
   const raw = item?.raw || item || {};
   const text = getEmergencyTransactionText(raw);
 
   return Boolean(
-    raw.emergency_fund_transaction_id ||
-      raw.emergencyFundTransactionId ||
-      raw.emergency_fund_id ||
-      raw.emergencyFundId ||
+    getEmergencyAllocationIds(raw).length ||
       text.includes("emergency fund allocation") ||
       text.includes("moved to emergency fund") ||
       text.includes("emergency allocation")
+  );
+}
+
+function isEmergencyAllocationActivity(item = {}) {
+  const text = getEmergencyTransactionText(item);
+  return Boolean(
+    getEmergencyAllocationIds(item, true).length &&
+      (text.includes("emergency fund allocation") ||
+        text.includes("moved to emergency fund") ||
+        text.includes("emergency allocation") ||
+        String(item?.type || "").toLowerCase().includes("allocation"))
   );
 }
 
@@ -180,6 +203,91 @@ function filterEmergencyActivityLog(log = [], amount, activityId) {
 
     return true;
   });
+}
+
+function buildActiveEmergencyAllocationIdSet(rawExpenses = []) {
+  const ids = new Set();
+  removeDeletedRows(rawExpenses)
+    .filter(isEmergencyFundAllocationRecord)
+    .forEach((expense) => {
+      getEmergencyAllocationIds(expense, true).forEach((id) => ids.add(id));
+    });
+  return ids;
+}
+
+function isOrphanedEmergencyAllocationActivity(item, activeAllocationIds) {
+  if (!isEmergencyAllocationActivity(item)) return false;
+  const itemIds = getEmergencyAllocationIds(item, true);
+  if (!itemIds.length) return false;
+  return !itemIds.some((id) => activeAllocationIds.has(id));
+}
+
+function removeEmergencyActivityIds(log = [], idsToRemove = new Set()) {
+  return (Array.isArray(log) ? log : []).filter((item) => {
+    const itemIds = getEmergencyAllocationIds(item, true);
+    return !itemIds.some((id) => idsToRemove.has(id));
+  });
+}
+
+async function repairDeletedEmergencyAllocationOrphans(localUserId, rawEmergencyFund, rawExpenses) {
+  if (!rawEmergencyFund) return rawEmergencyFund;
+
+  const primaryActivity = getEmergencyActivitySource(rawEmergencyFund);
+  if (!primaryActivity.length) return rawEmergencyFund;
+
+  const activeAllocationIds = buildActiveEmergencyAllocationIdSet(rawExpenses);
+  const orphanedAllocations = primaryActivity.filter((item) =>
+    isOrphanedEmergencyAllocationActivity(item, activeAllocationIds)
+  );
+
+  if (!orphanedAllocations.length) return rawEmergencyFund;
+
+  const orphanedIds = new Set();
+  const orphanedAmount = orphanedAllocations.reduce((sum, item) => {
+    getEmergencyAllocationIds(item, true).forEach((id) => orphanedIds.add(id));
+    return sum + Math.abs(toNumber(item?.amount ?? item?.value ?? item?.total ?? 0));
+  }, 0);
+
+  if (!Number.isFinite(orphanedAmount) || orphanedAmount <= 0) return rawEmergencyFund;
+
+  const now = new Date().toISOString();
+  const currentEmergencyAmount = getEmergencyProtectedAmount(rawEmergencyFund);
+  const nextSaved = Math.max(currentEmergencyAmount - orphanedAmount, 0);
+  const nextActivityLogs = EMERGENCY_ACTIVITY_KEYS.reduce((acc, key) => {
+    const sourceLog = Array.isArray(rawEmergencyFund?.[key]) ? rawEmergencyFund[key] : primaryActivity;
+    acc[key] = removeEmergencyActivityIds(sourceLog, orphanedIds);
+    return acc;
+  }, {});
+  const currentLastTopUp = Math.abs(toNumber(rawEmergencyFund?.lastTopUpAmount ?? rawEmergencyFund?.last_top_up_amount ?? 0));
+  const deletedLastTopUp = orphanedAllocations.some(
+    (item) => Math.abs(toNumber(item?.amount ?? item?.value ?? item?.total ?? 0)) === currentLastTopUp
+  );
+
+  const payload = {
+    ...rawEmergencyFund,
+    savedAmount: nextSaved,
+    saved_amount: nextSaved,
+    currentAmount: nextSaved,
+    current_amount: nextSaved,
+    amount: nextSaved,
+    balance: nextSaved,
+    moneyLeft: nextSaved,
+    protectedBalance: nextSaved,
+    protected_balance: nextSaved,
+    reserveBalance: nextSaved,
+    reserve_balance: nextSaved,
+    ...nextActivityLogs,
+    lastTopUpAmount: deletedLastTopUp ? null : rawEmergencyFund?.lastTopUpAmount ?? rawEmergencyFund?.last_top_up_amount ?? null,
+    last_top_up_amount: deletedLastTopUp ? null : rawEmergencyFund?.last_top_up_amount ?? rawEmergencyFund?.lastTopUpAmount ?? null,
+    updatedAt: now,
+    updated_at: now,
+    emergencyAllocationRepairAt: now,
+    emergency_allocation_repair_at: now,
+  };
+
+  await repoUpsertEmergencyFund(localUserId, payload);
+  dispatchFinanceUpdateEvents();
+  return payload;
 }
 
 function isEmergencyFundResetPatch(updates = {}) {
@@ -403,7 +511,12 @@ function useFinancialData(user) {
           getSavingsGoals(localUserId),
           getEmergencyFund(localUserId),
         ]);
-        const nextCache = buildSafeCache({ rawExpenses, rawWallets, rawWalletTransactions, rawTransfers, rawBudgets, rawSavingsGoals, rawEmergencyFund });
+        const repairedEmergencyFund = await repairDeletedEmergencyAllocationOrphans(
+          localUserId,
+          rawEmergencyFund,
+          rawExpenses
+        );
+        const nextCache = buildSafeCache({ rawExpenses, rawWallets, rawWalletTransactions, rawTransfers, rawBudgets, rawSavingsGoals, rawEmergencyFund: repairedEmergencyFund });
         financialDataCache = nextCache;
         hydrateFromCache(nextCache);
         return nextCache;
@@ -508,12 +621,7 @@ function useFinancialData(user) {
     const expenseId = readFirstText(raw, ["id", "expense_id", "expenseId", "local_id", "localId"]);
     const activityId = readFirstText(
       { ...(transaction || {}), ...(raw || {}) },
-      [
-        "emergency_fund_transaction_id",
-        "emergencyFundTransactionId",
-        "emergency_fund_id",
-        "emergencyFundId",
-      ]
+      EMERGENCY_LINK_KEYS
     );
 
     if (!expenseId) throw new Error("Emergency Fund allocation is missing its linked expense id.");
