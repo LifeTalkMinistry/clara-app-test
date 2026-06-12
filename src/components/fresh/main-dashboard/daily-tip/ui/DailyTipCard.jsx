@@ -24,7 +24,6 @@ export default function DailyTipCard({
 }) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const [flipped, setFlipped] = useState(false);
-  const [, setIsFlipping] = useState(false);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
@@ -47,13 +46,15 @@ export default function DailyTipCard({
       return;
     }
 
-    setIsFlipping(true);
     setFlipped((current) => !current);
-    if (!hasSeenToday) markSeenToday();
 
-    window.setTimeout(() => {
-      setIsFlipping(false);
-    }, 760);
+    if (!hasSeenToday) {
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          markSeenToday();
+        }, 120);
+      });
+    }
   };
 
   const handleExitCurrentState = async () => {
@@ -123,21 +124,23 @@ export default function DailyTipCard({
             ? "Flip Daily Money Tip"
             : "Open the Committed Version to unlock Daily Money Tip"
         }
-        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left transition-transform duration-300 active:scale-[0.98]"
+        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left transform-gpu transition-transform duration-200 active:scale-[0.985]"
         style={{ perspective: "1500px", WebkitTapHighlightColor: "transparent" }}
       >
         <div
-          className={`clara-preserve-flip-motion absolute inset-0 rounded-2xl transition-[transform,opacity,filter] duration-700 will-change-transform ${
+          className={`clara-preserve-flip-motion absolute inset-0 rounded-2xl transform-gpu transition-transform duration-700 will-change-transform ${
             hasCommittedAccess
               ? ""
               : "pointer-events-none opacity-45 grayscale-[0.78] saturate-[0.68]"
           }`}
           style={{
             transformStyle: "preserve-3d",
-            transitionTimingFunction: "cubic-bezier(0.18, 0.85, 0.28, 1.15)",
+            transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+            "--clara-flip-duration": "700ms",
+            "--clara-flip-easing": "cubic-bezier(0.22, 1, 0.36, 1)",
             transform: flipped
-              ? "translateZ(0px) rotateY(180deg)"
-              : "translateZ(0px) rotateY(0deg)",
+              ? "translate3d(0,0,0) rotateY(180deg)"
+              : "translate3d(0,0,0) rotateY(0deg)",
           }}
         >
           <div
