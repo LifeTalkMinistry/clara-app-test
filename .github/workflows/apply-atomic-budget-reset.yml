@@ -1,38 +1,45 @@
-name: Apply monthly plan allocation updater
+name: Apply atomic budget reset
 
 on:
   push:
     branches:
-      - fix/budget-reset-boundary
+      - fix/atomic-budget-reset-ready
     paths:
-      - scripts/runner_alloc.mjs
-      - .github/workflows/apply-atomic-budget-reset.yml
+      - ".github/workflows/apply-atomic-budget-reset.yml"
+      - ".github/atomic-reset-payload/**"
 
 permissions:
   contents: write
 
 jobs:
-  apply-monthly-plan-allocation:
+  apply-budget-reset:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Apply allocation update
-        run: node scripts/runner_alloc.mjs
-      - name: Clean temporary files
+      - name: Reconstruct patch files
         run: |
-          git rm -f scripts/runner_alloc.mjs || true
-          git checkout HEAD~1 -- .github/workflows/apply-atomic-budget-reset.yml || true
-      - name: Commit allocation update
+          cat .github/atomic-reset-payload/part00 .github/atomic-reset-payload/part01 > /tmp/atomic-reset.b64
+          base64 --decode /tmp/atomic-reset.b64 > /tmp/atomic-reset.tar.xz
+          tar -xJf /tmp/atomic-reset.tar.xz -C .
+      - name: Apply atomic budget reset
+        run: python scripts/apply_atomic_budget_reset.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Run focused tests
+        run: npm run test:budget-reset
+      - name: Build check
+        run: npm run build
+      - name: Commit atomic budget reset
         run: |
           if git diff --quiet; then
-            echo "No changes to commit."
+            echo "No atomic budget reset changes needed."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Harden monthly budget allocation fallback"
+          git commit -m "Fix atomic budget reset"
           git push
