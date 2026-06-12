@@ -307,6 +307,7 @@ export default function useDashboardRenderProps({
     budgetFinishHelper,
     openBudgetModal,
     openDeleteBudgetCategoryModal,
+    openResetBudgetModal,
     budgetCanFinish,
     deleteBudgetCategoryInline,
     resetBudgetInline,

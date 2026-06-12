@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Edit, Trash2 } from "lucide-react";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
@@ -17,6 +18,35 @@ import {
   getSavingsSaved,
   getPHMonthKey,
 } from "@/utils/dashboard/dashboardHelpers";
+
+function readBudgetMoney(value, fallback = 0) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
+
+  const number = Number(
+    String(value ?? "")
+      .replace(/php/gi, "")
+      .replace(/[₱,\s]/g, "")
+  );
+
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function readProtectedBudgetAmount(plan = {}) {
+  const candidates = [
+    plan?.totalProtectedCommitments,
+    plan?.protected_commitments_total,
+    plan?.protectedBudgetCommitments?.totalProtectedCommitments,
+    plan?.protected_budget_commitments?.totalProtectedCommitments,
+    plan?.protected_budget_commitments?.total_protected_commitments,
+  ];
+
+  for (const value of candidates) {
+    const amount = readBudgetMoney(value, 0);
+    if (amount > 0) return amount;
+  }
+
+  return 0;
+}
 
 export default function DashboardFinanceModalRenderer({
   financeModal,
@@ -49,6 +79,7 @@ export default function DashboardFinanceModalRenderer({
   budgetFinishHelper,
   openBudgetModal,
   openDeleteBudgetCategoryModal,
+  openResetBudgetModal,
   budgetCanFinish,
   deleteBudgetCategoryInline,
   resetBudgetInline,
@@ -60,6 +91,27 @@ export default function DashboardFinanceModalRenderer({
   setShowAiAssistant,
   claraAssistantContext,
 }) {
+  const [showActiveBudgetAddCategory, setShowActiveBudgetAddCategory] = useState(false);
+
+  const budgetCategories = Array.isArray(monthlyBudgetPlan?.categories)
+    ? monthlyBudgetPlan.categories
+    : [];
+
+  const isEditingBudgetCategory = Boolean(financeModal.payload?.id);
+  const hasActiveBudgetSetup = Boolean(monthlyBudgetPlan?.declared_budget);
+  const showActiveBudgetOverview = hasActiveBudgetSetup && !isEditingBudgetCategory;
+
+  const protectedBudgetAmount = useMemo(
+    () => readProtectedBudgetAmount(monthlyBudgetPlan),
+    [monthlyBudgetPlan]
+  );
+
+  useEffect(() => {
+    if (financeModal.type !== "save_budget" || !showActiveBudgetOverview) {
+      setShowActiveBudgetAddCategory(false);
+    }
+  }, [financeModal.type, showActiveBudgetOverview]);
+
   return (
     <>
       <FinanceActionModal
@@ -85,7 +137,7 @@ export default function DashboardFinanceModalRenderer({
             className={financeInputClassName}
           />
         </FinanceField>
-      
+
         <FinanceField
           label="Wallet type"
           helper="Choose the closest type so CLARA can organize your money clearly."
@@ -114,7 +166,7 @@ export default function DashboardFinanceModalRenderer({
               <option value="credit_card">Credit Card</option>
               <option value="custom">Custom</option>
             </select>
-      
+
             {financeForm.type === "custom" ? (
               <input
                 type="text"
@@ -131,7 +183,7 @@ export default function DashboardFinanceModalRenderer({
             ) : null}
           </div>
         </FinanceField>
-      
+
         <FinanceField label="Starting balance">
           <input
             type="number"
@@ -149,7 +201,7 @@ export default function DashboardFinanceModalRenderer({
           />
         </FinanceField>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "delete_wallet"}
         title="Delete wallet"
@@ -167,7 +219,7 @@ export default function DashboardFinanceModalRenderer({
           This will remove the selected wallet from the dashboard. Use this only when you are sure.
         </div>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "add_money"}
         title="Add money"
@@ -197,7 +249,7 @@ export default function DashboardFinanceModalRenderer({
           />
         </FinanceField>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "transfer_money"}
         title="Transfer money"
@@ -233,7 +285,7 @@ export default function DashboardFinanceModalRenderer({
               ))}
           </select>
         </FinanceField>
-      
+
         <FinanceField
           label="Amount"
           helper={`Available: ${fmt(getWalletDisplayBalance(financeModal.payload))}`}
@@ -251,7 +303,7 @@ export default function DashboardFinanceModalRenderer({
           />
         </FinanceField>
       </FinanceActionModal>
-      
+
       <ManualExpenseFullScreenSheet
         open={financeModal.type === "manual_expense"}
         onClose={closeFinanceModal}
@@ -275,7 +327,7 @@ export default function DashboardFinanceModalRenderer({
             className={`${financeInputClassName} min-h-[68px] rounded-[24px] px-5 text-3xl font-bold tracking-tight placeholder:text-white/25 focus:border-emerald-300/40 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.10)]`}
           />
         </FinanceField>
-      
+
         <FinanceField
           label="Budget List"
           helper="Choose where this expense belongs in your active monthly budget."
@@ -296,7 +348,7 @@ export default function DashboardFinanceModalRenderer({
             onChange={(nextValue) => setManualExpenseBudgetListKey(nextValue)}
           />
         </FinanceField>
-      
+
         <FinanceField label="Wallet">
           <QuickActionDropdown
             value={financeForm.expenseWalletId}
@@ -316,7 +368,7 @@ export default function DashboardFinanceModalRenderer({
             }
           />
         </FinanceField>
-      
+
         {manualExpenseIsUnplanned ? (
           <div className="rounded-[24px] border border-amber-300/18 bg-amber-500/10 p-4 shadow-[0_14px_34px_rgba(245,158,11,0.08)]">
             <p className="mb-3 text-xs leading-5 text-amber-50/80">
@@ -343,7 +395,7 @@ export default function DashboardFinanceModalRenderer({
             <p className="mb-3 text-xs leading-5 text-cyan-50/80">
               No worries. Choose the closest reason so CLARA can keep your records clean.
             </p>
-      
+
             <FinanceField label="Undocumented Reason">
               <QuickActionDropdown
                 value={financeForm.undocumentedReason || ""}
@@ -362,7 +414,7 @@ export default function DashboardFinanceModalRenderer({
                 }
               />
             </FinanceField>
-      
+
             {financeForm.undocumentedReason === "Other undocumented reason" ? (
               <div className="mt-3">
                 <FinanceField label="Optional note">
@@ -388,222 +440,421 @@ export default function DashboardFinanceModalRenderer({
           </div>
         ) : null}
       </ManualExpenseFullScreenSheet>
-      
+
       <FinanceActionModal
         open={financeModal.type === "save_budget"}
         title={
-          !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
-            ? "Declare monthly budget"
-            : financeModal.payload?.id
-              ? "Edit budget category"
-              : "Budget discipline mode"
+          showActiveBudgetOverview
+            ? "Monthly Budget Plan"
+            : !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
+              ? "Declare monthly budget"
+              : financeModal.payload?.id
+                ? "Edit budget category"
+                : "Budget discipline mode"
         }
         description={
-          !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
-            ? "Start by declaring the total money you plan to spend this month."
-            : `Assign every peso from your ${getPHMonthKey()} budget into categories.`
+          showActiveBudgetOverview
+            ? "Active setup for this cycle."
+            : !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
+              ? "Start by declaring the total money you plan to spend this month."
+              : `Assign every peso from your ${getPHMonthKey()} budget into categories.`
         }
-        onClose={handleBudgetModalClose}
+        onClose={showActiveBudgetOverview ? closeFinanceModal : handleBudgetModalClose}
         onSubmit={(event) => {
           event.preventDefault();
+
+          if (showActiveBudgetOverview) {
+            closeFinanceModal();
+            return;
+          }
+
           saveBudgetInline({ exitAfterSave: true, saveCategory: false });
         }}
-        submitLabel="Save Draft"
+        submitLabel={showActiveBudgetOverview ? "Close" : "Save Draft"}
         loading={financeActionLoading}
       >
-        {budgetExitConfirm ? (
-          <div className="rounded-3xl border border-amber-300/20 bg-amber-500/10 p-4">
-            <p className="text-sm font-bold text-amber-50">Your budget is not fully assigned yet.</p>
-            <p className="mt-2 text-xs leading-5 text-amber-50/75">
-              Save as draft before leaving so you can continue later.
-            </p>
-      
-            <div className="mt-4 grid grid-cols-1 gap-2">
+        {showActiveBudgetOverview ? (
+          <>
+            <div className="rounded-3xl border border-white/15 bg-white/[0.075] p-4 text-xs leading-5 text-white/70">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-white">Current Setup</p>
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100/75">
+                  Active
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Declared Budget</span>
+                  <strong className="text-white">{fmt(budgetFormDeclaredAmount)}</strong>
+                </div>
+
+                {protectedBudgetAmount > 0 ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Protected Amount</span>
+                    <strong className="text-cyan-100">{fmt(protectedBudgetAmount)}</strong>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center justify-between gap-3">
+                  <span>Allocated</span>
+                  <strong className="text-white">{fmt(budgetProjectedAllocated)}</strong>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span>Available / Unallocated</span>
+                  <strong className={budgetProjectedUnallocated === 0 ? "text-emerald-200" : "text-amber-100"}>
+                    {fmt(budgetProjectedUnallocated)}
+                  </strong>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span>Category Count</span>
+                  <strong className="text-white">{budgetCategories.length}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-white">Budget Categories</p>
+                <span className="rounded-full border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
+                  {budgetCategories.length}
+                </span>
+              </div>
+
+              {budgetCategories.length ? (
+                <div className="space-y-2">
+                  {budgetCategories.map((item) => (
+                    <div
+                      key={item.key || item.id || item.title}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                        <p className="mt-0.5 text-xs text-white/50">{fmt(item.allocated)} allocated</p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openBudgetModal(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-white/70 transition hover:bg-white/10 hover:text-white"
+                          aria-label={"Edit " + item.title}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteBudgetCategoryModal(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-2xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100"
+                          aria-label={"Remove " + item.title}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/15 bg-black/15 px-4 py-4 text-sm text-white/55">
+                  No categories added yet.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
+                Add Category
+              </p>
+
+              {showActiveBudgetAddCategory ? (
+                <div className="space-y-4">
+                  <FinanceField label="Category name">
+                    <input
+                      type="text"
+                      value={financeForm.budgetCategoryName || ""}
+                      onChange={(event) =>
+                        setFinanceForm((prev) => ({
+                          ...prev,
+                          budgetCategoryName: event.target.value,
+                          title: event.target.value,
+                        }))
+                      }
+                      placeholder="Bills, Food, Transportation..."
+                      className={financeInputClassName}
+                    />
+                  </FinanceField>
+
+                  <FinanceField label="Allocated amount">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={financeForm.totalBudget}
+                      onChange={(event) =>
+                        setFinanceForm((prev) => ({
+                          ...prev,
+                          totalBudget: event.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                      className={financeInputClassName}
+                    />
+                  </FinanceField>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      disabled={financeActionLoading}
+                      onClick={async () => {
+                        const saved = await saveBudgetInline({
+                          exitAfterSave: false,
+                          saveCategory: true,
+                        });
+
+                        if (saved) setShowActiveBudgetAddCategory(false);
+                      }}
+                      className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/18 disabled:opacity-60"
+                    >
+                      Save Category
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={financeActionLoading}
+                      onClick={() => setShowActiveBudgetAddCategory(false)}
+                      className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={financeActionLoading}
+                  onClick={() => setShowActiveBudgetAddCategory(true)}
+                  className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/18 disabled:opacity-60"
+                >
+                  Add Category
+                </button>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-yellow-300/15 bg-yellow-500/10 p-4">
+              <p className="text-sm font-bold text-yellow-50">Reset Cycle</p>
+              <p className="mt-2 text-xs leading-5 text-yellow-50/75">
+                Start the active budget tracking window from right now.
+              </p>
+
+              <button
+                type="button"
+                disabled={financeActionLoading}
+                onClick={openResetBudgetModal}
+                className="mt-4 w-full rounded-2xl border border-yellow-300/20 bg-yellow-500/12 px-4 py-3 text-sm font-semibold text-yellow-50 transition hover:bg-yellow-500/18 disabled:opacity-60"
+              >
+                Reset Cycle
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {budgetExitConfirm ? (
+              <div className="rounded-3xl border border-amber-300/20 bg-amber-500/10 p-4">
+                <p className="text-sm font-bold text-amber-50">Your budget is not fully assigned yet.</p>
+                <p className="mt-2 text-xs leading-5 text-amber-50/75">
+                  Save as draft before leaving so you can continue later.
+                </p>
+
+                <div className="mt-4 grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    disabled={financeActionLoading}
+                    onClick={() => saveBudgetInline({ exitAfterSave: true, saveCategory: false })}
+                    className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.22)] disabled:opacity-60"
+                  >
+                    Save Draft and Exit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBudgetExitConfirm(false)}
+                    className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                  >
+                    Continue Budgeting
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <FinanceField
+              label="Declared monthly budget amount"
+              helper="This is the total money you plan to spend for the month."
+            >
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={financeForm.monthlyBudgetAmount}
+                onChange={(event) =>
+                  setFinanceForm((prev) => ({
+                    ...prev,
+                    monthlyBudgetAmount: event.target.value,
+                  }))
+                }
+                placeholder="25000"
+                className={financeInputClassName}
+              />
+            </FinanceField>
+
+            {budgetFormDeclaredAmount > 0 ? (
+              <div className="rounded-3xl border border-white/15 bg-white/[0.075] p-4 text-xs leading-5 text-white/70">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Declared budget</span>
+                  <strong className="text-white">{fmt(budgetFormDeclaredAmount)}</strong>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span>Allocated so far</span>
+                  <strong className="text-white">{fmt(budgetProjectedAllocated)}</strong>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span>Unallocated balance</span>
+                  <strong className={budgetProjectedUnallocated === 0 ? "text-emerald-200" : "text-amber-100"}>
+                    {fmt(budgetProjectedUnallocated)}
+                  </strong>
+                </div>
+
+                {budgetFinishHelper ? (
+                  <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-50/80">
+                    {budgetFinishHelper}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {budgetFormDeclaredAmount > 0 ? (
+              <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
+                  Add budget category
+                </p>
+
+                <div className="space-y-4">
+                  <FinanceField label="Category name">
+                    <input
+                      type="text"
+                      value={financeForm.budgetCategoryName || ""}
+                      onChange={(event) =>
+                        setFinanceForm((prev) => ({
+                          ...prev,
+                          budgetCategoryName: event.target.value,
+                          title: event.target.value,
+                        }))
+                      }
+                      placeholder="Bills, Food, Transportation..."
+                      className={financeInputClassName}
+                    />
+                  </FinanceField>
+
+                  <FinanceField label="Allocated amount">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={financeForm.totalBudget}
+                      onChange={(event) =>
+                        setFinanceForm((prev) => ({
+                          ...prev,
+                          totalBudget: event.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                      className={financeInputClassName}
+                    />
+                  </FinanceField>
+
+                  <button
+                    type="button"
+                    disabled={financeActionLoading}
+                    onClick={() => saveBudgetInline({ exitAfterSave: false, saveCategory: true })}
+                    className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/18 disabled:opacity-60"
+                  >
+                    {financeModal.payload?.id ? "Update Category" : "Add Category"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-white">Added categories</p>
+                <span className="rounded-full border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
+                  {monthlyBudgetPlan.categories.length}
+                </span>
+              </div>
+
+              {monthlyBudgetPlan.categories.length ? (
+                <div className="space-y-2">
+                  {monthlyBudgetPlan.categories.map((item) => (
+                    <div
+                      key={item.key || item.id || item.title}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                        <p className="mt-0.5 text-xs text-white/50">{fmt(item.allocated)} allocated</p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openBudgetModal(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-white/70 transition hover:bg-white/10 hover:text-white"
+                          aria-label={`Edit ${item.title}`}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteBudgetCategoryModal(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-2xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100"
+                          aria-label={`Remove ${item.title}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/15 bg-black/15 px-4 py-4 text-sm text-white/55">
+                  No categories added yet.
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
                 disabled={financeActionLoading}
                 onClick={() => saveBudgetInline({ exitAfterSave: true, saveCategory: false })}
-                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.22)] disabled:opacity-60"
+                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
               >
-                Save Draft and Exit
+                Save Draft
               </button>
+
               <button
                 type="button"
-                onClick={() => setBudgetExitConfirm(false)}
-                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                disabled={!budgetCanFinish || financeActionLoading}
+                onClick={() => saveBudgetInline({ finish: true, exitAfterSave: true, saveCategory: false })}
+                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)] transition disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Continue Budgeting
+                Finish Budget
               </button>
             </div>
-          </div>
-        ) : null}
-      
-        <FinanceField
-          label="Declared monthly budget amount"
-          helper="This is the total money you plan to spend for the month."
-        >
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={financeForm.monthlyBudgetAmount}
-            onChange={(event) =>
-              setFinanceForm((prev) => ({
-                ...prev,
-                monthlyBudgetAmount: event.target.value,
-              }))
-            }
-            placeholder="25000"
-            className={financeInputClassName}
-          />
-        </FinanceField>
-      
-        {budgetFormDeclaredAmount > 0 ? (
-          <div className="rounded-3xl border border-white/15 bg-white/[0.075] p-4 text-xs leading-5 text-white/70">
-            <div className="flex items-center justify-between gap-3">
-              <span>Declared budget</span>
-              <strong className="text-white">{fmt(budgetFormDeclaredAmount)}</strong>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <span>Allocated so far</span>
-              <strong className="text-white">{fmt(budgetProjectedAllocated)}</strong>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <span>Unallocated balance</span>
-              <strong className={budgetProjectedUnallocated === 0 ? "text-emerald-200" : "text-amber-100"}>
-                {fmt(budgetProjectedUnallocated)}
-              </strong>
-            </div>
-      
-            {budgetFinishHelper ? (
-              <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-50/80">
-                {budgetFinishHelper}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      
-        {budgetFormDeclaredAmount > 0 ? (
-          <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
-              Add budget category
-            </p>
-      
-            <div className="space-y-4">
-              <FinanceField label="Category name">
-                <input
-                  type="text"
-                  value={financeForm.budgetCategoryName || ""}
-                  onChange={(event) =>
-                    setFinanceForm((prev) => ({
-                      ...prev,
-                      budgetCategoryName: event.target.value,
-                      title: event.target.value,
-                    }))
-                  }
-                  placeholder="Bills, Food, Transportation..."
-                  className={financeInputClassName}
-                />
-              </FinanceField>
-      
-              <FinanceField label="Allocated amount">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={financeForm.totalBudget}
-                  onChange={(event) =>
-                    setFinanceForm((prev) => ({
-                      ...prev,
-                      totalBudget: event.target.value,
-                    }))
-                  }
-                  placeholder="0"
-                  className={financeInputClassName}
-                />
-              </FinanceField>
-      
-              <button
-                type="button"
-                disabled={financeActionLoading}
-                onClick={() => saveBudgetInline({ exitAfterSave: false, saveCategory: true })}
-                className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/18 disabled:opacity-60"
-              >
-                {financeModal.payload?.id ? "Update Category" : "Add Category"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      
-        <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-bold text-white">Added categories</p>
-            <span className="rounded-full border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
-              {monthlyBudgetPlan.categories.length}
-            </span>
-          </div>
-      
-          {monthlyBudgetPlan.categories.length ? (
-            <div className="space-y-2">
-              {monthlyBudgetPlan.categories.map((item) => (
-                <div
-                  key={item.key || item.id || item.title}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                    <p className="mt-0.5 text-xs text-white/50">{fmt(item.allocated)} allocated</p>
-                  </div>
-      
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openBudgetModal(item)}
-                      className="flex h-8 w-8 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-white/70 transition hover:bg-white/10 hover:text-white"
-                      aria-label={`Edit ${item.title}`}
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openDeleteBudgetCategoryModal(item)}
-                      className="flex h-8 w-8 items-center justify-center rounded-2xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100"
-                      aria-label={`Remove ${item.title}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/15 bg-black/15 px-4 py-4 text-sm text-white/55">
-              No categories added yet.
-            </div>
-          )}
-        </div>
-      
-        <div className="grid grid-cols-1 gap-2">
-          <button
-            type="button"
-            disabled={financeActionLoading}
-            onClick={() => saveBudgetInline({ exitAfterSave: true, saveCategory: false })}
-            className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
-          >
-            Save Draft
-          </button>
-      
-          <button
-            type="button"
-            disabled={!budgetCanFinish || financeActionLoading}
-            onClick={() => saveBudgetInline({ finish: true, exitAfterSave: true, saveCategory: false })}
-            className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)] transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Finish Budget
-          </button>
-        </div>
+          </>
+        )}
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "delete_budget_category"}
         title="Remove budget category"
@@ -621,7 +872,7 @@ export default function DashboardFinanceModalRenderer({
           Remove {financeModal.payload ? getBudgetListTitle(financeModal.payload) : "this category"} from this month’s spending plan?
         </div>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "reset_budget"}
         title="Reset budget tracking"
@@ -639,7 +890,7 @@ export default function DashboardFinanceModalRenderer({
           This keeps your budget setup, but it resets the tracking start date to now.
         </div>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "save_savings_goal"}
         title={financeModal.payload?.id ? "Edit savings goal" : "New Savings Goal"}
@@ -664,7 +915,7 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-      
+
           <FinanceField label="Category">
             <input
               type="text"
@@ -676,7 +927,7 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-      
+
           <FinanceField label="Subcategory">
             <input
               type="text"
@@ -688,7 +939,7 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-      
+
           <FinanceField label="Target amount">
             <input
               type="number"
@@ -705,7 +956,7 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-      
+
           <FinanceField label="Already saved">
             <input
               type="number"
@@ -722,7 +973,7 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-      
+
           <FinanceField label="Source wallet">
             <select
               value={financeForm.savingsWalletId || ""}
@@ -742,7 +993,7 @@ export default function DashboardFinanceModalRenderer({
               ))}
             </select>
           </FinanceField>
-      
+
           <FinanceField label="Planned use date">
             <input
               type="date"
@@ -757,12 +1008,12 @@ export default function DashboardFinanceModalRenderer({
             />
           </FinanceField>
         </div>
-      
+
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/72">
             3 reasons / motivations
           </p>
-      
+
           <input
             type="text"
             value={financeForm.reasonOne || ""}
@@ -772,7 +1023,7 @@ export default function DashboardFinanceModalRenderer({
             placeholder="Reason 1"
             className={financeInputClassName}
           />
-      
+
           <input
             type="text"
             value={financeForm.reasonTwo || ""}
@@ -782,7 +1033,7 @@ export default function DashboardFinanceModalRenderer({
             placeholder="Reason 2"
             className={financeInputClassName}
           />
-      
+
           <input
             type="text"
             value={financeForm.reasonThree || ""}
@@ -793,7 +1044,7 @@ export default function DashboardFinanceModalRenderer({
             className={financeInputClassName}
           />
         </div>
-      
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FinanceField label="Emotional value">
             <select
@@ -813,7 +1064,7 @@ export default function DashboardFinanceModalRenderer({
               <option value="love">Love ❤️</option>
             </select>
           </FinanceField>
-      
+
           <FinanceField label="Priority">
             <select
               value={financeForm.priority || "medium"}
@@ -830,7 +1081,7 @@ export default function DashboardFinanceModalRenderer({
               <option value="high">High</option>
             </select>
           </FinanceField>
-      
+
           <FinanceField label="Flexibility">
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -846,7 +1097,7 @@ export default function DashboardFinanceModalRenderer({
               >
                 Flexible
               </button>
-      
+
               <button
                 type="button"
                 onClick={() =>
@@ -863,7 +1114,7 @@ export default function DashboardFinanceModalRenderer({
             </div>
           </FinanceField>
         </div>
-      
+
         <FinanceField label="Notes">
           <textarea
             rows={4}
@@ -876,7 +1127,7 @@ export default function DashboardFinanceModalRenderer({
           />
         </FinanceField>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "delete_savings_goal"}
         title="Delete savings goal"
@@ -894,7 +1145,7 @@ export default function DashboardFinanceModalRenderer({
           This deletes the selected goal from the card details section.
         </div>
       </FinanceActionModal>
-      
+
       <FinanceActionModal
         open={financeModal.type === "add_savings"}
         title="Add to savings goal"
@@ -927,7 +1178,7 @@ export default function DashboardFinanceModalRenderer({
               ))}
           </select>
         </FinanceField>
-      
+
         <FinanceField
           label="Amount"
           helper={`Remaining target: ${fmt(
@@ -951,7 +1202,7 @@ export default function DashboardFinanceModalRenderer({
           />
         </FinanceField>
       </FinanceActionModal>
-      
+
       {dashboardShellReady ? (
         <ClaraAssistantPanel
           open={showAiAssistant}
