@@ -1,10 +1,47 @@
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 
+function getYouTubePlayerSrc(embedUrl) {
+  if (!embedUrl) return "";
+
+  try {
+    const url = new URL(embedUrl);
+
+    if (url.hostname.includes("youtube.com")) {
+      url.searchParams.set("enablejsapi", "1");
+      url.searchParams.set("playsinline", "1");
+      url.searchParams.set("controls", "1");
+      url.searchParams.set("fs", "1");
+    }
+
+    return url.toString();
+  } catch {
+    return embedUrl;
+  }
+}
+
 export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
+  const iframeRef = useRef(null);
+
   if (!isOpen || !material || typeof document === "undefined") return null;
 
   const titleId = "clara-learning-video-watch-title";
   const subtitleId = "clara-learning-video-watch-subtitle";
+  const playerSrc = getYouTubePlayerSrc(material.embedUrl);
+
+  const sendYouTubeCommand = (func) => {
+    const playerWindow = iframeRef.current?.contentWindow;
+    if (!playerWindow) return;
+
+    playerWindow.postMessage(
+      JSON.stringify({
+        event: "command",
+        func,
+        args: [],
+      }),
+      "*",
+    );
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-hidden bg-[radial-gradient(circle_at_0%_0%,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_100%_100%,rgba(129,140,248,0.20),transparent_38%),linear-gradient(135deg,#020617,#061826_48%,#100926)] text-white">
@@ -60,8 +97,9 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
           <div className="w-full max-w-5xl overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
             <div className="relative w-full landscape:h-full landscape:max-h-[100dvh] landscape:max-w-[calc(100dvh*16/9)]" style={{ aspectRatio: "16 / 9" }}>
               <iframe
+                ref={iframeRef}
                 className="absolute inset-0 h-full w-full landscape:relative"
-                src={material.embedUrl}
+                src={playerSrc}
                 title={material.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
@@ -71,9 +109,26 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         </main>
 
         <footer className="relative z-20 shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] landscape:hidden">
-          <div className="mx-auto flex w-full max-w-5xl rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 rounded-[22px] border border-white/10 bg-black/22 p-4 backdrop-blur-md">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => sendYouTubeCommand("playVideo")}
+                className="inline-flex items-center justify-center rounded-full border border-cyan-100/16 bg-cyan-100/[0.12] px-4 py-3 text-[12px] font-black text-cyan-50 transition hover:bg-cyan-100/[0.18] active:scale-[0.98]"
+              >
+                Play
+              </button>
+              <button
+                type="button"
+                onClick={() => sendYouTubeCommand("pauseVideo")}
+                className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/[0.08] px-4 py-3 text-[12px] font-black text-white/82 transition hover:bg-white/[0.12] active:scale-[0.98]"
+              >
+                Pause
+              </button>
+            </div>
+
             <p className="text-[12px] leading-relaxed text-white/58">
-              Tap the video to play or pause. Use the YouTube controls inside the frame for timeline, volume, and fullscreen.
+              Use CLARA controls for play and pause. Use the YouTube controls inside the frame for timeline, volume, and fullscreen.
             </p>
           </div>
         </footer>
