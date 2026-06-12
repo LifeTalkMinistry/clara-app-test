@@ -1,10 +1,13 @@
 .clara-daily-tip-scene {
   height: 150px;
   width: 100%;
-  perspective: 1700px;
+  perspective: 1800px;
+  -webkit-perspective: 1800px;
   perspective-origin: center center;
-  transform: translateZ(0);
-  contain: layout paint;
+  -webkit-perspective-origin: center center;
+  transform: translate3d(0, 0, 0);
+  isolation: isolate;
+  contain: layout;
 }
 
 .clara-daily-tip-flipper {
@@ -12,12 +15,13 @@
   height: 100%;
   width: 100%;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transform-origin: center center;
   transform: translate3d(0, 0, 0) rotateY(0deg);
   transition-property: transform;
-  transition-duration: 820ms;
+  transition-duration: 860ms;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
-  contain: layout paint;
 }
 
 .clara-daily-tip-flipper--flipped {
@@ -28,17 +32,21 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform-style: preserve-3d;
+  transform-origin: center center;
+  -webkit-transform-origin: center center;
+  -webkit-font-smoothing: antialiased;
 }
 
 .clara-daily-tip-face--front {
-  transform: translateZ(0.5px);
+  transform: translate3d(0, 0, 1px);
 }
 
 .clara-daily-tip-face--back {
-  transform: rotateY(180deg) translateZ(0.5px);
+  transform: rotateY(180deg) translate3d(0, 0, 1px);
 }
 
 @media (prefers-reduced-motion: reduce) {
