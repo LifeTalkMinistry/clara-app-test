@@ -114,12 +114,61 @@ const isActiveGoal = (goal = {}) => {
   return target <= 0 || goalSaved(goal) < target;
 };
 const emergencyConfigured = (emergencyFund) => {
-  if (emergencyFund === undefined) return true;
   if (!emergencyFund || typeof emergencyFund !== "object") return false;
-  const target = protectionNumber(emergencyFund.target_amount ?? emergencyFund.targetAmount ?? emergencyFund.target ?? emergencyFund.goal_amount);
-  const current = protectionNumber(emergencyFund.current_amount ?? emergencyFund.saved_amount ?? emergencyFund.saved ?? emergencyFund.amount);
-  const survival = protectionNumber(emergencyFund.monthly_survival_cost ?? emergencyFund.survivalExpense ?? emergencyFund.monthly_expense);
-  return target > 0 || current > 0 || survival > 0 || emergencyFund.is_configured === true || emergencyFund.setupCompleted === true;
+  if (emergencyFund.resetAt || emergencyFund.reset_at) return false;
+
+  const status = normalizeProtectionText(
+    emergencyFund.status ||
+    emergencyFund.state ||
+    emergencyFund.setup_status ||
+    ""
+  );
+
+  if (["reset", "inactive", "archived", "deleted", "not setup", "not set"].includes(status)) return false;
+
+  const hasSetupFlag =
+    emergencyFund.is_setup === true ||
+    emergencyFund.isSetup === true ||
+    emergencyFund.setup_complete === true ||
+    emergencyFund.setupComplete === true ||
+    emergencyFund.setupCompleted === true ||
+    emergencyFund.is_configured === true ||
+    emergencyFund.isConfigured === true;
+
+  const hasSetupStatus = ["active", "setup", "configured", "complete", "completed", "ready"].includes(status);
+
+  const target = protectionNumber(
+    emergencyFund.target_amount ??
+    emergencyFund.targetAmount ??
+    emergencyFund.target ??
+    emergencyFund.goal_amount
+  );
+
+  const survival = protectionNumber(
+    emergencyFund.monthly_survival_cost ??
+    emergencyFund.monthlySurvivalCost ??
+    emergencyFund.survival_expense ??
+    emergencyFund.survivalExpense ??
+    emergencyFund.monthlyExpense ??
+    emergencyFund.monthly_expense ??
+    emergencyFund.monthly_survival_expense
+  );
+
+  const walletId = String(
+    emergencyFund.linkedWalletId ||
+    emergencyFund.linked_wallet_id ||
+    emergencyFund.reserveWalletId ||
+    emergencyFund.reserve_wallet_id ||
+    emergencyFund.sourceWalletId ||
+    emergencyFund.source_wallet_id ||
+    emergencyFund.storageWalletId ||
+    emergencyFund.storage_wallet_id ||
+    emergencyFund.walletId ||
+    emergencyFund.wallet_id ||
+    ""
+  ).trim();
+
+  return hasSetupFlag || hasSetupStatus || target > 0 || survival > 0 || Boolean(walletId);
 };
 const emergencySetupTargetAmount = (emergencyFund = {}) => {
   const direct = protectionNumber(emergencyFund.monthly_contribution ?? emergencyFund.monthlyContribution ?? emergencyFund.monthly_amount ?? emergencyFund.monthlyAmount ?? emergencyFund.recommended_monthly_amount);
@@ -176,12 +225,11 @@ function buildProtectedBudgetCommitments(settings, { savingsGoals = [], emergenc
   let emergencyFundAmount = 0;
   let includedEmergencyFund = false;
   let emergencyFundFlexible = false;
-  if (clean.includeEmergencyFund) {
+  const hasEmergencySetup = emergencyConfigured(emergencyFund);
+  if (clean.includeEmergencyFund && hasEmergencySetup) {
     includedEmergencyFund = true;
     if (hasProtectedDuplicate(budgetCategories, "emergency")) {
       explanation.push("Emergency Fund already appears as a budget category, so CLARA did not deduct it again.");
-    } else if (!emergencyConfigured(emergencyFund)) {
-      explanation.push("Emergency Fund not set up yet, so no emergency reserve was deducted.");
     } else if (clean.emergencyFundContributionMode === "leftover") {
       emergencyFundFlexible = true;
       explanation.push("Emergency Fund protection is set to use leftover money after essentials.");
@@ -191,6 +239,8 @@ function buildProtectedBudgetCommitments(settings, { savingsGoals = [], emergenc
         : clean.emergencyFundMonthlyAmount;
       explanation.push(emergencyFundAmount > 0 ? `Emergency Fund protection: ₱${emergencyFundAmount.toLocaleString("en-PH", { maximumFractionDigits: 0 })} reserved.` : "Emergency Fund is included, but no monthly reserve amount is available yet.");
     }
+  } else if (clean.includeEmergencyFund && !hasEmergencySetup) {
+    explanation.push("Emergency Fund not set up yet, so no emergency reserve was deducted.");
   }
 
   const totalProtectedCommitments = Math.max(0, savingsGoalsAmount) + Math.max(0, emergencyFundAmount);
@@ -519,5 +569,5 @@ export default function useDashboardMonthlyBudgetPlan({
       status: hasActiveBudgetPlan ? "active" : "no_plan",
       normalizedBudgetStatus: hasActiveBudgetPlan ? "active" : "no_plan",
     };
-  }, [budgetProtectionContextTick, budgetProtectionSettings, declaredMonthlyBudgetAmount, emergencyFund, expenses, manualExpenseBudgetOptions, monthlyBudgetHeader, savingsGoals]);
+  }, [manualExpenseBudgetOptions, expenses, monthlyBudgetHeader, declaredMonthlyBudgetAmount, savingsGoals, emergencyFund, budgetProtectionSettings, budgetProtectionContextTick]);
 }
