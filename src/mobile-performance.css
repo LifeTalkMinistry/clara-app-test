@@ -140,13 +140,42 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
   }
 }
 
+/* Learning Hub mobile open/expand performance: keep the premium gradients, but remove inner repaint traps. */
+@media (max-width: 640px) {
+  .theme-page-shell main .clara-learning-hub-stage {
+    perspective: none !important;
+    transform-style: flat !important;
+    contain: layout paint style !important;
+  }
+
+  .theme-page-shell main .clara-learning-hub-card {
+    backface-visibility: hidden !important;
+    -webkit-backface-visibility: hidden !important;
+    transform-style: flat !important;
+    will-change: transform, opacity !important;
+  }
+
+  .theme-page-shell main .clara-learning-hub-card > div {
+    transform-style: flat !important;
+  }
+
+  .theme-page-shell main .clara-learning-hub-card * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .theme-page-shell main .clara-learning-hub-card [style*="blur"],
+  .theme-page-shell main .clara-learning-hub-card [class*="blur"] {
+    filter: none !important;
+  }
+}
+
 /* Learning Hub must not be compressed by Dashboard Fit Mode. */
 @media (max-width: 430px) {
   .theme-page-shell main .clara-learning-hub-expanded[data-learning-hub-expanded="false"] {
     height: 0 !important;
     min-height: 0 !important;
     max-height: 0 !important;
-    grid-template-rows: 0px !important;
     overflow: hidden !important;
   }
 
@@ -161,7 +190,6 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
     height: 244px !important;
     min-height: 244px !important;
     max-height: 244px !important;
-    grid-template-rows: 244px !important;
     overflow: visible !important;
   }
 
