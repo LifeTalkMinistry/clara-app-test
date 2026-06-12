@@ -105,7 +105,7 @@ export default function TransactionCard({ item, onEdit }) {
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          onEdit?.(isEmergencyAllocation ? { ...item, group: "expense" } : item);
+          onEdit?.(item);
         }}
         className="absolute right-3 top-3 z-20 flex h-10 w-10 touch-manipulation items-center justify-center rounded-[14px] border border-white/10 bg-white/[0.04] text-slate-300/62 shadow-[0_10px_22px_rgba(0,0,0,0.16)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.075] hover:text-slate-50/84 active:scale-[0.94]"
         aria-label={`Edit ${item.title}`}
