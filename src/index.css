@@ -78,6 +78,15 @@ body::after {
   -webkit-backdrop-filter: blur(22px) saturate(1.18);
 }
 
+/* Learning Hub owns its own premium gradients; do not stack the global glass blur inside the carousel. */
+#root .clara-learning-hub-stage,
+#root .clara-learning-hub-stage *,
+#root .clara-learning-hub-card,
+#root .clara-learning-hub-card * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 #root :is([class*="rounded-2xl"], [class*="rounded-xl"])[class*="border"] {
   border-color: rgba(165, 243, 252, 0.14) !important;
   background-color: rgba(255, 255, 255, 0.055) !important;
