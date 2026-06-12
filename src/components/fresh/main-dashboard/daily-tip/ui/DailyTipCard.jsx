@@ -4,6 +4,7 @@ import useDailyTip from "../logic/useDailyTip";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
 
 const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
+const CLARA_MONEY_CHAT_REQUEST_EVENT = "clara:money-card-chat-request";
 
 function readActiveCurrentState() {
   if (typeof window === "undefined") return null;
@@ -16,6 +17,21 @@ function readActiveCurrentState() {
   } catch {
     return null;
   }
+}
+
+function buildDailyTipClaraPrompt(tip) {
+  const quote = String(tip || "").trim() || "Needs first, wants later.";
+
+  return `This user wants you to elaborate this quote: “${quote}”.
+
+Elaborate it now with a personal finance focus and practical steps.
+
+Explain:
+1. What this means in daily money decisions.
+2. How to apply it today.
+3. One small action the user can do before spending.
+
+Keep it warm, direct, and practical.`;
 }
 
 export default function DailyTipCard({
@@ -54,6 +70,25 @@ export default function DailyTipCard({
     window.setTimeout(() => {
       setIsFlipping(false);
     }, 760);
+  };
+
+  const handleAskClaraAboutTip = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!hasCommittedAccess) {
+      onOpenCommitmentBooklet?.();
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
+        detail: {
+          source: "daily-money-tip",
+          prompt: buildDailyTipClaraPrompt(tip),
+        },
+      })
+    );
   };
 
   const handleExitCurrentState = async () => {
@@ -108,9 +143,16 @@ export default function DailyTipCard({
 
   return (
     <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleFlip}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleFlip();
+          }
+        }}
         aria-label={
           hasCommittedAccess
             ? "Flip Daily Money Tip"
@@ -171,8 +213,14 @@ export default function DailyTipCard({
                   {tip}
                 </div>
 
-                <div className="flex items-center justify-center text-[11px] font-semibold text-cyan-300/80">
-                  <span className="opacity-90">Ask CLARA</span>
+                <div className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={handleAskClaraAboutTip}
+                    className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100 transition hover:bg-cyan-300/15 active:scale-95"
+                  >
+                    Ask CLARA
+                  </button>
                 </div>
               </div>
             </div>
@@ -194,7 +242,7 @@ export default function DailyTipCard({
             </span>
           </span>
         ) : null}
-      </button>
+      </div>
     </div>
   );
 }
