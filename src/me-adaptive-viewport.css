@@ -5,10 +5,10 @@
   min-height: calc(100svh - 112px) !important;
   max-height: calc(100svh - 112px) !important;
   display: grid !important;
-  grid-template-rows: minmax(224px, 38%) minmax(88px, 13%) 236px !important;
+  grid-template-rows: minmax(214px, 1fr) auto minmax(214px, 236px) !important;
   gap: 8px !important;
   overflow: hidden !important;
-  padding: 8px !important;
+  padding: 8px 8px 10px !important;
   box-sizing: border-box !important;
 }
 
@@ -18,75 +18,45 @@
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child {
+  position: relative !important;
+  z-index: 2 !important;
   height: 100% !important;
   min-height: 0 !important;
   flex: none !important;
   overflow: hidden !important;
-  padding: clamp(14px, 2.1svh, 18px) !important;
-  border-radius: 28px !important;
+  padding: clamp(15px, 2svh, 18px) clamp(16px, 4vw, 20px) clamp(22px, 3svh, 28px) !important;
+  border-radius: 29px !important;
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child > div:last-child {
-  max-width: 62% !important;
-  justify-content: flex-end !important;
-  padding-top: 18px !important;
-  padding-bottom: 10px !important;
+  max-width: 61% !important;
+  justify-content: center !important;
+  padding-top: 12px !important;
+  padding-bottom: 26px !important;
+  transform: translateY(6px) !important;
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
-  font-size: clamp(26px, 6.4vw, 32px) !important;
-  line-height: .94 !important;
-  margin-top: 4px !important;
+  max-width: 12.3rem !important;
+  font-size: clamp(24px, 6.35vw, 30px) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.054em !important;
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child p:last-child {
   display: -webkit-box !important;
+  max-width: 12.1rem !important;
   -webkit-line-clamp: 4 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
-  font-size: clamp(11px, 2.8vw, 12px) !important;
-  line-height: 1.4 !important;
-  margin-top: 8px !important;
+  color: rgba(248, 253, 255, 0.68) !important;
+  font-size: clamp(10.7px, 2.72vw, 11.7px) !important;
+  line-height: 1.43 !important;
 }
 
-#root section[data-clara-support-card="true"] {
-  height: calc(100% - 10px) !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  flex: none !important;
-  margin: 10px 0 0 0 !important;
-  padding: 12px 14px !important;
-  border-radius: 24px !important;
-  transform: none !important;
-  overflow: hidden !important;
-}
-
-#root section[data-clara-support-card="true"] > div {
-  height: 100% !important;
-  align-items: center !important;
-}
-
-#root section[data-clara-support-card="true"] h3 {
-  margin-bottom: 8px !important;
-}
-
-#root section[data-clara-support-card="true"] h3 + p {
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
-  line-height: 1.32 !important;
-}
-
-#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
-  width: 48px !important;
-  height: 48px !important;
-  margin-left: 10px !important;
-}
-
-/* Snapshot restored to stable, non-adaptive sizing. */
 #root section[data-clara-trend-snapshot="true"] {
   position: relative !important;
+  z-index: 3 !important;
   top: 0 !important;
   height: 236px !important;
   min-height: 236px !important;
@@ -97,13 +67,17 @@
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
-  border-radius: 26px !important;
+  border-radius: 25px !important;
   box-sizing: border-box !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] > div:first-child,
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-header="true"] {
   flex: 0 0 auto !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] h3 {
+  font-size: 14.2px !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
@@ -115,7 +89,7 @@
   align-content: stretch !important;
   margin-top: 10px !important;
   padding: 1px 28px 2px 1px !important;
-  gap: 10px !important;
+  gap: 9px !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   display: flex !important;
@@ -124,6 +98,7 @@
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
   flex: 0 0 118px !important;
+  flex-basis: 118px !important;
   min-width: 118px !important;
   max-width: 118px !important;
   height: 152px !important;
@@ -151,242 +126,96 @@
   max-height: 31px !important;
 }
 
-@media (max-height: 720px) {
-  #root div:has(> section[data-clara-trend-snapshot="true"]) {
-    height: calc(100svh - 104px) !important;
-    min-height: calc(100svh - 104px) !important;
-    max-height: calc(100svh - 104px) !important;
-    grid-template-rows: minmax(202px, 37%) minmax(80px, 12%) 224px !important;
-    gap: 7px !important;
-  }
-
-  #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
-    font-size: clamp(24px, 6vw, 30px) !important;
-  }
-
-  #root section[data-clara-support-card="true"] {
-    height: calc(100% - 8px) !important;
-    margin-top: 8px !important;
-  }
-
-  #root section[data-clara-trend-snapshot="true"] {
-    top: 0 !important;
-    height: 224px !important;
-    min-height: 224px !important;
-    max-height: 224px !important;
-  }
-}
-
-@media (max-height: 660px) {
-  #root div:has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(184px, 36%) minmax(68px, 11%) 224px !important;
-  }
-
-  #root section[data-clara-support-card="true"] {
-    display: none !important;
-  }
-}
-
-/* Phase 2 — reference collision balance.
-   The support insight becomes the intentional foreground bridge, while the Working Student hero stays readable behind it.
-   Snapshot is now protected as a stable rail and no longer absorbs viewport pressure. */
-
+/* CLARA Me tab — adaptive support card authority */
 #root div:has(> section[data-clara-trend-snapshot="true"]) {
-  grid-template-rows: minmax(236px, 42.5%) minmax(74px, 10.5%) 236px !important;
-  gap: 0 !important;
+  grid-template-rows: minmax(214px, 1fr) auto minmax(214px, 236px) !important;
+  gap: 8px !important;
   padding: 8px 8px 10px !important;
-}
-
-#root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child {
-  position: relative !important;
-  z-index: 2 !important;
-  border-radius: 29px !important;
-  padding: clamp(15px, 2svh, 18px) clamp(16px, 4vw, 20px) clamp(22px, 3svh, 28px) !important;
-  box-shadow:
-    0 18px 54px rgba(0, 0, 0, 0.26),
-    0 0 34px rgba(45, 212, 191, 0.045),
-    inset 0 1px 0 rgba(255, 255, 255, 0.060) !important;
-}
-
-#root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child::after {
-  opacity: 0.90 !important;
-  background:
-    linear-gradient(180deg, transparent 0%, rgba(2, 8, 23, 0.28) 55%, rgba(2, 8, 23, 0.84) 100%),
-    radial-gradient(circle at 68% 30%, rgba(124, 58, 237, 0.11), transparent 34%) !important;
-}
-
-#root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child > div:last-child {
-  max-width: 61% !important;
-  justify-content: center !important;
-  padding-top: 12px !important;
-  padding-bottom: 26px !important;
-  transform: translateY(6px) !important;
-}
-
-#root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
-  max-width: 12.3rem !important;
-  font-size: clamp(24px, 6.35vw, 30px) !important;
-  line-height: 0.98 !important;
-  letter-spacing: -0.054em !important;
-}
-
-#root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child p:last-child {
-  max-width: 12.1rem !important;
-  -webkit-line-clamp: 4 !important;
-  color: rgba(248, 253, 255, 0.68) !important;
-  font-size: clamp(10.7px, 2.72vw, 11.7px) !important;
-  line-height: 1.43 !important;
+  overflow: hidden !important;
 }
 
 #root section[data-clara-support-card="true"] {
   position: relative !important;
   z-index: 8 !important;
-  align-self: center !important;
   width: calc(100% - 4px) !important;
-  height: 108px !important;
-  min-height: 108px !important;
-  max-height: 108px !important;
-  margin: -24px auto -12px !important;
-  padding: 13px 15px 20px !important;
+  height: auto !important;
+  min-height: 104px !important;
+  max-height: none !important;
+  margin: -8px auto 0 !important;
+  padding: 13px 15px 15px !important;
   border-radius: 24px !important;
-  border-color: rgba(255, 255, 255, 0.145) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.088), rgba(255, 255, 255, 0.026) 58%, rgba(255, 255, 255, 0.012)),
-    radial-gradient(circle at 87% 52%, rgba(216, 180, 254, 0.20), transparent 39%),
-    radial-gradient(circle at 8% 0%, rgba(45, 212, 191, 0.080), transparent 42%),
-    rgba(7, 10, 26, 0.50) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.105),
-    0 19px 48px rgba(0, 0, 0, 0.31),
-    0 -15px 34px rgba(124, 58, 237, 0.085),
-    0 0 30px rgba(216, 180, 254, 0.055) !important;
-  backdrop-filter: blur(30px) saturate(1.18) !important;
-  -webkit-backdrop-filter: blur(30px) saturate(1.18) !important;
-}
-
-#root section[data-clara-support-card="true"]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0.080), transparent 28%, transparent 72%, rgba(255, 255, 255, 0.030));
-  opacity: 0.66;
+  overflow: hidden !important;
+  align-self: center !important;
+  box-sizing: border-box !important;
 }
 
 #root section[data-clara-support-card="true"] > div {
-  position: relative !important;
-  z-index: 3 !important;
-  height: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
   align-items: center !important;
   gap: 12px !important;
 }
 
 #root section[data-clara-support-card="true"] h3 {
-  margin: 0 !important;
-  max-width: 15.9rem !important;
-  font-size: 13.4px !important;
-  line-height: 1.08 !important;
+  margin: 0 0 5px !important;
+  max-width: min(100%, calc(100vw - 148px)) !important;
+  font-size: clamp(12.6px, 3.35vw, 13.6px) !important;
+  line-height: 1.1 !important;
   letter-spacing: -0.022em !important;
-  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 #root section[data-clara-support-card="true"] h3 + p {
-  margin-top: 5px !important;
-  max-width: 16.2rem !important;
-  -webkit-line-clamp: 2 !important;
-  color: rgba(248, 253, 255, 0.62) !important;
-  font-size: 10.7px !important;
-  line-height: 1.38 !important;
-}
-
-#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
-  width: 50px !important;
-  height: 50px !important;
-  margin-left: 4px !important;
-  opacity: 0.96 !important;
-  transform: scale(0.96) !important;
-  box-shadow:
-    0 0 28px rgba(216, 180, 254, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.085) !important;
-}
-
-#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg)::before {
-  inset: -6px !important;
-  opacity: 0.56 !important;
-}
-
-#root section[data-clara-trend-snapshot="true"] {
-  z-index: 3 !important;
-  top: 0 !important;
-  height: 236px !important;
-  min-height: 236px !important;
-  max-height: 236px !important;
+  display: -webkit-box !important;
+  max-width: min(100%, calc(100vw - 152px)) !important;
   margin: 0 !important;
-  padding: 14px 12px 12px !important;
-  border-radius: 25px !important;
-  border-color: rgba(255, 255, 255, 0.115) !important;
-  box-shadow:
-    0 16px 42px rgba(0, 0, 0, 0.25),
-    0 0 25px rgba(45, 212, 191, 0.030),
-    inset 0 1px 0 rgba(255, 255, 255, 0.065) !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  color: rgba(248, 253, 255, 0.66) !important;
+  font-size: clamp(9.6px, 2.65vw, 10.45px) !important;
+  line-height: 1.32 !important;
+  font-weight: 650 !important;
 }
 
-#root section[data-clara-trend-snapshot="true"] h3 {
-  font-size: 14.2px !important;
+#root section[data-clara-support-card="true"] [data-clara-heart-cta="true"],
+#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
+  flex: 0 0 clamp(44px, 12.8vw, 52px) !important;
+  width: clamp(44px, 12.8vw, 52px) !important;
+  height: clamp(44px, 12.8vw, 52px) !important;
+  min-width: clamp(44px, 12.8vw, 52px) !important;
+  min-height: clamp(44px, 12.8vw, 52px) !important;
+  margin-left: 4px !important;
+  align-self: center !important;
 }
 
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
-  height: 152px !important;
-  min-height: 152px !important;
-  max-height: 152px !important;
-  margin-top: 10px !important;
-  padding: 1px 28px 2px 1px !important;
-  gap: 9px !important;
-}
-
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
-  flex: 0 0 118px !important;
-  flex-basis: 118px !important;
-  min-width: 118px !important;
-  max-width: 118px !important;
-  height: 152px !important;
-  min-height: 152px !important;
-  max-height: 152px !important;
-  border-radius: 18px !important;
-}
-
+/* Short screens: preserve hierarchy without crushing the support card */
 @media (max-height: 720px) {
   #root div:has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(212px, 41%) minmax(66px, 10%) 224px !important;
-    gap: 0 !important;
-  }
-
-  #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child > div:last-child {
-    padding-bottom: 22px !important;
+    height: calc(100svh - 104px) !important;
+    min-height: calc(100svh - 104px) !important;
+    max-height: calc(100svh - 104px) !important;
+    grid-template-rows: minmax(196px, 1fr) auto minmax(206px, 224px) !important;
+    gap: 7px !important;
   }
 
   #root section[data-clara-support-card="true"] {
-    height: 98px !important;
-    min-height: 98px !important;
-    max-height: 98px !important;
-    margin: -22px auto -10px !important;
-    padding: 11px 13px 17px !important;
+    height: auto !important;
+    min-height: 94px !important;
+    max-height: none !important;
+    margin: -6px auto 0 !important;
+    padding: 11px 13px 13px !important;
   }
 
   #root section[data-clara-support-card="true"] h3 {
-    font-size: 12.9px !important;
+    font-size: clamp(12px, 3.18vw, 13px) !important;
   }
 
   #root section[data-clara-support-card="true"] h3 + p {
-    font-size: 10.1px !important;
-    line-height: 1.32 !important;
-  }
-
-  #root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
-    width: 44px !important;
-    height: 44px !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    font-size: clamp(9.2px, 2.48vw, 10px) !important;
+    line-height: 1.28 !important;
   }
 
   #root section[data-clara-trend-snapshot="true"] {
@@ -397,33 +226,41 @@
   }
 }
 
+/* Very short screens: keep the card visible, but compact */
 @media (max-height: 660px) {
   #root div:has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(178px, 39%) minmax(56px, 8.5%) 224px !important;
-    gap: 0 !important;
+    grid-template-rows: minmax(170px, 1fr) auto minmax(198px, 218px) !important;
+    gap: 6px !important;
   }
 
   #root section[data-clara-support-card="true"] {
     display: block !important;
-    height: 80px !important;
-    min-height: 80px !important;
-    max-height: 80px !important;
-    margin: -17px auto -8px !important;
-    padding: 9px 12px 13px !important;
+    height: auto !important;
+    min-height: 82px !important;
+    max-height: none !important;
+    margin: -4px auto 0 !important;
+    padding: 9px 12px 11px !important;
   }
 
   #root section[data-clara-support-card="true"] h3 {
     font-size: 11.7px !important;
+    margin-bottom: 4px !important;
   }
 
   #root section[data-clara-support-card="true"] h3 + p {
-    -webkit-line-clamp: 1 !important;
-    font-size: 9.5px !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    font-size: 9.1px !important;
+    line-height: 1.22 !important;
   }
 
+  #root section[data-clara-support-card="true"] [data-clara-heart-cta="true"],
   #root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
+    flex-basis: 38px !important;
     width: 38px !important;
     height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
   }
 
   #root section[data-clara-trend-snapshot="true"] {
@@ -432,15 +269,5 @@
     height: 224px !important;
     min-height: 224px !important;
     max-height: 224px !important;
-  }
-}
-
-@media (max-width: 390px) {
-  #root section[data-clara-support-card="true"] {
-    width: calc(100% - 2px) !important;
-  }
-
-  #root section[data-clara-support-card="true"] h3 + p {
-    max-width: 14.6rem !important;
   }
 }
