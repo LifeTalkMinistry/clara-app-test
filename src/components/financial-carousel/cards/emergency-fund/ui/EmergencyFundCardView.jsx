@@ -11,6 +11,7 @@ export default function EmergencyFundCardView({
   toggleFinanceDetails,
   onQuickExpense,
   onSurvivalSaved,
+  onCreateWallet,
   startClaraAiLongPress,
   endClaraAiLongPress,
   handleClaraAiOrbClickCapture,
@@ -58,6 +59,7 @@ export default function EmergencyFundCardView({
         hasSurvivalSetup={data.hasSurvivalSetup}
         onQuickExpense={onQuickExpense}
         onSurvivalSaved={onSurvivalSaved}
+        onCreateWallet={onCreateWallet}
       />
     </div>
   );
