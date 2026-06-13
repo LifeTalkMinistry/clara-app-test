@@ -62,14 +62,14 @@ function ProtectedLayer({ title, amount, tone = 'emerald' }) {
   const amountClass = tone === 'cyan' ? 'text-cyan-100' : 'text-emerald-100';
 
   return (
-    <div className='rounded-2xl border border-white/[0.055] bg-black/[0.10] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]'>
+    <div>
       <div className='flex items-center gap-2'>
         <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
         <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${textClass}`}>
           {title}
         </span>
       </div>
-      <p className='mt-2 text-[11px] font-bold text-white/58'>
+      <p className='mt-1 text-[11px] font-bold text-white/58'>
         Protected: <span className={amountClass}>{fmt(amount)}</span>
       </p>
     </div>
@@ -168,15 +168,9 @@ export default function WalletListItem({
                 {hasSavingsAllocation ? (
                   <ProtectedLayer title='Includes Savings Goals' amount={savingsProtectedAmount} tone='cyan' />
                 ) : null}
-                <div className='flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/[0.06] pt-2 text-[11px] font-bold text-white/58'>
-                  <span>
-                    Total Protected:{' '}
-                    <span className='text-emerald-100'>{fmt(totalProtectedAmount)}</span>
-                  </span>
-                  <span>
-                    Spendable:{' '}
-                    <span className='text-cyan-100'>{fmt(spendableBalance)}</span>
-                  </span>
+                <div className='border-t border-white/[0.06] pt-2 text-[11px] font-bold text-white/58'>
+                  Spendable:{' '}
+                  <span className='text-cyan-100'>{fmt(spendableBalance)}</span>
                 </div>
               </div>
             ) : null}
