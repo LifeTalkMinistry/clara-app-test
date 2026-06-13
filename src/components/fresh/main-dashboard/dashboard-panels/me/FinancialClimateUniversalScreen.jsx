@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, Heart, ImageIcon, MoreHorizontal, RotateCcw, Sparkles, Upload, X } from "lucide-react";
+import { Check, ChevronLeft, Heart, ImageIcon, Mars, MoreHorizontal, RotateCcw, Sparkles, Upload, Venus, X } from "lucide-react";
 import { getLifeStageHero } from "../../../../../life-stage-hero";
 import { getLifeStageGuidance } from "../../../../../life-stage-guidance";
 import { getLifeStageSnapshot } from "../../../../../life-stage-snapshot";
@@ -186,6 +186,41 @@ function GenderConfirmationStep({ value, onSelect }) {
   );
 }
 
+function GenderVariantToggle({ value, onChange }) {
+  const selected = normalizeImageVariant(value || "default");
+
+  const items = [
+    { value: "male", label: "Use male life-stage image", icon: Mars },
+    { value: "female", label: "Use female life-stage image", icon: Venus },
+  ];
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = selected === item.value;
+
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onChange(item.value)}
+            className={`grid h-9 w-9 place-items-center rounded-full border backdrop-blur-xl transition active:scale-95 ${
+              active
+                ? "border-cyan-100/42 bg-cyan-200/16 text-cyan-50 shadow-[0_0_22px_rgba(125,211,252,.22),inset_0_1px_0_rgba(255,255,255,.12)]"
+                : "border-white/[0.085] bg-slate-950/24 text-white/54 shadow-[0_10px_28px_rgba(0,0,0,.22)] hover:bg-white/[0.055]"
+            }`}
+            aria-label={item.label}
+            title={item.label}
+          >
+            <Icon className="h-4.5 w-4.5" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || getSelectedLifeStageKey(), profile));
   const [step, setStep] = useState("visual");
@@ -271,12 +306,20 @@ export default function FinancialClimateUniversalScreen() {
   const supportCopy = useMemo(() => getLifeStageGuidance(stageProfile.stage, { profile: stageProfile, mode: "awareness" }), [stageProfile]);
   const snapshot = useMemo(() => getLifeStageSnapshot(stageProfile.stage, stageProfile), [stageProfile]);
   const customImage = stageImages[stageProfile.stage] || "";
-  const activeImage = customImage || hero.heroImage;
+  const hasExplicitGenderVariant = ["male", "female"].includes(normalizeImageVariant(stageProfile.imageVariant || "default"));
+  const activeImage = hasExplicitGenderVariant ? hero.heroImage : customImage || hero.heroImage;
   const heroGlow = HERO_VISUALS[stageProfile.stage] || HERO_VISUALS["Young Professional"];
   const snapshotCards = snapshot.cards || [];
 
   useEffect(() => { saveStageProfile(stageProfile); }, [stageProfile]);
   useEffect(() => { saveStageImages(stageImages); }, [stageImages]);
+
+  const handleGenderVariantChange = (variant) => {
+    setStageProfile((current) => ({
+      ...current,
+      imageVariant: normalizeImageVariant(variant),
+    }));
+  };
 
   if (showStageSetup) return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} />;
 
@@ -287,7 +330,16 @@ export default function FinancialClimateUniversalScreen() {
         <div className="absolute inset-0 opacity-75 [background:linear-gradient(180deg,rgba(2,8,23,.18),rgba(2,8,23,.72)),radial-gradient(circle_at_78%_18%,rgba(96,165,250,.18),transparent_18%),linear-gradient(90deg,rgba(2,8,23,.98)_0%,rgba(2,8,23,.58)_54%,rgba(2,8,23,.14)_100%)]" />
         <div className="absolute bottom-0 right-0 h-full w-[56%] overflow-hidden">{activeImage ? <img src={activeImage} alt={`${hero.title} stage background`} className="h-full w-full object-cover opacity-78 saturate-[.9]" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] bg-[linear-gradient(145deg,rgba(125,211,252,.42),rgba(30,64,175,.12))] opacity-90" />}<div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.84),rgba(2,8,23,.08)_48%,rgba(2,8,23,.18))]" /></div>
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
-        <div className="absolute left-4 top-4 z-20"><button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>{showHeroActions ? <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"><button type="button" onClick={() => { setShowHeroActions(false); setShowStageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button><button type="button" onClick={() => { setShowHeroActions(false); setShowImageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button></div> : null}</div>
+        <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
+          <div className="relative">
+            <button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>
+            {showHeroActions ? <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"><button type="button" onClick={() => { setShowHeroActions(false); setShowStageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button><button type="button" onClick={() => { setShowHeroActions(false); setShowImageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button></div> : null}
+          </div>
+          <GenderVariantToggle
+            value={stageProfile.imageVariant || "default"}
+            onChange={handleGenderVariantChange}
+          />
+        </div>
         <div className="relative z-10 flex h-full max-w-[59%] flex-col justify-center pt-3"><p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/52">{hero.label || "Your life stage"}</p><h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white drop-shadow-lg">{hero.title} <span className="text-[13px] text-amber-100/78">♛</span></h2><p className="mt-2 line-clamp-4 text-[12px] font-semibold leading-5 text-white/62">{hero.shortDescription || hero.contextText}</p></div>
       </section>
       <section className="mt-3 min-h-0 flex-[0.58] overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/56 p-3 backdrop-blur-xl"><div className="flex h-full items-center justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-white">{supportCopy.title}</h3><p className="mt-1 line-clamp-3 text-[12px] font-semibold leading-5 text-white/56">{supportCopy.body}</p></div><div data-clara-heart-cta="true" className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-violet-200/14 bg-violet-300/8 shadow-[0_0_30px_rgba(167,139,250,.18)]"><Heart className="h-7 w-7 fill-violet-100 text-violet-100" /></div></div></section>
