@@ -190,6 +190,11 @@ export default function useAutoMovingHorizontalCarousel({
   );
 
   const handlePointerCancel = useCallback(() => {
+    if (!isGestureTrackingRef.current) {
+      resumeAutoMoveSoon();
+      return;
+    }
+
     const startIndex = gestureStartIndexRef.current;
     isGestureTrackingRef.current = false;
     gestureStartXRef.current = null;
@@ -212,17 +217,13 @@ export default function useAutoMovingHorizontalCarousel({
       const touch = event.changedTouches?.[0] || event.touches?.[0];
 
       if (!touch) {
-        const startIndex = gestureStartIndexRef.current;
-        isGestureTrackingRef.current = false;
-        gestureStartXRef.current = null;
-        scrollToIndex(startIndex, "smooth");
-        resumeAutoMoveSoon();
+        handlePointerCancel();
         return;
       }
 
       endGesture(touch.clientX);
     },
-    [endGesture, resumeAutoMoveSoon, scrollToIndex]
+    [endGesture, handlePointerCancel]
   );
 
   const handleScroll = useCallback(() => {
