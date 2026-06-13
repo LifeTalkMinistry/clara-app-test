@@ -195,7 +195,7 @@ function GenderVariantToggle({ value, onChange }) {
   ];
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex h-9 items-center gap-3">
       {items.map((item) => {
         const Icon = item.icon;
         const active = selected === item.value;
@@ -205,15 +205,13 @@ function GenderVariantToggle({ value, onChange }) {
             key={item.value}
             type="button"
             onClick={() => onChange(item.value)}
-            className={`grid h-9 w-9 place-items-center rounded-full border backdrop-blur-xl transition active:scale-95 ${
-              active
-                ? "border-cyan-100/42 bg-cyan-200/16 text-cyan-50 shadow-[0_0_22px_rgba(125,211,252,.22),inset_0_1px_0_rgba(255,255,255,.12)]"
-                : "border-white/[0.085] bg-slate-950/24 text-white/54 shadow-[0_10px_28px_rgba(0,0,0,.22)] hover:bg-white/[0.055]"
+            className={`grid h-9 w-5 place-items-center bg-transparent p-0 transition active:scale-95 ${
+              active ? "text-cyan-100/55" : "text-white/50 hover:text-white/65"
             }`}
             aria-label={item.label}
             title={item.label}
           >
-            <Icon className="h-4.5 w-4.5" />
+            <Icon className="h-5 w-5 drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]" />
           </button>
         );
       })}
@@ -330,15 +328,15 @@ export default function FinancialClimateUniversalScreen() {
         <div className="absolute inset-0 opacity-75 [background:linear-gradient(180deg,rgba(2,8,23,.18),rgba(2,8,23,.72)),radial-gradient(circle_at_78%_18%,rgba(96,165,250,.18),transparent_18%),linear-gradient(90deg,rgba(2,8,23,.98)_0%,rgba(2,8,23,.58)_54%,rgba(2,8,23,.14)_100%)]" />
         <div className="absolute bottom-0 right-0 h-full w-[56%] overflow-hidden">{activeImage ? <img src={activeImage} alt={`${hero.title} stage background`} className="h-full w-full object-cover opacity-78 saturate-[.9]" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] bg-[linear-gradient(145deg,rgba(125,211,252,.42),rgba(30,64,175,.12))] opacity-90" />}<div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.84),rgba(2,8,23,.08)_48%,rgba(2,8,23,.18))]" /></div>
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
-        <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
-          <div className="relative">
-            <button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>
-            {showHeroActions ? <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"><button type="button" onClick={() => { setShowHeroActions(false); setShowStageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button><button type="button" onClick={() => { setShowHeroActions(false); setShowImageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button></div> : null}
+        <div className="absolute left-4 top-4 z-20">
+          <button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>
+          {showHeroActions ? <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"><button type="button" onClick={() => { setShowHeroActions(false); setShowStageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button><button type="button" onClick={() => { setShowHeroActions(false); setShowImageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button></div> : null}
+          <div className="absolute left-12 top-0">
+            <GenderVariantToggle
+              value={stageProfile.imageVariant || "default"}
+              onChange={handleGenderVariantChange}
+            />
           </div>
-          <GenderVariantToggle
-            value={stageProfile.imageVariant || "default"}
-            onChange={handleGenderVariantChange}
-          />
         </div>
         <div className="relative z-10 flex h-full max-w-[59%] flex-col justify-center pt-3"><p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/52">{hero.label || "Your life stage"}</p><h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white drop-shadow-lg">{hero.title} <span className="text-[13px] text-amber-100/78">♛</span></h2><p className="mt-2 line-clamp-4 text-[12px] font-semibold leading-5 text-white/62">{hero.shortDescription || hero.contextText}</p></div>
       </section>
