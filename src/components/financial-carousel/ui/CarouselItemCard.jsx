@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Lock } from "lucide-react";
 import ComingSoonCard from "../cards/coming-soon/ui/ComingSoonCard";
 import WalletCardView from "../cards/wallet/ui/WalletCardView";
@@ -6,6 +7,32 @@ import EmergencyFundCardView from "../cards/emergency-fund/ui/EmergencyFundCardV
 import SavingsGoalsCardView from "../cards/savings-goals/ui/SavingsGoalsCardView";
 import InvestmentCardView from "../cards/investment/ui/InvestmentCardView";
 import DebtCardView from "../cards/debt/ui/DebtCardView";
+
+const LockedFinancePreview = memo(function LockedFinancePreview({ item }) {
+  return (
+    <div className="flex h-full min-h-[inherit] flex-col justify-between rounded-[inherit] border border-white/[0.06] bg-white/[0.025] p-4">
+      <div>
+        <div className="mb-2 inline-flex rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
+          Locked
+        </div>
+
+        <h3 className="text-sm font-black text-white/65">
+          {item?.label || "Premium Card"}
+        </h3>
+
+        {item?.description ? (
+          <p className="mt-1 text-[11px] leading-snug text-white/35">
+            {item.description}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/28">
+        Unlock with CLARA
+      </div>
+    </div>
+  );
+});
 
 function LockedFinanceShell({ item, children }) {
   const tier = item?.lockedTier || "PRO";
@@ -25,7 +52,7 @@ function LockedFinanceShell({ item, children }) {
         event.stopPropagation();
       }}
     >
-      <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">
+      <div className="pointer-events-none h-full min-h-[inherit] opacity-45 grayscale-[0.85] saturate-[0.65]">
         {children}
       </div>
 
@@ -72,6 +99,17 @@ export default function CarouselItemCard(props) {
   } = props;
 
   if (!item) return null;
+
+  // Performance rule:
+  // Locked cards must not mount their real card components.
+  // Keep this branch before any card renderer is created.
+  if (item.locked) {
+    return (
+      <LockedFinanceShell item={item}>
+        <LockedFinancePreview item={item} />
+      </LockedFinanceShell>
+    );
+  }
 
   const data = item.data || {};
   let card = null;
@@ -155,10 +193,6 @@ export default function CarouselItemCard(props) {
     );
   } else {
     card = <ComingSoonCard item={item} />;
-  }
-
-  if (item.locked) {
-    return <LockedFinanceShell item={item}>{card}</LockedFinanceShell>;
   }
 
   return card;
