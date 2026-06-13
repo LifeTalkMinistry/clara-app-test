@@ -16,8 +16,8 @@ const DOCK_ITEMS = [
     datasetKey: "claraForecastTab",
   },
   {
-    role: "insight",
-    label: "Insight",
+    role: "analytic",
+    label: "Analytic",
     icon: "◫",
     aliases: ["Insight", "Analytic", "Smart Actions"],
     datasetKey: "claraAnalyticTab",
@@ -111,7 +111,7 @@ function ensureFeatureDockStyle() {
     }
 
     .clara-feature-dock > button[data-clara-feature-dock-role="forecast"],
-    .clara-feature-dock > button[data-clara-feature-dock-role="insight"] {
+    .clara-feature-dock > button[data-clara-feature-dock-role="analytic"] {
       border-color: rgba(255, 255, 255, 0.12) !important;
       background: rgba(255, 255, 255, 0.055) !important;
       color: rgba(255, 255, 255, 0.78) !important;
@@ -119,7 +119,7 @@ function ensureFeatureDockStyle() {
     }
 
     .clara-feature-dock > button[data-clara-feature-dock-role="forecast"]:hover,
-    .clara-feature-dock > button[data-clara-feature-dock-role="insight"]:hover {
+    .clara-feature-dock > button[data-clara-feature-dock-role="analytic"]:hover {
       border-color: rgba(255, 255, 255, 0.18) !important;
       background: rgba(255, 255, 255, 0.085) !important;
       color: rgba(255, 255, 255, 0.94) !important;
@@ -184,7 +184,7 @@ function polishFeatureDock() {
     button.dataset.claraFeatureDockRole = item.role;
     button.dataset.claraDockLabel = item.label;
     button.dataset.claraDockIcon = item.icon;
-    button.setAttribute("aria-label", item.role === "insight" ? "Open CLARA Insight" : `Open CLARA ${item.label}`);
+    button.setAttribute("aria-label", `Open CLARA ${item.label}`);
     button.setAttribute("title", item.label);
   });
 }
