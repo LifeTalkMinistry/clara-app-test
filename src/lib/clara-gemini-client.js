@@ -1,30 +1,3 @@
-import { buildClaraFinanceSnapshot } from "./clara-local-brain";
-import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine";
-import { buildSchedulePromptBlock } from "./clara-schedule-ai-context";
-import { summarizeLifeProfileForClara } from "./clara-life-profile";
-import { buildClaraBehavioralContextForPrompt, getClaraBehavioralRiskLabel } from "./clara-behavioral-intelligence";
-import { buildClaraLifeStagePromptBlock, withClaraLifeStageAiContext } from "./clara-life-stage-ai-context";
-import {
-  buildClaraContextDiagnostics,
-  buildContextSelectorPrompt,
-  collectClaraAvailableContext,
-} from "./clara-central-context-brain";
-import {
-  buildClaraPurchaseCategoryGuide,
-  formatClaraPurchaseCategoryGuideForPrompt,
-} from "./clara-purchase-category-guide";
-import {
-  getDebtObligations,
-  getDebtTitle,
-  summarizeDebtObligations,
-} from "./debtObligationStore";
-import { CLARA_BRAINS, getBrainLabel, routeClaraBrain } from "./ai-brains/brain-router";
-import { buildCasualBrainPrompt, sanitizeCasualBrainReply } from "./ai-brains/casual-brain";
-import { buildFinanceBrainPrompt, sanitizeFinanceBrainReply } from "./ai-brains/finance-brain";
-import { buildDecisionBrainPrompt, generateLocalDecisionReply, sanitizeDecisionBrainReply } from "./ai-brains/decision-brain";
-import { buildCoachBrainPrompt, sanitizeCoachBrainReply } from "./ai-brains/coach-brain";
-import { buildMemoryBrainPrompt, sanitizeMemoryBrainReply } from "./ai-brains/memory-brain";
-import { generateScheduleBrainReply } from "./ai-brains/schedule-brain-entry";
 import {
   getClaraGeminiProxyModelCandidates,
   requestClaraGeminiProxyText,
@@ -38,76 +11,53 @@ const KNOWN_GEMINI_MODELS = [
   "gemini-1.5-flash",
   "gemini-1.5-flash-latest",
 ];
-const BLOCKED_MODEL_KEYWORDS = [
-  "image",
-  "vision",
-  "tts",
-  "audio",
-  "speech",
-  "robotics",
-  "embedding",
-  "embed",
-  "aqa",
-  "deep-research",
-  "computer-use",
-  "imagen",
-  "veo",
-  "lyria",
-  "native-audio",
-  "thinking-exp",
-];
-const DANGLING_REPLY_ENDINGS = [
-  "and",
-  "but",
-  "because",
-  "so",
-  "while",
-  "with",
-  "for",
-  "to",
-  "if",
-  "unless",
-  "before",
-  "after",
-  "about",
-  "around",
-  "in",
-  "on",
-  "at",
-  "of",
-  "from",
-  "into",
-  "onto",
-  "by",
-  "as",
-  "than",
-  "through",
-  "within",
-  "without",
-  "between",
-  "under",
-  "over",
-  "the",
-  "a",
-  "an",
-  "your",
-  "my",
-  "our",
-  "their",
-  "this",
-  "that",
-  "these",
-  "those",
-  "any",
-  "some",
-  "right",
-  "currently",
-  "available",
-  "visible",
-];
 
-const GEMINI_RETRY_REPLY = "I couldn’t complete that AI reply cleanly. Please send it again so CLARA can answer using the full context.";
-const PROXY_API_KEY_SENTINEL = "server-proxy";
+const DIRECT_PROMPT_MODES = new Set([
+  "normal_chat",
+  "normal_chat_clarification",
+  "deep_decision",
+  "deep_decision_clarification",
+]);
+
+const DEEP_AI_MODES = new Set([
+  "afford",
+  "forecast",
+  "forecast_phase_one",
+  "checkup",
+  "purchase_decision",
+  "feature_review",
+  "money_context_check",
+]);
+
+const NORMAL_BUCKET_MODES = new Set([
+  "ai_environment",
+  "savings-plan",
+  "budget-fixer",
+  "next-move",
+  "wallets",
+  "budgets",
+  "emergency",
+  "savings-goals",
+  "investment",
+  "debt-obligations",
+]);
+
+const UNAVAILABLE_REPLY = "CLARA AI is unavailable right now. Please try again in a moment.";
+
+const PRESENTATION_RULES = `Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.
+
+CLARA REPLY FORMAT RULES:
+- If the answer is longer than 3 sentences, break it into short sections.
+- Use bullets for budgets, wallets, income sources, transactions, savings goals, emergency fund details, and money breakdowns.
+- Never place 3 or more money values in one paragraph.
+- Keep each paragraph short and mobile-chat friendly.
+- Use plain text only.
+- No markdown tables.
+- Prefer this structure:
+  Short answer
+  Bullet breakdown
+  Current result
+  One practical next step if needed`;
 
 function getLocalDebugFlag() {
   try {
@@ -130,64 +80,355 @@ function uniqueModels(models = []) {
   return models.map(normalizeModelName).filter(Boolean).filter((model, index, list) => list.indexOf(model) === index);
 }
 
-function isTextChatGeminiModel(model = "") {
-  const value = normalizeModelName(model).toLowerCase();
-  if (!value || !value.includes("gemini")) return false;
-  if (BLOCKED_MODEL_KEYWORDS.some((keyword) => value.includes(keyword))) return false;
-  return value.includes("flash") || value.includes("pro");
-}
-
-function getGeminiApiKey() {
-  return PROXY_API_KEY_SENTINEL;
-}
-
 function getConfiguredGeminiModel() {
   return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
 }
 
-function getFallbackGeminiModelCandidates() {
-  return uniqueModels([getConfiguredGeminiModel(), DEFAULT_GEMINI_MODEL, ...KNOWN_GEMINI_MODELS]).filter(isTextChatGeminiModel);
-}
-
 async function discoverGeminiModelCandidates() {
-  return getClaraGeminiProxyModelCandidates(getFallbackGeminiModelCandidates()).filter(isTextChatGeminiModel);
+  return getClaraGeminiProxyModelCandidates(uniqueModels([getConfiguredGeminiModel(), DEFAULT_GEMINI_MODEL, ...KNOWN_GEMINI_MODELS]));
 }
 
-function money(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : "unknown";
+function cleanText(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function yesNo(value) {
-  return value ? "yes" : "no";
+function normalizeChoice(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[“”"'`]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function list(items = [], formatter, empty = "none loaded") {
-  return (Array.isArray(items) ? items : []).slice(0, 5).map(formatter).filter(Boolean).join("; ") || empty;
+function stripInstructionText(text = "") {
+  return String(text || "")
+    .replace(PRESENTATION_RULES, "")
+    .replace(/CLARA REPLY FORMAT RULES:[\s\S]*$/i, "")
+    .trim();
 }
 
-function sanitizeClaraReply(text) {
-  return String(text || "").replace(/\s+/g, " ").trim();
+function extractPromptSection(prompt = "", label = "") {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${escaped}:\\s*([\\s\\S]*?)(?:\\n\\n[A-Z][^:\\n]{0,80}:|$)`, "i");
+  const match = String(prompt || "").match(pattern);
+  return stripInstructionText(match?.[1] || "");
 }
 
-function lastWord(text = "") {
-  const words = sanitizeClaraReply(text).toLowerCase().match(/[a-z]+(?:'[a-z]+)?|₱?\d[\d,]*/g) || [];
-  return words[words.length - 1] || "";
+function extractVisibleUserMessage(message = "") {
+  return (
+    extractPromptSection(message, "Current visible user message") ||
+    extractPromptSection(message, "User message") ||
+    extractPromptSection(message, "Raw app prompt without formatting rules") ||
+    stripInstructionText(message)
+  );
 }
 
-function hasSentenceEnding(text = "") {
-  return /[.!?)]$/.test(sanitizeClaraReply(text));
+function readPath(source = {}, path = "") {
+  return String(path || "").split(".").reduce((current, key) => current?.[key], source);
+}
+
+function firstArray(source = {}, paths = []) {
+  for (const path of paths) {
+    const value = readPath(source, path);
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+}
+
+function firstValue(source = {}, paths = []) {
+  for (const path of paths) {
+    const value = readPath(source, path);
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return null;
+}
+
+function safeStringifyForPrompt(value, fallback = "{}") {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return fallback;
+  }
+}
+
+function getRecentConversationText(messages = [], limit = 6) {
+  return (Array.isArray(messages) ? messages : [])
+    .slice(-limit)
+    .map((message) => {
+      const role = message?.role === "user" ? "User" : "CLARA";
+      const text = stripInstructionText(message?.text || "");
+      return text ? `${role}: ${text}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildNormalChatDataMap(context = {}) {
+  const incomeSources = firstArray(context, [
+    "incomeSources",
+    "income_sources",
+    "incomeRecords",
+    "finance.incomeSources",
+    "incomeHub.sources",
+    "incomeHub.records",
+  ]);
+
+  const wallets = firstArray(context, [
+    "wallets",
+    "finance.wallets",
+    "walletRecords",
+    "walletHub.wallets",
+  ]);
+
+  const budgets = firstArray(context, [
+    "budgets",
+    "budgetPlan.categories",
+    "finance.budgets",
+    "budgetHub.budgets",
+    "budgetHub.categories",
+  ]);
+
+  const savingsGoals = firstArray(context, [
+    "savingsGoals",
+    "savings_goals",
+    "finance.savingsGoals",
+  ]);
+
+  const transactions = firstArray(context, [
+    "transactions",
+    "recentTransactions",
+    "finance.transactions",
+    "transactionHubSnapshot.timeline",
+  ]);
+
+  const debts = firstArray(context, [
+    "debts",
+    "debtObligations",
+    "obligations",
+    "finance.debts",
+    "finance.obligations",
+    "finance.debtObligations",
+  ]);
+
+  const dashboardCards = firstValue(context, [
+    "dashboardCards",
+    "dashboardSnapshot",
+    "cards",
+    "mainDashboard.cards",
+  ]);
+
+  const emergencyFund = firstValue(context, [
+    "emergencyFund",
+    "finance.emergencyFund",
+    "emergency_fund",
+  ]);
+
+  const schedule = firstValue(context, [
+    "schedule",
+    "calendar",
+    "paydayInfo",
+    "paydayCycle",
+    "profileAnswers.scheduleRoutine",
+    "profileAnswers.sleepPattern",
+    "profileAnswers.workExhaustion",
+    "lifeProfile.scheduleRoutine",
+    "lifeProfile.sleepPattern",
+    "lifeProfile.workExhaustion",
+    "lifeProfile.paydayCycle",
+  ]);
+
+  const memory = firstValue(context, [
+    "memory",
+    "aiFinancialMemory",
+    "ai_financial_memory",
+    "profileAnswers",
+    "behaviorProfile",
+    "lifeProfile",
+  ]);
+
+  return {
+    incomeHub: {
+      label: "Income Hub",
+      available: incomeSources.length > 0,
+      data: incomeSources.slice(0, 8),
+      purpose: "Income sources, income records, expected income, and payday timing.",
+    },
+    wallets: {
+      label: "Wallets",
+      available: wallets.length > 0,
+      data: wallets.slice(0, 12),
+      purpose: "Wallet names, balances, and visible money.",
+    },
+    budgets: {
+      label: "Budgets",
+      available: budgets.length > 0,
+      data: budgets.slice(0, 12),
+      purpose: "Budget categories, allocation, spent amount, and remaining amount.",
+    },
+    savingsGoals: {
+      label: "Savings Goals",
+      available: savingsGoals.length > 0,
+      data: savingsGoals.slice(0, 10),
+      purpose: "Savings goals, targets, saved amounts, and progress.",
+    },
+    emergencyFund: {
+      label: "Emergency Fund",
+      available: Boolean(emergencyFund),
+      data: emergencyFund || null,
+      purpose: "Emergency fund setup, saved amount, target, and storage wallet.",
+    },
+    debtObligations: {
+      label: "Debt / Obligations",
+      available: debts.length > 0,
+      data: debts.slice(0, 10),
+      purpose: "Debt, bills, recurring obligations, loans, payables, and monthly commitments.",
+    },
+    schedule: {
+      label: "Schedule",
+      available: Boolean(schedule),
+      data: schedule || null,
+      purpose: "Work schedule, routine, payday cycle, sleep pattern, and timing pressure.",
+    },
+    memory: {
+      label: "Memory",
+      available: Boolean(memory),
+      data: memory || null,
+      purpose: "Saved user context, preferences, profile answers, and behavior notes.",
+    },
+    transactions: {
+      label: "Transactions",
+      available: transactions.length > 0,
+      data: transactions.slice(0, 15),
+      purpose: "Recent money movement, income, expenses, transfers, and activity.",
+    },
+    dashboardCards: {
+      label: "Dashboard Cards",
+      available: Boolean(dashboardCards),
+      data: dashboardCards || null,
+      purpose: "Current visible dashboard summaries and card-level app data.",
+    },
+  };
+}
+
+function getClaraAiMode({ mode = "", userMessage = "" } = {}) {
+  const normalizedMode = String(mode || "");
+  const text = normalizeChoice(userMessage);
+
+  if (DIRECT_PROMPT_MODES.has(normalizedMode)) return normalizedMode.startsWith("deep_decision") ? "deep_decision" : "normal_chat";
+  if (DEEP_AI_MODES.has(normalizedMode)) return "deep_decision";
+  if (/^talk_to_clara/.test(normalizedMode)) return "direct_prompt";
+
+  const typedDeepIntent =
+    /\b(can i afford|afford this|can i buy|should i buy|buy check)\b/i.test(text) ||
+    /\b(forecast|future money|next payday forecast)\b/i.test(text) ||
+    /\b(analyze my spending|spending analysis|spending checkup|analytics)\b/i.test(text);
+
+  if (typedDeepIntent) return "deep_decision";
+  if (NORMAL_BUCKET_MODES.has(normalizedMode) || !normalizedMode) return "normal_chat";
+  return "deep_decision";
+}
+
+function buildNormalChatAiPrompt({ userMessage = "", recentConversation = [], dataMap = {} } = {}) {
+  return `You are CLARA, a personal money coach inside the CLARA app.
+
+This is NORMAL CHAT mode.
+
+Your job:
+- Understand the user's message.
+- Choose the most relevant CLARA data bucket.
+- Answer simply using only the chosen bucket.
+- For casual greetings, greet naturally and do not summarize money data.
+- Do not perform full financial diagnosis.
+- Do not combine all modules unless the user explicitly asks for a full overview.
+- Do not over-contextualize.
+- Do not infer emotional or behavioral risk unless the user asks about behavior, habits, or memory.
+- If the user's request is unclear, ask one short clarification question.
+- If the relevant data bucket is unavailable, say what data is missing and ask one short question.
+
+Available CLARA data buckets and basic data:
+${safeStringifyForPrompt(dataMap)}
+
+Recent conversation:
+${getRecentConversationText(recentConversation, 6) || "No recent conversation."}
+
+User message:
+${stripInstructionText(userMessage)}
+
+Routing rules:
+- Schedule questions → use Schedule only.
+- Income questions → use Income Hub only.
+- Wallet or money-on-hand questions → use Wallets only.
+- Budget questions → use Budgets only.
+- Debt, obligation, payable, loan, or utang questions → use Debt / Obligations only.
+- Savings goal questions → use Savings Goals only.
+- Emergency fund questions → use Emergency Fund only.
+- Recent spending, transaction, transfer, or activity questions → use Transactions only.
+- Dashboard/card questions → use Dashboard Cards only.
+- Memory, profile, habits, preferences, or "what do you know about me" → use Memory only.
+- If the user says "break down", "details", "show more", or "explain", connect it to the latest active topic in recent conversation.
+- If there is no clear latest topic, ask one clarification question.
+
+Answer rules:
+- Be direct.
+- Use only facts from the selected bucket.
+- Never invent numbers.
+- Never say you checked a module if the data is not available.
+- Ask only one question when clarification is needed.
+
+${PRESENTATION_RULES}`;
+}
+
+function buildDeepDecisionAiPrompt({ userMessage = "", mode = "", fullContext = {}, recentConversation = [] } = {}) {
+  return `You are CLARA, a personal money coach inside the CLARA app.
+
+This is DEEP DECISION mode.
+
+Use full CLARA context because the user is asking for one of these:
+- Buy Check / Can I Afford This
+- Future Money Forecast
+- Analytics / Spending Checkup
+
+Selected mode:
+${mode || "Typed deep decision request"}
+
+User message:
+${stripInstructionText(userMessage)}
+
+Recent conversation:
+${getRecentConversationText(recentConversation, 6) || "No recent conversation."}
+
+Full CLARA context:
+${safeStringifyForPrompt(fullContext)}
+
+Rules:
+- Use all relevant context for decision, forecast, or analysis.
+- You may compare income, wallets, budgets, transactions, savings goals, emergency fund, debt, obligations, schedule, memory, behavior, and risk signals.
+- Do not invent missing data.
+- If purchase details are missing in Buy Check, ask for item and amount.
+- If forecast period is missing, ask for the period.
+- If analytics scope is missing, ask what the user wants analyzed.
+- If the intent is unclear, ask one short clarification question.
+- Keep the answer practical and mobile-friendly.
+
+${PRESENTATION_RULES}`;
+}
+
+function buildDirectPrompt({ message = "", conversationHistory = [] } = {}) {
+  return `${stripInstructionText(message)}
+
+Recent conversation:
+${getRecentConversationText(conversationHistory, 6) || "No recent conversation."}
+
+${PRESENTATION_RULES}`;
 }
 
 function isIncompleteClaraReply(text = "") {
-  const reply = sanitizeClaraReply(text);
+  const reply = cleanText(text);
   if (!reply) return true;
-  if (reply.length < 35) return true;
+  if (reply.length < 18) return true;
   if (/[,:;\-–—]$/.test(reply)) return true;
-  if (DANGLING_REPLY_ENDINGS.includes(lastWord(reply))) return true;
-  if (/₱\s*\d[\d,]*\s+(in|on|at|of|for|with|from|to)$/i.test(reply)) return true;
-  if (/\b(CLARA sees|you have|you currently have|right now,|right now)\s*₱?\d*[\d,]*\s*(in|on|at|of|for|with|from|to)?$/i.test(reply)) return true;
-  if (!hasSentenceEnding(reply) && reply.length < 170) return true;
+  if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around)$/i.test(reply)) return true;
   return false;
 }
 
@@ -196,195 +437,19 @@ function buildCompletionRetryPrompt({ originalPrompt = "", incompleteReply = "" 
 
 IMPORTANT COMPLETION REPAIR:
 The previous response was incomplete and must not be shown to the user:
-"${sanitizeClaraReply(incompleteReply)}"
+"${cleanText(incompleteReply)}"
 
 Write a new complete CLARA reply from scratch.
 Rules:
 - Do not continue the broken sentence.
 - Do not stop mid-sentence.
 - Use 2-4 complete conversational sentences.
-- For money decisions, include a clear recommendation, one short reason, and one next step.
 - If wallet or budget data is missing, say that clearly and ask one helpful next question.
 - End with a complete sentence and punctuation.`;
 }
 
-function buildConversationHistory(messages = []) {
-  return (Array.isArray(messages) ? messages : []).slice(-8).map((message) => `${message.role === "user" ? "User" : "CLARA"}: ${String(message.text || "").trim()}`).join("\n");
-}
-
-function logCentralContextDiagnostics({ message, enrichedContext, conversationHistory }) {
-  if (!shouldDebugClaraAi()) return;
-  try {
-    const centralContextInput = { ...(enrichedContext || {}), userMessageHistory: conversationHistory, conversationHistory };
-    console.log("[CLARA Central Context] Available Context", collectClaraAvailableContext(centralContextInput));
-    console.log("[CLARA Central Context] Diagnostics", buildClaraContextDiagnostics(centralContextInput));
-    console.log("[CLARA Central Context] Selector Prompt", buildContextSelectorPrompt(message, centralContextInput));
-  } catch (error) {
-    console.warn("[CLARA Central Context] Diagnostics failed", error);
-  }
-}
-
-function budgetName(budget = {}) {
-  return String(budget?.name || budget?.category || budget?.title || budget?.label || "Budget").trim();
-}
-
-function buildBudgetRowsForPrompt(budgetPlan = {}) {
-  const categories = Array.isArray(budgetPlan.categories) ? budgetPlan.categories : [];
-  if (!categories.length) return "No budget categories created yet.";
-  return list(categories, (budget) => `${budgetName(budget)}: allocated ${money(budget.allocated)}, spent ${money(budget.spent)}, left ${money(budget.remaining)}`);
-}
-
-function getContextLocalUserId(context = {}) {
-  const user = context?.user || context?.authUser || {};
-  return String(user?.id || user?.email || context?.localUserId || "local-user").trim() || "local-user";
-}
-
-function debtTypeLabel(record = {}) {
-  return String(record?.debtType || record?.type || "obligation")
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function debtBalance(record = {}) {
-  return Number(record?.totalDebt ?? record?.balance ?? record?.amount ?? record?.debt_balance ?? 0) || 0;
-}
-
-function debtMonthly(record = {}) {
-  return Number(record?.monthlyDebt ?? record?.monthlyPayment ?? record?.monthly_payment ?? record?.payment ?? 0) || 0;
-}
-
-function buildDebtRowsForPrompt(records = []) {
-  return list(
-    records,
-    (record) => `${getDebtTitle(record)} (${debtTypeLabel(record)}): balance ${money(debtBalance(record))}, monthly ${money(debtMonthly(record))}`,
-    "No debt obligation records loaded."
-  );
-}
-
-async function resolveDebtRecordsForPrompt(context = {}) {
-  const provided = context?.debtObligations || context?.debts || context?.obligations || context?.finance?.debtObligations;
-  if (Array.isArray(provided)) return provided;
-
-  try {
-    return await getDebtObligations(getContextLocalUserId(context));
-  } catch (error) {
-    if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Unable to load debt obligations", error);
-    return [];
-  }
-}
-
-async function buildPrompt({ message, context, mode, conversationHistory = [] }) {
-  const enrichedContext = withClaraLifeStageAiContext(context || {});
-  const finance = buildClaraFinanceSnapshot(enrichedContext);
-  const decision = buildContextForGeminiPrompt({ message, financeContext: enrichedContext });
-  const life = summarizeLifeProfileForClara(enrichedContext?.lifeProfile || enrichedContext?.profile?.lifeProfile || enrichedContext?.profile || {});
-  const lifeStageBlock = buildClaraLifeStagePromptBlock(enrichedContext.lifeStageContext);
-  const behavioralMemory = await buildClaraBehavioralContextForPrompt(message);
-  const behavioralRisk = await getClaraBehavioralRiskLabel(message);
-  const debtRecords = await resolveDebtRecordsForPrompt(enrichedContext);
-  const debtSummary = summarizeDebtObligations(debtRecords, { income: finance.income });
-
-  logCentralContextDiagnostics({ message, enrichedContext, conversationHistory });
-
-  const wallets = Array.isArray(finance.wallets) ? finance.wallets : [];
-  const budgets = Array.isArray(finance.budgets) ? finance.budgets : [];
-  const budgetPlan = finance.budgetPlan || {};
-  const goals = Array.isArray(finance.savingsGoals) ? finance.savingsGoals : [];
-  const purchaseCategoryGuide = buildClaraPurchaseCategoryGuide(message, budgets);
-  const schedulePromptBlock = buildSchedulePromptBlock(message, enrichedContext);
-
-  return `You are CLARA, an emotionally-aware behavioral money coach.
-
-Spending is emotional, environmental, behavioral, and pressure-driven.
-
-Behavioral risk level:
-${behavioralRisk}
-
-${behavioralMemory}
-
-Recent conversation:
-${buildConversationHistory(conversationHistory)}
-
-Current user message:
-${message}
-
-${lifeStageBlock}
-
-Life Profile:
-Income rhythm: ${life.incomeRhythm || "not set"}
-Guidance tone: ${life.coachingStyle || "not set"}
-Protected goal: ${life.meaningfulGoal || "not set"}
-Spending trigger: ${life.spendingTrigger || "not set"}
-
-Wallet truth:
-Visible wallet money: ${money(finance.availableMoney)}
-Wallets: ${list(wallets, (wallet) => `${wallet.name || "Wallet"}: ${money(wallet.balance)}`)}
-
-Budget:
-Declared monthly budget: ${money(budgetPlan.declaredBudget)}
-Allocated into categories: ${money(budgetPlan.allocatedBudget)}
-Unallocated: ${money(budgetPlan.unallocatedBudget)}
-Spent so far: ${money(budgetPlan.spentTotal)}
-Planned spent: ${money(budgetPlan.plannedSpent)}
-Unplanned spent: ${money(budgetPlan.unplannedSpent)}
-Undocumented spent: ${money(budgetPlan.undocumentedSpent)}
-Remaining spendable budget: ${money(budgetPlan.remainingSpendableBudget)}
-Category count: ${Number.isFinite(Number(budgetPlan.categoryCount)) ? budgetPlan.categoryCount : 0}
-Budget status: ${budgetPlan.budgetStatus || "unknown"}
-Explanation: ${budgetPlan.budgetExplanation || "Budget state is unclear."}
-Rows: ${buildBudgetRowsForPrompt(budgetPlan)}
-
-Schedule:
-${schedulePromptBlock}
-
-Debt / Obligations:
-Source: local CLARA Debt/Obligations store.
-Active obligation count: ${Number(debtSummary.activeCount || 0)}
-Total owed: ${money(debtSummary.totalDebt)}
-Total monthly payment: ${money(debtSummary.monthlyDebt)}
-Debt ratio: ${Number.isFinite(Number(debtSummary.debtRatio)) ? `${Math.round(debtSummary.debtRatio)}%` : "unknown"}
-Rows: ${buildDebtRowsForPrompt(debtRecords)}
-
-Purchase category guide:
-${formatClaraPurchaseCategoryGuideForPrompt(purchaseCategoryGuide)}
-
-Savings:
-${list(goals, (goal) => `${goal.name || "Goal"}: ${money(goal.saved)} of ${money(goal.target)}`)}
-
-Spending signal:
-Monthly spent: ${money(finance.monthlySpent)}
-Purchase amount detected: ${money(decision.purchaseAmount)}
-Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
-
-Rules for budget answers:
-- For budget questions, answer from the Budget section, not the Wallet truth section.
-- If the user asks about category budget but no category exists, say no category exists yet.
-- Do not answer budget questions with wallet balance.
-- Distinguish wallet money from monthly budget remaining.
-- Remaining spendable budget means declared monthly budget minus spent so far.
-- Unallocated means declared monthly budget minus category allocations; it is not the same as spendable remaining.
-
-Rules for schedule answers:
-- Use the Schedule section when the user asks about schedule, appointments, calendar, upcoming plans, commitments, reminders, pressure, payday advice, or spending affected by future plans.
-- If SCHEDULE CONTEXT includes upcoming items, mention the exact schedule title, date, type, and estimated impact when relevant.
-- For spending decisions, naturally remind the user about upcoming money-impact schedule items before giving the spending recommendation.
-- Do not invent schedule items. If no upcoming schedule items are loaded, say that clearly.
-- Compose the message naturally as CLARA. Do not copy the Schedule Context block verbatim unless the user asks for a list.
-
-Rules for debt answers:
-- For debt, obligation, utang, loan, credit, payable, or "what I owe" questions, answer from the Debt / Obligations section.
-- If debt rows are loaded, use the exact obligation names shown in Rows.
-- Never invent debt names such as Student Loan or Credit Card when they are not in the Debt / Obligations rows.
-- If no debt rows are loaded, say debt records are not loaded instead of guessing.
-
-Use the Me/Life Stage context only when it makes money guidance more personal. Do not over-mention it.
-For purchase, budget, savings, debt, schedule, payday, or emergency questions: give a complete recommendation, one short reason, and one next step.
-Never stop mid-sentence. End with a complete sentence.
-Reply naturally as CLARA in 3-5 conversational sentences.`;
-}
-
-async function requestGeminiContent({ model, prompt, signal, generationConfig } = {}) {
-  const text = await requestClaraGeminiProxyText({
+async function requestGeminiText({ model, prompt, signal, generationConfig } = {}) {
+  return requestClaraGeminiProxyText({
     prompt,
     model,
     signal,
@@ -395,129 +460,101 @@ async function requestGeminiContent({ model, prompt, signal, generationConfig } 
       ...(generationConfig || {}),
     },
   });
-  return { candidates: [{ content: { parts: [{ text }] } }] };
 }
 
-function extractGeminiText(data = {}) {
-  return sanitizeClaraReply((data?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(" "));
-}
+async function requestPromptWithRetry({ prompt, mode, signal } = {}) {
+  const modelCandidates = await discoverGeminiModelCandidates();
+  let lastError = null;
 
-async function requestGeminiText({ model, prompt, signal, generationConfig } = {}) {
-  const data = await requestGeminiContent({ model, prompt, signal, generationConfig });
-  return extractGeminiText(data);
+  for (const model of modelCandidates) {
+    try {
+      if (shouldDebugClaraAi()) console.log("[CLARA Gemini Routing] Trying proxy model", { mode, model });
+
+      const text = await requestGeminiText({ model, prompt, signal });
+      if (text && !isIncompleteClaraReply(text)) return text;
+
+      const retryText = await requestGeminiText({
+        model,
+        prompt: buildCompletionRetryPrompt({ originalPrompt: prompt, incompleteReply: text }),
+        signal,
+      });
+
+      if (retryText && !isIncompleteClaraReply(retryText)) return retryText;
+
+      lastError = new Error(`Gemini returned incomplete CLARA reply using ${model}.`);
+      lastError.model = model;
+      lastError.partialReply = retryText || text;
+    } catch (error) {
+      if (shouldDebugClaraAi()) {
+        console.warn("[CLARA Gemini Routing] Proxy model failed", {
+          mode,
+          model,
+          message: error?.message,
+          status: error?.status,
+        });
+      }
+      lastError = error;
+    }
+  }
+
+  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Gemini Routing] Final fallback blocked", lastError);
+  return UNAVAILABLE_REPLY;
 }
 
 export function hasGeminiConfig() {
   return true;
 }
 
-async function runBrain({ label, prompt, modelCandidates, signal, sanitize = (text) => text, fallback = GEMINI_RETRY_REPLY }) {
-  let lastError = null;
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log(`[CLARA Brain] Trying ${label}`, { model });
-      const text = await requestGeminiText({ model, prompt, signal });
-      const reply = sanitize(text || "");
-      if (reply) return reply;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn(`[CLARA Brain] ${label} failed`, { model, message: error?.message, status: error?.status });
-      lastError = error;
-    }
-  }
-  if (shouldDebugClaraAi() && lastError) console.warn(`[CLARA Brain] ${label} fallback used`, lastError);
-  return fallback;
-}
-
-async function generateCasualBrainReply({ message, conversationHistory, signal }) {
-  const prompt = buildCasualBrainPrompt({ userMessage: message, recentConversation: conversationHistory });
-  return runBrain({ label: "Casual Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeCasualBrainReply });
-}
-
-async function generateFinanceBrainReply({ message, context, conversationHistory, signal }) {
-  const prompt = buildFinanceBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  return runBrain({ label: "Finance Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeFinanceBrainReply });
-}
-
-async function generateDecisionBrainReply({ message, context, conversationHistory, signal }) {
-  const localReply = generateLocalDecisionReply({ userMessage: message, context, conversationHistory });
-  const prompt = buildDecisionBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  const reply = await runBrain({ label: "Decision Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeDecisionBrainReply, fallback: "" });
-  return reply || (localReply && !localReply.includes("visible money right now") ? localReply : GEMINI_RETRY_REPLY);
-}
-
-async function generateCoachBrainReply({ message, context, conversationHistory, signal }) {
-  const prompt = buildCoachBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  return runBrain({ label: "Coach Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: sanitizeCoachBrainReply });
-}
-
-async function generateMemoryBrainReply({ message, context, conversationHistory, signal }) {
-  const prompt = buildMemoryBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  return runBrain({ label: "Memory Brain", prompt, modelCandidates: await discoverGeminiModelCandidates(), signal, sanitize: (text) => sanitizeMemoryBrainReply(text || "", message) });
-}
-
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
-  const brainRoute = routeClaraBrain({ userMessage: message, recentConversation: conversationHistory });
-  const apiKey = getGeminiApiKey();
+  const normalizedMode = String(mode || "");
+  const visibleUserMessage = extractVisibleUserMessage(message);
+
+  if (DIRECT_PROMPT_MODES.has(normalizedMode)) {
+    return requestPromptWithRetry({ prompt: message, mode: normalizedMode, signal });
+  }
+
+  const aiMode = getClaraAiMode({ mode: normalizedMode, userMessage: visibleUserMessage });
 
   if (shouldDebugClaraAi()) {
-    console.log("[CLARA Brain Router] Selected brain", {
-      brain: brainRoute.brain,
-      label: getBrainLabel(brainRoute.brain),
-      confidence: brainRoute.confidence,
-      reason: brainRoute.reason,
-      mode: brainRoute.mode || mode,
-      action: brainRoute.action,
-      contexts: brainRoute.contexts,
-      activeContexts: brainRoute.activeContexts,
+    console.log("[CLARA Gemini Routing] Selected mode", {
+      mode: normalizedMode,
+      aiMode,
+      visibleUserMessage,
     });
   }
 
-  if (brainRoute.brain === CLARA_BRAINS.CASUAL) return generateCasualBrainReply({ message, conversationHistory, signal });
-  if (brainRoute.brain === CLARA_BRAINS.FINANCE) return generateFinanceBrainReply({ message, context, conversationHistory, signal });
-  if (brainRoute.brain === CLARA_BRAINS.DECISION) return generateDecisionBrainReply({ message, context, conversationHistory, signal });
-  if (brainRoute.brain === CLARA_BRAINS.COACH) return generateCoachBrainReply({ message, context, conversationHistory, signal });
-  if (brainRoute.brain === CLARA_BRAINS.MEMORY) return generateMemoryBrainReply({ message, context, conversationHistory, signal });
-
-  if (brainRoute.brain === CLARA_BRAINS.SCHEDULE) {
-    return generateScheduleBrainReply({
-      apiKey,
-      message,
-      context,
-      conversationHistory,
+  if (aiMode === "direct_prompt") {
+    return requestPromptWithRetry({
+      prompt: buildDirectPrompt({ message, conversationHistory }),
+      mode: normalizedMode,
       signal,
-      discoverGeminiModelCandidates,
-      requestGeminiText,
-      shouldDebugClaraAi,
     });
   }
 
-  const prompt = await buildPrompt({ message, context, mode, conversationHistory });
-  const modelCandidates = await discoverGeminiModelCandidates();
-  let lastError = null;
-
-  for (const model of modelCandidates) {
-    try {
-      if (shouldDebugClaraAi()) console.log("[CLARA Gemini] Trying proxy model", model);
-      const text = await requestGeminiText({ model, prompt, signal });
-      if (text && !isIncompleteClaraReply(text)) return text;
-
-      const retryPrompt = buildCompletionRetryPrompt({ originalPrompt: prompt, incompleteReply: text });
-      const retryText = await requestGeminiText({ model, prompt: retryPrompt, signal });
-      if (retryText && !isIncompleteClaraReply(retryText)) return retryText;
-
-      lastError = new Error(`Gemini returned incomplete CLARA replies using ${model}.`);
-      lastError.model = model;
-      lastError.partialReply = retryText || text;
-    } catch (error) {
-      if (shouldDebugClaraAi()) console.warn("[CLARA Gemini] Proxy model failed", { model, message: error?.message, status: error?.status });
-      lastError = error;
-    }
+  if (aiMode === "deep_decision") {
+    return requestPromptWithRetry({
+      prompt: buildDeepDecisionAiPrompt({
+        userMessage: visibleUserMessage,
+        mode: normalizedMode,
+        fullContext: context,
+        recentConversation: conversationHistory,
+      }),
+      mode: normalizedMode || "deep_decision",
+      signal,
+    });
   }
 
-  if (shouldDebugClaraAi() && lastError) console.warn("[CLARA Gemini] Final fallback blocked", lastError);
-  return GEMINI_RETRY_REPLY;
+  return requestPromptWithRetry({
+    prompt: buildNormalChatAiPrompt({
+      userMessage: visibleUserMessage,
+      recentConversation: conversationHistory,
+      dataMap: buildNormalChatDataMap(context),
+    }),
+    mode: normalizedMode || "normal_chat",
+    signal,
+  });
 }
 
 export async function refineClaraSupportMessageWithGemini({ topic, message }) {
-  return `Topic: ${topic || "General"}\n\n${sanitizeClaraReply(message)}`;
+  return `Topic: ${topic || "General"}\n\n${cleanText(message)}`;
 }
