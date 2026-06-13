@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 import useDailyTip from "../logic/useDailyTip";
+import useDailyCheckIn from "../logic/useDailyCheckIn";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
 import "./daily-tip-premium-flip.css";
 
 const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
 const FLIP_UNLOCK_DELAY_MS = 700;
+const CHECK_IN_DAYS = 30;
 
 function readActiveCurrentState() {
   if (typeof window === "undefined") return null;
@@ -25,6 +27,13 @@ export default function DailyTipCard({
   onOpenCommitmentBooklet,
 }) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
+  const {
+    checkedInToday,
+    totalCompleted,
+    challengeDay,
+    currentStreak,
+    checkInToday,
+  } = useDailyCheckIn();
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const isFlippingRef = useRef(false);
@@ -75,6 +84,11 @@ export default function DailyTipCard({
 
     isFlippingRef.current = true;
     setIsFlipping(true);
+
+    if (willRevealTip && !checkedInToday) {
+      checkInToday();
+    }
+
     setFlipped((current) => !current);
 
     if (willRevealTip && !hasSeenToday) {
@@ -155,12 +169,14 @@ export default function DailyTipCard({
         }}
         aria-label={
           hasCommittedAccess
-            ? "Flip Daily Money Tip"
-            : "Open the Committed Version to unlock Daily Money Tip"
+            ? checkedInToday
+              ? "Show today's Daily Money Tip"
+              : "Check in for today and reveal Daily Money Tip"
+            : "Open the Committed Version to unlock Daily Check-In"
         }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
-        className="group relative h-[150px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
+        className="group relative h-[170px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
         style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <div className="clara-daily-tip-scene">
@@ -177,13 +193,46 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
-              <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
-                <div>
-                  <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300">
-                    Daily Money Tip
+              <div className="relative flex h-full flex-col px-4 py-3.5 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[9px] font-black uppercase leading-none tracking-[0.22em] text-cyan-200/72">
+                      Daily Check-In
+                    </div>
+                    <div className="mt-1.5 text-[20px] font-black leading-none tracking-[-0.03em] text-white">
+                      Day {challengeDay} of {CHECK_IN_DAYS}
+                    </div>
                   </div>
-                  <div className="text-sm font-semibold text-white/75">
-                    Tap to flip
+
+                  <span className="clara-checkin-pill shrink-0 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em]">
+                    {currentStreak}-day streak
+                  </span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-semibold leading-snug text-cyan-50/72">
+                    Tap today to protect your money discipline.
+                  </p>
+                  <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/58">
+                    {checkedInToday ? "Checked in today" : "Tap to check in"}
+                  </span>
+                </div>
+
+                <div className="mt-auto pt-3">
+                  <div className="clara-checkin-grid" aria-hidden="true">
+                    {Array.from({ length: CHECK_IN_DAYS }).map((_, dotIndex) => {
+                      const isDone = dotIndex < totalCompleted;
+                      const isToday = !checkedInToday && dotIndex === Math.min(totalCompleted, CHECK_IN_DAYS - 1);
+
+                      return (
+                        <span
+                          key={dotIndex}
+                          className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
+                            isToday ? "clara-checkin-dot--today" : ""
+                          }`}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -192,8 +241,19 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
-              <div className="relative flex h-full items-center justify-center px-6 text-center text-white">
-                <p className="max-w-[20rem] text-sm font-semibold leading-relaxed text-white/90">
+              <div className="relative flex h-full flex-col items-center justify-center px-5 py-4 text-center text-white">
+                <div className="mb-2 flex items-center justify-center gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
+                    Today&apos;s Money Tip
+                  </span>
+                  {checkedInToday ? (
+                    <span className="clara-checkin-pill px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em]">
+                      Checked in
+                    </span>
+                  ) : null}
+                </div>
+
+                <p className="max-w-[20rem] text-[13px] font-semibold leading-relaxed text-white/90">
                   {tip}
                 </p>
               </div>
