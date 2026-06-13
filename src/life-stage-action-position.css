@@ -11,8 +11,9 @@
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type > div[class*="absolute"][class*="right-4"][class*="top-4"] > button {
-  height: 30px !important;
-  width: 42px !important;
+  height: 36px !important;
+  width: 36px !important;
+  min-width: 36px !important;
   border-radius: 999px !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   background: rgba(3, 8, 23, 0.20) !important;
@@ -279,8 +280,9 @@
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type > div[class*="absolute"][class*="left-4"][class*="top-4"] > button {
-  height: 34px !important;
-  width: 46px !important;
+  height: 36px !important;
+  width: 36px !important;
+  min-width: 36px !important;
   border-radius: 999px !important;
   border-color: rgba(255, 255, 255, 0.18) !important;
   background: rgba(3, 8, 23, 0.48) !important;
@@ -316,6 +318,7 @@
   height: auto !important;
   max-height: none !important;
   overflow: hidden !important;
+  border-radius: 16px !important;
 }
 
 [data-clara-life-stage-actions-menu="true"] > button {
@@ -325,6 +328,13 @@
   align-items: center !important;
   justify-content: flex-start !important;
   white-space: nowrap !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-clara-life-stage-actions-menu="true"] > button:hover {
+  background: rgba(255, 255, 255, 0.055) !important;
 }
 
 [data-clara-life-stage-actions-menu="true"] > div {
