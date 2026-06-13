@@ -1,5 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
+
+const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
 
 const resolvePanelIndex = (panelKey) => {
   const index = DASHBOARD_PANEL_ORDER.indexOf(panelKey);
@@ -20,6 +22,19 @@ export default function useDashboardPanelNavigation(defaultPanel = "home") {
       setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
       return nextPanel;
     });
+  }, []);
+
+  useEffect(() => {
+    const target = typeof globalThis !== "undefined" ? globalThis : null;
+    if (!target?.addEventListener) return undefined;
+
+    const handleCommitmentDeclineHome = () => {
+      setDashboardPanelDirection("backward");
+      setActiveDashboardPanel("home");
+    };
+
+    target.addEventListener(COMMITMENT_DECLINE_HOME_EVENT, handleCommitmentDeclineHome);
+    return () => target.removeEventListener(COMMITMENT_DECLINE_HOME_EVENT, handleCommitmentDeclineHome);
   }, []);
 
   return {
