@@ -335,82 +335,84 @@ export default function LearningHubCarousel({
         )}
       </button>
 
-      <div
-        data-learning-hub-expanded={isExpanded ? "true" : "false"}
-        aria-hidden={!isExpanded}
-        className="clara-learning-hub-expanded clara-learning-motion overflow-hidden transition-[opacity,transform] duration-300 ease-out"
-        style={{
-          height: isExpanded ? `${LEARNING_HUB_STAGE_HEIGHT}px` : "0px",
-          opacity: isExpanded ? 1 : 0,
-          marginTop: isExpanded ? "0.75rem" : "0rem",
-          transform: isExpanded ? "translateY(0) scaleY(1)" : "translateY(-6px) scaleY(0.98)",
-          transformOrigin: "top center",
-          pointerEvents: isExpanded ? "auto" : "none",
-        }}
-      >
-        <div className="clara-learning-hub-clip min-h-0 overflow-visible">
-          <div
-            className="clara-learning-hub-stage relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
-            style={{
-              height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
-              minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
-              perspective: "1300px",
-              transformStyle: "preserve-3d",
-            }}
-            onMouseEnter={pauseCarousel}
-            onMouseLeave={resumeCarouselSoon}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
-            <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.055] via-transparent to-black/24" />
-            <div className="pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10" />
+      {isExpanded ? (
+        <div
+          data-learning-hub-expanded="true"
+          aria-hidden={false}
+          className="clara-learning-hub-expanded clara-learning-motion overflow-hidden transition-[opacity,transform] duration-300 ease-out"
+          style={{
+            height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+            opacity: 1,
+            marginTop: "0.75rem",
+            transform: "translateY(0) scaleY(1)",
+            transformOrigin: "top center",
+            pointerEvents: "auto",
+          }}
+        >
+          <div className="clara-learning-hub-clip min-h-0 overflow-visible">
+            <div
+              className="clara-learning-hub-stage relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
+              style={{
+                height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+                minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+                perspective: "1300px",
+                transformStyle: "preserve-3d",
+              }}
+              onMouseEnter={pauseCarousel}
+              onMouseLeave={resumeCarouselSoon}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
+              <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.055] via-transparent to-black/24" />
+              <div className="pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10" />
 
-            <div className="pointer-events-none absolute left-0 top-0 z-[88] h-full w-11 bg-gradient-to-r from-[#020617] via-[#020617]/56 to-transparent" />
-            <div className="pointer-events-none absolute right-0 top-0 z-[88] h-full w-11 bg-gradient-to-l from-[#020617] via-[#020617]/56 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[89] h-7 bg-gradient-to-b from-[#020617]/82 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[89] h-7 bg-gradient-to-t from-[#020617]/82 to-transparent" />
+              <div className="pointer-events-none absolute left-0 top-0 z-[88] h-full w-11 bg-gradient-to-r from-[#020617] via-[#020617]/56 to-transparent" />
+              <div className="pointer-events-none absolute right-0 top-0 z-[88] h-full w-11 bg-gradient-to-l from-[#020617] via-[#020617]/56 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-[89] h-7 bg-gradient-to-b from-[#020617]/82 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[89] h-7 bg-gradient-to-t from-[#020617]/82 to-transparent" />
 
-            {safeItems.map((item, index) => {
-              const rawOffset = index - activeIndex;
+              {safeItems.map((item, index) => {
+                const rawOffset = index - activeIndex;
 
-              const wrappedOffset =
-                rawOffset > total / 2
-                  ? rawOffset - total
-                  : rawOffset < -total / 2
-                    ? rawOffset + total
-                    : rawOffset;
+                const wrappedOffset =
+                  rawOffset > total / 2
+                    ? rawOffset - total
+                    : rawOffset < -total / 2
+                      ? rawOffset + total
+                      : rawOffset;
 
-              const shouldRender = Math.abs(wrappedOffset) <= 2;
+                const shouldRender = Math.abs(wrappedOffset) <= 2;
 
-              if (!shouldRender) return null;
+                if (!shouldRender) return null;
 
-              const isActive = wrappedOffset === 0;
+                const isActive = wrappedOffset === 0;
 
-              return (
-                <LearningMaterialCard
-                  key={item.id || index}
-                  item={item}
-                  isActive={isActive}
-                  offset={wrappedOffset}
-                  visible={shouldRender}
-                  position={index + 1}
-                  total={total}
-                  onClick={() => {
-                    if (isActive) {
-                      openItemHandler?.(item);
-                      return;
-                    }
+                return (
+                  <LearningMaterialCard
+                    key={item.id || index}
+                    item={item}
+                    isActive={isActive}
+                    offset={wrappedOffset}
+                    visible={shouldRender}
+                    position={index + 1}
+                    total={total}
+                    onClick={() => {
+                      if (isActive) {
+                        openItemHandler?.(item);
+                        return;
+                      }
 
-                    moveToIndex(index);
-                  }}
-                />
-              );
-            })}
+                      moveToIndex(index);
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }
