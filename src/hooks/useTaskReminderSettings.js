@@ -7,11 +7,19 @@ import {
   upsertTaskReminderSettings,
 } from "@/lib/task-reminders";
 import {
-  enableTaskReminderPush,
-  getExistingPushSubscription,
-  getNotificationPermissionState,
-  supportsPushNotifications,
-} from "@/lib/push-notifications";
+  enableDeviceNotifications,
+  getDeviceNotificationEnvironment,
+  getDeviceNotificationPermissionState,
+  getExistingDeviceNotificationConnection,
+} from "@/lib/notifications/deviceNotifications";
+
+function getInitialPermissionState(environment) {
+  if (!environment?.supportsAnyDevicePush) return "unsupported";
+  if (environment.preferredChannel === "web_push" && typeof Notification !== "undefined") {
+    return Notification.permission;
+  }
+  return "default";
+}
 
 export default function useTaskReminderSettings(userId) {
   const [settings, setSettings] = useState(DEFAULT_TASK_REMINDER_SETTINGS);
@@ -19,27 +27,42 @@ export default function useTaskReminderSettings(userId) {
   const [loading, setLoading] = useState(Boolean(userId));
   const [saving, setSaving] = useState(false);
   const [pushEnabling, setPushEnabling] = useState(false);
-  const [permissionState, setPermissionState] = useState(getNotificationPermissionState());
+  const [notificationEnvironment, setNotificationEnvironment] = useState(getDeviceNotificationEnvironment());
+  const [permissionState, setPermissionState] = useState(() =>
+    getInitialPermissionState(getDeviceNotificationEnvironment())
+  );
   const [pushConfigured, setPushConfigured] = useState(false);
 
-  const pushSupported = useMemo(() => supportsPushNotifications(), []);
+  const pushSupported = useMemo(
+    () => notificationEnvironment.supportsAnyDevicePush,
+    [notificationEnvironment.supportsAnyDevicePush]
+  );
 
   const refreshPushStatus = useCallback(async () => {
-    setPermissionState(getNotificationPermissionState());
+    const environment = getDeviceNotificationEnvironment();
+    setNotificationEnvironment(environment);
 
-    if (!pushSupported) {
+    try {
+      const permission = await getDeviceNotificationPermissionState();
+      setPermissionState(permission);
+    } catch (error) {
+      console.error("Failed checking device notification permission:", error);
+      setPermissionState(environment.supportsAnyDevicePush ? "default" : "unsupported");
+    }
+
+    if (!environment.supportsAnyDevicePush) {
       setPushConfigured(false);
       return;
     }
 
     try {
-      const subscription = await getExistingPushSubscription();
-      setPushConfigured(Boolean(subscription));
+      const connection = await getExistingDeviceNotificationConnection({ userId });
+      setPushConfigured(Boolean(connection));
     } catch (error) {
-      console.error("Failed checking push subscription:", error);
+      console.error("Failed checking device notification connection:", error);
       setPushConfigured(false);
     }
-  }, [pushSupported]);
+  }, [userId]);
 
   const loadSettings = useCallback(async () => {
     if (!userId) {
@@ -102,8 +125,9 @@ export default function useTaskReminderSettings(userId) {
 
     try {
       setPushEnabling(true);
-      const result = await enableTaskReminderPush({ userId });
+      const result = await enableDeviceNotifications({ userId });
       setPermissionState(result.permission);
+      if (result.environment) setNotificationEnvironment(result.environment);
       await refreshPushStatus();
       return result;
     } finally {
@@ -124,6 +148,7 @@ export default function useTaskReminderSettings(userId) {
     dirty,
     saveSettings,
     reloadSettings: loadSettings,
+    notificationEnvironment,
     pushSupported,
     permissionState,
     pushConfigured,
