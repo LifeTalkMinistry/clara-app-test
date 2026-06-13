@@ -195,7 +195,7 @@ function GenderVariantToggle({ value, onChange }) {
   ];
 
   return (
-    <div className="flex h-9 items-center gap-3">
+    <div className="flex h-9 items-center gap-1.5">
       {items.map((item) => {
         const Icon = item.icon;
         const active = selected === item.value;
@@ -205,13 +205,15 @@ function GenderVariantToggle({ value, onChange }) {
             key={item.value}
             type="button"
             onClick={() => onChange(item.value)}
-            className={`grid h-9 w-5 place-items-center bg-transparent p-0 transition active:scale-95 ${
-              active ? "text-cyan-100/55" : "text-white/50 hover:text-white/65"
+            className={`grid h-8 w-8 place-items-center rounded-full border backdrop-blur-xl transition active:scale-95 ${
+              active
+                ? "border-cyan-100/28 bg-cyan-200/14 text-cyan-50/80 shadow-[0_0_18px_rgba(125,211,252,.16)]"
+                : "border-white/[0.075] bg-slate-950/24 text-white/68 hover:bg-white/[0.045] hover:text-white/82"
             }`}
             aria-label={item.label}
             title={item.label}
           >
-            <Icon className="h-5 w-5 drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]" />
+            <Icon className="h-4.5 w-4.5 drop-shadow-[0_8px_18px_rgba(0,0,0,.55)]" />
           </button>
         );
       })}
