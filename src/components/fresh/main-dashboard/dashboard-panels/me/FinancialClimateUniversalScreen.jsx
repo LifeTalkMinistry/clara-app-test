@@ -207,13 +207,13 @@ function GenderVariantToggle({ value, onChange }) {
             onClick={() => onChange(item.value)}
             className={`grid h-8 w-8 place-items-center rounded-full border backdrop-blur-xl transition active:scale-95 ${
               active
-                ? "border-cyan-100/28 bg-cyan-200/14 text-cyan-50/80 shadow-[0_0_18px_rgba(125,211,252,.16)]"
-                : "border-white/[0.075] bg-slate-950/24 text-white/68 hover:bg-white/[0.045] hover:text-white/82"
+                ? "border-cyan-100/50 bg-cyan-200/22 text-cyan-50 shadow-[0_0_22px_rgba(125,211,252,.28)]"
+                : "border-white/20 bg-slate-950/38 text-white hover:bg-white/10"
             }`}
             aria-label={item.label}
             title={item.label}
           >
-            <Icon className="h-4.5 w-4.5 drop-shadow-[0_8px_18px_rgba(0,0,0,.55)]" />
+            <Icon className="h-4.5 w-4.5 drop-shadow-[0_8px_18px_rgba(0,0,0,.70)]" />
           </button>
         );
       })}
