@@ -31,13 +31,19 @@ export default function LearningHub() {
         />
 
         {!shouldLoadHub ? (
-          <LearningHubToggleButton
-            isExpanded={false}
-            isLocked={isLocked}
-            isInsideCategory={false}
-            headerLabel="Learning Hub"
-            onClick={handleOpenHub}
-          />
+          <div
+            data-clara-learning-hub-bridge="true"
+            className="grid h-[clamp(62px,7dvh,74px)] place-items-center"
+          >
+            <LearningHubToggleButton
+              isExpanded={false}
+              isLocked={isLocked}
+              isInsideCategory={false}
+              headerLabel="Learning Hub"
+              onClick={handleOpenHub}
+              className="!mt-0 !mb-0"
+            />
+          </div>
         ) : null}
       </div>
 
