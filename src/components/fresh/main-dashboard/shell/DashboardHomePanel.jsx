@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
@@ -8,6 +8,17 @@ import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notice
 import { Button } from "@/components/ui/button";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
+
+const runInAnimationFrame = (callback) => {
+  if (typeof callback !== "function") return;
+
+  if (typeof window === "undefined") {
+    callback();
+    return;
+  }
+
+  window.requestAnimationFrame(callback);
+};
 
 export default function DashboardHomePanel({
   isPending,
@@ -69,6 +80,74 @@ export default function DashboardHomePanel({
   const [moneySummaryResetKey, setMoneySummaryResetKey] = useState(0);
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const isFreePlan = currentPlan === "free";
+
+  const handleSaveBudget = useCallback(() => {
+    runInAnimationFrame(() => openBudgetModal());
+  }, [openBudgetModal]);
+
+  const handleEditBudgetCategory = useCallback(
+    (item) => {
+      runInAnimationFrame(() => openBudgetModal(item));
+    },
+    [openBudgetModal]
+  );
+
+  const handleDeleteBudgetCategory = useCallback(
+    (item) => {
+      runInAnimationFrame(() => openDeleteBudgetCategoryModal(item));
+    },
+    [openDeleteBudgetCategoryModal]
+  );
+
+  const handleResetBudget = useCallback(() => {
+    runInAnimationFrame(() => openResetBudgetModal());
+  }, [openResetBudgetModal]);
+
+  const handleCreateWallet = useCallback(() => {
+    runInAnimationFrame(() => openCreateWalletModal());
+  }, [openCreateWalletModal]);
+
+  const handleDeleteWallet = useCallback(
+    (walletId) => {
+      runInAnimationFrame(() => openDeleteWalletModal(walletId));
+    },
+    [openDeleteWalletModal]
+  );
+
+  const handleAddMoney = useCallback(
+    (wallet) => {
+      runInAnimationFrame(() => openAddMoneyModal(wallet));
+    },
+    [openAddMoneyModal]
+  );
+
+  const handleTransferMoney = useCallback(
+    (wallet) => {
+      runInAnimationFrame(() => openTransferMoneyModal(wallet));
+    },
+    [openTransferMoneyModal]
+  );
+
+  const handleSaveSavingsGoal = useCallback(
+    (goal) => {
+      runInAnimationFrame(() => openSavingsGoalModal(goal));
+    },
+    [openSavingsGoalModal]
+  );
+
+  const handleDeleteSavingsGoal = useCallback(
+    (goalId) => {
+      runInAnimationFrame(() => openDeleteSavingsGoalModal(goalId));
+    },
+    [openDeleteSavingsGoalModal]
+  );
+
+  const handleAddSavings = useCallback(
+    (goal) => {
+      runInAnimationFrame(() => openAddSavingsModal(goal));
+    },
+    [openAddSavingsModal]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -147,34 +226,18 @@ export default function DashboardHomePanel({
             financeActionLoading={financeActionLoading}
             onQuickExpense={openManualExpenseModal}
             onSurvivalSaved={saveSurvivalExpenseInline}
-            onSaveBudget={() => window.requestAnimationFrame(() => openBudgetModal())}
-            onEditBudgetCategory={(item) =>
-              window.requestAnimationFrame(() => openBudgetModal(item))
-            }
-            onDeleteBudgetCategory={(item) =>
-              window.requestAnimationFrame(() => openDeleteBudgetCategoryModal(item))
-            }
-            onResetBudget={() => window.requestAnimationFrame(() => openResetBudgetModal())}
-            onCreateWallet={() => window.requestAnimationFrame(() => openCreateWalletModal())}
+            onSaveBudget={handleSaveBudget}
+            onEditBudgetCategory={handleEditBudgetCategory}
+            onDeleteBudgetCategory={handleDeleteBudgetCategory}
+            onResetBudget={handleResetBudget}
+            onCreateWallet={handleCreateWallet}
             onMoveWallet={moveWalletInline}
-            onDeleteWallet={(walletId) =>
-              window.requestAnimationFrame(() => openDeleteWalletModal(walletId))
-            }
-            onAddMoney={(wallet) =>
-              window.requestAnimationFrame(() => openAddMoneyModal(wallet))
-            }
-            onTransferMoney={(wallet) =>
-              window.requestAnimationFrame(() => openTransferMoneyModal(wallet))
-            }
-            onSaveSavingsGoal={(goal) =>
-              window.requestAnimationFrame(() => openSavingsGoalModal(goal))
-            }
-            onDeleteSavingsGoal={(goalId) =>
-              window.requestAnimationFrame(() => openDeleteSavingsGoalModal(goalId))
-            }
-            onAddSavings={(goal) =>
-              window.requestAnimationFrame(() => openAddSavingsModal(goal))
-            }
+            onDeleteWallet={handleDeleteWallet}
+            onAddMoney={handleAddMoney}
+            onTransferMoney={handleTransferMoney}
+            onSaveSavingsGoal={handleSaveSavingsGoal}
+            onDeleteSavingsGoal={handleDeleteSavingsGoal}
+            onAddSavings={handleAddSavings}
             startClaraAiLongPress={isFreePlan ? undefined : startClaraAiLongPress}
             endClaraAiLongPress={isFreePlan ? undefined : endClaraAiLongPress}
             handleClaraAiOrbClickCapture={isFreePlan ? undefined : handleClaraAiOrbClickCapture}
