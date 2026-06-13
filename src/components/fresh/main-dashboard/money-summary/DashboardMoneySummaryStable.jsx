@@ -238,7 +238,7 @@ export default function DashboardMoneySummaryStable({
               alt=""
               aria-hidden="true"
               draggable={false}
-              className="h-9 w-9 select-none rounded-full object-contain drop-shadow-[0_0_12px_rgba(34,211,238,0.38)]"
+              className="h-11 w-11 scale-[1.12] select-none rounded-full object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.42)]"
             />
           </button>
         </div>
