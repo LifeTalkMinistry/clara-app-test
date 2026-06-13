@@ -45,6 +45,9 @@ export default function FinancialCarousel(props) {
     walletMoney,
     walletPreviewTransactions,
     survivalExpense,
+    incomeSources,
+    incomeData,
+    refreshData,
     user,
     plan,
     guardChecked,
@@ -196,24 +199,41 @@ export default function FinancialCarousel(props) {
         allowVerticalOverflow={isInlineFocusExpanded}
       >
         {items.map((item, index) => {
+          const isActiveSlide = index === activeIndex;
           const isNearbySlide = Math.abs(index - activeIndex) <= 1;
           const isDefaultSlide = index === defaultIndex;
           const isInlineExpanded =
             item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
           const shouldRenderFullCard =
             isNearbySlide || isDefaultSlide || isInlineExpanded;
+          // Performance:
+          // Avoid making carousel cards independently fetch data when DashboardHomePanel already owns it.
+          const cardItem = item.type === "investmentFund"
+            ? {
+                ...item,
+                data: {
+                  ...item.data,
+                  incomeSources,
+                  incomeData,
+                  refreshData,
+                  isActiveSlide,
+                  isNearbySlide,
+                  performanceMode: shouldRenderFullCard ? "full" : "lite",
+                },
+              }
+            : item;
 
           return (
             <CarouselSlideShell
-              key={item.key}
-              item={item}
+              key={cardItem.key}
+              item={cardItem}
               selectedDashboardTheme={selectedDashboardTheme}
               dashboardScale={dashboardScale}
               isExpanded={isInlineExpanded}
             >
               {shouldRenderFullCard ? (
                 <CarouselItemCard
-                  item={item}
+                  item={cardItem}
                   selectedDashboardTheme={selectedDashboardTheme}
                   expandedFinanceCard={expandedFinanceCard}
                   toggleFinanceDetails={toggleFinanceDetails}
@@ -230,7 +250,6 @@ export default function FinancialCarousel(props) {
                   onDeleteWallet={onDeleteWallet}
                   onAddMoney={onAddMoney}
                   onTransferMoney={onTransferMoney}
-                  onEditWallet={onEditWallet}
                   onSaveSavingsGoal={onSaveSavingsGoal}
                   onDeleteSavingsGoal={onDeleteSavingsGoal}
                   onAddSavings={onAddSavings}
@@ -239,7 +258,7 @@ export default function FinancialCarousel(props) {
                   handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
                 />
               ) : (
-                <CarouselCardPlaceholder item={item} />
+                <CarouselCardPlaceholder item={cardItem} />
               )}
             </CarouselSlideShell>
           );
