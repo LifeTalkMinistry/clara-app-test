@@ -18,11 +18,7 @@ import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import {
   hasStoredNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
-import {
-  getNotificationPermissionState,
-  showTestNotification,
-  supportsPushNotifications,
-} from "@/lib/push-notifications";
+import { showTestDeviceNotification } from "@/lib/notifications/deviceNotifications";
 
 const SNOOZE_OPTIONS = [
   { value: 30, label: "30 minutes" },
@@ -30,34 +26,54 @@ const SNOOZE_OPTIONS = [
   { value: 180, label: "3 hours" },
 ];
 
-function statusCopy({ pushSupported, permissionState, pushConfigured }) {
-  if (!pushSupported) {
+function environmentBody(environment) {
+  if (environment?.preferredChannel === "native_push" && environment.platform === "android") {
+    return "CLARA can send reminders through this installed Android app.";
+  }
+
+  if (environment?.preferredChannel === "native_push" && environment.platform === "ios") {
+    return "CLARA can send reminders through this installed iPhone app once native push is configured.";
+  }
+
+  if (environment?.preferredChannel === "web_push") {
+    return "CLARA can send reminders through this browser or installed web app.";
+  }
+
+  return "This browser cannot receive device notifications. In-app notifications still work.";
+}
+
+function statusCopy({ environment, permissionState, pushConfigured }) {
+  if (environment?.preferredChannel === "in_app_only") {
     return {
-      title: "Not supported",
-      body: "This browser cannot receive device notifications. In-app notifications still work.",
+      title: "Browser notifications unavailable",
+      body: environmentBody(environment),
     };
   }
+
   if (permissionState === "denied") {
     return {
       title: "Permission blocked",
       body: "Enable notifications in your browser or device settings, then return here.",
     };
   }
-  if (permissionState === "granted" && pushConfigured) {
+
+  if (pushConfigured) {
     return {
-      title: "Enabled on this device",
-      body: "This device is connected for supported CLARA reminders.",
+      title: environment?.preferredChannel === "native_push" ? "Enabled on this phone" : "Enabled on this device",
+      body: environmentBody(environment),
     };
   }
+
   if (permissionState === "granted") {
     return {
-      title: "Permission granted, setup incomplete",
+      title: "Setup incomplete",
       body: "Permission is ready, but push delivery still needs to finish connecting.",
     };
   }
+
   return {
     title: "Not enabled",
-    body: "CLARA will keep using in-app notifications until you enable this device.",
+    body: environmentBody(environment),
   };
 }
 
@@ -102,12 +118,25 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
   const [error, setError] = useState("");
   const [testing, setTesting] = useState(false);
 
-  const pushSupported = useMemo(() => supportsPushNotifications(), []);
+  const notificationEnvironment = taskReminderSettings.notificationEnvironment;
+  const pushSupported = taskReminderSettings.pushSupported;
   const deviceStatus = statusCopy({
-    pushSupported,
+    environment: notificationEnvironment,
     permissionState: taskReminderSettings.permissionState,
     pushConfigured: taskReminderSettings.pushConfigured,
   });
+
+  const deviceButtonDisabled =
+    notificationEnvironment?.preferredChannel === "in_app_only" ||
+    taskReminderSettings.pushEnabling ||
+    taskReminderSettings.permissionState === "denied";
+
+  const deviceButtonLabel = useMemo(() => {
+    if (taskReminderSettings.pushEnabling) return "Connecting...";
+    if (taskReminderSettings.pushConfigured) return "Refresh device connection";
+    if (notificationEnvironment?.preferredChannel === "native_push") return "Enable phone notifications";
+    return "Enable device notifications";
+  }, [notificationEnvironment?.preferredChannel, taskReminderSettings.pushConfigured, taskReminderSettings.pushEnabling]);
 
   useEffect(() => {
     let mounted = true;
@@ -205,12 +234,16 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
 
     try {
       const result = await taskReminderSettings.enablePush();
+      if (result.permission === "unsupported") {
+        setError(result.reason || "Device notifications are unavailable here, but CLARA will still use in-app notifications.");
+        return;
+      }
       if (result.permission === "denied") {
         setError("Notification permission is blocked. Enable it in your browser or device settings.");
         return;
       }
       if (!result.configured) {
-        setError("Permission was granted, but push delivery is not fully configured for this environment.");
+        setError(result.reason || "Permission was granted, but push delivery is not fully configured for this environment.");
         return;
       }
 
@@ -219,7 +252,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
       setNotice("Device notifications are enabled on this device.");
     } catch (pushError) {
       console.error("Device notification setup failed:", pushError);
-      setError(pushError?.message || "Unable to enable device notifications right now.");
+      setError(pushError?.message || "Device notifications are unavailable here, but CLARA will still use in-app notifications.");
     }
   }, [syncTaskSettings, taskReminderSettings, updatePreference]);
 
@@ -229,7 +262,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     setError("");
 
     try {
-      await showTestNotification();
+      await showTestDeviceNotification();
       setNotice("Test notification sent to this device.");
     } catch (testError) {
       setError(testError?.message || "Unable to show a test notification.");
@@ -274,21 +307,17 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           <button
             type="button"
             onClick={enableDeviceNotifications}
-            disabled={!pushSupported || taskReminderSettings.pushEnabling || taskReminderSettings.permissionState === "denied"}
+            disabled={deviceButtonDisabled}
             className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2.5 text-xs font-black text-cyan-50 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {taskReminderSettings.pushEnabling
-              ? "Connecting..."
-              : taskReminderSettings.pushConfigured
-                ? "Refresh device connection"
-                : "Enable device notifications"}
+            {deviceButtonLabel}
           </button>
 
           {pushSupported ? (
             <button
               type="button"
               onClick={runTestNotification}
-              disabled={testing || getNotificationPermissionState() !== "granted"}
+              disabled={testing || taskReminderSettings.permissionState !== "granted"}
               className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-2.5 text-xs font-bold text-white/70 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {testing ? "Sending..." : "Test notification"}
