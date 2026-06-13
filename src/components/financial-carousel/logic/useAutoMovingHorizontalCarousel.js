@@ -44,11 +44,24 @@ export default function useAutoMovingHorizontalCarousel({
     }
   }, []);
 
-  const setSafeActiveIndex = useCallback(
+  // Performance:
+  // Scroll events can fire many times during a swipe.
+  // Only commit activeIndex when the nearest slide actually changes.
+  // This keeps virtualization working without forcing React renders per pixel.
+  const commitActiveIndex = useCallback(
     (nextIndex) => {
-      const safeIndex = clampIndex(nextIndex, itemCount);
+      const numericIndex = Number(nextIndex);
+      if (!Number.isFinite(numericIndex)) return;
+
+      const safeIndex = clampIndex(numericIndex, itemCount);
+
+      if (activeIndexRef.current === safeIndex) return;
+
       activeIndexRef.current = safeIndex;
-      setActiveIndex(safeIndex);
+      setActiveIndex((currentIndex) => {
+        if (currentIndex === safeIndex) return currentIndex;
+        return safeIndex;
+      });
     },
     [itemCount]
   );
@@ -73,9 +86,9 @@ export default function useAutoMovingHorizontalCarousel({
         behavior,
       });
 
-      setSafeActiveIndex(safeIndex);
+      commitActiveIndex(safeIndex);
     },
-    [getSlideWidth, itemCount, setSafeActiveIndex]
+    [commitActiveIndex, getSlideWidth, itemCount]
   );
 
   const startAutoMove = useCallback(() => {
@@ -227,19 +240,21 @@ export default function useAutoMovingHorizontalCarousel({
   );
 
   const handleScroll = useCallback(() => {
-    const container = carouselRef.current;
-    if (!container || itemCount <= 0 || typeof window === "undefined") return;
-
-    if (scrollFrameRef.current) {
-      window.cancelAnimationFrame(scrollFrameRef.current);
-    }
+    if (scrollFrameRef.current || typeof window === "undefined") return;
 
     scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+
+      const container = carouselRef.current;
+      if (!container || itemCount <= 0) return;
+
       const slideWidth = getSlideWidth();
+      if (!slideWidth) return;
+
       const index = Math.round(container.scrollLeft / slideWidth);
-      setSafeActiveIndex(index);
+      commitActiveIndex(index);
     });
-  }, [getSlideWidth, itemCount, setSafeActiveIndex]);
+  }, [commitActiveIndex, getSlideWidth, itemCount]);
 
   const interactionHandlers = {
     onPointerDown: handlePointerDown,
@@ -257,8 +272,8 @@ export default function useAutoMovingHorizontalCarousel({
 
   useEffect(() => {
     const safeDefaultIndex = clampIndex(defaultIndex, itemCount);
-    setSafeActiveIndex(safeDefaultIndex);
-  }, [defaultIndex, itemCount, setSafeActiveIndex]);
+    commitActiveIndex(safeDefaultIndex);
+  }, [commitActiveIndex, defaultIndex, itemCount]);
 
   useEffect(() => {
     if (!itemCount || didSetDefaultSlideRef.current) return;
@@ -278,9 +293,11 @@ export default function useAutoMovingHorizontalCarousel({
     return () => {
       if (scrollFrameRef.current && typeof window !== "undefined") {
         window.cancelAnimationFrame(scrollFrameRef.current);
+        scrollFrameRef.current = null;
       }
       if (settleFrameRef.current && typeof window !== "undefined") {
         window.cancelAnimationFrame(settleFrameRef.current);
+        settleFrameRef.current = null;
       }
       clearAutoMoveTimer();
       clearResumeTimer();
