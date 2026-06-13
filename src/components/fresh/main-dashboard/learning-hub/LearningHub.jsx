@@ -1,13 +1,15 @@
+import { Suspense, lazy } from "react";
 import { createPortal } from "react-dom";
 import { PlayCircle, Sparkles, X } from "lucide-react";
 import useLearningHub from "./logic/useLearningHub";
 import LearningHubCarousel from "./ui/LearningHubCarousel";
-import LearningMaterialModal from "./modal/LearningMaterialModal";
-import LearningVideoWatchModal from "./modal/LearningVideoWatchModal";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+
+const LearningMaterialModal = lazy(() => import("./modal/LearningMaterialModal"));
+const LearningVideoWatchModal = lazy(() => import("./modal/LearningVideoWatchModal"));
 
 export default function LearningHub() {
   const {
@@ -55,17 +57,25 @@ export default function LearningHub() {
         onOpenItem={handleOpenItem}
       />
 
-      <LearningMaterialModal
-        isOpen={hasCommittedAccess && isOpen}
-        material={selectedMaterial}
-        onClose={closeMaterial}
-      />
+      {hasCommittedAccess && isOpen && selectedMaterial ? (
+        <Suspense fallback={null}>
+          <LearningMaterialModal
+            isOpen={isOpen}
+            material={selectedMaterial}
+            onClose={closeMaterial}
+          />
+        </Suspense>
+      ) : null}
 
-      <LearningVideoWatchModal
-        isOpen={hasCommittedAccess && isVideoOpen}
-        material={selectedVideo}
-        onClose={closeVideo}
-      />
+      {hasCommittedAccess && isVideoOpen && selectedVideo ? (
+        <Suspense fallback={null}>
+          <LearningVideoWatchModal
+            isOpen={isVideoOpen}
+            material={selectedVideo}
+            onClose={closeVideo}
+          />
+        </Suspense>
+      ) : null}
 
       <LearningComingSoonModal
         isOpen={hasCommittedAccess && isLauncherOpen}
