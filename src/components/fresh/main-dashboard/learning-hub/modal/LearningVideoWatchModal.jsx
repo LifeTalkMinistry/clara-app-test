@@ -237,7 +237,6 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
 
   const titleId = "clara-learning-video-watch-title";
   const subtitleId = "clara-learning-video-watch-subtitle";
-  const eyebrowLabel = material.contentTypeLabel || material.coverLabel || "Curated Video Lesson";
   const credit = material.credit || {};
   const creditCreatorName = credit.creatorName || "the original creator";
   const creditSourceName = credit.sourceName || "YouTube";
@@ -264,32 +263,26 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         aria-describedby={subtitleId}
         className="relative flex h-full w-full flex-col overflow-hidden"
       >
-        <header className="absolute left-0 right-0 top-0 z-20 flex shrink-0 items-start justify-between gap-4 px-4 pb-8 pt-[max(18px,env(safe-area-inset-top))] landscape:bg-gradient-to-b landscape:from-black/72 landscape:to-transparent landscape:px-3 landscape:pt-[max(10px,env(safe-area-inset-top))]">
-          <div className="min-w-0 pr-2 landscape:hidden">
-            <p className="inline-flex rounded-full border border-cyan-100/18 bg-white/[0.08] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.20em] text-cyan-50/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]">
-              {eyebrowLabel}
-            </p>
+        <header className="absolute left-0 right-0 top-0 z-20 flex shrink-0 items-start justify-between gap-4 px-5 pb-8 pt-[max(24px,env(safe-area-inset-top))] landscape:bg-gradient-to-b landscape:from-black/72 landscape:to-transparent landscape:px-3 landscape:pt-[max(10px,env(safe-area-inset-top))]">
+          <div className="min-w-0 pr-11 landscape:hidden">
             <h3
               id={titleId}
-              className="mt-3 text-[24px] font-black leading-tight tracking-[-0.03em] text-white"
+              className="text-[29px] font-black leading-[1.02] tracking-[-0.045em] text-white"
             >
               {material.title}
             </h3>
             <p
               id={subtitleId}
-              className="mt-2 max-w-2xl text-[13px] leading-snug text-white/66"
+              className="mt-3 max-w-2xl text-[14.5px] font-semibold leading-snug text-white/74"
             >
               {material.subtitle}
             </p>
           </div>
 
           <div className="hidden min-w-0 pr-14 landscape:block">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50/68">
-              {eyebrowLabel}
-            </p>
             <h3
               id={`${titleId}-landscape`}
-              className="mt-1 max-w-[55vw] truncate text-[15px] font-black text-white/86"
+              className="max-w-[55vw] truncate text-[17px] font-black text-white/90"
             >
               {material.title}
             </h3>
