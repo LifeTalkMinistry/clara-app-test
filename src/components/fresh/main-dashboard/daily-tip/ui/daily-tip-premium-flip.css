@@ -1,6 +1,6 @@
 .clara-daily-tip-scene {
   position: relative;
-  height: 170px;
+  height: 100%;
   width: 100%;
   perspective: 1400px;
   perspective-origin: center center;
@@ -73,15 +73,15 @@
 .clara-checkin-grid {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 7px 8px;
-  width: min(100%, 218px);
+  gap: 5px 6px;
+  width: min(100%, 190px);
 }
 
 .clara-checkin-dot {
   position: relative;
   display: block;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   margin: 0 auto;
   border-radius: 2px;
   background: rgba(148, 163, 184, 0.34);
