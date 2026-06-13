@@ -1,9 +1,33 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Eye, EyeOff, Plus } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
 const LONG_PRESS_DELAY = 520;
+
+const resolveOrbAssetSrc = (assetPath = "") => {
+  const trimmedPath = String(assetPath || "").trim();
+  if (!trimmedPath) return "";
+
+  if (
+    trimmedPath.startsWith("http://") ||
+    trimmedPath.startsWith("https://") ||
+    trimmedPath.startsWith("data:") ||
+    trimmedPath.startsWith("blob:")
+  ) {
+    return trimmedPath;
+  }
+
+  if (trimmedPath.startsWith("/")) {
+    const baseUrl = import.meta.env.BASE_URL || "/";
+    const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+    return `${normalizedBaseUrl}${trimmedPath.replace(/^\/+/, "")}`;
+  }
+
+  return trimmedPath;
+};
+
+const CLARA_ORB_LOGO_SRC = resolveOrbAssetSrc("/images/clara/clara-orb-logo.png");
 
 export default function DashboardMoneySummaryStable({
   dashboardScale = {},
@@ -209,7 +233,13 @@ export default function DashboardMoneySummaryStable({
             style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
             aria-label="Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
           >
-            <Plus className="h-5 w-5" />
+            <img
+              src={CLARA_ORB_LOGO_SRC}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="h-9 w-9 select-none rounded-full object-contain drop-shadow-[0_0_12px_rgba(34,211,238,0.38)]"
+            />
           </button>
         </div>
 
