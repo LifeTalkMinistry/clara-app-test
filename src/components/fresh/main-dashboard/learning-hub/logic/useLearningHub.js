@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { learningHubCategories, learningHubData } from "./learningHubData";
 
 const CATEGORY_COVER_LABELS = {
@@ -26,35 +26,69 @@ const isCompletedLearningItem = (item) =>
   item?.status === "completed" ||
   Boolean(item?.completedAt);
 
-const buildCategoryLessonMaterials = () =>
-  learningHubCategories.flatMap((category) => {
-    if (!Array.isArray(category?.lessons)) return [];
+const normalizeCategory = (category) => ({
+  ...category,
+  kind: "category",
+  type: "category",
+  categoryId: category.id,
+  sourceType: category.sourceType || category.type,
+  coverLabel:
+    category.coverLabel || category.badge || CATEGORY_COVER_LABELS[category.id] || "Explore",
+  status: category.status || "available",
+});
 
-    return category.lessons.filter(Boolean).map((lesson, index) => {
-      const lessonNumber = Number.isFinite(lesson.lessonNumber)
-        ? lesson.lessonNumber
-        : index + 1;
-      const order = Number.isFinite(lesson.order) ? lesson.order : lessonNumber;
-      const coverLabel =
-        lesson.coverLabel ||
-        (lessonNumber ? `Lesson ${padLessonNumber(lessonNumber)}` : category.badge || "Lesson");
+const normalizeMaterial = (material) => ({
+  kind: "material",
+  status: "available",
+  category: material?.category || material?.type || "book",
+  ...material,
+});
 
-      return {
-        kind: "material",
-        type: lesson.type || "video",
-        category: category.id,
-        status: lesson.status || "available",
-        provider: lesson.provider || category.sourceType,
-        sourceType: lesson.sourceType || category.sourceType,
-        contentTypeLabel: lesson.contentTypeLabel || category.contentTypeLabel,
-        coverLabel,
-        order,
-        ...lesson,
-        lessonNumber,
-        order,
-      };
-    });
+const buildLessonMaterial = (category, lesson, index) => {
+  const lessonNumber = Number.isFinite(lesson.lessonNumber)
+    ? lesson.lessonNumber
+    : index + 1;
+  const order = Number.isFinite(lesson.order) ? lesson.order : lessonNumber;
+  const coverLabel =
+    lesson.coverLabel ||
+    (lessonNumber ? `Lesson ${padLessonNumber(lessonNumber)}` : category.badge || "Lesson");
+
+  return normalizeMaterial({
+    type: lesson.type || "video",
+    category: category.id,
+    status: lesson.status || "available",
+    provider: lesson.provider || category.sourceType,
+    sourceType: lesson.sourceType || category.sourceType,
+    contentTypeLabel: lesson.contentTypeLabel || category.contentTypeLabel,
+    coverLabel,
+    order,
+    ...lesson,
+    lessonNumber,
+    order,
   });
+};
+
+function buildMaterialsForCategory(categoryId) {
+  if (!categoryId) return [];
+
+  const selectedCategory = learningHubCategories.find(
+    (category) => category?.id === categoryId,
+  );
+
+  const categoryLessonMaterials = Array.isArray(selectedCategory?.lessons)
+    ? selectedCategory.lessons
+        .filter(Boolean)
+        .map((lesson, index) => buildLessonMaterial(selectedCategory, lesson, index))
+    : [];
+
+  const matchingLibraryMaterials = (Array.isArray(learningHubData) ? learningHubData : [])
+    .filter((material) => (material?.category || material?.type) === categoryId)
+    .map(normalizeMaterial);
+
+  return [...categoryLessonMaterials, ...matchingLibraryMaterials]
+    .filter(Boolean)
+    .sort(sortByOrder);
+}
 
 export default function useLearningHub() {
   const [activeCategory, setActiveCategory] = useState(null);
@@ -64,56 +98,28 @@ export default function useLearningHub() {
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const materialsCacheRef = useRef({});
 
   const baseCategories = useMemo(
     () =>
       [...learningHubCategories]
         .filter(Boolean)
-        .map((category) => ({
-          ...category,
-          kind: "category",
-          type: "category",
-          categoryId: category.id,
-          sourceType: category.sourceType || category.type,
-          coverLabel:
-            category.coverLabel || category.badge || CATEGORY_COVER_LABELS[category.id] || "Explore",
-          status: category.status || "available",
-        }))
+        .map(normalizeCategory)
         .sort(sortByOrder),
     [],
   );
-
-  const materials = useMemo(
-    () =>
-      [...buildCategoryLessonMaterials(), ...learningHubData]
-        .filter(Boolean)
-        .map((material) => ({
-          kind: "material",
-          status: "available",
-          category: material?.category || material?.type || "book",
-          ...material,
-        }))
-        .sort(sortByOrder),
-    [],
-  );
-
-  const materialsByCategory = useMemo(() => {
-    return baseCategories.reduce((groupedMaterials, category) => {
-      groupedMaterials[category.id] = materials
-        .filter((material) => (material.category || material.type) === category.id)
-        .sort(sortByOrder);
-
-      return groupedMaterials;
-    }, {});
-  }, [baseCategories, materials]);
 
   const categories = useMemo(
     () =>
       baseCategories.map((category) => {
-        const categoryMaterials = materialsByCategory[category.id] || [];
-        const totalLessons = categoryMaterials.length;
-        const completedLessons = categoryMaterials.filter(isCompletedLearningItem).length;
+        const categoryLessons = Array.isArray(category.lessons)
+          ? category.lessons.filter(Boolean)
+          : [];
+        const totalLessons = categoryLessons.length;
         const shouldShowProgress = category.id === "money-foundations";
+        const completedLessons = shouldShowProgress
+          ? categoryLessons.filter(isCompletedLearningItem).length
+          : 0;
 
         return {
           ...category,
@@ -127,28 +133,50 @@ export default function useLearningHub() {
             : {}),
         };
       }),
-    [baseCategories, materialsByCategory],
+    [baseCategories],
   );
 
+  const getCachedMaterialsForCategory = useCallback((categoryId) => {
+    if (!categoryId) return [];
+
+    if (!materialsCacheRef.current[categoryId]) {
+      materialsCacheRef.current[categoryId] = buildMaterialsForCategory(categoryId);
+    }
+
+    return materialsCacheRef.current[categoryId];
+  }, []);
+
+  const activeCategoryMaterials = useMemo(
+    () => (activeCategory ? getCachedMaterialsForCategory(activeCategory) : []),
+    [activeCategory, getCachedMaterialsForCategory],
+  );
+
+  const materialsByCategory = useMemo(
+    () => (activeCategory ? { [activeCategory]: activeCategoryMaterials } : {}),
+    [activeCategory, activeCategoryMaterials],
+  );
+
+  const materials = activeCategoryMaterials;
+
   const featuredVideo = useMemo(() => {
-    const videoMaterials = materialsByCategory.video || [];
+    if (activeCategory !== "video") return null;
 
     return (
-      videoMaterials.find((material) => material.featured) ||
-      videoMaterials[0] ||
+      activeCategoryMaterials.find((material) => material.featured) ||
+      activeCategoryMaterials[0] ||
       null
     );
-  }, [materialsByCategory]);
+  }, [activeCategory, activeCategoryMaterials]);
 
   const featuredBook = useMemo(() => {
-    const bookMaterials = materialsByCategory.book || [];
+    if (activeCategory !== "book") return null;
 
     return (
-      bookMaterials.find((material) => material.featured) ||
-      bookMaterials[0] ||
+      activeCategoryMaterials.find((material) => material.featured) ||
+      activeCategoryMaterials[0] ||
       null
     );
-  }, [materialsByCategory]);
+  }, [activeCategory, activeCategoryMaterials]);
 
   const activeCategoryMeta = useMemo(
     () => categories.find((category) => category.id === activeCategory) || null,
@@ -156,8 +184,8 @@ export default function useLearningHub() {
   );
 
   const carouselItems = useMemo(
-    () => (activeCategory ? materialsByCategory[activeCategory] || [] : categories),
-    [activeCategory, categories, materialsByCategory],
+    () => (activeCategory ? activeCategoryMaterials : categories),
+    [activeCategory, activeCategoryMaterials, categories],
   );
 
   const openCategory = (categoryId) => {
@@ -169,8 +197,10 @@ export default function useLearningHub() {
     setActiveCategory(null);
   };
 
-  const getMaterialsByCategory = (categoryId) =>
-    materialsByCategory[categoryId] || [];
+  const getMaterialsByCategory = useCallback(
+    (categoryId) => getCachedMaterialsForCategory(categoryId),
+    [getCachedMaterialsForCategory],
+  );
 
   const openMaterial = (material) => {
     if (!material) return;
