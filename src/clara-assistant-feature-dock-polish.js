@@ -49,7 +49,7 @@ function ensureFeatureDockStyle() {
 
     .clara-feature-dock > button {
       min-width: 0 !important;
-      height: 28px !important;
+      height: 30px !important;
       min-height: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
@@ -69,12 +69,12 @@ function ensureFeatureDockStyle() {
     .clara-feature-dock > button::before {
       content: attr(data-clara-dock-icon);
       display: inline-grid;
-      width: 13px;
-      height: 13px;
+      width: 14px;
+      height: 14px;
       place-items: center;
-      flex: 0 0 13px;
+      flex: 0 0 14px;
       border-radius: 999px;
-      font-size: 10px;
+      font-size: 10.75px;
       font-weight: 950;
       line-height: 1;
       color: currentColor;
@@ -87,10 +87,10 @@ function ensureFeatureDockStyle() {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-      font-size: 10.5px;
-      font-weight: 850;
+      font-size: 12px;
+      font-weight: 900;
       line-height: 1;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.015em;
       color: currentColor;
     }
 
@@ -114,7 +114,7 @@ function ensureFeatureDockStyle() {
     .clara-feature-dock > button[data-clara-feature-dock-role="insight"] {
       border-color: rgba(255, 255, 255, 0.12) !important;
       background: rgba(255, 255, 255, 0.055) !important;
-      color: rgba(255, 255, 255, 0.76) !important;
+      color: rgba(255, 255, 255, 0.78) !important;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.065) !important;
     }
 
@@ -122,25 +122,26 @@ function ensureFeatureDockStyle() {
     .clara-feature-dock > button[data-clara-feature-dock-role="insight"]:hover {
       border-color: rgba(255, 255, 255, 0.18) !important;
       background: rgba(255, 255, 255, 0.085) !important;
-      color: rgba(255, 255, 255, 0.92) !important;
+      color: rgba(255, 255, 255, 0.94) !important;
     }
 
     @media (max-width: 374px) {
       .clara-feature-dock > button {
-        height: 27px !important;
+        height: 29px !important;
         gap: 4px !important;
         padding: 0 6px !important;
       }
 
       .clara-feature-dock > button::before {
-        width: 12px;
-        height: 12px;
-        flex-basis: 12px;
-        font-size: 9px;
+        width: 13px;
+        height: 13px;
+        flex-basis: 13px;
+        font-size: 10px;
       }
 
       .clara-feature-dock > button::after {
-        font-size: 10px;
+        font-size: 11px;
+        letter-spacing: 0.005em;
       }
     }
   `;
