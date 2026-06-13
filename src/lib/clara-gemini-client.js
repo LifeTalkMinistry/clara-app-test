@@ -12,7 +12,18 @@ const DIRECT_PROMPT_MODES = new Set(["normal_chat", "normal_chat_clarification",
 const DEEP_AI_MODES = new Set(["afford", "forecast", "forecast_phase_one", "checkup", "feature_review", "money_context_check"]);
 const NORMAL_BUCKET_MODES = new Set(["ai_environment", "savings-plan", "budget-fixer", "next-move", "wallets", "budgets", "emergency", "savings-goals", "investment", "debt-obligations"]);
 const UNAVAILABLE_REPLY = "CLARA AI is unavailable right now. Please try again in a moment.";
-const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Keep it short, warm, practical, and easy to read.";
+
+const PRESENTATION_RULES = `Reply like a natural premium mobile chat message.
+Plain text only.
+Start with the direct answer in 1 short sentence.
+For advice, tips, steps, plans, lists, or breakdowns, use short bullet points.
+Never write numbered advice inline inside one paragraph.
+Use a blank line before every bullet or numbered section.
+Never write a paragraph longer than 2 short lines.
+Keep each bullet practical and specific.
+Do not over-explain.
+Do not use Markdown bold, Markdown headings, HTML, or code formatting.
+Ask only one question at the end when needed.`;
 
 function getLocalDebugFlag() {
   try {
