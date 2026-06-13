@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
+import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
 import "./clara-memory-bridge";
 import "./clara-buy-check-budget-aware-prefilter";
 import "./clara-buy-check-report-router";
@@ -108,6 +109,12 @@ try {
   installClaraGlobalClickSound();
 } catch (error) {
   console.warn("CLARA sound system failed to init:", error);
+}
+
+try {
+  installNativeNotificationListeners();
+} catch (error) {
+  console.warn("CLARA native notification listeners failed to init:", error);
 }
 
 const installClaraSupportComposerEnhancer = () => {};
