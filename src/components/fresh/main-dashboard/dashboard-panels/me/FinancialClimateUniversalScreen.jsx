@@ -222,13 +222,25 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   return (
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_2%,rgba(45,212,191,.18),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(124,58,237,.28),transparent_34%),linear-gradient(180deg,rgba(7,18,38,.88),rgba(2,8,23,.98))]" />
-      <header className="relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
-        <div className="relative z-10 flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p><h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardTitle}</h3>{boardSummary ? <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardSummary}</p> : null}</div>
-          <button type="button" onClick={onClose} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95" aria-label="Close life stage setup"><X className="h-6 w-6" /></button>
-        </div>
-        <div className="relative z-10 mt-6 flex justify-center gap-3">{Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}</div>
-      </header>
+      {step === "visual" ? (
+        <header className="relative z-10 shrink-0 overflow-hidden rounded-[28px] border border-cyan-200/18 bg-[#071226]/68 px-5 py-4 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+          <div className="relative z-10 flex items-center justify-between gap-4">
+            <h3 className="min-w-0 flex-1 text-[clamp(24px,7vw,34px)] font-black leading-[1.02] tracking-[-0.04em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">
+              {boardTitle}
+            </h3>
+            <button type="button" onClick={onClose} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95" aria-label="Close life stage setup"><X className="h-6 w-6" /></button>
+          </div>
+          <div className="relative z-10 mt-4 flex justify-center gap-3">{Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}</div>
+        </header>
+      ) : (
+        <header className="relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p><h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardTitle}</h3>{boardSummary ? <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardSummary}</p> : null}</div>
+            <button type="button" onClick={onClose} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95" aria-label="Close life stage setup"><X className="h-6 w-6" /></button>
+          </div>
+          <div className="relative z-10 mt-6 flex justify-center gap-3">{Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}</div>
+        </header>
+      )}
       <main className="relative z-10 mt-5 min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {step === "visual" ? <GenderConfirmationStep value={draft.imageVariant || "default"} onSelect={(value) => setDraft((current) => ({ ...current, imageVariant: normalizeImageVariant(value) }))} /> : null}
         {step === "stage" ? <div className="space-y-3.5 pb-4">{stageList.map((stage) => <StageCard key={stage.key} stage={stage.key} active={draft.stage === stage.key} onClick={() => setDraft((current) => buildStageDraft(stage.key, current))} />)}</div> : null}
