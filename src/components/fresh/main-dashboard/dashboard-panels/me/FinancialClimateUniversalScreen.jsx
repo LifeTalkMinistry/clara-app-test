@@ -230,7 +230,6 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
             </h3>
             <button type="button" onClick={onClose} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95" aria-label="Close life stage setup"><X className="h-6 w-6" /></button>
           </div>
-          <div className="relative z-10 mt-4 flex justify-center gap-3">{Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}</div>
         </header>
       ) : (
         <header className="relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
