@@ -322,7 +322,7 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = TRIAL_PUR
 
               <p className="mt-4 text-xs font-bold leading-5 text-white/52">
                 {isTrialIntent
-                  ? "Google Play must show the free trial before you confirm. Cancel anytime before renewal."
+                  ? "After the 7-day trial, ₱249/month. Cancel anytime in Google Play before renewal."
                   : "10% of every monthly commitment goes into the CLARA Charity Fund."}
               </p>
 
