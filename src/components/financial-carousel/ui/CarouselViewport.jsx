@@ -12,7 +12,7 @@ export default function CarouselViewport({
     allowVerticalOverflow
       ? "overflow-x-auto overflow-y-visible touch-pan-x cursor-grab active:cursor-grabbing"
       : "overflow-x-auto overflow-y-hidden touch-pan-x cursor-grab active:cursor-grabbing",
-    "[scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden",
+    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
     className,
   ].join(" ");
 
