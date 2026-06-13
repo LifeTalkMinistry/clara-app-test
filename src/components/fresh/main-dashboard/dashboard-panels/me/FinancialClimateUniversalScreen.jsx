@@ -150,12 +150,12 @@ function OptionGroup({ eyebrow, value, options, onSelect, displayValue = display
   return <section className="space-y-4 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">{eyebrow}</p><div className="space-y-3">{options.map((option) => { const active = option === value; return <button key={option} type="button" onClick={() => onSelect(option)} className={`relative flex min-h-[66px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.985] ${active ? "border-cyan-200/38 bg-[linear-gradient(135deg,rgba(45,212,191,.16),rgba(59,130,246,.12)_48%,rgba(91,63,209,.16))] text-cyan-50" : "border-white/[0.075] bg-[#071226]/54 text-white/58"}`}><span className="text-[13px] font-black leading-tight">{displayValue(option)}</span><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>{active ? <Check className="h-4 w-4" /> : null}</span></button>; })}</div></section>;
 }
 
-function VisualPreferenceStep({ value, onSelect }) {
+function GenderConfirmationStep({ value, onSelect }) {
   const selected = normalizeImageVariant(value || "default");
   const options = [
-    { value: "male", title: "Male visual", body: "Use the male life-stage illustration when this stage has one." },
-    { value: "female", title: "Female visual", body: "Use the female life-stage illustration when this stage has one." },
-    { value: "default", title: "Default visual", body: "Use CLARA’s default image for each life stage." },
+    { value: "male", title: "Male" },
+    { value: "female", title: "Female" },
+    { value: "default", title: "Prefer not to say" },
   ];
 
   return (
@@ -174,10 +174,7 @@ function VisualPreferenceStep({ value, onSelect }) {
               <span className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-[18px] border backdrop-blur-xl ${active ? "border-cyan-100/28 bg-cyan-200/12 text-cyan-100" : "border-white/[0.075] bg-white/[0.035] text-white/46"}`}>
                 <ImageIcon className="h-6 w-6" />
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-black leading-tight tracking-[-0.01em] text-white/90 drop-shadow-sm">{option.title}</p>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-white/50">{option.body}</p>
-              </div>
+              <p className="min-w-0 flex-1 text-[15px] font-black leading-tight tracking-[-0.01em] text-white/90 drop-shadow-sm">{option.title}</p>
               <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition ${active ? "border-cyan-100/42 bg-cyan-200/16 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>
                 {active ? <Check className="h-5 w-5" /> : null}
               </span>
@@ -201,8 +198,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const selectedValue = activeQuestionKey ? draft[activeQuestionKey] : null;
   const insight = activeQuestionKey ? getAnswerContext(activeQuestionKey, selectedValue, draft) : null;
   const stageHero = getLifeStageHero(draft.stage, draft.imageVariant || "default");
-  const boardTitle = step === "visual" ? "Choose your stage visual" : activeQuestionKey ? insight.title : stageHero.title;
-  const boardSummary = step === "visual" ? "This only changes the image CLARA shows for your life stage. Your financial reading stays based on your real answers." : activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
+  const boardTitle = step === "visual" ? "Confirm your gender" : activeQuestionKey ? insight.title : stageHero.title;
+  const boardSummary = step === "visual" ? "This only helps CLARA choose your life-stage image. Your financial reading stays based on your answers." : activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
 
   useEffect(() => { if (typeof document === "undefined") return undefined; const previousOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previousOverflow; }; }, []);
 
@@ -233,7 +230,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
         <div className="relative z-10 mt-6 flex justify-center gap-3">{Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}</div>
       </header>
       <main className="relative z-10 mt-5 min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {step === "visual" ? <VisualPreferenceStep value={draft.imageVariant || "default"} onSelect={(value) => setDraft((current) => ({ ...current, imageVariant: normalizeImageVariant(value) }))} /> : null}
+        {step === "visual" ? <GenderConfirmationStep value={draft.imageVariant || "default"} onSelect={(value) => setDraft((current) => ({ ...current, imageVariant: normalizeImageVariant(value) }))} /> : null}
         {step === "stage" ? <div className="space-y-3.5 pb-4">{stageList.map((stage) => <StageCard key={stage.key} stage={stage.key} active={draft.stage === stage.key} onClick={() => setDraft((current) => buildStageDraft(stage.key, current))} />)}</div> : null}
         {activeQuestionKey ? <div className="space-y-3.5 pb-4"><OptionGroup eyebrow={QUESTION_META[activeQuestionKey] || "Choose one"} value={draft[activeQuestionKey]} options={getLifeStageOptions(draft, activeQuestionKey) || []} displayValue={(option) => getStageDisplayLabel(draft.stage, option)} onSelect={(value) => setDraft((current) => buildStageDraft(current.stage, { ...current, [activeQuestionKey]: value }))} /></div> : null}
       </main>
