@@ -199,7 +199,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const insight = activeQuestionKey ? getAnswerContext(activeQuestionKey, selectedValue, draft) : null;
   const stageHero = getLifeStageHero(draft.stage, draft.imageVariant || "default");
   const boardTitle = step === "visual" ? "Confirm your gender" : activeQuestionKey ? insight.title : stageHero.title;
-  const boardSummary = step === "visual" ? "This only helps CLARA choose your life-stage image. Your financial reading stays based on your answers." : activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
+  const boardSummary = step === "visual" ? "This only changes your life-stage image." : activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
 
   useEffect(() => { if (typeof document === "undefined") return undefined; const previousOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previousOverflow; }; }, []);
 
