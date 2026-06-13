@@ -14,6 +14,8 @@ import {
   FINANCIAL_CAROUSEL_FOCUS_STYLES,
   getExpandedCarouselCardIndex,
 } from "./shared/financialCarouselFocus";
+import useFinancialData from "@/hooks/useFinancialData";
+import useEmergencyFundAllocationSync from "@/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync";
 
 function CarouselCardPlaceholder({ item }) {
   return (
@@ -76,6 +78,18 @@ export default function FinancialCarousel(props) {
 
   const userId = user?.id;
   const userPlan = user?.plan;
+  const emergencyFundSyncController = useFinancialData(user);
+
+  useEmergencyFundAllocationSync({
+    user,
+    expenses: emergencyFundSyncController.expenses,
+    transfers: emergencyFundSyncController.transfers,
+    emergencyFund: emergencyFundSyncController.emergencyFund,
+    transferBetweenWallets: emergencyFundSyncController.transferBetweenWallets,
+    deleteExpense: emergencyFundSyncController.deleteExpense,
+    refreshData: emergencyFundSyncController.refreshData,
+    enabled: Boolean(user && guardChecked && !loading),
+  });
 
   // Performance:
   // Do not depend on the full props object here.
