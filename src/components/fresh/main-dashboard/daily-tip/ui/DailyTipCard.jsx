@@ -212,7 +212,7 @@ export default function DailyTipCard({
         }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
-        className="group relative h-[170px] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
+        className="group relative h-[clamp(132px,18dvh,150px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
         style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <div className="clara-daily-tip-scene">
@@ -229,13 +229,13 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
-              <div className="relative flex h-full flex-col px-4 py-3.5 text-white">
+              <div className="relative flex h-full flex-col px-3.5 py-3 text-white">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-[9px] font-black uppercase leading-none tracking-[0.22em] text-cyan-200/72">
                       Daily Check-In
                     </div>
-                    <div className="mt-1.5 text-[20px] font-black leading-none tracking-[-0.03em] text-white">
+                    <div className="mt-1 text-[clamp(17px,4.6vw,20px)] font-black leading-none tracking-[-0.03em] text-white">
                       Day {challengeDay} of {CHECK_IN_DAYS}
                     </div>
                   </div>
@@ -245,7 +245,7 @@ export default function DailyTipCard({
                   </span>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="mt-1.5 flex items-center justify-between gap-2.5">
                   <p className="text-[11px] font-semibold leading-snug text-cyan-50/72">
                     Tap today to protect your money discipline.
                   </p>
@@ -254,7 +254,7 @@ export default function DailyTipCard({
                   </span>
                 </div>
 
-                <div className="mt-auto pt-3">
+                <div className="mt-auto pt-2">
                   <div className="clara-checkin-grid" aria-hidden="true">
                     {Array.from({ length: CHECK_IN_DAYS }).map((_, dotIndex) => {
                       const isDone = dotIndex < totalCompleted;
