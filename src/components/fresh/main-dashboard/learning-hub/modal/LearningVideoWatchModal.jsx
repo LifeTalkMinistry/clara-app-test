@@ -264,7 +264,7 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         aria-describedby={subtitleId}
         className="relative flex h-full w-full flex-col overflow-hidden"
       >
-        <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 px-4 pb-3 pt-[max(18px,env(safe-area-inset-top))] landscape:absolute landscape:left-0 landscape:right-0 landscape:top-0 landscape:bg-gradient-to-b landscape:from-black/72 landscape:to-transparent landscape:px-3 landscape:pb-8 landscape:pt-[max(10px,env(safe-area-inset-top))]">
+        <header className="absolute left-0 right-0 top-0 z-20 flex shrink-0 items-start justify-between gap-4 px-4 pb-8 pt-[max(18px,env(safe-area-inset-top))] landscape:bg-gradient-to-b landscape:from-black/72 landscape:to-transparent landscape:px-3 landscape:pt-[max(10px,env(safe-area-inset-top))]">
           <div className="min-w-0 pr-2 landscape:hidden">
             <p className="inline-flex rounded-full border border-cyan-100/18 bg-white/[0.08] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.20em] text-cyan-50/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]">
               {eyebrowLabel}
@@ -281,47 +281,6 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             >
               {material.subtitle}
             </p>
-            <div className="mt-4 max-w-2xl rounded-[18px] border border-white/10 bg-white/[0.045] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-md">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-50/70">
-                <span>Source Credit</span>
-                <span className="text-white/22">•</span>
-                <span className="text-white/42">{creditUsageLabel}</span>
-              </div>
-
-              <p className="mt-2 text-[11.5px] font-semibold leading-relaxed text-white/58">
-                Original video by{" "}
-                {creditUrl ? (
-                  <a
-                    href={creditUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-cyan-100/84 underline-offset-4 transition hover:text-cyan-50 hover:underline"
-                  >
-                    {creditCreatorName}
-                  </a>
-                ) : (
-                  <span className="text-white/76">{creditCreatorName}</span>
-                )}{" "}
-                on {creditSourceName}. CLARA only curated this lesson for your Money Foundations path. The video, teaching, channel, and thumbnail belong to the creator.
-              </p>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-snug text-white/46">
-                <span>{creditRightsNote}</span>
-                {sourceUrl ? (
-                  <>
-                    <span className="text-white/24">•</span>
-                    <a
-                      href={sourceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-white/62 underline-offset-4 transition hover:text-white/86 hover:underline"
-                    >
-                      Watch original on YouTube
-                    </a>
-                  </>
-                ) : null}
-              </div>
-            </div>
           </div>
 
           <div className="hidden min-w-0 pr-14 landscape:block">
@@ -362,7 +321,7 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
           </button>
         </header>
 
-        <main className="flex min-h-0 flex-1 items-center justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))] landscape:h-full landscape:w-full landscape:flex-none landscape:p-0">
+        <main className="flex h-full w-full flex-none items-center justify-center px-4 py-[max(16px,env(safe-area-inset-bottom))] landscape:p-0">
           <div className="relative flex w-full max-w-5xl flex-col overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
             <div className="relative w-full landscape:h-full landscape:max-h-[100dvh] landscape:max-w-[calc(100dvh*16/9)]" style={{ aspectRatio: "16 / 9" }}>
               {playerSrc ? (
@@ -423,6 +382,48 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             ) : null}
           </div>
         </main>
+
+        <aside className="absolute bottom-[max(18px,env(safe-area-inset-bottom))] left-4 z-20 max-w-[min(320px,calc(100vw-32px))] rounded-[18px] border border-white/10 bg-black/28 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-md landscape:hidden">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-50/70">
+            <span>Source Credit</span>
+            <span className="text-white/22">•</span>
+            <span className="text-white/42">{creditUsageLabel}</span>
+          </div>
+
+          <p className="mt-2 text-[11px] font-semibold leading-relaxed text-white/56">
+            Original video by{" "}
+            {creditUrl ? (
+              <a
+                href={creditUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-cyan-100/84 underline-offset-4 transition hover:text-cyan-50 hover:underline"
+              >
+                {creditCreatorName}
+              </a>
+            ) : (
+              <span className="text-white/76">{creditCreatorName}</span>
+            )}{" "}
+            on {creditSourceName}. CLARA curated it for this learning path; the video, teaching, channel, and thumbnail belong to the creator.
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10.5px] font-bold leading-snug text-white/44">
+            <span>{creditRightsNote}</span>
+            {sourceUrl ? (
+              <>
+                <span className="text-white/24">•</span>
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-white/62 underline-offset-4 transition hover:text-white/86 hover:underline"
+                >
+                  Watch original on YouTube
+                </a>
+              </>
+            ) : null}
+          </div>
+        </aside>
       </div>
     </div>,
     document.body,
