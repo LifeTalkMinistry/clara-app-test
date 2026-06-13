@@ -22,7 +22,7 @@ function formatFullConversation(messages = []) {
 
 function formatScheduleRows(schedule) {
   const items = Array.isArray(schedule?.upcomingItems) ? schedule.upcomingItems : [];
-  if (!items.length) return "No upcoming schedule items are loaded from the Schedule page.";
+  if (!items.length) return "No upcoming items are saved in the internal CLARA Schedule page yet.";
 
   return items
     .slice(0, 8)
@@ -101,14 +101,17 @@ ${formatScheduleRows(schedule)}
 
 RULES:
 - Start directly with the schedule answer because the conversation may already be active.
+- Treat “calendar” as the internal CLARA Schedule page, not Google Calendar or the phone calendar.
+- Never say “I don’t have access to your calendar.”
 - Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about tomorrow", and short schedule references.
 - Do not restart the conversation.
+- If schedule items exist, start with: “I checked your CLARA Schedule page.”
 - If schedule items exist, mention the nearest one first.
 - If there is a dentist appointment, mention it directly.
 - Include date and time if available.
 - If there are multiple items, briefly say how many more are coming up.
 - End with one helpful CTA or follow-up question, such as preparing budget, reminder, transportation, or what to do next.
-- If no schedule items are loaded, say that clearly and ask the user to add one in the Schedule page.
+- If no schedule items are loaded, say: “I don’t see upcoming items saved in your CLARA Schedule page yet. Add one in Schedule, then I can check it here.”
 - Do not talk like a finance decision unless the user asks about spending.
 - If a money-impact amount exists, include the exact amount in the same sentence.
 - If a money-impact amount is missing, say that the appointment may have a cost but no exact amount is saved yet.
@@ -123,9 +126,6 @@ Reply as CLARA:`;
 export function generateLocalScheduleReply({ userMessage = "", context = {} } = {}) {
   const directReply = buildScheduleDirectReply(userMessage, context || {});
   if (!directReply) return DEFAULT_SCHEDULE_REPLY;
-
-  const schedule = getScheduleContextForAI(context || {});
-  if (!schedule.hasUpcomingItems) return DEFAULT_SCHEDULE_REPLY;
 
   return directReply;
 }
