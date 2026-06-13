@@ -37,8 +37,8 @@ function ensureFeatureDockStyle() {
     .clara-feature-dock {
       display: grid !important;
       grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-      gap: 5px !important;
-      padding: 2px !important;
+      gap: 6px !important;
+      padding: 3px !important;
       border-radius: 999px !important;
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
       background: rgba(5, 10, 28, 0.48) !important;
@@ -49,16 +49,16 @@ function ensureFeatureDockStyle() {
 
     .clara-feature-dock > button {
       min-width: 0 !important;
-      height: 30px !important;
-      min-height: 0 !important;
+      height: 34px !important;
+      min-height: 34px !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: 5px !important;
+      gap: 6px !important;
       overflow: hidden !important;
       white-space: nowrap !important;
       border-radius: 999px !important;
-      padding: 0 8px !important;
+      padding: 0 10px !important;
       font-size: 0 !important;
       line-height: 1 !important;
       letter-spacing: 0.02em !important;
@@ -69,12 +69,12 @@ function ensureFeatureDockStyle() {
     .clara-feature-dock > button::before {
       content: attr(data-clara-dock-icon);
       display: inline-grid;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       place-items: center;
-      flex: 0 0 14px;
+      flex: 0 0 16px;
       border-radius: 999px;
-      font-size: 10.75px;
+      font-size: 11.5px;
       font-weight: 950;
       line-height: 1;
       color: currentColor;
@@ -87,10 +87,10 @@ function ensureFeatureDockStyle() {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-      font-size: 12px;
-      font-weight: 900;
+      font-size: 12.75px;
+      font-weight: 950;
       line-height: 1;
-      letter-spacing: 0.015em;
+      letter-spacing: 0.01em;
       color: currentColor;
     }
 
@@ -126,21 +126,27 @@ function ensureFeatureDockStyle() {
     }
 
     @media (max-width: 374px) {
+      .clara-feature-dock {
+        gap: 5px !important;
+        padding: 3px !important;
+      }
+
       .clara-feature-dock > button {
-        height: 29px !important;
-        gap: 4px !important;
-        padding: 0 6px !important;
+        height: 32px !important;
+        min-height: 32px !important;
+        gap: 5px !important;
+        padding: 0 8px !important;
       }
 
       .clara-feature-dock > button::before {
-        width: 13px;
-        height: 13px;
-        flex-basis: 13px;
-        font-size: 10px;
+        width: 15px;
+        height: 15px;
+        flex-basis: 15px;
+        font-size: 10.75px;
       }
 
       .clara-feature-dock > button::after {
-        font-size: 11px;
+        font-size: 12px;
         letter-spacing: 0.005em;
       }
     }
