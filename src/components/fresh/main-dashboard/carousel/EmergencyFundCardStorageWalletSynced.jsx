@@ -2,6 +2,7 @@ import EmergencyFundCardStorageWalletMoveConfirm from "@/components/fresh/main-d
 
 export default function EmergencyFundCardStorageWalletSynced(props) {
   const cardProps = props || {};
+  const passthroughProps = cardProps;
 
-  return <EmergencyFundCardStorageWalletMoveConfirm {...cardProps} />;
+  return <EmergencyFundCardStorageWalletMoveConfirm {...passthroughProps} />;
 }
