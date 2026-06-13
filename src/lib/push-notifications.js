@@ -56,6 +56,30 @@ export async function requestBrowserNotificationPermission() {
   return Notification.requestPermission();
 }
 
+async function mirrorWebPushToUniversalDeviceTable({ userId, subscription, serializedSubscription }) {
+  try {
+    const { error } = await supabase.from("user_notification_devices").upsert(
+      {
+        user_id: userId,
+        channel: "web_push",
+        platform: "web",
+        token: null,
+        endpoint: subscription.endpoint,
+        subscription: serializedSubscription,
+        device_label: "CLARA web push",
+        user_agent: navigator.userAgent,
+        is_active: true,
+        last_seen_at: new Date().toISOString(),
+      },
+      { onConflict: "endpoint" }
+    );
+
+    if (error) throw error;
+  } catch (error) {
+    console.warn("Web push universal device mirror failed; legacy web push remains active:", error);
+  }
+}
+
 export async function enableTaskReminderPush({ userId }) {
   if (!userId) {
     throw new Error("Missing user context for push notifications.");
@@ -101,6 +125,8 @@ export async function enableTaskReminderPush({ userId }) {
   );
 
   if (error) throw error;
+
+  await mirrorWebPushToUniversalDeviceTable({ userId, subscription, serializedSubscription });
 
   return {
     permission,
