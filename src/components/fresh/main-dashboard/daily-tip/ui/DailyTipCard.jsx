@@ -229,32 +229,34 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
-              <div className="relative flex h-full flex-col px-3.5 py-3 text-white">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[9px] font-black uppercase leading-none tracking-[0.22em] text-cyan-200/72">
-                      Daily Check-In
-                    </div>
-                    <div className="mt-1 text-[clamp(17px,4.6vw,20px)] font-black leading-none tracking-[-0.03em] text-white">
-                      Day {challengeDay} of {CHECK_IN_DAYS}
-                    </div>
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-4 py-3 text-white">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
+                    Daily Check-In
                   </div>
 
-                  <span className="clara-checkin-pill shrink-0 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em]">
+                  <span className="clara-checkin-pill shrink-0 px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.08em]">
                     {currentStreak}-day streak
                   </span>
                 </div>
 
-                <div className="mt-1.5 flex items-center justify-between gap-2.5">
-                  <p className="text-[11px] font-semibold leading-snug text-cyan-50/72">
-                    Tap today to protect your money discipline.
-                  </p>
-                  <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/58">
+                <div className="flex items-center justify-between gap-3 py-1.5">
+                  <div className="min-w-0">
+                    <div className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white">
+                      Day {challengeDay} of {CHECK_IN_DAYS}
+                    </div>
+
+                    <p className="mt-1 max-w-[13rem] text-[10.5px] font-semibold leading-snug text-cyan-50/72">
+                      Tap today to protect your money discipline.
+                    </p>
+                  </div>
+
+                  <span className="shrink-0 rounded-full border border-white/12 bg-white/[0.07] px-2.5 py-1.5 text-right text-[8.5px] font-black uppercase leading-tight tracking-[0.12em] text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                     {checkedInToday ? "Checked in today" : "Tap to check in"}
                   </span>
                 </div>
 
-                <div className="mt-auto pt-2">
+                <div className="pt-1">
                   <div className="clara-checkin-grid" aria-hidden="true">
                     {Array.from({ length: CHECK_IN_DAYS }).map((_, dotIndex) => {
                       const isDone = dotIndex < totalCompleted;
@@ -277,16 +279,20 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
-              <div className="relative flex h-full flex-col items-center justify-center px-5 py-4 text-center text-white">
-                <div className="mb-2 text-center">
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-5 py-4 text-center text-white">
+                <div className="pt-1">
                   <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
                     Today&apos;s Money Tip
                   </span>
                 </div>
 
-                <p className="max-w-[20rem] text-[13px] font-semibold leading-relaxed text-white/90">
-                  {tip}
-                </p>
+                <div className="flex items-center justify-center">
+                  <p className="max-w-[20rem] text-[13px] font-semibold leading-relaxed text-white/90">
+                    {tip}
+                  </p>
+                </div>
+
+                <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
               </div>
             </div>
           </div>
