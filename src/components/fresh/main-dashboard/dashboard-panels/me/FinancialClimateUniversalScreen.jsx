@@ -223,8 +223,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_2%,rgba(45,212,191,.18),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(124,58,237,.28),transparent_34%),linear-gradient(180deg,rgba(7,18,38,.88),rgba(2,8,23,.98))]" />
       {step === "visual" ? (
-        <header className="relative z-10 shrink-0 overflow-hidden rounded-[24px] border border-cyan-200/18 bg-[#071226]/68 px-5 py-4 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
-          <h3 className="relative z-10 text-[clamp(24px,7vw,34px)] font-black leading-[1.02] tracking-[-0.04em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">
+        <header className="relative z-10 flex min-h-[74px] shrink-0 items-center overflow-hidden rounded-[24px] border border-cyan-200/18 bg-[#071226]/68 px-5 py-4 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+          <h3 className="relative z-10 block text-3xl font-black leading-none tracking-[-0.04em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">
             Confirm your gender
           </h3>
         </header>
