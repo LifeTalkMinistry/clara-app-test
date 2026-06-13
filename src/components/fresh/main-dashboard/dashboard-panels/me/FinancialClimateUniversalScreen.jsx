@@ -201,7 +201,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const boardTitle = step === "visual" ? "Confirm your gender" : activeQuestionKey ? insight.title : stageHero.title;
   const boardSummary = step === "visual" ? "" : activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
 
-  useEffect(() => { if (typeof document === "undefined") return undefined; const previousOverflow = document.body.style.overflow; document.body.overflow = "hidden"; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previousOverflow; }; }, []);
+  useEffect(() => { if (typeof document === "undefined") return undefined; const previousOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previousOverflow; }; }, []);
 
   const goBack = () => { if (stepIndex <= 0) onClose(); else setStep(stepOrder[stepIndex - 1]); };
   const goNext = () => {
