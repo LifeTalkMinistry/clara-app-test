@@ -1,7 +1,59 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 
 const PLAYER_HOST = "www.youtube.com";
+const YOUTUBE_IFRAME_API_SRC = "https://www.youtube.com/iframe_api";
+
+let youtubeIframeApiReadyPromise = null;
+
+const loadYouTubeIframeApi = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return Promise.resolve(null);
+  }
+
+  if (window.YT?.Player) {
+    return Promise.resolve(window.YT);
+  }
+
+  if (youtubeIframeApiReadyPromise) {
+    return youtubeIframeApiReadyPromise;
+  }
+
+  youtubeIframeApiReadyPromise = new Promise((resolve) => {
+    const existingReadyHandler = window.onYouTubeIframeAPIReady;
+
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof existingReadyHandler === "function") {
+        existingReadyHandler();
+      }
+
+      resolve(window.YT || null);
+    };
+
+    const existingScript = document.querySelector(`script[src="${YOUTUBE_IFRAME_API_SRC}"]`);
+
+    if (existingScript) {
+      existingScript.addEventListener(
+        "load",
+        () => {
+          if (window.YT?.Player) {
+            resolve(window.YT);
+          }
+        },
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = YOUTUBE_IFRAME_API_SRC;
+    script.async = true;
+    document.body.appendChild(script);
+  });
+
+  return youtubeIframeApiReadyPromise;
+};
 
 const parseYouTubeTimestamp = (timestamp) => {
   if (!timestamp) return 0;
@@ -80,16 +132,106 @@ function getYouTubePlayerSrc(material) {
   const url = new URL(`https://${PLAYER_HOST}/embed/${encodeURIComponent(youtubeId)}`);
   url.searchParams.set("playsinline", "1");
   url.searchParams.set("controls", "1");
+  url.searchParams.set("enablejsapi", "1");
   url.searchParams.set("fs", "1");
   url.searchParams.set("rel", "0");
   url.searchParams.set("modestbranding", "1");
   url.searchParams.set("start", String(getYouTubeStartSeconds(material)));
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    url.searchParams.set("origin", window.location.origin);
+  }
 
   return url.toString();
 }
 
 export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const playerSrc = useMemo(() => getYouTubePlayerSrc(material), [material]);
+  const iframeRef = useRef(null);
+  const playerRef = useRef(null);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const iframe = iframeRef.current;
+
+    if (!isOpen || !material || !playerSrc || !iframe || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const destroyCurrentPlayer = () => {
+      if (playerRef.current && typeof playerRef.current.destroy === "function") {
+        playerRef.current.destroy();
+      }
+
+      playerRef.current = null;
+    };
+
+    const initializePlayer = (yt) => {
+      if (cancelled || !yt?.Player || !iframeRef.current) return;
+
+      destroyCurrentPlayer();
+
+      playerRef.current = new yt.Player(iframeRef.current, {
+        events: {
+          onReady: () => {
+            if (cancelled) return;
+            setPlayerReady(true);
+          },
+          onStateChange: (event) => {
+            if (cancelled) return;
+            setIsPlaying(event.data === window.YT?.PlayerState?.PLAYING);
+          },
+        },
+      });
+    };
+
+    loadYouTubeIframeApi().then(initializePlayer);
+
+    return () => {
+      cancelled = true;
+      setPlayerReady(false);
+      setIsPlaying(false);
+      destroyCurrentPlayer();
+    };
+  }, [isOpen, material, playerSrc]);
+
+  const togglePlayPause = useCallback(() => {
+    const player = playerRef.current;
+    const yt = typeof window !== "undefined" ? window.YT : null;
+
+    if (!playerReady || !player || !yt?.PlayerState) return;
+
+    const state = player.getPlayerState?.();
+
+    if (state === yt.PlayerState.PLAYING) {
+      player.pauseVideo?.();
+    } else {
+      player.playVideo?.();
+    }
+  }, [playerReady]);
+
+  const seekBy = useCallback(
+    (seconds) => {
+      const player = playerRef.current;
+
+      if (
+        !playerReady ||
+        !player ||
+        typeof player.getCurrentTime !== "function" ||
+        typeof player.seekTo !== "function"
+      ) {
+        return;
+      }
+
+      const currentTime = Number(player.getCurrentTime()) || 0;
+      const nextTime = Math.max(0, currentTime + seconds);
+
+      player.seekTo(nextTime, true);
+    },
+    [playerReady],
+  );
 
   if (!isOpen || !material || typeof document === "undefined") return null;
 
@@ -148,10 +290,11 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
         </header>
 
         <main className="flex min-h-0 flex-1 items-center justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))] landscape:h-full landscape:w-full landscape:flex-none landscape:p-0">
-          <div className="w-full max-w-5xl overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
+          <div className="relative flex w-full max-w-5xl flex-col overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_28px_90px_rgba(0,0,0,0.46)] landscape:flex landscape:h-[100dvh] landscape:max-h-[100dvh] landscape:max-w-none landscape:items-center landscape:justify-center landscape:rounded-none landscape:border-0 landscape:shadow-none">
             <div className="relative w-full landscape:h-full landscape:max-h-[100dvh] landscape:max-w-[calc(100dvh*16/9)]" style={{ aspectRatio: "16 / 9" }}>
               {playerSrc ? (
                 <iframe
+                  ref={iframeRef}
                   key={playerSrc}
                   className="absolute inset-0 h-full w-full landscape:relative"
                   src={playerSrc}
@@ -169,6 +312,42 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
                 </div>
               )}
             </div>
+
+            {playerSrc ? (
+              <div className="flex shrink-0 items-center justify-center gap-3 border-t border-white/10 bg-black/42 px-4 py-3 backdrop-blur-md landscape:absolute landscape:bottom-[max(12px,env(safe-area-inset-bottom))] landscape:left-1/2 landscape:z-30 landscape:-translate-x-1/2 landscape:rounded-full landscape:border landscape:px-3 landscape:py-2">
+                <button
+                  type="button"
+                  onClick={() => seekBy(-10)}
+                  disabled={!playerReady}
+                  aria-label="Skip back 10 seconds"
+                  className="flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.08] px-3 text-[11px] font-black text-white/78 transition hover:bg-white/[0.13] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  10s
+                </button>
+
+                <button
+                  type="button"
+                  onClick={togglePlayPause}
+                  disabled={!playerReady}
+                  aria-label={isPlaying ? "Pause video" : "Play video"}
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-cyan-100/18 bg-cyan-100/[0.14] text-white shadow-[0_12px_34px_rgba(34,211,238,0.14),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 landscape:h-10 landscape:w-10"
+                >
+                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-[1px]" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => seekBy(10)}
+                  disabled={!playerReady}
+                  aria-label="Skip forward 10 seconds"
+                  className="flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.08] px-3 text-[11px] font-black text-white/78 transition hover:bg-white/[0.13] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  10s
+                  <RotateCw className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
           </div>
         </main>
       </div>
