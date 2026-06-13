@@ -181,6 +181,12 @@ function CarouselItemCard(props) {
         selectedDashboardTheme={selectedDashboardTheme}
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
+        incomeSources={data.incomeSources}
+        incomeData={data.incomeData}
+        refreshData={data.refreshData}
+        isActive={data.isActiveSlide}
+        isNearby={data.isNearbySlide}
+        performanceMode={data.performanceMode}
       />
     );
   } else if (item.type === "debtObligations") {
