@@ -238,6 +238,19 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const titleId = "clara-learning-video-watch-title";
   const subtitleId = "clara-learning-video-watch-subtitle";
   const eyebrowLabel = material.contentTypeLabel || material.coverLabel || "Curated Video Lesson";
+  const credit = material.credit || {};
+  const creditCreatorName = credit.creatorName || "the original creator";
+  const creditUrl =
+    credit.creatorUrl ||
+    credit.sourceUrl ||
+    material.sourceUrl ||
+    material.externalUrl ||
+    "";
+  const sourceUrl =
+    credit.sourceUrl ||
+    material.sourceUrl ||
+    material.externalUrl ||
+    "";
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-hidden bg-[radial-gradient(circle_at_0%_0%,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_100%_100%,rgba(129,140,248,0.20),transparent_38%),linear-gradient(135deg,#020617,#061826_48%,#100926)] text-white">
@@ -265,6 +278,37 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             >
               {material.subtitle}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold leading-snug text-white/45">
+              <span>
+                Curated by CLARA · Original video by{" "}
+                {creditUrl ? (
+                  <a
+                    href={creditUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-cyan-100/78 underline-offset-4 transition hover:text-cyan-50 hover:underline"
+                  >
+                    {creditCreatorName}
+                  </a>
+                ) : (
+                  <span className="text-white/58">{creditCreatorName}</span>
+                )}
+              </span>
+
+              {sourceUrl ? (
+                <>
+                  <span className="text-white/24">•</span>
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-white/52 underline-offset-4 transition hover:text-white/80 hover:underline"
+                  >
+                    Watch original on YouTube
+                  </a>
+                </>
+              ) : null}
+            </div>
           </div>
 
           <div className="hidden min-w-0 pr-14 landscape:block">
@@ -277,6 +321,21 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             >
               {material.title}
             </h3>
+            <p className="mt-1 truncate text-[10px] font-semibold text-white/45">
+              Original video by{" "}
+              {creditUrl ? (
+                <a
+                  href={creditUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan-100/70 underline-offset-4 hover:text-cyan-50 hover:underline"
+                >
+                  {creditCreatorName}
+                </a>
+              ) : (
+                <span>{creditCreatorName}</span>
+              )}
+            </p>
           </div>
 
           <button
