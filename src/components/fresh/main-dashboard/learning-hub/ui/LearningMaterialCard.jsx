@@ -279,13 +279,16 @@ export default function LearningMaterialCard({
           </div>
 
           {isUnderConstructionCategory && (
-            <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-slate-950/72 px-4 text-center backdrop-blur-[3px]">
-              <div className="inline-flex max-w-[calc(100%-18px)] flex-col items-center gap-1 rounded-[18px] border border-cyan-100/20 bg-slate-950/95 px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_34px_rgba(0,0,0,0.36)]">
-                <span className="text-[8px] font-black uppercase leading-none tracking-[0.18em] text-cyan-50">
+            <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center px-4 text-center">
+              <div
+                className="inline-flex min-w-[136px] max-w-[calc(100%-18px)] flex-col items-center gap-1 rounded-[16px] border border-cyan-100/24 px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_14px_36px_rgba(0,0,0,0.52)]"
+                style={{ backgroundColor: "#020617" }}
+              >
+                <span className="whitespace-nowrap text-[8px] font-black uppercase leading-none tracking-[0.18em] text-cyan-50">
                   UNDER CONSTRUCTION
                 </span>
                 {isActive && (
-                  <span className="text-[9px] font-semibold leading-none text-white/68">
+                  <span className="whitespace-nowrap text-[9px] font-semibold leading-none text-white/72">
                     Coming soon
                   </span>
                 )}
