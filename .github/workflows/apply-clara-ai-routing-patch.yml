@@ -1,0 +1,557 @@
+name: Apply CLARA AI routing patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/apply-clara-ai-routing-patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch CLARA AI routing
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected 1 match, found {count}")
+              return text.replace(old, new, 1)
+
+          overlay_path = Path("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx")
+          overlay = overlay_path.read_text(encoding="utf-8")
+
+          overlay = replace_once(
+              overlay,
+              '''const TALK_TO_CLARA_CONTEXT_ACTION = { id: "talk_to_clara_context", title: "Talk to CLARA", shortTitle: "Talk to CLARA", prompt: "Continue the Talk to CLARA conversation naturally.", chips: [] };''',
+              '''const TALK_TO_CLARA_CONTEXT_ACTION = { id: "talk_to_clara_context", title: "Talk to CLARA", shortTitle: "Talk to CLARA", prompt: "Continue the Talk to CLARA conversation naturally.", chips: [] };
+const DEEP_AI_ACTION_IDS = new Set([
+  "afford",
+  "forecast",
+  "checkup",
+]);''',
+              "overlay deep action ids",
+          )
+
+          overlay = replace_once(
+              overlay,
+              '''function getAiUnavailableReply(error) {
+  const detail = error?.status ? ` Status: ${error.status}.` : "";
+  return `CLARA AI could not answer right now.${detail}
+
+Please try again in a moment.`;
+}''',
+              '''function getAiUnavailableReply() {
+  return "CLARA AI is unavailable right now. Please try again in a moment.";
+}''',
+              "overlay unavailable copy",
+          )
+
+          overlay = replace_once(
+              overlay,
+              '''function firstValue(source = {}, paths = []) { for (const path of paths) { const value = readPath(source, path); if (value !== undefined && value !== null && value !== "") return value; } return null; }''',
+              '''function firstValue(source = {}, paths = []) { for (const path of paths) { const value = readPath(source, path); if (value !== undefined && value !== null && value !== "") return value; } return null; }
+
+function getClaraAiMode({ action = null, userMessage = "" } = {}) {
+  const text = normalizeChoice(userMessage);
+
+  if (action?.id && DEEP_AI_ACTION_IDS.has(action.id)) {
+    return "deep_decision";
+  }
+
+  const typedDeepIntent =
+    /\b(can i afford|afford this|can i buy|should i buy|buy check)\b/i.test(text) ||
+    /\b(forecast|future money|next payday forecast)\b/i.test(text) ||
+    /\b(analyze my spending|spending analysis|spending checkup|analytics)\b/i.test(text);
+
+  return typedDeepIntent ? "deep_decision" : "normal_chat";
+}
+
+function safeStringifyForPrompt(value, fallback = "{}") {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return fallback;
+  }
+}
+
+function buildNormalChatDataMap(context = {}) {
+  const incomeSources = firstArray(context, [
+    "incomeSources",
+    "income_sources",
+    "incomeRecords",
+    "finance.incomeSources",
+    "incomeHub.sources",
+    "incomeHub.records",
+  ]);
+
+  const wallets = firstArray(context, [
+    "wallets",
+    "finance.wallets",
+    "walletRecords",
+    "walletHub.wallets",
+  ]);
+
+  const budgets = firstArray(context, [
+    "budgets",
+    "budgetPlan.categories",
+    "finance.budgets",
+    "budgetHub.budgets",
+    "budgetHub.categories",
+  ]);
+
+  const savingsGoals = firstArray(context, [
+    "savingsGoals",
+    "savings_goals",
+    "finance.savingsGoals",
+  ]);
+
+  const transactions = firstArray(context, [
+    "transactions",
+    "recentTransactions",
+    "finance.transactions",
+    "transactionHubSnapshot.timeline",
+  ]);
+
+  const debts = firstArray(context, [
+    "debts",
+    "debtObligations",
+    "obligations",
+    "finance.debts",
+    "finance.obligations",
+    "finance.debtObligations",
+  ]);
+
+  const dashboardCards = firstValue(context, [
+    "dashboardCards",
+    "dashboardSnapshot",
+    "cards",
+    "mainDashboard.cards",
+  ]);
+
+  const emergencyFund = firstValue(context, [
+    "emergencyFund",
+    "finance.emergencyFund",
+    "emergency_fund",
+  ]);
+
+  const schedule = firstValue(context, [
+    "schedule",
+    "calendar",
+    "paydayInfo",
+    "paydayCycle",
+    "profileAnswers.scheduleRoutine",
+    "profileAnswers.sleepPattern",
+    "profileAnswers.workExhaustion",
+    "lifeProfile.scheduleRoutine",
+    "lifeProfile.sleepPattern",
+    "lifeProfile.workExhaustion",
+    "lifeProfile.paydayCycle",
+  ]);
+
+  const memory = firstValue(context, [
+    "memory",
+    "aiFinancialMemory",
+    "ai_financial_memory",
+    "profileAnswers",
+    "behaviorProfile",
+    "lifeProfile",
+  ]);
+
+  return {
+    incomeHub: {
+      label: "Income Hub",
+      available: incomeSources.length > 0,
+      data: incomeSources.slice(0, 8),
+      purpose: "Income sources, income records, expected income, and payday timing.",
+    },
+    wallets: {
+      label: "Wallets",
+      available: wallets.length > 0,
+      data: wallets.slice(0, 12),
+      purpose: "Wallet names, balances, and visible money.",
+    },
+    budgets: {
+      label: "Budgets",
+      available: budgets.length > 0,
+      data: budgets.slice(0, 12),
+      purpose: "Budget categories, allocation, spent amount, and remaining amount.",
+    },
+    savingsGoals: {
+      label: "Savings Goals",
+      available: savingsGoals.length > 0,
+      data: savingsGoals.slice(0, 10),
+      purpose: "Savings goals, targets, saved amounts, and progress.",
+    },
+    emergencyFund: {
+      label: "Emergency Fund",
+      available: Boolean(emergencyFund),
+      data: emergencyFund || null,
+      purpose: "Emergency fund setup, saved amount, target, and storage wallet.",
+    },
+    debtObligations: {
+      label: "Debt / Obligations",
+      available: debts.length > 0,
+      data: debts.slice(0, 10),
+      purpose: "Debt, bills, recurring obligations, loans, payables, and monthly commitments.",
+    },
+    schedule: {
+      label: "Schedule",
+      available: Boolean(schedule),
+      data: schedule || null,
+      purpose: "Work schedule, routine, payday cycle, sleep pattern, and timing pressure.",
+    },
+    memory: {
+      label: "Memory",
+      available: Boolean(memory),
+      data: memory || null,
+      purpose: "Saved user context, preferences, profile answers, and behavior notes.",
+    },
+    transactions: {
+      label: "Transactions",
+      available: transactions.length > 0,
+      data: transactions.slice(0, 15),
+      purpose: "Recent money movement, income, expenses, transfers, and activity.",
+    },
+    dashboardCards: {
+      label: "Dashboard Cards",
+      available: Boolean(dashboardCards),
+      data: dashboardCards || null,
+      purpose: "Current visible dashboard summaries and card-level app data.",
+    },
+  };
+}
+
+function buildNormalChatAiPrompt({
+  userMessage = "",
+  recentConversation = [],
+  dataMap = {},
+} = {}) {
+  return `You are CLARA, a personal money coach inside the CLARA app.
+
+This is NORMAL CHAT mode.
+
+Your job:
+- Understand the user's message.
+- Choose the most relevant CLARA data bucket.
+- Answer simply using only the chosen bucket.
+- Do not perform full financial diagnosis.
+- Do not combine all modules unless the user explicitly asks for a full overview.
+- Do not over-contextualize.
+- Do not infer emotional or behavioral risk unless the user asks about behavior, habits, or memory.
+- If the user's request is unclear, ask one short clarification question.
+- If the relevant data bucket is unavailable, say what data is missing and ask one short question.
+
+Available CLARA data buckets and basic data:
+${safeStringifyForPrompt(dataMap)}
+
+Recent conversation:
+${getRecentConversationText(recentConversation, 6) || "No recent conversation."}
+
+User message:
+${stripClaraInstructionText(userMessage)}
+
+Routing rules:
+- Schedule questions → use Schedule only.
+- Income questions → use Income Hub only.
+- Wallet or money-on-hand questions → use Wallets only.
+- Budget questions → use Budgets only.
+- Debt, obligation, payable, loan, or utang questions → use Debt / Obligations only.
+- Savings goal questions → use Savings Goals only.
+- Emergency fund questions → use Emergency Fund only.
+- Recent spending, transaction, transfer, or activity questions → use Transactions only.
+- Dashboard/card questions → use Dashboard Cards only.
+- Memory, profile, habits, preferences, or "what do you know about me" → use Memory only.
+- If the user says "break down", "details", "show more", or "explain", connect it to the latest active topic in recent conversation.
+- If there is no clear latest topic, ask one clarification question.
+
+Answer rules:
+- Be direct.
+- Use only facts from the selected bucket.
+- Never invent numbers.
+- Never say you checked a module if the data is not available.
+- Ask only one question when clarification is needed.
+
+${PRESENTATION_RULES}`;
+}
+
+function buildDeepDecisionAiPrompt({
+  userMessage = "",
+  action = null,
+  fullContext = {},
+  recentConversation = [],
+} = {}) {
+  return `You are CLARA, a personal money coach inside the CLARA app.
+
+This is DEEP DECISION mode.
+
+Use full CLARA context because the user is asking for one of these:
+- Buy Check / Can I Afford This
+- Future Money Forecast
+- Analytics / Spending Checkup
+
+Selected action:
+${action?.title || action?.shortTitle || "Typed deep decision request"}
+
+User message:
+${stripClaraInstructionText(userMessage)}
+
+Recent conversation:
+${getRecentConversationText(recentConversation, 6) || "No recent conversation."}
+
+Full CLARA context:
+${safeStringifyForPrompt(fullContext)}
+
+Rules:
+- Use all relevant context for decision, forecast, or analysis.
+- You may compare income, wallets, budgets, transactions, savings goals, emergency fund, debt, obligations, schedule, memory, behavior, and risk signals.
+- Do not invent missing data.
+- If purchase details are missing in Buy Check, ask for item and amount.
+- If forecast period is missing, ask for the period.
+- If analytics scope is missing, ask what the user wants analyzed.
+- If the intent is unclear, ask one short clarification question.
+- Keep the answer practical and mobile-friendly.
+
+${PRESENTATION_RULES}`;
+}''',
+              "overlay normal/deep helper insertion",
+          )
+
+          overlay = replace_once(
+              overlay,
+              '''  const startForecastPhaseOne = (action) => {
+    if (isThinking) return;
+
+    clearForecastPhaseOneTimer();
+    stopThinkingMessageRotation();
+    setPanel("smart");
+    setDraft("");
+
+    const forecastSnapshot = buildForecastPhaseOneSnapshot(claraAssistantContext);
+
+    addAiMessage({
+      userText: action.title,
+      taskInstruction: `The user selected Future Money Forecast.
+
+Use this forecast snapshot as grounded CLARA context.
+Do not invent missing data.
+If the snapshot lacks enough data, explain what is missing and ask one clarification question.
+
+Forecast snapshot:
+${JSON.stringify(forecastSnapshot, null, 2)}`,
+      choices: [],
+      action: { ...action, chips: [] },
+      mode: "forecast_phase_one",
+    });
+  };''',
+              '''  const startForecastPhaseOne = (action) => {
+    if (isThinking) return;
+
+    clearForecastPhaseOneTimer();
+    stopThinkingMessageRotation();
+    setPanel("smart");
+    setDraft("");
+
+    runClara({
+      prompt: `${action.prompt}\n\n${PRESENTATION_RULES}`,
+      displayText: action.title,
+      action,
+    });
+  };''',
+              "overlay forecast routing",
+          )
+
+          overlay = replace_once(
+              overlay,
+              '''      let reply = await generateClaraGeminiReply({
+        message: buildAiOnlyClaraPrompt({
+          currentUserText: cleanDisplay,
+          rawPrompt: cleanPrompt,
+          recentConversation: visibleMessages,
+          action,
+        }),
+        context: claraAssistantContext,
+        mode: action?.id || "ai_environment",
+        conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
+      });
+
+      if (!isUsableAiReply(reply)) {
+        reply = await generateClaraGeminiReply({
+          message: buildAiClarificationPrompt({
+            currentUserText: cleanDisplay,
+            rawPrompt: cleanPrompt,
+            recentConversation: visibleMessages,
+            action,
+          }),
+          context: claraAssistantContext,
+          mode: `${action?.id || "ai_environment"}_clarification`,
+          conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
+        });
+      }''',
+              '''      const aiMode = getClaraAiMode({
+        action,
+        userMessage: cleanDisplay,
+      });
+
+      const normalDataMap = buildNormalChatDataMap(claraAssistantContext);
+
+      const aiPrompt =
+        aiMode === "deep_decision"
+          ? buildDeepDecisionAiPrompt({
+              userMessage: cleanDisplay,
+              action,
+              fullContext: claraAssistantContext,
+              recentConversation: visibleMessages,
+            })
+          : buildNormalChatAiPrompt({
+              userMessage: cleanDisplay,
+              recentConversation: visibleMessages,
+              dataMap: normalDataMap,
+            });
+
+      let reply = await generateClaraGeminiReply({
+        message: aiPrompt,
+        context: aiMode === "deep_decision" ? claraAssistantContext : normalDataMap,
+        mode: aiMode,
+        conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
+      });
+
+      if (!isUsableAiReply(reply)) {
+        reply = await generateClaraGeminiReply({
+          message:
+            aiMode === "deep_decision"
+              ? buildDeepDecisionAiPrompt({
+                  userMessage: cleanDisplay,
+                  action,
+                  fullContext: claraAssistantContext,
+                  recentConversation: visibleMessages,
+                })
+              : buildNormalChatAiPrompt({
+                  userMessage: cleanDisplay,
+                  recentConversation: visibleMessages,
+                  dataMap: normalDataMap,
+                }),
+          context: aiMode === "deep_decision" ? claraAssistantContext : normalDataMap,
+          mode: `${aiMode}_clarification`,
+          conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
+        });
+      }''',
+              "overlay runClara Gemini call",
+          )
+
+          overlay_path.write_text(overlay, encoding="utf-8")
+
+          gemini_path = Path("src/lib/clara-gemini-client.js")
+          gemini = gemini_path.read_text(encoding="utf-8")
+
+          gemini = replace_once(
+              gemini,
+              '''export function hasGeminiConfig() {
+  return true;
+}''',
+              '''export function hasGeminiConfig() {
+  return true;
+}
+
+function isDirectPromptMode(mode = "") {
+  return [
+    "normal_chat",
+    "normal_chat_clarification",
+    "deep_decision",
+    "deep_decision_clarification",
+  ].includes(String(mode || ""));
+}''',
+              "gemini direct mode helper",
+          )
+
+          gemini = replace_once(
+              gemini,
+              '''export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
+  const brainRoute = routeClaraBrain({ userMessage: message, recentConversation: conversationHistory });
+  const apiKey = getGeminiApiKey();''',
+              '''export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
+  if (isDirectPromptMode(mode)) {
+    const modelCandidates = await discoverGeminiModelCandidates();
+    let lastError = null;
+
+    for (const model of modelCandidates) {
+      try {
+        if (shouldDebugClaraAi()) {
+          console.log("[CLARA Direct Prompt Mode] Trying proxy model", { mode, model });
+        }
+
+        const text = await requestGeminiText({
+          model,
+          prompt: message,
+          signal,
+        });
+
+        if (text && !isIncompleteClaraReply(text)) return text;
+
+        const retryPrompt = buildCompletionRetryPrompt({
+          originalPrompt: message,
+          incompleteReply: text,
+        });
+
+        const retryText = await requestGeminiText({
+          model,
+          prompt: retryPrompt,
+          signal,
+        });
+
+        if (retryText && !isIncompleteClaraReply(retryText)) return retryText;
+
+        lastError = new Error(`Gemini returned incomplete direct-mode reply using ${model}.`);
+        lastError.model = model;
+        lastError.partialReply = retryText || text;
+      } catch (error) {
+        if (shouldDebugClaraAi()) {
+          console.warn("[CLARA Direct Prompt Mode] Proxy model failed", {
+            mode,
+            model,
+            message: error?.message,
+            status: error?.status,
+          });
+        }
+
+        lastError = error;
+      }
+    }
+
+    if (shouldDebugClaraAi() && lastError) {
+      console.warn("[CLARA Direct Prompt Mode] Final fallback blocked", lastError);
+    }
+
+    return "";
+  }
+
+  const brainRoute = routeClaraBrain({ userMessage: message, recentConversation: conversationHistory });
+  const apiKey = getGeminiApiKey();''',
+              "gemini direct mode bypass",
+          )
+
+          gemini_path.write_text(gemini, encoding="utf-8")
+
+          workflow_path = Path(".github/workflows/apply-clara-ai-routing-patch.yml")
+          workflow_path.unlink(missing_ok=True)
+          PY
+
+          git diff --check
+          git status --short
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx src/lib/clara-gemini-client.js .github/workflows/apply-clara-ai-routing-patch.yml
+          git commit -m "Fix CLARA AI context routing"
+          git push
