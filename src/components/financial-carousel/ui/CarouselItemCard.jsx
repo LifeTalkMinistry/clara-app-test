@@ -7,6 +7,7 @@ import EmergencyFundCardView from "../cards/emergency-fund/ui/EmergencyFundCardV
 import SavingsGoalsCardView from "../cards/savings-goals/ui/SavingsGoalsCardView";
 import InvestmentCardView from "../cards/investment/ui/InvestmentCardView";
 import DebtCardView from "../cards/debt/ui/DebtCardView";
+import { FinanceCardPerformanceModeProvider } from "../shared/FinanceCardShell";
 
 const LockedFinancePreview = memo(function LockedFinancePreview({ item }) {
   return (
@@ -34,12 +35,23 @@ const LockedFinancePreview = memo(function LockedFinancePreview({ item }) {
   );
 });
 
-function LockedFinanceShell({ item, children }) {
+function LockedFinanceShell({ item, performanceMode = "lite", children }) {
   const tier = item?.lockedTier || "PRO";
+  const isFull = performanceMode === "full";
+  const isLite = performanceMode === "lite";
+  const overlayClassName = isLite
+    ? "absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.22]"
+    : "absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.18] backdrop-blur-[1px]";
+  const panelClassName = isLite
+    ? "mx-5 rounded-[22px] border border-white/10 bg-[rgba(9,18,36,0.72)] px-4 py-3 text-center text-white shadow-none"
+    : isFull
+      ? "mx-5 rounded-[24px] border border-white/14 bg-[rgba(9,18,36,0.68)] px-4 py-3 text-center text-white shadow-[0_18px_52px_rgba(0,0,0,0.36)] backdrop-blur-xl"
+      : "mx-5 rounded-[24px] border border-white/12 bg-[rgba(9,18,36,0.74)] px-4 py-3 text-center text-white shadow-[0_12px_32px_rgba(0,0,0,0.26)] backdrop-blur-sm";
 
   return (
     <div
       className="relative h-full min-h-[inherit] overflow-hidden rounded-[inherit]"
+      data-performance-mode={performanceMode}
       onClickCapture={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -56,8 +68,8 @@ function LockedFinanceShell({ item, children }) {
         {children}
       </div>
 
-      <div className="absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.18] backdrop-blur-[1px]">
-        <div className="mx-5 rounded-[24px] border border-white/14 bg-[rgba(9,18,36,0.68)] px-4 py-3 text-center text-white shadow-[0_18px_52px_rgba(0,0,0,0.36)] backdrop-blur-xl">
+      <div className={overlayClassName}>
+        <div className={panelClassName}>
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.08] text-white/75">
             <Lock className="h-4 w-4" />
           </div>
@@ -74,6 +86,9 @@ function LockedFinanceShell({ item, children }) {
 function CarouselItemCard(props) {
   const {
     item,
+    performanceMode,
+    isActiveSlide,
+    isNearbySlide,
     selectedDashboardTheme,
     expandedFinanceCard,
     toggleFinanceDetails,
@@ -101,14 +116,19 @@ function CarouselItemCard(props) {
 
   if (!item) return null;
 
+  const resolvedPerformanceMode =
+    performanceMode || item?.data?.performanceMode || "full";
+
   // Performance rule:
   // Locked cards must not mount their real card components.
   // Keep this branch before any card renderer is created.
   if (item.locked) {
     return (
-      <LockedFinanceShell item={item}>
-        <LockedFinancePreview item={item} />
-      </LockedFinanceShell>
+      <FinanceCardPerformanceModeProvider performanceMode="lite">
+        <LockedFinanceShell item={item} performanceMode="lite">
+          <LockedFinancePreview item={item} />
+        </LockedFinanceShell>
+      </FinanceCardPerformanceModeProvider>
     );
   }
 
@@ -124,6 +144,9 @@ function CarouselItemCard(props) {
         toggleFinanceDetails={toggleFinanceDetails}
         financeActionLoading={financeActionLoading}
         financeDataLoading={Boolean(loading)}
+        performanceMode={resolvedPerformanceMode}
+        isActiveSlide={isActiveSlide}
+        isNearbySlide={isNearbySlide}
         onCreateWallet={onCreateWallet}
         onMoveWallet={onMoveWallet}
         onDeleteWallet={onDeleteWallet}
@@ -139,6 +162,9 @@ function CarouselItemCard(props) {
         selectedDashboardTheme={selectedDashboardTheme}
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
+        performanceMode={resolvedPerformanceMode}
+        isActiveSlide={isActiveSlide}
+        isNearbySlide={isNearbySlide}
         onQuickExpense={onQuickExpense}
         onSurvivalSaved={onSurvivalSaved}
         onCreateWallet={onCreateWallet}
@@ -155,6 +181,9 @@ function CarouselItemCard(props) {
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
         financeActionLoading={financeActionLoading}
+        performanceMode={resolvedPerformanceMode}
+        isActiveSlide={isActiveSlide}
+        isNearbySlide={isNearbySlide}
         onSaveBudget={onSaveBudget}
         onEditBudgetCategory={onEditBudgetCategory}
         onDeleteBudgetCategory={onDeleteBudgetCategory}
@@ -169,6 +198,9 @@ function CarouselItemCard(props) {
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
         financeActionLoading={financeActionLoading}
+        performanceMode={resolvedPerformanceMode}
+        isActiveSlide={isActiveSlide}
+        isNearbySlide={isNearbySlide}
         onSaveSavingsGoal={onSaveSavingsGoal}
         onDeleteSavingsGoal={onDeleteSavingsGoal}
         onAddSavings={onAddSavings}
@@ -186,7 +218,7 @@ function CarouselItemCard(props) {
         refreshData={data.refreshData}
         isActive={data.isActiveSlide}
         isNearby={data.isNearbySlide}
-        performanceMode={data.performanceMode}
+        performanceMode={resolvedPerformanceMode}
       />
     );
   } else if (item.type === "debtObligations") {
@@ -196,13 +228,20 @@ function CarouselItemCard(props) {
         selectedDashboardTheme={selectedDashboardTheme}
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
+        performanceMode={resolvedPerformanceMode}
+        isActiveSlide={isActiveSlide}
+        isNearbySlide={isNearbySlide}
       />
     );
   } else {
     card = <ComingSoonCard item={item} />;
   }
 
-  return card;
+  return (
+    <FinanceCardPerformanceModeProvider performanceMode={resolvedPerformanceMode}>
+      {card}
+    </FinanceCardPerformanceModeProvider>
+  );
 }
 
 export default memo(CarouselItemCard);
