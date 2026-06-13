@@ -36,8 +36,10 @@ export default function DailyTipCard({
   } = useDailyCheckIn();
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const isFlippingRef = useRef(false);
   const flipUnlockTimerRef = useRef(null);
+  const celebrationTimerRef = useRef(null);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
 
@@ -56,8 +58,14 @@ export default function DailyTipCard({
 
   useEffect(() => {
     return () => {
+      if (typeof window === "undefined") return;
+
       if (flipUnlockTimerRef.current) {
         window.clearTimeout(flipUnlockTimerRef.current);
+      }
+
+      if (celebrationTimerRef.current) {
+        window.clearTimeout(celebrationTimerRef.current);
       }
     };
   }, []);
@@ -70,6 +78,33 @@ export default function DailyTipCard({
 
     isFlippingRef.current = false;
     setIsFlipping(false);
+  };
+
+  const triggerCheckInCelebration = () => {
+    if (typeof window === "undefined") return;
+
+    setShowCelebration(false);
+
+    if (celebrationTimerRef.current) {
+      window.clearTimeout(celebrationTimerRef.current);
+      celebrationTimerRef.current = null;
+    }
+
+    const startCelebration = () => {
+      setShowCelebration(true);
+
+      celebrationTimerRef.current = window.setTimeout(() => {
+        setShowCelebration(false);
+        celebrationTimerRef.current = null;
+      }, 950);
+    };
+
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(startCelebration);
+      return;
+    }
+
+    startCelebration();
   };
 
   const handleFlip = () => {
@@ -87,6 +122,7 @@ export default function DailyTipCard({
 
     if (willRevealTip && !checkedInToday) {
       checkInToday();
+      triggerCheckInCelebration();
     }
 
     setFlipped((current) => !current);
@@ -255,6 +291,17 @@ export default function DailyTipCard({
             </div>
           </div>
         </div>
+
+        {showCelebration ? (
+          <div className="clara-checkin-celebration" aria-hidden="true">
+            {Array.from({ length: 18 }).map((_, index) => (
+              <span
+                key={index}
+                className={`clara-checkin-spark clara-checkin-spark--${index + 1}`}
+              />
+            ))}
+          </div>
+        ) : null}
 
         {!hasCommittedAccess ? (
           <span className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/[0.14] backdrop-blur-[0.8px]">
