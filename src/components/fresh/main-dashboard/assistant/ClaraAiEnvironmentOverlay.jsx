@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
-import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
+import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
-import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
 const CLARA_AI_BRAIN_VERSION = "connected-brain-v23-forecast-phase-one-readable-replies";
 const CLARA_REPLY_FORMAT_RULES = `CLARA REPLY FORMAT RULES:
@@ -174,16 +173,96 @@ function stripClaraInstructionText(text = "") {
     .trim();
 }
 
-function getDirectFinanceRoutingText({ prompt = "", displayText = "", action = null } = {}) {
-  const visibleUserText = String(displayText || "").trim();
+function getRecentConversationText(messages = [], limit = 8) {
+  return (Array.isArray(messages) ? messages : [])
+    .slice(-limit)
+    .map((message) => {
+      const role = message?.role === "user" ? "User" : "CLARA";
+      const text = stripClaraInstructionText(message?.text || "");
+      return text ? `${role}: ${text}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
 
+function buildAiOnlyClaraPrompt({
+  currentUserText = "",
+  rawPrompt = "",
+  recentConversation = [],
+  action = null,
+  taskInstruction = "",
+} = {}) {
+  const recentText = getRecentConversationText(recentConversation);
+  const cleanCurrentText = stripClaraInstructionText(currentUserText || rawPrompt);
+  const cleanRawPrompt = stripClaraInstructionText(rawPrompt);
+  const cleanTaskInstruction = stripClaraInstructionText(taskInstruction);
+  const actionTitle = action?.title || action?.shortTitle || "";
   const actionPrompt = action?.id && action.id !== "talk_to_clara_context"
-    ? String(action.prompt || "").trim()
+    ? stripClaraInstructionText(action.prompt || "")
     : "";
 
-  return stripClaraInstructionText(
-    [visibleUserText, actionPrompt].filter(Boolean).join("\n") || prompt
-  );
+  return `You are CLARA, the AI money coach inside the CLARA app.
+
+Hard rule:
+- Your response must be generated from AI reasoning only.
+- Do not behave like a keyword scanner.
+- Use recent conversation context to understand short follow-ups.
+- If the user's meaning is unclear, ask one concise clarification question instead of guessing.
+- If data is missing, say what is missing and ask one clarifying question.
+- Never invent balances, budgets, transactions, income, savings, or emergency fund details.
+- Keep the reply natural, mobile-friendly, practical, and short.
+
+Recent conversation:
+${recentText || "No recent conversation yet."}
+
+Current visible user message:
+${cleanCurrentText || cleanRawPrompt || "No visible user text."}
+
+${actionTitle ? `Selected app action:
+${actionTitle}
+
+` : ""}${actionPrompt ? `Action instruction:
+${actionPrompt}
+
+` : ""}${cleanTaskInstruction ? `Task instruction:
+${cleanTaskInstruction}
+
+` : ""}${cleanRawPrompt && cleanRawPrompt !== cleanCurrentText ? `Raw app prompt without formatting rules:
+${cleanRawPrompt}
+
+` : ""}Context understanding rules:
+- If the current message is short or vague, connect it to the latest active topic.
+- If the user recently asked about budget and now says "break down", "details", "show more", or "explain", treat it as a budget breakdown request.
+- If the user recently asked about wallet and now says "break down", "details", "show more", or "explain", treat it as a wallet details request.
+- If the user recently asked about income, transactions, savings goals, emergency fund, debt, or obligations, connect vague follow-ups to that topic.
+- If the message is casual like "hello", "can you chat?", "hmm", or "what can you do?", answer conversationally and do not force a finance summary.
+- If you are not sure what the user means, ask exactly one clarification question.
+
+${PRESENTATION_RULES}`;
+}
+
+function buildAiClarificationPrompt({ currentUserText = "", rawPrompt = "", recentConversation = [], action = null } = {}) {
+  return buildAiOnlyClaraPrompt({
+    currentUserText,
+    rawPrompt,
+    recentConversation,
+    action,
+    taskInstruction: "The previous AI reply was empty, incomplete, or unclear. Do not answer with a generic fallback. Ask exactly one short clarification question so CLARA can understand what the user wants.",
+  });
+}
+
+function getAiUnavailableReply(error) {
+  const detail = error?.status ? ` Status: ${error.status}.` : "";
+  return `CLARA AI could not answer right now.${detail}
+
+Please try again in a moment.`;
+}
+
+function isUsableAiReply(text = "") {
+  const normalized = normalizeNaturalChatReply(text);
+  if (isSuspiciouslyIncompleteReply(normalized)) return false;
+  if (/^(got it|okay|sure|noted|i understand)[.!\s]*$/i.test(normalized)) return false;
+  return true;
 }
 function isSuspiciouslyIncompleteReply(text = "") { const reply = clean(text); if (!reply) return true; if (reply.length < 18) return true; if (/₱\s*$/.test(reply)) return true; if (/[,:;–—-]$/.test(reply)) return true; if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around|based on|looking at|you have|your budget)$/i.test(reply)) return true; if (/looking at your budget,\s*you have\s*₱?\s*$/i.test(reply)) return true; return false; }
 function hiddenMessage(message = {}) { const text = String(message.text || "").toLowerCase(); return text.includes("what are you thinking of buying") || text.includes("setting up the right clara check") || text.includes("wiring each action"); }
@@ -412,35 +491,11 @@ Budgets found: ${snapshot.counts?.budgets ?? 0}
 Savings goals found: ${snapshot.counts?.savingsGoals ?? 0}${missingList}`;
 }
 
-function fallbackReply(prompt, context) {
-  const routingPrompt = stripClaraInstructionText(prompt);
 
-  const direct = buildContextualFinanceReply(routingPrompt, context);
-  if (direct) return direct;
-
-  const snapshot = buildClaraFinanceSnapshot(context || {});
-  const local = normalizeNaturalChatReply(generateClaraLocalReply(routingPrompt, context));
-
-  if (local && !local.includes("I can help with money decisions") && !local.includes("What do you want to check?")) return local;
-
-  const available = formatMoney(snapshot.availableMoney);
-  return available ? `You have ${available} visible money right now.
-
-Keep your next spending decision planned and aligned with your current budget.` : `I can read your loaded finance context now.
-
-Keep the next decision planned, necessary, and aligned with your current money pressure.`;
-}
-
-function ensureCompleteAssistantReply({ reply, prompt, context, action, source }) {
+function ensureCompleteAssistantReply({ reply, prompt, source }) {
   const normalized = normalizeNaturalChatReply(reply);
-  if (!isSuspiciouslyIncompleteReply(normalized)) {
-    return { text: formatClaraReadableReply(normalized, prompt), source };
-  }
-  const safeFallback = action?.id === "talk_to_clara_context" ? `I heard you. Let’s continue carefully.
-
-Tell me the next detail you want CLARA to understand.` : fallbackReply(prompt, context);
-  const fallbackNormalized = normalizeNaturalChatReply(safeFallback);
-  return { text: formatClaraReadableReply(fallbackNormalized, prompt), source: action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback" };
+  if (!isUsableAiReply(normalized)) return { text: "", source: "ai_clarification_needed" };
+  return { text: formatClaraReadableReply(normalized, prompt), source: source || "gemini" };
 }
 
 function buildTalkIntroQuestionPrompt(text = "") { return `The user is still in the short Talk to CLARA introduction. User said: ${text}
@@ -500,7 +555,7 @@ function QuickChoices({ choices = [], disabled, onSelect }) {
 function Insight({ text, source, choices, disabled, onSelectChoice }) {
   return (
     <div className="space-y-2.5">
-      {SHOW_DEBUG_SOURCE ? <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Source: {source === "gemini" ? "Gemini" : source === "local_context" ? "Local context" : source === "local_finance" ? "Local finance" : source === "forecast_phase_one" ? "Forecast Phase 1" : "Local fallback"}</div> : null}
+      {SHOW_DEBUG_SOURCE ? <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Source: {source === "gemini" ? "Gemini" : source === "system_error" ? "AI unavailable" : source === "forecast_phase_one" ? "Forecast Phase 1" : "AI"}</div> : null}
       <MessageText text={text} />
       <QuickChoices choices={choices} disabled={disabled} onSelect={onSelectChoice} />
     </div>
@@ -647,37 +702,148 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     }));
   };
 
-  const addExchange = (userText, claraText, choices = [], source = "local_context") => {
-    setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", userText), makeMessage("clara", formatClaraReadableReply(claraText, userText), { source, quickChoices: choices })]);
+  const completePendingWithAi = async ({
+    pendingId,
+    userText = "",
+    taskInstruction = "",
+    choices = [],
+    action = null,
+    mode = "ai_environment",
+    showChoicesOnlyAfterAi = true,
+  } = {}) => {
+    try {
+      if (!hasGeminiConfig()) throw new Error("CLARA Gemini config is missing.");
+
+      const aiPrompt = buildAiOnlyClaraPrompt({
+        currentUserText: userText,
+        rawPrompt: taskInstruction,
+        recentConversation: visibleMessages,
+        action,
+        taskInstruction,
+      });
+
+      let reply = await generateClaraGeminiReply({
+        message: aiPrompt,
+        context: claraAssistantContext,
+        mode,
+        conversationHistory: [...visibleMessages, makeMessage("user", userText || taskInstruction)],
+      });
+
+      if (!isUsableAiReply(reply)) {
+        reply = await generateClaraGeminiReply({
+          message: buildAiClarificationPrompt({
+            currentUserText: userText,
+            rawPrompt: taskInstruction,
+            recentConversation: visibleMessages,
+            action,
+          }),
+          context: claraAssistantContext,
+          mode: `${mode}_clarification`,
+          conversationHistory: [...visibleMessages, makeMessage("user", userText || taskInstruction)],
+        });
+      }
+
+      const safeReply = ensureCompleteAssistantReply({
+        reply,
+        prompt: userText || taskInstruction,
+        source: "gemini",
+      });
+
+      setLocalMessages((current) =>
+        current.map((message) =>
+          message.id !== pendingId
+            ? message
+            : {
+                ...message,
+                text: safeReply.text || getAiUnavailableReply(),
+                source: safeReply.text ? "gemini" : "system_error",
+                quickChoices: showChoicesOnlyAfterAi && safeReply.text ? choices : [],
+                ...(action ? { smartAction: action } : {}),
+              }
+        )
+      );
+    } catch (error) {
+      console.warn("[CLARA AI] AI-only reply failed", {
+        message: error?.message,
+        status: error?.status,
+        payload: error?.payload,
+      });
+
+      setLocalMessages((current) =>
+        current.map((message) =>
+          message.id !== pendingId
+            ? message
+            : {
+                ...message,
+                text: getAiUnavailableReply(error),
+                source: "system_error",
+                quickChoices: [],
+                ...(action ? { smartAction: action } : {}),
+              }
+        )
+      );
+    } finally {
+      stopThinkingMessageRotation();
+      setIsThinking(false);
+    }
+  };
+
+  const addAiMessage = ({ userText = "", taskInstruction = "", choices = [], action = null, mode = "ai_environment", showUserMessage = true } = {}) => {
+    const pending = makeMessage("clara", CLARA_THINKING_MESSAGES[0], { source: "system", quickChoices: [] });
+
+    setIsThinking(true);
+    setLocalMessages((current) => [
+      ...current.filter((message) => !hiddenMessage(message)),
+      ...(showUserMessage && userText ? [makeMessage("user", userText)] : []),
+      pending,
+    ]);
+
+    startThinkingMessageRotation(pending.id, mode.startsWith("talk_to_clara") ? CLARA_CONTEXT_THINKING_MESSAGES : CLARA_THINKING_MESSAGES);
+
+    void completePendingWithAi({
+      pendingId: pending.id,
+      userText,
+      taskInstruction,
+      choices,
+      action,
+      mode,
+    });
+  };
+
+  const addExchange = (userText, claraInstruction, choices = [], source = "gemini") => {
+    addAiMessage({
+      userText,
+      taskInstruction: claraInstruction,
+      choices,
+      action: source === "local_context" ? TALK_TO_CLARA_CONTEXT_ACTION : null,
+      mode: source === "local_context" ? "talk_to_clara_context" : "ai_environment",
+    });
   };
 
   const startForecastPhaseOne = (action) => {
     if (isThinking) return;
+
     clearForecastPhaseOneTimer();
     stopThinkingMessageRotation();
     setPanel("smart");
     setDraft("");
-    setIsThinking(true);
 
-    const pending = makeMessage("clara", forecastLoadingText(), { source: "forecast_phase_one", smartAction: { ...action, chips: [] } });
-    setLocalMessages([makeMessage("user", action.title), pending]);
-    logForecastPhaseOne("Snapshot started");
+    const forecastSnapshot = buildForecastPhaseOneSnapshot(claraAssistantContext);
 
-    forecastPhaseOneTimerRef.current = window.setTimeout(() => {
-      try {
-        const forecastSnapshot = buildForecastPhaseOneSnapshot(claraAssistantContext);
-        forecastSnapshotRef.current = forecastSnapshot;
-        logForecastPhaseOne("Snapshot ready", forecastSnapshot);
-        logForecastPhaseOne("Missing data:", forecastSnapshot.missingData);
-        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: formatClaraReadableReply(forecastReadyText(forecastSnapshot), action.title), source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
-      } catch (error) {
-        console.error("[CLARA Forecast Phase 1] Snapshot failed", error);
-        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: "Forecast snapshot could not be prepared right now. CLARA stayed safe and did not change your records.", source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
-      } finally {
-        forecastPhaseOneTimerRef.current = null;
-        setIsThinking(false);
-      }
-    }, 1200);
+    addAiMessage({
+      userText: action.title,
+      taskInstruction: `The user selected Future Money Forecast.
+
+Use this forecast snapshot as grounded CLARA context.
+Do not invent missing data.
+If the snapshot lacks enough data, explain what is missing and ask one clarification question.
+
+Forecast snapshot:
+${JSON.stringify(forecastSnapshot, null, 2)}`,
+      choices: [],
+      action: { ...action, chips: [] },
+      mode: "forecast_phase_one",
+    });
   };
 
   const runClara = async ({ prompt, displayText = prompt, action = null } = {}) => {
@@ -695,66 +861,41 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       pending,
     ]);
 
-    startThinkingMessageRotation(pending.id, CLARA_THINKING_MESSAGES);
+    startThinkingMessageRotation(pending.id, action?.id === "talk_to_clara_context" ? CLARA_CONTEXT_THINKING_MESSAGES : CLARA_THINKING_MESSAGES);
 
     try {
-      let reply = "";
-      let source = "local_fallback";
+      if (!hasGeminiConfig()) throw new Error("CLARA Gemini config is missing.");
 
-      const directFinanceRoutingText = getDirectFinanceRoutingText({
-        prompt: cleanPrompt,
-        displayText: cleanDisplay,
-        action,
+      let reply = await generateClaraGeminiReply({
+        message: buildAiOnlyClaraPrompt({
+          currentUserText: cleanDisplay,
+          rawPrompt: cleanPrompt,
+          recentConversation: visibleMessages,
+          action,
+        }),
+        context: claraAssistantContext,
+        mode: action?.id || "ai_environment",
+        conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
       });
 
-      const directFinanceReply = action?.id === "talk_to_clara_context"
-        ? ""
-        : buildContextualFinanceReply(directFinanceRoutingText, claraAssistantContext);
-
-      if (directFinanceReply) {
-        reply = directFinanceReply;
-        source = "local_finance";
-      } else if (hasGeminiConfig()) {
-        try {
-          reply = await generateClaraGeminiReply({
-            message: cleanPrompt,
-            context: claraAssistantContext,
-            mode: action?.id || "ai_environment",
-            conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
-          });
-
-          source = "gemini";
-        } catch (error) {
-          console.warn("[CLARA AI] Gemini failed, using local fallback", {
-            message: error?.message,
-            status: error?.status,
-            payload: error?.payload,
-          });
-
-          reply = action?.id === "talk_to_clara_context"
-            ? `Got it. I’ll keep that in mind for this session.
-
-Let’s continue.`
-            : fallbackReply(cleanPrompt, claraAssistantContext);
-
-          source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback";
-        }
-      } else {
-        reply = action?.id === "talk_to_clara_context"
-          ? `Got it. I’ll keep that in mind for this session.
-
-Let’s continue.`
-          : fallbackReply(cleanPrompt, claraAssistantContext);
-
-        source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback";
+      if (!isUsableAiReply(reply)) {
+        reply = await generateClaraGeminiReply({
+          message: buildAiClarificationPrompt({
+            currentUserText: cleanDisplay,
+            rawPrompt: cleanPrompt,
+            recentConversation: visibleMessages,
+            action,
+          }),
+          context: claraAssistantContext,
+          mode: `${action?.id || "ai_environment"}_clarification`,
+          conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
+        });
       }
 
       const safeReply = ensureCompleteAssistantReply({
         reply,
         prompt: cleanPrompt,
-        context: claraAssistantContext,
-        action,
-        source,
+        source: "gemini",
       });
 
       setLocalMessages((current) =>
@@ -763,21 +904,17 @@ Let’s continue.`
             ? message
             : {
                 ...message,
-                text: safeReply.text,
-                source: safeReply.source,
+                text: safeReply.text || getAiUnavailableReply(),
+                source: safeReply.text ? "gemini" : "system_error",
                 ...(action ? { smartAction: action } : {}),
               }
         )
       );
     } catch (error) {
-      console.error("[CLARA AI] Fatal assistant modal error", error);
-
-      const safeReply = ensureCompleteAssistantReply({
-        reply: fallbackReply(cleanPrompt, claraAssistantContext),
-        prompt: cleanPrompt,
-        context: claraAssistantContext,
-        action,
-        source: "local_fallback",
+      console.warn("[CLARA AI] AI-only assistant failed", {
+        message: error?.message,
+        status: error?.status,
+        payload: error?.payload,
       });
 
       setLocalMessages((current) =>
@@ -786,8 +923,8 @@ Let’s continue.`
             ? message
             : {
                 ...message,
-                text: safeReply.text,
-                source: safeReply.source,
+                text: getAiUnavailableReply(error),
+                source: "system_error",
                 ...(action ? { smartAction: action } : {}),
               }
         )
@@ -835,49 +972,37 @@ Permanent save is the next system we’ll connect, but this guided flow now cove
     const step = pending.step || pendingFollowUp || PROFILE_STEPS[profileStepIndex];
     const nextIndex = Number.isFinite(pending.nextIndex) ? pending.nextIndex : profileStepIndex + 1;
     if (!step) return;
+
     saveProfileAnswer(step, answer, { source: "custom_ai_interpreted", aiAnalyzed: true, isFollowUp: Boolean(step.parentId) });
     setPendingCustomStep(null);
     setPendingFollowUp(null);
     setTalkPhase("behavioral_audit");
+
     const nextStep = PROFILE_STEPS[nextIndex];
-    const pendingMessage = makeMessage("clara", CLARA_CONTEXT_THINKING_MESSAGES[0], { source: "system" });
-    setIsThinking(true);
-    setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", answer), pendingMessage]);
-    startThinkingMessageRotation(pendingMessage.id, CLARA_CONTEXT_THINKING_MESSAGES);
-    try {
-      let reply = `Got it. That answer is more specific, so I’ll treat it as your own pattern instead of forcing it into the buttons.`;
-      let source = "local_context";
-      if (hasGeminiConfig()) {
-        reply = await generateClaraGeminiReply({ message: `CLARA is analyzing a custom behavioral profile answer.
+    const choices = nextStep ? stepChoices(nextStep) : [
+      { label: "Continue chatting", value: "continue_chat", kind: "continue_chat" },
+      { label: "Review captured context", value: "review_context", kind: "review_context" },
+    ];
+
+    addAiMessage({
+      userText: answer,
+      taskInstruction: `CLARA is analyzing a custom behavioral profile answer.
+
 Framework level: ${step.level}
 Category: ${step.id}
 Question: ${step.question}
 User answer: ${answer}
 
-Reply in 1-2 short sentences. Acknowledge the specific pattern and say CLARA will use it as custom context. Do not mention database, JSON, or internal tags.
+Acknowledge the specific pattern and explain that CLARA will use it as custom context for this session.
+${nextStep ? `Then ask this next setup question naturally: ${profileQuestionText(nextStep, talkProfile.name)}` : "Then say CLARA has enough starter context for now."}
+Do not mention database, JSON, or internal tags.
+If the answer is unclear, ask one clarification question.`,
+      choices,
+      action: TALK_TO_CLARA_CONTEXT_ACTION,
+      mode: "talk_to_clara_custom_profile",
+    });
 
-${PRESENTATION_RULES}`, context: claraAssistantContext, mode: "talk_to_clara_custom_profile", conversationHistory: visibleMessages });
-        source = "gemini";
-      }
-      const safeReply = ensureCompleteAssistantReply({ reply, prompt: answer, context: claraAssistantContext, action: TALK_TO_CLARA_CONTEXT_ACTION, source });
-      const nextText = nextStep ? `${safeReply.text}
-
-${profileQuestionText(nextStep, talkProfile.name)}` : `${safeReply.text}
-
-Thanks. I have enough starter context for now.`;
-      setLocalMessages((current) => current.map((message) => message.id !== pendingMessage.id ? message : { ...message, text: formatClaraReadableReply(nextText, answer), source: safeReply.source, quickChoices: nextStep ? stepChoices(nextStep) : [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }] }));
-      if (nextStep) setProfileStepIndex(nextIndex); else setTalkPhase("free_chat");
-    } catch (error) {
-      console.warn("[CLARA AI] Custom profile analysis failed", error);
-      const nextText = nextStep ? `Got it. I’ll keep that as custom context.
-
-${profileQuestionText(nextStep, talkProfile.name)}` : "Got it. I’ll keep that as custom context.";
-      setLocalMessages((current) => current.map((message) => message.id !== pendingMessage.id ? message : { ...message, text: nextText, source: "local_context", quickChoices: nextStep ? stepChoices(nextStep) : [] }));
-      if (nextStep) setProfileStepIndex(nextIndex);
-    } finally {
-      stopThinkingMessageRotation();
-      setIsThinking(false);
-    }
+    if (nextStep) setProfileStepIndex(nextIndex); else setTalkPhase("free_chat");
   };
 
   const startTalkFlow = () => {
@@ -890,7 +1015,18 @@ ${profileQuestionText(nextStep, talkProfile.name)}` : "Got it. I’ll keep that 
     setPendingCustomStep(null);
     setPendingFollowUp(null);
     setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS));
-    setLocalMessages([makeMessage("clara", TALK_TO_CLARA_LANGUAGE_PROMPT, { source: "local_context", quickChoices: [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }] })]);
+    setLocalMessages([]);
+
+    addAiMessage({
+      taskInstruction: TALK_TO_CLARA_LANGUAGE_PROMPT,
+      choices: [
+        { label: "English", value: "English", kind: "language" },
+        { label: "Tagalog", value: "Tagalog", kind: "language" },
+      ],
+      action: TALK_TO_CLARA_CONTEXT_ACTION,
+      mode: "talk_to_clara_intro",
+      showUserMessage: false,
+    });
   };
 
   const handleQuickChoice = (choice) => {
