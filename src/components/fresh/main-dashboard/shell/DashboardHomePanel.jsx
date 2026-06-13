@@ -186,11 +186,7 @@ export default function DashboardHomePanel({
       {dashboardShellReady && <LearningHub user={user} />}
 
       {!!user && (
-        <div
-          className={`${dashboardScale.financeWrap} ${
-            dashboardShellReady ? "mt-[clamp(16px,2.6dvh,24px)]" : ""
-          }`}
-        >
+        <div className={dashboardScale.financeWrap}>
           <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
 
           {shouldShowNonBlockingRefresh ? (
