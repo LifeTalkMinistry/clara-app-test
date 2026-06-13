@@ -240,7 +240,7 @@ export default function LearningMaterialCard({
 
                 <div className={`${isActive ? "mt-auto mb-auto pt-5" : "mt-auto mb-auto pt-3"}`}>
                   <h3
-                    className={`$${
+                    className={`${
                       isActive
                         ? "text-[17px] leading-[1.08] line-clamp-3"
                         : absOffset === 1
