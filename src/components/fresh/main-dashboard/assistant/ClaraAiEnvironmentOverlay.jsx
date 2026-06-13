@@ -4,8 +4,22 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v23-forecast-phase-one";
-const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v23-forecast-phase-one-readable-replies";
+const CLARA_REPLY_FORMAT_RULES = `CLARA REPLY FORMAT RULES:
+- If the answer is longer than 3 sentences, break it into short sections.
+- Use bullets for budgets, wallets, income sources, transactions, savings goals, emergency fund details, and money breakdowns.
+- Never place 3 or more money values in one paragraph.
+- Keep each paragraph short and mobile-chat friendly.
+- Use plain text only.
+- No markdown tables.
+- Prefer this structure:
+  Short answer
+  Bullet breakdown
+  Current result
+  One practical next step if needed`;
+const PRESENTATION_RULES = `Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.
+
+${CLARA_REPLY_FORMAT_RULES}`;
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
 const TALK_TO_CLARA_CONTEXT_ACTION = { id: "talk_to_clara_context", title: "Talk to CLARA", shortTitle: "Talk to CLARA", prompt: "Continue the Talk to CLARA conversation naturally.", chips: [] };
@@ -138,6 +152,8 @@ const CONDITIONAL_DEEPENING_RULES = {
 };
 
 const NONE_CHOICE_LABEL = "None of these";
+const MONEY_PATTERN = /₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?/g;
+const BREAKDOWN_WORD_PATTERN = /\b(breakdown|break down|set up|summary|explain|details|show|list|budget|wallet|wallets|transactions?|income|savings?|emergency fund|dashboard|card)\b/i;
 
 function pickRandomItem(items = []) { return items[Math.floor(Math.random() * items.length)] || items[0]; }
 function normalizeChoice(value = "") { return String(value || "").toLowerCase().replace(/[“”"'`]/g, "").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(); }
@@ -149,7 +165,7 @@ function isQuestionLike(value = "") { const raw = String(value || "").trim(); co
 function looksLikeUrgentIssue(value = "") { const text = normalizeChoice(value); return ["can i buy", "should i buy", "i want to buy", "i bought", "stress", "problem", "issue", "debt", "overspend", "worried", "pressure", "emergency", "kulang"].some((phrase) => text.includes(phrase)); }
 function extractLikelyName(value = "") { const raw = String(value || "").trim(); const choice = normalizeChoice(raw); if (!raw || isProceedChoice(choice) || isNoChoice(choice) || isQuestionLike(raw)) return ""; const cleaned = raw.replace(/^(my name is|i am|i'm|im|call me|you can call me|it is|it's|its)\s+/i, "").replace(/[^a-zA-ZÀ-ÿ\s.-]/g, " ").replace(/\s+/g, " ").trim(); return cleaned && cleaned.split(/\s+/).length <= 3 && cleaned.length <= 32 ? cleaned.split(/\s+/).map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ") : ""; }
 function makeMessage(role, text, meta = {}) { return { id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`, role, text, ...meta }; }
-function clean(text = "") { return String(text || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^\s*[-•]\s+/gm, "• ").replace(/[ \t]+([,.!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/[ \t]*\n[ \t]*/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); }
+function clean(text = "") { return String(text || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^[ \t]*[-•][ \t]+/gm, "• ").replace(/[ \t]+([,.!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); }
 function normalizeNaturalChatReply(text = "") { return clean(text).replace(/\b(Money Signal|Spending Signal|Next Move|Risk|Budget|Wallet|Savings|Emergency Fund|Question|CLARA says|Money Note|Smart Action):\s*/gi, "").replace(/[ \t]*\|[ \t]*/g, "\n\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim(); }
 function isSuspiciouslyIncompleteReply(text = "") { const reply = clean(text); if (!reply) return true; if (reply.length < 18) return true; if (/₱\s*$/.test(reply)) return true; if (/[,:;–—-]$/.test(reply)) return true; if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around|based on|looking at|you have|your budget)$/i.test(reply)) return true; if (/looking at your budget,\s*you have\s*₱?\s*$/i.test(reply)) return true; return false; }
 function hiddenMessage(message = {}) { const text = String(message.text || "").toLowerCase(); return text.includes("what are you thinking of buying") || text.includes("setting up the right clara check") || text.includes("wiring each action"); }
@@ -160,6 +176,116 @@ function firstArray(source = {}, paths = []) { for (const path of paths) { const
 function firstValue(source = {}, paths = []) { for (const path of paths) { const value = readPath(source, path); if (value !== undefined && value !== null && value !== "") return value; } return null; }
 function hasEmergencyFundData(emergencyFund = {}) { return [emergencyFund.saved, emergencyFund.target, emergencyFund.monthsCovered, emergencyFund.protectedAmount].some((value) => value !== undefined && value !== null && value !== "" && Number(value) > 0); }
 function logForecastPhaseOne(message, payload) { if (import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true") console.log(`[CLARA Forecast Phase 1] ${message}`, payload ?? ""); }
+
+function moneyFacts(text = "") { return String(text || "").match(MONEY_PATTERN) || []; }
+function hasDenseMoneyFacts(text = "") { return moneyFacts(text).length >= 3; }
+function countDataSeparators(text = "") {
+  const value = String(text || "");
+  const inlineMarkers = value.match(/(?:^|\s)(?:\*|-|•)\s+[\wÀ-ÿ][^:\n]{0,60}:/g) || [];
+  const labelledFacts = value.match(/\b(?:allocated|spent|left|remaining|balance|available|income|saved|target|goal|amount|wallet|budget|transaction|category)\b/gi) || [];
+  const separators = value.match(/[;|]/g) || [];
+  const colonSections = value.match(/(?:^|\n)[^\n]{1,80}:/g) || [];
+  return inlineMarkers.length + labelledFacts.length + separators.length + colonSections.length;
+}
+function isStructuredReply(text = "") {
+  const reply = String(text || "").trim();
+  if (!reply) return false;
+  const lines = reply.split("\n").map((line) => line.trim()).filter(Boolean);
+  const bulletLines = lines.filter((line) => /^(?:•|-|\d+\.)\s+/.test(line)).length;
+  const blankSections = reply.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).length;
+  const clearLabels = /(^|\n)(Current result|Wallets I can see|Safe remaining|Safe remaining \/ next step|Next step|Budget breakdown|Transaction summary|Income summary|Savings summary|Emergency fund details|Current setup):/i.test(reply);
+  return bulletLines >= 2 || blankSections >= 3 || clearLabels;
+}
+function normalizeBullets(text = "") {
+  return clean(text)
+    .replace(/\s+\*\s+(?=[^*\n:]{1,70}:)/g, "\n\n• ")
+    .replace(/\s+-\s+(?=[^-\n:]{1,70}:)/g, "\n\n• ")
+    .replace(/(^|\n)[ \t]*\*[ \t]+/g, "$1• ")
+    .replace(/(^|\n)[ \t]*-[ \t]+/g, "$1• ")
+    .replace(/(^|\n)[ \t]*•[ \t]*([^:\n]{1,70}):[ \t]*$/g, "$1• $2")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+function itemNameFromInlineBullet(value = "") { return String(value || "").replace(/[•*\-]/g, "").replace(/\s+/g, " ").trim().replace(/[:：]+$/, ""); }
+function moneyLabelLine(label, pattern, details = "") { const match = String(details || "").match(pattern); return match?.[1] ? `${label}: ${match[1]}` : null; }
+function formatInlineBreakdownBlock(block = "") {
+  const match = String(block || "").trim().match(/^•\s*([^:\n]{1,90}):\s*([\s\S]+)$/);
+  if (!match) return block.trim();
+  const itemName = itemNameFromInlineBullet(match[1]);
+  const details = clean(match[2]);
+  const lines = [`• ${itemName}`];
+  const extractedLines = [
+    moneyLabelLine("Allocated", /\b(?:allocated|allocation|budgeted|budget|set aside)\s*(?:is|:|of|to)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+    moneyLabelLine("Spent", /\b(?:spent|used)\s*(?:is|:)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+    moneyLabelLine("Left", /\b(?:left|remaining|available)\s*(?:is|:)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+    moneyLabelLine("Balance", /\b(?:balance|current balance)\s*(?:is|:)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+    moneyLabelLine("Saved", /\b(?:saved|current savings)\s*(?:is|:)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+    moneyLabelLine("Target", /\b(?:target|goal)\s*(?:is|:)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+    moneyLabelLine("Amount", /\b(?:amount|income)\s*(?:is|:)?\s*(₱\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)/i, details),
+  ].filter(Boolean);
+  if (extractedLines.length) {
+    const tailMatch = details.match(/\b(Current result|Safe remaining|Safe remaining \/ next step|Next step|Recommendation|Practical next step):[\s\S]+$/i);
+    const tail = tailMatch?.[0]
+      ? clean(tailMatch[0].replace(/\s+(Current result|Safe remaining|Safe remaining \/ next step|Next step|Recommendation|Practical next step):/gi, "\n\n$1:"))
+      : "";
+    return tail ? `${[...lines, ...extractedLines].join("\n")}\n\n${tail}` : [...lines, ...extractedLines].join("\n");
+  }
+  return details ? [...lines, details].join("\n") : lines.join("\n");
+}
+function splitDenseInlineBreakdown(text = "") {
+  const normalized = normalizeBullets(text);
+  const blocks = normalized.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  const formattedBlocks = blocks.flatMap((block) => {
+    const bulletParts = block.split(/\n(?=•\s+[^:\n]{1,90}:)/g).map((part) => part.trim()).filter(Boolean);
+    return bulletParts.map((part) => /^•\s*[^:\n]{1,90}:\s+/.test(part) ? formatInlineBreakdownBlock(part) : part);
+  });
+  return formattedBlocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function splitDenseMoneyParagraphs(text = "") {
+  return String(text || "").split(/\n{2,}/).map((block) => {
+    const paragraph = block.trim();
+    if (!paragraph || /^•\s+/m.test(paragraph) || moneyFacts(paragraph).length < 3) return paragraph;
+    const sentences = paragraph.match(/[^.!?]+[.!?]?/g) || [paragraph];
+    const grouped = [];
+    let buffer = [];
+    let currentMoneyCount = 0;
+    sentences.forEach((sentence) => {
+      const cleanSentence = sentence.trim();
+      if (!cleanSentence) return;
+      const sentenceMoneyCount = moneyFacts(cleanSentence).length;
+      if (buffer.length && currentMoneyCount + sentenceMoneyCount >= 3) {
+        grouped.push(buffer.join(" ").trim());
+        buffer = [cleanSentence];
+        currentMoneyCount = sentenceMoneyCount;
+        return;
+      }
+      buffer.push(cleanSentence);
+      currentMoneyCount += sentenceMoneyCount;
+    });
+    if (buffer.length) grouped.push(buffer.join(" ").trim());
+    return grouped.join("\n\n");
+  }).filter(Boolean).join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function formatClaraReadableReply(reply = "", prompt = "") {
+  const original = clean(reply);
+  if (!original) return original;
+  if (isStructuredReply(original)) return normalizeBullets(original);
+
+  const moneyCount = moneyFacts(original).length;
+  const dataSeparatorCount = countDataSeparators(original);
+  const promptAndReply = `${prompt || ""}\n${original}`;
+  const hasBreakdownIntent = BREAKDOWN_WORD_PATTERN.test(promptAndReply);
+  const isLong = original.length > 220;
+  const hasEnoughFacts = moneyCount >= 3 || dataSeparatorCount >= 3;
+
+  if (!isLong && !hasEnoughFacts) return original;
+  if (!hasEnoughFacts && !hasBreakdownIntent) return original;
+
+  const bulletNormalized = normalizeBullets(original);
+  const splitInline = splitDenseInlineBreakdown(bulletNormalized);
+  const readable = splitDenseMoneyParagraphs(splitInline);
+  return clean(readable);
+}
 
 function buildForecastPhaseOneSnapshot(context = {}) {
   const financeSnapshot = buildClaraFinanceSnapshot(context || {});
@@ -284,11 +410,14 @@ Keep the next decision planned, necessary, and aligned with your current money p
 
 function ensureCompleteAssistantReply({ reply, prompt, context, action, source }) {
   const normalized = normalizeNaturalChatReply(reply);
-  if (!isSuspiciouslyIncompleteReply(normalized)) return { text: normalized, source };
+  if (!isSuspiciouslyIncompleteReply(normalized)) {
+    return { text: formatClaraReadableReply(normalized, prompt), source };
+  }
   const safeFallback = action?.id === "talk_to_clara_context" ? `I heard you. Let’s continue carefully.
 
 Tell me the next detail you want CLARA to understand.` : fallbackReply(prompt, context);
-  return { text: normalizeNaturalChatReply(safeFallback), source: action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback" };
+  const fallbackNormalized = normalizeNaturalChatReply(safeFallback);
+  return { text: formatClaraReadableReply(fallbackNormalized, prompt), source: action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback" };
 }
 
 function buildTalkIntroQuestionPrompt(text = "") { return `The user is still in the short Talk to CLARA introduction. User said: ${text}
@@ -307,15 +436,90 @@ function inferStrategicTags(answer = "", step = {}) { const text = normalizeChoi
 function getConditionalFollowUp(step, answer) { const rules = CONDITIONAL_DEEPENING_RULES[step?.id] || []; const answerKey = normalizeChoice(answer); const rule = rules.find((item) => (item.when || []).some((value) => normalizeChoice(value) === answerKey)); if (!rule) return null; return { level: step.level, parentId: step.id, id: rule.id, question: rule.question, choices: rule.choices || [] }; }
 
 function MessageText({ text }) {
-  const blocks = normalizeNaturalChatReply(text).split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
-  return <div className="space-y-3.5 break-words text-[13px] leading-[1.65] text-slate-100/90 [overflow-wrap:anywhere]">{blocks.map((block, index) => <p key={`${block}-${index}`} className="whitespace-pre-wrap">{block}</p>)}</div>;
+  const readableText = formatClaraReadableReply(text);
+  const blocks = normalizeNaturalChatReply(readableText).split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+
+  return (
+    <div className="space-y-3.5 break-words text-[13px] leading-[1.65] text-slate-100/90 [overflow-wrap:anywhere]">
+      {blocks.map((block, index) => {
+        const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+        const hasBulletLines = lines.some((line) => /^•\s+/.test(line));
+        if (hasBulletLines) {
+          return (
+            <div key={`${block}-${index}`} className="space-y-1.5 whitespace-pre-wrap">
+              {lines.map((line, lineIndex) => (
+                <div key={`${line}-${lineIndex}`} className={/^•\s+/.test(line) ? "pt-1 font-semibold text-white/95" : "pl-4 text-slate-200/82"}>
+                  {line}
+                </div>
+              ))}
+            </div>
+          );
+        }
+        return <p key={`${block}-${index}`} className="whitespace-pre-wrap">{block}</p>;
+      })}
+    </div>
+  );
 }
-function QuickChoices({ choices = [], disabled, onSelect }) { if (!choices.length) return null; return <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">{choices.map((choice) => <button key={`${choice.value || choice.label}`} type="button" disabled={disabled} onClick={() => onSelect(choice)} className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 transition active:scale-95 disabled:opacity-45">{choice.label}</button>)}</div>; }
-function Insight({ text, source, choices, disabled, onSelectChoice }) { return <div className="space-y-2.5">{SHOW_DEBUG_SOURCE ? <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Source: {source === "gemini" ? "Gemini" : source === "local_context" ? "Local context" : source === "local_finance" ? "Local finance" : source === "forecast_phase_one" ? "Forecast Phase 1" : "Local fallback"}</div> : null}<MessageText text={text} /><QuickChoices choices={choices} disabled={disabled} onSelect={onSelectChoice} /></div>; }
-function PanelButton({ active, children, onClick }) { return <button type="button" onClick={onClick} className={`rounded-full border px-3 py-2 text-[11px] font-black transition active:scale-95 ${active ? "border-emerald-200/25 bg-emerald-300/15 text-emerald-100" : "border-white/10 bg-white/[0.055] text-white/60 hover:bg-white/[0.08]"}`}>{children}</button>; }
-function OptionCard({ item, disabled, onClick }) { return <button type="button" disabled={disabled} onClick={onClick} className="group min-h-[82px] rounded-[22px] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition hover:bg-white/[0.085] active:scale-[0.98] disabled:opacity-45"><p className="text-[12px] font-black leading-tight text-white group-active:text-emerald-100">{item.shortTitle || item.title}</p><p className="mt-1.5 line-clamp-3 text-[10.5px] leading-4 text-slate-300/66">{item.description}</p></button>; }
-function PanelInstructionBoard({ panel, greeting, onClose }) { const copy = panel ? PANEL_COPY[panel] : greeting; return <div className="relative rounded-[30px] border border-white/10 bg-white/[0.045] px-5 pb-5 pt-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-all duration-300"><button type="button" onClick={onClose} className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode"><X className="h-4 w-4" /></button><p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">{copy.eyebrow}</p><h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">{copy.heading}</h3><div className="mx-auto mt-3 max-w-[300px] space-y-2 text-sm leading-6 text-slate-300/75">{copy.body.map((line) => <p key={line}>{line}</p>)}</div></div>; }
-function FloatingCloseButton({ onClose }) { return <button type="button" onClick={onClose} className="absolute right-4 top-[max(env(safe-area-inset-top),18px)] z-10 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode"><X className="h-4 w-4" /></button>; }
+
+function QuickChoices({ choices = [], disabled, onSelect }) {
+  if (!choices.length) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+      {choices.map((choice) => (
+        <button key={`${choice.value || choice.label}`} type="button" disabled={disabled} onClick={() => onSelect(choice)} className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 transition active:scale-95 disabled:opacity-45">
+          {choice.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Insight({ text, source, choices, disabled, onSelectChoice }) {
+  return (
+    <div className="space-y-2.5">
+      {SHOW_DEBUG_SOURCE ? <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Source: {source === "gemini" ? "Gemini" : source === "local_context" ? "Local context" : source === "local_finance" ? "Local finance" : source === "forecast_phase_one" ? "Forecast Phase 1" : "Local fallback"}</div> : null}
+      <MessageText text={text} />
+      <QuickChoices choices={choices} disabled={disabled} onSelect={onSelectChoice} />
+    </div>
+  );
+}
+
+function PanelButton({ active, children, onClick }) {
+  return <button type="button" onClick={onClick} className={`rounded-full border px-3 py-2 text-[11px] font-black transition active:scale-95 ${active ? "border-emerald-200/25 bg-emerald-300/15 text-emerald-100" : "border-white/10 bg-white/[0.055] text-white/60 hover:bg-white/[0.08]"}`}>{children}</button>;
+}
+
+function OptionCard({ item, disabled, onClick }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} className="group min-h-[82px] rounded-[22px] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition hover:bg-white/[0.085] active:scale-[0.98] disabled:opacity-45">
+      <p className="text-[12px] font-black leading-tight text-white group-active:text-emerald-100">{item.shortTitle || item.title}</p>
+      <p className="mt-1.5 line-clamp-3 text-[10.5px] leading-4 text-slate-300/66">{item.description}</p>
+    </button>
+  );
+}
+
+function PanelInstructionBoard({ panel, greeting, onClose }) {
+  const copy = panel ? PANEL_COPY[panel] : greeting;
+  return (
+    <div className="relative rounded-[30px] border border-white/10 bg-white/[0.045] px-5 pb-5 pt-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-all duration-300">
+      <button type="button" onClick={onClose} className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode">
+        <X className="h-4 w-4" />
+      </button>
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">{copy.eyebrow}</p>
+      <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">{copy.heading}</h3>
+      <div className="mx-auto mt-3 max-w-[300px] space-y-2 text-sm leading-6 text-slate-300/75">
+        {copy.body.map((line) => <p key={line}>{line}</p>)}
+      </div>
+    </div>
+  );
+}
+
+function FloatingCloseButton({ onClose }) {
+  return (
+    <button type="button" onClick={onClose} className="absolute right-4 top-[max(env(safe-area-inset-top),18px)] z-10 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode">
+      <X className="h-4 w-4" />
+    </button>
+  );
+}
 
 export default function ClaraAiEnvironmentOverlay({ isActive = false, messages = [], claraAssistantContext = {}, onClose }) {
   const [draft, setDraft] = useState("");
@@ -356,17 +560,9 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const startThinkingMessageRotation = (pendingMessageId, thinkingMessages = CLARA_THINKING_MESSAGES) => {
     stopThinkingMessageRotation();
     let thinkingIndex = 0;
-
     thinkingIntervalRef.current = window.setInterval(() => {
       thinkingIndex = (thinkingIndex + 1) % thinkingMessages.length;
-
-      setLocalMessages((current) =>
-        current.map((message) =>
-          message.id === pendingMessageId
-            ? { ...message, text: thinkingMessages[thinkingIndex] }
-            : message
-        )
-      );
+      setLocalMessages((current) => current.map((message) => message.id === pendingMessageId ? { ...message, text: thinkingMessages[thinkingIndex] } : message));
     }, 1400);
   };
 
@@ -408,10 +604,29 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   }, [isActive]);
   useEffect(() => { if (!isActive) return undefined; const handleEscape = (event) => event.key === "Escape" && onClose?.(); window.addEventListener("keydown", handleEscape); return () => window.removeEventListener("keydown", handleEscape); }, [isActive, onClose]);
   useEffect(() => { if (!isActive) return undefined; const frame = window.requestAnimationFrame(() => { messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }); }); const timer = window.setTimeout(() => { messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }); }, 90); return () => { window.cancelAnimationFrame(frame); window.clearTimeout(timer); }; }, [isActive, visibleMessagesScrollKey, isThinking]);
+
   if (!isActive) return null;
 
-  const saveProfileAnswer = (step, value, meta = {}) => { if (!step?.id) return; setProfileAnswers((current) => ({ ...current, [step.id]: { id: step.id, parentId: step.parentId || null, level: step.level, question: step.question, value, tags: inferStrategicTags(value, step), updatedAt: new Date().toISOString(), ...meta } })); };
-  const addExchange = (userText, claraText, choices = [], source = "local_context") => setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", userText), makeMessage("clara", claraText, { source, quickChoices: choices })]);
+  const saveProfileAnswer = (step, value, meta = {}) => {
+    if (!step?.id) return;
+    setProfileAnswers((current) => ({
+      ...current,
+      [step.id]: {
+        id: step.id,
+        parentId: step.parentId || null,
+        level: step.level,
+        question: step.question,
+        value,
+        tags: inferStrategicTags(value, step),
+        updatedAt: new Date().toISOString(),
+        ...meta,
+      },
+    }));
+  };
+
+  const addExchange = (userText, claraText, choices = [], source = "local_context") => {
+    setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", userText), makeMessage("clara", formatClaraReadableReply(claraText, userText), { source, quickChoices: choices })]);
+  };
 
   const startForecastPhaseOne = (action) => {
     if (isThinking) return;
@@ -431,7 +646,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
         forecastSnapshotRef.current = forecastSnapshot;
         logForecastPhaseOne("Snapshot ready", forecastSnapshot);
         logForecastPhaseOne("Missing data:", forecastSnapshot.missingData);
-        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: forecastReadyText(forecastSnapshot), source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
+        setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: formatClaraReadableReply(forecastReadyText(forecastSnapshot), action.title), source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
       } catch (error) {
         console.error("[CLARA Forecast Phase 1] Snapshot failed", error);
         setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: "Forecast snapshot could not be prepared right now. CLARA stayed safe and did not change your records.", source: "forecast_phase_one", smartAction: { ...action, chips: [] } } : message));
@@ -454,8 +669,10 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       let reply = "";
       let source = "local_fallback";
       const directFinanceReply = action?.id === "talk_to_clara_context" ? "" : buildContextualFinanceReply(cleanPrompt, claraAssistantContext);
-      if (directFinanceReply) { reply = directFinanceReply; source = "local_finance"; }
-      else if (hasGeminiConfig()) {
+      if (directFinanceReply) {
+        reply = directFinanceReply;
+        source = "local_finance";
+      } else if (hasGeminiConfig()) {
         try {
           reply = await generateClaraGeminiReply({ message: cleanPrompt, context: claraAssistantContext, mode: action?.id || "ai_environment", conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)] });
           source = "gemini";
@@ -485,11 +702,36 @@ Let’s continue.` : fallbackReply(cleanPrompt, claraAssistantContext);
   };
 
   const stepChoices = (step) => [...(step?.choices || []).map((choice) => ({ label: choice, value: choice, kind: "profile_answer" })), { label: NONE_CHOICE_LABEL, value: NONE_CHOICE_LABEL, kind: "profile_none" }];
-  const askStep = (index, userText = "Continue") => { const step = PROFILE_STEPS[index]; if (!step) { const answeredCount = Object.keys(profileAnswers).length; addExchange(userText, `Thanks. I captured ${answeredCount} starter memory points for this session.
+  const askStep = (index, userText = "Continue") => {
+    const step = PROFILE_STEPS[index];
+    if (!step) {
+      const answeredCount = Object.keys(profileAnswers).length;
+      addExchange(userText, `Thanks. I captured ${answeredCount} starter memory points for this session.
 
-Permanent save is the next system we’ll connect, but this guided flow now covers the full CLARA Behavioral Intelligence Framework with personal details.`, [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }]); setTalkPhase("free_chat"); return; } setProfileStepIndex(index); setPendingFollowUp(null); addExchange(userText, profileQuestionText(step, talkProfile.name), stepChoices(step)); };
+Permanent save is the next system we’ll connect, but this guided flow now covers the full CLARA Behavioral Intelligence Framework with personal details.`, [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }]);
+      setTalkPhase("free_chat");
+      return;
+    }
+    setProfileStepIndex(index);
+    setPendingFollowUp(null);
+    addExchange(userText, profileQuestionText(step, talkProfile.name), stepChoices(step));
+  };
   const askFollowUp = (followUp, answer) => { setPendingFollowUp(followUp); setTalkPhase("follow_up"); addExchange(answer, profileQuestionText(followUp, talkProfile.name), stepChoices(followUp)); };
-  const handleProfileAnswer = (answer) => { const step = pendingFollowUp || PROFILE_STEPS[profileStepIndex]; if (!step) return; if (pendingFollowUp) { saveProfileAnswer(step, answer, { source: "guided_follow_up", isFollowUp: true }); setPendingFollowUp(null); setTalkPhase("behavioral_audit"); askStep(profileStepIndex + 1, answer); return; } saveProfileAnswer(step, answer, { source: "guided_choice" }); const followUp = getConditionalFollowUp(step, answer); if (followUp) { askFollowUp(followUp, answer); return; } askStep(profileStepIndex + 1, answer); };
+  const handleProfileAnswer = (answer) => {
+    const step = pendingFollowUp || PROFILE_STEPS[profileStepIndex];
+    if (!step) return;
+    if (pendingFollowUp) {
+      saveProfileAnswer(step, answer, { source: "guided_follow_up", isFollowUp: true });
+      setPendingFollowUp(null);
+      setTalkPhase("behavioral_audit");
+      askStep(profileStepIndex + 1, answer);
+      return;
+    }
+    saveProfileAnswer(step, answer, { source: "guided_choice" });
+    const followUp = getConditionalFollowUp(step, answer);
+    if (followUp) { askFollowUp(followUp, answer); return; }
+    askStep(profileStepIndex + 1, answer);
+  };
 
   const handleCustomAnswer = async (answer) => {
     const pending = pendingCustomStep || {};
@@ -526,7 +768,7 @@ ${PRESENTATION_RULES}`, context: claraAssistantContext, mode: "talk_to_clara_cus
 ${profileQuestionText(nextStep, talkProfile.name)}` : `${safeReply.text}
 
 Thanks. I have enough starter context for now.`;
-      setLocalMessages((current) => current.map((message) => message.id !== pendingMessage.id ? message : { ...message, text: nextText, source: safeReply.source, quickChoices: nextStep ? stepChoices(nextStep) : [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }] }));
+      setLocalMessages((current) => current.map((message) => message.id !== pendingMessage.id ? message : { ...message, text: formatClaraReadableReply(nextText, answer), source: safeReply.source, quickChoices: nextStep ? stepChoices(nextStep) : [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }] }));
       if (nextStep) setProfileStepIndex(nextIndex); else setTalkPhase("free_chat");
     } catch (error) {
       console.warn("[CLARA AI] Custom profile analysis failed", error);
@@ -541,29 +783,54 @@ ${profileQuestionText(nextStep, talkProfile.name)}` : "Got it. I’ll keep that 
     }
   };
 
-  const startTalkFlow = () => { setPanel("talk"); setTalkIntroState("awaiting_language"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); setProfileAnswers({}); setPendingCustomStep(null); setPendingFollowUp(null); setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS)); setLocalMessages([makeMessage("clara", TALK_TO_CLARA_LANGUAGE_PROMPT, { source: "local_context", quickChoices: [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }] })]); };
+  const startTalkFlow = () => {
+    setPanel("talk");
+    setTalkIntroState("awaiting_language");
+    setTalkProfile({ pendingName: "", name: "" });
+    setTalkPhase("intro");
+    setProfileStepIndex(0);
+    setProfileAnswers({});
+    setPendingCustomStep(null);
+    setPendingFollowUp(null);
+    setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS));
+    setLocalMessages([makeMessage("clara", TALK_TO_CLARA_LANGUAGE_PROMPT, { source: "local_context", quickChoices: [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }] })]);
+  };
 
   const handleQuickChoice = (choice) => {
     const label = choice?.label || choice?.value || "Continue";
-    if (choice?.kind === "language") { const intro = isTagalogChoice(label) ? TALK_TO_CLARA_INTRO_TL : TALK_TO_CLARA_INTRO_EN; setTalkIntroState("awaiting_continue_or_question"); addExchange(label, `${intro}
+    if (choice?.kind === "language") {
+      const intro = isTagalogChoice(label) ? TALK_TO_CLARA_INTRO_TL : TALK_TO_CLARA_INTRO_EN;
+      setTalkIntroState("awaiting_continue_or_question");
+      addExchange(label, `${intro}
 
-Can we proceed to the next part?`, [{ label: "Continue", value: "Continue", kind: "continue_intro" }, { label: "Ask question", value: "Ask question", kind: "ask_intro_question" }]); return; }
+Can we proceed to the next part?`, [{ label: "Continue", value: "Continue", kind: "continue_intro" }, { label: "Ask question", value: "Ask question", kind: "ask_intro_question" }]);
+      return;
+    }
     if (choice?.kind === "continue_intro") { setTalkIntroState("confirmed"); setTalkPhase("ask_name"); addExchange(label, "Great. To make our conversations feel more personal, what name would you like me to call you?"); return; }
     if (choice?.kind === "ask_intro_question") { addExchange(label, "Sure — type your question about Talk to CLARA, then I’ll answer before we proceed."); return; }
     if (choice?.kind === "confirm_name_yes") { const name = talkProfile.pendingName || "there"; setTalkProfile({ pendingName: name, name }); setTalkPhase("behavioral_audit"); setProfileStepIndex(0); const firstStep = PROFILE_STEPS[0]; addExchange(label, profileQuestionText(firstStep, name), stepChoices(firstStep)); return; }
     if (choice?.kind === "change_name") { setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("ask_name"); addExchange(label, "No problem. What name would you prefer me to use?"); return; }
     if (choice?.kind === "profile_answer") { handleProfileAnswer(label); return; }
-    if (choice?.kind === "profile_none") { const step = pendingFollowUp || PROFILE_STEPS[profileStepIndex]; setPendingCustomStep({ step, nextIndex: pendingFollowUp ? profileStepIndex + 1 : profileStepIndex + 1 }); setTalkPhase("awaiting_custom_profile"); addExchange(label, `No problem. Can you tell me specifically your answer for this?
+    if (choice?.kind === "profile_none") {
+      const step = pendingFollowUp || PROFILE_STEPS[profileStepIndex];
+      setPendingCustomStep({ step, nextIndex: pendingFollowUp ? profileStepIndex + 1 : profileStepIndex + 1 });
+      setTalkPhase("awaiting_custom_profile");
+      addExchange(label, `No problem. Can you tell me specifically your answer for this?
 
 ${step?.question || "What should CLARA understand?"}
 
-I’ll let AI interpret it and keep it as custom context for this session.`); return; }
+I’ll let AI interpret it and keep it as custom context for this session.`);
+      return;
+    }
     if (choice?.kind === "continue_chat") { addExchange(label, "Sure. You can now talk to me naturally about anything affecting your spending."); setTalkPhase("free_chat"); return; }
-    if (choice?.kind === "review_context") { const summary = Object.values(profileAnswers).slice(-20).map((item) => `• ${item.id}: ${item.value}`).join("\n") || "No captured context yet."; addExchange(label, `Here’s the latest captured context from this session:
+    if (choice?.kind === "review_context") {
+      const summary = Object.values(profileAnswers).slice(-20).map((item) => `• ${item.id}: ${item.value}`).join("\n") || "No captured context yet.";
+      addExchange(label, `Here’s the latest captured context from this session:
 
 ${summary}
 
-Permanent saving comes next when we connect the memory store.`, [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }]); }
+Permanent saving comes next when we connect the memory store.`, [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }]);
+    }
   };
 
   const submitDraft = (event) => {
@@ -574,10 +841,34 @@ Permanent saving comes next when we connect the memory store.`, [{ label: "Conti
     if (isTalkToClaraMode && talkPhase === "awaiting_custom_profile") { handleCustomAnswer(text); setDraft(""); return; }
     if (isTalkToClaraMode && talkIntroState === "awaiting_language") { if (isEnglishChoice(text) || isTagalogChoice(text)) handleQuickChoice({ label: text, value: text, kind: "language" }); else addExchange(text, "Choose one first so I can explain clearly.", [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }]); setDraft(""); return; }
     if (isTalkToClaraMode && talkIntroState === "awaiting_continue_or_question") { if (isProceedChoice(text)) handleQuickChoice({ label: "Continue", value: "Continue", kind: "continue_intro" }); else runClara({ prompt: buildTalkIntroQuestionPrompt(text), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION }); setDraft(""); return; }
-    if (isTalkToClaraMode && talkPhase === "ask_name") { const name = extractLikelyName(text); if (!name || isQuestionLike(text) || looksLikeUrgentIssue(text)) { runClara({ prompt: `CLARA is trying to learn what to call the user. The user said: ${text}
+    if (isTalkToClaraMode && talkPhase === "ask_name") {
+      const name = extractLikelyName(text);
+      if (!name || isQuestionLike(text) || looksLikeUrgentIssue(text)) {
+        runClara({ prompt: `CLARA is trying to learn what to call the user. The user said: ${text}
 
-If this is a question or issue, answer naturally. Then gently ask what CLARA should call them. Keep it short.`, displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION }); setDraft(""); return; } setTalkProfile({ pendingName: name, name: "" }); setTalkPhase("confirm_name"); addExchange(text, `Got it, ${name}. Should I call you ${name} from now on?`, [{ label: "Yes", value: "Yes", kind: "confirm_name_yes" }, { label: "Change name", value: "Change name", kind: "change_name" }]); setDraft(""); return; }
-    if (isTalkToClaraMode && talkPhase === "confirm_name") { if (isProceedChoice(text)) handleQuickChoice({ label: "Yes", value: "Yes", kind: "confirm_name_yes" }); else if (isNoChoice(text)) handleQuickChoice({ label: "Change name", value: "Change name", kind: "change_name" }); else { const newName = extractLikelyName(text); if (newName) { setTalkProfile({ pendingName: newName, name: "" }); addExchange(text, `Got it, ${newName}. Should I call you ${newName} from now on?`, [{ label: "Yes", value: "Yes", kind: "confirm_name_yes" }, { label: "Change name", value: "Change name", kind: "change_name" }]); } } setDraft(""); return; }
+If this is a question or issue, answer naturally. Then gently ask what CLARA should call them. Keep it short.`, displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION });
+        setDraft("");
+        return;
+      }
+      setTalkProfile({ pendingName: name, name: "" });
+      setTalkPhase("confirm_name");
+      addExchange(text, `Got it, ${name}. Should I call you ${name} from now on?`, [{ label: "Yes", value: "Yes", kind: "confirm_name_yes" }, { label: "Change name", value: "Change name", kind: "change_name" }]);
+      setDraft("");
+      return;
+    }
+    if (isTalkToClaraMode && talkPhase === "confirm_name") {
+      if (isProceedChoice(text)) handleQuickChoice({ label: "Yes", value: "Yes", kind: "confirm_name_yes" });
+      else if (isNoChoice(text)) handleQuickChoice({ label: "Change name", value: "Change name", kind: "change_name" });
+      else {
+        const newName = extractLikelyName(text);
+        if (newName) {
+          setTalkProfile({ pendingName: newName, name: "" });
+          addExchange(text, `Got it, ${newName}. Should I call you ${newName} from now on?`, [{ label: "Yes", value: "Yes", kind: "confirm_name_yes" }, { label: "Change name", value: "Change name", kind: "change_name" }]);
+        }
+      }
+      setDraft("");
+      return;
+    }
     if (isTalkToClaraMode && (talkPhase === "behavioral_audit" || talkPhase === "follow_up")) { handleProfileAnswer(text); setDraft(""); return; }
     runClara({ prompt: isTalkToClaraMode ? buildTalkToClaraPrompt(text, talkProfile) : `${text}
 
@@ -595,17 +886,66 @@ ${PRESENTATION_RULES}`, displayText: text, action: isTalkToClaraMode ? TALK_TO_C
 ${PRESENTATION_RULES}`, displayText: action.title, action });
   };
 
-  return <div className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/92 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-xl" data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}>
-    <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_4%,rgba(45,212,191,0.24),transparent_32%),radial-gradient(circle_at_88%_22%,rgba(124,58,237,0.22),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(2,6,23,0.99))]" />
-    {visibleMessages.length ? <FloatingCloseButton onClose={onClose} /> : null}
-    <main className="min-h-0 flex-1 overflow-y-auto px-1 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
-      {visibleMessages.length ? <div className="flex min-h-full flex-col justify-start gap-3 pb-28 pt-12">{visibleMessages.map((message) => { const isUser = message.role === "user"; const action = message.smartAction; return <div key={message.id} className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}><div className={`break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:anywhere] ${isUser ? "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950" : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-5 py-4 text-[13px] leading-[1.65] text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl"}`}>{isUser ? <span className="whitespace-pre-wrap">{clean(message.text)}</span> : <Insight text={message.text} source={message.source} choices={message.quickChoices || []} disabled={isThinking} onSelectChoice={handleQuickChoice} />}{action && !isUser && action.chips?.length ? <div className="mt-3 border-t border-white/10 pt-3"><p className="text-[12px] leading-5 text-emerald-100/85">What should we narrow down next?</p><div className="mt-3 flex flex-wrap gap-2">{action.chips.map((chip) => <button key={chip} type="button" disabled={isThinking} onClick={() => runClara({ prompt: `${action.prompt}
+  return (
+    <div className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/92 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-xl" data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}>
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_4%,rgba(45,212,191,0.24),transparent_32%),radial-gradient(circle_at_88%_22%,rgba(124,58,237,0.22),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(2,6,23,0.99))]" />
+      {visibleMessages.length ? <FloatingCloseButton onClose={onClose} /> : null}
+      <main className="min-h-0 flex-1 overflow-y-auto px-1 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+        {visibleMessages.length ? (
+          <div className="flex min-h-full flex-col justify-start gap-3 pb-28 pt-12">
+            {visibleMessages.map((message) => {
+              const isUser = message.role === "user";
+              const action = message.smartAction;
+              return (
+                <div key={message.id} className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
+                  <div className={`break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:anywhere] ${isUser ? "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950" : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-5 py-4 text-[13px] leading-[1.65] text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl"}`}>
+                    {isUser ? <span className="whitespace-pre-wrap">{clean(message.text)}</span> : <Insight text={message.text} source={message.source} choices={message.quickChoices || []} disabled={isThinking} onSelectChoice={handleQuickChoice} />}
+                    {action && !isUser && action.chips?.length ? (
+                      <div className="mt-3 border-t border-white/10 pt-3">
+                        <p className="text-[12px] leading-5 text-emerald-100/85">What should we narrow down next?</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {action.chips.map((chip) => (
+                            <button key={chip} type="button" disabled={isThinking} onClick={() => runClara({ prompt: `${action.prompt}
 User selected: ${chip}
 
-${PRESENTATION_RULES}`, displayText: chip, action })} className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95 disabled:opacity-45">{chip}</button>)}</div></div> : null}</div></div>; })}<div ref={messagesEndRef} className="h-1 shrink-0" /></div> : <div className="flex min-h-full flex-col justify-center gap-4 pb-4"><PanelInstructionBoard panel={panel} greeting={greeting} onClose={onClose} /><div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl"><div className="grid grid-cols-3 gap-2"><PanelButton active={panel === "talk"} onClick={startTalkFlow}>Talk to CLARA</PanelButton><PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton><PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton></div>{panel === "smart" ? <div className="mt-3 grid grid-cols-2 gap-2">{SMART_ACTIONS.map((action) => <OptionCard key={action.id} item={action} disabled={isThinking} onClick={() => handleSmartActionClick(action)} />)}</div> : null}{panel === "core" ? <div className="mt-3 grid grid-cols-2 gap-2">{CORE_FEATURES.map((feature) => <OptionCard key={feature.id} item={feature} disabled={isThinking} onClick={() => runClara({ prompt: `${feature.prompt}
+${PRESENTATION_RULES}`, displayText: chip, action })} className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95 disabled:opacity-45">
+                              {chip}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} className="h-1 shrink-0" />
+          </div>
+        ) : (
+          <div className="flex min-h-full flex-col justify-center gap-4 pb-4">
+            <PanelInstructionBoard panel={panel} greeting={greeting} onClose={onClose} />
+            <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+              <div className="grid grid-cols-3 gap-2">
+                <PanelButton active={panel === "talk"} onClick={startTalkFlow}>Talk to CLARA</PanelButton>
+                <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
+                <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
+              </div>
+              {panel === "smart" ? <div className="mt-3 grid grid-cols-2 gap-2">{SMART_ACTIONS.map((action) => <OptionCard key={action.id} item={action} disabled={isThinking} onClick={() => handleSmartActionClick(action)} />)}</div> : null}
+              {panel === "core" ? <div className="mt-3 grid grid-cols-2 gap-2">{CORE_FEATURES.map((feature) => <OptionCard key={feature.id} item={feature} disabled={isThinking} onClick={() => runClara({ prompt: `${feature.prompt}
 
-${PRESENTATION_RULES}`, displayText: feature.title, action: { ...feature, chips: ["Can I buy this?", "Next move", "Check risk"] } })} />)}</div> : null}</div></div>}
-    </main>
-    <form onSubmit={submitDraft} className="shrink-0 rounded-[28px] border border-white/16 bg-slate-950/68 p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl"><div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2"><input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/70" placeholder={panel === "talk" ? chatInputPlaceholder : DEFAULT_CHAT_INPUT_PLACEHOLDER} inputMode="text" /><button type="submit" disabled={!draft.trim() || isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_26px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95" aria-label="Send to CLARA"><ArrowUp className="h-5 w-5" /></button></div></form>
-  </div>;
+${PRESENTATION_RULES}`, displayText: feature.title, action: { ...feature, chips: ["Can I buy this?", "Next move", "Check risk"] } })} />)}</div> : null}
+            </div>
+          </div>
+        )}
+      </main>
+      <form onSubmit={submitDraft} className="shrink-0 rounded-[28px] border border-white/16 bg-slate-950/68 p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
+        <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
+          <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/70" placeholder={panel === "talk" ? chatInputPlaceholder : DEFAULT_CHAT_INPUT_PLACEHOLDER} inputMode="text" />
+          <button type="submit" disabled={!draft.trim() || isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_26px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95" aria-label="Send to CLARA">
+            <ArrowUp className="h-5 w-5" />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
