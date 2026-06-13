@@ -283,16 +283,38 @@ export default function LearningHubCarousel({
   if (!total) return null;
 
   return (
-    <section className="relative -mb-1 w-full overflow-hidden px-1 py-0">
-      <LearningHubToggleButton
-        isExpanded={isExpanded}
-        isLocked={isLocked}
-        isInsideCategory={isInsideCategory}
-        headerLabel={headerLabel}
-        onClick={handleHeaderClick}
-        onTouchStart={handleHeaderTouchStart}
-        onTouchEnd={handleHeaderTouchEnd}
-      />
+    <section
+      className={`relative w-full overflow-hidden px-1 py-0 ${
+        isExpanded ? "pb-[clamp(14px,2dvh,20px)]" : ""
+      }`}
+    >
+      {!isExpanded ? (
+        <div
+          data-clara-learning-hub-loaded-bridge="true"
+          className="grid h-[clamp(62px,7dvh,74px)] place-items-center"
+        >
+          <LearningHubToggleButton
+            isExpanded={isExpanded}
+            isLocked={isLocked}
+            isInsideCategory={isInsideCategory}
+            headerLabel={headerLabel}
+            onClick={handleHeaderClick}
+            onTouchStart={handleHeaderTouchStart}
+            onTouchEnd={handleHeaderTouchEnd}
+            className="!mt-0 !mb-0"
+          />
+        </div>
+      ) : (
+        <LearningHubToggleButton
+          isExpanded={isExpanded}
+          isLocked={isLocked}
+          isInsideCategory={isInsideCategory}
+          headerLabel={headerLabel}
+          onClick={handleHeaderClick}
+          onTouchStart={handleHeaderTouchStart}
+          onTouchEnd={handleHeaderTouchEnd}
+        />
+      )}
 
       {isExpanded ? (
         <div
