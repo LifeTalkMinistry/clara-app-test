@@ -42,7 +42,10 @@ export function GlassDropdown({
   useClickOutside(dropdownRef, () => setOpen(false));
 
   return (
-    <div ref={dropdownRef} className="relative min-w-0 flex-1">
+    <div
+      ref={dropdownRef}
+      className={`relative min-w-0 flex-1 ${open ? "z-[80]" : "z-10"}`}
+    >
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
@@ -79,7 +82,7 @@ export function GlassDropdown({
       </button>
 
       <div
-        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-30 grid overflow-hidden rounded-[24px] border border-cyan-100/12 bg-[#0b111c]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 ${
+        className={`relative z-[90] mt-2 grid overflow-hidden rounded-[24px] border border-cyan-100/12 bg-[#0b111c]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 sm:absolute sm:left-0 sm:right-0 sm:top-[calc(100%+8px)] sm:mt-0 ${
           open
             ? "grid-rows-[1fr] opacity-100"
             : "pointer-events-none grid-rows-[0fr] opacity-0"
