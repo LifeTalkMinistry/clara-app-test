@@ -2,6 +2,7 @@ export const learningHubCategories = [
   {
     id: "money-foundations",
     type: "youtube",
+    status: "available",
     title: "Money Foundations",
     badge: "WATCH FIRST",
     contentTypeLabel: "Curated Video Lessons",
@@ -197,6 +198,8 @@ export const learningHubCategories = [
   {
     id: "video",
     type: "video",
+    status: "coming-soon",
+    constructionLabel: "Under construction",
     title: "CLARA Money Masterclass",
     subtitle: "Build your personal finance foundation step by step.",
     description: "A guided video series that teaches money awareness, income, cash flow, budgeting, spending discipline, emergency protection, debt, saving, and long-term direction.",
@@ -206,6 +209,8 @@ export const learningHubCategories = [
   {
     id: "book",
     type: "book",
+    status: "coming-soon",
+    constructionLabel: "Under construction",
     title: "Books & Guides",
     subtitle: "Read deeper CLARA lessons.",
     description: "Use CLARA guides when you want a slower, deeper explanation of each money system.",
@@ -215,6 +220,8 @@ export const learningHubCategories = [
   {
     id: "practice",
     type: "practice",
+    status: "coming-soon",
+    constructionLabel: "Under construction",
     title: "Practice Tools",
     subtitle: "Apply what you learned with guided money exercises.",
     description: "Turn lessons into small guided money decisions and checks.",
@@ -224,6 +231,8 @@ export const learningHubCategories = [
   {
     id: "game",
     type: "game",
+    status: "coming-soon",
+    constructionLabel: "Under construction",
     title: "Money Games",
     subtitle: "Train your financial decisions through simple money games.",
     description: "Practice decisions in a low-pressure, interactive way.",
@@ -233,6 +242,8 @@ export const learningHubCategories = [
   {
     id: "challenge",
     type: "challenge",
+    status: "coming-soon",
+    constructionLabel: "Under construction",
     title: "Challenges",
     subtitle: "Build financial discipline through small guided actions.",
     description: "Use short challenges to turn financial awareness into daily behavior.",
