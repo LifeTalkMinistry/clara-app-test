@@ -38,6 +38,11 @@ export default function LearningHubLoaded({ initialExpanded = false }) {
     }
 
     if (item?.kind === "category") {
+      if (item.status !== "available") {
+        openMaterial(item);
+        return;
+      }
+
       openCategory(item.id);
       return;
     }
@@ -92,6 +97,7 @@ function LearningComingSoonModal({ isOpen, material, onClose }) {
 
   const isVideo = material.type === "video";
   const materialTypeLabel = {
+    category: "Learning Category",
     video: "Video Material",
     practice: "Practice Tool",
     game: "Money Game",
