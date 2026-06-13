@@ -33,9 +33,13 @@ export const LIFE_STAGE_HERO = {
 
 LIFE_STAGE_HERO["Living With Partner"] = LIFE_STAGE_HERO["Living with Partner"];
 
-export function getLifeStageHero(stageKey = getSelectedLifeStageKey()) {
+export function getLifeStageHero(stageKey = getSelectedLifeStageKey(), imageVariant = "default") {
   const normalized = normalizeLifeStageKey(stageKey);
-  return LIFE_STAGE_HERO[normalized] || LIFE_STAGE_HERO["Young Professional"] || LIFE_STAGE_HERO["Working Student"];
+  const base = LIFE_STAGE_HERO[normalized] || LIFE_STAGE_HERO["Young Professional"] || LIFE_STAGE_HERO["Working Student"];
+  return {
+    ...base,
+    heroImage: getLifeStageImage(normalized, imageVariant) || base.heroImage,
+  };
 }
 
 export default LIFE_STAGE_HERO;
