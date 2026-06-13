@@ -21,7 +21,7 @@ export const learningHubCategories = [
         youtubeId: "mnuOZcmoGD8",
         sourceUrl: "https://www.youtube.com/watch?v=mnuOZcmoGD8&t=2s",
         credit: {
-          creatorName: "Original creator",
+          creatorName: "Little Bit Better",
           creatorHandle: "",
           creatorUrl: "",
           sourceName: "YouTube",
