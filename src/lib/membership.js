@@ -52,6 +52,7 @@ export const ACTIVE_MEMBERSHIP_STATUSES = new Set([
   "active",
   "activated",
   "approved",
+  "trialing",
   "committed",
   "paid",
   "completed",
