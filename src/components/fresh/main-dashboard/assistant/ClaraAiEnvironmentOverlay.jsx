@@ -4,21 +4,15 @@ import { buildClaraFinanceSnapshot } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 
 const CLARA_AI_BRAIN_VERSION = "connected-brain-v23-forecast-phase-one-readable-replies";
-const CLARA_REPLY_FORMAT_RULES = `CLARA REPLY FORMAT RULES:
-- If the answer is longer than 3 sentences, break it into short sections.
-- Use bullets for budgets, wallets, income sources, transactions, savings goals, emergency fund details, and money breakdowns.
-- Never place 3 or more money values in one paragraph.
-- Keep each paragraph short and mobile-chat friendly.
-- Use plain text only.
-- No markdown tables.
-- Prefer this structure:
-  Short answer
-  Bullet breakdown
-  Current result
-  One practical next step if needed`;
-const PRESENTATION_RULES = `Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.
-
-${CLARA_REPLY_FORMAT_RULES}`;
+const PRESENTATION_RULES = `Reply like a natural premium mobile chat message.
+Plain text only.
+Start with the direct answer in 1 short sentence.
+For lists, use short bullet points.
+For breakdowns, use compact sections with blank lines.
+Never write a paragraph longer than 2 short lines.
+Use labels like "Budget list", "Income sources", "Emergency fund", or "Next step" only when helpful.
+Do not over-explain.
+Ask only one question at the end when needed.`;
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
 const TALK_TO_CLARA_CONTEXT_ACTION = { id: "talk_to_clara_context", title: "Talk to CLARA", shortTitle: "Talk to CLARA", prompt: "Continue the Talk to CLARA conversation naturally.", chips: [] };
@@ -513,27 +507,111 @@ function profileQuestionText(step, name = "") { return `${name ? `${name}, ` : "
 function inferStrategicTags(answer = "", step = {}) { const text = normalizeChoice(answer); const tags = [step?.id, `level_${step?.level || "unknown"}`].filter(Boolean); if (/stress|stressed|pressure|anxious|worried/.test(text)) tags.push("stress_related"); if (/tired|exhaust|burnout|sleep|drain/.test(text)) tags.push("energy_related"); if (/food|eat|coffee|drink/.test(text)) tags.push("food_spending"); if (/family|parent|sibling|partner|child/.test(text)) tags.push("relationship_or_family_context"); if (/debt|utang|loan/.test(text)) tags.push("debt_pressure"); if (/save|saving|emergency|goal/.test(text)) tags.push("goal_protection"); if (/shop|shopee|lazada|buy|impulse|random/.test(text)) tags.push("impulse_pattern"); if (/cutoff|payday|10|25|15|30|weekly|month/.test(text)) tags.push("income_timing"); return [...new Set(tags)]; }
 function getConditionalFollowUp(step, answer) { const rules = CONDITIONAL_DEEPENING_RULES[step?.id] || []; const answerKey = normalizeChoice(answer); const rule = rules.find((item) => (item.when || []).some((value) => normalizeChoice(value) === answerKey)); if (!rule) return null; return { level: step.level, parentId: step.id, id: rule.id, question: rule.question, choices: rule.choices || [] }; }
 
-function MessageText({ text }) {
-  const readableText = formatClaraReadableReply(text);
-  const blocks = normalizeNaturalChatReply(readableText).split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+function isBulletLine(line = "") {
+  return /^\s*(•|-|\*)\s+/.test(line);
+}
+
+function isNumberedLine(line = "") {
+  return /^\s*\d+\.\s+/.test(line);
+}
+
+function isLabelValueLine(line = "") {
+  return /^[A-Za-z][A-Za-z\s/&()-]{1,34}:\s+/.test(line);
+}
+
+function isShortHeading(block = "") {
+  const text = block.trim();
+  return text.length <= 42 && !/[.!?]$/.test(text) && !text.includes(":") && !text.includes("•");
+}
+
+function renderInlineLabelValue(line, key) {
+  if (!isLabelValueLine(line)) return <span key={key}>{line}</span>;
+
+  const match = line.match(/^([^:]{2,40}):\s*(.+)$/);
+  if (!match) return <span key={key}>{line}</span>;
 
   return (
-    <div className="space-y-3.5 break-words text-[13px] leading-[1.65] text-slate-100/90 [overflow-wrap:anywhere]">
+    <span key={key}>
+      <span className="font-semibold text-white/95">{match[1]}:</span>{" "}
+      <span>{match[2]}</span>
+    </span>
+  );
+}
+
+function MessageText({ text }) {
+  const readableText = formatClaraReadableReply(text);
+  const blocks = normalizeNaturalChatReply(readableText)
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="space-y-3.5 break-words text-slate-100/90 [overflow-wrap:break-word]">
       {blocks.map((block, index) => {
-        const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
-        const hasBulletLines = lines.some((line) => /^•\s+/.test(line));
-        if (hasBulletLines) {
+        const lines = block
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+
+        const key = `${index}-${block.slice(0, 18)}`;
+        const stripBullet = (line = "") => line.replace(/^\s*(•|-|\*)\s+/, "");
+        const stripNumber = (line = "") => line.replace(/^\s*\d+\.\s+/, "");
+
+        if (!lines.length) return null;
+
+        if (lines.every(isBulletLine)) {
           return (
-            <div key={`${block}-${index}`} className="space-y-1.5 whitespace-pre-wrap">
+            <ul key={key} className="list-disc space-y-1.5 pl-4 text-[13.5px] leading-6 text-slate-100/90 marker:text-emerald-100/70">
               {lines.map((line, lineIndex) => (
-                <div key={`${line}-${lineIndex}`} className={/^•\s+/.test(line) ? "pt-1 font-semibold text-white/95" : "pl-4 text-slate-200/82"}>
-                  {line}
-                </div>
+                <li key={`${key}-${lineIndex}`} className="pl-1">
+                  {renderInlineLabelValue(stripBullet(line), `${key}-bullet-${lineIndex}`)}
+                </li>
               ))}
-            </div>
+            </ul>
           );
         }
-        return <p key={`${block}-${index}`} className="whitespace-pre-wrap">{block}</p>;
+
+        if (lines.every(isNumberedLine)) {
+          return (
+            <ol key={key} className="list-decimal space-y-1.5 pl-4 text-[13.5px] leading-6 text-slate-100/90 marker:text-emerald-100/70">
+              {lines.map((line, lineIndex) => (
+                <li key={`${key}-${lineIndex}`} className="pl-1">
+                  {renderInlineLabelValue(stripNumber(line), `${key}-number-${lineIndex}`)}
+                </li>
+              ))}
+            </ol>
+          );
+        }
+
+        if (lines.length > 5) {
+          return (
+            <ul key={key} className="space-y-1.5 pl-4 text-[13.5px] leading-6 text-slate-100/90">
+              {lines.map((line, lineIndex) => (
+                <li key={`${key}-${lineIndex}`} className="pl-1">
+                  {renderInlineLabelValue(stripBullet(stripNumber(line)), `${key}-compact-${lineIndex}`)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (isShortHeading(block)) {
+          return (
+            <p key={key} className="text-[12px] font-black uppercase tracking-[0.16em] text-emerald-100/70">
+              {block}
+            </p>
+          );
+        }
+
+        return (
+          <p key={key} className="whitespace-pre-wrap text-[13.5px] leading-6 text-slate-100/90">
+            {lines.map((line, lineIndex) => (
+              <span key={`${key}-${lineIndex}`} className={lines.length > 1 ? "block" : undefined}>
+                {renderInlineLabelValue(line, `${key}-label-${lineIndex}`)}
+              </span>
+            ))}
+          </p>
+        );
       })}
     </div>
   );
@@ -1131,7 +1209,7 @@ ${PRESENTATION_RULES}`, displayText: action.title, action });
               const action = message.smartAction;
               return (
                 <div key={message.id} className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div className={`break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:anywhere] ${isUser ? "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950" : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-5 py-4 text-[13px] leading-[1.65] text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl"}`}>
+                  <div className={`break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:break-word] ${isUser ? "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950" : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl"}`}>
                     {isUser ? <span className="whitespace-pre-wrap">{clean(message.text)}</span> : <Insight text={message.text} source={message.source} choices={message.quickChoices || []} disabled={isThinking} onSelectChoice={handleQuickChoice} />}
                     {action && !isUser && action.chips?.length ? (
                       <div className="mt-3 border-t border-white/10 pt-3">
