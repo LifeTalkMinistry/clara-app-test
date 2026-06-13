@@ -26,13 +26,15 @@ create index if not exists idx_user_notification_devices_platform
 create index if not exists idx_user_notification_devices_active
   on public.user_notification_devices (is_active);
 
+-- Required for Supabase upsert(..., { onConflict: "token" }).
+-- PostgreSQL unique indexes allow multiple null values, so web rows with null token stay valid.
 create unique index if not exists uq_user_notification_devices_token
-  on public.user_notification_devices (token)
-  where token is not null;
+  on public.user_notification_devices (token);
 
+-- Required for Supabase upsert(..., { onConflict: "endpoint" }).
+-- Native rows with null endpoint stay valid.
 create unique index if not exists uq_user_notification_devices_endpoint
-  on public.user_notification_devices (endpoint)
-  where endpoint is not null;
+  on public.user_notification_devices (endpoint);
 
 create unique index if not exists uq_user_notification_devices_active_token
   on public.user_notification_devices (token)
