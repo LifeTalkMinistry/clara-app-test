@@ -19,145 +19,18 @@ import {
   OPEN_COMMITMENT_BOOKLET_EVENT,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+import {
+  CLARA_COMMITMENT_BOOKLET_PAGES,
+  POST_ONBOARDING_BOOKLET_INTENT_KEY,
+  TRIAL_PURCHASE_INTENT,
+  readCommitmentBookletIntentFromSession,
+} from "@/lib/clara-commitment-framework";
 
 const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
 const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
-const POST_ONBOARDING_BOOKLET_INTENT_KEY = "clara_open_commitment_booklet_after_onboarding";
-const TRIAL_PURCHASE_INTENT = "trial_7d";
-
-const CLARA_COMMITMENT_BOOKLET_PAGES = [
-  {
-    label: "Page 1",
-    title: "Ready to know who CLARA is?",
-    paragraphs: [
-      "Most people think CLARA is a budgeting app.",
-      "That's understandable.",
-      "You record income.",
-      "Track expenses.",
-      "Create budgets.",
-      "But that's not what CLARA was built to do.",
-      "Let's discover CLARA one letter at a time.",
-    ],
-  },
-  {
-    label: "Page 2",
-    title: "C — Commitment",
-    paragraphs: [
-      "Most financial apps sell access.",
-      "CLARA sells commitment.",
-      "The truth is...",
-      "Most people already know what they should do with money.",
-      "Save more.",
-      "Spend less.",
-      "Avoid impulse purchases.",
-      "Build an emergency fund.",
-      "Follow a budget.",
-      "Knowledge is rarely the problem.",
-      "Consistency is.",
-      "That's why CLARA begins with a commitment.",
-      "Not because you need another subscription.",
-      "But because meaningful change usually starts when someone decides.",
-    ],
-  },
-  {
-    label: "Page 3",
-    title: "L — Lifestyle Clarity",
-    paragraphs: [
-      "Money doesn't exist in isolation.",
-      "It follows your lifestyle.",
-      "Your habits.",
-      "Your responsibilities.",
-      "Your emotions.",
-      "Your goals.",
-      "CLARA helps you understand where your money goes and why it goes there.",
-      "Because clarity often comes before control.",
-      "When you can see your financial behavior clearly, better decisions become easier.",
-    ],
-  },
-  {
-    label: "Page 4",
-    title: "A — Ask Before You Spend",
-    paragraphs: [
-      "One question can change a financial future.",
-      "Should I buy this?",
-      "Many financial mistakes happen in moments.",
-      "Not because people are irresponsible.",
-      "But because decisions are made too quickly.",
-      "CLARA was built around one simple principle:",
-      "Ask Before You Spend.",
-      "That small pause can be the difference between impulse and intention.",
-    ],
-  },
-  {
-    label: "Page 5",
-    title: "R — Real Guidance",
-    paragraphs: [
-      "Records tell you what happened.",
-      "Guidance helps you decide what happens next.",
-      "CLARA is designed to be more than a tracker.",
-      "It creates an environment where you can:",
-    ],
-    bullets: ["Reflect", "Learn", "Plan", "Improve"],
-    closingParagraphs: [
-      "Because tracking money is useful.",
-      "But understanding your behavior is powerful.",
-    ],
-  },
-  {
-    label: "Page 6",
-    title: "A — Advocacy",
-    paragraphs: [
-      "Your commitment doesn't stop with you.",
-      "10% of every monthly commitment goes into the CLARA Charity Fund.",
-      "This fund helps support:",
-    ],
-    bullets: ["Students in need", "Calamity assistance", "Community support initiatives"],
-    closingParagraphs: [
-      "As CLARA grows, so does its ability to help others.",
-      "Improving your financial life can also help improve someone else's.",
-    ],
-  },
-  {
-    label: "Final Page",
-    title: "Ready to Commit?",
-    paragraphs: ["You're not just unlocking tools.", "You're unlocking:"],
-    checks: [
-      "Commitment",
-      "Lifestyle Clarity",
-      "Ask Before You Spend",
-      "Real Guidance",
-      "Advocacy",
-    ],
-    closingParagraphs: [
-      "The tools are simply the vehicle.",
-      "The real goal is helping you become someone who consistently makes better money decisions.",
-    ],
-  },
-];
 
 function readPlanPreview() {
   return readDeveloperMembershipPreview();
-}
-
-function readTrialIntentFromSession() {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const rawIntent = window.sessionStorage.getItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
-    if (!rawIntent) return null;
-    window.sessionStorage.removeItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
-
-    const parsed = JSON.parse(rawIntent);
-    return parsed?.intent === TRIAL_PURCHASE_INTENT ? parsed : null;
-  } catch (error) {
-    console.warn("Unable to read CLARA post-onboarding booklet intent", error);
-    try {
-      window.sessionStorage.removeItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
-    } catch {
-      // Best effort cleanup only.
-    }
-    return null;
-  }
 }
 
 async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseIntent }) {
@@ -171,7 +44,7 @@ async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseInt
   });
 }
 
-function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
+function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = TRIAL_PURCHASE_INTENT }) {
   const [bookletPage, setBookletPage] = useState(0);
   const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
@@ -250,7 +123,7 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
     if (purchaseBusy) return;
 
     setPurchaseBusy(true);
-    setPurchaseMessage(isTrialIntent ? "Opening Google Play..." : "Opening Google Play...");
+    setPurchaseMessage("Opening Google Play...");
 
     try {
       const purchaseResult = await openGooglePlayCommitmentPurchase({
@@ -442,9 +315,7 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = "" }) {
               </p>
 
               <div className="mt-5 rounded-[26px] border border-white/14 bg-white/[0.08] px-5 py-5">
-                <p className="text-[2.05rem] font-black leading-tight tracking-[-0.065em] text-white">
-                  CLARA Commitment
-                </p>
+                <p className="text-[2.05rem] font-black leading-tight tracking-[-0.065em] text-white">CLARA Commitment</p>
                 <p className="mt-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
                   {isTrialIntent ? "₱249/month after trial" : "₱249/month"}
                 </p>
@@ -572,10 +443,10 @@ export default function DashboardPanelRenderer({
   const previewPlan = readPlanPreview();
   const hasCommittedAccess = useCommittedFeatureAccess({ previewPlan });
   const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
-  const [purchaseIntent, setPurchaseIntent] = useState("");
+  const [purchaseIntent, setPurchaseIntent] = useState(TRIAL_PURCHASE_INTENT);
 
-  const openCommitmentBooklet = useCallback((nextPurchaseIntent = "") => {
-    setPurchaseIntent(nextPurchaseIntent);
+  const openCommitmentBooklet = useCallback((nextPurchaseIntent = TRIAL_PURCHASE_INTENT) => {
+    setPurchaseIntent(nextPurchaseIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : TRIAL_PURCHASE_INTENT);
     setCommitmentBookletOpen(true);
   }, []);
 
@@ -613,19 +484,22 @@ export default function DashboardPanelRenderer({
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    const handleOpenCommitmentBooklet = () => openCommitmentBooklet();
+    const handleOpenCommitmentBooklet = (event) => {
+      const eventIntent = event?.detail?.purchaseIntent;
+      openCommitmentBooklet(eventIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : TRIAL_PURCHASE_INTENT);
+    };
 
     window.addEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
     return () => window.removeEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
   }, [openCommitmentBooklet]);
 
   useEffect(() => {
-    const sessionIntent = readTrialIntentFromSession();
+    const sessionIntent = readCommitmentBookletIntentFromSession();
     const locationWantsBooklet = location.state?.openCommitmentBooklet === true;
     const locationIntent =
       location.state?.purchaseIntent === TRIAL_PURCHASE_INTENT
         ? TRIAL_PURCHASE_INTENT
-        : "";
+        : TRIAL_PURCHASE_INTENT;
 
     if (sessionIntent?.intent === TRIAL_PURCHASE_INTENT) {
       clearConsumedBookletRouteState();
@@ -656,7 +530,11 @@ export default function DashboardPanelRenderer({
     const content = renderMe?.() ?? <DashboardMeLifePanel />;
     return (
       <>
-        {!hasCommittedAccess ? <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet()}>{content}</LockedPanelPreview> : content}
+        {!hasCommittedAccess ? (
+          <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet(TRIAL_PURCHASE_INTENT)}>{content}</LockedPanelPreview>
+        ) : (
+          content
+        )}
         {booklet}
       </>
     );
@@ -666,7 +544,11 @@ export default function DashboardPanelRenderer({
     const content = <DashboardSchedulePanel />;
     return (
       <>
-        {!hasCommittedAccess ? <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet()}>{content}</LockedPanelPreview> : content}
+        {!hasCommittedAccess ? (
+          <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet(TRIAL_PURCHASE_INTENT)}>{content}</LockedPanelPreview>
+        ) : (
+          content
+        )}
         {booklet}
       </>
     );
@@ -675,7 +557,14 @@ export default function DashboardPanelRenderer({
   if (activePanel === "feed") return renderFeed?.() ?? fallback;
   if (activePanel === "messages") return renderMessages?.() ?? fallback;
   if (activePanel === "task") return renderTask?.() ?? fallback;
-  if (activePanel === "settings") return renderSettingsWithLogout(renderSettings, fallback);
+  if (activePanel === "settings") {
+    return (
+      <>
+        {renderSettingsWithLogout(renderSettings, fallback)}
+        {booklet}
+      </>
+    );
+  }
 
   return (
     <>
