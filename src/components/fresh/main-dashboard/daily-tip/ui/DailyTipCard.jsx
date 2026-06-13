@@ -242,15 +242,10 @@ export default function DailyTipCard({
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
               <div className="relative flex h-full flex-col items-center justify-center px-5 py-4 text-center text-white">
-                <div className="mb-2 flex items-center justify-center gap-2">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
+                <div className="mb-2 text-center">
+                  <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
                     Today&apos;s Money Tip
                   </span>
-                  {checkedInToday ? (
-                    <span className="clara-checkin-pill px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em]">
-                      Checked in
-                    </span>
-                  ) : null}
                 </div>
 
                 <p className="max-w-[20rem] text-[13px] font-semibold leading-relaxed text-white/90">
