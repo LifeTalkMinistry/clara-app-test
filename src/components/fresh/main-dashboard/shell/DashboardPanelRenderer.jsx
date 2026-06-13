@@ -21,7 +21,6 @@ import {
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import {
   CLARA_COMMITMENT_BOOKLET_PAGES,
-  POST_ONBOARDING_BOOKLET_INTENT_KEY,
   TRIAL_PURCHASE_INTENT,
   readCommitmentBookletIntentFromSession,
 } from "@/lib/clara-commitment-framework";
@@ -446,7 +445,7 @@ export default function DashboardPanelRenderer({
   const [purchaseIntent, setPurchaseIntent] = useState(TRIAL_PURCHASE_INTENT);
 
   const openCommitmentBooklet = useCallback((nextPurchaseIntent = TRIAL_PURCHASE_INTENT) => {
-    setPurchaseIntent(nextPurchaseIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : TRIAL_PURCHASE_INTENT);
+    setPurchaseIntent(nextPurchaseIntent === TRIAL_PURCHASE_INTENT ? nextPurchaseIntent : TRIAL_PURCHASE_INTENT);
     setCommitmentBookletOpen(true);
   }, []);
 
@@ -486,7 +485,7 @@ export default function DashboardPanelRenderer({
 
     const handleOpenCommitmentBooklet = (event) => {
       const eventIntent = event?.detail?.purchaseIntent;
-      openCommitmentBooklet(eventIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : TRIAL_PURCHASE_INTENT);
+      openCommitmentBooklet(eventIntent === TRIAL_PURCHASE_INTENT ? eventIntent : TRIAL_PURCHASE_INTENT);
     };
 
     window.addEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
