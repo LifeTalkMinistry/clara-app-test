@@ -140,7 +140,7 @@ export default function LearningMaterialCard({
         >
           <div
             className={`absolute inset-0 transition duration-500 ${
-              isUnderConstructionCategory ? "opacity-70 blur-[1.2px] saturate-[0.55]" : "opacity-100"
+              isUnderConstructionCategory ? "opacity-55 blur-[1.4px] saturate-[0.42]" : "opacity-100"
             }`}
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_-20%_-22%,rgba(20,184,166,0.24),transparent_48%),radial-gradient(circle_at_88%_112%,rgba(99,102,241,0.17),transparent_58%),linear-gradient(135deg,rgba(5,38,55,0.98),rgba(7,20,48,0.97)_48%,rgba(37,13,74,0.94))] transition-opacity duration-500" />
@@ -279,13 +279,13 @@ export default function LearningMaterialCard({
           </div>
 
           {isUnderConstructionCategory && (
-            <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-slate-950/35 px-4 text-center backdrop-blur-[2px]">
-              <div className="inline-flex flex-col items-center gap-1 rounded-full border border-cyan-100/14 bg-white/[0.08] px-3.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_30px_rgba(0,0,0,0.18)]">
-                <span className="text-[8px] font-black uppercase leading-none tracking-[0.18em] text-cyan-50/82">
+            <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-slate-950/72 px-4 text-center backdrop-blur-[3px]">
+              <div className="inline-flex max-w-[calc(100%-18px)] flex-col items-center gap-1 rounded-[18px] border border-cyan-100/20 bg-slate-950/95 px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_34px_rgba(0,0,0,0.36)]">
+                <span className="text-[8px] font-black uppercase leading-none tracking-[0.18em] text-cyan-50">
                   UNDER CONSTRUCTION
                 </span>
                 {isActive && (
-                  <span className="text-[9px] font-semibold leading-none text-white/54">
+                  <span className="text-[9px] font-semibold leading-none text-white/68">
                     Coming soon
                   </span>
                 )}
