@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -32,26 +32,14 @@ const isIncomeSourceCountValue = (value) =>
   Boolean(value && typeof value === "object" && value.__incomeHubSourceCountValue);
 
 export const fmt = (value) => {
-  if (isIncomeSourceCountValue(value)) {
-    return formatIncomeSourceCount(value.sourceCount);
-  }
-
+  if (isIncomeSourceCountValue(value)) return formatIncomeSourceCount(value.sourceCount);
   return formatMoneyWithVisibility(value, formatPhpAmount);
 };
 
 export const toNumber = (value) => toIncomeHubNumber(value);
-
 export const clampProgress = (value) => Math.max(0, Math.min(Number(value) || 0, 100));
 
-export const INVESTMENT_READINESS = Object.freeze({
-  NOT_READY: "not_ready",
-  IDEA_ONLY: "idea_only",
-  READY_TO_TEST: "ready_to_test",
-  ACTIVE_TEST: "active_test",
-  PAUSE_INVESTING: "pause_investing",
-});
-
-export const getInvestmentToneClasses = () => ({
+const getIncomeToneClasses = () => ({
   border: "border-cyan-300/20",
   iconShell: "border-cyan-300/25 bg-cyan-400/10 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
   icon: "text-cyan-100",
@@ -70,11 +58,10 @@ const getSourceMoneyOut = (source) => toIncomeHubNumber(source?.totalMoneyOut ??
 const getSourceNet = (source) =>
   toIncomeHubNumber(source?.currentBalance ?? source?.current_balance ?? getSourceMoneyIn(source) - getSourceMoneyOut(source));
 
-export function buildInvestmentReadiness({ sources = [] } = {}) {
+const buildIncomeSummary = (sources = []) => {
   const incomeSources = (Array.isArray(sources) ? sources : []).filter(
     (source) => !source?.deletedAt && !source?.deleted_at
   );
-
   const sourceCount = incomeSources.length;
   const totalMoneyIn = incomeSources.reduce((sum, source) => sum + getSourceMoneyIn(source), 0);
   const totalOut = incomeSources.reduce((sum, source) => sum + getSourceMoneyOut(source), 0);
@@ -84,7 +71,7 @@ export function buildInvestmentReadiness({ sources = [] } = {}) {
   const mainSourceShare = topSource && totalMoneyIn > 0 ? clampProgress((topSourceAmount / totalMoneyIn) * 100) : 0;
 
   return {
-    readinessStatus: INVESTMENT_READINESS.READY_TO_TEST,
+    readinessStatus: "ready_to_test",
     sourceCount,
     monthlyGenerated: totalMoneyIn,
     totalGenerated: createIncomeSourceCountValue(sourceCount),
@@ -96,145 +83,186 @@ export function buildInvestmentReadiness({ sources = [] } = {}) {
     mainSourceShare,
     blockers: [],
   };
-}
+};
 
 const getStatusMeta = (sourceCount) => {
   if (sourceCount > 1) {
     return {
-      title: "Income mapped",
-      subtitle: "Track every place where money comes from.",
       badge: `${sourceCount} sources`,
       mainLabel: "Income sources",
       statusValue: "Mapped",
       description: "Track where money comes from.",
-      primaryAction: "Open Income Hub",
-      secondaryAction: "Ask CLARA About Income",
     };
   }
-
   if (sourceCount === 1) {
     return {
-      title: "One source tracked",
-      subtitle: "Add more sources as they appear.",
       badge: "1 source",
       mainLabel: "Income sources",
       statusValue: "Tracked",
       description: "Track where money comes from.",
-      primaryAction: "Open Income Hub",
-      secondaryAction: "Ask CLARA About Income",
     };
   }
-
   return {
-    title: "Income Hub",
-    subtitle: "Where your money comes from.",
     badge: "Set up",
     mainLabel: "Income sources",
     statusValue: "Empty",
     description: "Add your first income source.",
-    primaryAction: "Open Income Hub",
-    secondaryAction: "Ask CLARA About Income",
   };
 };
 
-export default function useInvestmentCardLogic({ item = null, expanded = false, onToggleDetails } = {}) {
-  const [localExpanded, setLocalExpanded] = useState(false);
-  const [incomeSources, setIncomeSources] = useState([]);
+const pickParentIncomeSources = ({ incomeSourcesProp, data, parentIncomeData }) => {
+  if (Array.isArray(incomeSourcesProp)) return incomeSourcesProp;
+  if (Array.isArray(data?.incomeSources)) return data.incomeSources;
+  if (Array.isArray(parentIncomeData?.incomeSources)) return parentIncomeData.incomeSources;
+  if (Array.isArray(parentIncomeData?.sources)) return parentIncomeData.sources;
+  return null;
+};
 
+export default function useInvestmentCardLogic({
+  item = null,
+  expanded = false,
+  onToggleDetails,
+  incomeSources: incomeSourcesProp,
+  incomeData: incomeDataProp,
+  refreshData: refreshDataProp,
+  isActive = true,
+  isNearby = true,
+  performanceMode = "full",
+  locked = false,
+} = {}) {
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const [localIncomeSources, setLocalIncomeSources] = useState([]);
+  const mountedRef = useRef(false);
+  const localLoadInFlightRef = useRef(false);
+  const parentRefreshInFlightRef = useRef(false);
   const isControlled = typeof onToggleDetails === "function";
   const isExpanded = isControlled ? expanded : localExpanded;
-
   const { user } = useAuth();
   const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
+  const data = item?.data || {};
+  const parentIncomeData = incomeDataProp || data.incomeData || null;
+  const parentIncomeSources = pickParentIncomeSources({ incomeSourcesProp, data, parentIncomeData });
+  const hasParentIncomeSources = Array.isArray(parentIncomeSources);
+  const incomeSources = hasParentIncomeSources ? parentIncomeSources : localIncomeSources;
+  const refreshData = typeof refreshDataProp === "function"
+    ? refreshDataProp
+    : typeof data.refreshData === "function"
+      ? data.refreshData
+      : null;
+  const canRunLocalFallback =
+    !hasParentIncomeSources &&
+    !item?.locked &&
+    !locked &&
+    performanceMode !== "lite" &&
+    data.performanceMode !== "lite" &&
+    (isActive || isNearby || data.isActiveSlide || data.isNearbySlide);
+
+  const loadIncomeHubSources = useCallback(async () => {
+    if (localLoadInFlightRef.current || hasParentIncomeSources) return;
+    localLoadInFlightRef.current = true;
+    try {
+      const sources = await getIncomeSources(localUserId);
+      if (mountedRef.current) setLocalIncomeSources(sources);
+    } catch (error) {
+      console.error("CLARA Income Hub card load error:", error);
+      if (mountedRef.current) setLocalIncomeSources([]);
+    } finally {
+      localLoadInFlightRef.current = false;
+    }
+  }, [hasParentIncomeSources, localUserId]);
+
+  const requestParentRefresh = useCallback(() => {
+    if (!refreshData || parentRefreshInFlightRef.current) return;
+    parentRefreshInFlightRef.current = true;
+    Promise.resolve(refreshData())
+      .catch((error) => console.error("CLARA Income Hub parent refresh error:", error))
+      .finally(() => {
+        parentRefreshInFlightRef.current = false;
+      });
+  }, [refreshData]);
+
+  // Performance rule:
+  // Income Hub should prefer dashboard-provided income data.
+  // Do not independently load income sources when parent data is already available.
+  // Local loading is fallback-only and should be gated by active/nearby carousel state.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    let alive = true;
+    if (canRunLocalFallback) loadIncomeHubSources();
+  }, [canRunLocalFallback, loadIncomeHubSources]);
 
-    async function loadIncomeHubSources() {
-      try {
-        const sources = await getIncomeSources(localUserId);
-        if (alive) setIncomeSources(sources);
-      } catch (error) {
-        console.error("CLARA Income Hub card load error:", error);
-        if (alive) setIncomeSources([]);
+  const shouldListenForIncomeEvents =
+    (hasParentIncomeSources && typeof refreshData === "function") || canRunLocalFallback;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !shouldListenForIncomeEvents) return undefined;
+    const handleIncomeUpdated = () => {
+      if (hasParentIncomeSources && typeof refreshData === "function") {
+        requestParentRefresh();
+        return;
       }
-    }
-
-    loadIncomeHubSources();
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("clara-income-hub-updated", loadIncomeHubSources);
-      window.addEventListener("clara-finance-updated", loadIncomeHubSources);
-    }
-
-    return () => {
-      alive = false;
-      if (typeof window !== "undefined") {
-        window.removeEventListener("clara-income-hub-updated", loadIncomeHubSources);
-        window.removeEventListener("clara-finance-updated", loadIncomeHubSources);
-      }
+      if (canRunLocalFallback) loadIncomeHubSources();
     };
-  }, [localUserId]);
+    window.addEventListener("clara-income-hub-updated", handleIncomeUpdated);
+    window.addEventListener("clara-finance-updated", handleIncomeUpdated);
+    return () => {
+      window.removeEventListener("clara-income-hub-updated", handleIncomeUpdated);
+      window.removeEventListener("clara-finance-updated", handleIncomeUpdated);
+    };
+  }, [
+    shouldListenForIncomeEvents,
+    hasParentIncomeSources,
+    refreshData,
+    requestParentRefresh,
+    canRunLocalFallback,
+    loadIncomeHubSources,
+  ]);
 
-  const data = item?.data || {};
-  const tone = getInvestmentToneClasses(item?.tone || data.tone || "cyan");
+  const tone = getIncomeToneClasses();
   const title = data.title || "Income Hub";
   const subtitle = data.subtitle || "Where your money comes from";
-
-  const readiness = useMemo(
-    () =>
-      buildInvestmentReadiness({
-        sources: incomeSources,
-      }),
-    [incomeSources]
-  );
-
+  const readiness = useMemo(() => buildIncomeSummary(incomeSources), [incomeSources]);
   const statusMeta = getStatusMeta(readiness.sourceCount);
-  const readinessProgress = readiness.sourceCount > 0 ? 100 : 20;
-  const selectedType = readiness.topSourceName;
-  const safeToInvest = readiness.totalMoneyIn;
-  const safeRangeMin = 0;
-  const amountStatus =
-    readiness.sourceCount > 0
-      ? `Top source: ${readiness.topSourceName}. This source represents about ${Math.round(readiness.mainSourceShare)}% of Income Hub money in.`
-      : "Add your salary, business, side hustle, allowance, or freelance source first.";
+  const amountStatus = readiness.sourceCount > 0
+    ? `Top source: ${readiness.topSourceName}. This source represents about ${Math.round(readiness.mainSourceShare)}% of Income Hub money in.`
+    : "Add your salary, business, side hustle, allowance, or freelance source first.";
 
-  const dispatchInvestmentPrompt = (prompt, extra = {}) => {
+  const dispatchIncomeHubPrompt = (prompt, extra = {}) => {
     if (typeof window === "undefined") return;
-
-    window.dispatchEvent(
-      new CustomEvent("clara:open-ai-chat", {
-        detail: {
-          source: "income-hub-card",
-          prompt,
-          incomeHubContext: {
-            sourceCount: readiness.sourceCount,
-            totalMoneyIn: readiness.totalMoneyIn,
-            totalMoneyOut: readiness.totalOut,
-            netIncome: readiness.netGenerated,
-            topSourceName: readiness.topSourceName,
-            topSourceAmount: readiness.topSourceAmount,
-            mainSourceShare: readiness.mainSourceShare,
-            sources: incomeSources,
-            ...extra,
-          },
+    window.dispatchEvent(new CustomEvent("clara:open-ai-chat", {
+      detail: {
+        source: "income-hub-card",
+        prompt,
+        incomeHubContext: {
+          sourceCount: readiness.sourceCount,
+          totalMoneyIn: readiness.totalMoneyIn,
+          totalMoneyOut: readiness.totalOut,
+          netIncome: readiness.netGenerated,
+          topSourceName: readiness.topSourceName,
+          topSourceAmount: readiness.topSourceAmount,
+          mainSourceShare: readiness.mainSourceShare,
+          sources: incomeSources,
+          ...extra,
         },
-      })
-    );
+      },
+    }));
   };
 
   const handlePlanInvestment = () => {
-    dispatchInvestmentPrompt(
-      `Review my Income Hub as a behavioral money coach. I have ${readiness.sourceCount} tracked income sources. Income Hub money in is ${fmt(readiness.totalMoneyIn)}, money out is ${fmt(readiness.totalOut)}, and net is ${fmt(readiness.netGenerated)}. My top source is ${readiness.topSourceName}. Help me understand income dependency and what source I should protect or grow next.`,
-      { action: "review_income_hub" }
-    );
+    dispatchIncomeHubPrompt("Review my Income Hub sources and summarize what is currently tracked.", {
+      action: "review_income_hub",
+    });
   };
 
   const handleAskClara = () => {
-    dispatchInvestmentPrompt(
-      `Help me understand where my money comes from based only on my Income Hub sources. Check whether I depend too much on one source and what I should track next.`,
-      { action: "ask_income_hub" }
-    );
+    dispatchIncomeHubPrompt("Help me understand my Income Hub sources.", {
+      action: "ask_income_hub",
+    });
   };
 
   const handleToggleDetails = () => {
@@ -242,16 +270,11 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
       onToggleDetails?.();
       return;
     }
-
     setLocalExpanded((value) => !value);
   };
 
   return {
     state: {
-      investmentType: "income_hub",
-      plannedAmount: "",
-      riskLevel: "",
-      timeHorizon: "",
       isExpanded,
     },
     computed: {
@@ -261,11 +284,8 @@ export default function useInvestmentCardLogic({ item = null, expanded = false, 
       statusLabel: data.statusLabel || statusMeta.badge,
       mainLabel: data.mainLabel || statusMeta.mainLabel,
       description: statusMeta.description,
-      readinessProgress,
-      canSafelyInvest: true,
-      safeToInvest,
-      safeRangeMin,
-      selectedType,
+      readinessProgress: readiness.sourceCount > 0 ? 100 : 20,
+      selectedType: readiness.topSourceName,
       amountStatus,
       statOneLabel: data.statOneLabel || "Money in",
       statOneValue: data.statOneValue || fmt(readiness.totalMoneyIn),
