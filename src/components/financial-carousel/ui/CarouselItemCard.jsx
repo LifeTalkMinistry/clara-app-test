@@ -71,13 +71,14 @@ function LockedFinanceShell({ item, children }) {
   );
 }
 
-export default function CarouselItemCard(props) {
+function CarouselItemCard(props) {
   const {
     item,
     selectedDashboardTheme,
     expandedFinanceCard,
     toggleFinanceDetails,
     financeActionLoading,
+    loading,
     onQuickExpense,
     onSurvivalSaved,
     onSaveBudget,
@@ -122,7 +123,7 @@ export default function CarouselItemCard(props) {
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
         financeActionLoading={financeActionLoading}
-        financeDataLoading={Boolean(props.loading)}
+        financeDataLoading={Boolean(loading)}
         onCreateWallet={onCreateWallet}
         onMoveWallet={onMoveWallet}
         onDeleteWallet={onDeleteWallet}
@@ -197,3 +198,5 @@ export default function CarouselItemCard(props) {
 
   return card;
 }
+
+export default memo(CarouselItemCard);
