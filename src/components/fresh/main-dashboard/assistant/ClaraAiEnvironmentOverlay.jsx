@@ -167,6 +167,24 @@ function extractLikelyName(value = "") { const raw = String(value || "").trim();
 function makeMessage(role, text, meta = {}) { return { id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`, role, text, ...meta }; }
 function clean(text = "") { return String(text || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/^[ \t]*[-•][ \t]+/gm, "• ").replace(/[ \t]+([,.!?])/g, "$1").replace(/[ \t]{2,}/g, " ").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); }
 function normalizeNaturalChatReply(text = "") { return clean(text).replace(/\b(Money Signal|Spending Signal|Next Move|Risk|Budget|Wallet|Savings|Emergency Fund|Question|CLARA says|Money Note|Smart Action):\s*/gi, "").replace(/[ \t]*\|[ \t]*/g, "\n\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim(); }
+function stripClaraInstructionText(text = "") {
+  return String(text || "")
+    .replace(PRESENTATION_RULES, "")
+    .replace(/CLARA REPLY FORMAT RULES:[\s\S]*$/i, "")
+    .trim();
+}
+
+function getDirectFinanceRoutingText({ prompt = "", displayText = "", action = null } = {}) {
+  const visibleUserText = String(displayText || "").trim();
+
+  const actionPrompt = action?.id && action.id !== "talk_to_clara_context"
+    ? String(action.prompt || "").trim()
+    : "";
+
+  return stripClaraInstructionText(
+    [visibleUserText, actionPrompt].filter(Boolean).join("\n") || prompt
+  );
+}
 function isSuspiciouslyIncompleteReply(text = "") { const reply = clean(text); if (!reply) return true; if (reply.length < 18) return true; if (/₱\s*$/.test(reply)) return true; if (/[,:;–—-]$/.test(reply)) return true; if (/\b(and|but|because|so|while|with|for|to|if|unless|before|after|about|around|based on|looking at|you have|your budget)$/i.test(reply)) return true; if (/looking at your budget,\s*you have\s*₱?\s*$/i.test(reply)) return true; return false; }
 function hiddenMessage(message = {}) { const text = String(message.text || "").toLowerCase(); return text.includes("what are you thinking of buying") || text.includes("setting up the right clara check") || text.includes("wiring each action"); }
 function formatMoney(value) { const number = Number(value); return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : null; }
@@ -395,11 +413,16 @@ Savings goals found: ${snapshot.counts?.savingsGoals ?? 0}${missingList}`;
 }
 
 function fallbackReply(prompt, context) {
-  const direct = buildContextualFinanceReply(prompt, context);
+  const routingPrompt = stripClaraInstructionText(prompt);
+
+  const direct = buildContextualFinanceReply(routingPrompt, context);
   if (direct) return direct;
+
   const snapshot = buildClaraFinanceSnapshot(context || {});
-  const local = normalizeNaturalChatReply(generateClaraLocalReply(prompt, context));
+  const local = normalizeNaturalChatReply(generateClaraLocalReply(routingPrompt, context));
+
   if (local && !local.includes("I can help with money decisions") && !local.includes("What do you want to check?")) return local;
+
   const available = formatMoney(snapshot.availableMoney);
   return available ? `You have ${available} visible money right now.
 
@@ -657,44 +680,118 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     }, 1200);
   };
 
-  const runClara = async ({ prompt, displayText = prompt, action = null }) => {
+  const runClara = async ({ prompt, displayText = prompt, action = null } = {}) => {
     const cleanPrompt = String(prompt || "").trim();
     const cleanDisplay = String(displayText || cleanPrompt).trim();
+
     if (!cleanPrompt || isThinking) return;
+
     const pending = makeMessage("clara", CLARA_THINKING_MESSAGES[0], { source: "system" });
+
     setIsThinking(true);
-    setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", cleanDisplay), pending]);
+    setLocalMessages((current) => [
+      ...current.filter((message) => !hiddenMessage(message)),
+      makeMessage("user", cleanDisplay),
+      pending,
+    ]);
+
     startThinkingMessageRotation(pending.id, CLARA_THINKING_MESSAGES);
+
     try {
       let reply = "";
       let source = "local_fallback";
-      const directFinanceReply = action?.id === "talk_to_clara_context" ? "" : buildContextualFinanceReply(cleanPrompt, claraAssistantContext);
+
+      const directFinanceRoutingText = getDirectFinanceRoutingText({
+        prompt: cleanPrompt,
+        displayText: cleanDisplay,
+        action,
+      });
+
+      const directFinanceReply = action?.id === "talk_to_clara_context"
+        ? ""
+        : buildContextualFinanceReply(directFinanceRoutingText, claraAssistantContext);
+
       if (directFinanceReply) {
         reply = directFinanceReply;
         source = "local_finance";
       } else if (hasGeminiConfig()) {
         try {
-          reply = await generateClaraGeminiReply({ message: cleanPrompt, context: claraAssistantContext, mode: action?.id || "ai_environment", conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)] });
+          reply = await generateClaraGeminiReply({
+            message: cleanPrompt,
+            context: claraAssistantContext,
+            mode: action?.id || "ai_environment",
+            conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
+          });
+
           source = "gemini";
         } catch (error) {
-          console.warn("[CLARA AI] Gemini failed, using local fallback", { message: error?.message, status: error?.status, payload: error?.payload });
-          reply = action?.id === "talk_to_clara_context" ? `Got it. I’ll keep that in mind for this session.
+          console.warn("[CLARA AI] Gemini failed, using local fallback", {
+            message: error?.message,
+            status: error?.status,
+            payload: error?.payload,
+          });
 
-Let’s continue.` : fallbackReply(cleanPrompt, claraAssistantContext);
+          reply = action?.id === "talk_to_clara_context"
+            ? `Got it. I’ll keep that in mind for this session.
+
+Let’s continue.`
+            : fallbackReply(cleanPrompt, claraAssistantContext);
+
           source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback";
         }
       } else {
-        reply = action?.id === "talk_to_clara_context" ? `Got it. I’ll keep that in mind for this session.
+        reply = action?.id === "talk_to_clara_context"
+          ? `Got it. I’ll keep that in mind for this session.
 
-Let’s continue.` : fallbackReply(cleanPrompt, claraAssistantContext);
+Let’s continue.`
+          : fallbackReply(cleanPrompt, claraAssistantContext);
+
         source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback";
       }
-      const safeReply = ensureCompleteAssistantReply({ reply, prompt: cleanPrompt, context: claraAssistantContext, action, source });
-      setLocalMessages((current) => current.map((message) => message.id !== pending.id ? message : { ...message, text: safeReply.text, source: safeReply.source, ...(action ? { smartAction: action } : {}) }));
+
+      const safeReply = ensureCompleteAssistantReply({
+        reply,
+        prompt: cleanPrompt,
+        context: claraAssistantContext,
+        action,
+        source,
+      });
+
+      setLocalMessages((current) =>
+        current.map((message) =>
+          message.id !== pending.id
+            ? message
+            : {
+                ...message,
+                text: safeReply.text,
+                source: safeReply.source,
+                ...(action ? { smartAction: action } : {}),
+              }
+        )
+      );
     } catch (error) {
       console.error("[CLARA AI] Fatal assistant modal error", error);
-      const safeReply = ensureCompleteAssistantReply({ reply: fallbackReply(cleanPrompt, claraAssistantContext), prompt: cleanPrompt, context: claraAssistantContext, action, source: "local_fallback" });
-      setLocalMessages((current) => current.map((message) => message.id !== pending.id ? message : { ...message, text: safeReply.text, source: safeReply.source, ...(action ? { smartAction: action } : {}) }));
+
+      const safeReply = ensureCompleteAssistantReply({
+        reply: fallbackReply(cleanPrompt, claraAssistantContext),
+        prompt: cleanPrompt,
+        context: claraAssistantContext,
+        action,
+        source: "local_fallback",
+      });
+
+      setLocalMessages((current) =>
+        current.map((message) =>
+          message.id !== pending.id
+            ? message
+            : {
+                ...message,
+                text: safeReply.text,
+                source: safeReply.source,
+                ...(action ? { smartAction: action } : {}),
+              }
+        )
+      );
     } finally {
       stopThinkingMessageRotation();
       setIsThinking(false);
