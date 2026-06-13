@@ -63,12 +63,12 @@ export default function TaskReminderSettingsCard({
 
   const permissionLabel =
     permissionState === "granted"
-      ? "Browser permission granted"
+      ? "Device permission granted"
       : permissionState === "denied"
-        ? "Browser permission denied"
+        ? "Device permission denied"
         : permissionState === "unsupported"
-          ? "Push not supported on this browser"
-          : "Browser permission not enabled";
+          ? "Device push is unavailable here"
+          : "Device permission not enabled";
 
   return (
     <div className="rounded-[28px] border border-emerald-400/10 bg-[linear-gradient(180deg,rgba(5,17,31,1)_0%,rgba(6,18,29,0.94)_100%)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
@@ -253,8 +253,8 @@ export default function TaskReminderSettingsCard({
           <div className="flex items-start justify-between gap-4">
             <FieldLabel
               icon={Smartphone}
-              title="Browser push notifications"
-              description="Optional. CLARA can prepare your current device for push reminders when your environment supports it."
+              title="Device push notifications"
+              description="Optional. CLARA can prepare this browser, installed web app, or native phone app for reminders when the environment supports it."
             />
             <button
               type="button"
@@ -276,8 +276,8 @@ export default function TaskReminderSettingsCard({
             </p>
             <p className="mt-1 text-xs leading-6 text-white/52">
               {pushSupported
-                ? "Subscriptions are stored in Supabase and can be targeted by the scheduler-ready edge function."
-                : "In-app reminders still work even when browser push is unavailable."}
+                ? "Device connections are stored in Supabase and can be targeted by the scheduler-ready edge function."
+                : "In-app reminders still work even when device push is unavailable."}
             </p>
           </div>
         </div>
