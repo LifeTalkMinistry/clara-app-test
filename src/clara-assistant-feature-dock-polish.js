@@ -37,8 +37,8 @@ function ensureFeatureDockStyle() {
     .clara-feature-dock {
       display: grid !important;
       grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-      gap: 6px !important;
-      padding: 3px !important;
+      gap: 5px !important;
+      padding: 2px !important;
       border-radius: 999px !important;
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
       background: rgba(5, 10, 28, 0.48) !important;
@@ -49,7 +49,7 @@ function ensureFeatureDockStyle() {
 
     .clara-feature-dock > button {
       min-width: 0 !important;
-      height: 29px !important;
+      height: 28px !important;
       min-height: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
@@ -127,6 +127,7 @@ function ensureFeatureDockStyle() {
 
     @media (max-width: 374px) {
       .clara-feature-dock > button {
+        height: 27px !important;
         gap: 4px !important;
         padding: 0 6px !important;
       }
