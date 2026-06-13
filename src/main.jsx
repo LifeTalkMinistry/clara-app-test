@@ -60,7 +60,6 @@ import "./settings-priority.css";
 import "./settings-support-compose.css";
 import "./life-stage-collision.css";
 import "./life-stage-action-position.css";
-import "./life-stage-hero-action-menu-guard.css";
 import "./life-stage-setup-scale.css";
 import "./life-stage-setup-flow-polish.css";
 import "./life-stage-question-compact-mobile.css";
