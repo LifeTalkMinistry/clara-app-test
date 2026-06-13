@@ -297,7 +297,68 @@ export default function FinancialClimateUniversalScreen() {
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
         <div className="absolute left-4 top-4 z-20">
           <button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>
-          {showHeroActions ? <div className="absolute left-0 top-11 w-40 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"><button type="button" onClick={() => { setShowHeroActions(false); setShowStageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button><button type="button" onClick={() => { setShowHeroActions(false); setShowImageSetup(true); }} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button><div className="my-1 h-px bg-white/[0.07]" /><button type="button" onClick={() => { setShowHeroActions(false); handleGenderVariantChange("male"); }} className={`flex w-full items-center gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${normalizeImageVariant(stageProfile.imageVariant || "default") === "male" ? "text-cyan-100" : "text-white/72"}`}><span className="text-[14px] leading-none">♂</span> Male image</button><button type="button" onClick={() => { setShowHeroActions(false); handleGenderVariantChange("female"); }} className={`flex w-full items-center gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${normalizeImageVariant(stageProfile.imageVariant || "default") === "female" ? "text-cyan-100" : "text-white/72"}`}><span className="text-[14px] leading-none">♀</span> Female image</button></div> : null}
+          {showHeroActions ? (
+            <div
+              data-clara-life-stage-actions-menu="true"
+              className="absolute left-0 top-11 z-[80] flex w-[168px] flex-col overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/90 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeroActions(false);
+                  setShowStageSetup(true);
+                }}
+                className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]"
+              >
+                Set stage
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeroActions(false);
+                  setShowImageSetup(true);
+                }}
+                className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]"
+              >
+                Image
+              </button>
+
+              <div className="my-1 h-px w-full bg-white/[0.07]" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeroActions(false);
+                  handleGenderVariantChange("male");
+                }}
+                className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${
+                  normalizeImageVariant(stageProfile.imageVariant || "default") === "male"
+                    ? "text-cyan-100"
+                    : "text-white/72"
+                }`}
+              >
+                <span className="text-[14px] leading-none">♂</span>
+                <span>Male image</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeroActions(false);
+                  handleGenderVariantChange("female");
+                }}
+                className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${
+                  normalizeImageVariant(stageProfile.imageVariant || "default") === "female"
+                    ? "text-cyan-100"
+                    : "text-white/72"
+                }`}
+              >
+                <span className="text-[14px] leading-none">♀</span>
+                <span>Female image</span>
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="relative z-10 flex h-full max-w-[59%] flex-col justify-center pt-3"><p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/52">{hero.label || "Your life stage"}</p><h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white drop-shadow-lg">{hero.title} <span className="text-[13px] text-amber-100/78">♛</span></h2><p className="mt-2 line-clamp-4 text-[12px] font-semibold leading-5 text-white/62">{hero.shortDescription || hero.contextText}</p></div>
       </section>
