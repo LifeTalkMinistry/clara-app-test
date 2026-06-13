@@ -12,9 +12,9 @@ const PRODUCT_TYPES = {
 };
 
 const TRIAL_PURCHASE_INTENT = "trial_7d";
+const REQUIRED_TRIAL_DAYS = 7;
 const SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE =
   "The 7-day trial offer is not available for this Google Play account yet.";
-const SUCCESS_STATUSES = new Set(["approved", "active", "trialing"]);
 const ACTIVE_ENTITLEMENT_STATUSES = new Set(["active", "approved", "trialing"]);
 
 const normalize = (value) => String(value ?? "").trim();
@@ -43,8 +43,19 @@ function getGooglePlayProductType(productId) {
   return PRODUCT_TYPES[normalize(productId)] || "subs";
 }
 
-function isSubscriptionProduct(productId) {
-  return getGooglePlayProductType(productId) === "subs";
+function isCommittedProduct({ productId, planKey }) {
+  return (
+    normalize(productId) === CLARA_PRODUCTS.committed.productId ||
+    normalizePlanKey(planKey) === COMMITTED_PLAN_KEY
+  );
+}
+
+function shouldRequireSevenDayTrial({ productId, planKey, purchaseIntent, trialDays }) {
+  return (
+    isCommittedProduct({ productId, planKey }) ||
+    normalize(purchaseIntent) === TRIAL_PURCHASE_INTENT ||
+    Number(trialDays || 0) === REQUIRED_TRIAL_DAYS
+  );
 }
 
 function parseBridgeResult(result) {
@@ -159,24 +170,6 @@ function requireAuthenticatedUserId(userId) {
   return normalizedUserId;
 }
 
-function resolveEnrollmentStatus({ purchaseToken, orderId, bridgePayload, productId }) {
-  const bridgeStatus = normalizeLower(
-    bridgePayload?.status || bridgePayload?.enrollment_status || bridgePayload?.purchase_status
-  );
-  if (SUCCESS_STATUSES.has(bridgeStatus)) return bridgeStatus;
-
-  const purchaseState = normalizeLower(
-    bridgePayload?.purchaseState || bridgePayload?.purchase_state || bridgePayload?.state
-  );
-  if (purchaseState === "purchased" || purchaseState === "1") {
-    return isSubscriptionProduct(productId) ? "active" : "approved";
-  }
-  if (normalize(purchaseToken) || normalize(orderId)) {
-    return isSubscriptionProduct(productId) ? "active" : "approved";
-  }
-  return "google_play_pending";
-}
-
 function extractPurchases(parsed) {
   return [
     ...(Array.isArray(parsed?.purchases) ? parsed.purchases : []),
@@ -215,7 +208,8 @@ function extractSubscriptionFields(parsed, matchedPurchase = null) {
   return {
     subscriptionId:
       source?.subscriptionId || source?.subscription_id || source?.productId || source?.product_id || "",
-    basePlanId: source?.basePlanId || source?.base_plan_id || source?.basePlan || source?.offerBasePlanId || "",
+    basePlanId:
+      source?.basePlanId || source?.base_plan_id || source?.basePlan || source?.offerBasePlanId || "",
     offerId: source?.offerId || source?.offer_id || "",
     offerToken:
       source?.offerToken ||
@@ -390,28 +384,22 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
       debugMessage: "No Google Play product IDs were provided.",
       foundProductIds: [],
       missingProductIds: [],
+      unavailableProductIds: [],
+      unavailableProducts: [],
+      productDetails: [],
       raw: null,
     };
   }
 
-  const payload =
-    cleanedProductIds.length === 1
-      ? {
-          productId: cleanedProductIds[0],
-          productIds: cleanedProductIds,
-          productType: getGooglePlayProductType(cleanedProductIds[0]),
-          productTypes: cleanedProductIds.reduce((acc, id) => {
-            acc[id] = getGooglePlayProductType(id);
-            return acc;
-          }, {}),
-        }
-      : {
-          productIds: cleanedProductIds,
-          productTypes: cleanedProductIds.reduce((acc, id) => {
-            acc[id] = getGooglePlayProductType(id);
-            return acc;
-          }, {}),
-        };
+  const payload = {
+    productId: cleanedProductIds[0],
+    productIds: cleanedProductIds,
+    productType: getGooglePlayProductType(cleanedProductIds[0]),
+    productTypes: cleanedProductIds.reduce((acc, id) => {
+      acc[id] = getGooglePlayProductType(id);
+      return acc;
+    }, {}),
+  };
 
   const bridgeResult = await safeBridgeCall("queryProducts", payload);
   billingDebug("queryProducts request", { productIds: cleanedProductIds, productTypes: payload.productTypes || {} });
@@ -423,6 +411,9 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
       debugMessage: bridgeResult.debugMessage || "Google Play Billing product query bridge is unavailable.",
       foundProductIds: [],
       missingProductIds: cleanedProductIds,
+      unavailableProductIds: [],
+      unavailableProducts: [],
+      productDetails: [],
       raw: null,
     };
   }
@@ -510,57 +501,6 @@ export async function queryOwnedGooglePlayPurchases({ productIds = [] } = {}) {
   };
 }
 
-export async function diagnoseGooglePlayBilling({ productId } = {}) {
-  const connection = await connectGooglePlayBilling();
-  if (!connection.ok) {
-    return {
-      ready: false,
-      state: "diagnostic",
-      connectCode: connection.responseCode || "BILLING_UNAVAILABLE",
-      productCode: "UNKNOWN",
-      message: "Google Play billing is not fully ready yet.",
-      debugMessage: connection.debugMessage,
-      diagnostics: {
-        foundProductIds: [],
-        missingProductIds: productId ? [productId] : getAllGooglePlayProductIds(),
-        rawConnection: connection.raw || null,
-        rawProductResult: null,
-      },
-    };
-  }
-
-  const targetProductIds = productId ? [productId] : getAllGooglePlayProductIds();
-  const productState = await queryGooglePlayProducts({ productIds: targetProductIds });
-  const ready = connection.ok && productState.ok && productState.missingProductIds.length === 0;
-
-  return {
-    ready,
-    state: ready ? "ready" : "diagnostic",
-    connectCode: connection.responseCode || "UNKNOWN",
-    productCode: productState.responseCode || "UNKNOWN",
-    message: ready
-      ? "Google Play billing looks ready on this device."
-      : "Google Play billing connected, but product readiness still needs attention.",
-    debugMessage: productState.debugMessage || connection.debugMessage || "",
-    diagnostics: {
-      foundProductIds: productState.foundProductIds || [],
-      missingProductIds: productState.missingProductIds || [],
-      rawConnection: connection.raw || null,
-      rawProductResult: productState.raw || null,
-    },
-  };
-}
-
-function getBridgePurchaseMethods(productType) {
-  if (productType === "subs") return ["purchaseSubscription", "subscribe", "purchaseProduct", "launchPurchase", "purchase"];
-  return ["purchaseOneTimeProduct", "purchaseProduct", "launchPurchase", "purchase"];
-}
-
-function getBridgeAvailabilityDebugMessage(productType, triedMethods) {
-  const typeLabel = productType === "subs" ? "subscription" : "one-time product";
-  return `No ClaraBilling purchase method is available for ${typeLabel}. Tried: ${triedMethods.join(", ")}.`;
-}
-
 function isSevenDayFreePhase(phase = {}) {
   const billingPeriod = normalize(phase.billingPeriod || phase.billing_period).toUpperCase();
   const priceAmountMicros = Number(phase.priceAmountMicros ?? phase.price_amount_micros ?? NaN);
@@ -590,6 +530,71 @@ function productDetailsExplicitlyLackSevenDayTrial(productDetails = []) {
   const detailsWithOfferLists = productDetails.filter((detail) => getOfferList(detail).length > 0);
   if (!detailsWithOfferLists.length) return false;
   return !detailsWithOfferLists.some((detail) => getOfferList(detail).some(offerHasSevenDayTrial));
+}
+
+export async function diagnoseGooglePlayBilling({ productId, planKey = COMMITTED_PLAN_KEY } = {}) {
+  const connection = await connectGooglePlayBilling();
+  if (!connection.ok) {
+    return {
+      ready: false,
+      state: "diagnostic",
+      connectCode: connection.responseCode || "BILLING_UNAVAILABLE",
+      productCode: "UNKNOWN",
+      message: "Google Play billing is not fully ready yet.",
+      debugMessage: connection.debugMessage,
+      diagnostics: {
+        foundProductIds: [],
+        missingProductIds: productId ? [productId] : getAllGooglePlayProductIds(),
+        rawConnection: connection.raw || null,
+        rawProductResult: null,
+      },
+    };
+  }
+
+  const targetProductIds = productId ? [productId] : getAllGooglePlayProductIds();
+  const productState = await queryGooglePlayProducts({ productIds: targetProductIds });
+  const targetProductId = targetProductIds[0];
+  const lacksTrial = shouldRequireSevenDayTrial({ productId: targetProductId, planKey }) &&
+    productDetailsExplicitlyLackSevenDayTrial(productState.productDetails || []);
+  const ready =
+    connection.ok &&
+    productState.ok &&
+    productState.missingProductIds.length === 0 &&
+    !lacksTrial;
+
+  return {
+    ready,
+    state: ready ? "ready" : "diagnostic",
+    connectCode: connection.responseCode || "UNKNOWN",
+    productCode: productState.responseCode || "UNKNOWN",
+    message: ready
+      ? "Google Play billing looks ready on this device."
+      : lacksTrial
+        ? "Google Play billing found the product, but no eligible 7-day trial offer was returned."
+        : "Google Play billing connected, but product readiness still needs attention.",
+    debugMessage: lacksTrial
+      ? "ProductDetails were returned, but no eligible offer contained a free P7D pricing phase."
+      : productState.debugMessage || connection.debugMessage || "",
+    diagnostics: {
+      foundProductIds: productState.foundProductIds || [],
+      missingProductIds: productState.missingProductIds || [],
+      unavailableProductIds: productState.unavailableProductIds || [],
+      unavailableProducts: productState.unavailableProducts || [],
+      productDetails: productState.productDetails || [],
+      rawConnection: connection.raw || null,
+      rawProductResult: productState.raw || null,
+    },
+  };
+}
+
+function getBridgePurchaseMethods(productType) {
+  if (productType === "subs") return ["purchaseSubscription", "subscribe", "purchaseProduct", "launchPurchase", "purchase"];
+  return ["purchaseOneTimeProduct", "purchaseProduct", "launchPurchase", "purchase"];
+}
+
+function getBridgeAvailabilityDebugMessage(productType, triedMethods) {
+  const typeLabel = productType === "subs" ? "subscription" : "one-time product";
+  return `No ClaraBilling purchase method is available for ${typeLabel}. Tried: ${triedMethods.join(", ")}.`;
 }
 
 async function performBridgePurchase({ bridge, payload }) {
@@ -649,12 +654,12 @@ export async function launchGooglePlayPurchase({
   }
 
   const productType = getGooglePlayProductType(productId);
-  const normalizedPurchaseIntent = normalize(purchaseIntent);
-  const normalizedTrialDays = Number(trialDays || 0);
-  const requireFreeTrialOffer = normalizedPurchaseIntent === TRIAL_PURCHASE_INTENT || normalizedTrialDays === 7;
+  const requireFreeTrialOffer = shouldRequireSevenDayTrial({ productId, planKey, purchaseIntent, trialDays });
+  const normalizedPurchaseIntent = requireFreeTrialOffer ? TRIAL_PURCHASE_INTENT : normalize(purchaseIntent);
+  const normalizedTrialDays = requireFreeTrialOffer ? REQUIRED_TRIAL_DAYS : Number(trialDays || 0);
   const payload = {
     productId: normalize(productId),
-    planKey: normalize(planKey),
+    planKey: normalizePlanKey(planKey) || COMMITTED_PLAN_KEY,
     productType,
     userId: normalize(userId),
     userEmail: normalize(userEmail),
@@ -873,7 +878,6 @@ export async function waitForGooglePlayEntitlement({
       profile?.enrollment_status,
       profile?.status,
     ].map(normalizeLower);
-    const hasTrialingStatus = statuses.includes("trialing");
     const active = Boolean(
       plan === expected &&
         (profile?.is_activated === true ||
@@ -883,7 +887,7 @@ export async function waitForGooglePlayEntitlement({
           profile?.activated_at)
     );
 
-    if (active) return { status: hasTrialingStatus ? "trialing" : "active", profile, enrollment: null };
+    if (active) return { status: "active", profile, enrollment: null };
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
 
