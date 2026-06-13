@@ -167,6 +167,8 @@ export default function LearningMaterialCard({
               <img
                 src={thumbnailSrc}
                 alt={item?.title ? `${item.title} cover` : "Learning material cover"}
+                loading={isActive ? "eager" : "lazy"}
+                decoding="async"
                 className="block h-full w-full rounded-[18px] object-cover"
                 style={{
                   transform: "translateZ(0)",
@@ -238,7 +240,7 @@ export default function LearningMaterialCard({
 
                 <div className={`${isActive ? "mt-auto mb-auto pt-5" : "mt-auto mb-auto pt-3"}`}>
                   <h3
-                    className={`${
+                    className={`$${
                       isActive
                         ? "text-[17px] leading-[1.08] line-clamp-3"
                         : absOffset === 1
