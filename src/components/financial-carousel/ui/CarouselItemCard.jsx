@@ -9,39 +9,13 @@ import InvestmentCardView from "../cards/investment/ui/InvestmentCardView";
 import DebtCardView from "../cards/debt/ui/DebtCardView";
 import { FinanceCardPerformanceModeProvider } from "../shared/FinanceCardShell";
 
-const LockedFinancePreview = memo(function LockedFinancePreview({ item }) {
-  return (
-    <div className="flex h-full min-h-[inherit] flex-col justify-between rounded-[inherit] border border-white/[0.06] bg-white/[0.025] p-4">
-      <div>
-        <div className="mb-2 inline-flex rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
-          Locked
-        </div>
-
-        <h3 className="text-sm font-black text-white/65">
-          {item?.label || "Premium Card"}
-        </h3>
-
-        {item?.description ? (
-          <p className="mt-1 text-[11px] leading-snug text-white/35">
-            {item.description}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/28">
-        Unlock with CLARA
-      </div>
-    </div>
-  );
-});
-
 function LockedFinanceShell({ item, performanceMode = "lite", children }) {
   const tier = item?.lockedTier || "PRO";
   const isFull = performanceMode === "full";
   const isLite = performanceMode === "lite";
   const overlayClassName = isLite
-    ? "absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.22]"
-    : "absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.18] backdrop-blur-[1px]";
+    ? "absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.10]"
+    : "absolute inset-0 z-[160] flex items-center justify-center rounded-[inherit] bg-black/[0.12] backdrop-blur-[0.5px]";
   const panelClassName = isLite
     ? "mx-5 rounded-[22px] border border-white/10 bg-[rgba(9,18,36,0.72)] px-4 py-3 text-center text-white shadow-none"
     : isFull
@@ -64,7 +38,7 @@ function LockedFinanceShell({ item, performanceMode = "lite", children }) {
         event.stopPropagation();
       }}
     >
-      <div className="pointer-events-none h-full min-h-[inherit] opacity-45 grayscale-[0.85] saturate-[0.65]">
+      <div className="pointer-events-none h-full min-h-[inherit] opacity-35 blur-[1px] grayscale-[0.6] saturate-[0.7]">
         {children}
       </div>
 
@@ -119,19 +93,8 @@ function CarouselItemCard(props) {
   const resolvedPerformanceMode =
     performanceMode || item?.data?.performanceMode || "full";
 
-  // Performance rule:
-  // Locked cards must not mount their real card components.
-  // Keep this branch before any card renderer is created.
-  if (item.locked) {
-    return (
-      <FinanceCardPerformanceModeProvider performanceMode="lite">
-        <LockedFinanceShell item={item} performanceMode="lite">
-          <LockedFinancePreview item={item} />
-        </LockedFinanceShell>
-      </FinanceCardPerformanceModeProvider>
-    );
-  }
-
+  // Locked cards should still show a muted real-card preview.
+  // The shell blocks interaction while preserving visual context.
   const data = item.data || {};
   let card = null;
 
@@ -237,9 +200,17 @@ function CarouselItemCard(props) {
     card = <ComingSoonCard item={item} />;
   }
 
+  const renderedCard = item.locked ? (
+    <LockedFinanceShell item={item} performanceMode={resolvedPerformanceMode}>
+      {card}
+    </LockedFinanceShell>
+  ) : (
+    card
+  );
+
   return (
     <FinanceCardPerformanceModeProvider performanceMode={resolvedPerformanceMode}>
-      {card}
+      {renderedCard}
     </FinanceCardPerformanceModeProvider>
   );
 }
