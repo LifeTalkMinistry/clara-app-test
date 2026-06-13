@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, Heart, ImageIcon, Mars, MoreHorizontal, RotateCcw, Sparkles, Upload, Venus, X } from "lucide-react";
+import { Check, ChevronLeft, Heart, ImageIcon, MoreHorizontal, RotateCcw, Sparkles, Upload, X } from "lucide-react";
 import { getLifeStageHero } from "../../../../../life-stage-hero";
 import { getLifeStageGuidance } from "../../../../../life-stage-guidance";
 import { getLifeStageSnapshot } from "../../../../../life-stage-snapshot";
@@ -190,14 +190,13 @@ function GenderVariantToggle({ value, onChange }) {
   const selected = normalizeImageVariant(value || "default");
 
   const items = [
-    { value: "male", label: "Use male life-stage image", icon: Mars },
-    { value: "female", label: "Use female life-stage image", icon: Venus },
+    { value: "male", label: "Use male life-stage image", symbol: "♂" },
+    { value: "female", label: "Use female life-stage image", symbol: "♀" },
   ];
 
   return (
-    <div className="flex h-9 items-center gap-2">
+    <div className="flex h-9 items-center gap-2.5">
       {items.map((item) => {
-        const Icon = item.icon;
         const active = selected === item.value;
 
         return (
@@ -205,13 +204,13 @@ function GenderVariantToggle({ value, onChange }) {
             key={item.value}
             type="button"
             onClick={() => onChange(item.value)}
-            className={`grid h-9 w-5 place-items-center bg-transparent p-0 transition active:scale-95 ${
+            className={`grid h-9 w-5 place-items-center bg-transparent p-0 text-[18px] font-black leading-none transition active:scale-95 ${
               active ? "text-cyan-100" : "text-white hover:text-cyan-100"
-            }`}
+            } drop-shadow-[0_8px_18px_rgba(0,0,0,.85)]`}
             aria-label={item.label}
             title={item.label}
           >
-            <Icon className="h-4 w-4 drop-shadow-[0_8px_18px_rgba(0,0,0,.80)] stroke-[2.7]" />
+            {item.symbol}
           </button>
         );
       })}
