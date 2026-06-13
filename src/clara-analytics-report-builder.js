@@ -231,6 +231,24 @@ export function buildClaraAnalyticsReport(snapshot = {}, options = {}) {
   const missingData = eligibility.allowed ? [] : [eligibility.reason];
   const recordsChecked = incomeRecords.length + txIncomeRecords.length + expenses.length;
   const setupBody = eligibility.allowed ? "CLARA checked your saved money records and found enough usable history for this selected analysis window. This gives the report a stable base before reading your income, spending, savings, and money pressure." : "CLARA needs more usable money records before this selected analysis window can produce a stable current money analysis.";
+  const isReadinessReport = !eligibility.allowed;
+  const finalHero = isReadinessReport ? "Needs more records" : "1 action";
+  const finalBody = isReadinessReport
+    ? "Start by adding enough local records for CLARA to read your actual money situation."
+    : "Start here first. This is the clearest action CLARA sees from the selected analysis window.";
+  const finalStats = isReadinessReport
+    ? [
+        stat("What CLARA Needs", "More income and expense records"),
+        stat("Focus Area", "Data readiness"),
+        stat("Amount To Control", NOT_ENOUGH_DATA),
+        stat("Why This Matters", "CLARA needs real records before giving action"),
+      ]
+    : [
+        stat("Best Action This Month", nextAction),
+        stat("Focus Area", safe(topCategory ? topCategory[0] : diagnosis)),
+        stat("Amount To Control", safe(unplannedTotal > 0 ? money(unplannedTotal) : money(Math.max(0, Math.abs(netCashFlow))))),
+        stat("Why This Matters", safe("It protects current money decisions before another spending cycle starts.")),
+      ];
 
   const cards = [
     { eyebrow: "01 / ANALYTIC SETUP", title: "Analytic Setup", tone: "neutral", hero: `${period} analyzed`, body: setupBody, stats: [stat("Selected Analysis Window", period), stat("Usable History Found", `${summary.availableHistoryMonths} active month${summary.availableHistoryMonths === 1 ? "" : "s"}`), stat("Records Checked", `${recordsChecked} record${recordsChecked === 1 ? "" : "s"}`), stat("Analysis Readiness", eligibility.allowed ? "Ready for analysis" : "Needs more records"), stat("Data Signal", recordsChecked > 0 && eligibility.allowed ? "Strong enough to read patterns" : "Add more records first")] },
@@ -242,7 +260,7 @@ export function buildClaraAnalyticsReport(snapshot = {}, options = {}) {
     { eyebrow: "07 / LEAK SIGNALS", title: "Money Leak Signals", tone: unplannedTotal > 0 ? "reality" : "hope", hero: safe(unplannedTotal > 0 ? money(unplannedTotal) : "No major leak detected"), body: "This identifies current leak signals from unplanned spending and budget overages.", stats: [stat("Unplanned Spending Count", safe(`${unplanned.length} record${unplanned.length === 1 ? "" : "s"}`)), stat("Unplanned Spending Total", safe(money(unplannedTotal))), stat("Repeated Leak Pattern", safe(unplanned.length >= 2 ? "Detected" : "Not detected")), stat("Leak Category", safe(topCategory ? topCategory[0] : "No major leak detected"))] },
     { eyebrow: "08 / PROTECTION STATUS", title: "Savings / Emergency / Debt Status", tone: emergencyGoal > emergencyAmount || debtTotal > 0 ? "reality" : "hope", hero: safe(emergencyGoal > emergencyAmount ? "Emergency gap open" : debtTotal > 0 ? "Debt still active" : "Protection started"), body: "This reads how much money is protected and how much pressure still comes from debt or emergency gaps.", stats: [stat("Protected Money", safe(money(emergencyAmount + savingsAmount))), stat("Emergency Gap", safe(emergencyGoal > 0 ? money(Math.max(0, emergencyGoal - emergencyAmount)) : NOT_ENOUGH_DATA)), stat("Savings Progress", safe(savingsGoal > 0 ? `${Math.round((savingsAmount / savingsGoal) * 100)}%` : NOT_ENOUGH_DATA)), stat("Debt Pressure", safe(debtTotal > 0 ? "Active debt pressure" : "No debt records found")), stat("Monthly Debt Payment", safe(monthlyDebt > 0 ? money(monthlyDebt) : "No debt records found"))] },
     { eyebrow: "09 / CURRENT DIAGNOSIS", title: "Current Behavior Diagnosis", tone: ["At risk", "Leaking", "Pressured"].includes(diagnosis) ? "reality" : "hope", hero: safe(diagnosis), body: "This is CLARA's current diagnosis based only on local records in the selected analysis window.", stats: [stat("Current Financial Diagnosis", safe(diagnosis)), stat("Net Cash Flow", safe(money(netCashFlow))), stat("Spending Pressure", safe(pressure)), stat("Leak Status", safe(unplannedTotal > 0 ? "Active signal" : "No major signal"))] },
-    { eyebrow: "10 / NEXT BEST ACTION", title: "Best Action This Month", tone: "possibility", hero: safe("1 action"), body: eligibility.allowed ? "Start here first. This is the clearest action CLARA sees from the selected analysis window." : "Start by adding enough local records for CLARA to read your actual money situation.", stats: [stat("Best Action This Month", nextAction), stat("Focus Area", safe(topCategory ? topCategory[0] : diagnosis)), stat("Amount To Control", safe(unplannedTotal > 0 ? money(unplannedTotal) : money(Math.max(0, Math.abs(netCashFlow))))), stat("Why This Matters", safe("It protects current money decisions before another spending cycle starts."))], final: true, ctaLabel: "Close Analytic", missingData },
+    { eyebrow: "10 / NEXT BEST ACTION", title: "Best Action This Month", tone: "possibility", hero: finalHero, body: finalBody, stats: finalStats, final: true, ctaLabel: "Close Analytic", missingData },
   ];
 
   return {
