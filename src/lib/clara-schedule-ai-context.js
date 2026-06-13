@@ -126,7 +126,7 @@ export function shouldIncludeScheduleContext(message = "", context = {}) {
   const text = cleanText(message);
   const schedule = getScheduleContextForAI(context);
   const hasAmount = /(?:₱|php\s*)?\d+(?:\.\d{1,2})?/i.test(String(message || ""));
-  const scheduleIntent = /\b(schedule|appointment|calendar|upcoming|coming up|planned|plan|commitment|event|reminder|prepare for|money for|payday advice)\b/.test(text);
+  const scheduleIntent = /\b(schedules?|appointments?|calendars?|upcoming|coming up|planned|plans?|commitments?|events?|reminders?|prepare for|money for|payday advice)\b/.test(text) || /\bwhat'?s next\b/.test(text);
   return scheduleIntent || (hasAmount && schedule.hasMoneyImpact);
 }
 
@@ -146,6 +146,58 @@ function firstScheduleSentence(event) {
   return `I checked your CLARA Schedule page. You have ${event.title} on ${whenLabel(event)}.`;
 }
 
+function isScheduleListIntent(text = "") {
+  const cleaned = cleanText(text);
+  return /\b(all|list|show all|summary|summarize|overview|everything|every event|all event|all events|all appointments|monthly schedule|this month|current month)\b/.test(cleaned);
+}
+
+function isThisMonthIntent(text = "") {
+  return /\b(this month|current month|monthly|month)\b/.test(cleanText(text));
+}
+
+function isSameMonth(dateString = "", today = new Date()) {
+  const date = parseScheduleDate(dateString);
+  if (!date) return false;
+  return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth();
+}
+
+function formatScheduleListItem(event, index) {
+  const when = event.time ? `${event.dateLabel} at ${event.time}` : event.dateLabel;
+  const lines = [`${index + 1}. ${event.title} — ${when}`];
+
+  if (event.amountText) {
+    lines.push(`Estimated impact: ${event.amountText}.`);
+  } else if (event.hasMoneyImpact) {
+    lines.push("Estimated impact: not saved.");
+  }
+
+  return lines.join("\n");
+}
+
+function buildScheduleListReply(message = "", schedule = {}) {
+  const text = cleanText(message);
+  const today = new Date();
+  const items = Array.isArray(schedule.upcomingItems) ? schedule.upcomingItems : [];
+  const filteredItems = isThisMonthIntent(text)
+    ? items.filter((event) => isSameMonth(event.date, today))
+    : items;
+
+  const scope = isThisMonthIntent(text) ? "this month" : "upcoming";
+
+  if (!filteredItems.length) {
+    return isThisMonthIntent(text)
+      ? "I checked your CLARA Schedule page. I don’t see schedule items saved for this month yet."
+      : NO_UPCOMING_REPLY;
+  }
+
+  const visibleItems = filteredItems.slice(0, 8);
+  const list = visibleItems.map(formatScheduleListItem).join("\n\n");
+  const hiddenCount = filteredItems.length - visibleItems.length;
+  const hiddenText = hiddenCount > 0 ? `\n\nYou also have ${hiddenCount} more schedule item${hiddenCount === 1 ? "" : "s"} not shown here.` : "";
+
+  return `I checked your CLARA Schedule page. Here are your ${scope} schedule items:\n\n${list}\n\nYou have ${filteredItems.length} schedule item${filteredItems.length === 1 ? "" : "s"} ${scope}.${hiddenText}`;
+}
+
 function moneyPreparationSentence(event) {
   if (!event) return NO_MONEY_REPLY;
   if (event.amountText) return `Yes, your ${event.title} on ${whenLabel(event)} has an estimated money impact of ${event.amountText}. It's worth preparing for it first.`;
@@ -155,11 +207,14 @@ function moneyPreparationSentence(event) {
 export function buildScheduleDirectReply(message = "", context = {}) {
   const text = cleanText(message);
   const schedule = getScheduleContextForAI(context);
-  const asksSchedule = /\b(schedule|appointment|calendar|upcoming|coming up|planned|commitment|event|reminder|what should i prepare|prepare for)\b/.test(text);
+  const asksSchedule = /\b(schedules?|appointments?|calendars?|upcoming|coming up|planned|plans?|commitments?|events?|reminders?|what should i prepare|prepare for)\b/.test(text) || /\bwhat'?s next\b/.test(text);
   const asksMoney = /\b(prepare money|prepare budget|money for|cost|estimated impact|estimated cost)\b/.test(text);
   const asksPressure = /\b(pressure|financial pressure|payday advice)\b/.test(text);
   if (asksMoney) return moneyPreparationSentence(schedule.nextMoneyItem || schedule.nextItem);
   if (asksPressure) return schedule.upcomingMoneyItems.length ? `${firstScheduleSentence(schedule.nextMoneyItem)} That is your nearest upcoming financial pressure.` : NO_MONEY_REPLY;
+  if (asksSchedule && isScheduleListIntent(text)) {
+    return buildScheduleListReply(message, schedule);
+  }
   if (asksSchedule) {
     if (!schedule.upcomingItems.length) return NO_UPCOMING_REPLY;
     const extra = schedule.upcomingItems.length > 1 ? ` You also have ${schedule.upcomingItems.length - 1} more upcoming schedule item${schedule.upcomingItems.length - 1 === 1 ? "" : "s"}.` : "";
