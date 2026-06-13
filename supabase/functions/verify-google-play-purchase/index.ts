@@ -100,6 +100,29 @@ async function acknowledgeWithGoogle(accessToken: string, productId: string, pur
   }
 }
 
+function classifyGooglePurchase(googlePurchase: Record<string, unknown>) {
+  const expiryTimeMillis = Number(googlePurchase.expiryTimeMillis || 0);
+  const now = Date.now();
+  const paymentState = Number(googlePurchase.paymentState ?? -1);
+  const cancelReason = googlePurchase.cancelReason;
+  const userCancellationTimeMillis = googlePurchase.userCancellationTimeMillis;
+  const isTrialing = paymentState === 2;
+  const isExpired = !expiryTimeMillis || expiryTimeMillis <= now;
+  const isPaymentPending = paymentState === 0;
+  const isCancelled = cancelReason !== undefined || userCancellationTimeMillis !== undefined;
+  const isActive = !isExpired && !isPaymentPending && !isCancelled;
+
+  return {
+    expiryTimeMillis,
+    isTrialing,
+    isExpired,
+    isPaymentPending,
+    isCancelled,
+    isActive,
+    subscriptionStatus: isTrialing ? "trialing" : "active",
+  };
+}
+
 serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
@@ -132,23 +155,44 @@ serve(async (request) => {
 
     const accessToken = await getAccessToken();
     const googlePurchase = await verifyWithGoogle(accessToken, productId, purchaseToken);
-    const expiryTimeMillis = Number(googlePurchase.expiryTimeMillis || 0);
-    const subscriptionActive = expiryTimeMillis > Date.now() && googlePurchase.cancelReason === undefined;
-    if (!subscriptionActive) {
-      return jsonResponse({ ok: false, error: "Purchase is not active", google_purchase: googlePurchase }, 409);
+    const purchaseState = classifyGooglePurchase(googlePurchase);
+
+    if (!purchaseState.isActive) {
+      return jsonResponse({
+        ok: false,
+        error: purchaseState.isExpired
+          ? "Purchase is expired"
+          : purchaseState.isPaymentPending
+            ? "Purchase payment is still pending"
+            : "Purchase is cancelled or no longer active",
+        code: purchaseState.isExpired
+          ? "SUBSCRIPTION_EXPIRED"
+          : purchaseState.isPaymentPending
+            ? "PAYMENT_PENDING"
+            : "SUBSCRIPTION_CANCELLED",
+        google_purchase: googlePurchase,
+      }, 409);
     }
+
     if (Number(googlePurchase.acknowledgementState ?? 1) === 0) {
       await acknowledgeWithGoogle(accessToken, productId, purchaseToken);
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+    const trustedPayload = {
+      ...googlePurchase,
+      claraSubscriptionStatus: purchaseState.subscriptionStatus,
+      claraVerifiedProductId: productId,
+      claraVerifiedPackageName: PACKAGE_NAME,
+      claraVerifiedAt: new Date().toISOString(),
+    };
     const { data, error } = await admin.rpc("process_google_play_purchase", {
       p_user_id: user.id,
       p_plan_key: "committed_249",
       p_product_id: productId,
       p_purchase_token: purchaseToken,
       p_order_id: orderId,
-      p_payload: googlePurchase,
+      p_payload: trustedPayload,
     });
     if (error) throw error;
 
@@ -159,7 +203,11 @@ serve(async (request) => {
       historical_product_receipt: productId !== CURRENT_PRODUCT_ID,
       purchase_id: data?.[0]?.purchase_id || null,
       enrollment_id: data?.[0]?.enrollment_id || null,
-      status: data?.[0]?.entitlement_status || "processed",
+      status: data?.[0]?.entitlement_status || purchaseState.subscriptionStatus,
+      subscription_status: purchaseState.subscriptionStatus,
+      subscription_expires_at: purchaseState.expiryTimeMillis
+        ? new Date(purchaseState.expiryTimeMillis).toISOString()
+        : null,
     });
   } catch (error) {
     console.error("verify-google-play-purchase error", error);
