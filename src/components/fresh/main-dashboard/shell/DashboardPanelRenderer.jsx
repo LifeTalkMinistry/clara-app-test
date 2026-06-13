@@ -27,6 +27,7 @@ import {
 
 const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
 const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
+const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
 
 function readPlanPreview() {
   return readDeveloperMembershipPreview();
@@ -43,7 +44,12 @@ async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseInt
   });
 }
 
-function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = TRIAL_PURCHASE_INTENT }) {
+function ClaraCommitmentBookletModal({
+  open,
+  onClose,
+  onDeclineTrial,
+  purchaseIntent = TRIAL_PURCHASE_INTENT,
+}) {
   const [bookletPage, setBookletPage] = useState(0);
   const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
@@ -140,6 +146,14 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = TRIAL_PUR
     } finally {
       setPurchaseBusy(false);
     }
+  };
+
+  const handleDeclineTrial = () => {
+    if (purchaseBusy) return;
+
+    setPurchaseMessage("");
+    setCommitmentOfferOpen(false);
+    onDeclineTrial?.();
   };
 
   const goToPage = (targetPage) => {
@@ -341,7 +355,7 @@ function ClaraCommitmentBookletModal({ open, onClose, purchaseIntent = TRIAL_PUR
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCommitmentOfferOpen(false)}
+                  onClick={handleDeclineTrial}
                   disabled={purchaseBusy}
                   className="rounded-full px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -427,6 +441,8 @@ function renderSettingsWithLogout(renderSettings, fallback) {
   );
 }
 
+export { COMMITMENT_DECLINE_HOME_EVENT };
+
 export default function DashboardPanelRenderer({
   activePanel = "home",
   renderHome,
@@ -436,6 +452,7 @@ export default function DashboardPanelRenderer({
   renderSettings,
   renderMe,
   fallback = null,
+  onCommitmentDecline,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -452,6 +469,20 @@ export default function DashboardPanelRenderer({
   const closeCommitmentBooklet = useCallback(() => {
     setCommitmentBookletOpen(false);
   }, []);
+
+  const handleCommitmentDecline = useCallback(() => {
+    setCommitmentBookletOpen(false);
+    setPurchaseIntent(TRIAL_PURCHASE_INTENT);
+
+    if (typeof onCommitmentDecline === "function") {
+      onCommitmentDecline();
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(COMMITMENT_DECLINE_HOME_EVENT));
+    }
+  }, [onCommitmentDecline]);
 
   const clearConsumedBookletRouteState = useCallback(() => {
     const currentState = location.state || {};
@@ -521,6 +552,7 @@ export default function DashboardPanelRenderer({
     <ClaraCommitmentBookletModal
       open={commitmentBookletOpen}
       onClose={closeCommitmentBooklet}
+      onDeclineTrial={handleCommitmentDecline}
       purchaseIntent={purchaseIntent}
     />
   );
