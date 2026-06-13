@@ -34,9 +34,97 @@ export default function FinancialCarousel(props) {
     selectedDashboardTheme = {},
     themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
     expandedFinanceCard,
+    monthlyBudgetPlan,
+    savingsGoals,
+    totalSavingsSaved,
+    totalSavingsTarget,
+    primarySavingsGoal,
+    wallets,
+    walletMoney,
+    walletPreviewTransactions,
+    survivalExpense,
+    user,
+    plan,
+    guardChecked,
+    loading,
+    profileData,
+    featureFlags,
+    includeLocked,
+    firstPositiveNumber,
+    readStoredSurvivalExpense,
+    toggleFinanceDetails,
+    financeActionLoading,
+    onQuickExpense,
+    onSurvivalSaved,
+    onSaveBudget,
+    onEditBudgetCategory,
+    onDeleteBudgetCategory,
+    onResetBudget,
+    onCreateWallet,
+    onMoveWallet,
+    onDeleteWallet,
+    onAddMoney,
+    onTransferMoney,
+    onEditWallet,
+    onSaveSavingsGoal,
+    onDeleteSavingsGoal,
+    onAddSavings,
+    startClaraAiLongPress,
+    endClaraAiLongPress,
+    handleClaraAiOrbClickCapture,
   } = props;
 
-  const items = useMemo(() => getCarouselData(props), [props]);
+  const userId = user?.id;
+  const userPlan = user?.plan;
+
+  // Performance:
+  // Do not depend on the full props object here.
+  // DashboardHomePanel can recreate callback props during UI changes.
+  // Keep carousel item generation tied only to values that affect registry output.
+  const items = useMemo(
+    () =>
+      getCarouselData({
+        monthlyBudgetPlan,
+        savingsGoals,
+        totalSavingsSaved,
+        totalSavingsTarget,
+        primarySavingsGoal,
+        wallets,
+        walletMoney,
+        walletPreviewTransactions,
+        survivalExpense,
+        user: userId || userPlan ? { id: userId, plan: userPlan } : null,
+        plan,
+        guardChecked,
+        loading,
+        profileData,
+        featureFlags,
+        includeLocked,
+        firstPositiveNumber,
+        readStoredSurvivalExpense,
+      }),
+    [
+      monthlyBudgetPlan,
+      savingsGoals,
+      totalSavingsSaved,
+      totalSavingsTarget,
+      primarySavingsGoal,
+      wallets,
+      walletMoney,
+      walletPreviewTransactions,
+      survivalExpense,
+      userId,
+      userPlan,
+      plan,
+      guardChecked,
+      loading,
+      profileData,
+      featureFlags,
+      includeLocked,
+      firstPositiveNumber,
+      readStoredSurvivalExpense,
+    ]
+  );
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
 
   const {
@@ -111,10 +199,30 @@ export default function FinancialCarousel(props) {
             >
               {shouldRenderFullCard ? (
                 <CarouselItemCard
-                  {...props}
                   item={item}
                   selectedDashboardTheme={selectedDashboardTheme}
                   expandedFinanceCard={expandedFinanceCard}
+                  toggleFinanceDetails={toggleFinanceDetails}
+                  financeActionLoading={financeActionLoading}
+                  loading={loading}
+                  onQuickExpense={onQuickExpense}
+                  onSurvivalSaved={onSurvivalSaved}
+                  onSaveBudget={onSaveBudget}
+                  onEditBudgetCategory={onEditBudgetCategory}
+                  onDeleteBudgetCategory={onDeleteBudgetCategory}
+                  onResetBudget={onResetBudget}
+                  onCreateWallet={onCreateWallet}
+                  onMoveWallet={onMoveWallet}
+                  onDeleteWallet={onDeleteWallet}
+                  onAddMoney={onAddMoney}
+                  onTransferMoney={onTransferMoney}
+                  onEditWallet={onEditWallet}
+                  onSaveSavingsGoal={onSaveSavingsGoal}
+                  onDeleteSavingsGoal={onDeleteSavingsGoal}
+                  onAddSavings={onAddSavings}
+                  startClaraAiLongPress={startClaraAiLongPress}
+                  endClaraAiLongPress={endClaraAiLongPress}
+                  handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
                 />
               ) : (
                 <CarouselCardPlaceholder item={item} />
