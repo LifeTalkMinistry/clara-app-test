@@ -240,6 +240,9 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
   const eyebrowLabel = material.contentTypeLabel || material.coverLabel || "Curated Video Lesson";
   const credit = material.credit || {};
   const creditCreatorName = credit.creatorName || "the original creator";
+  const creditSourceName = credit.sourceName || "YouTube";
+  const creditUsageLabel = credit.usageLabel || "Curated external lesson";
+  const creditRightsNote = credit.rightsNote || "All rights belong to the original creator.";
   const creditUrl =
     credit.creatorUrl ||
     credit.sourceUrl ||
@@ -278,36 +281,46 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             >
               {material.subtitle}
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold leading-snug text-white/45">
-              <span>
-                Curated by CLARA · Original video by{" "}
+            <div className="mt-4 max-w-2xl rounded-[18px] border border-white/10 bg-white/[0.045] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-md">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-50/70">
+                <span>Source Credit</span>
+                <span className="text-white/22">•</span>
+                <span className="text-white/42">{creditUsageLabel}</span>
+              </div>
+
+              <p className="mt-2 text-[11.5px] font-semibold leading-relaxed text-white/58">
+                Original video by{" "}
                 {creditUrl ? (
                   <a
                     href={creditUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-cyan-100/78 underline-offset-4 transition hover:text-cyan-50 hover:underline"
+                    className="text-cyan-100/84 underline-offset-4 transition hover:text-cyan-50 hover:underline"
                   >
                     {creditCreatorName}
                   </a>
                 ) : (
-                  <span className="text-white/58">{creditCreatorName}</span>
-                )}
-              </span>
+                  <span className="text-white/76">{creditCreatorName}</span>
+                )}{" "}
+                on {creditSourceName}. CLARA only curated this lesson for your Money Foundations path. The video, teaching, channel, and thumbnail belong to the creator.
+              </p>
 
-              {sourceUrl ? (
-                <>
-                  <span className="text-white/24">•</span>
-                  <a
-                    href={sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-white/52 underline-offset-4 transition hover:text-white/80 hover:underline"
-                  >
-                    Watch original on YouTube
-                  </a>
-                </>
-              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-snug text-white/46">
+                <span>{creditRightsNote}</span>
+                {sourceUrl ? (
+                  <>
+                    <span className="text-white/24">•</span>
+                    <a
+                      href={sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-white/62 underline-offset-4 transition hover:text-white/86 hover:underline"
+                    >
+                      Watch original on YouTube
+                    </a>
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -321,20 +334,21 @@ export default function LearningVideoWatchModal({ isOpen, material, onClose }) {
             >
               {material.title}
             </h3>
-            <p className="mt-1 truncate text-[10px] font-semibold text-white/45">
-              Original video by{" "}
+            <p className="mt-1 max-w-[52vw] truncate text-[10px] font-semibold text-white/48">
+              Source credit: Original video by{" "}
               {creditUrl ? (
                 <a
                   href={creditUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-cyan-100/70 underline-offset-4 hover:text-cyan-50 hover:underline"
+                  className="text-cyan-100/76 underline-offset-4 hover:text-cyan-50 hover:underline"
                 >
                   {creditCreatorName}
                 </a>
               ) : (
                 <span>{creditCreatorName}</span>
-              )}
+              )}{" "}
+              · Curated by CLARA
             </p>
           </div>
 
