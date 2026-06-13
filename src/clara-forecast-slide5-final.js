@@ -1,4 +1,5 @@
 import "./clara-analytics-report-long-stat-row-guard";
+import "./clara-assistant-feature-dock-analytic-label";
 
 // CLARA Forecast Truthfulness Refinement v1
 // This file used to mutate Slide 5 and Slide 9 after render by reading DOM text.
