@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ShieldCheck, X } from "lucide-react";
 
 import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer";
+import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
+import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";
 import GuidedWalletCreationModal from "@/components/fresh/main-dashboard/dashboard-primitives/GuidedWalletCreationModal";
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
+import { financeInputClassName } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import { useAuth } from "@/context/AuthContext";
 import useFinancialData from "@/hooks/useFinancialData";
 import {
@@ -12,7 +15,11 @@ import {
   toIncomeHubNumber,
   updateIncomeSource,
 } from "@/lib/incomeHubRepository";
-import { normalizeString } from "@/utils/dashboard/dashboardHelpers";
+import {
+  getWalletDisplayBalance,
+  getWalletDisplayName,
+  normalizeString,
+} from "@/utils/dashboard/dashboardHelpers";
 
 const BUDGET_PROTECTION_STORAGE_KEY = "clara_budget_protection_settings";
 const BUDGET_PROTECTION_UPDATED_EVENT = "clara:budget-protection-settings-updated";
@@ -299,6 +306,98 @@ function BudgetProtectionSetupModal({ open, initialSettings, savingsGoals = [], 
   );
 }
 
+function AddFromIncomeHubModal({
+  open,
+  wallet,
+  incomeSources = [],
+  incomeSourcesLoading = false,
+  financeActionLoading = false,
+  savingWallet = false,
+  financeForm,
+  setFinanceForm,
+  formatMoney,
+  onClose,
+  onSubmit,
+}) {
+  const selectedSource = incomeSources.find(
+    (source) => String(source.id) === String(financeForm.incomeSourceId || "")
+  );
+  const selectedSourceBalance = selectedSource ? getIncomeSourceBalance(selectedSource) : 0;
+  const destinationBalance = getWalletDisplayBalance(wallet);
+
+  return (
+    <FinanceActionModal
+      open={open}
+      title="Add from Income Hub"
+      description={`Move recorded income into ${getWalletDisplayName(wallet)}.`}
+      onClose={onClose}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit?.();
+      }}
+      submitLabel="Add from Income Hub"
+      loading={financeActionLoading || savingWallet}
+    >
+      <FinanceField
+        label="Income source"
+        helper={
+          incomeSources.length
+            ? "Choose which recorded income will fund this wallet."
+            : "No available Income Hub source. Record income first."
+        }
+      >
+        <select
+          value={financeForm.incomeSourceId || ""}
+          disabled={!incomeSources.length || incomeSourcesLoading || financeActionLoading || savingWallet}
+          onChange={(event) =>
+            setFinanceForm((prev) => ({
+              ...prev,
+              incomeSourceId: event.target.value,
+            }))
+          }
+          className={financeInputClassName}
+        >
+          {incomeSources.length ? (
+            incomeSources.map((source) => (
+              <option key={source.id} value={String(source.id)}>
+                {source.name || source.source_name || "Income Hub"} • {formatMoney(getIncomeSourceBalance(source))}
+              </option>
+            ))
+          ) : (
+            <option value="">No Income Hub money available</option>
+          )}
+        </select>
+      </FinanceField>
+
+      {!incomeSources.length ? (
+        <p className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-xs font-bold leading-5 text-amber-100">
+          Record income first before adding money to a wallet.
+        </p>
+      ) : null}
+
+      <FinanceField
+        label="Amount"
+        helper={`Available from Income Hub: ${formatMoney(selectedSourceBalance)} • Destination wallet balance: ${formatMoney(destinationBalance)}`}
+      >
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={financeForm.amount}
+          onChange={(event) =>
+            setFinanceForm((prev) => ({
+              ...prev,
+              amount: event.target.value,
+            }))
+          }
+          placeholder="0.00"
+          className={financeInputClassName}
+        />
+      </FinanceField>
+    </FinanceActionModal>
+  );
+}
+
 export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const {
     financeModal,
@@ -320,6 +419,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   const [budgetProtectionEditorOpen, setBudgetProtectionEditorOpen] = useState(false);
 
   const createWalletOpen = financeModal?.type === "create_wallet";
+  const addMoneyOpen = financeModal?.type === "add_money";
   const budgetSetupOpen = financeModal?.type === "save_budget";
   const formatMoney = useCallback((value) => (typeof fmt === "function" ? fmt(value) : formatFallbackMoney(value)), [fmt]);
   const visibleSavingsGoals = safeArray(financial.savingsGoals || props.savingsGoals);
@@ -360,7 +460,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
   }, [closeFinanceModal, shouldGateBudgetSetup]);
 
   const loadIncomeSources = useCallback(async () => {
-    if (!createWalletOpen) return;
+    if (!createWalletOpen && !addMoneyOpen) return;
 
     try {
       setIncomeSourcesLoading(true);
@@ -382,24 +482,24 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     } finally {
       setIncomeSourcesLoading(false);
     }
-  }, [createWalletOpen, effectiveUser, setFinanceForm, showFinanceNotice]);
+  }, [addMoneyOpen, createWalletOpen, effectiveUser, setFinanceForm, showFinanceNotice]);
 
   useEffect(() => {
-    if (!createWalletOpen) return undefined;
+    if (!createWalletOpen && !addMoneyOpen) return undefined;
     loadIncomeSources();
     if (typeof window === "undefined") return undefined;
     window.addEventListener("clara-income-hub-updated", loadIncomeSources);
     return () => window.removeEventListener("clara-income-hub-updated", loadIncomeSources);
-  }, [createWalletOpen, loadIncomeSources]);
+  }, [addMoneyOpen, createWalletOpen, loadIncomeSources]);
 
   const debitIncomeSource = useCallback(
     async ({ incomeSourceId, amount }) => {
       const localUserId = getIncomeHubLocalUserId(effectiveUser);
       const latestSources = await getIncomeSources(localUserId);
       const selectedSource = latestSources.find((source) => String(source.id) === String(incomeSourceId));
-      if (!selectedSource) throw new Error("Please select an income source.");
+      if (!selectedSource) throw new Error("Please select a valid Income Hub source.");
       const currentBalance = getIncomeSourceBalance(selectedSource);
-      if (currentBalance < amount) throw new Error("Insufficient balance in the selected income source.");
+      if (currentBalance < amount) throw new Error("Insufficient balance in the selected Income Hub source.");
       const totalMoneyIn = toIncomeHubNumber(selectedSource.totalMoneyIn ?? selectedSource.total_money_in);
       const nextTotalMoneyOut = toIncomeHubNumber(selectedSource.totalMoneyOut ?? selectedSource.total_money_out) + amount;
       const nowIso = new Date().toISOString();
@@ -420,6 +520,76 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
     },
     [effectiveUser]
   );
+
+  const addMoneyFromIncomeHub = useCallback(async () => {
+    const wallet = financeModal?.payload;
+    const amount = toIncomeHubNumber(financeForm.amount);
+    const incomeSourceId = String(financeForm.incomeSourceId || "");
+
+    if (!wallet) return;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showFinanceNotice?.("Please enter a valid amount.");
+      return;
+    }
+
+    if (!incomeSources.length) {
+      showFinanceNotice?.("Record income first before adding money to a wallet.");
+      return;
+    }
+
+    if (!incomeSourceId) {
+      showFinanceNotice?.("Choose an Income Hub source first.");
+      return;
+    }
+
+    try {
+      setSavingWallet(true);
+      const selectedSource = await debitIncomeSource({ incomeSourceId, amount });
+
+      await financial.addIncome?.({
+        wallet_id: wallet.id,
+        type: "income",
+        amount,
+        incomeSourceId: selectedSource.id,
+        income_source_id: selectedSource.id,
+        source: selectedSource.name || selectedSource.source_name || "Income Hub",
+        source_type: "income_hub",
+        notes: `Added from Income Hub: ${selectedSource.name || selectedSource.source_name || "Income Hub"}`,
+        user_id: effectiveUser?.id || null,
+        user_email: effectiveUser?.email || null,
+        created_by: effectiveUser?.email || null,
+      });
+
+      dispatchClaraEvent("clara-wallets-updated", {
+        reason: "wallet-funded-from-income-hub",
+      });
+
+      dispatchClaraEvent("clara-finance-updated", {
+        reason: "wallet-funded-from-income-hub",
+      });
+
+      await financial.refreshData?.();
+      closeFinanceModal?.();
+      showFinanceNotice?.("Money added from Income Hub.", "success");
+    } catch (error) {
+      console.warn("CLARA add from Income Hub failed:", error);
+      showFinanceNotice?.(error?.message || "Failed to add money from Income Hub.");
+    } finally {
+      setSavingWallet(false);
+    }
+  }, [
+    closeFinanceModal,
+    debitIncomeSource,
+    effectiveUser?.email,
+    effectiveUser?.id,
+    financeForm.amount,
+    financeForm.incomeSourceId,
+    financeModal?.payload,
+    financial,
+    incomeSources.length,
+    showFinanceNotice,
+  ]);
 
   const createWalletFromGuidedSetup = useCallback(async () => {
     const name = normalizeString(financeForm.name);
@@ -457,7 +627,7 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         created_by: effectiveUser?.email || null,
         incomeSourceId: selectedSource?.id || null,
         income_source_id: selectedSource?.id || null,
-        source: selectedSource?.name || "",
+        source: selectedSource?.name || selectedSource?.source_name || "",
       });
 
       dispatchClaraEvent("clara-wallets-updated", {
@@ -492,6 +662,24 @@ export default function DashboardFinanceModalRendererWithIncomeFunding(props) {
         incomeSourcesLoading={incomeSourcesLoading}
         formatMoney={formatMoney}
         getIncomeSourceBalance={getIncomeSourceBalance}
+      />
+    );
+  }
+
+  if (addMoneyOpen) {
+    return (
+      <AddFromIncomeHubModal
+        open={addMoneyOpen}
+        wallet={financeModal?.payload}
+        incomeSources={incomeSources}
+        incomeSourcesLoading={incomeSourcesLoading}
+        financeActionLoading={financeActionLoading}
+        savingWallet={savingWallet}
+        financeForm={financeForm}
+        setFinanceForm={setFinanceForm}
+        formatMoney={formatMoney}
+        onClose={closeFinanceModal}
+        onSubmit={addMoneyFromIncomeHub}
       />
     );
   }
