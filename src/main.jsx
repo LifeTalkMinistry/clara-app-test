@@ -24,6 +24,7 @@ import "./clara-buy-check-effective-context-guard";
 import "./clara-assistant-buy-check-tab";
 import "./clara-assistant-forecast-tab";
 import "./clara-assistant-analytic-tab";
+import "./clara-assistant-feature-dock-polish";
 import "./clara-assistant-memory-tab";
 import "./clara-onboarding-memory-review-bridge";
 import "./clara-memory-cabinet-autosave";
