@@ -15,6 +15,19 @@ import {
   getExpandedCarouselCardIndex,
 } from "./shared/financialCarouselFocus";
 
+function CarouselCardPlaceholder({ item }) {
+  return (
+    <div
+      className="pointer-events-none flex h-full min-h-[inherit] items-center justify-center rounded-[inherit] border border-white/[0.04] bg-black/[0.08]"
+      aria-hidden="true"
+    >
+      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/25">
+        {item?.label || "CLARA"}
+      </span>
+    </div>
+  );
+}
+
 export default function FinancialCarousel(props) {
   const {
     dashboardScale = {},
@@ -80,9 +93,13 @@ export default function FinancialCarousel(props) {
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
         allowVerticalOverflow={isInlineFocusExpanded}
       >
-        {items.map((item) => {
+        {items.map((item, index) => {
+          const isNearbySlide = Math.abs(index - activeIndex) <= 1;
+          const isDefaultSlide = index === defaultIndex;
           const isInlineExpanded =
             item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
+          const shouldRenderFullCard =
+            isNearbySlide || isDefaultSlide || isInlineExpanded;
 
           return (
             <CarouselSlideShell
@@ -92,12 +109,16 @@ export default function FinancialCarousel(props) {
               dashboardScale={dashboardScale}
               isExpanded={isInlineExpanded}
             >
-              <CarouselItemCard
-                {...props}
-                item={item}
-                selectedDashboardTheme={selectedDashboardTheme}
-                expandedFinanceCard={expandedFinanceCard}
-              />
+              {shouldRenderFullCard ? (
+                <CarouselItemCard
+                  {...props}
+                  item={item}
+                  selectedDashboardTheme={selectedDashboardTheme}
+                  expandedFinanceCard={expandedFinanceCard}
+                />
+              ) : (
+                <CarouselCardPlaceholder item={item} />
+              )}
             </CarouselSlideShell>
           );
         })}
