@@ -7,11 +7,13 @@ const CLARA_AI_BRAIN_VERSION = "connected-brain-v23-forecast-phase-one-readable-
 const PRESENTATION_RULES = `Reply like a natural premium mobile chat message.
 Plain text only.
 Start with the direct answer in 1 short sentence.
-For lists, use short bullet points.
-For breakdowns, use compact sections with blank lines.
+For advice, tips, steps, plans, lists, or breakdowns, use short bullet points.
+Never write numbered advice inline inside one paragraph.
+Use a blank line before every bullet or numbered section.
 Never write a paragraph longer than 2 short lines.
-Use labels like "Budget list", "Income sources", "Emergency fund", or "Next step" only when helpful.
+Keep each bullet practical and specific.
 Do not over-explain.
+Do not use Markdown bold, Markdown headings, HTML, or code formatting.
 Ask only one question at the end when needed.`;
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
@@ -297,6 +299,15 @@ function normalizeBullets(text = "") {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+function splitInlineNumberedAdvice(text = "") {
+  return clean(text)
+    .replace(/\s+(?=\d+\.\s+[A-ZÀ-ÿ])/g, "\n")
+    .replace(/\s+(?=(?:•|-|\*)\s+[A-ZÀ-ÿ])/g, "\n")
+    .replace(/:\n(?=\d+\.)/g, ":\n\n")
+    .replace(/:\n(?=(?:•|-|\*)\s+)/g, ":\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 function itemNameFromInlineBullet(value = "") { return String(value || "").replace(/[•*\-]/g, "").replace(/\s+/g, " ").trim().replace(/[:：]+$/, ""); }
 function moneyLabelLine(label, pattern, details = "") { const match = String(details || "").match(pattern); return match?.[1] ? `${label}: ${match[1]}` : null; }
 function formatInlineBreakdownBlock(block = "") {
@@ -360,19 +371,21 @@ function splitDenseMoneyParagraphs(text = "") {
 function formatClaraReadableReply(reply = "", prompt = "") {
   const original = clean(reply);
   if (!original) return original;
-  if (isStructuredReply(original)) return normalizeBullets(original);
 
-  const moneyCount = moneyFacts(original).length;
-  const dataSeparatorCount = countDataSeparators(original);
-  const promptAndReply = `${prompt || ""}\n${original}`;
+  const inlineSplit = splitInlineNumberedAdvice(original);
+  if (isStructuredReply(inlineSplit)) return normalizeBullets(inlineSplit);
+
+  const moneyCount = moneyFacts(inlineSplit).length;
+  const dataSeparatorCount = countDataSeparators(inlineSplit);
+  const promptAndReply = `${prompt || ""}\n${inlineSplit}`;
   const hasBreakdownIntent = BREAKDOWN_WORD_PATTERN.test(promptAndReply);
-  const isLong = original.length > 220;
+  const isLong = inlineSplit.length > 220;
   const hasEnoughFacts = moneyCount >= 3 || dataSeparatorCount >= 3;
 
-  if (!isLong && !hasEnoughFacts) return original;
-  if (!hasEnoughFacts && !hasBreakdownIntent) return original;
+  if (!isLong && !hasEnoughFacts && inlineSplit === original) return original;
+  if (!hasEnoughFacts && !hasBreakdownIntent && inlineSplit === original) return original;
 
-  const bulletNormalized = normalizeBullets(original);
+  const bulletNormalized = normalizeBullets(inlineSplit);
   const splitInline = splitDenseInlineBreakdown(bulletNormalized);
   const readable = splitDenseMoneyParagraphs(splitInline);
   return clean(readable);
@@ -557,7 +570,49 @@ function MessageText({ text }) {
         const stripBullet = (line = "") => line.replace(/^\s*(•|-|\*)\s+/, "");
         const stripNumber = (line = "") => line.replace(/^\s*\d+\.\s+/, "");
 
+        const firstBulletIndex = lines.findIndex(isBulletLine);
+        const firstNumberedIndex = lines.findIndex(isNumberedLine);
+        const bulletLines = lines.filter(isBulletLine);
+        const numberedLines = lines.filter(isNumberedLine);
+
         if (!lines.length) return null;
+
+        if (firstBulletIndex > 0 && bulletLines.length >= 2) {
+          const introLines = lines.slice(0, firstBulletIndex);
+          const trailingLines = lines.slice(firstBulletIndex).filter((line) => !isBulletLine(line));
+
+          return (
+            <div key={key} className="space-y-2.5">
+              {introLines.length ? (
+                <p className="text-[13.5px] leading-6 text-slate-100/90">
+                  {introLines.map((line, lineIndex) => (
+                    <span key={`${key}-intro-${lineIndex}`} className={introLines.length > 1 ? "block" : undefined}>
+                      {renderInlineLabelValue(line, `${key}-intro-label-${lineIndex}`)}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+
+              <ul className="list-disc space-y-1.5 pl-4 text-[13.5px] leading-6 text-slate-100/90 marker:text-emerald-100/70">
+                {bulletLines.map((line, lineIndex) => (
+                  <li key={`${key}-mixed-bullet-${lineIndex}`} className="pl-1">
+                    {renderInlineLabelValue(stripBullet(line), `${key}-mixed-bullet-label-${lineIndex}`)}
+                  </li>
+                ))}
+              </ul>
+
+              {trailingLines.length ? (
+                <p className="text-[13.5px] leading-6 text-slate-100/90">
+                  {trailingLines.map((line, lineIndex) => (
+                    <span key={`${key}-trail-${lineIndex}`} className={trailingLines.length > 1 ? "block" : undefined}>
+                      {renderInlineLabelValue(line, `${key}-trail-label-${lineIndex}`)}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+            </div>
+          );
+        }
 
         if (lines.every(isBulletLine)) {
           return (
@@ -568,6 +623,43 @@ function MessageText({ text }) {
                 </li>
               ))}
             </ul>
+          );
+        }
+
+        if (firstNumberedIndex > 0 && numberedLines.length >= 2) {
+          const introLines = lines.slice(0, firstNumberedIndex);
+          const trailingLines = lines.slice(firstNumberedIndex).filter((line) => !isNumberedLine(line));
+
+          return (
+            <div key={key} className="space-y-2.5">
+              {introLines.length ? (
+                <p className="text-[13.5px] leading-6 text-slate-100/90">
+                  {introLines.map((line, lineIndex) => (
+                    <span key={`${key}-number-intro-${lineIndex}`} className={introLines.length > 1 ? "block" : undefined}>
+                      {renderInlineLabelValue(line, `${key}-number-intro-label-${lineIndex}`)}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+
+              <ol className="list-decimal space-y-1.5 pl-4 text-[13.5px] leading-6 text-slate-100/90 marker:text-emerald-100/70">
+                {numberedLines.map((line, lineIndex) => (
+                  <li key={`${key}-mixed-number-${lineIndex}`} className="pl-1">
+                    {renderInlineLabelValue(stripNumber(line), `${key}-mixed-number-label-${lineIndex}`)}
+                  </li>
+                ))}
+              </ol>
+
+              {trailingLines.length ? (
+                <p className="text-[13.5px] leading-6 text-slate-100/90">
+                  {trailingLines.map((line, lineIndex) => (
+                    <span key={`${key}-number-trail-${lineIndex}`} className={trailingLines.length > 1 ? "block" : undefined}>
+                      {renderInlineLabelValue(line, `${key}-number-trail-label-${lineIndex}`)}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+            </div>
           );
         }
 
