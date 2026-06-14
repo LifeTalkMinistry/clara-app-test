@@ -12,8 +12,8 @@ const resolveOrbAssetSrc = (assetPath = "") => {
   if (
     trimmedPath.startsWith("http://") ||
     trimmedPath.startsWith("https://") ||
-    trimmedPath.startsWith("data" + ":") ||
-    trimmedPath.startsWith("blob" + ":")
+    trimmedPath.startsWith("data:") ||
+    trimmedPath.startsWith("blob:")
   ) {
     return trimmedPath;
   }
@@ -220,7 +220,7 @@ export default function DashboardMoneySummaryStable({
         }`}
         style={moneyCellSurface}
       >
-        <div className="absolute inset-y-0 right-0 z-50 flex w-[88px] items-center justify-center pr-3">
+        <div className="absolute right-3 top-[46%] z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center">
           <button
             type="button"
             data-clara-manual-expense-orb="true"
