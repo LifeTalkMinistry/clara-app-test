@@ -3,6 +3,9 @@
 .env.*
 *.local
 
+# ================= SUPABASE LOCAL STATE =================
+supabase/.temp/
+
 # ================= LOGS =================
 logs
 *.log
