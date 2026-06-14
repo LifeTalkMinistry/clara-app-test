@@ -23,7 +23,7 @@ const DashboardContentArea = forwardRef(function DashboardContentArea(
   return (
     <div
       ref={ref}
-      className={`min-h-0 ${scaleClassName} ${className}`.trim()}
+      className={`clara-dashboard-content min-h-0 ${scaleClassName} ${className}`.trim()}
       style={mergedStyle}
     >
       {children}
