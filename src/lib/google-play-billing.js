@@ -43,19 +43,8 @@ function getGooglePlayProductType(productId) {
   return PRODUCT_TYPES[normalize(productId)] || "subs";
 }
 
-function isCommittedProduct({ productId, planKey }) {
-  return (
-    normalize(productId) === CLARA_PRODUCTS.committed.productId ||
-    normalizePlanKey(planKey) === COMMITTED_PLAN_KEY
-  );
-}
-
-function shouldRequireSevenDayTrial({ productId, planKey, purchaseIntent, trialDays }) {
-  return (
-    isCommittedProduct({ productId, planKey }) ||
-    normalize(purchaseIntent) === TRIAL_PURCHASE_INTENT ||
-    Number(trialDays || 0) === REQUIRED_TRIAL_DAYS
-  );
+function shouldRequireSevenDayTrial({ purchaseIntent, trialDays }) {
+  return normalize(purchaseIntent) === TRIAL_PURCHASE_INTENT || Number(trialDays || 0) === REQUIRED_TRIAL_DAYS;
 }
 
 function parseBridgeResult(result) {
@@ -149,6 +138,29 @@ function getMissingBridgeResult(message) {
   };
 }
 
+async function safeBridgeCall(methodName, payload) {
+  const bridge = getBillingBridge();
+  if (!bridge) return getMissingBridgeResult("ClaraBilling bridge object was not created.");
+
+  const method = bridge[methodName];
+  if (typeof method !== "function") {
+    return getMissingBridgeResult(`ClaraBilling.${methodName}() is not available in this app build.`);
+  }
+
+  try {
+    const result = payload === undefined ? await method.call(bridge) : await method.call(bridge, payload);
+    return { ok: true, raw: parseBridgeResult(result) };
+  } catch (error) {
+    return {
+      ok: false,
+      responseCode: normalizeResponseCode(error?.responseCode || error?.code),
+      debugMessage:
+        error?.debugMessage || error?.details || error?.message || `ClaraBilling.${methodName}() failed.`,
+      raw: error,
+    };
+  }
+}
+
 function requireSupabaseClient(supabase) {
   if (!supabase) {
     throw makeError("Supabase client is required.", {
@@ -219,29 +231,6 @@ function extractSubscriptionFields(parsed, matchedPurchase = null) {
       "",
     trialOffer: source?.trialOffer === true || source?.trial_offer === true,
   };
-}
-
-async function safeBridgeCall(methodName, payload) {
-  const bridge = getBillingBridge();
-  if (!bridge) return getMissingBridgeResult("ClaraBilling bridge object was not created.");
-
-  const method = bridge[methodName];
-  if (typeof method !== "function") {
-    return getMissingBridgeResult(`ClaraBilling.${methodName}() is not available in this app build.`);
-  }
-
-  try {
-    const result = payload === undefined ? await method.call(bridge) : await method.call(bridge, payload);
-    return { ok: true, raw: parseBridgeResult(result) };
-  } catch (error) {
-    return {
-      ok: false,
-      responseCode: normalizeResponseCode(error?.responseCode || error?.code),
-      debugMessage:
-        error?.debugMessage || error?.details || error?.message || `ClaraBilling.${methodName}() failed.`,
-      raw: error,
-    };
-  }
 }
 
 function normalizeOwnedPurchase(raw = {}) {
@@ -611,7 +600,7 @@ function getProductUnavailableDebugMessage({ productId, productState = {}, unava
   return `${baseMessage} Billing diagnostics: ${JSON.stringify(diagnostics)}`;
 }
 
-export async function diagnoseGooglePlayBilling({ productId, planKey = COMMITTED_PLAN_KEY } = {}) {
+export async function diagnoseGooglePlayBilling({ productId } = {}) {
   const connection = await connectGooglePlayBilling();
   if (!connection.ok) {
     return {
@@ -632,14 +621,10 @@ export async function diagnoseGooglePlayBilling({ productId, planKey = COMMITTED
 
   const targetProductIds = productId ? [productId] : getAllGooglePlayProductIds();
   const productState = await queryGooglePlayProducts({ productIds: targetProductIds });
-  const targetProductId = targetProductIds[0];
-  const lacksTrial = shouldRequireSevenDayTrial({ productId: targetProductId, planKey }) &&
-    productDetailsExplicitlyLackSevenDayTrial(productState.productDetails || []);
   const ready =
     connection.ok &&
     productState.ok &&
-    productState.missingProductIds.length === 0 &&
-    !lacksTrial;
+    productState.missingProductIds.length === 0;
 
   return {
     ready,
@@ -648,12 +633,8 @@ export async function diagnoseGooglePlayBilling({ productId, planKey = COMMITTED
     productCode: productState.responseCode || "UNKNOWN",
     message: ready
       ? "Google Play billing looks ready on this device."
-      : lacksTrial
-        ? "Google Play billing found the product, but no eligible 7-day trial offer was returned."
-        : "Google Play billing connected, but product readiness still needs attention.",
-    debugMessage: lacksTrial
-      ? "ProductDetails were returned, but no eligible offer contained a free P7D/P1W pricing phase."
-      : productState.debugMessage || connection.debugMessage || "",
+      : "Google Play billing connected, but product readiness still needs attention.",
+    debugMessage: productState.debugMessage || connection.debugMessage || "",
     diagnostics: {
       foundProductIds: productState.foundProductIds || [],
       missingProductIds: productState.missingProductIds || [],
@@ -733,7 +714,7 @@ export async function launchGooglePlayPurchase({
   }
 
   const productType = getGooglePlayProductType(productId);
-  const requireFreeTrialOffer = shouldRequireSevenDayTrial({ productId, planKey, purchaseIntent, trialDays });
+  const requireFreeTrialOffer = shouldRequireSevenDayTrial({ purchaseIntent, trialDays });
   const normalizedPurchaseIntent = requireFreeTrialOffer ? TRIAL_PURCHASE_INTENT : normalize(purchaseIntent);
   const normalizedTrialDays = requireFreeTrialOffer ? REQUIRED_TRIAL_DAYS : Number(trialDays || 0);
   const payload = {
