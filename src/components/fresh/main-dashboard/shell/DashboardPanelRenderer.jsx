@@ -28,9 +28,31 @@ import {
 const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
 const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
 const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
+const DIRECT_MONTHLY_PURCHASE_INTENT = "monthly_direct";
+const TRIAL_UNAVAILABLE_USER_MESSAGE =
+  "The free trial is not available on this Google Play account. You can still continue for ₱249/month.";
 
 function readPlanPreview() {
   return readDeveloperMembershipPreview();
+}
+
+function normalizeOfferPurchaseIntent(nextPurchaseIntent) {
+  return nextPurchaseIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : DIRECT_MONTHLY_PURCHASE_INTENT;
+}
+
+function isTrialUnavailableError(error) {
+  const code = String(error?.responseCode || error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  const debugMessage = String(error?.debugMessage || error?.details || "").toLowerCase();
+  const combined = `${message} ${debugMessage}`;
+
+  return (
+    (code === "ITEM_UNAVAILABLE" && combined.includes("trial")) ||
+    combined.includes("trial offer is not available") ||
+    combined.includes("no eligible 7-day trial") ||
+    combined.includes("free p7d") ||
+    combined.includes("free p1w")
+  );
 }
 
 async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseIntent }) {
@@ -54,9 +76,11 @@ function ClaraCommitmentBookletModal({
   const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState("");
+  const [offerPurchaseIntent, setOfferPurchaseIntent] = useState(() => normalizeOfferPurchaseIntent(purchaseIntent));
   const carouselRef = useRef(null);
   const { user, refreshUser } = useUserRole();
   const isTrialIntent = purchaseIntent === TRIAL_PURCHASE_INTENT;
+  const isTrialOffer = offerPurchaseIntent === TRIAL_PURCHASE_INTENT;
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +89,7 @@ function ClaraCommitmentBookletModal({
     setCommitmentOfferOpen(false);
     setPurchaseBusy(false);
     setPurchaseMessage("");
+    setOfferPurchaseIntent(normalizeOfferPurchaseIntent(purchaseIntent));
 
     window.requestAnimationFrame(() => {
       carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
@@ -73,7 +98,7 @@ function ClaraCommitmentBookletModal({
 
   if (!open) return null;
 
-  const activateCommitmentAccess = async (purchaseResult) => {
+  const activateCommitmentAccess = async (purchaseResult, activePurchaseIntent) => {
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser();
@@ -108,7 +133,7 @@ function ClaraCommitmentBookletModal({
       orderId,
       bridgePayload: {
         ...(purchaseResult?.raw || purchaseResult),
-        purchaseIntent,
+        purchaseIntent: activePurchaseIntent,
       },
     });
 
@@ -127,6 +152,9 @@ function ClaraCommitmentBookletModal({
   const handleGooglePlayCommitment = async () => {
     if (purchaseBusy) return;
 
+    const activePurchaseIntent = offerPurchaseIntent;
+    const requestingTrial = activePurchaseIntent === TRIAL_PURCHASE_INTENT;
+
     setPurchaseBusy(true);
     setPurchaseMessage("Opening Google Play...");
 
@@ -134,15 +162,21 @@ function ClaraCommitmentBookletModal({
       const purchaseResult = await openGooglePlayCommitmentPurchase({
         userId: user?.id,
         userEmail: user?.email,
-        purchaseIntent,
+        purchaseIntent: activePurchaseIntent,
       });
       setPurchaseMessage("Verifying your CLARA commitment...");
-      await activateCommitmentAccess(purchaseResult);
+      await activateCommitmentAccess(purchaseResult, activePurchaseIntent);
       setPurchaseMessage("Commitment active. Unlocking CLARA...");
       onClose();
     } catch (error) {
       console.error("CLARA Google Play commitment failed:", error);
-      setPurchaseMessage(error?.message || "Google Play purchase could not be completed yet.");
+
+      if (requestingTrial && isTrialUnavailableError(error)) {
+        setOfferPurchaseIntent(DIRECT_MONTHLY_PURCHASE_INTENT);
+        setPurchaseMessage(TRIAL_UNAVAILABLE_USER_MESSAGE);
+      } else {
+        setPurchaseMessage(error?.message || "Google Play purchase could not be completed yet.");
+      }
     } finally {
       setPurchaseBusy(false);
     }
@@ -238,6 +272,7 @@ function ClaraCommitmentBookletModal({
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
+                  setOfferPurchaseIntent(normalizeOfferPurchaseIntent(purchaseIntent));
                   setPurchaseMessage("");
                   setCommitmentOfferOpen(true);
                 }}
@@ -318,26 +353,26 @@ function ClaraCommitmentBookletModal({
               </button>
 
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
-                {isTrialIntent ? "Trial Offer" : "Monthly Commitment"}
+                {isTrialOffer ? "Trial Offer" : "Monthly Commitment"}
               </p>
               <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">So? You are ready to commit?</h3>
               <p className="mx-auto mt-3 max-w-[260px] text-sm font-bold leading-6 text-white/68">
-                {isTrialIntent
+                {isTrialOffer
                   ? "Start free first, then continue CLARA’s guided money decision experience for ₱249/month."
-                  : "Start your journey toward financial freedom with CLARA’s guided money decision experience."}
+                  : "Continue CLARA’s guided money decision experience for ₱249/month."}
               </p>
 
               <div className="mt-5 rounded-[26px] border border-white/14 bg-white/[0.08] px-5 py-5">
                 <p className="text-[2.05rem] font-black leading-tight tracking-[-0.065em] text-white">CLARA Commitment</p>
                 <p className="mt-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
-                  {isTrialIntent ? "₱249/month after trial" : "₱249/month"}
+                  {isTrialOffer ? "₱249/month after trial" : "₱249/month"}
                 </p>
               </div>
 
               <p className="mt-4 text-xs font-bold leading-5 text-white/52">
-                {isTrialIntent
-                  ? "Cancel anytime before the renewal"
-                  : "10% of every monthly commitment goes into the CLARA Charity Fund."}
+                {isTrialOffer
+                  ? "After the 7-day trial, ₱249/month. Cancel anytime in Google Play before renewal."
+                  : "₱249/month. Cancel anytime in Google Play before renewal."}
               </p>
 
               {purchaseMessage ? (
@@ -351,7 +386,7 @@ function ClaraCommitmentBookletModal({
                   disabled={purchaseBusy}
                   className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {purchaseBusy ? "Opening Google Play..." : isTrialIntent ? "Start 7-day trial" : "Continue for ₱249"}
+                  {purchaseBusy ? "Opening Google Play..." : isTrialOffer ? "Start 7-day trial" : "Continue for ₱249/month"}
                 </button>
                 <button
                   type="button"
@@ -381,10 +416,6 @@ function LockedPanelPreview({ children, onOpenCommitmentBooklet }) {
     <div
       className="relative min-h-full overflow-hidden rounded-[30px]"
       onClickCapture={handleOpenCommitmentBooklet}
-      onPointerDownCapture={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
     >
       <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">{children}</div>
       <div className="absolute inset-0 z-[220] flex items-center justify-center rounded-[30px] bg-black/[0.18] backdrop-blur-[1px]">
