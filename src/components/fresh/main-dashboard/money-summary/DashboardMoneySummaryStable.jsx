@@ -213,7 +213,27 @@ export default function DashboardMoneySummaryStable({
         )}
       </button>
 
-      <div className="pointer-events-auto absolute right-5 top-1/2 z-50 flex h-[76px] w-[76px] -translate-y-1/2 items-center justify-center max-[380px]:right-4 max-[380px]:h-[68px] max-[380px]:w-[68px]">
+      <div className="pointer-events-auto absolute right-5 top-1/2 z-50 isolate flex h-[76px] w-[76px] -translate-y-1/2 items-center justify-center max-[380px]:right-4 max-[380px]:h-[68px] max-[380px]:w-[68px]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-full opacity-90 blur-[1px]"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(59,130,246,0.22) 34%, rgba(124,58,237,0.30) 58%, rgba(15,23,42,0.00) 76%)",
+            boxShadow:
+              "0 0 18px rgba(34,211,238,0.42), 0 0 34px rgba(124,58,237,0.36)",
+          }}
+        />
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-[10px] rounded-full border border-cyan-100/20 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.20)] max-[380px]:inset-[8px]"
+          style={{
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.22), 0 0 18px rgba(34,211,238,0.32), 0 0 28px rgba(124,58,237,0.28)",
+          }}
+        />
+
         <button
           type="button"
           data-clara-manual-expense-orb="true"
@@ -224,7 +244,7 @@ export default function DashboardMoneySummaryStable({
           onPointerCancel={handleOrbCancel}
           onPointerLeave={handleOrbCancel}
           onContextMenu={handleOrbClick}
-          className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white transition hover:bg-white/[0.14] active:scale-95"
+          className="relative z-10 flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white shadow-[0_0_18px_rgba(34,211,238,0.38)] transition hover:bg-white/[0.14] active:scale-95"
           style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
           aria-label="Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
         >
