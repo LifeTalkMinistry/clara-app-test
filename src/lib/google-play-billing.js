@@ -554,12 +554,17 @@ export async function queryOwnedGooglePlayPurchases({ productIds = [] } = {}) {
   };
 }
 
+function isSevenDayBillingPeriod(billingPeriod) {
+  const normalized = normalize(billingPeriod).toUpperCase();
+  return normalized === "P7D" || normalized === "P1W";
+}
+
 function isSevenDayFreePhase(phase = {}) {
   const billingPeriod = normalize(phase.billingPeriod || phase.billing_period).toUpperCase();
   const priceAmountMicros = Number(phase.priceAmountMicros ?? phase.price_amount_micros ?? NaN);
   const formattedPrice = normalizeLower(phase.formattedPrice || phase.formatted_price || phase.price);
   const isFree = priceAmountMicros === 0 || formattedPrice === "free" || formattedPrice.includes("free");
-  return isFree && billingPeriod === "P7D";
+  return isFree && isSevenDayBillingPeriod(billingPeriod);
 }
 
 function getOfferList(productDetail = {}) {
@@ -647,7 +652,7 @@ export async function diagnoseGooglePlayBilling({ productId, planKey = COMMITTED
         ? "Google Play billing found the product, but no eligible 7-day trial offer was returned."
         : "Google Play billing connected, but product readiness still needs attention.",
     debugMessage: lacksTrial
-      ? "ProductDetails were returned, but no eligible offer contained a free P7D pricing phase."
+      ? "ProductDetails were returned, but no eligible offer contained a free P7D/P1W pricing phase."
       : productState.debugMessage || connection.debugMessage || "",
     diagnostics: {
       foundProductIds: productState.foundProductIds || [],
@@ -789,7 +794,7 @@ export async function launchGooglePlayPurchase({
     throw makeError(SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE, {
       responseCode: "ITEM_UNAVAILABLE",
       debugMessage:
-        "ProductDetails were returned, but none of the eligible subscription offers contained a free P7D pricing phase.",
+        "ProductDetails were returned, but none of the eligible subscription offers contained a free P7D/P1W pricing phase.",
       raw: productState.raw,
     });
   }
