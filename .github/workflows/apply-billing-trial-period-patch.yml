@@ -97,3 +97,5 @@ function isSevenDayFreePhase(phase = {}) {
           git add android/app/src/main/java/com/clara/lifeos/app/ClaraBillingPlugin.java src/lib/google-play-billing.js .github/workflows/apply-billing-trial-period-patch.yml
           git commit -m "Fix Google Play P1W trial offer detection"
           git push
+
+# trigger: second push
