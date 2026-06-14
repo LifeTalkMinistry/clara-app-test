@@ -17,7 +17,17 @@
   }
 
   .theme-page-shell [data-clara-dashboard-section="money-summary"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-height: 96px !important;
     margin-bottom: max(18px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .theme-page-shell [data-clara-summary-card="money-left"] {
+    min-height: 96px !important;
+  }
+
+  .theme-page-shell [data-clara-summary-card="total-expense"] {
+    display: none !important;
   }
 }
 
