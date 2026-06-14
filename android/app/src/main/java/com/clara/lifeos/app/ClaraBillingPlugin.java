@@ -121,10 +121,16 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         return null;
     }
 
+    private boolean isSevenDayBillingPeriod(String billingPeriod) {
+        if (billingPeriod == null) return false;
+        String normalized = billingPeriod.trim().toUpperCase();
+        return "P7D".equals(normalized) || "P1W".equals(normalized);
+    }
+
     private boolean isSevenDayFreeTrialPhase(ProductDetails.PricingPhase phase) {
         return phase != null
                 && phase.getPriceAmountMicros() == 0
-                && "P7D".equalsIgnoreCase(phase.getBillingPeriod());
+                && isSevenDayBillingPeriod(phase.getBillingPeriod());
     }
 
     private boolean offerHasSevenDayFreeTrial(ProductDetails.SubscriptionOfferDetails offer) {
@@ -182,6 +188,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         item.put("priceCurrencyCode", phase.getPriceCurrencyCode());
         item.put("priceAmountMicros", phase.getPriceAmountMicros());
         item.put("billingPeriod", phase.getBillingPeriod());
+        item.put("isSevenDayBillingPeriod", isSevenDayBillingPeriod(phase.getBillingPeriod()));
         item.put("recurrenceMode", phase.getRecurrenceMode());
         item.put("billingCycleCount", phase.getBillingCycleCount());
         item.put("isSevenDayFreeTrial", isSevenDayFreeTrialPhase(phase));
@@ -633,7 +640,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 boolean selectedTrialOffer = offerHasSevenDayFreeTrial(selectedOffer);
                 if (requireSevenDayTrial && !selectedTrialOffer) {
                     savedCall.reject(SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE, String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE));
-                    Log.w(TAG, "purchase blocked: selected offer is not a free P7D trial productId=" + productId.trim());
+                    Log.w(TAG, "purchase blocked: selected offer is not a free P7D/P1W trial productId=" + productId.trim());
                     savedCall = null;
                     resetPendingOffer();
                     return;
