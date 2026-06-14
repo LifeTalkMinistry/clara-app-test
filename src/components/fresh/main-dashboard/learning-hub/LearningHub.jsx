@@ -24,7 +24,7 @@ export default function LearningHub() {
 
   return (
     <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
-      <div className="relative -mb-1 w-full overflow-hidden px-1 py-0">
+      <div className="relative flex w-full flex-col gap-[14px] overflow-visible px-1 py-0">
         <DailyTipCard
           hasCommittedAccess={hasCommittedAccess}
           onOpenCommitmentBooklet={openCommittedVersionModal}
@@ -33,7 +33,7 @@ export default function LearningHub() {
         {!shouldLoadHub ? (
           <div
             data-clara-learning-hub-bridge="true"
-            className="grid h-[clamp(62px,7dvh,74px)] place-items-center"
+            className="flex justify-center"
           >
             <LearningHubToggleButton
               isExpanded={false}
