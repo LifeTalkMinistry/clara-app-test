@@ -55,6 +55,11 @@ export default function useDashboardPanelUiState({
         ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
+  const dashboardSmartScrollClass =
+    activeDashboardPanel === "home"
+      ? "overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      : "overflow-y-hidden";
+
   const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
   const shouldShowNonBlockingRefresh = Boolean(
     financeDataRefreshing ||
@@ -85,7 +90,7 @@ export default function useDashboardPanelUiState({
             }
           : null,
     },
-    { key: "settings", label: "Settings", icon: Settings, badge: null },
+    { key: "settings", label: Settings, badge: null },
   ], [feedHasHighlight, isFreePlan]);
 
   return {
@@ -94,7 +99,7 @@ export default function useDashboardPanelUiState({
     resetDashboardThemeToDefault,
     dashboardPanelAnimationClass,
     dashboardPanelViewportClass,
-    dashboardSmartScrollClass: "overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+    dashboardSmartScrollClass,
     dashboardSmartContentClass: "",
     shouldShowBlockingDashboardLoader,
     shouldShowNonBlockingRefresh,
