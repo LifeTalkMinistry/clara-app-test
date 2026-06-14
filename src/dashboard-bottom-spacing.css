@@ -1,25 +1,33 @@
 /* CLARA Dashboard bottom spacing override
    Scope: dashboard/mobile scroll wrapper only.
-   Goal: keep Money Left from sitting too close to the Android navigation/safe-area edge
-   without changing the Money Left card internals, TopNav, routes, data, or card design. */
+   Goal: keep Money Left inside a protected bottom finance rail near the
+   Android navigation/safe-area edge without changing card internals,
+   TopNav, routes, data, or card design. */
 
 @media (max-width: 430px) {
   .theme-page-shell .clara-dashboard-content {
     box-sizing: border-box !important;
     padding-bottom: max(
-      56px,
-      calc(env(safe-area-inset-bottom, 0px) + 44px)
+      clamp(20px, 4.6dvh, 34px),
+      calc(env(safe-area-inset-bottom, 0px) + 16px)
     ) !important;
     scroll-padding-bottom: max(
-      72px,
-      calc(env(safe-area-inset-bottom, 0px) + 56px)
+      48px,
+      calc(env(safe-area-inset-bottom, 0px) + 36px)
     ) !important;
+  }
+
+  .theme-page-shell .clara-dashboard-bottom-finance-rail {
+    padding-bottom: max(
+      24px,
+      calc(env(safe-area-inset-bottom, 0px) + 18px)
+    );
   }
 
   .theme-page-shell [data-clara-dashboard-section="money-summary"] {
     grid-template-columns: minmax(0, 1fr) !important;
     min-height: 96px !important;
-    margin-bottom: max(18px, env(safe-area-inset-bottom, 0px)) !important;
+    margin-bottom: 0 !important;
   }
 
   .theme-page-shell [data-clara-summary-card="money-left"] {
