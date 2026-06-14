@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   launchGooglePlayPurchase,
   persistGooglePlayPurchase,
+  queryOwnedGooglePlayPurchases,
   waitForGooglePlayEntitlement,
 } from "@/lib/google-play-billing";
 import {
@@ -31,6 +32,12 @@ const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
 const DIRECT_MONTHLY_PURCHASE_INTENT = "monthly_direct";
 const TRIAL_UNAVAILABLE_USER_MESSAGE =
   "The free trial is not available on this Google Play account. You can still continue for ₱249/month.";
+const OFFER_LOAD_ERROR_MESSAGE =
+  "CLARA could not load the offer right now. Please check your connection and try again.";
+const PURCHASE_START_ERROR_MESSAGE = "CLARA could not start the purchase right now. Please try again.";
+const POST_PURCHASE_CONFIRMING_MESSAGE = "Confirming your CLARA access...";
+const POST_PURCHASE_CONFIRM_ERROR_MESSAGE =
+  "Payment completed. CLARA is still confirming your access. Please tap Restore Purchase if it does not unlock in a few seconds.";
 
 function readPlanPreview() {
   return readDeveloperMembershipPreview();
@@ -55,6 +62,41 @@ function isTrialUnavailableError(error) {
   );
 }
 
+function isUserCancelledPurchaseError(error) {
+  const code = String(error?.responseCode || error?.code || "").toUpperCase();
+  const message = String(error?.message || error?.debugMessage || error?.details || "").toLowerCase();
+  return code === "USER_CANCELED" || message.includes("user canceled") || message.includes("user cancelled") || message.includes("cancelled");
+}
+
+function isConfirmedGooglePlayPurchase(purchaseResult) {
+  if (!purchaseResult || purchaseResult.cancelled === true) return false;
+  return Boolean(
+    purchaseResult.ok === true ||
+      purchaseResult.restored === true ||
+      purchaseResult.purchaseToken ||
+      purchaseResult.purchase_token ||
+      purchaseResult.transactionId ||
+      purchaseResult.transaction_id ||
+      purchaseResult.orderId ||
+      purchaseResult.order_id
+  );
+}
+
+function getFriendlyBillingError(error, context = "purchase") {
+  if (context === "post_purchase_confirm") return POST_PURCHASE_CONFIRM_ERROR_MESSAGE;
+
+  const rawMessage = String(error?.message || error?.debugMessage || error?.details || error || "").toLowerCase();
+  if (rawMessage.includes("failed to fetch") || rawMessage.includes("network")) {
+    return OFFER_LOAD_ERROR_MESSAGE;
+  }
+
+  if (rawMessage.includes("not ready") || rawMessage.includes("billing unavailable")) {
+    return "Google Play is not ready yet. Please try again in a moment.";
+  }
+
+  return PURCHASE_START_ERROR_MESSAGE;
+}
+
 async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseIntent }) {
   return launchGooglePlayPurchase({
     productId: CLARA_COMMITMENT_PRODUCT_ID,
@@ -75,12 +117,21 @@ function ClaraCommitmentBookletModal({
   const [bookletPage, setBookletPage] = useState(0);
   const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [postPurchaseConfirming, setPostPurchaseConfirming] = useState(false);
+  const [canRestorePurchase, setCanRestorePurchase] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const [offerPurchaseIntent, setOfferPurchaseIntent] = useState(() => normalizeOfferPurchaseIntent(purchaseIntent));
   const carouselRef = useRef(null);
   const { user, refreshUser } = useUserRole();
   const isTrialIntent = purchaseIntent === TRIAL_PURCHASE_INTENT;
   const isTrialOffer = offerPurchaseIntent === TRIAL_PURCHASE_INTENT;
+  const purchaseButtonLabel = postPurchaseConfirming
+    ? "Confirming access..."
+    : purchaseBusy
+      ? "Opening Google Play..."
+      : isTrialOffer
+        ? "Start 7-day trial"
+        : "Continue for ₱249/month";
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +139,8 @@ function ClaraCommitmentBookletModal({
     setBookletPage(0);
     setCommitmentOfferOpen(false);
     setPurchaseBusy(false);
+    setPostPurchaseConfirming(false);
+    setCanRestorePurchase(false);
     setPurchaseMessage("");
     setOfferPurchaseIntent(normalizeOfferPurchaseIntent(purchaseIntent));
 
@@ -149,6 +202,26 @@ function ClaraCommitmentBookletModal({
     await refreshUser?.();
   };
 
+  const confirmCommittedAccessFromPurchase = async (purchaseResult, activePurchaseIntent) => {
+    setCanRestorePurchase(false);
+    setPostPurchaseConfirming(true);
+    setPurchaseMessage(POST_PURCHASE_CONFIRMING_MESSAGE);
+    console.info("[CLARA Billing] Refreshing committed entitlement");
+
+    try {
+      await activateCommitmentAccess(purchaseResult, activePurchaseIntent);
+      console.info("[CLARA Billing] Committed entitlement confirmed");
+      setPurchaseMessage("Commitment active. Unlocking CLARA...");
+      onClose();
+    } catch (confirmError) {
+      console.error("[CLARA Billing] Entitlement refresh failed after successful purchase", confirmError);
+      setCanRestorePurchase(true);
+      setPurchaseMessage(getFriendlyBillingError(confirmError, "post_purchase_confirm"));
+    } finally {
+      setPostPurchaseConfirming(false);
+    }
+  };
+
   const handleGooglePlayCommitment = async () => {
     if (purchaseBusy) return;
 
@@ -156,7 +229,10 @@ function ClaraCommitmentBookletModal({
     const requestingTrial = activePurchaseIntent === TRIAL_PURCHASE_INTENT;
 
     setPurchaseBusy(true);
+    setPostPurchaseConfirming(false);
+    setCanRestorePurchase(false);
     setPurchaseMessage("Opening Google Play...");
+    console.info("[CLARA Billing] Google Play purchase started");
 
     try {
       const purchaseResult = await openGooglePlayCommitmentPurchase({
@@ -164,20 +240,73 @@ function ClaraCommitmentBookletModal({
         userEmail: user?.email,
         purchaseIntent: activePurchaseIntent,
       });
-      setPurchaseMessage("Verifying your CLARA commitment...");
-      await activateCommitmentAccess(purchaseResult, activePurchaseIntent);
-      setPurchaseMessage("Commitment active. Unlocking CLARA...");
-      onClose();
+
+      if (purchaseResult?.cancelled === true) {
+        setPurchaseMessage("");
+        return;
+      }
+
+      if (!isConfirmedGooglePlayPurchase(purchaseResult)) {
+        throw new Error("Google Play did not confirm the purchase.");
+      }
+
+      console.info("[CLARA Billing] Google Play purchase success returned", {
+        responseCode: purchaseResult?.responseCode || "OK",
+        restored: purchaseResult?.restored === true,
+      });
+
+      await confirmCommittedAccessFromPurchase(purchaseResult, activePurchaseIntent);
     } catch (error) {
       console.error("CLARA Google Play commitment failed:", error);
 
-      if (requestingTrial && isTrialUnavailableError(error)) {
+      if (isUserCancelledPurchaseError(error)) {
+        setPurchaseMessage("");
+      } else if (requestingTrial && isTrialUnavailableError(error)) {
         setOfferPurchaseIntent(DIRECT_MONTHLY_PURCHASE_INTENT);
         setPurchaseMessage(TRIAL_UNAVAILABLE_USER_MESSAGE);
       } else {
-        setPurchaseMessage(error?.message || "Google Play purchase could not be completed yet.");
+        setPurchaseMessage(getFriendlyBillingError(error, "purchase"));
       }
     } finally {
+      setPurchaseBusy(false);
+    }
+  };
+
+  const handleRestoreGooglePlayCommitment = async () => {
+    if (purchaseBusy) return;
+
+    setPurchaseBusy(true);
+    setCanRestorePurchase(false);
+    setPostPurchaseConfirming(true);
+    setPurchaseMessage(POST_PURCHASE_CONFIRMING_MESSAGE);
+    console.info("[CLARA Billing] Restore purchase started");
+
+    try {
+      const ownedPurchaseState = await queryOwnedGooglePlayPurchases({ productIds: [CLARA_COMMITMENT_PRODUCT_ID] });
+      const ownedPurchase = ownedPurchaseState?.purchases?.[0];
+
+      if (!ownedPurchaseState?.ok || !ownedPurchase?.purchaseToken) {
+        throw new Error(ownedPurchaseState?.debugMessage || "No active Google Play purchase was found to restore.");
+      }
+
+      console.info("[CLARA Billing] Restore purchase found owned Google Play purchase", {
+        responseCode: ownedPurchaseState?.responseCode || "OK",
+      });
+
+      await confirmCommittedAccessFromPurchase(
+        {
+          ...ownedPurchase,
+          restored: true,
+          raw: ownedPurchase.raw || ownedPurchase,
+        },
+        offerPurchaseIntent
+      );
+    } catch (error) {
+      console.error("[CLARA Billing] Restore purchase failed:", error);
+      setCanRestorePurchase(true);
+      setPurchaseMessage(getFriendlyBillingError(error, "post_purchase_confirm"));
+    } finally {
+      setPostPurchaseConfirming(false);
       setPurchaseBusy(false);
     }
   };
@@ -186,6 +315,7 @@ function ClaraCommitmentBookletModal({
     if (purchaseBusy) return;
 
     setPurchaseMessage("");
+    setCanRestorePurchase(false);
     setCommitmentOfferOpen(false);
     onDeclineTrial?.();
   };
@@ -274,6 +404,7 @@ function ClaraCommitmentBookletModal({
                   event.stopPropagation();
                   setOfferPurchaseIntent(normalizeOfferPurchaseIntent(purchaseIntent));
                   setPurchaseMessage("");
+                  setCanRestorePurchase(false);
                   setCommitmentOfferOpen(true);
                 }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
@@ -380,13 +511,23 @@ function ClaraCommitmentBookletModal({
               ) : null}
 
               <div className="mt-5 grid grid-cols-1 gap-2">
+                {canRestorePurchase ? (
+                  <button
+                    type="button"
+                    onClick={handleRestoreGooglePlayCommitment}
+                    disabled={purchaseBusy}
+                    className="rounded-full border border-cyan-100/20 bg-cyan-100/[0.1] px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-100/[0.14] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Restore Purchase
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleGooglePlayCommitment}
                   disabled={purchaseBusy}
                   className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {purchaseBusy ? "Opening Google Play..." : isTrialOffer ? "Start 7-day trial" : "Continue for ₱249/month"}
+                  {purchaseButtonLabel}
                 </button>
                 <button
                   type="button"
