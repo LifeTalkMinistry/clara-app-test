@@ -284,14 +284,14 @@ export default function LearningHubCarousel({
 
   return (
     <section
-      className={`relative w-full overflow-hidden px-1 py-0 ${
+      className={`relative w-full overflow-visible px-1 py-0 ${
         isExpanded ? "pb-[clamp(14px,2dvh,20px)]" : ""
       }`}
     >
       {!isExpanded ? (
         <div
           data-clara-learning-hub-loaded-bridge="true"
-          className="grid h-[clamp(62px,7dvh,74px)] place-items-center"
+          className="flex justify-center"
         >
           <LearningHubToggleButton
             isExpanded={isExpanded}
