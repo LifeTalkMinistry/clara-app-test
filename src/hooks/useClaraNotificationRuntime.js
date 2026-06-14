@@ -34,6 +34,10 @@ import {
 } from "@/lib/push-notifications";
 
 const DAILY_COMPLETION_PREFIX = "clara_daily_money_check_in_completed_";
+const EVALUATION_COOLDOWN_MS = 10_000;
+const FINANCE_EVENT_DEBOUNCE_MS = 750;
+const CLEANUP_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const CLEANUP_STORAGE_PREFIX = "clara_notifications_cleanup_last_run_";
 
 function dailyCompletionKey(userId, dateKey) {
   return `${DAILY_COMPLETION_PREFIX}${userId}:${dateKey}`;
@@ -42,6 +46,37 @@ function dailyCompletionKey(userId, dateKey) {
 function isDailyCheckInCompleted(userId, dateKey) {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(dailyCompletionKey(userId, dateKey)) === "true";
+}
+
+function isDocumentVisible() {
+  if (typeof document === "undefined") return true;
+  return document.visibilityState !== "hidden" && document.hidden !== true;
+}
+
+function cleanupStorageKey(userId) {
+  return `${CLEANUP_STORAGE_PREFIX}${userId}`;
+}
+
+function readCleanupTimestamp(userId) {
+  if (typeof window === "undefined" || !userId) return 0;
+
+  try {
+    const stored = window.localStorage.getItem(cleanupStorageKey(userId));
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeCleanupTimestamp(userId, timestamp) {
+  if (typeof window === "undefined" || !userId) return;
+
+  try {
+    window.localStorage.setItem(cleanupStorageKey(userId), String(timestamp));
+  } catch {
+    // Best effort only. Cleanup throttling should never break notifications.
+  }
 }
 
 export function markDailyMoneyCheckInCompleted(userId, dateKey) {
@@ -84,6 +119,14 @@ export default function useClaraNotificationRuntime({
 } = {}) {
   const evaluatingRef = useRef(false);
   const mountedRef = useRef(true);
+  const evaluateTimeoutRef = useRef(null);
+  const lastEvaluationAtRef = useRef(0);
+  const lastCleanupAtRef = useRef(0);
+  const latestDataRef = useRef({ budgets, expenses, savingsGoals, activeTask, navigate });
+
+  useEffect(() => {
+    latestDataRef.current = { budgets, expenses, savingsGoals, activeTask, navigate };
+  }, [activeTask, budgets, expenses, navigate, savingsGoals]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -95,11 +138,20 @@ export default function useClaraNotificationRuntime({
   useEffect(() => {
     if (!userId || typeof window === "undefined") return undefined;
 
-    let timer = null;
+    lastEvaluationAtRef.current = 0;
+    lastCleanupAtRef.current = readCleanupTimestamp(userId);
+
+    const clearPendingEvaluation = () => {
+      if (evaluateTimeoutRef.current !== null) {
+        window.clearTimeout(evaluateTimeoutRef.current);
+        evaluateTimeoutRef.current = null;
+      }
+    };
 
     const openDestination = (destination) => {
       if (!destination) return;
-      if (typeof navigate === "function") navigate(destination);
+      const latestNavigate = latestDataRef.current.navigate;
+      if (typeof latestNavigate === "function") latestNavigate(destination);
     };
 
     const deliverStoredNotification = async (notification, preferences) => {
@@ -164,7 +216,8 @@ export default function useClaraNotificationRuntime({
     };
 
     const evaluateTaskReminder = async (preferences) => {
-      if (!activeTask) return;
+      const task = latestDataRef.current.activeTask;
+      if (!task) return;
 
       const syncEnabledState = hasStoredNotificationPreferences(userId);
       let settings;
@@ -204,7 +257,7 @@ export default function useClaraNotificationRuntime({
         reminderState = await fetchTaskReminderState({
           supabase,
           userId,
-          taskId: activeTask.id,
+          taskId: task.id,
           reminderDate: reminderWindow.dateKey,
           windowKey: reminderWindow.windowKey,
         });
@@ -215,7 +268,7 @@ export default function useClaraNotificationRuntime({
 
       if (
         !shouldSurfaceTaskReminder({
-          task: activeTask,
+          task,
           settings,
           reminderState,
           reminderWindow,
@@ -225,21 +278,21 @@ export default function useClaraNotificationRuntime({
         return;
       }
 
-      const eventType = activeTask.isToday ? "today_task_ready" : "task_still_incomplete";
-      const dedupeKey = `${eventType}:${activeTask.id}:${reminderWindow.dateKey}:${reminderWindow.time.replace(":", "")}`;
+      const eventType = task.isToday ? "today_task_ready" : "task_still_incomplete";
+      const dedupeKey = `${eventType}:${task.id}:${reminderWindow.dateKey}:${reminderWindow.time.replace(":", "")}`;
       const result = await createNotification(
         buildNotificationContract({
           eventType,
           dedupeKey,
-          title: activeTask.isToday ? "Today’s CLARA task is ready" : "Your CLARA task is still waiting",
-          body: activeTask.title
-            ? `${activeTask.title} is still incomplete. Open it when you are ready to continue.`
+          title: task.isToday ? "Today’s CLARA task is ready" : "Your CLARA task is still waiting",
+          body: task.title
+            ? `${task.title} is still incomplete. Open it when you are ready to continue.`
             : "Your active program task is still incomplete.",
           userId,
           destination: "/lifeos",
           metadata: {
-            taskId: activeTask.id,
-            taskDay: activeTask.day || activeTask.day_number || null,
+            taskId: task.id,
+            taskDay: task.day || task.day_number || null,
             reminderWindowKey: reminderWindow.windowKey,
           },
         })
@@ -268,7 +321,7 @@ export default function useClaraNotificationRuntime({
             upsertTaskReminderState({
               supabase,
               userId,
-              task: activeTask,
+              task,
               reminderWindow,
               patch: {
                 last_acknowledged_at: new Date().toISOString(),
@@ -287,7 +340,7 @@ export default function useClaraNotificationRuntime({
             upsertTaskReminderState({
               supabase,
               userId,
-              task: activeTask,
+              task,
               reminderWindow,
               patch: {
                 snoozed_until: nextSnoozedUntil,
@@ -303,7 +356,7 @@ export default function useClaraNotificationRuntime({
         upsertTaskReminderState({
           supabase,
           userId,
-          task: activeTask,
+          task,
           reminderWindow,
           patch: {
             last_shown_at: new Date().toISOString(),
@@ -313,59 +366,139 @@ export default function useClaraNotificationRuntime({
       ]);
     };
 
-    const evaluate = async () => {
-      if (evaluatingRef.current || !mountedRef.current) return;
+    const maybeCleanupOldNotifications = async () => {
+      const now = Date.now();
+      const lastCleanupAt = lastCleanupAtRef.current || readCleanupTimestamp(userId);
+      if (now - lastCleanupAt < CLEANUP_COOLDOWN_MS) return;
+
+      await cleanupOldNotifications(userId);
+      lastCleanupAtRef.current = now;
+      writeCleanupTimestamp(userId, now);
+    };
+
+    const isRuntimeActive = () => mountedRef.current && isDocumentVisible();
+
+    const evaluate = async ({ reason = "manual", includeCleanup = false } = {}) => {
+      if (!isRuntimeActive()) return;
+      if (evaluatingRef.current) return;
+
       evaluatingRef.current = true;
+      lastEvaluationAtRef.current = Date.now();
 
       try {
         const preferences = readNotificationPreferences(userId);
+        const { budgets: latestBudgets, expenses: latestExpenses, savingsGoals: latestSavingsGoals } =
+          latestDataRef.current;
+
+        if (!isRuntimeActive()) return;
         await evaluateFinancialNotifications({
           userId,
           preferences,
-          budgets,
-          expenses,
-          savingsGoals,
+          budgets: latestBudgets,
+          expenses: latestExpenses,
+          savingsGoals: latestSavingsGoals,
         });
+
+        if (!isRuntimeActive()) return;
         await evaluateDailyCheckIn(preferences);
+
+        if (!isRuntimeActive()) return;
         await evaluateTaskReminder(preferences);
 
+        if (!isRuntimeActive()) return;
         const pending = await listNotifications(userId, {
           undeliveredOnly: true,
           limit: 12,
         });
         for (const notification of pending) {
+          if (!isRuntimeActive()) return;
           if (["today_task_ready", "task_still_incomplete"].includes(notification.eventType)) continue;
           await deliverStoredNotification(notification, preferences);
         }
-        await cleanupOldNotifications(userId);
+
+        if (includeCleanup && isRuntimeActive()) {
+          await maybeCleanupOldNotifications();
+        }
       } catch (error) {
-        console.warn("CLARA notification evaluation failed:", error);
+        console.warn(`CLARA notification evaluation failed (${reason}):`, error);
       } finally {
         evaluatingRef.current = false;
       }
     };
 
-    const schedule = () => {
-      clearInterval(timer);
-      timer = window.setInterval(evaluate, 60_000);
+    const scheduleEvaluation = (
+      reason,
+      { delay = 0, force = false, includeCleanup = false } = {}
+    ) => {
+      if (!isRuntimeActive()) {
+        clearPendingEvaluation();
+        return;
+      }
+
+      clearPendingEvaluation();
+
+      const now = Date.now();
+      const elapsed = now - lastEvaluationAtRef.current;
+      const cooldownRemaining = force ? 0 : Math.max(0, EVALUATION_COOLDOWN_MS - elapsed);
+      const waitMs = Math.max(delay, cooldownRemaining);
+
+      evaluateTimeoutRef.current = window.setTimeout(() => {
+        evaluateTimeoutRef.current = null;
+        evaluate({ reason, includeCleanup });
+      }, waitMs);
     };
 
-    evaluate();
-    schedule();
+    const handleFocus = () => {
+      scheduleEvaluation("focus", { delay: 250 });
+    };
 
-    const eventNames = [
-      "focus",
+    const handleFinanceUpdate = () => {
+      scheduleEvaluation("finance", { delay: FINANCE_EVENT_DEBOUNCE_MS });
+    };
+
+    const handlePreferencesUpdate = (event) => {
+      if (event?.detail?.userId && event.detail.userId !== userId) return;
+      scheduleEvaluation("preferences", { delay: 250, force: true });
+    };
+
+    const handleDailyCheckInCompleted = (event) => {
+      if (event?.detail?.userId && event.detail.userId !== userId) return;
+      scheduleEvaluation("daily-completed", { delay: 250, force: true });
+    };
+
+    const handleVisibilityChange = () => {
+      if (isDocumentVisible()) {
+        scheduleEvaluation("visible", { delay: 250, force: true, includeCleanup: true });
+      } else {
+        clearPendingEvaluation();
+      }
+    };
+
+    scheduleEvaluation("mount", { delay: 500, force: true, includeCleanup: true });
+
+    const financeEventNames = [
       "clara:finance-data-updated",
       "clara-finance-updated",
       "clara-local-finance-updated",
-      "clara:notification-preferences-updated",
-      "clara:daily-money-check-in-completed",
     ];
-    eventNames.forEach((eventName) => window.addEventListener(eventName, evaluate));
+
+    window.addEventListener("focus", handleFocus);
+    financeEventNames.forEach((eventName) => window.addEventListener(eventName, handleFinanceUpdate));
+    window.addEventListener("clara:notification-preferences-updated", handlePreferencesUpdate);
+    window.addEventListener("clara:daily-money-check-in-completed", handleDailyCheckInCompleted);
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
 
     return () => {
-      clearInterval(timer);
-      eventNames.forEach((eventName) => window.removeEventListener(eventName, evaluate));
+      clearPendingEvaluation();
+      window.removeEventListener("focus", handleFocus);
+      financeEventNames.forEach((eventName) => window.removeEventListener(eventName, handleFinanceUpdate));
+      window.removeEventListener("clara:notification-preferences-updated", handlePreferencesUpdate);
+      window.removeEventListener("clara:daily-money-check-in-completed", handleDailyCheckInCompleted);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
     };
-  }, [activeTask, budgets, expenses, navigate, savingsGoals, userId]);
+  }, [userId]);
 }
