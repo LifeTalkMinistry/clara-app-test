@@ -29,9 +29,9 @@ import {
 } from "@/lib/notifications/notificationPreferences";
 import { evaluateFinancialNotifications } from "@/lib/notifications/financialNotificationEvaluator";
 import {
-  getNotificationPermissionState,
-  showDeviceNotification,
-} from "@/lib/push-notifications";
+  getRuntimeDeviceNotificationPermissionState,
+  showRuntimeDeviceNotification,
+} from "@/lib/notifications/deviceNotifications";
 
 const DAILY_COMPLETION_PREFIX = "clara_daily_money_check_in_completed_";
 const EVALUATION_COOLDOWN_MS = 10_000;
@@ -154,6 +154,32 @@ export default function useClaraNotificationRuntime({
       if (typeof latestNavigate === "function") latestNavigate(destination);
     };
 
+    const deliverDeviceNotificationIfAllowed = async (notification, preferences) => {
+      if (preferences.deliveryMode !== "device_and_in_app") return;
+
+      let permission = "unsupported";
+      try {
+        permission = await getRuntimeDeviceNotificationPermissionState();
+      } catch (error) {
+        console.warn("CLARA device notification permission check failed:", error);
+        return;
+      }
+
+      if (permission !== "granted") return;
+
+      try {
+        await showRuntimeDeviceNotification({
+          title: notification.title,
+          body: notification.body,
+          url: notification.destination || "/dashboard",
+          tag: notification.dedupeKey,
+          eventType: notification.eventType,
+        });
+      } catch (error) {
+        console.warn("CLARA device notification delivery failed:", error);
+      }
+    };
+
     const deliverStoredNotification = async (notification, preferences) => {
       if (!notification || notification.deliveredAt || notification.dismissedAt) return;
       if (notification.snoozedUntil && new Date(notification.snoozedUntil) > new Date()) return;
@@ -177,22 +203,7 @@ export default function useClaraNotificationRuntime({
           : undefined,
       });
 
-      if (
-        preferences.deliveryMode === "device_and_in_app" &&
-        getNotificationPermissionState() === "granted"
-      ) {
-        try {
-          await showDeviceNotification({
-            title: notification.title,
-            body: notification.body,
-            url: notification.destination || "/dashboard",
-            tag: notification.dedupeKey,
-            eventType: notification.eventType,
-          });
-        } catch (error) {
-          console.warn("CLARA device notification delivery failed:", error);
-        }
-      }
+      await deliverDeviceNotificationIfAllowed(notification, preferences);
 
       await markNotificationDelivered(userId, notification.id);
     };
@@ -350,6 +361,8 @@ export default function useClaraNotificationRuntime({
           },
         },
       });
+
+      await deliverDeviceNotificationIfAllowed(result.notification, preferences);
 
       await Promise.all([
         markNotificationDelivered(userId, result.notification.id),
