@@ -17,7 +17,10 @@ export default function LearningHubToggleButton({
   onTouchStart,
   onTouchEnd,
   className = "",
+  flushSpacing = false,
 }) {
+  const spacingClass = flushSpacing || isExpanded ? "mt-0 mb-0" : "mt-3 mb-0";
+
   return (
     <button
       type="button"
@@ -34,7 +37,7 @@ export default function LearningHubToggleButton({
       onClick={onClick}
       onTouchStart={isLocked ? undefined : onTouchStart}
       onTouchEnd={isLocked ? undefined : onTouchEnd}
-      className={`clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98] ${className}`}
+      className={`clara-learning-motion relative isolate mx-auto ${spacingClass} flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98] ${className}`}
       style={learningHubToggleSurface}
     >
       <span className="pointer-events-none absolute -left-12 -top-14 z-0 h-24 w-24 rounded-full bg-cyan-300/[0.08]" />
