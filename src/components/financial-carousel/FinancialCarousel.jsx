@@ -29,6 +29,7 @@ export default function FinancialCarousel(props) {
     dashboardScale = {},
     selectedDashboardTheme = {},
     themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
+    flushSpacing = false,
     expandedFinanceCard,
     monthlyBudgetPlan,
     savingsGoals,
@@ -103,6 +104,7 @@ export default function FinancialCarousel(props) {
     [items, expandedFinanceCard]
   );
   const isInlineFocusExpanded = expandedCardIndex >= 0;
+  const bottomSpacingClass = flushSpacing ? "mb-0" : "mb-5";
 
   useEffect(() => {
     if (expandedCardIndex < 0 || typeof window === "undefined") return undefined;
@@ -120,7 +122,7 @@ export default function FinancialCarousel(props) {
   if (!items.length) return null;
 
   return (
-    <div className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
+    <div className={`relative z-20 ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
       <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded}>
         {items.map((item, index) => {
