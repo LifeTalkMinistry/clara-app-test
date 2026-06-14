@@ -44,14 +44,12 @@ export default function LearningHub() {
               className="!mt-0 !mb-0"
             />
           </div>
-        ) : null}
+        ) : (
+          <Suspense fallback={null}>
+            <LearningHubLoaded initialExpanded />
+          </Suspense>
+        )}
       </div>
-
-      {shouldLoadHub ? (
-        <Suspense fallback={null}>
-          <LearningHubLoaded initialExpanded />
-        </Suspense>
-      ) : null}
     </section>
   );
 }
