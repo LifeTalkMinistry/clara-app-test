@@ -25,6 +25,7 @@ function readActiveCurrentState() {
 export default function DailyTipCard({
   hasCommittedAccess = true,
   onOpenCommitmentBooklet,
+  flushSpacing = false,
 }) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip();
   const {
@@ -42,6 +43,7 @@ export default function DailyTipCard({
   const celebrationTimerRef = useRef(null);
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
+  const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
 
   useEffect(() => {
     const syncActiveState = () => setActiveCurrentState(readActiveCurrentState());
@@ -161,7 +163,7 @@ export default function DailyTipCard({
 
   if (activeCurrentState) {
     return (
-      <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
+      <div className={`clara-budget-focus-shift clara-budget-focus-tip ${spacingClass}`}>
         <div className="relative h-[150px] w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
@@ -192,7 +194,7 @@ export default function DailyTipCard({
   }
 
   return (
-    <div className="clara-budget-focus-shift clara-budget-focus-tip px-3 mt-1.5">
+    <div className={`clara-budget-focus-shift clara-budget-focus-tip ${spacingClass}`}>
       <div
         role="button"
         tabIndex={0}
