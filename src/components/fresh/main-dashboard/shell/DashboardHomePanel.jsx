@@ -183,63 +183,65 @@ export default function DashboardHomePanel({
         </div>
       )}
 
-      {dashboardShellReady && <LearningHub user={user} />}
+      <div className="flex flex-col gap-[14px]">
+        {dashboardShellReady && <LearningHub user={user} />}
 
-      {!!user && (
-        <div className={dashboardScale.financeWrap}>
-          <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
+        {!!user && (
+          <div className={dashboardScale.financeWrap}>
+            <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
 
-          {shouldShowNonBlockingRefresh ? (
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
-              Refreshing finance data...
-            </div>
-          ) : null}
+            {shouldShowNonBlockingRefresh ? (
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+                Refreshing finance data...
+              </div>
+            ) : null}
 
-          <FinancialCarousel
-            dashboardScale={dashboardScale}
-            selectedDashboardTheme={selectedDashboardTheme}
-            themeInactiveDotClass={themeInactiveDotClass}
-            plan={currentPlan}
-            wallets={wallets}
-            walletMoney={walletMoney}
-            walletPreviewTransactions={walletPreviewTransactions}
-            survivalExpense={survivalExpense}
-            user={user}
-            guardChecked={guardChecked}
-            loading={loading}
-            profileData={profileData}
-            firstPositiveNumber={firstPositiveNumber}
-            readStoredSurvivalExpense={readStoredSurvivalExpense}
-            monthlyBudgetPlan={monthlyBudgetPlan}
-            thisMonthSpent={thisMonthSpent}
-            savingsGoals={savingsGoals}
-            totalSavingsSaved={totalSavingsSaved}
-            totalSavingsTarget={totalSavingsTarget}
-            primarySavingsGoal={primarySavingsGoal}
-            expandedFinanceCard={expandedFinanceCard}
-            toggleFinanceDetails={toggleFinanceDetails}
-            financeActionLoading={financeActionLoading}
-            onQuickExpense={openManualExpenseModal}
-            onSurvivalSaved={saveSurvivalExpenseInline}
-            onSaveBudget={handleSaveBudget}
-            onEditBudgetCategory={handleEditBudgetCategory}
-            onDeleteBudgetCategory={handleDeleteBudgetCategory}
-            onResetBudget={handleResetBudget}
-            onCreateWallet={handleCreateWallet}
-            onMoveWallet={moveWalletInline}
-            onDeleteWallet={handleDeleteWallet}
-            onAddMoney={handleAddMoney}
-            onTransferMoney={handleTransferMoney}
-            onSaveSavingsGoal={handleSaveSavingsGoal}
-            onDeleteSavingsGoal={handleDeleteSavingsGoal}
-            onAddSavings={handleAddSavings}
-            startClaraAiLongPress={isFreePlan ? undefined : startClaraAiLongPress}
-            endClaraAiLongPress={isFreePlan ? undefined : endClaraAiLongPress}
-            handleClaraAiOrbClickCapture={isFreePlan ? undefined : handleClaraAiOrbClickCapture}
-          />
-        </div>
-      )}
+            <FinancialCarousel
+              dashboardScale={dashboardScale}
+              selectedDashboardTheme={selectedDashboardTheme}
+              themeInactiveDotClass={themeInactiveDotClass}
+              plan={currentPlan}
+              wallets={wallets}
+              walletMoney={walletMoney}
+              walletPreviewTransactions={walletPreviewTransactions}
+              survivalExpense={survivalExpense}
+              user={user}
+              guardChecked={guardChecked}
+              loading={loading}
+              profileData={profileData}
+              firstPositiveNumber={firstPositiveNumber}
+              readStoredSurvivalExpense={readStoredSurvivalExpense}
+              monthlyBudgetPlan={monthlyBudgetPlan}
+              thisMonthSpent={thisMonthSpent}
+              savingsGoals={savingsGoals}
+              totalSavingsSaved={totalSavingsSaved}
+              totalSavingsTarget={totalSavingsTarget}
+              primarySavingsGoal={primarySavingsGoal}
+              expandedFinanceCard={expandedFinanceCard}
+              toggleFinanceDetails={toggleFinanceDetails}
+              financeActionLoading={financeActionLoading}
+              onQuickExpense={openManualExpenseModal}
+              onSurvivalSaved={saveSurvivalExpenseInline}
+              onSaveBudget={handleSaveBudget}
+              onEditBudgetCategory={handleEditBudgetCategory}
+              onDeleteBudgetCategory={handleDeleteBudgetCategory}
+              onResetBudget={handleResetBudget}
+              onCreateWallet={handleCreateWallet}
+              onMoveWallet={moveWalletInline}
+              onDeleteWallet={handleDeleteWallet}
+              onAddMoney={handleAddMoney}
+              onTransferMoney={handleTransferMoney}
+              onSaveSavingsGoal={handleSaveSavingsGoal}
+              onDeleteSavingsGoal={handleDeleteSavingsGoal}
+              onAddSavings={handleAddSavings}
+              startClaraAiLongPress={isFreePlan ? undefined : startClaraAiLongPress}
+              endClaraAiLongPress={isFreePlan ? undefined : endClaraAiLongPress}
+              handleClaraAiOrbClickCapture={isFreePlan ? undefined : handleClaraAiOrbClickCapture}
+            />
+          </div>
+        )}
+      </div>
 
       <DashboardMoneySummaryStable
         key={moneySummaryResetKey}
