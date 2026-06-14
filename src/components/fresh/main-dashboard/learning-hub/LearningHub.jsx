@@ -47,7 +47,7 @@ export default function LearningHub() {
           </div>
         ) : (
           <Suspense fallback={null}>
-            <LearningHubLoaded initialExpanded />
+            <LearningHubLoaded initialExpanded flushSpacing={true} />
           </Suspense>
         )}
       </div>
