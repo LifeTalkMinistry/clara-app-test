@@ -12,8 +12,8 @@ const resolveOrbAssetSrc = (assetPath = "") => {
   if (
     trimmedPath.startsWith("http://") ||
     trimmedPath.startsWith("https://") ||
-    trimmedPath.startsWith("data:") ||
-    trimmedPath.startsWith("blob:")
+    trimmedPath.startsWith("data" + ":") ||
+    trimmedPath.startsWith("blob" + ":")
   ) {
     return trimmedPath;
   }
@@ -181,7 +181,9 @@ export default function DashboardMoneySummaryStable({
   };
 
   return (
-    <div
+    <section
+      aria-label="Financial summary"
+      data-clara-dashboard-section="money-summary"
       className={`relative mt-2 grid cursor-default select-none grid-cols-2 overflow-hidden border ${
         dashboardScale.summaryGrid || "rounded-[26px]"
       }`}
@@ -288,6 +290,6 @@ export default function DashboardMoneySummaryStable({
           </h2>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
