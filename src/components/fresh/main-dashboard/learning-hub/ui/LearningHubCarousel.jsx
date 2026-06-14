@@ -15,6 +15,7 @@ export default function LearningHubCarousel({
   activeCategoryLabel = "",
   hasCommittedAccess = true,
   initialExpanded = false,
+  flushSpacing = false,
   onBackToCategories,
   onOpenCommitmentBooklet,
   onOpenItem,
@@ -301,7 +302,7 @@ export default function LearningHubCarousel({
             onClick={handleHeaderClick}
             onTouchStart={handleHeaderTouchStart}
             onTouchEnd={handleHeaderTouchEnd}
-            className="!mt-0 !mb-0"
+            flushSpacing={flushSpacing}
           />
         </div>
       ) : (
@@ -313,6 +314,7 @@ export default function LearningHubCarousel({
           onClick={handleHeaderClick}
           onTouchStart={handleHeaderTouchStart}
           onTouchEnd={handleHeaderTouchEnd}
+          flushSpacing={flushSpacing}
         />
       )}
 
