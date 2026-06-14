@@ -94,7 +94,7 @@ export default function useDashboardPanelUiState({
     resetDashboardThemeToDefault,
     dashboardPanelAnimationClass,
     dashboardPanelViewportClass,
-    dashboardSmartScrollClass: "overflow-y-hidden",
+    dashboardSmartScrollClass: "overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
     dashboardSmartContentClass: "",
     shouldShowBlockingDashboardLoader,
     shouldShowNonBlockingRefresh,
