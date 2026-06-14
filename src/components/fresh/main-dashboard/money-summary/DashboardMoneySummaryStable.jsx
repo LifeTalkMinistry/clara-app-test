@@ -199,7 +199,7 @@ export default function DashboardMoneySummaryStable({
         type="button"
         data-clara-summary-privacy-toggle="true"
         onClick={toggleMoneySummaryVisibility}
-        className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
+        className="absolute left-[39%] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 max-[380px]:left-[42%] max-[380px]:top-7"
         aria-label={
           moneySummaryVisible
             ? "Hide financial summary amounts"
@@ -213,6 +213,31 @@ export default function DashboardMoneySummaryStable({
         )}
       </button>
 
+      <div className="pointer-events-auto absolute right-5 top-1/2 z-50 flex h-[76px] w-[76px] -translate-y-1/2 items-center justify-center max-[380px]:right-4 max-[380px]:h-[68px] max-[380px]:w-[68px]">
+        <button
+          type="button"
+          data-clara-manual-expense-orb="true"
+          onClick={handleOrbClick}
+          onDoubleClick={handleOrbClick}
+          onPointerDown={handleOrbPointerDown}
+          onPointerUp={handleOrbPointerUp}
+          onPointerCancel={handleOrbCancel}
+          onPointerLeave={handleOrbCancel}
+          onContextMenu={handleOrbClick}
+          className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white transition hover:bg-white/[0.14] active:scale-95"
+          style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+          aria-label="Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
+        >
+          <img
+            src={CLARA_ORB_LOGO_SRC}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="h-11 w-11 scale-[1.12] select-none rounded-full object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.42)]"
+          />
+        </button>
+      </div>
+
       <div
         data-clara-summary-card="money-left"
         className={`relative isolate overflow-hidden ${
@@ -220,32 +245,7 @@ export default function DashboardMoneySummaryStable({
         }`}
         style={moneyCellSurface}
       >
-        <div className="absolute right-3 top-[46%] z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center">
-          <button
-            type="button"
-            data-clara-manual-expense-orb="true"
-            onClick={handleOrbClick}
-            onDoubleClick={handleOrbClick}
-            onPointerDown={handleOrbPointerDown}
-            onPointerUp={handleOrbPointerUp}
-            onPointerCancel={handleOrbCancel}
-            onPointerLeave={handleOrbCancel}
-            onContextMenu={handleOrbClick}
-            className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white transition hover:bg-white/[0.14] active:scale-95"
-            style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-            aria-label="Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
-          >
-            <img
-              src={CLARA_ORB_LOGO_SRC}
-              alt=""
-              aria-hidden="true"
-              draggable={false}
-              className="h-11 w-11 scale-[1.12] select-none rounded-full object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.42)]"
-            />
-          </button>
-        </div>
-
-        <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center pr-24">
+        <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center pr-[128px] max-[380px]:pr-[112px]">
           <p
             className={`uppercase ${
               dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"
