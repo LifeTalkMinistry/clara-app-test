@@ -13,12 +13,16 @@ const DashboardShell = forwardRef(function DashboardShell(
   },
   ref
 ) {
+  const resolvedClassName = [
+    "clara-dashboard-shell",
+    baseClassName,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <Component
-      ref={ref}
-      className={`${baseClassName} ${className}`.trim()}
-      style={style}
-    >
+    <Component ref={ref} className={resolvedClassName} style={style}>
       {children}
     </Component>
   );
