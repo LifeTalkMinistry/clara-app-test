@@ -183,7 +183,7 @@ export default function DashboardHomePanel({
         </div>
       )}
 
-      <div className="flex flex-col gap-[14px]">
+      <div className="clara-dashboard-hub-rail flex flex-col [--clara-hub-rail-gap:clamp(15px,1.8dvh,18px)] gap-[var(--clara-hub-rail-gap)]">
         {dashboardShellReady && <LearningHub user={user} />}
 
         {!!user && (
