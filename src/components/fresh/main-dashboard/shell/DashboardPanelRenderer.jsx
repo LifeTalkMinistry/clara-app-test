@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   launchGooglePlayPurchase,
   persistGooglePlayPurchase,
-  queryOwnedGooglePlayPurchases,
   waitForGooglePlayEntitlement,
 } from "@/lib/google-play-billing";
 import {
@@ -35,6 +34,10 @@ const TRIAL_UNAVAILABLE_USER_MESSAGE =
 const OFFER_LOAD_ERROR_MESSAGE =
   "CLARA could not load the offer right now. Please check your connection and try again.";
 const PURCHASE_START_ERROR_MESSAGE = "CLARA could not start the purchase right now. Please try again.";
+const GOOGLE_PLAY_ALREADY_SUBSCRIBED_MESSAGE =
+  "Google Play says this account is already subscribed. Tap Restore Purchase to connect it to CLARA.";
+const RESTORE_TOKEN_NOT_FOUND_MESSAGE =
+  "Google Play says this account may already be subscribed, but CLARA could not read the purchase token yet. Please close the app, reopen it, then tap Restore Purchase again.";
 const POST_PURCHASE_CONFIRMING_MESSAGE = "Confirming your CLARA access...";
 const POST_PURCHASE_CONFIRM_ERROR_MESSAGE =
   "Payment completed. CLARA is still confirming your access. Please tap Restore Purchase if it does not unlock in a few seconds.";
@@ -48,6 +51,156 @@ function readPlanPreview() {
 
 function normalizeOfferPurchaseIntent(nextPurchaseIntent) {
   return nextPurchaseIntent === TRIAL_PURCHASE_INTENT ? TRIAL_PURCHASE_INTENT : DIRECT_MONTHLY_PURCHASE_INTENT;
+}
+
+function normalizeBillingText(value) {
+  return String(value ?? "").trim();
+}
+
+function parseBillingBridgeResult(result) {
+  if (!result) return {};
+  if (typeof result === "string") {
+    try {
+      return JSON.parse(result);
+    } catch {
+      return { rawValue: result };
+    }
+  }
+  return result;
+}
+
+function getBillingBridge() {
+  if (typeof window === "undefined") return null;
+  return window?.ClaraBilling || window?.Capacitor?.Plugins?.ClaraBilling || null;
+}
+
+function getBridgePurchaseProductId(purchase = {}) {
+  return normalizeBillingText(
+    purchase?.productId ||
+      purchase?.product_id ||
+      purchase?.sku ||
+      purchase?.product ||
+      purchase?.subscriptionId ||
+      purchase?.subscription_id
+  );
+}
+
+function extractBridgePurchases(parsed = {}) {
+  return [
+    ...(Array.isArray(parsed?.purchases) ? parsed.purchases : []),
+    ...(Array.isArray(parsed?.items) ? parsed.items : []),
+    ...(Array.isArray(parsed?.purchaseList) ? parsed.purchaseList : []),
+    ...(Array.isArray(parsed?.purchaseDataList) ? parsed.purchaseDataList : []),
+    ...(Array.isArray(parsed?.subscriptions) ? parsed.subscriptions : []),
+    ...(parsed?.purchase ? [parsed.purchase] : []),
+    ...(parsed?.item ? [parsed.item] : []),
+    ...(parsed?.subscription ? [parsed.subscription] : []),
+  ]
+    .map(parseBillingBridgeResult)
+    .filter(Boolean);
+}
+
+function getBridgePurchaseToken(parsed = {}, matchedPurchase = null) {
+  const source = matchedPurchase || parsed || {};
+  return normalizeBillingText(
+    source?.purchaseToken ||
+      source?.token ||
+      source?.purchase_token ||
+      parsed?.purchaseToken ||
+      parsed?.token ||
+      parsed?.purchase_token
+  );
+}
+
+function getBridgeOrderId(parsed = {}, matchedPurchase = null) {
+  const source = matchedPurchase || parsed || {};
+  return normalizeBillingText(source?.orderId || source?.order_id || parsed?.orderId || parsed?.order_id);
+}
+
+function getBridgeSubscriptionFields(parsed = {}, matchedPurchase = null) {
+  const source = matchedPurchase || parsed || {};
+  return {
+    subscriptionId: normalizeBillingText(
+      source?.subscriptionId || source?.subscription_id || source?.productId || source?.product_id
+    ),
+    basePlanId: normalizeBillingText(source?.basePlanId || source?.base_plan_id || source?.basePlan || source?.offerBasePlanId),
+    offerId: normalizeBillingText(source?.offerId || source?.offer_id),
+    offerToken: normalizeBillingText(
+      source?.offerToken ||
+        source?.offer_token ||
+        source?.subscriptionOfferToken ||
+        source?.subscription_offer_token
+    ),
+    trialOffer: source?.trialOffer === true || source?.trial_offer === true,
+  };
+}
+
+function normalizeRestorePayloadFromBridge(parsed = {}, methodName = "restore") {
+  const purchases = extractBridgePurchases(parsed);
+  const matchedPurchase =
+    purchases.find((purchase) => getBridgePurchaseProductId(purchase) === CLARA_COMMITMENT_PRODUCT_ID) ||
+    (getBridgePurchaseProductId(parsed) === CLARA_COMMITMENT_PRODUCT_ID ? parsed : null) ||
+    purchases.find((purchase) => getBridgePurchaseToken(purchase));
+  const purchaseToken = getBridgePurchaseToken(parsed, matchedPurchase);
+
+  if (!purchaseToken) return null;
+
+  return {
+    ok: true,
+    restored: true,
+    cancelled: false,
+    responseCode: "ITEM_ALREADY_OWNED",
+    productId: CLARA_COMMITMENT_PRODUCT_ID,
+    purchaseToken,
+    orderId: getBridgeOrderId(parsed, matchedPurchase),
+    ...getBridgeSubscriptionFields(parsed, matchedPurchase),
+    raw: { ...parsed, restored: true, restoredVia: methodName, matchedPurchase },
+  };
+}
+
+async function restoreGooglePlayCommitmentPurchase({ userId, userEmail }) {
+  const bridge = getBillingBridge();
+  if (!bridge) {
+    throw new Error("Google Play Billing bridge was not found in this app build.");
+  }
+
+  const payload = {
+    productId: CLARA_COMMITMENT_PRODUCT_ID,
+    planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
+    productType: "subs",
+    userId: normalizeBillingText(userId),
+    userEmail: normalizeBillingText(userEmail),
+    purchaseContext: "committed_restore",
+  };
+  const restoreMethods = [
+    "restorePurchases",
+    "restorePurchase",
+    "queryOwnedPurchases",
+    "getPurchases",
+    "queryPurchases",
+    "getOwnedPurchases",
+    "getPurchaseHistory",
+  ];
+  const errors = [];
+
+  for (const methodName of restoreMethods) {
+    const method = bridge?.[methodName];
+    if (typeof method !== "function") continue;
+
+    try {
+      const parsed = parseBillingBridgeResult(await method.call(bridge, payload));
+      const restoredPurchase = normalizeRestorePayloadFromBridge(parsed, methodName);
+      if (restoredPurchase) return restoredPurchase;
+      errors.push(`${methodName}: no purchase token`);
+    } catch (error) {
+      errors.push(`${methodName}: ${error?.message || error?.debugMessage || "failed"}`);
+    }
+  }
+
+  const restoreError = new Error(RESTORE_TOKEN_NOT_FOUND_MESSAGE);
+  restoreError.responseCode = "ITEM_ALREADY_OWNED";
+  restoreError.debugMessage = `Restore methods did not return a purchase token. ${errors.join(" | ")}`;
+  throw restoreError;
 }
 
 function isTrialUnavailableError(error) {
@@ -69,6 +222,21 @@ function isUserCancelledPurchaseError(error) {
   const code = String(error?.responseCode || error?.code || "").toUpperCase();
   const message = String(error?.message || error?.debugMessage || error?.details || "").toLowerCase();
   return code === "USER_CANCELED" || message.includes("user canceled") || message.includes("user cancelled") || message.includes("cancelled");
+}
+
+function isGooglePlayAlreadySubscribedError(error) {
+  const code = String(error?.responseCode || error?.code || error?.raw?.responseCode || error?.raw?.code || "").toUpperCase();
+  const message = String(error?.message || error?.debugMessage || error?.details || error?.raw?.message || error || "").toLowerCase();
+
+  return (
+    code === "ITEM_ALREADY_OWNED" ||
+    message.includes("already subscribed") ||
+    message.includes("already own") ||
+    message.includes("already owned") ||
+    message.includes("item already owned") ||
+    message.includes("already purchased") ||
+    message.includes("account is already subscribed")
+  );
 }
 
 function isLinkedToAnotherClaraAccountError(error) {
@@ -99,6 +267,7 @@ function isConfirmedGooglePlayPurchase(purchaseResult) {
 
 function getFriendlyBillingError(error, context = "purchase") {
   if (isLinkedToAnotherClaraAccountError(error)) return PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_MESSAGE;
+  if (isGooglePlayAlreadySubscribedError(error)) return GOOGLE_PLAY_ALREADY_SUBSCRIBED_MESSAGE;
   if (context === "post_purchase_confirm") return POST_PURCHASE_CONFIRM_ERROR_MESSAGE;
 
   const rawMessage = String(error?.message || error?.debugMessage || error?.details || error || "").toLowerCase();
@@ -178,12 +347,16 @@ function ClaraCommitmentBookletModal({
       purchaseResult?.purchase_token ||
       purchaseResult?.raw?.purchaseToken ||
       purchaseResult?.raw?.purchase_token ||
+      purchaseResult?.raw?.matchedPurchase?.purchaseToken ||
+      purchaseResult?.raw?.matchedPurchase?.purchase_token ||
       "";
     const orderId =
       purchaseResult?.orderId ||
       purchaseResult?.order_id ||
       purchaseResult?.raw?.orderId ||
       purchaseResult?.raw?.order_id ||
+      purchaseResult?.raw?.matchedPurchase?.orderId ||
+      purchaseResult?.raw?.matchedPurchase?.order_id ||
       "";
 
     if (!activeUserId) {
@@ -280,6 +453,9 @@ function ClaraCommitmentBookletModal({
       } else if (requestingTrial && isTrialUnavailableError(error)) {
         setOfferPurchaseIntent(DIRECT_MONTHLY_PURCHASE_INTENT);
         setPurchaseMessage(TRIAL_UNAVAILABLE_USER_MESSAGE);
+      } else if (isGooglePlayAlreadySubscribedError(error)) {
+        setCanRestorePurchase(true);
+        setPurchaseMessage(GOOGLE_PLAY_ALREADY_SUBSCRIBED_MESSAGE);
       } else {
         setPurchaseMessage(getFriendlyBillingError(error, "purchase"));
       }
@@ -298,25 +474,17 @@ function ClaraCommitmentBookletModal({
     console.info("[CLARA Billing] Restore purchase started");
 
     try {
-      const ownedPurchaseState = await queryOwnedGooglePlayPurchases({ productIds: [CLARA_COMMITMENT_PRODUCT_ID] });
-      const ownedPurchase = ownedPurchaseState?.purchases?.[0];
-
-      if (!ownedPurchaseState?.ok || !ownedPurchase?.purchaseToken) {
-        throw new Error(ownedPurchaseState?.debugMessage || "No active Google Play purchase was found to restore.");
-      }
-
-      console.info("[CLARA Billing] Restore purchase found owned Google Play purchase", {
-        responseCode: ownedPurchaseState?.responseCode || "OK",
+      const restoredPurchase = await restoreGooglePlayCommitmentPurchase({
+        userId: user?.id,
+        userEmail: user?.email,
       });
 
-      await confirmCommittedAccessFromPurchase(
-        {
-          ...ownedPurchase,
-          restored: true,
-          raw: ownedPurchase.raw || ownedPurchase,
-        },
-        offerPurchaseIntent
-      );
+      console.info("[CLARA Billing] Restore purchase found owned Google Play purchase", {
+        responseCode: restoredPurchase?.responseCode || "ITEM_ALREADY_OWNED",
+        restoredVia: restoredPurchase?.raw?.restoredVia || "unknown",
+      });
+
+      await confirmCommittedAccessFromPurchase(restoredPurchase, offerPurchaseIntent);
     } catch (error) {
       console.error("[CLARA Billing] Restore purchase failed:", error);
       setCanRestorePurchase(!isLinkedToAnotherClaraAccountError(error));
