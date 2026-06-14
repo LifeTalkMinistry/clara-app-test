@@ -38,6 +38,9 @@ const PURCHASE_START_ERROR_MESSAGE = "CLARA could not start the purchase right n
 const POST_PURCHASE_CONFIRMING_MESSAGE = "Confirming your CLARA access...";
 const POST_PURCHASE_CONFIRM_ERROR_MESSAGE =
   "Payment completed. CLARA is still confirming your access. Please tap Restore Purchase if it does not unlock in a few seconds.";
+const PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE = "PURCHASE_LINKED_TO_ANOTHER_CLARA_ACCOUNT";
+const PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_MESSAGE =
+  "This Google Play subscription is already linked to another CLARA account. Please sign in with the original CLARA account that made the purchase.";
 
 function readPlanPreview() {
   return readDeveloperMembershipPreview();
@@ -68,6 +71,18 @@ function isUserCancelledPurchaseError(error) {
   return code === "USER_CANCELED" || message.includes("user canceled") || message.includes("user cancelled") || message.includes("cancelled");
 }
 
+function isLinkedToAnotherClaraAccountError(error) {
+  const code = String(error?.responseCode || error?.code || error?.raw?.code || "").toUpperCase();
+  const message = String(error?.message || error?.debugMessage || error?.details || error?.raw?.error || error || "").toLowerCase();
+
+  return (
+    code === PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE ||
+    message.includes("already linked to another user") ||
+    message.includes("already linked to another clara account") ||
+    message.includes("original clara account")
+  );
+}
+
 function isConfirmedGooglePlayPurchase(purchaseResult) {
   if (!purchaseResult || purchaseResult.cancelled === true) return false;
   return Boolean(
@@ -83,6 +98,7 @@ function isConfirmedGooglePlayPurchase(purchaseResult) {
 }
 
 function getFriendlyBillingError(error, context = "purchase") {
+  if (isLinkedToAnotherClaraAccountError(error)) return PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_MESSAGE;
   if (context === "post_purchase_confirm") return POST_PURCHASE_CONFIRM_ERROR_MESSAGE;
 
   const rawMessage = String(error?.message || error?.debugMessage || error?.details || error || "").toLowerCase();
@@ -215,7 +231,7 @@ function ClaraCommitmentBookletModal({
       onClose();
     } catch (confirmError) {
       console.error("[CLARA Billing] Entitlement refresh failed after successful purchase", confirmError);
-      setCanRestorePurchase(true);
+      setCanRestorePurchase(!isLinkedToAnotherClaraAccountError(confirmError));
       setPurchaseMessage(getFriendlyBillingError(confirmError, "post_purchase_confirm"));
     } finally {
       setPostPurchaseConfirming(false);
@@ -303,7 +319,7 @@ function ClaraCommitmentBookletModal({
       );
     } catch (error) {
       console.error("[CLARA Billing] Restore purchase failed:", error);
-      setCanRestorePurchase(true);
+      setCanRestorePurchase(!isLinkedToAnotherClaraAccountError(error));
       setPurchaseMessage(getFriendlyBillingError(error, "post_purchase_confirm"));
     } finally {
       setPostPurchaseConfirming(false);
