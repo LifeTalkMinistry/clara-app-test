@@ -90,7 +90,7 @@ export default function useDashboardPanelUiState({
             }
           : null,
     },
-    { key: "settings", label: Settings, badge: null },
+    { key: "settings", label: "Settings", icon: Settings, badge: null },
   ], [feedHasHighlight, isFreePlan]);
 
   return {
