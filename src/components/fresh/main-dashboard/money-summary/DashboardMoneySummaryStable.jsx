@@ -35,6 +35,7 @@ export default function DashboardMoneySummaryStable({
   themeIsLight = false,
   themeSoftTextClass = "text-white/55",
   themePrimaryTextClass = "text-white",
+  flushSpacing = false,
   moneySummaryVisible = true,
   toggleMoneySummaryVisibility,
   moneyLeftSummaryHandlers = {},
@@ -48,6 +49,7 @@ export default function DashboardMoneySummaryStable({
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
   const lastTapAtRef = useRef(0);
+  const spacingClass = flushSpacing ? "mt-0" : "mt-2";
 
   const clearTapTimer = useCallback(() => {
     if (tapTimerRef.current) {
@@ -184,7 +186,7 @@ export default function DashboardMoneySummaryStable({
     <section
       aria-label="Financial summary"
       data-clara-dashboard-section="money-summary"
-      className={`relative mt-2 grid cursor-default select-none grid-cols-2 overflow-hidden border ${
+      className={`relative ${spacingClass} grid cursor-default select-none grid-cols-2 overflow-hidden border ${
         dashboardScale.summaryGrid || "rounded-[26px]"
       }`}
       style={{
