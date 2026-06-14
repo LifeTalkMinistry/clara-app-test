@@ -373,6 +373,35 @@ export async function connectGooglePlayBilling() {
   };
 }
 
+async function ensureGooglePlayBillingConnected(context = "billing") {
+  const connection = await connectGooglePlayBilling();
+
+  if (!connection.ok) {
+    billingDebug("billing connection failed", {
+      context,
+      responseCode: connection.responseCode || "BILLING_UNAVAILABLE",
+      debugMessage: connection.debugMessage || "",
+      raw: connection.raw || null,
+    });
+
+    throw makeError("Google Play Billing is not ready yet.", {
+      responseCode: connection.responseCode || "BILLING_UNAVAILABLE",
+      debugMessage:
+        connection.debugMessage ||
+        `Google Play Billing connection failed before ${context}.`,
+      raw: connection.raw,
+    });
+  }
+
+  billingDebug("billing connection ready", {
+    context,
+    responseCode: connection.responseCode || "OK",
+    debugMessage: connection.debugMessage || "",
+  });
+
+  return connection;
+}
+
 export async function queryGooglePlayProducts({ productIds = [] } = {}) {
   const sourceIds = Array.isArray(productIds) && productIds.length ? productIds : getAllGooglePlayProductIds();
   const cleanedProductIds = Array.from(new Set(sourceIds.map((id) => normalize(id)).filter(Boolean)));
@@ -401,8 +430,19 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
     }, {}),
   };
 
+  billingDebug("billing connection before product query", {
+    productIds: cleanedProductIds,
+    productTypes: payload.productTypes || {},
+  });
+  const billingConnection = await ensureGooglePlayBillingConnected("product query");
+
+  billingDebug("queryProducts request", {
+    productIds: cleanedProductIds,
+    productTypes: payload.productTypes || {},
+    billingConnected: billingConnection.ok,
+    connectResponseCode: billingConnection.responseCode || "UNKNOWN",
+  });
   const bridgeResult = await safeBridgeCall("queryProducts", payload);
-  billingDebug("queryProducts request", { productIds: cleanedProductIds, productTypes: payload.productTypes || {} });
 
   if (!bridgeResult.ok && !bridgeResult.raw) {
     return {
@@ -414,6 +454,13 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
       unavailableProductIds: [],
       unavailableProducts: [],
       productDetails: [],
+      queriedProductIds: cleanedProductIds,
+      queriedProductTypes: payload.productTypes || {},
+      billingConnection: {
+        ok: billingConnection.ok,
+        responseCode: billingConnection.responseCode || "UNKNOWN",
+        debugMessage: billingConnection.debugMessage || "",
+      },
       raw: null,
     };
   }
@@ -445,6 +492,7 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
     missingProductIds,
     unavailableProducts,
     productDetails,
+    billingConnected: billingConnection.ok,
     raw: result,
   });
 
@@ -459,6 +507,11 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
     productDetails,
     queriedProductIds: Array.isArray(result?.queriedProductIds) ? result.queriedProductIds : cleanedProductIds,
     queriedProductTypes: result?.queriedProductTypes || payload.productTypes || {},
+    billingConnection: {
+      ok: billingConnection.ok,
+      responseCode: billingConnection.responseCode || "UNKNOWN",
+      debugMessage: billingConnection.debugMessage || "",
+    },
     raw: result,
   };
 }
@@ -530,6 +583,27 @@ function productDetailsExplicitlyLackSevenDayTrial(productDetails = []) {
   const detailsWithOfferLists = productDetails.filter((detail) => getOfferList(detail).length > 0);
   if (!detailsWithOfferLists.length) return false;
   return !detailsWithOfferLists.some((detail) => getOfferList(detail).some(offerHasSevenDayTrial));
+}
+
+function getProductUnavailableDebugMessage({ productId, productState = {}, unavailable = null, billingConnected = false }) {
+  const baseMessage =
+    unavailable?.reason ||
+    (unavailable?.statusCode
+      ? `Google Play marked ${productId} unavailable with status ${unavailable.statusCode}.`
+      : "") ||
+    productState.debugMessage ||
+    `Missing product ID ${productId}. Queried: ${(productState.queriedProductIds || [productId]).join(", ")}. Found: ${(productState.foundProductIds || []).join(", ") || "none"}.`;
+  const diagnostics = {
+    productStateResponseCode: productState.responseCode || "UNKNOWN",
+    productStateDebugMessage: productState.debugMessage || "",
+    missingProductIds: productState.missingProductIds || [],
+    unavailableProducts: productState.unavailableProducts || [],
+    queriedProductIds: productState.queriedProductIds || [productId],
+    queriedProductTypes: productState.queriedProductTypes || {},
+    afterSuccessfulBillingConnection: Boolean(billingConnected || productState?.billingConnection?.ok),
+  };
+
+  return `${baseMessage} Billing diagnostics: ${JSON.stringify(diagnostics)}`;
 }
 
 export async function diagnoseGooglePlayBilling({ productId, planKey = COMMITTED_PLAN_KEY } = {}) {
@@ -677,20 +751,36 @@ export async function launchGooglePlayPurchase({
     });
   }
 
+  const billingConnection = await ensureGooglePlayBillingConnected("purchase preflight");
   const productState = await queryGooglePlayProducts({ productIds: [payload.productId] });
   if (!productState.ok || productState.missingProductIds.includes(payload.productId)) {
     const unavailable = (productState.unavailableProducts || []).find(
       (item) => normalize(item?.productId || item?.id) === payload.productId
     );
+    const afterSuccessfulBillingConnection = Boolean(
+      billingConnection?.ok && productState?.billingConnection?.ok !== false
+    );
+    const unavailableDecision = {
+      productId: payload.productId,
+      responseCode: productState.responseCode || "UNKNOWN",
+      debugMessage: productState.debugMessage || "",
+      missingProductIds: productState.missingProductIds || [],
+      unavailableProducts: productState.unavailableProducts || [],
+      queriedProductIds: productState.queriedProductIds || [payload.productId],
+      queriedProductTypes: productState.queriedProductTypes || {},
+      afterSuccessfulBillingConnection,
+    };
+
+    billingDebug("product unavailable decision", unavailableDecision);
+
     throw makeError("Google Play product not found or unavailable.", {
       responseCode: productState.responseCode === "OK" ? "ITEM_UNAVAILABLE" : productState.responseCode || "ITEM_UNAVAILABLE",
-      debugMessage:
-        unavailable?.reason ||
-        (unavailable?.statusCode
-          ? `Google Play marked ${payload.productId} unavailable with status ${unavailable.statusCode}.`
-          : "") ||
-        productState.debugMessage ||
-        `Missing product ID ${payload.productId}. Queried: ${(productState.queriedProductIds || [payload.productId]).join(", ")}. Found: ${(productState.foundProductIds || []).join(", ") || "none"}.`,
+      debugMessage: getProductUnavailableDebugMessage({
+        productId: payload.productId,
+        productState,
+        unavailable,
+        billingConnected: afterSuccessfulBillingConnection,
+      }),
       raw: productState.raw,
     });
   }
