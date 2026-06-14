@@ -24,10 +24,11 @@ export default function LearningHub() {
 
   return (
     <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
-      <div className="relative flex w-full flex-col gap-[14px] overflow-visible px-1 py-0">
+      <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
         <DailyTipCard
           hasCommittedAccess={hasCommittedAccess}
           onOpenCommitmentBooklet={openCommittedVersionModal}
+          flushSpacing
         />
 
         {!shouldLoadHub ? (
@@ -41,7 +42,7 @@ export default function LearningHub() {
               isInsideCategory={false}
               headerLabel="Learning Hub"
               onClick={handleOpenHub}
-              className="!mt-0 !mb-0"
+              flushSpacing
             />
           </div>
         ) : (
