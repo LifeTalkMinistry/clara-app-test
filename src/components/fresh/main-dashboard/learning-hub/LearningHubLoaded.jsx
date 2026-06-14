@@ -11,7 +11,7 @@ import {
 const LearningMaterialModal = lazy(() => import("./modal/LearningMaterialModal"));
 const LearningVideoWatchModal = lazy(() => import("./modal/LearningVideoWatchModal"));
 
-export default function LearningHubLoaded({ initialExpanded = false }) {
+export default function LearningHubLoaded({ initialExpanded = false, flushSpacing = false }) {
   const {
     activeCategory,
     activeCategoryMeta,
@@ -58,6 +58,7 @@ export default function LearningHubLoaded({ initialExpanded = false }) {
         activeCategoryLabel={activeCategoryMeta?.title || ""}
         hasCommittedAccess={hasCommittedAccess}
         initialExpanded={initialExpanded}
+        flushSpacing={flushSpacing}
         onBackToCategories={backToHome}
         onOpenCommitmentBooklet={openCommittedVersionModal}
         onOpenItem={handleOpenItem}
