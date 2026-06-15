@@ -1,3 +1,3 @@
 export default function Profile() {
-  return null;
+  return <div className="theme-page-shell min-h-screen text-white" />;
 }
