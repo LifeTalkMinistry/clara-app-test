@@ -418,8 +418,7 @@ export default function Settings() {
                   icon={User}
                   label="Profile Details"
                   value={profile?.full_name || "No name saved yet"}
-                  hint="Personal details live in your dedicated Profile screen."
-                  action={<button type="button" onClick={() => navigate("/profile")} className="inlineAction">Open Profile</button>}
+                  hint="Profile details are managed inside CLARA settings."
                 />
                 <InfoRow icon={CreditCard} label="Plan & Access" value={`${planLabel} - ${enrollmentStatus}`} hint={`Member since ${formatDate(joinedAt)}.`} />
               </div>

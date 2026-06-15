@@ -17,7 +17,6 @@ import Layout from "./components/Layout";
 import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
 const Settings = lazy(() => import("./pages/Settings"));
-const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LifeOS = lazy(() => import("./pages/LifeOS"));
@@ -268,7 +267,6 @@ function AppRoutes() {
 
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/settings/:section" element={<Settings />} />
-                    <Route path="/profile" element={<Profile />} />
 
                     <Route path="/admin" element={admin(<AdminPanel />)} />
                     <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />

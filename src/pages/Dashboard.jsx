@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardFeedPanel from "@/components/fresh/dashboard-panels/feed/DashboardFeedPanel";
 import DashboardMessagesPanel from "@/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel";
 import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
@@ -818,7 +817,6 @@ export default function Dashboard() {
 
               </>
             )}
-            renderFeed={() => <DashboardFeedPanel onBack={closeDashboardPanel} />}
             renderMessages={() => <DashboardMessagesPanel onBack={closeDashboardPanel} />}
             renderSettings={() => (
               <DashboardSettingsPanel

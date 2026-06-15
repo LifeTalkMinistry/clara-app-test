@@ -802,7 +802,6 @@ export { COMMITMENT_DECLINE_HOME_EVENT };
 export default function DashboardPanelRenderer({
   activePanel = "home",
   renderHome,
-  renderFeed,
   renderMessages,
   renderTask,
   renderSettings,
@@ -941,7 +940,6 @@ export default function DashboardPanelRenderer({
     );
   }
 
-  if (activePanel === "feed") return renderFeed?.() ?? fallback;
   if (activePanel === "messages") return renderMessages?.() ?? fallback;
   if (activePanel === "task") return renderTask?.() ?? fallback;
   if (activePanel === "settings") {
