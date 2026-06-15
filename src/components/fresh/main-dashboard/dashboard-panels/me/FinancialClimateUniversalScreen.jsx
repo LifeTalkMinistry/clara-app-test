@@ -35,21 +35,24 @@ const HERO_VISUALS = {
   "Business Builder": "from-amber-400/8 via-cyan-500/5 to-violet-500/8",
 };
 
-function normalizeImageVariant() {
+function normalizeImageVariant(value = "default") {
+  const key = String(value || "").toLowerCase().trim();
+  if (["male", "men", "man", "boy"].includes(key)) return "male";
+  if (["female", "girl", "woman"].includes(key)) return "female";
   return "default";
 }
 
 function readStageProfile() {
   const saved = readSelectedLifeStageProfile();
   const stage = normalizeLifeStageKey(saved?.stage || getSelectedLifeStageKey());
-  return { ...(saved || {}), stage, imageVariant: "default" };
+  return { ...(saved || {}), stage, imageVariant: normalizeImageVariant(saved?.imageVariant || "default") };
 }
 
 function saveStageProfile(profile) {
   saveSelectedLifeStageProfile({
     ...(profile || {}),
     stage: normalizeLifeStageKey(profile?.stage),
-    imageVariant: "default",
+    imageVariant: normalizeImageVariant(profile?.imageVariant || "default"),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -70,7 +73,7 @@ function getQuestionKeys(stage, draft = {}) {
 
 function buildStageDraft(stageName, previous = {}) {
   const stage = normalizeLifeStageKey(stageName);
-  const next = { stage, imageVariant: "default" };
+  const next = { stage, imageVariant: normalizeImageVariant(previous.imageVariant || "default") };
   getQuestionKeys(stage, previous).forEach((key) => {
     const options = getLifeStageOptions({ ...previous, stage }, key) || [];
     next[key] = options.includes(previous[key]) ? previous[key] : options[0];
@@ -158,7 +161,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const selectedValue = activeQuestionKey ? draft[activeQuestionKey] : null;
   const insight = activeQuestionKey ? getAnswerContext(activeQuestionKey, selectedValue, draft) : null;
-  const stageHero = getLifeStageHero(draft.stage, "default");
+  const stageHero = getLifeStageHero(draft.stage, draft.imageVariant || "default");
   const boardTitle = activeQuestionKey ? insight.title : stageHero.title;
   const boardSummary = activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
 
@@ -172,7 +175,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     const savedDraft = {
       ...completedDraft,
       stage: normalizeLifeStageKey(draft.stage),
-      imageVariant: "default",
+      imageVariant: normalizeImageVariant(draft.imageVariant || completedDraft.imageVariant || "default"),
       updatedAt: new Date().toISOString(),
     };
     saveStageProfile(savedDraft);
@@ -207,18 +210,26 @@ export default function FinancialClimateUniversalScreen() {
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
   const [stageImages, setStageImages] = useState(() => readStageImages());
   const hero = useMemo(
-    () => getLifeStageHero(stageProfile.stage, "default"),
-    [stageProfile.stage]
+    () => getLifeStageHero(stageProfile.stage, stageProfile.imageVariant || "default"),
+    [stageProfile.stage, stageProfile.imageVariant]
   );
   const supportCopy = useMemo(() => getLifeStageGuidance(stageProfile.stage, { profile: stageProfile, mode: "awareness" }), [stageProfile]);
   const snapshot = useMemo(() => getLifeStageSnapshot(stageProfile.stage, stageProfile), [stageProfile]);
   const customImage = stageImages[stageProfile.stage] || "";
-  const activeImage = customImage || hero.heroImage;
+  const hasExplicitGenderVariant = ["male", "female"].includes(normalizeImageVariant(stageProfile.imageVariant || "default"));
+  const activeImage = hasExplicitGenderVariant ? hero.heroImage : customImage || hero.heroImage;
   const heroGlow = HERO_VISUALS[stageProfile.stage] || HERO_VISUALS["Young Professional"];
   const snapshotCards = snapshot.cards || [];
 
   useEffect(() => { saveStageProfile(stageProfile); }, [stageProfile]);
   useEffect(() => { saveStageImages(stageImages); }, [stageImages]);
+
+  const handleGenderVariantChange = (variant) => {
+    setStageProfile((current) => ({
+      ...current,
+      imageVariant: normalizeImageVariant(variant),
+    }));
+  };
 
   if (showStageSetup) return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} />;
 
@@ -256,6 +267,40 @@ export default function FinancialClimateUniversalScreen() {
                 className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]"
               >
                 Image
+              </button>
+
+              <div className="my-1 h-px w-full bg-white/[0.07]" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeroActions(false);
+                  handleGenderVariantChange("male");
+                }}
+                className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${
+                  normalizeImageVariant(stageProfile.imageVariant || "default") === "male"
+                    ? "text-cyan-100"
+                    : "text-white/72"
+                }`}
+              >
+                <span className="text-[14px] leading-none">♂</span>
+                <span>Male image</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHeroActions(false);
+                  handleGenderVariantChange("female");
+                }}
+                className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${
+                  normalizeImageVariant(stageProfile.imageVariant || "default") === "female"
+                    ? "text-cyan-100"
+                    : "text-white/72"
+                }`}
+              >
+                <span className="text-[14px] leading-none">♀</span>
+                <span>Female image</span>
               </button>
             </div>
           ) : null}
