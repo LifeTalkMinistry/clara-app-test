@@ -1,5 +1,7 @@
 export const POST_ONBOARDING_BOOKLET_INTENT_KEY = "clara_open_commitment_booklet_after_onboarding";
-export const TRIAL_PURCHASE_INTENT = "trial_7d";
+export const COMMITTED_MONTHLY_PURCHASE_INTENT = "monthly_direct";
+
+const LEGACY_TRIAL_PURCHASE_INTENT = "trial_7d";
 
 export const CLARA_COMMITMENT_BOOKLET_PAGES = [
   {
@@ -111,13 +113,21 @@ export const CLARA_COMMITMENT_BOOKLET_PAGES = [
   },
 ];
 
+export function normalizeCommitmentBookletIntent(intent) {
+  const normalizedIntent = String(intent || "").trim();
+  if (!normalizedIntent || normalizedIntent === LEGACY_TRIAL_PURCHASE_INTENT) {
+    return COMMITTED_MONTHLY_PURCHASE_INTENT;
+  }
+  return normalizedIntent === COMMITTED_MONTHLY_PURCHASE_INTENT ? normalizedIntent : null;
+}
+
 export function buildCommitmentBookletIntent({
-  intent = TRIAL_PURCHASE_INTENT,
+  intent = COMMITTED_MONTHLY_PURCHASE_INTENT,
   planKey = "",
   productId = "",
   openedAt = Date.now(),
 } = {}) {
-  return { intent, planKey, productId, openedAt };
+  return { intent: normalizeCommitmentBookletIntent(intent) || COMMITTED_MONTHLY_PURCHASE_INTENT, planKey, productId, openedAt };
 }
 
 export function persistCommitmentBookletIntent(options = {}) {
@@ -138,7 +148,8 @@ export function readCommitmentBookletIntentFromSession() {
     if (!rawIntent) return null;
     window.sessionStorage?.removeItem(POST_ONBOARDING_BOOKLET_INTENT_KEY);
     const parsed = JSON.parse(rawIntent);
-    return parsed?.intent === TRIAL_PURCHASE_INTENT ? parsed : null;
+    const normalizedIntent = normalizeCommitmentBookletIntent(parsed?.intent);
+    return normalizedIntent ? { ...parsed, intent: normalizedIntent } : null;
   } catch (error) {
     console.warn("Unable to read CLARA commitment booklet intent", error);
     try {
