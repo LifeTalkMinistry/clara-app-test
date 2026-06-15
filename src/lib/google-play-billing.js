@@ -1,5 +1,6 @@
 import { CLARA_PRODUCTS } from "@/lib/clara-entitlements";
 import { COMMITTED_PLAN_KEY, normalizePlanKey } from "@/lib/membership";
+import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framework";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabaseClient";
 
 const PRODUCT_IDS = {
@@ -11,11 +12,7 @@ const PRODUCT_TYPES = {
   [CLARA_PRODUCTS.committed.productId]: "subs",
 };
 
-const TRIAL_PURCHASE_INTENT = "trial_7d";
-const REQUIRED_TRIAL_DAYS = 7;
-const SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE =
-  "The 7-day trial offer is not available for this Google Play account yet.";
-const ACTIVE_ENTITLEMENT_STATUSES = new Set(["active", "approved", "trialing"]);
+const ACTIVE_ENTITLEMENT_STATUSES = new Set(["active", "approved", "committed", "paid"]);
 
 const normalize = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalize(value).toLowerCase();
@@ -41,10 +38,6 @@ export function getAllGooglePlayProductIds() {
 
 function getGooglePlayProductType(productId) {
   return PRODUCT_TYPES[normalize(productId)] || "subs";
-}
-
-function shouldRequireSevenDayTrial({ purchaseIntent, trialDays }) {
-  return normalize(purchaseIntent) === TRIAL_PURCHASE_INTENT || Number(trialDays || 0) === REQUIRED_TRIAL_DAYS;
 }
 
 function parseBridgeResult(result) {
@@ -229,7 +222,6 @@ function extractSubscriptionFields(parsed, matchedPurchase = null) {
       source?.subscriptionOfferToken ||
       source?.subscription_offer_token ||
       "",
-    trialOffer: source?.trialOffer === true || source?.trial_offer === true,
   };
 }
 
@@ -543,42 +535,6 @@ export async function queryOwnedGooglePlayPurchases({ productIds = [] } = {}) {
   };
 }
 
-function isSevenDayBillingPeriod(billingPeriod) {
-  const normalized = normalize(billingPeriod).toUpperCase();
-  return normalized === "P7D" || normalized === "P1W";
-}
-
-function isSevenDayFreePhase(phase = {}) {
-  const billingPeriod = normalize(phase.billingPeriod || phase.billing_period).toUpperCase();
-  const priceAmountMicros = Number(phase.priceAmountMicros ?? phase.price_amount_micros ?? NaN);
-  const formattedPrice = normalizeLower(phase.formattedPrice || phase.formatted_price || phase.price);
-  const isFree = priceAmountMicros === 0 || formattedPrice === "free" || formattedPrice.includes("free");
-  return isFree && isSevenDayBillingPeriod(billingPeriod);
-}
-
-function getOfferList(productDetail = {}) {
-  return [
-    ...(Array.isArray(productDetail.subscriptionOfferDetails) ? productDetail.subscriptionOfferDetails : []),
-    ...(Array.isArray(productDetail.offerDetails) ? productDetail.offerDetails : []),
-    ...(Array.isArray(productDetail.offers) ? productDetail.offers : []),
-  ];
-}
-
-function offerHasSevenDayTrial(offer = {}) {
-  const phases = [
-    ...(Array.isArray(offer.pricingPhases) ? offer.pricingPhases : []),
-    ...(Array.isArray(offer.pricingPhaseList) ? offer.pricingPhaseList : []),
-    ...(Array.isArray(offer.pricing_phases) ? offer.pricing_phases : []),
-  ];
-  return phases.some(isSevenDayFreePhase);
-}
-
-function productDetailsExplicitlyLackSevenDayTrial(productDetails = []) {
-  const detailsWithOfferLists = productDetails.filter((detail) => getOfferList(detail).length > 0);
-  if (!detailsWithOfferLists.length) return false;
-  return !detailsWithOfferLists.some((detail) => getOfferList(detail).some(offerHasSevenDayTrial));
-}
-
 function getProductUnavailableDebugMessage({ productId, productState = {}, unavailable = null, billingConnected = false }) {
   const baseMessage =
     unavailable?.reason ||
@@ -672,14 +628,6 @@ async function performBridgePurchase({ bridge, payload }) {
       const normalizedCode = normalizeResponseCode(error?.responseCode || error?.code);
       const message = error?.message || "Failed to open Google Play purchase.";
       const debugMessage = error?.debugMessage || error?.details || error?.message || "";
-      const requiresTrial = payload?.requireFreeTrialOffer === true || payload?.purchaseIntent === TRIAL_PURCHASE_INTENT;
-
-      if (requiresTrial && (normalizedCode === "ITEM_UNAVAILABLE" || /trial/i.test(`${message} ${debugMessage}`))) {
-        throw makeError(SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE, {
-          responseCode: "ITEM_UNAVAILABLE",
-          debugMessage: debugMessage || SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE,
-        });
-      }
 
       if (normalizedCode === "ITEM_ALREADY_OWNED") {
         throw makeError(error?.message || "Google Play item already owned.", {
@@ -703,8 +651,7 @@ export async function launchGooglePlayPurchase({
   planKey,
   userId,
   userEmail,
-  purchaseIntent = "",
-  trialDays,
+  purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT,
 } = {}) {
   if (!productId) {
     throw makeError("Invalid product ID.", {
@@ -714,9 +661,7 @@ export async function launchGooglePlayPurchase({
   }
 
   const productType = getGooglePlayProductType(productId);
-  const requireFreeTrialOffer = shouldRequireSevenDayTrial({ purchaseIntent, trialDays });
-  const normalizedPurchaseIntent = requireFreeTrialOffer ? TRIAL_PURCHASE_INTENT : normalize(purchaseIntent);
-  const normalizedTrialDays = requireFreeTrialOffer ? REQUIRED_TRIAL_DAYS : Number(trialDays || 0);
+  const normalizedPurchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT;
   const payload = {
     productId: normalize(productId),
     planKey: normalizePlanKey(planKey) || COMMITTED_PLAN_KEY,
@@ -724,8 +669,6 @@ export async function launchGooglePlayPurchase({
     userId: normalize(userId),
     userEmail: normalize(userEmail),
     purchaseIntent: normalizedPurchaseIntent,
-    trialDays: normalizedTrialDays || undefined,
-    requireFreeTrialOffer,
   };
 
   const bridge = getBillingBridge();
@@ -771,15 +714,6 @@ export async function launchGooglePlayPurchase({
     });
   }
 
-  if (requireFreeTrialOffer && productDetailsExplicitlyLackSevenDayTrial(productState.productDetails || [])) {
-    throw makeError(SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE, {
-      responseCode: "ITEM_UNAVAILABLE",
-      debugMessage:
-        "ProductDetails were returned, but none of the eligible subscription offers contained a free P7D/P1W pricing phase.",
-      raw: productState.raw,
-    });
-  }
-
   let parsed;
   let purchaseMethodName = "";
   try {
@@ -804,14 +738,6 @@ export async function launchGooglePlayPurchase({
 
   if (normalizedCode === "ITEM_ALREADY_OWNED") {
     return restoreOwnedGooglePlayPurchase({ productId, planKey, userId, userEmail, purchaseContext: "already_owned" });
-  }
-
-  if (requireFreeTrialOffer && parsed?.trialOffer === false && !cancelled) {
-    throw makeError(SEVEN_DAY_TRIAL_UNAVAILABLE_MESSAGE, {
-      responseCode: "ITEM_UNAVAILABLE",
-      debugMessage: "Native billing bridge did not confirm a selected 7-day trial offer.",
-      raw: parsed,
-    });
   }
 
   const ok =
@@ -844,9 +770,8 @@ export async function launchGooglePlayPurchase({
     purchaseToken: extractPurchaseToken(parsed),
     orderId: extractOrderId(parsed),
     purchaseIntent: normalizedPurchaseIntent,
-    trialDays: normalizedTrialDays || undefined,
     ...subscriptionFields,
-    raw: { ...parsed, purchaseMethodName, purchaseIntent: normalizedPurchaseIntent, trialDays: normalizedTrialDays || undefined },
+    raw: { ...parsed, purchaseMethodName, purchaseIntent: normalizedPurchaseIntent },
   };
 }
 
