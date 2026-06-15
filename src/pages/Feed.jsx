@@ -1080,11 +1080,7 @@ export default function Feed() {
 
           <button
             type="button"
-            onClick={() =>
-              navigate(
-                currentUserProfileId ? `/user/${currentUserProfileId}` : "/profile"
-              )
-            }
+            onClick={() => navigate(currentUserProfileId ? `/users/${currentUserProfileId}` : "/dashboard")}
             className="group shrink-0"
             aria-label="Open my profile"
           >
