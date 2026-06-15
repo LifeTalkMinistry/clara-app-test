@@ -1,6 +1,6 @@
 import useUserRole from "@/hooks/useUserRole";
 import { COMMITTED_PLAN_KEY, resolveMembership } from "@/lib/membership";
-import { TRIAL_PURCHASE_INTENT } from "@/lib/clara-commitment-framework";
+import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framework";
 
 export const CLARA_COMMITTED_PLAN_KEY = COMMITTED_PLAN_KEY;
 export const OPEN_COMMITMENT_BOOKLET_EVENT = "clara:open-commitment-booklet";
@@ -67,7 +67,7 @@ export function useCommittedFeatureAccess({ preview = null, previewPlan = "" } =
   return useCommittedMembershipState({ preview, previewPlan }).hasCommittedAccess;
 }
 
-export function openCommittedVersionModal(purchaseIntent = TRIAL_PURCHASE_INTENT) {
+export function openCommittedVersionModal(purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(OPEN_COMMITMENT_BOOKLET_EVENT, { detail: { purchaseIntent } }));
 }
