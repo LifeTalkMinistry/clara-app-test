@@ -55,10 +55,10 @@ export default function useDashboardPanelUiState({
         ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-  const dashboardSmartScrollClass =
+  const dashboardSmartContentClass =
     activeDashboardPanel === "home"
-      ? "overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      : "overflow-y-hidden";
+      ? "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      : "";
 
   const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
   const shouldShowNonBlockingRefresh = Boolean(
@@ -99,8 +99,8 @@ export default function useDashboardPanelUiState({
     resetDashboardThemeToDefault,
     dashboardPanelAnimationClass,
     dashboardPanelViewportClass,
-    dashboardSmartScrollClass,
-    dashboardSmartContentClass: "",
+    dashboardSmartScrollClass: "overflow-y-hidden",
+    dashboardSmartContentClass,
     shouldShowBlockingDashboardLoader,
     shouldShowNonBlockingRefresh,
     headerQuickActions,
