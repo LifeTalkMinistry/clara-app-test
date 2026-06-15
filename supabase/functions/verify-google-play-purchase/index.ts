@@ -106,7 +106,6 @@ function classifyGooglePurchase(googlePurchase: Record<string, unknown>) {
   const paymentState = Number(googlePurchase.paymentState ?? -1);
   const cancelReason = googlePurchase.cancelReason;
   const userCancellationTimeMillis = googlePurchase.userCancellationTimeMillis;
-  const isTrialing = paymentState === 2;
   const isExpired = !expiryTimeMillis || expiryTimeMillis <= now;
   const isPaymentPending = paymentState === 0;
   const isCancelled = cancelReason !== undefined || userCancellationTimeMillis !== undefined;
@@ -114,12 +113,11 @@ function classifyGooglePurchase(googlePurchase: Record<string, unknown>) {
 
   return {
     expiryTimeMillis,
-    isTrialing,
     isExpired,
     isPaymentPending,
     isCancelled,
     isActive,
-    subscriptionStatus: isTrialing ? "trialing" : "active",
+    subscriptionStatus: "active",
   };
 }
 
