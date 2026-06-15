@@ -225,7 +225,7 @@ export default function useInvestmentCardLogic({
 
   const tone = getIncomeToneClasses();
   const title = data.title || "Income Hub";
-  const subtitle = data.subtitle || "Where your money comes from";
+  const subtitle = "Where your money comes";
   const readiness = useMemo(() => buildIncomeSummary(incomeSources), [incomeSources]);
   const statusMeta = getStatusMeta(readiness.sourceCount);
   const amountStatus = readiness.sourceCount > 0
