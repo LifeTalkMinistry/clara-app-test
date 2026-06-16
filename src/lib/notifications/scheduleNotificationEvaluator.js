@@ -157,6 +157,19 @@ function hasMoneyImpact(event) {
   );
 }
 
+function moneyImpactTitle(event, todayKey) {
+  return event?.date === todayKey
+    ? "Money-impact schedule today"
+    : "Money-impact schedule coming";
+}
+
+function moneyImpactBody(event, todayKey) {
+  const todayPrefix = event?.date === todayKey ? "Today, " : "";
+  return event.amount > 0
+    ? `${todayPrefix}${money(event.amount)} may be involved for ${event.title}. Prepare before optional spending.`
+    : `${todayPrefix}${event.title} may affect your money. Prepare before optional spending.`;
+}
+
 async function createScheduleNotification({ userId, preferences, eventType, dedupeKey, title, body, event, reminderKind }) {
   if (!isNotificationEventAllowed(eventType, preferences)) return null;
 
@@ -235,16 +248,13 @@ export async function evaluateScheduleNotifications({ userId, preferences = {}, 
     }
 
     if (hasMoneyImpact(event)) {
-      const amountText = event.amount > 0
-        ? `${money(event.amount)} may be involved for ${event.title}. Prepare before optional spending.`
-        : `${event.title} may affect your money. Prepare before optional spending.`;
       const notification = await createScheduleNotification({
         userId: cleanId,
         preferences,
         eventType: "schedule_money_event_due",
         dedupeKey: `schedule_money_event_due:${event.id}:${event.date}`,
-        title: "Money-impact schedule coming",
-        body: amountText,
+        title: moneyImpactTitle(event, todayKey),
+        body: moneyImpactBody(event, todayKey),
         event,
         reminderKind: "money_impact",
       });
