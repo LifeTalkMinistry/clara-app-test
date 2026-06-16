@@ -88,6 +88,7 @@ import "../clara-fab-theme.css";
 import "../mobile-responsive.css";
 import "../mobile-performance.css";
 import "../dashboard-bottom-spacing.css";
+import "../clara-ai-overlay-soft-anchor.css";
 import "../life-context-polish.css";
 
 // Life Stage visual patches
