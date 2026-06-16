@@ -1,3 +1,5 @@
+import "./clara-google-play-verify-auth-retry";
+
 const hideThemeAppearanceSettingsRow = () => {
   if (typeof document === "undefined") return;
 
