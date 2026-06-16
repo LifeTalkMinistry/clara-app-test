@@ -169,6 +169,7 @@ export function normalizeFeatureMode(featureKey, value) {
     read_only: "view",
     basic: "full",
     advanced: "full",
+    // Compatibility alias only. Older stored configs used this as a paid/full feature mode.
     life_os: "full",
   };
   const canonical = aliases[normalized] || normalized;
