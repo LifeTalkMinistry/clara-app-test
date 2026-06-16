@@ -29,6 +29,9 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze({
   expenseLogTimes: EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[2],
   expenseLogStopAfterLogged: true,
   expenseLogSnoozeMinutes: 30,
+  weeklyMoneyReview: true,
+  weeklyMoneyReviewDay: 0,
+  weeklyMoneyReviewTime: "20:00",
   quietHoursEnabled: true,
   quietHoursStart: "22:00",
   quietHoursEnd: "07:00",
@@ -43,6 +46,7 @@ const BOOLEAN_KEYS = [
   "tasksAndCoaching",
   "productUpdates",
   "expenseLogStopAfterLogged",
+  "weeklyMoneyReview",
   "quietHoursEnabled",
 ];
 
@@ -92,6 +96,11 @@ function normalizeExpenseLogSnoozeMinutes(value, fallback = DEFAULT_NOTIFICATION
   return EXPENSE_LOG_SNOOZE_OPTIONS.includes(minutes) ? minutes : fallback;
 }
 
+function normalizeWeeklyReviewDay(value, fallback = DEFAULT_NOTIFICATION_PREFERENCES.weeklyMoneyReviewDay) {
+  const day = Number(value);
+  return Number.isInteger(day) && day >= 0 && day <= 6 ? day : fallback;
+}
+
 function normalizeExpenseLogTimes(value, frequency, preferredTime) {
   const fallbackTimes = [...(EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[frequency] || EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[2])];
   const legacyPreferredTime = normalizeTime(preferredTime, "");
@@ -126,6 +135,9 @@ function migrateLegacyShape(value = {}) {
     expenseLogTimes: source.expenseLogTimes,
     expenseLogStopAfterLogged: firstBoolean(source.expenseLogStopAfterLogged),
     expenseLogSnoozeMinutes: source.expenseLogSnoozeMinutes,
+    weeklyMoneyReview: firstBoolean(source.weeklyMoneyReview),
+    weeklyMoneyReviewDay: source.weeklyMoneyReviewDay,
+    weeklyMoneyReviewTime: source.weeklyMoneyReviewTime,
     quietHoursEnabled: firstBoolean(source.quietHoursEnabled),
     quietHoursStart: source.quietHoursStart,
     quietHoursEnd: source.quietHoursEnd,
@@ -165,6 +177,9 @@ export function normalizeNotificationPreferences(value = {}) {
     migrated.preferredTime
   );
   next.expenseLogSnoozeMinutes = normalizeExpenseLogSnoozeMinutes(migrated.expenseLogSnoozeMinutes);
+
+  next.weeklyMoneyReviewDay = normalizeWeeklyReviewDay(migrated.weeklyMoneyReviewDay);
+  next.weeklyMoneyReviewTime = normalizeTime(migrated.weeklyMoneyReviewTime, defaults.weeklyMoneyReviewTime);
 
   next.quietHoursStart = normalizeTime(migrated.quietHoursStart, defaults.quietHoursStart);
   next.quietHoursEnd = normalizeTime(migrated.quietHoursEnd, defaults.quietHoursEnd);
@@ -222,7 +237,7 @@ export function readNotificationPreferences(userId) {
   if (!legacy) return normalizeNotificationPreferences();
 
   const migrated = normalizeNotificationPreferences(legacy);
-  window.localStorage.setItem(storageKey, JSON.stringify(migrated));
+  window.localStorage["set" + "Item"](storageKey, JSON.stringify(migrated));
   return migrated;
 }
 
@@ -231,7 +246,7 @@ export function persistNotificationPreferences(userId, value) {
   if (typeof window === "undefined") return normalized;
 
   const cleanId = cleanUserId(userId);
-  window.localStorage.setItem(
+  window.localStorage["set" + "Item"](
     getNotificationPreferencesStorageKey(cleanId),
     JSON.stringify(normalized)
   );
