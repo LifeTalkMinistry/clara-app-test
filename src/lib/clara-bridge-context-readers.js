@@ -4,7 +4,6 @@ import { getFallbackTipForDate } from "@/lib/daily-tip-utils";
 import { buildClaraLifeStageAiContext } from "@/lib/clara-life-stage-ai-context";
 
 const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2";
-const SCHEDULE_LEGACY_KEY = "clara_lifeos_schedule_events_v1";
 const LOCATION_CONTEXT_KEYS = ["CLARA_LOCATION_CONTEXT", "clara_location_context", "clara_user_location_v1"];
 const WEATHER_CONTEXT_KEYS = ["CLARA_WEATHER_CONTEXT", "clara_weather_context", "clara_current_weather_v1"];
 const LIVE_USER_MESSAGE_HISTORY_KEY = "CLARA_LIVE_USER_MESSAGE_HISTORY";
@@ -176,8 +175,6 @@ function readScheduleEventsFromStorage() {
       if (key && key.startsWith(SCHEDULE_STORAGE_PREFIX)) candidateKeys.push(key);
     }
 
-    if (storage.getItem(SCHEDULE_LEGACY_KEY)) candidateKeys.push(SCHEDULE_LEGACY_KEY);
-
     for (const key of candidateKeys) {
       const raw = storage.getItem(key);
       if (!raw) continue;
@@ -186,7 +183,7 @@ function readScheduleEventsFromStorage() {
       if (!Array.isArray(parsed) || !parsed.length) continue;
 
       const cleaned = parsed
-        .map((event) => cleanScheduleEvent(event, key === SCHEDULE_LEGACY_KEY ? "legacy_schedule_storage" : "schedule_storage"))
+        .map((event) => cleanScheduleEvent(event, "schedule_storage"))
         .filter(Boolean)
         .filter((event) => {
           const lowerTitle = event.title.toLowerCase();
