@@ -176,6 +176,7 @@ declare
     else null
   end;
   v_subscription_status text := 'active';
+  v_profile_rows integer := 0;
 begin
   if p_user_id is null or p_purchase_token is null or length(trim(p_purchase_token)) = 0 then
     raise exception 'Missing required purchase fields';
@@ -293,6 +294,12 @@ begin
     activated_at = coalesce(activated_at, v_now),
     last_billing_sync_at = v_now
   where id = p_user_id;
+
+  get diagnostics v_profile_rows = row_count;
+
+  if v_profile_rows = 0 then
+    raise exception 'Google Play purchase verified, but CLARA profile entitlement row was not updated';
+  end if;
 
   purchase_id := v_purchase_id;
   enrollment_id := v_enrollment_id;
