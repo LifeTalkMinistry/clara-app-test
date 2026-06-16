@@ -175,14 +175,7 @@ declare
       then to_timestamp(((p_payload->>'expiryTimeMillis')::numeric / 1000.0))
     else null
   end;
-  v_payload_text text := lower(coalesce(p_payload::text, ''));
-  v_is_trial boolean :=
-    coalesce(p_payload->>'paymentState', '') = '2'
-    or lower(coalesce(p_payload->>'subscriptionStatus', '')) in ('trialing', 'trial', 'free_trial')
-    or lower(coalesce(p_payload->>'purchaseStatus', '')) in ('trialing', 'trial', 'free_trial')
-    or v_payload_text like '%free_trial%'
-    or v_payload_text like '%trialing%';
-  v_subscription_status text := case when v_is_trial then 'trialing' else 'active' end;
+  v_subscription_status text := 'active';
 begin
   if p_user_id is null or p_purchase_token is null or length(trim(p_purchase_token)) = 0 then
     raise exception 'Missing required purchase fields';
@@ -288,8 +281,6 @@ begin
     subscription_status = v_subscription_status,
     subscription_label = 'CLARA Commitment',
     subscription_expires_at = v_expires_at,
-    trial_started_at = case when v_is_trial then coalesce(trial_started_at, v_now) else trial_started_at end,
-    trial_ends_at = case when v_is_trial then v_expires_at else trial_ends_at end,
     play_product_id = p_product_id,
     play_purchase_token = p_purchase_token,
     entitlement_status = 'active',
@@ -305,7 +296,7 @@ begin
 
   purchase_id := v_purchase_id;
   enrollment_id := v_enrollment_id;
-  entitlement_status := case when v_is_trial then 'trialing' else 'active' end;
+  entitlement_status := 'active';
   return next;
 end;
 $$;
