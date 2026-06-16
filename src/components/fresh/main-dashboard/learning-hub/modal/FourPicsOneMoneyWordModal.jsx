@@ -138,6 +138,30 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     if (feedback !== "correct") setFeedback(null);
   };
 
+  const autoSolveCurrentPuzzle = () => {
+    const answerLetters = normalizedCorrectAnswer.toUpperCase().split("");
+    const usedTileIds = new Set();
+
+    const answerTiles = answerLetters
+      .map((letter) => {
+        const tile = letterBank.find(
+          (item) => item.letter === letter && !usedTileIds.has(item.id),
+        );
+
+        if (tile) usedTileIds.add(tile.id);
+        return tile;
+      })
+      .filter(Boolean);
+
+    if (answerTiles.length !== answerLetters.length) return;
+
+    setSelectedLetters(answerTiles);
+    setFeedback("correct");
+    setSolvedIds((current) => (
+      current.includes(activePuzzle.id) ? current : [...current, activePuzzle.id]
+    ));
+  };
+
   const checkAnswer = () => {
     if (!guess.trim()) {
       setFeedback("empty");
@@ -242,7 +266,11 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
         </section>
 
         <section className="mt-[clamp(0.45rem,1.3dvh,0.85rem)] shrink-0 rounded-[clamp(20px,4dvh,28px)] border border-cyan-100/12 bg-black/20 p-[clamp(0.65rem,1.75dvh,1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <p className="text-center text-[clamp(7px,1.1dvh,9px)] font-black uppercase tracking-[0.22em] text-cyan-100/48">
+          <p
+            onDoubleClick={autoSolveCurrentPuzzle}
+            title="Developer shortcut: double-click to solve"
+            className="text-center text-[clamp(7px,1.1dvh,9px)] font-black uppercase tracking-[0.22em] text-cyan-100/48"
+          >
             Hidden money word
           </p>
           <AnswerSlots answer={activePuzzle.answer} guess={guess} />
