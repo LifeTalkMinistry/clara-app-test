@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -85,6 +85,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   const [feedback, setFeedback] = useState(null);
   const [solvedIds, setSolvedIds] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const hiddenWordShortcutTapRef = useRef({ lastTapAt: 0 });
 
   const activePuzzle = PUZZLES[activeIndex] || PUZZLES[0];
   const activePictureClues = getMoneyWordPictureClues(activePuzzle);
@@ -160,6 +161,20 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     setSolvedIds((current) => (
       current.includes(activePuzzle.id) ? current : [...current, activePuzzle.id]
     ));
+  };
+
+  const handleHiddenWordTesterTap = (event) => {
+    if (event?.pointerType === "mouse") return;
+
+    const currentTapAt = Date.now();
+    const previousTapAt = hiddenWordShortcutTapRef.current.lastTapAt;
+
+    hiddenWordShortcutTapRef.current.lastTapAt = currentTapAt;
+
+    if (currentTapAt - previousTapAt <= 500) {
+      hiddenWordShortcutTapRef.current.lastTapAt = 0;
+      autoSolveCurrentPuzzle();
+    }
   };
 
   const checkAnswer = () => {
@@ -268,6 +283,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
         <section className="mt-[clamp(0.45rem,1.3dvh,0.85rem)] shrink-0 rounded-[clamp(20px,4dvh,28px)] border border-cyan-100/12 bg-black/20 p-[clamp(0.65rem,1.75dvh,1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           <p
             onDoubleClick={autoSolveCurrentPuzzle}
+            onPointerUp={handleHiddenWordTesterTap}
             title="Developer shortcut: double-click to solve"
             className="text-center text-[clamp(7px,1.1dvh,9px)] font-black uppercase tracking-[0.22em] text-cyan-100/48"
           >
