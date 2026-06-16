@@ -9,6 +9,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
+import { getMoneyWordPictureClues } from "./fourPicsOneMoneyWordPictureClues";
 import { PUZZLES, STAGES } from "./fourPicsOneMoneyWordPuzzles";
 
 function normalizeAnswer(value) {
@@ -56,6 +57,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const activePuzzle = PUZZLES[activeIndex] || PUZZLES[0];
+  const activePictureClues = getMoneyWordPictureClues(activePuzzle);
   const isSolved = feedback === "correct";
   const stagePuzzleNumber = (activePuzzle.stagePuzzleIndex ?? 0) + 1;
   const stageWordCount = activePuzzle.stageWordCount || 10;
@@ -171,7 +173,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
         </section>
 
         <section className="mt-[clamp(0.4rem,1.1dvh,0.7rem)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(0.5rem,1.4dvh,0.75rem)]">
-          {activePuzzle.clues.map((clue, index) => (
+          {activePictureClues.map((clue, index) => (
             <div
               key={`${activePuzzle.id}-${clue.label}`}
               className="relative flex min-h-0 flex-col items-center justify-center overflow-hidden rounded-[clamp(20px,4dvh,26px)] border border-cyan-100/14 bg-[linear-gradient(135deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))] p-[clamp(0.55rem,1.65dvh,1rem)] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_18px_34px_rgba(0,0,0,0.22)]"
