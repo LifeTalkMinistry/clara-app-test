@@ -20,7 +20,6 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const LifeOS = lazy(() => import("./pages/LifeOS"));
 const InvestmentPlan = lazy(() => import("./pages/InvestmentPlan"));
 const MonthlyBudgetPlan = lazy(() => import("./pages/MonthlyBudgetPlan"));
 const TransactionHub = lazy(() => import("./pages/TransactionHub"));
@@ -246,7 +245,7 @@ function AppRoutes() {
                     <Route path="/advertiser" element={<AdvertiserDashboard />} />
 
                     <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
-                    <Route path="/lifeos" element={guard(<LifeOS />, "/lifeos")} />
+                    <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
                     <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
                     <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
