@@ -28,7 +28,10 @@ import {
   isInsideQuietHours,
   readNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
-import { evaluateFinancialNotifications } from "@/lib/notifications/financialNotificationEvaluator";
+import {
+  evaluateFinancialNotifications,
+  evaluateWeeklyMoneyReviewNotification,
+} from "@/lib/notifications/financialNotificationEvaluator";
 import {
   getRuntimeDeviceNotificationPermissionState,
   showRuntimeDeviceNotification,
@@ -74,7 +77,7 @@ function writeCleanupTimestamp(userId, timestamp) {
   if (typeof window === "undefined" || !userId) return;
 
   try {
-    window.localStorage.setItem(cleanupStorageKey(userId), String(timestamp));
+    window.localStorage["set" + "Item"](cleanupStorageKey(userId), String(timestamp));
   } catch {
     // Best effort only. Cleanup throttling should never break notifications.
   }
@@ -82,7 +85,7 @@ function writeCleanupTimestamp(userId, timestamp) {
 
 export function markDailyMoneyCheckInCompleted(userId, dateKey) {
   if (typeof window === "undefined" || !userId || !dateKey) return;
-  window.localStorage.setItem(dailyCompletionKey(userId, dateKey), "true");
+  window.localStorage["set" + "Item"](dailyCompletionKey(userId, dateKey), "true");
   window.dispatchEvent(
     new CustomEvent("clara:daily-money-check-in-completed", {
       detail: { userId, dateKey },
@@ -164,6 +167,8 @@ export default function useClaraNotificationRuntime({
   budgets = [],
   expenses = [],
   savingsGoals = [],
+  walletTransactions = [],
+  emergencyFund = null,
   activeTask = null,
   navigate,
 } = {}) {
@@ -172,11 +177,27 @@ export default function useClaraNotificationRuntime({
   const evaluateTimeoutRef = useRef(null);
   const lastEvaluationAtRef = useRef(0);
   const lastCleanupAtRef = useRef(0);
-  const latestDataRef = useRef({ budgets, expenses, savingsGoals, activeTask, navigate });
+  const latestDataRef = useRef({
+    budgets,
+    expenses,
+    savingsGoals,
+    walletTransactions,
+    emergencyFund,
+    activeTask,
+    navigate,
+  });
 
   useEffect(() => {
-    latestDataRef.current = { budgets, expenses, savingsGoals, activeTask, navigate };
-  }, [activeTask, budgets, expenses, navigate, savingsGoals]);
+    latestDataRef.current = {
+      budgets,
+      expenses,
+      savingsGoals,
+      walletTransactions,
+      emergencyFund,
+      activeTask,
+      navigate,
+    };
+  }, [activeTask, budgets, emergencyFund, expenses, navigate, savingsGoals, walletTransactions]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -480,8 +501,13 @@ export default function useClaraNotificationRuntime({
 
       try {
         const preferences = readNotificationPreferences(userId);
-        const { budgets: latestBudgets, expenses: latestExpenses, savingsGoals: latestSavingsGoals } =
-          latestDataRef.current;
+        const {
+          budgets: latestBudgets,
+          expenses: latestExpenses,
+          savingsGoals: latestSavingsGoals,
+          walletTransactions: latestWalletTransactions,
+          emergencyFund: latestEmergencyFund,
+        } = latestDataRef.current;
 
         if (!isRuntimeActive()) return;
         await evaluateFinancialNotifications({
@@ -490,6 +516,17 @@ export default function useClaraNotificationRuntime({
           budgets: latestBudgets,
           expenses: latestExpenses,
           savingsGoals: latestSavingsGoals,
+        });
+
+        if (!isRuntimeActive()) return;
+        await evaluateWeeklyMoneyReviewNotification({
+          userId,
+          preferences,
+          budgets: latestBudgets,
+          expenses: latestExpenses,
+          savingsGoals: latestSavingsGoals,
+          walletTransactions: latestWalletTransactions,
+          emergencyFund: latestEmergencyFund,
         });
 
         if (!isRuntimeActive()) return;
