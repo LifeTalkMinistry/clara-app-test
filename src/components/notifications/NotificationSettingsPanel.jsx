@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CalendarDays,
   ChevronDown,
   Clock3,
 } from "lucide-react";
@@ -163,6 +164,74 @@ function ExpenseLogReminderCard({ preferences, onChange }) {
   );
 }
 
+function ScheduleCalendarReminderCard({ preferences, onChange }) {
+  const [expanded, setExpanded] = useState(false);
+  const enabled = preferences.scheduleAndCalendar !== false;
+  const statusSummary = enabled
+    ? "On • Events, bills, and payday reminders"
+    : "Off";
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(255,255,255,0.035)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035]"
+      >
+        <div className="flex min-w-0 gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-100">
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">Schedule & Calendar reminder</p>
+            <p className="mt-1 text-xs leading-5 text-white/50">Remind me about events that can affect my day or money</p>
+            <p className={`mt-1 text-[11px] font-black ${enabled ? "text-cyan-100/75" : "text-white/35"}`}>
+              {statusSummary}
+            </p>
+          </div>
+        </div>
+        <ChevronDown className={`mt-2 h-4 w-4 shrink-0 text-white/45 transition ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded ? (
+        <div className="space-y-4 border-t border-white/10 px-4 pb-4 pt-3">
+          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+            <FieldLabel title="Status" description="Turn CLARA schedule and calendar reminders on or off." />
+            <Switch
+              checked={enabled}
+              onCheckedChange={(checked) => onChange("scheduleAndCalendar", checked)}
+              className="data-[state=checked]:bg-cyan-500 data-[state=unchecked]:bg-white/15"
+            />
+          </div>
+
+          <div>
+            <FieldLabel title="What CLARA reminds you about" description="These reminders are created from your saved Schedule events." />
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                <p className="text-xs font-black text-white/80">Upcoming tomorrow</p>
+                <p className="mt-1 text-[11px] leading-5 text-white/45">A preparation reminder before a scheduled event happens.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                <p className="text-xs font-black text-white/80">Schedule today</p>
+                <p className="mt-1 text-[11px] leading-5 text-white/45">A same-day reminder for events that need your attention.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                <p className="text-xs font-black text-white/80">Money-impact schedule</p>
+                <p className="mt-1 text-[11px] leading-5 text-white/45">Bills, payday, payments, rent, salary, or amount-based events that can affect your spending.</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="rounded-2xl border border-cyan-300/10 bg-cyan-300/[0.06] px-3.5 py-3 text-[11px] font-semibold leading-5 text-cyan-50/60">
+            CLARA avoids duplicate reminders for the same event and date, so one saved schedule will not keep creating repeated alerts.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function NotificationSettingsPanel({ userId, embedded = false }) {
   const { preferences, updatePreference, setPreferences } = useNotificationPreferences(userId);
   const taskReminderSettings = useTaskReminderSettings(userId);
@@ -310,6 +379,10 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
         </div>
         <div className="space-y-3">
           <ExpenseLogReminderCard
+            preferences={preferences}
+            onChange={changePreference}
+          />
+          <ScheduleCalendarReminderCard
             preferences={preferences}
             onChange={changePreference}
           />
