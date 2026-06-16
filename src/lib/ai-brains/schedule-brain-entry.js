@@ -1,5 +1,6 @@
+import { SCHEDULE_BRAIN_EMERGENCY_FALLBACK } from "../clara-schedule-ai-context";
 import { CLARA_BRAINS } from "./brain-router";
-import { SCHEDULE_BRAIN_EMERGENCY_FALLBACK, buildScheduleBrainPrompt, sanitizeScheduleBrainReply } from "./schedule-brain";
+import { buildScheduleBrainPrompt, sanitizeScheduleBrainReply } from "./schedule-brain";
 
 export function isScheduleBrainRoute(brain) {
   return brain === CLARA_BRAINS.SCHEDULE;
