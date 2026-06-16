@@ -56,8 +56,8 @@ export default function Activation() {
                 Activate your {planLabel} system.
               </h1>
               <p className="mt-3 text-sm leading-7 text-white/70">
-                Core and Life OS accounts begin with a premium preview. Enter the
-                kit activation code to unlock the full decision system, AI depth,
+                Committed accounts begin with a premium preview. Enter the kit
+                activation code to unlock the full decision system, AI depth,
                 and guided first action across devices.
               </p>
 
