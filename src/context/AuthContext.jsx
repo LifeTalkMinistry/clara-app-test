@@ -101,19 +101,57 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
     },
     role,
     enrollment_source: rawProfile?.enrollment_source || null,
-    enrollment_status: rawProfile?.enrollment_status || (membership.isActiveCommitted ? "approved" : membership.isPendingActivation ? "pending" : "none"),
-    status: rawProfile?.status || (membership.isActiveCommitted ? "active" : membership.isPendingActivation ? "pending" : "free"),
-    activation_status: rawProfile?.activation_status || (membership.isActiveCommitted ? "active" : membership.isPendingActivation ? "pending" : "not_required"),
+    enrollment_status:
+      rawProfile?.enrollment_status ||
+      (membership.isActiveCommitted
+        ? "approved"
+        : membership.isPendingActivation
+          ? "pending"
+          : "none"),
+    status:
+      rawProfile?.status ||
+      (membership.isActiveCommitted
+        ? "active"
+        : membership.isPendingActivation
+          ? "pending"
+          : "free"),
+    activation_status:
+      rawProfile?.activation_status ||
+      (membership.isActiveCommitted
+        ? "active"
+        : membership.isPendingActivation
+          ? "pending"
+          : "not_required"),
     is_activated: membership.isActiveCommitted,
     activated_at: rawProfile?.activated_at || null,
-    is_enrolled: typeof rawProfile?.is_enrolled === "boolean" ? rawProfile.is_enrolled : membership.isActiveCommitted,
-    program_active: typeof rawProfile?.program_active === "boolean" ? rawProfile.program_active : membership.isActiveCommitted,
+    is_enrolled:
+      typeof rawProfile?.is_enrolled === "boolean"
+        ? rawProfile.is_enrolled
+        : membership.isActiveCommitted,
+    program_active:
+      typeof rawProfile?.program_active === "boolean"
+        ? rawProfile.program_active
+        : membership.isActiveCommitted,
     onboarding_completed: Boolean(rawProfile?.onboarding_completed ?? false),
     onboarding_step: Number(rawProfile?.onboarding_step ?? 0),
-    program_onboarding_completed: Boolean(rawProfile?.program_onboarding_completed ?? false),
-    has_completed_program_onboarding: Boolean(rawProfile?.has_completed_program_onboarding ?? rawProfile?.program_onboarding_completed ?? false),
-    has_completed_universal_onboarding: Boolean(rawProfile?.has_completed_universal_onboarding ?? rawProfile?.onboarding_completed ?? false),
-    has_seen_universal_onboarding: Boolean(rawProfile?.has_seen_universal_onboarding ?? rawProfile?.onboarding_completed ?? false),
+    program_onboarding_completed: Boolean(
+      rawProfile?.program_onboarding_completed ?? false
+    ),
+    has_completed_program_onboarding: Boolean(
+      rawProfile?.has_completed_program_onboarding ??
+        rawProfile?.program_onboarding_completed ??
+        false
+    ),
+    has_completed_universal_onboarding: Boolean(
+      rawProfile?.has_completed_universal_onboarding ??
+        rawProfile?.onboarding_completed ??
+        false
+    ),
+    has_seen_universal_onboarding: Boolean(
+      rawProfile?.has_seen_universal_onboarding ??
+        rawProfile?.onboarding_completed ??
+        false
+    ),
     offline_access: Boolean(rawProfile?.offline_access),
     offline_limited_access: Boolean(rawProfile?.offline_limited_access),
     offline_access_notice: rawProfile?.offline_access_notice || "",
@@ -165,8 +203,16 @@ const buildCachedUser = (cachedSnapshot = null, authUser = null) => {
 
   return {
     ...(authUser || {}),
-    id: authUser?.id || cachedSnapshot.userId || cachedSnapshot.profileBasic?.id || null,
-    email: authUser?.email || cachedSnapshot.email || cachedSnapshot.profileBasic?.email || null,
+    id:
+      authUser?.id ||
+      cachedSnapshot.userId ||
+      cachedSnapshot.profileBasic?.id ||
+      null,
+    email:
+      authUser?.email ||
+      cachedSnapshot.email ||
+      cachedSnapshot.profileBasic?.email ||
+      null,
     user_metadata: {
       ...(authUser?.user_metadata || {}),
       full_name:
@@ -839,13 +885,21 @@ export function AuthProvider({ children }) {
     setAuthReady(true);
   };
 
-  const refreshProfile = useCallback(async () => {
-    if (!user?.id) return null;
-    return await fetchProfile(user, {
-      silent: false,
-      preferCache: true,
-    });
-  }, [user, fetchProfile]);
+  const refreshProfile = useCallback(
+    async ({ preferCache = true, silent = false, reason = "manual_refresh" } = {}) => {
+      if (!user?.id) return null;
+
+      if (preferCache === false) {
+        console.info("[CLARA Auth] forcing fresh profile refresh", { reason });
+      }
+
+      return await fetchProfile(user, {
+        silent,
+        preferCache,
+      });
+    },
+    [user, fetchProfile]
+  );
 
   const value = useMemo(() => {
     const computedIsPro = Boolean(profile?.isPro);
