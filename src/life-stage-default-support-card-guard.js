@@ -68,31 +68,31 @@ function clearSupportSignalState(card) {
 const DEFAULT_STAGE_SUPPORT_COPY = {
   "Young Professional": {
     title: "Your independence is forming.",
-    body: "Salary, bills, commute, and lifestyle choices can pull from the same paycheck. Tap the closest signal below, then press the heart for guidance.",
+    body: "Salary, bills, commute, and lifestyle pull from one paycheck. Tap a signal, then the heart.",
   },
   "Living with Partner": {
     title: "Shared life needs shared clarity.",
-    body: "Rent, food, fairness, family pressure, and future plans can pull on the same money. Tap the closest signal below, then press the heart for guidance.",
+    body: "Rent, food, fairness, and future plans pull on shared money. Tap a signal, then the heart.",
   },
   "Family Household": {
     title: "Home support needs structure.",
-    body: "Home bills, support requests, personal needs, and family expectations can pull from the same income. Tap the closest signal below, then press the heart for guidance.",
+    body: "Home bills, requests, needs, and expectations pull from one income. Tap a signal, then the heart.",
   },
   "Single Parent": {
     title: "Your priority is protection.",
-    body: "Child needs, emergencies, and daily essentials can pull from the same income. Tap the closest signal below, then press the heart for guidance.",
+    body: "Child needs, emergencies, and essentials pull from one income. Tap a signal, then the heart.",
   },
   "Full-Time Earner": {
     title: "Your salary needs direction.",
-    body: "Salary cycles, bills, fatigue, obligations, and lifestyle creep can drain the same paycheck. Tap the closest signal below, then press the heart for guidance.",
+    body: "Bills, fatigue, obligations, and lifestyle creep drain salary. Tap a signal, then the heart.",
   },
   "Freelance Season": {
     title: "Flexible income needs a buffer.",
-    body: "Irregular income, client timing, dry weeks, work costs, and rest all need a buffer. Tap the closest signal below, then press the heart for guidance.",
+    body: "Client timing, dry weeks, work costs, and rest need a buffer. Tap a signal, then the heart.",
   },
   "Business Builder": {
     title: "Growth needs boundaries.",
-    body: "Sales timing, cash flow, reinvestment, owner pay, and personal stability need clear boundaries. Tap the closest signal below, then press the heart for guidance.",
+    body: "Cash flow, reinvestment, owner pay, and stability need boundaries. Tap a signal, then the heart.",
   },
 };
 
