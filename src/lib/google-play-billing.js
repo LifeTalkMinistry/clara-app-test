@@ -1,6 +1,7 @@
 import { CLARA_PRODUCTS } from "@/lib/clara-entitlements";
 import { COMMITTED_PLAN_KEY, normalizePlanKey } from "@/lib/membership";
 import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framework";
+import { markGooglePlayEntitlementVerified } from "@/lib/google-play-entitlement-refresh";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabaseClient";
 
 const PRODUCT_IDS = {
@@ -847,6 +848,17 @@ export async function persistGooglePlayPurchase({
       raw: data,
     });
   }
+
+  markGooglePlayEntitlementVerified({
+    userId: safeUserId,
+    purchaseToken: safePurchaseToken,
+    status:
+      data?.status ||
+      data?.subscription_status ||
+      data?.entitlement_status ||
+      "active",
+    plan: data?.canonical_plan || data?.plan_key || COMMITTED_PLAN_KEY,
+  });
 
   return data.enrollment_id || data.purchase_id || null;
 }
