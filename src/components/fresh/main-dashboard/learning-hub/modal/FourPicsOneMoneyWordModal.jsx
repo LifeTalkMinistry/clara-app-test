@@ -19,6 +19,36 @@ function normalizeAnswer(value) {
     .trim();
 }
 
+function shuffleItems(items) {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
+function buildLetterBank(answer) {
+  const answerLetters = normalizeAnswer(answer).toUpperCase().split("");
+  const decoySource = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const targetLength = Math.max(10, Math.min(14, answerLetters.length + 4));
+  const bank = [...answerLetters];
+
+  while (bank.length < targetLength) {
+    const randomLetter = decoySource[Math.floor(Math.random() * decoySource.length)];
+    bank.push(randomLetter);
+  }
+
+  return shuffleItems(
+    bank.map((letter, index) => ({
+      id: `${letter}-${index}`,
+      letter,
+    })),
+  );
+}
+
 function AnswerSlots({ answer, guess }) {
   const letters = normalizeAnswer(guess).toUpperCase().split("");
   let cursor = 0;
@@ -50,7 +80,7 @@ function AnswerSlots({ answer, guess }) {
 
 export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [guess, setGuess] = useState("");
+  const [selectedLetters, setSelectedLetters] = useState([]);
   const [showHint, setShowHint] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [solvedIds, setSolvedIds] = useState([]);
@@ -72,21 +102,40 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     [activePuzzle.answer],
   );
 
+  const letterBank = useMemo(
+    () => buildLetterBank(activePuzzle.answer),
+    [activePuzzle.id, activePuzzle.answer],
+  );
+
+  const guess = useMemo(
+    () => selectedLetters.map((item) => item.letter).join(""),
+    [selectedLetters],
+  );
+
   if (!isOpen || typeof document === "undefined") return null;
 
   const resetRound = () => {
-    setGuess("");
+    setSelectedLetters([]);
     setShowHint(false);
     setFeedback(null);
   };
 
   const restartGame = () => {
     setActiveIndex(0);
-    setGuess("");
+    setSelectedLetters([]);
     setShowHint(false);
     setFeedback(null);
     setSolvedIds([]);
     setIsMenuOpen(false);
+  };
+
+  const chooseLetter = (tile) => {
+    if (!tile) return;
+    if (selectedLetters.some((item) => item.id === tile.id)) return;
+    if (selectedLetters.length >= normalizedCorrectAnswer.length) return;
+
+    setSelectedLetters((current) => [...current, tile]);
+    if (feedback !== "correct") setFeedback(null);
   };
 
   const checkAnswer = () => {
@@ -198,20 +247,33 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           </p>
           <AnswerSlots answer={activePuzzle.answer} guess={guess} />
 
-          <form onSubmit={handleSubmit} className="mt-[clamp(0.55rem,1.4dvh,0.9rem)]">
-            <label className="sr-only" htmlFor="money-word-answer">
-              Money word answer
-            </label>
-            <input
-              id="money-word-answer"
-              value={guess}
-              onChange={(event) => {
-                setGuess(event.target.value);
-                if (feedback !== "correct") setFeedback(null);
-              }}
-              placeholder="TYPE THE MONEY WORD"
-              className="w-full rounded-[clamp(16px,3.1dvh,22px)] border border-cyan-100/16 bg-white/[0.075] px-4 py-[clamp(0.65rem,1.7dvh,1rem)] text-center text-[clamp(13px,2dvh,16px)] font-black uppercase tracking-[0.10em] text-white outline-none transition placeholder:text-white/30 focus:border-cyan-100/30 focus:bg-white/[0.10]"
-            />
+          <form onSubmit={handleSubmit} className="mt-[clamp(0.5rem,1.25dvh,0.78rem)]">
+            <p className="text-center text-[clamp(7px,1.05dvh,9px)] font-black uppercase tracking-[0.20em] text-white/38">
+              Choose the letters
+            </p>
+
+            <div className="mt-[clamp(0.35rem,0.9dvh,0.58rem)] flex flex-wrap justify-center gap-[clamp(0.28rem,0.8dvh,0.45rem)]">
+              {letterBank.map((tile) => {
+                const isUsed = selectedLetters.some((item) => item.id === tile.id);
+
+                return (
+                  <button
+                    type="button"
+                    key={tile.id}
+                    disabled={isUsed || isSolved}
+                    onClick={() => chooseLetter(tile)}
+                    aria-label={`Choose letter ${tile.letter}`}
+                    className={`flex h-[clamp(1.75rem,4.7dvh,2.25rem)] w-[clamp(1.75rem,8.5vw,2.35rem)] items-center justify-center rounded-[11px] border text-[clamp(12px,1.95dvh,15px)] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_18px_rgba(0,0,0,0.20)] transition active:scale-[0.96] ${
+                      isUsed || isSolved
+                        ? "border-white/8 bg-white/[0.045] text-white/24 opacity-45"
+                        : "border-white/50 bg-white/90 text-slate-900 hover:bg-white"
+                    }`}
+                  >
+                    {tile.letter}
+                  </button>
+                );
+              })}
+            </div>
 
             {showHint ? (
               <div className="mt-[clamp(0.45rem,1.1dvh,0.75rem)] rounded-[18px] border border-cyan-100/14 bg-cyan-100/[0.08] px-3 py-[clamp(0.5rem,1.2dvh,0.75rem)] text-[clamp(10.5px,1.55dvh,12px)] leading-snug text-cyan-50/78">
@@ -241,7 +303,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                       {feedback === "correct"
                         ? activePuzzle.lesson
                         : feedback === "empty"
-                          ? "Type your answer first."
+                          ? "Choose the letters first."
                           : "Not yet. Use the four clues and try another money word."}
                     </p>
                   </div>
@@ -265,7 +327,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 className="inline-flex items-center justify-center gap-1.5 rounded-[16px] border border-white/10 bg-black/18 px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-[clamp(10px,1.55dvh,12px)] font-black text-white/68 transition hover:bg-white/[0.08] active:scale-[0.98]"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset
+                Clear
               </button>
 
               <button
