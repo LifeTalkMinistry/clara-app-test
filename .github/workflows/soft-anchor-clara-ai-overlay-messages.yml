@@ -1,0 +1,85 @@
+name: Soft Anchor CLARA AI Overlay Messages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/soft-anchor-clara-ai-overlay-messages.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Soft-anchor CLARA AI overlay messages
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx")
+          text = path.read_text(encoding="utf-8")
+
+          old_root = '    <div className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/92 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-xl" data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}>'
+          new_root = '''    <div
+      className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/92 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-xl"
+      data-clara-ai-overlay="true"
+      data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}
+    >'''
+
+          old_main = '      <main className="min-h-0 flex-1 overflow-y-auto px-1 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">'
+          new_main = '''      <main
+        className="min-h-0 flex-1 overflow-y-auto px-1 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+        data-clara-ai-scroll="true"
+      >'''
+
+          old_stack = '          <div className="flex min-h-full flex-col justify-start gap-3 pb-28 pt-12">'
+          new_stack = '''          <div
+            className="flex min-h-full flex-col gap-3 pb-28 pt-12"
+            data-clara-ai-message-stack="true"
+          >
+            <div aria-hidden="true" className="min-h-0 flex-1" />'''
+
+          replacements = [
+              (old_root, new_root, "overlay root"),
+              (old_main, new_main, "overlay scroll container"),
+              (old_stack, new_stack, "message stack spacer"),
+          ]
+
+          for old, new, label in replacements:
+              if old not in text:
+                  raise SystemExit(f"Expected {label} line was not found; aborting without changes.")
+              text = text.replace(old, new, 1)
+
+          forbidden = [
+              'position: fixed !important',
+              'justify-content: flex-end !important',
+              'margin-top: auto !important',
+          ]
+          changed_region = text[text.find('data-clara-ai-overlay="true"'):text.find('</main>', text.find('data-clara-ai-overlay="true"'))]
+          for needle in forbidden:
+              if needle in changed_region:
+                  raise SystemExit(f"Forbidden bottom-locking behavior detected after patch: {needle}")
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit overlay anchor update and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx
+          git rm .github/workflows/soft-anchor-clara-ai-overlay-messages.yml
+          if git diff --cached --quiet; then
+            echo "No CLARA AI overlay anchor changes to commit."
+          else
+            git commit -m "Soft-anchor CLARA AI overlay messages"
+            git push
+          fi
