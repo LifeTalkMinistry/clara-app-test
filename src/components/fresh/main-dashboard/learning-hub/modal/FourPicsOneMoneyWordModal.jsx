@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Lightbulb,
+  MoreHorizontal,
   RotateCcw,
   XCircle,
 } from "lucide-react";
@@ -114,11 +115,11 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   const [showHint, setShowHint] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [solvedIds, setSolvedIds] = useState([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const activePuzzle = PUZZLES[activeIndex] || PUZZLES[0];
   const isSolved = feedback === "correct";
   const progressText = `${activeIndex + 1}/${PUZZLES.length}`;
-  const solvedCount = solvedIds.length;
   const progressPercent = Math.round(((activeIndex + 1) / PUZZLES.length) * 100);
 
   const normalizedCorrectAnswer = useMemo(
@@ -132,6 +133,15 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     setGuess("");
     setShowHint(false);
     setFeedback(null);
+  };
+
+  const restartGame = () => {
+    setActiveIndex(0);
+    setGuess("");
+    setShowHint(false);
+    setFeedback(null);
+    setSolvedIds([]);
+    setIsMenuOpen(false);
   };
 
   const checkAnswer = () => {
@@ -190,41 +200,30 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
             </h1>
           </div>
 
-          <div className="flex h-[clamp(2.35rem,6.2dvh,2.75rem)] w-[clamp(2.35rem,6.2dvh,2.75rem)] shrink-0 flex-col items-center justify-center rounded-2xl border border-cyan-100/14 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <span className="text-[clamp(11px,1.9dvh,13px)] font-black leading-none text-cyan-50">{solvedCount}</span>
-            <span className="mt-0.5 text-[6.5px] font-black uppercase tracking-[0.10em] text-white/48">Score</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(true)}
+            aria-label="Open game menu"
+            className="inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] w-[clamp(2.35rem,6.2dvh,2.75rem)] shrink-0 items-center justify-center rounded-2xl border border-cyan-100/14 bg-white/[0.08] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition hover:bg-white/[0.12] active:scale-[0.98]"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </button>
         </header>
 
-        <section className="mt-[clamp(0.45rem,1.4dvh,0.8rem)] shrink-0 rounded-[clamp(20px,4.2dvh,28px)] border border-cyan-100/12 bg-white/[0.075] p-[clamp(0.65rem,2dvh,1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_22px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[clamp(8px,1.35dvh,10px)] font-black uppercase tracking-[0.20em] text-cyan-100/54">
-                Puzzle {progressText}
-              </p>
-              <h2 className="mt-0.5 text-[clamp(20px,3.35dvh,26px)] font-black leading-[1.08] tracking-[-0.04em] text-white">
-                Decode the money word
-              </h2>
-            </div>
-            <div className="shrink-0 rounded-2xl border border-cyan-100/12 bg-black/20 px-[clamp(0.65rem,2vw,0.85rem)] py-[clamp(0.42rem,1.1dvh,0.55rem)] text-right">
-              <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/42">Progress</p>
-              <p className="mt-0.5 text-[clamp(11px,1.8dvh,13px)] font-black text-cyan-50">{progressPercent}%</p>
-            </div>
+        <section className="mt-[clamp(0.35rem,1dvh,0.55rem)] shrink-0 rounded-[clamp(15px,3dvh,20px)] border border-cyan-100/12 bg-white/[0.06] px-[clamp(0.65rem,2.4vw,0.9rem)] py-[clamp(0.42rem,1.05dvh,0.6rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 text-[clamp(9px,1.45dvh,11px)] font-black uppercase tracking-[0.14em]">
+            <span className="text-cyan-50/82">Puzzle {progressText}</span>
+            <span className="text-white/58">{progressPercent}%</span>
           </div>
-
-          <div className="mt-[clamp(0.45rem,1.3dvh,0.8rem)] h-[clamp(0.28rem,0.7dvh,0.5rem)] overflow-hidden rounded-full bg-black/28">
+          <div className="mt-[clamp(0.28rem,0.65dvh,0.42rem)] h-[clamp(0.16rem,0.38dvh,0.24rem)] overflow-hidden rounded-full bg-black/30">
             <div
               className="h-full rounded-full bg-cyan-100/70 transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-
-          <p className="mt-[clamp(0.45rem,1.2dvh,0.75rem)] line-clamp-2 text-[clamp(10.5px,1.65dvh,13px)] leading-snug text-white/60">
-            Four clues point to one financial term. Type the answer, then CLARA explains why it matters.
-          </p>
         </section>
 
-        <section className="mt-[clamp(0.45rem,1.3dvh,0.85rem)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(0.5rem,1.4dvh,0.75rem)]">
+        <section className="mt-[clamp(0.4rem,1.1dvh,0.7rem)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(0.5rem,1.4dvh,0.75rem)]">
           {activePuzzle.clues.map((clue, index) => (
             <div
               key={`${activePuzzle.id}-${clue.label}`}
@@ -331,6 +330,73 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           </form>
         </section>
       </main>
+
+      {isMenuOpen ? (
+        <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/38 px-[clamp(0.7rem,3.7vw,1rem)] pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-[clamp(24px,4.8dvh,32px)] border border-cyan-100/14 bg-[#061427]/92 p-[clamp(0.85rem,2.2dvh,1.1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_30px_70px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/8 pb-[clamp(0.65rem,1.6dvh,0.9rem)]">
+              <div>
+                <p className="text-[clamp(7px,1.1dvh,9px)] font-black uppercase tracking-[0.22em] text-cyan-100/48">
+                  Menu
+                </p>
+                <h2 className="mt-1 text-[clamp(17px,2.4dvh,21px)] font-black tracking-[-0.03em] text-white">
+                  Game Options
+                </h2>
+              </div>
+              <div className="rounded-2xl border border-cyan-100/12 bg-white/[0.07] px-3 py-2 text-right">
+                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/42">Progress</p>
+                <p className="mt-0.5 text-[clamp(11px,1.75dvh,13px)] font-black text-cyan-50">
+                  {progressPercent}%
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-[clamp(0.65rem,1.7dvh,0.95rem)] grid gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex w-full items-center justify-between rounded-[18px] border border-cyan-100/12 bg-white/[0.075] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-cyan-50 transition hover:bg-white/[0.11] active:scale-[0.99]"
+              >
+                Resume
+                <span className="text-white/35">Continue</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetRound();
+                  setIsMenuOpen(false);
+                }}
+                className="flex w-full items-center justify-between rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-white/78 transition hover:bg-white/[0.08] active:scale-[0.99]"
+              >
+                Restart puzzle
+                <span className="text-white/35">Clear answer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={restartGame}
+                className="flex w-full items-center justify-between rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-white/78 transition hover:bg-white/[0.08] active:scale-[0.99]"
+              >
+                Restart game
+                <span className="text-white/35">Back to 1/5</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onClose();
+                }}
+                className="flex w-full items-center justify-between rounded-[18px] border border-rose-100/12 bg-rose-300/[0.07] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-rose-50 transition hover:bg-rose-300/[0.10] active:scale-[0.99]"
+              >
+                Exit to Money Games
+                <span className="text-white/35">Close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>,
     document.body,
   );
