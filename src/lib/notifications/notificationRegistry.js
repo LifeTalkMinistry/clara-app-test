@@ -3,6 +3,7 @@ export const NOTIFICATION_CATEGORIES = Object.freeze({
   DAILY: "daily_check_in",
   GOALS: "goals_and_reviews",
   TASKS: "tasks_and_coaching",
+  SCHEDULE: "schedule_and_calendar",
   ACCOUNT: "account_and_service",
   PRODUCT: "product_communication",
 });
@@ -38,6 +39,10 @@ export const NOTIFICATION_EVENTS = Object.freeze({
   program_week_unlocked: event({ category: NOTIFICATION_CATEGORIES.TASKS }),
   coaching_session_reminder: event({ category: NOTIFICATION_CATEGORIES.TASKS }),
 
+  schedule_event_upcoming: event({ category: NOTIFICATION_CATEGORIES.SCHEDULE, severity: "info", active: true }),
+  schedule_event_today: event({ category: NOTIFICATION_CATEGORIES.SCHEDULE, severity: "warning", active: true }),
+  schedule_money_event_due: event({ category: NOTIFICATION_CATEGORIES.SCHEDULE, severity: "warning", active: true }),
+
   new_device_login: event({ category: NOTIFICATION_CATEGORIES.ACCOUNT, severity: "critical", optional: false }),
   password_changed: event({ category: NOTIFICATION_CATEGORIES.ACCOUNT, severity: "critical", optional: false }),
   payment_confirmed: event({ category: NOTIFICATION_CATEGORIES.ACCOUNT, severity: "success", optional: false }),
@@ -58,6 +63,7 @@ const CATEGORY_PREFERENCE_KEYS = Object.freeze({
   [NOTIFICATION_CATEGORIES.DAILY]: "dailyCheckIn",
   [NOTIFICATION_CATEGORIES.GOALS]: "goalsAndReviews",
   [NOTIFICATION_CATEGORIES.TASKS]: "tasksAndCoaching",
+  [NOTIFICATION_CATEGORIES.SCHEDULE]: "scheduleAndCalendar",
   [NOTIFICATION_CATEGORIES.PRODUCT]: "productUpdates",
 });
 

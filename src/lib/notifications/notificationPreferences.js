@@ -22,6 +22,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze({
   dailyCheckIn: true,
   goalsAndReviews: true,
   tasksAndCoaching: true,
+  scheduleAndCalendar: true,
   productUpdates: false,
   deliveryMode: "in_app",
   preferredTime: "09:00",
@@ -44,6 +45,7 @@ const BOOLEAN_KEYS = [
   "dailyCheckIn",
   "goalsAndReviews",
   "tasksAndCoaching",
+  "scheduleAndCalendar",
   "productUpdates",
   "expenseLogStopAfterLogged",
   "weeklyMoneyReview",
@@ -128,6 +130,11 @@ function migrateLegacyShape(value = {}) {
     dailyCheckIn: firstBoolean(source.dailyCheckIn, source.dailyReminders),
     goalsAndReviews: firstBoolean(source.goalsAndReviews, source.goalProgressAlerts),
     tasksAndCoaching: firstBoolean(source.tasksAndCoaching, source.coachingAlerts),
+    scheduleAndCalendar: firstBoolean(
+      source.scheduleAndCalendar,
+      source.calendarReminders,
+      source.scheduleReminders
+    ),
     productUpdates: firstBoolean(source.productUpdates),
     deliveryMode: source.deliveryMode,
     preferredTime: source.preferredTime || source.reminderTime,
@@ -278,6 +285,8 @@ export function notificationPreferencesToLegacySettings(preferences = {}) {
     dailyReminders: normalized.dailyCheckIn,
     budgetAlerts: normalized.moneyAlerts,
     coachingAlerts: normalized.tasksAndCoaching,
+    calendarReminders: normalized.scheduleAndCalendar,
+    scheduleReminders: normalized.scheduleAndCalendar,
     decisionNudges: normalized.moneyAlerts,
     goalProgressAlerts: normalized.goalsAndReviews,
   };

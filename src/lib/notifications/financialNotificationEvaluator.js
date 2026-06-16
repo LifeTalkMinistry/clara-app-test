@@ -11,6 +11,7 @@ import {
   createNotification,
   getNotificationByDedupeKey,
 } from "@/lib/notifications/localNotificationRepository";
+import { evaluateScheduleNotifications } from "@/lib/notifications/scheduleNotificationEvaluator";
 
 const SAVINGS_MILESTONES = [25, 50, 75, 100];
 const WEEKLY_REVIEW_EVENT_TYPE = "weekly_review_ready";
@@ -384,10 +385,11 @@ export async function evaluateFinancialNotifications({
 } = {}) {
   if (!userId) return [];
 
-  const [budgetNotifications, savingsNotifications] = await Promise.all([
+  const [budgetNotifications, savingsNotifications, scheduleNotifications] = await Promise.all([
     createBudgetNotifications({ userId, preferences, budgets, expenses }),
     createSavingsNotifications({ userId, preferences, savingsGoals }),
+    evaluateScheduleNotifications({ userId, preferences }),
   ]);
 
-  return [...budgetNotifications, ...savingsNotifications];
+  return [...budgetNotifications, ...savingsNotifications, ...scheduleNotifications];
 }
