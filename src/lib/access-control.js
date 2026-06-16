@@ -18,8 +18,8 @@ export function getEnrollmentStatus(enrollment, profileLike) {
 export function hasCompletedOnboarding(profileLike) {
   return Boolean(profileLike?.has_completed_onboarding || profileLike?.onboarding_completed);
 }
-export function hasCompletedProgramOnboarding(profileLike) {
-  return Boolean(profileLike?.has_completed_program_onboarding || profileLike?.program_onboarding_completed);
+export function hasCompletedProgramOnboarding(_profileLike) {
+  return true;
 }
 export function isActivationRequiredPlan(planKey) {
   return normalizePlanKey(planKey) === COMMITTED_PLAN_KEY;
@@ -41,7 +41,6 @@ export function resolveAppFlow(profileLike, enrollment) {
   const membership = resolveMembership({ profile: profileLike });
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
   if (membership.isPendingActivation || ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) return "payment_pending";
-  if (membership.isActiveCommitted && !hasCompletedProgramOnboarding(profileLike)) return "program_onboarding";
   return "normal";
 }
 export function deriveAccessState(profileLike = {}, enrollment = null) {
