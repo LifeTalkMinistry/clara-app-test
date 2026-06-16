@@ -116,7 +116,7 @@ function buildNotificationPayload(payload: Record<string, unknown>) {
   return {
     title: String(payload.title || "CLARA").trim(),
     body: String(payload.body || "Your guided task is ready.").trim(),
-    url: String(payload.url || "#/lifeos").trim(),
+    url: String(payload.url || "#/dashboard").trim(),
     dedupeKey: String(payload.dedupe_key || payload.dedupeKey || "").trim(),
     eventType: String(payload.event_type || payload.eventType || "task_still_incomplete").trim(),
     icon: payload.icon || "favicon.svg",
@@ -182,7 +182,7 @@ async function sendUniversalDevice(device: Record<string, any>, notification: Re
                 body: notification.body,
               },
               data: {
-                url: String(notification.url || "#/lifeos"),
+                url: String(notification.url || "#/dashboard"),
                 dedupeKey: String(notification.dedupeKey || ""),
                 eventType: String(notification.eventType || "task_still_incomplete"),
               },

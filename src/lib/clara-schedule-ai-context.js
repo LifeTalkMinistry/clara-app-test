@@ -1,5 +1,4 @@
 const SCHEDULE_STORAGE_PREFIX = "clara_schedule_events_v2";
-const LEGACY_SCHEDULE_STORAGE_KEY = "clara_lifeos_schedule_events_v1";
 const NO_UPCOMING_CONTEXT = "No upcoming CLARA Schedule page items are saved.";
 
 export const SCHEDULE_BRAIN_EMERGENCY_FALLBACK = "I can see your Schedule data, but I couldn't generate the full schedule answer right now. Please try again.";
@@ -39,7 +38,7 @@ export function readScheduleEventsForAI({ user = null, scheduleEvents = null } =
   if (exactUserEvents.length) return exactUserEvents;
   const latestEvents = readLatestScheduleArray();
   if (latestEvents.length) return latestEvents;
-  return readJsonArray(LEGACY_SCHEDULE_STORAGE_KEY);
+  return [];
 }
 
 function parseScheduleDate(value) {

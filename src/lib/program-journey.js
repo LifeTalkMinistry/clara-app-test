@@ -12,19 +12,28 @@ const REVISION_STATUSES = new Set(["rejected", "needs_revision"]);
 
 const PLAN_TO_EXPERIENCE_TIER = {
   free: "free",
+  committed: "committed_249",
+  committed_249: "committed_249",
+  clara_commitment_249: "committed_249",
   pro: "committed_249",
   pro_99: "committed_249",
   core: "committed_249",
   core_599: "committed_249",
   coaching: "committed_249",
   coaching_1299: "committed_249",
+  life_os: "committed_249",
+  lifeos: "committed_249",
+  life_os_499: "committed_249",
+  lifeos_499: "committed_249",
+  clara_lifeos_499: "committed_249",
 };
 
 export const EXPERIENCE_TIER_LABELS = {
   free: "Free",
-  pro_99: "PRO",
-  core_599: "CORE",
-  coaching_1299: "Life OS",
+  pro_99: "Committed",
+  core_599: "Committed",
+  coaching_1299: "Committed",
+  committed_249: "Committed",
 };
 
 const normalize = (value) => String(value ?? "").trim();
@@ -166,10 +175,6 @@ export function taskSupportsTier(task, tier) {
   if (tierAccess.length === 0) return true;
 
   if (tier === "committed_249") {
-    return tierAccess.includes("committed_249") || tierAccess.includes("committed_249");
-  }
-
-  if (tier === "committed_249") {
     return tierAccess.includes("committed_249");
   }
 
@@ -281,7 +286,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
       state = "locked";
       lockedReason =
         tier === "committed_249"
-          ? "Unlock CORE to start the 30-day program."
+          ? "Start your Committed access to begin the 30-day program."
           : "This day is not available on your current tier.";
     } else if (!challengeStarted) {
       state = "locked";
@@ -405,10 +410,10 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (onboardingRequired) {
     return {
       kind: "onboarding",
-      eyebrow: journey.tier === "committed_249" ? "Life OS Journey" : "30-Day Reset",
+      eyebrow: journey.tier === "committed_249" ? "Committed Journey" : "30-Day Reset",
       title:
         journey.tier === "committed_249"
-            ? "Your Life OS layer is ready"
+            ? "Your Committed layer is ready"
             : "Your guided reset is ready",
       body: "Complete your setup and begin the next step in your program.",
       ctaLabel: "Begin Setup",
@@ -419,9 +424,9 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.tier === "committed_249" && coachingSummary?.hasPendingSession) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
     return {
-      kind: "life_os_support_active",
-      eyebrow: "Life OS Support",
-      title: "Your Life OS support is active",
+      kind: "committed_support_active",
+      eyebrow: "Committed Support",
+      title: "Your Committed support is active",
       body: session?.topic
         ? `${session.topic} is in motion. Continue today's guided step and keep your support layer active.`
         : "Your support layer is active. Continue today's guided step.",
@@ -433,7 +438,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.state === "available_not_started") {
     return {
       kind: "start_challenge",
-      eyebrow: journey.tier === "committed_249" ? "Life OS Journey" : "30-Day Program",
+      eyebrow: journey.tier === "committed_249" ? "Committed Journey" : "30-Day Program",
       title: "Your CLARA challenge is ready",
       body: "Start the challenge when you are ready. Day 1 opens immediately, then each next day unlocks at 6:00 AM.",
       ctaLabel: "Start Challenge",
@@ -444,7 +449,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.todayItem) {
     return {
       kind: "task_reminder",
-      eyebrow: journey.tier === "committed_249" ? "Life OS Journey" : "Today's Task",
+      eyebrow: journey.tier === "committed_249" ? "Committed Journey" : "Today's Task",
       title: `Continue Day ${journey.todayItem.day} of your reset`,
       body: journey.todayItem.title || "Your next guided task is ready.",
       ctaLabel: "Open Today's Task",

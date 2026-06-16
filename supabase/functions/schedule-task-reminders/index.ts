@@ -218,7 +218,7 @@ Deno.serve(async (request) => {
           body: assignment.day_number
             ? `Your Day ${assignment.day_number} task is still incomplete.`
             : "Your active program task is still incomplete.",
-          url: "#/lifeos",
+          url: "#/dashboard",
           dedupe_key: dedupeKey,
           event_type: "task_still_incomplete",
         });
