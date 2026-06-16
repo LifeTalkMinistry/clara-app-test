@@ -156,7 +156,6 @@ function EmergencySetupEmptyState({ expanded = false, onSetup }) {
           <Shield className="h-5 w-5" />
         </div>
         <p className="text-xl font-black tracking-[-0.025em] text-white">Emergency Fund</p>
-        <p className="mt-3 max-w-[320px] text-sm font-semibold leading-6 text-white/70">Before CLARA can protect you, let’s define what “safe” means for your real life.</p>
         <button type="button" onClick={onSetup} className="mt-5 flex w-full items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.11] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-300/[0.16]">Set up my emergency fund</button>
         <p className="mt-3 text-center text-[11px] font-semibold leading-5 text-white/42">You’ll choose your monthly survival cost, storage wallet, and protection goal.</p>
       </div>
