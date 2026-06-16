@@ -1,0 +1,11 @@
+/* CLARA AI overlay soft anchor
+   Short conversations should feel connected to the input area, while long
+   conversations still grow upward and scroll through the native overlay main.
+   This intentionally avoids the old fixed bottom-box behavior. */
+
+body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="pb-28"][class*="pt-12"]::before {
+  content: "";
+  display: block;
+  min-height: 0;
+  flex: 1 1 0%;
+}
