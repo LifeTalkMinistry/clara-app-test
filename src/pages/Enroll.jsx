@@ -1447,7 +1447,10 @@ export default function Enroll() {
     }
 
     const latestEnrollmentAfterPersist = await fetchEnrollmentForUserId(userId);
-    await refreshUser?.();
+    await refreshUser?.({
+      preferCache: false,
+      reason: "google_play_purchase_verified",
+    });
 
     const persistedStatus = normalizeKey(latestEnrollmentAfterPersist?.status);
     const persistedPlanKey = getSupportedPlanKeyFromEnrollment(
@@ -1458,6 +1461,12 @@ export default function Enroll() {
       persistedPlanKey &&
       SUCCESS_STATUSES.has(persistedStatus)
     ) {
+      console.info("[CLARA Billing] entitlement active confirmed", {
+        userId,
+        planKey,
+        status: persistedStatus,
+      });
+
       setPurchaseState("success");
       setPurchaseMessage(plan.successBody);
       toast.success(`${plan.name} unlocked`);
@@ -1477,7 +1486,10 @@ export default function Enroll() {
     }
 
     const latestEnrollmentAfterWait = await fetchEnrollmentForUserId(userId);
-    await refreshUser?.();
+    await refreshUser?.({
+      preferCache: false,
+      reason: "google_play_entitlement_confirmed",
+    });
 
     const entitlementStatus = normalizeKey(entitlement?.status);
     const latestEnrollmentStatus = normalizeKey(
@@ -1492,6 +1504,12 @@ export default function Enroll() {
       (SUCCESS_STATUSES.has(entitlementStatus) ||
         SUCCESS_STATUSES.has(latestEnrollmentStatus))
     ) {
+      console.info("[CLARA Billing] entitlement active confirmed", {
+        userId,
+        planKey,
+        status: entitlementStatus || latestEnrollmentStatus,
+      });
+
       setPurchaseState("success");
       setPurchaseMessage(plan.successBody);
       toast.success(`${plan.name} unlocked`);
