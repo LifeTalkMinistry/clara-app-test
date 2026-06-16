@@ -1,6 +1,7 @@
 export const POST_ONBOARDING_BOOKLET_INTENT_KEY = "clara_open_commitment_booklet_after_onboarding";
 export const COMMITTED_MONTHLY_PURCHASE_INTENT = "monthly_direct";
 
+// Legacy migration only: stale sessions from the removed 7-day trial are normalized to monthly commitment.
 const LEGACY_TRIAL_PURCHASE_INTENT = "trial_7d";
 
 export const CLARA_COMMITMENT_BOOKLET_PAGES = [
@@ -118,7 +119,7 @@ export function normalizeCommitmentBookletIntent(intent) {
   if (!normalizedIntent || normalizedIntent === LEGACY_TRIAL_PURCHASE_INTENT) {
     return COMMITTED_MONTHLY_PURCHASE_INTENT;
   }
-  return normalizedIntent === COMMITTED_MONTHLY_PURCHASE_INTENT ? normalizedIntent : COMMITTED_MONTHLY_PURCHASE_INTENT;
+  return normalizedIntent === COMMITTED_MONTHLY_PURCHASE_INTENT ? COMMITTED_MONTHLY_PURCHASE_INTENT : null;
 }
 
 export function buildCommitmentBookletIntent({
@@ -127,12 +128,14 @@ export function buildCommitmentBookletIntent({
   productId = "",
   openedAt = Date.now(),
 } = {}) {
-  return { intent: normalizeCommitmentBookletIntent(intent), planKey, productId, openedAt };
+  const normalizedIntent = normalizeCommitmentBookletIntent(intent);
+  if (!normalizedIntent) return null;
+  return { intent: normalizedIntent, planKey, productId, openedAt };
 }
 
 export function persistCommitmentBookletIntent(options = {}) {
   if (typeof window === "undefined") return null;
-  const bookletIntent = buildCommitmentBookletIntent(options);
+  const bookletIntent = buildCommitmentBookletIntent(options) || buildCommitmentBookletIntent();
   try {
     window.sessionStorage?.setItem(POST_ONBOARDING_BOOKLET_INTENT_KEY, JSON.stringify(bookletIntent));
   } catch (error) {

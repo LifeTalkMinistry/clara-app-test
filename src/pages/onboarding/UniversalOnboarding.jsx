@@ -16,7 +16,11 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
 import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
-import { COMMITTED_PLAN_KEY } from "@/lib/membership";
+import { COMMITTED_PLAN_KEY, COMMITTED_PRODUCT_ID } from "@/lib/membership";
+import {
+  COMMITTED_MONTHLY_PURCHASE_INTENT,
+  persistCommitmentBookletIntent,
+} from "@/lib/clara-commitment-framework";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 
 const INVALID_STORED_NAMES = ["Recovered User", "No name"];
@@ -24,9 +28,6 @@ const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.
 const FREE_VERSION_ROUTE = "/dashboard";
 const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
 const UNIVERSAL_ONBOARDING_DRAFT_KEY = "clara_universal_onboarding_answers_draft";
-const POST_ONBOARDING_BOOKLET_INTENT_KEY = "clara_open_commitment_booklet_after_onboarding";
-const TRIAL_PURCHASE_INTENT = "trial_7d";
-const CLARA_COMMITMENT_PRODUCT_ID = "clara_commitment_249";
 
 const QUESTION_SETS = [
   {
@@ -226,23 +227,6 @@ function clearOnboardingDraft() {
     window.sessionStorage?.removeItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
   } catch {
     // Draft cleanup is best effort only.
-  }
-}
-
-function persistPostOnboardingBookletIntent() {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage?.setItem(
-      POST_ONBOARDING_BOOKLET_INTENT_KEY,
-      JSON.stringify({
-        intent: TRIAL_PURCHASE_INTENT,
-        planKey: COMMITTED_PLAN_KEY,
-        productId: CLARA_COMMITMENT_PRODUCT_ID,
-        openedAt: Date.now(),
-      })
-    );
-  } catch (error) {
-    warnInDevelopment("CLARA onboarding booklet intent persistence skipped:", error);
   }
 }
 
@@ -617,7 +601,7 @@ export default function UniversalOnboarding() {
     }
   }
 
-  async function handleExploreClaraTrial() {
+  async function handleStartClaraCommitment() {
     if (saving) return;
     clearAdvanceTimer();
 
@@ -628,18 +612,23 @@ export default function UniversalOnboarding() {
       if (!completed) return;
 
       const recommendedAccessSnapshot = getRecommendedAccessLevel(getStableAnswersSnapshot());
-      persistPostOnboardingBookletIntent();
+      persistCommitmentBookletIntent({
+        intent: COMMITTED_MONTHLY_PURCHASE_INTENT,
+        planKey: COMMITTED_PLAN_KEY,
+        productId: COMMITTED_PRODUCT_ID,
+        openedAt: Date.now(),
+      });
       navigate(FREE_VERSION_ROUTE, {
         replace: true,
         state: {
           fromOnboarding: true,
           openCommitmentBooklet: true,
-          purchaseIntent: TRIAL_PURCHASE_INTENT,
+          purchaseIntent: COMMITTED_MONTHLY_PURCHASE_INTENT,
           recommendedAccessLevel: recommendedAccessSnapshot,
         },
       });
     } catch (error) {
-      console.error("Universal onboarding trial routing error:", error);
+      console.error("Universal onboarding commitment routing error:", error);
       setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
     } finally {
       setSaving(false);
@@ -803,13 +792,13 @@ export default function UniversalOnboarding() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-xl font-semibold text-white">Explore CLARA</h3>
-                                <span className="rounded-full border border-[#34d399]/20 bg-[#34d399]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a7efd0]">7-day trial</span>
+                                <h3 className="text-xl font-semibold text-white">Committed Version</h3>
+                                <span className="rounded-full border border-[#34d399]/20 bg-[#34d399]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a7efd0]">₱249/month</span>
                               </div>
-                              <p className="mt-2 text-sm leading-6 text-white/68">Start your 7-day CLARA trial and experience the guided money clarity journey.</p>
-                              <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">7 days free, then ₱249/month. Cancel anytime before renewal.</p>
-                              <Button type="button" onClick={handleExploreClaraTrial} disabled={saving} className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]">
-                                {saving ? "Preparing your booklet..." : "Explore CLARA for 7 days"}
+                              <p className="mt-2 text-sm leading-6 text-white/68">Unlock CLARA’s guided money decision experience and continue with stronger structure.</p>
+                              <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">₱249/month. Cancel anytime in Google Play before renewal.</p>
+                              <Button type="button" onClick={handleStartClaraCommitment} disabled={saving} className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]">
+                                {saving ? "Preparing your booklet..." : "Start My Commitment"}
                                 {!saving ? <ArrowRight className="h-4 w-4" /> : null}
                               </Button>
                             </div>
