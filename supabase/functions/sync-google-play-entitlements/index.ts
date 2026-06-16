@@ -20,6 +20,14 @@ type PurchaseRecord = {
   raw_payload?: GooglePurchase | null;
 };
 
+type ClassifiedPurchase = {
+  active: boolean;
+  subscriptionStatus: string;
+  entitlementStatus: string;
+  expiresAt: string | null;
+  reason: string;
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -92,26 +100,36 @@ async function verifyWithGoogle(accessToken: string, productId: string, purchase
   return response.json() as Promise<GooglePurchase>;
 }
 
-function classifyGooglePurchase(googlePurchase: GooglePurchase) {
+function classifyGooglePurchase(googlePurchase: GooglePurchase): ClassifiedPurchase {
   const expiryTimeMillis = Number(googlePurchase.expiryTimeMillis || 0);
   const paymentState = Number(googlePurchase.paymentState ?? -1);
-  const cancelReason = googlePurchase.cancelReason;
-  const userCancellationTimeMillis = googlePurchase.userCancellationTimeMillis;
+  const cancelReasonRaw = googlePurchase.cancelReason;
+  const cancelReason = cancelReasonRaw === undefined || cancelReasonRaw === null
+    ? null
+    : Number(cancelReasonRaw);
   const expiresAt = expiryTimeMillis ? new Date(expiryTimeMillis).toISOString() : null;
   const isExpired = !expiryTimeMillis || expiryTimeMillis <= Date.now();
   const isPaymentPending = paymentState === 0;
-  const isCancelled = cancelReason !== undefined || userCancellationTimeMillis !== undefined;
+  const isRevokedOrInvalid = cancelReason === 1 || cancelReason === 3;
+  const isUserCancelledButStillPaid = (cancelReason === 0 || googlePurchase.userCancellationTimeMillis !== undefined) && !isExpired;
 
   if (isExpired) {
-    return { active: false, subscriptionStatus: "expired", entitlementStatus: "expired", expiresAt };
+    return { active: false, subscriptionStatus: "expired", entitlementStatus: "expired", expiresAt, reason: "expired" };
   }
+
   if (isPaymentPending) {
-    return { active: false, subscriptionStatus: "payment_failed", entitlementStatus: "payment_failed", expiresAt };
+    return { active: false, subscriptionStatus: "payment_failed", entitlementStatus: "payment_failed", expiresAt, reason: "payment_pending" };
   }
-  if (isCancelled) {
-    return { active: false, subscriptionStatus: "cancelled", entitlementStatus: "cancelled", expiresAt };
+
+  if (isRevokedOrInvalid) {
+    return { active: false, subscriptionStatus: "revoked", entitlementStatus: "revoked", expiresAt, reason: `cancel_reason_${cancelReason}` };
   }
-  return { active: true, subscriptionStatus: "active", entitlementStatus: "active", expiresAt };
+
+  if (isUserCancelledButStillPaid) {
+    return { active: true, subscriptionStatus: "active", entitlementStatus: "active", expiresAt, reason: "cancelled_until_expiry" };
+  }
+
+  return { active: true, subscriptionStatus: "active", entitlementStatus: "active", expiresAt, reason: "active" };
 }
 
 async function assertSyncAuthorized(request: Request, serviceRoleKey: string) {
@@ -125,11 +143,13 @@ async function assertSyncAuthorized(request: Request, serviceRoleKey: string) {
   throw new Error("Unauthorized lifecycle sync request.");
 }
 
-async function updateActiveAccess(admin: ReturnType<typeof createClient>, purchase: PurchaseRecord, state: ReturnType<typeof classifyGooglePurchase>, googlePurchase: GooglePurchase) {
+async function updateActiveAccess(admin: ReturnType<typeof createClient>, purchase: PurchaseRecord, state: ClassifiedPurchase, googlePurchase: GooglePurchase) {
   const nowIso = new Date().toISOString();
   const payload = {
     ...googlePurchase,
     claraSubscriptionStatus: state.subscriptionStatus,
+    claraEntitlementStatus: state.entitlementStatus,
+    claraLifecycleReason: state.reason,
     claraLifecycleSyncedAt: nowIso,
   };
 
@@ -185,11 +205,13 @@ async function updateActiveAccess(admin: ReturnType<typeof createClient>, purcha
   if (profileError) throw profileError;
 }
 
-async function updateInactiveAccess(admin: ReturnType<typeof createClient>, purchase: PurchaseRecord, state: ReturnType<typeof classifyGooglePurchase>, googlePurchase: GooglePurchase) {
+async function updateInactiveAccess(admin: ReturnType<typeof createClient>, purchase: PurchaseRecord, state: ClassifiedPurchase, googlePurchase: GooglePurchase) {
   const nowIso = new Date().toISOString();
   const payload = {
     ...googlePurchase,
     claraSubscriptionStatus: state.subscriptionStatus,
+    claraEntitlementStatus: state.entitlementStatus,
+    claraLifecycleReason: state.reason,
     claraLifecycleSyncedAt: nowIso,
   };
 
@@ -248,6 +270,13 @@ async function updateInactiveAccess(admin: ReturnType<typeof createClient>, purc
         last_billing_sync_at: nowIso,
       };
 
+  console.info("sync-google-play-entitlements downgrade decision", {
+    user_id: purchase.user_id,
+    purchase_id: purchase.id,
+    reason: state.reason,
+    hasAdminOverride,
+  });
+
   const { error: profileError } = await admin
     .from("profiles")
     .update(profileUpdate)
@@ -290,7 +319,7 @@ serve(async (request) => {
         } else {
           await updateInactiveAccess(admin, purchase, state, googlePurchase);
         }
-        results.push({ purchase_id: purchase.id, user_id: purchase.user_id, status: state.subscriptionStatus, ok: true });
+        results.push({ purchase_id: purchase.id, user_id: purchase.user_id, status: state.subscriptionStatus, reason: state.reason, ok: true });
       } catch (error) {
         console.error("sync-google-play-entitlements item failed", { purchase_id: purchase.id, error });
         results.push({
