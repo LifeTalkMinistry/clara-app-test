@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import useUserRole from "@/hooks/useUserRole";
 import { askGeminiForScheduleImpact } from "@/lib/ai-command/schedule-impact-service";
 import OriginalDashboardSchedulePanel from "./DashboardSchedulePanel.jsx";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
 const SCHEDULE_DESCRIPTION_PLACEHOLDER = "Describe this schedule so CLARA can refine it and plan possible spending.";
+const CLARA_SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -24,22 +24,6 @@ function formatPeso(value) {
   return `₱${Math.max(0, Math.round(Number(value || 0))).toLocaleString()}`;
 }
 
-function getStorageKey(user) {
-  return `${STORAGE_PREFIX}_${user?.id || user?.email || "guest"}`;
-}
-
-function readStoredEvents(user) {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(getStorageKey(user));
-    const legacy = window.localStorage.getItem("clara_lifeos_schedule_events_v1");
-    const parsed = raw ? JSON.parse(raw) : legacy ? JSON.parse(legacy) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function readAllStoredScheduleEvents() {
   if (typeof window === "undefined") return [];
   const events = [];
@@ -56,12 +40,6 @@ function readAllStoredScheduleEvents() {
   }
 
   return events;
-}
-
-function writeStoredEvent(user, event) {
-  if (typeof window === "undefined") return;
-  const current = readStoredEvents(user).filter((item) => item?.id && item?.title && item?.date);
-  window.localStorage.setItem(getStorageKey(user), JSON.stringify([...current, event]));
 }
 
 function makeId() {
@@ -761,9 +739,8 @@ function hideRefineButtons(root) {
 }
 
 export default function DashboardScheduleImpactPortalPanel() {
-  const { user } = useUserRole() || {};
   const rootRef = useRef(null);
-  const [panelKey, setPanelKey] = useState(0);
+  const [panelKey] = useState(0);
   const [planner, setPlanner] = useState(null);
 
   useBodyScrollLock(Boolean(planner));
@@ -779,6 +756,7 @@ export default function DashboardScheduleImpactPortalPanel() {
     const localItems = buildLocalPlanItems(preparedForm);
 
     setPlanner({
+      eventId: makeId(),
       form: preparedForm,
       refinedDescription: "",
       items: [],
@@ -824,13 +802,18 @@ export default function DashboardScheduleImpactPortalPanel() {
 
   const savePlanner = (amountValue = "") => {
     if (!planner?.form?.title) return;
+
     const cleanImpact = cleanMoney(amountValue);
+
     const impactBreakdown = (planner.items || [])
-      .map((item) => ({ label: cleanText(item.name), amount: Math.round(moneyNumber(item.amount)) }))
+      .map((item) => ({
+        label: cleanText(item.name),
+        amount: Math.round(moneyNumber(item.amount)),
+      }))
       .filter((item) => item.label && item.amount > 0);
 
-    writeStoredEvent(user, {
-      id: makeId(),
+    const nextEvent = {
+      id: planner.eventId || makeId(),
       title: cleanText(planner.form.title),
       date: planner.form.date || new Date().toISOString().slice(0, 10),
       time: planner.form.time || "",
@@ -838,11 +821,24 @@ export default function DashboardScheduleImpactPortalPanel() {
       amount: cleanImpact,
       note: cleanText(planner.refinedDescription || planner.form.note),
       impactBreakdown,
-    });
+    };
 
-    if (planner.form.elements?.amountInput) updateControlledField(planner.form.elements.amountInput, cleanImpact ? `₱${cleanImpact}` : "");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent(CLARA_SCHEDULE_CREATE_EVENT, {
+          detail: nextEvent,
+        })
+      );
+    }
+
+    if (planner.form.elements?.amountInput) {
+      updateControlledField(
+        planner.form.elements.amountInput,
+        cleanImpact ? `₱${cleanImpact}` : ""
+      );
+    }
+
     setPlanner(null);
-    setPanelKey((key) => key + 1);
   };
 
   useEffect(() => {
@@ -901,7 +897,7 @@ export default function DashboardScheduleImpactPortalPanel() {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("submit", onSubmit, true);
     };
-  }, [planner, panelKey, user?.id, user?.email]);
+  }, [planner, panelKey]);
 
   return (
     <div ref={rootRef} className="contents">
