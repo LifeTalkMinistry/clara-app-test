@@ -1,3 +1,4 @@
+# trigger: run soft-anchor patch
 name: Soft Anchor CLARA AI Overlay Messages
 
 on:
