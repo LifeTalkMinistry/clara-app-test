@@ -171,6 +171,89 @@ function setText(node, value) {
   if (node.textContent !== next) node.textContent = next;
 }
 
+function installSignalCardLayoutStyles() {
+  if (document.getElementById("clara-working-student-signal-card-layout-style")) return;
+  const style = document.createElement("style");
+  style.id = "clara-working-student-signal-card-layout-style";
+  style.textContent = `
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] {
+      position: relative !important;
+      overflow: hidden !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] > div {
+      display: flex !important;
+      min-height: 100% !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: center !important;
+      gap: 0 !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] > div > div:not([data-clara-heart-cta="true"]) {
+      width: 100% !important;
+      max-width: none !important;
+      min-width: 0 !important;
+      flex: none !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] h3 {
+      width: 100% !important;
+      max-width: none !important;
+      padding-right: 72px !important;
+      line-height: 1.16 !important;
+      letter-spacing: -0.01em !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] h3 + p {
+      display: -webkit-box !important;
+      width: 100% !important;
+      max-width: none !important;
+      min-width: 0 !important;
+      padding-right: 76px !important;
+      line-height: 1.34 !important;
+      -webkit-line-clamp: 3 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+      overflow-wrap: normal !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] [data-clara-heart-cta="true"] {
+      position: absolute !important;
+      right: 14px !important;
+      top: 50% !important;
+      z-index: 4 !important;
+      width: 58px !important;
+      height: 58px !important;
+      margin: 0 !important;
+      flex: none !important;
+      translate: 0 -50% !important;
+    }
+
+    #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] [data-clara-heart-cta="true"] svg {
+      width: 25px !important;
+      height: 25px !important;
+    }
+
+    @media (max-width: 380px) {
+      #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] h3 {
+        padding-right: 66px !important;
+      }
+
+      #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] h3 + p {
+        padding-right: 68px !important;
+      }
+
+      #root [data-clara-support-card="true"][data-clara-signal-stage="Working Student"] [data-clara-heart-cta="true"] {
+        right: 10px !important;
+        width: 54px !important;
+        height: 54px !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function normalizeHint(card, mode) {
   const nextHint = mode === "guidance" ? "Guidance shown" : "Reveal guidance";
 
@@ -230,6 +313,7 @@ function installWorkingStudentSignalFit() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_WORKING_STUDENT_SIGNAL_FIT__) return;
   window.__CLARA_WORKING_STUDENT_SIGNAL_FIT__ = true;
+  installSignalCardLayoutStyles();
 
   let scheduled = false;
   const run = () => {
