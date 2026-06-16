@@ -22,16 +22,16 @@ const MONEY_GAME_CATEGORY_OVERRIDE = Object.freeze({
 
 const MONEY_GAME_CONCEPTS = Object.freeze([
   {
-    id: "money-word-decode",
+    id: "four-pics-one-money-word",
     type: "game",
     category: "game",
-    title: "Money Word Decode",
-    subtitle: "Guess the financial word from clues, symbols, and everyday money situations.",
+    title: "4 Pics 1 Money Word",
+    subtitle: "Guess the financial term from four visual clues.",
     description:
-      "A financial version of word-guessing games where the answer is a money term like Emergency Fund, Cash Flow, Asset, Liability, Inflation, or Budget.",
-    status: "coming-soon",
+      "A picture puzzle where four clues point to one money term like Emergency Fund, Cash Flow, Asset, Liability, Inflation, or Budget.",
+    status: "available",
     order: 1,
-    coverLabel: "Word Game",
+    coverLabel: "Picture Puzzle",
     tags: ["jargon", "vocabulary", "money terms"],
   },
   {
@@ -188,6 +188,8 @@ export default function useLearningHub() {
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [isGameOpen, setIsGameOpen] = useState(false);
   const materialsCacheRef = useRef({});
 
   const baseCategories = useMemo(
@@ -297,6 +299,16 @@ export default function useLearningHub() {
   const openMaterial = (material) => {
     if (!material) return;
 
+    if (
+      material.type === "game" &&
+      material.id === "four-pics-one-money-word" &&
+      material.status === "available"
+    ) {
+      setSelectedGame(material);
+      setIsGameOpen(true);
+      return;
+    }
+
     if (material.type === "book" && material.status === "available") {
       setSelectedMaterial(material);
       setIsOpen(true);
@@ -332,18 +344,25 @@ export default function useLearningHub() {
     setIsVideoOpen(false);
   };
 
+  const closeGame = () => {
+    setSelectedGame(null);
+    setIsGameOpen(false);
+  };
+
   return {
     activeCategory,
     activeCategoryMeta,
     backToHome,
     carouselItems,
     categories,
+    closeGame,
     closeLauncher,
     closeMaterial,
     closeVideo,
     featuredBook,
     featuredVideo,
     getMaterialsByCategory,
+    isGameOpen,
     isLauncherOpen,
     isOpen,
     isVideoOpen,
@@ -352,6 +371,7 @@ export default function useLearningHub() {
     materialsByCategory,
     openCategory,
     openMaterial,
+    selectedGame,
     selectedMaterial,
     selectedVideo,
   };
