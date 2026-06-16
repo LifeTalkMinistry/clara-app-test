@@ -11,15 +11,12 @@ import { Loader2 } from "lucide-react";
 import {
   CURRENT_PLAN_KEYS,
   FEATURE_DEFINITIONS,
-  FEATURE_MODE_LABELS,
   mergePlans,
 } from "@/lib/plan-config";
 
 const PLAN_STYLES = {
   free: "border-white/10 bg-white/5",
-  pro: "border-blue-500/40 bg-blue-500/5",
-  core: "border-green-500/40 bg-green-500/5",
-  lifeos: "border-purple-500/40 bg-purple-500/5",
+  committed_249: "border-emerald-500/40 bg-emerald-500/5",
 };
 
 export default function AdminPlans() {
@@ -126,7 +123,7 @@ export default function AdminPlans() {
           return (
             <Card
               key={plan.plan_key}
-              className={`rounded-2xl border backdrop-blur-md shadow-xl ${PLAN_STYLES[plan.plan_key]}`}
+              className={`rounded-2xl border backdrop-blur-md shadow-xl ${PLAN_STYLES[plan.plan_key] || PLAN_STYLES.free}`}
             >
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -159,9 +156,7 @@ export default function AdminPlans() {
                     }
                   >
                     <option value="off">Off</option>
-                    <option value="basic">Basic</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="committed">Life OS</option>
+                    <option value="full">Full</option>
                   </select>
                 </div>
 
