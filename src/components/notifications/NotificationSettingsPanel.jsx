@@ -25,6 +25,16 @@ const EXPENSE_LOG_SNOOZE_OPTIONS = [
   { value: 60, label: "1 hour" },
 ];
 
+const WEEKLY_REVIEW_DAY_OPTIONS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
+
 const EXPENSE_LOG_TIME_FALLBACKS = ["12:30", "21:00", "09:00"];
 
 function FieldLabel({ title, description }) {
@@ -46,6 +56,23 @@ function getExpenseLogTimes(preferences, frequency) {
   return Array.from({ length: frequency }, (_, index) =>
     savedTimes[index] || EXPENSE_LOG_TIME_FALLBACKS[index] || EXPENSE_LOG_TIME_FALLBACKS[0]
   );
+}
+
+function formatReviewTimeLabel(value) {
+  const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+  if (!match) return "8:00 PM";
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+function formatWeeklyReviewStatus(preferences) {
+  if (!preferences.weeklyMoneyReview) return "Off";
+  const dayValue = Number(preferences.weeklyMoneyReviewDay);
+  const dayLabel = WEEKLY_REVIEW_DAY_OPTIONS.find((option) => option.value === dayValue)?.label || "Sunday";
+  return `On • ${dayLabel} ${formatReviewTimeLabel(preferences.weeklyMoneyReviewTime || "20:00")}`;
 }
 
 function ExpenseLogReminderCard({ preferences, onChange }) {
@@ -157,6 +184,72 @@ function ExpenseLogReminderCard({ preferences, onChange }) {
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+          </label>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WeeklyMoneyReviewCard({ preferences, onChange }) {
+  const [expanded, setExpanded] = useState(false);
+  const enabled = preferences.weeklyMoneyReview !== false;
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(255,255,255,0.035)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035]"
+      >
+        <div className="flex min-w-0 gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-100">
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">Weekly Money Review</p>
+            <p className="mt-1 text-xs leading-5 text-white/50">Review your spending, leaks, progress, and next move.</p>
+            <p className={`mt-1 text-[11px] font-black ${enabled ? "text-cyan-100/75" : "text-white/35"}`}>
+              {formatWeeklyReviewStatus(preferences)}
+            </p>
+          </div>
+        </div>
+        <ChevronDown className={`mt-2 h-4 w-4 shrink-0 text-white/45 transition ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded ? (
+        <div className="space-y-4 border-t border-white/10 px-4 pb-4 pt-3">
+          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+            <FieldLabel title="Status" description="Turn weekly money review on or off." />
+            <Switch
+              checked={enabled}
+              onCheckedChange={(checked) => onChange("weeklyMoneyReview", checked)}
+              className="data-[state=checked]:bg-cyan-500 data-[state=unchecked]:bg-white/15"
+            />
+          </div>
+
+          <label className="block">
+            <FieldLabel title="Review day" description="Choose when CLARA should prepare your weekly money review." />
+            <select
+              value={String(preferences.weeklyMoneyReviewDay ?? 0)}
+              onChange={(event) => onChange("weeklyMoneyReviewDay", Number(event.target.value))}
+              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
+            >
+              {WEEKLY_REVIEW_DAY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block rounded-2xl border border-white/10 bg-black/15 p-3">
+            <FieldLabel title="Review time" description="Set when CLARA should remind you to review your week." />
+            <input
+              type="time"
+              value={preferences.weeklyMoneyReviewTime || "20:00"}
+              onChange={(event) => onChange("weeklyMoneyReviewTime", event.target.value)}
+              className="mt-2 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+            />
           </label>
         </div>
       ) : null}
@@ -379,6 +472,10 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
         </div>
         <div className="space-y-3">
           <ExpenseLogReminderCard
+            preferences={preferences}
+            onChange={changePreference}
+          />
+          <WeeklyMoneyReviewCard
             preferences={preferences}
             onChange={changePreference}
           />
