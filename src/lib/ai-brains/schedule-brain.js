@@ -1,4 +1,4 @@
-import { buildScheduleDirectReply, getScheduleContextForAI } from "../clara-schedule-ai-context";
+import { SCHEDULE_BRAIN_EMERGENCY_FALLBACK, getScheduleContextForAI } from "../clara-schedule-ai-context";
 import { buildClaraBrainSubContextPromptBlock } from "./sub-context-selector";
 import { CLARA_BRAINS } from "./brain-router";
 
@@ -20,6 +20,14 @@ function formatFullConversation(messages = []) {
     .join("\n") || "No visible chatbox conversation history yet.";
 }
 
+function currentDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function currentMonthKey(date = new Date()) {
+  return currentDateKey(date).slice(0, 7);
+}
+
 function formatScheduleRows(schedule) {
   const items = Array.isArray(schedule?.upcomingItems) ? schedule.upcomingItems : [];
   if (!items.length) return "No upcoming items are saved in the internal CLARA Schedule page yet.";
@@ -29,12 +37,12 @@ function formatScheduleRows(schedule) {
     .map((event, index) => {
       const time = event.time ? ` • ${event.time}` : "";
       const impact = event.amountText
-        ? ` • estimated impact ${event.amountText}`
+        ? ` • saved estimated impact ${event.amountText}`
         : event.hasMoneyImpact
-          ? " • possible money impact, exact amount not saved"
+          ? " • possible money impact, but no exact amount is saved"
           : "";
       const note = event.note ? ` • note: ${event.note}` : "";
-      return `${index + 1}. ${event.title} — ${event.dateLabel}${time} — ${event.type}${impact}${note}`;
+      return `${index + 1}. ${event.title} — ${event.date} (${event.dateLabel}${time}) — ${event.type}${impact}${note}`;
     })
     .join("\n");
 }
@@ -79,6 +87,7 @@ function isIncompleteScheduleReply(text = "") {
 export function buildScheduleBrainPrompt({ userMessage = "", context = {}, recentConversation = [] } = {}) {
   const schedule = getScheduleContextForAI(context || {});
   const subContextBlock = buildClaraBrainSubContextPromptBlock({ brain: CLARA_BRAINS.SCHEDULE, message: userMessage, context });
+  const now = new Date();
 
   return `You are CLARA's Schedule Brain.
 
@@ -90,6 +99,10 @@ Answer pure schedule, appointment, calendar, reminder, event, shift, class, doct
 
 ${subContextBlock}
 
+CURRENT DATE:
+${currentDateKey(now)}
+Current month key: ${currentMonthKey(now)}
+
 FULL VISIBLE CHATBOX CONVERSATION HISTORY:
 ${formatFullConversation(recentConversation)}
 
@@ -100,38 +113,39 @@ SCHEDULE CONTEXT:
 ${formatScheduleRows(schedule)}
 
 RULES:
-- Start directly with the schedule answer because the conversation may already be active.
+- The schedule data is already provided in SCHEDULE CONTEXT.
+- Answer based only on SCHEDULE CONTEXT and the visible conversation history.
 - Treat “calendar” as the internal CLARA Schedule page, not Google Calendar or the phone calendar.
-- Never say “I don’t have access to your calendar.”
-- Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about tomorrow", and short schedule references.
-- Do not restart the conversation.
-- If schedule items exist, start with: “I checked your CLARA Schedule page.”
-- If the user asks for all events, list, summary, overview, everything, or this month, do not only mention the nearest event. Summarize the matching CLARA Schedule items.
-- For “this month,” only include CLARA Schedule items whose date is in the current month.
+- Use the full visible chatbox conversation history to understand follow-ups like "ok", "sure", "what?", "how about tomorrow", "thanks", and short schedule references.
+- If the user simply says thanks or acknowledges the answer, respond briefly and do not list the schedule again.
+- Start directly with the schedule answer because the conversation may already be active.
+- Use the CLARA Schedule data naturally. You may mention that you checked the Schedule page, but do not reuse one fixed opening line.
+- Do not use canned wording, repeated template phrases, or robotic lines.
+- If the user asks for all events, list, summary, overview, everything, or this month, summarize the matching CLARA Schedule items naturally.
+- For “this month,” only include CLARA Schedule items whose date starts with the current month key.
+- If only one item matches, do not over-format the answer.
+- If there are multiple matching items, group them clearly.
 - If there are more than 8 matching items, show the first 8 and mention how many more exist.
 - If amount is ₱0, still show ₱0.
 - If the user asks for the next item only, mention the nearest one first.
-- If there is a dentist appointment, mention it directly.
 - Include date and time if available.
 - If there are multiple items and the user only asked for the next item, briefly say how many more are coming up.
-- End with one helpful CTA or follow-up question, such as preparing budget, reminder, transportation, or what to do next.
-- If no schedule items are loaded, say: “I don’t see upcoming items saved in your CLARA Schedule page yet. Add one in Schedule, then I can check it here.”
+- If no schedule items are loaded, explain naturally that no upcoming items are saved in the CLARA Schedule page yet and suggest adding one.
 - Do not talk like a finance decision unless the user asks about spending.
 - If a money-impact amount exists, include the exact amount in the same sentence.
-- If a money-impact amount is missing, say that the appointment may have a cost but no exact amount is saved yet.
+- If a money-impact amount is missing, say naturally that no exact amount is saved yet. Do not write “Estimated impact: not saved.”
 - Never end with incomplete money-impact or amount phrases.
-- Do not use canned wording.
+- Never invent amounts, dates, times, or events.
 - Keep the reply conversational and useful.
+- Ask at most one helpful follow-up question.
 - Maximum 3-4 short sentences.
 
 Reply as CLARA:`;
 }
 
-export function generateLocalScheduleReply({ userMessage = "", context = {} } = {}) {
-  const directReply = buildScheduleDirectReply(userMessage, context || {});
-  if (!directReply) return DEFAULT_SCHEDULE_REPLY;
-
-  return directReply;
+// Emergency-only local fallback. Normal Schedule Brain answers must come from Gemini.
+export function generateLocalScheduleReply() {
+  return SCHEDULE_BRAIN_EMERGENCY_FALLBACK;
 }
 
 export function sanitizeScheduleBrainReply(reply = "", fallbackReply = DEFAULT_SCHEDULE_REPLY) {
