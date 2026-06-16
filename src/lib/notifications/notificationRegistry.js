@@ -27,7 +27,7 @@ export const NOTIFICATION_EVENTS = Object.freeze({
   savings_goal_completed: event({ category: NOTIFICATION_CATEGORIES.GOALS, severity: "success", active: true }),
   savings_goal_off_track: event({ category: NOTIFICATION_CATEGORIES.GOALS, severity: "warning" }),
   emergency_fund_milestone: event({ category: NOTIFICATION_CATEGORIES.GOALS, severity: "success" }),
-  weekly_review_ready: event({ category: NOTIFICATION_CATEGORIES.GOALS }),
+  weekly_review_ready: event({ category: NOTIFICATION_CATEGORIES.GOALS, active: true }),
   monthly_review_ready: event({ category: NOTIFICATION_CATEGORIES.GOALS }),
 
   today_task_ready: event({ category: NOTIFICATION_CATEGORIES.TASKS, active: true }),
