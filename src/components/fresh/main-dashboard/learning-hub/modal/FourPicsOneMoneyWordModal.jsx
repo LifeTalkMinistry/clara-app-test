@@ -121,6 +121,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   const isSolved = feedback === "correct";
   const progressText = `${activeIndex + 1}/${PUZZLES.length}`;
   const progressPercent = Math.round(((activeIndex + 1) / PUZZLES.length) * 100);
+  const solvedCount = solvedIds.length;
 
   const normalizedCorrectAnswer = useMemo(
     () => normalizeAnswer(activePuzzle.answer),
@@ -344,9 +345,9 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 </h2>
               </div>
               <div className="rounded-2xl border border-cyan-100/12 bg-white/[0.07] px-3 py-2 text-right">
-                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/42">Progress</p>
+                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/42">Score</p>
                 <p className="mt-0.5 text-[clamp(11px,1.75dvh,13px)] font-black text-cyan-50">
-                  {progressPercent}%
+                  {solvedCount}/{PUZZLES.length}
                 </p>
               </div>
             </div>
