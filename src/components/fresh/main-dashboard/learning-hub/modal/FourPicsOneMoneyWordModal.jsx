@@ -229,7 +229,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
               Money Game Mode
             </p>
             <h1 className="mt-0.5 truncate text-[clamp(17px,2.6dvh,20px)] font-black tracking-[-0.03em] text-white">
-              4 Pics 1 Money Word
+              4 Icons 1 Money Word
             </h1>
           </div>
 
