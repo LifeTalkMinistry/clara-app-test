@@ -26,6 +26,20 @@ const SNOOZE_OPTIONS = [
   { value: 180, label: "3 hours" },
 ];
 
+const EXPENSE_LOG_FREQUENCY_OPTIONS = [
+  { value: 1, label: "Once a day" },
+  { value: 2, label: "Twice a day" },
+  { value: 3, label: "Three times a day" },
+];
+
+const EXPENSE_LOG_SNOOZE_OPTIONS = [
+  { value: 15, label: "15 minutes" },
+  { value: 30, label: "30 minutes" },
+  { value: 60, label: "1 hour" },
+];
+
+const EXPENSE_LOG_TIME_FALLBACKS = ["12:30", "21:00", "09:00"];
+
 function environmentBody(environment) {
   if (environment?.preferredChannel === "native_push" && environment.platform === "android") {
     return "CLARA can send reminders through this installed Android app.";
@@ -105,6 +119,134 @@ function FieldLabel({ title, description }) {
     <div>
       <p className="text-sm font-bold text-white">{title}</p>
       {description ? <p className="mt-1 text-xs leading-5 text-white/45">{description}</p> : null}
+    </div>
+  );
+}
+
+function getExpenseLogFrequency(preferences) {
+  const frequency = Number(preferences.expenseLogFrequency);
+  return [1, 2, 3].includes(frequency) ? frequency : 2;
+}
+
+function getExpenseLogTimes(preferences, frequency) {
+  const savedTimes = Array.isArray(preferences.expenseLogTimes) ? preferences.expenseLogTimes : [];
+  return Array.from({ length: frequency }, (_, index) =>
+    savedTimes[index] || EXPENSE_LOG_TIME_FALLBACKS[index] || EXPENSE_LOG_TIME_FALLBACKS[0]
+  );
+}
+
+function ExpenseLogReminderCard({ preferences, onChange }) {
+  const [expanded, setExpanded] = useState(false);
+  const frequency = getExpenseLogFrequency(preferences);
+  const reminderTimes = getExpenseLogTimes(preferences, frequency);
+  const statusSummary = preferences.dailyCheckIn
+    ? `On • ${frequency} reminder${frequency === 1 ? "" : "s"}/day`
+    : "Off";
+
+  const updateReminderTime = (index, value) => {
+    const nextTimes = [...reminderTimes];
+    nextTimes[index] = value;
+    onChange("expenseLogTimes", nextTimes);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-emerald-300/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.11),transparent_40%),rgba(255,255,255,0.035)] shadow-[0_14px_34px_rgba(0,0,0,0.12)]">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035]"
+      >
+        <div className="flex min-w-0 gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/10 text-emerald-100">
+            <Clock3 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">Expense log reminder</p>
+            <p className="mt-1 text-xs leading-5 text-white/50">Remind me to record today’s spending</p>
+            <p className={`mt-1 text-[11px] font-black ${preferences.dailyCheckIn ? "text-emerald-100/70" : "text-white/35"}`}>
+              {statusSummary}
+            </p>
+          </div>
+        </div>
+        <ChevronDown className={`mt-2 h-4 w-4 shrink-0 text-white/45 transition ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded ? (
+        <div className="space-y-4 border-t border-white/10 px-4 pb-4 pt-3">
+          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+            <FieldLabel title="Status" description="Turn expense logging reminders on or off." />
+            <Switch
+              checked={preferences.dailyCheckIn}
+              onCheckedChange={(checked) => onChange("dailyCheckIn", checked)}
+              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+            />
+          </div>
+
+          <div>
+            <FieldLabel title="How many reminders?" description="Choose how often CLARA should remind you in a day." />
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {EXPENSE_LOG_FREQUENCY_OPTIONS.map((option) => {
+                const selected = frequency === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onChange("expenseLogFrequency", option.value)}
+                    className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition ${selected
+                      ? "border-emerald-300/35 bg-emerald-300/15 text-emerald-50"
+                      : "border-white/10 bg-white/[0.035] text-white/55 hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <FieldLabel title="Reminder times" description="Set when CLARA should remind you to log spending." />
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              {reminderTimes.map((time, index) => (
+                <label key={`${frequency}-${index}`} className="block rounded-2xl border border-white/10 bg-black/15 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">
+                    Reminder {index + 1}
+                  </span>
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={(event) => updateReminderTime(index, event.target.value)}
+                    className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/15 p-3.5">
+            <FieldLabel title="Stop after I log today" description="Once an expense is logged, CLARA stops reminding for that day." />
+            <Switch
+              checked={preferences.expenseLogStopAfterLogged}
+              onCheckedChange={(checked) => onChange("expenseLogStopAfterLogged", checked)}
+              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
+            />
+          </div>
+
+          <label className="block">
+            <FieldLabel title="Snooze" description="How long to wait when expense reminders are snoozed." />
+            <select
+              value={String(preferences.expenseLogSnoozeMinutes)}
+              onChange={(event) => onChange("expenseLogSnoozeMinutes", Number(event.target.value))}
+              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
+            >
+              {EXPENSE_LOG_SNOOZE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -339,13 +481,9 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             checked={preferences.moneyAlerts}
             onChange={(checked) => changePreference("moneyAlerts", checked)}
           />
-          <CategoryRow
-            icon={Clock3}
-            title="Daily money check-in"
-            description="One reminder at your chosen time"
-            note="Default: On"
-            checked={preferences.dailyCheckIn}
-            onChange={(checked) => changePreference("dailyCheckIn", checked)}
+          <ExpenseLogReminderCard
+            preferences={preferences}
+            onChange={changePreference}
           />
           <CategoryRow
             icon={Goal}
@@ -411,16 +549,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             </select>
           </label>
 
-          <label className="block">
-            <FieldLabel title="Reminder time" description="Used for your daily money check-in." />
-            <input
-              type="time"
-              value={preferences.preferredTime}
-              onChange={(event) => changePreference("preferredTime", event.target.value)}
-              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
-            />
-          </label>
-
           <div className="rounded-2xl border border-white/10 bg-black/15 p-3.5">
             <div className="flex items-start justify-between gap-4">
               <FieldLabel title="Quiet hours" description="Noncritical reminders wait until quiet hours end." />
@@ -455,7 +583,7 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           </div>
 
           <label className="block">
-            <FieldLabel title="Snooze duration" description="Used when you choose Later on an active reminder." />
+            <FieldLabel title="Task snooze duration" description="Used when you choose Later on task reminders." />
             <select
               value={String(preferences.snoozeMinutes)}
               onChange={(event) => changePreference("snoozeMinutes", Number(event.target.value), { syncTask: true, taskPatch: { snooze_default_minutes: Number(event.target.value) } })}
