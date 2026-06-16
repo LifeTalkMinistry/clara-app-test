@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { markGooglePlayEntitlementVerified } from "@/lib/google-play-entitlement-refresh";
 
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 export const supabaseAnonKey = import.meta.env["VITE_SUPABASE_" + "ANON_KEY"] || "";
@@ -6,6 +7,77 @@ export const supabaseAnonKey = import.meta.env["VITE_SUPABASE_" + "ANON_KEY"] ||
 export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey);
 
 const REMOTE_TABLE_ALLOWLIST = new Set(["profiles", "plans", "enrollments"]);
+const GOOGLE_PLAY_VERIFY_FUNCTION_PATH = "/functions/v1/verify-google-play-purchase";
+const GOOGLE_PLAY_VERIFY_FETCH_OBSERVER_KEY = "__claraGooglePlayVerifyFetchObserverInstalled";
+
+function getFetchUrl(input) {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.toString();
+  return input?.url || "";
+}
+
+async function readFetchBody(input, init = {}) {
+  if (typeof init?.body === "string") return init.body;
+
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    try {
+      return await input.clone().text();
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
+function parseJsonSafely(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function installGooglePlayVerifyFetchObserver() {
+  if (typeof window === "undefined") return;
+  if (typeof window.fetch !== "function") return;
+  if (window[GOOGLE_PLAY_VERIFY_FETCH_OBSERVER_KEY]) return;
+
+  const nativeFetch = window.fetch.bind(window);
+  window[GOOGLE_PLAY_VERIFY_FETCH_OBSERVER_KEY] = true;
+
+  window.fetch = async (input, init = {}) => {
+    const response = await nativeFetch(input, init);
+
+    try {
+      const requestUrl = getFetchUrl(input);
+      if (!requestUrl.includes(GOOGLE_PLAY_VERIFY_FUNCTION_PATH)) return response;
+      if (!response?.ok) return response;
+
+      const data = await response.clone().json().catch(() => null);
+      if (!data?.ok) return response;
+
+      const requestPayload = parseJsonSafely(await readFetchBody(input, init)) || {};
+
+      markGooglePlayEntitlementVerified({
+        userId: requestPayload.user_id,
+        purchaseToken: requestPayload.purchase_token,
+        status:
+          data?.status ||
+          data?.subscription_status ||
+          data?.entitlement_status ||
+          "active",
+        plan: data?.canonical_plan || data?.plan_key || requestPayload.plan_key || "committed_249",
+      });
+    } catch (error) {
+      console.warn("[CLARA Billing] verified purchase refresh observer skipped", error);
+    }
+
+    return response;
+  };
+}
+
+installGooglePlayVerifyFetchObserver();
 
 let supabaseInstance = null;
 
