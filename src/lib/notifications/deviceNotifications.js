@@ -105,6 +105,19 @@ async function requestLocalNotificationPermission(LocalNotifications) {
   return normalizePermission(requested?.display || requested?.receive);
 }
 
+function deterministicNotificationId(value) {
+  const source = String(value || "").trim();
+  if (!source) return Math.floor(Date.now() % 2147483647);
+
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
+  }
+
+  const positive = Math.abs(hash);
+  return positive > 0 ? positive % 2147483647 : Math.floor(Date.now() % 2147483647);
+}
+
 async function scheduleNativeRuntimeNotification({
   title,
   body,
@@ -149,6 +162,60 @@ async function scheduleNativeRuntimeNotification({
   });
 
   return { delivered: true, permission, environment };
+}
+
+export async function scheduleNativeCalendarNotification({
+  id,
+  title,
+  body,
+  at,
+  url = "#/dashboard",
+  tag = "",
+  eventType = "schedule_event_today",
+} = {}) {
+  const environment = getNotificationEnvironment();
+  const scheduledAt = at instanceof Date ? at : new Date(at);
+
+  if (!(scheduledAt instanceof Date) || Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    return { delivered: false, permission: "skipped", environment, reason: "invalid_or_past_schedule" };
+  }
+
+  const LocalNotifications = await loadLocalNotificationsPlugin();
+  if (!LocalNotifications) {
+    return { delivered: false, permission: "unsupported", environment, reason: IN_APP_FALLBACK_MESSAGE };
+  }
+
+  const permission = await requestLocalNotificationPermission(LocalNotifications);
+  if (permission !== "granted") {
+    if (permission === "denied") {
+      console.warn("CLARA calendar notification skipped because device permission is denied.");
+    }
+    return { delivered: false, permission, environment };
+  }
+
+  installLocalNotificationTapListener(LocalNotifications);
+
+  const safeUrl = normalizeRuntimeNotificationUrl(url || "#/dashboard");
+  const stableKey = `${id || tag || eventType}:${scheduledAt.toISOString()}`;
+
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: deterministicNotificationId(stableKey),
+        title: title || "CLARA schedule reminder",
+        body: body || "You have a schedule reminder from CLARA.",
+        schedule: { at: scheduledAt },
+        extra: {
+          url: safeUrl,
+          tag: tag || "",
+          eventType: eventType || "schedule_event_today",
+        },
+        channelId: environment?.platform === "android" ? "clara_reminders" : undefined,
+      },
+    ],
+  });
+
+  return { delivered: true, permission, environment, scheduledAt: scheduledAt.toISOString() };
 }
 
 export function getDeviceNotificationEnvironment() {
