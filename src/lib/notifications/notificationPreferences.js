@@ -1,6 +1,14 @@
 const STORAGE_PREFIX = "clara_notification_preferences_v1_";
 const LEGACY_SETTINGS_PREFIX = "clara_settings_";
 
+const EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY = Object.freeze({
+  1: ["12:30"],
+  2: ["12:30", "21:00"],
+  3: ["09:00", "12:30", "21:00"],
+});
+
+const EXPENSE_LOG_SNOOZE_OPTIONS = [15, 30, 60];
+
 function detectTimezone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -17,6 +25,10 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze({
   productUpdates: false,
   deliveryMode: "in_app",
   preferredTime: "09:00",
+  expenseLogFrequency: 2,
+  expenseLogTimes: EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[2],
+  expenseLogStopAfterLogged: true,
+  expenseLogSnoozeMinutes: 30,
   quietHoursEnabled: true,
   quietHoursStart: "22:00",
   quietHoursEnd: "07:00",
@@ -30,6 +42,7 @@ const BOOLEAN_KEYS = [
   "goalsAndReviews",
   "tasksAndCoaching",
   "productUpdates",
+  "expenseLogStopAfterLogged",
   "quietHoursEnabled",
 ];
 
@@ -69,10 +82,33 @@ function firstBoolean(...values) {
   return undefined;
 }
 
+function normalizeExpenseLogFrequency(value, fallback = DEFAULT_NOTIFICATION_PREFERENCES.expenseLogFrequency) {
+  const frequency = Number(value);
+  return [1, 2, 3].includes(frequency) ? frequency : fallback;
+}
+
+function normalizeExpenseLogSnoozeMinutes(value, fallback = DEFAULT_NOTIFICATION_PREFERENCES.expenseLogSnoozeMinutes) {
+  const minutes = Number(value);
+  return EXPENSE_LOG_SNOOZE_OPTIONS.includes(minutes) ? minutes : fallback;
+}
+
+function normalizeExpenseLogTimes(value, frequency, preferredTime) {
+  const fallbackTimes = [...(EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[frequency] || EXPENSE_LOG_DEFAULT_TIMES_BY_FREQUENCY[2])];
+  const legacyPreferredTime = normalizeTime(preferredTime, "");
+  if (frequency === 1 && legacyPreferredTime) {
+    fallbackTimes[0] = legacyPreferredTime;
+  }
+
+  const savedTimes = Array.isArray(value) ? value : [];
+  return Array.from({ length: frequency }, (_, index) =>
+    normalizeTime(savedTimes[index], fallbackTimes[index] || fallbackTimes[0] || "12:30")
+  );
+}
+
 function migrateLegacyShape(value = {}) {
   const source = value?.notifications && typeof value.notifications === "object"
     ? value.notifications
-    : value;
+    : value || {};
 
   return {
     moneyAlerts: firstBoolean(
@@ -86,6 +122,10 @@ function migrateLegacyShape(value = {}) {
     productUpdates: firstBoolean(source.productUpdates),
     deliveryMode: source.deliveryMode,
     preferredTime: source.preferredTime || source.reminderTime,
+    expenseLogFrequency: source.expenseLogFrequency,
+    expenseLogTimes: source.expenseLogTimes,
+    expenseLogStopAfterLogged: firstBoolean(source.expenseLogStopAfterLogged),
+    expenseLogSnoozeMinutes: source.expenseLogSnoozeMinutes,
     quietHoursEnabled: firstBoolean(source.quietHoursEnabled),
     quietHoursStart: source.quietHoursStart,
     quietHoursEnd: source.quietHoursEnd,
@@ -113,6 +153,19 @@ export function normalizeNotificationPreferences(value = {}) {
     ? migrated.deliveryMode
     : defaults.deliveryMode;
   next.preferredTime = normalizeTime(migrated.preferredTime, defaults.preferredTime);
+
+  const hasLegacyPreferredTime = Boolean(normalizeTime(migrated.preferredTime, ""));
+  next.expenseLogFrequency = normalizeExpenseLogFrequency(
+    migrated.expenseLogFrequency,
+    hasLegacyPreferredTime ? 1 : defaults.expenseLogFrequency
+  );
+  next.expenseLogTimes = normalizeExpenseLogTimes(
+    migrated.expenseLogTimes,
+    next.expenseLogFrequency,
+    migrated.preferredTime
+  );
+  next.expenseLogSnoozeMinutes = normalizeExpenseLogSnoozeMinutes(migrated.expenseLogSnoozeMinutes);
+
   next.quietHoursStart = normalizeTime(migrated.quietHoursStart, defaults.quietHoursStart);
   next.quietHoursEnd = normalizeTime(migrated.quietHoursEnd, defaults.quietHoursEnd);
 
@@ -152,7 +205,7 @@ function readLegacyPreferences(userId) {
     const parsed = safeParse(raw);
     if (!parsed) continue;
     const migrated = migrateLegacyShape(parsed);
-    if (Object.values(migrated).some((value) => value !== undefined)) return migrated;
+    if (Object.values(migrated).some((entryValue) => entryValue !== undefined)) return migrated;
   }
 
   return null;
