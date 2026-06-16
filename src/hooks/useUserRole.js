@@ -137,7 +137,10 @@ export default function useUserRole() {
     aiElite: isFeatureAvailable("ai"),
     customization: isFeatureAvailable("customization"),
   }), [hasFeatureAccess, isFeatureAvailable]);
-  const refreshUser = useCallback(async () => refreshProfile?.(), [refreshProfile]);
+  const refreshUser = useCallback(
+    async (options) => refreshProfile?.(options),
+    [refreshProfile]
+  );
   return {
     user,
     loading,
