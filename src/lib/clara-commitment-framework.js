@@ -118,7 +118,7 @@ export function normalizeCommitmentBookletIntent(intent) {
   if (!normalizedIntent || normalizedIntent === LEGACY_TRIAL_PURCHASE_INTENT) {
     return COMMITTED_MONTHLY_PURCHASE_INTENT;
   }
-  return normalizedIntent === COMMITTED_MONTHLY_PURCHASE_INTENT ? normalizedIntent : COMMITTED_MONTHLY_PURCHASE_INTENT;
+  return normalizedIntent === COMMITTED_MONTHLY_PURCHASE_INTENT ? normalizedIntent : null;
 }
 
 export function buildCommitmentBookletIntent({
@@ -127,7 +127,7 @@ export function buildCommitmentBookletIntent({
   productId = "",
   openedAt = Date.now(),
 } = {}) {
-  return { intent: normalizeCommitmentBookletIntent(intent), planKey, productId, openedAt };
+  return { intent: normalizeCommitmentBookletIntent(intent) || COMMITTED_MONTHLY_PURCHASE_INTENT, planKey, productId, openedAt };
 }
 
 export function persistCommitmentBookletIntent(options = {}) {
