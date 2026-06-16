@@ -8,6 +8,8 @@ export const CUSTOMER_ACCESS_LEVEL_KEYS = [FREE_ACCESS_LEVEL, COMMITTED_ACCESS_L
 export const DEVELOPER_MEMBERSHIP_PREVIEW_KEY = "clara_dev_membership_preview";
 export const LEGACY_DEVELOPER_PLAN_PREVIEW_KEY = "clara_dev_plan_preview";
 
+// Compatibility aliases only. These preserve access for older stored paid-plan tokens
+// and must not be shown as current product names in the UI.
 export const LEGACY_PAID_PLAN_ALIASES = Object.freeze({
   committed: COMMITTED_PLAN_KEY,
   committed_249: COMMITTED_PLAN_KEY,
@@ -36,6 +38,7 @@ export const LEGACY_PAID_PLAN_ALIASES = Object.freeze({
   premium: COMMITTED_PLAN_KEY,
 });
 
+// Compatibility aliases only. These normalize older paid access levels to Committed.
 export const LEGACY_PAID_ACCESS_ALIASES = Object.freeze({
   committed: COMMITTED_ACCESS_LEVEL,
   pro: COMMITTED_ACCESS_LEVEL,
