@@ -23,10 +23,61 @@ function billingDebug(label, payload = {}) {
   console.info(`[CLARA Billing] ${label}`, payload);
 }
 
-async function getSupabaseAccessToken(supabase) {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  return data?.session?.access_token || "";
+async function getSupabaseAccessToken(supabase, expectedUserId = "") {
+  const expected = normalize(expectedUserId);
+
+  let session = null;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  session = sessionData?.session || null;
+
+  if (!session?.access_token) {
+    const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      throw makeError("Please sign in again before CLARA can activate your Google Play purchase.", {
+        responseCode: "AUTH_SESSION_MISSING",
+        debugMessage:
+          "Supabase could not refresh the auth session before verify-google-play-purchase.",
+        raw: refreshError,
+      });
+    }
+
+    session = refreshedData?.session || session;
+  }
+
+  if (!session?.access_token) {
+    throw makeError("Please sign in again before CLARA can activate your Google Play purchase.", {
+      responseCode: "AUTH_SESSION_MISSING",
+      debugMessage:
+        "No Supabase access token was available. Refusing to call verify-google-play-purchase with anon/publishable key as bearer token.",
+    });
+  }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user?.id) {
+    throw makeError("Please sign in again before CLARA can activate your Google Play purchase.", {
+      responseCode: "AUTH_SESSION_INVALID",
+      debugMessage:
+        userError?.message ||
+        "Supabase auth.getUser() could not confirm the current user before billing verification.",
+      raw: userError || userData,
+    });
+  }
+
+  if (expected && userData.user.id !== expected) {
+    throw makeError("Please sign in again before CLARA can activate your Google Play purchase.", {
+      responseCode: "AUTH_USER_MISMATCH",
+      debugMessage:
+        "The Supabase session user does not match the user being activated for Google Play purchase.",
+      raw: {
+        expectedUserId: expected,
+        sessionUserId: userData.user.id,
+      },
+    });
+  }
+
+  return session.access_token;
 }
 
 export function getGooglePlayProductId(planKey) {
@@ -599,7 +650,7 @@ export async function diagnoseGooglePlayBilling({ productId } = {}) {
       unavailableProducts: productState.unavailableProducts || [],
       productDetails: productState.productDetails || [],
       rawConnection: connection.raw || null,
-      rawProductResult: productState.raw || null,
+      rawProductResult: null,
     },
   };
 }
@@ -812,7 +863,7 @@ export async function persistGooglePlayPurchase({
   }
 
   const requestUrl = supabaseUrl.replace(/\/+$/, "") + "/functions/v1/verify-google-play-purchase";
-  const accessToken = await getSupabaseAccessToken(supabase);
+  const accessToken = await getSupabaseAccessToken(supabase, safeUserId);
   const payload = {
     user_id: safeUserId,
     plan_key: COMMITTED_PLAN_KEY,
@@ -828,7 +879,7 @@ export async function persistGooglePlayPurchase({
     headers: {
       "content-type": "application/json",
       apikey: supabaseAnonKey,
-      authorization: "Bearer " + (accessToken || supabaseAnonKey),
+      authorization: "Bearer " + accessToken,
     },
     body: JSON.stringify(payload),
   });
@@ -843,8 +894,13 @@ export async function persistGooglePlayPurchase({
 
   if (!response.ok || !data?.ok) {
     throw makeError(data?.error || "Google Play purchase was not validated.", {
-      responseCode: data?.code || "VALIDATION_FAILED",
-      debugMessage: responseText || response.statusText,
+      responseCode:
+        data?.code ||
+        (response.status === 401 ? "AUTH_SESSION_INVALID" : "VALIDATION_FAILED"),
+      debugMessage:
+        response.status === 401
+          ? "verify-google-play-purchase rejected the request as Unauthorized. The app must send a real Supabase user access token, not the anon/publishable key."
+          : responseText || response.statusText,
       raw: data,
     });
   }
