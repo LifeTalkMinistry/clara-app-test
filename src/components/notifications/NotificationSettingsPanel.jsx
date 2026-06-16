@@ -3,10 +3,6 @@ import {
   BellRing,
   ChevronDown,
   Clock3,
-  Goal,
-  Megaphone,
-  ShieldCheck,
-  WalletCards,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Switch } from "@/components/ui/switch";
@@ -16,12 +12,6 @@ import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import {
   hasStoredNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
-
-const SNOOZE_OPTIONS = [
-  { value: 30, label: "30 minutes" },
-  { value: 60, label: "1 hour" },
-  { value: 180, label: "3 hours" },
-];
 
 const EXPENSE_LOG_FREQUENCY_OPTIONS = [
   { value: 1, label: "Once a day" },
@@ -343,25 +333,9 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Notification categories</p>
         </div>
         <div className="space-y-3">
-          <CategoryRow
-            icon={WalletCards}
-            title="Money alerts"
-            description="Budget limits and important money risks"
-            note="Default: On"
-            checked={preferences.moneyAlerts}
-            onChange={(checked) => changePreference("moneyAlerts", checked)}
-          />
           <ExpenseLogReminderCard
             preferences={preferences}
             onChange={changePreference}
-          />
-          <CategoryRow
-            icon={Goal}
-            title="Goals & reviews"
-            description="Savings progress and financial reviews"
-            note="Default: On"
-            checked={preferences.goalsAndReviews}
-            onChange={(checked) => changePreference("goalsAndReviews", checked)}
           />
           <CategoryRow
             icon={BellRing}
@@ -376,94 +350,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
             disabled={tasksDisabled}
             onChange={(checked) => changePreference("tasksAndCoaching", checked, { syncTask: true })}
           />
-          <CategoryRow
-            icon={Megaphone}
-            title="Product updates"
-            description="Major CLARA announcements only"
-            note="Default: Off"
-            checked={preferences.productUpdates}
-            onChange={(checked) => changePreference("productUpdates", checked)}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-[26px] border border-white/10 bg-white/[0.035] p-4 backdrop-blur-xl">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-violet-200">
-            <ShieldCheck className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-white">Delivery preferences</p>
-            <p className="mt-1 text-xs text-white/45">Control timing without changing critical account notices.</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <label className="block">
-            <FieldLabel title="Delivery mode" description="In-app works without device permission." />
-            <select
-              value={preferences.deliveryMode}
-              onChange={(event) => {
-                const mode = event.target.value;
-                changePreference("deliveryMode", mode, {
-                  syncTask: true,
-                  taskPatch: {
-                    reminder_mode: mode === "device_and_in_app" ? "push_and_in_app" : "in_app_only",
-                  },
-                });
-              }}
-              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
-            >
-              <option value="in_app">In-app only</option>
-              <option value="device_and_in_app">Device and in-app</option>
-            </select>
-          </label>
-
-          <div className="rounded-2xl border border-white/10 bg-black/15 p-3.5">
-            <div className="flex items-start justify-between gap-4">
-              <FieldLabel title="Quiet hours" description="Noncritical reminders wait until quiet hours end." />
-              <Switch
-                checked={preferences.quietHoursEnabled}
-                onCheckedChange={(checked) => changePreference("quietHoursEnabled", checked, { syncTask: true })}
-                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
-              />
-            </div>
-            {preferences.quietHoursEnabled ? (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <label>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">Starts</span>
-                  <input
-                    type="time"
-                    value={preferences.quietHoursStart}
-                    onChange={(event) => changePreference("quietHoursStart", event.target.value, { syncTask: true })}
-                    className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
-                  />
-                </label>
-                <label>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/35">Ends</span>
-                  <input
-                    type="time"
-                    value={preferences.quietHoursEnd}
-                    onChange={(event) => changePreference("quietHoursEnd", event.target.value, { syncTask: true })}
-                    className="mt-1.5 h-10 w-full rounded-xl border border-white/10 bg-[#07131f] px-3 text-xs font-semibold text-white outline-none"
-                  />
-                </label>
-              </div>
-            ) : null}
-          </div>
-
-          <label className="block">
-            <FieldLabel title="Task snooze duration" description="Used when you choose Later on task reminders." />
-            <select
-              value={String(preferences.snoozeMinutes)}
-              onChange={(event) => changePreference("snoozeMinutes", Number(event.target.value), { syncTask: true, taskPatch: { snooze_default_minutes: Number(event.target.value) } })}
-              className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#07131f] px-3 text-sm font-semibold text-white outline-none"
-            >
-              {SNOOZE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
         </div>
       </section>
 
