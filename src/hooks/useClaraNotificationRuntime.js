@@ -19,6 +19,7 @@ import {
   markNotificationActed,
   markNotificationDelivered,
   snoozeNotification,
+  dismissNotification,
   cleanupOldNotifications,
 } from "@/lib/notifications/localNotificationRepository";
 import {
@@ -109,6 +110,55 @@ function taskDeliveryPreferencesDiffer(settings, preferences, syncEnabledState) 
   );
 }
 
+function expenseDateKey(value, timezone) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return getZonedDateParts(timezone, parsed).dateKey;
+}
+
+function hasLoggedExpenseToday(expenses, dateKey, timezone) {
+  if (!Array.isArray(expenses) || !dateKey) return false;
+
+  return expenses.some((expense) => {
+    if (!expense || typeof expense !== "object") return false;
+    if (expense.deletedAt || expense.deleted_at) return false;
+
+    const possibleDateValues = [
+      expense.date,
+      expense.created_at,
+      expense.createdAt,
+      expense.updated_at,
+      expense.updatedAt,
+    ];
+
+    return possibleDateValues.some((value) => expenseDateKey(value, timezone) === dateKey);
+  });
+}
+
+function expenseLogReminderSlots(preferences) {
+  const frequency = [1, 2, 3].includes(Number(preferences.expenseLogFrequency))
+    ? Number(preferences.expenseLogFrequency)
+    : 1;
+  const sourceTimes = Array.isArray(preferences.expenseLogTimes) && preferences.expenseLogTimes.length
+    ? preferences.expenseLogTimes
+    : [preferences.preferredTime || "12:30"];
+
+  return Array.from({ length: frequency }, (_, index) => {
+    const time = sourceTimes[index] || sourceTimes[0] || "12:30";
+    return {
+      index,
+      time,
+      minutes: timeToMinutes(time),
+      keyTime: String(time || "").replace(":", ""),
+    };
+  }).filter((slot) => /^\d{2}:\d{2}$/.test(slot.time));
+}
+
 export default function useClaraNotificationRuntime({
   userId,
   budgets = [],
@@ -188,12 +238,26 @@ export default function useClaraNotificationRuntime({
       const isDaily = notification.eventType === "daily_money_check_in";
       const dateKey = notification.metadata?.dateKey || "";
 
+      if (isDaily && dateKey) {
+        const completed = isDailyCheckInCompleted(userId, dateKey);
+        const alreadyLoggedExpense = preferences.expenseLogStopAfterLogged && hasLoggedExpenseToday(
+          latestDataRef.current.expenses,
+          dateKey,
+          preferences.timezone
+        );
+
+        if (completed || alreadyLoggedExpense) {
+          await dismissNotification(userId, notification.id);
+          return;
+        }
+      }
+
       toast(notification.title, {
         description: notification.body,
         duration: 9000,
         action: notification.destination
           ? {
-              label: isDaily ? "Check now" : "Open",
+              label: isDaily ? "Log now" : "Open",
               onClick: () => {
                 markNotificationActed(userId, notification.id).catch(() => {});
                 if (isDaily && dateKey) markDailyMoneyCheckInCompleted(userId, dateKey);
@@ -211,17 +275,33 @@ export default function useClaraNotificationRuntime({
     const evaluateDailyCheckIn = async (preferences) => {
       if (!preferences.dailyCheckIn) return;
       const zoned = getZonedDateParts(preferences.timezone);
-      if (zoned.minutes < timeToMinutes(preferences.preferredTime)) return;
       if (isDailyCheckInCompleted(userId, zoned.dateKey)) return;
+      if (
+        preferences.expenseLogStopAfterLogged &&
+        hasLoggedExpenseToday(latestDataRef.current.expenses, zoned.dateKey, preferences.timezone)
+      ) {
+        return;
+      }
 
+      const dueSlots = expenseLogReminderSlots(preferences)
+        .filter((slot) => zoned.minutes >= slot.minutes)
+        .sort((left, right) => left.minutes - right.minutes);
+      if (!dueSlots.length) return;
+
+      const latestDueSlot = dueSlots[dueSlots.length - 1];
       const notification = buildNotificationContract({
         eventType: "daily_money_check_in",
-        dedupeKey: `daily_money_check_in:${zoned.dateKey}`,
-        title: "Your daily money check-in",
-        body: "Take one minute to check what your money can safely handle today.",
+        dedupeKey: `daily_money_check_in:${zoned.dateKey}:${latestDueSlot.index}:${latestDueSlot.keyTime}`,
+        title: "Log today’s expenses",
+        body: "Record what you spent today so CLARA can keep your money picture updated.",
         userId,
         destination: "/dashboard",
-        metadata: { dateKey: zoned.dateKey },
+        metadata: {
+          dateKey: zoned.dateKey,
+          slotIndex: latestDueSlot.index,
+          slotTime: latestDueSlot.time,
+          reminderKind: "expense_log",
+        },
       });
       await createNotification(notification);
     };
