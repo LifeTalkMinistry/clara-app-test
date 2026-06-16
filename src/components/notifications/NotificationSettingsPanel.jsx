@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BellRing,
-  CheckCircle2,
   ChevronDown,
   Clock3,
   Goal,
   Megaphone,
   ShieldCheck,
-  Smartphone,
   WalletCards,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -18,7 +16,6 @@ import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import {
   hasStoredNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
-import { showTestDeviceNotification } from "@/lib/notifications/deviceNotifications";
 
 const SNOOZE_OPTIONS = [
   { value: 30, label: "30 minutes" },
@@ -39,57 +36,6 @@ const EXPENSE_LOG_SNOOZE_OPTIONS = [
 ];
 
 const EXPENSE_LOG_TIME_FALLBACKS = ["12:30", "21:00", "09:00"];
-
-function environmentBody(environment) {
-  if (environment?.preferredChannel === "native_push" && environment.platform === "android") {
-    return "CLARA can send reminders through this installed Android app.";
-  }
-
-  if (environment?.preferredChannel === "native_push" && environment.platform === "ios") {
-    return "CLARA can send reminders through this installed iPhone app once native push is configured.";
-  }
-
-  if (environment?.preferredChannel === "web_push") {
-    return "CLARA can send reminders through this browser or installed web app.";
-  }
-
-  return "This browser cannot receive device notifications. In-app notifications still work.";
-}
-
-function statusCopy({ environment, permissionState, pushConfigured }) {
-  if (environment?.preferredChannel === "in_app_only") {
-    return {
-      title: "Browser notifications unavailable",
-      body: environmentBody(environment),
-    };
-  }
-
-  if (permissionState === "denied") {
-    return {
-      title: "Permission blocked",
-      body: "Enable notifications in your browser or device settings, then return here.",
-    };
-  }
-
-  if (pushConfigured) {
-    return {
-      title: environment?.preferredChannel === "native_push" ? "Enabled on this phone" : "Enabled on this device",
-      body: environmentBody(environment),
-    };
-  }
-
-  if (permissionState === "granted") {
-    return {
-      title: "Setup incomplete",
-      body: "Permission is ready, but push delivery still needs to finish connecting.",
-    };
-  }
-
-  return {
-    title: "Not enabled",
-    body: environmentBody(environment),
-  };
-}
 
 function CategoryRow({ icon: Icon, title, description, note, checked, disabled, onChange }) {
   return (
@@ -258,27 +204,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
   const [taskApplicable, setTaskApplicable] = useState(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [testing, setTesting] = useState(false);
-
-  const notificationEnvironment = taskReminderSettings.notificationEnvironment;
-  const pushSupported = taskReminderSettings.pushSupported;
-  const deviceStatus = statusCopy({
-    environment: notificationEnvironment,
-    permissionState: taskReminderSettings.permissionState,
-    pushConfigured: taskReminderSettings.pushConfigured,
-  });
-
-  const deviceButtonDisabled =
-    notificationEnvironment?.preferredChannel === "in_app_only" ||
-    taskReminderSettings.pushEnabling ||
-    taskReminderSettings.permissionState === "denied";
-
-  const deviceButtonLabel = useMemo(() => {
-    if (taskReminderSettings.pushEnabling) return "Connecting...";
-    if (taskReminderSettings.pushConfigured) return "Refresh device connection";
-    if (notificationEnvironment?.preferredChannel === "native_push") return "Enable phone notifications";
-    return "Enable device notifications";
-  }, [notificationEnvironment?.preferredChannel, taskReminderSettings.pushConfigured, taskReminderSettings.pushEnabling]);
 
   useEffect(() => {
     let mounted = true;
@@ -398,21 +323,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     }
   }, [syncTaskSettings, taskReminderSettings, updatePreference]);
 
-  const runTestNotification = useCallback(async () => {
-    setTesting(true);
-    setNotice("");
-    setError("");
-
-    try {
-      await showTestDeviceNotification();
-      setNotice("Test notification sent to this device.");
-    } catch (testError) {
-      setError(testError?.message || "Unable to show a test notification.");
-    } finally {
-      setTesting(false);
-    }
-  }, []);
-
   const tasksDisabled = taskApplicable !== true;
 
   return (
@@ -427,46 +337,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           {error}
         </div>
       ) : null}
-
-      <section className="rounded-[26px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_42%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
-              <Smartphone className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-black text-white">Device notifications</p>
-              <p className="mt-1 text-xs font-semibold text-cyan-100/70">{deviceStatus.title}</p>
-              <p className="mt-1 text-xs leading-5 text-white/45">{deviceStatus.body}</p>
-            </div>
-          </div>
-          {taskReminderSettings.pushConfigured ? (
-            <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-300" />
-          ) : null}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={enableDeviceNotifications}
-            disabled={deviceButtonDisabled}
-            className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2.5 text-xs font-black text-cyan-50 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {deviceButtonLabel}
-          </button>
-
-          {pushSupported ? (
-            <button
-              type="button"
-              onClick={runTestNotification}
-              disabled={testing || taskReminderSettings.permissionState !== "granted"}
-              className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-2.5 text-xs font-bold text-white/70 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {testing ? "Sending..." : "Test notification"}
-            </button>
-          ) : null}
-        </div>
-      </section>
 
       <section>
         <div className="mb-3 px-1">
