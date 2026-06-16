@@ -9,69 +9,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-
-const PUZZLES = [
-  {
-    id: "emergency-fund",
-    answer: "Emergency Fund",
-    hint: "Protection money for urgent needs, not random wants.",
-    lesson: "An emergency fund protects you when life suddenly becomes expensive.",
-    clues: [
-      { icon: "🛡️", label: "Protection" },
-      { icon: "🏥", label: "Medical need" },
-      { icon: "🔧", label: "Repair" },
-      { icon: "💰", label: "Saved money" },
-    ],
-  },
-  {
-    id: "cash-flow",
-    answer: "Cash Flow",
-    hint: "Money moving in, out, and through your month.",
-    lesson: "Cash flow shows how income moves through bills, spending, saving, and pressure points.",
-    clues: [
-      { icon: "💼", label: "Income" },
-      { icon: "➡️", label: "Movement" },
-      { icon: "🧾", label: "Bills" },
-      { icon: "🏦", label: "Balance" },
-    ],
-  },
-  {
-    id: "budget",
-    answer: "Budget",
-    hint: "A plan that gives money a job before you spend it.",
-    lesson: "A budget is not punishment. It is direction before emotion decides for your wallet.",
-    clues: [
-      { icon: "📋", label: "Plan" },
-      { icon: "🧮", label: "Numbers" },
-      { icon: "🛒", label: "Spending" },
-      { icon: "✅", label: "Control" },
-    ],
-  },
-  {
-    id: "liability",
-    answer: "Liability",
-    hint: "Something that takes money out or creates financial obligation.",
-    lesson: "A liability usually pulls money away through payments, costs, or obligations.",
-    clues: [
-      { icon: "🧾", label: "Obligation" },
-      { icon: "⛓️", label: "Attached cost" },
-      { icon: "💸", label: "Money out" },
-      { icon: "📉", label: "Drains value" },
-    ],
-  },
-  {
-    id: "inflation",
-    answer: "Inflation",
-    hint: "When prices rise and the same money buys less.",
-    lesson: "Inflation means your money can lose buying power when prices keep increasing.",
-    clues: [
-      { icon: "🎈", label: "Rising" },
-      { icon: "🛒", label: "Groceries" },
-      { icon: "📈", label: "Prices up" },
-      { icon: "💵", label: "Less buying power" },
-    ],
-  },
-];
+import { PUZZLES, STAGES } from "./fourPicsOneMoneyWordPuzzles";
 
 function normalizeAnswer(value) {
   return String(value || "")
@@ -119,8 +57,12 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
   const activePuzzle = PUZZLES[activeIndex] || PUZZLES[0];
   const isSolved = feedback === "correct";
-  const progressText = `${activeIndex + 1}/${PUZZLES.length}`;
-  const progressPercent = Math.round(((activeIndex + 1) / PUZZLES.length) * 100);
+  const stagePuzzleNumber = (activePuzzle.stagePuzzleIndex ?? 0) + 1;
+  const stageWordCount = activePuzzle.stageWordCount || 10;
+  const stageProgressText = `${stagePuzzleNumber}/${stageWordCount}`;
+  const overallProgressText = `${activeIndex + 1}/${PUZZLES.length}`;
+  const progressPercent = Math.round((stagePuzzleNumber / stageWordCount) * 100);
+  const overallProgressPercent = Math.round(((activeIndex + 1) / PUZZLES.length) * 100);
   const solvedCount = solvedIds.length;
 
   const normalizedCorrectAnswer = useMemo(
@@ -211,10 +153,14 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           </button>
         </header>
 
-        <section className="mt-[clamp(0.35rem,1dvh,0.55rem)] shrink-0 rounded-[clamp(15px,3dvh,20px)] border border-cyan-100/12 bg-white/[0.06] px-[clamp(0.65rem,2.4vw,0.9rem)] py-[clamp(0.42rem,1.05dvh,0.6rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3 text-[clamp(9px,1.45dvh,11px)] font-black uppercase tracking-[0.14em]">
-            <span className="text-cyan-50/82">Puzzle {progressText}</span>
+        <section className="mt-[clamp(0.35rem,1dvh,0.55rem)] shrink-0 rounded-[clamp(15px,3dvh,20px)] border border-cyan-100/12 bg-white/[0.06] px-[clamp(0.65rem,2.4vw,0.9rem)] py-[clamp(0.38rem,0.95dvh,0.55rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 text-[clamp(8px,1.25dvh,10px)] font-black uppercase tracking-[0.14em]">
+            <span className="text-cyan-50/82">Stage {activePuzzle.stageNumber}/{STAGES.length}</span>
             <span className="text-white/58">{progressPercent}%</span>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between gap-3 text-[clamp(9px,1.35dvh,11px)] font-black tracking-[-0.01em]">
+            <span className="min-w-0 truncate text-white/72">{activePuzzle.stageIcon} {activePuzzle.stageName}</span>
+            <span className="shrink-0 text-cyan-50/70">Puzzle {stageProgressText}</span>
           </div>
           <div className="mt-[clamp(0.28rem,0.65dvh,0.42rem)] h-[clamp(0.16rem,0.38dvh,0.24rem)] overflow-hidden rounded-full bg-black/30">
             <div
@@ -237,7 +183,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
               <p className="mt-[clamp(0.28rem,0.8dvh,0.65rem)] text-[clamp(6.5px,1.05dvh,8px)] font-black uppercase tracking-[0.18em] text-cyan-100/42">
                 Clue {index + 1}
               </p>
-              <p className="mt-0.5 text-[clamp(8.5px,1.45dvh,11px)] font-black uppercase tracking-[0.12em] text-white/82">
+              <p className="mt-0.5 line-clamp-2 text-[clamp(8.5px,1.45dvh,11px)] font-black uppercase leading-tight tracking-[0.10em] text-white/82">
                 {clue.label}
               </p>
             </div>
@@ -336,15 +282,18 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
         <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/38 px-[clamp(0.7rem,3.7vw,1rem)] pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
           <div className="w-full max-w-xl rounded-[clamp(24px,4.8dvh,32px)] border border-cyan-100/14 bg-[#061427]/92 p-[clamp(0.85rem,2.2dvh,1.1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_30px_70px_rgba(0,0,0,0.45)]">
             <div className="flex items-center justify-between gap-3 border-b border-white/8 pb-[clamp(0.65rem,1.6dvh,0.9rem)]">
-              <div>
+              <div className="min-w-0">
                 <p className="text-[clamp(7px,1.1dvh,9px)] font-black uppercase tracking-[0.22em] text-cyan-100/48">
                   Menu
                 </p>
                 <h2 className="mt-1 text-[clamp(17px,2.4dvh,21px)] font-black tracking-[-0.03em] text-white">
                   Game Options
                 </h2>
+                <p className="mt-0.5 truncate text-[clamp(10px,1.45dvh,12px)] font-bold text-white/45">
+                  Stage {activePuzzle.stageNumber}/{STAGES.length} · {activePuzzle.stageName}
+                </p>
               </div>
-              <div className="rounded-2xl border border-cyan-100/12 bg-white/[0.07] px-3 py-2 text-right">
+              <div className="shrink-0 rounded-2xl border border-cyan-100/12 bg-white/[0.07] px-3 py-2 text-right">
                 <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/42">Score</p>
                 <p className="mt-0.5 text-[clamp(11px,1.75dvh,13px)] font-black text-cyan-50">
                   {solvedCount}/{PUZZLES.length}
@@ -359,7 +308,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 className="flex w-full items-center justify-between rounded-[18px] border border-cyan-100/12 bg-white/[0.075] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-cyan-50 transition hover:bg-white/[0.11] active:scale-[0.99]"
               >
                 Resume
-                <span className="text-white/35">Continue</span>
+                <span className="text-white/35">Puzzle {overallProgressText}</span>
               </button>
 
               <button
@@ -380,7 +329,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 className="flex w-full items-center justify-between rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-white/78 transition hover:bg-white/[0.08] active:scale-[0.99]"
               >
                 Restart game
-                <span className="text-white/35">Back to 1/5</span>
+                <span className="text-white/35">{overallProgressPercent}% total</span>
               </button>
 
               <button
