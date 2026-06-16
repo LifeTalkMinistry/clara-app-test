@@ -88,12 +88,34 @@ const MONEY_GAME_CONCEPTS = Object.freeze([
   },
 ]);
 
+const HOME_CATEGORY_ORDER_OVERRIDES = Object.freeze({
+  "money-foundations": 0,
+  game: 1,
+  video: 2,
+  book: 3,
+  practice: 4,
+  challenge: 5,
+});
+
 const sortByOrder = (first, second) => {
   const firstOrder = Number.isFinite(first?.order) ? first.order : 999;
   const secondOrder = Number.isFinite(second?.order) ? second.order : 999;
 
   return firstOrder - secondOrder;
 };
+
+const getHomeCategoryOrder = (category) => {
+  const overrideOrder = HOME_CATEGORY_ORDER_OVERRIDES[category?.id];
+
+  if (Number.isFinite(overrideOrder)) return overrideOrder;
+  if (Number.isFinite(category?.order)) return category.order;
+
+  return 999;
+};
+
+const sortHomeCategories = (first, second) => (
+  getHomeCategoryOrder(first) - getHomeCategoryOrder(second)
+);
 
 const padLessonNumber = (lessonNumber) =>
   String(lessonNumber || "").padStart(2, "0");
@@ -197,7 +219,7 @@ export default function useLearningHub() {
       [...learningHubCategories]
         .filter(Boolean)
         .map(normalizeCategory)
-        .sort(sortByOrder),
+        .sort(sortHomeCategories),
     [],
   );
 
