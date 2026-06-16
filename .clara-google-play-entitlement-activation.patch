@@ -1,0 +1,91 @@
+diff --git a/src/context/AuthContext.jsx b/src/context/AuthContext.jsx
+--- a/src/context/AuthContext.jsx
++++ b/src/context/AuthContext.jsx
+@@
+-  const refreshProfile = useCallback(async () => {
+-    if (!user?.id) return null;
+-    return await fetchProfile(user, {
+-      silent: false,
+-      preferCache: true,
+-    });
+-  }, [user, fetchProfile]);
++  const refreshProfile = useCallback(
++    async ({ preferCache = true, silent = false, reason = "manual_refresh" } = {}) => {
++      if (!user?.id) return null;
++
++      if (preferCache === false) {
++        console.info("[CLARA Auth] forcing fresh profile refresh", { reason });
++      }
++
++      return await fetchProfile(user, {
++        silent,
++        preferCache,
++      });
++    },
++    [user, fetchProfile]
++  );
+diff --git a/src/lib/google-play-billing.js b/src/lib/google-play-billing.js
+--- a/src/lib/google-play-billing.js
++++ b/src/lib/google-play-billing.js
+@@
+ import { CLARA_PRODUCTS } from "@/lib/clara-entitlements";
+ import { COMMITTED_PLAN_KEY, normalizePlanKey } from "@/lib/membership";
+ import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framework";
++import { markGooglePlayEntitlementVerified } from "@/lib/google-play-entitlement-refresh";
+ import { supabaseAnonKey, supabaseUrl } from "@/lib/supabaseClient";
+@@
+   if (!response.ok || !data?.ok) {
+     throw makeError(data?.error || "Google Play purchase was not validated.", {
+       responseCode: data?.code || "VALIDATION_FAILED",
+       debugMessage: responseText || response.statusText,
+       raw: data,
+     });
+   }
+ 
++  markGooglePlayEntitlementVerified({
++    userId: safeUserId,
++    purchaseToken: safePurchaseToken,
++    status:
++      data?.status ||
++      data?.subscription_status ||
++      data?.entitlement_status ||
++      "active",
++    plan: data?.canonical_plan || data?.plan_key || COMMITTED_PLAN_KEY,
++  });
++
+   return data.enrollment_id || data.purchase_id || null;
+ }
+diff --git a/src/pages/Enroll.jsx b/src/pages/Enroll.jsx
+--- a/src/pages/Enroll.jsx
++++ b/src/pages/Enroll.jsx
+@@
+     }
+ 
+     const latestEnrollmentAfterPersist = await fetchEnrollmentForUserId(userId);
+-    await refreshUser?.();
++    await refreshUser?.({
++      preferCache: false,
++      reason: "google_play_purchase_verified",
++    });
+@@
+     }
+ 
+     const latestEnrollmentAfterWait = await fetchEnrollmentForUserId(userId);
+-    await refreshUser?.();
++    await refreshUser?.({
++      preferCache: false,
++      reason: "google_play_entitlement_confirmed",
++    });
+@@
+     if (
+       latestEnrollmentPlanKey &&
+       (SUCCESS_STATUSES.has(entitlementStatus) ||
+         SUCCESS_STATUSES.has(latestEnrollmentStatus))
+     ) {
++      console.info("[CLARA Billing] entitlement active confirmed", {
++        userId,
++        planKey,
++        status: entitlementStatus || latestEnrollmentStatus,
++      });
++
+       setPurchaseState("success");
