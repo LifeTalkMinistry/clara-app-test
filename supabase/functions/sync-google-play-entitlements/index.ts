@@ -99,23 +99,19 @@ function classifyGooglePurchase(googlePurchase: GooglePurchase) {
   const userCancellationTimeMillis = googlePurchase.userCancellationTimeMillis;
   const expiresAt = expiryTimeMillis ? new Date(expiryTimeMillis).toISOString() : null;
   const isExpired = !expiryTimeMillis || expiryTimeMillis <= Date.now();
-  const isTrialing = paymentState === 2;
   const isPaymentPending = paymentState === 0;
   const isCancelled = cancelReason !== undefined || userCancellationTimeMillis !== undefined;
 
   if (isExpired) {
-    return { active: false, subscriptionStatus: "expired", entitlementStatus: "expired", expiresAt, isTrialing };
+    return { active: false, subscriptionStatus: "expired", entitlementStatus: "expired", expiresAt };
   }
   if (isPaymentPending) {
-    return { active: false, subscriptionStatus: "payment_failed", entitlementStatus: "payment_failed", expiresAt, isTrialing };
+    return { active: false, subscriptionStatus: "payment_failed", entitlementStatus: "payment_failed", expiresAt };
   }
   if (isCancelled) {
-    return { active: false, subscriptionStatus: "cancelled", entitlementStatus: "cancelled", expiresAt, isTrialing };
+    return { active: false, subscriptionStatus: "cancelled", entitlementStatus: "cancelled", expiresAt };
   }
-  if (isTrialing) {
-    return { active: true, subscriptionStatus: "trialing", entitlementStatus: "active", expiresAt, isTrialing };
-  }
-  return { active: true, subscriptionStatus: "active", entitlementStatus: "active", expiresAt, isTrialing };
+  return { active: true, subscriptionStatus: "active", entitlementStatus: "active", expiresAt };
 }
 
 async function assertSyncAuthorized(request: Request, serviceRoleKey: string) {
@@ -171,14 +167,12 @@ async function updateActiveAccess(admin: ReturnType<typeof createClient>, purcha
       enrollment_source: "google_play",
       purchase_source: "google_play",
       access_source: "google_play",
-      subscription_status: state.subscriptionStatus,
+      subscription_status: "active",
       subscription_label: "CLARA Commitment",
       subscription_expires_at: state.expiresAt,
-      trial_started_at: state.isTrialing ? nowIso : undefined,
-      trial_ends_at: state.isTrialing ? state.expiresAt : undefined,
       play_product_id: purchase.product_id,
       play_purchase_token: purchase.purchase_token,
-      entitlement_status: state.entitlementStatus,
+      entitlement_status: "active",
       status: "active",
       enrollment_status: "approved",
       is_enrolled: true,
