@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const PACKAGE_NAME = "com.clara.lifeos.app";
 const CURRENT_PRODUCT_ID = "clara_commitment_249";
+const PROFILE_ENTITLEMENT_NOT_CONFIRMED_CODE = "PROFILE_ENTITLEMENT_NOT_CONFIRMED";
 const LEGACY_RECEIPT_PRODUCT_IDS = new Set([
   "clara_pro_99",
   "clara_core_199",
@@ -121,6 +122,18 @@ function classifyGooglePurchase(googlePurchase: Record<string, unknown>) {
   };
 }
 
+function isCommittedProfileEntitlementConfirmed(profile: Record<string, unknown> | null | undefined) {
+  return Boolean(
+    profile &&
+      profile.plan_key === "committed_249" &&
+      profile.access_level === "committed" &&
+      profile.subscription_status === "active" &&
+      profile.entitlement_status === "active" &&
+      profile.activation_status === "active" &&
+      profile.is_activated === true
+  );
+}
+
 serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
@@ -177,6 +190,18 @@ serve(async (request) => {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+    const { error: profileEnsureError } = await admin
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          email: user.email || null,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+        },
+        { onConflict: "id" }
+      );
+    if (profileEnsureError) throw profileEnsureError;
+
     const trustedPayload = {
       ...googlePurchase,
       claraSubscriptionStatus: purchaseState.subscriptionStatus,
@@ -194,10 +219,31 @@ serve(async (request) => {
     });
     if (error) throw error;
 
+    const { data: confirmedProfile, error: confirmError } = await admin
+      .from("profiles")
+      .select("plan_key, access_level, subscription_status, entitlement_status, activation_status, is_activated")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (confirmError) throw confirmError;
+
+    if (!isCommittedProfileEntitlementConfirmed(confirmedProfile)) {
+      return jsonResponse({
+        ok: false,
+        code: PROFILE_ENTITLEMENT_NOT_CONFIRMED_CODE,
+        error: "Google Play purchase verified, but CLARA profile entitlement was not confirmed.",
+        canonical_plan: "committed_249",
+        canonical_access_level: "committed",
+        purchase_id: data?.[0]?.purchase_id || null,
+        enrollment_id: data?.[0]?.enrollment_id || null,
+      }, 500);
+    }
+
     return jsonResponse({
       ok: true,
       canonical_plan: "committed_249",
       canonical_access_level: "committed",
+      profile_entitlement_confirmed: true,
+      entitlement_fields: confirmedProfile,
       historical_product_receipt: productId !== CURRENT_PRODUCT_ID,
       purchase_id: data?.[0]?.purchase_id || null,
       enrollment_id: data?.[0]?.enrollment_id || null,
