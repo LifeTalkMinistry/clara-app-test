@@ -10,46 +10,50 @@ export default function ProgramOnboarding() {
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const plan = normalizePlanKey(profile?.plan || "free");
-  const activated = Boolean(profile?.is_activated || profile?.activated_at);
-  const isCore = plan === "committed_249";
-  const isLifeOS = plan === "committed_249";
+  const plan = normalizePlanKey(profile?.plan || profile?.plan_key || "free");
+  const activated = Boolean(
+    profile?.is_activated ||
+      profile?.program_active ||
+      profile?.is_enrolled ||
+      profile?.activated_at ||
+      [
+        profile?.activation_status,
+        profile?.subscription_status,
+        profile?.entitlement_status,
+        profile?.enrollment_status,
+        profile?.status,
+      ]
+        .map((status) => String(status || "").toLowerCase())
+        .some((status) => ["active", "approved", "committed", "paid"].includes(status))
+  );
+  const isCommitted = plan === "committed_249";
 
   const copy = useMemo(() => {
-    if (isLifeOS && !activated) {
+    if (isCommitted && activated) {
       return {
-        title: "Life OS Preview",
-        body: "This is CLARA's broadest decision-intelligence tier. You can preview the operating-system layer now while full Life OS intelligence waits for activation.",
-        points: ["Decision system positioning", "Advanced AI preview", "Life planning, organization, and deeper context unlock after activation"],
-        cta: "Continue in Preview",
-      };
-    }
-
-    if (isCore && !activated) {
-      return {
-        title: "CORE Pre-Activation",
-        body: "CORE is your advanced daily spending intelligence tier. Your activation step is still coming, so CLARA gives partial access, a clear intro, and a focused AI preview for now.",
-        points: ["CORE intro", "Kit is coming", "Partial access and AI preview explained"],
-        cta: "Enter Partial Access",
-      };
-    }
-
-    if (isCore || isLifeOS) {
-      return {
-        title: "System Activated",
-        body: "Your selected CLARA tier is fully unlocked. Start with one guided action so the intelligence layer can work with fresh, useful context.",
-        points: ["Full CLARA introduction", "AI and daily spending intelligence", "Guided first action"],
+        title: "Committed Version Activated",
+        body: "Your CLARA committed access is active. Start with one guided action so CLARA can help you build stronger money discipline with fresh context.",
+        points: ["Committed dashboard access", "Daily accountability", "Guided first action"],
         cta: "Start Guided Action",
       };
     }
 
+    if (isCommitted && !activated) {
+      return {
+        title: "Committed Version Setup",
+        body: "Your CLARA committed access is being prepared. Return to the dashboard after confirmation so CLARA can finish syncing your account access.",
+        points: ["Payment confirmation", "Account sync", "Dashboard unlock"],
+        cta: "Continue to Dashboard",
+      };
+    }
+
     return {
-      title: "PRO Quick Start",
+      title: "Free Version Quick Start",
       body: "Start simple. Create or choose a wallet, log your first expense, then return to the dashboard to see CLARA organize your money.",
       points: ["First expense guide", "Wallet intro", "Dashboard overview"],
-      cta: "Start PRO",
+      cta: "Start Free Version",
     };
-  }, [activated, isCore, isLifeOS]);
+  }, [activated, isCommitted]);
 
   const finishProgramOnboarding = async () => {
     if (!checked) return;
@@ -68,7 +72,7 @@ export default function ProgramOnboarding() {
         .update({
           program_onboarding_completed: true,
           has_completed_program_onboarding: true,
-          activation_onboarding_completed: activated || (!isCore && !isLifeOS),
+          activation_onboarding_completed: activated || !isCommitted,
           updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
@@ -100,16 +104,6 @@ export default function ProgramOnboarding() {
             <p key={point}>- {point}</p>
           ))}
         </div>
-
-        {(isCore || isLifeOS) && !activated ? (
-          <button
-            type="button"
-            onClick={() => navigate("/activation")}
-            className="mb-5 rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-4 py-3 text-sm font-semibold text-yellow-100"
-          >
-            Enter activation code
-          </button>
-        ) : null}
 
         <label className="mb-6 flex gap-3">
           <input
