@@ -380,7 +380,7 @@ export default function useClaraNotificationRuntime({
             ? `${task.title} is still incomplete. Open it when you are ready to continue.`
             : "Your active program task is still incomplete.",
           userId,
-          destination: "/lifeos",
+          destination: "/dashboard",
           metadata: {
             taskId: task.id,
             taskDay: task.day || task.day_number || null,
@@ -419,7 +419,7 @@ export default function useClaraNotificationRuntime({
                 last_action: "opened",
               },
             }).catch(() => {});
-            openDestination("/lifeos");
+            openDestination("/dashboard");
           },
         },
         cancel: {
