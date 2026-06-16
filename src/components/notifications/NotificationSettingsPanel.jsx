@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BellRing,
   ChevronDown,
   Clock3,
 } from "lucide-react";
@@ -26,29 +25,6 @@ const EXPENSE_LOG_SNOOZE_OPTIONS = [
 ];
 
 const EXPENSE_LOG_TIME_FALLBACKS = ["12:30", "21:00", "09:00"];
-
-function CategoryRow({ icon: Icon, title, description, note, checked, disabled, onChange }) {
-  return (
-    <div className={`flex items-start justify-between gap-4 rounded-[22px] border border-white/10 bg-white/[0.035] px-4 py-4 ${disabled ? "opacity-55" : ""}`}>
-      <div className="flex min-w-0 gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-emerald-200">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-white">{title}</p>
-          <p className="mt-1 text-xs leading-5 text-white/50">{description}</p>
-          {note ? <p className="mt-1 text-[11px] font-semibold text-emerald-100/55">{note}</p> : null}
-        </div>
-      </div>
-      <Switch
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-        className="mt-1 shrink-0 data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-white/15"
-      />
-    </div>
-  );
-}
 
 function FieldLabel({ title, description }) {
   return (
@@ -336,19 +312,6 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
           <ExpenseLogReminderCard
             preferences={preferences}
             onChange={changePreference}
-          />
-          <CategoryRow
-            icon={BellRing}
-            title="Tasks & coaching"
-            description={
-              tasksDisabled
-                ? "Available when you have an active program or assignment"
-                : "Assignments and active-program reminders"
-            }
-            note="Conditional"
-            checked={preferences.tasksAndCoaching && !tasksDisabled}
-            disabled={tasksDisabled}
-            onChange={(checked) => changePreference("tasksAndCoaching", checked, { syncTask: true })}
           />
         </div>
       </section>
