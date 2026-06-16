@@ -16,7 +16,7 @@ export async function generateScheduleBrainReply({
   shouldDebugClaraAi,
 } = {}) {
   const prompt = buildScheduleBrainPrompt({ userMessage: message, context, recentConversation: conversationHistory });
-  if (!apiKey || !discoverGeminiModelCandidates || !requestGeminiText) return SCHEDULE_BRAIN_EMERGENCY_FALLBACK;
+  if (!discoverGeminiModelCandidates || !requestGeminiText) return SCHEDULE_BRAIN_EMERGENCY_FALLBACK;
 
   const modelCandidates = await discoverGeminiModelCandidates({ apiKey, signal });
   let lastError = null;
