@@ -166,6 +166,32 @@ function ClaraCommitmentBookletModal({
 
   if (!open) return null;
 
+  const isCommittedProfileActive = (profile = {}) => {
+    const profilePlanKey =
+      profile?.plan_key ||
+      profile?.plan ||
+      profile?.subscription_plan ||
+      "";
+
+    const profileStatus =
+      profile?.activation_status ||
+      profile?.subscription_status ||
+      profile?.enrollment_status ||
+      profile?.status ||
+      "";
+
+    return (
+      profilePlanKey === CLARA_COMMITMENT_UNLOCK_PLAN &&
+      (profile?.isPro === true ||
+        profile?.is_activated === true ||
+        profile?.program_active === true ||
+        profile?.is_enrolled === true ||
+        ["active", "approved", "committed", "paid"].includes(
+          String(profileStatus || "").toLowerCase()
+        ))
+    );
+  };
+
   const activateCommitmentAccess = async (purchaseResult, activePurchaseIntent) => {
     const {
       data: { user: authUser },
@@ -205,16 +231,63 @@ function ClaraCommitmentBookletModal({
       },
     });
 
+    try {
+      await supabase.auth.refreshSession();
+    } catch (sessionError) {
+      console.warn("Session refresh after dashboard commitment purchase did not complete cleanly:", sessionError);
+    }
+
+    const profileAfterPersist = await refreshUser?.({
+      preferCache: false,
+      reason: "dashboard_commitment_purchase_verified",
+    });
+
+    if (isCommittedProfileActive(profileAfterPersist)) {
+      console.info("[CLARA Billing] dashboard commitment profile active confirmed", {
+        userId: activeUserId,
+        planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
+        status:
+          profileAfterPersist?.activation_status ||
+          profileAfterPersist?.subscription_status ||
+          profileAfterPersist?.enrollment_status ||
+          profileAfterPersist?.status ||
+          "active",
+      });
+      return;
+    }
+
     const entitlement = await waitForGooglePlayEntitlement({
       supabase,
       userId: activeUserId,
       expectedPlanKey: CLARA_COMMITMENT_UNLOCK_PLAN,
     });
-    if (entitlement.status !== "active") {
+
+    try {
+      await supabase.auth.refreshSession();
+    } catch (sessionError) {
+      console.warn("Session refresh after dashboard commitment entitlement wait did not complete cleanly:", sessionError);
+    }
+
+    const profileAfterWait = await refreshUser?.({
+      preferCache: false,
+      reason: "dashboard_commitment_entitlement_confirmed",
+    });
+
+    if (entitlement.status !== "active" && !isCommittedProfileActive(profileAfterWait)) {
       throw new Error("Your purchase was verified, but membership activation is still syncing.");
     }
 
-    await refreshUser?.();
+    console.info("[CLARA Billing] dashboard commitment entitlement active confirmed", {
+      userId: activeUserId,
+      planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
+      status:
+        entitlement.status ||
+        profileAfterWait?.activation_status ||
+        profileAfterWait?.subscription_status ||
+        profileAfterWait?.enrollment_status ||
+        profileAfterWait?.status ||
+        "active",
+    });
   };
 
   const confirmCommittedAccessFromPurchase = async (purchaseResult, activePurchaseIntent) => {
