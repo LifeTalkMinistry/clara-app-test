@@ -11,6 +11,7 @@ import {
 import useUserRole from "@/hooks/useUserRole";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
+const CLARA_SCHEDULE_CREATE_EVENT = "clara:schedule:create-event";
 const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PH_HOLIDAY_START_YEAR = 2026;
@@ -1043,6 +1044,46 @@ export default function DashboardSchedulePanel() {
     setImpactSession(null);
     setImpactInput("");
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleForecastCreateEvent = (browserEvent) => {
+      const detail = browserEvent?.detail || {};
+      const title = String(detail.title || "").trim();
+
+      if (!title) return;
+
+      const nextEvent = {
+        id: detail.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        title,
+        date: detail.date || selectedDate || today,
+        time: detail.time || "",
+        type: detail.type || "Personal",
+        amount: cleanMoney(detail.amount),
+        note: String(detail.note || "").trim(),
+        impactBreakdown: Array.isArray(detail.impactBreakdown)
+          ? detail.impactBreakdown
+          : [],
+      };
+
+      setEvents((current) => {
+        if (current.some((event) => event.id === nextEvent.id)) return current;
+        return [...current, nextEvent];
+      });
+
+      setMode(null);
+      setSelectedEvent(null);
+      setImpactSession(null);
+      setImpactInput("");
+    };
+
+    window.addEventListener(CLARA_SCHEDULE_CREATE_EVENT, handleForecastCreateEvent);
+
+    return () => {
+      window.removeEventListener(CLARA_SCHEDULE_CREATE_EVENT, handleForecastCreateEvent);
+    };
+  }, [selectedDate, today]);
 
   const save = (submitEvent) => {
     submitEvent?.preventDefault?.();
