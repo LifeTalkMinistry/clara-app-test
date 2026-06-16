@@ -128,28 +128,6 @@ body::after {
   -webkit-backdrop-filter: blur(18px) saturate(1.12) !important;
 }
 
-/* CLARA AI overlay chat positioning */
-body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"] {
-  position: fixed !important;
-  left: 50% !important;
-  right: auto !important;
-  bottom: calc(112px + env(safe-area-inset-bottom)) !important;
-  transform: translateX(-50%) !important;
-  width: min(calc(100vw - 32px), 398px) !important;
-  max-height: min(62vh, 500px) !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  justify-content: flex-end !important;
-  z-index: 260 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0.5rem !important;
-  scrollbar-width: none;
-}
-
-body.clara-ai-environment-active div[class*="z-[250]"][class*="max-w-[430px]"] > main > div[class*="justify-start"][class*="pb-28"]::-webkit-scrollbar {
-  display: none;
-}
-
 /* Schedule Impact Coach: remove only the bottom manual estimate button. Keep the top Running Estimate card. */
 #root div[class*="z-[10000]"] footer > button[type="button"] {
   display: none !important;
