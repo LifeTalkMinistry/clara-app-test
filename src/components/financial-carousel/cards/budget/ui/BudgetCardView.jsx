@@ -1,5 +1,11 @@
 import BudgetCard from "@/components/BudgetCard";
 
+const budgetCardRhythmClassName = [
+  "h-full min-h-[inherit] flex flex-col",
+  "[&_[data-finance-card='budget'][data-expanded='false']>div.relative.z-10>div.relative.flex>div:first-child]:block",
+  "[&_[data-finance-card='budget'][data-expanded='false']>div.relative.z-10>div.relative.flex>div:first-child]:flex-none",
+].join(" ");
+
 export default function BudgetCardView({
   data = {},
   selectedDashboardTheme,
@@ -12,7 +18,7 @@ export default function BudgetCardView({
   onResetBudget,
 }) {
   return (
-    <div className="h-full min-h-[inherit] flex flex-col">
+    <div className={budgetCardRhythmClassName}>
       <BudgetCard
         activeBudget={data.activeBudget}
         budgetCategories={data.budgetCategories}
