@@ -25,13 +25,13 @@ const MONEY_GAME_CONCEPTS = Object.freeze([
     id: "four-pics-one-money-word",
     type: "game",
     category: "game",
-    title: "4 Pics 1 Money Word",
-    subtitle: "Guess the financial term from four visual clues.",
+    title: "4 Icons 1 Money Word",
+    subtitle: "Guess the financial term from four icon clues.",
     description:
-      "A picture puzzle where four clues point to one money term like Emergency Fund, Cash Flow, Asset, Liability, Inflation, or Budget.",
+      "An icon puzzle where four clues point to one money term like Emergency Fund, Cash Flow, Asset, Liability, Inflation, or Budget.",
     status: "available",
     order: 1,
-    coverLabel: "Picture Puzzle",
+    coverLabel: "Icon Puzzle",
     tags: ["jargon", "vocabulary", "money terms"],
   },
   {
