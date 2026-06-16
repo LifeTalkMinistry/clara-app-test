@@ -21,6 +21,8 @@ export default function AiInsights() {
   const { user, access, getFeatureAccessMode, planLabel, isPreActivation } = useUserRole();
   const data = useFinancialData(user);
   const aiMode = getFeatureAccessMode("ai");
+  const aiEnabled = aiMode !== "off";
+  const committedDecisionMode = aiEnabled && !isPreActivation;
   const [decisionAmount, setDecisionAmount] = useState("");
 
   const summary = useMemo(() => {
@@ -66,10 +68,10 @@ export default function AiInsights() {
       <div className="min-h-full px-4 pb-8 pt-4 md:px-6">
         <div className="mx-auto max-w-3xl rounded-[30px] border border-white/10 bg-[#0B1220] p-6 text-white">
           <Lock className="h-9 w-9 text-yellow-200" />
-          <h1 className="mt-4 text-2xl font-bold">AI is locked for this tier</h1>
+          <h1 className="mt-4 text-2xl font-bold">AI is locked for this version</h1>
           <p className="mt-2 text-sm leading-6 text-white/65">
-            Upgrade to PRO for basic summaries, CORE for advanced behavior insight,
-            or Life OS for decision simulations.
+            Upgrade to the Committed Version for full CLARA summaries, behavior insight,
+            and decision support.
           </p>
           <Link to="/enroll" className="mt-5 inline-flex">
             <Button className="rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500">
@@ -95,7 +97,7 @@ export default function AiInsights() {
                 CLARA Intelligence
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">
-                Tier-aware financial guidance generated from your real Supabase
+                Version-aware financial guidance generated from your real Supabase
                 expenses, wallet transactions, and current access state.
               </p>
             </div>
@@ -147,7 +149,7 @@ export default function AiInsights() {
           </div>
         </div>
 
-        {(aiMode === "advanced" || aiMode === "life_os") && (
+        {aiEnabled && (
           <section className="rounded-[30px] border border-white/10 bg-[#07111f] p-5 text-white">
             <h2 className="text-xl font-bold">Behavior insight</h2>
             <p className="mt-2 text-sm leading-6 text-white/65">
@@ -158,7 +160,7 @@ export default function AiInsights() {
           </section>
         )}
 
-        {aiMode === "life_os" && !isPreActivation && (
+        {committedDecisionMode && (
           <section className="rounded-[30px] border border-amber-300/20 bg-amber-300/10 p-5 text-white">
             <h2 className="text-xl font-bold">Should I buy this?</h2>
             <p className="mt-2 text-sm text-white/65">
