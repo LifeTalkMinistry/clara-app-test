@@ -358,13 +358,13 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
         setPointsRewardAnimation((current) =>
           current?.id === animationId ? null : current,
         );
-      }, 2700),
+      }, 2750),
     );
 
     rewardAnimationTimerRef.current.push(
       window.setTimeout(() => {
         setIsPointsBadgePopping(false);
-      }, 3400),
+      }, 3450),
     );
   };
 
@@ -590,24 +590,40 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           style={{
             left: pointsRewardAnimation.startX,
             top: pointsRewardAnimation.startY,
+            opacity: pointsRewardAnimation.phase === 'fly' ? 0.35 : 1,
             transform:
               pointsRewardAnimation.phase === 'fly'
-                ? `translate(-50%, -50%) translate3d(${pointsRewardAnimation.targetX - pointsRewardAnimation.startX}px, ${pointsRewardAnimation.targetY - pointsRewardAnimation.startY}px, 0) scale(0.68)`
-                : 'translate(-50%, -50%) translate3d(0, 0, 0) scale(1)',
-            opacity: pointsRewardAnimation.phase === 'fly' ? 0.35 : 1,
+                ? `translate(-50%, -50%) translate3d(${pointsRewardAnimation.targetX - pointsRewardAnimation.startX}px, 0, 0)`
+                : 'translate(-50%, -50%) translate3d(0, 0, 0)',
             transition:
               pointsRewardAnimation.phase === 'fly'
-                ? 'transform 1100ms cubic-bezier(0.22, 1, 0.36, 1), opacity 1100ms ease'
+                ? 'transform 1250ms cubic-bezier(0.32, 0.72, 0, 1), opacity 1250ms ease'
                 : 'transform 260ms ease-out, opacity 260ms ease-out',
+            willChange: 'transform, opacity',
           }}
         >
-          <div className='relative rounded-[1.35rem] border border-amber-100/45 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.38),transparent_30%),linear-gradient(135deg,rgba(251,191,36,0.30),rgba(34,211,238,0.22),rgba(168,85,247,0.26))] px-5 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_18px_40px_rgba(0,0,0,0.32),0_0_34px_rgba(251,191,36,0.27),0_0_26px_rgba(34,211,238,0.14)] backdrop-blur-xl'>
-            <p className='text-[clamp(24px,4.4dvh,36px)] font-black leading-none tracking-[-0.045em] text-white'>
-              +{pointsRewardAnimation.amount}
-            </p>
-            <p className='mt-1.5 text-[clamp(8px,1.45dvh,11px)] font-black uppercase tracking-[0.24em] text-amber-50/88'>
-              Points
-            </p>
+          <div
+            style={{
+              transform:
+                pointsRewardAnimation.phase === 'fly'
+                  ? `translate3d(0, ${pointsRewardAnimation.targetY - pointsRewardAnimation.startY}px, 0) scale(0.68) rotate(-8deg)`
+                  : 'translate3d(0, 0, 0) scale(1) rotate(0deg)',
+              transformOrigin: 'center center',
+              transition:
+                pointsRewardAnimation.phase === 'fly'
+                  ? 'transform 1250ms cubic-bezier(0.16, 1, 0.3, 1)'
+                  : 'transform 260ms ease-out',
+              willChange: 'transform',
+            }}
+          >
+            <div className='relative rounded-[1.35rem] border border-amber-100/45 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.38),transparent_30%),linear-gradient(135deg,rgba(251,191,36,0.30),rgba(34,211,238,0.22),rgba(168,85,247,0.26))] px-5 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_18px_40px_rgba(0,0,0,0.32),0_0_34px_rgba(251,191,36,0.27),0_0_26px_rgba(34,211,238,0.14)] backdrop-blur-xl'>
+              <p className='text-[clamp(24px,4.4dvh,36px)] font-black leading-none tracking-[-0.045em] text-white'>
+                +{pointsRewardAnimation.amount}
+              </p>
+              <p className='mt-1.5 text-[clamp(8px,1.45dvh,11px)] font-black uppercase tracking-[0.24em] text-amber-50/88'>
+                Points
+              </p>
+            </div>
           </div>
         </div>
       ) : null}
