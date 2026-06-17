@@ -76,6 +76,23 @@ const CLUE_CARD_STYLES = [
   },
 ];
 
+function getClaraCorrectMessage(puzzle) {
+  const answer = puzzle?.answer || "that word";
+  const hint = String(puzzle?.hint || "").trim();
+
+  if (!hint) {
+    return `That’s ${answer}. Keep this word in mind before your next money move.`;
+  }
+
+  return `That’s ${answer}. ${hint} I’ll help you notice this in real money decisions.`;
+}
+
+function getClaraFeedbackMessage(feedback, puzzle) {
+  if (feedback === "correct") return getClaraCorrectMessage(puzzle);
+  if (feedback === "empty") return "Choose a few letters first, then I’ll check it for you.";
+  return "Not yet. Look at the icons again — I’m pointing you to one money word.";
+}
+
 function AnswerSlots({ answer, guess }) {
   const letters = normalizeAnswer(guess).toUpperCase().split("");
   let cursor = 0;
@@ -371,14 +388,10 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                   )}
                   <div>
                     <p className={`text-[clamp(10px,1.45dvh,12px)] font-black uppercase tracking-[0.14em] ${feedback === "correct" ? "text-emerald-50" : "text-rose-50"}`}>
-                      {feedback === "correct" ? "Correct" : "Try again"}
+                      {feedback === "correct" ? "Nice, you got it" : "Try one more time"}
                     </p>
-                    <p className="mt-0.5 line-clamp-2 text-[clamp(10.5px,1.55dvh,12px)] leading-snug text-white/76">
-                      {feedback === "correct"
-                        ? activePuzzle.lesson
-                        : feedback === "empty"
-                          ? "Choose the letters first."
-                          : "Not yet. Use the four clues and try another money word."}
+                    <p className="mt-0.5 text-[clamp(10px,1.45dvh,11.5px)] leading-snug text-white/78">
+                      {getClaraFeedbackMessage(feedback, activePuzzle)}
                     </p>
                   </div>
                 </div>
