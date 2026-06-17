@@ -10,7 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { getMoneyWordPictureClues } from "./fourPicsOneMoneyWordPictureClues";
-import { PUZZLES, STAGES } from "./fourPicsOneMoneyWordPuzzles";
+import { PUZZLES } from "./fourPicsOneMoneyWordPuzzles";
 
 function normalizeAnswer(value) {
   return String(value || "")
@@ -48,6 +48,8 @@ function buildLetterBank(answer) {
     })),
   );
 }
+
+const STAGE_HEADER_FALLBACK_LINE = "You can’t improve what you don’t notice.";
 
 const CLUE_CARD_STYLES = [
   {
@@ -141,13 +143,12 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
   const activePuzzle = PUZZLES[activeIndex] || PUZZLES[0];
   const activePictureClues = getMoneyWordPictureClues(activePuzzle);
+  const activeStageName = activePuzzle.stageName || "Money Awareness";
+  const stageHeaderLine = activePuzzle.stageHeaderLine || STAGE_HEADER_FALLBACK_LINE;
   const isSolved = feedback === "correct";
   const stagePuzzleNumber = (activePuzzle.stagePuzzleIndex ?? 0) + 1;
   const stageWordCount = activePuzzle.stageWordCount || 10;
-  const stageProgressText = `${stagePuzzleNumber}/${stageWordCount}`;
-  const overallProgressText = `${activeIndex + 1}/${PUZZLES.length}`;
   const progressPercent = Math.round((stagePuzzleNumber / stageWordCount) * 100);
-  const overallProgressPercent = Math.round(((activeIndex + 1) / PUZZLES.length) * 100);
   const solvedCount = solvedIds.length;
 
   const normalizedCorrectAnswer = useMemo(
@@ -282,7 +283,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
               Money Game Mode
             </p>
             <h1 className="mt-0.5 truncate bg-gradient-to-r from-white via-cyan-100 to-violet-100 bg-clip-text text-[clamp(17px,2.6dvh,20px)] font-black tracking-[-0.03em] text-transparent drop-shadow-[0_0_16px_rgba(125,211,252,0.12)]">
-              4 Icons 1 Money Word
+              {activeStageName}
             </h1>
           </div>
 
@@ -296,16 +297,11 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           </button>
         </header>
 
-        <section className="mt-[clamp(0.35rem,1dvh,0.55rem)] shrink-0 rounded-[clamp(15px,3dvh,20px)] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(8,47,73,0.56),rgba(30,41,59,0.45)_45%,rgba(49,46,129,0.38))] px-[clamp(0.65rem,2.4vw,0.9rem)] py-[clamp(0.38rem,0.95dvh,0.55rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_14px_30px_rgba(0,0,0,0.20),0_0_24px_rgba(34,211,238,0.08)] backdrop-blur-2xl">
-          <div className="flex items-center justify-between gap-3 text-[clamp(8px,1.25dvh,10px)] font-black uppercase tracking-[0.14em]">
-            <span className="text-cyan-50/90">Stage {activePuzzle.stageNumber}/{STAGES.length}</span>
-            <span className="text-violet-50/90">{progressPercent}%</span>
-          </div>
-          <div className="mt-0.5 flex items-center justify-between gap-3 text-[clamp(9px,1.35dvh,11px)] font-black tracking-[-0.01em]">
-            <span className="min-w-0 truncate text-white/82">{activePuzzle.stageIcon} {activePuzzle.stageName}</span>
-            <span className="shrink-0 text-cyan-50/76">Puzzle {stageProgressText}</span>
-          </div>
-          <div className="mt-[clamp(0.28rem,0.65dvh,0.42rem)] h-[clamp(0.16rem,0.38dvh,0.24rem)] overflow-hidden rounded-full bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <section className="mt-[clamp(0.35rem,1dvh,0.55rem)] shrink-0 rounded-[clamp(15px,3dvh,20px)] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(8,47,73,0.56),rgba(30,41,59,0.45)_45%,rgba(49,46,129,0.38))] px-[clamp(0.65rem,2.4vw,0.9rem)] py-[clamp(0.45rem,1.05dvh,0.65rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_14px_30px_rgba(0,0,0,0.20),0_0_24px_rgba(34,211,238,0.08)] backdrop-blur-2xl">
+          <p className="mx-auto max-w-[28rem] text-center text-[clamp(10px,1.45dvh,12px)] font-extrabold leading-snug tracking-[-0.01em] text-white/86">
+            {stageHeaderLine}
+          </p>
+          <div className="mt-[clamp(0.32rem,0.8dvh,0.5rem)] h-[clamp(0.16rem,0.38dvh,0.24rem)] overflow-hidden rounded-full bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
             <div
               className="h-full rounded-full bg-[linear-gradient(90deg,#67e8f9,#a78bfa,#f0abfc)] shadow-[0_0_14px_rgba(125,211,252,0.40)] transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
@@ -449,7 +445,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                   Game Options
                 </h2>
                 <p className="mt-0.5 truncate text-[clamp(10px,1.45dvh,12px)] font-bold text-white/50">
-                  Stage {activePuzzle.stageNumber}/{STAGES.length} · {activePuzzle.stageName}
+                  {activePuzzle.stageIcon} {activeStageName}
                 </p>
               </div>
               <div className="shrink-0 rounded-2xl border border-cyan-100/16 bg-white/[0.08] px-3 py-2 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.09)] backdrop-blur-xl">
@@ -467,7 +463,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 className="flex w-full items-center justify-between rounded-[18px] border border-cyan-100/18 bg-cyan-100/[0.08] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-cyan-100/[0.12] active:scale-[0.99]"
               >
                 Resume
-                <span className="text-white/38">Puzzle {overallProgressText}</span>
+                <span className="text-white/38">Continue</span>
               </button>
 
               <button
@@ -488,7 +484,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 className="flex w-full items-center justify-between rounded-[18px] border border-violet-100/16 bg-violet-100/[0.07] px-4 py-[clamp(0.75rem,1.8dvh,0.95rem)] text-left text-[clamp(12px,1.75dvh,14px)] font-black text-violet-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-violet-100/[0.10] active:scale-[0.99]"
               >
                 Restart game
-                <span className="text-white/38">{overallProgressPercent}% total</span>
+                <span className="text-white/38">Start over</span>
               </button>
 
               <button
