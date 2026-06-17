@@ -16,7 +16,7 @@ const MONEY_GAME_CATEGORY_OVERRIDE = Object.freeze({
   badge: "PLAY",
   contentTypeLabel: "Money Game Concepts",
   subtitle: "Train financial decisions through simple money games.",
-  description: "Explore early CLARA game concepts for learning money terms, spending choices, leaks, needs, wants, and payday survival.",
+  description: "Explore early CLARA game concepts for learning money terms, spending choices, leaks, timed trivia, and payday survival.",
   ctaLabel: "See all games",
 });
 
@@ -61,17 +61,17 @@ const MONEY_GAME_CONCEPTS = Object.freeze([
     tags: ["spending leaks", "awareness", "payday"],
   },
   {
-    id: "needs-vs-wants-rush",
+    id: "money-rush",
     type: "game",
     category: "game",
-    title: "Needs vs Wants Rush",
-    subtitle: "Sort expenses fast into need, want, delay, or avoid.",
+    title: "Money Rush",
+    subtitle: "Answer fast. Think smart. Every second counts.",
     description:
-      "A quick sorting game that trains users to pause and classify expenses before emotion or pressure decides for them.",
-    status: "coming-soon",
+      "A timed CLARA trivia challenge where correct answers add +10 seconds, wrong answers cost hearts, and the final score equals the remaining Time Bank.",
+    status: "available",
     order: 4,
-    coverLabel: "Sorting Game",
-    tags: ["needs", "wants", "discipline"],
+    coverLabel: "Timed Quiz",
+    tags: ["trivia", "time bank", "money awareness"],
   },
   {
     id: "payday-survival",
@@ -323,7 +323,7 @@ export default function useLearningHub() {
 
     if (
       material.type === "game" &&
-      material.id === "four-pics-one-money-word" &&
+      ["four-pics-one-money-word", "money-rush"].includes(material.id) &&
       material.status === "available"
     ) {
       setSelectedGame(material);
