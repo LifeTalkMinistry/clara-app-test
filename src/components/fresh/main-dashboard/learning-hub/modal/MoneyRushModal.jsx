@@ -290,93 +290,66 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
         </header>
 
         {isMenu ? (
-          <section className='mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-            <div className='rounded-[32px] border border-cyan-100/16 bg-[linear-gradient(135deg,rgba(8,47,73,0.70),rgba(30,41,59,0.52)_48%,rgba(49,46,129,0.44))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.13),0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-2xl'>
-              <div className='flex items-start gap-4'>
-                <span className='inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl border border-cyan-100/20 bg-cyan-100/[0.10] text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,0.18)]'>
-                  <Zap className='h-7 w-7' />
+          <section className='mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'>
+            <div className='rounded-[26px] border border-cyan-100/16 bg-[linear-gradient(135deg,rgba(8,47,73,0.62),rgba(30,41,59,0.46)_48%,rgba(49,46,129,0.38))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.13),0_18px_42px_rgba(0,0,0,0.26)] backdrop-blur-2xl'>
+              <div className='flex items-center gap-3'>
+                <span className='inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-100/18 bg-cyan-100/[0.10] text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.14)]'>
+                  <Zap className='h-5 w-5' />
                 </span>
-                <div className='min-w-0'>
-                  <p className='text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/62'>CLARA Game Mode</p>
-                  <h2 className='mt-1 text-[clamp(30px,4.3dvh,42px)] font-black leading-none tracking-[-0.07em] text-white'>
-                    Money Rush
-                  </h2>
-                  <p className='mt-3 text-[14px] font-semibold leading-relaxed text-white/68'>
-                    Fast money decisions. Clean score. No second chances.
-                  </p>
-                </div>
+                <p className='text-[13px] font-bold leading-snug text-white/76'>
+                  Fast money decisions. Clean score. No second chances.
+                </p>
               </div>
 
-              <div className='mt-5 grid grid-cols-2 gap-3'>
-                <div className='rounded-[24px] border border-cyan-100/14 bg-black/22 p-4 backdrop-blur-xl'>
-                  <p className='text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/56'>Total Points</p>
-                  <p className='mt-2 text-[34px] font-black leading-none tracking-[-0.08em] text-white'>0</p>
+              <div className='mt-3 grid grid-cols-2 gap-2.5'>
+                <div className='flex items-center justify-between rounded-2xl border border-cyan-100/12 bg-black/18 px-3 py-2.5 backdrop-blur-xl'>
+                  <p className='text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100/56'>Total Points</p>
+                  <p className='text-[22px] font-black leading-none tracking-[-0.06em] text-white'>0</p>
                 </div>
-                <div className='rounded-[24px] border border-violet-100/14 bg-black/22 p-4 backdrop-blur-xl'>
-                  <p className='text-[10px] font-black uppercase tracking-[0.18em] text-violet-100/58'>Best Score</p>
-                  <p className='mt-2 text-[34px] font-black leading-none tracking-[-0.08em] text-white'>0</p>
+                <div className='flex items-center justify-between rounded-2xl border border-violet-100/12 bg-black/18 px-3 py-2.5 backdrop-blur-xl'>
+                  <p className='text-[9px] font-black uppercase tracking-[0.16em] text-violet-100/58'>Best Score</p>
+                  <p className='text-[22px] font-black leading-none tracking-[-0.06em] text-white'>0</p>
                 </div>
               </div>
             </div>
 
-            <div className='mt-4 rounded-[30px] border border-white/12 bg-white/[0.075] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_20px_52px_rgba(0,0,0,0.28)] backdrop-blur-2xl'>
-              <div className='mb-3 flex items-center justify-between gap-3'>
-                <div>
-                  <p className='text-[10px] font-black uppercase tracking-[0.20em] text-cyan-100/58'>Stages</p>
-                  <h3 className='mt-1 text-[20px] font-black tracking-[-0.04em] text-white'>Choose your run</h3>
-                </div>
+            <div className='flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/12 bg-white/[0.075] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_18px_44px_rgba(0,0,0,0.25)] backdrop-blur-2xl'>
+              <div className='mb-2.5 flex shrink-0 items-center justify-between gap-3'>
+                <p className='text-[10px] font-black uppercase tracking-[0.20em] text-cyan-100/58'>Stages</p>
                 <span className='rounded-full border border-cyan-100/14 bg-cyan-100/[0.10] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-50'>
                   1 Open
                 </span>
               </div>
 
-              <div className='grid gap-3'>
-                <article className='rounded-[26px] border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(8,47,73,0.58),rgba(15,23,42,0.54)_54%,rgba(49,46,129,0.34))] p-4 shadow-[0_18px_46px_rgba(34,211,238,0.10)]'>
-                  <div className='flex items-start justify-between gap-3'>
-                    <div>
-                      <p className='text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/62'>Stage 1</p>
-                      <h4 className='mt-1 text-[22px] font-black tracking-[-0.05em] text-white'>Money Awareness</h4>
-                    </div>
-                    <span className='rounded-full border border-emerald-100/18 bg-emerald-400/[0.12] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-50'>
-                      Unlocked
-                    </span>
+              <article className='rounded-[24px] border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(8,47,73,0.58),rgba(15,23,42,0.54)_54%,rgba(49,46,129,0.34))] p-3.5 shadow-[0_16px_38px_rgba(34,211,238,0.10)]'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div>
+                    <p className='text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/62'>Stage 1</p>
+                    <h4 className='mt-1 text-[21px] font-black leading-none tracking-[-0.05em] text-white'>Money Awareness</h4>
                   </div>
-                  <p className='mt-3 text-[13px] font-semibold leading-relaxed text-white/64'>
-                    Answer quick questions about spending, budgeting, and money leaks.
-                  </p>
-                  <button
-                    type='button'
-                    onClick={startGame}
-                    className='mt-4 inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-3 text-[13px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_18px_42px_rgba(34,211,238,0.14)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
-                  >
-                    <Play className='h-4 w-4 fill-current' />
-                    Play Stage
-                  </button>
-                </article>
+                  <span className='rounded-full border border-emerald-100/18 bg-emerald-400/[0.12] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-50'>
+                    Unlocked
+                  </span>
+                </div>
+                <p className='mt-2.5 text-[12.5px] font-semibold leading-relaxed text-white/64'>
+                  Quick questions about spending, budgeting, and money leaks.
+                </p>
+                <button
+                  type='button'
+                  onClick={startGame}
+                  className='mt-3 inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_14px_32px_rgba(34,211,238,0.12)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
+                >
+                  <Play className='h-4 w-4 fill-current' />
+                  Play Stage
+                </button>
+              </article>
 
-                <article className='rounded-[24px] border border-white/10 bg-black/18 p-4 opacity-82'>
-                  <div className='flex items-center justify-between gap-3'>
-                    <div>
-                      <p className='text-[10px] font-black uppercase tracking-[0.18em] text-white/36'>Stage 2</p>
-                      <h4 className='mt-1 text-[18px] font-black tracking-[-0.04em] text-white/72'>Bills First</h4>
-                    </div>
-                    <span className='rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/44'>
-                      Coming Soon
-                    </span>
-                  </div>
-                </article>
-
-                <article className='rounded-[24px] border border-white/10 bg-black/18 p-4 opacity-82'>
-                  <div className='flex items-center justify-between gap-3'>
-                    <div>
-                      <p className='text-[10px] font-black uppercase tracking-[0.18em] text-white/36'>Stage 3</p>
-                      <h4 className='mt-1 text-[18px] font-black tracking-[-0.04em] text-white/72'>Spending Pressure</h4>
-                    </div>
-                    <span className='rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/44'>
-                      Coming Soon
-                    </span>
-                  </div>
-                </article>
+              <div className='mt-2.5 rounded-2xl border border-white/10 bg-black/18 px-3 py-2.5'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  <span className='text-[9px] font-black uppercase tracking-[0.18em] text-white/42'>Coming Soon</span>
+                  <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-white/68'>Stage 2: Bills First</span>
+                  <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-white/68'>Stage 3: Spending Pressure</span>
+                </div>
               </div>
             </div>
           </section>
