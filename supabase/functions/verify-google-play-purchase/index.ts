@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const PACKAGE_NAME = "com.clara.lifeos.app";
 const CURRENT_PRODUCT_ID = "clara_commitment_249";
 const PROFILE_ENTITLEMENT_NOT_CONFIRMED_CODE = "PROFILE_ENTITLEMENT_NOT_CONFIRMED";
+const PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE = "PURCHASE_LINKED_TO_ANOTHER_CLARA_ACCOUNT";
 const LEGACY_RECEIPT_PRODUCT_IDS = new Set([
   "clara_pro_99",
   "clara_core_199",
@@ -41,6 +42,15 @@ function pemToArrayBuffer(pem: string) {
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return bytes.buffer;
+}
+function safeLog(label: string, payload: Record<string, unknown> = {}) {
+  console.info("[CLARA Billing] " + label, payload);
+}
+function getLinkedAccountErrorCode(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return message.toLowerCase().includes("already linked to another user")
+    ? PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE
+    : undefined;
 }
 async function getAccessToken() {
   const raw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
@@ -109,14 +119,15 @@ function classifyGooglePurchase(googlePurchase: Record<string, unknown>) {
   const userCancellationTimeMillis = googlePurchase.userCancellationTimeMillis;
   const isExpired = !expiryTimeMillis || expiryTimeMillis <= now;
   const isPaymentPending = paymentState === 0;
-  const isCancelled = cancelReason !== undefined || userCancellationTimeMillis !== undefined;
-  const isActive = !isExpired && !isPaymentPending && !isCancelled;
+  const isCancelledAtRenewal = cancelReason !== undefined || userCancellationTimeMillis !== undefined;
+  const isActive = !isExpired && !isPaymentPending;
 
   return {
     expiryTimeMillis,
+    paymentState,
     isExpired,
     isPaymentPending,
-    isCancelled,
+    isCancelledAtRenewal,
     isActive,
     subscriptionStatus: "active",
   };
@@ -136,20 +147,36 @@ function isCommittedProfileEntitlementConfirmed(profile: Record<string, unknown>
 
 serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
-  if (request.method !== "POST") return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
+  if (request.method !== "POST") {
+    safeLog("verify-google-play-purchase rejected method", { method: request.method });
+    return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
+  }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-    if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase service credentials are not configured.");
+    if (!supabaseUrl || !serviceRoleKey) {
+      safeLog("verify-google-play-purchase missing Supabase service credentials", {
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasServiceRoleKey: Boolean(serviceRoleKey),
+      });
+      throw new Error("Supabase service credentials are not configured.");
+    }
 
     const authHeader = request.headers.get("authorization") || "";
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { authorization: authHeader } },
     });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+    if (userError || !user) {
+      safeLog("verify-google-play-purchase unauthorized", {
+        hasAuthorizationHeader: Boolean(authHeader),
+        hasAnonKey: Boolean(anonKey),
+        authError: userError?.message || "missing user",
+      });
+      return jsonResponse({ ok: false, error: "Unauthorized", code: "AUTH_SESSION_INVALID" }, 401);
+    }
 
     const body = await request.json();
     const productId = String(body.product_id || "").trim();
@@ -157,39 +184,80 @@ serve(async (request) => {
     const orderId = String(body.order_id || "").trim() || null;
     const packageName = String(body.package_name || "").trim() || PACKAGE_NAME;
 
+    safeLog("verify-google-play-purchase received", {
+      userIdExists: Boolean(user.id),
+      productId,
+      packageName,
+      hasPurchaseToken: Boolean(purchaseToken),
+      hasOrderId: Boolean(orderId),
+      supportedProduct: SUPPORTED_RECEIPT_PRODUCT_IDS.has(productId),
+    });
+
     if (!productId || !purchaseToken || !SUPPORTED_RECEIPT_PRODUCT_IDS.has(productId)) {
-      return jsonResponse({ ok: false, error: "Invalid purchase payload" }, 400);
+      safeLog("verify-google-play-purchase rejected invalid payload", {
+        hasProductId: Boolean(productId),
+        hasPurchaseToken: Boolean(purchaseToken),
+        productId,
+        supportedProduct: SUPPORTED_RECEIPT_PRODUCT_IDS.has(productId),
+      });
+      return jsonResponse({ ok: false, error: "Invalid purchase payload", code: "INVALID_PURCHASE_PAYLOAD" }, 400);
     }
     if (packageName !== PACKAGE_NAME) {
-      return jsonResponse({ ok: false, error: "Invalid package name " + packageName }, 400);
+      safeLog("verify-google-play-purchase rejected package name", {
+        receivedPackageName: packageName,
+        expectedPackageName: PACKAGE_NAME,
+      });
+      return jsonResponse({ ok: false, error: "Invalid package name " + packageName, code: "INVALID_PACKAGE_NAME" }, 400);
     }
 
+    safeLog("verify-google-play-purchase requesting Google access token", { productId });
     const accessToken = await getAccessToken();
+    safeLog("verify-google-play-purchase verifying with Google", { productId, packageName: PACKAGE_NAME });
     const googlePurchase = await verifyWithGoogle(accessToken, productId, purchaseToken);
     const purchaseState = classifyGooglePurchase(googlePurchase);
 
+    safeLog("verify-google-play-purchase Google result classified", {
+      productId,
+      expiryTimeMillis: purchaseState.expiryTimeMillis,
+      paymentState: purchaseState.paymentState,
+      isExpired: purchaseState.isExpired,
+      isPaymentPending: purchaseState.isPaymentPending,
+      isCancelledAtRenewal: purchaseState.isCancelledAtRenewal,
+      isActive: purchaseState.isActive,
+      acknowledgementState: googlePurchase.acknowledgementState ?? null,
+    });
+
     if (!purchaseState.isActive) {
+      const code = purchaseState.isExpired
+        ? "SUBSCRIPTION_EXPIRED"
+        : purchaseState.isPaymentPending
+          ? "PAYMENT_PENDING"
+          : "SUBSCRIPTION_INACTIVE";
+      safeLog("verify-google-play-purchase rejected inactive purchase", {
+        productId,
+        code,
+        expiryTimeMillis: purchaseState.expiryTimeMillis,
+        paymentState: purchaseState.paymentState,
+      });
       return jsonResponse({
         ok: false,
         error: purchaseState.isExpired
           ? "Purchase is expired"
           : purchaseState.isPaymentPending
             ? "Purchase payment is still pending"
-            : "Purchase is cancelled or no longer active",
-        code: purchaseState.isExpired
-          ? "SUBSCRIPTION_EXPIRED"
-          : purchaseState.isPaymentPending
-            ? "PAYMENT_PENDING"
-            : "SUBSCRIPTION_CANCELLED",
+            : "Purchase is no longer active",
+        code,
         google_purchase: googlePurchase,
       }, 409);
     }
 
     if (Number(googlePurchase.acknowledgementState ?? 1) === 0) {
+      safeLog("verify-google-play-purchase acknowledging purchase", { productId });
       await acknowledgeWithGoogle(accessToken, productId, purchaseToken);
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+    safeLog("verify-google-play-purchase ensuring profile row", { userIdExists: Boolean(user.id) });
     const { error: profileEnsureError } = await admin
       .from("profiles")
       .upsert(
@@ -205,10 +273,16 @@ serve(async (request) => {
     const trustedPayload = {
       ...googlePurchase,
       claraSubscriptionStatus: purchaseState.subscriptionStatus,
+      claraCancelledAtRenewal: purchaseState.isCancelledAtRenewal,
       claraVerifiedProductId: productId,
       claraVerifiedPackageName: PACKAGE_NAME,
       claraVerifiedAt: new Date().toISOString(),
     };
+    safeLog("verify-google-play-purchase calling process_google_play_purchase", {
+      productId,
+      userIdExists: Boolean(user.id),
+      hasPurchaseToken: Boolean(purchaseToken),
+    });
     const { data, error } = await admin.rpc("process_google_play_purchase", {
       p_user_id: user.id,
       p_plan_key: "committed_249",
@@ -219,6 +293,12 @@ serve(async (request) => {
     });
     if (error) throw error;
 
+    safeLog("verify-google-play-purchase RPC completed", {
+      hasPurchaseId: Boolean(data?.[0]?.purchase_id),
+      hasEnrollmentId: Boolean(data?.[0]?.enrollment_id),
+      entitlementStatus: data?.[0]?.entitlement_status || "",
+    });
+
     const { data: confirmedProfile, error: confirmError } = await admin
       .from("profiles")
       .select("plan_key, access_level, subscription_status, entitlement_status, activation_status, is_activated")
@@ -227,6 +307,11 @@ serve(async (request) => {
     if (confirmError) throw confirmError;
 
     if (!isCommittedProfileEntitlementConfirmed(confirmedProfile)) {
+      safeLog("verify-google-play-purchase profile entitlement not confirmed", {
+        confirmedProfile,
+        purchaseId: data?.[0]?.purchase_id || null,
+        enrollmentId: data?.[0]?.enrollment_id || null,
+      });
       return jsonResponse({
         ok: false,
         code: PROFILE_ENTITLEMENT_NOT_CONFIRMED_CODE,
@@ -237,6 +322,15 @@ serve(async (request) => {
         enrollment_id: data?.[0]?.enrollment_id || null,
       }, 500);
     }
+
+    safeLog("verify-google-play-purchase profile entitlement confirmed", {
+      planKey: confirmedProfile?.plan_key,
+      accessLevel: confirmedProfile?.access_level,
+      subscriptionStatus: confirmedProfile?.subscription_status,
+      entitlementStatus: confirmedProfile?.entitlement_status,
+      activationStatus: confirmedProfile?.activation_status,
+      isActivated: confirmedProfile?.is_activated === true,
+    });
 
     return jsonResponse({
       ok: true,
@@ -254,7 +348,12 @@ serve(async (request) => {
         : null,
     });
   } catch (error) {
+    const linkedAccountCode = getLinkedAccountErrorCode(error);
     console.error("verify-google-play-purchase error", error);
-    return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Verification failed" }, 500);
+    return jsonResponse({
+      ok: false,
+      code: linkedAccountCode || "VERIFICATION_FAILED",
+      error: error instanceof Error ? error.message : "Verification failed",
+    }, linkedAccountCode ? 409 : 500);
   }
 });
