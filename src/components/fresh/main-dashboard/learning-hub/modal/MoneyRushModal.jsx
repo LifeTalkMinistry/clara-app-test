@@ -98,6 +98,24 @@ const HOW_TO_PLAY_RULES = [
   'Final score equals your remaining Time Bank.',
 ];
 
+const COMING_SOON_MODES = [
+  {
+    label: 'Next Mode',
+    title: 'Money Ladder',
+    description: 'Climb the score ladder one smart answer at a time.',
+  },
+  {
+    label: 'Relaxed Mode',
+    title: 'Chill Quiz',
+    description: 'No timer. Just test what you know.',
+  },
+  {
+    label: 'Streak Mode',
+    title: 'Streak Run',
+    description: 'Keep the streak alive. One mistake breaks it.',
+  },
+];
+
 function clearTimers(timerIds) {
   timerIds.current.forEach((timerId) => window.clearTimeout(timerId));
   timerIds.current = [];
@@ -321,36 +339,62 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
                 </span>
               </div>
 
-              <article className='rounded-[24px] border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(8,47,73,0.58),rgba(15,23,42,0.54)_54%,rgba(49,46,129,0.34))] p-3.5 shadow-[0_16px_38px_rgba(34,211,238,0.10)]'>
-                <div className='flex items-start justify-between gap-3'>
+              <div className='grid min-h-0 flex-1 gap-2.5 overflow-y-auto pr-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
+                <article className='flex min-h-[132px] flex-col justify-between rounded-[24px] border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(8,47,73,0.58),rgba(15,23,42,0.54)_54%,rgba(49,46,129,0.34))] p-3.5 shadow-[0_16px_38px_rgba(34,211,238,0.10)]'>
                   <div>
-                    <p className='text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/62'>Main Mode</p>
-                    <h4 className='mt-1 text-[21px] font-black leading-none tracking-[-0.05em] text-white'>Time Rush</h4>
+                    <div className='flex items-start justify-between gap-3'>
+                      <div>
+                        <p className='text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/62'>Main Mode</p>
+                        <h4 className='mt-1 text-[21px] font-black leading-none tracking-[-0.05em] text-white'>Time Rush</h4>
+                      </div>
+                      <span className='rounded-full border border-emerald-100/18 bg-emerald-400/[0.12] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-50'>
+                        Available
+                      </span>
+                    </div>
+                    <p className='mt-2.5 text-[12.5px] font-semibold leading-relaxed text-white/64'>
+                      Answer fast. Preserve your Time Bank.
+                    </p>
                   </div>
-                  <span className='rounded-full border border-emerald-100/18 bg-emerald-400/[0.12] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-50'>
-                    Available
-                  </span>
-                </div>
-                <p className='mt-2.5 text-[12.5px] font-semibold leading-relaxed text-white/64'>
-                  Answer fast. Preserve your Time Bank.
-                </p>
-                <button
-                  type='button'
-                  onClick={startGame}
-                  className='mt-3 inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-3 text-[12px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_14px_32px_rgba(34,211,238,0.12)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
-                >
-                  <Play className='h-4 w-4 fill-current' />
-                  Play Time Rush
-                </button>
-              </article>
 
-              <div className='mt-2.5 rounded-2xl border border-white/10 bg-black/18 px-3 py-2.5'>
-                <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-[9px] font-black uppercase tracking-[0.18em] text-white/42'>Coming Soon</span>
-                  <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-white/68'>Money Ladder</span>
-                  <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-white/68'>Chill Quiz</span>
-                  <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-white/68'>Streak Run</span>
-                </div>
+                  <button
+                    type='button'
+                    onClick={startGame}
+                    className='mt-3 inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-2.5 text-[12px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_14px_32px_rgba(34,211,238,0.12)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
+                  >
+                    <Play className='h-4 w-4 fill-current' />
+                    Play Time Rush
+                  </button>
+                </article>
+
+                {COMING_SOON_MODES.map((mode) => (
+                  <article
+                    key={mode.title}
+                    className='flex min-h-[132px] flex-col justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,47,73,0.36),rgba(15,23,42,0.40)_54%,rgba(49,46,129,0.30))] p-3.5 opacity-90 shadow-[0_16px_34px_rgba(0,0,0,0.12)]'
+                  >
+                    <div>
+                      <div className='flex items-start justify-between gap-3'>
+                        <div>
+                          <p className='text-[10px] font-black uppercase tracking-[0.18em] text-white/42'>{mode.label}</p>
+                          <h4 className='mt-1 text-[21px] font-black leading-none tracking-[-0.05em] text-white/78'>{mode.title}</h4>
+                        </div>
+                        <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/58'>
+                          Coming Soon
+                        </span>
+                      </div>
+                      <p className='mt-2.5 text-[12.5px] font-semibold leading-relaxed text-white/52'>
+                        {mode.description}
+                      </p>
+                    </div>
+
+                    <button
+                      type='button'
+                      disabled
+                      className='mt-3 inline-flex min-h-[42px] w-full cursor-not-allowed items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] px-5 py-2.5 text-[12px] font-black uppercase tracking-[0.14em] text-white/42'
+                    >
+                      Coming Soon
+                    </button>
+                  </article>
+                ))}
               </div>
             </div>
           </section>
