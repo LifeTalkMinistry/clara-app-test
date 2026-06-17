@@ -36,11 +36,8 @@ export function shouldForceEnrollment(profileLike, enrollment) {
   if (!enrollment) return false;
   return membership.planKey === FREE_PLAN_KEY && !membership.isActiveCommitted && ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus);
 }
-export function resolveAppFlow(profileLike, enrollment) {
+export function resolveAppFlow(profileLike, _enrollment) {
   if (!hasCompletedOnboarding(profileLike)) return "universal_onboarding";
-  const membership = resolveMembership({ profile: profileLike });
-  const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
-  if (membership.isPendingActivation || ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) return "payment_pending";
   return "normal";
 }
 export function deriveAccessState(profileLike = {}, enrollment = null) {
