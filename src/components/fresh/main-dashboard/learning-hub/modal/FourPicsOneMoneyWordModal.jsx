@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Lightbulb,
@@ -42,6 +41,7 @@ function buildLetterBank(answer) {
 
 const GAME_PROGRESS_STORAGE_KEY = 'clara_4_icons_1_money_word_progress_v1';
 const GAME_PROGRESS_VERSION = 1;
+const POINTS_PER_SOLVED_PUZZLE = 10;
 
 function readSavedGameProgress() {
   if (typeof window === 'undefined') return null;
@@ -219,6 +219,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   const stageWordCount = activePuzzle.stageWordCount || 10;
   const progressPercent = Math.round((stagePuzzleNumber / stageWordCount) * 100);
   const solvedCount = solvedIds.length;
+  const totalPoints = solvedCount * POINTS_PER_SOLVED_PUZZLE;
 
   const normalizedCorrectAnswer = useMemo(
     () => normalizeAnswer(activePuzzle.answer),
@@ -390,9 +391,10 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
       <main className='relative mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-[clamp(0.7rem,3.7vw,1rem)] pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-[max(0.55rem,env(safe-area-inset-top))]'>
         <header className='flex shrink-0 items-center justify-between gap-2'>
-          <button type='button' onClick={onClose} aria-label='Back to Money Games' className='inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] w-[clamp(2.35rem,6.2dvh,2.75rem)] shrink-0 items-center justify-center rounded-2xl border border-cyan-100/22 bg-white/[0.10] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_24px_rgba(0,0,0,0.22)] backdrop-blur-xl transition hover:bg-white/[0.14] active:scale-[0.98]'>
-            <ArrowLeft className='h-5 w-5' />
-          </button>
+          <div aria-label={`CLARA points: ${totalPoints}`} title={`${totalPoints} CLARA points`} className='inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] w-[clamp(2.35rem,6.2dvh,2.75rem)] shrink-0 flex-col items-center justify-center rounded-2xl border border-amber-100/24 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(34,211,238,0.08),rgba(168,85,247,0.12))] text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_24px_rgba(0,0,0,0.22)] backdrop-blur-xl'>
+            <span className='text-[clamp(6px,0.95dvh,7px)] font-black uppercase leading-none tracking-[0.12em] text-amber-100/72'>PTS</span>
+            <span className='mt-0.5 text-[clamp(11px,1.75dvh,14px)] font-black leading-none text-white'>{totalPoints}</span>
+          </div>
 
           <div className='min-w-0 flex-1 text-center'>
             <p className='text-[clamp(7px,1.2dvh,9px)] font-black uppercase tracking-[0.24em] text-cyan-100/70'>Money Game Mode</p>
