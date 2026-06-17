@@ -264,31 +264,45 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           <AnswerSlots answer={activePuzzle.answer} selectedLetters={selectedLetters} onRemoveLetter={removeSelectedLetter} isSolved={isSolved} />
 
           <form onSubmit={handleSubmit} className='mt-[clamp(0.5rem,1.25dvh,0.78rem)]'>
-            <p className='text-center text-[clamp(7px,1.05dvh,9px)] font-black uppercase tracking-[0.20em] text-white/48'>Choose the letters</p>
-            <div className='mt-[clamp(0.35rem,0.9dvh,0.58rem)] flex flex-wrap justify-center gap-[clamp(0.28rem,0.8dvh,0.45rem)]'>
-              {letterBank.map((tile) => {
-                const isUsed = selectedLetters.some((item) => item.id === tile.id);
-                return (
-                  <button key={tile.id} type='button' disabled={isUsed || isSolved} onClick={() => chooseLetter(tile)} aria-label={`Choose letter ${tile.letter}`} className={`flex h-[clamp(1.75rem,4.7dvh,2.25rem)] w-[clamp(1.75rem,8.5vw,2.35rem)] items-center justify-center rounded-[11px] border text-[clamp(12px,1.95dvh,15px)] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_8px_18px_rgba(0,0,0,0.22)] transition active:scale-[0.96] ${isUsed || isSolved ? 'border-white/8 bg-white/[0.045] text-white/24 opacity-45' : 'border-cyan-100/45 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(224,242,254,0.94),rgba(237,233,254,0.94))] text-slate-900 hover:border-cyan-100 hover:bg-white'}`}>
-                    {tile.letter}
-                  </button>
-                );
-              })}
-            </div>
-
-            {showHint ? <div className='mt-[clamp(0.45rem,1.1dvh,0.75rem)] rounded-[18px] border border-cyan-100/22 bg-cyan-100/[0.10] px-3 py-[clamp(0.5rem,1.2dvh,0.75rem)] text-[clamp(10.5px,1.55dvh,12px)] leading-snug text-cyan-50/82'><span className='font-black text-cyan-50'>Hint:</span> {activePuzzle.hint}</div> : null}
-
-            {feedback ? (
-              <div className={`mt-[clamp(0.45rem,1.1dvh,0.75rem)] rounded-[18px] border px-3 py-[clamp(0.5rem,1.2dvh,0.75rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-xl ${feedback === 'correct' ? 'border-emerald-200/28 bg-emerald-300/[0.13]' : 'border-rose-200/24 bg-rose-300/[0.12]'}`}>
-                <div className='flex items-start gap-2'>
-                  {feedback === 'correct' ? <CheckCircle2 className='mt-0.5 h-4 w-4 shrink-0 text-emerald-100' /> : <XCircle className='mt-0.5 h-4 w-4 shrink-0 text-rose-100' />}
+            {isSolved ? (
+              <div className='mt-[clamp(0.5rem,1.2dvh,0.85rem)] flex min-h-[clamp(6.4rem,15dvh,8.4rem)] items-center rounded-[22px] border border-emerald-200/28 bg-[radial-gradient(circle_at_12%_0%,rgba(52,211,153,0.18),transparent_42%),linear-gradient(135deg,rgba(16,185,129,0.14),rgba(15,23,42,0.30),rgba(20,184,166,0.12))] px-[clamp(0.85rem,2.7vw,1.1rem)] py-[clamp(0.75rem,1.8dvh,1rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_26px_rgba(16,185,129,0.10)] backdrop-blur-xl'>
+                <div className='flex items-start gap-3'>
+                  <CheckCircle2 className='mt-0.5 h-5 w-5 shrink-0 text-emerald-100' />
                   <div>
-                    <p className={`text-[clamp(10px,1.45dvh,12px)] font-black uppercase tracking-[0.14em] ${feedback === 'correct' ? 'text-emerald-50' : 'text-rose-50'}`}>{feedback === 'correct' ? 'Nice, you got it' : 'Try one more time'}</p>
-                    <p className='mt-0.5 text-[clamp(10px,1.45dvh,11.5px)] leading-snug text-white/78'>{getClaraFeedbackMessage(feedback, activePuzzle)}</p>
+                    <p className='text-[clamp(11px,1.65dvh,13px)] font-black uppercase tracking-[0.14em] text-emerald-50'>Nice, you got it</p>
+                    <p className='mt-1.5 text-[clamp(11px,1.65dvh,13px)] font-semibold leading-snug text-white/84'>{getClaraFeedbackMessage(feedback, activePuzzle)}</p>
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <>
+                <p className='text-center text-[clamp(7px,1.05dvh,9px)] font-black uppercase tracking-[0.20em] text-white/48'>Choose the letters</p>
+                <div className='mt-[clamp(0.35rem,0.9dvh,0.58rem)] flex flex-wrap justify-center gap-[clamp(0.28rem,0.8dvh,0.45rem)]'>
+                  {letterBank.map((tile) => {
+                    const isUsed = selectedLetters.some((item) => item.id === tile.id);
+                    return (
+                      <button key={tile.id} type='button' disabled={isUsed || isSolved} onClick={() => chooseLetter(tile)} aria-label={`Choose letter ${tile.letter}`} className={`flex h-[clamp(1.75rem,4.7dvh,2.25rem)] w-[clamp(1.75rem,8.5vw,2.35rem)] items-center justify-center rounded-[11px] border text-[clamp(12px,1.95dvh,15px)] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_8px_18px_rgba(0,0,0,0.22)] transition active:scale-[0.96] ${isUsed || isSolved ? 'border-white/8 bg-white/[0.045] text-white/24 opacity-45' : 'border-cyan-100/45 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(224,242,254,0.94),rgba(237,233,254,0.94))] text-slate-900 hover:border-cyan-100 hover:bg-white'}`}>
+                        {tile.letter}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {showHint ? <div className='mt-[clamp(0.45rem,1.1dvh,0.75rem)] rounded-[18px] border border-cyan-100/22 bg-cyan-100/[0.10] px-3 py-[clamp(0.5rem,1.2dvh,0.75rem)] text-[clamp(10.5px,1.55dvh,12px)] leading-snug text-cyan-50/82'><span className='font-black text-cyan-50'>Hint:</span> {activePuzzle.hint}</div> : null}
+
+                {feedback ? (
+                  <div className={`mt-[clamp(0.45rem,1.1dvh,0.75rem)] rounded-[18px] border px-3 py-[clamp(0.5rem,1.2dvh,0.75rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-xl ${feedback === 'correct' ? 'border-emerald-200/28 bg-emerald-300/[0.13]' : 'border-rose-200/24 bg-rose-300/[0.12]'}`}>
+                    <div className='flex items-start gap-2'>
+                      {feedback === 'correct' ? <CheckCircle2 className='mt-0.5 h-4 w-4 shrink-0 text-emerald-100' /> : <XCircle className='mt-0.5 h-4 w-4 shrink-0 text-rose-100' />}
+                      <div>
+                        <p className={`text-[clamp(10px,1.45dvh,12px)] font-black uppercase tracking-[0.14em] ${feedback === 'correct' ? 'text-emerald-50' : 'text-rose-50'}`}>{feedback === 'correct' ? 'Nice, you got it' : 'Try one more time'}</p>
+                        <p className='mt-0.5 text-[clamp(10px,1.45dvh,11.5px)] leading-snug text-white/78'>{getClaraFeedbackMessage(feedback, activePuzzle)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
 
             <div className='mt-[clamp(0.5rem,1.3dvh,0.85rem)] grid grid-cols-3 gap-2'>
               <button type='button' onClick={() => setShowHint((current) => !current)} className='inline-flex items-center justify-center gap-1.5 rounded-[16px] border border-cyan-100/22 bg-cyan-100/[0.10] px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-[clamp(10px,1.55dvh,12px)] font-black text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-xl transition hover:bg-cyan-100/[0.15] active:scale-[0.98]'><Lightbulb className='h-4 w-4' />Hint</button>
