@@ -15,6 +15,7 @@ import {
 const STARTING_TIME_BANK = 60;
 const CORRECT_TIME_BONUS = 10;
 const STARTING_HEARTS = 3;
+const HEART_INDICATORS = [1, 2, 3];
 
 const MONEY_RUSH_QUESTIONS = [
   {
@@ -293,7 +294,7 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
               <button
                 type='button'
                 onClick={startGame}
-                className='mt-6 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-4 text-[14px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_18px_42px_rgba(34,211,238,0.14)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
+                className='mt-6 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-4 text-[14px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_18px_42px_rgba(34,211,238,0.14)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
               >
                 <Play className='h-4 w-4 fill-current' />
                 Start Money Rush
@@ -319,11 +320,10 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
                   <span className='text-[9px] font-black uppercase tracking-[0.16em]'>Hearts</span>
                 </div>
                 <div className='mt-2 flex gap-1'>
-                  {Array.from({ length: STARTING_HEARTS }).map((_, index) => (
+                  {HEART_INDICATORS.map((heartNumber) => (
                     <Heart
-                      // eslint-disable-next-line react/no-array-index-key
-                      key={index}
-                      className={`h-4 w-4 ${index < hearts ? 'fill-current text-rose-200' : 'text-white/18'}`}
+                      key={heartNumber}
+                      className={`h-4 w-4 ${heartNumber <= hearts ? 'fill-current text-rose-200' : 'text-white/18'}`}
                     />
                   ))}
                 </div>
