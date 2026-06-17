@@ -52,6 +52,27 @@ function getLinkedAccountErrorCode(error: unknown) {
     ? PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE
     : undefined;
 }
+function getBearerToken(authHeader: string) {
+  const normalized = String(authHeader || "").trim();
+  return normalized.replace(/^Bearer\s+/i, "").trim();
+}
+async function getAuthenticatedUser(admin: ReturnType<typeof createClient>, authHeader: string) {
+  const accessToken = getBearerToken(authHeader);
+  if (!accessToken) {
+    return {
+      user: null,
+      errorMessage: "Missing authorization bearer token.",
+      hasAuthorizationHeader: Boolean(authHeader),
+    };
+  }
+
+  const { data, error } = await admin.auth.getUser(accessToken);
+  return {
+    user: data?.user || null,
+    errorMessage: error?.message || (!data?.user ? "Missing user from service-role token lookup." : ""),
+    hasAuthorizationHeader: true,
+  };
+}
 async function getAccessToken() {
   const raw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not configured.");
@@ -155,7 +176,6 @@ serve(async (request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     if (!supabaseUrl || !serviceRoleKey) {
       safeLog("verify-google-play-purchase missing Supabase service credentials", {
         hasSupabaseUrl: Boolean(supabaseUrl),
@@ -164,19 +184,25 @@ serve(async (request) => {
       throw new Error("Supabase service credentials are not configured.");
     }
 
+    const admin = createClient(supabaseUrl, serviceRoleKey);
     const authHeader = request.headers.get("authorization") || "";
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
+    const authResult = await getAuthenticatedUser(admin, authHeader);
+    const user = authResult.user;
+
+    if (!user) {
       safeLog("verify-google-play-purchase unauthorized", {
-        hasAuthorizationHeader: Boolean(authHeader),
-        hasAnonKey: Boolean(anonKey),
-        authError: userError?.message || "missing user",
+        hasAuthorizationHeader: authResult.hasAuthorizationHeader,
+        authError: authResult.errorMessage,
+        authMode: "service_role_get_user",
       });
       return jsonResponse({ ok: false, error: "Unauthorized", code: "AUTH_SESSION_INVALID" }, 401);
     }
+
+    safeLog("verify-google-play-purchase user authenticated", {
+      authMode: "service_role_get_user",
+      userIdExists: Boolean(user.id),
+      emailExists: Boolean(user.email),
+    });
 
     const body = await request.json();
     const productId = String(body.product_id || "").trim();
@@ -256,7 +282,6 @@ serve(async (request) => {
       await acknowledgeWithGoogle(accessToken, productId, purchaseToken);
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
     safeLog("verify-google-play-purchase ensuring profile row", { userIdExists: Boolean(user.id) });
     const { error: profileEnsureError } = await admin
       .from("profiles")
