@@ -76,15 +76,23 @@ const CLUE_CARD_STYLES = [
   },
 ];
 
+function makeLessonDirectToUser(value) {
+  return String(value || "")
+    .replace(/\bthe user\b/gi, "you")
+    .replace(/\buser\b/gi, "you")
+    .replace(/\bthe user's\b/gi, "your")
+    .replace(/\buser's\b/gi, "your")
+    .trim();
+}
+
 function getClaraCorrectMessage(puzzle) {
+  const directLesson = makeLessonDirectToUser(puzzle?.lesson);
   const answer = puzzle?.answer || "that word";
   const hint = String(puzzle?.hint || "").trim();
 
-  if (!hint) {
-    return `That’s ${answer}. Keep this word in mind before your next money move.`;
-  }
-
-  return `That’s ${answer}. ${hint} I’ll help you notice this in real money decisions.`;
+  if (directLesson) return directLesson;
+  if (hint) return `${answer}: ${hint}`;
+  return `That’s ${answer}. Keep this word in mind before your next money move.`;
 }
 
 function getClaraFeedbackMessage(feedback, puzzle) {
