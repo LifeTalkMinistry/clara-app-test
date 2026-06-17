@@ -54,28 +54,24 @@ const CLUE_CARD_STYLES = [
     card: "border-cyan-100/24 bg-[radial-gradient(circle_at_88%_0%,rgba(34,211,238,0.24),transparent_38%),linear-gradient(135deg,rgba(8,145,178,0.28),rgba(15,23,42,0.60)_58%,rgba(30,41,59,0.42))] shadow-[inset_0_1px_0_rgba(255,255,255,0.13),0_18px_36px_rgba(8,145,178,0.18)]",
     orb: "bg-cyan-200/[0.13]",
     iconBox: "border-cyan-100/18 bg-cyan-100/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_28px_rgba(34,211,238,0.10)]",
-    clue: "text-cyan-100/60",
     label: "text-cyan-50/95",
   },
   {
     card: "border-violet-100/24 bg-[radial-gradient(circle_at_88%_0%,rgba(168,85,247,0.26),transparent_38%),linear-gradient(135deg,rgba(59,130,246,0.20),rgba(30,41,59,0.56)_48%,rgba(46,16,101,0.52))] shadow-[inset_0_1px_0_rgba(255,255,255,0.13),0_18px_36px_rgba(124,58,237,0.18)]",
     orb: "bg-violet-200/[0.13]",
     iconBox: "border-violet-100/18 bg-violet-100/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_28px_rgba(168,85,247,0.11)]",
-    clue: "text-violet-100/60",
     label: "text-violet-50/95",
   },
   {
     card: "border-emerald-100/22 bg-[radial-gradient(circle_at_88%_0%,rgba(45,212,191,0.24),transparent_38%),linear-gradient(135deg,rgba(20,184,166,0.22),rgba(15,23,42,0.58)_56%,rgba(6,78,59,0.36))] shadow-[inset_0_1px_0_rgba(255,255,255,0.13),0_18px_36px_rgba(20,184,166,0.15)]",
     orb: "bg-emerald-200/[0.12]",
     iconBox: "border-emerald-100/18 bg-emerald-100/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_28px_rgba(45,212,191,0.10)]",
-    clue: "text-emerald-100/58",
     label: "text-emerald-50/95",
   },
   {
     card: "border-fuchsia-100/22 bg-[radial-gradient(circle_at_88%_0%,rgba(217,70,239,0.24),transparent_38%),linear-gradient(135deg,rgba(99,102,241,0.22),rgba(15,23,42,0.58)_55%,rgba(74,20,140,0.42))] shadow-[inset_0_1px_0_rgba(255,255,255,0.13),0_18px_36px_rgba(217,70,239,0.14)]",
     orb: "bg-fuchsia-200/[0.12]",
     iconBox: "border-fuchsia-100/18 bg-fuchsia-100/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_28px_rgba(217,70,239,0.10)]",
-    clue: "text-fuchsia-100/58",
     label: "text-fuchsia-50/95",
   },
 ];
@@ -306,10 +302,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
                 <div className={`relative flex h-[clamp(2.8rem,8dvh,4rem)] w-[clamp(2.8rem,8dvh,4rem)] items-center justify-center rounded-[clamp(18px,3.4dvh,24px)] border text-[clamp(28px,5.2dvh,38px)] leading-none ${clueStyle.iconBox}`}>
                   {clue.icon}
                 </div>
-                <p className={`relative mt-[clamp(0.28rem,0.8dvh,0.65rem)] text-[clamp(6.5px,1.05dvh,8px)] font-black uppercase tracking-[0.18em] ${clueStyle.clue}`}>
-                  Clue {index + 1}
-                </p>
-                <p className={`relative mt-0.5 line-clamp-2 text-[clamp(8.5px,1.45dvh,11px)] font-black uppercase leading-tight tracking-[0.10em] ${clueStyle.label}`}>
+                <p className={`relative mt-[clamp(0.38rem,0.95dvh,0.75rem)] line-clamp-2 text-[clamp(8.5px,1.45dvh,11px)] font-black uppercase leading-tight tracking-[0.10em] ${clueStyle.label}`}>
                   {clue.label}
                 </p>
               </div>
