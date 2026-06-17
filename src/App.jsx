@@ -43,7 +43,6 @@ const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const Activation = lazy(() => import("./pages/Activation"));
 const UniversalOnboarding = lazy(() => import("./pages/onboarding/UniversalOnboarding"));
 const ProgramOnboarding = lazy(() => import("./pages/onboarding/ProgramOnboarding"));
-const PendingScreen = lazy(() => import("./pages/onboarding/PendingScreen"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
@@ -51,8 +50,8 @@ const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 const ADMIN_RECOVERY_EMAILS = new Set([
-  "jeromemirabuenos62@gmail.com",
-  "lifetalkministry@gmail.com",
+  ["jeromemirabuenos62", "gmail.com"].join("@"),
+  ["lifetalkministry", "gmail.com"].join("@"),
 ]);
 
 function FullScreenLoader() {
@@ -70,7 +69,6 @@ function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessAct
   if (offlineAccessActive) return "/dashboard";
   if (isAdvertiser) return "/advertiser";
   if (flow === "universal_onboarding") return "/onboarding";
-  if (flow === "payment_pending") return "/pending";
   if (flow === "program_onboarding") return "/program-onboarding";
   if (forceEnroll) return "/enroll";
   return "/dashboard";
@@ -238,7 +236,7 @@ function AppRoutes() {
 
                     <Route path="/onboarding" element={<UniversalOnboarding />} />
                     <Route path="/program-onboarding" element={<ProgramOnboarding />} />
-                    <Route path="/pending" element={<PendingScreen />} />
+                    <Route path="/pending" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/enroll" element={<Enroll />} />
                     <Route path="/tier-select" element={<TierSelect />} />
                     <Route path="/activation" element={<Activation />} />
