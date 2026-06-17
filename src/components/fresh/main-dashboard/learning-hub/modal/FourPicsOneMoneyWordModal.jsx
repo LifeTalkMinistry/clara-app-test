@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight,
@@ -220,11 +220,33 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   const progressPercent = Math.round((stagePuzzleNumber / stageWordCount) * 100);
   const solvedCount = solvedIds.length;
   const totalPoints = solvedCount * POINTS_PER_SOLVED_PUZZLE;
+  const [displayPoints, setDisplayPoints] = useState(totalPoints);
+  const [pointsRewardAnimation, setPointsRewardAnimation] = useState(null);
+  const [isPointsBadgePopping, setIsPointsBadgePopping] = useState(false);
+  const pointsBadgeRef = useRef(null);
+  const rewardAnimationTimerRef = useRef([]);
+  const rewardAnimationIdRef = useRef(0);
 
   const normalizedCorrectAnswer = useMemo(
     () => normalizeAnswer(activePuzzle.answer),
     [activePuzzle.answer],
   );
+
+  const clearRewardAnimationTimers = useCallback(() => {
+    rewardAnimationTimerRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    rewardAnimationTimerRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearRewardAnimationTimers();
+    };
+  }, [clearRewardAnimationTimers]);
+
+  useEffect(() => {
+    if (pointsRewardAnimation) return;
+    setDisplayPoints(totalPoints);
+  }, [pointsRewardAnimation, totalPoints]);
 
   useEffect(() => {
     if (letterBankPuzzleIdRef.current === activePuzzle.id) return;
@@ -290,6 +312,82 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     [selectedLetters],
   );
 
+  const triggerPointsCollectionAnimation = ({ amount, previousPoints, nextPoints }) => {
+    if (typeof window === 'undefined') {
+      setDisplayPoints(nextPoints);
+      return;
+    }
+
+    clearRewardAnimationTimers();
+
+    const badgeRect = pointsBadgeRef.current?.getBoundingClientRect();
+    const startX = window.innerWidth / 2;
+    const startY = Math.min(window.innerHeight * 0.58, window.innerHeight - 190);
+
+    const targetX = badgeRect ? badgeRect.left + badgeRect.width / 2 : 42;
+    const targetY = badgeRect ? badgeRect.top + badgeRect.height / 2 : 42;
+
+    const animationId = rewardAnimationIdRef.current + 1;
+    rewardAnimationIdRef.current = animationId;
+
+    setDisplayPoints(previousPoints);
+    setIsPointsBadgePopping(false);
+    setPointsRewardAnimation({
+      id: animationId,
+      amount,
+      phase: 'hold',
+      startX,
+      startY,
+      targetX,
+      targetY,
+      nextDisplayPoints: nextPoints,
+    });
+
+    rewardAnimationTimerRef.current.push(
+      window.setTimeout(() => {
+        setPointsRewardAnimation((current) =>
+          current?.id === animationId ? { ...current, phase: 'fly' } : current,
+        );
+      }, 650),
+    );
+
+    rewardAnimationTimerRef.current.push(
+      window.setTimeout(() => {
+        setDisplayPoints(nextPoints);
+        setIsPointsBadgePopping(true);
+        setPointsRewardAnimation((current) =>
+          current?.id === animationId ? null : current,
+        );
+      }, 1400),
+    );
+
+    rewardAnimationTimerRef.current.push(
+      window.setTimeout(() => {
+        setIsPointsBadgePopping(false);
+      }, 1800),
+    );
+  };
+
+  const markCurrentPuzzleSolved = () => {
+    if (!activePuzzle?.id) return;
+
+    const wasAlreadySolved = solvedIds.includes(activePuzzle.id);
+    if (wasAlreadySolved) return;
+
+    const previousPoints = solvedIds.length * POINTS_PER_SOLVED_PUZZLE;
+    const nextPoints = previousPoints + POINTS_PER_SOLVED_PUZZLE;
+
+    setSolvedIds((current) =>
+      current.includes(activePuzzle.id) ? current : [...current, activePuzzle.id],
+    );
+
+    triggerPointsCollectionAnimation({
+      amount: POINTS_PER_SOLVED_PUZZLE,
+      previousPoints,
+      nextPoints,
+    });
+  };
+
   if (!isOpen || typeof document === 'undefined') return null;
 
   const resetRound = () => {
@@ -299,6 +397,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   };
 
   const restartGame = () => {
+    clearRewardAnimationTimers();
     clearSavedGameProgress();
     savedGameProgressRef.current = null;
     letterBankPuzzleIdRef.current = PUZZLES[0]?.id;
@@ -307,6 +406,9 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     setShowHint(false);
     setFeedback(null);
     setSolvedIds([]);
+    setDisplayPoints(0);
+    setPointsRewardAnimation(null);
+    setIsPointsBadgePopping(false);
     setIsMenuOpen(false);
     setLetterBank(buildLetterBank(PUZZLES[0]?.answer));
   };
@@ -337,7 +439,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     if (answerTiles.length !== answerLetters.length) return;
     setSelectedLetters(answerTiles);
     setFeedback('correct');
-    setSolvedIds((current) => current.includes(activePuzzle.id) ? current : [...current, activePuzzle.id]);
+    markCurrentPuzzleSolved();
   };
 
   const handleHiddenWordTesterTap = (event) => {
@@ -358,7 +460,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     }
     const isCorrect = normalizeAnswer(guess) === normalizedCorrectAnswer;
     setFeedback(isCorrect ? 'correct' : 'wrong');
-    if (isCorrect) setSolvedIds((current) => current.includes(activePuzzle.id) ? current : [...current, activePuzzle.id]);
+    if (isCorrect) markCurrentPuzzleSolved();
   };
 
   const goNext = () => {
@@ -391,11 +493,11 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
       <main className='relative mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-[clamp(0.7rem,3.7vw,1rem)] pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-[max(0.55rem,env(safe-area-inset-top))]'>
         <header className='relative flex shrink-0 items-center justify-between gap-2'>
-          <div aria-label={`CLARA points: ${totalPoints}`} title={`${totalPoints} CLARA points`} className='relative z-10 inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] min-w-[clamp(3rem,12.5vw,3.45rem)] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-100/24 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.30),transparent_25%),linear-gradient(135deg,rgba(34,211,238,0.24),rgba(168,85,247,0.20)_52%,rgba(251,191,36,0.16))] px-1.5 text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_12px_28px_rgba(0,0,0,0.25),0_0_20px_rgba(34,211,238,0.14)] backdrop-blur-xl'>
+          <div ref={pointsBadgeRef} aria-label={`CLARA points: ${displayPoints}`} title={`${displayPoints} CLARA points`} className={`relative z-10 inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] min-w-[clamp(3rem,12.5vw,3.45rem)] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-100/24 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.30),transparent_25%),linear-gradient(135deg,rgba(34,211,238,0.24),rgba(168,85,247,0.20)_52%,rgba(251,191,36,0.16))] px-1.5 text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_12px_28px_rgba(0,0,0,0.25),0_0_20px_rgba(34,211,238,0.14)] backdrop-blur-xl transition duration-300 ${isPointsBadgePopping ? 'scale-[1.08] border-amber-100/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.26),0_14px_32px_rgba(0,0,0,0.28),0_0_26px_rgba(251,191,36,0.30),0_0_34px_rgba(34,211,238,0.18)]' : ''}`}>
             <span className='pointer-events-none absolute inset-x-1 top-1 h-px bg-gradient-to-r from-transparent via-white/55 to-transparent' />
             <span className='mr-1 flex h-[clamp(0.88rem,2.55dvh,1.05rem)] w-[clamp(0.88rem,2.55dvh,1.05rem)] items-center justify-center rounded-full border border-amber-100/34 bg-[radial-gradient(circle_at_35%_28%,rgba(255,255,255,0.88),rgba(251,191,36,0.42)_34%,rgba(168,85,247,0.18))] text-[clamp(6px,1.12dvh,8px)] font-black leading-none text-slate-900 shadow-[0_0_14px_rgba(251,191,36,0.22)]'>✦</span>
             <span className='flex flex-col items-start leading-none'>
-              <span className='text-[clamp(11px,1.8dvh,14px)] font-black leading-none tracking-[-0.02em] text-white'>{totalPoints}</span>
+              <span className='text-[clamp(11px,1.8dvh,14px)] font-black leading-none tracking-[-0.02em] text-white'>{displayPoints}</span>
               <span className='mt-0.5 text-[clamp(4.8px,0.78dvh,5.8px)] font-black uppercase leading-none tracking-[0.12em] text-cyan-100/70'>Points</span>
             </span>
           </div>
@@ -480,6 +582,35 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
           </form>
         </section>
       </main>
+
+      {pointsRewardAnimation ? (
+        <div
+          aria-hidden='true'
+          className='pointer-events-none fixed z-[10001]'
+          style={{
+            left: pointsRewardAnimation.startX,
+            top: pointsRewardAnimation.startY,
+            transform:
+              pointsRewardAnimation.phase === 'fly'
+                ? `translate(-50%, -50%) translate3d(${pointsRewardAnimation.targetX - pointsRewardAnimation.startX}px, ${pointsRewardAnimation.targetY - pointsRewardAnimation.startY}px, 0) scale(0.58)`
+                : 'translate(-50%, -50%) translate3d(0, 0, 0) scale(1)',
+            opacity: pointsRewardAnimation.phase === 'fly' ? 0.18 : 1,
+            transition:
+              pointsRewardAnimation.phase === 'fly'
+                ? 'transform 700ms cubic-bezier(0.22, 1, 0.36, 1), opacity 700ms ease'
+                : 'transform 180ms ease-out, opacity 180ms ease-out',
+          }}
+        >
+          <div className='relative rounded-2xl border border-amber-100/40 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.34),transparent_30%),linear-gradient(135deg,rgba(251,191,36,0.26),rgba(34,211,238,0.20),rgba(168,85,247,0.22))] px-4 py-2 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_16px_34px_rgba(0,0,0,0.28),0_0_28px_rgba(251,191,36,0.22)] backdrop-blur-xl'>
+            <p className='text-[clamp(18px,3.4dvh,26px)] font-black leading-none tracking-[-0.04em] text-white'>
+              +{pointsRewardAnimation.amount}
+            </p>
+            <p className='mt-1 text-[clamp(7px,1.2dvh,9px)] font-black uppercase tracking-[0.22em] text-amber-50/86'>
+              Points
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {isMenuOpen ? (
         <div className='fixed inset-0 z-[10000] flex items-end justify-center bg-black/45 px-[clamp(0.7rem,3.7vw,1rem)] pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md'>
