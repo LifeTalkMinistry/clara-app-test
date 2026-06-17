@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { CalendarDays, Home, Settings, User } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { readDeveloperMembershipPreview, resolveMembership } from "@/lib/membership";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
@@ -15,11 +16,29 @@ export default function useDashboardPanelUiState({
   hasVisibleFinanceData,
   financeDataLoading,
   financeDataRefreshing,
-  plan = "free",
+  plan = null,
 }) {
+  const {
+    user: authUser,
+    profile: authProfile,
+    loading: authLoading,
+    authReady,
+  } = useAuth();
   const membershipPreview = readDeveloperMembershipPreview();
-  const membership = resolveMembership({ plan, preview: membershipPreview });
-  const isFreePlan = !membership.hasCommittedAccess;
+  const role = String(authProfile?.role || authUser?.user_metadata?.role || "user")
+    .trim()
+    .toLowerCase();
+  const membership = resolveMembership({
+    profile: authProfile || {},
+    user: authUser,
+    plan,
+    preview: membershipPreview,
+    isAdmin: role === "admin",
+    isAdvertiser: role === "advertiser",
+    loading: !authReady || authLoading,
+    ready: authReady !== false,
+  });
+  const isFreePlan = membership.membershipStatus !== "loading" && !membership.hasCommittedAccess;
 
   const openDashboardPanel = useCallback((panelKey) => {
     const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
