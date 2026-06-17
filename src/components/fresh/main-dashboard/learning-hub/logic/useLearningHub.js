@@ -35,6 +35,19 @@ const MONEY_GAME_CONCEPTS = Object.freeze([
     tags: ["jargon", "vocabulary", "money terms"],
   },
   {
+    id: "money-rush",
+    type: "game",
+    category: "game",
+    title: "Money Rush",
+    subtitle: "Answer fast. Think smart. Every second counts.",
+    description:
+      "A timed CLARA trivia challenge where correct answers add +10 seconds, wrong answers cost hearts, and the final score equals the remaining Time Bank.",
+    status: "available",
+    order: 2,
+    coverLabel: "Timed Quiz",
+    tags: ["trivia", "time bank", "money awareness"],
+  },
+  {
     id: "budget-rescue",
     type: "game",
     category: "game",
@@ -43,7 +56,7 @@ const MONEY_GAME_CONCEPTS = Object.freeze([
     description:
       "A decision game where users face real budget pressure and must rescue the month by choosing smarter tradeoffs.",
     status: "coming-soon",
-    order: 2,
+    order: 3,
     coverLabel: "Decision Game",
     tags: ["budget", "tradeoffs", "control"],
   },
@@ -56,22 +69,9 @@ const MONEY_GAME_CONCEPTS = Object.freeze([
     description:
       "A pattern-recognition game where users hunt small repeated expenses that quietly drain the budget before payday.",
     status: "coming-soon",
-    order: 3,
+    order: 4,
     coverLabel: "Leak Game",
     tags: ["spending leaks", "awareness", "payday"],
-  },
-  {
-    id: "money-rush",
-    type: "game",
-    category: "game",
-    title: "Money Rush",
-    subtitle: "Answer fast. Think smart. Every second counts.",
-    description:
-      "A timed CLARA trivia challenge where correct answers add +10 seconds, wrong answers cost hearts, and the final score equals the remaining Time Bank.",
-    status: "available",
-    order: 4,
-    coverLabel: "Timed Quiz",
-    tags: ["trivia", "time bank", "money awareness"],
   },
   {
     id: "payday-survival",
