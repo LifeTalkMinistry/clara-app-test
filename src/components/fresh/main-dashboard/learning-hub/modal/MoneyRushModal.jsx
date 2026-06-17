@@ -12,84 +12,26 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
+import { selectMoneyRushQuestions } from '../games/money-rush/moneyRushQuestionPicker';
 
 const STARTING_TIME_BANK = 60;
 const CORRECT_TIME_BONUS = 10;
 const STARTING_HEARTS = 3;
+const TIME_RUSH_QUESTION_COUNT = 10;
 const HEART_INDICATORS = [1, 2, 3];
 
-const MONEY_RUSH_QUESTIONS = [
-  {
-    id: 'payday-priority',
-    question: 'What should usually come first after receiving income?',
-    options: ['Random sale items', 'Bills and essentials', 'New gadgets', 'Food delivery only'],
-    answer: 'Bills and essentials',
-    claraLine: 'Good decision. Essentials protect the month before wants compete for space.',
-  },
-  {
-    id: 'pause-before-buying',
-    question: 'What is a smart reason to pause before buying something?',
-    options: ['To check if it fits your budget', 'To make the seller wait', 'To avoid thinking', 'To spend faster'],
-    answer: 'To check if it fits your budget',
-    claraLine: 'A pause gives your brain time to check reality before emotion decides.',
-  },
-  {
-    id: 'impulse-control',
-    question: 'Which action helps prevent impulse spending?',
-    options: ['Buying immediately', 'Comparing it with your budget first', 'Ignoring your balance', 'Spending because you feel stressed'],
-    answer: 'Comparing it with your budget first',
-    claraLine: 'Fast is good, but smart is better. Check the budget before the wallet reacts.',
-  },
-  {
-    id: 'money-leak',
-    question: 'What is a money leak?',
-    options: ['A small repeated expense that quietly drains money', 'A bank error only', 'Free money', 'A salary increase'],
-    answer: 'A small repeated expense that quietly drains money',
-    claraLine: 'Small leaks become heavy when they repeat without being noticed.',
-  },
-  {
-    id: 'awareness-control',
-    question: 'Why is money awareness important?',
-    options: ['You cannot control what you do not notice', 'Money should always be spent fast', 'Budgets are useless', 'Wants are always more important'],
-    answer: 'You cannot control what you do not notice',
-    claraLine: 'Awareness is the first step. You can only improve what you can see.',
-  },
-  {
-    id: 'safe-spending',
-    question: 'When is spending usually safer?',
-    options: ['When it is planned and affordable', 'When you are bored', 'When everyone else is buying', 'When you are hiding it from your budget'],
-    answer: 'When it is planned and affordable',
-    claraLine: 'Planned spending is not the enemy. Unchecked spending creates pressure.',
-  },
-  {
-    id: 'budget-purpose',
-    question: 'What is the real purpose of a budget?',
-    options: ['To give money direction', 'To punish yourself', 'To remove all fun', 'To make spending random'],
-    answer: 'To give money direction',
-    claraLine: 'A budget is direction. It tells money where to go before pressure decides.',
-  },
-  {
-    id: 'emergency-fund',
-    question: 'What is an emergency fund mainly for?',
-    options: ['Protection when life gets expensive', 'Random online shopping', 'Showing off savings', 'Replacing every budget category'],
-    answer: 'Protection when life gets expensive',
-    claraLine: 'Emergency money protects you when life suddenly becomes expensive.',
-  },
-  {
-    id: 'needs-first',
-    question: 'Which choice best protects financial stability?',
-    options: ['Pay essentials before flexible wants', 'Spend first and check later', 'Ignore due dates', 'Use savings for every craving'],
-    answer: 'Pay essentials before flexible wants',
-    claraLine: 'Stability grows when essentials are protected before flexible spending.',
-  },
-  {
-    id: 'ask-before-spend',
-    question: 'What is the strongest CLARA habit before spending?',
-    options: ['Ask before you spend', 'Spend before you think', 'Buy because it is trending', 'Avoid checking your wallet'],
-    answer: 'Ask before you spend',
-    claraLine: 'That is the habit. Ask first, then spend only when it fits your real life.',
-  },
-];
+const createTimeRushQuestions = () => selectMoneyRushQuestions({ count: TIME_RUSH_QUESTION_COUNT });
+
+const MONEY_RUSH_FALLBACK_QUESTION = {
+  id: 'money-rush-fallback-question',
+  type: 'fact',
+  topic: 'budgeting',
+  difficulty: 'easy',
+  question: 'What is the real purpose of a budget?',
+  options: ['To give money direction', 'To punish yourself', 'To remove all fun', 'To make spending random'],
+  answer: 'To give money direction',
+  claraLine: 'A budget gives money direction before pressure decides.',
+};
 
 const HOW_TO_PLAY_RULES = [
   'Start with a 60-second Time Bank.',
@@ -128,14 +70,15 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
   const [feedback, setFeedback] = useState(null);
   const [isAnswerLocked, setIsAnswerLocked] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [runQuestions, setRunQuestions] = useState(() => createTimeRushQuestions());
 
-  const currentQuestion = MONEY_RUSH_QUESTIONS[currentQuestionIndex] || MONEY_RUSH_QUESTIONS[0];
-  const totalQuestions = MONEY_RUSH_QUESTIONS.length;
+  const currentQuestion = runQuestions[currentQuestionIndex] || runQuestions[0] || MONEY_RUSH_FALLBACK_QUESTION;
+  const totalQuestions = runQuestions.length || 1;
   const isMenu = gameStatus === 'menu';
   const isHowToPlay = gameStatus === 'how-to-play';
   const isPlaying = gameStatus === 'playing';
   const isFinished = gameStatus === 'stage-clear' || gameStatus === 'game-over';
-  const progressPercent = Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100);
+  const progressPercent = Math.round(((currentQuestionIndex + 1) / Math.max(totalQuestions, 1)) * 100);
 
   const resultTitle = gameStatus === 'stage-clear' ? 'Stage Clear!' : 'Game Over';
   const resultLine = gameStatus === 'stage-clear'
@@ -157,10 +100,12 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setFeedback(null);
     setIsAnswerLocked(false);
     setFinalScore(0);
+    setRunQuestions(createTimeRushQuestions());
   }, [clearPendingTransitions]);
 
   const startGame = () => {
     clearPendingTransitions();
+    setRunQuestions(createTimeRushQuestions());
     setGameStatus('playing');
     setCurrentQuestionIndex(0);
     setTimeBank(STARTING_TIME_BANK);
