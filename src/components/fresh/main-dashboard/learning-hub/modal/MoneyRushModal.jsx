@@ -19,6 +19,8 @@ const CORRECT_TIME_BONUS = 10;
 const STARTING_HEARTS = 3;
 const TIME_RUSH_QUESTION_COUNT = 10;
 const HEART_INDICATORS = [1, 2, 3];
+const MONEY_RUSH_SCORE_STORAGE_KEY = 'clara_money_rush_score_bank_v1';
+const MONEY_RUSH_SCORE_VERSION = 1;
 
 const createTimeRushQuestions = () => selectMoneyRushQuestions({ count: TIME_RUSH_QUESTION_COUNT });
 
@@ -60,8 +62,50 @@ function clearTimers(timerIds) {
   timerIds.current = [];
 }
 
+function readMoneyRushScoreBank() {
+  if (typeof window === 'undefined') return { pointBank: 0, bestScore: 0 };
+
+  try {
+    const rawScoreBank = window.localStorage.getItem(MONEY_RUSH_SCORE_STORAGE_KEY);
+    if (!rawScoreBank) return { pointBank: 0, bestScore: 0 };
+
+    const parsedScoreBank = JSON.parse(rawScoreBank);
+    if (!parsedScoreBank || parsedScoreBank.version !== MONEY_RUSH_SCORE_VERSION) {
+      return { pointBank: 0, bestScore: 0 };
+    }
+
+    return {
+      pointBank: Math.max(0, Number(parsedScoreBank.pointBank) || 0),
+      bestScore: Math.max(0, Number(parsedScoreBank.bestScore) || 0),
+    };
+  } catch {
+    return { pointBank: 0, bestScore: 0 };
+  }
+}
+
+function writeMoneyRushScoreBank(scoreBank) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(
+      MONEY_RUSH_SCORE_STORAGE_KEY,
+      JSON.stringify({
+        version: MONEY_RUSH_SCORE_VERSION,
+        pointBank: Math.max(0, Number(scoreBank?.pointBank) || 0),
+        bestScore: Math.max(0, Number(scoreBank?.bestScore) || 0),
+        savedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Storage can fail in private mode. The point bank should still work in memory.
+  }
+}
+
 export default function MoneyRushModal({ isOpen, material, onClose }) {
   const transitionTimersRef = useRef([]);
+  const pointBankTimersRef = useRef([]);
+  const pointBankRef = useRef(null);
+  const resultBankedRef = useRef(false);
   const [gameStatus, setGameStatus] = useState('menu');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeBank, setTimeBank] = useState(STARTING_TIME_BANK);
@@ -71,6 +115,10 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
   const [isAnswerLocked, setIsAnswerLocked] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [runQuestions, setRunQuestions] = useState(() => createTimeRushQuestions());
+  const [scoreBank, setScoreBank] = useState(() => readMoneyRushScoreBank());
+  const [displayPointBank, setDisplayPointBank] = useState(() => readMoneyRushScoreBank().pointBank);
+  const [pointRewardAnimation, setPointRewardAnimation] = useState(null);
+  const [isPointBankPopping, setIsPointBankPopping] = useState(false);
 
   const currentQuestion = runQuestions[currentQuestionIndex] || runQuestions[0] || MONEY_RUSH_FALLBACK_QUESTION;
   const totalQuestions = runQuestions.length || 1;
@@ -90,8 +138,89 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     clearTimers(transitionTimersRef);
   }, []);
 
+  const clearPointBankTimers = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    clearTimers(pointBankTimersRef);
+  }, []);
+
+  const triggerPointBankAnimation = useCallback(({ amount, previousPoints, nextPoints }) => {
+    if (typeof window === 'undefined') {
+      setDisplayPointBank(nextPoints);
+      return;
+    }
+
+    clearPointBankTimers();
+    const bankRect = pointBankRef.current?.getBoundingClientRect();
+    const startX = window.innerWidth / 2;
+    const startY = Math.min(window.innerHeight * 0.56, window.innerHeight - 190);
+    const targetX = bankRect ? bankRect.left + bankRect.width / 2 : window.innerWidth - 110;
+    const targetY = bankRect ? bankRect.top + bankRect.height / 2 : 42;
+    const animationId = Date.now();
+
+    setDisplayPointBank(previousPoints);
+    setIsPointBankPopping(false);
+    setPointRewardAnimation({
+      id: animationId,
+      amount,
+      phase: 'hold',
+      startX,
+      startY,
+      targetX,
+      targetY,
+    });
+
+    pointBankTimersRef.current.push(
+      window.setTimeout(() => {
+        setPointRewardAnimation((current) => (
+          current?.id === animationId ? { ...current, phase: 'fly' } : current
+        ));
+      }, 850),
+    );
+
+    pointBankTimersRef.current.push(
+      window.setTimeout(() => {
+        setDisplayPointBank(nextPoints);
+        setIsPointBankPopping(true);
+        setPointRewardAnimation((current) => (current?.id === animationId ? null : current));
+      }, 1650),
+    );
+
+    pointBankTimersRef.current.push(
+      window.setTimeout(() => {
+        setIsPointBankPopping(false);
+      }, 2300),
+    );
+  }, [clearPointBankTimers]);
+
+  const bankFinalScore = useCallback((scoreAmount) => {
+    const safeScoreAmount = Math.max(0, Number(scoreAmount) || 0);
+    if (safeScoreAmount <= 0 || resultBankedRef.current) return;
+
+    resultBankedRef.current = true;
+
+    setScoreBank((currentScoreBank) => {
+      const previousPoints = Math.max(0, Number(currentScoreBank.pointBank) || 0);
+      const nextScoreBank = {
+        pointBank: previousPoints + safeScoreAmount,
+        bestScore: Math.max(Number(currentScoreBank.bestScore) || 0, safeScoreAmount),
+      };
+
+      writeMoneyRushScoreBank(nextScoreBank);
+      triggerPointBankAnimation({
+        amount: safeScoreAmount,
+        previousPoints,
+        nextPoints: nextScoreBank.pointBank,
+      });
+
+      return nextScoreBank;
+    });
+  }, [triggerPointBankAnimation]);
+
   const resetGame = useCallback(() => {
     clearPendingTransitions();
+    clearPointBankTimers();
+    setPointRewardAnimation(null);
+    setIsPointBankPopping(false);
     setGameStatus('menu');
     setCurrentQuestionIndex(0);
     setTimeBank(STARTING_TIME_BANK);
@@ -101,10 +230,15 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setIsAnswerLocked(false);
     setFinalScore(0);
     setRunQuestions(createTimeRushQuestions());
-  }, [clearPendingTransitions]);
+    setDisplayPointBank(scoreBank.pointBank);
+    resultBankedRef.current = false;
+  }, [clearPendingTransitions, clearPointBankTimers, scoreBank.pointBank]);
 
   const startGame = () => {
     clearPendingTransitions();
+    clearPointBankTimers();
+    setPointRewardAnimation(null);
+    setIsPointBankPopping(false);
     setRunQuestions(createTimeRushQuestions());
     setGameStatus('playing');
     setCurrentQuestionIndex(0);
@@ -114,6 +248,8 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setFeedback(null);
     setIsAnswerLocked(false);
     setFinalScore(0);
+    setDisplayPointBank(scoreBank.pointBank);
+    resultBankedRef.current = false;
   };
 
   const openHowToPlay = () => {
@@ -121,11 +257,19 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setGameStatus('how-to-play');
   };
 
-  useEffect(() => () => clearPendingTransitions(), [clearPendingTransitions]);
+  useEffect(() => () => {
+    clearPendingTransitions();
+    clearPointBankTimers();
+  }, [clearPendingTransitions, clearPointBankTimers]);
 
   useEffect(() => {
     if (!isOpen) resetGame();
   }, [isOpen, resetGame]);
+
+  useEffect(() => {
+    if (!isFinished || finalScore <= 0) return;
+    bankFinalScore(finalScore);
+  }, [bankFinalScore, finalScore, isFinished]);
 
   useEffect(() => {
     if (!isPlaying) return undefined;
@@ -225,16 +369,45 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
       <div className='pointer-events-none fixed inset-x-0 bottom-0 h-[24dvh] bg-gradient-to-t from-black/64 via-violet-950/24 to-transparent' />
       <div className='pointer-events-none fixed inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.055),transparent_30%,rgba(34,211,238,0.035)_48%,transparent_70%)]' />
 
+      {pointRewardAnimation ? (
+        <div
+          className={`pointer-events-none fixed z-[10020] inline-flex items-center gap-1.5 rounded-2xl border border-amber-100/40 bg-[linear-gradient(135deg,rgba(251,191,36,0.28),rgba(34,211,238,0.20),rgba(139,92,246,0.24))] px-3 py-2 text-[12px] font-black uppercase tracking-[0.13em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_0_26px_rgba(251,191,36,0.26),0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-700 ease-out ${pointRewardAnimation.phase === 'fly' ? 'opacity-30 scale-50' : 'opacity-100 scale-100'}`}
+          style={{
+            left: pointRewardAnimation.startX,
+            top: pointRewardAnimation.startY,
+            transform: pointRewardAnimation.phase === 'fly'
+              ? `translate(-50%, -50%) translate(${pointRewardAnimation.targetX - pointRewardAnimation.startX}px, ${pointRewardAnimation.targetY - pointRewardAnimation.startY}px) scale(0.48)`
+              : 'translate(-50%, -50%) scale(1)',
+          }}
+        >
+          <span className='flex h-5 w-5 items-center justify-center rounded-full border border-amber-100/40 bg-amber-100/80 text-[10px] text-slate-950 shadow-[0_0_16px_rgba(251,191,36,0.28)]'>✦</span>
+          +{pointRewardAnimation.amount} pts
+        </div>
+      ) : null}
+
       <main className='relative mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-[clamp(0.78rem,3.8vw,1rem)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.65rem,env(safe-area-inset-top))]'>
         <header className='flex shrink-0 items-center justify-between gap-3'>
-          <div>
+          <div className='min-w-0'>
             <p className='text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/72 drop-shadow-[0_0_12px_rgba(103,232,249,0.18)]'>CLARA Game Mode</p>
-            <h1 className='mt-1 bg-gradient-to-r from-white via-cyan-100 to-violet-100 bg-clip-text text-[clamp(25px,4dvh,35px)] font-black tracking-[-0.055em] text-transparent drop-shadow-[0_10px_30px_rgba(34,211,238,0.14)]'>
+            <h1 className='mt-1 truncate bg-gradient-to-r from-white via-cyan-100 to-violet-100 bg-clip-text text-[clamp(25px,4dvh,35px)] font-black tracking-[-0.055em] text-transparent drop-shadow-[0_10px_30px_rgba(34,211,238,0.14)]'>
               {material?.title || 'Money Rush'}
             </h1>
           </div>
 
-          <div className='flex items-center gap-2'>
+          <div className='ml-auto flex shrink-0 items-center gap-2'>
+            <div
+              ref={pointBankRef}
+              aria-label={`Money Rush point bank: ${displayPointBank} points`}
+              title={`${displayPointBank} Money Rush points`}
+              className={`inline-flex h-11 min-w-[76px] items-center justify-center gap-1.5 rounded-2xl border border-amber-100/26 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.32),transparent_26%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(139,92,246,0.20)_52%,rgba(251,191,36,0.16))] px-2 text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_12px_28px_rgba(0,0,0,0.25),0_0_20px_rgba(34,211,238,0.14)] backdrop-blur-xl transition duration-300 ${isPointBankPopping ? 'scale-[1.08] border-amber-100/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.26),0_14px_32px_rgba(0,0,0,0.28),0_0_26px_rgba(251,191,36,0.32),0_0_34px_rgba(34,211,238,0.18)]' : ''}`}
+            >
+              <span className='flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-100/36 bg-[radial-gradient(circle_at_35%_28%,rgba(255,255,255,0.88),rgba(251,191,36,0.42)_34%,rgba(168,85,247,0.18))] text-[8px] font-black leading-none text-slate-950 shadow-[0_0_14px_rgba(251,191,36,0.22)]'>✦</span>
+              <span className='flex flex-col items-start leading-none'>
+                <span className='text-[14px] font-black leading-none tracking-[-0.04em] text-white'>{displayPointBank}</span>
+                <span className='mt-0.5 text-[6px] font-black uppercase leading-none tracking-[0.14em] text-cyan-100/72'>Bank</span>
+              </span>
+            </div>
+
             {!isPlaying ? (
               <button
                 type='button'
@@ -272,11 +445,11 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
               <div className='mt-3 grid grid-cols-2 gap-2.5'>
                 <div className='flex items-center justify-between rounded-2xl border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(6,182,212,0.13),rgba(15,23,42,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl'>
                   <p className='text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100/66'>Total Points</p>
-                  <p className='text-[23px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(103,232,249,0.22)]'>0</p>
+                  <p className='text-[23px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(103,232,249,0.22)]'>{displayPointBank}</p>
                 </div>
                 <div className='flex items-center justify-between rounded-2xl border border-violet-100/18 bg-[linear-gradient(135deg,rgba(139,92,246,0.14),rgba(15,23,42,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl'>
                   <p className='text-[9px] font-black uppercase tracking-[0.16em] text-violet-100/68'>Best Score</p>
-                  <p className='text-[23px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(196,181,253,0.22)]'>0</p>
+                  <p className='text-[23px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(196,181,253,0.22)]'>{scoreBank.bestScore}</p>
                 </div>
               </div>
             </div>
