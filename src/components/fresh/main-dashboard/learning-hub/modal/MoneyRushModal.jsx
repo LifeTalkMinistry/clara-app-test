@@ -173,6 +173,13 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
         return;
       }
 
+      if (!isCorrect) {
+        setSelectedAnswer(null);
+        setFeedback(null);
+        setIsAnswerLocked(false);
+        return;
+      }
+
       if (isLastQuestion) {
         setFinalScore(nextTimeBank);
         setGameStatus('stage-clear');
@@ -205,7 +212,7 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
 
   const feedbackMessage = useMemo(() => {
     if (feedback === 'correct') return `Correct! +${CORRECT_TIME_BONUS}s added.`;
-    if (feedback === 'wrong') return 'Wrong. 1 heart lost.';
+    if (feedback === 'wrong') return 'Wrong. Try again on this question.';
     return 'Answer fast, but choose smart.';
   }, [feedback]);
 
