@@ -2,10 +2,20 @@ import { LIFE_STAGE_GUIDANCE } from "./life-stage-guidance";
 import { getSelectedLifeStageKey, normalizeLifeStageKey, readSelectedLifeStageProfile } from "./life-stage-flow";
 
 // Working Student signal copy must fit the compact premium support card.
-// This file does NOT change layout. It only normalizes the selected signal text
-// and the small heart hint label after the existing signal bridges finish.
+// This bridge normalizes selected signal text, the default card text,
+// the small heart hint label, and the support-card breathing layout.
 
 const COMPACT_WORKING_STUDENT_SIGNALS = {
+  default: {
+    awareness: {
+      title: "Your effort has direction.",
+      body: "School costs, commute, food, and data need structure. Tap a signal, then heart.",
+    },
+    guidance: {
+      title: "Protect one small boundary.",
+      body: "Choose one simple money rule for school, work, commute, or tired days.",
+    },
+  },
   tired: {
     awareness: {
       title: "Energy pressure is showing up.",
@@ -87,8 +97,21 @@ function clean(value) {
 function patchGuidanceSource() {
   const workingStudent = LIFE_STAGE_GUIDANCE?.["Working Student"];
   const signals = workingStudent?.signals || {};
+  const defaultCopy = COMPACT_WORKING_STUDENT_SIGNALS.default;
+
+  if (workingStudent && defaultCopy) {
+    workingStudent.defaultAwareness = {
+      ...workingStudent.defaultAwareness,
+      ...defaultCopy.awareness,
+    };
+    workingStudent.defaultGuidance = {
+      ...workingStudent.defaultGuidance,
+      ...defaultCopy.guidance,
+    };
+  }
 
   Object.entries(COMPACT_WORKING_STUDENT_SIGNALS).forEach(([signalId, states]) => {
+    if (signalId === "default") return;
     if (!signals[signalId]) return;
     Object.entries(states).forEach(([mode, copy]) => {
       signals[signalId][mode] = {
