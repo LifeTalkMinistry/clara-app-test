@@ -12,7 +12,7 @@ const STAGE_BLUEPRINTS = [
     world: "Awareness",
     icon: "👁️",
     hint: "Start by recognizing what the money word means in real life.",
-    lesson: "it helps the user see money clearly before making a decision.",
+    lesson: "see what money is doing before making decisions",
     headerLine: "You can’t control money you don’t notice.",
     words: [
       ["Income", "Money coming in from work, business, or support."],
@@ -32,7 +32,7 @@ const STAGE_BLUEPRINTS = [
     world: "Awareness",
     icon: "🧾",
     hint: "Follow the trail so spending stops hiding in memory.",
-    lesson: "it reveals where money actually went, not where the user thinks it went.",
+    lesson: "follow where money goes and spot patterns early",
     headerLine: "Money becomes clearer when every peso leaves a trail.",
     words: [
       ["Receipt", "Proof of a purchase or payment."],
@@ -52,7 +52,7 @@ const STAGE_BLUEPRINTS = [
     world: "Awareness",
     icon: "📋",
     hint: "Build the plan before emotion gets a vote.",
-    lesson: "it gives money direction before spending becomes reactive.",
+    lesson: "give each peso direction before spending starts",
     headerLine: "A plan gives your money direction before emotion spends it.",
     words: [
       ["Budget Plan", "The full plan for income, bills, spending, and saving."],
@@ -72,7 +72,7 @@ const STAGE_BLUEPRINTS = [
     world: "Awareness",
     icon: "⚖️",
     hint: "Train the user to separate survival, responsibility, and desire.",
-    lesson: "it makes spending decisions more honest and less impulsive.",
+    lesson: "separate necessities from desires before choosing",
     headerLine: "Clear priorities protect needs before wants get loud.",
     words: [
       ["Need", "Something important for basic life or responsibility."],
@@ -92,7 +92,7 @@ const STAGE_BLUEPRINTS = [
     world: "Control",
     icon: "💼",
     hint: "Protect salary before the month starts pulling it apart.",
-    lesson: "it stops payday from becoming a short celebration followed by pressure.",
+    lesson: "protect income before quick spending takes over",
     headerLine: "Payday works better when the plan starts before spending.",
     words: [
       ["Payday", "The day income arrives."],
@@ -112,7 +112,7 @@ const STAGE_BLUEPRINTS = [
     world: "Control",
     icon: "🧠",
     hint: "Slow the purchase down so the user can choose, not react.",
-    lesson: "it trains the pause between wanting something and paying for it.",
+    lesson: "pause before buying and stay within safe limits",
     headerLine: "The pause before spending protects the money after payday.",
     words: [
       ["Self Control", "The ability to stop even when spending is tempting."],
@@ -132,7 +132,7 @@ const STAGE_BLUEPRINTS = [
     world: "Control",
     icon: "❤️‍🔥",
     hint: "Notice when feelings are using the wallet as an escape door.",
-    lesson: "it helps the user separate real needs from emotional reactions.",
+    lesson: "separate real needs from temporary feelings",
     headerLine: "Feelings get expensive when the wallet becomes the escape.",
     words: [
       ["Stress Spending", "Buying because pressure feels heavy."],
@@ -152,7 +152,7 @@ const STAGE_BLUEPRINTS = [
     world: "Control",
     icon: "💧",
     hint: "Find the small holes before they drain the month.",
-    lesson: "it exposes the quiet costs that make income feel smaller.",
+    lesson: "find small drains before they weaken your budget",
     headerLine: "Small leaks stay small only when you notice them early.",
     words: [
       ["Money Leak", "A small repeated drain that slowly weakens the budget."],
@@ -172,7 +172,7 @@ const STAGE_BLUEPRINTS = [
     world: "Protection",
     icon: "🏠",
     hint: "Protect responsibilities before optional spending speaks.",
-    lesson: "it keeps essential responsibilities from becoming financial stress.",
+    lesson: "protect essential responsibilities before flexible spending",
     headerLine: "Essentials stay safe when bills are handled before wants.",
     words: [
       ["Rent", "A regular payment for a place to live."],
@@ -192,7 +192,7 @@ const STAGE_BLUEPRINTS = [
     world: "Protection",
     icon: "⛓️",
     hint: "Understand borrowed money before it becomes normal pressure.",
-    lesson: "it shows the real cost and responsibility attached to borrowing.",
+    lesson: "understand borrowing costs and repayment pressure",
     headerLine: "Debt becomes dangerous when you stop tracking its weight.",
     words: [
       ["Debt", "Money owed to someone else."],
@@ -212,7 +212,7 @@ const STAGE_BLUEPRINTS = [
     world: "Protection",
     icon: "🧯",
     hint: "Turn debt from a pressure cycle into a controlled plan.",
-    lesson: "it gives the user a clear way to reduce debt instead of only surviving it.",
+    lesson: "reduce debt with a clear payment plan",
     headerLine: "Debt loses power when every payment follows a plan.",
     words: [
       ["Payoff Plan", "A clear plan for reducing what is owed."],
@@ -232,7 +232,7 @@ const STAGE_BLUEPRINTS = [
     world: "Protection",
     icon: "🛡️",
     hint: "Build defense before life surprises the wallet.",
-    lesson: "it prepares money for urgent moments before crisis forces borrowing.",
+    lesson: "prepare for urgent costs without relying on debt",
     headerLine: "Prepared money turns surprise expenses into manageable moments.",
     words: [
       ["Emergency Fund", "Protected money for urgent needs."],
@@ -252,7 +252,7 @@ const STAGE_BLUEPRINTS = [
     world: "Protection",
     icon: "✅",
     hint: "Teach spending to pass through safety checks first.",
-    lesson: "it lets the user spend with clarity instead of guilt or guessing.",
+    lesson: "confirm a purchase fits your budget and balance",
     headerLine: "Spending feels safer when the money is already protected.",
     words: [
       ["Safe Spending", "A purchase that fits the real money situation."],
@@ -272,7 +272,7 @@ const STAGE_BLUEPRINTS = [
     world: "Growth",
     icon: "🎯",
     hint: "Give savings a reason so it does not disappear back into spending.",
-    lesson: "it turns saving from a vague hope into a visible target.",
+    lesson: "save with a clear amount, purpose, and deadline",
     headerLine: "Savings grow faster when every peso has a purpose.",
     words: [
       ["Goal", "A clear financial target."],
@@ -292,7 +292,7 @@ const STAGE_BLUEPRINTS = [
     world: "Growth",
     icon: "🔄",
     hint: "Understand the timing and movement of the whole month.",
-    lesson: "it helps the user manage money across the full cycle, not just one day.",
+    lesson: "manage money timing across the full month",
     headerLine: "Money feels clearer when you know where it moves.",
     words: [
       ["Inflow", "Money entering the user’s system."],
@@ -312,7 +312,7 @@ const STAGE_BLUEPRINTS = [
     world: "Growth",
     icon: "📈",
     hint: "Grow the source, not only the discipline.",
-    lesson: "it reminds the user that money improvement can also come from stronger earning power.",
+    lesson: "notice earning opportunities beyond your main income",
     headerLine: "More income works best when value grows with it.",
     words: [
       ["Side Hustle", "Extra work that creates additional income."],
@@ -332,7 +332,7 @@ const STAGE_BLUEPRINTS = [
     world: "Growth",
     icon: "🛠️",
     hint: "Connect money growth to usefulness, trust, and capability.",
-    lesson: "it teaches that income often follows value, skill, and reliability.",
+    lesson: "connect skills to trust, value, and earning power",
     headerLine: "Strong skills turn effort into earning power.",
     words: [
       ["Skill", "An ability that can create value."],
@@ -352,7 +352,7 @@ const STAGE_BLUEPRINTS = [
     world: "Wealth",
     icon: "🏦",
     hint: "Separate what builds value from what quietly drains it.",
-    lesson: "it helps the user understand whether money choices support or weaken future stability.",
+    lesson: "see what builds value and what drains money",
     headerLine: "Wealth grows when money builds more than it drains.",
     words: [
       ["Asset", "Something that can hold or create value."],
@@ -372,7 +372,7 @@ const STAGE_BLUEPRINTS = [
     world: "Wealth",
     icon: "🎈",
     hint: "Understand why the same money can feel weaker over time.",
-    lesson: "it shows the user why prices, value, and planning must be watched.",
+    lesson: "plan around rising prices and weaker buying power",
     headerLine: "Rising prices require sharper spending decisions.",
     words: [
       ["Inflation", "Prices rising while money buys less."],
@@ -392,7 +392,7 @@ const STAGE_BLUEPRINTS = [
     world: "Wealth",
     icon: "🏆",
     hint: "Move from survival to long-term financial strength.",
-    lesson: "it teaches that wealth is built through habits, assets, patience, and direction.",
+    lesson: "build long-term strength through habits and assets",
     headerLine: "Wealth grows through protected habits, not random leftovers.",
     words: [
       ["Investment", "Money placed with the goal of future growth."],
@@ -441,6 +441,32 @@ function buildClues({ stage, answer, clue, wordIndex }) {
   ];
 }
 
+function makeDefinitionPhrase(clue) {
+  const cleaned = String(clue || "")
+    .trim()
+    .replace(/[.]+$/g, "")
+    .replace(/\bthe user’s\b/gi, "your")
+    .replace(/\bthe user's\b/gi, "your")
+    .replace(/\buser’s\b/gi, "your")
+    .replace(/\buser's\b/gi, "your")
+    .replace(/\bthe user\b/gi, "you");
+
+  if (!cleaned) return "a money concept";
+  return `${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}`;
+}
+
+function makeBenefitPhrase(stage) {
+  const benefit = String(stage?.lesson || "make clearer financial choices")
+    .trim()
+    .replace(/[.]+$/g, "");
+
+  return benefit || "make clearer financial choices";
+}
+
+function buildPuzzleLesson({ answer, clue, stage }) {
+  return `${answer} is ${makeDefinitionPhrase(clue)}. It helps you ${makeBenefitPhrase(stage)}.`;
+}
+
 export const STAGES = STAGE_BLUEPRINTS.map((stage, stageIndex) => ({
   ...stage,
   headerLine: stage.headerLine || STAGE_HEADER_FALLBACK_LINE,
@@ -457,7 +483,7 @@ export const PUZZLES = STAGES.flatMap((stage, stageIndex) => (
       id: `stage-${stageIndex + 1}-${slugify(answer)}`,
       answer,
       hint: clue,
-      lesson: `${answer} matters in ${stage.name} because ${stage.lesson}`,
+      lesson: buildPuzzleLesson({ answer, clue, stage }),
       clues: buildClues({ stage, answer, clue, wordIndex }),
       stageIndex,
       stageNumber: stageIndex + 1,
