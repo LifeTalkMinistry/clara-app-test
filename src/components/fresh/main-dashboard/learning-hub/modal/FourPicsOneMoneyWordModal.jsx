@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
@@ -38,6 +38,66 @@ function buildLetterBank(answer) {
   return shuffleItems(
     bank.map((letter, index) => ({ id: `${letter}-${index}`, letter })),
   );
+}
+
+const GAME_PROGRESS_STORAGE_KEY = 'clara_4_icons_1_money_word_progress_v1';
+const GAME_PROGRESS_VERSION = 1;
+
+function readSavedGameProgress() {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(GAME_PROGRESS_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.version !== GAME_PROGRESS_VERSION) return null;
+    if (!parsed.activePuzzleId) return null;
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedGameProgress(progress) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(
+      GAME_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        ...progress,
+        version: GAME_PROGRESS_VERSION,
+        savedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Storage can fail in private mode. The game must still work.
+  }
+}
+
+function clearSavedGameProgress() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.removeItem(GAME_PROGRESS_STORAGE_KEY);
+  } catch {
+    // Silent fail. Restart should still reset in-memory state.
+  }
+}
+
+function isValidLetterTile(tile) {
+  return Boolean(
+    tile &&
+      typeof tile.id === 'string' &&
+      typeof tile.letter === 'string' &&
+      tile.letter.length === 1,
+  );
+}
+
+function sanitizeSavedTiles(tiles) {
+  return Array.isArray(tiles) ? tiles.filter(isValidLetterTile) : [];
 }
 
 const STAGE_HEADER_FALLBACK_LINE = 'You can’t improve what you don’t notice.';
@@ -106,15 +166,51 @@ function AnswerSlots({ answer, selectedLetters, onRemoveLetter, isSolved }) {
 }
 
 export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedLetters, setSelectedLetters] = useState([]);
+  const savedGameProgressRef = useRef(readSavedGameProgress());
+
+  const initialActiveIndex = useMemo(() => {
+    const saved = savedGameProgressRef.current;
+    if (!saved?.activePuzzleId) return 0;
+
+    const savedIndex = PUZZLES.findIndex((puzzle) => puzzle.id === saved.activePuzzleId);
+    return savedIndex >= 0 ? savedIndex : 0;
+  }, []);
+
+  const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
+  const [selectedLetters, setSelectedLetters] = useState(() => {
+    const saved = savedGameProgressRef.current;
+    const savedPuzzle = PUZZLES[initialActiveIndex] || PUZZLES[0];
+    if (!saved) return [];
+    return sanitizeSavedTiles(saved.selectedLetters).slice(0, normalizeAnswer(savedPuzzle?.answer).length);
+  });
   const [showHint, setShowHint] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [solvedIds, setSolvedIds] = useState([]);
+  const [feedback, setFeedback] = useState(() => {
+    const savedFeedback = savedGameProgressRef.current?.feedback;
+    return ['empty', 'wrong', 'correct'].includes(savedFeedback) ? savedFeedback : null;
+  });
+  const [solvedIds, setSolvedIds] = useState(() => {
+    const savedSolvedIds = savedGameProgressRef.current?.solvedIds;
+    return Array.isArray(savedSolvedIds) ? savedSolvedIds.filter(Boolean) : [];
+  });
+  const [letterBank, setLetterBank] = useState(() => {
+    const saved = savedGameProgressRef.current;
+    const savedPuzzle = PUZZLES[initialActiveIndex] || PUZZLES[0];
+    const savedBank = sanitizeSavedTiles(saved?.letterBank);
+
+    if (
+      saved?.activePuzzleId === savedPuzzle?.id &&
+      savedBank.length >= normalizeAnswer(savedPuzzle?.answer).length
+    ) {
+      return savedBank;
+    }
+
+    return buildLetterBank(savedPuzzle?.answer);
+  });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const hiddenWordShortcutTapRef = useRef({ lastTapAt: 0 });
 
   const activePuzzle = PUZZLES[activeIndex] || PUZZLES[0];
+  const letterBankPuzzleIdRef = useRef(activePuzzle.id);
   const activePictureClues = getMoneyWordPictureClues(activePuzzle);
   const activeStageName = activePuzzle.stageName || 'Money Awareness';
   const stageHeaderLine = activePuzzle.stageHeaderLine || STAGE_HEADER_FALLBACK_LINE;
@@ -129,10 +225,64 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     [activePuzzle.answer],
   );
 
-  const letterBank = useMemo(
-    () => buildLetterBank(activePuzzle.answer),
-    [activePuzzle.id, activePuzzle.answer],
-  );
+  useEffect(() => {
+    if (letterBankPuzzleIdRef.current === activePuzzle.id) return;
+
+    const saved = savedGameProgressRef.current;
+    const savedBank = sanitizeSavedTiles(saved?.letterBank);
+    letterBankPuzzleIdRef.current = activePuzzle.id;
+
+    if (
+      saved?.activePuzzleId === activePuzzle.id &&
+      savedBank.length >= normalizedCorrectAnswer.length
+    ) {
+      setLetterBank(savedBank);
+      return;
+    }
+
+    setLetterBank(buildLetterBank(activePuzzle.answer));
+  }, [activePuzzle.id, activePuzzle.answer, normalizedCorrectAnswer.length]);
+
+  useEffect(() => {
+    const availableTileIds = new Set(letterBank.map((tile) => tile.id));
+
+    setSelectedLetters((current) => {
+      const next = current
+        .filter((tile) => availableTileIds.has(tile.id))
+        .slice(0, normalizedCorrectAnswer.length);
+
+      if (
+        next.length === current.length &&
+        next.every((tile, index) => tile.id === current[index]?.id)
+      ) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [letterBank, normalizedCorrectAnswer.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!activePuzzle?.id) return;
+
+    writeSavedGameProgress({
+      activePuzzleId: activePuzzle.id,
+      activeIndex,
+      letterBank,
+      selectedLetters,
+      solvedIds,
+      feedback,
+    });
+  }, [
+    isOpen,
+    activePuzzle?.id,
+    activeIndex,
+    letterBank,
+    selectedLetters,
+    solvedIds,
+    feedback,
+  ]);
 
   const guess = useMemo(
     () => selectedLetters.map((item) => item.letter).join(''),
@@ -148,12 +298,16 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   };
 
   const restartGame = () => {
+    clearSavedGameProgress();
+    savedGameProgressRef.current = null;
+    letterBankPuzzleIdRef.current = PUZZLES[0]?.id;
     setActiveIndex(0);
     setSelectedLetters([]);
     setShowHint(false);
     setFeedback(null);
     setSolvedIds([]);
     setIsMenuOpen(false);
+    setLetterBank(buildLetterBank(PUZZLES[0]?.answer));
   };
 
   const chooseLetter = (tile) => {
@@ -207,7 +361,15 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   };
 
   const goNext = () => {
-    setActiveIndex((current) => (current + 1) % PUZZLES.length);
+    setActiveIndex((current) => {
+      const nextIndex = (current + 1) % PUZZLES.length;
+      const nextPuzzle = PUZZLES[nextIndex] || PUZZLES[0];
+      savedGameProgressRef.current = null;
+      letterBankPuzzleIdRef.current = nextPuzzle.id;
+      setLetterBank(buildLetterBank(nextPuzzle.answer));
+      return nextIndex;
+    });
+
     resetRound();
   };
 
