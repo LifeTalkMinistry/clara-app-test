@@ -6,6 +6,7 @@ import {
   Lightbulb,
   MoreHorizontal,
   RotateCcw,
+  Shuffle,
   XCircle,
 } from 'lucide-react';
 import { getMoneyWordPictureClues } from './fourPicsOneMoneyWordPictureClues';
@@ -206,6 +207,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
     return buildLetterBank(savedPuzzle?.answer);
   });
+  const [letterShuffleSeed, setLetterShuffleSeed] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const hiddenWordShortcutTapRef = useRef({ lastTapAt: 0 });
 
@@ -265,6 +267,11 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
     setLetterBank(buildLetterBank(activePuzzle.answer));
   }, [activePuzzle.id, activePuzzle.answer, normalizedCorrectAnswer.length]);
+
+  useEffect(() => {
+    if (letterShuffleSeed === 0) return;
+    setLetterBank(buildLetterBank(activePuzzle.answer));
+  }, [activePuzzle.answer, letterShuffleSeed]);
 
   useEffect(() => {
     const availableTileIds = new Set(letterBank.map((tile) => tile.id));
@@ -396,6 +403,14 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     setFeedback(null);
   };
 
+  const shuffleLetters = () => {
+    if (isSolved) return;
+    setSelectedLetters([]);
+    setShowHint(false);
+    setFeedback(null);
+    setLetterShuffleSeed((current) => current + 1);
+  };
+
   const restartGame = () => {
     clearRewardAnimationTimers();
     clearSavedGameProgress();
@@ -410,6 +425,7 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
     setPointsRewardAnimation(null);
     setIsPointsBadgePopping(false);
     setIsMenuOpen(false);
+    setLetterShuffleSeed(0);
     setLetterBank(buildLetterBank(PUZZLES[0]?.answer));
   };
 
@@ -464,6 +480,8 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
   };
 
   const goNext = () => {
+    setLetterShuffleSeed(0);
+
     setActiveIndex((current) => {
       const nextIndex = (current + 1) % PUZZLES.length;
       const nextPuzzle = PUZZLES[nextIndex] || PUZZLES[0];
@@ -576,7 +594,30 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
             <div className='mt-[clamp(0.5rem,1.3dvh,0.85rem)] grid grid-cols-3 gap-2'>
               <button type='button' onClick={() => setShowHint((current) => !current)} className='inline-flex items-center justify-center gap-1.5 rounded-[16px] border border-cyan-100/22 bg-cyan-100/[0.10] px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-[clamp(10px,1.55dvh,12px)] font-black text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_18px_rgba(0,0,0,0.18)] backdrop-blur-xl transition hover:bg-cyan-100/[0.15] active:scale-[0.98]'><Lightbulb className='h-4 w-4' />Hint</button>
-              <button type='button' onClick={resetRound} className='inline-flex items-center justify-center gap-1.5 rounded-[16px] border border-white/12 bg-white/[0.075] px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-[clamp(10px,1.55dvh,12px)] font-black text-white/76 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.10] active:scale-[0.98]'><RotateCcw className='h-4 w-4' />Clear</button>
+
+              <div className='grid grid-cols-2 gap-2'>
+                <button
+                  type='button'
+                  onClick={resetRound}
+                  aria-label='Clear selected letters'
+                  title='Clear selected letters'
+                  className='inline-flex items-center justify-center rounded-[16px] border border-white/12 bg-white/[0.075] px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-white/76 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.10] active:scale-[0.98]'
+                >
+                  <RotateCcw className='h-4 w-4' />
+                </button>
+
+                <button
+                  type='button'
+                  onClick={shuffleLetters}
+                  disabled={isSolved}
+                  aria-label='Shuffle letters'
+                  title='Shuffle letters'
+                  className='inline-flex items-center justify-center rounded-[16px] border border-white/12 bg-white/[0.075] px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-white/76 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.10] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-white/[0.075] disabled:active:scale-100'
+                >
+                  <Shuffle className='h-4 w-4' />
+                </button>
+              </div>
+
               <button type='submit' className='inline-flex items-center justify-center gap-1.5 rounded-[16px] border border-violet-100/24 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(168,85,247,0.22))] px-2 py-[clamp(0.55rem,1.5dvh,0.85rem)] text-[clamp(10px,1.55dvh,12px)] font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_22px_rgba(0,0,0,0.20)] backdrop-blur-xl transition hover:border-violet-100/36 hover:bg-cyan-100/[0.18] active:scale-[0.98]'>{isSolved ? 'Next' : 'Check'}<ArrowRight className='h-4 w-4' /></button>
             </div>
           </form>
