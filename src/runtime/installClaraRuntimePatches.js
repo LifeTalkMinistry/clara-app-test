@@ -53,6 +53,9 @@ import "../clara-buy-check-effective-context-guard";
 // Schedule notification runtime bridge
 import "../clara-schedule-notification-runtime-bridge";
 
+// Google Play billing restore/activation bridge
+import "../google-play-already-owned-restore-bridge";
+
 // WARNING:
 // These patches relabel/replace assistant tabs through DOM selectors.
 // Later they should become real React tab configuration.
