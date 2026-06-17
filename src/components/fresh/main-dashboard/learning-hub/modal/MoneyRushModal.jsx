@@ -100,17 +100,14 @@ const HOW_TO_PLAY_RULES = [
 
 const COMING_SOON_MODES = [
   {
-    label: 'Next Mode',
     title: 'Money Ladder',
     description: 'Climb the score ladder one smart answer at a time.',
   },
   {
-    label: 'Relaxed Mode',
     title: 'Chill Quiz',
     description: 'No timer. Just test what you know.',
   },
   {
-    label: 'Streak Mode',
     title: 'Streak Run',
     description: 'Keep the streak alive. One mistake breaks it.',
   },
@@ -334,23 +331,12 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
             <div className='flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/12 bg-white/[0.075] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_18px_44px_rgba(0,0,0,0.25)] backdrop-blur-2xl'>
               <div className='mb-2.5 flex shrink-0 items-center justify-between gap-3'>
                 <p className='text-[10px] font-black uppercase tracking-[0.20em] text-cyan-100/58'>Choose Mode</p>
-                <span className='rounded-full border border-cyan-100/14 bg-cyan-100/[0.10] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-50'>
-                  1 Available
-                </span>
               </div>
 
               <div className='grid min-h-0 flex-1 gap-2.5 overflow-y-auto pr-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-                <article className='flex h-[126px] shrink-0 flex-col justify-between rounded-[24px] border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(8,47,73,0.58),rgba(15,23,42,0.54)_54%,rgba(49,46,129,0.34))] p-3.5 shadow-[0_16px_38px_rgba(34,211,238,0.10)]'>
+                <article className='flex h-[112px] shrink-0 flex-col justify-between rounded-[24px] border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(8,47,73,0.58),rgba(15,23,42,0.54)_54%,rgba(49,46,129,0.34))] p-3.5 shadow-[0_16px_38px_rgba(34,211,238,0.10)]'>
                   <div>
-                    <div className='flex items-start justify-between gap-3'>
-                      <div>
-                        <p className='text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/62'>Main Mode</p>
-                        <h4 className='mt-0.5 text-[20px] font-black leading-none tracking-[-0.05em] text-white'>Time Rush</h4>
-                      </div>
-                      <span className='rounded-full border border-emerald-100/18 bg-emerald-400/[0.12] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-50'>
-                        Available
-                      </span>
-                    </div>
+                    <h4 className='text-[21px] font-black leading-none tracking-[-0.05em] text-white'>Time Rush</h4>
                     <p className='mt-2 text-[12px] font-semibold leading-snug text-white/64'>
                       Answer fast. Preserve your Time Bank.
                     </p>
@@ -359,7 +345,7 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
                   <button
                     type='button'
                     onClick={startGame}
-                    className='mt-2 inline-flex min-h-[36px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_12px_26px_rgba(34,211,238,0.12)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
+                    className='mt-2 inline-flex min-h-[34px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-100/[0.14] px-5 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-50 shadow-[0_12px_26px_rgba(34,211,238,0.12)] transition hover:bg-cyan-100/[0.20] active:scale-[0.98]'
                   >
                     <Play className='h-3.5 w-3.5 fill-current' />
                     Play Time Rush
@@ -369,24 +355,16 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
                 {COMING_SOON_MODES.map((mode) => (
                   <article
                     key={mode.title}
-                    className='flex h-[126px] shrink-0 flex-col justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,47,73,0.36),rgba(15,23,42,0.40)_54%,rgba(49,46,129,0.30))] p-3.5 opacity-90 shadow-[0_16px_34px_rgba(0,0,0,0.12)]'
+                    className='flex h-[112px] shrink-0 flex-col justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,47,73,0.36),rgba(15,23,42,0.40)_54%,rgba(49,46,129,0.30))] p-3.5 opacity-90 shadow-[0_16px_34px_rgba(0,0,0,0.12)]'
                   >
                     <div>
-                      <div className='flex items-start justify-between gap-3'>
-                        <div>
-                          <p className='text-[10px] font-black uppercase tracking-[0.18em] text-white/42'>{mode.label}</p>
-                          <h4 className='mt-0.5 text-[20px] font-black leading-none tracking-[-0.05em] text-white/78'>{mode.title}</h4>
-                        </div>
-                        <span className='rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/58'>
-                          Coming Soon
-                        </span>
-                      </div>
+                      <h4 className='text-[21px] font-black leading-none tracking-[-0.05em] text-white/78'>{mode.title}</h4>
                       <p className='mt-2 text-[12px] font-semibold leading-snug text-white/52'>
                         {mode.description}
                       </p>
                     </div>
 
-                    <div className='inline-flex min-h-[36px] w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-5 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/38'>
+                    <div className='inline-flex min-h-[34px] w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-5 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/38'>
                       Coming Soon
                     </div>
                   </article>
