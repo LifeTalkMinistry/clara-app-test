@@ -78,10 +78,10 @@ const CLUE_CARD_STYLES = [
 
 function makeLessonDirectToUser(value) {
   return String(value || '')
-    .replace(/\bthe user\b/gi, 'you')
-    .replace(/\buser\b/gi, 'you')
     .replace(/\bthe user's\b/gi, 'your')
     .replace(/\buser's\b/gi, 'your')
+    .replace(/\bthe user\b/gi, 'you')
+    .replace(/\buser\b/gi, 'you')
     .trim();
 }
 
