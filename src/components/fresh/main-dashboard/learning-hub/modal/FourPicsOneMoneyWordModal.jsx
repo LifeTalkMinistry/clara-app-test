@@ -391,9 +391,13 @@ export default function FourPicsOneMoneyWordModal({ isOpen, material, onClose })
 
       <main className='relative mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-[clamp(0.7rem,3.7vw,1rem)] pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-[max(0.55rem,env(safe-area-inset-top))]'>
         <header className='flex shrink-0 items-center justify-between gap-2'>
-          <div aria-label={`CLARA points: ${totalPoints}`} title={`${totalPoints} CLARA points`} className='inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] w-[clamp(2.35rem,6.2dvh,2.75rem)] shrink-0 flex-col items-center justify-center rounded-2xl border border-amber-100/24 bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(34,211,238,0.08),rgba(168,85,247,0.12))] text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_24px_rgba(0,0,0,0.22)] backdrop-blur-xl'>
-            <span className='text-[clamp(6px,0.95dvh,7px)] font-black uppercase leading-none tracking-[0.12em] text-amber-100/72'>PTS</span>
-            <span className='mt-0.5 text-[clamp(11px,1.75dvh,14px)] font-black leading-none text-white'>{totalPoints}</span>
+          <div aria-label={`CLARA points: ${totalPoints}`} title={`${totalPoints} CLARA points`} className='relative inline-flex h-[clamp(2.35rem,6.2dvh,2.75rem)] min-w-[clamp(3.15rem,13.5vw,3.75rem)] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-cyan-100/24 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.30),transparent_25%),linear-gradient(135deg,rgba(34,211,238,0.24),rgba(168,85,247,0.20)_52%,rgba(251,191,36,0.16))] px-2 text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_12px_28px_rgba(0,0,0,0.25),0_0_20px_rgba(34,211,238,0.14)] backdrop-blur-xl'>
+            <span className='pointer-events-none absolute inset-x-1 top-1 h-px bg-gradient-to-r from-transparent via-white/55 to-transparent' />
+            <span className='mr-1 flex h-[clamp(1rem,2.8dvh,1.22rem)] w-[clamp(1rem,2.8dvh,1.22rem)] items-center justify-center rounded-full border border-amber-100/34 bg-[radial-gradient(circle_at_35%_28%,rgba(255,255,255,0.88),rgba(251,191,36,0.42)_34%,rgba(168,85,247,0.18))] text-[clamp(7px,1.25dvh,9px)] font-black leading-none text-slate-900 shadow-[0_0_14px_rgba(251,191,36,0.22)]'>✦</span>
+            <span className='flex flex-col items-start leading-none'>
+              <span className='text-[clamp(11px,1.8dvh,14px)] font-black leading-none tracking-[-0.02em] text-white'>{totalPoints}</span>
+              <span className='mt-0.5 text-[clamp(5px,0.82dvh,6px)] font-black uppercase leading-none tracking-[0.16em] text-cyan-100/70'>Points</span>
+            </span>
           </div>
 
           <div className='min-w-0 flex-1 text-center'>
