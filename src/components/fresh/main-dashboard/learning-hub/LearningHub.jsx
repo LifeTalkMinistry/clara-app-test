@@ -29,25 +29,8 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function DailyTipGuideBubble() {
-  return (
-    <div className="relative z-[70] px-4">
-      <div className="mx-auto max-w-[22rem] rounded-[24px] border border-cyan-200/18 bg-[rgba(5,17,38,0.86)] p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.42),0_0_34px_rgba(34,211,238,0.12)] backdrop-blur-2xl">
-        <div className="mb-2 h-px w-16 bg-gradient-to-r from-cyan-200/0 via-cyan-200/45 to-cyan-200/0" />
-        <p className="text-[12px] font-semibold leading-relaxed text-cyan-50/82">
-          This is your Daily Money Tip. CLARA gives you a short money reminder to help you stay aware before spending.
-        </p>
-        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/78">
-          Tap the Daily Money Tip card to continue.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default function LearningHub({
   isGuideMode = false,
-  guideFeature = "daily-money-tip",
   guideStep = 0,
   hasNewGuide = false,
   onOpenGuideIntro,
@@ -57,7 +40,6 @@ export default function LearningHub({
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
-  const isDailyTipGuideStep = isGuideMode && guideFeature === "daily-money-tip" && guideStep === 0;
 
   const handleOpenHub = () => {
     if (isGuideMode) return;
@@ -81,8 +63,6 @@ export default function LearningHub({
           guideStep={guideStep}
           onGuideDailyTipTap={onGuideDailyTipTap}
         />
-
-        {isDailyTipGuideStep ? <DailyTipGuideBubble /> : null}
 
         {!shouldLoadHub ? (
           <div
