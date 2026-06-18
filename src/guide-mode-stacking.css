@@ -11,8 +11,26 @@ html:not(.clara-guide-finance-carousel-active)
   isolation: isolate;
 }
 
+html.clara-guide-finance-carousel-active
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub {
+  position: relative;
+  z-index: 1 !important;
+  isolation: isolate;
+  pointer-events: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub * {
+  pointer-events: none !important;
+}
+
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub .clara-guide-bubble-shell {
   z-index: 220 !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub .clara-guide-bubble-shell {
+  display: none !important;
 }
 
 html:not(.clara-guide-finance-carousel-active)
