@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const SWIPE_THRESHOLD_PX = 42;
 const SLIDE_SETTLE_DELAY_MS = 560;
+const SCROLL_SETTLE_DEBOUNCE_MS = 120;
 
 const clampIndex = (index, length) => {
   if (!length) return 0;
@@ -16,6 +17,7 @@ export default function useAutoMovingHorizontalCarousel({
   const activeIndexRef = useRef(clampIndex(defaultIndex, itemCount));
   const scrollFrameRef = useRef(null);
   const slideTimerRef = useRef(null);
+  const scrollSettleTimerRef = useRef(null);
   const startXRef = useRef(null);
   const startIndexRef = useRef(0);
   const trackingRef = useRef(false);
@@ -37,11 +39,29 @@ export default function useAutoMovingHorizontalCarousel({
     return container.clientWidth || container.scrollWidth / itemCount || 1;
   }, [itemCount]);
 
+  const getCurrentScrollIndex = useCallback(() => {
+    const container = carouselRef.current;
+    if (!container || itemCount <= 0) return activeIndexRef.current;
+
+    return clampIndex(Math.round(container.scrollLeft / getSlideWidth()), itemCount);
+  }, [getSlideWidth, itemCount]);
+
+  const commitSettledScrollIndex = useCallback(() => {
+    commitActiveIndex(getCurrentScrollIndex());
+  }, [commitActiveIndex, getCurrentScrollIndex]);
+
   const clearSlideTimer = useCallback(() => {
     if (slideTimerRef.current && typeof window !== "undefined") {
       window.clearTimeout(slideTimerRef.current);
     }
     slideTimerRef.current = null;
+  }, []);
+
+  const clearScrollSettleTimer = useCallback(() => {
+    if (scrollSettleTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(scrollSettleTimerRef.current);
+    }
+    scrollSettleTimerRef.current = null;
   }, []);
 
   const rawScrollToIndex = useCallback(
@@ -135,16 +155,23 @@ export default function useAutoMovingHorizontalCarousel({
   }, [rawScrollToIndex]);
 
   const handleScroll = useCallback(() => {
-    if (slideTimerRef.current || scrollFrameRef.current || typeof window === "undefined") return;
+    if (slideTimerRef.current || typeof window === "undefined") return;
+
+    if (scrollFrameRef.current) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+    }
 
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scrollFrameRef.current = null;
-      const container = carouselRef.current;
-      if (!container || itemCount <= 0) return;
 
-      commitActiveIndex(Math.round(container.scrollLeft / getSlideWidth()));
+      clearScrollSettleTimer();
+
+      scrollSettleTimerRef.current = window.setTimeout(() => {
+        scrollSettleTimerRef.current = null;
+        commitSettledScrollIndex();
+      }, SCROLL_SETTLE_DEBOUNCE_MS);
     });
-  }, [commitActiveIndex, getSlideWidth, itemCount]);
+  }, [clearScrollSettleTimer, commitSettledScrollIndex]);
 
   const interactionHandlers = {
     onPointerDown: (event) => startGesture(event.clientX),
@@ -179,13 +206,30 @@ export default function useAutoMovingHorizontalCarousel({
   }, [defaultIndex, itemCount, scrollToIndex]);
 
   useEffect(() => {
+    const container = carouselRef.current;
+    if (!container || typeof container.addEventListener !== "function") return undefined;
+
+    const handleScrollEnd = () => {
+      clearScrollSettleTimer();
+      commitSettledScrollIndex();
+    };
+
+    container.addEventListener("scrollend", handleScrollEnd);
+
+    return () => {
+      container.removeEventListener("scrollend", handleScrollEnd);
+    };
+  }, [clearScrollSettleTimer, commitSettledScrollIndex]);
+
+  useEffect(() => {
     return () => {
       if (scrollFrameRef.current && typeof window !== "undefined") {
         window.cancelAnimationFrame(scrollFrameRef.current);
       }
       clearSlideTimer();
+      clearScrollSettleTimer();
     };
-  }, [clearSlideTimer]);
+  }, [clearSlideTimer, clearScrollSettleTimer]);
 
   return {
     carouselRef,
