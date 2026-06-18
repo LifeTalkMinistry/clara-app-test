@@ -134,6 +134,11 @@ body::after {
   background: rgba(2, 6, 23, 0.84) !important;
 }
 
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail {
+  position: relative;
+  z-index: 70;
+}
+
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail [data-clara-learning-hub-bridge="true"],
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
   filter: brightness(0.45) saturate(0.55) contrast(0.9);
