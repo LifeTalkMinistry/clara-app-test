@@ -87,8 +87,10 @@ export default function LearningHub({
         {!shouldLoadHub ? (
           <div
             data-clara-learning-hub-bridge="true"
-            className="relative flex items-center justify-center gap-2"
+            className="relative grid w-full items-center"
+            style={{ gridTemplateColumns: "1fr auto 1fr" }}
           >
+            <span aria-hidden="true" />
             <LearningHubToggleButton
               isExpanded={false}
               isLocked={isLocked}
@@ -99,8 +101,12 @@ export default function LearningHub({
             />
 
             {!isGuideMode ? (
-              <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
-            ) : null}
+              <div className="ml-1.5 justify-self-start">
+                <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
+              </div>
+            ) : (
+              <span aria-hidden="true" />
+            )}
           </div>
         ) : (
           <Suspense fallback={null}>
