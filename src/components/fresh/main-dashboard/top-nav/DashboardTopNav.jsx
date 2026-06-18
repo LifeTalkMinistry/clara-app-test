@@ -1,3 +1,9 @@
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
+
+const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
+const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
+
 export default function DashboardTopNav({
   dashboardScale,
   headerQuickActions = [],
@@ -11,6 +17,30 @@ export default function DashboardTopNav({
   themeDividerClass = "via-white/10",
   themeIsLight = false,
 }) {
+  const [isGuideModeTopNav, setIsGuideModeTopNav] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleGuideModeChange = (event) => {
+      setIsGuideModeTopNav(Boolean(event?.detail?.active));
+    };
+
+    window.addEventListener(CLARA_GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
+
+    return () => {
+      window.removeEventListener(CLARA_GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
+    };
+  }, []);
+
+  const handleGuideExit = () => {
+    setIsGuideModeTopNav(false);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(CLARA_GUIDE_EXIT_EVENT));
+    }
+  };
+
   return (
     <div className={`relative z-30 shrink-0 ${dashboardScale.headerOuter}`}>
       <div className="mx-auto w-full max-w-[430px] overflow-visible">
@@ -28,8 +58,10 @@ export default function DashboardTopNav({
 
           <div className="relative grid grid-cols-4 gap-1.5 sm:gap-2">
             {headerQuickActions.map((item, index) => {
-              const Icon = item.icon;
-              const isActive = activeDashboardPanel === item.key;
+              const isGuideExitSlot = isGuideModeTopNav && item.key === "settings";
+              const Icon = isGuideExitSlot ? X : item.icon;
+              const itemLabel = isGuideExitSlot ? "Exit" : item.label;
+              const isActive = isGuideExitSlot || activeDashboardPanel === item.key;
               const pillGlow =
                 item.key === "feed"
                   ? "shadow-[0_0_12px_rgba(59,130,246,0.20)]"
@@ -61,10 +93,10 @@ export default function DashboardTopNav({
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => openDashboardPanel(item.key)}
+                  onClick={isGuideExitSlot ? handleGuideExit : () => openDashboardPanel(item.key)}
                   className="group relative flex min-w-0"
-                  aria-label={item.label}
-                  aria-current={isActive ? "page" : undefined}
+                  aria-label={isGuideExitSlot ? "Exit CLARA Guide Mode" : item.label}
+                  aria-current={!isGuideExitSlot && isActive ? "page" : undefined}
                 >
                   <div
                     className={`relative flex w-full flex-col items-center justify-center overflow-hidden border transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${isActive ? activeItemClass : `${inactiveItemClass} ${themeQuickActionBaseClass}`} ${isActive ? "clara-theme-nav-pill-active" : ""}`}
@@ -83,19 +115,19 @@ export default function DashboardTopNav({
                     >
                       <Icon className={dashboardScale.headerIconSvg} />
 
-                      {item.badge?.type === "count" ? (
+                      {!isGuideExitSlot && item.badge?.type === "count" ? (
                         <span
                           className={`absolute -right-1.5 -top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full border px-1 py-[2px] text-[8px] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.24)] ${item.badge.className}`}
                         >
                           {item.badge.value}
                         </span>
-                      ) : item.badge?.type === "pill" ? (
+                      ) : !isGuideExitSlot && item.badge?.type === "pill" ? (
                         <span
                           className={`absolute -right-2 -top-1.5 inline-flex items-center justify-center rounded-full border px-1.5 py-[2px] text-[8px] font-semibold leading-none ${pillGlow} ${item.badge.className}`}
                         >
                           {item.badge.value}
                         </span>
-                      ) : item.badge?.type === "dot" ? (
+                      ) : !isGuideExitSlot && item.badge?.type === "dot" ? (
                         <span
                           className={`absolute right-0 top-0 h-1.5 w-1.5 rounded-full border shadow-[0_0_10px_rgba(56,189,248,0.45),0_4px_10px_rgba(0,0,0,0.22)] ${item.badge.className}`}
                         />
@@ -105,7 +137,7 @@ export default function DashboardTopNav({
                     <span
                       className={`relative max-w-full shrink-0 truncate leading-none transition ${dashboardScale.headerLabel} ${isActive ? "font-black tracking-[-0.01em]" : `font-semibold ${themeSecondaryTextClass}`}`}
                     >
-                      {item.label}
+                      {itemLabel}
                     </span>
                   </div>
 
