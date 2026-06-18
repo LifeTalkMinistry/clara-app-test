@@ -145,6 +145,24 @@ body::after {
   opacity: 0.72;
 }
 
+#root .clara-guide-bubble-surface {
+  border-color: rgba(186, 242, 255, 0.32) !important;
+  background: linear-gradient(145deg, #020617 0%, #061226 52%, #100b2e 100%) !important;
+  background-color: #020617 !important;
+  background-image: linear-gradient(145deg, #020617 0%, #061226 52%, #100b2e 100%) !important;
+  box-shadow: 0 34px 96px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(255,255,255,0.08), 0 0 56px rgba(34,211,238,0.22) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#root .clara-guide-bubble-arrow {
+  border-color: rgba(186, 242, 255, 0.32) !important;
+  background: #020617 !important;
+  background-color: #020617 !important;
+  background-image: none !important;
+}
+
 /* CLARA inline chat minimize control polish */
 #root button[aria-label="Close CLARA money chat"] {
   top: 0.35rem !important;
