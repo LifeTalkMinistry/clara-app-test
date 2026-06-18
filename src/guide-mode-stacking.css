@@ -148,18 +148,8 @@ html.clara-guide-finance-carousel-active
   overflow: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
-  filter: brightness(1) saturate(1) contrast(1) !important;
-  transform: translate3d(0, 0, 0) scale(1.01);
-}
-
-html.clara-guide-finance-carousel-active
-#root .clara-guide-carousel-target .clara-finance-slide-surface {
-  border-color: rgba(186, 242, 255, 0.34) !important;
-  filter: brightness(1.14) saturate(1.08) contrast(1.03) !important;
-  box-shadow:
-    0 28px 92px rgba(34, 211, 238, 0.22),
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  filter: brightness(1.06) saturate(1.08) contrast(1.02) !important;
+  transform: translate3d(0, 0, 0) scale(1.012);
 }
 
 html.clara-guide-finance-carousel-active
@@ -167,14 +157,63 @@ html.clara-guide-finance-carousel-active
   content: "";
   pointer-events: none;
   position: absolute;
-  inset: -10px;
+  inset: -16px;
   z-index: -1;
-  border-radius: 34px;
+  border-radius: 38px;
   background:
-    radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.22), transparent 46%),
-    radial-gradient(circle at 82% 12%, rgba(129, 140, 248, 0.20), transparent 42%);
-  filter: blur(10px);
-  opacity: 0.82;
+    radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.30), transparent 48%),
+    radial-gradient(circle at 82% 12%, rgba(129, 140, 248, 0.26), transparent 44%),
+    radial-gradient(circle at 50% 96%, rgba(20, 184, 166, 0.16), transparent 46%);
+  filter: blur(14px);
+  opacity: 0.95;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -8px;
+  z-index: 2;
+  border-radius: 34px;
+  border: 1px solid rgba(186, 242, 255, 0.24);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 0 34px rgba(34, 211, 238, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  opacity: 0.9;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-carousel-clip {
+  position: relative;
+  overflow: visible !important;
+  border-radius: 32px;
+  filter: drop-shadow(0 24px 70px rgba(34, 211, 238, 0.18));
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-carousel-track {
+  position: relative;
+  z-index: 3;
+  opacity: 1 !important;
+  filter: brightness(1.04) saturate(1.06) contrast(1.02);
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-slide-surface {
+  border-color: rgba(186, 242, 255, 0.46) !important;
+  filter: brightness(1.2) saturate(1.14) contrast(1.04) !important;
+  box-shadow:
+    0 30px 98px rgba(34, 211, 238, 0.28),
+    0 14px 54px rgba(129, 140, 248, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-slide-surface * {
+  text-shadow: 0 1px 14px rgba(15, 23, 42, 0.24);
 }
 
 html.clara-guide-finance-carousel-active
