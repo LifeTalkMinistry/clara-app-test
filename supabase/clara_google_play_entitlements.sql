@@ -15,8 +15,6 @@ alter table if exists public.profiles
   add column if not exists trial_ends_at timestamptz,
   add column if not exists play_product_id text,
   add column if not exists play_purchase_token text,
-  add column if not exists recommended_access_level text,
-  add column if not exists onboarding_answers jsonb,
   add column if not exists program_started_at timestamptz,
   add column if not exists program_ends_at timestamptz,
   add column if not exists program_completed_at timestamptz,
