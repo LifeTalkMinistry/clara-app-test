@@ -28,7 +28,7 @@ export default function CarouselSlideShell({
 
   return (
     <div
-      className="clara-finance-slide-shell relative flex w-full min-w-full shrink-0 snap-center snap-always overflow-visible transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      className="clara-finance-slide-shell relative flex w-full min-w-full shrink-0 snap-center overflow-visible transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
       data-visual-mode={performanceMode}
       style={{ height: slideHeight, minHeight: slideHeight }}
     >
