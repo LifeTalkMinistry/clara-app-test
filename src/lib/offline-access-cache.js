@@ -1,3 +1,8 @@
+import {
+  hasCompletedLocalSetup,
+  stripLocalSetupProfileFields,
+} from "@/lib/claraLocalProfile";
+
 // ================================
 // ACCESS CACHE CORE
 // ================================
@@ -47,13 +52,10 @@ const clonePlain = (value) => {
   }
 };
 
-const hasCompletedUniversalOnboarding = (profile = {}) =>
-  Boolean(
-    profile?.onboarding_completed ||
-      profile?.has_completed_onboarding ||
-      profile?.has_completed_universal_onboarding ||
-      profile?.has_seen_universal_onboarding
-  );
+const sanitizeProfileSnapshot = (profile = {}) =>
+  stripLocalSetupProfileFields(profile || {});
+
+const hasCompletedUniversalOnboarding = () => hasCompletedLocalSetup();
 
 // ================================
 // OFFLINE QUEUE SYSTEM (NEW)
@@ -111,7 +113,7 @@ export function isAccessNetworkOffline(error = null) {
 
 export function normalizeAccessSnapshot(snapshot = {}) {
   const source = snapshot || {};
-  const profile = source.profileBasic || source.profile || source.user || {};
+  const profile = sanitizeProfileSnapshot(source.profileBasic || source.profile || source.user || {});
 
   return {
     version: ACCESS_CACHE_VERSION,
@@ -124,7 +126,7 @@ export function normalizeAccessSnapshot(snapshot = {}) {
       source.subscriptionStatus || profile.subscription_status || "free"
     ),
     onboardingCompleted: Boolean(
-      source.onboardingCompleted ?? hasCompletedUniversalOnboarding(profile)
+      source.onboardingCompleted ?? hasCompletedUniversalOnboarding()
     ),
     lastResolvedAppFlow: safeText(source.lastResolvedAppFlow || "normal"),
     lastValidRoute: safeText(source.lastValidRoute || DASHBOARD_ROUTE),
@@ -258,11 +260,11 @@ export function buildAccessSnapshot({
   return normalizeAccessSnapshot({
     userId: user?.id,
     email: user?.email,
-    profileBasic: profile,
+    profileBasic: sanitizeProfileSnapshot(profile),
     role: accessState?.role,
     plan: accessState?.plan,
     subscriptionStatus: profile?.subscription_status,
-    onboardingCompleted: hasCompletedUniversalOnboarding(profile),
+    onboardingCompleted: hasCompletedUniversalOnboarding(),
     lastResolvedAppFlow: flow,
     lastValidRoute: currentPath,
     enrollment,
