@@ -6,7 +6,13 @@ function hasGuideSample() {
   return document.documentElement.classList.contains(SAMPLE_CLASS);
 }
 
+function hasCarouselStep() {
+  return document.documentElement.classList.contains(CAROUSEL_CLASS);
+}
+
 function ensureNextButton() {
+  if (!hasGuideSample() || hasCarouselStep()) return;
+
   const surface = document.querySelector(".clara-guide-bubble-surface");
   if (!surface || surface.querySelector(`.${NEXT_CLASS}`)) return;
 
@@ -22,11 +28,20 @@ function removeNextButton() {
 }
 
 function goToCarouselStep() {
+  if (!hasGuideSample()) {
+    removeNextButton();
+    return;
+  }
+
   document.documentElement.classList.remove(SAMPLE_CLASS);
   document.documentElement.classList.add(CAROUSEL_CLASS);
   removeNextButton();
+
   window.setTimeout(() => {
-    document.querySelector(".clara-dashboard-bottom-finance-rail")?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    document.querySelector(".clara-dashboard-bottom-finance-rail")?.scrollIntoView?.({
+      block: "center",
+      behavior: "smooth",
+    });
   }, 80);
 }
 
@@ -36,7 +51,11 @@ export function installClaraGuideCarouselStep() {
   window.__CLARA_GUIDE_CAROUSEL_STEP_INSTALLED__ = true;
 
   document.addEventListener("click", (event) => {
-    if (event.target?.classList?.contains(NEXT_CLASS)) {
+    const nextButton = event.target?.closest?.(`.${NEXT_CLASS}`);
+
+    if (nextButton) {
+      event.preventDefault();
+      event.stopPropagation();
       goToCarouselStep();
       return;
     }
@@ -47,7 +66,12 @@ export function installClaraGuideCarouselStep() {
   });
 
   window.addEventListener("clara:guide-mode-change", (event) => {
-    if (event?.detail?.active) return;
+    if (event?.detail?.active) {
+      document.documentElement.classList.remove(SAMPLE_CLASS, CAROUSEL_CLASS);
+      removeNextButton();
+      return;
+    }
+
     document.documentElement.classList.remove(SAMPLE_CLASS, CAROUSEL_CLASS);
     removeNextButton();
   });
