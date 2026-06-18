@@ -98,3 +98,62 @@ export const FINANCE_CARD_EXPAND_BUTTON_CLASS =
 
 export const FINANCE_CARD_EXPANDED_PANEL_CLASS =
   "mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[24px] border border-cyan-100/[0.12] bg-white/[0.06] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_16px_30px_rgba(0,0,0,0.14),0_0_22px_rgba(0,255,220,0.04)] backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+export const FINANCIAL_CAROUSEL_PREMIUM_GLASS_STYLES = `
+.clara-finance-slide-surface {
+  border-color: rgba(207, 250, 254, 0.105) !important;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 100%, rgba(168, 85, 247, 0.14), transparent 48%),
+    linear-gradient(135deg, rgba(3, 18, 32, 0.94), rgba(5, 14, 35, 0.975) 48%, rgba(24, 12, 57, 0.94)) !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.34),
+    0 0 42px rgba(34, 211, 238, 0.055),
+    0 0 58px rgba(124, 58, 237, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065) !important;
+}
+
+.clara-finance-bubble-card[data-performance-mode="full"],
+.clara-finance-bubble-card[data-expanded="true"] {
+  border-color: rgba(207, 250, 254, 0.105) !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(103, 232, 249, 0.13), transparent 33%),
+    radial-gradient(circle at 92% 100%, rgba(168, 85, 247, 0.13), transparent 44%),
+    linear-gradient(135deg, rgba(8, 33, 50, 0.82), rgba(8, 17, 42, 0.90) 46%, rgba(38, 18, 78, 0.82)) !important;
+  box-shadow:
+    0 22px 58px rgba(0, 0, 0, 0.35),
+    0 0 32px rgba(34, 211, 238, 0.055),
+    0 0 50px rgba(139, 92, 246, 0.065),
+    inset 0 1px 0 rgba(255, 255, 255, 0.075) !important;
+}
+
+.clara-finance-bubble-card[data-performance-mode="medium"] {
+  border-color: rgba(207, 250, 254, 0.075) !important;
+  background: linear-gradient(135deg, rgba(7, 29, 45, 0.78), rgba(6, 14, 35, 0.84) 48%, rgba(32, 15, 66, 0.76)) !important;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+}
+
+.clara-finance-bubble-card[data-performance-mode="lite"] {
+  border-color: rgba(255, 255, 255, 0.052) !important;
+  background: rgba(5, 13, 28, 0.80) !important;
+}
+
+.clara-finance-bubble-card [class*="rounded-[28px]"][class*="bg-black"],
+.clara-finance-bubble-card [class*="rounded-[24px]"][class*="bg-black"],
+.clara-finance-bubble-card [class*="rounded-[22px]"][class*="bg-black"] {
+  border-color: rgba(207, 250, 254, 0.09) !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 14px 28px rgba(0, 0, 0, 0.14) !important;
+  backdrop-filter: blur(16px);
+}
+
+.clara-finance-bubble-card button[aria-label^="View"],
+.clara-finance-bubble-card button[aria-label^="Hide"] {
+  min-height: 48px;
+  border-radius: 22px !important;
+}
+
+.clara-finance-bubble-card [class*="divide-x"] > * {
+  min-width: 0;
+}
+`;
