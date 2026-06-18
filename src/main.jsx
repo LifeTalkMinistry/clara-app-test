@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
+import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -39,6 +40,12 @@ try {
   installClaraGlobalClickSound();
 } catch (error) {
   console.warn("CLARA sound system failed to init:", error);
+}
+
+try {
+  installClaraGuideDemoPatches();
+} catch (error) {
+  console.warn("CLARA guide demo patches failed to init:", error);
 }
 
 try {
