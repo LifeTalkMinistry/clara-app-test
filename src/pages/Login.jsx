@@ -141,12 +141,12 @@ function ForgotPasswordModal({
         className="absolute inset-0 bg-black/75 backdrop-blur-sm"
       />
 
-      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(15,18,24,0.96)_0%,rgba(7,10,14,0.98)_100%)] shadow-[0_28px_100px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/45 to-transparent" />
+      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(12,18,38,0.96)_0%,rgba(5,8,22,0.98)_100%)] shadow-[0_28px_100px_rgba(0,0,0,0.68),0_0_50px_rgba(59,130,246,0.10)] backdrop-blur-2xl">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-300/65">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-200/70">
                 Reset access
               </p>
               <h2 className="mt-2 text-[1.75rem] font-bold leading-tight text-white">
@@ -162,7 +162,7 @@ function ForgotPasswordModal({
               onClick={() => {
                 if (!loading) onClose();
               }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35"
             >
               <X className="h-4 w-4" />
             </button>
@@ -176,7 +176,7 @@ function ForgotPasswordModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="h-13 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-emerald-400/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
+                className="h-13 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)]"
               />
             </FieldShell>
 
@@ -184,7 +184,7 @@ function ForgotPasswordModal({
               <div
                 className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed ${
                   success
-                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                    ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
                     : "border-red-400/20 bg-red-500/10 text-red-200"
                 }`}
               >
@@ -195,7 +195,7 @@ function ForgotPasswordModal({
             <button
               type="submit"
               disabled={loading}
-              className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 text-sm font-semibold text-[#04110C] shadow-[0_18px_40px_rgba(74,222,128,0.28)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_48px_rgba(74,222,128,0.35)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+              className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span>{loading ? "Sending..." : "Send reset link"}</span>
               {!loading ? (
@@ -316,14 +316,14 @@ export default function Login() {
 
   return (
     <>
-      <div className="relative min-h-screen overflow-hidden bg-[#040608] text-white">
+      <div className="relative min-h-screen overflow-hidden bg-[#050716] text-white">
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_26%),linear-gradient(180deg,rgba(7,10,13,0.98)_0%,rgba(4,6,8,1)_48%,rgba(2,3,5,1)_100%)]" />
-          <div className="absolute left-1/2 top-[-14%] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-[130px]" />
-          <div className="absolute right-[-8rem] top-[10%] h-[24rem] w-[24rem] rounded-full bg-cyan-400/8 blur-[130px]" />
-          <div className="absolute left-[-8rem] top-[36%] h-[24rem] w-[24rem] rounded-full bg-emerald-400/8 blur-[130px]" />
-          <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-300/8 blur-[140px]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_34%,rgba(0,0,0,0.26)_72%,rgba(0,0,0,0.58)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(56,189,248,0.16),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(168,85,247,0.14),transparent_30%),linear-gradient(180deg,rgba(5,7,22,1)_0%,rgba(7,10,31,1)_42%,rgba(2,4,14,1)_100%)]" />
+          <div className="absolute left-1/2 top-[-14%] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-blue-500/15 blur-[130px]" />
+          <div className="absolute right-[-8rem] top-[10%] h-[24rem] w-[24rem] rounded-full bg-violet-500/12 blur-[130px]" />
+          <div className="absolute left-[-8rem] top-[36%] h-[24rem] w-[24rem] rounded-full bg-cyan-400/10 blur-[130px]" />
+          <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-400/10 blur-[140px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_34%,rgba(0,0,0,0.28)_72%,rgba(0,0,0,0.62)_100%)]" />
           <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
         </div>
 
@@ -332,11 +332,11 @@ export default function Login() {
             <ClaraLogo variant="icon" theme="dark" />
           </div>
 
-          <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.07)_0%,rgba(255,255,255,0.04)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.58),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,255,194,0.12),transparent_38%)]" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent" />
-            <div className="pointer-events-none absolute -top-16 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-emerald-300/12 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-10 left-1/2 h-24 w-56 -translate-x-1/2 rounded-full bg-emerald-400/10 blur-3xl" />
+          <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(12,18,38,0.72)_0%,rgba(5,8,22,0.62)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.62),0_0_50px_rgba(59,130,246,0.08),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.13),transparent_38%),radial-gradient(circle_at_82%_0%,rgba(167,139,250,0.10),transparent_34%)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
+            <div className="pointer-events-none absolute -top-16 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-cyan-300/12 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-10 left-1/2 h-24 w-56 -translate-x-1/2 rounded-full bg-violet-400/10 blur-3xl" />
 
             <div className="p-5 sm:p-6">
               <div className="overflow-hidden">
@@ -367,7 +367,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
-                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-emerald-400/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)]"
                   />
                 </FieldShell>
 
@@ -384,13 +384,13 @@ export default function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                      className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-emerald-400/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
+                      className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)]"
                     />
 
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/35"
+                      className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? (
@@ -407,7 +407,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setForgotOpen(true)}
-                      className="rounded-md px-1 py-1 text-[12px] text-white/42 transition hover:text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
+                      className="rounded-md px-1 py-1 text-[12px] text-white/42 transition hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/30"
                     >
                       Forgot password?
                     </button>
@@ -418,7 +418,7 @@ export default function Login() {
                   <div
                     className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed ${
                       success
-                        ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                        ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
                         : "border-red-400/20 bg-red-500/10 text-red-200"
                     }`}
                   >
@@ -429,7 +429,7 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="group mt-1 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-lime-300 px-4 text-sm font-semibold text-[#04110C] shadow-[0_18px_40px_rgba(74,222,128,0.3)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_48px_rgba(74,222,128,0.36)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group mt-1 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span>{loading ? "Processing..." : copy.button}</span>
                   {!loading ? (
@@ -443,7 +443,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => switchMode(mode === "login" ? "signup" : "login")}
-                  className="font-semibold text-emerald-300 transition hover:text-emerald-200"
+                  className="font-semibold text-cyan-300 transition hover:text-violet-200"
                 >
                   {copy.secondaryAction}
                 </button>
