@@ -18,11 +18,13 @@ export default function ClaraLogo({
         animation: "claraLogoFadeIn 1200ms ease-out both",
       }}
     >
-      <img
-        src={logo}
-        alt="CLARA Logo"
-        className="h-20 w-20 object-contain drop-shadow-[0_0_22px_rgba(45,212,191,0.34)]"
-      />
+      <div className="h-20 w-20 overflow-hidden rounded-full bg-[#071018]/75 shadow-[0_0_24px_rgba(45,212,191,0.34)]">
+        <img
+          src={logo}
+          alt="CLARA Logo"
+          className="h-full w-full object-cover"
+        />
+      </div>
 
       {variant === "full" && (
         <p
