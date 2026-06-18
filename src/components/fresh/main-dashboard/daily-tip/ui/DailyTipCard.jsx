@@ -26,15 +26,18 @@ export default function DailyTipCard({
   hasCommittedAccess = true,
   onOpenCommitmentBooklet,
   flushSpacing = false,
+  isGuideMode = false,
+  guideStep = 0,
+  onGuideDailyTipTap,
 }) {
-  const { tip, hasSeenToday, markSeenToday } = useDailyTip();
+  const { tip, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode: isGuideMode });
   const {
     checkedInToday,
     totalCompleted,
     challengeDay,
     currentStreak,
     checkInToday,
-  } = useDailyCheckIn();
+  } = useDailyCheckIn({ simulationMode: isGuideMode });
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -44,6 +47,17 @@ export default function DailyTipCard({
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
   const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
+  const isGuideStepActive = isGuideMode && guideStep === 0;
+  const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
+  const cardHeadline = isGuideMode ? "Today&apos;s money reminder" : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
+  const cardSubtitle = isGuideMode
+    ? "Tap this card to learn what CLARA gives you each day."
+    : "Tap today to protect your money discipline.";
+  const cardStatus = isGuideMode
+    ? "Available"
+    : checkedInToday
+      ? "Checked in today"
+      : "Tap to check in";
 
   useEffect(() => {
     const syncActiveState = () => setActiveCurrentState(readActiveCurrentState());
@@ -57,6 +71,12 @@ export default function DailyTipCard({
       window.removeEventListener("storage", syncActiveState);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isGuideMode) return;
+    setFlipped(false);
+    releaseFlipLock();
+  }, [isGuideMode, guideStep]);
 
   useEffect(() => {
     return () => {
@@ -110,6 +130,13 @@ export default function DailyTipCard({
   };
 
   const handleFlip = () => {
+    if (isGuideMode) {
+      if (guideStep === 0) {
+        onGuideDailyTipTap?.();
+      }
+      return;
+    }
+
     if (!hasCommittedAccess) {
       onOpenCommitmentBooklet?.();
       return;
@@ -161,7 +188,7 @@ export default function DailyTipCard({
     }
   };
 
-  if (activeCurrentState) {
+  if (!isGuideMode && activeCurrentState) {
     return (
       <div className={`clara-budget-focus-shift clara-budget-focus-tip ${spacingClass}`}>
         <div className="relative h-[150px] w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -194,7 +221,12 @@ export default function DailyTipCard({
   }
 
   return (
-    <div className={`clara-budget-focus-shift clara-budget-focus-tip ${spacingClass}`}>
+    <div
+      data-clara-daily-tip-card="true"
+      className={`clara-budget-focus-shift clara-budget-focus-tip ${spacingClass} ${
+        isGuideStepActive ? "relative z-[70]" : ""
+      }`}
+    >
       <div
         role="button"
         tabIndex={0}
@@ -206,15 +238,21 @@ export default function DailyTipCard({
           }
         }}
         aria-label={
-          hasCommittedAccess
-            ? checkedInToday
-              ? "Show today's Daily Money Tip"
-              : "Check in for today and reveal Daily Money Tip"
-            : "Open the Committed Version to unlock Daily Check-In"
+          isGuideMode
+            ? "Open the simulated Daily Money Tip guide step"
+            : hasCommittedAccess
+              ? checkedInToday
+                ? "Show today's Daily Money Tip"
+                : "Check in for today and reveal Daily Money Tip"
+              : "Open the Committed Version to unlock Daily Check-In"
         }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
-        className="group relative h-[clamp(132px,18dvh,150px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none"
+        className={`group relative h-[clamp(132px,18dvh,150px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none transition-[box-shadow,filter,transform] duration-300 ${
+          isGuideStepActive
+            ? "ring-2 ring-cyan-200/80 shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_0_42px_rgba(34,211,238,0.34)]"
+            : ""
+        }`}
         style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <div className="clara-daily-tip-scene">
@@ -234,27 +272,28 @@ export default function DailyTipCard({
               <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-4 py-3 text-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
-                    Daily Check-In
+                    {cardEyebrow}
                   </div>
 
                   <span className="clara-checkin-pill shrink-0 px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.08em]">
-                    {currentStreak}-day streak
+                    {isGuideMode ? "Guide Demo" : `${currentStreak}-day streak`}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 py-1.5">
                   <div className="min-w-0">
-                    <div className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white">
-                      Day {challengeDay} of {CHECK_IN_DAYS}
-                    </div>
+                    <div
+                      className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white"
+                      dangerouslySetInnerHTML={{ __html: cardHeadline }}
+                    />
 
                     <p className="mt-1 max-w-[13rem] text-[10.5px] font-semibold leading-snug text-cyan-50/72">
-                      Tap today to protect your money discipline.
+                      {cardSubtitle}
                     </p>
                   </div>
 
                   <span className="shrink-0 rounded-full border border-white/12 bg-white/[0.07] px-2.5 py-1.5 text-right text-[8.5px] font-black uppercase leading-tight tracking-[0.12em] text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                    {checkedInToday ? "Checked in today" : "Tap to check in"}
+                    {cardStatus}
                   </span>
                 </div>
 
