@@ -89,7 +89,6 @@ export default function FinancialCarousel(props) {
   const { carouselRef, activeIndex, scrollToIndex, handleScroll, interactionHandlers } = useAutoMovingHorizontalCarousel({
     itemCount: items.length,
     defaultIndex,
-    autoMove: false,
   });
   const expandedCardIndex = useMemo(
     () => getExpandedCarouselCardIndex(items, expandedFinanceCard),
