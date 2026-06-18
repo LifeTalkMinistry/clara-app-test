@@ -318,13 +318,11 @@ export default function Login() {
     <>
       <div className="relative min-h-screen overflow-hidden bg-[#050716] text-white">
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(56,189,248,0.16),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(168,85,247,0.14),transparent_30%),linear-gradient(180deg,rgba(5,7,22,1)_0%,rgba(7,10,31,1)_42%,rgba(2,4,14,1)_100%)]" />
-          <div className="absolute left-1/2 top-[-14%] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-blue-500/15 blur-[130px]" />
-          <div className="absolute right-[-8rem] top-[10%] h-[24rem] w-[24rem] rounded-full bg-violet-500/12 blur-[130px]" />
-          <div className="absolute left-[-8rem] top-[36%] h-[24rem] w-[24rem] rounded-full bg-cyan-400/10 blur-[130px]" />
-          <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-400/10 blur-[140px]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_34%,rgba(0,0,0,0.28)_72%,rgba(0,0,0,0.62)_100%)]" />
-          <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,#050716_0%,#070a1f_46%,#02030b_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,211,238,0.11)_0%,transparent_34%),linear-gradient(225deg,rgba(139,92,246,0.12)_0%,transparent_36%)]" />
+          <div className="absolute inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,rgba(59,130,246,0.15)_0%,transparent_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(0,0,0,0.74)_0%,transparent_100%)]" />
+          <div className="absolute inset-0 opacity-[0.045] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
         </div>
 
         <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-6">
@@ -332,11 +330,9 @@ export default function Login() {
             <ClaraLogo variant="icon" theme="dark" />
           </div>
 
-          <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(12,18,38,0.72)_0%,rgba(5,8,22,0.62)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.62),0_0_50px_rgba(59,130,246,0.08),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.13),transparent_38%),radial-gradient(circle_at_82%_0%,rgba(167,139,250,0.10),transparent_34%)]" />
+          <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(12,18,38,0.72)_0%,rgba(5,8,22,0.62)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(56,189,248,0.08)_0%,transparent_44%),linear-gradient(225deg,rgba(167,139,250,0.08)_0%,transparent_44%)]" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
-            <div className="pointer-events-none absolute -top-16 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-cyan-300/12 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-10 left-1/2 h-24 w-56 -translate-x-1/2 rounded-full bg-violet-400/10 blur-3xl" />
 
             <div className="p-5 sm:p-6">
               <div className="overflow-hidden">
