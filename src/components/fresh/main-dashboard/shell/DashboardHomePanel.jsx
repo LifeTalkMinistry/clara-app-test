@@ -96,6 +96,22 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
+function ClaraGuideFloatingBubble() {
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-[clamp(320px,43dvh,390px)] z-[75] w-[min(340px,calc(100vw-46px))] -translate-x-1/2">
+      <div className="relative rounded-[26px] border border-cyan-100/24 bg-[rgba(4,16,34,0.90)] px-5 py-4 text-white shadow-[0_24px_70px_rgba(0,0,0,0.50),0_0_40px_rgba(34,211,238,0.14)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute -top-2 left-10 h-4 w-4 rotate-45 border-l border-t border-cyan-100/24 bg-[rgba(4,16,34,0.90)]" />
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/58">
+          Daily Money Tip
+        </p>
+        <p className="mt-2 text-[12px] font-semibold leading-relaxed text-cyan-50/84">
+          CLARA gives you one quick money reminder before you spend. Tap the Daily Money Tip card above to continue.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardHomePanel({
   isPending,
   dashboardShellReady,
@@ -163,6 +179,7 @@ export default function DashboardHomePanel({
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
   const isFreePlan = currentPlan === "free";
   const hasNewDailyMoneyTipGuide = !isDailyMoneyTipGuideComplete(claraGuideProgress);
+  const isDailyTipGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_DAILY_MONEY_TIP && guideStep === 0;
 
   const effectiveWallets = wallets;
   const effectiveWalletMoney = walletMoney;
@@ -332,6 +349,12 @@ export default function DashboardHomePanel({
 
   return (
     <>
+      {isDailyTipGuideActive ? (
+        <div className="fixed inset-0 z-[60] bg-slate-950/68 backdrop-blur-[1.5px]" aria-hidden="true" />
+      ) : null}
+
+      {isDailyTipGuideActive ? <ClaraGuideFloatingBubble /> : null}
+
       {isGuideIntroOpen ? (
         <ClaraGuideIntroModal onStart={startGuideMode} onClose={() => setIsGuideIntroOpen(false)} />
       ) : null}
