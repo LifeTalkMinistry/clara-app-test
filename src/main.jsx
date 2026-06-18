@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
+import { installClaraGuideCarouselStep } from "./runtime/installClaraGuideCarouselStep";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -46,6 +47,12 @@ try {
   installClaraGuideDemoPatches();
 } catch (error) {
   console.warn("CLARA guide demo patches failed to init:", error);
+}
+
+try {
+  installClaraGuideCarouselStep();
+} catch (error) {
+  console.warn("CLARA guide carousel step failed to init:", error);
 }
 
 try {
