@@ -14,6 +14,8 @@ import {
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const GUIDE_FEATURE_DAILY_MONEY_TIP = "daily-money-tip";
+const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
+const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 
 const runInAnimationFrame = (callback) => {
   if (typeof callback !== "function") return;
@@ -24,6 +26,11 @@ const runInAnimationFrame = (callback) => {
   }
 
   window.requestAnimationFrame(callback);
+};
+
+const emitGuideModeChange = (active) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CLARA_GUIDE_MODE_CHANGE_EVENT, { detail: { active } }));
 };
 
 function ClaraGuideIntroModal({ onStart, onClose }) {
@@ -85,21 +92,6 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ClaraGuideExitButton({ onExit }) {
-  return (
-    <div className="sticky top-2 z-[95] flex justify-end px-3 pb-2">
-      <button
-        type="button"
-        onClick={onExit}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-[rgba(4,16,34,0.72)] text-white/72 shadow-[0_14px_34px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:bg-white/[0.10] hover:text-white active:scale-[0.96]"
-        aria-label="Exit CLARA Guide Mode"
-      >
-        <X className="h-4 w-4" />
-      </button>
     </div>
   );
 }
@@ -255,6 +247,7 @@ export default function DashboardHomePanel({
     setIsGuideMode(false);
     setGuideStep(0);
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
+    emitGuideModeChange(false);
 
     if (focusRealDailyTip && typeof window !== "undefined") {
       window.setTimeout(() => {
@@ -269,6 +262,7 @@ export default function DashboardHomePanel({
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
     setGuideStep(0);
     setIsGuideMode(true);
+    emitGuideModeChange(true);
 
     if (typeof window !== "undefined") {
       window.setTimeout(() => {
@@ -284,6 +278,20 @@ export default function DashboardHomePanel({
     if (!isGuideMode || guideFeature !== GUIDE_FEATURE_DAILY_MONEY_TIP || guideStep !== 0) return;
     setGuideStep(0);
   }, [guideFeature, guideStep, isGuideMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleExternalGuideExit = () => {
+      exitGuideMode();
+    };
+
+    window.addEventListener(CLARA_GUIDE_EXIT_EVENT, handleExternalGuideExit);
+
+    return () => {
+      window.removeEventListener(CLARA_GUIDE_EXIT_EVENT, handleExternalGuideExit);
+    };
+  }, [exitGuideMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -327,8 +335,6 @@ export default function DashboardHomePanel({
       {isGuideIntroOpen ? (
         <ClaraGuideIntroModal onStart={startGuideMode} onClose={() => setIsGuideIntroOpen(false)} />
       ) : null}
-
-      {isGuideMode ? <ClaraGuideExitButton onExit={exitGuideMode} /> : null}
 
       {isPending && !isGuideMode && (
         <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-secondary/20 p-3">
