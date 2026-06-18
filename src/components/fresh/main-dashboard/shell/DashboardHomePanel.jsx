@@ -96,22 +96,6 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
-function ClaraGuideFloatingBubble() {
-  return (
-    <div className="pointer-events-none fixed left-1/2 top-[clamp(322px,43dvh,392px)] z-[75] w-[min(372px,calc(100vw-28px))] -translate-x-1/2">
-      <div className="relative rounded-[30px] border border-cyan-100/28 bg-[rgba(3,12,29,0.94)] px-6 py-5 text-white shadow-[0_28px_82px_rgba(0,0,0,0.58),0_0_48px_rgba(34,211,238,0.16)] backdrop-blur-2xl">
-        <div className="pointer-events-none absolute -top-2 left-11 h-4 w-4 rotate-45 border-l border-t border-cyan-100/28 bg-[rgba(3,12,29,0.94)]" />
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/68">
-          Daily Money Tip
-        </p>
-        <p className="mt-3 text-[13px] font-semibold leading-relaxed text-cyan-50/88">
-          CLARA gives you one quick money reminder before you spend. Tap the Daily Money Tip card above to continue.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardHomePanel({
   isPending,
   dashboardShellReady,
@@ -353,8 +337,6 @@ export default function DashboardHomePanel({
         <div className="fixed inset-0 z-[60] bg-slate-950/82 backdrop-blur-[2px]" aria-hidden="true" />
       ) : null}
 
-      {isDailyTipGuideActive ? <ClaraGuideFloatingBubble /> : null}
-
       {isGuideIntroOpen ? (
         <ClaraGuideIntroModal onStart={startGuideMode} onClose={() => setIsGuideIntroOpen(false)} />
       ) : null}
@@ -375,6 +357,7 @@ export default function DashboardHomePanel({
             isGuideMode={isGuideMode}
             guideFeature={guideFeature}
             guideStep={guideStep}
+            isDailyTipGuideActive={isDailyTipGuideActive}
             hasNewGuide={hasNewDailyMoneyTipGuide}
             onOpenGuideIntro={() => setIsGuideIntroOpen(true)}
             onGuideDailyTipTap={handleGuideDailyTipTap}
