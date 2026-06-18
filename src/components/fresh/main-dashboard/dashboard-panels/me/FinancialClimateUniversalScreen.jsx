@@ -56,7 +56,8 @@ function readRawStageProfile() {
 function isLifeStageProfileConfigured(profile = readRawStageProfile()) {
   if (!profile || typeof profile !== "object") return false;
   if (!String(profile.stage || "").trim()) return false;
-  return profile.lifeStageConfigured === true;
+  if (profile.lifeStageConfigured !== true) return false;
+  return Boolean(String(profile.lifeStageSetupCompletedAt || "").trim());
 }
 
 function readStageProfile() {
