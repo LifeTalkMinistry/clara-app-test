@@ -21,6 +21,12 @@ const MODE_COPY = {
   },
 };
 
+const LOGIN_MAINTENANCE_MODE = true;
+const LOGIN_MAINTENANCE_MESSAGE =
+  "CLARA login is temporarily unavailable while account access is undergoing improvement.";
+const LOGIN_MAINTENANCE_DETAIL =
+  "Please try again once maintenance is complete. Your account and data are safe.";
+
 const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const isTransientAuthError = (error) => {
@@ -98,7 +104,7 @@ function ForgotPasswordModal({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (loading) return;
+    if (loading || LOGIN_MAINTENANCE_MODE) return;
 
     if (!email.trim()) {
       setSuccess(false);
@@ -176,7 +182,8 @@ function ForgotPasswordModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="h-13 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)]"
+                disabled={LOGIN_MAINTENANCE_MODE}
+                className="h-13 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
               />
             </FieldShell>
 
@@ -194,11 +201,11 @@ function ForgotPasswordModal({
 
             <button
               type="submit"
-              disabled={loading}
-              className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={loading || LOGIN_MAINTENANCE_MODE}
+              className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-none disabled:bg-white/10 disabled:text-white/35 disabled:shadow-none disabled:opacity-70"
             >
               <span>{loading ? "Sending..." : "Send reset link"}</span>
-              {!loading ? (
+              {!loading && !LOGIN_MAINTENANCE_MODE ? (
                 <ArrowRight className="h-[17px] w-[17px] transition group-hover:translate-x-0.5" />
               ) : null}
             </button>
@@ -223,6 +230,7 @@ export default function Login() {
   const [forgotOpen, setForgotOpen] = useState(false);
 
   const copy = MODE_COPY[mode];
+  const authLocked = LOGIN_MAINTENANCE_MODE;
 
   const validate = () => {
     if (!email.trim()) return "Email is required.";
@@ -259,7 +267,7 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || authLocked) return;
 
     const validationError = validate();
     if (validationError) {
@@ -302,7 +310,7 @@ export default function Login() {
   };
 
   const switchMode = (nextMode) => {
-    if (loading || nextMode === mode) return;
+    if (loading || authLocked || nextMode === mode) return;
     setMode(nextMode);
     setMessage("");
     setSuccess(false);
@@ -349,7 +357,30 @@ export default function Login() {
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
+              {authLocked ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-slate-300/70 shadow-[0_0_14px_rgba(203,213,225,0.35)]" />
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
+                      Undergoing improvement
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm font-medium leading-relaxed text-white/78">
+                    {LOGIN_MAINTENANCE_MESSAGE}
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-white/48">
+                    {LOGIN_MAINTENANCE_DETAIL}
+                  </p>
+                </div>
+              ) : null}
+
+              <form
+                onSubmit={handleSubmit}
+                className={`mt-5 space-y-3.5 transition duration-200 ${
+                  authLocked ? "opacity-60 grayscale-[0.18]" : ""
+                }`}
+                aria-disabled={authLocked}
+              >
                 <FieldShell label="Email address">
                   <input
                     type="email"
@@ -357,7 +388,8 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
-                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)]"
+                    disabled={authLocked || loading}
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                   />
                 </FieldShell>
 
@@ -374,13 +406,17 @@ export default function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                      className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)]"
+                      disabled={authLocked || loading}
+                      className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                     />
 
                     <button
                       type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35"
+                      onClick={() => {
+                        if (!authLocked) setShowPassword((prev) => !prev);
+                      }}
+                      disabled={authLocked}
+                      className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35 disabled:cursor-not-allowed disabled:text-white/22 disabled:hover:bg-transparent"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? (
@@ -396,8 +432,11 @@ export default function Login() {
                   <div className="-mt-1 flex justify-end">
                     <button
                       type="button"
-                      onClick={() => setForgotOpen(true)}
-                      className="rounded-md px-1 py-1 text-[12px] text-white/42 transition hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/30"
+                      onClick={() => {
+                        if (!authLocked) setForgotOpen(true);
+                      }}
+                      disabled={authLocked}
+                      className="rounded-md px-1 py-1 text-[12px] text-white/42 transition hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:cursor-not-allowed disabled:text-white/24 disabled:hover:text-white/24"
                     >
                       Forgot password?
                     </button>
@@ -418,11 +457,13 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="group mt-1 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={loading || authLocked}
+                  className="group mt-1 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-none disabled:bg-white/10 disabled:text-white/35 disabled:shadow-none disabled:opacity-70"
                 >
-                  <span>{loading ? "Processing..." : copy.button}</span>
-                  {!loading ? (
+                  <span>
+                    {authLocked ? "Login unavailable" : loading ? "Processing..." : copy.button}
+                  </span>
+                  {!loading && !authLocked ? (
                     <ArrowRight className="h-[17px] w-[17px] transition group-hover:translate-x-0.5" />
                   ) : null}
                 </button>
@@ -433,7 +474,8 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => switchMode(mode === "login" ? "signup" : "login")}
-                  className="font-semibold text-cyan-300 transition hover:text-violet-200"
+                  disabled={authLocked}
+                  className="font-semibold text-cyan-300 transition hover:text-violet-200 disabled:cursor-not-allowed disabled:text-white/30 disabled:hover:text-white/30"
                 >
                   {copy.secondaryAction}
                 </button>
