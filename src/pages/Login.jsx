@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Chrome, Eye, EyeOff, Sparkles, X } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ClaraLogo from "@/components/ClaraLogo";
 import { supabase } from "@/lib/supabaseClient";
 
 const MODE_COPY = {
   login: {
-    title: "Welcome back",
     subtitle: "Access your CLARA account",
     button: "Log in",
     secondaryLead: "New to CLARA?",
@@ -212,7 +211,7 @@ function ForgotPasswordModal({
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signInWithGoogle, signUp } = useAuth();
+  const { signIn, signUp } = useAuth();
 
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -315,23 +314,6 @@ export default function Login() {
     setSuccess(false);
   };
 
-  const handleGoogleSignIn = async () => {
-    if (loading) return;
-
-    setLoading(true);
-    setMessage("");
-    setSuccess(false);
-
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      console.error(error);
-      setSuccess(false);
-      setMessage(friendlyError(error));
-      setLoading(false);
-    }
-  };
-
   return (
     <>
       <div className="relative min-h-screen overflow-hidden bg-[#040608] text-white">
@@ -364,10 +346,16 @@ export default function Login() {
                   key={mode}
                   className="animate-[fadeIn_.28s_ease] transition-all duration-300"
                 >
-                  <h1 className="text-[1.9rem] font-bold leading-tight text-white">
-                    {copy.title}
-                  </h1>
-                  <p className="mt-1.5 text-sm leading-relaxed text-white/58">
+                  {copy.title ? (
+                    <h1 className="text-[1.9rem] font-bold leading-tight text-white">
+                      {copy.title}
+                    </h1>
+                  ) : null}
+                  <p
+                    className={`text-sm leading-relaxed text-white/58 ${
+                      copy.title ? "mt-1.5" : ""
+                    }`}
+                  >
                     {copy.subtitle}
                   </p>
                 </div>
@@ -452,27 +440,7 @@ export default function Login() {
                 </button>
               </form>
 
-              <div className="mt-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-[11px] uppercase tracking-[0.22em] text-white/35">
-                    or
-                  </span>
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-4 text-sm font-semibold text-white/82 transition duration-200 hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Chrome className="h-[17px] w-[17px]" />
-                  Continue with Google
-                </button>
-              </div>
-
-              <div className="mt-5 text-center text-sm text-white/55">
+              <div className="mt-4 text-center text-sm text-white/55">
                 <span>{copy.secondaryLead}</span>{" "}
                 <button
                   type="button"
@@ -481,11 +449,6 @@ export default function Login() {
                 >
                   {copy.secondaryAction}
                 </button>
-              </div>
-
-              <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-white/45">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-300/70" />
-                <span>Private by design</span>
               </div>
             </div>
           </div>
