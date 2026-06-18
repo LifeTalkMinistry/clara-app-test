@@ -1,4 +1,4 @@
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { FINANCE_CARD_EXPAND_BUTTON_CLASS } from "./financeCardStyles";
 
 const COLLAPSED_VIEW_BUTTON_CLASS =
@@ -44,7 +44,7 @@ export default function FinanceCardExpandButton({
       </span>
 
       <span className="absolute right-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-100/14 bg-black/15 text-cyan-50/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
-        {expanded ? <X className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
       </span>
     </button>
   );
