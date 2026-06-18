@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import { readDashboardPrefs } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
@@ -10,6 +9,10 @@ import {
   isClaraOnline,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import {
+  getSupabaseQuotaNotice,
+  isSupabaseQuotaBlocked,
+} from "@/lib/supabaseQuotaGuard";
 
 const LOCAL_AUTH_FALLBACK_USER_ID = "local-dev-user";
 
@@ -21,6 +24,29 @@ function isLocalAuthFallbackUser(currentUser = {}, authUser = {}) {
     authUser?.email === "local@clara.app" ||
     currentUser?.email === "local@clara.app"
   );
+}
+
+function buildProfileFromAuth(currentUser = {}, authUser = {}) {
+  const authProfile = authUser?.profile || authUser?.account_profile || authUser || {};
+  const fallbackName =
+    currentUser.full_name ||
+    authProfile.full_name ||
+    authProfile.display_name ||
+    currentUser.email?.split("@")[0] ||
+    "CLARA User";
+
+  return {
+    ...authProfile,
+    id: authProfile.id || currentUser.id || null,
+    email: authProfile.email || currentUser.email || null,
+    full_name: authProfile.full_name || fallbackName,
+    display_name: authProfile.display_name || authProfile.nickname || fallbackName,
+    plan: authProfile.plan || authProfile.plan_key || "free",
+    plan_key: authProfile.plan_key || authProfile.plan || "free",
+    subscription_status: authProfile.subscription_status || authProfile.status || "free",
+    subscription_label: authProfile.subscription_label || "Free",
+    status: authProfile.status || authProfile.subscription_status || "free",
+  };
 }
 
 export default function useDashboardDataLoader({
@@ -209,29 +235,14 @@ export default function useDashboardDataLoader({
             return nextCache;
           }
 
-          const { data: userProfile, error: profileError } = currentUser.id
-            ? await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", currentUser.id)
-                .maybeSingle()
-            : { data: null, error: null };
+          const safeProfile = buildProfileFromAuth(currentUser, user);
 
-          if (profileError) {
-            console.error("Failed to load profile:", profileError);
+          if (isSupabaseQuotaBlocked()) {
+            setFinanceNotice({
+              message: getSupabaseQuotaNotice(),
+              type: "warning",
+            });
           }
-
-          const safeProfile = userProfile || user?.profile || {
-            id: currentUser.id,
-            email: currentUser.email,
-            full_name: currentUser.full_name,
-            display_name: currentUser.full_name || currentUser.email?.split("@")[0] || "CLARA User",
-            plan: "free",
-            plan_key: "free",
-            subscription_status: "free",
-            subscription_label: "Free",
-            status: "free",
-          };
 
           const nextNickname = normalizeString(
             safeProfile?.display_name ||
