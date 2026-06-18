@@ -10,6 +10,7 @@ import { installNativeNotificationListeners } from "@/lib/notifications/nativePu
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
+import "./guide-mode-stacking.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
