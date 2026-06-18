@@ -6,6 +6,7 @@ import {
   normalizePlanKey,
   resolveMembership,
 } from "@/lib/membership";
+import { hasCompletedLocalSetup } from "@/lib/claraLocalProfile";
 
 export const ENROLLMENT_PENDING_STATUSES = PENDING_MEMBERSHIP_STATUSES;
 export const ENROLLMENT_APPROVED_STATUSES = new Set(["approved", "active"]);
@@ -15,8 +16,10 @@ export function normalizeAccessValue(value) { return normalizeMembershipToken(va
 export function getEnrollmentStatus(enrollment, profileLike) {
   return normalizeAccessValue(profileLike?.enrollment_status || profileLike?.status || enrollment?.status || enrollment?.payment_status || "");
 }
-export function hasCompletedOnboarding(profileLike) {
-  return Boolean(profileLike?.has_completed_onboarding || profileLike?.onboarding_completed);
+export function hasCompletedOnboarding(profileLike = {}) {
+  const role = normalizeAccessValue(profileLike?.role || "user");
+  if (role === "admin" || role === "advertiser") return true;
+  return hasCompletedLocalSetup();
 }
 export function hasCompletedProgramOnboarding(_profileLike) {
   return true;
