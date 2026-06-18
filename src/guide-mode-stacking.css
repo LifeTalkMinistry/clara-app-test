@@ -1,10 +1,9 @@
-/* CLARA Guide Mode stacking fix: keep Daily Money Tip guide bubble above the finance carousel. */
+/* CLARA Guide Mode spotlight stacking: only the active guide target rises above the overlay. */
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail {
   position: relative;
-  z-index: 70;
-  isolation: isolate;
 }
 
+html:not(.clara-guide-finance-carousel-active)
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub {
   position: relative;
   z-index: 180 !important;
@@ -16,6 +15,7 @@
   z-index: 220 !important;
 }
 
+html:not(.clara-guide-finance-carousel-active)
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
   position: relative;
   z-index: 10 !important;
@@ -99,17 +99,23 @@ html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > .cl
   content: "Click NEXT to continue.";
 }
 
-html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > .clara-guide-bubble-copy::before {
-  content: "This section can be swiped left or right to move between CLARA's money features.";
-}
-
-html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > .clara-guide-bubble-copy::after {
-  content: "Swipe left or right to try the carousel.";
-}
-
-html.clara-guide-finance-carousel-active #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target {
+  position: relative;
   z-index: 190 !important;
+  isolation: isolate;
+  overflow: visible !important;
   filter: brightness(1) saturate(1) contrast(1) !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-bubble-shell {
+  z-index: 220 !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target * {
+  pointer-events: auto;
 }
