@@ -1,0 +1,149 @@
+/* CLARA Guide Mode finance carousel spotlight hard override.
+   This file intentionally loads after guide-mode-stacking.css.
+   Goal: lift the finance rail stacking path above the guide overlay and keep only
+   the carousel interactive/featured while Money Left remains muted/static. */
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
+  position: relative !important;
+  z-index: 195 !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail > div {
+  position: relative !important;
+  z-index: 205 !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-anchor,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target {
+  position: relative !important;
+  z-index: 215 !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-carousel-clip,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-carousel-track,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-slide-shell,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-slide-surface,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card {
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-slide-surface {
+  border-color: rgba(186, 242, 255, 0.56) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 46px rgba(34, 211, 238, 0.32),
+    0 24px 78px rgba(0, 0, 0, 0.42) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card {
+  border-color: rgba(186, 242, 255, 0.38) !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.18), transparent 34%),
+    radial-gradient(circle at 88% 100%, rgba(129, 140, 248, 0.18), transparent 42%),
+    linear-gradient(135deg, rgba(6, 48, 66, 0.98), rgba(7, 20, 48, 0.97) 48%, rgba(37, 13, 74, 0.96)) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 46px rgba(34, 211, 238, 0.30),
+    0 24px 78px rgba(0, 0, 0, 0.42) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card > .pointer-events-none.absolute,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card .pointer-events-none.absolute.opacity-\[0\.48\],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card .pointer-events-none.absolute.opacity-\[0\.42\] {
+  display: none !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] .bg-black\/\[0\.055\],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] .bg-black\/\[0\.105\],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='backdrop-blur'] {
+  border-color: rgba(186, 242, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.074) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] p,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] span,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] strong,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] small,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] button {
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-white/'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-slate-'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-zinc-'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-gray-'] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] .text-white,
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-cyan'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-sky'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-emerald'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-amber'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-rose'],
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target [data-finance-card] [class*='text-violet'] {
+  opacity: 1 !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary'] {
+  position: relative !important;
+  z-index: 1 !important;
+  opacity: 0.22 !important;
+  filter: brightness(0.38) saturate(0.55) contrast(0.9) !important;
+  pointer-events: none !important;
+}
