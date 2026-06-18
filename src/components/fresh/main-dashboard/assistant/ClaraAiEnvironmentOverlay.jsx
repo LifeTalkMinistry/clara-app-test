@@ -44,11 +44,12 @@ function FloatingCloseButton({ onClose }) {
   );
 }
 
-function FinalFeatureButton({ feature, active = false }) {
+function FinalFeatureButton({ feature, active = false, onOpen }) {
   return (
     <button
       type="button"
       data-clara-final-ai-feature={feature.id}
+      onClick={() => onOpen?.(feature.id)}
       className={`group relative overflow-hidden rounded-[24px] border px-4 py-4 text-left shadow-[0_18px_44px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl transition active:scale-[0.985] ${
         active
           ? "border-cyan-100/24 bg-cyan-300/[0.13]"
@@ -73,7 +74,7 @@ function FinalFeatureButton({ feature, active = false }) {
   );
 }
 
-function FinalInstructionBoard({ selectedFeature, onClose }) {
+function FinalInstructionBoard({ selectedFeature, onClose, onOpenFeature }) {
   return (
     <section className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.055] px-5 pb-5 pt-14 text-center shadow-[0_24px_70px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
       <FloatingCloseButton onClose={onClose} />
@@ -96,6 +97,7 @@ function FinalInstructionBoard({ selectedFeature, onClose }) {
             key={feature.id}
             type="button"
             data-clara-final-ai-tab={feature.id}
+            onClick={() => onOpenFeature?.(feature.id)}
             className={`min-h-[46px] rounded-2xl border px-2 text-[11px] font-black leading-tight transition active:scale-95 ${
               selectedFeature === feature.id
                 ? "border-cyan-100/28 bg-cyan-300/[0.16] text-white"
@@ -115,6 +117,7 @@ function FinalInstructionBoard({ selectedFeature, onClose }) {
             key={feature.id}
             feature={feature}
             active={selectedFeature === feature.id}
+            onOpen={onOpenFeature}
           />
         ))}
       </div>
@@ -176,6 +179,18 @@ export default function ClaraAiEnvironmentOverlay({
 
   if (!isActive) return null;
 
+  const openFeature = (featureId) => {
+    setSelectedFeature(featureId);
+
+    const tabButton = document.querySelector(
+      `[data-clara-final-ai-tab="${featureId}"]`
+    );
+
+    if (tabButton) {
+      window.requestAnimationFrame(() => tabButton.click());
+    }
+  };
+
   const submitDraft = (event) => {
     event.preventDefault();
     const text = draft.trim();
@@ -224,7 +239,7 @@ export default function ClaraAiEnvironmentOverlay({
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-center gap-4 pb-4">
-            <FinalInstructionBoard selectedFeature={selectedFeature} onClose={onClose} />
+            <FinalInstructionBoard selectedFeature={selectedFeature} onClose={onClose} onOpenFeature={openFeature} />
           </div>
         )}
       </main>
