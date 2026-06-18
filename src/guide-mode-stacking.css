@@ -34,3 +34,51 @@
   line-height: 1.55;
   color: #ffffff;
 }
+
+#root .clara-guide-bubble-surface > p:last-child::after {
+  content: "Tap the card now to see a sample Daily Money Tip.";
+  display: block;
+  margin-top: 12px;
+  border-top: 1px solid rgba(186, 242, 255, 0.16);
+  padding-top: 11px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  text-transform: uppercase;
+  color: rgba(186, 242, 255, 0.92);
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-flipper {
+  transform: translate3d(0, 0, 0) rotateY(180deg) !important;
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-face--front {
+  pointer-events: none !important;
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-face--back {
+  pointer-events: auto !important;
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-face--back p {
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-face--back p::before {
+  content: "Sample tip: Before spending, pause for 10 seconds and ask: is this planned, useful, or just a reaction?";
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > p:last-child::before {
+  content: "This is the sample Daily Money Tip view. In real use, opening this card marks your daily habit and reveals the reminder for the day.";
+}
+
+html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > p:last-child::after {
+  content: "Nothing was changed here. This is only the Guide Mode demo.";
+}
