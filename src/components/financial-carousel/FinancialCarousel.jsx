@@ -106,6 +106,7 @@ export default function FinancialCarousel(props) {
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
+    const root = document.documentElement;
     root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
     return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
   }, [isInlineFocusExpanded]);
