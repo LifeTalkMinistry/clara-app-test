@@ -29,9 +29,26 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
+function DailyTipGuideBubble() {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-full z-[80] mt-3 w-[min(92vw,372px)] -translate-x-1/2">
+      <div className="relative rounded-[30px] border border-cyan-100/28 bg-[rgba(3,12,29,0.94)] px-6 py-5 text-white shadow-[0_28px_82px_rgba(0,0,0,0.58),0_0_48px_rgba(34,211,238,0.16)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute -top-2 left-11 h-4 w-4 rotate-45 border-l border-t border-cyan-100/28 bg-[rgba(3,12,29,0.94)]" />
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/68">
+          Daily Money Tip
+        </p>
+        <p className="mt-3 text-[13px] font-semibold leading-relaxed text-cyan-50/88">
+          CLARA gives you one quick money reminder before you spend. Select the Daily Money Tip card to continue.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function LearningHub({
   isGuideMode = false,
   guideStep = 0,
+  isDailyTipGuideActive = false,
   hasNewGuide = false,
   onOpenGuideIntro,
   onGuideDailyTipTap,
@@ -55,14 +72,18 @@ export default function LearningHub({
   return (
     <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        <DailyTipCard
-          hasCommittedAccess={hasCommittedAccess}
-          onOpenCommitmentBooklet={openCommittedVersionModal}
-          flushSpacing
-          isGuideMode={isGuideMode}
-          guideStep={guideStep}
-          onGuideDailyTipTap={onGuideDailyTipTap}
-        />
+        <div className={`${isDailyTipGuideActive ? "relative z-[65]" : "relative"} overflow-visible`}>
+          <DailyTipCard
+            hasCommittedAccess={hasCommittedAccess}
+            onOpenCommitmentBooklet={openCommittedVersionModal}
+            flushSpacing
+            isGuideMode={isGuideMode}
+            guideStep={guideStep}
+            onGuideDailyTipTap={onGuideDailyTipTap}
+          />
+
+          {isDailyTipGuideActive ? <DailyTipGuideBubble /> : null}
+        </div>
 
         {!shouldLoadHub ? (
           <div
