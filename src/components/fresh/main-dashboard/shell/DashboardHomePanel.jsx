@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Clock, ShieldCheck, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   CLARA_GUIDE_PROGRESS_KEY,
   isDailyMoneyTipGuideComplete,
-  markDailyMoneyTipGuideComplete,
   readClaraGuideProgress,
 } from "@/components/fresh/main-dashboard/guide/claraGuideProgress";
 
@@ -90,68 +89,17 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
-function ClaraGuideModeBanner({ onExit }) {
+function ClaraGuideExitButton({ onExit }) {
   return (
-    <div className="sticky top-2 z-[95] px-2 pb-2">
-      <div className="mx-auto flex max-w-[430px] items-center justify-between gap-3 rounded-full border border-cyan-100/16 bg-[rgba(4,16,34,0.82)] px-3 py-2 text-white shadow-[0_16px_42px_rgba(0,0,0,0.34),0_0_32px_rgba(34,211,238,0.10)] backdrop-blur-2xl">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-100/12 bg-cyan-300/10 text-cyan-100">
-            <Sparkles className="h-3.5 w-3.5" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase leading-tight tracking-[0.2em] text-cyan-100/78">
-              Guide Mode
-            </p>
-            <p className="truncate text-[10.5px] font-semibold leading-tight text-white/58">
-              Simulation only. Your real data is safe.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onExit}
-          className="shrink-0 rounded-full border border-white/12 bg-white/[0.07] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/70 transition hover:bg-white/[0.11]"
-        >
-          Exit
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DailyMoneyTipGuideResult({ onUnderstand, onTryRealClara }) {
-  return (
-    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/58 px-4 pb-5 pt-20 backdrop-blur-[2px] sm:items-center sm:pb-8" role="dialog" aria-modal="true" aria-labelledby="daily-tip-guide-result-title">
-      <div className="w-full max-w-[390px] overflow-hidden rounded-[30px] border border-cyan-100/14 bg-[linear-gradient(145deg,rgba(4,17,38,0.96),rgba(9,26,55,0.95)_52%,rgba(21,17,57,0.95))] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.58),0_0_48px_rgba(34,211,238,0.12)]">
-        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-cyan-100/54">
-          Simulated result
-        </p>
-        <h2 id="daily-tip-guide-result-title" className="mt-2 text-[22px] font-black tracking-[-0.04em] text-white">
-          What happens when you open it?
-        </h2>
-        <p className="mt-3 text-[13px] font-semibold leading-relaxed text-cyan-50/76">
-          CLARA gives you one quick money insight for today. It is designed to be short, practical, and easy to apply.
-        </p>
-        <div className="mt-4 rounded-[24px] border border-cyan-100/14 bg-cyan-300/[0.08] p-4 text-[12px] font-semibold leading-relaxed text-cyan-50/88">
-          Before spending today, ask: “Is this planned, needed, or just a reaction?”
-        </div>
-        <div className="mt-5 grid gap-2">
-          <button
-            type="button"
-            onClick={onUnderstand}
-            className="rounded-2xl bg-cyan-200 px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] text-slate-950 shadow-[0_16px_34px_rgba(34,211,238,0.24)] transition active:scale-[0.99]"
-          >
-            I understand this
-          </button>
-          <button
-            type="button"
-            onClick={onTryRealClara}
-            className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] text-white/72 transition hover:bg-white/[0.09] active:scale-[0.99]"
-          >
-            Try it in real CLARA
-          </button>
-        </div>
-      </div>
+    <div className="sticky top-2 z-[95] flex justify-end px-3 pb-2">
+      <button
+        type="button"
+        onClick={onExit}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-[rgba(4,16,34,0.72)] text-white/72 shadow-[0_14px_34px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:bg-white/[0.10] hover:text-white active:scale-[0.96]"
+        aria-label="Exit CLARA Guide Mode"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -334,18 +282,8 @@ export default function DashboardHomePanel({
 
   const handleGuideDailyTipTap = useCallback(() => {
     if (!isGuideMode || guideFeature !== GUIDE_FEATURE_DAILY_MONEY_TIP || guideStep !== 0) return;
-    setGuideStep(1);
+    setGuideStep(0);
   }, [guideFeature, guideStep, isGuideMode]);
-
-  const completeDailyMoneyTipGuide = useCallback(() => {
-    const nextProgress = markDailyMoneyTipGuideComplete();
-    setClaraGuideProgress(nextProgress);
-    exitGuideMode();
-  }, [exitGuideMode]);
-
-  const tryDailyMoneyTipInRealClara = useCallback(() => {
-    exitGuideMode({ focusRealDailyTip: true });
-  }, [exitGuideMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -390,7 +328,7 @@ export default function DashboardHomePanel({
         <ClaraGuideIntroModal onStart={startGuideMode} onClose={() => setIsGuideIntroOpen(false)} />
       ) : null}
 
-      {isGuideMode ? <ClaraGuideModeBanner onExit={exitGuideMode} /> : null}
+      {isGuideMode ? <ClaraGuideExitButton onExit={exitGuideMode} /> : null}
 
       {isPending && !isGuideMode && (
         <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-secondary/20 p-3">
@@ -503,13 +441,6 @@ export default function DashboardHomePanel({
           />
         </div>
       </div>
-
-      {isGuideMode && guideStep === 1 ? (
-        <DailyMoneyTipGuideResult
-          onUnderstand={completeDailyMoneyTipGuide}
-          onTryRealClara={tryDailyMoneyTipInRealClara}
-        />
-      ) : null}
     </>
   );
 }
