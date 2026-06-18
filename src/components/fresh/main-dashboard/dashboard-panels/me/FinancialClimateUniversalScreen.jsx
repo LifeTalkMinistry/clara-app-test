@@ -4,11 +4,12 @@ import { getLifeStageHero } from "../../../../../life-stage-hero";
 import { getLifeStageGuidance } from "../../../../../life-stage-guidance";
 import { getLifeStageSnapshot } from "../../../../../life-stage-snapshot";
 import {
+  DEFAULT_LIFE_STAGE_SELECTION,
+  LIFE_STAGE_KEY,
   getLifeStageOptions,
   getLifeStageQuestions,
   getLifeStageSelectionList,
   getLifeStageStageContext,
-  getSelectedLifeStageKey,
   normalizeLifeStageKey,
   readSelectedLifeStageProfile,
   saveSelectedLifeStageProfile,
@@ -42,17 +43,36 @@ function normalizeImageVariant(value = "default") {
   return "default";
 }
 
+function readRawStageProfile() {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "null");
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLifeStageProfileConfigured(profile = readRawStageProfile()) {
+  if (!profile || typeof profile !== "object") return false;
+  if (!String(profile.stage || "").trim()) return false;
+  return profile.lifeStageConfigured === true;
+}
+
 function readStageProfile() {
-  const saved = readSelectedLifeStageProfile();
-  const stage = normalizeLifeStageKey(saved?.stage || getSelectedLifeStageKey());
+  const raw = readRawStageProfile();
+  const saved = isLifeStageProfileConfigured(raw) ? readSelectedLifeStageProfile() : null;
+  const stage = normalizeLifeStageKey(saved?.stage || DEFAULT_LIFE_STAGE_SELECTION);
   return { ...(saved || {}), stage, imageVariant: normalizeImageVariant(saved?.imageVariant || "default") };
 }
 
 function saveStageProfile(profile) {
-  saveSelectedLifeStageProfile({
+  return saveSelectedLifeStageProfile({
     ...(profile || {}),
     stage: normalizeLifeStageKey(profile?.stage),
     imageVariant: normalizeImageVariant(profile?.imageVariant || "default"),
+    lifeStageConfigured: true,
+    lifeStageSetupCompletedAt: profile?.lifeStageSetupCompletedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -150,8 +170,35 @@ function OptionGroup({ eyebrow, value, options, onSelect, displayValue = display
   return <section className="space-y-4 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">{eyebrow}</p><div className="space-y-3">{options.map((option) => { const active = option === value; return <button key={option} type="button" onClick={() => onSelect(option)} className={`relative flex min-h-[66px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.985] ${active ? "border-cyan-200/38 bg-[linear-gradient(135deg,rgba(45,212,191,.16),rgba(59,130,246,.12)_48%,rgba(91,63,209,.16))] text-cyan-50" : "border-white/[0.075] bg-[#071226]/54 text-white/58"}`}><span className="text-[13px] font-black leading-tight">{displayValue(option)}</span><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>{active ? <Check className="h-4 w-4" /> : null}</span></button>; })}</div></section>;
 }
 
+function LifeStageSetupGate({ onSetup }) {
+  return (
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_4%,rgba(45,212,191,.16),transparent_28%),radial-gradient(circle_at_86%_8%,rgba(91,63,209,.22),transparent_32%),linear-gradient(180deg,rgba(2,8,23,.20),rgba(2,8,23,.94))]" />
+      <div className="pointer-events-none absolute inset-x-3 bottom-3 top-1 overflow-hidden rounded-[30px] opacity-45 blur-[1px] grayscale">
+        <section className="relative min-h-0 flex-[1.25] overflow-hidden rounded-b-[30px] bg-gradient-to-br from-cyan-400/10 via-blue-500/6 to-violet-500/10 px-5 pb-5 pt-5 shadow-[0_22px_80px_rgba(0,0,0,.22)]">
+          <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(180deg,transparent,rgba(2,8,23,.96))]" />
+          <div className="absolute bottom-0 right-0 h-full w-[56%] bg-[radial-gradient(circle_at_50%_35%,rgba(125,211,252,.22),transparent_34%),linear-gradient(145deg,rgba(125,211,252,.18),rgba(30,64,175,.06))]" />
+          <div className="relative z-10 flex h-full max-w-[62%] flex-col justify-center pt-3"><p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/46">Money Profile</p><h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white">Life Stage Not Set</h2><p className="mt-2 text-[12px] font-semibold leading-5 text-white/48">Personalized insights locked</p></div>
+        </section>
+        <section className="mt-3 rounded-[24px] border border-white/[0.075] bg-[#071226]/56 p-3 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-white">Set your Life Stage to unlock your Money Profile</h3><p className="mt-1 text-[12px] font-semibold leading-5 text-white/42">CLARA is waiting for your real context.</p></div><div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-violet-200/14 bg-violet-300/8"><Heart className="h-7 w-7 fill-violet-100 text-violet-100" /></div></div></section>
+        <section className="mt-3 rounded-[24px] border border-white/[0.075] bg-[#071226]/50 p-3 backdrop-blur-xl"><div className="flex items-center justify-between gap-3"><div><h3 className="text-[14px] font-black text-white">Life Stage Trend Snapshot</h3><p className="mt-0.5 text-[10px] font-semibold text-white/36">Locked until setup is complete.</p></div><Sparkles className="h-4 w-4 text-cyan-100/36" /></div><div className="mt-3 grid grid-cols-3 gap-2.5">{["Responsibilities", "Pressure", "Safety"].map((label) => <div key={label} className="rounded-[16px] border border-white/[0.075] bg-[#071226]/66 p-3"><p className="text-[9px] font-black tracking-tight text-white/44">{label}</p><p className="mt-3 h-5 w-12 rounded-full bg-white/[0.09]" /><p className="mt-3 text-[9px] font-black text-cyan-100/54">Locked</p></div>)}</div></section>
+      </div>
+      <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-2 py-6">
+        <section className="w-full max-w-[352px] overflow-hidden rounded-[30px] border border-cyan-100/18 bg-[#071226]/88 p-5 text-center shadow-[0_24px_80px_rgba(0,0,0,.44),0_0_46px_rgba(34,211,238,.14),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+          <div className="mx-auto inline-flex rounded-full border border-cyan-100/18 bg-cyan-200/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/78">Personalization needed</div>
+          <div className="mx-auto mt-5 grid h-16 w-16 place-items-center rounded-[24px] border border-white/[0.085] bg-white/[0.045] shadow-[0_0_34px_rgba(125,211,252,.14)]"><Sparkles className="h-7 w-7 text-cyan-100" /></div>
+          <h2 className="mt-5 text-[28px] font-black leading-[1.02] tracking-[-0.04em] text-white">Personalize your Money Profile</h2>
+          <p className="mt-4 text-[13px] font-semibold leading-6 text-white/62">Set your life stage so CLARA can understand your real responsibilities, pressure points, and money behavior.</p>
+          <button type="button" onClick={onSetup} className="mt-6 flex min-h-[56px] w-full items-center justify-center rounded-[22px] border border-white/20 bg-[linear-gradient(135deg,#67f8ff,#8bdcff_46%,#72a9ff)] px-5 py-4 text-sm font-black uppercase tracking-[0.08em] text-slate-950 shadow-[0_18px_42px_rgba(103,248,255,.24),0_0_34px_rgba(125,211,252,.22)] active:scale-95">SET LIFE STAGE NOW</button>
+          <p className="mt-4 text-[11px] font-semibold leading-5 text-white/42">This helps CLARA personalize your reminders, spending signals, and financial safety insights.</p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
-  const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || getSelectedLifeStageKey(), profile));
+  const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || DEFAULT_LIFE_STAGE_SELECTION, profile));
   const [step, setStep] = useState("stage");
   const stageList = getLifeStageSelectionList();
   const questionKeys = getQuestionKeys(draft.stage, draft);
@@ -176,6 +223,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
       ...completedDraft,
       stage: normalizeLifeStageKey(draft.stage),
       imageVariant: normalizeImageVariant(draft.imageVariant || completedDraft.imageVariant || "default"),
+      lifeStageConfigured: true,
+      lifeStageSetupCompletedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     saveStageProfile(savedDraft);
@@ -209,6 +258,7 @@ export default function FinancialClimateUniversalScreen() {
   const [showHeroActions, setShowHeroActions] = useState(false);
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
   const [stageImages, setStageImages] = useState(() => readStageImages());
+  const [lifeStageConfigured, setLifeStageConfigured] = useState(() => isLifeStageProfileConfigured());
   const hero = useMemo(
     () => getLifeStageHero(stageProfile.stage, stageProfile.imageVariant || "default"),
     [stageProfile.stage, stageProfile.imageVariant]
@@ -221,8 +271,25 @@ export default function FinancialClimateUniversalScreen() {
   const heroGlow = HERO_VISUALS[stageProfile.stage] || HERO_VISUALS["Young Professional"];
   const snapshotCards = snapshot.cards || [];
 
-  useEffect(() => { saveStageProfile(stageProfile); }, [stageProfile]);
+  useEffect(() => { if (lifeStageConfigured) saveStageProfile(stageProfile); }, [lifeStageConfigured, stageProfile]);
   useEffect(() => { saveStageImages(stageImages); }, [stageImages]);
+
+  const openLifeStageSetup = () => {
+    setShowHeroActions(false);
+    setShowStageSetup(true);
+  };
+
+  const handleLifeStageSave = (profile) => {
+    const configuredProfile = {
+      ...(profile || {}),
+      stage: normalizeLifeStageKey(profile?.stage),
+      imageVariant: normalizeImageVariant(profile?.imageVariant || "default"),
+      lifeStageConfigured: true,
+      lifeStageSetupCompletedAt: profile?.lifeStageSetupCompletedAt || new Date().toISOString(),
+    };
+    setStageProfile(configuredProfile);
+    setLifeStageConfigured(true);
+  };
 
   const handleGenderVariantChange = (variant) => {
     setStageProfile((current) => ({
@@ -231,7 +298,8 @@ export default function FinancialClimateUniversalScreen() {
     }));
   };
 
-  if (showStageSetup) return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} />;
+  if (showStageSetup) return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={handleLifeStageSave} />;
+  if (!lifeStageConfigured) return <LifeStageSetupGate onSetup={openLifeStageSetup} />;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
@@ -249,10 +317,7 @@ export default function FinancialClimateUniversalScreen() {
             >
               <button
                 type="button"
-                onClick={() => {
-                  setShowHeroActions(false);
-                  setShowStageSetup(true);
-                }}
+                onClick={openLifeStageSetup}
                 className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]"
               >
                 Set stage
