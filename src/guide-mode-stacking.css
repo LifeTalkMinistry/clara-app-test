@@ -211,6 +211,8 @@ html.clara-guide-finance-carousel-active
   z-index: 3;
   border-color: rgba(186, 242, 255, 0.42) !important;
   filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.1),
     0 0 42px rgba(34, 211, 238, 0.3),
@@ -223,11 +225,29 @@ html.clara-guide-finance-carousel-active
   z-index: 3;
   opacity: 1 !important;
   filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border-color: rgba(186, 242, 255, 0.3) !important;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.1),
     0 0 42px rgba(34, 211, 238, 0.3),
     0 24px 70px rgba(0, 0, 0, 0.42) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-bubble-card > .pointer-events-none.absolute,
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-bubble-card > .pointer-events-none.absolute.inset-0,
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-bubble-card .opacity-\[0\.48\],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-bubble-card .opacity-\[0\.42\] {
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 html.clara-guide-finance-carousel-active
@@ -259,6 +279,48 @@ html.clara-guide-finance-carousel-active
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card .relative {
   z-index: 24 !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] .bg-black\/\[0\.055\],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] .bg-black\/\[0\.105\] {
+  border-color: rgba(186, 242, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.072) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-white/'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-slate-'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-zinc-'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-gray-'] {
+  opacity: 1 !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] .text-white {
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-cyan'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-sky'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-emerald'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-amber'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-rose'],
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target [data-finance-card] [class*='text-violet'] {
+  opacity: 1 !important;
 }
 
 html.clara-guide-finance-carousel-active
