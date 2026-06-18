@@ -138,15 +138,6 @@ export const FINANCIAL_CAROUSEL_PREMIUM_GLASS_STYLES = `
   background: rgba(5, 13, 28, 0.80) !important;
 }
 
-.clara-finance-bubble-card [class*="rounded-[28px]"][class*="bg-black"],
-.clara-finance-bubble-card [class*="rounded-[24px]"][class*="bg-black"],
-.clara-finance-bubble-card [class*="rounded-[22px]"][class*="bg-black"] {
-  border-color: rgba(207, 250, 254, 0.09) !important;
-  background: rgba(255, 255, 255, 0.055) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 14px 28px rgba(0, 0, 0, 0.14) !important;
-  backdrop-filter: blur(16px);
-}
-
 .clara-finance-bubble-card button[aria-label^="View"],
 .clara-finance-bubble-card button[aria-label^="Hide"] {
   min-height: 48px;
