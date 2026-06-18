@@ -21,7 +21,7 @@ export default function ClaraLogo({
       <img
         src={logo}
         alt="CLARA Logo"
-        className="h-14 w-14 object-contain drop-shadow-[0_0_18px_rgba(45,212,191,0.28)]"
+        className="h-20 w-20 object-contain drop-shadow-[0_0_22px_rgba(45,212,191,0.34)]"
       />
 
       {variant === "full" && (
