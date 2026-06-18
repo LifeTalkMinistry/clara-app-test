@@ -24,9 +24,22 @@ const resolveAssetSrc = (assetPath) => {
   return trimmedPath;
 };
 
+const interpolate = (from, to, progress) => from + (to - from) * progress;
+
+const resolveBetweenStops = (value, center, near, far) => {
+  const safeValue = Math.min(Math.abs(value), 2);
+
+  if (safeValue <= 1) {
+    return interpolate(center, near, safeValue);
+  }
+
+  return interpolate(near, far, safeValue - 1);
+};
+
 export default function LearningMaterialCard({
   item,
   isActive,
+  isDragging = false,
   offset = 0,
   visible = true,
   position,
@@ -35,6 +48,7 @@ export default function LearningMaterialCard({
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const absOffset = Math.abs(offset);
+  const clampedOffset = Math.min(absOffset, 2);
   const direction = offset < 0 ? -1 : 1;
 
   const distanceMap = {
@@ -43,21 +57,22 @@ export default function LearningMaterialCard({
     2: 226,
   };
 
-  const cardOffset = distanceMap[Math.min(absOffset, 2)] || 0;
+  const cardOffset = resolveBetweenStops(clampedOffset, distanceMap[0], distanceMap[1], distanceMap[2]);
   const translateX = `calc(-50% + ${direction * cardOffset}px)`;
 
-  const scale = isActive ? 1 : absOffset === 1 ? 0.85 : 0.71;
-  const rotate = isActive ? 0 : offset < 0 ? 5 + absOffset : -5 - absOffset;
-  const origin = isActive ? "center center" : offset < 0 ? "right center" : "left center";
-  const depth = isActive ? 18 : absOffset === 1 ? -18 : -48;
-  const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.23 : 0.07) : 0;
-  const zIndex = isActive ? 70 : absOffset === 1 ? 42 : 24;
+  const scale = resolveBetweenStops(clampedOffset, 1, 0.85, 0.71);
+  const rotateMagnitude = resolveBetweenStops(clampedOffset, 0, 6, 7);
+  const rotate = clampedOffset === 0 ? 0 : offset < 0 ? rotateMagnitude : -rotateMagnitude;
+  const origin = clampedOffset < 0.35 ? "center center" : offset < 0 ? "right center" : "left center";
+  const depth = resolveBetweenStops(clampedOffset, 18, -18, -48);
+  const opacity = visible ? resolveBetweenStops(clampedOffset, 1, 0.23, 0.07) : 0;
+  const zIndex = Math.round(resolveBetweenStops(clampedOffset, 70, 42, 24));
 
-  const width = isActive ? 184 : absOffset === 1 ? 124 : 100;
-  const height = isActive ? 224 : absOffset === 1 ? 188 : 160;
-  const pageEdgeWidth = isActive ? 4 : 5;
-  const depthOffset = isActive ? 3 : 2;
-  const contentLeftPadding = isActive ? 18 : 12;
+  const width = resolveBetweenStops(clampedOffset, 184, 124, 100);
+  const height = resolveBetweenStops(clampedOffset, 224, 188, 160);
+  const pageEdgeWidth = resolveBetweenStops(clampedOffset, 4, 5, 5);
+  const depthOffset = resolveBetweenStops(clampedOffset, 3, 2, 2);
+  const contentLeftPadding = resolveBetweenStops(clampedOffset, 18, 12, 12);
   const rawThumbnailSrc = item?.thumbnail || "";
   const thumbnailSrc = resolveAssetSrc(rawThumbnailSrc);
   const hasThumbnail = Boolean(thumbnailSrc) && !imageFailed;
@@ -112,6 +127,7 @@ export default function LearningMaterialCard({
         transformOrigin: origin,
         transformStyle: "preserve-3d",
         pointerEvents: visible ? "auto" : "none",
+        transitionDuration: isDragging ? "0ms" : undefined,
         willChange: "transform, opacity",
       }}
     >
@@ -249,7 +265,7 @@ export default function LearningMaterialCard({
                       className={`${
                         isActive
                           ? "text-[17px] leading-[1.08] line-clamp-3"
-                          : absOffset === 1
+                          : clampedOffset <= 1.5
                             ? "text-[12.5px] leading-tight line-clamp-3"
                             : "text-[10.5px] leading-tight line-clamp-2"
                       } font-black text-white drop-shadow-[0_1px_10px_rgba(0,0,0,0.18)]`}
