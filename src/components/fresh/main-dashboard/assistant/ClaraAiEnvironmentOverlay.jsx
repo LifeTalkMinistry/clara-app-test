@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 
-const CLARA_AI_BRAIN_VERSION = "final-ai-surface-v2-compact-tabs";
+const CLARA_AI_BRAIN_VERSION = "final-ai-surface-v3-iconless-compact-tabs";
+
+const FINAL_AI_TAB_ICON_KILL_SWITCH = `
+  [data-clara-final-ai-feature] svg,
+  [data-clara-final-ai-feature] .clara-final-ai-tab-icon,
+  [data-clara-final-ai-tab] svg,
+  [data-clara-final-ai-tab] .clara-final-ai-tab-icon {
+    display: none !important;
+  }
+
+  [data-clara-final-ai-feature] > span:has(svg),
+  [data-clara-final-ai-tab] > span:has(svg) {
+    display: none !important;
+  }
+`;
 
 const FINAL_AI_FEATURES = [
   { id: "buy-check", label: "Buy Check" },
@@ -152,6 +166,7 @@ export default function ClaraAiEnvironmentOverlay({
       className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/78 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]"
       data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}
     >
+      <style>{FINAL_AI_TAB_ICON_KILL_SWITCH}</style>
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_10%,rgba(45,212,191,0.26),transparent_34%),radial-gradient(circle_at_88%_12%,rgba(124,58,237,0.32),transparent_38%),linear-gradient(180deg,rgba(2,6,23,0.68),rgba(2,6,23,0.94))]" />
 
       <main className="min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
