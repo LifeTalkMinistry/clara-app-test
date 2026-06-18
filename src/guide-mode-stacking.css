@@ -129,11 +129,6 @@ html.clara-guide-finance-carousel-active
 }
 
 html.clara-guide-finance-carousel-active
-#root .clara-guide-carousel-bubble-shell {
-  z-index: 220 !important;
-}
-
-html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target * {
   pointer-events: auto;
 }
