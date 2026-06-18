@@ -3,11 +3,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 const CHECK_IN_STORAGE_KEY = "clara_daily_check_in_v1";
 const MAX_VISIBLE_DAYS = 30;
 
-export default function useDailyCheckIn() {
+export default function useDailyCheckIn({ simulationMode = false } = {}) {
   const todayKey = useMemo(() => getTodayKey(), []);
-  const [checkInState, setCheckInState] = useState(() => readCheckInState(todayKey));
+  const [checkInState, setCheckInState] = useState(() =>
+    simulationMode ? createSimulationCheckInState(todayKey) : readCheckInState(todayKey)
+  );
 
   useEffect(() => {
+    if (simulationMode) {
+      setCheckInState(createSimulationCheckInState(todayKey));
+      return undefined;
+    }
+
     const syncCheckInState = () => setCheckInState(readCheckInState(todayKey));
 
     syncCheckInState();
@@ -16,7 +23,7 @@ export default function useDailyCheckIn() {
 
     window.addEventListener("storage", syncCheckInState);
     return () => window.removeEventListener("storage", syncCheckInState);
-  }, [todayKey]);
+  }, [simulationMode, todayKey]);
 
   const completedDates = useMemo(
     () => normalizeCompletedDates(checkInState.completedDates),
@@ -33,6 +40,12 @@ export default function useDailyCheckIn() {
   );
 
   const checkInToday = useCallback(() => {
+    if (simulationMode) {
+      const nextState = createSimulationCheckInState(todayKey, true);
+      setCheckInState(nextState);
+      return nextState;
+    }
+
     let nextState = null;
 
     setCheckInState((currentState) => {
@@ -61,7 +74,7 @@ export default function useDailyCheckIn() {
     });
 
     return nextState;
-  }, [todayKey]);
+  }, [simulationMode, todayKey]);
 
   return {
     todayKey,
@@ -71,6 +84,14 @@ export default function useDailyCheckIn() {
     challengeDay,
     currentStreak,
     checkInToday,
+  };
+}
+
+function createSimulationCheckInState(todayKey, completedToday = false) {
+  return {
+    startedAt: todayKey,
+    completedDates: completedToday ? [todayKey] : [],
+    lastCheckInDate: completedToday ? todayKey : null,
   };
 }
 

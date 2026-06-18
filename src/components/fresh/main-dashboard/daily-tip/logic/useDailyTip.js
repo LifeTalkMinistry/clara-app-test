@@ -3,14 +3,22 @@ import { DAILY_TIPS } from "../data/tipsData";
 
 const CYCLE_STORAGE_KEY = "clara_daily_tip_cycle_v2";
 const SEEN_STORAGE_KEY = "clara_daily_tip_seen_date";
+const SIMULATION_DAILY_MONEY_TIP = "Before spending today, ask: Is this planned, needed, or just a reaction?";
 
-export default function useDailyTip() {
+export default function useDailyTip({ simulationMode = false } = {}) {
   const todayKey = useMemo(() => getTodayKey(), []);
-  const [tip, setTip] = useState("");
+  const [tip, setTip] = useState(simulationMode ? SIMULATION_DAILY_MONEY_TIP : "");
   const [index, setIndex] = useState(0);
   const [hasSeenToday, setHasSeenToday] = useState(false);
 
   useEffect(() => {
+    if (simulationMode) {
+      setHasSeenToday(false);
+      setIndex(0);
+      setTip(SIMULATION_DAILY_MONEY_TIP);
+      return;
+    }
+
     const seenDate = safeGet(SEEN_STORAGE_KEY);
     setHasSeenToday(seenDate === todayKey);
 
@@ -43,9 +51,14 @@ export default function useDailyTip() {
     const currentIndex = Number.isInteger(cycle.currentIndex) ? cycle.currentIndex : 0;
     setIndex(currentIndex);
     setTip(DAILY_TIPS[currentIndex] || DAILY_TIPS[0]);
-  }, [todayKey]);
+  }, [simulationMode, todayKey]);
 
   const markSeenToday = () => {
+    if (simulationMode) {
+      setHasSeenToday(true);
+      return;
+    }
+
     safeSet(SEEN_STORAGE_KEY, todayKey);
     setHasSeenToday(true);
   };
