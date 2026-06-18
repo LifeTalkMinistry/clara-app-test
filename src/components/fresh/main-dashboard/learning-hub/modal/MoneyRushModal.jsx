@@ -97,15 +97,20 @@ function writeMoneyRushScoreBank(scoreBank) {
       }),
     );
   } catch {
-    // Storage can fail in private mode. The point bank should still work in memory.
+    // Storage can fail in private mode. The point system should still work in memory.
   }
 }
 
 export default function MoneyRushModal({ isOpen, material, onClose }) {
   const transitionTimersRef = useRef([]);
-  const pointBankTimersRef = useRef([]);
-  const pointBankRef = useRef(null);
+  const pointAnimationTimersRef = useRef([]);
   const resultBankedRef = useRef(false);
+  const initialScoreBankRef = useRef(null);
+
+  if (!initialScoreBankRef.current) {
+    initialScoreBankRef.current = readMoneyRushScoreBank();
+  }
+
   const [gameStatus, setGameStatus] = useState('menu');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeBank, setTimeBank] = useState(STARTING_TIME_BANK);
@@ -115,8 +120,8 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
   const [isAnswerLocked, setIsAnswerLocked] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [runQuestions, setRunQuestions] = useState(() => createTimeRushQuestions());
-  const [scoreBank, setScoreBank] = useState(() => readMoneyRushScoreBank());
-  const [displayPointBank, setDisplayPointBank] = useState(() => readMoneyRushScoreBank().pointBank);
+  const [scoreBank, setScoreBank] = useState(() => initialScoreBankRef.current);
+  const [displayPointBank, setDisplayPointBank] = useState(() => initialScoreBankRef.current.pointBank);
   const [pointRewardAnimation, setPointRewardAnimation] = useState(null);
   const [isPointBankPopping, setIsPointBankPopping] = useState(false);
 
@@ -138,59 +143,49 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     clearTimers(transitionTimersRef);
   }, []);
 
-  const clearPointBankTimers = useCallback(() => {
+  const clearPointAnimationTimers = useCallback(() => {
     if (typeof window === 'undefined') return;
-    clearTimers(pointBankTimersRef);
+    clearTimers(pointAnimationTimersRef);
   }, []);
 
-  const triggerPointBankAnimation = useCallback(({ amount, previousPoints, nextPoints }) => {
+  const triggerPointRewardAnimation = useCallback(({ amount, previousPoints, nextPoints }) => {
     if (typeof window === 'undefined') {
       setDisplayPointBank(nextPoints);
       return;
     }
 
-    clearPointBankTimers();
-    const bankRect = pointBankRef.current?.getBoundingClientRect();
-    const startX = window.innerWidth / 2;
-    const startY = Math.min(window.innerHeight * 0.56, window.innerHeight - 190);
-    const targetX = bankRect ? bankRect.left + bankRect.width / 2 : window.innerWidth - 110;
-    const targetY = bankRect ? bankRect.top + bankRect.height / 2 : 42;
-    const animationId = Date.now();
+    clearPointAnimationTimers();
 
+    const animationId = Date.now();
     setDisplayPointBank(previousPoints);
     setIsPointBankPopping(false);
-    setPointRewardAnimation({
-      id: animationId,
-      amount,
-      phase: 'hold',
-      startX,
-      startY,
-      targetX,
-      targetY,
-    });
+    setPointRewardAnimation({ id: animationId, amount, phase: 'ready' });
 
-    pointBankTimersRef.current.push(
+    pointAnimationTimersRef.current.push(
       window.setTimeout(() => {
         setPointRewardAnimation((current) => (
-          current?.id === animationId ? { ...current, phase: 'fly' } : current
+          current?.id === animationId ? { ...current, phase: 'adding' } : current
         ));
-      }, 850),
+      }, 450),
     );
 
-    pointBankTimersRef.current.push(
+    pointAnimationTimersRef.current.push(
       window.setTimeout(() => {
         setDisplayPointBank(nextPoints);
         setIsPointBankPopping(true);
-        setPointRewardAnimation((current) => (current?.id === animationId ? null : current));
-      }, 1650),
+        setPointRewardAnimation((current) => (
+          current?.id === animationId ? { ...current, phase: 'landed' } : current
+        ));
+      }, 1050),
     );
 
-    pointBankTimersRef.current.push(
+    pointAnimationTimersRef.current.push(
       window.setTimeout(() => {
+        setPointRewardAnimation((current) => (current?.id === animationId ? null : current));
         setIsPointBankPopping(false);
-      }, 2300),
+      }, 1800),
     );
-  }, [clearPointBankTimers]);
+  }, [clearPointAnimationTimers]);
 
   const bankFinalScore = useCallback((scoreAmount) => {
     const safeScoreAmount = Math.max(0, Number(scoreAmount) || 0);
@@ -206,7 +201,7 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
       };
 
       writeMoneyRushScoreBank(nextScoreBank);
-      triggerPointBankAnimation({
+      triggerPointRewardAnimation({
         amount: safeScoreAmount,
         previousPoints,
         nextPoints: nextScoreBank.pointBank,
@@ -214,11 +209,11 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
 
       return nextScoreBank;
     });
-  }, [triggerPointBankAnimation]);
+  }, [triggerPointRewardAnimation]);
 
   const resetGame = useCallback(() => {
     clearPendingTransitions();
-    clearPointBankTimers();
+    clearPointAnimationTimers();
     setPointRewardAnimation(null);
     setIsPointBankPopping(false);
     setGameStatus('menu');
@@ -232,11 +227,11 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setRunQuestions(createTimeRushQuestions());
     setDisplayPointBank(scoreBank.pointBank);
     resultBankedRef.current = false;
-  }, [clearPendingTransitions, clearPointBankTimers, scoreBank.pointBank]);
+  }, [clearPendingTransitions, clearPointAnimationTimers, scoreBank.pointBank]);
 
   const startGame = () => {
     clearPendingTransitions();
-    clearPointBankTimers();
+    clearPointAnimationTimers();
     setPointRewardAnimation(null);
     setIsPointBankPopping(false);
     setRunQuestions(createTimeRushQuestions());
@@ -259,8 +254,8 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
 
   useEffect(() => () => {
     clearPendingTransitions();
-    clearPointBankTimers();
-  }, [clearPendingTransitions, clearPointBankTimers]);
+    clearPointAnimationTimers();
+  }, [clearPendingTransitions, clearPointAnimationTimers]);
 
   useEffect(() => {
     if (!isOpen) resetGame();
@@ -369,22 +364,6 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
       <div className='pointer-events-none fixed inset-x-0 bottom-0 h-[24dvh] bg-gradient-to-t from-black/64 via-violet-950/24 to-transparent' />
       <div className='pointer-events-none fixed inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.055),transparent_30%,rgba(34,211,238,0.035)_48%,transparent_70%)]' />
 
-      {pointRewardAnimation ? (
-        <div
-          className={`pointer-events-none fixed z-[10020] inline-flex items-center gap-1.5 rounded-2xl border border-amber-100/40 bg-[linear-gradient(135deg,rgba(251,191,36,0.28),rgba(34,211,238,0.20),rgba(139,92,246,0.24))] px-3 py-2 text-[12px] font-black uppercase tracking-[0.13em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_0_26px_rgba(251,191,36,0.26),0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-700 ease-out ${pointRewardAnimation.phase === 'fly' ? 'opacity-30 scale-50' : 'opacity-100 scale-100'}`}
-          style={{
-            left: pointRewardAnimation.startX,
-            top: pointRewardAnimation.startY,
-            transform: pointRewardAnimation.phase === 'fly'
-              ? `translate(-50%, -50%) translate(${pointRewardAnimation.targetX - pointRewardAnimation.startX}px, ${pointRewardAnimation.targetY - pointRewardAnimation.startY}px) scale(0.48)`
-              : 'translate(-50%, -50%) scale(1)',
-          }}
-        >
-          <span className='flex h-5 w-5 items-center justify-center rounded-full border border-amber-100/40 bg-amber-100/80 text-[10px] text-slate-950 shadow-[0_0_16px_rgba(251,191,36,0.28)]'>✦</span>
-          +{pointRewardAnimation.amount} pts
-        </div>
-      ) : null}
-
       <main className='relative mx-auto flex h-[100dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-[clamp(0.78rem,3.8vw,1rem)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.65rem,env(safe-area-inset-top))]'>
         <header className='flex shrink-0 items-center justify-between gap-3'>
           <div className='min-w-0'>
@@ -395,19 +374,6 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
           </div>
 
           <div className='ml-auto flex shrink-0 items-center gap-2'>
-            <div
-              ref={pointBankRef}
-              aria-label={`Money Rush points: ${displayPointBank} points`}
-              title={`${displayPointBank} Money Rush points`}
-              className={`inline-flex h-11 min-w-[76px] items-center justify-center gap-1.5 rounded-2xl border border-amber-100/26 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.32),transparent_26%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(139,92,246,0.20)_52%,rgba(251,191,36,0.16))] px-2 text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_12px_28px_rgba(0,0,0,0.25),0_0_20px_rgba(34,211,238,0.14)] backdrop-blur-xl transition duration-300 ${isPointBankPopping ? 'scale-[1.08] border-amber-100/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.26),0_14px_32px_rgba(0,0,0,0.28),0_0_26px_rgba(251,191,36,0.32),0_0_34px_rgba(34,211,238,0.18)]' : ''}`}
-            >
-              <span className='flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-100/36 bg-[radial-gradient(circle_at_35%_28%,rgba(255,255,255,0.88),rgba(251,191,36,0.42)_34%,rgba(168,85,247,0.18))] text-[8px] font-black leading-none text-slate-950 shadow-[0_0_14px_rgba(251,191,36,0.22)]'>✦</span>
-              <span className='flex flex-col items-start leading-none'>
-                <span className='text-[14px] font-black leading-none tracking-[-0.04em] text-white'>{displayPointBank}</span>
-                <span className='mt-0.5 text-[6px] font-black uppercase leading-none tracking-[0.14em] text-cyan-100/72'>Point</span>
-              </span>
-            </div>
-
             {!isPlaying ? (
               <button
                 type='button'
@@ -617,31 +583,56 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
         {isFinished ? (
           <section className='mt-5 flex min-h-0 flex-1 flex-col justify-center'>
             <div className='rounded-[32px] border border-white/18 bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(15,23,42,0.58)_48%,rgba(124,58,237,0.22))] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_24px_60px_rgba(0,0,0,0.34)] backdrop-blur-2xl'>
-              <span className='mx-auto inline-flex h-16 w-16 items-center justify-center rounded-[26px] border border-cyan-100/24 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(34,211,238,0.10),rgba(139,92,246,0.12))] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_30px_rgba(34,211,238,0.20)]'>
-                {gameStatus === 'stage-clear' ? <Trophy className='h-8 w-8' /> : <XCircle className='h-8 w-8' />}
+              <span className='mx-auto inline-flex h-14 w-14 items-center justify-center rounded-[24px] border border-cyan-100/24 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(34,211,238,0.10),rgba(139,92,246,0.12))] text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_30px_rgba(34,211,238,0.20)]'>
+                {gameStatus === 'stage-clear' ? <Trophy className='h-7 w-7' /> : <XCircle className='h-7 w-7' />}
               </span>
-              <p className='mt-5 text-[11px] font-black uppercase tracking-[0.20em] text-cyan-100/66'>Money Rush Result</p>
-              <h2 className='mt-2 text-[clamp(30px,4.2dvh,40px)] font-black tracking-[-0.06em] text-white'>
+              <p className='mt-4 text-[11px] font-black uppercase tracking-[0.20em] text-cyan-100/66'>Money Rush Result</p>
+              <h2 className='mt-2 text-[clamp(29px,4dvh,38px)] font-black tracking-[-0.06em] text-white'>
                 {resultTitle}
               </h2>
-              <p className='mt-2 text-[14px] font-semibold text-white/70'>{resultLine}</p>
+              <p className='mt-2 text-[13px] font-semibold text-white/70'>{resultLine}</p>
 
-              <div className='mt-5 rounded-[26px] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.14),rgba(15,23,42,0.46),rgba(124,58,237,0.16))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)]'>
-                <p className='text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64'>Final Score</p>
-                <p className='mt-2 text-[48px] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_18px_rgba(103,232,249,0.24)]'>
+              <div className='mt-4 grid grid-cols-2 gap-3'>
+                <div className={`relative overflow-hidden rounded-[24px] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(15,23,42,0.46),rgba(124,58,237,0.16))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)] transition duration-300 ${isPointBankPopping ? 'scale-[1.03] border-amber-100/38 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_26px_rgba(251,191,36,0.22)]' : ''}`}>
+                  <p className='text-[9px] font-black uppercase tracking-[0.20em] text-cyan-100/64'>Total Points</p>
+                  <div className='mt-2 flex items-center justify-center gap-2'>
+                    <p className='text-[34px] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_18px_rgba(103,232,249,0.24)]'>
+                      {displayPointBank}
+                    </p>
+                    {pointRewardAnimation ? (
+                      <span className={`rounded-full border border-amber-100/32 bg-amber-100/16 px-2 py-1 text-[10px] font-black text-amber-50 shadow-[0_0_16px_rgba(251,191,36,0.18)] transition duration-500 ${pointRewardAnimation.phase === 'adding' ? 'translate-y-[-4px] scale-110 opacity-100' : pointRewardAnimation.phase === 'landed' ? 'translate-y-[-10px] scale-90 opacity-0' : 'opacity-80'}`}>
+                        +{pointRewardAnimation.amount}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className='mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/58'>Points</p>
+                </div>
+
+                <div className='rounded-[24px] border border-violet-100/18 bg-[linear-gradient(135deg,rgba(139,92,246,0.16),rgba(15,23,42,0.46),rgba(34,211,238,0.08))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)]'>
+                  <p className='text-[9px] font-black uppercase tracking-[0.20em] text-violet-100/64'>Best Score</p>
+                  <p className='mt-2 text-[34px] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_18px_rgba(196,181,253,0.22)]'>
+                    {scoreBank.bestScore}
+                  </p>
+                  <p className='mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-violet-100/58'>Points</p>
+                </div>
+              </div>
+
+              <div className='mt-3 rounded-[26px] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.14),rgba(15,23,42,0.46),rgba(124,58,237,0.16))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)]'>
+                <p className='text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/64'>Final Score Added</p>
+                <p className='mt-2 text-[42px] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_18px_rgba(103,232,249,0.24)]'>
                   {finalScore}
                 </p>
-                <p className='mt-1 text-[13px] font-black uppercase tracking-[0.16em] text-cyan-100/78'>Points</p>
-                <p className='mt-3 text-[12px] font-semibold text-white/60'>
+                <p className='mt-1 text-[12px] font-black uppercase tracking-[0.16em] text-cyan-100/78'>Points</p>
+                <p className='mt-2 text-[11px] font-semibold text-white/60'>
                   Time Bank Preserved: {finalScore}s
                 </p>
               </div>
 
-              <p className='mt-4 text-[13px] font-semibold leading-relaxed text-white/68'>
+              <p className='mt-4 text-[12px] font-semibold leading-relaxed text-white/68'>
                 Clara: Every second you preserve shows faster awareness under pressure.
               </p>
 
-              <div className='mt-6 grid grid-cols-2 gap-3'>
+              <div className='mt-5 grid grid-cols-2 gap-3'>
                 <button
                   type='button'
                   onClick={resetGame}
