@@ -6,7 +6,13 @@ const AUTO_SCROLL_DELAY = 4200;
 const RESUME_AFTER_TOUCH = 7000;
 const OPEN_SETTLE_DELAY = 750;
 const SWIPE_THRESHOLD = 34;
+const CARD_SWIPE_THRESHOLD = 50;
+const DRAG_AXIS_LOCK_THRESHOLD = 8;
+const MIN_CARD_DRAG_RANGE_PX = 148;
+const MAX_CARD_DRAG_RANGE_PX = 244;
 const LEARNING_HUB_STAGE_HEIGHT = 244;
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 export default function LearningHubCarousel({
   items = null,
@@ -26,11 +32,19 @@ export default function LearningHubCarousel({
   const [isExpanded, setIsExpanded] = useState(Boolean(initialExpanded));
   const [autoScrollReady, setAutoScrollReady] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [touchStartX, setTouchStartX] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const [headerTouchStartY, setHeaderTouchStartY] = useState(null);
 
+  const stageRef = useRef(null);
   const resumeTimerRef = useRef(null);
   const openSettleTimerRef = useRef(null);
+  const dragFrameRef = useRef(null);
+  const clickSuppressTimerRef = useRef(null);
+  const touchStartRef = useRef(null);
+  const dragAxisRef = useRef(null);
+  const dragOffsetRef = useRef(0);
+  const suppressCardClickRef = useRef(false);
   const headerSwipeHandledRef = useRef(false);
   const hasAppliedInitialExpandedRef = useRef(false);
 
@@ -47,6 +61,58 @@ export default function LearningHubCarousel({
     ? activeCategoryLabel || "Learning Category"
     : "Learning Hub";
   const openItemHandler = onOpenItem || onOpenMaterial;
+
+  const getCardDragRange = () => {
+    const stageWidth = stageRef.current?.clientWidth || 0;
+    return clamp(stageWidth * 0.48 || MIN_CARD_DRAG_RANGE_PX, MIN_CARD_DRAG_RANGE_PX, MAX_CARD_DRAG_RANGE_PX);
+  };
+
+  const applyDragOffset = (nextOffset) => {
+    const safeOffset = clamp(nextOffset, -1, 1);
+    dragOffsetRef.current = safeOffset;
+
+    if (typeof window === "undefined") {
+      setDragOffset(safeOffset);
+      return;
+    }
+
+    if (dragFrameRef.current) return;
+
+    dragFrameRef.current = window.requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      setDragOffset(dragOffsetRef.current);
+    });
+  };
+
+  const resetDragMotion = () => {
+    dragOffsetRef.current = 0;
+
+    if (dragFrameRef.current && typeof window !== "undefined") {
+      window.cancelAnimationFrame(dragFrameRef.current);
+    }
+
+    dragFrameRef.current = null;
+    setDragOffset(0);
+    setIsDragging(false);
+  };
+
+  const temporarilySuppressCardClick = () => {
+    suppressCardClickRef.current = true;
+
+    if (clickSuppressTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(clickSuppressTimerRef.current);
+    }
+
+    if (typeof window === "undefined") {
+      suppressCardClickRef.current = false;
+      return;
+    }
+
+    clickSuppressTimerRef.current = window.setTimeout(() => {
+      suppressCardClickRef.current = false;
+      clickSuppressTimerRef.current = null;
+    }, 160);
+  };
 
   const toggleExpanded = () => {
     if (isLocked) {
@@ -102,6 +168,7 @@ export default function LearningHubCarousel({
   const moveToIndex = (index) => {
     if (isLocked || !total) return;
 
+    resetDragMotion();
     pauseCarousel();
     setActiveIndex(index);
     resumeCarouselSoon();
@@ -159,16 +226,53 @@ export default function LearningHubCarousel({
   const handleTouchStart = (event) => {
     if (isLocked) return;
 
+    const touch = event.touches?.[0];
+    if (!touch) return;
+
     pauseCarousel();
-    setTouchStartX(event.touches[0].clientX);
+    resetDragMotion();
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    dragAxisRef.current = null;
+  };
+
+  const handleTouchMove = (event) => {
+    if (isLocked || !touchStartRef.current) return;
+
+    const touch = event.touches?.[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+
+    if (!dragAxisRef.current) {
+      if (absDeltaX < DRAG_AXIS_LOCK_THRESHOLD && absDeltaY < DRAG_AXIS_LOCK_THRESHOLD) return;
+      dragAxisRef.current = absDeltaX > absDeltaY ? "x" : "y";
+    }
+
+    if (dragAxisRef.current !== "x") return;
+
+    event.preventDefault();
+    setIsDragging(true);
+    applyDragOffset(deltaX / getCardDragRange());
   };
 
   const handleTouchEnd = (event) => {
-    if (isLocked || touchStartX === null) return;
+    if (isLocked || !touchStartRef.current) return;
 
-    const diff = touchStartX - event.changedTouches[0].clientX;
+    const touch = event.changedTouches?.[0];
+    const diff = touch ? touchStartRef.current.x - touch.clientX : 0;
+    const didHorizontalDrag = dragAxisRef.current === "x";
+    const didSwipe = didHorizontalDrag && Math.abs(diff) > CARD_SWIPE_THRESHOLD;
 
-    if (Math.abs(diff) > 50) {
+    if (didHorizontalDrag) {
+      event.preventDefault();
+      event.stopPropagation();
+      temporarilySuppressCardClick();
+    }
+
+    if (didSwipe) {
       if (diff > 0) {
         moveToNext();
       } else {
@@ -176,7 +280,18 @@ export default function LearningHubCarousel({
       }
     }
 
-    setTouchStartX(null);
+    touchStartRef.current = null;
+    dragAxisRef.current = null;
+    resetDragMotion();
+    resumeCarouselSoon();
+  };
+
+  const handleTouchCancel = () => {
+    if (isLocked) return;
+
+    touchStartRef.current = null;
+    dragAxisRef.current = null;
+    resetDragMotion();
     resumeCarouselSoon();
   };
 
@@ -209,9 +324,11 @@ export default function LearningHubCarousel({
 
   useEffect(() => {
     setActiveIndex(0);
-    setTouchStartX(null);
     setHeaderTouchStartY(null);
     setIsPaused(false);
+    touchStartRef.current = null;
+    dragAxisRef.current = null;
+    resetDragMotion();
 
     if (resumeTimerRef.current) {
       clearTimeout(resumeTimerRef.current);
@@ -265,8 +382,10 @@ export default function LearningHubCarousel({
     setIsExpanded(false);
     setIsPaused(false);
     setAutoScrollReady(false);
-    setTouchStartX(null);
     setHeaderTouchStartY(null);
+    touchStartRef.current = null;
+    dragAxisRef.current = null;
+    resetDragMotion();
   }, [isLocked]);
 
   useEffect(() => {
@@ -277,6 +396,14 @@ export default function LearningHubCarousel({
 
       if (openSettleTimerRef.current) {
         clearTimeout(openSettleTimerRef.current);
+      }
+
+      if (clickSuppressTimerRef.current) {
+        clearTimeout(clickSuppressTimerRef.current);
+      }
+
+      if (dragFrameRef.current && typeof window !== "undefined") {
+        window.cancelAnimationFrame(dragFrameRef.current);
       }
     };
   }, []);
@@ -334,17 +461,21 @@ export default function LearningHubCarousel({
         >
           <div className="clara-learning-hub-clip min-h-0 overflow-visible">
             <div
+              ref={stageRef}
               className="clara-learning-hub-stage relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
               style={{
                 height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
                 minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
                 perspective: "1300px",
                 transformStyle: "preserve-3d",
+                touchAction: "pan-y",
               }}
               onMouseEnter={pauseCarousel}
               onMouseLeave={resumeCarouselSoon}
               onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchCancel}
             >
               <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
               <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
@@ -366,7 +497,8 @@ export default function LearningHubCarousel({
                       ? rawOffset + total
                       : rawOffset;
 
-                const shouldRender = Math.abs(wrappedOffset) <= 2;
+                const displayOffset = wrappedOffset + dragOffset;
+                const shouldRender = Math.abs(wrappedOffset) <= 2 || Math.abs(displayOffset) <= 2.25;
 
                 if (!shouldRender) return null;
 
@@ -377,11 +509,14 @@ export default function LearningHubCarousel({
                     key={item.id || index}
                     item={item}
                     isActive={isActive}
-                    offset={wrappedOffset}
+                    isDragging={isDragging}
+                    offset={displayOffset}
                     visible={shouldRender}
                     position={index + 1}
                     total={total}
                     onClick={() => {
+                      if (suppressCardClickRef.current) return;
+
                       if (isActive) {
                         openItemHandler?.(item);
                         return;
