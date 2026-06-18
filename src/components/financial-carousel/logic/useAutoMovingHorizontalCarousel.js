@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const SWIPE_THRESHOLD_PX = 42;
-const SLIDE_SETTLE_DELAY_MS = 560;
-const SCROLL_SETTLE_DEBOUNCE_MS = 120;
+const SCROLL_SETTLE_DEBOUNCE_MS = 110;
+const PROGRAMMATIC_SCROLL_GUARD_MS = 520;
+const INSTANT_SCROLL_GUARD_MS = 90;
 
 const clampIndex = (index, length) => {
   if (!length) return 0;
@@ -16,19 +16,36 @@ export default function useAutoMovingHorizontalCarousel({
   const carouselRef = useRef(null);
   const activeIndexRef = useRef(clampIndex(defaultIndex, itemCount));
   const scrollFrameRef = useRef(null);
-  const slideTimerRef = useRef(null);
   const scrollSettleTimerRef = useRef(null);
-  const startXRef = useRef(null);
-  const startIndexRef = useRef(0);
-  const trackingRef = useRef(false);
-  const didSetDefaultSlideRef = useRef(false);
-  const [activeIndex, setActiveIndex] = useState(() => clampIndex(defaultIndex, itemCount));
+  const programmaticScrollTimerRef = useRef(null);
+  const hasInitializedRef = useRef(false);
+  const hasUserInteractedRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const [activeIndex, setActiveIndex] = useState(() =>
+    clampIndex(defaultIndex, itemCount)
+  );
+
+  const clearScrollSettleTimer = useCallback(() => {
+    if (scrollSettleTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(scrollSettleTimerRef.current);
+    }
+    scrollSettleTimerRef.current = null;
+  }, []);
+
+  const clearProgrammaticScrollTimer = useCallback(() => {
+    if (programmaticScrollTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+    }
+    programmaticScrollTimerRef.current = null;
+  }, []);
 
   const commitActiveIndex = useCallback(
     (index) => {
       const safeIndex = clampIndex(index, itemCount);
       activeIndexRef.current = safeIndex;
-      setActiveIndex((currentIndex) => (currentIndex === safeIndex ? currentIndex : safeIndex));
+      setActiveIndex((currentIndex) =>
+        currentIndex === safeIndex ? currentIndex : safeIndex
+      );
     },
     [itemCount]
   );
@@ -46,116 +63,50 @@ export default function useAutoMovingHorizontalCarousel({
     return clampIndex(Math.round(container.scrollLeft / getSlideWidth()), itemCount);
   }, [getSlideWidth, itemCount]);
 
-  const commitSettledScrollIndex = useCallback(() => {
-    commitActiveIndex(getCurrentScrollIndex());
-  }, [commitActiveIndex, getCurrentScrollIndex]);
+  const markProgrammaticScroll = useCallback(
+    (behavior = "smooth") => {
+      if (typeof window === "undefined") return;
 
-  const clearSlideTimer = useCallback(() => {
-    if (slideTimerRef.current && typeof window !== "undefined") {
-      window.clearTimeout(slideTimerRef.current);
-    }
-    slideTimerRef.current = null;
-  }, []);
+      clearProgrammaticScrollTimer();
+      isProgrammaticScrollRef.current = true;
+      programmaticScrollTimerRef.current = window.setTimeout(
+        () => {
+          isProgrammaticScrollRef.current = false;
+          programmaticScrollTimerRef.current = null;
+        },
+        behavior === "smooth"
+          ? PROGRAMMATIC_SCROLL_GUARD_MS
+          : INSTANT_SCROLL_GUARD_MS
+      );
+    },
+    [clearProgrammaticScrollTimer]
+  );
 
-  const clearScrollSettleTimer = useCallback(() => {
-    if (scrollSettleTimerRef.current && typeof window !== "undefined") {
-      window.clearTimeout(scrollSettleTimerRef.current);
-    }
-    scrollSettleTimerRef.current = null;
-  }, []);
-
-  const rawScrollToIndex = useCallback(
+  const scrollToIndex = useCallback(
     (index, behavior = "smooth") => {
       const container = carouselRef.current;
       if (!container || itemCount <= 0) return;
 
       const safeIndex = clampIndex(index, itemCount);
+      markProgrammaticScroll(behavior);
       container.scrollTo({ left: getSlideWidth() * safeIndex, behavior });
       commitActiveIndex(safeIndex);
     },
-    [commitActiveIndex, getSlideWidth, itemCount]
+    [commitActiveIndex, getSlideWidth, itemCount, markProgrammaticScroll]
   );
 
-  const scrollToIndex = useCallback(
-    (index, behavior = "smooth") => {
-      clearSlideTimer();
-      rawScrollToIndex(index, behavior);
-    },
-    [clearSlideTimer, rawScrollToIndex]
-  );
+  const commitSettledScrollIndex = useCallback(() => {
+    commitActiveIndex(getCurrentScrollIndex());
+  }, [commitActiveIndex, getCurrentScrollIndex]);
 
-  const moveOneSlide = useCallback(
-    (targetIndex) => {
-      if (itemCount <= 1 || slideTimerRef.current) return;
-
-      const safeTargetIndex = clampIndex(targetIndex, itemCount);
-      rawScrollToIndex(safeTargetIndex, "smooth");
-
-      if (typeof window !== "undefined") {
-        slideTimerRef.current = window.setTimeout(() => {
-          rawScrollToIndex(safeTargetIndex, "auto");
-          slideTimerRef.current = null;
-        }, SLIDE_SETTLE_DELAY_MS);
-      }
-    },
-    [itemCount, rawScrollToIndex]
-  );
-
-  const pauseAutoMove = useCallback(() => {}, []);
-  const resumeAutoMoveSoon = useCallback(() => {}, []);
-
-  const startGesture = useCallback(
-    (clientX) => {
-      if (slideTimerRef.current || itemCount <= 0) return;
-
-      startXRef.current = clientX;
-      startIndexRef.current = activeIndexRef.current;
-      trackingRef.current = true;
-    },
-    [itemCount]
-  );
-
-  const endGesture = useCallback(
-    (clientX) => {
-      if (slideTimerRef.current || !trackingRef.current || itemCount <= 0) return;
-
-      const startX = startXRef.current;
-      const startIndex = startIndexRef.current;
-
-      startXRef.current = null;
-      trackingRef.current = false;
-
-      if (typeof startX !== "number") {
-        rawScrollToIndex(startIndex, "smooth");
-        return;
-      }
-
-      const dragDistance = clientX - startX;
-      const direction = Math.abs(dragDistance) >= SWIPE_THRESHOLD_PX ? (dragDistance < 0 ? 1 : -1) : 0;
-      const targetIndex = clampIndex(startIndex + direction, itemCount);
-
-      if (targetIndex === startIndex) {
-        rawScrollToIndex(startIndex, "smooth");
-        return;
-      }
-
-      moveOneSlide(targetIndex);
-    },
-    [itemCount, moveOneSlide, rawScrollToIndex]
-  );
-
-  const handlePointerCancel = useCallback(() => {
-    if (slideTimerRef.current) return;
-
-    if (trackingRef.current) {
-      trackingRef.current = false;
-      startXRef.current = null;
-      rawScrollToIndex(startIndexRef.current, "smooth");
+  const markUserInteraction = useCallback(() => {
+    if (!isProgrammaticScrollRef.current) {
+      hasUserInteractedRef.current = true;
     }
-  }, [rawScrollToIndex]);
+  }, []);
 
   const handleScroll = useCallback(() => {
-    if (slideTimerRef.current || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
     if (scrollFrameRef.current) {
       window.cancelAnimationFrame(scrollFrameRef.current);
@@ -163,7 +114,6 @@ export default function useAutoMovingHorizontalCarousel({
 
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scrollFrameRef.current = null;
-
       clearScrollSettleTimer();
 
       scrollSettleTimerRef.current = window.setTimeout(() => {
@@ -173,41 +123,96 @@ export default function useAutoMovingHorizontalCarousel({
     });
   }, [clearScrollSettleTimer, commitSettledScrollIndex]);
 
-  const interactionHandlers = {
-    onPointerDown: (event) => startGesture(event.clientX),
-    onPointerUp: (event) => endGesture(event.clientX),
-    onPointerCancel: handlePointerCancel,
-    onPointerLeave: handlePointerCancel,
-    onTouchStart: (event) => {
-      const touch = event.touches?.[0];
-      if (touch) startGesture(touch.clientX);
-    },
-    onTouchEnd: (event) => {
-      const touch = event.changedTouches?.[0] || event.touches?.[0];
-      if (touch) endGesture(touch.clientX);
-      else handlePointerCancel();
-    },
-    onTouchCancel: handlePointerCancel,
-    onMouseEnter: pauseAutoMove,
-    onMouseLeave: resumeAutoMoveSoon,
-    onFocus: pauseAutoMove,
-    onBlur: resumeAutoMoveSoon,
-  };
+  const interactionHandlers = useMemo(
+    () => ({
+      onPointerDown: markUserInteraction,
+      onTouchStart: markUserInteraction,
+      onWheel: markUserInteraction,
+      onKeyDown: markUserInteraction,
+    }),
+    [markUserInteraction]
+  );
 
   useEffect(() => {
-    clearSlideTimer();
-    commitActiveIndex(clampIndex(defaultIndex, itemCount));
-  }, [clearSlideTimer, commitActiveIndex, defaultIndex, itemCount]);
+    if (itemCount <= 0 || typeof window === "undefined") return undefined;
 
-  useEffect(() => {
-    if (!itemCount || didSetDefaultSlideRef.current || typeof window === "undefined") return;
-    didSetDefaultSlideRef.current = true;
-    window.requestAnimationFrame(() => scrollToIndex(defaultIndex, "auto"));
+    const safeDefaultIndex = clampIndex(defaultIndex, itemCount);
+
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      activeIndexRef.current = safeDefaultIndex;
+      setActiveIndex(safeDefaultIndex);
+
+      const frame = window.requestAnimationFrame(() => {
+        scrollToIndex(safeDefaultIndex, "auto");
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const currentIndex = activeIndexRef.current;
+    const safeCurrentIndex = clampIndex(currentIndex, itemCount);
+
+    if (safeCurrentIndex !== currentIndex) {
+      scrollToIndex(safeCurrentIndex, "auto");
+    } else if (
+      !hasUserInteractedRef.current &&
+      currentIndex !== safeDefaultIndex
+    ) {
+      scrollToIndex(safeDefaultIndex, "auto");
+    }
+
+    return undefined;
   }, [defaultIndex, itemCount, scrollToIndex]);
 
   useEffect(() => {
     const container = carouselRef.current;
-    if (!container || typeof container.addEventListener !== "function") return undefined;
+    if (!container || itemCount <= 0 || typeof window === "undefined") {
+      return undefined;
+    }
+
+    let resizeFrame = null;
+
+    const realignCurrentSlide = () => {
+      if (resizeFrame) {
+        window.cancelAnimationFrame(resizeFrame);
+      }
+
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = null;
+
+        const safeIndex = clampIndex(activeIndexRef.current, itemCount);
+        const targetLeft = getSlideWidth() * safeIndex;
+
+        if (Math.abs(container.scrollLeft - targetLeft) <= 1) return;
+
+        markProgrammaticScroll("auto");
+        container.scrollTo({ left: targetLeft, behavior: "auto" });
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(realignCurrentSlide)
+        : null;
+
+    resizeObserver?.observe(container);
+    window.addEventListener("resize", realignCurrentSlide);
+
+    return () => {
+      if (resizeFrame) {
+        window.cancelAnimationFrame(resizeFrame);
+      }
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", realignCurrentSlide);
+    };
+  }, [getSlideWidth, itemCount, markProgrammaticScroll]);
+
+  useEffect(() => {
+    const container = carouselRef.current;
+    if (!container || typeof container.addEventListener !== "function") {
+      return undefined;
+    }
 
     const handleScrollEnd = () => {
       clearScrollSettleTimer();
@@ -226,10 +231,10 @@ export default function useAutoMovingHorizontalCarousel({
       if (scrollFrameRef.current && typeof window !== "undefined") {
         window.cancelAnimationFrame(scrollFrameRef.current);
       }
-      clearSlideTimer();
       clearScrollSettleTimer();
+      clearProgrammaticScrollTimer();
     };
-  }, [clearSlideTimer, clearScrollSettleTimer]);
+  }, [clearProgrammaticScrollTimer, clearScrollSettleTimer]);
 
   return {
     carouselRef,
@@ -237,7 +242,7 @@ export default function useAutoMovingHorizontalCarousel({
     scrollToIndex,
     handleScroll,
     interactionHandlers,
-    pauseAutoMove,
-    resumeAutoMoveSoon,
+    pauseAutoMove: () => {},
+    resumeAutoMoveSoon: () => {},
   };
 }
