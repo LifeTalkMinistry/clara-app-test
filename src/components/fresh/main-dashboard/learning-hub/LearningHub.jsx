@@ -37,8 +37,8 @@ function DailyTipGuideBubble() {
         <p className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
           Daily Money Tip
         </p>
-        <p className="relative z-10 mt-3 text-[14px] font-bold leading-relaxed text-white">
-          CLARA gives you one quick money reminder before you spend. Select the Daily Money Tip card to continue.
+        <p className="clara-guide-bubble-copy relative z-10 mt-3 text-[14px] font-bold leading-relaxed text-white">
+          CLARA gives you one quick money reminder before you spend.
         </p>
       </div>
     </div>
