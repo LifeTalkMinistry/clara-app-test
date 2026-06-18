@@ -1,10 +1,10 @@
+import { WalletCards } from 'lucide-react';
 import WalletListItem from '@/components/financial-carousel/cards/wallet/ui/WalletListItem';
 import WalletRecentActivity from '@/components/financial-carousel/cards/wallet/ui/WalletRecentActivity';
 import WalletEmptyState from '@/components/financial-carousel/cards/wallet/ui/WalletEmptyState';
-import WalletHeader from '@/components/financial-carousel/cards/wallet/ui/WalletHeader';
-import WalletSummaryStats from '@/components/financial-carousel/cards/wallet/ui/WalletSummaryStats';
 import FinanceCardExpandButton from '@/components/financial-carousel/shared/FinanceCardExpandButton';
 import FinanceCardExpandedPanel from '@/components/financial-carousel/shared/FinanceCardExpandedPanel';
+import FinancialCarouselPremiumCardShell from '@/components/financial-carousel/shared/FinancialCarouselPremiumCardShell';
 import WalletCreateButton from '@/components/financial-carousel/cards/wallet/ui/WalletCreateButton';
 import { fmt } from '@/components/financial-carousel/cards/wallet/logic/walletFormatting';
 
@@ -19,6 +19,33 @@ function getRegisteredWalletCount(wallets = []) {
       !wallet?.protected_reserve
   ).length;
 }
+
+const shortenWalletName = (value = '') => {
+  const clean = String(value || '').trim();
+
+  if (!clean) return 'None';
+  if (clean.length <= 10) return clean;
+
+  const words = clean.split(' ');
+
+  if (words.length > 1) {
+    const compact = `${words[0]} ${words[1][0] || ''}.`;
+    if (compact.length <= 10) return compact;
+  }
+
+  return `${clean.slice(0, 8)}…`;
+};
+
+const getPrimaryWalletName = (topWallet) => {
+  if (!topWallet) return 'None';
+
+  return shortenWalletName(
+    topWallet?.name ||
+      topWallet?.wallet_name ||
+      topWallet?.label ||
+      'None'
+  );
+};
 
 function WalletSkeletonLoader({ expanded = false }) {
   return (
@@ -76,48 +103,33 @@ export default function WalletCardContent({
   const shouldShowSkeleton = financeDataLoading && walletCount <= 0;
 
   if (!expanded) {
+    if (shouldShowSkeleton) {
+      return (
+        <div className='relative z-10 flex h-full min-h-[286px] flex-col overflow-hidden px-4 pb-4 pt-5'>
+          <WalletSkeletonLoader expanded={false} />
+        </div>
+      );
+    }
+
     return (
-      <div className='relative z-10 flex h-full min-h-[286px] flex-col overflow-hidden px-4 pb-4 pt-5'>
-        <div className='pointer-events-none absolute inset-0 opacity-[0.46]'>
-          <div className='absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.06] blur-3xl' />
-          <div className='absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl' />
-          <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]' />
-        </div>
-
-        <div className='relative flex min-h-0 flex-1 flex-col gap-4'>
-          {shouldShowSkeleton ? (
-            <WalletSkeletonLoader expanded={false} />
-          ) : (
-            <>
-              <div className='min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]'>
-                <WalletHeader walletCount={walletCount} />
-
-                <div className='mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3'>
-                  <WalletSummaryStats
-                    walletMoney={walletMoney}
-                    walletCount={walletCount}
-                    walletPreviewTransactions={walletPreviewTransactions}
-                    topWallet={topWallet}
-                    status={status}
-                    message={message}
-                  />
-                </div>
-              </div>
-
-              <div className='mt-0.5 shrink-0 border-t border-white/[0.035] pt-3'>
-                <FinanceCardExpandButton
-                  detailKey='wallets'
-                  expanded={expanded}
-                  onToggleDetails={onToggleDetails}
-                  collapsedLabel='View Wallets'
-                  expandedLabel='Hide Wallets'
-                  className='border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]'
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      <FinancialCarouselPremiumCardShell
+        icon={<WalletCards className='h-4 w-4' />}
+        title='Wallets'
+        subtitle='Available across accounts'
+        statusLabel={`${walletCount} ${walletCount === 1 ? 'Wallet' : 'Wallets'}`}
+        mainValue={fmt(walletMoney)}
+        mainValueClassName={status?.text || 'text-white'}
+        supportText='Available across all wallets.'
+        metrics={[
+          { label: 'Wallets', value: walletCount },
+          { label: 'Primary', value: getPrimaryWalletName(topWallet), valueClassName: 'text-cyan-50 text-[12px] tracking-[-0.02em]' },
+        ]}
+        detailKey='wallets'
+        expanded={expanded}
+        onToggleDetails={onToggleDetails}
+        actionLabel='View Wallets'
+        expandedActionLabel='Hide Wallets'
+      />
     );
   }
 
