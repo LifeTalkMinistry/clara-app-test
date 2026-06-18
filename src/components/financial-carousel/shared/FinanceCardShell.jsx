@@ -32,7 +32,7 @@ export default function FinanceCardShell({
   performanceMode,
   ringClass = "",
   roundedClass = "rounded-[30px]",
-  shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_42px_rgba(0,255,220,0.10),0_0_62px_rgba(126,34,206,0.12)]",
+  shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.36),0_0_36px_rgba(0,255,220,0.065),0_0_60px_rgba(126,34,206,0.09),inset_0_1px_0_rgba(255,255,255,0.075)]",
   surfaceClassName = "",
   glowLayerClassNames = FINANCE_CARD_GLOW_LAYERS,
   children,
