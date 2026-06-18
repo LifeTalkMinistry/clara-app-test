@@ -101,7 +101,7 @@ export default function LearningHub({
             />
 
             {!isGuideMode ? (
-              <div className="ml-1.5 justify-self-start animate-bounce">
+              <div className="clara-guide-float ml-1.5 justify-self-start">
                 <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
               </div>
             ) : (
