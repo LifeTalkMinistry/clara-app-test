@@ -28,6 +28,7 @@ export default function DailyTipCard({
   flushSpacing = false,
   isGuideMode = false,
   guideStep = 0,
+  isDailyTipGuideActive = false,
   onGuideDailyTipTap,
 }) {
   const { tip, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode: isGuideMode });
@@ -47,7 +48,7 @@ export default function DailyTipCard({
   const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
   const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
-  const isGuideStepActive = isGuideMode && guideStep === 0;
+  const isGuideStepActive = isGuideMode && isDailyTipGuideActive && guideStep === 0;
   const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
   const cardHeadline = isGuideMode ? "Today's money reminder" : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
   const cardSubtitle = isGuideMode
@@ -131,7 +132,7 @@ export default function DailyTipCard({
 
   const handleFlip = () => {
     if (isGuideMode) {
-      if (guideStep === 0) {
+      if (isGuideStepActive) {
         onGuideDailyTipTap?.();
       }
       return;
