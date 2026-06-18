@@ -9,9 +9,7 @@ alter table if exists public.profiles
   add column if not exists access_level text default 'free',
   add column if not exists access_source text,
   add column if not exists admin_plan_override boolean not null default false,
-  add column if not exists subscription_status text default 'free',
-  add column if not exists recommended_access_level text,
-  add column if not exists onboarding_answers jsonb;
+  add column if not exists subscription_status text default 'free';
 
 create unique index if not exists plans_plan_key_unique on public.plans(plan_key);
 
