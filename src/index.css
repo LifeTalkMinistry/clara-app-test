@@ -129,6 +129,17 @@ body::after {
   will-change: transform;
 }
 
+/* CLARA Guide Mode: keep the focused feature clear while dimming every non-featured card. */
+#root .fixed.inset-0.z-\[60\] {
+  background: rgba(2, 6, 23, 0.84) !important;
+}
+
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail [data-clara-learning-hub-bridge="true"],
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
+  filter: brightness(0.45) saturate(0.55) contrast(0.9);
+  opacity: 0.72;
+}
+
 /* CLARA inline chat minimize control polish */
 #root button[aria-label="Close CLARA money chat"] {
   top: 0.35rem !important;
