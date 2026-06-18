@@ -45,6 +45,16 @@ function DailyTipGuideBubble() {
   );
 }
 
+function GuidePausedStrip() {
+  return (
+    <div className="relative z-[70] px-4">
+      <div className="mx-auto max-w-[22rem] rounded-full border border-white/10 bg-slate-950/72 px-4 py-3 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white/48 shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        Other dashboard controls are covered in Guide Mode.
+      </div>
+    </div>
+  );
+}
+
 export default function LearningHub({
   isGuideMode = false,
   guideFeature = "daily-money-tip",
@@ -83,8 +93,9 @@ export default function LearningHub({
         />
 
         {isDailyTipGuideStep ? <DailyTipGuideBubble /> : null}
+        {isGuideMode ? <GuidePausedStrip /> : null}
 
-        {!shouldLoadHub ? (
+        {!isGuideMode && !shouldLoadHub ? (
           <div
             data-clara-learning-hub-bridge="true"
             className="relative grid w-full items-center"
@@ -100,19 +111,15 @@ export default function LearningHub({
               flushSpacing
             />
 
-            {!isGuideMode ? (
-              <div className="clara-guide-float ml-1.5 justify-self-start">
-                <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
-              </div>
-            ) : (
-              <span aria-hidden="true" />
-            )}
+            <div className="clara-guide-float ml-1.5 justify-self-start">
+              <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
+            </div>
           </div>
-        ) : (
+        ) : !isGuideMode ? (
           <Suspense fallback={null}>
             <LearningHubLoaded initialExpanded flushSpacing={true} />
           </Suspense>
-        )}
+        ) : null}
       </div>
     </section>
   );
