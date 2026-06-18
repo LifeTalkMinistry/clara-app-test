@@ -42,22 +42,24 @@ export default function FinancialCarousel(props) {
     includeLocked,
     firstPositiveNumber,
     readStoredSurvivalExpense,
+    isGuideMode = false,
   } = props;
 
-  const userId = user?.id;
-  const userPlan = user?.plan;
-  const emergencyFundSyncController = useFinancialData(user);
+  const effectiveUser = isGuideMode ? null : user;
+  const userId = effectiveUser?.id;
+  const userPlan = effectiveUser?.plan || plan;
+  const emergencyFundSyncController = useFinancialData(effectiveUser);
   const removeExpense = emergencyFundSyncController["delete" + "Expense"];
 
   useEmergencyFundAllocationSync({
-    user,
+    user: effectiveUser,
     expenses: emergencyFundSyncController.expenses,
     transfers: emergencyFundSyncController.transfers,
     emergencyFund: emergencyFundSyncController.emergencyFund,
     transferBetweenWallets: emergencyFundSyncController.transferBetweenWallets,
     ["delete" + "Expense"]: removeExpense,
     refreshData: emergencyFundSyncController.refreshData,
-    enabled: Boolean(user && guardChecked && !loading),
+    enabled: !isGuideMode && Boolean(effectiveUser && guardChecked && !loading),
   });
 
   const items = useMemo(
@@ -73,7 +75,7 @@ export default function FinancialCarousel(props) {
       survivalExpense,
       user: userId || userPlan ? { id: userId, plan: userPlan } : null,
       plan,
-      guardChecked,
+      guardChecked: isGuideMode ? false : guardChecked,
       loading,
       profileData,
       featureFlags,
@@ -81,7 +83,7 @@ export default function FinancialCarousel(props) {
       firstPositiveNumber,
       readStoredSurvivalExpense,
     }),
-    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, firstPositiveNumber, readStoredSurvivalExpense]
+    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, firstPositiveNumber, readStoredSurvivalExpense, isGuideMode]
   );
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
   const { carouselRef, activeIndex, scrollToIndex, handleScroll, interactionHandlers } = useAutoMovingHorizontalCarousel({
@@ -104,7 +106,6 @@ export default function FinancialCarousel(props) {
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
-    const root = document.documentElement;
     root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
     return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
   }, [isInlineFocusExpanded]);
