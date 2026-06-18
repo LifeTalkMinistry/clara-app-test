@@ -24,8 +24,6 @@ const MODE_COPY = {
 const LOGIN_MAINTENANCE_MODE = true;
 const LOGIN_MAINTENANCE_MESSAGE =
   "CLARA login is temporarily unavailable while account access is undergoing improvement.";
-const LOGIN_MAINTENANCE_DETAIL =
-  "Please try again once maintenance is complete. Your account and data are safe.";
 const LOGIN_TESTER_ACKNOWLEDGEMENT =
   "To our testers: thank you for downloading CLARA and helping us complete the 14-day testing period. Your participation is acknowledged and deeply appreciated.";
 
@@ -369,9 +367,6 @@ export default function Login() {
                   </div>
                   <p className="mt-2 text-sm font-medium leading-relaxed text-white/78">
                     {LOGIN_MAINTENANCE_MESSAGE}
-                  </p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-white/48">
-                    {LOGIN_MAINTENANCE_DETAIL}
                   </p>
                   <p className="mt-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-xs leading-relaxed text-white/58">
                     {LOGIN_TESTER_ACKNOWLEDGEMENT}
