@@ -101,11 +101,11 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
 function CarouselGuideBubble() {
   return (
     <div
-      className="clara-guide-carousel-bubble-shell pointer-events-none absolute left-1/2 z-[240] w-[calc(100%-2rem)] max-w-[332px] -translate-x-1/2 isolate"
-      style={{ top: "clamp(-230px, -24dvh, -170px)" }}
+      className="clara-guide-carousel-bubble-shell pointer-events-none absolute left-1/2 z-[280] w-[calc(100%+0.25rem)] max-w-[360px] -translate-x-1/2 isolate"
+      style={{ top: "clamp(-280px, -30dvh, -220px)" }}
     >
-      <div className="clara-guide-bubble-surface relative rounded-[30px] border px-6 py-5 text-white">
-        <div className="clara-guide-carousel-bubble-arrow pointer-events-none absolute -bottom-2 left-11 h-4 w-4 rotate-45 border-b border-r" />
+      <div className="clara-guide-bubble-surface relative min-h-[156px] rounded-[30px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.98),rgba(10,22,54,0.98)_52%,rgba(27,18,65,0.98))] px-6 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl">
+        <div className="clara-guide-carousel-bubble-arrow pointer-events-none absolute -bottom-2 left-11 h-4 w-4 rotate-45 border-b border-r border-cyan-100/24 bg-[rgba(10,22,54,0.98)]" />
 
         <p className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
           Swipe Carousel
