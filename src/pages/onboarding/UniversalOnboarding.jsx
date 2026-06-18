@@ -10,9 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 import { loadUniversalOnboardingContent } from "@/lib/universal-onboarding-content";
 import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
@@ -22,8 +20,11 @@ import {
   persistCommitmentBookletIntent,
 } from "@/lib/clara-commitment-framework";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
+import {
+  getLocalSetupProfile,
+  saveLocalSetupProfile,
+} from "@/lib/claraLocalProfile";
 
-const INVALID_STORED_NAMES = ["Recovered User", "No name"];
 const SAVE_ERROR_MESSAGE = "We couldn’t save your setup yet. Please try again.";
 const FREE_VERSION_ROUTE = "/dashboard";
 const ACTIVE_MEMORY_USER_ID_KEY = "clara_active_memory_user_id";
@@ -183,12 +184,6 @@ const ONBOARDING_MEMORY_MAPPINGS = {
   },
 };
 
-const withTimeout = (promise, ms = 8000) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Request timed out.")), ms)),
-  ]);
-
 function warnInDevelopment(...args) {
   if (import.meta.env?.DEV) console.warn(...args);
 }
@@ -292,21 +287,18 @@ function saveOnboardingAnswersToLocalMemory(userId, answers) {
 
 export default function UniversalOnboarding() {
   const navigate = useNavigate();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile } = useAuth();
   const prefersReducedMotion = useReducedMotion();
   const [saving, setSaving] = useState(false);
   const [loadingContent, setLoadingContent] = useState(true);
   const [content, setContent] = useState(null);
   const [screenIndex, setScreenIndex] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [fullName, setFullName] = useState("");
   const [nameError, setNameError] = useState("");
   const advanceTimerRef = useRef(null);
   const answersRef = useRef({});
   const hasHydratedAnswersRef = useRef(false);
   const onboardingShellRef = useRef(null);
-
-  const needsNameFix = false;
 
   useEffect(() => {
     answersRef.current = answers;
@@ -317,25 +309,19 @@ export default function UniversalOnboarding() {
     const hasCurrentAnswers = Object.keys(currentAnswers).length > 0;
     if (hasHydratedAnswersRef.current && hasCurrentAnswers) return;
 
-    const profileAnswers = isPlainObject(profile?.onboarding_answers) && Object.keys(profile.onboarding_answers).length > 0
-      ? profile.onboarding_answers
-      : null;
-    const draftAnswers = profileAnswers ? null : safelyParseOnboardingDraft();
-    const nextAnswers = profileAnswers || draftAnswers || {};
+    const localSetupProfile = getLocalSetupProfile();
+    const localAnswers =
+      isPlainObject(localSetupProfile?.answers) && Object.keys(localSetupProfile.answers).length > 0
+        ? localSetupProfile.answers
+        : null;
+    const draftAnswers = localAnswers ? null : safelyParseOnboardingDraft();
+    const nextAnswers = localAnswers || draftAnswers || {};
     if (!isPlainObject(nextAnswers)) return;
 
     hasHydratedAnswersRef.current = true;
     answersRef.current = nextAnswers;
     setAnswers(nextAnswers);
-  }, [profile?.onboarding_answers]);
-
-  useEffect(() => {
-    setFullName(
-      profile?.full_name && !INVALID_STORED_NAMES.includes(profile.full_name.trim())
-        ? profile.full_name
-        : ""
-    );
-  }, [profile?.full_name]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -380,7 +366,6 @@ export default function UniversalOnboarding() {
   );
   const screen = screens[screenIndex];
   const currentQuestion = screen?.type === "question" ? QUESTION_SETS[screen.index] : null;
-  const recommendedAccessLevel = useMemo(() => getRecommendedAccessLevel(answers), [answers]);
   const canGoBack = screenIndex > 0 && !saving;
   const progressValue = screens.length ? ((screenIndex + 1) / screens.length) * 100 : 0;
   const setupHelperText = screen?.type === "result" ? "Setup complete" : `Guided setup ${screenIndex + 1} of ${screens.length}`;
@@ -421,70 +406,7 @@ export default function UniversalOnboarding() {
     }, prefersReducedMotion ? 0 : 180);
   }
 
-  async function updateProfile(updates) {
-    if (!user?.id) throw new Error("No logged-in user found.");
-    const payload = { id: user.id, email: user.email || profile?.email || null, ...updates };
-    const { error } = await withTimeout(supabase.from("profiles").upsert(payload, { onConflict: "id" }), 8000);
-    if (error) throw error;
-  }
-
-  async function saveRequiredOnboardingCompletion() {
-    const completionPayloads = [
-      {
-        onboarding_completed: true,
-        has_completed_onboarding: true,
-        onboarding_step: screens.length,
-      },
-      {
-        onboarding_completed: true,
-        has_completed_onboarding: true,
-      },
-      {
-        onboarding_completed: true,
-      },
-      {
-        has_completed_onboarding: true,
-      },
-    ];
-
-    let lastError = null;
-
-    for (const payload of completionPayloads) {
-      try {
-        await updateProfile(payload);
-        return true;
-      } catch (error) {
-        lastError = error;
-        console.warn("CLARA required onboarding completion save fallback failed:", {
-          attemptedFields: Object.keys(payload),
-          error,
-        });
-      }
-    }
-
-    console.warn("CLARA required onboarding completion remote save skipped:", lastError);
-    return false;
-  }
-
-  async function saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot) {
-    try {
-      await updateProfile({
-        onboarding_completed_at: new Date().toISOString(),
-        onboarding_answers: answerSnapshot,
-        commitment_level: answerSnapshot.commitment_level,
-        lifestyle_context: answerSnapshot.lifestyle_context,
-        money_pressure_point: answerSnapshot.money_pressure_point,
-        spending_trigger: answerSnapshot.spending_trigger,
-        spending_guidance_style: answerSnapshot.spending_guidance_style,
-        guidance_intensity: answerSnapshot.guidance_intensity,
-        recommended_access_level: recommendedAccessSnapshot,
-      });
-    } catch (error) {
-      console.warn("CLARA optional onboarding answer save skipped:", error);
-    }
-  }
-
-  function saveCompletedOnboardingAccessSnapshot(answerSnapshot, recommendedAccessSnapshot) {
+  function saveCompletedOnboardingAccessSnapshot(recommendedAccessSnapshot) {
     if (!user?.id) return;
 
     try {
@@ -504,8 +426,6 @@ export default function UniversalOnboarding() {
         has_completed_onboarding: true,
         has_completed_universal_onboarding: true,
         has_seen_universal_onboarding: true,
-        onboarding_step: screens.length,
-        onboarding_answers: answerSnapshot,
         recommended_access_level: recommendedAccessSnapshot,
       };
 
@@ -524,18 +444,6 @@ export default function UniversalOnboarding() {
     } catch (error) {
       warnInDevelopment("CLARA onboarding completion access snapshot skipped:", error);
     }
-  }
-
-  async function saveNameIfNeeded() {
-    const cleanedName = fullName.trim();
-    if (!needsNameFix) return;
-    if (!cleanedName) throw new Error("Please enter your real name.");
-    await updateProfile({ full_name: cleanedName });
-    const { error: authUpdateError } = await withTimeout(
-      supabase.auth.updateUser({ data: { full_name: cleanedName } }),
-      8000
-    );
-    if (authUpdateError) console.error("Auth metadata update error:", authUpdateError);
   }
 
   async function completeOnboardingSetup() {
@@ -562,19 +470,15 @@ export default function UniversalOnboarding() {
     }
 
     const recommendedAccessSnapshot = getRecommendedAccessLevel(answerSnapshot);
-    await saveNameIfNeeded();
-
-    saveCompletedOnboardingAccessSnapshot(answerSnapshot, recommendedAccessSnapshot);
+    saveLocalSetupProfile({
+      answers: answerSnapshot,
+      recommended_access_level: recommendedAccessSnapshot,
+      completed: true,
+      completed_at: new Date().toISOString(),
+    });
+    saveCompletedOnboardingAccessSnapshot(recommendedAccessSnapshot);
     clearOnboardingDraft();
-    saveOnboardingAnswersToLocalMemory(user.id, answerSnapshot);
-
-    Promise.resolve()
-      .then(() => saveRequiredOnboardingCompletion())
-      .then(() => saveOptionalOnboardingAnswers(answerSnapshot, recommendedAccessSnapshot))
-      .then(() => refreshProfile?.())
-      .catch((error) => {
-        console.warn("CLARA onboarding remote completion sync skipped:", error);
-      });
+    saveOnboardingAnswersToLocalMemory(user?.id, answerSnapshot);
 
     return true;
   }
@@ -595,7 +499,7 @@ export default function UniversalOnboarding() {
       });
     } catch (error) {
       console.error("Universal onboarding completion error:", error);
-      setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
+      setNameError(SAVE_ERROR_MESSAGE);
     } finally {
       setSaving(false);
     }
@@ -629,7 +533,7 @@ export default function UniversalOnboarding() {
       });
     } catch (error) {
       console.error("Universal onboarding commitment routing error:", error);
-      setNameError(error?.message === "Please enter your real name." ? error.message : SAVE_ERROR_MESSAGE);
+      setNameError(SAVE_ERROR_MESSAGE);
     } finally {
       setSaving(false);
     }
@@ -820,23 +724,6 @@ export default function UniversalOnboarding() {
                           </div>
                         </div>
                       </div>
-
-                      {needsNameFix ? (
-                        <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                          <p className="text-sm font-semibold text-white">One last detail before you continue</p>
-                          <p className="mt-2 text-sm leading-6 text-white/60">What name should CLARA use in your profile and future guidance?</p>
-                          <Input
-                            type="text"
-                            value={fullName}
-                            placeholder="Enter your real name"
-                            onChange={(event) => {
-                              setFullName(event.target.value);
-                              if (nameError) setNameError("");
-                            }}
-                            className="mt-4 h-12 rounded-2xl border-white/10 bg-black/20 text-white placeholder:text-white/35"
-                          />
-                        </div>
-                      ) : null}
                     </div>
                     {nameError ? <p className="text-sm text-red-300">{nameError}</p> : null}
                   </div>
