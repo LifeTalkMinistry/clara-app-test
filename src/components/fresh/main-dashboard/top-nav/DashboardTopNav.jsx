@@ -42,7 +42,7 @@ export default function DashboardTopNav({
   };
 
   return (
-    <div className={`relative z-30 shrink-0 ${dashboardScale.headerOuter}`}>
+    <div className={`relative shrink-0 ${isGuideModeTopNav ? "z-[100]" : "z-30"} ${dashboardScale.headerOuter}`}>
       <div className="mx-auto w-full max-w-[430px] overflow-visible">
         <div
           className={`relative w-full overflow-hidden border backdrop-blur-xl ${dashboardScale.headerPanel}`}
@@ -59,9 +59,10 @@ export default function DashboardTopNav({
           <div className="relative grid grid-cols-4 gap-1.5 sm:gap-2">
             {headerQuickActions.map((item, index) => {
               const isGuideExitSlot = isGuideModeTopNav && item.key === "settings";
+              const isGuideStaticSlot = isGuideModeTopNav && !isGuideExitSlot;
               const Icon = isGuideExitSlot ? X : item.icon;
               const itemLabel = isGuideExitSlot ? "Exit" : item.label;
-              const isActive = isGuideExitSlot || activeDashboardPanel === item.key;
+              const isActive = isGuideExitSlot || (!isGuideModeTopNav && activeDashboardPanel === item.key);
               const pillGlow =
                 item.key === "feed"
                   ? "shadow-[0_0_12px_rgba(59,130,246,0.20)]"
@@ -93,13 +94,14 @@ export default function DashboardTopNav({
                 <button
                   key={item.key}
                   type="button"
-                  onClick={isGuideExitSlot ? handleGuideExit : () => openDashboardPanel(item.key)}
-                  className="group relative flex min-w-0"
+                  onClick={isGuideExitSlot ? handleGuideExit : isGuideStaticSlot ? undefined : () => openDashboardPanel(item.key)}
+                  className={`group relative flex min-w-0 ${isGuideStaticSlot ? "pointer-events-none opacity-35 saturate-50" : ""}`}
                   aria-label={isGuideExitSlot ? "Exit CLARA Guide Mode" : item.label}
-                  aria-current={!isGuideExitSlot && isActive ? "page" : undefined}
+                  aria-current={!isGuideModeTopNav && isActive ? "page" : undefined}
+                  disabled={isGuideStaticSlot}
                 >
                   <div
-                    className={`relative flex w-full flex-col items-center justify-center overflow-hidden border transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${isActive ? activeItemClass : `${inactiveItemClass} ${themeQuickActionBaseClass}`} ${isActive ? "clara-theme-nav-pill-active" : ""}`}
+                    className={`relative flex w-full flex-col items-center justify-center overflow-hidden border transition duration-200 ${isGuideStaticSlot ? "" : "hover:-translate-y-[1px] active:scale-[0.985]"} ${dashboardScale.headerItem} ${isActive ? activeItemClass : `${inactiveItemClass} ${themeQuickActionBaseClass}`} ${isActive ? "clara-theme-nav-pill-active" : ""}`}
                   >
                     {isActive ? (
                       <>
