@@ -37,7 +37,7 @@ export default function ClaraLogo({
           <img
             src={logo}
             alt="CLARA Logo"
-            className="h-full w-full object-contain p-[3px] drop-shadow-[0_0_16px_rgba(45,212,191,0.28)]"
+            className="h-full w-full origin-center scale-[1.25] object-contain p-0 drop-shadow-[0_0_16px_rgba(45,212,191,0.28)]"
           />
         </div>
       </div>
