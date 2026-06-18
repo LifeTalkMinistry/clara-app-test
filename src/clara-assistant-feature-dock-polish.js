@@ -4,21 +4,18 @@ const DOCK_ITEMS = [
   {
     role: "buy-check",
     label: "Buy Check",
-    icon: "✓",
     aliases: ["Buy Check", "Talk to CLARA", "Memory"],
     datasetKey: "claraBuyCheckTab",
   },
   {
     role: "forecast",
     label: "Forecast",
-    icon: "↗",
     aliases: ["Forecast", "Core Features"],
     datasetKey: "claraForecastTab",
   },
   {
     role: "analytic",
     label: "Analytic",
-    icon: "◫",
     aliases: ["Insight", "Analytic", "Smart Actions"],
     datasetKey: "claraAnalyticTab",
   },
@@ -54,36 +51,23 @@ function ensureFeatureDockStyle() {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: 6px !important;
+      gap: 0 !important;
       overflow: hidden !important;
       white-space: nowrap !important;
       border-radius: 999px !important;
-      padding: 0 10px !important;
+      padding: 0 12px !important;
       font-size: 0 !important;
       line-height: 1 !important;
       letter-spacing: 0.02em !important;
+      text-align: center !important;
       transition: transform 160ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease !important;
       will-change: transform;
     }
 
-    .clara-feature-dock > button::before {
-      content: attr(data-clara-dock-icon);
-      display: inline-grid;
-      width: 16px;
-      height: 16px;
-      place-items: center;
-      flex: 0 0 16px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 950;
-      line-height: 1;
-      color: currentColor;
-      background: rgba(255, 255, 255, 0.08);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
-    }
-
     .clara-feature-dock > button::after {
       content: attr(data-clara-dock-label);
+      display: block;
+      width: 100%;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -91,6 +75,7 @@ function ensureFeatureDockStyle() {
       font-weight: 950;
       line-height: 1;
       letter-spacing: 0.01em;
+      text-align: center;
       color: currentColor;
     }
 
@@ -103,11 +88,6 @@ function ensureFeatureDockStyle() {
       background: linear-gradient(135deg, rgba(20, 184, 166, 0.28), rgba(124, 58, 237, 0.22)) !important;
       color: rgba(255, 255, 255, 0.96) !important;
       box-shadow: 0 0 16px rgba(20, 184, 166, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
-    }
-
-    .clara-feature-dock > button[data-clara-feature-dock-role="buy-check"]::before {
-      color: rgba(167, 243, 208, 0.98);
-      background: rgba(20, 184, 166, 0.16);
     }
 
     .clara-feature-dock > button[data-clara-feature-dock-role="forecast"],
@@ -134,15 +114,8 @@ function ensureFeatureDockStyle() {
       .clara-feature-dock > button {
         height: 32px !important;
         min-height: 32px !important;
-        gap: 5px !important;
+        gap: 0 !important;
         padding: 0 8px !important;
-      }
-
-      .clara-feature-dock > button::before {
-        width: 15px;
-        height: 15px;
-        flex-basis: 15px;
-        font-size: 10.75px;
       }
 
       .clara-feature-dock > button::after {
@@ -189,7 +162,7 @@ function polishFeatureDock() {
 
     button.dataset.claraFeatureDockRole = item.role;
     button.dataset.claraDockLabel = item.label;
-    button.dataset.claraDockIcon = item.icon;
+    button.removeAttribute("data-clara-dock-icon");
     button.setAttribute("aria-label", `Open CLARA ${item.label}`);
     button.setAttribute("title", item.label);
   });
