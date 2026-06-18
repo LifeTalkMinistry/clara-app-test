@@ -290,13 +290,7 @@ export default function Login() {
         navigate("/onboarding");
       } else {
         await signInWithOneRetry(signIn, { email, password });
-
-        if (typeof window !== "undefined") {
-          const basePath = `${window.location.origin}${window.location.pathname}${window.location.search}`;
-          window.location.replace(`${basePath}#/`);
-        } else {
-          navigate("/", { replace: true });
-        }
+        navigate("/", { replace: true });
       }
     } catch (error) {
       console.error(error);
