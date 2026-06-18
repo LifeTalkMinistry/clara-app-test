@@ -49,7 +49,7 @@ export default function DailyTipCard({
   const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
   const isGuideStepActive = isGuideMode && guideStep === 0;
   const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
-  const cardHeadline = isGuideMode ? "Today&apos;s money reminder" : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
+  const cardHeadline = isGuideMode ? "Today's money reminder" : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
   const cardSubtitle = isGuideMode
     ? "Tap this card to learn what CLARA gives you each day."
     : "Tap today to protect your money discipline.";
@@ -58,6 +58,16 @@ export default function DailyTipCard({
     : checkedInToday
       ? "Checked in today"
       : "Tap to check in";
+
+  const releaseFlipLock = () => {
+    if (flipUnlockTimerRef.current) {
+      window.clearTimeout(flipUnlockTimerRef.current);
+      flipUnlockTimerRef.current = null;
+    }
+
+    isFlippingRef.current = false;
+    setIsFlipping(false);
+  };
 
   useEffect(() => {
     const syncActiveState = () => setActiveCurrentState(readActiveCurrentState());
@@ -91,16 +101,6 @@ export default function DailyTipCard({
       }
     };
   }, []);
-
-  const releaseFlipLock = () => {
-    if (flipUnlockTimerRef.current) {
-      window.clearTimeout(flipUnlockTimerRef.current);
-      flipUnlockTimerRef.current = null;
-    }
-
-    isFlippingRef.current = false;
-    setIsFlipping(false);
-  };
 
   const triggerCheckInCelebration = () => {
     if (typeof window === "undefined") return;
@@ -282,10 +282,9 @@ export default function DailyTipCard({
 
                 <div className="flex items-center justify-between gap-3 py-1.5">
                   <div className="min-w-0">
-                    <div
-                      className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white"
-                      dangerouslySetInnerHTML={{ __html: cardHeadline }}
-                    />
+                    <div className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white">
+                      {cardHeadline}
+                    </div>
 
                     <p className="mt-1 max-w-[13rem] text-[10.5px] font-semibold leading-snug text-cyan-50/72">
                       {cardSubtitle}
