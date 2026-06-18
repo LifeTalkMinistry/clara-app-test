@@ -238,24 +238,24 @@ html.clara-guide-finance-carousel-active
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 4;
+  z-index: 1;
   border-radius: inherit;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 38%, rgba(0, 0, 0, 0.06) 100%),
-    radial-gradient(circle at 22% 4%, rgba(103, 232, 249, 0.24), transparent 36%),
-    radial-gradient(circle at 82% 94%, rgba(139, 92, 246, 0.2), transparent 42%);
-  opacity: 0.9;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.018) 38%, rgba(0, 0, 0, 0.025) 100%),
+    radial-gradient(circle at 22% 4%, rgba(103, 232, 249, 0.12), transparent 36%),
+    radial-gradient(circle at 82% 94%, rgba(139, 92, 246, 0.10), transparent 42%);
+  opacity: 0.42;
 }
 
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card > *:not(.pointer-events-none) {
   position: relative;
-  z-index: 8;
+  z-index: 20 !important;
 }
 
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card .relative {
-  z-index: 9;
+  z-index: 24 !important;
 }
 
 html.clara-guide-finance-carousel-active
@@ -276,6 +276,8 @@ html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card small,
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card button {
+  position: relative;
+  z-index: 30;
   opacity: 1 !important;
   color: rgba(255, 255, 255, 0.94) !important;
   text-shadow: 0 1px 16px rgba(2, 6, 23, 0.44);
@@ -289,6 +291,8 @@ html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card [class*="text-zinc-"],
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card [class*="text-gray-"] {
+  position: relative;
+  z-index: 30;
   opacity: 1 !important;
   color: rgba(255, 255, 255, 0.94) !important;
 }
@@ -303,12 +307,16 @@ html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card [class*="text-indigo"],
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card [class*="text-violet"] {
+  position: relative;
+  z-index: 30;
   opacity: 1 !important;
   color: rgba(207, 250, 254, 0.96) !important;
 }
 
 html.clara-guide-finance-carousel-active
 #root .clara-guide-carousel-target .clara-finance-bubble-card svg {
+  position: relative;
+  z-index: 30;
   opacity: 1 !important;
   color: rgba(207, 250, 254, 0.92) !important;
   filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.2));
