@@ -24,6 +24,29 @@ html.clara-guide-finance-carousel-active
   pointer-events: none !important;
 }
 
+html.clara-guide-finance-carousel-active
+#root .clara-guide-daily-tip-muted [data-clara-daily-tip-card="true"] {
+  opacity: 0.22;
+  filter: brightness(0.38) saturate(0.55) contrast(0.9);
+  pointer-events: none;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-daily-tip-muted .clara-daily-tip-face {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(2, 6, 23, 0.98),
+    rgba(4, 8, 22, 0.98)
+  ) !important;
+  box-shadow: none !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-daily-tip-muted .clara-daily-tip-face * {
+  color: rgba(255, 255, 255, 0.42);
+}
+
 #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub .clara-guide-bubble-shell {
   z-index: 220 !important;
 }
@@ -123,9 +146,35 @@ html.clara-guide-finance-carousel-active
   z-index: 190 !important;
   isolation: isolate;
   overflow: visible !important;
-  filter: brightness(1) saturate(1) contrast(1) !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+  filter: brightness(1) saturate(1) contrast(1) !important;
+  transform: translate3d(0, 0, 0) scale(1.01);
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target .clara-finance-slide-surface {
+  border-color: rgba(186, 242, 255, 0.34) !important;
+  filter: brightness(1.14) saturate(1.08) contrast(1.03) !important;
+  box-shadow:
+    0 28px 92px rgba(34, 211, 238, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-target::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.22), transparent 46%),
+    radial-gradient(circle at 82% 12%, rgba(129, 140, 248, 0.20), transparent 42%);
+  filter: blur(10px);
+  opacity: 0.82;
 }
 
 html.clara-guide-finance-carousel-active
