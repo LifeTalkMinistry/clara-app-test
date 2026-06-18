@@ -95,6 +95,7 @@ export default function FinancialCarousel(props) {
     [items, expandedFinanceCard]
   );
   const isInlineFocusExpanded = expandedCardIndex >= 0;
+  const isSwipeLocked = isInlineFocusExpanded;
   const bottomSpacingClass = flushSpacing ? "mb-0" : "mb-5";
 
   useEffect(() => {
@@ -115,7 +116,7 @@ export default function FinancialCarousel(props) {
   return (
     <div className={`relative z-20 ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
-      <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded}>
+      <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded} isSwipeLocked={isSwipeLocked}>
         {items.map((item, index) => {
           const isActiveSlide = index === activeIndex;
           const isNearbySlide = Math.abs(index - activeIndex) <= 1;
