@@ -66,6 +66,20 @@ html.clara-guide-finance-carousel-active
 }
 
 html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-slide-surface {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background-clip: padding-box !important;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card {
+  border-color: rgba(186, 242, 255, 0.14) !important;
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.32) !important;
+  background-clip: padding-box !important;
+}
+
+html.clara-guide-finance-carousel-active
 #root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card > .pointer-events-none.absolute,
 html.clara-guide-finance-carousel-active
 #root .clara-dashboard-hub-rail .clara-guide-carousel-target .clara-finance-bubble-card .pointer-events-none.absolute.opacity-\[0\.48\],
