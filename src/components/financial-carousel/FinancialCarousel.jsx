@@ -14,16 +14,6 @@ import {
 import useFinancialData from "@/hooks/useFinancialData";
 import useEmergencyFundAllocationSync from "@/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync";
 
-function CarouselCardPlaceholder({ item }) {
-  return (
-    <div className="pointer-events-none flex h-full min-h-[inherit] items-center justify-center rounded-[inherit] border border-white/[0.04] bg-black/[0.08]" aria-hidden="true">
-      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/25">
-        {item?.label || "CLARA"}
-      </span>
-    </div>
-  );
-}
-
 export default function FinancialCarousel(props) {
   const {
     dashboardScale = {},
@@ -128,13 +118,11 @@ export default function FinancialCarousel(props) {
         {items.map((item, index) => {
           const isActiveSlide = index === activeIndex;
           const isNearbySlide = Math.abs(index - activeIndex) <= 1;
-          const isDefaultSlide = index === defaultIndex;
           const isInlineExpanded = item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
-          const shouldRenderFullCard = isNearbySlide || isDefaultSlide || isInlineExpanded;
           // Visual performance:
           // Active/expanded cards get full premium visuals.
           // Nearby cards get medium visuals.
-          // Far cards should stay lite or placeholder-only.
+          // Far cards stay mounted as real cards, but render in lite mode.
           const performanceMode = isInlineExpanded || isActiveSlide ? "full" : isNearbySlide ? "medium" : "lite";
           const cardItem = item.type === "investmentFund"
             ? { ...item, data: { ...item.data, incomeSources, incomeData, refreshData, isActiveSlide, isNearbySlide, performanceMode } }
@@ -142,11 +130,7 @@ export default function FinancialCarousel(props) {
 
           return (
             <CarouselSlideShell key={cardItem.key} item={cardItem} selectedDashboardTheme={selectedDashboardTheme} dashboardScale={dashboardScale} isExpanded={isInlineExpanded} performanceMode={performanceMode}>
-              {shouldRenderFullCard ? (
-                <CarouselItemCard {...props} item={cardItem} selectedDashboardTheme={selectedDashboardTheme} expandedFinanceCard={expandedFinanceCard} loading={loading} performanceMode={performanceMode} isActiveSlide={isActiveSlide} isNearbySlide={isNearbySlide} />
-              ) : (
-                <CarouselCardPlaceholder item={cardItem} />
-              )}
+              <CarouselItemCard {...props} item={cardItem} selectedDashboardTheme={selectedDashboardTheme} expandedFinanceCard={expandedFinanceCard} loading={loading} performanceMode={performanceMode} isActiveSlide={isActiveSlide} isNearbySlide={isNearbySlide} />
             </CarouselSlideShell>
           );
         })}
