@@ -329,9 +329,7 @@ export default function Login() {
 
         <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-6">
           <div className="mb-4 flex justify-center">
-            <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <ClaraLogo variant="icon" theme="dark" />
-            </div>
+            <ClaraLogo variant="icon" theme="dark" />
           </div>
 
           <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.07)_0%,rgba(255,255,255,0.04)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.58),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
