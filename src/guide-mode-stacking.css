@@ -20,3 +20,17 @@
   position: relative;
   z-index: 10 !important;
 }
+
+#root .clara-guide-bubble-surface > p:last-child {
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+#root .clara-guide-bubble-surface > p:last-child::before {
+  content: "Open this once a day to get CLARA's money reminder and mark your daily habit. It helps you stay consistent, build your streak, and stay aware before spending.";
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.55;
+  color: #ffffff;
+}
