@@ -397,14 +397,14 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
           <div className='ml-auto flex shrink-0 items-center gap-2'>
             <div
               ref={pointBankRef}
-              aria-label={`Money Rush point bank: ${displayPointBank} points`}
+              aria-label={`Money Rush points: ${displayPointBank} points`}
               title={`${displayPointBank} Money Rush points`}
               className={`inline-flex h-11 min-w-[76px] items-center justify-center gap-1.5 rounded-2xl border border-amber-100/26 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.32),transparent_26%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(139,92,246,0.20)_52%,rgba(251,191,36,0.16))] px-2 text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_12px_28px_rgba(0,0,0,0.25),0_0_20px_rgba(34,211,238,0.14)] backdrop-blur-xl transition duration-300 ${isPointBankPopping ? 'scale-[1.08] border-amber-100/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.26),0_14px_32px_rgba(0,0,0,0.28),0_0_26px_rgba(251,191,36,0.32),0_0_34px_rgba(34,211,238,0.18)]' : ''}`}
             >
               <span className='flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-100/36 bg-[radial-gradient(circle_at_35%_28%,rgba(255,255,255,0.88),rgba(251,191,36,0.42)_34%,rgba(168,85,247,0.18))] text-[8px] font-black leading-none text-slate-950 shadow-[0_0_14px_rgba(251,191,36,0.22)]'>✦</span>
               <span className='flex flex-col items-start leading-none'>
                 <span className='text-[14px] font-black leading-none tracking-[-0.04em] text-white'>{displayPointBank}</span>
-                <span className='mt-0.5 text-[6px] font-black uppercase leading-none tracking-[0.14em] text-cyan-100/72'>Bank</span>
+                <span className='mt-0.5 text-[6px] font-black uppercase leading-none tracking-[0.14em] text-cyan-100/72'>Point</span>
               </span>
             </div>
 
