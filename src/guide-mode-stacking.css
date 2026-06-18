@@ -1,0 +1,22 @@
+/* CLARA Guide Mode stacking fix: keep Daily Money Tip guide bubble above the finance carousel. */
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail {
+  position: relative;
+  z-index: 70;
+  isolation: isolate;
+}
+
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub {
+  position: relative;
+  z-index: 180 !important;
+  overflow: visible !important;
+  isolation: isolate;
+}
+
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub .clara-guide-bubble-shell {
+  z-index: 220 !important;
+}
+
+#root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
+  position: relative;
+  z-index: 10 !important;
+}
