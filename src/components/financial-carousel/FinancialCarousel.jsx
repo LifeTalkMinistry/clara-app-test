@@ -125,7 +125,14 @@ export default function FinancialCarousel(props) {
           // Active/expanded cards get full premium visuals.
           // Nearby cards get medium visuals.
           // Far cards stay mounted as real cards, but render in lite mode.
-          const performanceMode = isInlineExpanded || isActiveSlide ? "full" : isNearbySlide ? "medium" : "lite";
+          // Guide Mode temporarily keeps every slide in full visual mode so the walkthrough never looks disabled while swiping.
+          const performanceMode = isGuideMode
+            ? "full"
+            : isInlineExpanded || isActiveSlide
+              ? "full"
+              : isNearbySlide
+                ? "medium"
+                : "lite";
           const cardItem = item.type === "investmentFund"
             ? { ...item, data: { ...item.data, incomeSources, incomeData, refreshData, isActiveSlide, isNearbySlide, performanceMode } }
             : item;
