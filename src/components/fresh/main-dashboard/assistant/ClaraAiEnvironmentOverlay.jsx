@@ -97,7 +97,6 @@ function FinalInstructionBoard({ selectedFeature, onClose, onOpenFeature }) {
             key={feature.id}
             type="button"
             data-clara-final-ai-tab={feature.id}
-            onClick={() => onOpenFeature?.(feature.id)}
             className={`min-h-[46px] rounded-2xl border px-2 text-[11px] font-black leading-tight transition active:scale-95 ${
               selectedFeature === feature.id
                 ? "border-cyan-100/28 bg-cyan-300/[0.16] text-white"
