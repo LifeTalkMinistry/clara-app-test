@@ -12,6 +12,7 @@ const LearningMaterialModal = lazy(() => import("./modal/LearningMaterialModal")
 const LearningVideoWatchModal = lazy(() => import("./modal/LearningVideoWatchModal"));
 const FourPicsOneMoneyWordModal = lazy(() => import("./modal/FourPicsOneMoneyWordModal"));
 const MoneyRushModal = lazy(() => import("./modal/MoneyRushModal"));
+const MoneyPulseModal = lazy(() => import("./modal/MoneyPulseModal"));
 
 export default function LearningHubLoaded({ initialExpanded = false, flushSpacing = false }) {
   const {
@@ -93,6 +94,12 @@ export default function LearningHubLoaded({ initialExpanded = false, flushSpacin
         <Suspense fallback={null}>
           {selectedGame.id === "money-rush" ? (
             <MoneyRushModal
+              isOpen={isGameOpen}
+              material={selectedGame}
+              onClose={closeGame}
+            />
+          ) : selectedGame.id === "money-pulse" ? (
+            <MoneyPulseModal
               isOpen={isGameOpen}
               material={selectedGame}
               onClose={closeGame}
