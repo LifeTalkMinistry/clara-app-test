@@ -100,7 +100,7 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
 
 function CarouselGuideBubble() {
   return (
-    <div className="clara-guide-carousel-bubble-shell pointer-events-none absolute bottom-full left-1/2 z-[220] mb-3 w-[min(92vw,372px)] -translate-x-1/2 isolate">
+    <div className="clara-guide-carousel-bubble-shell pointer-events-none absolute left-1/2 top-4 z-[220] w-[calc(100%-2rem)] max-w-[332px] -translate-x-1/2 isolate">
       <div className="clara-guide-bubble-surface relative rounded-[30px] border px-6 py-5 text-white">
         <div className="clara-guide-carousel-bubble-arrow pointer-events-none absolute -bottom-2 left-11 h-4 w-4 rotate-45 border-b border-r" />
 
