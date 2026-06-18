@@ -112,6 +112,23 @@ body::after {
   box-shadow: 0 0 18px rgba(0, 255, 220, 0.26);
 }
 
+@keyframes clara-guide-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-10px) scale(1.035);
+  }
+}
+
+#root .clara-guide-float {
+  animation: clara-guide-float 1s ease-in-out infinite !important;
+  transform-origin: center;
+  will-change: transform;
+}
+
 /* CLARA inline chat minimize control polish */
 #root button[aria-label="Close CLARA money chat"] {
   top: 0.35rem !important;
