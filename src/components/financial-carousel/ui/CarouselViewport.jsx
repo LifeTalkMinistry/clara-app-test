@@ -27,6 +27,7 @@ export default function CarouselViewport({
   return (
     <div
       className={[
+        "clara-finance-carousel-clip",
         allowVerticalOverflow ? "overflow-visible" : "overflow-hidden",
         clipClassName,
       ].join(" ")}
@@ -36,7 +37,7 @@ export default function CarouselViewport({
         onScroll={onScroll}
         data-swipe-locked={isSwipeLocked ? "true" : "false"}
         {...interactionHandlers}
-        className={viewportClassName}
+        className={`clara-finance-carousel-track ${viewportClassName}`}
       >
         {children}
       </div>
