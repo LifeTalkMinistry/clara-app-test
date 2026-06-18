@@ -49,6 +49,21 @@
   color: rgba(186, 242, 255, 0.92);
 }
 
+#root .clara-guide-next-button {
+  margin-top: 12px;
+  width: 100%;
+  border: 1px solid rgba(186, 242, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(186, 242, 255, 0.16);
+  padding: 10px 14px;
+  color: #ecfeff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-align: center;
+  box-shadow: 0 12px 34px rgba(34, 211, 238, 0.16), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
 html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-flipper {
   transform: translate3d(0, 0, 0) rotateY(180deg) !important;
 }
@@ -80,5 +95,19 @@ html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > p:l
 }
 
 html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > p:last-child::after {
-  content: "Nothing was changed here. This is only the Guide Mode demo.";
+  content: "Please click NEXT now to continue.";
+}
+
+html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > p:last-child::before {
+  content: "This next section is the financial carousel. For now, just practice the interaction.";
+}
+
+html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > p:last-child::after {
+  content: "Swipe left and right to see that the cards are movable.";
+}
+
+html.clara-guide-finance-carousel-active #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
+  z-index: 190 !important;
+  filter: brightness(1) saturate(1) contrast(1) !important;
+  opacity: 1 !important;
 }
