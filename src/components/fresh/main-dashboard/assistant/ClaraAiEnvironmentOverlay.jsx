@@ -1,30 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, X } from "lucide-react";
+import { ArrowUp, Check, SquareArrowOutUpRight, X } from "lucide-react";
 
-const CLARA_AI_BRAIN_VERSION = "final-ai-surface-v1-buy-check-forecast-analytic";
+const CLARA_AI_BRAIN_VERSION = "final-ai-surface-v2-compact-tabs";
 
 const FINAL_AI_FEATURES = [
-  {
-    id: "buy-check",
-    title: "Buy Check",
-    eyebrow: "BEFORE SPENDING",
-    description:
-      "Check a purchase against wallet, budget, goals, emergency fund, schedule, and memory before deciding.",
-  },
-  {
-    id: "forecast",
-    title: "Forecast",
-    eyebrow: "BEFORE PRESSURE HITS",
-    description:
-      "Read where your money is heading using income, expenses, budgets, savings, wallets, and risk signals.",
-  },
-  {
-    id: "analytic",
-    title: "Analytic",
-    eyebrow: "AFTER MONEY MOVES",
-    description:
-      "Review current money behavior, leaks, pressure, and the clearest financial pattern to fix first.",
-  },
+  { id: "buy-check", label: "Buy Check", icon: Check },
+  { id: "forecast", label: "Forecast", icon: SquareArrowOutUpRight },
+  { id: "analytic", label: "Analytic", icon: Check },
 ];
 
 function clean(value = "") {
@@ -36,7 +18,7 @@ function FloatingCloseButton({ onClose }) {
     <button
       type="button"
       onClick={onClose}
-      className="absolute right-4 top-4 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95"
+      className="absolute right-4 top-4 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/75 bg-white/[0.055] text-white shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95"
       aria-label="Close CLARA AI mode"
     >
       <X className="h-4 w-4" />
@@ -44,82 +26,48 @@ function FloatingCloseButton({ onClose }) {
   );
 }
 
-function FinalFeatureButton({ feature, active = false, onOpen }) {
+function PanelButton({ feature, active = false, onClick }) {
+  const Icon = feature.icon;
+
   return (
     <button
       type="button"
       data-clara-final-ai-feature={feature.id}
-      onClick={() => onOpen?.(feature.id)}
-      className={`group relative overflow-hidden rounded-[24px] border px-4 py-4 text-left shadow-[0_18px_44px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl transition active:scale-[0.985] ${
+      onClick={() => onClick?.(feature.id)}
+      className={`flex min-w-0 items-center justify-center gap-2 rounded-full border px-3 py-2.5 text-[12px] font-black leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-95 ${
         active
-          ? "border-cyan-100/24 bg-cyan-300/[0.13]"
-          : "border-white/10 bg-white/[0.055] hover:border-cyan-100/20 hover:bg-white/[0.075]"
+          ? "border-cyan-100/30 bg-cyan-300/[0.13] text-white"
+          : "border-white/14 bg-white/[0.055] text-white/86 hover:border-cyan-100/22 hover:bg-white/[0.075]"
       }`}
-      aria-label={`Open CLARA ${feature.title}`}
-      title={feature.title}
+      aria-label={`Open CLARA ${feature.label}`}
+      title={feature.label}
     >
-      <span className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-cyan-300/[0.10] blur-2xl transition group-hover:bg-cyan-300/[0.16]" />
-      <span className="pointer-events-none absolute -bottom-10 left-8 h-24 w-24 rounded-full bg-violet-400/[0.10] blur-2xl transition group-hover:bg-violet-400/[0.16]" />
-
-      <span className="relative z-10 block text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/56">
-        {feature.eyebrow}
+      <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[10px] ${active ? "border-emerald-200/35 bg-emerald-300/18 text-emerald-200" : "border-cyan-100/16 bg-black/15 text-cyan-100/72"}`}>
+        <Icon className="h-3.5 w-3.5" />
       </span>
-      <span className="relative z-10 mt-2 block text-[17px] font-black leading-tight tracking-[-0.03em] text-white">
-        {feature.title}
-      </span>
-      <span className="relative z-10 mt-2 block text-[12px] font-semibold leading-5 text-slate-300/68">
-        {feature.description}
-      </span>
+      <span className="min-w-0 truncate">{feature.label}</span>
     </button>
   );
 }
 
-function FinalInstructionBoard({ selectedFeature, onClose, onOpenFeature }) {
+function InstructionBoard({ onClose }) {
   return (
-    <section className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.055] px-5 pb-5 pt-14 text-center shadow-[0_24px_70px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+    <section className="relative overflow-hidden rounded-[30px] border border-cyan-100/22 bg-white/[0.055] px-6 pb-6 pt-8 text-center shadow-[0_26px_80px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
       <FloatingCloseButton onClose={onClose} />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_0%,rgba(45,212,191,0.22),transparent_34%),radial-gradient(circle_at_85%_18%,rgba(124,58,237,0.30),transparent_38%),linear-gradient(145deg,rgba(8,47,73,0.35),rgba(30,27,75,0.38))]" />
 
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_0%,rgba(45,212,191,0.20),transparent_34%),radial-gradient(circle_at_88%_14%,rgba(124,58,237,0.22),transparent_34%)]" />
-
-      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/56">
-        CLARA AI
+      <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100/55">
+        MONEY CHECK-IN
       </p>
-      <h3 className="mx-auto mt-3 max-w-[292px] text-[25px] font-black leading-[1.03] tracking-[-0.055em] text-white">
-        Choose the money intelligence you need.
+      <h3 className="mx-auto mt-4 max-w-[318px] text-[24px] font-black leading-[1.12] tracking-[-0.045em] text-white">
+        Need help thinking through a decision?
       </h3>
-      <p className="mx-auto mt-3 max-w-[296px] text-[13px] font-semibold leading-6 text-slate-300/70">
-        CLARA AI is now focused on three final systems: Buy Check, Forecast, and Analytic.
+      <p className="mx-auto mt-5 max-w-[292px] text-[13.5px] font-medium leading-7 text-slate-300/76">
+        Choose Buy Check, Forecast, or Analytic when you need CLARA to read your money situation.
       </p>
-
-      <div className="mt-5 grid grid-cols-3 gap-2">
-        {FINAL_AI_FEATURES.map((feature) => (
-          <button
-            key={feature.id}
-            type="button"
-            data-clara-final-ai-tab={feature.id}
-            className={`min-h-[46px] rounded-2xl border px-2 text-[11px] font-black leading-tight transition active:scale-95 ${
-              selectedFeature === feature.id
-                ? "border-cyan-100/28 bg-cyan-300/[0.16] text-white"
-                : "border-white/10 bg-black/15 text-slate-300/78 hover:border-cyan-100/20 hover:bg-white/[0.06]"
-            }`}
-            aria-label={`Open CLARA ${feature.title}`}
-            title={feature.title}
-          >
-            {feature.title}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-2">
-        {FINAL_AI_FEATURES.map((feature) => (
-          <FinalFeatureButton
-            key={feature.id}
-            feature={feature}
-            active={selectedFeature === feature.id}
-            onOpen={onOpenFeature}
-          />
-        ))}
-      </div>
+      <p className="mx-auto mt-3 max-w-[278px] text-[13.5px] font-medium leading-7 text-slate-300/70">
+        No rush. CLARA is here to help you pause before spending.
+      </p>
     </section>
   );
 }
@@ -135,7 +83,7 @@ export default function ClaraAiEnvironmentOverlay({
 }) {
   const [draft, setDraft] = useState("");
   const [localMessages, setLocalMessages] = useState([]);
-  const [selectedFeature, setSelectedFeature] = useState(null);
+  const [selectedFeature, setSelectedFeature] = useState("buy-check");
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -153,7 +101,7 @@ export default function ClaraAiEnvironmentOverlay({
     if (!isActive) {
       setDraft("");
       setLocalMessages([]);
-      setSelectedFeature(null);
+      setSelectedFeature("buy-check");
       return undefined;
     }
 
@@ -180,14 +128,6 @@ export default function ClaraAiEnvironmentOverlay({
 
   const openFeature = (featureId) => {
     setSelectedFeature(featureId);
-
-    const tabButton = document.querySelector(
-      `[data-clara-final-ai-tab="${featureId}"]`
-    );
-
-    if (tabButton) {
-      window.requestAnimationFrame(() => tabButton.click());
-    }
   };
 
   const submitDraft = (event) => {
@@ -206,7 +146,7 @@ export default function ClaraAiEnvironmentOverlay({
         id: `final-ai-clara-${Date.now()}`,
         role: "clara",
         text:
-          "Choose Buy Check, Forecast, or Analytic first so CLARA can use the correct money system. For purchases, start with Buy Check.",
+          "Use the buttons above first so CLARA can open the correct system: Buy Check, Forecast, or Analytic.",
       },
     ]);
     setDraft("");
@@ -214,14 +154,14 @@ export default function ClaraAiEnvironmentOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/92 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-xl"
+      className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/78 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]"
       data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}
     >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_4%,rgba(45,212,191,0.24),transparent_32%),radial-gradient(circle_at_88%_22%,rgba(124,58,237,0.22),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.96),rgba(2,6,23,0.99))]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_10%,rgba(45,212,191,0.26),transparent_34%),radial-gradient(circle_at_88%_12%,rgba(124,58,237,0.32),transparent_38%),linear-gradient(180deg,rgba(2,6,23,0.68),rgba(2,6,23,0.94))]" />
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-1 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+      <main className="min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
         {visibleMessages.length ? (
-          <div className="flex min-h-full flex-col justify-start gap-3 pb-28 pt-12">
+          <div className="flex min-h-full flex-col justify-start gap-3 px-2 pb-28 pt-12">
             <FloatingCloseButton onClose={onClose} />
             {visibleMessages.map((message, index) => {
               const isUser = message.role === "user";
@@ -237,26 +177,38 @@ export default function ClaraAiEnvironmentOverlay({
             <div ref={messagesEndRef} className="h-1 shrink-0" />
           </div>
         ) : (
-          <div className="flex min-h-full flex-col justify-center gap-4 pb-4">
-            <FinalInstructionBoard selectedFeature={selectedFeature} onClose={onClose} onOpenFeature={openFeature} />
+          <div className="flex min-h-full flex-col justify-end gap-4 pb-24 pt-20">
+            <InstructionBoard onClose={onClose} />
+            <div className="rounded-[25px] border border-white/12 bg-slate-950/72 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+              <div className="grid grid-cols-3 gap-2">
+                {FINAL_AI_FEATURES.map((feature) => (
+                  <PanelButton
+                    key={feature.id}
+                    feature={feature}
+                    active={selectedFeature === feature.id}
+                    onClick={openFeature}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </main>
 
-      <form onSubmit={submitDraft} className="shrink-0 rounded-[28px] border border-white/16 bg-slate-950/68 p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
+      <form onSubmit={submitDraft} className="shrink-0 rounded-[28px] border border-cyan-100/22 bg-white/[0.055] p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
         <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
           <input
             ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/70"
-            placeholder="Choose Buy Check, Forecast, or Analytic"
+            placeholder="Ask CLARA or enter item + price"
             inputMode="text"
           />
           <button
             type="submit"
             disabled={!draft.trim()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_26px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cyan-300/70 text-slate-950 shadow-[0_0_26px_rgba(45,212,191,0.22)] transition disabled:opacity-60 active:scale-95"
             aria-label="Send to CLARA"
           >
             <ArrowUp className="h-5 w-5" />
