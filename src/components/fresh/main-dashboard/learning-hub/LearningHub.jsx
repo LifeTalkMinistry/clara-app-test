@@ -31,23 +31,13 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
 
 function DailyTipGuideBubble() {
   return (
-    <div className="pointer-events-none absolute left-1/2 top-full z-[140] mt-2 w-[min(92vw,372px)] -translate-x-1/2 isolate">
-      <div
-        className="relative rounded-[30px] border border-cyan-100/28 px-6 py-5 text-white shadow-[0_30px_90px_rgba(0,0,0,0.72),0_0_54px_rgba(34,211,238,0.20)] backdrop-blur-2xl"
-        style={{
-          background:
-            "linear-gradient(145deg, rgba(3,12,29,0.985), rgba(5,16,38,0.985) 48%, rgba(16,12,45,0.985))",
-          backgroundColor: "rgba(3,12,29,0.985)",
-        }}
-      >
-        <div
-          className="pointer-events-none absolute -top-2 left-11 h-4 w-4 rotate-45 border-l border-t border-cyan-100/28"
-          style={{ backgroundColor: "rgba(3,12,29,0.985)" }}
-        />
-        <p className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/74">
+    <div className="clara-guide-bubble-shell pointer-events-none absolute left-1/2 top-full z-[160] mt-2 w-[min(92vw,372px)] -translate-x-1/2 isolate">
+      <div className="clara-guide-bubble-surface relative rounded-[30px] border px-6 py-5 text-white">
+        <div className="clara-guide-bubble-arrow pointer-events-none absolute -top-2 left-11 h-4 w-4 rotate-45 border-l border-t" />
+        <p className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
           Daily Money Tip
         </p>
-        <p className="relative z-10 mt-3 text-[13px] font-semibold leading-relaxed text-cyan-50/92">
+        <p className="relative z-10 mt-3 text-[14px] font-bold leading-relaxed text-white">
           CLARA gives you one quick money reminder before you spend. Select the Daily Money Tip card to continue.
         </p>
       </div>
@@ -82,7 +72,7 @@ export default function LearningHub({
   return (
     <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        <div className={`${isDailyTipGuideActive ? "relative z-[120] isolate" : "relative"} overflow-visible`}>
+        <div className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} overflow-visible`}>
           <DailyTipCard
             hasCommittedAccess={hasCommittedAccess}
             onOpenCommitmentBooklet={openCommittedVersionModal}
