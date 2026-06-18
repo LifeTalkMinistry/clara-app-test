@@ -47,6 +47,7 @@ function DailyTipGuideBubble() {
 
 export default function LearningHub({
   isGuideMode = false,
+  guideFeature = "",
   guideStep = 0,
   isDailyTipGuideActive = false,
   hasNewGuide = false,
@@ -57,6 +58,7 @@ export default function LearningHub({
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
+  const isCarouselGuideActive = isGuideMode && guideFeature === "finance-carousel";
 
   const handleOpenHub = () => {
     if (isGuideMode) return;
@@ -72,7 +74,11 @@ export default function LearningHub({
   return (
     <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        <div className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} overflow-visible`}>
+        <div
+          className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} ${
+            isCarouselGuideActive ? "clara-guide-daily-tip-muted" : ""
+          } overflow-visible`}
+        >
           <DailyTipCard
             hasCommittedAccess={hasCommittedAccess}
             onOpenCommitmentBooklet={openCommittedVersionModal}
