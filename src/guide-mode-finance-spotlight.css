@@ -9,6 +9,8 @@ html.clara-guide-finance-carousel-active
   z-index: 195 !important;
   isolation: isolate !important;
   overflow: visible !important;
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 html.clara-guide-finance-carousel-active
@@ -17,6 +19,8 @@ html.clara-guide-finance-carousel-active
   z-index: 205 !important;
   isolation: isolate !important;
   overflow: visible !important;
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 html.clara-guide-finance-carousel-active
