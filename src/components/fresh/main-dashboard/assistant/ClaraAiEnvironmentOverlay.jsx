@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Check, SquareArrowOutUpRight, X } from "lucide-react";
+import { ArrowUp, X } from "lucide-react";
 
 const CLARA_AI_BRAIN_VERSION = "final-ai-surface-v2-compact-tabs";
 
 const FINAL_AI_FEATURES = [
-  { id: "buy-check", label: "Buy Check", icon: Check },
-  { id: "forecast", label: "Forecast", icon: SquareArrowOutUpRight },
-  { id: "analytic", label: "Analytic", icon: Check },
+  { id: "buy-check", label: "Buy Check" },
+  { id: "forecast", label: "Forecast" },
+  { id: "analytic", label: "Analytic" },
 ];
 
 function clean(value = "") {
@@ -27,14 +27,12 @@ function FloatingCloseButton({ onClose }) {
 }
 
 function PanelButton({ feature, active = false, onClick }) {
-  const Icon = feature.icon;
-
   return (
     <button
       type="button"
       data-clara-final-ai-feature={feature.id}
       onClick={() => onClick?.(feature.id)}
-      className={`flex min-w-0 items-center justify-center gap-2 rounded-full border px-3 py-2.5 text-[12px] font-black leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-95 ${
+      className={`flex min-w-0 items-center justify-center rounded-full border px-2.5 py-2.5 text-[12px] font-black leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-95 ${
         active
           ? "border-cyan-100/30 bg-cyan-300/[0.13] text-white"
           : "border-white/14 bg-white/[0.055] text-white/86 hover:border-cyan-100/22 hover:bg-white/[0.075]"
@@ -42,10 +40,7 @@ function PanelButton({ feature, active = false, onClick }) {
       aria-label={`Open CLARA ${feature.label}`}
       title={feature.label}
     >
-      <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[10px] ${active ? "border-emerald-200/35 bg-emerald-300/18 text-emerald-200" : "border-cyan-100/16 bg-black/15 text-cyan-100/72"}`}>
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <span className="min-w-0 truncate">{feature.label}</span>
+      <span className="min-w-0 truncate text-center">{feature.label}</span>
     </button>
   );
 }
