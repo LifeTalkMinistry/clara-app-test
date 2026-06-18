@@ -79,6 +79,7 @@ export default function LearningHub({
             flushSpacing
             isGuideMode={isGuideMode}
             guideStep={guideStep}
+            isDailyTipGuideActive={isDailyTipGuideActive}
             onGuideDailyTipTap={onGuideDailyTipTap}
           />
 
