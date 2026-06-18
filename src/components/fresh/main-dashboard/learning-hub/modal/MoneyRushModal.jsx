@@ -62,28 +62,28 @@ function clearTimers(timerIds) {
   timerIds.current = [];
 }
 
-function readMoneyRushScoreBank() {
+function readMoneyRushScoreState() {
   if (typeof window === 'undefined') return { pointBank: 0, bestScore: 0 };
 
   try {
-    const rawScoreBank = window.localStorage.getItem(MONEY_RUSH_SCORE_STORAGE_KEY);
-    if (!rawScoreBank) return { pointBank: 0, bestScore: 0 };
+    const rawScoreState = window.localStorage.getItem(MONEY_RUSH_SCORE_STORAGE_KEY);
+    if (!rawScoreState) return { pointBank: 0, bestScore: 0 };
 
-    const parsedScoreBank = JSON.parse(rawScoreBank);
-    if (!parsedScoreBank || parsedScoreBank.version !== MONEY_RUSH_SCORE_VERSION) {
+    const parsedScoreState = JSON.parse(rawScoreState);
+    if (!parsedScoreState || parsedScoreState.version !== MONEY_RUSH_SCORE_VERSION) {
       return { pointBank: 0, bestScore: 0 };
     }
 
     return {
-      pointBank: Math.max(0, Number(parsedScoreBank.pointBank) || 0),
-      bestScore: Math.max(0, Number(parsedScoreBank.bestScore) || 0),
+      pointBank: Math.max(0, Number(parsedScoreState.pointBank) || 0),
+      bestScore: Math.max(0, Number(parsedScoreState.bestScore) || 0),
     };
   } catch {
     return { pointBank: 0, bestScore: 0 };
   }
 }
 
-function writeMoneyRushScoreBank(scoreBank) {
+function writeMoneyRushScoreState(scoreState) {
   if (typeof window === 'undefined') return;
 
   try {
@@ -91,8 +91,8 @@ function writeMoneyRushScoreBank(scoreBank) {
       MONEY_RUSH_SCORE_STORAGE_KEY,
       JSON.stringify({
         version: MONEY_RUSH_SCORE_VERSION,
-        pointBank: Math.max(0, Number(scoreBank?.pointBank) || 0),
-        bestScore: Math.max(0, Number(scoreBank?.bestScore) || 0),
+        pointBank: Math.max(0, Number(scoreState?.pointBank) || 0),
+        bestScore: Math.max(0, Number(scoreState?.bestScore) || 0),
         savedAt: Date.now(),
       }),
     );
@@ -105,10 +105,10 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
   const transitionTimersRef = useRef([]);
   const pointAnimationTimersRef = useRef([]);
   const resultBankedRef = useRef(false);
-  const initialScoreBankRef = useRef(null);
+  const initialScoreStateRef = useRef(null);
 
-  if (!initialScoreBankRef.current) {
-    initialScoreBankRef.current = readMoneyRushScoreBank();
+  if (!initialScoreStateRef.current) {
+    initialScoreStateRef.current = readMoneyRushScoreState();
   }
 
   const [gameStatus, setGameStatus] = useState('menu');
@@ -120,10 +120,11 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
   const [isAnswerLocked, setIsAnswerLocked] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [runQuestions, setRunQuestions] = useState(() => createTimeRushQuestions());
-  const [scoreBank, setScoreBank] = useState(() => initialScoreBankRef.current);
-  const [displayPointBank, setDisplayPointBank] = useState(() => initialScoreBankRef.current.pointBank);
+  const [scoreState, setScoreState] = useState(() => initialScoreStateRef.current);
+  const [animatedTotalPoints, setAnimatedTotalPoints] = useState(() => initialScoreStateRef.current.pointBank);
   const [pointRewardAnimation, setPointRewardAnimation] = useState(null);
-  const [isPointBankPopping, setIsPointBankPopping] = useState(false);
+  const [isTotalPointsPopping, setIsTotalPointsPopping] = useState(false);
+  const [resultPointMath, setResultPointMath] = useState(null);
 
   const currentQuestion = runQuestions[currentQuestionIndex] || runQuestions[0] || MONEY_RUSH_FALLBACK_QUESTION;
   const totalQuestions = runQuestions.length || 1;
@@ -150,15 +151,15 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
 
   const triggerPointRewardAnimation = useCallback(({ amount, previousPoints, nextPoints }) => {
     if (typeof window === 'undefined') {
-      setDisplayPointBank(nextPoints);
+      setAnimatedTotalPoints(nextPoints);
       return;
     }
 
     clearPointAnimationTimers();
 
     const animationId = Date.now();
-    setDisplayPointBank(previousPoints);
-    setIsPointBankPopping(false);
+    setAnimatedTotalPoints(previousPoints);
+    setIsTotalPointsPopping(false);
     setPointRewardAnimation({ id: animationId, amount, phase: 'ready' });
 
     pointAnimationTimersRef.current.push(
@@ -166,24 +167,24 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
         setPointRewardAnimation((current) => (
           current?.id === animationId ? { ...current, phase: 'adding' } : current
         ));
-      }, 450),
+      }, 350),
     );
 
     pointAnimationTimersRef.current.push(
       window.setTimeout(() => {
-        setDisplayPointBank(nextPoints);
-        setIsPointBankPopping(true);
+        setAnimatedTotalPoints(nextPoints);
+        setIsTotalPointsPopping(true);
         setPointRewardAnimation((current) => (
           current?.id === animationId ? { ...current, phase: 'landed' } : current
         ));
-      }, 1050),
+      }, 900),
     );
 
     pointAnimationTimersRef.current.push(
       window.setTimeout(() => {
         setPointRewardAnimation((current) => (current?.id === animationId ? null : current));
-        setIsPointBankPopping(false);
-      }, 1800),
+        setIsTotalPointsPopping(false);
+      }, 1650),
     );
   }, [clearPointAnimationTimers]);
 
@@ -193,21 +194,26 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
 
     resultBankedRef.current = true;
 
-    setScoreBank((currentScoreBank) => {
-      const previousPoints = Math.max(0, Number(currentScoreBank.pointBank) || 0);
-      const nextScoreBank = {
+    setScoreState((currentScoreState) => {
+      const previousPoints = Math.max(0, Number(currentScoreState.pointBank) || 0);
+      const nextScoreState = {
         pointBank: previousPoints + safeScoreAmount,
-        bestScore: Math.max(Number(currentScoreBank.bestScore) || 0, safeScoreAmount),
+        bestScore: Math.max(Number(currentScoreState.bestScore) || 0, safeScoreAmount),
       };
 
-      writeMoneyRushScoreBank(nextScoreBank);
+      writeMoneyRushScoreState(nextScoreState);
+      setResultPointMath({
+        previousPoints,
+        earnedPoints: safeScoreAmount,
+        nextPoints: nextScoreState.pointBank,
+      });
       triggerPointRewardAnimation({
         amount: safeScoreAmount,
         previousPoints,
-        nextPoints: nextScoreBank.pointBank,
+        nextPoints: nextScoreState.pointBank,
       });
 
-      return nextScoreBank;
+      return nextScoreState;
     });
   }, [triggerPointRewardAnimation]);
 
@@ -215,7 +221,8 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     clearPendingTransitions();
     clearPointAnimationTimers();
     setPointRewardAnimation(null);
-    setIsPointBankPopping(false);
+    setIsTotalPointsPopping(false);
+    setResultPointMath(null);
     setGameStatus('menu');
     setCurrentQuestionIndex(0);
     setTimeBank(STARTING_TIME_BANK);
@@ -225,15 +232,16 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setIsAnswerLocked(false);
     setFinalScore(0);
     setRunQuestions(createTimeRushQuestions());
-    setDisplayPointBank(scoreBank.pointBank);
+    setAnimatedTotalPoints(scoreState.pointBank);
     resultBankedRef.current = false;
-  }, [clearPendingTransitions, clearPointAnimationTimers, scoreBank.pointBank]);
+  }, [clearPendingTransitions, clearPointAnimationTimers, scoreState.pointBank]);
 
   const startGame = () => {
     clearPendingTransitions();
     clearPointAnimationTimers();
     setPointRewardAnimation(null);
-    setIsPointBankPopping(false);
+    setIsTotalPointsPopping(false);
+    setResultPointMath(null);
     setRunQuestions(createTimeRushQuestions());
     setGameStatus('playing');
     setCurrentQuestionIndex(0);
@@ -243,7 +251,7 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
     setFeedback(null);
     setIsAnswerLocked(false);
     setFinalScore(0);
-    setDisplayPointBank(scoreBank.pointBank);
+    setAnimatedTotalPoints(scoreState.pointBank);
     resultBankedRef.current = false;
   };
 
@@ -409,13 +417,13 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
               </div>
 
               <div className='mt-3 grid grid-cols-2 gap-2.5'>
-                <div className='flex items-center justify-between rounded-2xl border border-cyan-100/18 bg-[linear-gradient(135deg,rgba(6,182,212,0.13),rgba(15,23,42,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl'>
+                <div className='rounded-[22px] border border-cyan-100/16 bg-[linear-gradient(135deg,rgba(6,182,212,0.12),rgba(15,23,42,0.34))] px-3 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl'>
                   <p className='text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100/66'>Total Points</p>
-                  <p className='text-[23px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(103,232,249,0.22)]'>{displayPointBank}</p>
+                  <p className='mt-1 text-[24px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(103,232,249,0.22)]'>{scoreState.pointBank}</p>
                 </div>
-                <div className='flex items-center justify-between rounded-2xl border border-violet-100/18 bg-[linear-gradient(135deg,rgba(139,92,246,0.14),rgba(15,23,42,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl'>
+                <div className='rounded-[22px] border border-violet-100/16 bg-[linear-gradient(135deg,rgba(139,92,246,0.13),rgba(15,23,42,0.34))] px-3 py-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl'>
                   <p className='text-[9px] font-black uppercase tracking-[0.16em] text-violet-100/68'>Best Score</p>
-                  <p className='text-[23px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(196,181,253,0.22)]'>{scoreBank.bestScore}</p>
+                  <p className='mt-1 text-[24px] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_0_14px_rgba(196,181,253,0.22)]'>{scoreState.bestScore}</p>
                 </div>
               </div>
             </div>
@@ -593,11 +601,11 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
               <p className='mt-2 text-[13px] font-semibold text-white/70'>{resultLine}</p>
 
               <div className='mt-4 grid grid-cols-2 gap-3'>
-                <div className={`relative overflow-hidden rounded-[24px] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(15,23,42,0.46),rgba(124,58,237,0.16))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)] transition duration-300 ${isPointBankPopping ? 'scale-[1.03] border-amber-100/38 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_26px_rgba(251,191,36,0.22)]' : ''}`}>
+                <div className={`relative overflow-hidden rounded-[24px] border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.16),rgba(15,23,42,0.46),rgba(124,58,237,0.16))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)] transition duration-300 ${isTotalPointsPopping ? 'scale-[1.03] border-amber-100/38 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_26px_rgba(251,191,36,0.22)]' : ''}`}>
                   <p className='text-[9px] font-black uppercase tracking-[0.20em] text-cyan-100/64'>Total Points</p>
                   <div className='mt-2 flex items-center justify-center gap-2'>
                     <p className='text-[34px] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_18px_rgba(103,232,249,0.24)]'>
-                      {displayPointBank}
+                      {animatedTotalPoints}
                     </p>
                     {pointRewardAnimation ? (
                       <span className={`rounded-full border border-amber-100/32 bg-amber-100/16 px-2 py-1 text-[10px] font-black text-amber-50 shadow-[0_0_16px_rgba(251,191,36,0.18)] transition duration-500 ${pointRewardAnimation.phase === 'adding' ? 'translate-y-[-4px] scale-110 opacity-100' : pointRewardAnimation.phase === 'landed' ? 'translate-y-[-10px] scale-90 opacity-0' : 'opacity-80'}`}>
@@ -606,12 +614,17 @@ export default function MoneyRushModal({ isOpen, material, onClose }) {
                     ) : null}
                   </div>
                   <p className='mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/58'>Points</p>
+                  {resultPointMath ? (
+                    <p className='mt-2 text-[10px] font-bold text-white/52'>
+                      {resultPointMath.previousPoints} + {resultPointMath.earnedPoints} = {resultPointMath.nextPoints}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className='rounded-[24px] border border-violet-100/18 bg-[linear-gradient(135deg,rgba(139,92,246,0.16),rgba(15,23,42,0.46),rgba(34,211,238,0.08))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.13)]'>
                   <p className='text-[9px] font-black uppercase tracking-[0.20em] text-violet-100/64'>Best Score</p>
                   <p className='mt-2 text-[34px] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_18px_rgba(196,181,253,0.22)]'>
-                    {scoreBank.bestScore}
+                    {scoreState.bestScore}
                   </p>
                   <p className='mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-violet-100/58'>Points</p>
                 </div>
