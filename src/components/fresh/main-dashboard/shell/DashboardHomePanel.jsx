@@ -16,58 +16,6 @@ import {
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const GUIDE_FEATURE_DAILY_MONEY_TIP = "daily-money-tip";
 
-const GUIDE_DEMO_WALLET_MONEY = 3200;
-const GUIDE_DEMO_WALLETS = [
-  {
-    id: "clara-guide-demo-wallet",
-    name: "Guide Wallet",
-    wallet_name: "Guide Wallet",
-    type: "cash",
-    balance: GUIDE_DEMO_WALLET_MONEY,
-    amount: GUIDE_DEMO_WALLET_MONEY,
-    current_balance: GUIDE_DEMO_WALLET_MONEY,
-    sort_order: 0,
-  },
-];
-const GUIDE_DEMO_WALLET_PREVIEW_TRANSACTIONS = [
-  {
-    id: "clara-guide-demo-transaction-1",
-    type: "expense",
-    category: "Food",
-    description: "Sample lunch",
-    amount: 120,
-    created_at: new Date().toISOString(),
-  },
-];
-const GUIDE_DEMO_MONTHLY_BUDGET_PLAN = {
-  declared_budget: 5000,
-  total_budget: 5000,
-  spent_amount: 3550,
-  spent_total: 3550,
-  remaining: 1450,
-  remaining_amount: 1450,
-  status: "guide-demo",
-  is_complete: true,
-  categories: [
-    { id: "guide-essentials", name: "Essentials", allocated_amount: 2500, spent_amount: 1800 },
-    { id: "guide-food", name: "Food", allocated_amount: 1600, spent_amount: 1250 },
-    { id: "guide-flex", name: "Flexible", allocated_amount: 900, spent_amount: 500 },
-  ],
-};
-const GUIDE_DEMO_SAVINGS_GOALS = [
-  {
-    id: "clara-guide-demo-savings",
-    name: "Sample Savings",
-    goal_name: "Sample Savings",
-    saved_amount: 650,
-    current_amount: 650,
-    target_amount: 3000,
-  },
-];
-const GUIDE_DEMO_TOTAL_SAVINGS_SAVED = 650;
-const GUIDE_DEMO_TOTAL_SAVINGS_TARGET = 3000;
-const GUIDE_DEMO_SURVIVAL_EXPENSE = 0;
-
 const runInAnimationFrame = (callback) => {
   if (typeof callback !== "function") return;
 
@@ -208,6 +156,21 @@ function DailyMoneyTipGuideResult({ onUnderstand, onTryRealClara }) {
   );
 }
 
+function ClaraGuideCoveredFinanceRail() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[80] flex items-start justify-center rounded-[30px] bg-slate-950/66 px-4 py-6 backdrop-blur-[3px]">
+      <div className="mt-2 w-full max-w-[22rem] rounded-[26px] border border-cyan-100/16 bg-[rgba(4,16,34,0.84)] p-4 text-center text-white shadow-[0_22px_70px_rgba(0,0,0,0.42),0_0_34px_rgba(34,211,238,0.10)] backdrop-blur-2xl">
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/58">
+          Covered in Guide Mode
+        </p>
+        <p className="mt-2 text-[12px] font-semibold leading-relaxed text-cyan-50/76">
+          Budget, Money Left, and the rest of the dashboard stay untouched while this walkthrough focuses on Daily Money Tip.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardHomePanel({
   isPending,
   dashboardShellReady,
@@ -275,19 +238,18 @@ export default function DashboardHomePanel({
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
   const isFreePlan = currentPlan === "free";
   const hasNewDailyMoneyTipGuide = !isDailyMoneyTipGuideComplete(claraGuideProgress);
+  const isDailyTipGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_DAILY_MONEY_TIP && guideStep === 0;
 
-  const effectiveWallets = isGuideMode ? GUIDE_DEMO_WALLETS : wallets;
-  const effectiveWalletMoney = isGuideMode ? GUIDE_DEMO_WALLET_MONEY : walletMoney;
-  const effectiveWalletPreviewTransactions = isGuideMode
-    ? GUIDE_DEMO_WALLET_PREVIEW_TRANSACTIONS
-    : walletPreviewTransactions;
-  const effectiveMonthlyBudgetPlan = isGuideMode ? GUIDE_DEMO_MONTHLY_BUDGET_PLAN : monthlyBudgetPlan;
-  const effectiveSavingsGoals = isGuideMode ? GUIDE_DEMO_SAVINGS_GOALS : savingsGoals;
-  const effectiveTotalSavingsSaved = isGuideMode ? GUIDE_DEMO_TOTAL_SAVINGS_SAVED : totalSavingsSaved;
-  const effectiveTotalSavingsTarget = isGuideMode ? GUIDE_DEMO_TOTAL_SAVINGS_TARGET : totalSavingsTarget;
-  const effectivePrimarySavingsGoal = isGuideMode ? GUIDE_DEMO_SAVINGS_GOALS[0] : primarySavingsGoal;
-  const effectiveSurvivalExpense = isGuideMode ? GUIDE_DEMO_SURVIVAL_EXPENSE : survivalExpense;
-  const effectiveThisMonthSpent = isGuideMode ? 3550 : thisMonthSpent;
+  const effectiveWallets = wallets;
+  const effectiveWalletMoney = walletMoney;
+  const effectiveWalletPreviewTransactions = walletPreviewTransactions;
+  const effectiveMonthlyBudgetPlan = monthlyBudgetPlan;
+  const effectiveSavingsGoals = savingsGoals;
+  const effectiveTotalSavingsSaved = totalSavingsSaved;
+  const effectiveTotalSavingsTarget = totalSavingsTarget;
+  const effectivePrimarySavingsGoal = primarySavingsGoal;
+  const effectiveSurvivalExpense = survivalExpense;
+  const effectiveThisMonthSpent = thisMonthSpent;
 
   const handleSaveBudget = useCallback(() => {
     runInAnimationFrame(() => openBudgetModal());
@@ -440,8 +402,8 @@ export default function DashboardHomePanel({
 
   return (
     <>
-      {isGuideMode && guideStep === 0 ? (
-        <div className="fixed inset-0 z-40 bg-slate-950/64 backdrop-blur-[1.5px]" aria-hidden="true" />
+      {isDailyTipGuideActive ? (
+        <div className="fixed inset-0 z-[60] bg-slate-950/64 backdrop-blur-[1.5px]" aria-hidden="true" />
       ) : null}
 
       {isGuideIntroOpen ? (
@@ -472,93 +434,97 @@ export default function DashboardHomePanel({
           />
         )}
 
-        <div className="clara-dashboard-bottom-finance-rail flex flex-col [--clara-bottom-finance-gap:clamp(16px,2dvh,20px)] gap-[var(--clara-bottom-finance-gap)]">
-          {(!!user || isGuideMode) && (
-            <div className={dashboardScale.financeWrap}>
-              {!isGuideMode ? <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} /> : null}
+        <div className="relative">
+          <div className={`clara-dashboard-bottom-finance-rail flex flex-col [--clara-bottom-finance-gap:clamp(16px,2dvh,20px)] gap-[var(--clara-bottom-finance-gap)] transition duration-300 ${isDailyTipGuideActive ? "pointer-events-none select-none opacity-20 blur-[1px]" : ""}`}>
+            {(!!user || isGuideMode) && (
+              <div className={dashboardScale.financeWrap}>
+                {!isGuideMode ? <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} /> : null}
 
-              {shouldShowNonBlockingRefresh && !isGuideMode ? (
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
-                  Refreshing finance data...
-                </div>
-              ) : null}
+                {shouldShowNonBlockingRefresh && !isGuideMode ? (
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+                    Refreshing finance data...
+                  </div>
+                ) : null}
 
-              <FinancialCarousel
-                flushSpacing
-                dashboardScale={dashboardScale}
-                selectedDashboardTheme={selectedDashboardTheme}
-                themeInactiveDotClass={themeInactiveDotClass}
-                plan={effectivePlan}
-                wallets={effectiveWallets}
-                walletMoney={effectiveWalletMoney}
-                walletPreviewTransactions={effectiveWalletPreviewTransactions}
-                survivalExpense={effectiveSurvivalExpense}
-                user={isGuideMode ? null : user}
-                guardChecked={isGuideMode ? false : guardChecked}
-                loading={isGuideMode ? false : loading}
-                profileData={isGuideMode ? { plan: "pro" } : profileData}
-                firstPositiveNumber={firstPositiveNumber}
-                readStoredSurvivalExpense={isGuideMode ? undefined : readStoredSurvivalExpense}
-                monthlyBudgetPlan={effectiveMonthlyBudgetPlan}
-                thisMonthSpent={effectiveThisMonthSpent}
-                savingsGoals={effectiveSavingsGoals}
-                totalSavingsSaved={effectiveTotalSavingsSaved}
-                totalSavingsTarget={effectiveTotalSavingsTarget}
-                primarySavingsGoal={effectivePrimarySavingsGoal}
-                expandedFinanceCard={isGuideMode ? null : expandedFinanceCard}
-                toggleFinanceDetails={isGuideMode ? undefined : toggleFinanceDetails}
-                financeActionLoading={isGuideMode ? false : financeActionLoading}
-                onQuickExpense={isGuideMode ? undefined : openManualExpenseModal}
-                onSurvivalSaved={isGuideMode ? undefined : saveSurvivalExpenseInline}
-                onSaveBudget={isGuideMode ? undefined : handleSaveBudget}
-                onEditBudgetCategory={isGuideMode ? undefined : handleEditBudgetCategory}
-                onDeleteBudgetCategory={isGuideMode ? undefined : handleDeleteBudgetCategory}
-                onResetBudget={isGuideMode ? undefined : handleResetBudget}
-                onCreateWallet={isGuideMode ? undefined : handleCreateWallet}
-                onMoveWallet={isGuideMode ? undefined : moveWalletInline}
-                onDeleteWallet={isGuideMode ? undefined : handleDeleteWallet}
-                onAddMoney={isGuideMode ? undefined : handleAddMoney}
-                onTransferMoney={isGuideMode ? undefined : handleTransferMoney}
-                onSaveSavingsGoal={isGuideMode ? undefined : handleSaveSavingsGoal}
-                onDeleteSavingsGoal={isGuideMode ? undefined : handleDeleteSavingsGoal}
-                onAddSavings={isGuideMode ? undefined : handleAddSavings}
-                startClaraAiLongPress={isGuideMode || isFreePlan ? undefined : startClaraAiLongPress}
-                endClaraAiLongPress={isGuideMode || isFreePlan ? undefined : endClaraAiLongPress}
-                handleClaraAiOrbClickCapture={isGuideMode || isFreePlan ? undefined : handleClaraAiOrbClickCapture}
-                isGuideMode={isGuideMode}
-              />
-            </div>
-          )}
+                <FinancialCarousel
+                  flushSpacing
+                  dashboardScale={dashboardScale}
+                  selectedDashboardTheme={selectedDashboardTheme}
+                  themeInactiveDotClass={themeInactiveDotClass}
+                  plan={effectivePlan}
+                  wallets={effectiveWallets}
+                  walletMoney={effectiveWalletMoney}
+                  walletPreviewTransactions={effectiveWalletPreviewTransactions}
+                  survivalExpense={effectiveSurvivalExpense}
+                  user={isGuideMode ? null : user}
+                  guardChecked={isGuideMode ? false : guardChecked}
+                  loading={isGuideMode ? false : loading}
+                  profileData={isGuideMode ? { plan: "pro" } : profileData}
+                  firstPositiveNumber={firstPositiveNumber}
+                  readStoredSurvivalExpense={isGuideMode ? undefined : readStoredSurvivalExpense}
+                  monthlyBudgetPlan={effectiveMonthlyBudgetPlan}
+                  thisMonthSpent={effectiveThisMonthSpent}
+                  savingsGoals={effectiveSavingsGoals}
+                  totalSavingsSaved={effectiveTotalSavingsSaved}
+                  totalSavingsTarget={effectiveTotalSavingsTarget}
+                  primarySavingsGoal={effectivePrimarySavingsGoal}
+                  expandedFinanceCard={isGuideMode ? null : expandedFinanceCard}
+                  toggleFinanceDetails={isGuideMode ? undefined : toggleFinanceDetails}
+                  financeActionLoading={isGuideMode ? false : financeActionLoading}
+                  onQuickExpense={isGuideMode ? undefined : openManualExpenseModal}
+                  onSurvivalSaved={isGuideMode ? undefined : saveSurvivalExpenseInline}
+                  onSaveBudget={isGuideMode ? undefined : handleSaveBudget}
+                  onEditBudgetCategory={isGuideMode ? undefined : handleEditBudgetCategory}
+                  onDeleteBudgetCategory={isGuideMode ? undefined : handleDeleteBudgetCategory}
+                  onResetBudget={isGuideMode ? undefined : handleResetBudget}
+                  onCreateWallet={isGuideMode ? undefined : handleCreateWallet}
+                  onMoveWallet={isGuideMode ? undefined : moveWalletInline}
+                  onDeleteWallet={isGuideMode ? undefined : handleDeleteWallet}
+                  onAddMoney={isGuideMode ? undefined : handleAddMoney}
+                  onTransferMoney={isGuideMode ? undefined : handleTransferMoney}
+                  onSaveSavingsGoal={isGuideMode ? undefined : handleSaveSavingsGoal}
+                  onDeleteSavingsGoal={isGuideMode ? undefined : handleDeleteSavingsGoal}
+                  onAddSavings={isGuideMode ? undefined : handleAddSavings}
+                  startClaraAiLongPress={isGuideMode || isFreePlan ? undefined : startClaraAiLongPress}
+                  endClaraAiLongPress={isGuideMode || isFreePlan ? undefined : endClaraAiLongPress}
+                  handleClaraAiOrbClickCapture={isGuideMode || isFreePlan ? undefined : handleClaraAiOrbClickCapture}
+                  isGuideMode={isGuideMode}
+                />
+              </div>
+            )}
 
-          <DashboardMoneySummaryStable
-            flushSpacing
-            key={moneySummaryResetKey}
-            dashboardScale={dashboardScale}
-            selectedDashboardTheme={selectedDashboardTheme}
-            themeIsLight={themeIsLight}
-            themeSoftTextClass={themeSoftTextClass}
-            themePrimaryTextClass={themePrimaryTextClass}
-            moneySummaryVisible={moneySummaryVisible}
-            toggleMoneySummaryVisibility={isGuideMode ? undefined : toggleMoneySummaryVisibility}
-            moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}
-            handleMoneyLeftOrbClick={isGuideMode ? undefined : handleMoneyLeftOrbClick}
-            startMoneyLeftOrbLongPress={isGuideMode ? undefined : startMoneyLeftOrbLongPress}
-            moveMoneyLeftOrbLongPress={isGuideMode ? undefined : moveMoneyLeftOrbLongPress}
-            endMoneyLeftOrbLongPress={isGuideMode ? undefined : endMoneyLeftOrbLongPress}
-            stopMoneyLeftOrbEvent={isGuideMode ? undefined : stopMoneyLeftOrbEvent}
-            walletMoney={effectiveWalletMoney}
-            thisMonthSpent={effectiveThisMonthSpent}
-            monthlyBudgetPlan={effectiveMonthlyBudgetPlan}
-            savingsGoals={effectiveSavingsGoals}
-            totalSavingsSaved={effectiveTotalSavingsSaved}
-            totalSavingsTarget={effectiveTotalSavingsTarget}
-            primarySavingsGoal={effectivePrimarySavingsGoal}
-            survivalExpense={effectiveSurvivalExpense}
-            wallets={effectiveWallets}
-            walletPreviewTransactions={effectiveWalletPreviewTransactions}
-            fmt={fmt}
-          />
+            <DashboardMoneySummaryStable
+              flushSpacing
+              key={moneySummaryResetKey}
+              dashboardScale={dashboardScale}
+              selectedDashboardTheme={selectedDashboardTheme}
+              themeIsLight={themeIsLight}
+              themeSoftTextClass={themeSoftTextClass}
+              themePrimaryTextClass={themePrimaryTextClass}
+              moneySummaryVisible={moneySummaryVisible}
+              toggleMoneySummaryVisibility={isGuideMode ? undefined : toggleMoneySummaryVisibility}
+              moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}
+              handleMoneyLeftOrbClick={isGuideMode ? undefined : handleMoneyLeftOrbClick}
+              startMoneyLeftOrbLongPress={isGuideMode ? undefined : startMoneyLeftOrbLongPress}
+              moveMoneyLeftOrbLongPress={isGuideMode ? undefined : moveMoneyLeftOrbLongPress}
+              endMoneyLeftOrbLongPress={isGuideMode ? undefined : endMoneyLeftOrbLongPress}
+              stopMoneyLeftOrbEvent={isGuideMode ? undefined : stopMoneyLeftOrbEvent}
+              walletMoney={effectiveWalletMoney}
+              thisMonthSpent={effectiveThisMonthSpent}
+              monthlyBudgetPlan={effectiveMonthlyBudgetPlan}
+              savingsGoals={effectiveSavingsGoals}
+              totalSavingsSaved={effectiveTotalSavingsSaved}
+              totalSavingsTarget={effectiveTotalSavingsTarget}
+              primarySavingsGoal={effectivePrimarySavingsGoal}
+              survivalExpense={effectiveSurvivalExpense}
+              wallets={effectiveWallets}
+              walletPreviewTransactions={effectiveWalletPreviewTransactions}
+              fmt={fmt}
+            />
+          </div>
+
+          {isDailyTipGuideActive ? <ClaraGuideCoveredFinanceRail /> : null}
         </div>
       </div>
 
