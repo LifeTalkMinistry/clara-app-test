@@ -21,13 +21,13 @@
   z-index: 10 !important;
 }
 
-#root .clara-guide-bubble-surface > p:last-child {
+#root .clara-guide-bubble-surface > .clara-guide-bubble-copy {
   font-size: 0 !important;
   line-height: 0 !important;
 }
 
-#root .clara-guide-bubble-surface > p:last-child::before {
-  content: "Open this once a day to get CLARA's money reminder and mark your daily habit. It helps you stay consistent, build your streak, and stay aware before spending.";
+#root .clara-guide-bubble-surface > .clara-guide-bubble-copy::before {
+  content: "Open this once a day to get CLARA's money reminder before you spend. It helps you pause, stay aware, and build a simple daily money habit.";
   display: block;
   font-size: 14px;
   font-weight: 700;
@@ -35,7 +35,7 @@
   color: #ffffff;
 }
 
-#root .clara-guide-bubble-surface > p:last-child::after {
+#root .clara-guide-bubble-surface > .clara-guide-bubble-copy::after {
   content: "Tap the card now to see a sample Daily Money Tip.";
   display: block;
   margin-top: 12px;
@@ -50,6 +50,7 @@
 }
 
 #root .clara-guide-next-button {
+  pointer-events: auto;
   margin-top: 12px;
   width: 100%;
   border: 1px solid rgba(186, 242, 255, 0.3);
@@ -90,24 +91,25 @@ html.clara-guide-daily-tip-sample-active #root .clara-daily-tip-face--back p::be
   color: rgba(255, 255, 255, 0.94);
 }
 
-html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > p:last-child::before {
-  content: "This is the sample Daily Money Tip view. In real use, opening this card marks your daily habit and reveals the reminder for the day.";
+html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > .clara-guide-bubble-copy::before {
+  content: "This is the sample Daily Money Tip view. In real use, opening this card reveals the reminder for the day and helps you stay consistent.";
 }
 
-html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > p:last-child::after {
-  content: "Please click NEXT now to continue.";
+html.clara-guide-daily-tip-sample-active #root .clara-guide-bubble-surface > .clara-guide-bubble-copy::after {
+  content: "Click NEXT to continue.";
 }
 
-html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > p:last-child::before {
-  content: "This next section is the financial carousel. For now, just practice the interaction.";
+html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > .clara-guide-bubble-copy::before {
+  content: "This section can be swiped left or right to move between CLARA's money features.";
 }
 
-html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > p:last-child::after {
-  content: "Swipe left and right to see that the cards are movable.";
+html.clara-guide-finance-carousel-active #root .clara-guide-bubble-surface > .clara-guide-bubble-copy::after {
+  content: "Swipe left or right to try the carousel.";
 }
 
 html.clara-guide-finance-carousel-active #root .fixed.inset-0.z-\[60\] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
   z-index: 190 !important;
   filter: brightness(1) saturate(1) contrast(1) !important;
   opacity: 1 !important;
+  pointer-events: auto !important;
 }
