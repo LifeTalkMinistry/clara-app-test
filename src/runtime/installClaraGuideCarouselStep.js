@@ -1,6 +1,7 @@
 const SAMPLE_CLASS = "clara-guide-daily-tip-sample-active";
 const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
 const NEXT_CLASS = "clara-guide-next-button";
+const TARGET_CHANGE_EVENT = "clara:guide-target-change";
 
 function hasGuideSample() {
   return document.documentElement.classList.contains(SAMPLE_CLASS);
@@ -35,10 +36,17 @@ function goToCarouselStep() {
 
   document.documentElement.classList.remove(SAMPLE_CLASS);
   document.documentElement.classList.add(CAROUSEL_CLASS);
+
+  window.dispatchEvent(
+    new CustomEvent(TARGET_CHANGE_EVENT, {
+      detail: { feature: "finance-carousel" },
+    })
+  );
+
   removeNextButton();
 
   window.setTimeout(() => {
-    document.querySelector(".clara-dashboard-bottom-finance-rail")?.scrollIntoView?.({
+    document.querySelector(".clara-guide-carousel-anchor")?.scrollIntoView?.({
       block: "center",
       behavior: "smooth",
     });
