@@ -46,32 +46,32 @@ export default function WalletSummaryStats({
   ];
 
   return (
-    <div className='flex flex-col gap-3'>
+    <div className='flex flex-col gap-3.5'>
       <div>
-        <p className={`text-[32px] font-black leading-none tracking-[-0.05em] ${status.text} drop-shadow-[0_0_14px_rgba(110,231,255,0.12)]`}>
+        <p className={`text-[clamp(1.95rem,8vw,2.25rem)] font-black leading-none tracking-[-0.055em] ${status.text} drop-shadow-[0_10px_26px_rgba(0,0,0,0.22)]`}>
           {fmt(walletMoney)}
         </p>
 
-        <p className='mt-2 text-sm font-semibold leading-tight text-white/76'>
+        <p className='mt-2.5 max-w-[92%] text-[13px] font-semibold leading-snug text-white/72'>
           Available across all wallets.
         </p>
       </div>
 
-      <div className='overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm'>
-        <div className='grid grid-cols-2 divide-x divide-white/[0.055]'>
+      <div className='overflow-hidden rounded-[24px] border border-cyan-100/[0.10] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.075),0_14px_28px_rgba(0,0,0,0.16),0_0_24px_rgba(103,232,249,0.035)] backdrop-blur-xl'>
+        <div className='grid grid-cols-2 divide-x divide-white/[0.07]'>
           {summaryTiles.map((tile) => (
-            <div key={tile.label} className='relative px-2.5 py-2.5 text-center'>
-              <div className='pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent' />
+            <div key={tile.label} className='relative min-w-0 px-2.5 py-3 text-center'>
+              <div className='pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent' />
 
               <p
-                className={`flex min-h-[1rem] items-center justify-center truncate text-[13px] font-black leading-none tracking-[-0.03em] ${
-                  tile.valueClassName || 'text-white/88'
+                className={`flex min-h-[1rem] items-center justify-center truncate text-[13px] font-black leading-none tracking-[-0.025em] ${
+                  tile.valueClassName || 'text-white/90'
                 }`}
               >
                 {tile.value}
               </p>
 
-              <p className='mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34'>
+              <p className='mt-1.5 truncate text-[8px] font-black uppercase tracking-[0.16em] text-white/40'>
                 {tile.label}
               </p>
             </div>

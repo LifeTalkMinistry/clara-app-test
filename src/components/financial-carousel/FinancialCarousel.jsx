@@ -11,6 +11,7 @@ import {
   FINANCIAL_CAROUSEL_FOCUS_STYLES,
   getExpandedCarouselCardIndex,
 } from "./shared/financialCarouselFocus";
+import { FINANCIAL_CAROUSEL_PREMIUM_GLASS_STYLES } from "./shared/financeCardStyles";
 import useFinancialData from "@/hooks/useFinancialData";
 import useEmergencyFundAllocationSync from "@/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync";
 
@@ -115,7 +116,7 @@ export default function FinancialCarousel(props) {
 
   return (
     <div className={`relative z-20 ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
-      <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
+      <style>{`${FINANCIAL_CAROUSEL_FOCUS_STYLES}\n${FINANCIAL_CAROUSEL_PREMIUM_GLASS_STYLES}`}</style>
       <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded} isSwipeLocked={isSwipeLocked}>
         {items.map((item, index) => {
           const isActiveSlide = index === activeIndex;
