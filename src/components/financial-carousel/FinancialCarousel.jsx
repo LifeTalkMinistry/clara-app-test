@@ -44,6 +44,7 @@ export default function FinancialCarousel(props) {
     firstPositiveNumber,
     readStoredSurvivalExpense,
     isGuideMode = false,
+    onGuideCarouselIndexChange,
   } = props;
 
   const effectiveUser = isGuideMode ? null : user;
@@ -112,6 +113,24 @@ export default function FinancialCarousel(props) {
     root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
     return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
   }, [isInlineFocusExpanded]);
+
+  useEffect(() => {
+    if (!isGuideMode || typeof onGuideCarouselIndexChange !== "function") return undefined;
+
+    const activeItem = items[activeIndex] || null;
+
+    // In this LTR scroll-snap carousel, swiping left moves the viewport toward
+    // a larger scrollLeft value, which means the active slide index increases.
+    onGuideCarouselIndexChange({
+      index: activeIndex,
+      cardKey: activeItem?.key || activeItem?.type || "fallback",
+      cardType: activeItem?.type || activeItem?.key || "fallback",
+      total: items.length,
+      swipeLeftIncreasesIndex: true,
+    });
+
+    return undefined;
+  }, [activeIndex, isGuideMode, items, onGuideCarouselIndexChange]);
 
   if (!items.length) return null;
 
