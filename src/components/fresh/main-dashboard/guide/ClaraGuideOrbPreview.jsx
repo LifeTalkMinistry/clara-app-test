@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-
-const LOG_EXPENSE_FIELDS = [
-  { label: "Amount", value: "₱120" },
-  { label: "Budget List", value: "Food" },
-  { label: "Wallet", value: "Main Wallet" },
-];
+import ClaraGuideManualExpensePreview from "@/components/fresh/main-dashboard/guide/ClaraGuideManualExpensePreview";
 
 const TRANSACTION_HUB_ROWS = [
   { type: "Expense", label: "Food", amount: "−₱120" },
@@ -16,7 +11,7 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
   const headingRef = useRef(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+    if (preview === "log-expense" || typeof window === "undefined") return undefined;
 
     const frameId = window.requestAnimationFrame(() => {
       headingRef.current?.focus?.({ preventScroll: true });
@@ -40,27 +35,22 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
     [onNext]
   );
 
-  const isLogExpensePreview = preview === "log-expense";
+  if (preview === "log-expense") {
+    return <ClaraGuideManualExpensePreview onNext={onNext} />;
+  }
+
   const isTransactionHubPreview = preview === "transaction-hub";
   const isClaraChatPreview = preview === "clara-chat";
 
-  if (!isLogExpensePreview && !isTransactionHubPreview && !isClaraChatPreview) return null;
+  if (!isTransactionHubPreview && !isClaraChatPreview) return null;
 
-  const title = isLogExpensePreview
-    ? "Log Expense"
-    : isTransactionHubPreview
-      ? "Transaction Hub"
-      : "Chat with CLARA";
-  const body = isLogExpensePreview
-    ? "A single tap opens the expense form so you can record spending quickly."
-    : isTransactionHubPreview
-      ? "Two quick taps take you to the place where all recorded money activity can be reviewed."
-      : null;
-  const safetyMessage = isLogExpensePreview
-    ? "SIMULATION ONLY — NOTHING WILL BE SAVED."
-    : isTransactionHubPreview
-      ? "SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED."
-      : "SIMULATION ONLY — NO MESSAGE WILL BE SENT.";
+  const title = isTransactionHubPreview ? "Transaction Hub" : "Chat with CLARA";
+  const body = isTransactionHubPreview
+    ? "Two quick taps take you to the place where all recorded money activity can be reviewed."
+    : null;
+  const safetyMessage = isTransactionHubPreview
+    ? "SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED."
+    : "SIMULATION ONLY — NO MESSAGE WILL BE SENT.";
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[245] flex items-end justify-center px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-24">
@@ -109,21 +99,7 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
           </div>
         )}
 
-        {isLogExpensePreview ? (
-          <div className="mt-5 grid gap-2.5" aria-label="Static expense demonstration">
-            {LOG_EXPENSE_FIELDS.map((field) => (
-              <div
-                key={field.label}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3"
-              >
-                <span className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100/58">
-                  {field.label}
-                </span>
-                <strong className="text-[13px] font-black text-white">{field.value}</strong>
-              </div>
-            ))}
-          </div>
-        ) : isTransactionHubPreview ? (
+        {isTransactionHubPreview ? (
           <div className="mt-5 grid gap-2.5" aria-label="Static transaction demonstration">
             {TRANSACTION_HUB_ROWS.map((transaction) => (
               <div
