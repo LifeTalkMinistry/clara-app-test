@@ -14,6 +14,7 @@ import App from "./App.jsx";
 import "./index.css";
 import "./guide-mode-stacking.css";
 import "./guide-mode-finance-spotlight.css";
+import "./guide-mode-money-left-spotlight.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
