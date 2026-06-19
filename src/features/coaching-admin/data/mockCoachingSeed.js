@@ -302,28 +302,41 @@ function dateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function buildAvailability(settings = DEFAULT_SETTINGS, sourceAppointments = appointments) {
+export function buildAvailability(
+  settings = DEFAULT_SETTINGS,
+  sourceAppointments = appointments,
+  { dateBlocks = {}, customHours = {}, timeBlocks = [] } = {}
+) {
   const result = [];
   const start = new Date(2026, 5, 1);
-  const end = new Date(2026, 7, 31);
+  const end = new Date(2026, 5 + Math.max(Number(settings.bookingWindowMonths) || 1, 1), 0);
   const appointmentBySlot = new Map(
     sourceAppointments.map((item) => [`${item.dateKey}_${item.startTime.replace(":", "-")}`, item])
   );
 
   for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
-    const working = settings.workingDays.includes(cursor.getDay()) && !(settings.sundayOff && cursor.getDay() === 0);
+    const key = dateKey(cursor);
+    const custom = customHours[key];
+    const working =
+      Boolean(custom) ||
+      (settings.workingDays.includes(cursor.getDay()) && !(settings.sundayOff && cursor.getDay() === 0));
     if (!working) continue;
 
-    const key = dateKey(cursor);
-    const startMinutes = minutesFromTime(settings.dayStart);
-    const endMinutes = minutesFromTime(settings.dayEnd);
+    const startMinutes = minutesFromTime(custom?.dayStart || settings.dayStart);
+    const endMinutes = minutesFromTime(custom?.dayEnd || settings.dayEnd);
 
     for (let minutes = startMinutes; minutes + settings.durationMinutes <= endMinutes; minutes += settings.durationMinutes) {
       const startTime = timeFromMinutes(minutes);
       const endTime = timeFromMinutes(minutes + settings.durationMinutes);
       const id = `${key}_${startTime.replace(":", "-")}`;
       const linkedAppointment = appointmentBySlot.get(id);
-      let status = "available";
+      const timeBlock = timeBlocks.find(
+        (block) =>
+          block.dateKey === key &&
+          startTime >= block.startTime &&
+          startTime < block.endTime
+      );
+      let status = dateBlocks[key] || timeBlock ? "blocked" : "available";
 
       if (linkedAppointment) {
         if (["pending", "reschedule_requested"].includes(linkedAppointment.status)) status = "pending";
@@ -338,8 +351,11 @@ export function buildAvailability(settings = DEFAULT_SETTINGS, sourceAppointment
         coachId: linkedAppointment?.coachId || settings.defaultCoachId,
         status,
         appointmentId: status === "available" ? null : linkedAppointment?.id || null,
-        blockReason: "",
-        manuallyBlocked: false,
+        blockReason:
+          status === "blocked"
+            ? dateBlocks[key]?.reason || timeBlock?.reason || "Blocked by admin"
+            : "",
+        manuallyBlocked: status === "blocked",
       });
     }
   }
@@ -359,6 +375,15 @@ export function buildAvailability(settings = DEFAULT_SETTINGS, sourceAppointment
 }
 
 export function createMockCoachingSeed() {
+  const dateBlocks = {
+    "2026-07-04": { reason: "Personal day off", type: "personal_day" },
+    "2026-07-20": { reason: "Holiday", type: "holiday" },
+  };
+  const customHours = {
+    "2026-07-11": { dayStart: "11:00", dayEnd: "14:00" },
+  };
+  const timeBlocks = [];
+
   return {
     version: 1,
     settings: { ...DEFAULT_SETTINGS },
@@ -368,14 +393,10 @@ export function createMockCoachingSeed() {
       ...item,
       specialFlags: { ...item.specialFlags },
     })),
-    availability: buildAvailability(DEFAULT_SETTINGS, appointments),
-    dateBlocks: {
-      "2026-07-04": { reason: "Personal day off", type: "personal_day" },
-      "2026-07-20": { reason: "Holiday", type: "holiday" },
-    },
-    customHours: {
-      "2026-07-11": { dayStart: "11:00", dayEnd: "14:00" },
-    },
+    availability: buildAvailability(DEFAULT_SETTINGS, appointments, { dateBlocks, customHours, timeBlocks }),
+    dateBlocks,
+    customHours,
+    timeBlocks,
     lastUpdatedAt: "2026-06-19T10:00:00.000Z",
   };
 }
