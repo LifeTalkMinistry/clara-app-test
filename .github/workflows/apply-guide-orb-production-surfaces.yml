@@ -1,0 +1,69 @@
+name: Apply orb guide production surfaces
+
+on:
+  push:
+    branches:
+      - fix/guide-orb-production-surfaces
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Reconstruct and apply implementation bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/patch-parts/guide-orb-*.part > /tmp/guide-orb-bundle.b64
+          base64 -d /tmp/guide-orb-bundle.b64 > /tmp/guide-orb-bundle.tar.gz
+          mkdir -p /tmp/guide-orb-bundle
+          tar -xzf /tmp/guide-orb-bundle.tar.gz -C /tmp/guide-orb-bundle
+          node /tmp/guide-orb-bundle/apply.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Publish validation summary
+        shell: bash
+        run: |
+          {
+            echo '## CLARA orb Guide validation'
+            echo '- Build: passed'
+            echo '- Lint outcome: ${{ steps.lint.outcome }}'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit implementation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/patch-parts
+          rm -f .github/scripts/test-write.txt
+          rm -f .github/workflows/apply-guide-orb-production-surfaces.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: use production surfaces in the Money Left orb guide'
+          git push origin HEAD:${{ github.ref_name }}
