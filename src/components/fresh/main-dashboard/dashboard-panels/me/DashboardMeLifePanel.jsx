@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
-import ClaraGuideMePageOverlay from "../../guide/ClaraGuideMePageOverlay";
 import FinancialClimateScreen from "./FinancialClimateUniversalScreen";
 
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
@@ -35,6 +34,7 @@ export default function DashboardMeLifePanel() {
   }, []);
 
   useEffect(() => {
+    const syncPhaseFromRoot = () => setMeGuidePhase(readMeGuidePhase());
     const handleMeGuidePhaseChange = (event) => {
       setMeGuidePhase(event?.detail?.phase || "inactive");
     };
@@ -43,11 +43,21 @@ export default function DashboardMeLifePanel() {
       if (event?.detail?.active === false) setMeGuidePhase("inactive");
     };
 
+    const observer =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(syncPhaseFromRoot)
+        : null;
+    observer?.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
     window.addEventListener(CLARA_GUIDE_ME_PHASE_CHANGE_EVENT, handleMeGuidePhaseChange);
     window.addEventListener(CLARA_GUIDE_EXIT_EVENT, handleGuideExit);
     window.addEventListener(CLARA_GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
 
     return () => {
+      observer?.disconnect();
       window.removeEventListener(CLARA_GUIDE_ME_PHASE_CHANGE_EVENT, handleMeGuidePhaseChange);
       window.removeEventListener(CLARA_GUIDE_EXIT_EVENT, handleGuideExit);
       window.removeEventListener(CLARA_GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
@@ -89,8 +99,6 @@ export default function DashboardMeLifePanel() {
           guidePreviewMode={guidePreviewMode}
         />
       </div>
-
-      {guidePreviewMode ? <ClaraGuideMePageOverlay phase={meGuidePhase} /> : null}
     </div>
   );
 }
