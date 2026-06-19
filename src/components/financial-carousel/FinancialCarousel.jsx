@@ -47,6 +47,7 @@ export default function FinancialCarousel(props) {
     onGuideCarouselIndexChange,
     guideAllowedSwipeDirection = null,
     guideMaxStepPerInteraction = null,
+    guideCarouselLocked = false,
   } = props;
 
   const effectiveUser = isGuideMode ? null : user;
@@ -101,8 +102,10 @@ export default function FinancialCarousel(props) {
     [items, expandedFinanceCard]
   );
   const isInlineFocusExpanded = expandedCardIndex >= 0;
-  const isSwipeLocked = isInlineFocusExpanded;
-  const isControlledGuideSwipe = isGuideMode && Number(guideMaxStepPerInteraction) > 0;
+  const isTerminalGuideLocked = isGuideMode && guideCarouselLocked;
+  const isSwipeLocked = isInlineFocusExpanded || isTerminalGuideLocked;
+  const isControlledGuideSwipe =
+    isGuideMode && Number(guideMaxStepPerInteraction) > 0 && !isTerminalGuideLocked;
   const bottomSpacingClass = flushSpacing ? "mb-0" : "mb-5";
   const productionGuideMatchedClass = isGuideMode ? "" : "clara-production-guide-matched-carousel";
 
@@ -142,7 +145,15 @@ export default function FinancialCarousel(props) {
   return (
     <div className={`relative z-20 ${productionGuideMatchedClass} ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
-      <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded} isSwipeLocked={isSwipeLocked} isControlledGuideSwipe={isControlledGuideSwipe}>
+      <CarouselViewport
+        carouselRef={carouselRef}
+        onScroll={handleScroll}
+        interactionHandlers={isTerminalGuideLocked ? {} : interactionHandlers}
+        clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
+        allowVerticalOverflow={isInlineFocusExpanded}
+        isSwipeLocked={isSwipeLocked}
+        isControlledGuideSwipe={isControlledGuideSwipe}
+      >
         {items.map((item, index) => {
           const isActiveSlide = index === activeIndex;
           const isNearbySlide = Math.abs(index - activeIndex) <= 1;
@@ -170,7 +181,7 @@ export default function FinancialCarousel(props) {
           );
         })}
       </CarouselViewport>
-      <CarouselDots items={items} activeIndex={activeIndex} onSelect={scrollToIndex} dashboardScale={dashboardScale} selectedDashboardTheme={selectedDashboardTheme} themeInactiveDotClass={themeInactiveDotClass} />
+      <CarouselDots items={items} activeIndex={activeIndex} onSelect={isTerminalGuideLocked ? undefined : scrollToIndex} dashboardScale={dashboardScale} selectedDashboardTheme={selectedDashboardTheme} themeInactiveDotClass={themeInactiveDotClass} />
     </div>
   );
 }
