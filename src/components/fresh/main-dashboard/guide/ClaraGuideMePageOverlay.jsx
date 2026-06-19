@@ -27,7 +27,7 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
   const updatePosition = useCallback(() => {
     const bubble = bubbleRef.current;
-    const preview = bubble?.closest?.("[data-clara-guide-me-preview='true']");
+    const preview = document.querySelector("[data-clara-guide-me-preview='true']");
     if (!bubble || !preview) return;
 
     const previewRect = preview.getBoundingClientRect();
@@ -35,14 +35,14 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
     const setupCta = preview.querySelector("[data-clara-life-stage-setup-cta='true']");
     const padding = 14;
     const gap = 14;
-    const minTop = padding;
-    const maxTop = Math.max(minTop, previewRect.height - bubbleRect.height - padding);
+    const minTop = previewRect.top + padding;
+    const maxTop = Math.max(minTop, previewRect.bottom - bubbleRect.height - padding);
     let nextTop = maxTop;
 
     if (setupCta) {
       const ctaRect = setupCta.getBoundingClientRect();
-      const belowCta = ctaRect.bottom - previewRect.top + gap;
-      const aboveCta = ctaRect.top - previewRect.top - bubbleRect.height - gap;
+      const belowCta = ctaRect.bottom + gap;
+      const aboveCta = ctaRect.top - bubbleRect.height - gap;
 
       if (belowCta <= maxTop) nextTop = belowCta;
       else if (aboveCta >= minTop) nextTop = aboveCta;
@@ -60,7 +60,7 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
     const handleResize = () => updatePosition();
     window.addEventListener("resize", handleResize);
 
-    const preview = bubbleRef.current?.closest?.("[data-clara-guide-me-preview='true']");
+    const preview = document.querySelector("[data-clara-guide-me-preview='true']");
     const observer =
       typeof ResizeObserver !== "undefined" && preview
         ? new ResizeObserver(handleResize)
@@ -96,8 +96,8 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 z-[95] px-3"
-      style={{ top: top === null ? "auto" : `${top}px`, bottom: top === null ? "14px" : "auto" }}
+      className="pointer-events-none fixed left-1/2 z-[95] w-[min(calc(100vw-24px),406px)] -translate-x-1/2 px-3"
+      style={{ top: top === null ? "calc(100svh - 250px)" : `${top}px` }}
     >
       <div
         ref={bubbleRef}
