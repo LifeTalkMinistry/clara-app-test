@@ -1,0 +1,66 @@
+/* CLARA Guide Mode Money Left spotlight.
+   Loaded after the existing guide stacking and finance spotlight files.
+   Raise only Money Left, while the completed finance carousel and Learning Hub
+   remain muted and non-interactive. */
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail {
+  position: relative !important;
+}
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub {
+  position: relative !important;
+  z-index: 1 !important;
+  opacity: 0.22 !important;
+  filter: brightness(0.38) saturate(0.55) contrast(0.9) !important;
+  pointer-events: none !important;
+}
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub * {
+  pointer-events: none !important;
+}
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
+  position: relative !important;
+  z-index: 195 !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail > div {
+  position: relative !important;
+  z-index: 1 !important;
+  opacity: 0.22 !important;
+  filter: brightness(0.38) saturate(0.55) contrast(0.9) !important;
+  pointer-events: none !important;
+}
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary'] {
+  position: relative !important;
+  z-index: 215 !important;
+  isolation: isolate !important;
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: none !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary']::before,
+html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary']::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  filter: none !important;
+}
