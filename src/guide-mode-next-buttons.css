@@ -149,6 +149,25 @@
   margin-top: 0 !important;
 }
 
+/* Touch screens need a more forgiving physical target and must not reinterpret a
+   light tap as a tiny scroll gesture before the progression action can run. */
+@media (pointer: coarse) {
+  #root#root button:is(
+    .clara-guide-next-button,
+    .clara-guide-carousel-next-button,
+    .clara-guide-orb-next,
+    .clara-guide-orb-feature-next,
+    [data-clara-guide-action='next'],
+    [data-clara-guide-orb-preview-next='true'],
+    [data-clara-guide-orb-ui-next='true']
+  ) {
+    min-width: 132px !important;
+    min-height: 50px !important;
+    padding: 13px 24px !important;
+    touch-action: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #root#root button:is(
     .clara-guide-next-button,
