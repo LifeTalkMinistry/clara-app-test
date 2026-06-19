@@ -73,6 +73,7 @@ export default function DashboardMoneySummaryStable({
   const isMountedRef = useRef(true);
   const lastTapAtRef = useRef(0);
   const pointerStateRef = useRef({ startX: 0, startY: 0, moved: false });
+  const pointerIsDownRef = useRef(false);
   const [isGuideOrbHolding, setIsGuideOrbHolding] = useState(false);
   const guideOrbStateRef = useRef({
     isGuideMode,
@@ -146,6 +147,7 @@ export default function DashboardMoneySummaryStable({
       longPressTriggeredRef.current = false;
       keyboardHoldActiveRef.current = false;
       lastTapAtRef.current = 0;
+      pointerIsDownRef.current = false;
       pointerStateRef.current = { startX: 0, startY: 0, moved: false };
 
       if (updateHolding) {
@@ -259,6 +261,8 @@ export default function DashboardMoneySummaryStable({
   const handleOrbPointerDown = useCallback(
     (event) => {
       stopOrbEvent(event);
+      pointerIsDownRef.current = true;
+
       const currentGuideState = guideOrbStateRef.current;
       if (
         currentGuideState.isGuideMode &&
@@ -394,6 +398,7 @@ export default function DashboardMoneySummaryStable({
   const handleOrbPointerUp = useCallback(
     (event) => {
       stopOrbEvent(event);
+      pointerIsDownRef.current = false;
 
       const currentGuideState = guideOrbStateRef.current;
       if (
@@ -434,6 +439,18 @@ export default function DashboardMoneySummaryStable({
         return;
       }
 
+      if (isAwaitSingleGuideActive()) {
+        clearTapTimer();
+        clearLongPressTimer();
+        lastTapAtRef.current = 0;
+        pointerStateRef.current = { startX: 0, startY: 0, moved: false };
+        keyboardHoldActiveRef.current = false;
+        longPressTriggeredRef.current = false;
+        invalidateGestureCallbacks();
+        onGuideOrbSingleTap?.();
+        return;
+      }
+
       const now = Date.now();
       const previousTapAt = lastTapAtRef.current || 0;
 
@@ -442,7 +459,7 @@ export default function DashboardMoneySummaryStable({
         clearTapTimer();
         invalidateGestureCallbacks();
 
-        if (isAwaitSingleGuideActive() || isAwaitDoubleGuideActive()) {
+        if (isAwaitDoubleGuideActive()) {
           onGuideOrbDoubleTap?.();
           return;
         }
@@ -479,12 +496,6 @@ export default function DashboardMoneySummaryStable({
 
         lastTapAtRef.current = 0;
 
-        if (isAwaitSingleGuideActive()) {
-          invalidateGestureCallbacks();
-          onGuideOrbSingleTap?.();
-          return;
-        }
-
         if (!guideOrbStateRef.current.isGuideMode) {
           invalidateGestureCallbacks();
           openManualLog(event);
@@ -514,6 +525,7 @@ export default function DashboardMoneySummaryStable({
   const handleOrbCancel = useCallback(
     (event) => {
       stopOrbEvent(event);
+      pointerIsDownRef.current = false;
 
       if (!isGuideMode) {
         endMoneyLeftOrbLongPress?.(event);
@@ -522,6 +534,14 @@ export default function DashboardMoneySummaryStable({
       resetOrbGestureState();
     },
     [endMoneyLeftOrbLongPress, isGuideMode, resetOrbGestureState, stopOrbEvent]
+  );
+
+  const handleOrbPointerLeave = useCallback(
+    (event) => {
+      if (!pointerIsDownRef.current) return;
+      handleOrbCancel(event);
+    },
+    [handleOrbCancel]
   );
 
   const handleOrbClick = useCallback(
@@ -607,22 +627,12 @@ export default function DashboardMoneySummaryStable({
         if (!isAwaitSingleGuideActive()) return;
 
         clearTapTimer();
-        lastTapAtRef.current = Date.now();
-        const scheduledEpoch = gestureEpochRef.current;
-        tapTimerRef.current = setTimeout(() => {
-          tapTimerRef.current = null;
-
-          if (
-            !isGestureCallbackCurrent(scheduledEpoch) ||
-            !isAwaitSingleGuideActive()
-          ) {
-            return;
-          }
-
-          lastTapAtRef.current = 0;
-          invalidateGestureCallbacks();
-          onGuideOrbSingleTap?.();
-        }, Math.max(SINGLE_TAP_DELAY, DOUBLE_TAP_WINDOW));
+        clearLongPressTimer();
+        lastTapAtRef.current = 0;
+        keyboardHoldActiveRef.current = false;
+        longPressTriggeredRef.current = false;
+        invalidateGestureCallbacks();
+        onGuideOrbSingleTap?.();
         return;
       }
 
@@ -791,7 +801,7 @@ export default function DashboardMoneySummaryStable({
           onPointerMove={handleOrbPointerMove}
           onPointerUp={handleOrbPointerUp}
           onPointerCancel={handleOrbCancel}
-          onPointerLeave={handleOrbCancel}
+          onPointerLeave={handleOrbPointerLeave}
           onContextMenu={handleOrbClick}
           className="relative z-10 flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white shadow-[0_0_18px_rgba(34,211,238,0.38)] transition hover:bg-white/[0.14] active:scale-95"
           style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
