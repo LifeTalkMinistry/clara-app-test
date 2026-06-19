@@ -38,6 +38,10 @@ export default function DashboardMoneySummaryStable({
   flushSpacing = false,
   moneySummaryVisible = true,
   toggleMoneySummaryVisibility,
+  isGuideMode = false,
+  isGuidePrivacyStepActive = false,
+  guideMoneySummaryVisible = true,
+  onGuidePrivacyToggle,
   moneyLeftSummaryHandlers = {},
   handleMoneyLeftOrbClick,
   stopMoneyLeftOrbEvent,
@@ -50,6 +54,9 @@ export default function DashboardMoneySummaryStable({
   const longPressTriggeredRef = useRef(false);
   const lastTapAtRef = useRef(0);
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
+  const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
+    ? guideMoneySummaryVisible
+    : moneySummaryVisible;
 
   const clearTapTimer = useCallback(() => {
     if (tapTimerRef.current) {
@@ -167,6 +174,23 @@ export default function DashboardMoneySummaryStable({
     [stopOrbEvent]
   );
 
+  const handlePrivacyToggle = useCallback(
+    (event) => {
+      if (isGuidePrivacyStepActive) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.nativeEvent?.stopImmediatePropagation?.();
+        onGuidePrivacyToggle?.(event);
+        return;
+      }
+
+      if (!isGuideMode) {
+        toggleMoneySummaryVisibility?.(event);
+      }
+    },
+    [isGuideMode, isGuidePrivacyStepActive, onGuidePrivacyToggle, toggleMoneySummaryVisibility]
+  );
+
   const bubbleSurface = {
     background:
       "radial-gradient(circle at -18% -30%, rgba(20,184,166,0.30) 0%, rgba(20,184,166,0.14) 25%, rgba(20,184,166,0.04) 42%, transparent 58%), radial-gradient(circle at 77% 118%, rgba(99,102,241,0.22), rgba(79,70,229,0.14) 34%, rgba(88,28,135,0.08) 50%, transparent 68%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
@@ -200,15 +224,15 @@ export default function DashboardMoneySummaryStable({
       <button
         type="button"
         data-clara-summary-privacy-toggle="true"
-        onClick={toggleMoneySummaryVisibility}
+        onClick={handlePrivacyToggle}
         className="absolute left-[39%] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 max-[380px]:left-[42%] max-[380px]:top-7"
         aria-label={
-          moneySummaryVisible
+          effectiveMoneySummaryVisible
             ? "Hide financial summary amounts"
             : "Show financial summary amounts"
         }
       >
-        {moneySummaryVisible ? (
+        {effectiveMoneySummaryVisible ? (
           <Eye className="h-3.5 w-3.5" />
         ) : (
           <EyeOff className="h-3.5 w-3.5" />
@@ -280,7 +304,7 @@ export default function DashboardMoneySummaryStable({
               dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"
             } ${themePrimaryTextClass}`}
           >
-            {moneySummaryVisible ? fmt(walletMoney) : "₱••••••"}
+            {effectiveMoneySummaryVisible ? fmt(walletMoney) : "₱••••••"}
           </h2>
         </div>
       </div>
@@ -308,7 +332,7 @@ export default function DashboardMoneySummaryStable({
               dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"
             } ${themePrimaryTextClass}`}
           >
-            {moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"}
+            {effectiveMoneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"}
           </h2>
         </div>
       </div>
