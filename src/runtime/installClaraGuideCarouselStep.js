@@ -1,3 +1,5 @@
+import "../guide-mode-next-buttons.css";
+
 const SAMPLE_CLASS = "clara-guide-daily-tip-sample-active";
 const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
 const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
