@@ -329,7 +329,24 @@ html.clara-guide-finance-carousel-active
   z-index: 30;
 }
 
+#root .clara-guide-carousel-next-button {
+  min-height: 44px;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 html.clara-guide-finance-carousel-active
-#root .clara-guide-carousel-target * {
+#root .clara-guide-carousel-target:not(.clara-guide-carousel-terminal-locked) * {
   pointer-events: auto;
+}
+
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-terminal-locked,
+html.clara-guide-finance-carousel-active
+#root .clara-guide-carousel-terminal-locked * {
+  pointer-events: none !important;
 }
