@@ -1,0 +1,130 @@
+name: Harden Money Left Orb Guide Phase 6
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: money-left-orb-phase6-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  apply-audit-build-and-commit:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'harden-money-left-orb-guide-phase6'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out hardening branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Restore reviewed Phase 6 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p scripts
+          gh api repos/${GITHUB_REPOSITORY}/git/blobs/d5b0d49b2acbdd9816742feac9d1dc3c99ad673c --jq .content \
+            | tr -d '\n' \
+            | base64 -d \
+            > scripts/apply_money_left_orb_phase6.py
+
+      - name: Apply Phase 6 hardening
+        run: python3 scripts/apply_money_left_orb_phase6.py
+
+      - name: Check patch formatting
+        run: git diff --check
+
+      - name: Verify hardening invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          summary = Path("src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx").read_text()
+          preview = Path("src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx").read_text()
+          css = Path("src/guide-mode-money-left-orb.css").read_text()
+          installer = Path("src/runtime/installClaraGuideCarouselStep.js").read_text()
+          main = Path("src/main.jsx").read_text()
+
+          required_summary = [
+              "gestureEpochRef",
+              "isGestureCallbackCurrent",
+              "GUIDE_EXIT_EVENT",
+              "GUIDE_MODE_CHANGE_EVENT",
+              "GUIDE_TARGET_CHANGE_EVENT",
+              "focus({ preventScroll: true })" if False else "preventDefault",
+          ]
+          for token in required_summary:
+              if token not in summary:
+                  raise SystemExit(f"Missing summary hardening token: {token}")
+
+          required_preview = [
+              'data-clara-guide-orb-preview="true"',
+              'focus?.({ preventScroll: true })',
+              'tabIndex={-1}',
+          ]
+          for token in required_preview:
+              if token not in preview:
+                  raise SystemExit(f"Missing preview focus token: {token}")
+
+          for phase in ("await-single", "await-double", "await-hold"):
+              if phase not in css:
+                  raise SystemExit(f"Missing pointer phase: {phase}")
+
+          if "clearClaraGuideFeatureClasses" not in installer or "clearClaraGuideFeatureClasses" not in main:
+              raise SystemExit("Global guide class cleanup was not wired")
+
+          forbidden_preview = [
+              "addExpense",
+              "saveManualExpenseInline",
+              "setFinanceForm",
+              "navigate(",
+              "setShowAiAssistant",
+              "localStorage.setItem",
+              "supabase",
+              "Gemini",
+              "OpenAI",
+          ]
+          for token in forbidden_preview:
+              if token in preview:
+                  raise SystemExit(f"Forbidden Guide preview dependency: {token}")
+          PY
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint changed JavaScript files
+        run: |
+          npx eslint \
+            src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx \
+            src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx \
+            src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx \
+            src/runtime/installClaraGuideCarouselStep.js \
+            src/components/fresh/main-dashboard/top-nav/DashboardTopNav.jsx \
+            src/main.jsx
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Commit verified Phase 6 hardening
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          rm -f scripts/apply_money_left_orb_phase6.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Harden Money Left orb Guide lifecycle"
+          git push origin HEAD:${HEAD_BRANCH}
