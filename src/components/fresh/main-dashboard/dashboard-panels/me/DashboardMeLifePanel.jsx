@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
 import ClaraGuideMePageOverlay from "../../guide/ClaraGuideMePageOverlay";
 import FinancialClimateScreen from "./FinancialClimateUniversalScreen";
@@ -6,6 +6,53 @@ import FinancialClimateScreen from "./FinancialClimateUniversalScreen";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_ME_PHASE_CHANGE_EVENT = "clara:guide-me-phase-change";
+const GUIDE_PROTECTED_STORAGE_KEYS = new Set([
+  "clara_life_stage_profile_v1",
+  "clara_life_stage_images_v1",
+]);
+
+let guideStorageGuardUsers = 0;
+let originalStorageSetItem = null;
+
+function isMeGuideRootActive() {
+  if (typeof document === "undefined") return false;
+  const root = document.documentElement;
+  return (
+    root.classList.contains("clara-guide-me-preview-active") ||
+    root.classList.contains("clara-guide-me-complete-active")
+  );
+}
+
+function acquireGuideStorageGuard() {
+  if (
+    typeof window === "undefined" ||
+    typeof Storage === "undefined" ||
+    !Storage.prototype?.setItem
+  ) {
+    return () => {};
+  }
+
+  if (guideStorageGuardUsers === 0) {
+    originalStorageSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function guardedGuideStorageSetItem(key, value) {
+      const isProtectedLifeStageWrite =
+        this === window.localStorage && GUIDE_PROTECTED_STORAGE_KEYS.has(String(key));
+
+      if (isProtectedLifeStageWrite && isMeGuideRootActive()) return undefined;
+      return originalStorageSetItem.call(this, key, value);
+    };
+  }
+
+  guideStorageGuardUsers += 1;
+
+  return () => {
+    guideStorageGuardUsers = Math.max(0, guideStorageGuardUsers - 1);
+    if (guideStorageGuardUsers === 0 && originalStorageSetItem) {
+      Storage.prototype.setItem = originalStorageSetItem;
+      originalStorageSetItem = null;
+    }
+  };
+}
 
 function readMeGuidePhase() {
   if (typeof document === "undefined") return "inactive";
@@ -23,6 +70,11 @@ export default function DashboardMeLifePanel() {
   const signalTotal = Math.max(signalCount, 1);
   const guidePreviewMode = meGuidePhase === "me-page-preview" || meGuidePhase === "complete";
   const refresh = () => setSignals(readEnvironmentSignals());
+
+  useLayoutEffect(() => {
+    if (!guidePreviewMode) return undefined;
+    return acquireGuideStorageGuard();
+  }, [guidePreviewMode]);
 
   useEffect(() => {
     const handler = () => refresh();
