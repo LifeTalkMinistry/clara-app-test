@@ -17,13 +17,14 @@ const GUIDE_FEATURE_DAILY_MONEY_TIP = "daily-money-tip";
 const GUIDE_FEATURE_FINANCE_CAROUSEL = "finance-carousel";
 const GUIDE_FEATURE_MONEY_LEFT = "money-left";
 const GUIDE_FEATURE_MONEY_LEFT_PRIVACY = "money-left-privacy";
+const GUIDE_FEATURE_MONEY_LEFT_ORB = "money-left-orb";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
-const CLARA_GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
 const GUIDE_FINANCE_ROOT_CLASS = "clara-guide-finance-carousel-active";
 const GUIDE_MONEY_LEFT_ROOT_CLASS = "clara-guide-money-left-active";
 const GUIDE_MONEY_LEFT_PRIVACY_ROOT_CLASS = "clara-guide-money-left-privacy-active";
+const GUIDE_MONEY_LEFT_ORB_ROOT_CLASS = "clara-guide-money-left-orb-active";
 const FINANCE_CAROUSEL_SWIPE_LEFT_INCREASES_INDEX = true;
 
 const createFinanceGuideTrainingState = () => ({
@@ -102,6 +103,25 @@ const MONEY_LEFT_PRIVACY_GUIDE_COPY = {
   },
 };
 
+const MONEY_LEFT_ORB_GUIDE_COPY = {
+  intro: {
+    title: "MEET THE CLARA ORB",
+    body: "One control gives you three quick actions.",
+    footer: "LEARN EACH ACTION ONE AT A TIME.",
+  },
+  "await-single": {
+    title: "1 TAP — LOG EXPENSE",
+    body: "Tap the CLARA orb once to open the quick expense logger.",
+    footer: "TAP THE ORB ONCE.",
+  },
+};
+
+const MONEY_LEFT_ORB_GUIDE_ITEMS = [
+  { label: "1 TAP", value: "Log Expense" },
+  { label: "2 TAPS", value: "Transaction Hub" },
+  { label: "HOLD", value: "Chat with CLARA" },
+];
+
 const getFinanceGuideCardCopy = (cardKey) =>
   FINANCE_GUIDE_CARD_COPY[cardKey] || FINANCE_GUIDE_CARD_COPY.fallback;
 
@@ -136,6 +156,10 @@ const setGuideRootFeatureClass = (feature) => {
   root.classList.toggle(
     GUIDE_MONEY_LEFT_PRIVACY_ROOT_CLASS,
     feature === GUIDE_FEATURE_MONEY_LEFT_PRIVACY
+  );
+  root.classList.toggle(
+    GUIDE_MONEY_LEFT_ORB_ROOT_CLASS,
+    feature === GUIDE_FEATURE_MONEY_LEFT_ORB
   );
 };
 
@@ -245,8 +269,11 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
-function CarouselGuideBubbleOverlay({ copy, actionLabel = "", onAction }) {
+function CarouselGuideBubbleOverlay({ copy, items = [], actionLabel = "", onAction }) {
   const safeCopy = copy || FINANCE_GUIDE_CARD_COPY.fallback;
+  const safeItems = Array.isArray(items)
+    ? items.filter((item) => item?.label && item?.value)
+    : [];
   const hasAction = Boolean(actionLabel && typeof onAction === "function");
   const actionLockRef = useRef(false);
   const actionUnlockTimerRef = useRef(null);
@@ -304,6 +331,24 @@ function CarouselGuideBubbleOverlay({ copy, actionLabel = "", onAction }) {
         <p className="relative z-10 mt-3 text-[14px] font-bold leading-relaxed text-white">
           {safeCopy.body}
         </p>
+
+        {safeItems.length > 0 ? (
+          <div className="clara-guide-carousel-bubble-items relative z-10 mt-4 grid gap-2">
+            {safeItems.map((item) => (
+              <div
+                key={`${item.label}-${item.value}`}
+                className="clara-guide-carousel-bubble-item flex items-center justify-between gap-3 rounded-2xl border border-cyan-100/10 bg-white/[0.045] px-3 py-2.5"
+              >
+                <span className="clara-guide-carousel-bubble-item-label text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/64">
+                  {item.label}
+                </span>
+                <span className="clara-guide-carousel-bubble-item-value text-right text-[12px] font-black text-white">
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <p className="relative z-10 mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
           {safeCopy.footer}
@@ -397,6 +442,8 @@ export default function DashboardHomePanel({
   const [financeGuideTraining, setFinanceGuideTraining] = useState(() => createFinanceGuideTrainingState());
   const [guideMoneySummaryVisible, setGuideMoneySummaryVisible] = useState(true);
   const [moneyLeftPrivacyPhase, setMoneyLeftPrivacyPhase] = useState("await-hide");
+  const [moneyLeftOrbPhase, setMoneyLeftOrbPhase] = useState("intro");
+  const [guideOrbPreview, setGuideOrbPreview] = useState(null);
   const guideTransitionLockRef = useRef(false);
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
@@ -407,6 +454,10 @@ export default function DashboardHomePanel({
   const isMoneyLeftGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT;
   const isMoneyLeftPrivacyGuideActive =
     isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT_PRIVACY;
+  const isMoneyLeftOrbGuideActive =
+    isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT_ORB;
+  const isMoneyLeftOrbIntroActive =
+    isMoneyLeftOrbGuideActive && moneyLeftOrbPhase === "intro";
   const isFinanceGuideTerminalDebt =
     isCarouselGuideActive &&
     financeGuideTraining.financeGuideTrainingComplete &&
@@ -431,9 +482,15 @@ export default function DashboardHomePanel({
   const activeGuideBubbleCopy = isMoneyLeftPrivacyGuideActive
     ? MONEY_LEFT_PRIVACY_GUIDE_COPY[moneyLeftPrivacyPhase] ||
       MONEY_LEFT_PRIVACY_GUIDE_COPY["await-hide"]
-    : isMoneyLeftGuideActive
-      ? MONEY_LEFT_GUIDE_COPY
-      : financeGuideBubbleCopy;
+    : isMoneyLeftOrbGuideActive
+      ? MONEY_LEFT_ORB_GUIDE_COPY[moneyLeftOrbPhase] || MONEY_LEFT_ORB_GUIDE_COPY.intro
+      : isMoneyLeftGuideActive
+        ? MONEY_LEFT_GUIDE_COPY
+        : financeGuideBubbleCopy;
+  const activeGuideBubbleItems =
+    isMoneyLeftOrbGuideActive && moneyLeftOrbPhase === "intro"
+      ? MONEY_LEFT_ORB_GUIDE_ITEMS
+      : [];
 
   const effectiveWallets = wallets;
   const effectiveWalletMoney = walletMoney;
@@ -522,6 +579,8 @@ export default function DashboardHomePanel({
     setFinanceGuideTraining(createFinanceGuideTrainingState());
     setGuideMoneySummaryVisible(true);
     setMoneyLeftPrivacyPhase("await-hide");
+    setMoneyLeftOrbPhase("intro");
+    setGuideOrbPreview(null);
     setGuideRootFeatureClass(null);
     emitGuideModeChange(false);
 
@@ -541,6 +600,8 @@ export default function DashboardHomePanel({
     setFinanceGuideTraining(createFinanceGuideTrainingState());
     setGuideMoneySummaryVisible(true);
     setMoneyLeftPrivacyPhase("await-hide");
+    setMoneyLeftOrbPhase("intro");
+    setGuideOrbPreview(null);
     setGuideRootFeatureClass(null);
     setIsGuideMode(true);
     emitGuideModeChange(true);
@@ -617,16 +678,43 @@ export default function DashboardHomePanel({
     }
   }, [isMoneyLeftPrivacyGuideActive, moneyLeftPrivacyPhase]);
 
-  const handleGuidePrivacyComplete = useCallback(() => {
-    if (!isMoneyLeftPrivacyGuideActive || moneyLeftPrivacyPhase !== "complete") return;
-    if (typeof window === "undefined") return;
+  const handleGuideNextToMoneyLeftOrb = useCallback(() => {
+    if (
+      !isMoneyLeftPrivacyGuideActive ||
+      moneyLeftPrivacyPhase !== "complete" ||
+      guideTransitionLockRef.current
+    ) {
+      return;
+    }
 
-    window.dispatchEvent(
-      new CustomEvent(CLARA_GUIDE_FEATURE_COMPLETE_EVENT, {
-        detail: { feature: GUIDE_FEATURE_MONEY_LEFT_PRIVACY },
-      })
-    );
+    guideTransitionLockRef.current = true;
+
+    preserveDashboardScrollPosition(() => {
+      setGuideFeature(GUIDE_FEATURE_MONEY_LEFT_ORB);
+      setGuideStep(0);
+      setGuideMoneySummaryVisible(true);
+      setMoneyLeftOrbPhase("intro");
+      setGuideOrbPreview(null);
+      setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT_ORB);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(CLARA_GUIDE_TARGET_CHANGE_EVENT, {
+            detail: { feature: GUIDE_FEATURE_MONEY_LEFT_ORB },
+          })
+        );
+      }
+    });
   }, [isMoneyLeftPrivacyGuideActive, moneyLeftPrivacyPhase]);
+
+  const handleGuideOrbIntroNext = useCallback(() => {
+    if (!isMoneyLeftOrbGuideActive || moneyLeftOrbPhase !== "intro") return;
+
+    preserveDashboardScrollPosition(() => {
+      setMoneyLeftOrbPhase("await-single");
+      setGuideOrbPreview(null);
+    });
+  }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
 
   const handleFinanceCarouselIndexChange = useCallback(
     (detail = {}) => {
@@ -677,7 +765,12 @@ export default function DashboardHomePanel({
   }, [guideFeature]);
 
   useEffect(() => {
-    if (isCarouselGuideActive || isMoneyLeftGuideActive || isMoneyLeftPrivacyGuideActive) {
+    if (
+      isCarouselGuideActive ||
+      isMoneyLeftGuideActive ||
+      isMoneyLeftPrivacyGuideActive ||
+      isMoneyLeftOrbGuideActive
+    ) {
       return undefined;
     }
 
@@ -685,7 +778,12 @@ export default function DashboardHomePanel({
     setFinanceGuideTraining(createFinanceGuideTrainingState());
 
     return undefined;
-  }, [isCarouselGuideActive, isMoneyLeftGuideActive, isMoneyLeftPrivacyGuideActive]);
+  }, [
+    isCarouselGuideActive,
+    isMoneyLeftGuideActive,
+    isMoneyLeftPrivacyGuideActive,
+    isMoneyLeftOrbGuideActive,
+  ]);
 
   useEffect(() => {
     if (isMoneyLeftPrivacyGuideActive) return;
@@ -694,10 +792,21 @@ export default function DashboardHomePanel({
   }, [isMoneyLeftPrivacyGuideActive]);
 
   useEffect(() => {
+    if (isMoneyLeftOrbGuideActive) return;
+    setMoneyLeftOrbPhase("intro");
+    setGuideOrbPreview(null);
+  }, [isMoneyLeftOrbGuideActive]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
     const handleGuideTargetChange = (event) => {
       const feature = event?.detail?.feature;
+
+      if (feature !== GUIDE_FEATURE_MONEY_LEFT_ORB) {
+        setMoneyLeftOrbPhase("intro");
+        setGuideOrbPreview(null);
+      }
 
       if (feature === GUIDE_FEATURE_FINANCE_CAROUSEL) {
         setGuideFeature(GUIDE_FEATURE_FINANCE_CAROUSEL);
@@ -725,6 +834,17 @@ export default function DashboardHomePanel({
         setGuideMoneySummaryVisible(true);
         setMoneyLeftPrivacyPhase("await-hide");
         setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT_PRIVACY);
+        return;
+      }
+
+      if (feature === GUIDE_FEATURE_MONEY_LEFT_ORB) {
+        setGuideFeature(GUIDE_FEATURE_MONEY_LEFT_ORB);
+        setGuideStep(0);
+        setGuideMoneySummaryVisible(true);
+        setMoneyLeftPrivacyPhase("await-hide");
+        setMoneyLeftOrbPhase("intro");
+        setGuideOrbPreview(null);
+        setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT_ORB);
       }
     };
 
@@ -789,7 +909,8 @@ export default function DashboardHomePanel({
   const activeGuideActionLabel =
     isFinanceGuideTerminalDebt ||
     isMoneyLeftGuideActive ||
-    (isMoneyLeftPrivacyGuideActive && moneyLeftPrivacyPhase === "complete")
+    (isMoneyLeftPrivacyGuideActive && moneyLeftPrivacyPhase === "complete") ||
+    isMoneyLeftOrbIntroActive
       ? "NEXT"
       : "";
   const activeGuideActionHandler = isFinanceGuideTerminalDebt
@@ -797,8 +918,10 @@ export default function DashboardHomePanel({
     : isMoneyLeftGuideActive
       ? handleGuideNextToMoneyLeftPrivacy
       : isMoneyLeftPrivacyGuideActive && moneyLeftPrivacyPhase === "complete"
-        ? handleGuidePrivacyComplete
-        : undefined;
+        ? handleGuideNextToMoneyLeftOrb
+        : isMoneyLeftOrbIntroActive
+          ? handleGuideOrbIntroNext
+          : undefined;
 
   return (
     <>
@@ -806,9 +929,13 @@ export default function DashboardHomePanel({
         <div className="fixed inset-0 z-[60] bg-slate-950/82 backdrop-blur-[2px]" aria-hidden="true" />
       ) : null}
 
-      {isCarouselGuideActive || isMoneyLeftGuideActive || isMoneyLeftPrivacyGuideActive ? (
+      {(isCarouselGuideActive ||
+        isMoneyLeftGuideActive ||
+        isMoneyLeftPrivacyGuideActive ||
+        isMoneyLeftOrbGuideActive) && guideOrbPreview === null ? (
         <CarouselGuideBubbleOverlay
           copy={activeGuideBubbleCopy}
+          items={activeGuideBubbleItems}
           actionLabel={activeGuideActionLabel}
           onAction={activeGuideActionHandler}
         />
@@ -926,6 +1053,8 @@ export default function DashboardHomePanel({
             toggleMoneySummaryVisibility={isGuideMode ? undefined : toggleMoneySummaryVisibility}
             isGuideMode={isGuideMode}
             isGuidePrivacyStepActive={isMoneyLeftPrivacyGuideActive}
+            isGuideOrbStepActive={isMoneyLeftOrbGuideActive}
+            isGuideOrbIntroActive={isMoneyLeftOrbIntroActive}
             guideMoneySummaryVisible={guideMoneySummaryVisible}
             onGuidePrivacyToggle={handleGuidePrivacyToggle}
             moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}

@@ -41,6 +41,8 @@ export default function DashboardMoneySummaryStable({
   toggleMoneySummaryVisibility,
   isGuideMode = false,
   isGuidePrivacyStepActive = false,
+  isGuideOrbStepActive = false,
+  isGuideOrbIntroActive = false,
   guideMoneySummaryVisible = true,
   onGuidePrivacyToggle,
   moneyLeftSummaryHandlers = {},
@@ -286,6 +288,13 @@ export default function DashboardMoneySummaryStable({
 
   const handlePrivacyToggle = useCallback(
     (event) => {
+      if (isGuideOrbStepActive) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.nativeEvent?.stopImmediatePropagation?.();
+        return;
+      }
+
       if (isGuidePrivacyStepActive) {
         event?.preventDefault?.();
         event?.stopPropagation?.();
@@ -298,7 +307,13 @@ export default function DashboardMoneySummaryStable({
         toggleMoneySummaryVisibility?.(event);
       }
     },
-    [isGuideMode, isGuidePrivacyStepActive, onGuidePrivacyToggle, toggleMoneySummaryVisibility]
+    [
+      isGuideMode,
+      isGuideOrbStepActive,
+      isGuidePrivacyStepActive,
+      onGuidePrivacyToggle,
+      toggleMoneySummaryVisibility,
+    ]
   );
 
   const bubbleSurface = {
@@ -335,6 +350,8 @@ export default function DashboardMoneySummaryStable({
         type="button"
         data-clara-summary-privacy-toggle="true"
         onClick={handlePrivacyToggle}
+        disabled={isGuideOrbStepActive}
+        aria-disabled={isGuideOrbStepActive}
         className="absolute left-[39%] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 max-[380px]:left-[42%] max-[380px]:top-7"
         aria-label={
           effectiveMoneySummaryVisible
@@ -376,6 +393,8 @@ export default function DashboardMoneySummaryStable({
           onClick={handleOrbClick}
           onDoubleClick={handleOrbClick}
           onKeyDown={handleOrbKeyDown}
+          disabled={isGuideOrbIntroActive}
+          aria-disabled={isGuideOrbIntroActive}
           onPointerDown={handleOrbPointerDown}
           onPointerMove={handleOrbPointerMove}
           onPointerUp={handleOrbPointerUp}
