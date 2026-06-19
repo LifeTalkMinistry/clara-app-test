@@ -46,6 +46,7 @@ export default function FinancialCarousel(props) {
     isGuideMode = false,
     onGuideCarouselIndexChange,
     guideAllowedSwipeDirection = null,
+    guideMaxStepPerInteraction = null,
   } = props;
 
   const effectiveUser = isGuideMode ? null : user;
@@ -93,6 +94,7 @@ export default function FinancialCarousel(props) {
     itemCount: items.length,
     defaultIndex,
     guideAllowedSwipeDirection: isGuideMode ? guideAllowedSwipeDirection : null,
+    guideMaxStepPerInteraction: isGuideMode ? guideMaxStepPerInteraction : null,
   });
   const expandedCardIndex = useMemo(
     () => getExpandedCarouselCardIndex(items, expandedFinanceCard),
