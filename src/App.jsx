@@ -49,6 +49,7 @@ const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
 const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
+const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 const ADMIN_RECOVERY_EMAILS = new Set([
@@ -262,7 +263,7 @@ function AppRoutes() {
                     <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
                     <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
                     <Route path="/community" element={guard(<Community />, "/community")} />
-                    <Route path="/messages" element={guard(<Messages />, "/messages")} />
+                    <Route path="/messages" ement={guard(<Messages />, "/messages")} />
                     <Route path="/news" element={guard(<News />, "/news")} />
                     <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
                     <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
@@ -272,6 +273,7 @@ function AppRoutes() {
                     <Route path="/profile" element={<Profile />} />
 
                     <Route path="/admin" element={admin(<AdminPanel />)} />
+                    <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
                     <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
