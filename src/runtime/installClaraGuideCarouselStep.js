@@ -5,6 +5,8 @@ const MONEY_LEFT_PRIVACY_CLASS = "clara-guide-money-left-privacy-active";
 const MONEY_LEFT_ORB_CLASS = "clara-guide-money-left-orb-active";
 const NEXT_CLASS = "clara-guide-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
+const GUIDE_EXIT_EVENT = "clara:guide-exit";
 
 function hasGuideSample() {
   return document.documentElement.classList.contains(SAMPLE_CLASS);
@@ -31,7 +33,7 @@ function removeNextButton() {
   document.querySelectorAll(`.${NEXT_CLASS}`).forEach((button) => button.remove());
 }
 
-function clearFeatureClasses() {
+export function clearClaraGuideFeatureClasses() {
   document.documentElement.classList.remove(
     SAMPLE_CLASS,
     CAROUSEL_CLASS,
@@ -104,8 +106,19 @@ export function installClaraGuideCarouselStep() {
     }, 60);
   });
 
-  window.addEventListener("clara:guide-mode-change", () => {
-    clearFeatureClasses();
+  window.addEventListener(GUIDE_MODE_CHANGE_EVENT, () => {
+    clearClaraGuideFeatureClasses();
     removeNextButton();
+  });
+
+  window.addEventListener(GUIDE_EXIT_EVENT, () => {
+    clearClaraGuideFeatureClasses();
+    removeNextButton();
+  });
+
+  window.addEventListener(TARGET_CHANGE_EVENT, (event) => {
+    if (event?.detail?.feature !== "money-left-orb") {
+      document.documentElement.classList.remove(MONEY_LEFT_ORB_CLASS);
+    }
   });
 }

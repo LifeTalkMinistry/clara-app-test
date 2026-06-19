@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 const LOG_EXPENSE_FIELDS = [
   { label: "Amount", value: "₱120" },
@@ -13,6 +13,20 @@ const TRANSACTION_HUB_ROWS = [
 ];
 
 export default function ClaraGuideOrbPreview({ preview, onNext }) {
+  const headingRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      headingRef.current?.focus?.({ preventScroll: true });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [preview]);
+
   const stopEvent = useCallback((event) => {
     event?.stopPropagation?.();
   }, []);
@@ -52,19 +66,24 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
     <div className="pointer-events-none fixed inset-0 z-[245] flex items-end justify-center px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-24">
       <section
         role="dialog"
+        aria-modal="true"
+        data-clara-guide-orb-preview="true"
         aria-labelledby="clara-guide-orb-preview-title"
         aria-describedby="clara-guide-orb-preview-body"
         className="pointer-events-auto w-full max-w-[390px] rounded-[30px] border border-cyan-100/20 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-6 py-5 text-white shadow-[0_24px_78px_rgba(0,0,0,0.76),0_0_42px_rgba(34,211,238,0.16)] backdrop-blur-2xl"
         onPointerDown={stopEvent}
         onPointerUp={stopEvent}
+        onPointerCancel={stopEvent}
         onClick={stopEvent}
       >
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
           ORB ACTION
         </p>
         <h2
+          ref={headingRef}
+          tabIndex={-1}
           id="clara-guide-orb-preview-title"
-          className="mt-2 text-[26px] font-black tracking-[-0.04em] text-white"
+          className="mt-2 text-[26px] font-black tracking-[-0.04em] text-white focus:outline-none"
         >
           {title}
         </h2>

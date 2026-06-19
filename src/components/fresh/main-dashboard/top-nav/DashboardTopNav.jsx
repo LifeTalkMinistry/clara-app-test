@@ -94,6 +94,7 @@ export default function DashboardTopNav({
                 <button
                   key={item.key}
                   type="button"
+                  data-clara-guide-exit={isGuideExitSlot ? "true" : undefined}
                   onClick={isGuideExitSlot ? handleGuideExit : isGuideStaticSlot ? undefined : () => openDashboardPanel(item.key)}
                   className={`group relative flex min-w-0 ${isGuideStaticSlot ? "pointer-events-none opacity-35 saturate-50" : ""}`}
                   aria-label={isGuideExitSlot ? "Exit CLARA Guide Mode" : item.label}

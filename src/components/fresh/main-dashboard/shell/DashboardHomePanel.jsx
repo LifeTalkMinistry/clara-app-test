@@ -180,6 +180,15 @@ const setGuideRootFeatureClass = (feature) => {
   );
 };
 
+const releaseGuideOrbPreviewFocus = () => {
+  if (typeof document === "undefined") return;
+
+  const activeElement = document.activeElement;
+  if (activeElement?.closest?.("[data-clara-guide-orb-preview='true']")) {
+    activeElement.blur?.();
+  }
+};
+
 const preserveDashboardScrollPosition = (callback) => {
   if (typeof callback !== "function") return;
 
@@ -620,6 +629,7 @@ export default function DashboardHomePanel({
   );
 
   const exitGuideMode = useCallback(({ focusRealDailyTip = false } = {}) => {
+    releaseGuideOrbPreviewFocus();
     guideOrbCompletionDispatchRef.current = false;
     setIsGuideMode(false);
     setGuideStep(0);
@@ -642,6 +652,7 @@ export default function DashboardHomePanel({
   }, []);
 
   const startGuideMode = useCallback(() => {
+    releaseGuideOrbPreviewFocus();
     guideOrbCompletionDispatchRef.current = false;
     setIsGuideIntroOpen(false);
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
@@ -925,6 +936,7 @@ export default function DashboardHomePanel({
 
   useEffect(() => {
     if (isMoneyLeftOrbGuideActive) return;
+    releaseGuideOrbPreviewFocus();
     setMoneyLeftOrbPhase("intro");
     setGuideOrbPreview(null);
   }, [isMoneyLeftOrbGuideActive]);
@@ -936,6 +948,7 @@ export default function DashboardHomePanel({
       const feature = event?.detail?.feature;
 
       if (feature !== GUIDE_FEATURE_MONEY_LEFT_ORB) {
+        releaseGuideOrbPreviewFocus();
         guideOrbCompletionDispatchRef.current = false;
         setMoneyLeftOrbPhase("intro");
         setGuideOrbPreview(null);
@@ -989,6 +1002,21 @@ export default function DashboardHomePanel({
       window.removeEventListener(CLARA_GUIDE_TARGET_CHANGE_EVENT, handleGuideTargetChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isGuideMode) {
+      setGuideRootFeatureClass(null);
+    }
+  }, [isGuideMode]);
+
+  useEffect(
+    () => () => {
+      releaseGuideOrbPreviewFocus();
+      setGuideRootFeatureClass(null);
+      guideOrbCompletionDispatchRef.current = false;
+    },
+    []
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;

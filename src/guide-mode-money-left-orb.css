@@ -1,4 +1,4 @@
-/* CLARA Guide Mode Money Left orb — Phase 1 only. */
+/* CLARA Guide Mode Money Left orb — complete walkthrough hardening. */
 html.clara-guide-money-left-orb-active #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail {
   position: relative !important;
 }
@@ -60,8 +60,17 @@ html.clara-guide-money-left-orb-active #root .clara-guide-carousel-bubble-arrow 
   left: auto !important;
 }
 
+html.clara-guide-money-left-orb-active #root .clara-dashboard-hub-rail :is(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role='button']
+),
 html.clara-guide-money-left-orb-active #root [data-clara-summary-privacy-toggle='true'],
-html.clara-guide-money-left-orb-active #root [data-clara-summary-card],
+html.clara-guide-money-left-orb-active #root [data-clara-summary-card='money-left'],
+html.clara-guide-money-left-orb-active #root [data-clara-summary-card='total-expense'],
 html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'] {
   pointer-events: none !important;
 }
@@ -72,6 +81,12 @@ html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='mone
 html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-double'] [data-clara-manual-expense-orb='true'],
 html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-hold'] [data-clara-orb-control='true'],
 html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-hold'] [data-clara-manual-expense-orb='true'] {
+  pointer-events: auto !important;
+}
+
+html.clara-guide-money-left-orb-active #root [data-clara-guide-action='next'],
+html.clara-guide-money-left-orb-active #root [data-clara-guide-orb-preview-next='true'],
+html.clara-guide-money-left-orb-active #root [data-clara-guide-exit='true'] {
   pointer-events: auto !important;
 }
 
@@ -140,6 +155,11 @@ html.clara-guide-money-left-orb-active #root .clara-guide-carousel-bubble-item-v
 @media (prefers-reduced-motion: reduce) {
   html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'] {
     animation: none !important;
+    transition: none !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 0 20px rgba(34, 211, 238, 0.44),
+      0 0 32px rgba(124, 58, 237, 0.34) !important;
   }
 }
 
