@@ -16,11 +16,14 @@ const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const GUIDE_FEATURE_DAILY_MONEY_TIP = "daily-money-tip";
 const GUIDE_FEATURE_FINANCE_CAROUSEL = "finance-carousel";
 const GUIDE_FEATURE_MONEY_LEFT = "money-left";
+const GUIDE_FEATURE_MONEY_LEFT_PRIVACY = "money-left-privacy";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const CLARA_GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
 const GUIDE_FINANCE_ROOT_CLASS = "clara-guide-finance-carousel-active";
 const GUIDE_MONEY_LEFT_ROOT_CLASS = "clara-guide-money-left-active";
+const GUIDE_MONEY_LEFT_PRIVACY_ROOT_CLASS = "clara-guide-money-left-privacy-active";
 const FINANCE_CAROUSEL_SWIPE_LEFT_INCREASES_INDEX = true;
 
 const createFinanceGuideTrainingState = () => ({
@@ -81,6 +84,24 @@ const MONEY_LEFT_GUIDE_COPY = {
   footer: "Use this as a quick reality check before your next expense.",
 };
 
+const MONEY_LEFT_PRIVACY_GUIDE_COPY = {
+  "await-hide": {
+    title: "PRIVACY CONTROL",
+    body: "Tap the eye icon to hide your Money Left and Total Expense amounts.",
+    footer: "TAP THE EYE ICON NOW.",
+  },
+  "await-show": {
+    title: "PRIVACY MODE ON",
+    body: "Your financial amounts are now hidden from anyone looking at your screen.",
+    footer: "TAP THE CROSSED-EYE ICON TO SHOW THEM AGAIN.",
+  },
+  complete: {
+    title: "AMOUNTS RESTORED",
+    body: "Use this control whenever you need privacy without leaving your dashboard.",
+    footer: "YOUR MONEY IS VISIBLE AGAIN.",
+  },
+};
+
 const getFinanceGuideCardCopy = (cardKey) =>
   FINANCE_GUIDE_CARD_COPY[cardKey] || FINANCE_GUIDE_CARD_COPY.fallback;
 
@@ -112,6 +133,37 @@ const setGuideRootFeatureClass = (feature) => {
   const root = document.documentElement;
   root.classList.toggle(GUIDE_FINANCE_ROOT_CLASS, feature === GUIDE_FEATURE_FINANCE_CAROUSEL);
   root.classList.toggle(GUIDE_MONEY_LEFT_ROOT_CLASS, feature === GUIDE_FEATURE_MONEY_LEFT);
+  root.classList.toggle(
+    GUIDE_MONEY_LEFT_PRIVACY_ROOT_CLASS,
+    feature === GUIDE_FEATURE_MONEY_LEFT_PRIVACY
+  );
+};
+
+const preserveDashboardScrollPosition = (callback) => {
+  if (typeof callback !== "function") return;
+
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    callback();
+    return;
+  }
+
+  const carouselAnchor = document.querySelector(".clara-guide-carousel-anchor");
+  const dashboardScroller = carouselAnchor?.closest?.("main") || document.scrollingElement;
+  const lockedScrollTop = Number(dashboardScroller?.scrollTop) || 0;
+
+  const restorePosition = () => {
+    if (!dashboardScroller) return;
+    const currentScrollTop = Number(dashboardScroller.scrollTop) || 0;
+    if (Math.abs(currentScrollTop - lockedScrollTop) > 0.5) {
+      dashboardScroller.scrollTop = lockedScrollTop;
+    }
+  };
+
+  callback();
+  window.requestAnimationFrame(() => {
+    restorePosition();
+    window.requestAnimationFrame(restorePosition);
+  });
 };
 
 const runInAnimationFrame = (callback) => {
@@ -296,6 +348,8 @@ export default function DashboardHomePanel({
   const [claraGuideProgress, setClaraGuideProgress] = useState(() => readClaraGuideProgress());
   const [financeGuideSlide, setFinanceGuideSlide] = useState(() => createFinanceGuideSlideState());
   const [financeGuideTraining, setFinanceGuideTraining] = useState(() => createFinanceGuideTrainingState());
+  const [guideMoneySummaryVisible, setGuideMoneySummaryVisible] = useState(true);
+  const [moneyLeftPrivacyPhase, setMoneyLeftPrivacyPhase] = useState("await-hide");
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
   const isFreePlan = currentPlan === "free";
@@ -303,6 +357,8 @@ export default function DashboardHomePanel({
   const isDailyTipGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_DAILY_MONEY_TIP && guideStep === 0;
   const isCarouselGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_FINANCE_CAROUSEL;
   const isMoneyLeftGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT;
+  const isMoneyLeftPrivacyGuideActive =
+    isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT_PRIVACY;
   const isFinanceGuideTerminalDebt =
     isCarouselGuideActive &&
     financeGuideTraining.financeGuideTrainingComplete &&
@@ -324,9 +380,12 @@ export default function DashboardHomePanel({
     training: financeGuideTraining,
     slide: financeGuideSlide,
   });
-  const activeGuideBubbleCopy = isMoneyLeftGuideActive
-    ? MONEY_LEFT_GUIDE_COPY
-    : financeGuideBubbleCopy;
+  const activeGuideBubbleCopy = isMoneyLeftPrivacyGuideActive
+    ? MONEY_LEFT_PRIVACY_GUIDE_COPY[moneyLeftPrivacyPhase] ||
+      MONEY_LEFT_PRIVACY_GUIDE_COPY["await-hide"]
+    : isMoneyLeftGuideActive
+      ? MONEY_LEFT_GUIDE_COPY
+      : financeGuideBubbleCopy;
 
   const effectiveWallets = wallets;
   const effectiveWalletMoney = walletMoney;
@@ -413,6 +472,8 @@ export default function DashboardHomePanel({
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
     setFinanceGuideSlide(createFinanceGuideSlideState());
     setFinanceGuideTraining(createFinanceGuideTrainingState());
+    setGuideMoneySummaryVisible(true);
+    setMoneyLeftPrivacyPhase("await-hide");
     setGuideRootFeatureClass(null);
     emitGuideModeChange(false);
 
@@ -430,6 +491,8 @@ export default function DashboardHomePanel({
     setGuideStep(0);
     setFinanceGuideSlide(createFinanceGuideSlideState());
     setFinanceGuideTraining(createFinanceGuideTrainingState());
+    setGuideMoneySummaryVisible(true);
+    setMoneyLeftPrivacyPhase("await-hide");
     setGuideRootFeatureClass(null);
     setIsGuideMode(true);
     emitGuideModeChange(true);
@@ -452,24 +515,68 @@ export default function DashboardHomePanel({
   const handleGuideNextToMoneyLeft = useCallback(() => {
     if (!isFinanceGuideTerminalDebt) return;
 
-    setGuideFeature(GUIDE_FEATURE_MONEY_LEFT);
-    setGuideStep(0);
-    setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT);
+    preserveDashboardScrollPosition(() => {
+      setGuideFeature(GUIDE_FEATURE_MONEY_LEFT);
+      setGuideStep(0);
+      setGuideMoneySummaryVisible(true);
+      setMoneyLeftPrivacyPhase("await-hide");
+      setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT);
 
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent(CLARA_GUIDE_TARGET_CHANGE_EVENT, {
-          detail: { feature: GUIDE_FEATURE_MONEY_LEFT },
-        })
-      );
-
-      window.setTimeout(() => {
-        document
-          .querySelector("[data-clara-dashboard-section='money-summary']")
-          ?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-      }, 80);
-    }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(CLARA_GUIDE_TARGET_CHANGE_EVENT, {
+            detail: { feature: GUIDE_FEATURE_MONEY_LEFT },
+          })
+        );
+      }
+    });
   }, [isFinanceGuideTerminalDebt]);
+
+  const handleGuideNextToMoneyLeftPrivacy = useCallback(() => {
+    if (!isMoneyLeftGuideActive) return;
+
+    preserveDashboardScrollPosition(() => {
+      setGuideFeature(GUIDE_FEATURE_MONEY_LEFT_PRIVACY);
+      setGuideStep(0);
+      setGuideMoneySummaryVisible(true);
+      setMoneyLeftPrivacyPhase("await-hide");
+      setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT_PRIVACY);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(CLARA_GUIDE_TARGET_CHANGE_EVENT, {
+            detail: { feature: GUIDE_FEATURE_MONEY_LEFT_PRIVACY },
+          })
+        );
+      }
+    });
+  }, [isMoneyLeftGuideActive]);
+
+  const handleGuidePrivacyToggle = useCallback(() => {
+    if (!isMoneyLeftPrivacyGuideActive) return;
+
+    if (moneyLeftPrivacyPhase === "await-hide") {
+      setGuideMoneySummaryVisible(false);
+      setMoneyLeftPrivacyPhase("await-show");
+      return;
+    }
+
+    if (moneyLeftPrivacyPhase === "await-show") {
+      setGuideMoneySummaryVisible(true);
+      setMoneyLeftPrivacyPhase("complete");
+    }
+  }, [isMoneyLeftPrivacyGuideActive, moneyLeftPrivacyPhase]);
+
+  const handleGuidePrivacyComplete = useCallback(() => {
+    if (!isMoneyLeftPrivacyGuideActive || moneyLeftPrivacyPhase !== "complete") return;
+    if (typeof window === "undefined") return;
+
+    window.dispatchEvent(
+      new CustomEvent(CLARA_GUIDE_FEATURE_COMPLETE_EVENT, {
+        detail: { feature: GUIDE_FEATURE_MONEY_LEFT_PRIVACY },
+      })
+    );
+  }, [isMoneyLeftPrivacyGuideActive, moneyLeftPrivacyPhase]);
 
   const handleFinanceCarouselIndexChange = useCallback(
     (detail = {}) => {
@@ -489,10 +596,6 @@ export default function DashboardHomePanel({
       if (!isCarouselGuideActive || total <= 0) return;
 
       setFinanceGuideTraining((current) => {
-        // This carousel reports swipe-left as an increasing activeIndex because
-        // left swipes move the LTR scroll container toward a larger scrollLeft.
-        // Keep the terminal calculation explicit so future carousel direction
-        // changes do not confuse gesture direction with numeric index direction.
         const firstTerminalIndex = swipeLeftIncreasesIndex ? total - 1 : 0;
         const otherTerminalIndex = swipeLeftIncreasesIndex ? 0 : total - 1;
         const hasReachedFirstEnd = current.hasReachedFirstEnd || index === firstTerminalIndex;
@@ -520,13 +623,21 @@ export default function DashboardHomePanel({
   );
 
   useEffect(() => {
-    if (isCarouselGuideActive || isMoneyLeftGuideActive) return undefined;
+    if (isCarouselGuideActive || isMoneyLeftGuideActive || isMoneyLeftPrivacyGuideActive) {
+      return undefined;
+    }
 
     setFinanceGuideSlide(createFinanceGuideSlideState());
     setFinanceGuideTraining(createFinanceGuideTrainingState());
 
     return undefined;
-  }, [isCarouselGuideActive, isMoneyLeftGuideActive]);
+  }, [isCarouselGuideActive, isMoneyLeftGuideActive, isMoneyLeftPrivacyGuideActive]);
+
+  useEffect(() => {
+    if (isMoneyLeftPrivacyGuideActive) return;
+    setGuideMoneySummaryVisible(true);
+    setMoneyLeftPrivacyPhase("await-hide");
+  }, [isMoneyLeftPrivacyGuideActive]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -539,6 +650,8 @@ export default function DashboardHomePanel({
         setGuideStep(0);
         setFinanceGuideSlide(createFinanceGuideSlideState());
         setFinanceGuideTraining(createFinanceGuideTrainingState());
+        setGuideMoneySummaryVisible(true);
+        setMoneyLeftPrivacyPhase("await-hide");
         setGuideRootFeatureClass(GUIDE_FEATURE_FINANCE_CAROUSEL);
         return;
       }
@@ -546,7 +659,18 @@ export default function DashboardHomePanel({
       if (feature === GUIDE_FEATURE_MONEY_LEFT) {
         setGuideFeature(GUIDE_FEATURE_MONEY_LEFT);
         setGuideStep(0);
+        setGuideMoneySummaryVisible(true);
+        setMoneyLeftPrivacyPhase("await-hide");
         setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT);
+        return;
+      }
+
+      if (feature === GUIDE_FEATURE_MONEY_LEFT_PRIVACY) {
+        setGuideFeature(GUIDE_FEATURE_MONEY_LEFT_PRIVACY);
+        setGuideStep(0);
+        setGuideMoneySummaryVisible(true);
+        setMoneyLeftPrivacyPhase("await-hide");
+        setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT_PRIVACY);
       }
     };
 
@@ -608,17 +732,31 @@ export default function DashboardHomePanel({
     };
   }, []);
 
+  const activeGuideActionLabel =
+    isFinanceGuideTerminalDebt ||
+    isMoneyLeftGuideActive ||
+    (isMoneyLeftPrivacyGuideActive && moneyLeftPrivacyPhase === "complete")
+      ? "NEXT"
+      : "";
+  const activeGuideActionHandler = isFinanceGuideTerminalDebt
+    ? handleGuideNextToMoneyLeft
+    : isMoneyLeftGuideActive
+      ? handleGuideNextToMoneyLeftPrivacy
+      : isMoneyLeftPrivacyGuideActive && moneyLeftPrivacyPhase === "complete"
+        ? handleGuidePrivacyComplete
+        : undefined;
+
   return (
     <>
       {isGuideMode ? (
         <div className="fixed inset-0 z-[60] bg-slate-950/82 backdrop-blur-[2px]" aria-hidden="true" />
       ) : null}
 
-      {isCarouselGuideActive || isMoneyLeftGuideActive ? (
+      {isCarouselGuideActive || isMoneyLeftGuideActive || isMoneyLeftPrivacyGuideActive ? (
         <CarouselGuideBubbleOverlay
           copy={activeGuideBubbleCopy}
-          actionLabel={isFinanceGuideTerminalDebt ? "NEXT" : ""}
-          onAction={isFinanceGuideTerminalDebt ? handleGuideNextToMoneyLeft : undefined}
+          actionLabel={activeGuideActionLabel}
+          onAction={activeGuideActionHandler}
         />
       ) : null}
 
@@ -728,6 +866,10 @@ export default function DashboardHomePanel({
             themePrimaryTextClass={themePrimaryTextClass}
             moneySummaryVisible={moneySummaryVisible}
             toggleMoneySummaryVisibility={isGuideMode ? undefined : toggleMoneySummaryVisibility}
+            isGuideMode={isGuideMode}
+            isGuidePrivacyStepActive={isMoneyLeftPrivacyGuideActive}
+            guideMoneySummaryVisible={guideMoneySummaryVisible}
+            onGuidePrivacyToggle={handleGuidePrivacyToggle}
             moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}
             handleMoneyLeftOrbClick={isGuideMode ? undefined : handleMoneyLeftOrbClick}
             startMoneyLeftOrbLongPress={isGuideMode ? undefined : startMoneyLeftOrbLongPress}
