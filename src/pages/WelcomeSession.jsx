@@ -361,117 +361,116 @@ export default function WelcomeSession() {
           )}
         </section>
 
-        <section className="mt-3 rounded-[28px] border border-white/[0.08] bg-[rgba(5,18,38,0.76)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
-                Monthly coaching calendar
-              </p>
-              <h2 className="mt-1 text-[20px] font-black text-white">{monthLabel}</h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => moveMonth(-1)}
-                disabled={monthIndex === 0}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                aria-label="Previous appointment month"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => moveMonth(1)}
-                disabled={monthIndex >= monthOptions.length - 1}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                aria-label="Next appointment month"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-7 gap-1.5">
-            {WEEKDAY_LABELS.map((day) => (
-              <div
-                key={day}
-                className="pb-1 text-center text-[8px] font-black uppercase tracking-[0.12em] text-slate-400/70"
-              >
-                {day}
+        {!showAvailability ? (
+          <section className="mt-3 rounded-[28px] border border-white/[0.08] bg-[rgba(5,18,38,0.76)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
+                  Monthly coaching calendar
+                </p>
+                <h2 className="mt-1 text-[20px] font-black text-white">{monthLabel}</h2>
               </div>
-            ))}
 
-            {calendarDays.map((date) => {
-              const dateKey = toDateKey(date);
-              const dateSlots = slotsByDate.get(dateKey) || [];
-              const isCurrentMonth = toMonthKey(date) === toMonthKey(selectedMonth);
-              const isSelected = showAvailability && dateKey === selectedDateKey;
-              const isToday = dateKey === todayKey;
-              const availableCount = dateSlots.filter((slot) => slot.status === "available").length;
-              const hasAppointments = dateSlots.length > 0;
-              const isClickable = availableCount > 0;
-
-              return (
+              <div className="flex items-center gap-2">
                 <button
-                  key={dateKey}
                   type="button"
-                  onClick={() => handleDateSelect(dateKey)}
-                  disabled={!isClickable}
-                  className={`relative aspect-square min-h-[42px] rounded-[16px] border text-center transition sm:min-h-[54px] ${
-                    isSelected
-                      ? "border-cyan-200/65 bg-[linear-gradient(145deg,rgba(34,211,238,0.20),rgba(99,102,241,0.24))] text-white shadow-[0_0_24px_rgba(34,211,238,0.12)]"
-                      : isClickable
+                  onClick={() => moveMonth(-1)}
+                  disabled={monthIndex === 0}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                  aria-label="Previous appointment month"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveMonth(1)}
+                  disabled={monthIndex >= monthOptions.length - 1}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                  aria-label="Next appointment month"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-7 gap-1.5">
+              {WEEKDAY_LABELS.map((day) => (
+                <div
+                  key={day}
+                  className="pb-1 text-center text-[8px] font-black uppercase tracking-[0.12em] text-slate-400/70"
+                >
+                  {day}
+                </div>
+              ))}
+
+              {calendarDays.map((date) => {
+                const dateKey = toDateKey(date);
+                const dateSlots = slotsByDate.get(dateKey) || [];
+                const isCurrentMonth = toMonthKey(date) === toMonthKey(selectedMonth);
+                const isToday = dateKey === todayKey;
+                const availableCount = dateSlots.filter((slot) => slot.status === "available").length;
+                const hasAppointments = dateSlots.length > 0;
+                const isClickable = availableCount > 0;
+
+                return (
+                  <button
+                    key={dateKey}
+                    type="button"
+                    onClick={() => handleDateSelect(dateKey)}
+                    disabled={!isClickable}
+                    className={`relative aspect-square min-h-[42px] rounded-[16px] border text-center transition sm:min-h-[54px] ${
+                      isClickable
                         ? "cursor-pointer border-white/[0.09] bg-white/[0.045] text-white/90 hover:-translate-y-0.5 hover:border-cyan-100/35 hover:bg-white/[0.09] active:translate-y-0"
                         : hasAppointments
                           ? "cursor-not-allowed border-white/[0.06] bg-white/[0.025] text-white/55"
                           : "cursor-default border-transparent bg-transparent text-slate-500/45"
-                  } ${!isCurrentMonth ? "opacity-35" : ""}`}
-                  aria-label={`${date.toDateString()}${
-                    availableCount
-                      ? `, ${availableCount} available appointment`
-                      : ", no available appointment"
-                  }`}
-                >
-                  <span
-                    className={`text-[11px] font-black sm:text-[13px] ${
-                      isToday ? "text-cyan-200" : ""
+                    } ${!isCurrentMonth ? "opacity-35" : ""}`}
+                    aria-label={`${date.toDateString()}${
+                      availableCount
+                        ? `, ${availableCount} available appointment`
+                        : ", no available appointment"
                     }`}
                   >
-                    {date.getDate()}
-                  </span>
-
-                  {hasAppointments ? (
-                    <span className="absolute bottom-1.5 left-1/2 flex -translate-x-1/2 items-center gap-1">
-                      {dateSlots.map((slot) => (
-                        <span
-                          key={slot.id}
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            slot.status === "available" ? "bg-emerald-300" : "bg-rose-300/65"
-                          }`}
-                        />
-                      ))}
+                    <span
+                      className={`text-[11px] font-black sm:text-[13px] ${
+                        isToday ? "text-cyan-200" : ""
+                      }`}
+                    >
+                      {date.getDate()}
                     </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-4 rounded-[18px] border border-white/[0.06] bg-black/[0.10] px-3.5 py-3">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
-              <span className="h-2 w-2 rounded-full bg-emerald-300" />
-              Available
+                    {hasAppointments ? (
+                      <span className="absolute bottom-1.5 left-1/2 flex -translate-x-1/2 items-center gap-1">
+                        {dateSlots.map((slot) => (
+                          <span
+                            key={slot.id}
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              slot.status === "available" ? "bg-emerald-300" : "bg-rose-300/65"
+                            }`}
+                          />
+                        ))}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
-              <span className="h-2 w-2 rounded-full bg-rose-300/65" />
-              Unavailable
+
+            <div className="mt-4 flex flex-wrap items-center gap-4 rounded-[18px] border border-white/[0.06] bg-black/[0.10] px-3.5 py-3">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
+                <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                Available
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
+                <span className="h-2 w-2 rounded-full bg-rose-300/65" />
+                Unavailable
+              </div>
+              <p className="ml-auto text-[9px] font-black uppercase tracking-[0.12em] text-cyan-200/55">
+                Updated manually
+              </p>
             </div>
-            <p className="ml-auto text-[9px] font-black uppercase tracking-[0.12em] text-cyan-200/55">
-              Updated manually
-            </p>
-          </div>
-        </section>
+          </section>
+        ) : null}
       </div>
     </div>
   );
