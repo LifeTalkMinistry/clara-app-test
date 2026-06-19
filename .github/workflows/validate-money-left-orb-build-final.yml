@@ -1,0 +1,50 @@
+name: Validate Money Left Orb Build Final
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-build:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'validate-money-left-orb-guide-final'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out validation branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint audited Guide files
+        run: |
+          npx eslint \
+            src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx \
+            src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx \
+            src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx \
+            src/runtime/installClaraGuideCarouselStep.js \
+            src/components/fresh/main-dashboard/top-nav/DashboardTopNav.jsx \
+            src/main.jsx
+
+      - name: Run configured tests when present
+        run: |
+          if node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.test ? 0 : 1)"; then
+            npm test -- --run
+          else
+            echo 'No test script is configured; skipping automated tests.'
+          fi
+
+      - name: Run production build
+        run: npm run build
