@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const CLARA_GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
 const CLARA_GUIDE_ME_PHASE_REQUEST_EVENT = "clara:guide-me-phase-request";
@@ -94,7 +95,9 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
     );
   };
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="pointer-events-none fixed left-1/2 z-[95] w-[min(calc(100vw-24px),406px)] -translate-x-1/2 px-3"
       style={{ top: top === null ? "calc(100svh - 250px)" : `${top}px` }}
@@ -129,6 +132,7 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
