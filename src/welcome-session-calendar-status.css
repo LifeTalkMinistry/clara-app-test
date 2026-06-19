@@ -1,1 +1,50 @@
 /* Monthly Coaching calendar status is now rendered directly in JSX. */
+
+/*
+  Review screen hierarchy:
+  promote “Review your check-in” to the single main heading and remove the
+  competing “Ready for your coach” title so the summary starts more cleanly.
+*/
+section > div.relative > div.mt-5 > div.flex.items-start.gap-3 {
+  align-items: center;
+  gap: 0.625rem;
+}
+
+section > div.relative > div.mt-5 > div.flex.items-start.gap-3 > span:first-child {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.875rem;
+}
+
+section
+  > div.relative
+  > div.mt-5
+  > div.flex.items-start.gap-3
+  > div:last-child
+  > p:first-child {
+  margin: 0;
+  color: rgb(255 255 255);
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+section
+  > div.relative
+  > div.mt-5
+  > div.flex.items-start.gap-3
+  > div:last-child
+  > h1 {
+  display: none !important;
+}
+
+section
+  > div.relative
+  > div.mt-5
+  > div.flex.items-start.gap-3
+  > div:last-child
+  > p:last-child {
+  margin-top: 0.375rem;
+}
