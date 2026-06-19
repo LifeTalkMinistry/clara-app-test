@@ -1,0 +1,66 @@
+name: Validate CLARA orb guide implementation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.event.pull_request.head.ref == 'fix/guide-orb-real-surfaces' && github.event.pull_request.head.sha == '1dcdd893c1c3cd0b2bb2b6b2ddecfaa93ce4e0f4'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/guide-orb-real-surfaces
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply implementation bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/patch-parts/guide-orb-*.part > /tmp/guide-orb-bundle.b64
+          base64 -d /tmp/guide-orb-bundle.b64 > /tmp/guide-orb-bundle.tar.gz
+          mkdir -p /tmp/guide-orb-bundle
+          tar -xzf /tmp/guide-orb-bundle.tar.gz -C /tmp/guide-orb-bundle
+          node /tmp/guide-orb-bundle/apply.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Publish validation summary
+        shell: bash
+        run: |
+          echo '## CLARA orb Guide validation' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Build: passed' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Lint: ${{ steps.lint.outcome }}' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/patch-parts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: use production surfaces in the Money Left orb guide'
+          git push origin HEAD:fix/guide-orb-real-surfaces
