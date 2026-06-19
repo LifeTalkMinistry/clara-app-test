@@ -18,7 +18,6 @@ import {
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import {
   buildWelcomeSessionSlots,
-  WELCOME_SESSION_AVAILABLE_SLOT_COUNT,
   WELCOME_SESSION_FORM_URL,
 } from "@/lib/welcome-session-schedule";
 
@@ -59,7 +58,7 @@ function SummaryChip({ icon: Icon, label, value }) {
   );
 }
 
-function WelcomeIntro() {
+function MonthlySupportIntro() {
   return (
     <div className="relative grid h-full gap-5 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
       <div>
@@ -69,30 +68,34 @@ function WelcomeIntro() {
           </div>
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
-              Personal onboarding
+              Personal CLARA support
             </p>
             <h1 className="mt-1 text-[26px] font-black tracking-tight text-white sm:text-[32px]">
-              Welcome Session
+              Monthly Support Session
             </h1>
-            <p className="mt-1 text-[12px] font-semibold text-slate-300/75 sm:text-[13px]">
-              Your one-time 30-minute CLARA setup and coaching call.
+            <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-300/75 sm:text-[13px]">
+              Your active CLARA Committed membership includes one personal 30-minute support and coaching session each month.
             </p>
           </div>
         </div>
 
         <p className="mt-5 max-w-2xl text-[13px] font-semibold leading-relaxed text-slate-200/80 sm:text-[14px]">
-          Choose an available schedule, then complete the Google Form so the session can be prepared around your actual CLARA setup and starting concern.
+          Use your session to review your CLARA setup, discuss a money concern, understand your progress, or decide your next practical step.
+        </p>
+        <p className="mt-2 max-w-2xl text-[11px] font-semibold leading-relaxed text-slate-300/62 sm:text-[12px]">
+          Choose an available date and time below, then complete the short preparation form.
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
-        <SummaryChip icon={Clock3} label="Session" value="30 min" />
-        <SummaryChip icon={Sparkles} label="Benefit" value="One time" />
-        <SummaryChip
-          icon={CalendarDays}
-          label="Open"
-          value={`${WELCOME_SESSION_AVAILABLE_SLOT_COUNT} slots`}
-        />
+      <div>
+        <div className="grid grid-cols-3 gap-2.5">
+          <SummaryChip icon={Clock3} label="Duration" value="30 min" />
+          <SummaryChip icon={Sparkles} label="Access" value="Monthly" />
+          <SummaryChip icon={CalendarDays} label="Schedule" value="Mon–Sat" />
+        </div>
+        <p className="mt-2.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/50">
+          10:00 AM–3:00 PM · Sunday off
+        </p>
       </div>
     </div>
   );
@@ -119,13 +122,13 @@ function AvailabilityPanel({
           </div>
           <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
-              Available times
+              Monthly support times
             </p>
             <h1 className="mt-1 truncate text-[24px] font-black tracking-tight text-white sm:text-[30px]">
               {selectedDateLabel}
             </h1>
             <p className="mt-1 text-[11px] font-semibold text-slate-300/70 sm:text-[12px]">
-              Select one preferred time below.
+              Choose your preferred 30-minute time for this month’s session.
             </p>
           </div>
         </div>
@@ -134,7 +137,7 @@ function AvailabilityPanel({
           type="button"
           onClick={onReset}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/65 transition hover:bg-white/[0.08] hover:text-white"
-          aria-label="Back to Welcome Session overview"
+          aria-label="Back to Monthly Support Session overview"
         >
           <X className="h-4 w-4" />
         </button>
@@ -160,7 +163,11 @@ function AvailabilityPanel({
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <Clock3 className={`h-4 w-4 ${isAvailable ? "text-cyan-100/80" : "text-slate-500/60"}`} />
+                <Clock3
+                  className={`h-4 w-4 ${
+                    isAvailable ? "text-cyan-100/80" : "text-slate-500/60"
+                  }`}
+                />
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.10em] ${
                     isAvailable
@@ -187,7 +194,7 @@ function AvailabilityPanel({
           className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-violet-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.82),rgba(99,102,241,0.92))] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)]"
         >
           <LockKeyhole className="h-3.5 w-3.5" />
-          Unlock with Committed
+          Unlock monthly support
         </button>
       ) : (
         <button
@@ -196,21 +203,21 @@ function AvailabilityPanel({
           onClick={onContinue}
           className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/25 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 text-[9px] font-black uppercase tracking-[0.11em] text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {selectedSlot ? "Continue to appointment form" : "Choose a free time"}
+          {selectedSlot ? "Continue to preparation form" : "Choose a free time"}
           {selectedSlot ? <ExternalLink className="h-3.5 w-3.5" /> : null}
         </button>
       )}
 
       {showMissingLinkMessage ? (
         <p className="mt-2 rounded-[14px] border border-amber-200/15 bg-amber-100/[0.05] px-3 py-2 text-center text-[9px] font-bold leading-relaxed text-amber-100/90">
-          The Google Form link is currently unavailable.
+          The preparation form link is currently unavailable.
         </p>
       ) : null}
 
       <div className="mt-2.5 flex items-start gap-2 rounded-[15px] border border-amber-200/[0.08] bg-amber-100/[0.035] px-3 py-2.5">
         <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200/65" />
         <p className="text-[9px] font-semibold leading-relaxed text-slate-300/65">
-          First come, first served. Your slot is confirmed only after the form is reviewed.
+          One session is included per active membership month. Booking is first come, first served and confirmed after review.
         </p>
       </div>
     </div>
@@ -305,10 +312,11 @@ export default function WelcomeSession() {
           id: selectedSlot.id,
           date: selectedSlot.fullDateLabel,
           time: selectedSlot.timeLabel,
+          benefit: "monthly-support-session",
         }),
       );
     } catch {
-      // The Google Form can still open when browser storage is unavailable.
+      // The preparation form can still open when browser storage is unavailable.
     }
 
     window.open(WELCOME_SESSION_FORM_URL, "_blank", "noopener,noreferrer");
@@ -355,7 +363,7 @@ export default function WelcomeSession() {
               showMissingLinkMessage={showMissingLinkMessage}
             />
           ) : (
-            <WelcomeIntro />
+            <MonthlySupportIntro />
           )}
         </section>
 
@@ -363,7 +371,7 @@ export default function WelcomeSession() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
-                Appointment calendar
+                Monthly booking calendar
               </p>
               <h2 className="mt-1 text-[20px] font-black text-white">{monthLabel}</h2>
             </div>
@@ -425,9 +433,17 @@ export default function WelcomeSession() {
                           ? "cursor-not-allowed border-white/[0.06] bg-white/[0.025] text-white/55"
                           : "cursor-default border-transparent bg-transparent text-slate-500/45"
                   } ${!isCurrentMonth ? "opacity-35" : ""}`}
-                  aria-label={`${date.toDateString()}${availableCount ? `, ${availableCount} available appointment` : ", no available appointment"}`}
+                  aria-label={`${date.toDateString()}${
+                    availableCount
+                      ? `, ${availableCount} available appointment`
+                      : ", no available appointment"
+                  }`}
                 >
-                  <span className={`text-[11px] font-black sm:text-[13px] ${isToday ? "text-cyan-200" : ""}`}>
+                  <span
+                    className={`text-[11px] font-black sm:text-[13px] ${
+                      isToday ? "text-cyan-200" : ""
+                    }`}
+                  >
                     {date.getDate()}
                   </span>
 
@@ -451,11 +467,11 @@ export default function WelcomeSession() {
           <div className="mt-4 flex flex-wrap items-center gap-4 rounded-[18px] border border-white/[0.06] bg-black/[0.10] px-3.5 py-3">
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
               <span className="h-2 w-2 rounded-full bg-emerald-300" />
-              Tap a free date
+              Available
             </div>
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
               <span className="h-2 w-2 rounded-full bg-rose-300/65" />
-              Occupied
+              Unavailable
             </div>
             <p className="ml-auto text-[9px] font-black uppercase tracking-[0.12em] text-cyan-200/55">
               Updated manually

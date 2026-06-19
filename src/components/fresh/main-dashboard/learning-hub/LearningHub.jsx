@@ -6,7 +6,6 @@ import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
-import { WELCOME_SESSION_AVAILABLE_SLOT_COUNT } from "@/lib/welcome-session-schedule";
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
 
 const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
@@ -31,19 +30,19 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function WelcomeSessionButton({ onClick }) {
+function MonthlySupportButton({ onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
-      aria-label={`Open Welcome Session calendar. ${WELCOME_SESSION_AVAILABLE_SLOT_COUNT} free slots shown.`}
-      title="Welcome Session calendar"
+      aria-label="Open your monthly CLARA support session calendar"
+      title="Monthly Support Session"
     >
       <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.24),transparent_52%)]" />
       <CalendarClock className="relative z-10 h-4 w-4 text-cyan-100/85" />
-      <span className="absolute -right-1.5 -top-2 z-20 min-w-[20px] rounded-full border border-emerald-100/25 bg-emerald-300 px-1.5 py-0.5 text-center text-[7px] font-black leading-none text-emerald-950 shadow-[0_8px_18px_rgba(52,211,153,0.28)]">
-        {WELCOME_SESSION_AVAILABLE_SLOT_COUNT}
+      <span className="absolute -right-2 -top-2 z-20 rounded-full border border-emerald-100/25 bg-emerald-300 px-1.5 py-0.5 text-[7px] font-black leading-none text-emerald-950 shadow-[0_8px_18px_rgba(52,211,153,0.28)]">
+        30m
       </span>
     </button>
   );
@@ -124,7 +123,7 @@ export default function LearningHub({
                 className="clara-guide-float mr-1.5 justify-self-end"
                 style={{ animationDelay: "-0.5s" }}
               >
-                <WelcomeSessionButton onClick={() => navigate("/welcome-session")} />
+                <MonthlySupportButton onClick={() => navigate("/welcome-session")} />
               </div>
             ) : (
               <span aria-hidden="true" />
