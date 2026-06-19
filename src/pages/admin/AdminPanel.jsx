@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, CalendarDays, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import useUserRole from "../../hooks/useUserRole";
@@ -58,6 +58,27 @@ export default function AdminPanel() {
       </button>
 
       <PageHeader title="Admin Panel" subtitle="Manage CLARA platform" />
+
+      <button
+        type="button"
+        onClick={() => navigate("/admin/coaching")}
+        className="mb-5 flex w-full items-center justify-between gap-4 rounded-[22px] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(8,47,73,0.82),rgba(35,20,75,0.78))] px-4 py-4 text-left shadow-[0_18px_48px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:border-cyan-200/35 hover:brightness-110 active:scale-[0.99] sm:px-5"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] border border-cyan-200/20 bg-cyan-200/[0.10] text-cyan-100">
+            <CalendarDays className="h-5 w-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-black text-white">Coaching</span>
+            <span className="mt-1 block text-xs font-semibold text-white/55">
+              Manage requests, availability, private preparation, and session outcomes.
+            </span>
+          </span>
+        </span>
+        <span className="shrink-0 rounded-full border border-violet-200/20 bg-violet-200/[0.10] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-violet-100">
+          Mock Mode
+        </span>
+      </button>
 
       <Tabs defaultValue="overview" className="w-full">
         <div className="overflow-x-auto mb-5 -mx-1 px-1">

@@ -49,6 +49,7 @@ const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
 const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
+const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 const ADMIN_RECOVERY_EMAILS = new Set([
@@ -272,6 +273,7 @@ function AppRoutes() {
                     <Route path="/profile" element={<Profile />} />
 
                     <Route path="/admin" element={admin(<AdminPanel />)} />
+                    <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
                     <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
