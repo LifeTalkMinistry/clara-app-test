@@ -40,6 +40,7 @@ const TierSelect = lazy(() => import("./pages/TierSelect"));
 const News = lazy(() => import("./pages/News"));
 const Referrals = lazy(() => import("./pages/Referrals"));
 const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
+const WelcomeSession = lazy(() => import("./pages/WelcomeSession"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const Activation = lazy(() => import("./pages/Activation"));
 const UniversalOnboarding = lazy(() => import("./pages/onboarding/UniversalOnboarding"));
@@ -245,6 +246,7 @@ function AppRoutes() {
                     <Route path="/advertiser" element={<AdvertiserDashboard />} />
 
                     <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
+                    <Route path="/welcome-session" element={<WelcomeSession />} />
                     <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
                     <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
