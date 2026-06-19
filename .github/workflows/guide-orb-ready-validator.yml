@@ -1,52 +1,53 @@
-name: Apply and validate Money Left orb guide
+name: Validate complete Money Left orb guide
 
 on:
-  issue_comment:
-    types: [created]
+  push:
+    branches:
+      - fix/complete-real-clara-orb-guide
+    paths:
+      - scripts/patch_clara_orb_core.py
+      - .github/workflows/guide-orb-ready-validator.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   apply-and-validate:
-    if: github.event.issue.pull_request && github.event.issue.number == 126 && github.event.comment.body == '/run-orb-validator'
+    if: ${{ !contains(github.event.head_commit.message || '', '[orb-core-applied]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out implementation branch
         uses: actions/checkout@v4
         with:
-          ref: fix/guide-orb-real-surfaces
+          ref: fix/complete-real-clara-orb-guide
           fetch-depth: 0
-      - name: Confirm implementation bundle
-        run: test -f .github/patch-parts/guide-orb-01.part
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Apply implementation bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat .github/patch-parts/guide-orb-*.part > /tmp/guide-orb-bundle.b64
-          base64 -d /tmp/guide-orb-bundle.b64 > /tmp/guide-orb-bundle.tar.gz
-          mkdir -p /tmp/guide-orb-bundle
-          tar -xzf /tmp/guide-orb-bundle.tar.gz -C /tmp/guide-orb-bundle
-          node /tmp/guide-orb-bundle/apply.mjs
-      - run: npm ci
+
+      - name: Apply strict core migration
+        run: python scripts/patch_clara_orb_core.py
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Build
         run: npm run build
+
       - name: Lint
-        id: lint
         continue-on-error: true
         run: npm run lint
+
       - name: Commit verified implementation
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf .github/patch-parts
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --check
-          git commit -m 'fix: use production surfaces in the Money Left orb guide'
-          git push origin HEAD:fix/guide-orb-real-surfaces
+          git commit -m 'fix: apply CLARA orb core refactor [orb-core-applied]'
+          git push origin HEAD:fix/complete-real-clara-orb-guide
