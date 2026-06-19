@@ -3,6 +3,10 @@ const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
 const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
 const NEXT_CLASS = "clara-guide-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const MONEY_LEFT_SCROLL_HOLD_MS = 700;
+
+let releaseMoneyLeftScrollHold = null;
+let moneyLeftScrollHoldTimer = null;
 
 function hasGuideSample() {
   return document.documentElement.classList.contains(SAMPLE_CLASS);
@@ -37,22 +41,58 @@ function clearFeatureClasses() {
   );
 }
 
-function scrollDashboardGuideToTop() {
+function getDashboardGuideScroller() {
   const carouselAnchor = document.querySelector(".clara-guide-carousel-anchor");
-  const dashboardScroller = carouselAnchor?.closest?.("main");
+  return carouselAnchor?.closest?.("main") || document.scrollingElement || null;
+}
+
+function scrollDashboardGuideToTop(behavior = "smooth") {
+  const dashboardScroller = getDashboardGuideScroller();
 
   if (dashboardScroller?.scrollTo) {
-    dashboardScroller.scrollTo({ top: 0, behavior: "smooth" });
+    dashboardScroller.scrollTo({ top: 0, behavior });
     return;
   }
 
-  const documentScroller = document.scrollingElement;
-  if (documentScroller?.scrollTo) {
-    documentScroller.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
+  window.scrollTo?.({ top: 0, behavior });
+}
 
-  window.scrollTo?.({ top: 0, behavior: "smooth" });
+function clearMoneyLeftScrollHold() {
+  if (moneyLeftScrollHoldTimer && typeof window !== "undefined") {
+    window.clearTimeout(moneyLeftScrollHoldTimer);
+  }
+  moneyLeftScrollHoldTimer = null;
+
+  if (typeof releaseMoneyLeftScrollHold === "function") {
+    releaseMoneyLeftScrollHold();
+  }
+  releaseMoneyLeftScrollHold = null;
+}
+
+function holdDashboardAtTopForMoneyLeft() {
+  clearMoneyLeftScrollHold();
+
+  const dashboardScroller = getDashboardGuideScroller();
+  if (!dashboardScroller) return;
+
+  const keepAtTop = () => {
+    if (Math.abs(Number(dashboardScroller.scrollTop) || 0) > 0) {
+      dashboardScroller.scrollTop = 0;
+    }
+  };
+
+  dashboardScroller.addEventListener?.("scroll", keepAtTop, { passive: true });
+  keepAtTop();
+
+  releaseMoneyLeftScrollHold = () => {
+    dashboardScroller.removeEventListener?.("scroll", keepAtTop);
+  };
+
+  if (typeof window !== "undefined") {
+    moneyLeftScrollHoldTimer = window.setTimeout(() => {
+      clearMoneyLeftScrollHold();
+    }, MONEY_LEFT_SCROLL_HOLD_MS);
+  }
 }
 
 function goToCarouselStep() {
@@ -74,7 +114,7 @@ function goToCarouselStep() {
 
   // Keep the complete top navigation visible when the finance walkthrough starts.
   // Centering the carousel here pushed the dashboard scroll container downward.
-  window.setTimeout(scrollDashboardGuideToTop, 80);
+  window.setTimeout(() => scrollDashboardGuideToTop("smooth"), 80);
 }
 
 export function installClaraGuideCarouselStep() {
@@ -97,8 +137,23 @@ export function installClaraGuideCarouselStep() {
     }, 60);
   });
 
+  window.addEventListener(TARGET_CHANGE_EVENT, (event) => {
+    const feature = event?.detail?.feature;
+
+    if (feature === "money-left") {
+      // DashboardHomePanel previously centered Money Left with scrollIntoView.
+      // Hold the actual dashboard scroller at the top through that transition so
+      // the full navigation remains visible and the layout does not jump.
+      holdDashboardAtTopForMoneyLeft();
+      return;
+    }
+
+    clearMoneyLeftScrollHold();
+  });
+
   window.addEventListener("clara:guide-mode-change", (event) => {
     clearFeatureClasses();
+    clearMoneyLeftScrollHold();
     removeNextButton();
 
     if (event?.detail?.active) return;
