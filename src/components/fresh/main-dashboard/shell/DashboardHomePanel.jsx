@@ -18,6 +18,84 @@ const GUIDE_FEATURE_FINANCE_CAROUSEL = "finance-carousel";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const FINANCE_CAROUSEL_SWIPE_LEFT_INCREASES_INDEX = true;
+
+const createFinanceGuideTrainingState = () => ({
+  hasReachedFirstEnd: false,
+  hasReachedOtherEnd: false,
+  financeGuideTrainingComplete: false,
+  financeGuideFirstDirection: "left",
+});
+
+const createFinanceGuideSlideState = () => ({
+  index: 0,
+  cardKey: "budget",
+  total: 0,
+  swipeLeftIncreasesIndex: FINANCE_CAROUSEL_SWIPE_LEFT_INCREASES_INDEX,
+});
+
+const FINANCE_GUIDE_CARD_COPY = {
+  wallet: {
+    title: "WALLET OVERVIEW",
+    body: "This card shows where your available money is sitting right now.",
+    footer: "Use this to understand what money is actually ready to use.",
+  },
+  budget: {
+    title: "BUDGET CHECK",
+    body: "This card helps you see how much of your planned money is already assigned.",
+    footer: "Use this before spending so you know if the purchase fits your plan.",
+  },
+  emergencyFund: {
+    title: "EMERGENCY FUND",
+    body: "This card shows your protection money for real unexpected problems.",
+    footer: "This helps you avoid borrowing when life suddenly hits.",
+  },
+  savingsGoals: {
+    title: "SAVINGS GOALS",
+    body: "This card shows the money you are building for specific goals.",
+    footer: "Savings work better when every peso has a purpose.",
+  },
+  investmentFund: {
+    title: "INCOME HUB",
+    body: "This card shows where your money comes from before it enters your wallet.",
+    footer: "Use this to understand income sources before planning spending.",
+  },
+  debtObligations: {
+    title: "DEBT / OBLIGATIONS",
+    body: "This card helps you track what you owe and what still needs attention.",
+    footer: "Use this to stay aware of pressure before it becomes bigger.",
+  },
+  fallback: {
+    title: "MONEY CARD",
+    body: "This card shows one part of your financial picture inside CLARA.",
+    footer: "Swipe through the carousel to understand each money area.",
+  },
+};
+
+const getFinanceGuideCardCopy = (cardKey) =>
+  FINANCE_GUIDE_CARD_COPY[cardKey] || FINANCE_GUIDE_CARD_COPY.fallback;
+
+const getCarouselGuideBubbleCopy = ({ training, slide }) => {
+  const firstDirection = training?.financeGuideFirstDirection || "left";
+
+  if (!training?.hasReachedFirstEnd) {
+    return {
+      title: "SWIPE CAROUSEL",
+      body: `Now swipe ${firstDirection} until you reach the end of the carousel.`,
+      footer: `Keep swiping ${firstDirection} to continue.`,
+    };
+  }
+
+  if (!training?.financeGuideTrainingComplete) {
+    return {
+      title: "GREAT — SWIPE BACK",
+      body: "Now swipe right until you reach the other end of the carousel.",
+      footer: "Keep swiping right to continue.",
+    };
+  }
+
+  return getFinanceGuideCardCopy(slide?.cardKey);
+};
 
 const runInAnimationFrame = (callback) => {
   if (typeof callback !== "function") return;
@@ -98,7 +176,9 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
-function CarouselGuideBubbleOverlay() {
+function CarouselGuideBubbleOverlay({ copy }) {
+  const safeCopy = copy || FINANCE_GUIDE_CARD_COPY.fallback;
+
   return (
     <div
       className="clara-guide-carousel-bubble-shell pointer-events-none fixed left-1/2 z-[240] w-[min(calc(100vw-48px),360px)] -translate-x-1/2 isolate"
@@ -108,15 +188,15 @@ function CarouselGuideBubbleOverlay() {
         <div className="clara-guide-carousel-bubble-arrow pointer-events-none absolute -bottom-2 left-11 h-4 w-4 rotate-45 border-b border-r border-cyan-100/24 bg-[rgba(10,22,54,0.98)]" />
 
         <p className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
-          Swipe Carousel
+          {safeCopy.title}
         </p>
 
         <p className="relative z-10 mt-3 text-[14px] font-bold leading-relaxed text-white">
-          This section can be swiped left or right to move between CLARA&apos;s money features.
+          {safeCopy.body}
         </p>
 
         <p className="relative z-10 mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
-          Swipe left or right to try the carousel.
+          {safeCopy.footer}
         </p>
       </div>
     </div>
@@ -186,12 +266,18 @@ export default function DashboardHomePanel({
   const [guideFeature, setGuideFeature] = useState(GUIDE_FEATURE_DAILY_MONEY_TIP);
   const [guideStep, setGuideStep] = useState(0);
   const [claraGuideProgress, setClaraGuideProgress] = useState(() => readClaraGuideProgress());
+  const [financeGuideSlide, setFinanceGuideSlide] = useState(() => createFinanceGuideSlideState());
+  const [financeGuideTraining, setFinanceGuideTraining] = useState(() => createFinanceGuideTrainingState());
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
   const isFreePlan = currentPlan === "free";
   const hasNewDailyMoneyTipGuide = !isDailyMoneyTipGuideComplete(claraGuideProgress);
   const isDailyTipGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_DAILY_MONEY_TIP && guideStep === 0;
   const isCarouselGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_FINANCE_CAROUSEL;
+  const financeGuideBubbleCopy = getCarouselGuideBubbleCopy({
+    training: financeGuideTraining,
+    slide: financeGuideSlide,
+  });
 
   const effectiveWallets = wallets;
   const effectiveWalletMoney = walletMoney;
@@ -276,6 +362,8 @@ export default function DashboardHomePanel({
     setIsGuideMode(false);
     setGuideStep(0);
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
+    setFinanceGuideSlide(createFinanceGuideSlideState());
+    setFinanceGuideTraining(createFinanceGuideTrainingState());
     emitGuideModeChange(false);
 
     if (focusRealDailyTip && typeof window !== "undefined") {
@@ -290,6 +378,8 @@ export default function DashboardHomePanel({
     setIsGuideIntroOpen(false);
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
     setGuideStep(0);
+    setFinanceGuideSlide(createFinanceGuideSlideState());
+    setFinanceGuideTraining(createFinanceGuideTrainingState());
     setIsGuideMode(true);
     emitGuideModeChange(true);
 
@@ -308,6 +398,63 @@ export default function DashboardHomePanel({
     setGuideStep(0);
   }, [guideFeature, guideStep, isGuideMode]);
 
+  const handleFinanceCarouselIndexChange = useCallback(
+    (detail = {}) => {
+      const total = Math.max(0, Number(detail.total) || 0);
+      const rawIndex = Number(detail.index) || 0;
+      const index = total > 0 ? Math.max(0, Math.min(total - 1, rawIndex)) : 0;
+      const cardKey = detail.cardKey || detail.cardType || "fallback";
+      const swipeLeftIncreasesIndex = detail.swipeLeftIncreasesIndex !== false;
+
+      setFinanceGuideSlide({
+        index,
+        cardKey,
+        total,
+        swipeLeftIncreasesIndex,
+      });
+
+      if (!isCarouselGuideActive || total <= 0) return;
+
+      setFinanceGuideTraining((current) => {
+        // This carousel reports swipe-left as an increasing activeIndex because
+        // left swipes move the LTR scroll container toward a larger scrollLeft.
+        // Keep the terminal calculation explicit so future carousel direction
+        // changes do not confuse gesture direction with numeric index direction.
+        const firstTerminalIndex = swipeLeftIncreasesIndex ? total - 1 : 0;
+        const otherTerminalIndex = swipeLeftIncreasesIndex ? 0 : total - 1;
+        const hasReachedFirstEnd = current.hasReachedFirstEnd || index === firstTerminalIndex;
+        const hasReachedOtherEnd =
+          hasReachedFirstEnd && (current.hasReachedOtherEnd || index === otherTerminalIndex);
+        const financeGuideTrainingComplete = hasReachedFirstEnd && hasReachedOtherEnd;
+
+        if (
+          current.hasReachedFirstEnd === hasReachedFirstEnd &&
+          current.hasReachedOtherEnd === hasReachedOtherEnd &&
+          current.financeGuideTrainingComplete === financeGuideTrainingComplete
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          hasReachedFirstEnd,
+          hasReachedOtherEnd,
+          financeGuideTrainingComplete,
+        };
+      });
+    },
+    [isCarouselGuideActive]
+  );
+
+  useEffect(() => {
+    if (isCarouselGuideActive) return undefined;
+
+    setFinanceGuideSlide(createFinanceGuideSlideState());
+    setFinanceGuideTraining(createFinanceGuideTrainingState());
+
+    return undefined;
+  }, [isCarouselGuideActive]);
+
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
@@ -317,6 +464,8 @@ export default function DashboardHomePanel({
       if (feature === GUIDE_FEATURE_FINANCE_CAROUSEL) {
         setGuideFeature(GUIDE_FEATURE_FINANCE_CAROUSEL);
         setGuideStep(0);
+        setFinanceGuideSlide(createFinanceGuideSlideState());
+        setFinanceGuideTraining(createFinanceGuideTrainingState());
       }
     };
 
@@ -384,7 +533,7 @@ export default function DashboardHomePanel({
         <div className="fixed inset-0 z-[60] bg-slate-950/82 backdrop-blur-[2px]" aria-hidden="true" />
       ) : null}
 
-      {isCarouselGuideActive ? <CarouselGuideBubbleOverlay /> : null}
+      {isCarouselGuideActive ? <CarouselGuideBubbleOverlay copy={financeGuideBubbleCopy} /> : null}
 
       {isGuideIntroOpen ? (
         <ClaraGuideIntroModal onStart={startGuideMode} onClose={() => setIsGuideIntroOpen(false)} />
@@ -473,6 +622,7 @@ export default function DashboardHomePanel({
                   endClaraAiLongPress={isGuideMode || isFreePlan ? undefined : endClaraAiLongPress}
                   handleClaraAiOrbClickCapture={isGuideMode || isFreePlan ? undefined : handleClaraAiOrbClickCapture}
                   isGuideMode={isGuideMode}
+                  onGuideCarouselIndexChange={isCarouselGuideActive ? handleFinanceCarouselIndexChange : undefined}
                 />
               </div>
             </div>
