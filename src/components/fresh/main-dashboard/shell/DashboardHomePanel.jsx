@@ -274,6 +274,13 @@ export default function DashboardHomePanel({
   const hasNewDailyMoneyTipGuide = !isDailyMoneyTipGuideComplete(claraGuideProgress);
   const isDailyTipGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_DAILY_MONEY_TIP && guideStep === 0;
   const isCarouselGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_FINANCE_CAROUSEL;
+  const financeGuideAllowedSwipeDirection = isCarouselGuideActive
+    ? !financeGuideTraining.hasReachedFirstEnd
+      ? "left"
+      : !financeGuideTraining.financeGuideTrainingComplete
+        ? "right"
+        : null
+    : null;
   const financeGuideBubbleCopy = getCarouselGuideBubbleCopy({
     training: financeGuideTraining,
     slide: financeGuideSlide,
@@ -623,6 +630,7 @@ export default function DashboardHomePanel({
                   handleClaraAiOrbClickCapture={isGuideMode || isFreePlan ? undefined : handleClaraAiOrbClickCapture}
                   isGuideMode={isGuideMode}
                   onGuideCarouselIndexChange={isCarouselGuideActive ? handleFinanceCarouselIndexChange : undefined}
+                  guideAllowedSwipeDirection={financeGuideAllowedSwipeDirection}
                 />
               </div>
             </div>
