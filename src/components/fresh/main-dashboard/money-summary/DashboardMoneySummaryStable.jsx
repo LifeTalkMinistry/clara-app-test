@@ -1,10 +1,6 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
-
-const SINGLE_TAP_DELAY = 240;
-const DOUBLE_TAP_WINDOW = 280;
-const LONG_PRESS_DELAY = 550;
-const MOVE_CANCEL_DISTANCE = 12;
+import useClaraOrbGestureController from "@/components/fresh/main-dashboard/money-summary/useClaraOrbGestureController";
 
 const resolveOrbAssetSrc = (assetPath = "") => {
   const trimmedPath = String(assetPath || "").trim();
@@ -43,233 +39,66 @@ export default function DashboardMoneySummaryStable({
   isGuidePrivacyStepActive = false,
   guideMoneySummaryVisible = true,
   onGuidePrivacyToggle,
+  isGuideOrbLessonActive = false,
+  guideOrbExpectedAction = null,
+  onGuideOrbSingleTap,
+  onGuideOrbDoubleTap,
+  onGuideOrbLongPress,
+  onOrbSingleTap,
+  onOrbDoubleTap,
+  onOrbLongPress,
   moneyLeftSummaryHandlers = {},
-  handleMoneyLeftOrbClick,
-  startMoneyLeftOrbLongPress,
-  moveMoneyLeftOrbLongPress,
-  endMoneyLeftOrbLongPress,
   stopMoneyLeftOrbEvent,
   walletMoney = 0,
   thisMonthSpent = 0,
   fmt = (value) => String(value ?? 0),
 }) {
-  const tapTimerRef = useRef(null);
-  const longPressTimerRef = useRef(null);
-  const longPressTriggeredRef = useRef(false);
-  const lastTapAtRef = useRef(0);
-  const pointerStateRef = useRef({ startX: 0, startY: 0, moved: false });
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
     : moneySummaryVisible;
 
-  const clearTapTimer = useCallback(() => {
-    if (tapTimerRef.current) {
-      clearTimeout(tapTimerRef.current);
-      tapTimerRef.current = null;
+  const productionSingleTap = useCallback(() => {
+    if (typeof onOrbSingleTap === "function") {
+      onOrbSingleTap();
+      return;
     }
-  }, []);
 
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, []);
+    moneyLeftSummaryHandlers?.openManualExpenseFromMoneyLeft?.();
+  }, [moneyLeftSummaryHandlers, onOrbSingleTap]);
 
-  const resetOrbGestureState = useCallback(() => {
-    clearTapTimer();
-    clearLongPressTimer();
-    longPressTriggeredRef.current = false;
-    lastTapAtRef.current = 0;
-    pointerStateRef.current = { startX: 0, startY: 0, moved: false };
-  }, [clearLongPressTimer, clearTapTimer]);
-
-  useEffect(() => {
-    return resetOrbGestureState;
-  }, [resetOrbGestureState]);
-
-  useEffect(() => {
-    resetOrbGestureState();
-  }, [isGuideMode, resetOrbGestureState]);
-
-  const stopOrbEvent = useCallback(
+  const productionDoubleTap = useCallback(
     (event) => {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-      event?.nativeEvent?.stopImmediatePropagation?.();
-      stopMoneyLeftOrbEvent?.(event);
-    },
-    [stopMoneyLeftOrbEvent]
-  );
-
-  const openManualLog = useCallback(
-    (event) => {
-      if (isGuideMode) return;
-
-      if (typeof handleMoneyLeftOrbClick === "function") {
-        handleMoneyLeftOrbClick(event);
+      if (typeof onOrbDoubleTap === "function") {
+        onOrbDoubleTap(event);
         return;
       }
 
-      moneyLeftSummaryHandlers?.openManualExpenseFromMoneyLeft?.(event);
-    },
-    [handleMoneyLeftOrbClick, isGuideMode, moneyLeftSummaryHandlers]
-  );
-
-  const openTransactionHub = useCallback(
-    (event) => {
-      if (isGuideMode) return;
       moneyLeftSummaryHandlers?.openTransactionHubFromMoneyLeft?.(event);
     },
-    [isGuideMode, moneyLeftSummaryHandlers]
+    [moneyLeftSummaryHandlers, onOrbDoubleTap]
   );
 
-  const handleOrbPointerDown = useCallback(
-    (event) => {
-      stopOrbEvent(event);
-      const point = event?.touches?.[0] || event;
-      pointerStateRef.current = {
-        startX: Number(point?.clientX || 0),
-        startY: Number(point?.clientY || 0),
-        moved: false,
-      };
-      longPressTriggeredRef.current = false;
-      clearLongPressTimer();
-
-      const now = Date.now();
-      const previousTapAt = lastTapAtRef.current || 0;
-      if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
-        clearTapTimer();
-      }
-
-      if (!isGuideMode) {
-        startMoneyLeftOrbLongPress?.(event);
-      }
-
-      longPressTimerRef.current = setTimeout(() => {
-        longPressTriggeredRef.current = true;
-        clearTapTimer();
-        lastTapAtRef.current = 0;
-      }, LONG_PRESS_DELAY);
-    },
-    [
-      clearLongPressTimer,
-      clearTapTimer,
-      isGuideMode,
-      startMoneyLeftOrbLongPress,
-      stopOrbEvent,
-    ]
-  );
-
-  const handleOrbPointerMove = useCallback(
-    (event) => {
-      stopOrbEvent(event);
-      const point = event?.touches?.[0] || event;
-      const dx = Math.abs(
-        Number(point?.clientX || 0) - pointerStateRef.current.startX
-      );
-      const dy = Math.abs(
-        Number(point?.clientY || 0) - pointerStateRef.current.startY
-      );
-
-      if (dx <= MOVE_CANCEL_DISTANCE && dy <= MOVE_CANCEL_DISTANCE) return;
-
-      pointerStateRef.current.moved = true;
-      clearLongPressTimer();
-
-      if (!isGuideMode) {
-        if (typeof moveMoneyLeftOrbLongPress === "function") {
-          moveMoneyLeftOrbLongPress(event);
-        } else {
-          endMoneyLeftOrbLongPress?.(event);
-        }
-      }
-    },
-    [
-      clearLongPressTimer,
-      endMoneyLeftOrbLongPress,
-      isGuideMode,
-      moveMoneyLeftOrbLongPress,
-      stopOrbEvent,
-    ]
-  );
-
-  const handleOrbPointerUp = useCallback(
-    (event) => {
-      stopOrbEvent(event);
-
-      if (!isGuideMode) {
-        endMoneyLeftOrbLongPress?.(event);
-      }
-
-      clearLongPressTimer();
-
-      if (pointerStateRef.current.moved || longPressTriggeredRef.current) {
-        pointerStateRef.current.moved = false;
-        longPressTriggeredRef.current = false;
-        lastTapAtRef.current = 0;
-        clearTapTimer();
-        return;
-      }
-
-      const now = Date.now();
-      const previousTapAt = lastTapAtRef.current || 0;
-
-      if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
-        lastTapAtRef.current = 0;
-        clearTapTimer();
-        openTransactionHub(event);
-        return;
-      }
-
-      lastTapAtRef.current = now;
-      clearTapTimer();
-      tapTimerRef.current = setTimeout(() => {
-        lastTapAtRef.current = 0;
-        openManualLog(event);
-      }, Math.max(SINGLE_TAP_DELAY, DOUBLE_TAP_WINDOW));
-    },
-    [
-      clearLongPressTimer,
-      clearTapTimer,
-      endMoneyLeftOrbLongPress,
-      isGuideMode,
-      openManualLog,
-      openTransactionHub,
-      stopOrbEvent,
-    ]
-  );
-
-  const handleOrbCancel = useCallback(
-    (event) => {
-      stopOrbEvent(event);
-
-      if (!isGuideMode) {
-        endMoneyLeftOrbLongPress?.(event);
-      }
-
-      clearLongPressTimer();
-      clearTapTimer();
-      longPressTriggeredRef.current = false;
-      lastTapAtRef.current = 0;
-      pointerStateRef.current.moved = false;
-    },
-    [
-      clearLongPressTimer,
-      clearTapTimer,
-      endMoneyLeftOrbLongPress,
-      isGuideMode,
-      stopOrbEvent,
-    ]
-  );
-
-  const handleOrbClick = useCallback(
-    (event) => {
-      stopOrbEvent(event);
-    },
-    [stopOrbEvent]
-  );
+  const {
+    handleOrbPointerDown,
+    handleOrbPointerMove,
+    handleOrbPointerUp,
+    handleOrbCancel,
+    handleOrbClick,
+    handleOrbKeyDown,
+    handleOrbKeyUp,
+  } = useClaraOrbGestureController({
+    isGuideMode,
+    isGuideOrbLessonActive,
+    guideOrbExpectedAction,
+    onGuideOrbSingleTap,
+    onGuideOrbDoubleTap,
+    onGuideOrbLongPress,
+    onProductionSingleTap: productionSingleTap,
+    onProductionDoubleTap: productionDoubleTap,
+    onProductionLongPress: onOrbLongPress,
+    stopLegacyOrbEvent: stopMoneyLeftOrbEvent,
+  });
 
   const handlePrivacyToggle = useCallback(
     (event) => {
@@ -367,6 +196,9 @@ export default function DashboardMoneySummaryStable({
           onPointerUp={handleOrbPointerUp}
           onPointerCancel={handleOrbCancel}
           onPointerLeave={handleOrbCancel}
+          onKeyDown={handleOrbKeyDown}
+          onKeyUp={handleOrbKeyUp}
+          onBlur={handleOrbCancel}
           onContextMenu={handleOrbClick}
           className="relative z-10 flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white shadow-[0_0_18px_rgba(34,211,238,0.38)] transition hover:bg-white/[0.14] active:scale-95"
           style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
