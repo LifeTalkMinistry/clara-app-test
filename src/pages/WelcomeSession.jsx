@@ -10,7 +10,7 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
-  HeartHandshake,
+  ExternalLink,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -20,22 +20,10 @@ import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+import { COACHING_FOCUS_OPTIONS as SESSION_FOCUS_OPTIONS } from "@/lib/coaching-focus-options";
 import { buildWelcomeSessionSlots } from "@/lib/welcome-session-schedule";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const SESSION_FOCUS_OPTIONS = [
-  { value: "clara_setup", label: "Understanding or setting up CLARA" },
-  { value: "budget", label: "Fixing my monthly budget" },
-  { value: "spending", label: "Controlling unnecessary spending" },
-  { value: "upcoming_expense", label: "Preparing for an upcoming expense" },
-  { value: "savings", label: "Building savings or an emergency fund" },
-  { value: "debt", label: "Managing debt" },
-  { value: "income", label: "Improving my income plan" },
-  { value: "progress", label: "Reviewing my overall progress" },
-  { value: "decision", label: "Making a financial decision" },
-  { value: "other", label: "Something else" },
-];
 
 const DESIRED_OUTCOME_OPTIONS = [
   { value: "clear_action", label: "Leave with one clear action" },
