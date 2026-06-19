@@ -3,14 +3,13 @@ import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
-import ClaraGuideSimulationProvider from "@/context/ClaraGuideSimulationProvider";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
-import ClaraGuideMoneyLeftOrbController from "./runtime/ClaraGuideMoneyLeftOrbController";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import { installClaraGuideCarouselStep } from "./runtime/installClaraGuideCarouselStep";
+import { installClaraGuideMoneyLeftOrb } from "./runtime/installClaraGuideMoneyLeftOrb";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -62,6 +61,12 @@ try {
 }
 
 try {
+  installClaraGuideMoneyLeftOrb();
+} catch (error) {
+  console.warn("CLARA guide Money Left orb failed to init:", error);
+}
+
+try {
   installNativeNotificationListeners();
 } catch (error) {
   console.warn("CLARA native notification listeners failed to init:", error);
@@ -73,10 +78,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <AuthProvider>
         <ThemeProvider>
           <HashRouter>
-            <ClaraGuideSimulationProvider>
-              <App />
-              <ClaraGuideMoneyLeftOrbController />
-            </ClaraGuideSimulationProvider>
+            <App />
           </HashRouter>
         </ThemeProvider>
       </AuthProvider>
