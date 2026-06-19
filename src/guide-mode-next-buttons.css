@@ -1,0 +1,164 @@
+/*
+ * CLARA Guide Mode progression CTA contract.
+ *
+ * Loaded after every Guide Mode spotlight stylesheet so older local rules,
+ * Tailwind utilities, and state-specific overrides cannot turn NEXT back into
+ * a circular/floating badge.
+ *
+ * Scope is intentionally limited to Guide Mode progression controls.
+ */
+
+#root :is(
+  .clara-guide-bubble-surface,
+  .clara-guide-carousel-bubble-shell > [role='dialog'],
+  [data-clara-guide-orb-preview='true'],
+  .clara-guide-orb-bubble-surface,
+  .clara-guide-orb-feature-controls
+) {
+  position: relative !important;
+}
+
+#root button:is(
+  .clara-guide-next-button,
+  .clara-guide-carousel-next-button,
+  .clara-guide-orb-next,
+  .clara-guide-orb-feature-next,
+  [data-clara-guide-action='next'],
+  [data-clara-guide-orb-preview-next='true'],
+  [data-clara-guide-orb-ui-next='true']
+) {
+  box-sizing: border-box !important;
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  float: none !important;
+  translate: none !important;
+  transform: none !important;
+
+  display: flex !important;
+  flex: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: flex-end !important;
+
+  width: fit-content !important;
+  min-width: 108px !important;
+  max-width: 100% !important;
+  min-height: 42px !important;
+  height: auto !important;
+  aspect-ratio: auto !important;
+  margin: 16px 0 0 auto !important;
+  padding: 10px 18px !important;
+  overflow: hidden !important;
+
+  border: 1px solid rgba(186, 242, 255, 0.28) !important;
+  border-radius: 999px !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(207, 250, 254, 0.18),
+      rgba(103, 232, 249, 0.10) 48%,
+      rgba(129, 140, 248, 0.13)
+    ) !important;
+  color: rgba(236, 254, 255, 0.96) !important;
+  box-shadow:
+    0 10px 28px rgba(2, 8, 23, 0.34),
+    0 0 20px rgba(34, 211, 238, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(18px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
+
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.16em !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease !important;
+}
+
+#root button:is(
+  .clara-guide-next-button,
+  .clara-guide-carousel-next-button,
+  .clara-guide-orb-next,
+  .clara-guide-orb-feature-next,
+  [data-clara-guide-action='next'],
+  [data-clara-guide-orb-preview-next='true'],
+  [data-clara-guide-orb-ui-next='true']
+):hover {
+  border-color: rgba(207, 250, 254, 0.42) !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(207, 250, 254, 0.24),
+      rgba(103, 232, 249, 0.14) 48%,
+      rgba(129, 140, 248, 0.17)
+    ) !important;
+  box-shadow:
+    0 12px 30px rgba(2, 8, 23, 0.38),
+    0 0 24px rgba(34, 211, 238, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+#root button:is(
+  .clara-guide-next-button,
+  .clara-guide-carousel-next-button,
+  .clara-guide-orb-next,
+  .clara-guide-orb-feature-next,
+  [data-clara-guide-action='next'],
+  [data-clara-guide-orb-preview-next='true'],
+  [data-clara-guide-orb-ui-next='true']
+):focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 2px rgba(4, 12, 30, 0.96),
+    0 0 0 4px rgba(165, 243, 252, 0.72),
+    0 12px 30px rgba(2, 8, 23, 0.38) !important;
+}
+
+#root button:is(
+  .clara-guide-next-button,
+  .clara-guide-carousel-next-button,
+  .clara-guide-orb-next,
+  .clara-guide-orb-feature-next,
+  [data-clara-guide-action='next'],
+  [data-clara-guide-orb-preview-next='true'],
+  [data-clara-guide-orb-ui-next='true']
+):active {
+  transform: scale(0.985) !important;
+}
+
+/* Feature controls use a horizontal safety row, so they do not need top space. */
+#root .clara-guide-orb-feature-next {
+  margin-top: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root button:is(
+    .clara-guide-next-button,
+    .clara-guide-carousel-next-button,
+    .clara-guide-orb-next,
+    .clara-guide-orb-feature-next,
+    [data-clara-guide-action='next'],
+    [data-clara-guide-orb-preview-next='true'],
+    [data-clara-guide-orb-ui-next='true']
+  ) {
+    transition: none !important;
+  }
+}
