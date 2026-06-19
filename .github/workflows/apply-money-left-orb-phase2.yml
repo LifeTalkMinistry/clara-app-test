@@ -42,17 +42,19 @@ jobs:
 
           path = Path("src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx")
           text = path.read_text()
-          old = '''  const handleOrbCancel = useCallback(
-            (event) => {
-              stopOrbEvent(event);
-
-              if (!isGuideMode) {'''
-          new = '''  const handleOrbCancel = useCallback(
-            (event) => {
-              stopOrbEvent(event);
-              // Cancellation remains isolated from Guide Mode completion.
-
-              if (!isGuideMode) {'''
+          old = (
+              "  const handleOrbCancel = useCallback(\n"
+              "    (event) => {\n"
+              "      stopOrbEvent(event);\n\n"
+              "      if (!isGuideMode) {"
+          )
+          new = (
+              "  const handleOrbCancel = useCallback(\n"
+              "    (event) => {\n"
+              "      stopOrbEvent(event);\n"
+              "      // Cancellation remains isolated from Guide Mode completion.\n\n"
+              "      if (!isGuideMode) {"
+          )
           if text.count(old) != 1:
               raise SystemExit(f"Expected one cancel block, found {text.count(old)}")
           path.write_text(text.replace(old, new, 1))
