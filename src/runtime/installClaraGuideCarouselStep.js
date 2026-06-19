@@ -3,10 +3,10 @@ const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
 const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
 const NEXT_CLASS = "clara-guide-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
-const MONEY_LEFT_SCROLL_HOLD_MS = 700;
+const MONEY_LEFT_SCROLL_LOCK_MS = 1200;
 
-let releaseMoneyLeftScrollHold = null;
-let moneyLeftScrollHoldTimer = null;
+let releaseMoneyLeftScrollLock = null;
+let moneyLeftScrollLockTimer = null;
 
 function hasGuideSample() {
   return document.documentElement.classList.contains(SAMPLE_CLASS);
@@ -57,41 +57,88 @@ function scrollDashboardGuideToTop(behavior = "smooth") {
   window.scrollTo?.({ top: 0, behavior });
 }
 
-function clearMoneyLeftScrollHold() {
-  if (moneyLeftScrollHoldTimer && typeof window !== "undefined") {
-    window.clearTimeout(moneyLeftScrollHoldTimer);
+function clearMoneyLeftScrollLock() {
+  if (moneyLeftScrollLockTimer && typeof window !== "undefined") {
+    window.clearTimeout(moneyLeftScrollLockTimer);
   }
-  moneyLeftScrollHoldTimer = null;
+  moneyLeftScrollLockTimer = null;
 
-  if (typeof releaseMoneyLeftScrollHold === "function") {
-    releaseMoneyLeftScrollHold();
+  if (typeof releaseMoneyLeftScrollLock === "function") {
+    releaseMoneyLeftScrollLock();
   }
-  releaseMoneyLeftScrollHold = null;
+  releaseMoneyLeftScrollLock = null;
 }
 
-function holdDashboardAtTopForMoneyLeft() {
-  clearMoneyLeftScrollHold();
+function suppressTargetScrollIntoView(target) {
+  if (!target || typeof target.scrollIntoView !== "function") {
+    return () => {};
+  }
+
+  const hadOwnScrollIntoView = Object.prototype.hasOwnProperty.call(
+    target,
+    "scrollIntoView"
+  );
+  const previousDescriptor = hadOwnScrollIntoView
+    ? Object.getOwnPropertyDescriptor(target, "scrollIntoView")
+    : null;
+
+  try {
+    Object.defineProperty(target, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => {},
+    });
+  } catch {
+    return () => {};
+  }
+
+  return () => {
+    try {
+      if (hadOwnScrollIntoView && previousDescriptor) {
+        Object.defineProperty(target, "scrollIntoView", previousDescriptor);
+      } else {
+        delete target.scrollIntoView;
+      }
+    } catch {
+      // The temporary instance override is safe to leave if a browser refuses
+      // restoration; it is scoped only to the mounted Money Left element.
+    }
+  };
+}
+
+function lockDashboardPositionForMoneyLeft() {
+  clearMoneyLeftScrollLock();
 
   const dashboardScroller = getDashboardGuideScroller();
   if (!dashboardScroller) return;
 
-  const keepAtTop = () => {
-    if (Math.abs(Number(dashboardScroller.scrollTop) || 0) > 0) {
-      dashboardScroller.scrollTop = 0;
+  const lockedScrollTop = Number(dashboardScroller.scrollTop) || 0;
+  const moneyLeftTarget = document.querySelector(
+    "[data-clara-dashboard-section='money-summary']"
+  );
+  const restoreScrollIntoView = suppressTargetScrollIntoView(moneyLeftTarget);
+
+  const preserveExactPosition = () => {
+    const currentScrollTop = Number(dashboardScroller.scrollTop) || 0;
+    if (Math.abs(currentScrollTop - lockedScrollTop) > 0.5) {
+      dashboardScroller.scrollTop = lockedScrollTop;
     }
   };
 
-  dashboardScroller.addEventListener?.("scroll", keepAtTop, { passive: true });
-  keepAtTop();
+  dashboardScroller.addEventListener?.("scroll", preserveExactPosition, {
+    passive: true,
+  });
+  preserveExactPosition();
 
-  releaseMoneyLeftScrollHold = () => {
-    dashboardScroller.removeEventListener?.("scroll", keepAtTop);
+  releaseMoneyLeftScrollLock = () => {
+    dashboardScroller.removeEventListener?.("scroll", preserveExactPosition);
+    restoreScrollIntoView();
   };
 
   if (typeof window !== "undefined") {
-    moneyLeftScrollHoldTimer = window.setTimeout(() => {
-      clearMoneyLeftScrollHold();
-    }, MONEY_LEFT_SCROLL_HOLD_MS);
+    moneyLeftScrollLockTimer = window.setTimeout(() => {
+      clearMoneyLeftScrollLock();
+    }, MONEY_LEFT_SCROLL_LOCK_MS);
   }
 }
 
@@ -141,19 +188,19 @@ export function installClaraGuideCarouselStep() {
     const feature = event?.detail?.feature;
 
     if (feature === "money-left") {
-      // DashboardHomePanel previously centered Money Left with scrollIntoView.
-      // Hold the actual dashboard scroller at the top through that transition so
-      // the full navigation remains visible and the layout does not jump.
-      holdDashboardAtTopForMoneyLeft();
+      // Preserve the exact Debt-step viewport. DashboardHomePanel still schedules
+      // a smooth scrollIntoView for Money Left, so temporarily suppress that call
+      // and lock the actual dashboard scroller until the transition has settled.
+      lockDashboardPositionForMoneyLeft();
       return;
     }
 
-    clearMoneyLeftScrollHold();
+    clearMoneyLeftScrollLock();
   });
 
   window.addEventListener("clara:guide-mode-change", (event) => {
     clearFeatureClasses();
-    clearMoneyLeftScrollHold();
+    clearMoneyLeftScrollLock();
     removeNextButton();
 
     if (event?.detail?.active) return;
