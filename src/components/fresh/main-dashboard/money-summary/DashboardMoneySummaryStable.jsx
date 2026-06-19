@@ -271,6 +271,19 @@ export default function DashboardMoneySummaryStable({
     [stopOrbEvent]
   );
 
+  const handleOrbKeyDown = useCallback(
+    (event) => {
+      const key = event?.key;
+      if (key !== "Enter" && key !== " " && key !== "Spacebar") return;
+
+      stopOrbEvent(event);
+      if (event?.repeat) return;
+
+      openManualLog(event);
+    },
+    [openManualLog, stopOrbEvent]
+  );
+
   const handlePrivacyToggle = useCallback(
     (event) => {
       if (isGuidePrivacyStepActive) {
@@ -362,6 +375,7 @@ export default function DashboardMoneySummaryStable({
           data-clara-manual-expense-orb="true"
           onClick={handleOrbClick}
           onDoubleClick={handleOrbClick}
+          onKeyDown={handleOrbKeyDown}
           onPointerDown={handleOrbPointerDown}
           onPointerMove={handleOrbPointerMove}
           onPointerUp={handleOrbPointerUp}
