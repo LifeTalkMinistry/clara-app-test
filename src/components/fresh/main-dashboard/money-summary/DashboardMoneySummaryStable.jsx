@@ -137,6 +137,12 @@ export default function DashboardMoneySummaryStable({
       longPressTriggeredRef.current = false;
       clearLongPressTimer();
 
+      const now = Date.now();
+      const previousTapAt = lastTapAtRef.current || 0;
+      if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
+        clearTapTimer();
+      }
+
       if (!isGuideMode) {
         startMoneyLeftOrbLongPress?.(event);
       }
