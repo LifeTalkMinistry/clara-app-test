@@ -120,6 +120,11 @@ const MONEY_LEFT_ORB_GUIDE_COPY = {
     body: "Tap the orb twice quickly to open your complete transaction history.",
     footer: "DOUBLE-TAP THE ORB NOW.",
   },
+  "await-hold": {
+    title: "HOLD — CHAT WITH CLARA",
+    body: "Press and hold the orb until CLARA opens.",
+    footer: "PRESS AND HOLD THE ORB NOW.",
+  },
 };
 
 const MONEY_LEFT_ORB_GUIDE_ITEMS = [
@@ -469,7 +474,8 @@ export default function DashboardHomePanel({
     isMoneyLeftOrbGuideActive &&
     (moneyLeftOrbPhase === "intro" ||
       moneyLeftOrbPhase === "await-single" ||
-      moneyLeftOrbPhase === "await-double");
+      moneyLeftOrbPhase === "await-double" ||
+      moneyLeftOrbPhase === "await-hold");
   const isFinanceGuideTerminalDebt =
     isCarouselGuideActive &&
     financeGuideTraining.financeGuideTrainingComplete &&
@@ -742,6 +748,13 @@ export default function DashboardHomePanel({
     setMoneyLeftOrbPhase("double-preview");
   }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
 
+  const handleGuideOrbLongPress = useCallback(() => {
+    if (!isMoneyLeftOrbGuideActive || moneyLeftOrbPhase !== "await-hold") return;
+
+    setGuideOrbPreview("clara-chat");
+    setMoneyLeftOrbPhase("hold-preview");
+  }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
+
   const handleGuideOrbPreviewNext = useCallback(() => {
     if (!isMoneyLeftOrbGuideActive) return;
 
@@ -750,7 +763,9 @@ export default function DashboardHomePanel({
         ? "await-double"
         : moneyLeftOrbPhase === "double-preview" && guideOrbPreview === "transaction-hub"
           ? "await-hold"
-          : null;
+          : moneyLeftOrbPhase === "hold-preview" && guideOrbPreview === "clara-chat"
+            ? "complete"
+            : null;
 
     if (!nextPhase) return;
 
@@ -1116,6 +1131,7 @@ export default function DashboardHomePanel({
             guideOrbButtonRef={guideOrbButtonRef}
             onGuideOrbSingleTap={handleGuideOrbSingleTap}
             onGuideOrbDoubleTap={handleGuideOrbDoubleTap}
+            onGuideOrbLongPress={handleGuideOrbLongPress}
             guideMoneySummaryVisible={guideMoneySummaryVisible}
             onGuidePrivacyToggle={handleGuidePrivacyToggle}
             moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}

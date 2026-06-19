@@ -69,7 +69,9 @@ html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='tru
 html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-single'] [data-clara-orb-control='true'],
 html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-single'] [data-clara-manual-expense-orb='true'],
 html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-double'] [data-clara-orb-control='true'],
-html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-double'] [data-clara-manual-expense-orb='true'] {
+html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-double'] [data-clara-manual-expense-orb='true'],
+html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-hold'] [data-clara-orb-control='true'],
+html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-hold'] [data-clara-manual-expense-orb='true'] {
   pointer-events: auto !important;
 }
 
@@ -138,5 +140,52 @@ html.clara-guide-money-left-orb-active #root .clara-guide-carousel-bubble-item-v
 @media (prefers-reduced-motion: reduce) {
   html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'] {
     animation: none !important;
+  }
+}
+
+
+html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'][data-clara-guide-orb-holding='true']::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: conic-gradient(
+    from -90deg,
+    rgba(103, 232, 249, 0.96),
+    rgba(129, 140, 248, 0.88),
+    rgba(168, 85, 247, 0.78),
+    rgba(103, 232, 249, 0.12)
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  opacity: 0.9;
+  animation: clara-guide-orb-hold-progress 520ms linear forwards;
+}
+
+html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'][data-clara-guide-orb-holding='true'] {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 24px rgba(34, 211, 238, 0.52),
+    0 0 38px rgba(124, 58, 237, 0.42) !important;
+}
+
+@keyframes clara-guide-orb-hold-progress {
+  from {
+    transform: rotate(-18deg) scale(0.96);
+    opacity: 0.38;
+  }
+
+  to {
+    transform: rotate(342deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'][data-clara-guide-orb-holding='true']::before {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0.82;
   }
 }

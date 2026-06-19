@@ -28,16 +28,25 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
 
   const isLogExpensePreview = preview === "log-expense";
   const isTransactionHubPreview = preview === "transaction-hub";
+  const isClaraChatPreview = preview === "clara-chat";
 
-  if (!isLogExpensePreview && !isTransactionHubPreview) return null;
+  if (!isLogExpensePreview && !isTransactionHubPreview && !isClaraChatPreview) return null;
 
-  const title = isLogExpensePreview ? "Log Expense" : "Transaction Hub";
+  const title = isLogExpensePreview
+    ? "Log Expense"
+    : isTransactionHubPreview
+      ? "Transaction Hub"
+      : "Chat with CLARA";
   const body = isLogExpensePreview
     ? "A single tap opens the expense form so you can record spending quickly."
-    : "Two quick taps take you to the place where all recorded money activity can be reviewed.";
+    : isTransactionHubPreview
+      ? "Two quick taps take you to the place where all recorded money activity can be reviewed."
+      : null;
   const safetyMessage = isLogExpensePreview
     ? "SIMULATION ONLY — NOTHING WILL BE SAVED."
-    : "SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED.";
+    : isTransactionHubPreview
+      ? "SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED."
+      : "SIMULATION ONLY — NO MESSAGE WILL BE SENT.";
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[245] flex items-end justify-center px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-24">
@@ -59,12 +68,27 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
         >
           {title}
         </h2>
-        <p
-          id="clara-guide-orb-preview-body"
-          className="mt-3 text-[14px] font-semibold leading-relaxed text-cyan-50/78"
-        >
-          {body}
-        </p>
+
+        {body ? (
+          <p
+            id="clara-guide-orb-preview-body"
+            className="mt-3 text-[14px] font-semibold leading-relaxed text-cyan-50/78"
+          >
+            {body}
+          </p>
+        ) : (
+          <div
+            id="clara-guide-orb-preview-body"
+            className="mt-4 rounded-2xl border border-cyan-100/12 bg-white/[0.05] px-4 py-4"
+          >
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/60">
+              CLARA
+            </p>
+            <p className="mt-2 text-[14px] font-semibold leading-relaxed text-white">
+              Hi! Ask me anything about your spending, budget, savings, or next money decision.
+            </p>
+          </div>
+        )}
 
         {isLogExpensePreview ? (
           <div className="mt-5 grid gap-2.5" aria-label="Static expense demonstration">
@@ -80,7 +104,7 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
               </div>
             ))}
           </div>
-        ) : (
+        ) : isTransactionHubPreview ? (
           <div className="mt-5 grid gap-2.5" aria-label="Static transaction demonstration">
             {TRANSACTION_HUB_ROWS.map((transaction) => (
               <div
@@ -99,6 +123,14 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
               </div>
             ))}
           </div>
+        ) : (
+          <input
+            type="text"
+            disabled
+            aria-label="Static CLARA message input"
+            placeholder="Ask CLARA about your money..."
+            className="mt-4 min-h-[46px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-[13px] font-semibold text-white/60 placeholder:text-white/38 disabled:cursor-not-allowed disabled:opacity-100"
+          />
         )}
 
         <p className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.07] px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.1em] text-cyan-100">
