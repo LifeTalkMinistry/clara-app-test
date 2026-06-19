@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, LayoutDashboard, RotateCcw, Settings2, UsersRound } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { coachingRepository } from "./data";
 import CoachingOverview from "./components/CoachingOverview";
@@ -8,6 +8,7 @@ import CoachingAdminCalendar from "./components/CoachingAdminCalendar";
 import AppointmentRequestList from "./components/AppointmentRequestList";
 import AppointmentDetail from "./components/AppointmentDetail";
 import ScheduleSettings from "./components/ScheduleSettings";
+import CoachingAdminDropdownDraft from "./CoachingAdminDropdownDraft";
 import {
   AdminButton,
   ConfirmActionDialog,
@@ -50,6 +51,7 @@ const confirmationCopy = {
 
 export default function CoachingAdminPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
   const [overview, setOverview] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -111,6 +113,10 @@ export default function CoachingAdminPage() {
       setBusy(false);
     }
   };
+
+  if (location.pathname === "/coaching-mock-preview") {
+    return <CoachingAdminDropdownDraft />;
+  }
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden px-3 pb-10 sm:px-5 lg:px-7">

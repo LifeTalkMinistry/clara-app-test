@@ -50,6 +50,7 @@ const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
 const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
+const CoachingAdminDropdownDraft = lazy(() => import("./features/coaching-admin/CoachingAdminDropdownDraft"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 function FullScreenLoader() {
@@ -239,7 +240,7 @@ function AppRoutes() {
 
                     <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
                     <Route path="/welcome-session" element={<WelcomeSession />} />
-                    <Route path="/coaching-mock-preview" element={<CoachingAdminPage />} />
+                    <Route path="/coaching-mock-preview" element={<CoachingAdminDropdownDraft />} />
                     <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
                     <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
