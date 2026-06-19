@@ -61,6 +61,27 @@ function assertTransition(currentStatus, nextStatus) {
   }
 }
 
+function rebuildAvailability(state) {
+  const oldOverrides = new Map(
+    state.availability
+      .filter((slot) => slot.manuallyBlocked && !slot.appointmentId && !state.dateBlocks[slot.dateKey])
+      .map((slot) => [slot.id, slot])
+  );
+
+  const rebuilt = buildAvailability(state.settings, state.appointments, {
+    dateBlocks: state.dateBlocks,
+    customHours: state.customHours,
+    timeBlocks: state.timeBlocks || [],
+  });
+
+  rebuilt.forEach((slot) => {
+    const override = oldOverrides.get(slot.id);
+    if (override && !slot.appointmentId) Object.assign(slot, override);
+  });
+
+  state.availability = rebuilt;
+}
+
 function sortAppointments(items) {
   return items.sort((a, b) => {
     const dateCompare = `${a.dateKey}T${a.startTime}`.localeCompare(`${b.dateKey}T${b.startTime}`);
@@ -132,7 +153,12 @@ export const mockCoachingRepository = {
       if (filters.status && filters.status !== "all" && appointment.status !== filters.status) return false;
       if (filters.dateFrom && appointment.dateKey < filters.dateFrom) return false;
       if (filters.dateTo && appointment.dateKey > filters.dateTo) return false;
-      if (filters.coachId && filters.coachId !== "all" && appointment.coachId !== filters.coachId) return false;
+      if (filters.coachId === "unassigned" && appointment.coachId) return false;
+      if (
+        filters.coachId &&
+        !["all", "unassigned"].includes(filters.coachId) &&
+        appointment.coachId !== filters.coachId
+      ) return false;
       if (filters.focus && filters.focus !== "all" && appointment.focus !== filters.focus) return false;
       if (filters.approach && filters.approach !== "all" && appointment.coachingApproach !== filters.approach) return false;
       if (filters.priorityOnly && !isPriorityAppointment(appointment)) return false;
@@ -188,6 +214,7 @@ export const mockCoachingRepository = {
       appointments,
       dateBlocks: state.dateBlocks,
       customHours: state.customHours,
+      timeBlocks: state.timeBlocks || [],
       settings: state.settings,
     });
   },
@@ -323,23 +350,7 @@ export const mockCoachingRepository = {
   async saveScheduleSettings(settings) {
     const state = readCoachingMockState();
     state.settings = { ...state.settings, ...cloneCoachingValue(settings) };
-    const rebuilt = buildAvailability(state.settings, state.appointments);
-    const oldOverrides = new Map(
-      state.availability
-        .filter((slot) => slot.manuallyBlocked && !slot.appointmentId)
-        .map((slot) => [slot.id, slot])
-    );
-    rebuilt.forEach((slot) => {
-      const override = oldOverrides.get(slot.id);
-      if (override && !slot.appointmentId) Object.assign(slot, override);
-      const dateBlock = state.dateBlocks[slot.dateKey];
-      if (dateBlock && !slot.appointmentId) {
-        slot.status = "blocked";
-        slot.blockReason = dateBlock.reason;
-        slot.manuallyBlocked = true;
-      }
-    });
-    state.availability = rebuilt;
+    rebuildAvailability(state);
     writeCoachingMockState(state);
     return cloneCoachingValue(state.settings);
   },
@@ -354,8 +365,45 @@ export const mockCoachingRepository = {
     } else {
       delete state.customHours[dateKey];
     }
+    rebuildAvailability(state);
     writeCoachingMockState(state);
     return cloneCoachingValue(state.customHours[dateKey] || null);
+  },
+
+  async blockTimeRange(dateKey, startTime, endTime, reason = "Blocked time range") {
+    const state = readCoachingMockState();
+    if (!startTime || !endTime || startTime >= endTime) {
+      throw new Error("Choose a valid start and end time.");
+    }
+
+    const matchingSlots = state.availability.filter(
+      (slot) =>
+        slot.dateKey === dateKey &&
+        !slot.appointmentId &&
+        slot.startTime >= startTime &&
+        slot.startTime < endTime
+    );
+    if (!matchingSlots.length) throw new Error("No available slots matched that time range.");
+
+    const timeBlock = {
+      id: `time_block_${Date.now()}`,
+      dateKey,
+      startTime,
+      endTime,
+      reason,
+    };
+    state.timeBlocks = [...(state.timeBlocks || []), timeBlock];
+    rebuildAvailability(state);
+    writeCoachingMockState(state);
+    return cloneCoachingValue(timeBlock);
+  },
+
+  async removeTimeBlock(timeBlockId) {
+    const state = readCoachingMockState();
+    state.timeBlocks = (state.timeBlocks || []).filter((item) => item.id !== timeBlockId);
+    rebuildAvailability(state);
+    writeCoachingMockState(state);
+    return true;
   },
 
   async getScheduleSettings() {
@@ -365,6 +413,7 @@ export const mockCoachingRepository = {
       coaches: state.coaches,
       dateBlocks: state.dateBlocks,
       customHours: state.customHours,
+      timeBlocks: state.timeBlocks || [],
     });
   },
 
