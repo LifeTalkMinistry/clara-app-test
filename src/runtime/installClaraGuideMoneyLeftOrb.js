@@ -7,6 +7,7 @@ const PRIVACY_FEATURE = "money-left-privacy";
 const ORB_FEATURE = "money-left-orb";
 const ROOT_CLASS = "clara-guide-money-left-orb-active";
 const PRIVACY_ROOT_CLASS = "clara-guide-money-left-privacy-active";
+const HOLDING_CLASS = "clara-guide-orb-holding";
 const ORB_SELECTOR = '[data-clara-manual-expense-orb="true"]';
 
 const SINGLE_TAP_DELAY = 240;
@@ -61,11 +62,9 @@ let tapResetTimer = null;
 let lastTapAt = 0;
 let holdTriggered = false;
 let keyIsDown = false;
-let pointerState = {
-  startX: 0,
-  startY: 0,
-  moved: false,
-};
+let pointerActive = false;
+let pointerId = null;
+let pointerState = { startX: 0, startY: 0, moved: false };
 
 function getDashboardScroller() {
   const anchor = document.querySelector(".clara-guide-carousel-anchor");
@@ -91,18 +90,16 @@ function preserveDashboardScrollPosition(callback) {
   });
 }
 
-function clearTimer(timerName) {
-  if (timerName === "single" && singleTapTimer) {
+function clearTimer(name) {
+  if (name === "single" && singleTapTimer) {
     window.clearTimeout(singleTapTimer);
     singleTapTimer = null;
   }
-
-  if (timerName === "long" && longPressTimer) {
+  if (name === "long" && longPressTimer) {
     window.clearTimeout(longPressTimer);
     longPressTimer = null;
   }
-
-  if (timerName === "tap-reset" && tapResetTimer) {
+  if (name === "tap-reset" && tapResetTimer) {
     window.clearTimeout(tapResetTimer);
     tapResetTimer = null;
   }
@@ -115,8 +112,10 @@ function clearAllTimers() {
   lastTapAt = 0;
   holdTriggered = false;
   keyIsDown = false;
+  pointerActive = false;
+  pointerId = null;
   pointerState = { startX: 0, startY: 0, moved: false };
-  document.documentElement.classList.remove("clara-guide-orb-holding");
+  document.documentElement.classList.remove(HOLDING_CLASS);
 }
 
 function stopEvent(event) {
@@ -129,17 +128,21 @@ function getOrbFromEvent(event) {
   return event?.target?.closest?.(ORB_SELECTOR) || null;
 }
 
-function focusOrb() {
-  window.requestAnimationFrame(() => {
-    const orb = document.querySelector(ORB_SELECTOR);
-    if (!orb) return;
+function isPracticePhase() {
+  return phase === "await-single" || phase === "await-double" || phase === "await-hold";
+}
 
-    try {
-      orb.focus({ preventScroll: true });
-    } catch {
-      orb.focus();
-    }
-  });
+function focusWithoutScroll(element) {
+  if (!element?.focus) return;
+  try {
+    element.focus({ preventScroll: true });
+  } catch {
+    element.focus();
+  }
+}
+
+function focusOrb() {
+  window.requestAnimationFrame(() => focusWithoutScroll(document.querySelector(ORB_SELECTOR)));
 }
 
 function setOrbAriaLabel() {
@@ -154,7 +157,9 @@ function setOrbAriaLabel() {
     complete: "CLARA orb with three actions",
   };
 
-  orb.setAttribute("data-clara-guide-original-aria-label", orb.getAttribute("aria-label") || "");
+  if (!orb.hasAttribute("data-clara-guide-original-aria-label")) {
+    orb.setAttribute("data-clara-guide-original-aria-label", orb.getAttribute("aria-label") || "");
+  }
   orb.setAttribute("aria-label", labels[phase] || "CLARA orb guide action");
 }
 
@@ -163,11 +168,10 @@ function restoreOrbAriaLabel() {
   if (!orb) return;
 
   const original = orb.getAttribute("data-clara-guide-original-aria-label");
-  if (original !== null) {
-    if (original) orb.setAttribute("aria-label", original);
-    else orb.removeAttribute("aria-label");
-    orb.removeAttribute("data-clara-guide-original-aria-label");
-  }
+  if (original === null) return;
+  if (original) orb.setAttribute("aria-label", original);
+  else orb.removeAttribute("aria-label");
+  orb.removeAttribute("data-clara-guide-original-aria-label");
 }
 
 function createBubble() {
@@ -211,15 +215,12 @@ function renderBubble() {
   items.forEach((item) => {
     const row = document.createElement("div");
     row.className = "clara-guide-orb-bubble-item";
-
     const label = document.createElement("span");
     label.className = "clara-guide-orb-bubble-item-label";
     label.textContent = item.label;
-
     const value = document.createElement("span");
     value.className = "clara-guide-orb-bubble-item-value";
     value.textContent = item.value;
-
     row.append(label, value);
     itemsNode.appendChild(row);
   });
@@ -235,13 +236,8 @@ function removeBubble() {
   bubbleNode = null;
 }
 
-function createStaticField(label, value) {
-  return `
-    <div class="clara-guide-orb-preview-field">
-      <span>${label}</span>
-      <strong>${value}</strong>
-    </div>
-  `;
+function staticField(label, value) {
+  return `<div class="clara-guide-orb-preview-field"><span>${label}</span><strong>${value}</strong></div>`;
 }
 
 function getPreviewMarkup(type) {
@@ -251,9 +247,9 @@ function getPreviewMarkup(type) {
       <h2 id="clara-guide-orb-preview-title">Log Expense</h2>
       <p class="clara-guide-orb-preview-body">A single tap opens the expense form so you can record spending quickly.</p>
       <div class="clara-guide-orb-preview-fields">
-        ${createStaticField("Amount", "₱120")}
-        ${createStaticField("Budget List", "Food")}
-        ${createStaticField("Wallet", "Main Wallet")}
+        ${staticField("Amount", "₱120")}
+        ${staticField("Budget List", "Food")}
+        ${staticField("Wallet", "Main Wallet")}
       </div>
       <p class="clara-guide-orb-preview-safety">SIMULATION ONLY — NOTHING WILL BE SAVED.</p>
     `;
@@ -288,7 +284,6 @@ function getPreviewMarkup(type) {
 function showPreview(type) {
   previewType = type;
   clearAllTimers();
-
   if (bubbleNode) bubbleNode.hidden = true;
   previewNode?.remove();
 
@@ -305,10 +300,7 @@ function showPreview(type) {
   shell.querySelector("[data-clara-guide-orb-preview-next]")?.addEventListener("click", handlePreviewNext);
   document.body.appendChild(shell);
   previewNode = shell;
-
-  window.requestAnimationFrame(() => {
-    shell.querySelector("[data-clara-guide-orb-preview-next]")?.focus({ preventScroll: true });
-  });
+  window.requestAnimationFrame(() => focusWithoutScroll(shell.querySelector("[data-clara-guide-orb-preview-next]")));
 }
 
 function closePreview() {
@@ -364,11 +356,10 @@ function handlePreviewNext(event) {
     setOrbAriaLabel();
     renderBubble();
   });
-
   focusOrb();
 }
 
-function triggerCorrectGesture(type) {
+function triggerGesture(type) {
   if (!orbGuideActive) return;
 
   preserveDashboardScrollPosition(() => {
@@ -376,17 +367,11 @@ function triggerCorrectGesture(type) {
       phase = "single-preview";
       document.documentElement.setAttribute("data-clara-guide-orb-phase", phase);
       showPreview("log-expense");
-      return;
-    }
-
-    if (type === "double" && phase === "await-double") {
+    } else if (type === "double" && phase === "await-double") {
       phase = "double-preview";
       document.documentElement.setAttribute("data-clara-guide-orb-phase", phase);
       showPreview("transaction-hub");
-      return;
-    }
-
-    if (type === "hold" && phase === "await-hold") {
+    } else if (type === "hold" && phase === "await-hold") {
       phase = "hold-preview";
       document.documentElement.setAttribute("data-clara-guide-orb-phase", phase);
       showPreview("clara-chat");
@@ -411,7 +396,7 @@ function registerTap() {
     singleTapTimer = window.setTimeout(() => {
       singleTapTimer = null;
       lastTapAt = 0;
-      if (phase === "await-single") triggerCorrectGesture("single");
+      if (phase === "await-single") triggerGesture("single");
     }, Math.max(SINGLE_TAP_DELAY, DOUBLE_TAP_WINDOW));
     return;
   }
@@ -420,7 +405,7 @@ function registerTap() {
     if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
       lastTapAt = 0;
       clearTimer("tap-reset");
-      triggerCorrectGesture("double");
+      triggerGesture("double");
       return;
     }
 
@@ -442,9 +427,7 @@ function beginHold(point) {
     moved: false,
   };
 
-  if (phase === "await-hold") {
-    document.documentElement.classList.add("clara-guide-orb-holding");
-  }
+  if (phase === "await-hold") document.documentElement.classList.add(HOLDING_CLASS);
 
   longPressTimer = window.setTimeout(() => {
     longPressTimer = null;
@@ -452,60 +435,61 @@ function beginHold(point) {
     clearTimer("single");
     clearTimer("tap-reset");
     lastTapAt = 0;
-    document.documentElement.classList.remove("clara-guide-orb-holding");
-
-    if (phase === "await-hold") triggerCorrectGesture("hold");
+    document.documentElement.classList.remove(HOLDING_CLASS);
+    if (phase === "await-hold") triggerGesture("hold");
   }, LONG_PRESS_DELAY);
 }
 
 function cancelHold() {
   clearTimer("long");
-  document.documentElement.classList.remove("clara-guide-orb-holding");
+  document.documentElement.classList.remove(HOLDING_CLASS);
 }
 
 function handlePointerDown(event) {
   if (!orbGuideActive || !getOrbFromEvent(event)) return;
   stopEvent(event);
+  if (!isPracticePhase()) return;
 
-  if (!["await-single", "await-double", "await-hold"].includes(phase)) return;
+  const now = Date.now();
+  if (lastTapAt && now - lastTapAt <= DOUBLE_TAP_WINDOW) {
+    clearTimer("single");
+    clearTimer("tap-reset");
+  }
+
+  pointerActive = true;
+  pointerId = event.pointerId;
   beginHold(event);
 }
 
 function handlePointerMove(event) {
-  if (!orbGuideActive || !getOrbFromEvent(event)) return;
+  if (!orbGuideActive || !pointerActive) return;
+  if (pointerId !== null && event.pointerId !== pointerId) return;
   stopEvent(event);
 
   const dx = Math.abs(Number(event.clientX || 0) - pointerState.startX);
   const dy = Math.abs(Number(event.clientY || 0) - pointerState.startY);
+  if (dx <= MOVE_CANCEL_DISTANCE && dy <= MOVE_CANCEL_DISTANCE) return;
 
-  if (dx > MOVE_CANCEL_DISTANCE || dy > MOVE_CANCEL_DISTANCE) {
-    pointerState.moved = true;
-    cancelHold();
-  }
-}
-
-function finishPointerGesture(event, cancelled = false) {
-  if (!orbGuideActive || !getOrbFromEvent(event)) return;
-  stopEvent(event);
+  pointerState.moved = true;
   cancelHold();
+}
 
-  const shouldIgnore = cancelled || pointerState.moved || holdTriggered;
+function finishPointer(event, cancelled) {
+  const isOrbEvent = Boolean(getOrbFromEvent(event));
+  if (!orbGuideActive || (!pointerActive && !isOrbEvent)) return;
+  if (pointerId !== null && event.pointerId !== pointerId) return;
+  stopEvent(event);
+
+  const moved = pointerState.moved;
+  const wasHold = holdTriggered;
+  pointerActive = false;
+  pointerId = null;
+  cancelHold();
   pointerState.moved = false;
+  holdTriggered = false;
 
-  if (shouldIgnore) {
-    holdTriggered = false;
-    return;
-  }
-
+  if (cancelled || moved || wasHold) return;
   if (phase === "await-single" || phase === "await-double") registerTap();
-}
-
-function handlePointerUp(event) {
-  finishPointerGesture(event, false);
-}
-
-function handlePointerCancel(event) {
-  finishPointerGesture(event, true);
 }
 
 function handleBlockedOrbEvent(event) {
@@ -517,13 +501,16 @@ function handleKeyDown(event) {
   if (!orbGuideActive || !getOrbFromEvent(event)) return;
   if (event.key !== "Enter" && event.key !== " ") return;
   stopEvent(event);
+  if (!isPracticePhase() || keyIsDown || event.repeat) return;
 
-  if (keyIsDown || event.repeat) return;
-  keyIsDown = true;
-
-  if (["await-single", "await-double", "await-hold"].includes(phase)) {
-    beginHold({ clientX: 0, clientY: 0 });
+  const now = Date.now();
+  if (lastTapAt && now - lastTapAt <= DOUBLE_TAP_WINDOW) {
+    clearTimer("single");
+    clearTimer("tap-reset");
   }
+
+  keyIsDown = true;
+  beginHold({ clientX: 0, clientY: 0 });
 }
 
 function handleKeyUp(event) {
@@ -535,10 +522,7 @@ function handleKeyUp(event) {
   keyIsDown = false;
   cancelHold();
   holdTriggered = false;
-
-  if (!wasHold && (phase === "await-single" || phase === "await-double")) {
-    registerTap();
-  }
+  if (!wasHold && (phase === "await-single" || phase === "await-double")) registerTap();
 }
 
 function startOrbGuide() {
@@ -555,7 +539,6 @@ function startOrbGuide() {
     createBubble();
     renderBubble();
     setOrbAriaLabel();
-
     window.dispatchEvent(
       new CustomEvent(GUIDE_TARGET_CHANGE_EVENT, {
         detail: { feature: ORB_FEATURE },
@@ -571,7 +554,7 @@ function stopOrbGuide() {
   removeBubble();
   orbGuideActive = false;
   phase = "intro";
-  document.documentElement.classList.remove(ROOT_CLASS, "clara-guide-orb-holding");
+  document.documentElement.classList.remove(ROOT_CLASS, HOLDING_CLASS);
   document.documentElement.removeAttribute("data-clara-guide-orb-phase");
 }
 
@@ -584,18 +567,15 @@ export function installClaraGuideMoneyLeftOrb() {
     guideModeActive = Boolean(event?.detail?.active);
     if (!guideModeActive) stopOrbGuide();
   });
-
   window.addEventListener(GUIDE_EXIT_EVENT, stopOrbGuide);
-
   window.addEventListener(GUIDE_FEATURE_COMPLETE_EVENT, (event) => {
     if (event?.detail?.feature === PRIVACY_FEATURE) startOrbGuide();
   });
 
   document.addEventListener("pointerdown", handlePointerDown, true);
   document.addEventListener("pointermove", handlePointerMove, true);
-  document.addEventListener("pointerup", handlePointerUp, true);
-  document.addEventListener("pointercancel", handlePointerCancel, true);
-  document.addEventListener("pointerleave", handlePointerCancel, true);
+  document.addEventListener("pointerup", (event) => finishPointer(event, false), true);
+  document.addEventListener("pointercancel", (event) => finishPointer(event, true), true);
   document.addEventListener("click", handleBlockedOrbEvent, true);
   document.addEventListener("dblclick", handleBlockedOrbEvent, true);
   document.addEventListener("contextmenu", handleBlockedOrbEvent, true);
