@@ -9,6 +9,10 @@ const NEXT_CLASS = "clara-guide-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
+const GUIDE_ORB_SELECTOR = "[data-clara-manual-expense-orb='true']";
+const GUIDE_SUMMARY_SELECTOR = "[data-clara-dashboard-section='money-summary']";
+
+let protectSingleTapUntil = 0;
 
 function hasGuideSample() {
   return document.documentElement.classList.contains(SAMPLE_CLASS);
@@ -16,6 +20,14 @@ function hasGuideSample() {
 
 function hasCarouselStep() {
   return document.documentElement.classList.contains(CAROUSEL_CLASS);
+}
+
+function isAwaitSingleOrb(target) {
+  if (!document.documentElement.classList.contains(MONEY_LEFT_ORB_CLASS)) return false;
+
+  const orb = target?.closest?.(GUIDE_ORB_SELECTOR);
+  const summary = orb?.closest?.(GUIDE_SUMMARY_SELECTOR);
+  return summary?.dataset?.claraGuideOrbPhase === "await-single";
 }
 
 function ensureNextButton() {
@@ -43,6 +55,7 @@ export function clearClaraGuideFeatureClasses() {
     MONEY_LEFT_PRIVACY_CLASS,
     MONEY_LEFT_ORB_CLASS,
   );
+  protectSingleTapUntil = 0;
 }
 
 function getDashboardGuideScroller() {
@@ -82,6 +95,7 @@ function goToCarouselStep() {
   );
 
   removeNextButton();
+  protectSingleTapUntil = 0;
 
   // Keep the complete top navigation visible when the finance walkthrough starts.
   // This existing transition intentionally returns the guide to the dashboard top.
@@ -92,6 +106,26 @@ export function installClaraGuideCarouselStep() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_GUIDE_CAROUSEL_STEP_INSTALLED__) return;
   window.__CLARA_GUIDE_CAROUSEL_STEP_INSTALLED__ = true;
+
+  document.addEventListener(
+    "pointerup",
+    (event) => {
+      if (isAwaitSingleOrb(event.target)) {
+        protectSingleTapUntil = Date.now() + 400;
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "pointerout",
+    (event) => {
+      if (Date.now() <= protectSingleTapUntil && isAwaitSingleOrb(event.target)) {
+        event.stopPropagation();
+      }
+    },
+    true,
+  );
 
   document.addEventListener("click", (event) => {
     const nextButton = event.target?.closest?.(`.${NEXT_CLASS}`);
@@ -119,6 +153,8 @@ export function installClaraGuideCarouselStep() {
   });
 
   window.addEventListener(TARGET_CHANGE_EVENT, (event) => {
+    protectSingleTapUntil = 0;
+
     if (event?.detail?.feature !== "money-left-orb") {
       document.documentElement.classList.remove(MONEY_LEFT_ORB_CLASS);
     }
