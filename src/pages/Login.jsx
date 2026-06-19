@@ -320,7 +320,7 @@ export default function Login() {
 
   const openPreview = () => {
     if (!authLocked) return;
-    navigate("/app-preview", { replace: true });
+    navigate("/", { replace: true });
   };
 
   return (
@@ -386,7 +386,7 @@ export default function Login() {
                     onClick={openPreview}
                     className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/10 px-4 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-300/14 focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
                   >
-                    Preview CLARA UI
+                    Continue to CLARA
                   </button>
                 </div>
               ) : null}
