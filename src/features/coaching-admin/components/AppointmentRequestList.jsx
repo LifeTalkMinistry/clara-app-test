@@ -162,7 +162,7 @@ export default function AppointmentRequestList({
               <FieldLabel>Coach</FieldLabel>
               <select value={filters.coachId} onChange={(event) => updateFilter("coachId", event.target.value)} className={inputClass}>
                 <option value="all">All coaches</option>
-                <option value="">Unassigned</option>
+                <option value="unassigned">Unassigned</option>
                 {coaches.map((coach) => <option key={coach.id} value={coach.id}>{coach.displayName}</option>)}
               </select>
             </div>
