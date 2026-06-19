@@ -15,9 +15,12 @@ import {
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const GUIDE_FEATURE_DAILY_MONEY_TIP = "daily-money-tip";
 const GUIDE_FEATURE_FINANCE_CAROUSEL = "finance-carousel";
+const GUIDE_FEATURE_MONEY_LEFT = "money-left";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const GUIDE_FINANCE_ROOT_CLASS = "clara-guide-finance-carousel-active";
+const GUIDE_MONEY_LEFT_ROOT_CLASS = "clara-guide-money-left-active";
 const FINANCE_CAROUSEL_SWIPE_LEFT_INCREASES_INDEX = true;
 
 const createFinanceGuideTrainingState = () => ({
@@ -72,6 +75,12 @@ const FINANCE_GUIDE_CARD_COPY = {
   },
 };
 
+const MONEY_LEFT_GUIDE_COPY = {
+  title: "MONEY LEFT",
+  body: "This shows what remains after your recorded spending is taken from your available money.",
+  footer: "Use this as a quick reality check before your next expense.",
+};
+
 const getFinanceGuideCardCopy = (cardKey) =>
   FINANCE_GUIDE_CARD_COPY[cardKey] || FINANCE_GUIDE_CARD_COPY.fallback;
 
@@ -95,6 +104,14 @@ const getCarouselGuideBubbleCopy = ({ training, slide }) => {
   }
 
   return getFinanceGuideCardCopy(slide?.cardKey);
+};
+
+const setGuideRootFeatureClass = (feature) => {
+  if (typeof document === "undefined") return;
+
+  const root = document.documentElement;
+  root.classList.toggle(GUIDE_FINANCE_ROOT_CLASS, feature === GUIDE_FEATURE_FINANCE_CAROUSEL);
+  root.classList.toggle(GUIDE_MONEY_LEFT_ROOT_CLASS, feature === GUIDE_FEATURE_MONEY_LEFT);
 };
 
 const runInAnimationFrame = (callback) => {
@@ -176,8 +193,9 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
-function CarouselGuideBubbleOverlay({ copy }) {
+function CarouselGuideBubbleOverlay({ copy, actionLabel = "", onAction }) {
   const safeCopy = copy || FINANCE_GUIDE_CARD_COPY.fallback;
+  const hasAction = Boolean(actionLabel && typeof onAction === "function");
 
   return (
     <div
@@ -198,6 +216,16 @@ function CarouselGuideBubbleOverlay({ copy }) {
         <p className="relative z-10 mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
           {safeCopy.footer}
         </p>
+
+        {hasAction ? (
+          <button
+            type="button"
+            onClick={onAction}
+            className="pointer-events-auto relative z-20 mt-4 w-full rounded-full border border-cyan-100/30 bg-cyan-100/15 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 active:scale-[0.99]"
+          >
+            {actionLabel}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -274,6 +302,11 @@ export default function DashboardHomePanel({
   const hasNewDailyMoneyTipGuide = !isDailyMoneyTipGuideComplete(claraGuideProgress);
   const isDailyTipGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_DAILY_MONEY_TIP && guideStep === 0;
   const isCarouselGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_FINANCE_CAROUSEL;
+  const isMoneyLeftGuideActive = isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT;
+  const isFinanceGuideTerminalDebt =
+    isCarouselGuideActive &&
+    financeGuideTraining.financeGuideTrainingComplete &&
+    financeGuideSlide.cardKey === "debtObligations";
   const financeGuideAllowedSwipeDirection = isCarouselGuideActive
     ? !financeGuideTraining.hasReachedFirstEnd
       ? "left"
@@ -282,11 +315,18 @@ export default function DashboardHomePanel({
         : null
     : null;
   const financeGuideMaxStepPerInteraction =
-    isCarouselGuideActive && financeGuideTraining.financeGuideTrainingComplete ? 1 : null;
+    isCarouselGuideActive &&
+    financeGuideTraining.financeGuideTrainingComplete &&
+    !isFinanceGuideTerminalDebt
+      ? 1
+      : null;
   const financeGuideBubbleCopy = getCarouselGuideBubbleCopy({
     training: financeGuideTraining,
     slide: financeGuideSlide,
   });
+  const activeGuideBubbleCopy = isMoneyLeftGuideActive
+    ? MONEY_LEFT_GUIDE_COPY
+    : financeGuideBubbleCopy;
 
   const effectiveWallets = wallets;
   const effectiveWalletMoney = walletMoney;
@@ -373,6 +413,7 @@ export default function DashboardHomePanel({
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
     setFinanceGuideSlide(createFinanceGuideSlideState());
     setFinanceGuideTraining(createFinanceGuideTrainingState());
+    setGuideRootFeatureClass(null);
     emitGuideModeChange(false);
 
     if (focusRealDailyTip && typeof window !== "undefined") {
@@ -389,6 +430,7 @@ export default function DashboardHomePanel({
     setGuideStep(0);
     setFinanceGuideSlide(createFinanceGuideSlideState());
     setFinanceGuideTraining(createFinanceGuideTrainingState());
+    setGuideRootFeatureClass(null);
     setIsGuideMode(true);
     emitGuideModeChange(true);
 
@@ -406,6 +448,28 @@ export default function DashboardHomePanel({
     if (!isGuideMode || guideFeature !== GUIDE_FEATURE_DAILY_MONEY_TIP || guideStep !== 0) return;
     setGuideStep(0);
   }, [guideFeature, guideStep, isGuideMode]);
+
+  const handleGuideNextToMoneyLeft = useCallback(() => {
+    if (!isFinanceGuideTerminalDebt) return;
+
+    setGuideFeature(GUIDE_FEATURE_MONEY_LEFT);
+    setGuideStep(0);
+    setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent(CLARA_GUIDE_TARGET_CHANGE_EVENT, {
+          detail: { feature: GUIDE_FEATURE_MONEY_LEFT },
+        })
+      );
+
+      window.setTimeout(() => {
+        document
+          .querySelector("[data-clara-dashboard-section='money-summary']")
+          ?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      }, 80);
+    }
+  }, [isFinanceGuideTerminalDebt]);
 
   const handleFinanceCarouselIndexChange = useCallback(
     (detail = {}) => {
@@ -456,13 +520,13 @@ export default function DashboardHomePanel({
   );
 
   useEffect(() => {
-    if (isCarouselGuideActive) return undefined;
+    if (isCarouselGuideActive || isMoneyLeftGuideActive) return undefined;
 
     setFinanceGuideSlide(createFinanceGuideSlideState());
     setFinanceGuideTraining(createFinanceGuideTrainingState());
 
     return undefined;
-  }, [isCarouselGuideActive]);
+  }, [isCarouselGuideActive, isMoneyLeftGuideActive]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -475,6 +539,14 @@ export default function DashboardHomePanel({
         setGuideStep(0);
         setFinanceGuideSlide(createFinanceGuideSlideState());
         setFinanceGuideTraining(createFinanceGuideTrainingState());
+        setGuideRootFeatureClass(GUIDE_FEATURE_FINANCE_CAROUSEL);
+        return;
+      }
+
+      if (feature === GUIDE_FEATURE_MONEY_LEFT) {
+        setGuideFeature(GUIDE_FEATURE_MONEY_LEFT);
+        setGuideStep(0);
+        setGuideRootFeatureClass(GUIDE_FEATURE_MONEY_LEFT);
       }
     };
 
@@ -542,7 +614,13 @@ export default function DashboardHomePanel({
         <div className="fixed inset-0 z-[60] bg-slate-950/82 backdrop-blur-[2px]" aria-hidden="true" />
       ) : null}
 
-      {isCarouselGuideActive ? <CarouselGuideBubbleOverlay copy={financeGuideBubbleCopy} /> : null}
+      {isCarouselGuideActive || isMoneyLeftGuideActive ? (
+        <CarouselGuideBubbleOverlay
+          copy={activeGuideBubbleCopy}
+          actionLabel={isFinanceGuideTerminalDebt ? "NEXT" : ""}
+          onAction={isFinanceGuideTerminalDebt ? handleGuideNextToMoneyLeft : undefined}
+        />
+      ) : null}
 
       {isGuideIntroOpen ? (
         <ClaraGuideIntroModal onStart={startGuideMode} onClose={() => setIsGuideIntroOpen(false)} />
@@ -634,6 +712,7 @@ export default function DashboardHomePanel({
                   onGuideCarouselIndexChange={isCarouselGuideActive ? handleFinanceCarouselIndexChange : undefined}
                   guideAllowedSwipeDirection={financeGuideAllowedSwipeDirection}
                   guideMaxStepPerInteraction={financeGuideMaxStepPerInteraction}
+                  guideCarouselLocked={isFinanceGuideTerminalDebt}
                 />
               </div>
             </div>
