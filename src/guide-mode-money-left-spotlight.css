@@ -64,3 +64,12 @@ html.clara-guide-money-left-active
   background: transparent !important;
   filter: none !important;
 }
+
+/* The carousel bubble uses a fixed top position for carousel training. Money
+   Left sits near the bottom of the top-safe dashboard viewport, so place the
+   same bubble directly above it without moving the dashboard content. */
+html.clara-guide-money-left-active
+#root .clara-guide-carousel-bubble-shell {
+  top: auto !important;
+  bottom: clamp(132px, 18dvh, 164px) !important;
+}
