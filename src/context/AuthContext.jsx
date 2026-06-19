@@ -24,7 +24,7 @@ const AUTH_TIMEOUT_MS = 6000;
 const PROFILE_TIMEOUT_MS = 6500;
 
 // TEMP AUTH BYPASS: Used while Supabase project is restricted. Remove or disable when Supabase Auth is restored.
-const TEMP_AUTH_BYPASS_ENABLED = false;
+const TEMP_AUTH_BYPASS_ENABLED = true;
 
 const LOCAL_DEV_AUTH_USER = {
   id: 'local-dev-user',
