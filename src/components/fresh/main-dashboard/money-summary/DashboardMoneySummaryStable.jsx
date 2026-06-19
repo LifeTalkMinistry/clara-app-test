@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
 const LONG_PRESS_DELAY = 550;
+const GUIDE_LONG_PRESS_DELAY = 520;
 const MOVE_CANCEL_DISTANCE = 12;
 
 const resolveOrbAssetSrc = (assetPath = "") => {
@@ -43,6 +44,11 @@ export default function DashboardMoneySummaryStable({
   isGuidePrivacyStepActive = false,
   isGuideOrbStepActive = false,
   isGuideOrbIntroActive = false,
+  guideOrbPhase = null,
+  guideOrbButtonRef,
+  onGuideOrbSingleTap,
+  onGuideOrbDoubleTap,
+  onGuideOrbLongPress,
   guideMoneySummaryVisible = true,
   onGuidePrivacyToggle,
   moneyLeftSummaryHandlers = {},
@@ -60,7 +66,22 @@ export default function DashboardMoneySummaryStable({
   const longPressTriggeredRef = useRef(false);
   const lastTapAtRef = useRef(0);
   const pointerStateRef = useRef({ startX: 0, startY: 0, moved: false });
+  const guideOrbStateRef = useRef({
+    isGuideMode,
+    isGuideOrbStepActive,
+    guideOrbPhase,
+  });
+  guideOrbStateRef.current = {
+    isGuideMode,
+    isGuideOrbStepActive,
+    guideOrbPhase,
+  };
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
+  const isGuideOrbAwaitSingle =
+    isGuideMode && isGuideOrbStepActive && guideOrbPhase === "await-single";
+  const isGuideOrbPreviewActive =
+    isGuideMode && isGuideOrbStepActive && guideOrbPhase === "single-preview";
+  const isGuideOrbButtonDisabled = isGuideOrbIntroActive || isGuideOrbPreviewActive;
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
     : moneySummaryVisible;
@@ -93,7 +114,16 @@ export default function DashboardMoneySummaryStable({
 
   useEffect(() => {
     resetOrbGestureState();
-  }, [isGuideMode, resetOrbGestureState]);
+  }, [guideOrbPhase, isGuideMode, isGuideOrbStepActive, resetOrbGestureState]);
+
+  const isAwaitSingleGuideActive = useCallback(() => {
+    const current = guideOrbStateRef.current;
+    return Boolean(
+      current.isGuideMode &&
+        current.isGuideOrbStepActive &&
+        current.guideOrbPhase === "await-single"
+    );
+  }, []);
 
   const stopOrbEvent = useCallback(
     (event) => {
@@ -130,6 +160,16 @@ export default function DashboardMoneySummaryStable({
   const handleOrbPointerDown = useCallback(
     (event) => {
       stopOrbEvent(event);
+      const currentGuideState = guideOrbStateRef.current;
+      if (
+        currentGuideState.isGuideMode &&
+        currentGuideState.isGuideOrbStepActive &&
+        currentGuideState.guideOrbPhase !== "await-single"
+      ) {
+        resetOrbGestureState();
+        return;
+      }
+
       const point = event?.touches?.[0] || event;
       pointerStateRef.current = {
         startX: Number(point?.clientX || 0),
@@ -149,16 +189,33 @@ export default function DashboardMoneySummaryStable({
         startMoneyLeftOrbLongPress?.(event);
       }
 
+      const holdDelay = isGuideOrbAwaitSingle ? GUIDE_LONG_PRESS_DELAY : LONG_PRESS_DELAY;
       longPressTimerRef.current = setTimeout(() => {
+        if (
+          guideOrbStateRef.current.isGuideMode &&
+          guideOrbStateRef.current.isGuideOrbStepActive &&
+          guideOrbStateRef.current.guideOrbPhase !== "await-single"
+        ) {
+          return;
+        }
+
         longPressTriggeredRef.current = true;
         clearTapTimer();
         lastTapAtRef.current = 0;
-      }, LONG_PRESS_DELAY);
+
+        if (isAwaitSingleGuideActive()) {
+          onGuideOrbLongPress?.();
+        }
+      }, holdDelay);
     },
     [
       clearLongPressTimer,
       clearTapTimer,
+      isAwaitSingleGuideActive,
       isGuideMode,
+      isGuideOrbAwaitSingle,
+      onGuideOrbLongPress,
+      resetOrbGestureState,
       startMoneyLeftOrbLongPress,
       stopOrbEvent,
     ]
@@ -201,6 +258,16 @@ export default function DashboardMoneySummaryStable({
     (event) => {
       stopOrbEvent(event);
 
+      const currentGuideState = guideOrbStateRef.current;
+      if (
+        currentGuideState.isGuideMode &&
+        currentGuideState.isGuideOrbStepActive &&
+        currentGuideState.guideOrbPhase !== "await-single"
+      ) {
+        resetOrbGestureState();
+        return;
+      }
+
       if (!isGuideMode) {
         endMoneyLeftOrbLongPress?.(event);
       }
@@ -221,6 +288,12 @@ export default function DashboardMoneySummaryStable({
       if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
         lastTapAtRef.current = 0;
         clearTapTimer();
+
+        if (isAwaitSingleGuideActive()) {
+          onGuideOrbDoubleTap?.();
+          return;
+        }
+
         openTransactionHub(event);
         return;
       }
@@ -228,17 +301,30 @@ export default function DashboardMoneySummaryStable({
       lastTapAtRef.current = now;
       clearTapTimer();
       tapTimerRef.current = setTimeout(() => {
+        tapTimerRef.current = null;
         lastTapAtRef.current = 0;
-        openManualLog(event);
+
+        if (isAwaitSingleGuideActive()) {
+          onGuideOrbSingleTap?.();
+          return;
+        }
+
+        if (!guideOrbStateRef.current.isGuideMode) {
+          openManualLog(event);
+        }
       }, Math.max(SINGLE_TAP_DELAY, DOUBLE_TAP_WINDOW));
     },
     [
       clearLongPressTimer,
       clearTapTimer,
       endMoneyLeftOrbLongPress,
+      isAwaitSingleGuideActive,
       isGuideMode,
+      onGuideOrbDoubleTap,
+      onGuideOrbSingleTap,
       openManualLog,
       openTransactionHub,
+      resetOrbGestureState,
       stopOrbEvent,
     ]
   );
@@ -246,6 +332,7 @@ export default function DashboardMoneySummaryStable({
   const handleOrbCancel = useCallback(
     (event) => {
       stopOrbEvent(event);
+      // Cancellation remains isolated from Guide Mode completion.
 
       if (!isGuideMode) {
         endMoneyLeftOrbLongPress?.(event);
@@ -281,9 +368,33 @@ export default function DashboardMoneySummaryStable({
       stopOrbEvent(event);
       if (event?.repeat) return;
 
+      if (guideOrbStateRef.current.isGuideMode && guideOrbStateRef.current.isGuideOrbStepActive) {
+        if (!isAwaitSingleGuideActive()) return;
+
+        clearTapTimer();
+        clearLongPressTimer();
+        lastTapAtRef.current = Date.now();
+        tapTimerRef.current = setTimeout(() => {
+          tapTimerRef.current = null;
+          lastTapAtRef.current = 0;
+
+          if (isAwaitSingleGuideActive()) {
+            onGuideOrbSingleTap?.();
+          }
+        }, Math.max(SINGLE_TAP_DELAY, DOUBLE_TAP_WINDOW));
+        return;
+      }
+
       openManualLog(event);
     },
-    [openManualLog, stopOrbEvent]
+    [
+      clearLongPressTimer,
+      clearTapTimer,
+      isAwaitSingleGuideActive,
+      onGuideOrbSingleTap,
+      openManualLog,
+      stopOrbEvent,
+    ]
   );
 
   const handlePrivacyToggle = useCallback(
@@ -335,6 +446,7 @@ export default function DashboardMoneySummaryStable({
     <section
       aria-label="Financial summary"
       data-clara-dashboard-section="money-summary"
+      data-clara-guide-orb-phase={isGuideOrbStepActive ? guideOrbPhase : undefined}
       className={`relative ${spacingClass} grid cursor-default select-none grid-cols-2 overflow-hidden border ${
         dashboardScale.summaryGrid || "rounded-[26px]"
       }`}
@@ -366,7 +478,10 @@ export default function DashboardMoneySummaryStable({
         )}
       </button>
 
-      <div className="pointer-events-auto absolute right-5 top-1/2 z-50 isolate flex h-[76px] w-[76px] -translate-y-1/2 items-center justify-center max-[380px]:right-4 max-[380px]:h-[68px] max-[380px]:w-[68px]">
+      <div
+        data-clara-orb-control="true"
+        className="pointer-events-auto absolute right-5 top-1/2 z-50 isolate flex h-[76px] w-[76px] -translate-y-1/2 items-center justify-center max-[380px]:right-4 max-[380px]:h-[68px] max-[380px]:w-[68px]"
+      >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 rounded-full opacity-90 blur-[1px]"
@@ -388,13 +503,14 @@ export default function DashboardMoneySummaryStable({
         />
 
         <button
+          ref={guideOrbButtonRef}
           type="button"
           data-clara-manual-expense-orb="true"
           onClick={handleOrbClick}
           onDoubleClick={handleOrbClick}
           onKeyDown={handleOrbKeyDown}
-          disabled={isGuideOrbIntroActive}
-          aria-disabled={isGuideOrbIntroActive}
+          disabled={isGuideOrbButtonDisabled}
+          aria-disabled={isGuideOrbButtonDisabled}
           onPointerDown={handleOrbPointerDown}
           onPointerMove={handleOrbPointerMove}
           onPointerUp={handleOrbPointerUp}
@@ -403,7 +519,11 @@ export default function DashboardMoneySummaryStable({
           onContextMenu={handleOrbClick}
           className="relative z-10 flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white shadow-[0_0_18px_rgba(34,211,238,0.38)] transition hover:bg-white/[0.14] active:scale-95"
           style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-          aria-label="Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
+          aria-label={
+            isGuideOrbAwaitSingle
+              ? "Tap once to practice logging an expense"
+              : "Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
+          }
         >
           <img
             src={CLARA_ORB_LOGO_SRC}

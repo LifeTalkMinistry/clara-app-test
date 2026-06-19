@@ -3,6 +3,7 @@ import { Clock, ShieldCheck, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
+import ClaraGuideOrbPreview from "@/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview";
 import DashboardMoneySummaryStable from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import { Button } from "@/components/ui/button";
@@ -444,6 +445,7 @@ export default function DashboardHomePanel({
   const [moneyLeftPrivacyPhase, setMoneyLeftPrivacyPhase] = useState("await-hide");
   const [moneyLeftOrbPhase, setMoneyLeftOrbPhase] = useState("intro");
   const [guideOrbPreview, setGuideOrbPreview] = useState(null);
+  const guideOrbButtonRef = useRef(null);
   const guideTransitionLockRef = useRef(false);
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
@@ -458,6 +460,9 @@ export default function DashboardHomePanel({
     isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT_ORB;
   const isMoneyLeftOrbIntroActive =
     isMoneyLeftOrbGuideActive && moneyLeftOrbPhase === "intro";
+  const shouldShowMoneyLeftOrbGuideBubble =
+    isMoneyLeftOrbGuideActive &&
+    (moneyLeftOrbPhase === "intro" || moneyLeftOrbPhase === "await-single");
   const isFinanceGuideTerminalDebt =
     isCarouselGuideActive &&
     financeGuideTraining.financeGuideTrainingComplete &&
@@ -716,6 +721,34 @@ export default function DashboardHomePanel({
     });
   }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
 
+  const handleGuideOrbSingleTap = useCallback(() => {
+    if (!isMoneyLeftOrbGuideActive || moneyLeftOrbPhase !== "await-single") return;
+
+    setGuideOrbPreview("log-expense");
+    setMoneyLeftOrbPhase("single-preview");
+  }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
+
+  const handleGuideOrbPreviewNext = useCallback(() => {
+    if (
+      !isMoneyLeftOrbGuideActive ||
+      moneyLeftOrbPhase !== "single-preview" ||
+      guideOrbPreview !== "log-expense"
+    ) {
+      return;
+    }
+
+    preserveDashboardScrollPosition(() => {
+      setGuideOrbPreview(null);
+      setMoneyLeftOrbPhase("await-double");
+
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          guideOrbButtonRef.current?.focus?.({ preventScroll: true });
+        });
+      }
+    });
+  }, [guideOrbPreview, isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
+
   const handleFinanceCarouselIndexChange = useCallback(
     (detail = {}) => {
       const total = Math.max(0, Number(detail.total) || 0);
@@ -932,12 +965,19 @@ export default function DashboardHomePanel({
       {(isCarouselGuideActive ||
         isMoneyLeftGuideActive ||
         isMoneyLeftPrivacyGuideActive ||
-        isMoneyLeftOrbGuideActive) && guideOrbPreview === null ? (
+        shouldShowMoneyLeftOrbGuideBubble) && guideOrbPreview === null ? (
         <CarouselGuideBubbleOverlay
           copy={activeGuideBubbleCopy}
           items={activeGuideBubbleItems}
           actionLabel={activeGuideActionLabel}
           onAction={activeGuideActionHandler}
+        />
+      ) : null}
+
+      {isMoneyLeftOrbGuideActive && guideOrbPreview ? (
+        <ClaraGuideOrbPreview
+          preview={guideOrbPreview}
+          onNext={handleGuideOrbPreviewNext}
         />
       ) : null}
 
@@ -1055,6 +1095,9 @@ export default function DashboardHomePanel({
             isGuidePrivacyStepActive={isMoneyLeftPrivacyGuideActive}
             isGuideOrbStepActive={isMoneyLeftOrbGuideActive}
             isGuideOrbIntroActive={isMoneyLeftOrbIntroActive}
+            guideOrbPhase={moneyLeftOrbPhase}
+            guideOrbButtonRef={guideOrbButtonRef}
+            onGuideOrbSingleTap={handleGuideOrbSingleTap}
             guideMoneySummaryVisible={guideMoneySummaryVisible}
             onGuidePrivacyToggle={handleGuidePrivacyToggle}
             moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}
