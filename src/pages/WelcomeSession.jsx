@@ -58,31 +58,25 @@ function SummaryChip({ icon: Icon, label, value }) {
   );
 }
 
-function MonthlySupportIntro() {
+function MonthlyCoachingIntro() {
   return (
-    <div className="relative grid h-full gap-5 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
+    <div className="relative grid h-full gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
       <div>
         <div className="flex items-center gap-3.5">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-100/20 bg-[linear-gradient(145deg,rgba(34,211,238,0.22),rgba(124,58,237,0.48))] shadow-[0_14px_34px_rgba(76,29,149,0.30)]">
             <CalendarDays className="h-6 w-6 text-cyan-50" />
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
-              Personal CLARA support
-            </p>
-            <h1 className="mt-1 text-[26px] font-black tracking-tight text-white sm:text-[32px]">
-              Monthly Support Session
+            <h1 className="text-[28px] font-black tracking-tight text-white sm:text-[34px]">
+              Monthly Coaching
             </h1>
             <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-300/75 sm:text-[13px]">
-              Your active CLARA Committed membership includes one personal 30-minute support and coaching session each month.
+              One personal 30-minute coaching session is included with every active membership month.
             </p>
           </div>
         </div>
 
-        <p className="mt-5 max-w-2xl text-[13px] font-semibold leading-relaxed text-slate-200/80 sm:text-[14px]">
-          Use your session to review your CLARA setup, discuss a money concern, understand your progress, or decide your next practical step.
-        </p>
-        <p className="mt-2 max-w-2xl text-[11px] font-semibold leading-relaxed text-slate-300/62 sm:text-[12px]">
+        <p className="mt-4 max-w-2xl text-[11px] font-semibold leading-relaxed text-slate-300/62 sm:text-[12px]">
           Choose an available date and time below, then complete the short preparation form.
         </p>
       </div>
@@ -122,13 +116,13 @@ function AvailabilityPanel({
           </div>
           <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
-              Monthly support times
+              Monthly coaching times
             </p>
             <h1 className="mt-1 truncate text-[24px] font-black tracking-tight text-white sm:text-[30px]">
               {selectedDateLabel}
             </h1>
             <p className="mt-1 text-[11px] font-semibold text-slate-300/70 sm:text-[12px]">
-              Choose your preferred 30-minute time for this month’s session.
+              Choose your preferred 30-minute time for this month’s coaching session.
             </p>
           </div>
         </div>
@@ -137,7 +131,7 @@ function AvailabilityPanel({
           type="button"
           onClick={onReset}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/65 transition hover:bg-white/[0.08] hover:text-white"
-          aria-label="Back to Monthly Support Session overview"
+          aria-label="Back to Monthly Coaching overview"
         >
           <X className="h-4 w-4" />
         </button>
@@ -194,7 +188,7 @@ function AvailabilityPanel({
           className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-violet-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.82),rgba(99,102,241,0.92))] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)]"
         >
           <LockKeyhole className="h-3.5 w-3.5" />
-          Unlock monthly support
+          Unlock monthly coaching
         </button>
       ) : (
         <button
@@ -312,7 +306,7 @@ export default function WelcomeSession() {
           id: selectedSlot.id,
           date: selectedSlot.fullDateLabel,
           time: selectedSlot.timeLabel,
-          benefit: "monthly-support-session",
+          benefit: "monthly-coaching-session",
         }),
       );
     } catch {
@@ -340,12 +334,12 @@ export default function WelcomeSession() {
             Home
           </button>
 
-          <div className="rounded-full border border-cyan-200/15 bg-cyan-200/[0.06] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-cyan-100/75">
-            CLARA Human Support
+          <div className="rounded-full border border-cyan-200/15 bg-cyan-200/[0.06] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/75">
+            Personal CLARA Support
           </div>
         </header>
 
-        <section className="relative min-h-[300px] overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(145deg,rgba(5,28,46,0.94),rgba(8,18,43,0.95)_50%,rgba(35,14,72,0.94))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.08)] sm:min-h-[280px] sm:p-7">
+        <section className="relative overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(145deg,rgba(5,28,46,0.94),rgba(8,18,43,0.95)_50%,rgba(35,14,72,0.94))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-7">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,0.14),transparent_38%),radial-gradient(circle_at_100%_10%,rgba(139,92,246,0.16),transparent_40%)]" />
 
           {showAvailability ? (
@@ -363,7 +357,7 @@ export default function WelcomeSession() {
               showMissingLinkMessage={showMissingLinkMessage}
             />
           ) : (
-            <MonthlySupportIntro />
+            <MonthlyCoachingIntro />
           )}
         </section>
 
@@ -371,7 +365,7 @@ export default function WelcomeSession() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
-                Monthly booking calendar
+                Monthly coaching calendar
               </p>
               <h2 className="mt-1 text-[20px] font-black text-white">{monthLabel}</h2>
             </div>

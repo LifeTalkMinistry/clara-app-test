@@ -30,14 +30,14 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function MonthlySupportButton({ onClick }) {
+function MonthlyCoachingButton({ onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
-      aria-label="Open your monthly CLARA support session calendar"
-      title="Monthly Support Session"
+      aria-label="Open your monthly CLARA coaching calendar"
+      title="Monthly Coaching"
     >
       <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.24),transparent_52%)]" />
       <CalendarClock className="relative z-10 h-4 w-4 text-cyan-100/85" />
@@ -123,7 +123,7 @@ export default function LearningHub({
                 className="clara-guide-float mr-1.5 justify-self-end"
                 style={{ animationDelay: "-0.5s" }}
               >
-                <MonthlySupportButton onClick={() => navigate("/welcome-session")} />
+                <MonthlyCoachingButton onClick={() => navigate("/welcome-session")} />
               </div>
             ) : (
               <span aria-hidden="true" />
