@@ -1,9 +1,16 @@
-/* Welcome Session calendar: show one clean status dot per date. */
-button[aria-label$="available appointment"] > span.absolute {
+/* Monthly Coaching calendar: render exactly one day-level status dot. */
+
+/*
+  The calendar JSX still contains the underlying 30-minute slot indicators for
+  each date. Hide that slot-level row completely so it can never spill across
+  the date cell. The aria-label is the stable calendar-date identifier.
+*/
+button[aria-label*="available appointment"] > span:nth-of-type(2) {
   display: none !important;
 }
 
-button[aria-label$="available appointment"]::after {
+/* Every visible calendar date receives one centered status dot. */
+button[aria-label*="available appointment"]::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -12,42 +19,20 @@ button[aria-label$="available appointment"]::after {
   height: 0.42rem;
   border-radius: 9999px;
   transform: translateX(-50%);
+  background: rgb(251 113 133 / 0.82);
+  box-shadow: 0 0 10px rgb(251 113 133 / 0.18);
 }
 
-button[aria-label$=", no available appointment"]::after {
-  background: rgb(251 113 133 / 0.78);
-  box-shadow: 0 0 10px rgb(251 113 133 / 0.16);
-}
-
-button[aria-label$="available appointment"]:not([aria-label$=", no available appointment"])::after {
+/* Green only when at least one appointment remains available that day. */
+button[aria-label*="available appointment"]:not(
+    [aria-label*="no available appointment"]
+  )::after {
   background: rgb(110 231 183);
-  box-shadow: 0 0 12px rgb(52 211 153 / 0.28);
+  box-shadow: 0 0 12px rgb(52 211 153 / 0.30);
 }
 
-/* Keep the legend aligned with the simplified date status. */
-section:has(button[aria-label="Next appointment month"])
-  > div:last-child
-  > div:nth-child(1),
-section:has(button[aria-label="Next appointment month"])
-  > div:last-child
-  > div:nth-child(2) {
-  font-size: 0;
-}
-
-section:has(button[aria-label="Next appointment month"])
-  > div:last-child
-  > div:nth-child(1)::after {
-  content: "Available";
-  font-size: 10px;
-  font-weight: 700;
-  color: rgb(203 213 225 / 0.7);
-}
-
-section:has(button[aria-label="Next appointment month"])
-  > div:last-child
-  > div:nth-child(2)::after {
-  content: "Unavailable";
-  font-size: 10px;
-  font-weight: 700;
-  color: rgb(203 213 225 / 0.7);
+/* Red covers days with no schedule and days whose slots are fully booked. */
+button[aria-label*="no available appointment"]::after {
+  background: rgb(251 113 133 / 0.82);
+  box-shadow: 0 0 10px rgb(251 113 133 / 0.18);
 }
