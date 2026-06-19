@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -184,14 +184,21 @@ function SummaryChip({ icon: Icon, label, value }) {
   );
 }
 
-function MonthlyCoachingIntro() {
+function MonthlyCoachingIntro({ onOpenMockPreview }) {
   return (
     <div className="relative grid h-full gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
       <div>
         <div className="flex items-center gap-3.5">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-100/20 bg-[linear-gradient(145deg,rgba(34,211,238,0.22),rgba(124,58,237,0.48))] shadow-[0_14px_34px_rgba(76,29,149,0.30)]">
+          <button
+            type="button"
+            onClick={onOpenMockPreview}
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-100/20 bg-[linear-gradient(145deg,rgba(34,211,238,0.22),rgba(124,58,237,0.48))] shadow-[0_14px_34px_rgba(76,29,149,0.30)]"
+            aria-label="Double-click or double-tap to open local coaching mock preview"
+            title="Double-click or double-tap"
+          >
             <CalendarDays className="h-6 w-6 text-cyan-50" />
-          </div>
+          </button>
+
           <div>
             <h1 className="text-[28px] font-black tracking-tight text-white sm:text-[34px]">
               Monthly Coaching
@@ -575,6 +582,20 @@ function CheckInCompletePanel({ selectedDateLabel, selectedSlot, onReview, onHom
 
 export default function WelcomeSession() {
   const navigate = useNavigate();
+  const coachingIconLastTapRef = useRef(0);
+
+  const handleCoachingIconTap = () => {
+    const now = Date.now();
+    const timeSinceLastTap = now - coachingIconLastTapRef.current;
+
+    if (timeSinceLastTap > 0 && timeSinceLastTap <= 450) {
+      coachingIconLastTapRef.current = 0;
+      navigate("/coaching-mock-preview");
+      return;
+    }
+
+    coachingIconLastTapRef.current = now;
+  };
   const hasCommittedAccess = useCommittedFeatureAccess();
   const slots = useMemo(() => buildWelcomeSessionSlots(), []);
 
@@ -713,7 +734,9 @@ export default function WelcomeSession() {
         <section className="relative overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(145deg,rgba(5,28,46,0.94),rgba(8,18,43,0.95)_50%,rgba(35,14,72,0.94))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-7">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,0.14),transparent_38%),radial-gradient(circle_at_100%_10%,rgba(139,92,246,0.16),transparent_40%)]" />
 
-          {view === "calendar" ? <MonthlyCoachingIntro /> : null}
+          {view === "calendar" ? (
+            <MonthlyCoachingIntro onOpenMockPreview={handleCoachingIconTap} />
+          ) : null}
 
           {view === "times" ? (
             <AvailabilityPanel
