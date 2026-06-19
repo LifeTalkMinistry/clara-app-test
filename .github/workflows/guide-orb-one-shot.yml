@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   apply-and-validate:
-    if: github.event.pull_request.head.ref == 'fix/guide-orb-real-surfaces' && github.event.pull_request.head.sha == '1dcdd893c1c3cd0b2bb2b6b2ddecfaa93ce4e0f4'
+    if: github.event.pull_request.head.ref == 'fix/guide-orb-real-surfaces'
     runs-on: ubuntu-latest
     steps:
       - name: Check out implementation branch
@@ -19,13 +19,25 @@ jobs:
           ref: fix/guide-orb-real-surfaces
           fetch-depth: 0
 
+      - name: Detect implementation bundle
+        id: bundle
+        shell: bash
+        run: |
+          if compgen -G '.github/patch-parts/guide-orb-*.part' > /dev/null; then
+            echo 'apply=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'apply=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Node
+        if: steps.bundle.outputs.apply == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
       - name: Apply implementation bundle
+        if: steps.bundle.outputs.apply == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -36,17 +48,21 @@ jobs:
           node /tmp/guide-orb-bundle/apply.mjs
 
       - name: Install dependencies
+        if: steps.bundle.outputs.apply == 'true'
         run: npm ci
 
       - name: Build
+        if: steps.bundle.outputs.apply == 'true'
         run: npm run build
 
       - name: Lint
+        if: steps.bundle.outputs.apply == 'true'
         id: lint
         continue-on-error: true
         run: npm run lint
 
       - name: Publish validation summary
+        if: steps.bundle.outputs.apply == 'true'
         shell: bash
         run: |
           echo '## CLARA orb Guide validation' >> "$GITHUB_STEP_SUMMARY"
@@ -54,6 +70,7 @@ jobs:
           echo '- Lint: ${{ steps.lint.outcome }}' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit implementation
+        if: steps.bundle.outputs.apply == 'true'
         shell: bash
         run: |
           set -euo pipefail
