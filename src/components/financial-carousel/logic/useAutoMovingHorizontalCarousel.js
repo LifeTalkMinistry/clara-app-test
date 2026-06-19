@@ -9,9 +9,13 @@ const clampIndex = (index, length) => {
   return Math.max(0, Math.min(length - 1, Number(index) || 0));
 };
 
+const normalizeGuideSwipeDirection = (direction) =>
+  direction === "left" || direction === "right" ? direction : null;
+
 export default function useAutoMovingHorizontalCarousel({
   itemCount = 0,
   defaultIndex = 0,
+  guideAllowedSwipeDirection = null,
 } = {}) {
   const carouselRef = useRef(null);
   const activeIndexRef = useRef(clampIndex(defaultIndex, itemCount));
@@ -21,6 +25,8 @@ export default function useAutoMovingHorizontalCarousel({
   const hasInitializedRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
+  const guideAllowedSwipeDirectionRef = useRef(normalizeGuideSwipeDirection(guideAllowedSwipeDirection));
+  const guideSwipeBoundaryIndexRef = useRef(clampIndex(defaultIndex, itemCount));
   const [activeIndex, setActiveIndex] = useState(() =>
     clampIndex(defaultIndex, itemCount)
   );
@@ -42,6 +48,20 @@ export default function useAutoMovingHorizontalCarousel({
   const commitActiveIndex = useCallback(
     (index) => {
       const safeIndex = clampIndex(index, itemCount);
+      const guideDirection = guideAllowedSwipeDirectionRef.current;
+
+      if (guideDirection === "left") {
+        guideSwipeBoundaryIndexRef.current = Math.max(
+          guideSwipeBoundaryIndexRef.current,
+          safeIndex
+        );
+      } else if (guideDirection === "right") {
+        guideSwipeBoundaryIndexRef.current = Math.min(
+          guideSwipeBoundaryIndexRef.current,
+          safeIndex
+        );
+      }
+
       activeIndexRef.current = safeIndex;
       setActiveIndex((currentIndex) =>
         currentIndex === safeIndex ? currentIndex : safeIndex
@@ -82,22 +102,63 @@ export default function useAutoMovingHorizontalCarousel({
     [clearProgrammaticScrollTimer]
   );
 
+  const clampIndexForGuideDirection = useCallback(
+    (index) => {
+      const safeIndex = clampIndex(index, itemCount);
+      const guideDirection = guideAllowedSwipeDirectionRef.current;
+      const boundaryIndex = clampIndex(guideSwipeBoundaryIndexRef.current, itemCount);
+
+      if (guideDirection === "left") {
+        return Math.max(safeIndex, boundaryIndex);
+      }
+
+      if (guideDirection === "right") {
+        return Math.min(safeIndex, boundaryIndex);
+      }
+
+      return safeIndex;
+    },
+    [itemCount]
+  );
+
   const scrollToIndex = useCallback(
     (index, behavior = "smooth") => {
       const container = carouselRef.current;
       if (!container || itemCount <= 0) return;
 
-      const safeIndex = clampIndex(index, itemCount);
+      const safeIndex = clampIndexForGuideDirection(index);
       markProgrammaticScroll(behavior);
       container.scrollTo({ left: getSlideWidth() * safeIndex, behavior });
       commitActiveIndex(safeIndex);
     },
-    [commitActiveIndex, getSlideWidth, itemCount, markProgrammaticScroll]
+    [clampIndexForGuideDirection, commitActiveIndex, getSlideWidth, itemCount, markProgrammaticScroll]
   );
 
   const commitSettledScrollIndex = useCallback(() => {
-    commitActiveIndex(getCurrentScrollIndex());
-  }, [commitActiveIndex, getCurrentScrollIndex]);
+    commitActiveIndex(clampIndexForGuideDirection(getCurrentScrollIndex()));
+  }, [clampIndexForGuideDirection, commitActiveIndex, getCurrentScrollIndex]);
+
+  const enforceGuideSwipeDirection = useCallback(() => {
+    const guideDirection = guideAllowedSwipeDirectionRef.current;
+    const container = carouselRef.current;
+
+    if (!guideDirection || !container || itemCount <= 0) return false;
+
+    const boundaryIndex = clampIndex(guideSwipeBoundaryIndexRef.current, itemCount);
+    const boundaryLeft = getSlideWidth() * boundaryIndex;
+    const isTryingToMoveRightDuringLeftMission =
+      guideDirection === "left" && container.scrollLeft < boundaryLeft - 1;
+    const isTryingToMoveLeftDuringRightMission =
+      guideDirection === "right" && container.scrollLeft > boundaryLeft + 1;
+
+    if (!isTryingToMoveRightDuringLeftMission && !isTryingToMoveLeftDuringRightMission) {
+      return false;
+    }
+
+    markProgrammaticScroll("auto");
+    container.scrollTo({ left: boundaryLeft, behavior: "auto" });
+    return true;
+  }, [getSlideWidth, itemCount, markProgrammaticScroll]);
 
   const markUserInteraction = useCallback(() => {
     if (!isProgrammaticScrollRef.current) {
@@ -116,12 +177,14 @@ export default function useAutoMovingHorizontalCarousel({
       scrollFrameRef.current = null;
       clearScrollSettleTimer();
 
+      enforceGuideSwipeDirection();
+
       scrollSettleTimerRef.current = window.setTimeout(() => {
         scrollSettleTimerRef.current = null;
         commitSettledScrollIndex();
       }, SCROLL_SETTLE_DEBOUNCE_MS);
     });
-  }, [clearScrollSettleTimer, commitSettledScrollIndex]);
+  }, [clearScrollSettleTimer, commitSettledScrollIndex, enforceGuideSwipeDirection]);
 
   const interactionHandlers = useMemo(
     () => ({
@@ -134,6 +197,12 @@ export default function useAutoMovingHorizontalCarousel({
   );
 
   useEffect(() => {
+    const nextDirection = normalizeGuideSwipeDirection(guideAllowedSwipeDirection);
+    guideAllowedSwipeDirectionRef.current = nextDirection;
+    guideSwipeBoundaryIndexRef.current = activeIndexRef.current;
+  }, [guideAllowedSwipeDirection]);
+
+  useEffect(() => {
     if (itemCount <= 0 || typeof window === "undefined") return undefined;
 
     const safeDefaultIndex = clampIndex(defaultIndex, itemCount);
@@ -141,6 +210,7 @@ export default function useAutoMovingHorizontalCarousel({
     if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
       activeIndexRef.current = safeDefaultIndex;
+      guideSwipeBoundaryIndexRef.current = safeDefaultIndex;
       setActiveIndex(safeDefaultIndex);
 
       const frame = window.requestAnimationFrame(() => {
@@ -216,6 +286,7 @@ export default function useAutoMovingHorizontalCarousel({
 
     const handleScrollEnd = () => {
       clearScrollSettleTimer();
+      enforceGuideSwipeDirection();
       commitSettledScrollIndex();
     };
 
@@ -224,7 +295,7 @@ export default function useAutoMovingHorizontalCarousel({
     return () => {
       container.removeEventListener("scrollend", handleScrollEnd);
     };
-  }, [clearScrollSettleTimer, commitSettledScrollIndex]);
+  }, [clearScrollSettleTimer, commitSettledScrollIndex, enforceGuideSwipeDirection]);
 
   useEffect(() => {
     return () => {
