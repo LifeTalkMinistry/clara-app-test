@@ -7,8 +7,10 @@ export default function CarouselViewport({
   clipClassName = "",
   allowVerticalOverflow = false,
   isSwipeLocked = false,
+  isControlledGuideSwipe = false,
 }) {
-  const overflowClassName = isSwipeLocked
+  const shouldHideNativeHorizontalScroll = isSwipeLocked || isControlledGuideSwipe;
+  const overflowClassName = shouldHideNativeHorizontalScroll
     ? allowVerticalOverflow
       ? "overflow-x-hidden overflow-y-visible touch-pan-y cursor-default"
       : "overflow-x-hidden overflow-y-hidden touch-pan-y cursor-default"
@@ -18,7 +20,7 @@ export default function CarouselViewport({
 
   const viewportClassName = [
     "flex items-stretch overscroll-x-contain select-none transition-[overflow] duration-300",
-    isSwipeLocked ? "snap-none" : "snap-x snap-mandatory",
+    shouldHideNativeHorizontalScroll ? "snap-none" : "snap-x snap-mandatory",
     overflowClassName,
     "[-webkit-overflow-scrolling:touch] [scroll-behavior:auto] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
     className,
@@ -36,6 +38,7 @@ export default function CarouselViewport({
         ref={carouselRef}
         onScroll={onScroll}
         data-swipe-locked={isSwipeLocked ? "true" : "false"}
+        data-controlled-guide-swipe={isControlledGuideSwipe ? "true" : "false"}
         {...interactionHandlers}
         className={`clara-finance-carousel-track ${viewportClassName}`}
       >
