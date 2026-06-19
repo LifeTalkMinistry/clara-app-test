@@ -37,6 +37,24 @@ function clearFeatureClasses() {
   );
 }
 
+function scrollDashboardGuideToTop() {
+  const carouselAnchor = document.querySelector(".clara-guide-carousel-anchor");
+  const dashboardScroller = carouselAnchor?.closest?.("main");
+
+  if (dashboardScroller?.scrollTo) {
+    dashboardScroller.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const documentScroller = document.scrollingElement;
+  if (documentScroller?.scrollTo) {
+    documentScroller.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  window.scrollTo?.({ top: 0, behavior: "smooth" });
+}
+
 function goToCarouselStep() {
   if (!hasGuideSample()) {
     removeNextButton();
@@ -54,12 +72,9 @@ function goToCarouselStep() {
 
   removeNextButton();
 
-  window.setTimeout(() => {
-    document.querySelector(".clara-guide-carousel-anchor")?.scrollIntoView?.({
-      block: "center",
-      behavior: "smooth",
-    });
-  }, 80);
+  // Keep the complete top navigation visible when the finance walkthrough starts.
+  // Centering the carousel here pushed the dashboard scroll container downward.
+  window.setTimeout(scrollDashboardGuideToTop, 80);
 }
 
 export function installClaraGuideCarouselStep() {
