@@ -1,0 +1,223 @@
+name: Validate Money Left Orb Guide Final
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'validate-money-left-orb-guide-final'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out validation branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Validate walkthrough invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          home = (root / 'src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx').read_text()
+          summary = (root / 'src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx').read_text()
+          preview = (root / 'src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx').read_text()
+          css = (root / 'src/guide-mode-money-left-orb.css').read_text()
+          spotlight = (root / 'src/guide-mode-money-left-spotlight.css').read_text()
+          top_nav = (root / 'src/components/fresh/main-dashboard/top-nav/DashboardTopNav.jsx').read_text()
+          installer = (root / 'src/runtime/installClaraGuideCarouselStep.js').read_text()
+          main = (root / 'src/main.jsx').read_text()
+
+          required_copy = [
+              'AMOUNTS RESTORED',
+              'MEET THE CLARA ORB',
+              '1 TAP — LOG EXPENSE',
+              '2 TAPS — TRANSACTION HUB',
+              'HOLD — CHAT WITH CLARA',
+              'ORB READY',
+              'YOU NOW KNOW ALL THREE ORB ACTIONS.',
+          ]
+          for token in required_copy:
+              if token not in home:
+                  raise SystemExit(f'Missing approved copy: {token}')
+
+          required_transitions = [
+              'setMoneyLeftOrbPhase("intro")',
+              'setMoneyLeftOrbPhase("await-single")',
+              'setMoneyLeftOrbPhase("single-preview")',
+              'setMoneyLeftOrbPhase("double-preview")',
+              'setMoneyLeftOrbPhase("hold-preview")',
+              '? "await-double"',
+              '? "await-hold"',
+              '? "complete"',
+          ]
+          for token in required_transitions:
+              if token not in home:
+                  raise SystemExit(f'Missing state transition: {token}')
+
+          orb_start = home.index('const handleGuideNextToMoneyLeftOrb')
+          orb_end = home.index('const handleFinanceCarouselIndexChange')
+          orb_flow = home[orb_start:orb_end]
+
+          forbidden_scroll = ['scrollIntoView', 'window.scrollTo', 'dashboardScroller.scrollTo', '.scrollTo(']
+          for token in forbidden_scroll:
+              if token in orb_flow:
+                  raise SystemExit(f'Orb flow contains forbidden scroll call: {token}')
+
+          if orb_flow.count('preserveDashboardScrollPosition') < 4:
+              raise SystemExit('Orb transitions are not consistently scroll-protected')
+          if 'focusTarget?.focus?.({ preventScroll: true })' not in orb_flow:
+              raise SystemExit('Preview-close focus does not use preventScroll')
+
+          forbidden_simulation_calls = [
+              'addExpense',
+              'saveManualExpenseInline',
+              'setFinanceForm',
+              'navigate(',
+              'setShowAiAssistant',
+              'clara:open-assistant',
+              'localStorage.setItem',
+              'supabase',
+              'openTransactionHubFromMoneyLeft',
+              'openManualExpenseFromMoneyLeft',
+          ]
+          simulation_surface = orb_flow + '\n' + preview
+          for token in forbidden_simulation_calls:
+              if token in simulation_surface:
+                  raise SystemExit(f'Simulation reaches forbidden live/data call: {token}')
+
+          required_isolation = [
+              'moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}',
+              'handleMoneyLeftOrbClick={isGuideMode ? undefined : handleMoneyLeftOrbClick}',
+              'startMoneyLeftOrbLongPress={isGuideMode ? undefined : startMoneyLeftOrbLongPress}',
+              'moveMoneyLeftOrbLongPress={isGuideMode ? undefined : moveMoneyLeftOrbLongPress}',
+              'endMoneyLeftOrbLongPress={isGuideMode ? undefined : endMoneyLeftOrbLongPress}',
+          ]
+          for token in required_isolation:
+              if token not in home:
+                  raise SystemExit(f'Missing live-handler isolation: {token}')
+
+          required_preview = [
+              'preview === "log-expense"',
+              'preview === "transaction-hub"',
+              'preview === "clara-chat"',
+              'disabled',
+              'SIMULATION ONLY — NOTHING WILL BE SAVED.',
+              'SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED.',
+              'SIMULATION ONLY — NO MESSAGE WILL BE SENT.',
+              'focus?.({ preventScroll: true })',
+          ]
+          for token in required_preview:
+              if token not in preview:
+                  raise SystemExit(f'Missing preview isolation/focus requirement: {token}')
+          for token in ('TransactionHub', 'useFinancialData', 'ClaraAssistantPanel', 'textarea', 'type="submit"'):
+              if token in preview:
+                  raise SystemExit(f'Preview contains live/editable dependency: {token}')
+
+          required_gesture = [
+              'const SINGLE_TAP_DELAY = 240;',
+              'const DOUBLE_TAP_WINDOW = 280;',
+              'const GUIDE_LONG_PRESS_DELAY = 520;',
+              'const MOVE_CANCEL_DISTANCE = 12;',
+              'gestureEpochRef',
+              'isGestureCallbackCurrent',
+              'event?.repeat',
+              'event?.preventDefault?.()',
+          ]
+          for token in required_gesture:
+              if token not in summary:
+                  raise SystemExit(f'Missing gesture hardening: {token}')
+
+          for phase in ('await-single', 'await-double', 'await-hold'):
+              if f"data-clara-guide-orb-phase='{phase}'" not in css:
+                  raise SystemExit(f'Missing interactive pointer phase: {phase}')
+          for token in (
+              "[data-clara-summary-privacy-toggle='true']",
+              "[data-clara-summary-card='money-left']",
+              "[data-clara-summary-card='total-expense']",
+              "[data-clara-guide-action='next']",
+              "[data-clara-guide-orb-preview-next='true']",
+              "[data-clara-guide-exit='true']",
+          ):
+              if token not in css:
+                  raise SystemExit(f'Missing pointer isolation selector: {token}')
+
+          if "content: none !important" not in css or "box-shadow: none !important" not in css:
+              raise SystemExit('Full-card spotlight suppression is missing')
+          if 'right: 42px !important' not in css:
+              raise SystemExit('Orb bubble arrow targeting rule is missing')
+          if '@media (prefers-reduced-motion: reduce)' not in css:
+              raise SystemExit('Reduced-motion handling is missing')
+
+          if 'data-clara-guide-exit={isGuideExitSlot ? "true" : undefined}' not in top_nav:
+              raise SystemExit('Exit is not explicitly exempted from pointer isolation')
+          if 'z-[100]' not in top_nav:
+              raise SystemExit('Full top navigation is not raised above the Guide overlay')
+
+          cleanup_tokens = [
+              'MONEY_LEFT_ORB_CLASS',
+              'clearClaraGuideFeatureClasses',
+              'GUIDE_EXIT_EVENT',
+              'GUIDE_MODE_CHANGE_EVENT',
+              'TARGET_CHANGE_EVENT',
+          ]
+          for token in cleanup_tokens:
+              if token not in installer:
+                  raise SystemExit(f'Missing runtime root cleanup: {token}')
+          if 'clearClaraGuideFeatureClasses();' not in main:
+              raise SystemExit('Startup root-class cleanup is missing')
+
+          controller_refs = []
+          for path in root.joinpath('src').rglob('*'):
+              if path.suffix not in {'.js', '.jsx', '.ts', '.tsx'}:
+                  continue
+              if path.name == 'ClaraGuideMoneyLeftOrbController.jsx':
+                  continue
+              if 'ClaraGuideMoneyLeftOrbController' in path.read_text(errors='ignore'):
+                  controller_refs.append(str(path))
+          if controller_refs:
+              raise SystemExit(f'Legacy live-preview controller is mounted/imported: {controller_refs}')
+
+          if 'detail: { feature: GUIDE_FEATURE_MONEY_LEFT_ORB }' not in home:
+              raise SystemExit('Completion event feature detail is incorrect')
+          if 'guideOrbCompletionDispatchRef.current' not in home:
+              raise SystemExit('Completion event duplicate guard is missing')
+
+          print('Static walkthrough validation passed.')
+          PY
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full lint
+        run: npm run lint
+
+      - name: Run configured tests when present
+        run: |
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          if (pkg.scripts && pkg.scripts.test) {
+            console.log('Configured test script found.');
+            process.exit(0);
+          }
+          console.log('No test script is configured; skipping automated tests.');
+          NODE
+          if node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.test ? 0 : 1)"; then
+            npm test -- --run
+          fi
+
+      - name: Run production build
+        run: npm run build
