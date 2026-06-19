@@ -52,10 +52,90 @@ const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
-const ADMIN_RECOVERY_EMAILS = new Set([
-  ["jeromemirabuenos62", "gmail.com"].join("@"),
-  ["lifetalkministry", "gmail.com"].join("@"),
-]);
+const COACHING_PREVIEW_PATH = "/coaching-console-preview";
+const COACHING_ICON_DOUBLE_TAP_MS = 450;
+
+function findMonthlyCoachingCalendarIcon(target) {
+  if (typeof Element === "undefined" || !(target instanceof Element)) return null;
+
+  let candidate = target;
+
+  for (let depth = 0; candidate && depth < 7; depth += 1) {
+    const hasDirectCalendarIcon = Array.from(candidate.children || []).some(
+      (child) => child.matches?.("svg.lucide-calendar-days")
+    );
+
+    if (hasDirectCalendarIcon) {
+      const section = candidate.closest("section");
+      const heading = section?.querySelector("h1");
+
+      if (heading?.textContent?.trim() === "Monthly Coaching") {
+        return candidate;
+      }
+    }
+
+    candidate = candidate.parentElement;
+  }
+
+  return null;
+}
+
+function installCoachingConsolePreviewShortcut() {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return undefined;
+  }
+
+  let lastIcon = null;
+  let lastTapAt = 0;
+  let opening = false;
+
+  const openPreview = () => {
+    if (opening) return;
+    opening = true;
+    window.location.hash = COACHING_PREVIEW_PATH;
+
+    window.setTimeout(() => {
+      opening = false;
+    }, 0);
+  };
+
+  const handleClick = (event) => {
+    const icon = findMonthlyCoachingCalendarIcon(event.target);
+    if (!icon) return;
+
+    const now = Date.now();
+    const isSecondTap = icon === lastIcon && now - lastTapAt <= COACHING_ICON_DOUBLE_TAP_MS;
+
+    if (isSecondTap) {
+      event.preventDefault();
+      lastIcon = null;
+      lastTapAt = 0;
+      openPreview();
+      return;
+    }
+
+    lastIcon = icon;
+    lastTapAt = now;
+  };
+
+  const handleDoubleClick = (event) => {
+    const icon = findMonthlyCoachingCalendarIcon(event.target);
+    if (!icon) return;
+
+    event.preventDefault();
+    lastIcon = null;
+    lastTapAt = 0;
+    openPreview();
+  };
+
+  document.addEventListener("click", handleClick, true);
+  document.addEventListener("dblclick", handleDoubleClick, true);
+
+  return () => {
+    document.removeEventListener("click", handleClick, true);
+    document.removeEventListener("dblclick", handleDoubleClick, true);
+  };
+}
 
 function FullScreenLoader() {
   return (
@@ -99,10 +179,6 @@ function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
   return isAdmin ? children : <Navigate to={redirectTo} replace />;
 }
 
-function isRecoveryAdminEmail(email) {
-  return ADMIN_RECOVERY_EMAILS.has(String(email || "").trim().toLowerCase());
-}
-
 function AdminRescueButton({ show }) {
   if (!show) return null;
   return (
@@ -130,6 +206,8 @@ function AppRoutes() {
   useEffect(() => {
     applyVisualPerformanceMode();
   }, []);
+
+  useEffect(() => installCoachingConsolePreviewShortcut(), []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -177,7 +255,7 @@ function AppRoutes() {
     return deriveAccessState({ ...profile, role: profile?.role || normalizedRole || "user" });
   }, [profile, normalizedRole]);
 
-  const isAdmin = resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
+  const isAdmin = resolvedAccess.isAdmin;
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
@@ -248,6 +326,7 @@ function AppRoutes() {
 
                     <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
                     <Route path="/welcome-session" element={<WelcomeSession />} />
+                    <Route path={COACHING_PREVIEW_PATH} element={<CoachingAdminPage />} />
                     <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
                     <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
