@@ -22,6 +22,7 @@ const GUIDE_FEATURE_MONEY_LEFT_ORB = "money-left-orb";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const CLARA_GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
 const GUIDE_FINANCE_ROOT_CLASS = "clara-guide-finance-carousel-active";
 const GUIDE_MONEY_LEFT_ROOT_CLASS = "clara-guide-money-left-active";
 const GUIDE_MONEY_LEFT_PRIVACY_ROOT_CLASS = "clara-guide-money-left-privacy-active";
@@ -124,6 +125,11 @@ const MONEY_LEFT_ORB_GUIDE_COPY = {
     title: "HOLD — CHAT WITH CLARA",
     body: "Press and hold the orb until CLARA opens.",
     footer: "PRESS AND HOLD THE ORB NOW.",
+  },
+  complete: {
+    title: "ORB READY",
+    body: "Tap once to log an expense, tap twice for Transaction Hub, or hold to chat with CLARA.",
+    footer: "YOU NOW KNOW ALL THREE ORB ACTIONS.",
   },
 };
 
@@ -280,7 +286,14 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
   );
 }
 
-function CarouselGuideBubbleOverlay({ copy, items = [], actionLabel = "", onAction }) {
+function CarouselGuideBubbleOverlay({
+  copy,
+  items = [],
+  actionLabel = "",
+  actionAriaLabel = "",
+  actionButtonRef,
+  onAction,
+}) {
   const safeCopy = copy || FINANCE_GUIDE_CARD_COPY.fallback;
   const safeItems = Array.isArray(items)
     ? items.filter((item) => item?.label && item?.value)
@@ -332,10 +345,18 @@ function CarouselGuideBubbleOverlay({ copy, items = [], actionLabel = "", onActi
       className="clara-guide-carousel-bubble-shell pointer-events-none fixed left-1/2 z-[240] w-[min(calc(100vw-48px),360px)] -translate-x-1/2 isolate"
       style={{ top: "clamp(96px, 12dvh, 128px)" }}
     >
-      <div className="relative min-h-[150px] rounded-[30px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.98),rgba(10,22,54,0.98)_52%,rgba(27,18,65,0.98))] px-6 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl">
+      <div
+        role="dialog"
+        aria-live="polite"
+        aria-labelledby="clara-guide-carousel-bubble-title"
+        className="relative min-h-[150px] rounded-[30px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.98),rgba(10,22,54,0.98)_52%,rgba(27,18,65,0.98))] px-6 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl"
+      >
         <div className="clara-guide-carousel-bubble-arrow pointer-events-none absolute -bottom-2 left-11 h-4 w-4 rotate-45 border-b border-r border-cyan-100/24 bg-[rgba(10,22,54,0.98)]" />
 
-        <p className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
+        <p
+          id="clara-guide-carousel-bubble-title"
+          className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100"
+        >
           {safeCopy.title}
         </p>
 
@@ -367,8 +388,10 @@ function CarouselGuideBubbleOverlay({ copy, items = [], actionLabel = "", onActi
 
         {hasAction ? (
           <button
+            ref={actionButtonRef}
             type="button"
             data-clara-guide-action="next"
+            aria-label={actionAriaLabel || undefined}
             onPointerDownCapture={stopPointerPropagation}
             onPointerUpCapture={stopPointerPropagation}
             onClick={activateAction}
@@ -456,6 +479,8 @@ export default function DashboardHomePanel({
   const [moneyLeftOrbPhase, setMoneyLeftOrbPhase] = useState("intro");
   const [guideOrbPreview, setGuideOrbPreview] = useState(null);
   const guideOrbButtonRef = useRef(null);
+  const guideBubbleActionRef = useRef(null);
+  const guideOrbCompletionDispatchRef = useRef(false);
   const guideTransitionLockRef = useRef(false);
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
@@ -470,12 +495,17 @@ export default function DashboardHomePanel({
     isGuideMode && guideFeature === GUIDE_FEATURE_MONEY_LEFT_ORB;
   const isMoneyLeftOrbIntroActive =
     isMoneyLeftOrbGuideActive && moneyLeftOrbPhase === "intro";
+  const isMoneyLeftOrbComplete =
+    isMoneyLeftOrbGuideActive &&
+    moneyLeftOrbPhase === "complete" &&
+    guideOrbPreview === null;
   const shouldShowMoneyLeftOrbGuideBubble =
     isMoneyLeftOrbGuideActive &&
     (moneyLeftOrbPhase === "intro" ||
       moneyLeftOrbPhase === "await-single" ||
       moneyLeftOrbPhase === "await-double" ||
-      moneyLeftOrbPhase === "await-hold");
+      moneyLeftOrbPhase === "await-hold" ||
+      moneyLeftOrbPhase === "complete");
   const isFinanceGuideTerminalDebt =
     isCarouselGuideActive &&
     financeGuideTraining.financeGuideTrainingComplete &&
@@ -590,6 +620,7 @@ export default function DashboardHomePanel({
   );
 
   const exitGuideMode = useCallback(({ focusRealDailyTip = false } = {}) => {
+    guideOrbCompletionDispatchRef.current = false;
     setIsGuideMode(false);
     setGuideStep(0);
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
@@ -611,6 +642,7 @@ export default function DashboardHomePanel({
   }, []);
 
   const startGuideMode = useCallback(() => {
+    guideOrbCompletionDispatchRef.current = false;
     setIsGuideIntroOpen(false);
     setGuideFeature(GUIDE_FEATURE_DAILY_MONEY_TIP);
     setGuideStep(0);
@@ -708,6 +740,7 @@ export default function DashboardHomePanel({
     guideTransitionLockRef.current = true;
 
     preserveDashboardScrollPosition(() => {
+      guideOrbCompletionDispatchRef.current = false;
       setGuideFeature(GUIDE_FEATURE_MONEY_LEFT_ORB);
       setGuideStep(0);
       setGuideMoneySummaryVisible(true);
@@ -770,16 +803,44 @@ export default function DashboardHomePanel({
     if (!nextPhase) return;
 
     preserveDashboardScrollPosition(() => {
+      if (nextPhase === "complete") {
+        guideOrbCompletionDispatchRef.current = false;
+      }
+
       setGuideOrbPreview(null);
       setMoneyLeftOrbPhase(nextPhase);
 
       if (typeof window !== "undefined") {
         window.requestAnimationFrame(() => {
-          guideOrbButtonRef.current?.focus?.({ preventScroll: true });
+          const focusTarget =
+            nextPhase === "complete"
+              ? guideBubbleActionRef.current
+              : guideOrbButtonRef.current;
+          focusTarget?.focus?.({ preventScroll: true });
         });
       }
     });
   }, [guideOrbPreview, isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
+
+  const handleGuideOrbCompleteNext = useCallback(() => {
+    if (
+      !isMoneyLeftOrbComplete ||
+      guideOrbCompletionDispatchRef.current ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    guideOrbCompletionDispatchRef.current = true;
+
+    preserveDashboardScrollPosition(() => {
+      window.dispatchEvent(
+        new CustomEvent(CLARA_GUIDE_FEATURE_COMPLETE_EVENT, {
+          detail: { feature: GUIDE_FEATURE_MONEY_LEFT_ORB },
+        })
+      );
+    });
+  }, [isMoneyLeftOrbComplete]);
 
   const handleFinanceCarouselIndexChange = useCallback(
     (detail = {}) => {
@@ -830,6 +891,12 @@ export default function DashboardHomePanel({
   }, [guideFeature]);
 
   useEffect(() => {
+    if (!isMoneyLeftOrbComplete) {
+      guideOrbCompletionDispatchRef.current = false;
+    }
+  }, [isMoneyLeftOrbComplete]);
+
+  useEffect(() => {
     if (
       isCarouselGuideActive ||
       isMoneyLeftGuideActive ||
@@ -869,8 +936,10 @@ export default function DashboardHomePanel({
       const feature = event?.detail?.feature;
 
       if (feature !== GUIDE_FEATURE_MONEY_LEFT_ORB) {
+        guideOrbCompletionDispatchRef.current = false;
         setMoneyLeftOrbPhase("intro");
         setGuideOrbPreview(null);
+        setGuideRootFeatureClass(feature);
       }
 
       if (feature === GUIDE_FEATURE_FINANCE_CAROUSEL) {
@@ -903,6 +972,7 @@ export default function DashboardHomePanel({
       }
 
       if (feature === GUIDE_FEATURE_MONEY_LEFT_ORB) {
+        guideOrbCompletionDispatchRef.current = false;
         setGuideFeature(GUIDE_FEATURE_MONEY_LEFT_ORB);
         setGuideStep(0);
         setGuideMoneySummaryVisible(true);
@@ -975,7 +1045,8 @@ export default function DashboardHomePanel({
     isFinanceGuideTerminalDebt ||
     isMoneyLeftGuideActive ||
     (isMoneyLeftPrivacyGuideActive && moneyLeftPrivacyPhase === "complete") ||
-    isMoneyLeftOrbIntroActive
+    isMoneyLeftOrbIntroActive ||
+    isMoneyLeftOrbComplete
       ? "NEXT"
       : "";
   const activeGuideActionHandler = isFinanceGuideTerminalDebt
@@ -986,7 +1057,12 @@ export default function DashboardHomePanel({
         ? handleGuideNextToMoneyLeftOrb
         : isMoneyLeftOrbIntroActive
           ? handleGuideOrbIntroNext
-          : undefined;
+          : isMoneyLeftOrbComplete
+            ? handleGuideOrbCompleteNext
+            : undefined;
+  const activeGuideActionAriaLabel = isMoneyLeftOrbComplete
+    ? "Complete CLARA orb guide"
+    : "";
 
   return (
     <>
@@ -1002,6 +1078,8 @@ export default function DashboardHomePanel({
           copy={activeGuideBubbleCopy}
           items={activeGuideBubbleItems}
           actionLabel={activeGuideActionLabel}
+          actionAriaLabel={activeGuideActionAriaLabel}
+          actionButtonRef={guideBubbleActionRef}
           onAction={activeGuideActionHandler}
         />
       ) : null}

@@ -93,7 +93,10 @@ export default function DashboardMoneySummaryStable({
     (guideOrbPhase === "single-preview" ||
       guideOrbPhase === "double-preview" ||
       guideOrbPhase === "hold-preview");
-  const isGuideOrbButtonDisabled = isGuideOrbIntroActive || isGuideOrbPreviewActive;
+  const isGuideOrbComplete =
+    isGuideMode && isGuideOrbStepActive && guideOrbPhase === "complete";
+  const isGuideOrbButtonDisabled =
+    isGuideOrbIntroActive || isGuideOrbPreviewActive || isGuideOrbComplete;
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
     : moneySummaryVisible;
