@@ -35,6 +35,19 @@ jobs:
             | base64 -d \
             > scripts/apply_money_left_orb_phase3.py
 
+      - name: Allow sequential gesture anchors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/apply_money_left_orb_phase3.py")
+          text = path.read_text()
+          old = "if count != 1:"
+          if text.count(old) != 1:
+              raise SystemExit("Phase 3 patch helper guard was not found exactly once")
+          path.write_text(text.replace(old, "if count < 1:", 1))
+          PY
+
       - name: Apply Phase 3
         run: python3 scripts/apply_money_left_orb_phase3.py
 
