@@ -281,6 +281,8 @@ export default function DashboardHomePanel({
         ? "right"
         : null
     : null;
+  const financeGuideMaxStepPerInteraction =
+    isCarouselGuideActive && financeGuideTraining.financeGuideTrainingComplete ? 1 : null;
   const financeGuideBubbleCopy = getCarouselGuideBubbleCopy({
     training: financeGuideTraining,
     slide: financeGuideSlide,
@@ -631,6 +633,7 @@ export default function DashboardHomePanel({
                   isGuideMode={isGuideMode}
                   onGuideCarouselIndexChange={isCarouselGuideActive ? handleFinanceCarouselIndexChange : undefined}
                   guideAllowedSwipeDirection={financeGuideAllowedSwipeDirection}
+                  guideMaxStepPerInteraction={financeGuideMaxStepPerInteraction}
                 />
               </div>
             </div>
