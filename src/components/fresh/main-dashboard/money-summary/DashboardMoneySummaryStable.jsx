@@ -3,7 +3,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
-const LONG_PRESS_DELAY = 520;
+const LONG_PRESS_DELAY = 550;
+const MOVE_CANCEL_DISTANCE = 12;
 
 const resolveOrbAssetSrc = (assetPath = "") => {
   const trimmedPath = String(assetPath || "").trim();
@@ -44,6 +45,9 @@ export default function DashboardMoneySummaryStable({
   onGuidePrivacyToggle,
   moneyLeftSummaryHandlers = {},
   handleMoneyLeftOrbClick,
+  startMoneyLeftOrbLongPress,
+  moveMoneyLeftOrbLongPress,
+  endMoneyLeftOrbLongPress,
   stopMoneyLeftOrbEvent,
   walletMoney = 0,
   thisMonthSpent = 0,
@@ -53,6 +57,7 @@ export default function DashboardMoneySummaryStable({
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
   const lastTapAtRef = useRef(0);
+  const pointerStateRef = useRef({ startX: 0, startY: 0, moved: false });
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
@@ -72,12 +77,21 @@ export default function DashboardMoneySummaryStable({
     }
   }, []);
 
-  useEffect(() => {
-    return () => {
-      clearTapTimer();
-      clearLongPressTimer();
-    };
+  const resetOrbGestureState = useCallback(() => {
+    clearTapTimer();
+    clearLongPressTimer();
+    longPressTriggeredRef.current = false;
+    lastTapAtRef.current = 0;
+    pointerStateRef.current = { startX: 0, startY: 0, moved: false };
   }, [clearLongPressTimer, clearTapTimer]);
+
+  useEffect(() => {
+    return resetOrbGestureState;
+  }, [resetOrbGestureState]);
+
+  useEffect(() => {
+    resetOrbGestureState();
+  }, [isGuideMode, resetOrbGestureState]);
 
   const stopOrbEvent = useCallback(
     (event) => {
@@ -91,6 +105,8 @@ export default function DashboardMoneySummaryStable({
 
   const openManualLog = useCallback(
     (event) => {
+      if (isGuideMode) return;
+
       if (typeof handleMoneyLeftOrbClick === "function") {
         handleMoneyLeftOrbClick(event);
         return;
@@ -98,37 +114,102 @@ export default function DashboardMoneySummaryStable({
 
       moneyLeftSummaryHandlers?.openManualExpenseFromMoneyLeft?.(event);
     },
-    [handleMoneyLeftOrbClick, moneyLeftSummaryHandlers]
+    [handleMoneyLeftOrbClick, isGuideMode, moneyLeftSummaryHandlers]
   );
 
   const openTransactionHub = useCallback(
     (event) => {
+      if (isGuideMode) return;
       moneyLeftSummaryHandlers?.openTransactionHubFromMoneyLeft?.(event);
     },
-    [moneyLeftSummaryHandlers]
+    [isGuideMode, moneyLeftSummaryHandlers]
   );
 
   const handleOrbPointerDown = useCallback(
     (event) => {
       stopOrbEvent(event);
+      const point = event?.touches?.[0] || event;
+      pointerStateRef.current = {
+        startX: Number(point?.clientX || 0),
+        startY: Number(point?.clientY || 0),
+        moved: false,
+      };
       longPressTriggeredRef.current = false;
       clearLongPressTimer();
+
+      const now = Date.now();
+      const previousTapAt = lastTapAtRef.current || 0;
+      if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
+        clearTapTimer();
+      }
+
+      if (!isGuideMode) {
+        startMoneyLeftOrbLongPress?.(event);
+      }
 
       longPressTimerRef.current = setTimeout(() => {
         longPressTriggeredRef.current = true;
         clearTapTimer();
+        lastTapAtRef.current = 0;
       }, LONG_PRESS_DELAY);
     },
-    [clearLongPressTimer, clearTapTimer, stopOrbEvent]
+    [
+      clearLongPressTimer,
+      clearTapTimer,
+      isGuideMode,
+      startMoneyLeftOrbLongPress,
+      stopOrbEvent,
+    ]
+  );
+
+  const handleOrbPointerMove = useCallback(
+    (event) => {
+      stopOrbEvent(event);
+      const point = event?.touches?.[0] || event;
+      const dx = Math.abs(
+        Number(point?.clientX || 0) - pointerStateRef.current.startX
+      );
+      const dy = Math.abs(
+        Number(point?.clientY || 0) - pointerStateRef.current.startY
+      );
+
+      if (dx <= MOVE_CANCEL_DISTANCE && dy <= MOVE_CANCEL_DISTANCE) return;
+
+      pointerStateRef.current.moved = true;
+      clearLongPressTimer();
+
+      if (!isGuideMode) {
+        if (typeof moveMoneyLeftOrbLongPress === "function") {
+          moveMoneyLeftOrbLongPress(event);
+        } else {
+          endMoneyLeftOrbLongPress?.(event);
+        }
+      }
+    },
+    [
+      clearLongPressTimer,
+      endMoneyLeftOrbLongPress,
+      isGuideMode,
+      moveMoneyLeftOrbLongPress,
+      stopOrbEvent,
+    ]
   );
 
   const handleOrbPointerUp = useCallback(
     (event) => {
       stopOrbEvent(event);
+
+      if (!isGuideMode) {
+        endMoneyLeftOrbLongPress?.(event);
+      }
+
       clearLongPressTimer();
 
-      if (longPressTriggeredRef.current) {
+      if (pointerStateRef.current.moved || longPressTriggeredRef.current) {
+        pointerStateRef.current.moved = false;
         longPressTriggeredRef.current = false;
+        lastTapAtRef.current = 0;
+        clearTapTimer();
         return;
       }
 
@@ -147,11 +228,13 @@ export default function DashboardMoneySummaryStable({
       tapTimerRef.current = setTimeout(() => {
         lastTapAtRef.current = 0;
         openManualLog(event);
-      }, SINGLE_TAP_DELAY);
+      }, Math.max(SINGLE_TAP_DELAY, DOUBLE_TAP_WINDOW));
     },
     [
       clearLongPressTimer,
       clearTapTimer,
+      endMoneyLeftOrbLongPress,
+      isGuideMode,
       openManualLog,
       openTransactionHub,
       stopOrbEvent,
@@ -161,10 +244,24 @@ export default function DashboardMoneySummaryStable({
   const handleOrbCancel = useCallback(
     (event) => {
       stopOrbEvent(event);
+
+      if (!isGuideMode) {
+        endMoneyLeftOrbLongPress?.(event);
+      }
+
       clearLongPressTimer();
+      clearTapTimer();
       longPressTriggeredRef.current = false;
+      lastTapAtRef.current = 0;
+      pointerStateRef.current.moved = false;
     },
-    [clearLongPressTimer, stopOrbEvent]
+    [
+      clearLongPressTimer,
+      clearTapTimer,
+      endMoneyLeftOrbLongPress,
+      isGuideMode,
+      stopOrbEvent,
+    ]
   );
 
   const handleOrbClick = useCallback(
@@ -266,6 +363,7 @@ export default function DashboardMoneySummaryStable({
           onClick={handleOrbClick}
           onDoubleClick={handleOrbClick}
           onPointerDown={handleOrbPointerDown}
+          onPointerMove={handleOrbPointerMove}
           onPointerUp={handleOrbPointerUp}
           onPointerCancel={handleOrbCancel}
           onPointerLeave={handleOrbCancel}
