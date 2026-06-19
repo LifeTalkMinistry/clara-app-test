@@ -10,7 +10,6 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
-  ExternalLink,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -49,36 +48,29 @@ const APPROACH_OPTIONS = [
   {
     value: "gentle_supportive",
     label: "Gentle & Supportive",
-    description: "Help me feel understood first and guide me patiently.",
+    description: "Help me feel understood first. Guide me patiently without too much pressure.",
   },
   {
     value: "calm_honest",
     label: "Calm but Honest",
-    description: "Be considerate, but clearly tell me what needs to change.",
+    description: "Be considerate, but clearly explain what I may be doing wrong and what needs to change.",
     recommended: true,
   },
   {
     value: "direct_firm",
     label: "Direct & Firm",
-    description: "Be straightforward, challenge my excuses, and hold me accountable.",
+    description: "Be straightforward. Challenge my excuses or contradictions and hold me accountable.",
   },
   {
     value: "strong_accountability",
     label: "Strong Accountability",
-    description: "Do not sugarcoat it. Push me firmly while staying respectful.",
+    description: "Do not sugarcoat things. Push me firmly toward a clear decision and action while remaining respectful.",
   },
   {
     value: "adaptive",
     label: "Adapt During the Session",
-    description: "Understand me first, then adjust the approach as the session develops.",
+    description: "Start by understanding me, then adjust between gentle and direct depending on what I need.",
   },
-];
-
-const CHALLENGE_OPTIONS = [
-  { value: "direct", label: "Yes, tell me directly" },
-  { value: "gentle", label: "Yes, but explain it gently" },
-  { value: "ask_first", label: "Ask for permission first" },
-  { value: "not_today", label: "Not during this session" },
 ];
 
 const DATA_CONSENT_OPTIONS = [
@@ -130,17 +122,9 @@ const CHECK_IN_STEPS = [
     key: "approach",
     eyebrow: "Coaching approach",
     title: "How should your coach approach you?",
-    helper: "Choose the style that will help you respond best during this session.",
+    helper: "Choose the tone and level of accountability that will help you respond best.",
     type: "choice",
     options: APPROACH_OPTIONS,
-  },
-  {
-    key: "challengePermission",
-    eyebrow: "Accountability permission",
-    title: "How directly may your coach challenge you?",
-    helper: "This includes pointing out contradictions, avoidance, or excuses.",
-    type: "choice",
-    options: CHALLENGE_OPTIONS,
   },
   {
     key: "dataConsent",
@@ -158,7 +142,6 @@ const INITIAL_ANSWERS = {
   outcome: "",
   emotion: "",
   approach: "calm_honest",
-  challengePermission: "gentle",
   dataConsent: "allow",
 };
 
@@ -351,6 +334,7 @@ function ChoiceList({ options, value, onChange }) {
     <div className="mt-5 space-y-2.5">
       {options.map((option) => {
         const isSelected = value === option.value;
+
         return (
           <button
             key={option.value}
@@ -477,7 +461,6 @@ function CoachingCheckInPanel({
             <ReviewRow label="Desired result" value={getOptionLabel(DESIRED_OUTCOME_OPTIONS, answers.outcome)} />
             <ReviewRow label="Money state" value={getOptionLabel(EMOTION_OPTIONS, answers.emotion)} />
             <ReviewRow label="Coaching approach" value={getOptionLabel(APPROACH_OPTIONS, answers.approach)} />
-            <ReviewRow label="Challenge permission" value={getOptionLabel(CHALLENGE_OPTIONS, answers.challengePermission)} />
             <ReviewRow label="Data permission" value={getOptionLabel(DATA_CONSENT_OPTIONS, answers.dataConsent)} />
             <ReviewRow label="Current situation" value={answers.situation} />
           </div>
@@ -636,7 +619,6 @@ export default function WelcomeSession() {
     month: "long",
     year: "numeric",
   }).format(selectedMonth);
-
   const selectedDateLabel = selectedDateSlots[0]?.fullDateLabel || "Choose a date";
 
   const resetToCalendar = () => {
@@ -677,10 +659,6 @@ export default function WelcomeSession() {
     setView("times");
   };
 
-  const handleAnswer = (key, value) => {
-    setAnswers((current) => ({ ...current, [key]: value }));
-  };
-
   const handleCheckInNext = () => {
     setQuestionIndex((current) => Math.min(current + 1, CHECK_IN_STEPS.length));
   };
@@ -689,7 +667,7 @@ export default function WelcomeSession() {
     if (!selectedSlot) return;
 
     const payload = {
-      version: 1,
+      version: 2,
       status: "draft_local",
       createdAt: new Date().toISOString(),
       schedule: {
@@ -708,8 +686,6 @@ export default function WelcomeSession() {
 
     setView("complete");
   };
-
-  const showCalendar = view === "calendar";
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden px-3 pb-3 sm:px-6 lg:px-8">
@@ -757,7 +733,7 @@ export default function WelcomeSession() {
               selectedSlot={selectedSlot}
               questionIndex={questionIndex}
               answers={answers}
-              onAnswer={handleAnswer}
+              onAnswer={(key, value) => setAnswers((current) => ({ ...current, [key]: value }))}
               onBack={handleCheckInBack}
               onNext={handleCheckInNext}
               onConfirm={handleConfirmCheckIn}
@@ -777,7 +753,7 @@ export default function WelcomeSession() {
           ) : null}
         </section>
 
-        {showCalendar ? (
+        {view === "calendar" ? (
           <section className="mt-3 rounded-[28px] border border-white/[0.08] bg-[rgba(5,18,38,0.76)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
