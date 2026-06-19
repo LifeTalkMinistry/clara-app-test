@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Clock, ShieldCheck, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
@@ -248,6 +248,46 @@ function ClaraGuideIntroModal({ onStart, onClose }) {
 function CarouselGuideBubbleOverlay({ copy, actionLabel = "", onAction }) {
   const safeCopy = copy || FINANCE_GUIDE_CARD_COPY.fallback;
   const hasAction = Boolean(actionLabel && typeof onAction === "function");
+  const actionLockRef = useRef(false);
+  const actionUnlockTimerRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      if (typeof window !== "undefined" && actionUnlockTimerRef.current !== null) {
+        window.clearTimeout(actionUnlockTimerRef.current);
+      }
+    },
+    []
+  );
+
+  const stopPointerPropagation = useCallback((event) => {
+    event.stopPropagation();
+  }, []);
+
+  const activateAction = useCallback(
+    (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+
+      if (!hasAction || actionLockRef.current) return;
+
+      actionLockRef.current = true;
+
+      if (typeof window !== "undefined") {
+        if (actionUnlockTimerRef.current !== null) {
+          window.clearTimeout(actionUnlockTimerRef.current);
+        }
+
+        actionUnlockTimerRef.current = window.setTimeout(() => {
+          actionLockRef.current = false;
+          actionUnlockTimerRef.current = null;
+        }, 300);
+      }
+
+      onAction();
+    },
+    [hasAction, onAction]
+  );
 
   return (
     <div
@@ -272,8 +312,15 @@ function CarouselGuideBubbleOverlay({ copy, actionLabel = "", onAction }) {
         {hasAction ? (
           <button
             type="button"
-            onClick={onAction}
-            className="pointer-events-auto relative z-20 mt-4 w-full rounded-full border border-cyan-100/30 bg-cyan-100/15 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 active:scale-[0.99]"
+            data-clara-guide-action="next"
+            onPointerDownCapture={stopPointerPropagation}
+            onPointerUpCapture={stopPointerPropagation}
+            onClick={activateAction}
+            className="clara-guide-carousel-next-button pointer-events-auto relative z-20 mt-4 min-h-[44px] w-full touch-manipulation select-none cursor-pointer rounded-full border border-cyan-100/30 bg-cyan-100/15 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 active:scale-[0.99]"
+            style={{
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+            }}
           >
             {actionLabel}
           </button>
@@ -350,6 +397,7 @@ export default function DashboardHomePanel({
   const [financeGuideTraining, setFinanceGuideTraining] = useState(() => createFinanceGuideTrainingState());
   const [guideMoneySummaryVisible, setGuideMoneySummaryVisible] = useState(true);
   const [moneyLeftPrivacyPhase, setMoneyLeftPrivacyPhase] = useState("await-hide");
+  const guideTransitionLockRef = useRef(false);
   const currentPlan = user?.plan || user?.subscription?.plan || "free";
   const effectivePlan = isGuideMode ? "pro" : currentPlan;
   const isFreePlan = currentPlan === "free";
@@ -513,7 +561,9 @@ export default function DashboardHomePanel({
   }, [guideFeature, guideStep, isGuideMode]);
 
   const handleGuideNextToMoneyLeft = useCallback(() => {
-    if (!isFinanceGuideTerminalDebt) return;
+    if (!isFinanceGuideTerminalDebt || guideTransitionLockRef.current) return;
+
+    guideTransitionLockRef.current = true;
 
     preserveDashboardScrollPosition(() => {
       setGuideFeature(GUIDE_FEATURE_MONEY_LEFT);
@@ -621,6 +671,10 @@ export default function DashboardHomePanel({
     },
     [isCarouselGuideActive]
   );
+
+  useEffect(() => {
+    guideTransitionLockRef.current = false;
+  }, [guideFeature]);
 
   useEffect(() => {
     if (isCarouselGuideActive || isMoneyLeftGuideActive || isMoneyLeftPrivacyGuideActive) {
@@ -802,6 +856,10 @@ export default function DashboardHomePanel({
               <div
                 className={`clara-guide-carousel-anchor relative overflow-visible ${
                   isCarouselGuideActive ? "clara-guide-carousel-target" : ""
+                } ${
+                  isFinanceGuideTerminalDebt
+                    ? "clara-guide-carousel-terminal-locked"
+                    : ""
                 }`}
               >
                 <FinancialCarousel
