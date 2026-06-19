@@ -38,38 +38,29 @@ export default function CoachingAdminShell() {
       </div>
 
       <div className="relative mx-auto w-full max-w-[1500px]">
-        <header className="py-3 sm:py-5">
+        <header className="flex items-center justify-between gap-3 py-3 sm:py-5">
+          <h1 className="text-[25px] font-black tracking-tight text-white sm:text-[34px]">
+            CLARA Coaching Admin
+          </h1>
+
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-[10px] font-black uppercase tracking-[0.10em] text-white/65 transition hover:bg-white/[0.08] hover:text-white"
+            aria-label="Go back"
+            title="Back"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/65 transition hover:bg-white/[0.08] hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
           </button>
-
-          <div className="mt-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-cyan-200/55">
-              Coaching Operations
-            </p>
-            <h1 className="mt-2 text-[25px] font-black tracking-tight text-white sm:text-[34px]">
-              CLARA Coaching Admin
-            </h1>
-            <p className="mt-1 max-w-xl text-[11px] font-semibold leading-relaxed text-slate-300/58 sm:text-[12px]">
-              Manage coaching requests, schedules, preparation, and session outcomes.
-            </p>
-          </div>
         </header>
 
         <section className="sticky top-0 z-30 -mx-3 border-y border-white/[0.06] bg-slate-950/80 px-3 py-3 backdrop-blur-2xl sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7">
-          <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/50">
-            Workspace
-          </label>
           <div className="relative">
             <SelectedIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/70" />
             <select
               value={activeView}
               onChange={(event) => setActiveView(event.target.value)}
+              aria-label="Select coaching admin workspace"
               className="h-12 w-full appearance-none rounded-[17px] border border-white/[0.09] bg-white/[0.05] pl-10 pr-11 text-[12px] font-black text-white outline-none transition focus:border-cyan-200/30 focus:bg-white/[0.07]"
             >
               {views.map(([value, label]) => (
