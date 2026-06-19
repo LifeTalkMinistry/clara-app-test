@@ -20,6 +20,19 @@ const COPY = {
   },
 };
 
+function findSetupCta(preview) {
+  const markedCta = preview?.querySelector?.("[data-clara-life-stage-setup-cta='true']");
+  if (markedCta) return markedCta;
+
+  return Array.from(preview?.querySelectorAll?.("button") || []).find((button) =>
+    String(button.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase()
+      .includes("SET LIFE STAGE NOW")
+  );
+}
+
 export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
   const bubbleRef = useRef(null);
   const completionDispatchRef = useRef(false);
@@ -33,11 +46,15 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
     const previewRect = preview.getBoundingClientRect();
     const bubbleRect = bubble.getBoundingClientRect();
-    const setupCta = preview.querySelector("[data-clara-life-stage-setup-cta='true']");
+    const setupCta = findSetupCta(preview);
     const padding = 14;
     const gap = 14;
-    const minTop = previewRect.top + padding;
-    const maxTop = Math.max(minTop, previewRect.bottom - bubbleRect.height - padding);
+    const viewportBottom = window.innerHeight - padding;
+    const minTop = Math.max(previewRect.top + padding, padding);
+    const maxTop = Math.max(
+      minTop,
+      Math.min(previewRect.bottom, viewportBottom) - bubbleRect.height - padding
+    );
     let nextTop = maxTop;
 
     if (setupCta) {
@@ -58,18 +75,20 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
   useEffect(() => {
     completionDispatchRef.current = false;
-    const handleResize = () => updatePosition();
-    window.addEventListener("resize", handleResize);
+    const handleViewportChange = () => updatePosition();
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("orientationchange", handleViewportChange);
 
     const preview = document.querySelector("[data-clara-guide-me-preview='true']");
     const observer =
       typeof ResizeObserver !== "undefined" && preview
-        ? new ResizeObserver(handleResize)
+        ? new ResizeObserver(handleViewportChange)
         : null;
     observer?.observe(preview);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("orientationchange", handleViewportChange);
       observer?.disconnect();
     };
   }, [phase, updatePosition]);
