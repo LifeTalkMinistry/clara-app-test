@@ -6,6 +6,12 @@ const LOG_EXPENSE_FIELDS = [
   { label: "Wallet", value: "Main Wallet" },
 ];
 
+const TRANSACTION_HUB_ROWS = [
+  { type: "Expense", label: "Food", amount: "−₱120" },
+  { type: "Income", label: "Salary", amount: "+₱25,000" },
+  { type: "Transfer", label: "Main Wallet → Savings", amount: "₱2,000" },
+];
+
 export default function ClaraGuideOrbPreview({ preview, onNext }) {
   const stopEvent = useCallback((event) => {
     event?.stopPropagation?.();
@@ -20,7 +26,18 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
     [onNext]
   );
 
-  if (preview !== "log-expense") return null;
+  const isLogExpensePreview = preview === "log-expense";
+  const isTransactionHubPreview = preview === "transaction-hub";
+
+  if (!isLogExpensePreview && !isTransactionHubPreview) return null;
+
+  const title = isLogExpensePreview ? "Log Expense" : "Transaction Hub";
+  const body = isLogExpensePreview
+    ? "A single tap opens the expense form so you can record spending quickly."
+    : "Two quick taps take you to the place where all recorded money activity can be reviewed.";
+  const safetyMessage = isLogExpensePreview
+    ? "SIMULATION ONLY — NOTHING WILL BE SAVED."
+    : "SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED.";
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[245] flex items-end justify-center px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-24">
@@ -40,31 +57,52 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
           id="clara-guide-orb-preview-title"
           className="mt-2 text-[26px] font-black tracking-[-0.04em] text-white"
         >
-          Log Expense
+          {title}
         </h2>
         <p
           id="clara-guide-orb-preview-body"
           className="mt-3 text-[14px] font-semibold leading-relaxed text-cyan-50/78"
         >
-          A single tap opens the expense form so you can record spending quickly.
+          {body}
         </p>
 
-        <div className="mt-5 grid gap-2.5" aria-label="Static expense demonstration">
-          {LOG_EXPENSE_FIELDS.map((field) => (
-            <div
-              key={field.label}
-              className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3"
-            >
-              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100/58">
-                {field.label}
-              </span>
-              <strong className="text-[13px] font-black text-white">{field.value}</strong>
-            </div>
-          ))}
-        </div>
+        {isLogExpensePreview ? (
+          <div className="mt-5 grid gap-2.5" aria-label="Static expense demonstration">
+            {LOG_EXPENSE_FIELDS.map((field) => (
+              <div
+                key={field.label}
+                className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3"
+              >
+                <span className="text-[10px] font-black uppercase tracking-[0.12em] text-cyan-100/58">
+                  {field.label}
+                </span>
+                <strong className="text-[13px] font-black text-white">{field.value}</strong>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-2.5" aria-label="Static transaction demonstration">
+            {TRANSACTION_HUB_ROWS.map((transaction) => (
+              <div
+                key={`${transaction.type}-${transaction.label}`}
+                className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3"
+              >
+                <span className="min-w-0">
+                  <small className="block text-[9px] font-black uppercase tracking-[0.13em] text-cyan-100/55">
+                    {transaction.type}
+                  </small>
+                  <strong className="mt-1 block truncate text-[12px] font-black text-white">
+                    {transaction.label}
+                  </strong>
+                </span>
+                <b className="shrink-0 text-[13px] font-black text-white">{transaction.amount}</b>
+              </div>
+            ))}
+          </div>
+        )}
 
         <p className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.07] px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.1em] text-cyan-100">
-          SIMULATION ONLY — NOTHING WILL BE SAVED.
+          {safetyMessage}
         </p>
 
         <button
