@@ -4,11 +4,15 @@
    remain muted and non-interactive. */
 
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail,
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail {
   position: relative !important;
 }
 
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub,
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub {
   position: relative !important;
   z-index: 1 !important;
@@ -18,11 +22,15 @@ html.clara-guide-money-left-active
 }
 
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub *,
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-budget-focus-hub * {
   pointer-events: none !important;
 }
 
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail,
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail {
   position: relative !important;
   z-index: 195 !important;
@@ -33,6 +41,8 @@ html.clara-guide-money-left-active
 }
 
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail > div,
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail .clara-dashboard-bottom-finance-rail > div {
   position: relative !important;
   z-index: 1 !important;
@@ -42,6 +52,8 @@ html.clara-guide-money-left-active
 }
 
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary'],
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary'] {
   position: relative !important;
   z-index: 215 !important;
@@ -55,6 +67,10 @@ html.clara-guide-money-left-active
 html.clara-guide-money-left-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary']::before,
 html.clara-guide-money-left-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary']::after,
+html.clara-guide-money-left-privacy-active
+#root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary']::before,
+html.clara-guide-money-left-privacy-active
 #root .fixed.inset-0[class*='z-[60]'] ~ .clara-dashboard-hub-rail [data-clara-dashboard-section='money-summary']::after {
   content: none !important;
   display: none !important;
@@ -65,11 +81,61 @@ html.clara-guide-money-left-active
   filter: none !important;
 }
 
-/* The carousel bubble uses a fixed top position for carousel training. Money
-   Left sits near the bottom of the top-safe dashboard viewport, so place the
-   same bubble directly above it without moving the dashboard content. */
+/* Keep the guide bubble directly above Money Left without moving dashboard content. */
 html.clara-guide-money-left-active
+#root .clara-guide-carousel-bubble-shell,
+html.clara-guide-money-left-privacy-active
 #root .clara-guide-carousel-bubble-shell {
   top: auto !important;
   bottom: clamp(132px, 18dvh, 164px) !important;
+}
+
+/* During the privacy lesson, only the existing eye button can receive input. */
+html.clara-guide-money-left-privacy-active
+#root [data-clara-summary-privacy-toggle='true'] {
+  pointer-events: auto !important;
+  border-color: rgba(186, 242, 255, 0.5) !important;
+  background: rgba(186, 242, 255, 0.16) !important;
+  color: rgba(236, 254, 255, 0.96) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(34, 211, 238, 0.28) !important;
+  animation: clara-guide-privacy-eye-pulse 1.8s ease-in-out infinite;
+}
+
+html.clara-guide-money-left-privacy-active
+#root [data-clara-summary-privacy-toggle='true']:focus-visible {
+  outline: 2px solid rgba(186, 242, 255, 0.94) !important;
+  outline-offset: 3px !important;
+}
+
+html.clara-guide-money-left-privacy-active
+#root [data-clara-manual-expense-orb='true'],
+html.clara-guide-money-left-privacy-active
+#root [data-clara-summary-card='money-left'],
+html.clara-guide-money-left-privacy-active
+#root [data-clara-summary-card='total-expense'] {
+  pointer-events: none !important;
+}
+
+@keyframes clara-guide-privacy-eye-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 0 14px rgba(34, 211, 238, 0.2);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 0 24px rgba(34, 211, 238, 0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.clara-guide-money-left-privacy-active
+  #root [data-clara-summary-privacy-toggle='true'] {
+    animation: none !important;
+  }
 }
