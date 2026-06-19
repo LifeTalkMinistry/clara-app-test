@@ -1,3 +1,1 @@
-import { mockCoachingRepository } from "./mockCoachingRepository";
-
-export const coachingRepository = mockCoachingRepository;
+export { activeCoachingRepository as coachingRepository } from "./activeCoachingRepository";
