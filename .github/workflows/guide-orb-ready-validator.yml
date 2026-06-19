@@ -3,13 +3,21 @@ name: Apply and validate Money Left orb guide
 on:
   issue_comment:
     types: [created]
+  pull_request:
+    types: [synchronize]
 
 permissions:
   contents: write
 
 jobs:
   apply-and-validate:
-    if: github.event.issue.pull_request && github.event.issue.number == 126 && github.event.comment.body == '/run-orb-validator'
+    if: >-
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.issue.number == 126 &&
+       github.event.comment.body == '/run-orb-validator') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.number == 126)
     runs-on: ubuntu-latest
     steps:
       - name: Check out implementation branch
@@ -17,12 +25,15 @@ jobs:
         with:
           ref: fix/guide-orb-real-surfaces
           fetch-depth: 0
+
       - name: Confirm implementation bundle
         run: test -f .github/patch-parts/guide-orb-01.part
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
       - name: Apply implementation bundle
         shell: bash
         run: |
@@ -32,13 +43,17 @@ jobs:
           mkdir -p /tmp/guide-orb-bundle
           tar -xzf /tmp/guide-orb-bundle.tar.gz -C /tmp/guide-orb-bundle
           node /tmp/guide-orb-bundle/apply.mjs
+
       - run: npm ci
+
       - name: Build
         run: npm run build
+
       - name: Lint
         id: lint
         continue-on-error: true
         run: npm run lint
+
       - name: Commit verified implementation
         shell: bash
         run: |
