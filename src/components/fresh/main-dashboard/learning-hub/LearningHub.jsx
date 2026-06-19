@@ -1,11 +1,14 @@
 import { Suspense, lazy, useState } from "react";
-import { ScrollText } from "lucide-react";
+import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
+import WelcomeSessionModal, {
+  WELCOME_SESSION_AVAILABLE_SLOT_COUNT,
+} from "./ui/WelcomeSessionModal";
 
 const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
 
@@ -25,6 +28,24 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
           NEW
         </span>
       ) : null}
+    </button>
+  );
+}
+
+function WelcomeSessionButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
+      aria-label={`Open Welcome Session schedule. ${WELCOME_SESSION_AVAILABLE_SLOT_COUNT} free slots shown.`}
+      title="Welcome Session schedule"
+    >
+      <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.24),transparent_52%)]" />
+      <CalendarClock className="relative z-10 h-4 w-4 text-cyan-100/85" />
+      <span className="absolute -right-1.5 -top-2 z-20 min-w-[20px] rounded-full border border-emerald-100/25 bg-emerald-300 px-1.5 py-0.5 text-center text-[7px] font-black leading-none text-emerald-950 shadow-[0_8px_18px_rgba(52,211,153,0.28)]">
+        {WELCOME_SESSION_AVAILABLE_SLOT_COUNT}
+      </span>
     </button>
   );
 }
@@ -55,6 +76,7 @@ export default function LearningHub({
   onGuideDailyTipTap,
 }) {
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
+  const [isWelcomeSessionOpen, setIsWelcomeSessionOpen] = useState(false);
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
@@ -72,56 +94,75 @@ export default function LearningHub({
   };
 
   return (
-    <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
-      <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
-        <div
-          className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} ${
-            isCarouselGuideActive ? "clara-guide-daily-tip-muted" : ""
-          } overflow-visible`}
-        >
-          <DailyTipCard
-            hasCommittedAccess={hasCommittedAccess}
-            onOpenCommitmentBooklet={openCommittedVersionModal}
-            flushSpacing
-            isGuideMode={isGuideMode}
-            guideStep={guideStep}
-            isDailyTipGuideActive={isDailyTipGuideActive}
-            onGuideDailyTipTap={onGuideDailyTipTap}
-          />
-
-          {isDailyTipGuideActive ? <DailyTipGuideBubble /> : null}
-        </div>
-
-        {!shouldLoadHub ? (
+    <>
+      <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
+        <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
           <div
-            data-clara-learning-hub-bridge="true"
-            className="relative grid w-full items-center"
-            style={{ gridTemplateColumns: "1fr auto 1fr" }}
+            className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} ${
+              isCarouselGuideActive ? "clara-guide-daily-tip-muted" : ""
+            } overflow-visible`}
           >
-            <span aria-hidden="true" />
-            <LearningHubToggleButton
-              isExpanded={false}
-              isLocked={isLocked}
-              isInsideCategory={false}
-              headerLabel="Learning Hub"
-              onClick={handleOpenHub}
+            <DailyTipCard
+              hasCommittedAccess={hasCommittedAccess}
+              onOpenCommitmentBooklet={openCommittedVersionModal}
               flushSpacing
+              isGuideMode={isGuideMode}
+              guideStep={guideStep}
+              isDailyTipGuideActive={isDailyTipGuideActive}
+              onGuideDailyTipTap={onGuideDailyTipTap}
             />
 
-            {!isGuideMode ? (
-              <div className="clara-guide-float ml-1.5 justify-self-start">
-                <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
-              </div>
-            ) : (
-              <span aria-hidden="true" />
-            )}
+            {isDailyTipGuideActive ? <DailyTipGuideBubble /> : null}
           </div>
-        ) : (
-          <Suspense fallback={null}>
-            <LearningHubLoaded initialExpanded flushSpacing={true} />
-          </Suspense>
-        )}
-      </div>
-    </section>
+
+          {!shouldLoadHub ? (
+            <div
+              data-clara-learning-hub-bridge="true"
+              className="relative grid w-full items-center"
+              style={{ gridTemplateColumns: "1fr auto 1fr" }}
+            >
+              {!isGuideMode ? (
+                <div
+                  className="clara-guide-float mr-1.5 justify-self-end"
+                  style={{ animationDelay: "-0.5s" }}
+                >
+                  <WelcomeSessionButton onClick={() => setIsWelcomeSessionOpen(true)} />
+                </div>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+
+              <LearningHubToggleButton
+                isExpanded={false}
+                isLocked={isLocked}
+                isInsideCategory={false}
+                headerLabel="Learning Hub"
+                onClick={handleOpenHub}
+                flushSpacing
+              />
+
+              {!isGuideMode ? (
+                <div className="clara-guide-float ml-1.5 justify-self-start">
+                  <ClaraGuideButton hasNewGuide={hasNewGuide} onClick={onOpenGuideIntro} />
+                </div>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+            </div>
+          ) : (
+            <Suspense fallback={null}>
+              <LearningHubLoaded initialExpanded flushSpacing={true} />
+            </Suspense>
+          )}
+        </div>
+      </section>
+
+      <WelcomeSessionModal
+        open={isWelcomeSessionOpen}
+        onClose={() => setIsWelcomeSessionOpen(false)}
+        hasCommittedAccess={realHasCommittedAccess}
+        onUpgrade={openCommittedVersionModal}
+      />
+    </>
   );
 }
