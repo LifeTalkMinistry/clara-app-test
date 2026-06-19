@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef } from "react";
 import ClaraGuideManualExpensePreview from "@/components/fresh/main-dashboard/guide/ClaraGuideManualExpensePreview";
-
-const TRANSACTION_HUB_ROWS = [
-  { type: "Expense", label: "Food", amount: "−₱120" },
-  { type: "Income", label: "Salary", amount: "+₱25,000" },
-  { type: "Transfer", label: "Main Wallet → Savings", amount: "₱2,000" },
-];
+import ClaraGuideTransactionHubPreview from "@/components/fresh/main-dashboard/guide/ClaraGuideTransactionHubPreview";
 
 export default function ClaraGuideOrbPreview({ preview, onNext }) {
   const headingRef = useRef(null);
 
   useEffect(() => {
-    if (preview === "log-expense" || typeof window === "undefined") return undefined;
+    if (
+      preview === "log-expense" ||
+      preview === "transaction-hub" ||
+      typeof window === "undefined"
+    ) {
+      return undefined;
+    }
 
     const frameId = window.requestAnimationFrame(() => {
       headingRef.current?.focus?.({ preventScroll: true });
@@ -39,18 +40,11 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
     return <ClaraGuideManualExpensePreview onNext={onNext} />;
   }
 
-  const isTransactionHubPreview = preview === "transaction-hub";
-  const isClaraChatPreview = preview === "clara-chat";
+  if (preview === "transaction-hub") {
+    return <ClaraGuideTransactionHubPreview onNext={onNext} />;
+  }
 
-  if (!isTransactionHubPreview && !isClaraChatPreview) return null;
-
-  const title = isTransactionHubPreview ? "Transaction Hub" : "Chat with CLARA";
-  const body = isTransactionHubPreview
-    ? "Two quick taps take you to the place where all recorded money activity can be reviewed."
-    : null;
-  const safetyMessage = isTransactionHubPreview
-    ? "SIMULATION ONLY — YOUR RECORDS WERE NOT OPENED OR CHANGED."
-    : "SIMULATION ONLY — NO MESSAGE WILL BE SENT.";
+  if (preview !== "clara-chat") return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[245] flex items-end justify-center px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-24">
@@ -75,61 +69,31 @@ export default function ClaraGuideOrbPreview({ preview, onNext }) {
           id="clara-guide-orb-preview-title"
           className="mt-2 text-[26px] font-black tracking-[-0.04em] text-white focus:outline-none"
         >
-          {title}
+          Chat with CLARA
         </h2>
 
-        {body ? (
-          <p
-            id="clara-guide-orb-preview-body"
-            className="mt-3 text-[14px] font-semibold leading-relaxed text-cyan-50/78"
-          >
-            {body}
+        <div
+          id="clara-guide-orb-preview-body"
+          className="mt-4 rounded-2xl border border-cyan-100/12 bg-white/[0.05] px-4 py-4"
+        >
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/60">
+            CLARA
           </p>
-        ) : (
-          <div
-            id="clara-guide-orb-preview-body"
-            className="mt-4 rounded-2xl border border-cyan-100/12 bg-white/[0.05] px-4 py-4"
-          >
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/60">
-              CLARA
-            </p>
-            <p className="mt-2 text-[14px] font-semibold leading-relaxed text-white">
-              Hi! Ask me anything about your spending, budget, savings, or next money decision.
-            </p>
-          </div>
-        )}
+          <p className="mt-2 text-[14px] font-semibold leading-relaxed text-white">
+            Hi! Ask me anything about your spending, budget, savings, or next money decision.
+          </p>
+        </div>
 
-        {isTransactionHubPreview ? (
-          <div className="mt-5 grid gap-2.5" aria-label="Static transaction demonstration">
-            {TRANSACTION_HUB_ROWS.map((transaction) => (
-              <div
-                key={`${transaction.type}-${transaction.label}`}
-                className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3"
-              >
-                <span className="min-w-0">
-                  <small className="block text-[9px] font-black uppercase tracking-[0.13em] text-cyan-100/55">
-                    {transaction.type}
-                  </small>
-                  <strong className="mt-1 block truncate text-[12px] font-black text-white">
-                    {transaction.label}
-                  </strong>
-                </span>
-                <b className="shrink-0 text-[13px] font-black text-white">{transaction.amount}</b>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <input
-            type="text"
-            disabled
-            aria-label="Static CLARA message input"
-            placeholder="Ask CLARA about your money..."
-            className="mt-4 min-h-[46px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-[13px] font-semibold text-white/60 placeholder:text-white/38 disabled:cursor-not-allowed disabled:opacity-100"
-          />
-        )}
+        <input
+          type="text"
+          disabled
+          aria-label="Static CLARA message input"
+          placeholder="Ask CLARA about your money..."
+          className="mt-4 min-h-[46px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-[13px] font-semibold text-white/60 placeholder:text-white/38 disabled:cursor-not-allowed disabled:opacity-100"
+        />
 
         <p className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.07] px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.1em] text-cyan-100">
-          {safetyMessage}
+          SIMULATION ONLY — NO MESSAGE WILL BE SENT.
         </p>
 
         <button
