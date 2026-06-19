@@ -1,16 +1,15 @@
 name: Apply and validate Money Left orb guide
 
 on:
-  pull_request:
-    types: [ready_for_review]
-    branches: [main]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
 
 jobs:
   apply-and-validate:
-    if: github.event.pull_request.head.ref == 'fix/guide-orb-real-surfaces'
+    if: github.event.issue.pull_request && github.event.issue.number == 126 && github.event.comment.body == '/run-orb-validator'
     runs-on: ubuntu-latest
     steps:
       - name: Check out implementation branch
