@@ -1,10 +1,2 @@
-export const ORB_GUIDE_PHASES = Object.freeze([
-  "intro",
-  "await-single",
-  "showing-log-expense",
-  "await-double",
-  "showing-transaction-hub",
-  "await-hold",
-  "showing-clara-chat",
-  "complete",
-]);
+// Unused placeholder. The orb guide state machine must be implemented in the
+// owning React dashboard flow together with production component reuse.
