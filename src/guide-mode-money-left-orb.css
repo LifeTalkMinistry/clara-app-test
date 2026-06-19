@@ -66,6 +66,11 @@ html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='tru
   pointer-events: none !important;
 }
 
+html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-single'] [data-clara-orb-control='true'],
+html.clara-guide-money-left-orb-active #root [data-clara-dashboard-section='money-summary'][data-clara-guide-orb-phase='await-single'] [data-clara-manual-expense-orb='true'] {
+  pointer-events: auto !important;
+}
+
 html.clara-guide-money-left-orb-active #root [data-clara-manual-expense-orb='true'] {
   border-color: rgba(186, 242, 255, 0.5) !important;
   box-shadow:
