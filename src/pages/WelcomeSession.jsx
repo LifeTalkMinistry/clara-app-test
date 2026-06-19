@@ -11,6 +11,7 @@ import {
   ExternalLink,
   LockKeyhole,
   Sparkles,
+  X,
 } from "lucide-react";
 import {
   openCommittedVersionModal,
@@ -49,7 +50,7 @@ function buildCalendarDays(monthDate) {
 
 function Rule({ children }) {
   return (
-    <li className="flex items-start gap-2.5 text-[12px] font-semibold leading-relaxed text-slate-200/78">
+    <li className="flex items-start gap-2.5 text-[11px] font-semibold leading-relaxed text-slate-200/78">
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyan-200/15 bg-cyan-200/[0.07]">
         <Check className="h-3 w-3 text-cyan-100/80" />
       </span>
@@ -66,6 +67,186 @@ function SummaryChip({ icon: Icon, label, value }) {
         <span className="text-[8px] font-black uppercase tracking-[0.16em]">{label}</span>
       </div>
       <p className="mt-1.5 text-[15px] font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function TimeOptions({
+  selectedDateSlots,
+  selectedSlotId,
+  onSelectSlot,
+  hasCommittedAccess,
+}) {
+  if (!selectedDateSlots.length) {
+    return (
+      <div className="rounded-[20px] border border-dashed border-white/[0.09] bg-white/[0.025] px-4 py-7 text-center">
+        <CalendarDays className="mx-auto h-6 w-6 text-slate-400/45" />
+        <p className="mt-3 text-[11px] font-bold text-slate-300/60">
+          Select a highlighted appointment date.
+        </p>
+      </div>
+    );
+  }
+
+  return selectedDateSlots.map((slot) => {
+    const isAvailable = slot.status === "available";
+    const isSelected = selectedSlotId === slot.id;
+
+    return (
+      <button
+        key={slot.id}
+        type="button"
+        disabled={!isAvailable || !hasCommittedAccess}
+        onClick={() => onSelectSlot(slot.id)}
+        className={`flex w-full items-center justify-between gap-3 rounded-[19px] border px-4 py-3.5 text-left transition ${
+          isSelected
+            ? "border-cyan-200/60 bg-cyan-200/[0.10] shadow-[0_0_24px_rgba(34,211,238,0.10)]"
+            : isAvailable
+              ? "border-white/[0.09] bg-white/[0.045] hover:border-cyan-100/25 hover:bg-white/[0.075]"
+              : "cursor-not-allowed border-white/[0.05] bg-black/[0.10] opacity-55"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 items-center justify-center rounded-[14px] border ${
+              isAvailable
+                ? "border-cyan-100/15 bg-cyan-100/[0.06]"
+                : "border-white/[0.06] bg-white/[0.025]"
+            }`}
+          >
+            <Clock3
+              className={`h-4 w-4 ${
+                isAvailable ? "text-cyan-100/80" : "text-slate-400/55"
+              }`}
+            />
+          </span>
+          <div>
+            <p className="text-[14px] font-black text-white/92">{slot.timeLabel}</p>
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.10em] text-slate-400/60">
+              30-minute session
+            </p>
+          </div>
+        </div>
+
+        <span
+          className={`rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.10em] ${
+            isAvailable
+              ? "border-emerald-300/20 bg-emerald-300/[0.10] text-emerald-200"
+              : "border-rose-300/15 bg-rose-300/[0.08] text-rose-200/75"
+          }`}
+        >
+          {isSelected ? "Selected" : isAvailable ? "Free" : "Occupied"}
+        </span>
+      </button>
+    );
+  });
+}
+
+function BookingPanel({
+  selectedDateLabel,
+  selectedDateSlots,
+  selectedSlotId,
+  onSelectSlot,
+  hasCommittedAccess,
+  showMissingLinkMessage,
+  onContinue,
+  onClose,
+  mobile = false,
+}) {
+  const selectedSlot = selectedDateSlots.find((slot) => slot.id === selectedSlotId) || null;
+
+  return (
+    <div className="flex min-h-0 flex-col">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
+            Available times
+          </p>
+          <h2 className="mt-1 text-[18px] font-black leading-tight text-white">
+            {selectedDateLabel}
+          </h2>
+          <p className="mt-2 text-[10px] font-semibold leading-relaxed text-slate-300/65">
+            Choose one preferred time. Confirmation comes after the form is reviewed.
+          </p>
+        </div>
+
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/65 transition hover:bg-white/[0.08] hover:text-white"
+            aria-label="Close appointment times"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className={`${mobile ? "mt-4 max-h-[33dvh] overflow-y-auto pr-0.5" : "mt-4"} space-y-2.5`}>
+        <TimeOptions
+          selectedDateSlots={selectedDateSlots}
+          selectedSlotId={selectedSlotId}
+          onSelectSlot={onSelectSlot}
+          hasCommittedAccess={hasCommittedAccess}
+        />
+      </div>
+
+      <div className="mt-4 rounded-[18px] border border-white/[0.08] bg-white/[0.035] p-3.5">
+        <ul className="space-y-2.5">
+          <Rule>Included once for first-time Committed members.</Rule>
+          <Rule>Available schedules are first come, first served.</Rule>
+          <Rule>The Google Form is required before confirmation.</Rule>
+        </ul>
+      </div>
+
+      {!hasCommittedAccess ? (
+        <div className="mt-3 rounded-[18px] border border-violet-200/15 bg-violet-300/[0.07] p-3.5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[13px] border border-violet-200/15 bg-violet-300/[0.08]">
+              <LockKeyhole className="h-4 w-4 text-violet-100/80" />
+            </span>
+            <div>
+              <p className="text-[12px] font-black text-white">Committed access required</p>
+              <p className="mt-1 text-[10px] font-semibold leading-relaxed text-slate-300/65">
+                Your first Welcome Session is included after activating CLARA Committed.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openCommittedVersionModal}
+            className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-[15px] border border-violet-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.82),rgba(99,102,241,0.92))] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)]"
+          >
+            Unlock with Committed
+          </button>
+        </div>
+      ) : null}
+
+      {showMissingLinkMessage ? (
+        <p className="mt-3 rounded-[16px] border border-amber-200/15 bg-amber-100/[0.05] px-3 py-2.5 text-center text-[10px] font-bold leading-relaxed text-amber-100/90">
+          The Google Form link is currently unavailable.
+        </p>
+      ) : null}
+
+      {hasCommittedAccess ? (
+        <button
+          type="button"
+          disabled={!selectedSlot}
+          onClick={onContinue}
+          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/25 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 text-[9px] font-black uppercase tracking-[0.11em] text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {selectedSlot ? "Continue to appointment form" : "Choose a free time"}
+          {selectedSlot ? <ExternalLink className="h-3.5 w-3.5" /> : null}
+        </button>
+      ) : null}
+
+      <div className="mt-2.5 flex items-start gap-2 rounded-[15px] border border-amber-200/[0.08] bg-amber-100/[0.035] px-3 py-2.5">
+        <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200/65" />
+        <p className="text-[9px] font-semibold leading-relaxed text-slate-300/65">
+          Selecting a schedule does not reserve it yet. Complete the form and wait for confirmation.
+        </p>
+      </div>
     </div>
   );
 }
@@ -103,6 +284,7 @@ export default function WelcomeSession() {
   const [selectedDateKey, setSelectedDateKey] = useState(firstAvailableSlot?.dateKey || "");
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [showMissingLinkMessage, setShowMissingLinkMessage] = useState(false);
+  const [isMobileBookingOpen, setIsMobileBookingOpen] = useState(false);
 
   const selectedMonth = monthOptions[monthIndex]?.date || new Date();
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth]);
@@ -123,18 +305,28 @@ export default function WelcomeSession() {
 
     setMonthIndex(nextIndex);
     const nextMonthKey = monthOptions[nextIndex]?.key;
-    const nextDateSlot = slots.find(
-      (slot) => slot.monthKey === nextMonthKey && slot.status === "available",
-    ) || slots.find((slot) => slot.monthKey === nextMonthKey);
+    const nextDateSlot =
+      slots.find((slot) => slot.monthKey === nextMonthKey && slot.status === "available") ||
+      slots.find((slot) => slot.monthKey === nextMonthKey);
     setSelectedDateKey(nextDateSlot?.dateKey || "");
     setSelectedSlotId("");
     setShowMissingLinkMessage(false);
+    setIsMobileBookingOpen(false);
   };
 
   const handleDateSelect = (dateKey) => {
-    if (!slotsByDate.has(dateKey)) return;
+    const dateSlots = slotsByDate.get(dateKey) || [];
+    const availableSlots = dateSlots.filter((slot) => slot.status === "available");
+    if (!availableSlots.length) return;
+
     setSelectedDateKey(dateKey);
-    setSelectedSlotId("");
+    setSelectedSlotId(availableSlots.length === 1 ? availableSlots[0].id : "");
+    setShowMissingLinkMessage(false);
+    setIsMobileBookingOpen(true);
+  };
+
+  const handleSlotSelect = (slotId) => {
+    setSelectedSlotId(slotId);
     setShowMissingLinkMessage(false);
   };
 
@@ -163,14 +355,14 @@ export default function WelcomeSession() {
   };
 
   return (
-    <div className="relative min-h-full overflow-hidden px-3 pb-10 sm:px-6 lg:px-8">
+    <div className="relative min-h-[100dvh] overflow-hidden px-3 pb-3 sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-28 top-0 h-72 w-72 rounded-full bg-cyan-400/[0.08] blur-[100px]" />
         <div className="absolute -right-20 top-16 h-80 w-80 rounded-full bg-violet-500/[0.10] blur-[110px]" />
       </div>
 
       <div className="relative mx-auto w-full max-w-6xl">
-        <header className="flex items-center justify-between gap-3 py-3 sm:py-5">
+        <header className="flex items-center justify-between gap-3 py-2.5 sm:py-4">
           <button
             type="button"
             onClick={() => navigate("/dashboard")}
@@ -224,7 +416,7 @@ export default function WelcomeSession() {
           </div>
         </section>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.28fr)_minmax(320px,0.72fr)]">
+        <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.28fr)_minmax(320px,0.72fr)]">
           <section className="rounded-[28px] border border-white/[0.08] bg-[rgba(5,18,38,0.76)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -274,23 +466,30 @@ export default function WelcomeSession() {
                 const isToday = dateKey === todayKey;
                 const availableCount = dateSlots.filter((slot) => slot.status === "available").length;
                 const hasAppointments = dateSlots.length > 0;
+                const isClickable = availableCount > 0;
 
                 return (
                   <button
                     key={dateKey}
                     type="button"
                     onClick={() => handleDateSelect(dateKey)}
-                    disabled={!hasAppointments}
+                    disabled={!isClickable}
                     className={`relative aspect-square min-h-[42px] rounded-[16px] border text-center transition sm:min-h-[54px] ${
                       isSelected
                         ? "border-cyan-200/55 bg-[linear-gradient(145deg,rgba(34,211,238,0.18),rgba(99,102,241,0.20))] text-white shadow-[0_0_24px_rgba(34,211,238,0.10)]"
-                        : hasAppointments
-                          ? "border-white/[0.09] bg-white/[0.045] text-white/90 hover:border-cyan-100/25 hover:bg-white/[0.075]"
-                          : "cursor-default border-transparent bg-transparent text-slate-500/45"
+                        : isClickable
+                          ? "cursor-pointer border-white/[0.09] bg-white/[0.045] text-white/90 hover:-translate-y-0.5 hover:border-cyan-100/35 hover:bg-white/[0.09] active:translate-y-0"
+                          : hasAppointments
+                            ? "cursor-not-allowed border-white/[0.06] bg-white/[0.025] text-white/55"
+                            : "cursor-default border-transparent bg-transparent text-slate-500/45"
                     } ${!isCurrentMonth ? "opacity-35" : ""}`}
-                    aria-label={`${date.toDateString()}${availableCount ? `, ${availableCount} available appointment` : ""}`}
+                    aria-label={`${date.toDateString()}${availableCount ? `, ${availableCount} available appointment` : ", no available appointment"}`}
                   >
-                    <span className={`text-[11px] font-black sm:text-[13px] ${isToday ? "text-cyan-200" : ""}`}>
+                    <span
+                      className={`text-[11px] font-black sm:text-[13px] ${
+                        isToday ? "text-cyan-200" : ""
+                      }`}
+                    >
                       {date.getDate()}
                     </span>
 
@@ -314,7 +513,7 @@ export default function WelcomeSession() {
             <div className="mt-4 flex flex-wrap items-center gap-4 rounded-[18px] border border-white/[0.06] bg-black/[0.10] px-3.5 py-3">
               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
                 <span className="h-2 w-2 rounded-full bg-emerald-300" />
-                Free slot
+                Tap a free date
               </div>
               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300/70">
                 <span className="h-2 w-2 rounded-full bg-rose-300/65" />
@@ -326,129 +525,47 @@ export default function WelcomeSession() {
             </div>
           </section>
 
-          <aside className="flex flex-col rounded-[28px] border border-white/[0.08] bg-[rgba(7,17,40,0.80)] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-5">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
-                Available times
-              </p>
-              <h2 className="mt-1 text-[18px] font-black leading-tight text-white">
-                {selectedDateLabel}
-              </h2>
-              <p className="mt-2 text-[11px] font-semibold leading-relaxed text-slate-300/65">
-                Choose one preferred time. It becomes confirmed only after your form is reviewed.
-              </p>
-            </div>
-
-            <div className="mt-4 space-y-2.5">
-              {selectedDateSlots.length ? (
-                selectedDateSlots.map((slot) => {
-                  const isAvailable = slot.status === "available";
-                  const isSelected = selectedSlotId === slot.id;
-
-                  return (
-                    <button
-                      key={slot.id}
-                      type="button"
-                      disabled={!isAvailable || !hasCommittedAccess}
-                      onClick={() => {
-                        setSelectedSlotId(slot.id);
-                        setShowMissingLinkMessage(false);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 rounded-[19px] border px-4 py-4 text-left transition ${
-                        isSelected
-                          ? "border-cyan-200/60 bg-cyan-200/[0.10] shadow-[0_0_24px_rgba(34,211,238,0.10)]"
-                          : isAvailable
-                            ? "border-white/[0.09] bg-white/[0.045] hover:border-cyan-100/25 hover:bg-white/[0.075]"
-                            : "cursor-not-allowed border-white/[0.05] bg-black/[0.10] opacity-55"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`flex h-10 w-10 items-center justify-center rounded-[14px] border ${isAvailable ? "border-cyan-100/15 bg-cyan-100/[0.06]" : "border-white/[0.06] bg-white/[0.025]"}`}>
-                          <Clock3 className={`h-4 w-4 ${isAvailable ? "text-cyan-100/80" : "text-slate-400/55"}`} />
-                        </span>
-                        <div>
-                          <p className="text-[14px] font-black text-white/92">{slot.timeLabel}</p>
-                          <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.10em] text-slate-400/60">
-                            30-minute session
-                          </p>
-                        </div>
-                      </div>
-
-                      <span className={`rounded-full border px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.10em] ${isAvailable ? "border-emerald-300/20 bg-emerald-300/[0.10] text-emerald-200" : "border-rose-300/15 bg-rose-300/[0.08] text-rose-200/75"}`}>
-                        {isSelected ? "Selected" : isAvailable ? "Free" : "Occupied"}
-                      </span>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="rounded-[20px] border border-dashed border-white/[0.09] bg-white/[0.025] px-4 py-8 text-center">
-                  <CalendarDays className="mx-auto h-6 w-6 text-slate-400/45" />
-                  <p className="mt-3 text-[11px] font-bold text-slate-300/60">
-                    Select a highlighted appointment date.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-4">
-              <ul className="space-y-3">
-                <Rule>Included once for first-time Committed members.</Rule>
-                <Rule>Available schedules are first come, first served.</Rule>
-                <Rule>The Google Form is still required before confirmation.</Rule>
-              </ul>
-            </div>
-
-            {!hasCommittedAccess ? (
-              <div className="mt-4 rounded-[20px] border border-violet-200/15 bg-violet-300/[0.07] p-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-violet-200/15 bg-violet-300/[0.08]">
-                    <LockKeyhole className="h-4 w-4 text-violet-100/80" />
-                  </span>
-                  <div>
-                    <p className="text-[12px] font-black text-white">Committed access required</p>
-                    <p className="mt-1 text-[10px] font-semibold leading-relaxed text-slate-300/65">
-                      Your first Welcome Session is included after activating CLARA Committed.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={openCommittedVersionModal}
-                  className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-[16px] border border-violet-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.82),rgba(99,102,241,0.92))] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)]"
-                >
-                  Unlock with Committed
-                </button>
-              </div>
-            ) : null}
-
-            {showMissingLinkMessage ? (
-              <p className="mt-3 rounded-[16px] border border-amber-200/15 bg-amber-100/[0.05] px-3 py-2.5 text-center text-[10px] font-bold leading-relaxed text-amber-100/90">
-                The Google Form link is currently unavailable.
-              </p>
-            ) : null}
-
-            {hasCommittedAccess ? (
-              <button
-                type="button"
-                disabled={!selectedSlot}
-                onClick={handleContinue}
-                className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-[18px] border border-cyan-100/25 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 text-[10px] font-black uppercase tracking-[0.11em] text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {selectedSlot ? "Continue to appointment form" : "Choose a free time"}
-                {selectedSlot ? <ExternalLink className="h-3.5 w-3.5" /> : null}
-              </button>
-            ) : null}
-
-            <div className="mt-3 flex items-start gap-2 rounded-[16px] border border-amber-200/[0.08] bg-amber-100/[0.035] px-3 py-2.5">
-              <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200/65" />
-              <p className="text-[9px] font-semibold leading-relaxed text-slate-300/65">
-                Selecting a schedule does not reserve it. Complete the form and wait for confirmation.
-              </p>
-            </div>
+          <aside className="hidden flex-col rounded-[28px] border border-white/[0.08] bg-[rgba(7,17,40,0.80)] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl lg:flex">
+            <BookingPanel
+              selectedDateLabel={selectedDateLabel}
+              selectedDateSlots={selectedDateSlots}
+              selectedSlotId={selectedSlotId}
+              onSelectSlot={handleSlotSelect}
+              hasCommittedAccess={hasCommittedAccess}
+              showMissingLinkMessage={showMissingLinkMessage}
+              onContinue={handleContinue}
+            />
           </aside>
         </div>
       </div>
+
+      {isMobileBookingOpen ? (
+        <div
+          className="fixed inset-0 z-[10000] flex items-end bg-slate-950/72 backdrop-blur-sm lg:hidden"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsMobileBookingOpen(false);
+          }}
+        >
+          <section
+            className="max-h-[82dvh] w-full overflow-y-auto rounded-t-[30px] border border-b-0 border-cyan-100/15 bg-[linear-gradient(160deg,rgba(4,24,42,0.99),rgba(8,17,42,0.99)_55%,rgba(31,13,68,0.99))] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 shadow-[0_-24px_80px_rgba(0,0,0,0.55)]"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/20" />
+            <BookingPanel
+              mobile
+              selectedDateLabel={selectedDateLabel}
+              selectedDateSlots={selectedDateSlots}
+              selectedSlotId={selectedSlotId}
+              onSelectSlot={handleSlotSelect}
+              hasCommittedAccess={hasCommittedAccess}
+              showMissingLinkMessage={showMissingLinkMessage}
+              onContinue={handleContinue}
+              onClose={() => setIsMobileBookingOpen(false)}
+            />
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
