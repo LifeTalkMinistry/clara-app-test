@@ -24,24 +24,14 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           home = Path('src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx').read_text()
           required = [
-              'AMOUNTS RESTORED',
-              'MEET THE CLARA ORB',
-              '1 TAP — LOG EXPENSE',
-              '2 TAPS — TRANSACTION HUB',
-              'HOLD — CHAT WITH CLARA',
-              'ORB READY',
-              'setMoneyLeftOrbPhase("intro")',
-              'setMoneyLeftOrbPhase("await-single")',
-              'setMoneyLeftOrbPhase("single-preview")',
-              'setMoneyLeftOrbPhase("double-preview")',
-              'setMoneyLeftOrbPhase("hold-preview")',
-              '"await-double"',
-              '"await-hold"',
-              '"complete"',
-              'detail: { feature: GUIDE_FEATURE_MONEY_LEFT_ORB }',
+              'AMOUNTS RESTORED', 'MEET THE CLARA ORB', '1 TAP — LOG EXPENSE',
+              '2 TAPS — TRANSACTION HUB', 'HOLD — CHAT WITH CLARA', 'ORB READY',
+              'setMoneyLeftOrbPhase("intro")', 'setMoneyLeftOrbPhase("await-single")',
+              'setMoneyLeftOrbPhase("single-preview")', 'setMoneyLeftOrbPhase("double-preview")',
+              'setMoneyLeftOrbPhase("hold-preview")', '"await-double"', '"await-hold"',
+              '"complete"', 'detail: { feature: GUIDE_FEATURE_MONEY_LEFT_ORB }',
               'guideOrbCompletionDispatchRef.current',
           ]
           missing = [token for token in required if token not in home]
@@ -50,26 +40,32 @@ jobs:
           print('State machine and approved copy passed.')
           PY
 
-      - name: Validate scroll and live-action isolation
+      - name: Validate orb scroll safety
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           home = Path('src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx').read_text()
           preview = Path('src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx').read_text()
           start = home.index('const handleGuideNextToMoneyLeftOrb')
           end = home.index('const handleFinanceCarouselIndexChange')
           orb_flow = home[start:end]
-
-          forbidden_scroll = ('scrollIntoView', 'window.scrollTo', 'dashboardScroller.scrollTo', '.scrollTo(')
-          found_scroll = [token for token in forbidden_scroll if token in orb_flow]
-          if found_scroll:
-              raise SystemExit(f'Forbidden orb-flow scrolling: {found_scroll}')
-          if orb_flow.count('preserveDashboardScrollPosition') < 4:
-              raise SystemExit('Expected scroll preservation around stationary orb transitions')
+          found = [token for token in ('scrollIntoView', 'window.scrollTo', 'dashboardScroller.scrollTo', '.scrollTo(') if token in orb_flow]
+          if found:
+              raise SystemExit(f'Forbidden orb-flow scrolling: {found}')
+          count = orb_flow.count('preserveDashboardScrollPosition')
+          print(f'preserveDashboardScrollPosition count: {count}')
+          if count < 4:
+              raise SystemExit(f'Expected at least 4 scroll-protected transitions, found {count}')
           if 'preventScroll: true' not in orb_flow or 'preventScroll: true' not in preview:
               raise SystemExit('Focus restoration is not scroll-safe')
+          print('Orb scroll safety passed.')
+          PY
 
+      - name: Validate live-handler isolation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          home = Path('src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx').read_text()
           isolation = [
               'moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}',
               'handleMoneyLeftOrbClick={isGuideMode ? undefined : handleMoneyLeftOrbClick}',
@@ -80,48 +76,51 @@ jobs:
           missing = [token for token in isolation if token not in home]
           if missing:
               raise SystemExit(f'Missing live-handler isolation: {missing}')
+          print('Live-handler isolation passed.')
+          PY
 
+      - name: Validate preview and data isolation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          home = Path('src/components/fresh/main-dashboard/shell/DashboardHomePanel.jsx').read_text()
+          preview = Path('src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx').read_text()
+          start = home.index('const handleGuideNextToMoneyLeftOrb')
+          end = home.index('const handleFinanceCarouselIndexChange')
+          simulation = home[start:end] + '\n' + preview
           forbidden = (
               'addExpense', 'saveManualExpenseInline', 'setFinanceForm', 'navigate(',
               'setShowAiAssistant', 'clara:open-assistant', 'localStorage.setItem',
               'openTransactionHubFromMoneyLeft', 'openManualExpenseFromMoneyLeft',
               'TransactionHub', 'useFinancialData', 'ClaraAssistantPanel', 'type="submit"',
           )
-          simulation = orb_flow + '\n' + preview
           found = [token for token in forbidden if token in simulation]
           if found:
               raise SystemExit(f'Simulation contains forbidden live/data dependency: {found}')
           if 'disabled' not in preview or 'SIMULATION ONLY' not in preview:
               raise SystemExit('Static preview safety markers are missing')
-          print('Scroll and live-action isolation passed.')
+          print('Preview and data isolation passed.')
           PY
 
       - name: Validate gesture, pointer, focus, and cleanup rules
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           summary = Path('src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx').read_text()
           preview = Path('src/components/fresh/main-dashboard/guide/ClaraGuideOrbPreview.jsx').read_text()
           css = Path('src/guide-mode-money-left-orb.css').read_text()
           top_nav = Path('src/components/fresh/main-dashboard/top-nav/DashboardTopNav.jsx').read_text()
           installer = Path('src/runtime/installClaraGuideCarouselStep.js').read_text()
           main = Path('src/main.jsx').read_text()
-
           gesture = [
-              'SINGLE_TAP_DELAY = 240',
-              'DOUBLE_TAP_WINDOW = 280',
-              'GUIDE_LONG_PRESS_DELAY = 520',
-              'MOVE_CANCEL_DISTANCE = 12',
-              'gestureEpochRef',
-              'isGestureCallbackCurrent',
-              'event?.repeat',
+              'SINGLE_TAP_DELAY = 240', 'DOUBLE_TAP_WINDOW = 280',
+              'GUIDE_LONG_PRESS_DELAY = 520', 'MOVE_CANCEL_DISTANCE = 12',
+              'gestureEpochRef', 'isGestureCallbackCurrent', 'event?.repeat',
               'event?.preventDefault?.()',
           ]
           missing = [token for token in gesture if token not in summary]
           if missing:
               raise SystemExit(f'Missing gesture/timer rules: {missing}')
-
           selectors = [
               "data-clara-guide-orb-phase='await-single'",
               "data-clara-guide-orb-phase='await-double'",
@@ -136,7 +135,6 @@ jobs:
           missing = [token for token in selectors if token not in css]
           if missing:
               raise SystemExit(f'Missing pointer rules: {missing}')
-
           if 'content: none !important' not in css or 'box-shadow: none !important' not in css:
               raise SystemExit('Full-card spotlight suppression is missing')
           if 'right: 42px !important' not in css:
