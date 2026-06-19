@@ -6,6 +6,7 @@ const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
 const MONEY_LEFT_PRIVACY_CLASS = "clara-guide-money-left-privacy-active";
 const MONEY_LEFT_ORB_CLASS = "clara-guide-money-left-orb-active";
 const NEXT_CLASS = "clara-guide-next-button";
+const CAROUSEL_NEXT_SELECTOR = ".clara-guide-carousel-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
@@ -28,6 +29,19 @@ function isAwaitSingleOrb(target) {
   const orb = target?.closest?.(GUIDE_ORB_SELECTOR);
   const summary = orb?.closest?.(GUIDE_SUMMARY_SELECTOR);
   return summary?.dataset?.claraGuideOrbPhase === "await-single";
+}
+
+function captureGuideNextPointer(event) {
+  if (event.pointerType === "mouse") return;
+
+  const button = event.target?.closest?.(CAROUSEL_NEXT_SELECTOR);
+  if (!button || button.disabled) return;
+
+  try {
+    button.setPointerCapture?.(event.pointerId);
+  } catch {
+    // Pointer capture is optional. The coarse-pointer CSS remains the fallback.
+  }
 }
 
 function ensureNextButton() {
@@ -106,6 +120,8 @@ export function installClaraGuideCarouselStep() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_GUIDE_CAROUSEL_STEP_INSTALLED__) return;
   window.__CLARA_GUIDE_CAROUSEL_STEP_INSTALLED__ = true;
+
+  document.addEventListener("pointerdown", captureGuideNextPointer, true);
 
   document.addEventListener(
     "pointerup",
