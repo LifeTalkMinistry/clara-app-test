@@ -76,6 +76,39 @@ export default function DashboardMeLifePanel() {
     return acquireGuideStorageGuard();
   }, [guidePreviewMode]);
 
+  useLayoutEffect(() => {
+    if (!guidePreviewMode || typeof document === "undefined") return undefined;
+
+    const surface = document.querySelector("[data-clara-guide-me-static-surface='true']");
+    if (!surface) return undefined;
+
+    const controls = Array.from(
+      surface.querySelectorAll("button, input, select, textarea, a[href], [role='button']")
+    );
+    const snapshots = controls.map((control) => ({
+      control,
+      disabled: "disabled" in control ? control.disabled : undefined,
+      ariaDisabled: control.getAttribute("aria-disabled"),
+      tabIndex: control.getAttribute("tabindex"),
+    }));
+
+    controls.forEach((control) => {
+      if ("disabled" in control) control.disabled = true;
+      control.setAttribute("aria-disabled", "true");
+      control.setAttribute("tabindex", "-1");
+    });
+
+    return () => {
+      snapshots.forEach(({ control, disabled, ariaDisabled, tabIndex }) => {
+        if ("disabled" in control && disabled !== undefined) control.disabled = disabled;
+        if (ariaDisabled === null) control.removeAttribute("aria-disabled");
+        else control.setAttribute("aria-disabled", ariaDisabled);
+        if (tabIndex === null) control.removeAttribute("tabindex");
+        else control.setAttribute("tabindex", tabIndex);
+      });
+    };
+  }, [guidePreviewMode]);
+
   useEffect(() => {
     const handler = () => refresh();
     window.addEventListener("storage", handler);
@@ -141,7 +174,9 @@ export default function DashboardMeLifePanel() {
     <div
       data-clara-guide-me-preview={guidePreviewMode ? "true" : undefined}
       className={`relative h-[calc(100svh-126px)] min-h-0 rounded-[30px] bg-[#020817] shadow-[0_18px_52px_rgba(0,0,0,.24)] ${
-        guidePreviewMode ? "z-[80] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "overflow-hidden"
+        guidePreviewMode
+          ? "z-[80] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_button]:cursor-default [&_a]:cursor-default"
+          : "overflow-hidden"
       }`}
     >
       <div data-clara-guide-me-static-surface="true" className="h-full min-h-0">
