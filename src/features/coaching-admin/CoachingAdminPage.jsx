@@ -1,1 +1,1 @@
-export { default } from "./CoachingAdminDropdownShell";
+export { default } from "./CoachingAdminShell";
