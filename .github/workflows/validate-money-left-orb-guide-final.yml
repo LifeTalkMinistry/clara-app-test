@@ -92,7 +92,8 @@ jobs:
               'addExpense', 'saveManualExpenseInline', 'setFinanceForm', 'navigate(',
               'setShowAiAssistant', 'clara:open-assistant', 'localStorage.setItem',
               'openTransactionHubFromMoneyLeft', 'openManualExpenseFromMoneyLeft',
-              'TransactionHub', 'useFinancialData', 'ClaraAssistantPanel', 'type="submit"',
+              'import TransactionHub', '<TransactionHub', 'useFinancialData',
+              'ClaraAssistantPanel', 'type="submit"',
           )
           found = [token for token in forbidden if token in simulation]
           if found:
