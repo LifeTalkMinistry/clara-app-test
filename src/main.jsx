@@ -9,7 +9,6 @@ import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import { installClaraGuideCarouselStep } from "./runtime/installClaraGuideCarouselStep";
-import { installClaraGuideMoneyLeftOrb } from "./runtime/installClaraGuideMoneyLeftOrb";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -58,12 +57,6 @@ try {
   installClaraGuideCarouselStep();
 } catch (error) {
   console.warn("CLARA guide carousel step failed to init:", error);
-}
-
-try {
-  installClaraGuideMoneyLeftOrb();
-} catch (error) {
-  console.warn("CLARA guide Money Left orb failed to init:", error);
 }
 
 try {
