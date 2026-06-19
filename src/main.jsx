@@ -17,6 +17,7 @@ import "./guide-mode-stacking.css";
 import "./guide-mode-finance-spotlight.css";
 import "./guide-mode-money-left-spotlight.css";
 import "./guide-mode-money-left-orb.css";
+import "./welcome-session-calendar-status.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
@@ -68,7 +69,7 @@ try {
 try {
   installNativeNotificationListeners();
 } catch (error) {
-  console.warn("CLARA native notification listeners failed:", error);
+  console.warn("CLARA native notification listeners failed to init:", error);
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(

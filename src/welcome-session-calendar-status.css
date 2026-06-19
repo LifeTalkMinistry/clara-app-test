@@ -1,0 +1,53 @@
+/* Welcome Session calendar: show one clean status dot per date. */
+button[aria-label$="available appointment"] > span.absolute {
+  display: none !important;
+}
+
+button[aria-label$="available appointment"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0.375rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 9999px;
+  transform: translateX(-50%);
+}
+
+button[aria-label$=", no available appointment"]::after {
+  background: rgb(251 113 133 / 0.78);
+  box-shadow: 0 0 10px rgb(251 113 133 / 0.16);
+}
+
+button[aria-label$="available appointment"]:not([aria-label$=", no available appointment"])::after {
+  background: rgb(110 231 183);
+  box-shadow: 0 0 12px rgb(52 211 153 / 0.28);
+}
+
+/* Keep the legend aligned with the simplified date status. */
+section:has(button[aria-label="Next appointment month"])
+  > div:last-child
+  > div:nth-child(1),
+section:has(button[aria-label="Next appointment month"])
+  > div:last-child
+  > div:nth-child(2) {
+  font-size: 0;
+}
+
+section:has(button[aria-label="Next appointment month"])
+  > div:last-child
+  > div:nth-child(1)::after {
+  content: "Available";
+  font-size: 10px;
+  font-weight: 700;
+  color: rgb(203 213 225 / 0.7);
+}
+
+section:has(button[aria-label="Next appointment month"])
+  > div:last-child
+  > div:nth-child(2)::after {
+  content: "Unavailable";
+  font-size: 10px;
+  font-weight: 700;
+  color: rgb(203 213 225 / 0.7);
+}
