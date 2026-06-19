@@ -4,11 +4,13 @@ This feature is the private, admin-only operational UI for Monthly Coaching. It 
 
 ## Current data source
 
-`data/index.js` exports the active repository:
+`data/index.js` exports the active repository through a single stable entry point:
 
 ```js
-export const coachingRepository = mockCoachingRepository;
+export { activeCoachingRepository as coachingRepository } from "./activeCoachingRepository";
 ```
+
+`activeCoachingRepository` delegates to `mockCoachingRepository` and adds cross-operation availability consistency for status changes and schedule exceptions. React components import only the stable `coachingRepository` export.
 
 Every repository method is asynchronous so the UI will not need to be rewritten when the backend changes.
 
@@ -72,7 +74,7 @@ Supported appointment statuses:
 
 Valid transitions are centralized in `constants.js`. Reopening a completed, cancelled, no-show, or declined record is an explicit admin action that returns it to `pending`.
 
-Appointment status changes also synchronize the associated availability slot. Cancelling or declining releases the slot unless it was manually blocked.
+Appointment status changes also synchronize the associated availability slot. Cancelling or declining releases the slot unless the date, time range, or individual slot remains blocked by an admin exception.
 
 ## Sensitive fields
 
@@ -98,7 +100,7 @@ Add the future implementation at:
 src/features/coaching-admin/data/supabaseCoachingRepository.js
 ```
 
-It must implement the same method signatures as `mockCoachingRepository`. Then replace only the active export in:
+It must implement the same method signatures as the active repository contract. Then replace only the export in:
 
 ```text
 src/features/coaching-admin/data/index.js
