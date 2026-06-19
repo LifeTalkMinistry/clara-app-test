@@ -1,14 +1,14 @@
 /*
  * CLARA Guide Mode progression CTA contract.
  *
- * Loaded after every Guide Mode spotlight stylesheet so older local rules,
- * Tailwind utilities, and state-specific overrides cannot turn NEXT back into
- * a circular/floating badge.
+ * This stylesheet intentionally uses a doubled root ID for higher specificity.
+ * That prevents older state-specific Guide rules and utility classes from
+ * turning NEXT back into a circular or externally positioned badge.
  *
- * Scope is intentionally limited to Guide Mode progression controls.
+ * Scope is limited to Guide Mode progression controls.
  */
 
-#root :is(
+#root#root :is(
   .clara-guide-bubble-surface,
   .clara-guide-carousel-bubble-shell > [role='dialog'],
   [data-clara-guide-orb-preview='true'],
@@ -18,7 +18,7 @@
   position: relative !important;
 }
 
-#root button:is(
+#root#root button:is(
   .clara-guide-next-button,
   .clara-guide-carousel-next-button,
   .clara-guide-orb-next,
@@ -93,7 +93,7 @@
     transform 120ms ease !important;
 }
 
-#root button:is(
+#root#root button:is(
   .clara-guide-next-button,
   .clara-guide-carousel-next-button,
   .clara-guide-orb-next,
@@ -116,7 +116,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
 }
 
-#root button:is(
+#root#root button:is(
   .clara-guide-next-button,
   .clara-guide-carousel-next-button,
   .clara-guide-orb-next,
@@ -132,7 +132,7 @@
     0 12px 30px rgba(2, 8, 23, 0.38) !important;
 }
 
-#root button:is(
+#root#root button:is(
   .clara-guide-next-button,
   .clara-guide-carousel-next-button,
   .clara-guide-orb-next,
@@ -145,12 +145,12 @@
 }
 
 /* Feature controls use a horizontal safety row, so they do not need top space. */
-#root .clara-guide-orb-feature-next {
+#root#root .clara-guide-orb-feature-next {
   margin-top: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #root button:is(
+  #root#root button:is(
     .clara-guide-next-button,
     .clara-guide-carousel-next-button,
     .clara-guide-orb-next,
