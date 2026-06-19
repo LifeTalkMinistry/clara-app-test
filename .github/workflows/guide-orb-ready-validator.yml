@@ -34,7 +34,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Apply implementation bundle
+      - name: Extract implementation bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -42,7 +42,23 @@ jobs:
           base64 -d /tmp/guide-orb-bundle.b64 > /tmp/guide-orb-bundle.tar.gz
           mkdir -p /tmp/guide-orb-bundle
           tar -xzf /tmp/guide-orb-bundle.tar.gz -C /tmp/guide-orb-bundle
-          node /tmp/guide-orb-bundle/apply.mjs
+
+      - name: Apply implementation bundle
+        shell: bash
+        run: |
+          set -o pipefail
+          node /tmp/guide-orb-bundle/apply.mjs 2>&1 | tee /tmp/guide-orb-apply.log
+
+      - name: Upload validator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guide-orb-validator-diagnostics
+          path: |
+            /tmp/guide-orb-bundle
+            /tmp/guide-orb-apply.log
+          if-no-files-found: warn
+          retention-days: 1
 
       - run: npm ci
 
