@@ -53,7 +53,7 @@ export default function FinancialCarousel(props) {
   const userId = effectiveUser?.id;
   const userPlan = effectiveUser?.plan || plan;
   const emergencyFundSyncController = useFinancialData(effectiveUser);
-  const removeExpense = emergencyFundSyncController["delete" + "Expense"];
+  const removeExpense = emergencyFundSyncController.deleteExpense;
 
   useEmergencyFundAllocationSync({
     user: effectiveUser,
@@ -61,7 +61,7 @@ export default function FinancialCarousel(props) {
     transfers: emergencyFundSyncController.transfers,
     emergencyFund: emergencyFundSyncController.emergencyFund,
     transferBetweenWallets: emergencyFundSyncController.transferBetweenWallets,
-    ["delete" + "Expense"]: removeExpense,
+    deleteExpense: removeExpense,
     refreshData: emergencyFundSyncController.refreshData,
     enabled: !isGuideMode && Boolean(effectiveUser && guardChecked && !loading),
   });
@@ -102,6 +102,7 @@ export default function FinancialCarousel(props) {
   );
   const isInlineFocusExpanded = expandedCardIndex >= 0;
   const isSwipeLocked = isInlineFocusExpanded;
+  const isControlledGuideSwipe = isGuideMode && Number(guideMaxStepPerInteraction) > 0;
   const bottomSpacingClass = flushSpacing ? "mb-0" : "mb-5";
   const productionGuideMatchedClass = isGuideMode ? "" : "clara-production-guide-matched-carousel";
 
@@ -141,7 +142,7 @@ export default function FinancialCarousel(props) {
   return (
     <div className={`relative z-20 ${productionGuideMatchedClass} ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
-      <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded} isSwipeLocked={isSwipeLocked}>
+      <CarouselViewport carouselRef={carouselRef} onScroll={handleScroll} interactionHandlers={interactionHandlers} clipClassName={dashboardScale.financeClip || "rounded-[28px]"} allowVerticalOverflow={isInlineFocusExpanded} isSwipeLocked={isSwipeLocked} isControlledGuideSwipe={isControlledGuideSwipe}>
         {items.map((item, index) => {
           const isActiveSlide = index === activeIndex;
           const isNearbySlide = Math.abs(index - activeIndex) <= 1;
