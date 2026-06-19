@@ -1,0 +1,65 @@
+name: Apply Money Left Orb Guide Phase 5
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: money-left-orb-phase5-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  apply-build-and-commit:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'money-left-orb-guide-phase5'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out phase branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Restore reviewed Phase 5 patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p scripts
+          gh api repos/${GITHUB_REPOSITORY}/git/blobs/2bb5c6b3bc3d68d477266dd2695dbb02e34e66b6 --jq .content \
+            | tr -d '\n' \
+            | base64 -d \
+            > scripts/apply_money_left_orb_phase5.py
+
+      - name: Apply Phase 5
+        run: python3 scripts/apply_money_left_orb_phase5.py
+
+      - name: Check patch formatting
+        run: git diff --check
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Commit verified Phase 5
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          rm -f scripts/apply_money_left_orb_phase5.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement Money Left orb Guide Phase 5"
+          git push origin HEAD:${HEAD_BRANCH}
