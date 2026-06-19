@@ -115,6 +115,11 @@ const MONEY_LEFT_ORB_GUIDE_COPY = {
     body: "Tap the CLARA orb once to open the quick expense logger.",
     footer: "TAP THE ORB ONCE.",
   },
+  "await-double": {
+    title: "2 TAPS — TRANSACTION HUB",
+    body: "Tap the orb twice quickly to open your complete transaction history.",
+    footer: "DOUBLE-TAP THE ORB NOW.",
+  },
 };
 
 const MONEY_LEFT_ORB_GUIDE_ITEMS = [
@@ -462,7 +467,9 @@ export default function DashboardHomePanel({
     isMoneyLeftOrbGuideActive && moneyLeftOrbPhase === "intro";
   const shouldShowMoneyLeftOrbGuideBubble =
     isMoneyLeftOrbGuideActive &&
-    (moneyLeftOrbPhase === "intro" || moneyLeftOrbPhase === "await-single");
+    (moneyLeftOrbPhase === "intro" ||
+      moneyLeftOrbPhase === "await-single" ||
+      moneyLeftOrbPhase === "await-double");
   const isFinanceGuideTerminalDebt =
     isCarouselGuideActive &&
     financeGuideTraining.financeGuideTrainingComplete &&
@@ -728,18 +735,28 @@ export default function DashboardHomePanel({
     setMoneyLeftOrbPhase("single-preview");
   }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
 
+  const handleGuideOrbDoubleTap = useCallback(() => {
+    if (!isMoneyLeftOrbGuideActive || moneyLeftOrbPhase !== "await-double") return;
+
+    setGuideOrbPreview("transaction-hub");
+    setMoneyLeftOrbPhase("double-preview");
+  }, [isMoneyLeftOrbGuideActive, moneyLeftOrbPhase]);
+
   const handleGuideOrbPreviewNext = useCallback(() => {
-    if (
-      !isMoneyLeftOrbGuideActive ||
-      moneyLeftOrbPhase !== "single-preview" ||
-      guideOrbPreview !== "log-expense"
-    ) {
-      return;
-    }
+    if (!isMoneyLeftOrbGuideActive) return;
+
+    const nextPhase =
+      moneyLeftOrbPhase === "single-preview" && guideOrbPreview === "log-expense"
+        ? "await-double"
+        : moneyLeftOrbPhase === "double-preview" && guideOrbPreview === "transaction-hub"
+          ? "await-hold"
+          : null;
+
+    if (!nextPhase) return;
 
     preserveDashboardScrollPosition(() => {
       setGuideOrbPreview(null);
-      setMoneyLeftOrbPhase("await-double");
+      setMoneyLeftOrbPhase(nextPhase);
 
       if (typeof window !== "undefined") {
         window.requestAnimationFrame(() => {
@@ -1098,6 +1115,7 @@ export default function DashboardHomePanel({
             guideOrbPhase={moneyLeftOrbPhase}
             guideOrbButtonRef={guideOrbButtonRef}
             onGuideOrbSingleTap={handleGuideOrbSingleTap}
+            onGuideOrbDoubleTap={handleGuideOrbDoubleTap}
             guideMoneySummaryVisible={guideMoneySummaryVisible}
             onGuidePrivacyToggle={handleGuidePrivacyToggle}
             moneyLeftSummaryHandlers={isGuideMode ? undefined : moneyLeftSummaryHandlers}

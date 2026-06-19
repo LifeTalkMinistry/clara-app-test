@@ -79,8 +79,13 @@ export default function DashboardMoneySummaryStable({
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
   const isGuideOrbAwaitSingle =
     isGuideMode && isGuideOrbStepActive && guideOrbPhase === "await-single";
+  const isGuideOrbAwaitDouble =
+    isGuideMode && isGuideOrbStepActive && guideOrbPhase === "await-double";
+  const isGuideOrbInputPhase = isGuideOrbAwaitSingle || isGuideOrbAwaitDouble;
   const isGuideOrbPreviewActive =
-    isGuideMode && isGuideOrbStepActive && guideOrbPhase === "single-preview";
+    isGuideMode &&
+    isGuideOrbStepActive &&
+    (guideOrbPhase === "single-preview" || guideOrbPhase === "double-preview");
   const isGuideOrbButtonDisabled = isGuideOrbIntroActive || isGuideOrbPreviewActive;
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
@@ -125,6 +130,15 @@ export default function DashboardMoneySummaryStable({
     );
   }, []);
 
+  const isAwaitDoubleGuideActive = useCallback(() => {
+    const current = guideOrbStateRef.current;
+    return Boolean(
+      current.isGuideMode &&
+        current.isGuideOrbStepActive &&
+        current.guideOrbPhase === "await-double"
+    );
+  }, []);
+
   const stopOrbEvent = useCallback(
     (event) => {
       event?.preventDefault?.();
@@ -164,7 +178,8 @@ export default function DashboardMoneySummaryStable({
       if (
         currentGuideState.isGuideMode &&
         currentGuideState.isGuideOrbStepActive &&
-        currentGuideState.guideOrbPhase !== "await-single"
+        currentGuideState.guideOrbPhase !== "await-single" &&
+        currentGuideState.guideOrbPhase !== "await-double"
       ) {
         resetOrbGestureState();
         return;
@@ -189,12 +204,13 @@ export default function DashboardMoneySummaryStable({
         startMoneyLeftOrbLongPress?.(event);
       }
 
-      const holdDelay = isGuideOrbAwaitSingle ? GUIDE_LONG_PRESS_DELAY : LONG_PRESS_DELAY;
+      const holdDelay = isGuideOrbInputPhase ? GUIDE_LONG_PRESS_DELAY : LONG_PRESS_DELAY;
       longPressTimerRef.current = setTimeout(() => {
         if (
           guideOrbStateRef.current.isGuideMode &&
           guideOrbStateRef.current.isGuideOrbStepActive &&
-          guideOrbStateRef.current.guideOrbPhase !== "await-single"
+          guideOrbStateRef.current.guideOrbPhase !== "await-single" &&
+          guideOrbStateRef.current.guideOrbPhase !== "await-double"
         ) {
           return;
         }
@@ -203,7 +219,7 @@ export default function DashboardMoneySummaryStable({
         clearTapTimer();
         lastTapAtRef.current = 0;
 
-        if (isAwaitSingleGuideActive()) {
+        if (isAwaitSingleGuideActive() || isAwaitDoubleGuideActive()) {
           onGuideOrbLongPress?.();
         }
       }, holdDelay);
@@ -211,9 +227,10 @@ export default function DashboardMoneySummaryStable({
     [
       clearLongPressTimer,
       clearTapTimer,
+      isAwaitDoubleGuideActive,
       isAwaitSingleGuideActive,
       isGuideMode,
-      isGuideOrbAwaitSingle,
+      isGuideOrbInputPhase,
       onGuideOrbLongPress,
       resetOrbGestureState,
       startMoneyLeftOrbLongPress,
@@ -262,7 +279,8 @@ export default function DashboardMoneySummaryStable({
       if (
         currentGuideState.isGuideMode &&
         currentGuideState.isGuideOrbStepActive &&
-        currentGuideState.guideOrbPhase !== "await-single"
+        currentGuideState.guideOrbPhase !== "await-single" &&
+        currentGuideState.guideOrbPhase !== "await-double"
       ) {
         resetOrbGestureState();
         return;
@@ -289,7 +307,7 @@ export default function DashboardMoneySummaryStable({
         lastTapAtRef.current = 0;
         clearTapTimer();
 
-        if (isAwaitSingleGuideActive()) {
+        if (isAwaitSingleGuideActive() || isAwaitDoubleGuideActive()) {
           onGuideOrbDoubleTap?.();
           return;
         }
@@ -300,6 +318,18 @@ export default function DashboardMoneySummaryStable({
 
       lastTapAtRef.current = now;
       clearTapTimer();
+
+      if (isAwaitDoubleGuideActive()) {
+        tapTimerRef.current = setTimeout(() => {
+          tapTimerRef.current = null;
+
+          if (isAwaitDoubleGuideActive()) {
+            lastTapAtRef.current = 0;
+          }
+        }, DOUBLE_TAP_WINDOW);
+        return;
+      }
+
       tapTimerRef.current = setTimeout(() => {
         tapTimerRef.current = null;
         lastTapAtRef.current = 0;
@@ -318,6 +348,7 @@ export default function DashboardMoneySummaryStable({
       clearLongPressTimer,
       clearTapTimer,
       endMoneyLeftOrbLongPress,
+      isAwaitDoubleGuideActive,
       isAwaitSingleGuideActive,
       isGuideMode,
       onGuideOrbDoubleTap,
@@ -369,10 +400,34 @@ export default function DashboardMoneySummaryStable({
       if (event?.repeat) return;
 
       if (guideOrbStateRef.current.isGuideMode && guideOrbStateRef.current.isGuideOrbStepActive) {
+        clearLongPressTimer();
+
+        if (isAwaitDoubleGuideActive()) {
+          const now = Date.now();
+          const previousTapAt = lastTapAtRef.current || 0;
+
+          if (previousTapAt && now - previousTapAt <= DOUBLE_TAP_WINDOW) {
+            clearTapTimer();
+            lastTapAtRef.current = 0;
+            onGuideOrbDoubleTap?.();
+            return;
+          }
+
+          clearTapTimer();
+          lastTapAtRef.current = now;
+          tapTimerRef.current = setTimeout(() => {
+            tapTimerRef.current = null;
+
+            if (isAwaitDoubleGuideActive()) {
+              lastTapAtRef.current = 0;
+            }
+          }, DOUBLE_TAP_WINDOW);
+          return;
+        }
+
         if (!isAwaitSingleGuideActive()) return;
 
         clearTapTimer();
-        clearLongPressTimer();
         lastTapAtRef.current = Date.now();
         tapTimerRef.current = setTimeout(() => {
           tapTimerRef.current = null;
@@ -390,7 +445,9 @@ export default function DashboardMoneySummaryStable({
     [
       clearLongPressTimer,
       clearTapTimer,
+      isAwaitDoubleGuideActive,
       isAwaitSingleGuideActive,
+      onGuideOrbDoubleTap,
       onGuideOrbSingleTap,
       openManualLog,
       stopOrbEvent,
@@ -522,7 +579,9 @@ export default function DashboardMoneySummaryStable({
           aria-label={
             isGuideOrbAwaitSingle
               ? "Tap once to practice logging an expense"
-              : "Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
+              : isGuideOrbAwaitDouble
+                ? "Tap twice to practice opening Transaction Hub"
+                : "Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
           }
         >
           <img
