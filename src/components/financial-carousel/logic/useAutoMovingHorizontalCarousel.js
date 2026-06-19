@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const SCROLL_SETTLE_DEBOUNCE_MS = 110;
 const PROGRAMMATIC_SCROLL_GUARD_MS = 520;
 const INSTANT_SCROLL_GUARD_MS = 90;
+const GUIDE_SWIPE_THRESHOLD_PX = 34;
+const GUIDE_SWIPE_AXIS_RATIO = 1.08;
+const GUIDE_WHEEL_LOCK_MS = 360;
 
 const clampIndex = (index, length) => {
   if (!length) return 0;
@@ -29,6 +32,7 @@ export default function useAutoMovingHorizontalCarousel({
   const scrollFrameRef = useRef(null);
   const scrollSettleTimerRef = useRef(null);
   const programmaticScrollTimerRef = useRef(null);
+  const guideWheelLockTimerRef = useRef(null);
   const hasInitializedRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
@@ -37,6 +41,14 @@ export default function useAutoMovingHorizontalCarousel({
   const guideMaxStepPerInteractionRef = useRef(normalizeGuideMaxStep(guideMaxStepPerInteraction));
   const guideInteractionStartIndexRef = useRef(clampIndex(defaultIndex, itemCount));
   const guideInteractionActiveRef = useRef(false);
+  const guidePointerGestureRef = useRef({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startIndex: clampIndex(defaultIndex, itemCount),
+  });
+  const guideWheelLockedRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(() =>
     clampIndex(defaultIndex, itemCount)
   );
@@ -53,6 +65,14 @@ export default function useAutoMovingHorizontalCarousel({
       window.clearTimeout(programmaticScrollTimerRef.current);
     }
     programmaticScrollTimerRef.current = null;
+  }, []);
+
+  const clearGuideWheelLockTimer = useCallback(() => {
+    if (guideWheelLockTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(guideWheelLockTimerRef.current);
+    }
+    guideWheelLockTimerRef.current = null;
+    guideWheelLockedRef.current = false;
   }, []);
 
   const commitActiveIndex = useCallback(
@@ -225,6 +245,117 @@ export default function useAutoMovingHorizontalCarousel({
     }
   }, []);
 
+  const handleControlledGuidePointerDown = useCallback((event) => {
+    beginGuideInteraction(true);
+
+    if (!guideMaxStepPerInteractionRef.current) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    guidePointerGestureRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startIndex: activeIndexRef.current,
+    };
+
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture is optional; the one-card guard still works without it.
+    }
+  }, [beginGuideInteraction]);
+
+  const finishControlledGuidePointer = useCallback((event, cancelled = false) => {
+    const gesture = guidePointerGestureRef.current;
+
+    if (!gesture.active || gesture.pointerId !== event.pointerId) {
+      return;
+    }
+
+    guidePointerGestureRef.current = {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startIndex: activeIndexRef.current,
+    };
+
+    try {
+      event.currentTarget?.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // Ignore browsers that already released pointer capture.
+    }
+
+    if (cancelled || !guideMaxStepPerInteractionRef.current) {
+      guideInteractionActiveRef.current = false;
+      guideInteractionStartIndexRef.current = activeIndexRef.current;
+      return;
+    }
+
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+    const isHorizontalSwipe =
+      Math.abs(deltaX) >= GUIDE_SWIPE_THRESHOLD_PX &&
+      Math.abs(deltaX) > Math.abs(deltaY) * GUIDE_SWIPE_AXIS_RATIO;
+
+    if (!isHorizontalSwipe) {
+      guideInteractionActiveRef.current = false;
+      guideInteractionStartIndexRef.current = activeIndexRef.current;
+      return;
+    }
+
+    guideInteractionStartIndexRef.current = gesture.startIndex;
+    guideInteractionActiveRef.current = true;
+
+    // Native momentum is disabled in the controlled guide viewport. Each
+    // completed gesture is converted into exactly one adjacent index move.
+    const directionStep = deltaX < 0 ? 1 : -1;
+    scrollToIndex(gesture.startIndex + directionStep, "smooth");
+  }, [scrollToIndex]);
+
+  const handleControlledGuideWheel = useCallback((event) => {
+    beginGuideInteraction(false);
+
+    if (!guideMaxStepPerInteractionRef.current) return;
+
+    const horizontalDelta = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+      ? event.deltaX
+      : 0;
+
+    if (!horizontalDelta) return;
+
+    event.preventDefault?.();
+
+    if (guideWheelLockedRef.current) return;
+
+    guideWheelLockedRef.current = true;
+    guideInteractionStartIndexRef.current = activeIndexRef.current;
+    guideInteractionActiveRef.current = true;
+    scrollToIndex(activeIndexRef.current + (horizontalDelta > 0 ? 1 : -1), "smooth");
+
+    if (typeof window !== "undefined") {
+      clearGuideWheelLockTimer();
+      guideWheelLockedRef.current = true;
+      guideWheelLockTimerRef.current = window.setTimeout(() => {
+        guideWheelLockedRef.current = false;
+        guideWheelLockTimerRef.current = null;
+      }, GUIDE_WHEEL_LOCK_MS);
+    }
+  }, [beginGuideInteraction, clearGuideWheelLockTimer, scrollToIndex]);
+
+  const handleControlledGuideKeyDown = useCallback((event) => {
+    beginGuideInteraction(false);
+
+    if (!guideMaxStepPerInteractionRef.current) return;
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+    event.preventDefault?.();
+    guideInteractionStartIndexRef.current = activeIndexRef.current;
+    guideInteractionActiveRef.current = true;
+    scrollToIndex(activeIndexRef.current + (event.key === "ArrowRight" ? 1 : -1), "smooth");
+  }, [beginGuideInteraction, scrollToIndex]);
+
   const handleScroll = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -247,12 +378,13 @@ export default function useAutoMovingHorizontalCarousel({
 
   const interactionHandlers = useMemo(
     () => ({
-      onPointerDown: () => beginGuideInteraction(true),
-      onTouchStart: () => beginGuideInteraction(true),
-      onWheel: () => beginGuideInteraction(false),
-      onKeyDown: () => beginGuideInteraction(false),
+      onPointerDown: handleControlledGuidePointerDown,
+      onPointerUp: (event) => finishControlledGuidePointer(event, false),
+      onPointerCancel: (event) => finishControlledGuidePointer(event, true),
+      onWheel: handleControlledGuideWheel,
+      onKeyDown: handleControlledGuideKeyDown,
     }),
-    [beginGuideInteraction]
+    [finishControlledGuidePointer, handleControlledGuideKeyDown, handleControlledGuidePointerDown, handleControlledGuideWheel]
   );
 
   useEffect(() => {
@@ -265,7 +397,15 @@ export default function useAutoMovingHorizontalCarousel({
     guideMaxStepPerInteractionRef.current = normalizeGuideMaxStep(guideMaxStepPerInteraction);
     guideInteractionStartIndexRef.current = activeIndexRef.current;
     guideInteractionActiveRef.current = false;
-  }, [guideMaxStepPerInteraction]);
+    guidePointerGestureRef.current = {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startIndex: activeIndexRef.current,
+    };
+    clearGuideWheelLockTimer();
+  }, [clearGuideWheelLockTimer, guideMaxStepPerInteraction]);
 
   useEffect(() => {
     if (itemCount <= 0 || typeof window === "undefined") return undefined;
@@ -370,8 +510,9 @@ export default function useAutoMovingHorizontalCarousel({
       }
       clearScrollSettleTimer();
       clearProgrammaticScrollTimer();
+      clearGuideWheelLockTimer();
     };
-  }, [clearProgrammaticScrollTimer, clearScrollSettleTimer]);
+  }, [clearGuideWheelLockTimer, clearProgrammaticScrollTimer, clearScrollSettleTimer]);
 
   return {
     carouselRef,
