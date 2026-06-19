@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
+import ClaraGuideMePageOverlay from "../../guide/ClaraGuideMePageOverlay";
 import FinancialClimateScreen from "./FinancialClimateUniversalScreen";
 
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
@@ -99,6 +100,8 @@ export default function DashboardMeLifePanel() {
           guidePreviewMode={guidePreviewMode}
         />
       </div>
+
+      {guidePreviewMode ? <ClaraGuideMePageOverlay phase={meGuidePhase} /> : null}
     </div>
   );
 }
