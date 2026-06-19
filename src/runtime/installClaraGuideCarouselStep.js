@@ -2,6 +2,7 @@ const SAMPLE_CLASS = "clara-guide-daily-tip-sample-active";
 const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
 const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
 const MONEY_LEFT_PRIVACY_CLASS = "clara-guide-money-left-privacy-active";
+const MONEY_LEFT_ORB_CLASS = "clara-guide-money-left-orb-active";
 const NEXT_CLASS = "clara-guide-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
 
@@ -35,7 +36,8 @@ function clearFeatureClasses() {
     SAMPLE_CLASS,
     CAROUSEL_CLASS,
     MONEY_LEFT_CLASS,
-    MONEY_LEFT_PRIVACY_CLASS
+    MONEY_LEFT_PRIVACY_CLASS,
+    MONEY_LEFT_ORB_CLASS,
   );
 }
 
@@ -64,14 +66,15 @@ function goToCarouselStep() {
   document.documentElement.classList.remove(
     SAMPLE_CLASS,
     MONEY_LEFT_CLASS,
-    MONEY_LEFT_PRIVACY_CLASS
+    MONEY_LEFT_PRIVACY_CLASS,
+    MONEY_LEFT_ORB_CLASS,
   );
   document.documentElement.classList.add(CAROUSEL_CLASS);
 
   window.dispatchEvent(
     new CustomEvent(TARGET_CHANGE_EVENT, {
       detail: { feature: "finance-carousel" },
-    })
+    }),
   );
 
   removeNextButton();
