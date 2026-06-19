@@ -10,6 +10,7 @@ import { installNativeNotificationListeners } from "@/lib/notifications/nativePu
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import { installClaraGuideCarouselStep } from "./runtime/installClaraGuideCarouselStep";
 import { installClaraGuideMoneyLeftOrb } from "./runtime/installClaraGuideMoneyLeftOrb";
+import { installMonthlyCoachingCopy } from "./runtime/installMonthlyCoachingCopy";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -64,6 +65,12 @@ try {
   installClaraGuideMoneyLeftOrb();
 } catch (error) {
   console.warn("CLARA guide Money Left orb failed to init:", error);
+}
+
+try {
+  installMonthlyCoachingCopy();
+} catch (error) {
+  console.warn("CLARA monthly coaching copy refinement failed to init:", error);
 }
 
 try {
