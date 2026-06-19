@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useManualExpenseGuideSimulation } from "@/components/fresh/main-dashboard/manual-expense/ManualExpenseGuideSimulationContext";
 
 export default function ManualExpenseFullScreenSheet({
   open,
@@ -10,6 +11,10 @@ export default function ManualExpenseFullScreenSheet({
   submitDisabled = false,
   loading = false,
 }) {
+  const guideSimulation = useManualExpenseGuideSimulation();
+  const isGuideSimulation = Boolean(guideSimulation?.active);
+  const effectiveClose = isGuideSimulation ? guideSimulation.onClose : onClose;
+
   useEffect(() => {
     if (!open || typeof document === "undefined") return undefined;
 
@@ -27,8 +32,24 @@ export default function ManualExpenseFullScreenSheet({
 
   if (!open) return null;
 
+  const handleSubmit = (event) => {
+    if (isGuideSimulation) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    onSubmit?.(event);
+  };
+
   const sheet = (
-    <div className="clara-manual-expense-sheet fixed inset-0 z-[160] min-h-[100dvh] overflow-hidden bg-[#030c16] text-white">
+    <div
+      className={`clara-manual-expense-sheet fixed inset-0 ${
+        isGuideSimulation ? "z-[260]" : "z-[160]"
+      } min-h-[100dvh] overflow-hidden bg-[#030c16] text-white`}
+      data-clara-guide-orb-preview={isGuideSimulation ? "true" : undefined}
+      data-clara-guide-manual-expense-preview={isGuideSimulation ? "true" : undefined}
+    >
       <style>{`
         .clara-manual-expense-sheet {
           min-height: 100dvh;
@@ -69,6 +90,17 @@ export default function ManualExpenseFullScreenSheet({
           background: rgba(255,255,255,0.055) !important;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 26px rgba(0,0,0,0.18) !important;
         }
+
+        .clara-manual-expense-sheet[data-clara-guide-manual-expense-preview="true"]
+        [inert] {
+          opacity: 1 !important;
+        }
+
+        .clara-manual-expense-sheet[data-clara-guide-manual-expense-preview="true"]
+        [inert] :is(input, textarea, select, button) {
+          opacity: 1 !important;
+          cursor: default !important;
+        }
       `}</style>
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(20,184,166,0.26),transparent_38%),radial-gradient(circle_at_100%_8%,rgba(124,58,237,0.20),transparent_38%),linear-gradient(180deg,rgba(4,18,30,0.98)_0%,rgba(3,10,22,1)_100%)]" />
@@ -76,7 +108,7 @@ export default function ManualExpenseFullScreenSheet({
       <div className="pointer-events-none absolute -right-32 bottom-24 h-80 w-80 rounded-full bg-violet-400/12 blur-3xl" />
 
       <form
-        onSubmit={onSubmit}
+        onSubmit={handleSubmit}
         className="relative z-10 mx-auto flex h-[100dvh] min-h-[100dvh] w-full max-w-[430px] animate-[claraManualExpenseIn_180ms_ease-out] flex-col px-4"
       >
         <div className="shrink-0 px-1 pb-3 pt-[calc(env(safe-area-inset-top)+1rem)]">
@@ -92,16 +124,24 @@ export default function ManualExpenseFullScreenSheet({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={effectiveClose}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06] text-white/72 shadow-[0_12px_28px_rgba(0,0,0,0.22)] transition hover:bg-white/[0.10] hover:text-white active:scale-95"
-              aria-label="Close log expense"
+              aria-label={
+                isGuideSimulation
+                  ? "Close guide log expense preview"
+                  : "Close log expense"
+              }
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-[calc(118px+env(safe-area-inset-bottom))] pt-1.5">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-[calc(118px+env(safe-area-inset-bottom))] pt-1.5"
+          inert={isGuideSimulation ? "" : undefined}
+          aria-disabled={isGuideSimulation || undefined}
+        >
           <div className="relative overflow-visible rounded-[28px] border border-white/12 bg-white/[0.045] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-x-10 top-0 h-14 rounded-full bg-emerald-300/8 blur-3xl" />
             <div className="relative space-y-4">{children}</div>
@@ -110,29 +150,50 @@ export default function ManualExpenseFullScreenSheet({
 
         <div className="shrink-0 px-1 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2.5">
           <div className="rounded-[26px] border border-white/10 bg-[#06101d]/88 p-3 shadow-[0_-12px_44px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl">
-            {submitDisabled && !loading ? (
-              <p className="mb-2 text-center text-[11px] font-semibold leading-5 text-white/42">
-                Complete the amount, budget list, and wallet.
-              </p>
-            ) : null}
+            {isGuideSimulation ? (
+              <div className="grid gap-3">
+                <p className="rounded-2xl border border-cyan-200/15 bg-cyan-200/[0.07] px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.1em] text-cyan-100">
+                  {guideSimulation.safetyMessage}
+                </p>
 
-            <div className="grid grid-cols-[0.8fr_1.2fr] gap-2.5">
-              <button
-                type="button"
-                onClick={onClose}
-                className="min-h-[48px] rounded-[18px] border border-white/12 bg-white/[0.045] px-4 py-3 text-sm font-bold text-white/72 transition hover:bg-white/[0.08] hover:text-white active:scale-[0.99]"
-              >
-                Cancel
-              </button>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    data-clara-guide-orb-preview-next="true"
+                    onClick={guideSimulation.onNext}
+                    className="inline-flex min-h-[44px] min-w-[108px] items-center justify-center rounded-full border border-cyan-100/30 bg-[linear-gradient(135deg,rgba(207,250,254,0.18),rgba(103,232,249,0.10)_48%,rgba(129,140,248,0.13))] px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-50 shadow-[0_12px_34px_rgba(2,8,23,0.38),0_0_22px_rgba(34,211,238,0.12),inset_0_1px_0_rgba(255,255,255,0.14)] transition hover:border-cyan-100/45 hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 active:scale-[0.985]"
+                  >
+                    {guideSimulation.nextLabel}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {submitDisabled && !loading ? (
+                  <p className="mb-2 text-center text-[11px] font-semibold leading-5 text-white/42">
+                    Complete the amount, budget list, and wallet.
+                  </p>
+                ) : null}
 
-              <button
-                type="submit"
-                disabled={submitDisabled || loading}
-                className="min-h-[48px] rounded-[18px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-black text-white shadow-[0_12px_30px_rgba(16,185,129,0.24)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-45 active:scale-[0.99]"
-              >
-                {loading ? "Saving..." : "Add Expense"}
-              </button>
-            </div>
+                <div className="grid grid-cols-[0.8fr_1.2fr] gap-2.5">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="min-h-[48px] rounded-[18px] border border-white/12 bg-white/[0.045] px-4 py-3 text-sm font-bold text-white/72 transition hover:bg-white/[0.08] hover:text-white active:scale-[0.99]"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submitDisabled || loading}
+                    className="min-h-[48px] rounded-[18px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-black text-white shadow-[0_12px_30px_rgba(16,185,129,0.24)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-45 active:scale-[0.99]"
+                  >
+                    {loading ? "Saving..." : "Add Expense"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </form>
