@@ -52,11 +52,6 @@ const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
-const ADMIN_RECOVERY_EMAILS = new Set([
-  ["jeromemirabuenos62", "gmail.com"].join("@"),
-  ["lifetalkministry", "gmail.com"].join("@"),
-]);
-
 function FullScreenLoader() {
   return (
     <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
@@ -97,10 +92,6 @@ function GuardedRoute({
 
 function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
   return isAdmin ? children : <Navigate to={redirectTo} replace />;
-}
-
-function isRecoveryAdminEmail(email) {
-  return ADMIN_RECOVERY_EMAILS.has(String(email || "").trim().toLowerCase());
 }
 
 function AdminRescueButton({ show }) {
@@ -177,7 +168,7 @@ function AppRoutes() {
     return deriveAccessState({ ...profile, role: profile?.role || normalizedRole || "user" });
   }, [profile, normalizedRole]);
 
-  const isAdmin = resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
+  const isAdmin = resolvedAccess.isAdmin;
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
@@ -248,6 +239,7 @@ function AppRoutes() {
 
                     <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
                     <Route path="/welcome-session" element={<WelcomeSession />} />
+                    <Route path="/coaching-mock-preview" element={<CoachingAdminPage />} />
                     <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
                     <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
