@@ -263,7 +263,7 @@ function AppRoutes() {
                     <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
                     <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
                     <Route path="/community" element={guard(<Community />, "/community")} />
-                    <Route path="/messages" ement={guard(<Messages />, "/messages")} />
+                    <Route path="/messages" element={guard(<Messages />, "/messages")} />
                     <Route path="/news" element={guard(<News />, "/news")} />
                     <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
                     <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
