@@ -80,6 +80,12 @@ function getManualChunk(id) {
 export default defineConfig({
   plugins: [react()],
 
+  define: {
+    "import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL": JSON.stringify(
+      "https://forms.gle/YVDuRx75Cbqdf5E69",
+    ),
+  },
+
   // IMPORTANT FOR ANDROID/CAPACITOR:
   // The app is loaded from local Android assets, not from https://domain/clara-app-test/.
   // A repository-path base makes the installed app look for JS/CSS in the wrong place,
