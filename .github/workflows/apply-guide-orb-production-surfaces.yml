@@ -1,7 +1,7 @@
 name: Apply orb guide production surfaces
 
 on:
-  push:
+  pull_request:
     branches:
       - fix/guide-orb-production-surfaces
 
@@ -10,21 +10,17 @@ permissions:
 
 jobs:
   apply-and-validate:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
+          ref: fix/guide-orb-production-surfaces
           fetch-depth: 0
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Reconstruct and apply implementation bundle
+      - name: Apply bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -33,28 +29,19 @@ jobs:
           mkdir -p /tmp/guide-orb-bundle
           tar -xzf /tmp/guide-orb-bundle.tar.gz -C /tmp/guide-orb-bundle
           node /tmp/guide-orb-bundle/apply.mjs
-
-      - name: Install dependencies
-        run: npm ci
-
+      - run: npm ci
       - name: Build
         run: npm run build
-
       - name: Lint
         id: lint
         continue-on-error: true
         run: npm run lint
-
-      - name: Publish validation summary
-        shell: bash
+      - name: Validation summary
         run: |
-          {
-            echo '## CLARA orb Guide validation'
-            echo '- Build: passed'
-            echo '- Lint outcome: ${{ steps.lint.outcome }}'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Commit implementation only
+          echo '## CLARA orb Guide validation' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Build: passed' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Lint: ${{ steps.lint.outcome }}' >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit implementation
         shell: bash
         run: |
           set -euo pipefail
@@ -66,4 +53,4 @@ jobs:
           git add -A
           git diff --cached --check
           git commit -m 'fix: use production surfaces in the Money Left orb guide'
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:fix/guide-orb-production-surfaces
