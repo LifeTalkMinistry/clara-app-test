@@ -26,6 +26,8 @@ const LOGIN_MAINTENANCE_MESSAGE =
   "CLARA login is temporarily unavailable while account access is undergoing improvement.";
 const LOGIN_TESTER_ACKNOWLEDGEMENT =
   "To our testers: thank you for downloading CLARA and helping us complete the 14-day testing period. Your participation is acknowledged and deeply appreciated.";
+const LOGIN_PREVIEW_NOTE =
+  "Tap Preview CLARA UI to view the app interface while maintenance is ongoing.";
 
 const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -316,6 +318,11 @@ export default function Login() {
     setSuccess(false);
   };
 
+  const openPreview = () => {
+    if (!authLocked) return;
+    navigate("/app-preview", { replace: true });
+  };
+
   return (
     <>
       <div className="relative min-h-screen overflow-hidden bg-[#050716] text-white">
@@ -371,6 +378,16 @@ export default function Login() {
                   <p className="mt-3 rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-xs leading-relaxed text-white/58">
                     {LOGIN_TESTER_ACKNOWLEDGEMENT}
                   </p>
+                  <p className="mt-2 rounded-xl border border-cyan-300/10 bg-cyan-300/[0.055] px-3 py-2 text-xs font-medium leading-relaxed text-cyan-100/78">
+                    {LOGIN_PREVIEW_NOTE}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={openPreview}
+                    className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/10 px-4 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-300/14 focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
+                  >
+                    Preview CLARA UI
+                  </button>
                 </div>
               ) : null}
 
