@@ -45,6 +45,7 @@ export default function FinancialCarousel(props) {
     readStoredSurvivalExpense,
     isGuideMode = false,
     onGuideCarouselIndexChange,
+    guideAllowedSwipeDirection = null,
   } = props;
 
   const effectiveUser = isGuideMode ? null : user;
@@ -91,6 +92,7 @@ export default function FinancialCarousel(props) {
   const { carouselRef, activeIndex, scrollToIndex, handleScroll, interactionHandlers } = useAutoMovingHorizontalCarousel({
     itemCount: items.length,
     defaultIndex,
+    guideAllowedSwipeDirection: isGuideMode ? guideAllowedSwipeDirection : null,
   });
   const expandedCardIndex = useMemo(
     () => getExpandedCarouselCardIndex(items, expandedFinanceCard),
