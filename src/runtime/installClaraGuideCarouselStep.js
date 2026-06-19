@@ -1,5 +1,6 @@
 const SAMPLE_CLASS = "clara-guide-daily-tip-sample-active";
 const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
+const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
 const NEXT_CLASS = "clara-guide-next-button";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
 
@@ -28,13 +29,21 @@ function removeNextButton() {
   document.querySelectorAll(`.${NEXT_CLASS}`).forEach((button) => button.remove());
 }
 
+function clearFeatureClasses() {
+  document.documentElement.classList.remove(
+    SAMPLE_CLASS,
+    CAROUSEL_CLASS,
+    MONEY_LEFT_CLASS
+  );
+}
+
 function goToCarouselStep() {
   if (!hasGuideSample()) {
     removeNextButton();
     return;
   }
 
-  document.documentElement.classList.remove(SAMPLE_CLASS);
+  document.documentElement.classList.remove(SAMPLE_CLASS, MONEY_LEFT_CLASS);
   document.documentElement.classList.add(CAROUSEL_CLASS);
 
   window.dispatchEvent(
@@ -74,13 +83,9 @@ export function installClaraGuideCarouselStep() {
   });
 
   window.addEventListener("clara:guide-mode-change", (event) => {
-    if (event?.detail?.active) {
-      document.documentElement.classList.remove(SAMPLE_CLASS, CAROUSEL_CLASS);
-      removeNextButton();
-      return;
-    }
-
-    document.documentElement.classList.remove(SAMPLE_CLASS, CAROUSEL_CLASS);
+    clearFeatureClasses();
     removeNextButton();
+
+    if (event?.detail?.active) return;
   });
 }
