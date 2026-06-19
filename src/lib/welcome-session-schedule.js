@@ -2,21 +2,27 @@ export const WELCOME_SESSION_FORM_URL = (
   import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL || ""
 ).trim();
 
-const SLOT_PATTERN = [
-  { weekOffset: 0, timeLabel: "10:00 AM", status: "occupied" },
-  { weekOffset: 0, timeLabel: "10:30 AM", status: "available" },
-  { weekOffset: 1, timeLabel: "10:00 AM", status: "available" },
-  { weekOffset: 1, timeLabel: "10:30 AM", status: "occupied" },
-  { weekOffset: 2, timeLabel: "10:00 AM", status: "available" },
+const BOOKING_WINDOW_DAYS = 90;
+const MINIMUM_LEAD_DAYS = 1;
+
+const DAILY_TIME_SLOTS = [
+  "10:00 AM",
+  "10:30 AM",
+  "11:00 AM",
+  "11:30 AM",
+  "12:00 PM",
+  "12:30 PM",
+  "1:00 PM",
+  "1:30 PM",
+  "2:00 PM",
+  "2:30 PM",
 ];
 
-function getNextSaturday(fromDate = new Date()) {
-  const nextSaturday = new Date(fromDate);
-  nextSaturday.setHours(12, 0, 0, 0);
-  const day = nextSaturday.getDay();
-  const daysUntilSaturday = (6 - day + 7) % 7 || 7;
-  nextSaturday.setDate(nextSaturday.getDate() + daysUntilSaturday);
-  return nextSaturday;
+function getFirstBookableDate(fromDate = new Date()) {
+  const firstBookableDate = new Date(fromDate);
+  firstBookableDate.setHours(12, 0, 0, 0);
+  firstBookableDate.setDate(firstBookableDate.getDate() + MINIMUM_LEAD_DAYS);
+  return firstBookableDate;
 }
 
 function toDateKey(date) {
@@ -31,33 +37,41 @@ function toMonthKey(date) {
 }
 
 export function buildWelcomeSessionSlots(fromDate = new Date()) {
-  const firstSaturday = getNextSaturday(fromDate);
+  const firstBookableDate = getFirstBookableDate(fromDate);
+  const slots = [];
 
-  return SLOT_PATTERN.map((slot, index) => {
-    const date = new Date(firstSaturday);
-    date.setDate(firstSaturday.getDate() + slot.weekOffset * 7);
+  for (let dayOffset = 0; dayOffset < BOOKING_WINDOW_DAYS; dayOffset += 1) {
+    const date = new Date(firstBookableDate);
+    date.setDate(firstBookableDate.getDate() + dayOffset);
 
-    return {
-      ...slot,
-      id: `${toDateKey(date)}-${slot.timeLabel.replace(/\W/g, "")}-${index}`,
-      date,
-      dateKey: toDateKey(date),
-      monthKey: toMonthKey(date),
-      dateLabel: new Intl.DateTimeFormat("en-PH", {
-        month: "short",
-        day: "numeric",
-        weekday: "short",
-      }).format(date),
-      fullDateLabel: new Intl.DateTimeFormat("en-PH", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-        weekday: "long",
-      }).format(date),
-    };
-  });
+    // Sunday is Max's fixed day off. Monday through Saturday remain bookable.
+    if (date.getDay() === 0) continue;
+
+    DAILY_TIME_SLOTS.forEach((timeLabel, slotIndex) => {
+      slots.push({
+        id: `${toDateKey(date)}-${timeLabel.replace(/\W/g, "")}-${slotIndex}`,
+        date,
+        dateKey: toDateKey(date),
+        monthKey: toMonthKey(date),
+        dateLabel: new Intl.DateTimeFormat("en-PH", {
+          month: "short",
+          day: "numeric",
+          weekday: "short",
+        }).format(date),
+        fullDateLabel: new Intl.DateTimeFormat("en-PH", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          weekday: "long",
+        }).format(date),
+        timeLabel,
+        status: "available",
+      });
+    });
+  }
+
+  return slots;
 }
 
-export const WELCOME_SESSION_AVAILABLE_SLOT_COUNT = SLOT_PATTERN.filter(
-  (slot) => slot.status === "available",
-).length;
+// This is the number of 30-minute appointments available on each working day.
+export const WELCOME_SESSION_AVAILABLE_SLOT_COUNT = DAILY_TIME_SLOTS.length;
