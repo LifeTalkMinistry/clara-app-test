@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -18,6 +19,7 @@ import {
 } from "@/components/fresh/transaction-hub/ui/TransactionHubPrimitives";
 import TimelineDropdown from "@/components/fresh/transaction-hub/ui/TimelineDropdown";
 
+const PREVIEW_INTERACTION_ARM_DELAY = 520;
 const noop = () => {};
 
 function guideDate(daysAgo = 0, hour = 10, minute = 0) {
@@ -117,6 +119,7 @@ const GUIDE_TIMELINE_GROUPS = Object.freeze([
 ]);
 
 export default function ClaraGuideTransactionHubPreview({ onNext }) {
+  const [actionsArmed, setActionsArmed] = useState(false);
   const theme = DEFAULT_THEME;
   const months = getLast12Months();
   const currentMonth = months[0] || { key: "current", label: "This month" };
@@ -126,14 +129,49 @@ export default function ClaraGuideTransactionHubPreview({ onNext }) {
   const moneyIn = 25000;
   const netFlow = moneyIn - moneyOut;
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setActionsArmed(true);
+    }, PREVIEW_INTERACTION_ARM_DELAY);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const blockOpeningGesture = useCallback(
+    (event) => {
+      if (actionsArmed) return;
+
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.nativeEvent?.stopImmediatePropagation?.();
+    },
+    [actionsArmed]
+  );
+
+  const handleAdvance = useCallback(
+    (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      event?.nativeEvent?.stopImmediatePropagation?.();
+
+      if (!actionsArmed) return;
+      onNext?.();
+    },
+    [actionsArmed, onNext]
+  );
+
   return (
     <div
       className="fixed inset-0 z-[260] overflow-hidden bg-[#020713] text-white"
       data-clara-guide-orb-preview="true"
       data-clara-guide-transaction-hub-preview="true"
+      data-clara-guide-preview-actions-armed={actionsArmed ? "true" : "false"}
       role="dialog"
       aria-modal="true"
       aria-labelledby="clara-guide-transaction-hub-title"
+      onClickCapture={blockOpeningGesture}
+      onDoubleClickCapture={blockOpeningGesture}
+      onPointerUpCapture={blockOpeningGesture}
     >
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))] blur-3xl" />
@@ -146,7 +184,9 @@ export default function ClaraGuideTransactionHubPreview({ onNext }) {
           <div className="flex items-center justify-between gap-3 px-1 pb-0.5 pt-1">
             <button
               type="button"
-              onClick={onNext}
+              onClick={handleAdvance}
+              disabled={!actionsArmed}
+              aria-disabled={!actionsArmed}
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/82 shadow-[0_14px_34px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-200 active:scale-[0.96]`}
               aria-label="Close Transaction Hub demonstration and continue"
             >
@@ -167,7 +207,9 @@ export default function ClaraGuideTransactionHubPreview({ onNext }) {
 
             <button
               type="button"
-              onClick={onNext}
+              onClick={handleAdvance}
+              disabled={!actionsArmed}
+              aria-disabled={!actionsArmed}
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/82 shadow-[0_14px_34px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-200 active:scale-[0.96]`}
               aria-label="Close Transaction Hub demonstration and continue"
             >
@@ -276,7 +318,9 @@ export default function ClaraGuideTransactionHubPreview({ onNext }) {
               <button
                 type="button"
                 data-clara-guide-orb-preview-next="true"
-                onClick={onNext}
+                onClick={handleAdvance}
+                disabled={!actionsArmed}
+                aria-disabled={!actionsArmed}
                 className="inline-flex min-h-[44px] min-w-[108px] items-center justify-center rounded-full border border-cyan-100/30 bg-[linear-gradient(135deg,rgba(207,250,254,0.18),rgba(103,232,249,0.10)_48%,rgba(129,140,248,0.13))] px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-50 shadow-[0_12px_34px_rgba(2,8,23,0.38),0_0_22px_rgba(34,211,238,0.12),inset_0_1px_0_rgba(255,255,255,0.14)] transition hover:border-cyan-100/45 hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 active:scale-[0.985]"
               >
                 Next
