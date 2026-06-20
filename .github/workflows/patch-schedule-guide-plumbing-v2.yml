@@ -1,4 +1,4 @@
-name: Patch Schedule Guide plumbing v2
+name: Patch Schedule Guide panel structure
 
 on:
   push:
@@ -17,14 +17,14 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Apply patch
-        run: python scripts/oneoff/patch_schedule_guide_plumbing.py
+      - name: Apply structure patch
+        run: python scripts/oneoff/patch_schedule_guide_panel_structure.py
 
       - name: Commit
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel.jsx
-          git commit -m "Wire Schedule Guide preview mode"
+          git add src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx
+          git commit -m "Add Schedule Guide markers"
           git push origin HEAD:main
