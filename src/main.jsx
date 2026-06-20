@@ -12,6 +12,7 @@ import {
   clearClaraGuideFeatureClasses,
   installClaraGuideCarouselStep,
 } from "./runtime/installClaraGuideCarouselStep";
+import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -63,6 +64,12 @@ try {
   installClaraGuideCarouselStep();
 } catch (error) {
   console.warn("CLARA guide carousel step failed to init:", error);
+}
+
+try {
+  installClaraGuideScheduleRuntime();
+} catch (error) {
+  console.warn("CLARA Schedule Guide runtime failed to init:", error);
 }
 
 try {
