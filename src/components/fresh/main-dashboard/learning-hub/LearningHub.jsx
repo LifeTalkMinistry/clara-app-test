@@ -64,7 +64,7 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
       <span className="relative z-10 hidden sm:inline">Guide</span>
       {hasNewGuide ? (
         <span className="absolute -right-1.5 -top-2 z-20 rounded-full border border-cyan-100/25 bg-cyan-300 px-1.5 py-0.5 text-[7px] font-black leading-none tracking-[0.12em] text-slate-950 shadow-[0_8px_18px_rgba(34,211,238,0.28)]">
-          NEW
+          GUIDE
         </span>
       ) : null}
     </button>
