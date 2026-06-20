@@ -34,6 +34,9 @@ function findSetupCta(preview) {
 }
 
 function findSetupCard(preview) {
+  const markedCard = preview?.querySelector?.("[data-clara-life-stage-setup-card='true']");
+  if (markedCard) return markedCard;
+
   const setupCta = findSetupCta(preview);
   return setupCta?.closest?.("section") || null;
 }
@@ -49,9 +52,40 @@ function getSafeTop(previewRect) {
 export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
   const bubbleRef = useRef(null);
   const completionDispatchRef = useRef(false);
+  const reservedTopFrameRef = useRef(null);
+  const reservedTopSettleFrameRef = useRef(null);
   const [top, setTop] = useState(null);
   const [arrowPlacement, setArrowPlacement] = useState("bottom");
   const copy = COPY[phase] || COPY["me-page-preview"];
+
+  const scheduleReservedTopUpdate = useCallback(() => {
+    if (reservedTopFrameRef.current !== null) {
+      window.cancelAnimationFrame(reservedTopFrameRef.current);
+    }
+    if (reservedTopSettleFrameRef.current !== null) {
+      window.cancelAnimationFrame(reservedTopSettleFrameRef.current);
+    }
+
+    reservedTopFrameRef.current = window.requestAnimationFrame(() => {
+      reservedTopFrameRef.current = null;
+      reservedTopSettleFrameRef.current = window.requestAnimationFrame(() => {
+        reservedTopSettleFrameRef.current = null;
+
+        const bubble = bubbleRef.current;
+        const preview = document.querySelector("[data-clara-guide-me-preview='true']");
+        if (!bubble || !preview) return;
+
+        const previewRect = preview.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const reservedTop = Math.max(0, bubbleRect.bottom - previewRect.top + 16);
+
+        preview.style.setProperty(
+          "--clara-me-guide-reserved-top",
+          `${reservedTop}px`
+        );
+      });
+    });
+  }, []);
 
   const updatePosition = useCallback(() => {
     const bubble = bubbleRef.current;
@@ -62,56 +96,31 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
     const bubbleRect = bubble.getBoundingClientRect();
     const setupCard = findSetupCard(preview);
     const padding = 10;
-    const gap = 8;
     const safeTop = getSafeTop(previewRect);
     const safeBottom = Math.min(previewRect.bottom, window.innerHeight - padding);
-    const maxTop = Math.max(safeTop, safeBottom - bubbleRect.height);
+    const availableHeight = Math.max(0, safeBottom - safeTop);
 
-    if (!setupCard) {
-      setArrowPlacement("top");
-      setTop(safeTop);
-      return;
-    }
+    // The setup card now reserves the bubble's measured footprint, so the
+    // bubble can stay safely below the Guide navigation without chasing the
+    // card while the preview scrolls.
+    const nextTop =
+      availableHeight >= bubbleRect.height
+        ? safeTop
+        : Math.max(safeTop, safeBottom - bubbleRect.height);
 
-    const cardRect = setupCard.getBoundingClientRect();
-    const aboveCard = cardRect.top - bubbleRect.height - gap;
-    const belowCard = cardRect.bottom + gap;
-    const fitsAbove = aboveCard >= safeTop;
-    const fitsBelow = belowCard + bubbleRect.height <= safeBottom;
-
-    // The unconfigured Me Page intentionally leaves a calm open zone above the
-    // Life Stage card. Keep the Guide bubble in that zone first so the actual
-    // profile UI remains fully readable.
-    if (fitsAbove) {
-      setArrowPlacement("bottom");
-      setTop(aboveCard);
-      return;
-    }
-
-    // Keep the user-requested top placement even on shorter screens. The bubble
-    // is deliberately compact enough to fit this slot on the supported phone
-    // viewport; this clamp prevents it from touching the top navigation.
-    if (safeTop < cardRect.top) {
-      setArrowPlacement("bottom");
-      setTop(Math.max(safeTop, Math.min(maxTop, safeTop)));
-      return;
-    }
-
-    if (fitsBelow) {
-      setArrowPlacement("top");
-      setTop(belowCard);
-      return;
-    }
-
-    setArrowPlacement("top");
-    setTop(maxTop);
-  }, []);
+    setArrowPlacement(setupCard ? "bottom" : "top");
+    setTop(nextTop);
+    scheduleReservedTopUpdate();
+  }, [scheduleReservedTopUpdate]);
 
   useLayoutEffect(() => {
     updatePosition();
-    const frame = window.requestAnimationFrame(updatePosition);
+    const frame = window.requestAnimationFrame(() => {
+      updatePosition();
+      scheduleReservedTopUpdate();
+    });
     return () => window.cancelAnimationFrame(frame);
-  }, [phase, updatePosition]);
+  }, [phase, scheduleReservedTopUpdate, updatePosition]);
 
   useEffect(() => {
     completionDispatchRef.current = false;
@@ -120,8 +129,6 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
     window.addEventListener("orientationchange", handleViewportChange);
 
     const preview = document.querySelector("[data-clara-guide-me-preview='true']");
-    preview?.addEventListener?.("scroll", handleViewportChange, { passive: true });
-
     const observer =
       typeof ResizeObserver !== "undefined" && preview
         ? new ResizeObserver(handleViewportChange)
@@ -130,14 +137,29 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
     const setupCard = findSetupCard(preview);
     if (setupCard) observer?.observe(setupCard);
+    if (bubbleRef.current) observer?.observe(bubbleRef.current);
 
     return () => {
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("orientationchange", handleViewportChange);
-      preview?.removeEventListener?.("scroll", handleViewportChange);
       observer?.disconnect();
     };
   }, [phase, updatePosition]);
+
+  useEffect(
+    () => () => {
+      if (reservedTopFrameRef.current !== null) {
+        window.cancelAnimationFrame(reservedTopFrameRef.current);
+      }
+      if (reservedTopSettleFrameRef.current !== null) {
+        window.cancelAnimationFrame(reservedTopSettleFrameRef.current);
+      }
+
+      const preview = document.querySelector("[data-clara-guide-me-preview='true']");
+      preview?.style.removeProperty("--clara-me-guide-reserved-top");
+    },
+    []
+  );
 
   const handleNext = () => {
     if (typeof window === "undefined") return;
@@ -176,32 +198,57 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
         className="pointer-events-auto relative mx-auto w-full max-w-[372px] rounded-[22px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-3.5 py-3 text-white shadow-[0_20px_60px_rgba(0,0,0,0.68),0_0_38px_rgba(34,211,238,0.16)] backdrop-blur-2xl"
       >
         <div
-          className={`pointer-events-none absolute left-12 h-3.5 w-3.5 rotate-45 border-cyan-100/24 bg-[rgba(12,21,49,0.985)] ${
+          data-clara-guide-me-arrow="true"
+          className={`pointer-events-none absolute left-[42px] h-3.5 w-3.5 rotate-45 border-cyan-100/24 bg-[rgba(12,21,49,0.985)] ${
             arrowPlacement === "top"
               ? "-top-[7px] border-l border-t"
               : "-bottom-[7px] border-b border-r"
           }`}
         />
-        <p
-          id="clara-guide-me-page-title"
-          className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-100"
-        >
-          {copy.title}
-        </p>
-        <p className="mt-1 text-[10px] font-bold leading-[1.3] text-white">{copy.body}</p>
-        <p className="mt-0.5 text-[9px] font-semibold leading-[1.3] text-white/66">{copy.supporting}</p>
-        <div className="mt-2 h-px bg-cyan-100/15" />
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="max-w-[220px] text-[7px] font-black uppercase leading-[1.25] tracking-[0.06em] text-cyan-100/86">
-            {copy.footer}
-          </p>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3">
+          <div className="min-w-0">
+            <p
+              id="clara-guide-me-page-title"
+              className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-100"
+            >
+              {copy.title}
+            </p>
+            <p
+              data-clara-guide-me-body="true"
+              className="mt-1 text-[10px] font-bold leading-[1.3] text-white"
+            >
+              {copy.body}
+            </p>
+
+            {copy.supporting ? (
+              <p
+                data-clara-guide-me-supporting="true"
+                className="mt-0.5 text-[9px] font-semibold leading-[1.3] text-white/66"
+              >
+                {copy.supporting}
+              </p>
+            ) : null}
+          </div>
+
           <button
+            data-clara-guide-me-next="true"
             type="button"
             onClick={handleNext}
             className="min-h-[38px] shrink-0 touch-manipulation rounded-full border border-cyan-100/30 bg-cyan-100/15 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-cyan-50 shadow-[0_10px_28px_rgba(34,211,238,0.14),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 active:scale-[0.99]"
           >
             NEXT
           </button>
+
+          <div data-clara-guide-me-footer-row="true" className="col-span-2">
+            <div data-clara-guide-me-divider="true" className="mt-2 h-px bg-cyan-100/15" />
+            <p
+              data-clara-guide-me-footer="true"
+              className="mt-2 text-[7px] font-black uppercase leading-[1.25] tracking-[0.06em] text-cyan-100/86"
+            >
+              {copy.footer}
+            </p>
+          </div>
         </div>
       </div>
     </div>,
