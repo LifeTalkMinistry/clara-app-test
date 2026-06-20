@@ -1,6 +1,107 @@
+import { useEffect, useRef } from "react";
+
+const DASHBOARD_SCROLL_ROOT_SELECTOR =
+  "[data-clara-dashboard-scroll-root='true']";
+const PREVIEW_STACK_SELECTOR =
+  "[data-clara-guide-learning-hub-preview-stack='true']";
+const GUIDE_BUBBLE_SAFE_BOTTOM_PX = 18;
+
+function getVisibleDashboardBottom(scrollerRect) {
+  if (typeof window === "undefined") return scrollerRect.bottom;
+
+  const visualViewport = window.visualViewport;
+  const viewportBottom = visualViewport
+    ? visualViewport.offsetTop + visualViewport.height
+    : window.innerHeight;
+
+  return Math.min(scrollerRect.bottom, viewportBottom);
+}
+
 export default function ClaraGuideLearningHubInlineBubble({ onNext }) {
+  const bubbleRef = useRef(null);
+  const didApplyPreviewLiftRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return undefined;
+    }
+
+    const bubble = bubbleRef.current;
+    const dashboardScroller = document.querySelector(
+      DASHBOARD_SCROLL_ROOT_SELECTOR,
+    );
+    const previewStack = bubble?.closest?.(PREVIEW_STACK_SELECTOR);
+
+    if (
+      !bubble ||
+      !dashboardScroller ||
+      !previewStack ||
+      !dashboardScroller.contains(previewStack)
+    ) {
+      return undefined;
+    }
+
+    let firstFrame = 0;
+    let secondFrame = 0;
+
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        if (
+          didApplyPreviewLiftRef.current ||
+          !bubble.isConnected ||
+          !dashboardScroller.isConnected
+        ) {
+          return;
+        }
+
+        didApplyPreviewLiftRef.current = true;
+
+        const scrollerRect = dashboardScroller.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const visibleBottom = getVisibleDashboardBottom(scrollerRect);
+        const requiredLift = Math.ceil(
+          bubbleRect.bottom + GUIDE_BUBBLE_SAFE_BOTTOM_PX - visibleBottom,
+        );
+
+        if (requiredLift <= 0) return;
+
+        const currentScrollTop = Number(dashboardScroller.scrollTop) || 0;
+        const maxScrollTop = Math.max(
+          0,
+          dashboardScroller.scrollHeight - dashboardScroller.clientHeight,
+        );
+        const targetScrollTop = Math.min(
+          maxScrollTop,
+          currentScrollTop + requiredLift,
+        );
+
+        if (targetScrollTop <= currentScrollTop) return;
+
+        const reduceMotion = window.matchMedia?.(
+          "(prefers-reduced-motion: reduce)",
+        )?.matches;
+
+        if (typeof dashboardScroller.scrollTo === "function") {
+          dashboardScroller.scrollTo({
+            top: targetScrollTop,
+            behavior: reduceMotion ? "auto" : "smooth",
+          });
+          return;
+        }
+
+        dashboardScroller.scrollTop = targetScrollTop;
+      });
+    });
+
+    return () => {
+      if (firstFrame) window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, []);
+
   return (
     <div
+      ref={bubbleRef}
       data-clara-guide-learning-hub-inline-bubble="true"
       className="mt-4 w-full"
     >
