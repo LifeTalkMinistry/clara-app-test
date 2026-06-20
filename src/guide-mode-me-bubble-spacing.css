@@ -1,3 +1,5 @@
+@import "./guide-mode-learning-hub.css";
+
 /* Me Page Guide bubble spacing refinement. */
 #root#root [data-clara-guide-me-bubble='true'] {
   width: min(calc(100vw - 12px), 418px) !important;
