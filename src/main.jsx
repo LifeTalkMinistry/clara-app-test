@@ -20,6 +20,7 @@ import "./guide-mode-finance-spotlight.css";
 import "./guide-mode-money-left-spotlight.css";
 import "./guide-mode-money-left-orb.css";
 import "./guide-mode-me-bubble-spacing.css";
+import "./guide-mode-schedule.css";
 import "./welcome-session-calendar-status.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
