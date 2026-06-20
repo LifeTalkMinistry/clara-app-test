@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
-  Database,
   FileLock2,
   Mail,
   Save,
@@ -14,7 +13,6 @@ import { toast } from "sonner";
 import { coachingRepository } from "../data";
 import {
   APPROACH_LABELS,
-  DATA_CONSENT_LABELS,
   EMOTION_LABELS,
   FOCUS_LABELS,
   OUTCOME_LABELS,
@@ -73,7 +71,6 @@ function PrivatePriorityPanel({ appointment }) {
   if (flags.bettingRelated) items.push("Betting-related money concern");
   if (flags.essentialMoneyRisk) items.push("Essential-money risk");
   if (flags.urgentConcern) items.push("Urgent financial problem");
-  if (appointment.dataConsent === "answers_only") items.push("CLARA data-review permission denied");
   if (!items.length) return null;
 
   return (
@@ -89,36 +86,6 @@ function PrivatePriorityPanel({ appointment }) {
       <p className="mt-3 text-[10px] font-semibold leading-relaxed text-white/45">
         These flags describe member-provided concerns for preparation only. They are not clinical diagnoses and should be handled calmly and without shame-based language.
       </p>
-    </Section>
-  );
-}
-
-function ClaraDataReview({ appointment }) {
-  if (appointment.dataConsent === "answers_only") {
-    return (
-      <Section eyebrow="Preparation permission" title="Answers-Only Preparation" icon={FileLock2}>
-        <div className="rounded-[18px] border border-violet-300/15 bg-violet-300/[0.07] p-4">
-          <p className="text-[12px] font-bold leading-relaxed text-violet-50/85">
-            Member chose answers-only preparation. Do not review their CLARA financial information for this session.
-          </p>
-        </div>
-      </Section>
-    );
-  }
-
-  return (
-    <Section eyebrow="Future integration preview" title="Mock CLARA Snapshot" icon={Database}>
-      <div className="mb-3 rounded-[15px] border border-violet-300/15 bg-violet-300/[0.07] px-3.5 py-3 text-[9px] font-black uppercase tracking-[0.11em] text-violet-100/80">
-        Demonstration values only — not actual member account data
-      </div>
-      <div className="grid gap-2.5 sm:grid-cols-2">
-        <DetailItem label="Budget status" value="3 of 5 active categories remain within plan" />
-        <DetailItem label="Recent spending pattern" value="Higher discretionary activity after payday" />
-        <DetailItem label="Wallet balances" value="Mock total: ₱8,450 across two wallets" />
-        <DetailItem label="Savings goals" value="Emergency buffer · 38% mock progress" />
-        <DetailItem label="Debt records" value="Two mock balances under active repayment" />
-        <DetailItem label="Previous coaching action" value="Review spending before the next payday" />
-      </div>
     </Section>
   );
 }
@@ -303,7 +270,6 @@ export default function AppointmentDetail({
                 <DetailItem label="Desired result" value={OUTCOME_LABELS[appointment.desiredOutcome]} />
                 <DetailItem label="Emotional money state" value={EMOTION_LABELS[appointment.emotionalState]} />
                 <DetailItem label="Preferred coaching approach" value={APPROACH_LABELS[appointment.coachingApproach]} />
-                <DetailItem label="CLARA data permission" value={DATA_CONSENT_LABELS[appointment.dataConsent]} />
                 <div className="rounded-[16px] border border-white/[0.065] bg-white/[0.03] p-3 sm:col-span-2">
                   <p className="text-[8px] font-black uppercase tracking-[0.13em] text-cyan-100/45">Current situation</p>
                   <p className="mt-2 whitespace-pre-wrap text-[12px] font-semibold leading-relaxed text-white/78">{appointment.currentSituation}</p>
@@ -312,7 +278,6 @@ export default function AppointmentDetail({
             </Section>
 
             <PrivatePriorityPanel appointment={appointment} />
-            <ClaraDataReview appointment={appointment} />
 
             <Section eyebrow="Never shown to members" title="Internal Coach Notes" icon={FileLock2}>
               <div className="grid gap-3 lg:grid-cols-2">
@@ -366,10 +331,7 @@ export default function AppointmentDetail({
         {appointment ? (
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.08] bg-slate-950/88 px-4 py-3 backdrop-blur-2xl xl:left-auto xl:w-[min(980px,76vw)] sm:px-6">
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/35">Administrative actions</p>
-                <p className="mt-1 text-[10px] font-semibold text-white/50">Changes persist only in this browser during mock mode.</p>
-              </div>
+              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/35">Administrative actions</p>
               <AppointmentActions appointment={appointment} onStatusChange={onStatusChange} />
             </div>
           </div>
