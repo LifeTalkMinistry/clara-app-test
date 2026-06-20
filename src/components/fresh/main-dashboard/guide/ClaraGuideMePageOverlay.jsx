@@ -33,10 +33,24 @@ function findSetupCta(preview) {
   );
 }
 
+function findSetupCard(preview) {
+  const setupCta = findSetupCta(preview);
+  return setupCta?.closest?.("section") || null;
+}
+
+function getSafeTop(previewRect) {
+  const guideNav = document.querySelector(
+    "[data-clara-guide-me-target='true'], [data-clara-guide-exit='true']"
+  );
+  const navBottom = guideNav?.getBoundingClientRect?.().bottom || 0;
+  return Math.max(previewRect.top + 12, navBottom + 12, 12);
+}
+
 export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
   const bubbleRef = useRef(null);
   const completionDispatchRef = useRef(false);
   const [top, setTop] = useState(null);
+  const [arrowPlacement, setArrowPlacement] = useState("top");
   const copy = COPY[phase] || COPY["me-page-preview"];
 
   const updatePosition = useCallback(() => {
@@ -46,31 +60,48 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
     const previewRect = preview.getBoundingClientRect();
     const bubbleRect = bubble.getBoundingClientRect();
-    const setupCta = findSetupCta(preview);
-    const padding = 14;
-    const gap = 14;
-    const viewportBottom = window.innerHeight - padding;
-    const minTop = Math.max(previewRect.top + padding, padding);
-    const maxTop = Math.max(
-      minTop,
-      Math.min(previewRect.bottom, viewportBottom) - bubbleRect.height - padding
-    );
-    let nextTop = maxTop;
+    const setupCard = findSetupCard(preview);
+    const padding = 12;
+    const gap = 10;
+    const safeTop = getSafeTop(previewRect);
+    const safeBottom = Math.min(previewRect.bottom, window.innerHeight - padding);
+    const maxTop = Math.max(safeTop, safeBottom - bubbleRect.height);
 
-    if (setupCta) {
-      const ctaRect = setupCta.getBoundingClientRect();
-      const belowCta = ctaRect.bottom + gap;
-      const aboveCta = ctaRect.top - bubbleRect.height - gap;
-
-      if (belowCta <= maxTop) nextTop = belowCta;
-      else if (aboveCta >= minTop) nextTop = aboveCta;
+    if (!setupCard) {
+      setArrowPlacement("top");
+      setTop(safeTop);
+      return;
     }
 
-    setTop(Math.max(minTop, Math.min(maxTop, nextTop)));
+    const cardRect = setupCard.getBoundingClientRect();
+    const belowCard = cardRect.bottom + gap;
+    const aboveCard = cardRect.top - bubbleRect.height - gap;
+    const fitsBelow = belowCard + bubbleRect.height <= safeBottom;
+    const fitsAbove = aboveCard >= safeTop;
+
+    if (fitsBelow) {
+      setArrowPlacement("top");
+      setTop(belowCard);
+      return;
+    }
+
+    if (fitsAbove) {
+      setArrowPlacement("bottom");
+      setTop(aboveCard);
+      return;
+    }
+
+    const distanceBelow = Math.abs(safeBottom - cardRect.bottom);
+    const distanceAbove = Math.abs(cardRect.top - safeTop);
+    const fallbackTop = distanceBelow >= distanceAbove ? maxTop : safeTop;
+    setArrowPlacement(fallbackTop === maxTop ? "top" : "bottom");
+    setTop(Math.max(safeTop, Math.min(maxTop, fallbackTop)));
   }, []);
 
   useLayoutEffect(() => {
     updatePosition();
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(frame);
   }, [phase, updatePosition]);
 
   useEffect(() => {
@@ -80,15 +111,21 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
     window.addEventListener("orientationchange", handleViewportChange);
 
     const preview = document.querySelector("[data-clara-guide-me-preview='true']");
+    preview?.addEventListener?.("scroll", handleViewportChange, { passive: true });
+
     const observer =
       typeof ResizeObserver !== "undefined" && preview
         ? new ResizeObserver(handleViewportChange)
         : null;
     observer?.observe(preview);
 
+    const setupCard = findSetupCard(preview);
+    if (setupCard) observer?.observe(setupCard);
+
     return () => {
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("orientationchange", handleViewportChange);
+      preview?.removeEventListener?.("scroll", handleViewportChange);
       observer?.disconnect();
     };
   }, [phase, updatePosition]);
@@ -118,34 +155,41 @@ export default function ClaraGuideMePageOverlay({ phase = "me-page-preview" }) {
 
   return createPortal(
     <div
-      className="pointer-events-none fixed left-1/2 z-[95] w-[min(calc(100vw-24px),406px)] -translate-x-1/2 px-3"
-      style={{ top: top === null ? "calc(100svh - 250px)" : `${top}px` }}
+      data-clara-guide-me-bubble="true"
+      className="pointer-events-none fixed left-1/2 z-[95] w-[min(calc(100vw-20px),406px)] -translate-x-1/2 px-2.5"
+      style={{ top: top === null ? "calc(100svh - 176px)" : `${top}px` }}
     >
       <div
         ref={bubbleRef}
         role="dialog"
         aria-live="polite"
         aria-labelledby="clara-guide-me-page-title"
-        className="pointer-events-auto relative mx-auto w-full max-w-[360px] rounded-[28px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-5 py-5 text-white shadow-[0_24px_76px_rgba(0,0,0,0.74),0_0_48px_rgba(34,211,238,0.18)] backdrop-blur-2xl"
+        className="pointer-events-auto relative mx-auto w-full max-w-[360px] rounded-[24px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-4 py-3.5 text-white shadow-[0_24px_76px_rgba(0,0,0,0.74),0_0_48px_rgba(34,211,238,0.18)] backdrop-blur-2xl"
       >
-        <div className="pointer-events-none absolute -top-2 left-12 h-4 w-4 rotate-45 border-l border-t border-cyan-100/24 bg-[rgba(8,20,45,0.985)]" />
+        <div
+          className={`pointer-events-none absolute left-12 h-4 w-4 rotate-45 border-cyan-100/24 bg-[rgba(12,21,49,0.985)] ${
+            arrowPlacement === "top"
+              ? "-top-2 border-l border-t"
+              : "-bottom-2 border-b border-r"
+          }`}
+        />
         <p
           id="clara-guide-me-page-title"
-          className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100"
+          className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100"
         >
           {copy.title}
         </p>
-        <p className="mt-3 text-[13px] font-bold leading-5 text-white">{copy.body}</p>
-        <p className="mt-2 text-[12px] font-semibold leading-5 text-white/66">{copy.supporting}</p>
-        <div className="mt-4 h-px bg-cyan-100/15" />
-        <div className="mt-4 flex items-end justify-between gap-3">
-          <p className="max-w-[220px] text-[10px] font-black uppercase leading-4 tracking-[0.08em] text-cyan-100/86">
+        <p className="mt-1.5 text-[11px] font-bold leading-[1.4] text-white">{copy.body}</p>
+        <p className="mt-1 text-[10px] font-semibold leading-[1.4] text-white/66">{copy.supporting}</p>
+        <div className="mt-2.5 h-px bg-cyan-100/15" />
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <p className="max-w-[215px] text-[8px] font-black uppercase leading-[1.35] tracking-[0.07em] text-cyan-100/86">
             {copy.footer}
           </p>
           <button
             type="button"
             onClick={handleNext}
-            className="min-h-[42px] shrink-0 rounded-full border border-cyan-100/30 bg-cyan-100/15 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 active:scale-[0.99]"
+            className="min-h-[42px] shrink-0 touch-manipulation rounded-full border border-cyan-100/30 bg-cyan-100/15 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 active:scale-[0.99]"
           >
             NEXT
           </button>
