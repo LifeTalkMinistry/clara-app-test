@@ -6,6 +6,7 @@ import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assista
 const LIVE_AI_SELECTOR = "[data-clara-ai-brain-version]";
 const LIVE_AI_CLOSE_SELECTOR = 'button[aria-label="Close CLARA AI mode"]';
 const GUIDE_ACTION_ARM_DELAY = 680;
+const GUIDE_MESSAGE_PANEL_GAP = 20;
 const GUIDE_CHAT_MESSAGES = [
   {
     id: "guide-clara-welcome",
@@ -26,6 +27,7 @@ const GUIDE_CHAT_MESSAGES = [
 
 export default function ClaraGuideClaraAiChatPreview({ onNext }) {
   const shellRef = useRef(null);
+  const guidePanelRef = useRef(null);
   const [actionsArmed, setActionsArmed] = useState(false);
 
   useLayoutEffect(() => {
@@ -38,6 +40,46 @@ export default function ClaraGuideClaraAiChatPreview({ onNext }) {
     return () => {
       guideOverlay.removeAttribute("inert");
       guideOverlay.removeAttribute("aria-disabled");
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const shell = shellRef.current;
+    const guidePanel = guidePanelRef.current;
+    const messageStack = shell?.querySelector?.('[data-clara-ai-message-stack="true"]');
+
+    if (!shell || !guidePanel || !messageStack) return undefined;
+
+    const updateMessageOffset = () => {
+      const panelRect = guidePanel.getBoundingClientRect();
+      const stackRect = messageStack.getBoundingClientRect();
+      const topOffset = Math.max(
+        0,
+        Math.ceil(panelRect.bottom - stackRect.top + GUIDE_MESSAGE_PANEL_GAP)
+      );
+
+      shell.style.setProperty("--clara-guide-message-top-offset", `${topOffset}px`);
+    };
+
+    updateMessageOffset();
+    const animationFrame = window.requestAnimationFrame(updateMessageOffset);
+    const resizeObserver =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(updateMessageOffset)
+        : null;
+
+    resizeObserver?.observe(guidePanel);
+    window.addEventListener("resize", updateMessageOffset);
+    window.visualViewport?.addEventListener?.("resize", updateMessageOffset);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateMessageOffset);
+      window.visualViewport?.removeEventListener?.("resize", updateMessageOffset);
+      shell.style.removeProperty("--clara-guide-message-top-offset");
     };
   }, []);
 
@@ -97,14 +139,19 @@ export default function ClaraGuideClaraAiChatPreview({ onNext }) {
       aria-labelledby="clara-guide-ai-preview-title"
     >
       <style>{`
+        [data-clara-guide-ai-preview-shell="true"]
+        [data-clara-ai-layout-variant="guide-preview"]
+        [data-clara-ai-message-stack="true"] {
+          padding-top: var(
+            --clara-guide-message-top-offset,
+            calc(env(safe-area-inset-top) + 246px)
+          ) !important;
+          padding-bottom: 128px !important;
+        }
+
         [data-clara-guide-ai-preview-shell="true"] [data-clara-ai-brain-version] {
           z-index: 10 !important;
           pointer-events: none !important;
-        }
-
-        [data-clara-guide-ai-preview-shell="true"] [data-clara-ai-brain-version] main > div {
-          padding-top: calc(env(safe-area-inset-top) + 218px) !important;
-          padding-bottom: 118px !important;
         }
 
         [data-clara-guide-ai-preview-shell="true"] [data-clara-ai-brain-version]
@@ -122,9 +169,13 @@ export default function ClaraGuideClaraAiChatPreview({ onNext }) {
         isActive
         messages={GUIDE_CHAT_MESSAGES}
         onClose={() => {}}
+        layoutVariant="guide-preview"
       />
 
-      <section className="pointer-events-auto absolute inset-x-4 top-[calc(env(safe-area-inset-top)+14px)] z-30 rounded-[28px] border border-cyan-100/22 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-5 py-4 shadow-[0_22px_70px_rgba(0,0,0,0.68),0_0_38px_rgba(34,211,238,0.15)] backdrop-blur-2xl">
+      <section
+        ref={guidePanelRef}
+        className="pointer-events-auto absolute inset-x-4 top-[calc(env(safe-area-inset-top)+14px)] z-30 rounded-[28px] border border-cyan-100/22 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-5 py-4 shadow-[0_22px_70px_rgba(0,0,0,0.68),0_0_38px_rgba(34,211,238,0.15)] backdrop-blur-2xl"
+      >
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,0.17),transparent_38%),radial-gradient(circle_at_92%_14%,rgba(124,58,237,0.22),transparent_40%)]" />
 
         <div className="relative pr-10">
