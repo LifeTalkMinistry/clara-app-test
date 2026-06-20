@@ -738,7 +738,7 @@ function hideRefineButtons(root) {
   refreshScheduleEnhancements(root);
 }
 
-export default function DashboardScheduleImpactPortalPanel() {
+export default function DashboardScheduleImpactPortalPanel({ guidePreviewMode = false, scheduleGuidePhase = "inactive" }) {
   const rootRef = useRef(null);
   const [panelKey] = useState(0);
   const [planner, setPlanner] = useState(null);
@@ -746,6 +746,7 @@ export default function DashboardScheduleImpactPortalPanel() {
   useBodyScrollLock(Boolean(planner));
 
   const startPlanner = async (form) => {
+    if (guidePreviewMode) return;
     const preparedForm = {
       ...form,
       title: cleanText(form.title) || titleCase(form.note || form.type || "Personal schedule"),
@@ -871,6 +872,11 @@ export default function DashboardScheduleImpactPortalPanel() {
 
       if (!label.includes("calculate money impact")) return;
       event.preventDefault();
+      if (guidePreviewMode) {
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       const form = readForm(root);
@@ -884,6 +890,11 @@ export default function DashboardScheduleImpactPortalPanel() {
       const submitterText = cleanText(event.submitter?.textContent).toLowerCase();
       if (!submitterText.includes("calculate money impact")) return;
       event.preventDefault();
+      if (guidePreviewMode) {
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       const form = readForm(root);
@@ -897,11 +908,15 @@ export default function DashboardScheduleImpactPortalPanel() {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("submit", onSubmit, true);
     };
-  }, [planner, panelKey]);
+  }, [guidePreviewMode, planner, panelKey]);
 
   return (
-    <div ref={rootRef} className="contents">
-      <OriginalDashboardSchedulePanel key={panelKey} />
+    <div ref={rootRef} className="contents" data-clara-guide-schedule-wrapper={guidePreviewMode ? "true" : undefined}>
+      <OriginalDashboardSchedulePanel
+        key={panelKey}
+        guidePreviewMode={guidePreviewMode}
+        scheduleGuidePhase={scheduleGuidePhase}
+      />
       <PlanPossibleSpendingSheet
         session={planner}
         onClose={closePlanner}

@@ -30,6 +30,8 @@ import {
 const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
 const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
 const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
+const CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT = "clara:guide-schedule-phase-change";
+const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const OFFER_LOAD_ERROR_MESSAGE =
   "CLARA could not load the offer right now. Please check your connection and try again.";
 const PURCHASE_START_ERROR_MESSAGE = "CLARA could not start the purchase right now. Please try again.";
@@ -699,6 +701,23 @@ export default function DashboardPanelRenderer({
   const hasCommittedAccess = useCommittedFeatureAccess({ previewPlan });
   const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
   const [purchaseIntent, setPurchaseIntent] = useState(COMMITTED_MONTHLY_PURCHASE_INTENT);
+  const [scheduleGuidePhase, setScheduleGuidePhase] = useState("inactive");
+  const scheduleGuidePreviewActive =
+    scheduleGuidePhase !== "inactive" && scheduleGuidePhase !== "await-schedule-tab";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleScheduleGuidePhase = (event) => {
+      setScheduleGuidePhase(event?.detail?.phase || "inactive");
+    };
+    const handleGuideExit = () => setScheduleGuidePhase("inactive");
+    window.addEventListener(CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT, handleScheduleGuidePhase);
+    window.addEventListener(CLARA_GUIDE_EXIT_EVENT, handleGuideExit);
+    return () => {
+      window.removeEventListener(CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT, handleScheduleGuidePhase);
+      window.removeEventListener(CLARA_GUIDE_EXIT_EVENT, handleGuideExit);
+    };
+  }, []);
 
   const openCommitmentBooklet = useCallback((nextPurchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT) => {
     setPurchaseIntent(normalizeOfferPurchaseIntent(nextPurchaseIntent));
@@ -788,10 +807,15 @@ export default function DashboardPanelRenderer({
   }
 
   if (activePanel === "schedule") {
-    const content = <DashboardSchedulePanel />;
+    const content = (
+      <DashboardSchedulePanel
+        guidePreviewMode={scheduleGuidePreviewActive}
+        scheduleGuidePhase={scheduleGuidePhase}
+      />
+    );
     return (
       <>
-        {!hasCommittedAccess ? (
+        {!hasCommittedAccess && !scheduleGuidePreviewActive ? (
           <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet(COMMITTED_MONTHLY_PURCHASE_INTENT)}>{content}</LockedPanelPreview>
         ) : (
           content
