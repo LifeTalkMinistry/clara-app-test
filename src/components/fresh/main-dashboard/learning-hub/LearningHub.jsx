@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import ClaraGuideLearningHubOverlay from "../guide/ClaraGuideLearningHubOverlay";
+import ClaraGuideLearningHubPreview from "../guide/ClaraGuideLearningHubPreview";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
@@ -128,12 +129,8 @@ export default function LearningHub({
       resetGuidePreview();
     };
 
-    const handleGuideModeChange = (event) => {
-      if (event?.detail?.active) {
-        resetGuidePreview();
-      } else {
-        resetGuidePreview();
-      }
+    const handleGuideModeChange = () => {
+      resetGuidePreview();
     };
 
     const handleTargetChange = (event) => {
@@ -253,13 +250,11 @@ export default function LearningHub({
               <span aria-hidden="true" />
             )}
           </div>
+        ) : isLearningHubGuidePreview ? (
+          <ClaraGuideLearningHubPreview flushSpacing />
         ) : (
           <Suspense fallback={null}>
-            <LearningHubLoaded
-              initialExpanded
-              flushSpacing={true}
-              guidePreviewMode={isLearningHubGuidePreview}
-            />
+            <LearningHubLoaded initialExpanded flushSpacing={true} />
           </Suspense>
         )}
 
