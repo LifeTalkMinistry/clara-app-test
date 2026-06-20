@@ -1,21 +1,6 @@
 @import "./guide-mode-learning-hub-crisp.css";
 
-html.clara-guide-learning-hub-await-active #root [data-clara-guide-learning-hub-toggle='true'] {
-  opacity: 1 !important;
-  filter: brightness(1.35) saturate(1.25) !important;
-  transform: scale(1.06) !important;
-  border-color: rgba(207, 250, 254, 0.95) !important;
-  background: linear-gradient(135deg, rgba(8, 145, 170, 0.98), rgba(30, 86, 175, 0.98), rgba(87, 48, 166, 0.98)) !important;
-  color: white !important;
-  box-shadow: 0 0 0 2px rgba(207, 250, 254, 0.9), 0 0 36px rgba(34, 211, 238, 0.65), 0 0 72px rgba(99, 102, 241, 0.38) !important;
-}
-
-html.clara-guide-learning-hub-await-active #root [data-clara-guide-learning-hub-toggle='true'] span,
-html.clara-guide-learning-hub-await-active #root [data-clara-guide-learning-hub-toggle='true'] svg {
-  color: white !important;
-  opacity: 1 !important;
-}
-
-html:is(.clara-guide-learning-hub-await-active, .clara-guide-learning-hub-preview-active) [data-clara-guide-learning-hub-bubble='true'] {
+html:is(.clara-guide-learning-hub-await-active, .clara-guide-learning-hub-preview-active)
+[data-clara-guide-learning-hub-bubble='true'] {
   z-index: 240 !important;
 }
