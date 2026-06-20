@@ -9,7 +9,7 @@ const COPY = {
   "me-page-preview": {
     title: "WHY ME MATTERS",
     body: "The same amount of money can mean something different depending on your responsibilities and current life stage.",
-    supporting: "This profile helps CLARA personalize her guidance.",
+    supporting: "",
     footer: "CLARA LEARNS THE PERSON BEHIND THE NUMBERS.",
   },
   complete: {
