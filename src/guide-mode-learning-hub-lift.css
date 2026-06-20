@@ -1,0 +1,14 @@
+/* One-time Learning Hub Guide lift support. */
+
+html.clara-guide-learning-hub-preview-active
+#root [data-clara-dashboard-top-nav='true'] {
+  position: sticky !important;
+  top: 0;
+  z-index: 260 !important;
+  isolation: isolate;
+}
+
+html.clara-guide-learning-hub-preview-active
+#root [data-clara-guide-learning-hub-preview-stack='true'] {
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
