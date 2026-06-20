@@ -29,6 +29,10 @@ function getSafeTop() {
   return Math.max(12, navBottom + 12);
 }
 
+function getDashboardScroller(target) {
+  return target?.closest?.("main") || document.scrollingElement || null;
+}
+
 export default function ClaraGuideLearningHubOverlay({ phase = "await-open", onNext }) {
   const bubbleRef = useRef(null);
   const [top, setTop] = useState(null);
@@ -41,14 +45,44 @@ export default function ClaraGuideLearningHubOverlay({ phase = "await-open", onN
     const target = document.querySelector(TARGET_SELECTORS[phase] || TARGET_SELECTORS["await-open"]);
     if (!bubble || !target) return;
 
-    const targetRect = target.getBoundingClientRect();
+    let targetRect = target.getBoundingClientRect();
     const bubbleRect = bubble.getBoundingClientRect();
-    const gap = 12;
+    const gap = phase === "preview" ? 16 : 12;
     const safeTop = getSafeTop();
     const safeBottom = window.innerHeight - 12;
+    const maxTop = Math.max(safeTop, safeBottom - bubbleRect.height);
+
+    if (phase === "preview") {
+      let belowTarget = targetRect.bottom + gap;
+      const overflow = belowTarget + bubbleRect.height - safeBottom;
+
+      // The preview explanation belongs after the Learning Hub, never on top of it.
+      // Open enough space below the real carousel before positioning the portal.
+      if (overflow > 1) {
+        const scroller = getDashboardScroller(target);
+        if (scroller) {
+          const currentScrollTop = Number(scroller.scrollTop) || 0;
+          const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+          const nextScrollTop = Math.min(
+            maxScrollTop,
+            currentScrollTop + overflow + 24,
+          );
+
+          if (nextScrollTop > currentScrollTop + 1) {
+            scroller.scrollTop = nextScrollTop;
+            targetRect = target.getBoundingClientRect();
+            belowTarget = targetRect.bottom + gap;
+          }
+        }
+      }
+
+      setArrowPlacement("top");
+      setTop(Math.max(safeTop, Math.min(maxTop, belowTarget)));
+      return;
+    }
+
     const belowTarget = targetRect.bottom + gap;
     const aboveTarget = targetRect.top - bubbleRect.height - gap;
-    const maxTop = Math.max(safeTop, safeBottom - bubbleRect.height);
 
     if (belowTarget + bubbleRect.height <= safeBottom) {
       setArrowPlacement("top");
@@ -144,8 +178,9 @@ export default function ClaraGuideLearningHubOverlay({ phase = "await-open", onN
         {hasNext ? (
           <button
             type="button"
+            data-clara-guide-learning-hub-next="true"
             onClick={onNext}
-            className="clara-guide-learning-hub-next pointer-events-auto relative z-20 mt-4 min-h-[44px] w-full touch-manipulation select-none cursor-pointer rounded-full border border-cyan-100/30 bg-cyan-100/15 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 active:scale-[0.99]"
+            className="clara-guide-learning-hub-next pointer-events-auto relative z-20 mt-4 flex min-h-[48px] w-full touch-manipulation select-none cursor-pointer items-center justify-center rounded-full border border-cyan-100/30 bg-[linear-gradient(135deg,rgba(207,250,254,0.18),rgba(103,232,249,0.10)_48%,rgba(129,140,248,0.13))] px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.14)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 active:scale-[0.99]"
           >
             NEXT
           </button>
