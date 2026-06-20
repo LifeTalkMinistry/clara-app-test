@@ -6,7 +6,11 @@ const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const CLARA_GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
 const CLARA_GUIDE_ME_PHASE_CHANGE_EVENT = "clara:guide-me-phase-change";
 const CLARA_GUIDE_ME_PHASE_REQUEST_EVENT = "clara:guide-me-phase-request";
+const CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT = "clara:guide-schedule-phase-change";
+const CLARA_GUIDE_SCHEDULE_PHASE_REQUEST_EVENT = "clara:guide-schedule-phase-request";
 const GUIDE_FEATURE_MONEY_LEFT_ORB = "money-left-orb";
+const GUIDE_FEATURE_ME_PAGE = "me-page";
+const GUIDE_FEATURE_SCHEDULE = "schedule";
 
 const ME_GUIDE_PHASES = {
   INACTIVE: "inactive",
@@ -14,6 +18,38 @@ const ME_GUIDE_PHASES = {
   ME_PAGE_PREVIEW: "me-page-preview",
   COMPLETE: "complete",
 };
+
+const SCHEDULE_GUIDE_PHASES = {
+  INACTIVE: "inactive",
+  AWAIT_SCHEDULE_TAB: "await-schedule-tab",
+  OVERVIEW: "schedule-overview",
+  AGENDA_OVERVIEW: "agenda-overview",
+  CALENDAR_OVERVIEW: "calendar-overview",
+  SELECT_DATE: "select-date",
+  DATE_SELECTED: "date-selected",
+  DOUBLE_TAP_DATE: "double-tap-date",
+  SETUP_EVENT: "setup-event",
+  EVENT_SAVED: "event-saved",
+  OPEN_EVENT_DETAILS: "open-event-details",
+  EVENT_DETAILS: "event-details",
+  COMPLETE: "complete",
+};
+
+const SCHEDULE_GUIDE_ROOT_CLASS_BY_PHASE = {
+  [SCHEDULE_GUIDE_PHASES.AWAIT_SCHEDULE_TAB]: "clara-guide-schedule-await-active",
+  [SCHEDULE_GUIDE_PHASES.OVERVIEW]: "clara-guide-schedule-overview-active",
+  [SCHEDULE_GUIDE_PHASES.AGENDA_OVERVIEW]: "clara-guide-schedule-agenda-active",
+  [SCHEDULE_GUIDE_PHASES.CALENDAR_OVERVIEW]: "clara-guide-schedule-calendar-active",
+  [SCHEDULE_GUIDE_PHASES.SELECT_DATE]: "clara-guide-schedule-select-date-active",
+  [SCHEDULE_GUIDE_PHASES.DATE_SELECTED]: "clara-guide-schedule-date-selected-active",
+  [SCHEDULE_GUIDE_PHASES.DOUBLE_TAP_DATE]: "clara-guide-schedule-double-tap-active",
+  [SCHEDULE_GUIDE_PHASES.SETUP_EVENT]: "clara-guide-schedule-setup-active",
+  [SCHEDULE_GUIDE_PHASES.EVENT_SAVED]: "clara-guide-schedule-event-saved-active",
+  [SCHEDULE_GUIDE_PHASES.OPEN_EVENT_DETAILS]: "clara-guide-schedule-open-details-active",
+  [SCHEDULE_GUIDE_PHASES.EVENT_DETAILS]: "clara-guide-schedule-details-active",
+};
+
+const SCHEDULE_GUIDE_ROOT_CLASSES = Object.values(SCHEDULE_GUIDE_ROOT_CLASS_BY_PHASE);
 
 const GUIDE_ROOT_FEATURE_CLASSES = [
   "clara-guide-finance-carousel-active",
@@ -52,6 +88,36 @@ function ClaraGuideMeNavigationBubble() {
   );
 }
 
+function ClaraGuideScheduleNavigationBubble() {
+  return (
+    <div
+      className="pointer-events-none fixed left-1/2 z-[240] w-[min(calc(100vw-40px),360px)] -translate-x-1/2"
+      style={{ top: "clamp(112px, 15dvh, 150px)" }}
+    >
+      <div
+        role="dialog"
+        aria-live="polite"
+        aria-labelledby="clara-guide-schedule-navigation-title"
+        className="relative rounded-[28px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.98),rgba(10,22,54,0.98)_52%,rgba(27,18,65,0.98))] px-5 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl"
+      >
+        <div className="pointer-events-none absolute -top-2 left-[62.5%] h-4 w-4 -translate-x-1/2 rotate-45 border-l border-t border-cyan-100/24 bg-[rgba(8,20,45,0.98)]" />
+        <p
+          id="clara-guide-schedule-navigation-title"
+          className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100"
+        >
+          SCHEDULE
+        </p>
+        <p className="mt-3 text-[14px] font-bold leading-relaxed text-white">
+          This is where CLARA turns upcoming plans into money-aware reminders before the day arrives.
+        </p>
+        <p className="mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
+          TAP SCHEDULE NOW.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardTopNav({
   dashboardScale,
   headerQuickActions = [],
@@ -67,15 +133,29 @@ export default function DashboardTopNav({
 }) {
   const [isGuideModeTopNav, setIsGuideModeTopNav] = useState(false);
   const [meGuidePhase, setMeGuidePhase] = useState(ME_GUIDE_PHASES.INACTIVE);
+  const [scheduleGuidePhase, setScheduleGuidePhase] = useState(SCHEDULE_GUIDE_PHASES.INACTIVE);
   const isAwaitingMeTab = meGuidePhase === ME_GUIDE_PHASES.AWAIT_ME_TAB;
   const isMePagePreviewActive = meGuidePhase === ME_GUIDE_PHASES.ME_PAGE_PREVIEW;
   const isMeGuideComplete = meGuidePhase === ME_GUIDE_PHASES.COMPLETE;
   const isMePageGuideVisible = isMePagePreviewActive || isMeGuideComplete;
+  const isAwaitingScheduleTab = scheduleGuidePhase === SCHEDULE_GUIDE_PHASES.AWAIT_SCHEDULE_TAB;
+  const isSchedulePageGuideVisible =
+    scheduleGuidePhase !== SCHEDULE_GUIDE_PHASES.INACTIVE &&
+    scheduleGuidePhase !== SCHEDULE_GUIDE_PHASES.AWAIT_SCHEDULE_TAB;
 
   const publishMeGuidePhase = useCallback((phase) => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
       new CustomEvent(CLARA_GUIDE_ME_PHASE_CHANGE_EVENT, {
+        detail: { phase },
+      })
+    );
+  }, []);
+
+  const publishScheduleGuidePhase = useCallback((phase) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent(CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT, {
         detail: { phase },
       })
     );
@@ -87,17 +167,46 @@ export default function DashboardTopNav({
     const handleGuideModeChange = (event) => {
       const active = Boolean(event?.detail?.active);
       setIsGuideModeTopNav(active);
-      if (!active) setMeGuidePhase(ME_GUIDE_PHASES.INACTIVE);
+      if (!active) {
+        setMeGuidePhase(ME_GUIDE_PHASES.INACTIVE);
+        setScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.INACTIVE);
+      }
     };
 
     const handleGuideFeatureComplete = (event) => {
-      if (event?.detail?.feature !== GUIDE_FEATURE_MONEY_LEFT_ORB) return;
+      const completedFeature = event?.detail?.feature;
 
-      GUIDE_ROOT_FEATURE_CLASSES.forEach((className) => {
-        document.documentElement.classList.remove(className);
-      });
-      document.documentElement.classList.add("clara-guide-me-await-active");
-      setMeGuidePhase(ME_GUIDE_PHASES.AWAIT_ME_TAB);
+      if (completedFeature === GUIDE_FEATURE_MONEY_LEFT_ORB) {
+        GUIDE_ROOT_FEATURE_CLASSES.forEach((className) => {
+          document.documentElement.classList.remove(className);
+        });
+        document.documentElement.classList.add("clara-guide-me-await-active");
+        setMeGuidePhase(ME_GUIDE_PHASES.AWAIT_ME_TAB);
+        return;
+      }
+
+      if (completedFeature === GUIDE_FEATURE_ME_PAGE) {
+        document.documentElement.classList.remove(
+          "clara-guide-me-await-active",
+          "clara-guide-me-preview-active",
+          "clara-guide-me-complete-active"
+        );
+        setMeGuidePhase(ME_GUIDE_PHASES.INACTIVE);
+        publishMeGuidePhase(ME_GUIDE_PHASES.INACTIVE);
+        setScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.AWAIT_SCHEDULE_TAB);
+        publishScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.AWAIT_SCHEDULE_TAB);
+        return;
+      }
+
+      if (completedFeature === GUIDE_FEATURE_SCHEDULE) {
+        SCHEDULE_GUIDE_ROOT_CLASSES.forEach((className) => {
+          document.documentElement.classList.remove(className);
+        });
+        setScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.INACTIVE);
+        publishScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.INACTIVE);
+        setIsGuideModeTopNav(false);
+        window.dispatchEvent(new CustomEvent(CLARA_GUIDE_EXIT_EVENT));
+      }
     };
 
     const handleMeGuidePhaseRequest = (event) => {
@@ -107,16 +216,25 @@ export default function DashboardTopNav({
       }
     };
 
+    const handleScheduleGuidePhaseRequest = (event) => {
+      const requestedPhase = event?.detail?.phase;
+      if (!Object.values(SCHEDULE_GUIDE_PHASES).includes(requestedPhase)) return;
+      setScheduleGuidePhase(requestedPhase);
+      publishScheduleGuidePhase(requestedPhase);
+    };
+
     window.addEventListener(CLARA_GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
     window.addEventListener(CLARA_GUIDE_FEATURE_COMPLETE_EVENT, handleGuideFeatureComplete);
     window.addEventListener(CLARA_GUIDE_ME_PHASE_REQUEST_EVENT, handleMeGuidePhaseRequest);
+    window.addEventListener(CLARA_GUIDE_SCHEDULE_PHASE_REQUEST_EVENT, handleScheduleGuidePhaseRequest);
 
     return () => {
       window.removeEventListener(CLARA_GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
       window.removeEventListener(CLARA_GUIDE_FEATURE_COMPLETE_EVENT, handleGuideFeatureComplete);
       window.removeEventListener(CLARA_GUIDE_ME_PHASE_REQUEST_EVENT, handleMeGuidePhaseRequest);
+      window.removeEventListener(CLARA_GUIDE_SCHEDULE_PHASE_REQUEST_EVENT, handleScheduleGuidePhaseRequest);
     };
-  }, []);
+  }, [publishMeGuidePhase, publishScheduleGuidePhase]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -125,27 +243,43 @@ export default function DashboardTopNav({
     root.classList.toggle("clara-guide-me-await-active", isAwaitingMeTab);
     root.classList.toggle("clara-guide-me-preview-active", isMePagePreviewActive);
     root.classList.toggle("clara-guide-me-complete-active", isMeGuideComplete);
+    SCHEDULE_GUIDE_ROOT_CLASSES.forEach((className) => root.classList.remove(className));
+    const activeScheduleClass = SCHEDULE_GUIDE_ROOT_CLASS_BY_PHASE[scheduleGuidePhase];
+    if (activeScheduleClass) root.classList.add(activeScheduleClass);
     publishMeGuidePhase(meGuidePhase);
+    publishScheduleGuidePhase(scheduleGuidePhase);
 
     return () => {
       root.classList.remove(
         "clara-guide-me-await-active",
         "clara-guide-me-preview-active",
-        "clara-guide-me-complete-active"
+        "clara-guide-me-complete-active",
+        ...SCHEDULE_GUIDE_ROOT_CLASSES
       );
     };
-  }, [isAwaitingMeTab, isMeGuideComplete, isMePagePreviewActive, meGuidePhase, publishMeGuidePhase]);
+  }, [
+    isAwaitingMeTab,
+    isMeGuideComplete,
+    isMePagePreviewActive,
+    meGuidePhase,
+    publishMeGuidePhase,
+    publishScheduleGuidePhase,
+    scheduleGuidePhase,
+  ]);
 
   const handleGuideExit = () => {
     setIsGuideModeTopNav(false);
     setMeGuidePhase(ME_GUIDE_PHASES.INACTIVE);
+    setScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.INACTIVE);
     publishMeGuidePhase(ME_GUIDE_PHASES.INACTIVE);
+    publishScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.INACTIVE);
 
     if (typeof document !== "undefined") {
       document.documentElement.classList.remove(
         "clara-guide-me-await-active",
         "clara-guide-me-preview-active",
-        "clara-guide-me-complete-active"
+        "clara-guide-me-complete-active",
+        ...SCHEDULE_GUIDE_ROOT_CLASSES
       );
     }
 
@@ -155,22 +289,35 @@ export default function DashboardTopNav({
   };
 
   const handleGuideNavigationTargetClick = (itemKey) => {
-    if (!isAwaitingMeTab || itemKey !== "me") return;
+    if (isAwaitingMeTab && itemKey === "me") {
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("clara-guide-me-await-active");
+        document.documentElement.classList.add("clara-guide-me-preview-active");
+      }
 
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.remove("clara-guide-me-await-active");
-      document.documentElement.classList.add("clara-guide-me-preview-active");
+      openDashboardPanel("me");
+      setMeGuidePhase(ME_GUIDE_PHASES.ME_PAGE_PREVIEW);
+      publishMeGuidePhase(ME_GUIDE_PHASES.ME_PAGE_PREVIEW);
+      return;
     }
 
-    openDashboardPanel("me");
-    setMeGuidePhase(ME_GUIDE_PHASES.ME_PAGE_PREVIEW);
-    publishMeGuidePhase(ME_GUIDE_PHASES.ME_PAGE_PREVIEW);
+    if (isAwaitingScheduleTab && itemKey === "schedule") {
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("clara-guide-schedule-await-active");
+        document.documentElement.classList.add("clara-guide-schedule-overview-active");
+      }
+
+      openDashboardPanel("schedule");
+      setScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.OVERVIEW);
+      publishScheduleGuidePhase(SCHEDULE_GUIDE_PHASES.OVERVIEW);
+    }
   };
 
   return (
     <>
       <style>{`
-        html.clara-guide-me-await-active .clara-guide-carousel-bubble-shell {
+        html.clara-guide-me-await-active .clara-guide-carousel-bubble-shell,
+        html.clara-guide-schedule-await-active .clara-guide-carousel-bubble-shell {
           display: none !important;
         }
 
@@ -187,11 +334,12 @@ export default function DashboardTopNav({
         }
       `}</style>
 
-      {isMePageGuideVisible ? (
+      {isMePageGuideVisible || isSchedulePageGuideVisible ? (
         <div className="fixed inset-0 z-[60] bg-slate-950/82 backdrop-blur-[2px]" aria-hidden="true" />
       ) : null}
 
       {isAwaitingMeTab ? <ClaraGuideMeNavigationBubble /> : null}
+      {isAwaitingScheduleTab ? <ClaraGuideScheduleNavigationBubble /> : null}
 
       <div className={`relative shrink-0 ${isGuideModeTopNav ? "z-[100]" : "z-30"} ${dashboardScale.headerOuter}`}>
         <div className="mx-auto w-full max-w-[430px] overflow-visible">
@@ -209,7 +357,10 @@ export default function DashboardTopNav({
 
             <div className="relative grid grid-cols-4 gap-1.5 sm:gap-2">
               {headerQuickActions.map((item, index) => {
-                const isGuideTargetSlot = isGuideModeTopNav && isAwaitingMeTab && item.key === "me";
+                const isGuideMeTargetSlot = isGuideModeTopNav && isAwaitingMeTab && item.key === "me";
+                const isGuideScheduleTargetSlot =
+                  isGuideModeTopNav && isAwaitingScheduleTab && item.key === "schedule";
+                const isGuideTargetSlot = isGuideMeTargetSlot || isGuideScheduleTargetSlot;
                 const isGuideExitSlot = isGuideModeTopNav && item.key === "settings";
                 const isGuideStaticSlot =
                   isGuideModeTopNav && !isGuideExitSlot && !isGuideTargetSlot;
@@ -218,11 +369,17 @@ export default function DashboardTopNav({
                   isMePageGuideVisible &&
                   item.key === "me" &&
                   activeDashboardPanel === "me";
+                const isGuideScheduleActiveSlot =
+                  isGuideModeTopNav &&
+                  isSchedulePageGuideVisible &&
+                  item.key === "schedule" &&
+                  activeDashboardPanel === "schedule";
                 const Icon = isGuideExitSlot ? X : item.icon;
                 const itemLabel = isGuideExitSlot ? "Exit" : item.label;
                 const isActive =
                   isGuideExitSlot ||
                   isGuideMeActiveSlot ||
+                  isGuideScheduleActiveSlot ||
                   (!isGuideModeTopNav && activeDashboardPanel === item.key);
                 const pillGlow =
                   item.key === "feed"
@@ -234,7 +391,7 @@ export default function DashboardTopNav({
                   item.key === "feed"
                     ? "group-hover:shadow-[0_0_24px_rgba(59,130,246,0.18)]"
                     : item.key === "task"
-                      ? "group-hover:shadow-[0_0_24px_rgba(250,204,21,0.18)]"
+                      ? "group-hover:shadow-[0_0_24px_rgba(250,204,21,0.22)]"
                       : item.key === "settings"
                         ? "group-hover:shadow-[0_0_22px_rgba(255,255,255,0.16)]"
                         : "group-hover:shadow-[0_0_22px_rgba(255,255,255,0.10)]";
@@ -256,7 +413,8 @@ export default function DashboardTopNav({
                     key={item.key}
                     type="button"
                     data-clara-guide-exit={isGuideExitSlot ? "true" : undefined}
-                    data-clara-guide-me-target={isGuideTargetSlot ? "true" : undefined}
+                    data-clara-guide-me-target={isGuideMeTargetSlot ? "true" : undefined}
+                    data-clara-guide-schedule-target={isGuideScheduleTargetSlot ? "true" : undefined}
                     onClick={
                       isGuideExitSlot
                         ? handleGuideExit
