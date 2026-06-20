@@ -41,6 +41,13 @@ html.clara-guide-learning-hub-await-active
 }
 
 html.clara-guide-learning-hub-preview-active
+#root [data-clara-guide-learning-hub-preview-stack='true'],
+html.clara-guide-learning-hub-preview-active
+#root [data-clara-guide-learning-hub-inline-bubble='true'] {
+  overflow-anchor: none;
+}
+
+html.clara-guide-learning-hub-preview-active
 #root [data-clara-guide-learning-hub-preview='true'] {
   position: relative;
   z-index: 190 !important;
