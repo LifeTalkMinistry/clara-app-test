@@ -1,0 +1,269 @@
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+) {
+  --clara-schedule-guide-bubble-width: min(calc(100vw - 32px), 354px);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-bubble='true'] {
+  width: var(--clara-schedule-guide-bubble-width);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-bubble='true'] > [role='dialog'] {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(207, 250, 254, 0.24);
+  border-radius: 24px;
+  padding: 14px 16px;
+  color: white;
+  background: linear-gradient(145deg, rgba(5, 18, 36, 0.985), rgba(10, 22, 54, 0.985) 52%, rgba(27, 18, 65, 0.985));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.68), 0 0 38px rgba(34, 211, 238, 0.16);
+  backdrop-filter: blur(24px);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+#clara-guide-schedule-title {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.25;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(207 250 254);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-body='true'] {
+  margin: 7px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: white;
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-supporting='true'] {
+  margin: 5px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-action='true'] {
+  min-width: 72px;
+  min-height: 42px;
+  flex: 0 0 auto;
+  touch-action: manipulation;
+  border: 1px solid rgba(207, 250, 254, 0.3);
+  border-radius: 999px;
+  padding: 10px 17px;
+  background: rgba(207, 250, 254, 0.15);
+  color: rgb(236 254 255);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 28px rgba(34, 211, 238, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-divider='true'] {
+  height: 1px;
+  margin-top: 11px;
+  background: rgba(207, 250, 254, 0.15);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-footer='true'] {
+  width: 100%;
+  margin: 9px 0 0;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1.4;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+  color: rgba(207, 250, 254, 0.86);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-arrow='true'] {
+  border-color: rgba(207, 250, 254, 0.24);
+  background: rgba(12, 21, 49, 0.985);
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-arrow='true'][data-placement='top'] {
+  top: -7px;
+  border-left-width: 1px;
+  border-top-width: 1px;
+}
+
+html:is(
+  .clara-guide-schedule-overview-active,
+  .clara-guide-schedule-agenda-active,
+  .clara-guide-schedule-calendar-active,
+  .clara-guide-schedule-select-date-active,
+  .clara-guide-schedule-date-selected-active,
+  .clara-guide-schedule-double-tap-active,
+  .clara-guide-schedule-setup-active,
+  .clara-guide-schedule-event-saved-active,
+  .clara-guide-schedule-open-details-active,
+  .clara-guide-schedule-details-active
+)
+[data-clara-guide-schedule-arrow='true'][data-placement='bottom'] {
+  bottom: -7px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+}
+
+html.clara-guide-schedule-overview-active [data-clara-guide-schedule-static-surface='true'],
+html.clara-guide-schedule-agenda-active [data-clara-schedule-agenda-card='true'],
+html.clara-guide-schedule-calendar-active [data-clara-schedule-calendar='true'],
+html.clara-guide-schedule-select-date-active [data-clara-guide-schedule-target-date='true'],
+html.clara-guide-schedule-date-selected-active [data-clara-schedule-agenda-card='true'],
+html.clara-guide-schedule-double-tap-active [data-clara-guide-schedule-target-date='true'],
+html.clara-guide-schedule-setup-active [data-clara-schedule-sheet-surface='true'],
+html.clara-guide-schedule-event-saved-active [data-clara-schedule-agenda-card='true'],
+html.clara-guide-schedule-open-details-active [data-clara-schedule-agenda-card='true'],
+html.clara-guide-schedule-details-active [data-clara-schedule-event-detail='true'] {
+  position: relative;
+  z-index: 90 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: auto;
+}
+
+html:is(.clara-guide-schedule-select-date-active, .clara-guide-schedule-double-tap-active)
+[data-clara-guide-schedule-target-date='true'] {
+  outline: 2px solid rgba(165, 243, 252, 0.9);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(8, 47, 73, 0.68), 0 0 28px rgba(34, 211, 238, 0.42) !important;
+}
+
+html.clara-guide-schedule-setup-active [data-clara-schedule-calculate-impact='true'],
+html.clara-guide-schedule-details-active [data-clara-schedule-remove-event='true'] {
+  opacity: 0.38;
+  cursor: default;
+}
