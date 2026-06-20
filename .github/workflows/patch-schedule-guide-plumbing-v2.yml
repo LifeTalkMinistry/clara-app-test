@@ -1,4 +1,4 @@
-name: Patch Schedule Guide panel structure
+name: Diagnose Schedule Guide panel structure
 
 on:
   push:
@@ -17,14 +17,17 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Apply structure patch
-        run: python scripts/oneoff/patch_schedule_guide_panel_structure.py
+      - name: Run patch and capture output
+        shell: bash
+        run: |
+          mkdir -p .github/patch-diagnostics
+          python scripts/oneoff/patch_schedule_guide_panel_structure.py > .github/patch-diagnostics/schedule-guide.log 2>&1 || true
 
-      - name: Commit
+      - name: Commit diagnostics and any patch
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx
-          git commit -m "Add Schedule Guide markers"
+          git add .github/patch-diagnostics/schedule-guide.log src/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel.jsx
+          git commit -m "Diagnose Schedule Guide structure patch"
           git push origin HEAD:main
