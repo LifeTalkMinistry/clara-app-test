@@ -2,6 +2,8 @@ import "../guide-mode-next-buttons.css";
 
 const SAMPLE_CLASS = "clara-guide-daily-tip-sample-active";
 const CAROUSEL_CLASS = "clara-guide-finance-carousel-active";
+const LEARNING_HUB_AWAIT_CLASS = "clara-guide-learning-hub-await-active";
+const LEARNING_HUB_PREVIEW_CLASS = "clara-guide-learning-hub-preview-active";
 const MONEY_LEFT_CLASS = "clara-guide-money-left-active";
 const MONEY_LEFT_PRIVACY_CLASS = "clara-guide-money-left-privacy-active";
 const MONEY_LEFT_ORB_CLASS = "clara-guide-money-left-orb-active";
@@ -11,6 +13,7 @@ const ORB_PREVIEW_NEXT_SELECTOR = "[data-clara-guide-orb-preview-next='true']";
 const TARGET_CHANGE_EVENT = "clara:guide-target-change";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
+const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
 const GUIDE_ORB_SELECTOR = "[data-clara-manual-expense-orb='true']";
 const GUIDE_SUMMARY_SELECTOR = "[data-clara-dashboard-section='money-summary']";
 const GUIDE_TOUCH_MOVE_LIMIT = 20;
@@ -24,6 +27,37 @@ function hasGuideSample() {
 
 function hasCarouselStep() {
   return document.documentElement.classList.contains(CAROUSEL_CLASS);
+}
+
+function hasLearningHubStep() {
+  const root = document.documentElement;
+  return (
+    root.classList.contains(LEARNING_HUB_AWAIT_CLASS) ||
+    root.classList.contains(LEARNING_HUB_PREVIEW_CLASS)
+  );
+}
+
+function applyLearningHubPhase(phase, { emit = true } = {}) {
+  if (typeof document === "undefined") return;
+
+  const root = document.documentElement;
+  const isAwaitOpen = phase === "await-open";
+  const isPreview = phase === "preview";
+
+  root.classList.toggle(LEARNING_HUB_AWAIT_CLASS, isAwaitOpen);
+  root.classList.toggle(LEARNING_HUB_PREVIEW_CLASS, isPreview);
+
+  if ((isAwaitOpen || isPreview) && root.classList.contains(CAROUSEL_CLASS)) {
+    root.classList.remove(CAROUSEL_CLASS);
+  }
+
+  if (emit && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(LEARNING_HUB_PHASE_EVENT, {
+        detail: { phase: isAwaitOpen ? "await-open" : isPreview ? "preview" : "inactive" },
+      }),
+    );
+  }
 }
 
 function isAwaitSingleOrb(target) {
@@ -84,7 +118,7 @@ function finishFinanceNextPointer(event, cancelled = false) {
 }
 
 function ensureNextButton() {
-  if (!hasGuideSample() || hasCarouselStep()) return;
+  if (!hasGuideSample() || hasCarouselStep() || hasLearningHubStep()) return;
 
   const surface = document.querySelector(".clara-guide-bubble-surface");
   if (!surface || surface.querySelector(`.${NEXT_CLASS}`)) return;
@@ -104,6 +138,8 @@ export function clearClaraGuideFeatureClasses() {
   document.documentElement.classList.remove(
     SAMPLE_CLASS,
     CAROUSEL_CLASS,
+    LEARNING_HUB_AWAIT_CLASS,
+    LEARNING_HUB_PREVIEW_CLASS,
     MONEY_LEFT_CLASS,
     MONEY_LEFT_PRIVACY_CLASS,
     MONEY_LEFT_ORB_CLASS,
@@ -128,7 +164,14 @@ function scrollDashboardGuideToTop(behavior = "smooth") {
   window.scrollTo?.({ top: 0, behavior });
 }
 
-function goToCarouselStep() {
+function scrollLearningHubIntoView() {
+  const learningHubToggle = document.querySelector(
+    "[data-clara-guide-learning-hub-toggle='true']",
+  );
+  learningHubToggle?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+}
+
+function goToLearningHubStep() {
   if (!hasGuideSample()) {
     removeNextButton();
     return;
@@ -136,23 +179,18 @@ function goToCarouselStep() {
 
   document.documentElement.classList.remove(
     SAMPLE_CLASS,
+    CAROUSEL_CLASS,
     MONEY_LEFT_CLASS,
     MONEY_LEFT_PRIVACY_CLASS,
     MONEY_LEFT_ORB_CLASS,
   );
-  document.documentElement.classList.add(CAROUSEL_CLASS);
-
-  window.dispatchEvent(
-    new CustomEvent(TARGET_CHANGE_EVENT, {
-      detail: { feature: "finance-carousel" },
-    }),
-  );
+  applyLearningHubPhase("await-open");
 
   removeNextButton();
   protectSingleTapUntil = 0;
   financeNextPointer = null;
 
-  window.setTimeout(() => scrollDashboardGuideToTop("smooth"), 80);
+  window.setTimeout(scrollLearningHubIntoView, 80);
 }
 
 export function installClaraGuideCarouselStep() {
@@ -211,13 +249,17 @@ export function installClaraGuideCarouselStep() {
     if (nextButton) {
       event.preventDefault();
       event.stopPropagation();
-      goToCarouselStep();
+      goToLearningHubStep();
       return;
     }
 
     window.setTimeout(() => {
       if (hasGuideSample()) ensureNextButton();
     }, 60);
+  });
+
+  window.addEventListener(LEARNING_HUB_PHASE_EVENT, (event) => {
+    applyLearningHubPhase(event?.detail?.phase, { emit: false });
   });
 
   window.addEventListener(GUIDE_MODE_CHANGE_EVENT, () => {
@@ -233,6 +275,10 @@ export function installClaraGuideCarouselStep() {
   window.addEventListener(TARGET_CHANGE_EVENT, (event) => {
     protectSingleTapUntil = 0;
     financeNextPointer = null;
+
+    if (event?.detail?.feature !== "learning-hub") {
+      applyLearningHubPhase("inactive", { emit: false });
+    }
 
     if (event?.detail?.feature !== "money-left-orb") {
       document.documentElement.classList.remove(MONEY_LEFT_ORB_CLASS);
