@@ -1,7 +1,8 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
+import ClaraGuideLearningHubInlineBubble from "../guide/ClaraGuideLearningHubInlineBubble";
 import ClaraGuideLearningHubOverlay from "../guide/ClaraGuideLearningHubOverlay";
 import ClaraGuideLearningHubPreview from "../guide/ClaraGuideLearningHubPreview";
 import {
@@ -16,6 +17,30 @@ const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
 const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+
+function getDashboardScrollRoot() {
+  if (typeof document === "undefined") return null;
+
+  return document.querySelector(
+    "[data-clara-dashboard-scroll-root='true']",
+  );
+}
+
+function restoreDashboardScrollPosition(scroller, scrollTop) {
+  if (!scroller || typeof window === "undefined") return;
+
+  const restore = () => {
+    scroller.scrollTop = scrollTop;
+  };
+
+  window.requestAnimationFrame(() => {
+    restore();
+
+    window.requestAnimationFrame(() => {
+      restore();
+    });
+  });
+}
 
 function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   return (
@@ -92,6 +117,7 @@ export default function LearningHub({
   const navigate = useNavigate();
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
   const [learningHubGuidePhase, setLearningHubGuidePhase] = useState("inactive");
+  const learningHubGuideEntryScrollRef = useRef(null);
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
@@ -108,6 +134,7 @@ export default function LearningHub({
     if (typeof window === "undefined") return undefined;
 
     const resetGuidePreview = () => {
+      learningHubGuideEntryScrollRef.current = null;
       setLearningHubGuidePhase("inactive");
       setShouldLoadHub(false);
     };
@@ -115,6 +142,7 @@ export default function LearningHub({
     const handleLearningHubPhase = (event) => {
       const phase = event?.detail?.phase;
       if (phase === "await-open") {
+        learningHubGuideEntryScrollRef.current = null;
         setShouldLoadHub(false);
         setLearningHubGuidePhase("await-open");
         return;
@@ -145,6 +173,7 @@ export default function LearningHub({
     window.addEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
 
     return () => {
+      learningHubGuideEntryScrollRef.current = null;
       window.removeEventListener(LEARNING_HUB_PHASE_EVENT, handleLearningHubPhase);
       window.removeEventListener(GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
       window.removeEventListener(GUIDE_EXIT_EVENT, resetGuidePreview);
@@ -155,6 +184,11 @@ export default function LearningHub({
   const handleOpenHub = () => {
     if (isGuideMode) {
       if (isLearningHubGuideAwaitOpen) {
+        const dashboardScroller = getDashboardScrollRoot();
+
+        learningHubGuideEntryScrollRef.current =
+          Number(dashboardScroller?.scrollTop) || 0;
+
         setShouldLoadHub(true);
         setLearningHubGuidePhase("preview");
         emitLearningHubPhase("preview");
@@ -171,7 +205,16 @@ export default function LearningHub({
   };
 
   const handleGuideLearningHubNext = () => {
-    if (!isLearningHubGuidePreview || typeof window === "undefined") return;
+    if (!isLearningHubGuidePreview || typeof window === "undefined") {
+      return;
+    }
+
+    const dashboardScroller = getDashboardScrollRoot();
+    const savedScrollTop = learningHubGuideEntryScrollRef.current;
+    const restoreScrollTop =
+      savedScrollTop === null
+        ? Number(dashboardScroller?.scrollTop) || 0
+        : Number(savedScrollTop) || 0;
 
     setShouldLoadHub(false);
     setLearningHubGuidePhase("inactive");
@@ -179,16 +222,18 @@ export default function LearningHub({
 
     window.dispatchEvent(
       new CustomEvent(GUIDE_TARGET_CHANGE_EVENT, {
-        detail: { feature: "finance-carousel" },
+        detail: {
+          feature: "finance-carousel",
+        },
       }),
     );
 
-    window.setTimeout(() => {
-      document.querySelector(".clara-guide-carousel-anchor")?.scrollIntoView?.({
-        block: "center",
-        behavior: "smooth",
-      });
-    }, 80);
+    restoreDashboardScrollPosition(
+      dashboardScroller,
+      restoreScrollTop,
+    );
+
+    learningHubGuideEntryScrollRef.current = null;
   };
 
   return (
@@ -251,18 +296,24 @@ export default function LearningHub({
             )}
           </div>
         ) : isLearningHubGuidePreview ? (
-          <ClaraGuideLearningHubPreview flushSpacing />
+          <div
+            data-clara-guide-learning-hub-preview-stack="true"
+            className="flex w-full flex-col"
+          >
+            <ClaraGuideLearningHubPreview flushSpacing />
+
+            <ClaraGuideLearningHubInlineBubble
+              onNext={handleGuideLearningHubNext}
+            />
+          </div>
         ) : (
           <Suspense fallback={null}>
             <LearningHubLoaded initialExpanded flushSpacing={true} />
           </Suspense>
         )}
 
-        {isLearningHubGuideActive ? (
-          <ClaraGuideLearningHubOverlay
-            phase={learningHubGuidePhase}
-            onNext={isLearningHubGuidePreview ? handleGuideLearningHubNext : undefined}
-          />
+        {isLearningHubGuideAwaitOpen ? (
+          <ClaraGuideLearningHubOverlay phase="await-open" />
         ) : null}
       </div>
     </section>
