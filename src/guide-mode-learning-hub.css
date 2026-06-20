@@ -75,6 +75,13 @@ html.clara-guide-learning-hub-preview-active
 }
 
 html.clara-guide-learning-hub-preview-active
+#root [data-clara-guide-learning-hub-preview='true'] > section > button,
+html.clara-guide-learning-hub-preview-active
+#root [data-clara-guide-learning-hub-preview='true'] [data-clara-learning-hub-loaded-bridge='true'] button {
+  pointer-events: none !important;
+}
+
+html.clara-guide-learning-hub-preview-active
 #root [data-clara-guide-learning-hub-preview='true'] button {
   cursor: default !important;
 }
