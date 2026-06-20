@@ -15,7 +15,7 @@ const COPY = {
   complete: {
     title: "ME PAGE READY",
     body: "CLARA can now connect money decisions with your real-life context.",
-    supporting: "Your existing profile remains unchanged while you are inside Guide Mode.",
+    supporting: "",
     footer: "YOUR REAL-LIFE CONTEXT MAKES THE GUIDANCE PERSONAL.",
   },
 };
