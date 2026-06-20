@@ -89,12 +89,14 @@ export default function ClaraAiEnvironmentOverlay({
   isActive = false,
   messages = [],
   onClose,
+  layoutVariant = "default",
 }) {
   const [draft, setDraft] = useState("");
   const [localMessages, setLocalMessages] = useState([]);
   const [selectedFeature, setSelectedFeature] = useState("buy-check");
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const isGuidePreview = layoutVariant === "guide-preview";
 
   const visibleMessages = useMemo(
     () => [...(Array.isArray(messages) ? messages : []), ...localMessages].filter(Boolean),
@@ -161,24 +163,55 @@ export default function ClaraAiEnvironmentOverlay({
     setDraft("");
   };
 
+  const messageStackClassName = isGuidePreview
+    ? "flex min-h-full min-w-0 flex-col justify-start gap-4 px-2 pb-32 pt-0"
+    : "flex min-h-full flex-col justify-start gap-3 px-2 pb-28 pt-12";
+
+  const userBubbleClassName = isGuidePreview
+    ? "w-fit max-w-[78%] rounded-[22px] bg-emerald-300 px-4 py-2.5 text-[13px] font-semibold leading-5 text-slate-950"
+    : "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950";
+
+  const claraBubbleClassName = isGuidePreview
+    ? "w-fit max-w-[86%] rounded-[22px] border border-white/10 bg-white/[0.075] px-4 py-3 text-[13.5px] leading-[1.55] text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl"
+    : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl";
+
   return (
     <div
       className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/78 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]"
       data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}
+      data-clara-ai-layout-variant={layoutVariant}
     >
       <style>{FINAL_AI_TAB_ICON_KILL_SWITCH}</style>
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_10%,rgba(45,212,191,0.26),transparent_34%),radial-gradient(circle_at_88%_12%,rgba(124,58,237,0.32),transparent_38%),linear-gradient(180deg,rgba(2,6,23,0.68),rgba(2,6,23,0.94))]" />
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+      <main
+        data-clara-ai-message-viewport="true"
+        className="min-h-0 flex-1 overflow-y-auto px-0 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+      >
         {visibleMessages.length ? (
-          <div className="flex min-h-full flex-col justify-start gap-3 px-2 pb-28 pt-12">
+          <div
+            data-clara-ai-message-stack="true"
+            className={messageStackClassName}
+          >
             <FloatingCloseButton onClose={onClose} />
             {visibleMessages.map((message, index) => {
               const isUser = message.role === "user";
+              const role = isUser ? "user" : "clara";
               const text = message.text || message.content || "";
               return (
-                <div key={message.id || `${message.role || "message"}-${index}`} className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div className={`break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:break-word] ${isUser ? "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950" : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-4 py-4 text-[13.5px] leading-6 text-white/90 shadow-[0_18px_44px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.075)] backdrop-blur-xl"}`}>
+                <div
+                  key={message.id || `${message.role || "message"}-${index}`}
+                  data-clara-ai-message-row="true"
+                  data-clara-ai-message-role={role}
+                  className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    data-clara-ai-message-bubble="true"
+                    data-clara-ai-message-role={role}
+                    className={`min-w-0 break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:break-word] ${
+                      isUser ? userBubbleClassName : claraBubbleClassName
+                    }`}
+                  >
                     <MessageText text={text} />
                   </div>
                 </div>
