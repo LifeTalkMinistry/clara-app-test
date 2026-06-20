@@ -3,54 +3,146 @@
 @import "./guide-mode-learning-hub-lift.css";
 @import "./guide-mode-orb-chat-preview.css";
 
-/* Me Page Guide bubble spacing refinement. */
-#root#root [data-clara-guide-me-bubble='true'] {
-  width: min(calc(100vw - 12px), 418px) !important;
-  padding-inline: 6px !important;
+/* Me Page Guide bubble and setup-card composition refinement. */
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+) {
+  --clara-me-guide-composition-width: min(calc(100vw - 32px), 354px);
 }
 
-#root#root [data-clara-guide-me-bubble='true'] > [role='dialog'] {
-  max-width: 382px !important;
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-bubble='true'] {
+  width: var(--clara-me-guide-composition-width) !important;
+  padding-inline: 0 !important;
+}
+
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-bubble='true'] > [role='dialog'] {
+  width: 100% !important;
+  max-width: none !important;
   padding: 14px 16px !important;
   border-radius: 24px !important;
+  box-sizing: border-box;
 }
 
-#root#root #clara-guide-me-page-title {
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+#clara-guide-me-page-title {
   font-size: 9px !important;
   line-height: 1.25 !important;
 }
 
-#root#root #clara-guide-me-page-title + p {
-  margin-top: 8px !important;
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-body='true'] {
+  margin-top: 7px !important;
   font-size: 11px !important;
-  line-height: 1.5 !important;
+  line-height: 1.45 !important;
 }
 
-#root#root #clara-guide-me-page-title + p + p {
-  margin-top: 6px !important;
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-supporting='true'] {
+  margin-top: 5px !important;
   font-size: 10px !important;
-  line-height: 1.5 !important;
+  line-height: 1.45 !important;
   color: rgba(255, 255, 255, 0.68) !important;
 }
 
-#root#root #clara-guide-me-page-title + p + p + div {
-  margin-top: 12px !important;
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-footer-row='true'] {
+  width: 100%;
+  min-width: 0;
 }
 
-#root#root #clara-guide-me-page-title + p + p + div + div {
-  margin-top: 12px !important;
-  gap: 16px !important;
-  align-items: center !important;
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-divider='true'] {
+  margin-top: 11px !important;
 }
 
-#root#root #clara-guide-me-page-title + p + p + div + div > p {
-  max-width: 228px !important;
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-footer='true'] {
+  width: 100%;
+  max-width: none !important;
+  margin-top: 9px !important;
   font-size: 8px !important;
-  line-height: 1.45 !important;
+  line-height: 1.4 !important;
   letter-spacing: 0.065em !important;
 }
 
-#root#root #clara-guide-me-page-title + p + p + div + div > button {
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-next='true'] {
+  min-width: 72px;
   min-height: 42px !important;
-  padding: 10px 20px !important;
+  padding: 10px 17px !important;
+}
+
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-guide-me-arrow='true'] {
+  left: 42px !important;
+}
+
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-life-stage-setup-gate='true'] {
+  height: auto !important;
+  min-height: 100% !important;
+  padding-top: 0 !important;
+}
+
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-life-stage-setup-layout='true'] {
+  flex: 0 0 auto !important;
+  width: 100%;
+  min-height: 100% !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  padding-top: var(--clara-me-guide-reserved-top, 150px) !important;
+  padding-right: 0 !important;
+  padding-bottom: 24px !important;
+  padding-left: 0 !important;
+  box-sizing: border-box;
+}
+
+html:is(
+  .clara-guide-me-preview-active,
+  .clara-guide-me-complete-active
+)
+[data-clara-life-stage-setup-card='true'] {
+  width: 100% !important;
+  max-width: var(--clara-me-guide-composition-width) !important;
+  flex: 0 0 auto;
 }
