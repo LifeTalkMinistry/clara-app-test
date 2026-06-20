@@ -4,6 +4,8 @@ const DASHBOARD_SCROLL_ROOT_SELECTOR =
   "[data-clara-dashboard-scroll-root='true']";
 const PREVIEW_STACK_SELECTOR =
   "[data-clara-guide-learning-hub-preview-stack='true']";
+const GUIDE_EXIT_SELECTOR = "[data-clara-guide-exit='true']";
+const DASHBOARD_TOP_NAV_ATTRIBUTE = "data-clara-dashboard-top-nav";
 const GUIDE_BUBBLE_SAFE_BOTTOM_PX = 18;
 
 function getVisibleDashboardBottom(scrollerRect) {
@@ -15,6 +17,22 @@ function getVisibleDashboardBottom(scrollerRect) {
     : window.innerHeight;
 
   return Math.min(scrollerRect.bottom, viewportBottom);
+}
+
+function getDashboardTopNav(dashboardScroller) {
+  const guideExitButton = document.querySelector(GUIDE_EXIT_SELECTOR);
+  let currentElement = guideExitButton;
+
+  while (
+    currentElement?.parentElement &&
+    currentElement.parentElement !== dashboardScroller
+  ) {
+    currentElement = currentElement.parentElement;
+  }
+
+  return currentElement?.parentElement === dashboardScroller
+    ? currentElement
+    : null;
 }
 
 export default function ClaraGuideLearningHubInlineBubble({ onNext }) {
@@ -39,6 +57,15 @@ export default function ClaraGuideLearningHubInlineBubble({ onNext }) {
       !dashboardScroller.contains(previewStack)
     ) {
       return undefined;
+    }
+
+    const dashboardTopNav = getDashboardTopNav(dashboardScroller);
+    const topNavAlreadyMarked = dashboardTopNav?.hasAttribute(
+      DASHBOARD_TOP_NAV_ATTRIBUTE,
+    );
+
+    if (dashboardTopNav && !topNavAlreadyMarked) {
+      dashboardTopNav.setAttribute(DASHBOARD_TOP_NAV_ATTRIBUTE, "true");
     }
 
     let firstFrame = 0;
@@ -96,6 +123,10 @@ export default function ClaraGuideLearningHubInlineBubble({ onNext }) {
     return () => {
       if (firstFrame) window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
+
+      if (dashboardTopNav && !topNavAlreadyMarked) {
+        dashboardTopNav.removeAttribute(DASHBOARD_TOP_NAV_ATTRIBUTE);
+      }
     };
   }, []);
 
