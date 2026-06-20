@@ -18,12 +18,14 @@ export default function LearningHubToggleButton({
   onTouchEnd,
   className = "",
   flushSpacing = false,
+  guideTarget = false,
 }) {
   const spacingClass = flushSpacing || isExpanded ? "mt-0 mb-0" : "mt-3 mb-0";
 
   return (
     <button
       type="button"
+      data-clara-guide-learning-hub-toggle={guideTarget ? "true" : undefined}
       aria-expanded={isLocked ? false : isExpanded}
       aria-label={
         isLocked
