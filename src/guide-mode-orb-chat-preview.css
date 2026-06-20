@@ -1,0 +1,7 @@
+/* Keep the live CLARA overlay from intercepting the simulated orb hold. */
+html.clara-guide-money-left-orb-active
+#root [data-clara-ai-brain-version] {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
