@@ -173,10 +173,19 @@ function OptionGroup({ eyebrow, value, options, onSelect, displayValue = display
 
 function LifeStageSetupGate({ onSetup }) {
   return (
-    <div className="relative isolate flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#071226] px-4 pb-4 pt-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,.055)]">
+    <div
+      data-clara-life-stage-setup-gate="true"
+      className="relative isolate flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#071226] px-4 pb-4 pt-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,.055)]"
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(45,212,191,.22),transparent_32%),radial-gradient(circle_at_86%_12%,rgba(59,130,246,.20),transparent_34%),linear-gradient(180deg,rgba(8,47,73,.38),rgba(2,8,23,.96))]" />
-      <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-1 py-4">
-        <section className="w-full max-w-[332px] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(8,47,73,.96),rgba(15,23,42,.98)_56%,rgba(24,12,68,.96))] p-5 text-center shadow-[0_26px_84px_rgba(0,0,0,.36),0_0_54px_rgba(125,211,252,.14),inset_0_1px_0_rgba(255,255,255,.09)]">
+      <div
+        data-clara-life-stage-setup-layout="true"
+        className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-1 py-4"
+      >
+        <section
+          data-clara-life-stage-setup-card="true"
+          className="w-full max-w-[332px] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(8,47,73,.96),rgba(15,23,42,.98)_56%,rgba(24,12,68,.96))] p-5 text-center shadow-[0_26px_84px_rgba(0,0,0,.36),0_0_54px_rgba(125,211,252,.14),inset_0_1px_0_rgba(255,255,255,.09)]"
+        >
           <div className="mx-auto inline-flex rounded-full border border-cyan-100/50 bg-cyan-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-950 shadow-[0_0_20px_rgba(207,250,254,.22)]">Personalization needed</div>
           <div className="mx-auto mt-5 grid h-16 w-16 place-items-center rounded-[22px] bg-cyan-50 text-cyan-900 shadow-[0_16px_36px_rgba(34,211,238,.20)]"><Sparkles className="h-7 w-7" /></div>
           <h2 className="mt-5 text-[28px] font-black leading-[1.02] tracking-[-0.04em] text-white">Personalize your Money Profile</h2>
