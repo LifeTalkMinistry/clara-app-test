@@ -1,6 +1,7 @@
 @import "./guide-mode-learning-hub.css";
 @import "./guide-mode-learning-hub-polish.css";
 @import "./guide-mode-learning-hub-lift.css";
+@import "./guide-mode-orb-chat-preview.css";
 
 /* Me Page Guide bubble spacing refinement. */
 #root#root [data-clara-guide-me-bubble='true'] {
