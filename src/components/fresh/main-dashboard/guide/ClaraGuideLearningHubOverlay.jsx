@@ -102,7 +102,7 @@ export default function ClaraGuideLearningHubOverlay({ phase = "await-open", onN
   return createPortal(
     <div
       data-clara-guide-learning-hub-bubble="true"
-      className="pointer-events-none fixed left-1/2 z-[165] w-[min(calc(100vw-24px),390px)] -translate-x-1/2 px-2"
+      className="pointer-events-none fixed left-1/2 z-[240] w-[min(calc(100vw-48px),360px)] -translate-x-1/2 isolate"
       style={{ top: top === null ? "clamp(116px, 14dvh, 144px)" : `${top}px` }}
     >
       <div
@@ -110,10 +110,10 @@ export default function ClaraGuideLearningHubOverlay({ phase = "await-open", onN
         role="dialog"
         aria-live="polite"
         aria-labelledby="clara-guide-learning-hub-title"
-        className="pointer-events-auto relative mx-auto w-full max-w-[360px] rounded-[26px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-5 py-4 text-white shadow-[0_24px_76px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl"
+        className="pointer-events-auto relative min-h-[150px] rounded-[30px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.98),rgba(10,22,54,0.98)_52%,rgba(27,18,65,0.98))] px-6 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl"
       >
         <div
-          className={`pointer-events-none absolute left-12 h-4 w-4 rotate-45 border-cyan-100/24 bg-[rgba(12,21,49,0.985)] ${
+          className={`pointer-events-none absolute left-11 h-4 w-4 rotate-45 border-cyan-100/24 bg-[rgba(10,22,54,0.98)] ${
             arrowPlacement === "top"
               ? "-top-2 border-l border-t"
               : "-bottom-2 border-b border-r"
@@ -122,31 +122,34 @@ export default function ClaraGuideLearningHubOverlay({ phase = "await-open", onN
 
         <p
           id="clara-guide-learning-hub-title"
-          className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100"
+          className="relative z-10 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100"
         >
           {copy.title}
         </p>
-        <p className="mt-2 text-[12px] font-bold leading-[1.5] text-white">{copy.body}</p>
+
+        <p className="relative z-10 mt-3 text-[14px] font-bold leading-relaxed text-white">
+          {copy.body}
+        </p>
+
         {copy.supporting ? (
-          <p className="mt-1.5 text-[11px] font-semibold leading-[1.5] text-white/68">
+          <p className="relative z-10 mt-2 text-[12px] font-semibold leading-relaxed text-white/70">
             {copy.supporting}
           </p>
         ) : null}
-        <div className="mt-3 h-px bg-cyan-100/15" />
-        <div className="mt-3 flex items-center justify-between gap-4">
-          <p className="max-w-[230px] text-[8px] font-black uppercase leading-[1.45] tracking-[0.07em] text-cyan-100/88">
-            {copy.footer}
-          </p>
-          {hasNext ? (
-            <button
-              type="button"
-              onClick={onNext}
-              className="clara-guide-learning-hub-next min-h-[42px] shrink-0 touch-manipulation rounded-full border border-cyan-100/30 bg-cyan-100/15 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 active:scale-[0.99]"
-            >
-              NEXT
-            </button>
-          ) : null}
-        </div>
+
+        <p className="relative z-10 mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
+          {copy.footer}
+        </p>
+
+        {hasNext ? (
+          <button
+            type="button"
+            onClick={onNext}
+            className="clara-guide-learning-hub-next pointer-events-auto relative z-20 mt-4 min-h-[44px] w-full touch-manipulation select-none cursor-pointer rounded-full border border-cyan-100/30 bg-cyan-100/15 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-cyan-100/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 active:scale-[0.99]"
+          >
+            NEXT
+          </button>
+        ) : null}
       </div>
     </div>,
     document.body,
