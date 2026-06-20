@@ -1,7 +1,8 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
+import ClaraGuideLearningHubOverlay from "../guide/ClaraGuideLearningHubOverlay";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
@@ -9,6 +10,11 @@ import {
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
 
 const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
+
+const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
+const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
+const GUIDE_EXIT_EVENT = "clara:guide-exit";
+const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
 
 function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   return (
@@ -64,6 +70,15 @@ function DailyTipGuideBubble() {
   );
 }
 
+function emitLearningHubPhase(phase) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(LEARNING_HUB_PHASE_EVENT, {
+      detail: { phase },
+    }),
+  );
+}
+
 export default function LearningHub({
   isGuideMode = false,
   guideFeature = "",
@@ -75,13 +90,80 @@ export default function LearningHub({
 }) {
   const navigate = useNavigate();
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
+  const [learningHubGuidePhase, setLearningHubGuidePhase] = useState("inactive");
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
   const isCarouselGuideActive = isGuideMode && guideFeature === "finance-carousel";
+  const isLearningHubGuideActive =
+    isGuideMode &&
+    (learningHubGuidePhase === "await-open" || learningHubGuidePhase === "preview");
+  const isLearningHubGuideAwaitOpen =
+    isLearningHubGuideActive && learningHubGuidePhase === "await-open";
+  const isLearningHubGuidePreview =
+    isLearningHubGuideActive && learningHubGuidePhase === "preview";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const resetGuidePreview = () => {
+      setLearningHubGuidePhase("inactive");
+      setShouldLoadHub(false);
+    };
+
+    const handleLearningHubPhase = (event) => {
+      const phase = event?.detail?.phase;
+      if (phase === "await-open") {
+        setShouldLoadHub(false);
+        setLearningHubGuidePhase("await-open");
+        return;
+      }
+
+      if (phase === "preview") {
+        setShouldLoadHub(true);
+        setLearningHubGuidePhase("preview");
+        return;
+      }
+
+      resetGuidePreview();
+    };
+
+    const handleGuideModeChange = (event) => {
+      if (event?.detail?.active) {
+        resetGuidePreview();
+      } else {
+        resetGuidePreview();
+      }
+    };
+
+    const handleTargetChange = (event) => {
+      if (event?.detail?.feature !== "learning-hub") {
+        resetGuidePreview();
+      }
+    };
+
+    window.addEventListener(LEARNING_HUB_PHASE_EVENT, handleLearningHubPhase);
+    window.addEventListener(GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
+    window.addEventListener(GUIDE_EXIT_EVENT, resetGuidePreview);
+    window.addEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
+
+    return () => {
+      window.removeEventListener(LEARNING_HUB_PHASE_EVENT, handleLearningHubPhase);
+      window.removeEventListener(GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
+      window.removeEventListener(GUIDE_EXIT_EVENT, resetGuidePreview);
+      window.removeEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
+    };
+  }, []);
 
   const handleOpenHub = () => {
-    if (isGuideMode) return;
+    if (isGuideMode) {
+      if (isLearningHubGuideAwaitOpen) {
+        setShouldLoadHub(true);
+        setLearningHubGuidePhase("preview");
+        emitLearningHubPhase("preview");
+      }
+      return;
+    }
 
     if (isLocked) {
       openCommittedVersionModal();
@@ -91,8 +173,32 @@ export default function LearningHub({
     setShouldLoadHub(true);
   };
 
+  const handleGuideLearningHubNext = () => {
+    if (!isLearningHubGuidePreview || typeof window === "undefined") return;
+
+    setShouldLoadHub(false);
+    setLearningHubGuidePhase("inactive");
+    emitLearningHubPhase("inactive");
+
+    window.dispatchEvent(
+      new CustomEvent(GUIDE_TARGET_CHANGE_EVENT, {
+        detail: { feature: "finance-carousel" },
+      }),
+    );
+
+    window.setTimeout(() => {
+      document.querySelector(".clara-guide-carousel-anchor")?.scrollIntoView?.({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 80);
+  };
+
   return (
-    <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
+    <section
+      data-clara-guide-learning-hub-section="true"
+      className="clara-budget-focus-shift clara-budget-focus-hub w-full"
+    >
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
         <div
           className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} ${
@@ -136,6 +242,7 @@ export default function LearningHub({
               headerLabel="Learning Hub"
               onClick={handleOpenHub}
               flushSpacing
+              guideTarget={isLearningHubGuideAwaitOpen}
             />
 
             {!isGuideMode ? (
@@ -148,9 +255,20 @@ export default function LearningHub({
           </div>
         ) : (
           <Suspense fallback={null}>
-            <LearningHubLoaded initialExpanded flushSpacing={true} />
+            <LearningHubLoaded
+              initialExpanded
+              flushSpacing={true}
+              guidePreviewMode={isLearningHubGuidePreview}
+            />
           </Suspense>
         )}
+
+        {isLearningHubGuideActive ? (
+          <ClaraGuideLearningHubOverlay
+            phase={learningHubGuidePhase}
+            onNext={isLearningHubGuidePreview ? handleGuideLearningHubNext : undefined}
+          />
+        ) : null}
       </div>
     </section>
   );
