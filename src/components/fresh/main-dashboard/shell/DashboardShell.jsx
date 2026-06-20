@@ -22,7 +22,12 @@ const DashboardShell = forwardRef(function DashboardShell(
     .join(" ");
 
   return (
-    <Component ref={ref} className={resolvedClassName} style={style}>
+    <Component
+      ref={ref}
+      data-clara-dashboard-scroll-root="true"
+      className={resolvedClassName}
+      style={style}
+    >
       {children}
     </Component>
   );
