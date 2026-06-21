@@ -1,5 +1,6 @@
 export const WELCOME_SESSION_FORM_URL = (
-  import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL || ""
+  import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL ||
+  "https://forms.gle/58cJ2wJVpC4H5qFS8"
 ).trim();
 
 const BOOKING_WINDOW_DAYS = 90;
