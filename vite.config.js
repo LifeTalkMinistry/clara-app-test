@@ -82,7 +82,7 @@ export default defineConfig({
 
   define: {
     "import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL": JSON.stringify(
-      "https://forms.gle/YVDuRx75Cbqdf5E69",
+      "https://forms.gle/58cJ2wJVpC4H5qFS8",
     ),
   },
 
