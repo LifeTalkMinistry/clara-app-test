@@ -1,4 +1,11 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import ClaraGuideLearningHubInlineBubble from "../guide/ClaraGuideLearningHubInlineBubble";
@@ -9,6 +16,7 @@ import {
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import { WELCOME_SESSION_FORM_URL } from "@/lib/welcome-session-schedule";
+import GuidedOnboardingIntroDialog from "./ui/GuidedOnboardingIntroDialog";
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
 
 const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
@@ -62,14 +70,17 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function GuidedOnboardingButton({ onClick }) {
+function GuidedOnboardingButton({ onClick, buttonRef, isOpen = false }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onClick}
       data-clara-guided-onboarding-button="true"
       className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
-      aria-label="Open the CLARA Guided Onboarding form"
+      aria-label="Learn about CLARA Guided Onboarding"
+      aria-expanded={isOpen}
+      aria-controls="clara-guided-onboarding-title"
       title="CLARA Guided Onboarding"
     >
       <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.24),transparent_52%)]" />
@@ -117,7 +128,10 @@ export default function LearningHub({
 }) {
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
   const [learningHubGuidePhase, setLearningHubGuidePhase] = useState("inactive");
+  const [isGuidedOnboardingIntroOpen, setIsGuidedOnboardingIntroOpen] =
+    useState(false);
   const learningHubGuideEntryScrollRef = useRef(null);
+  const guidedOnboardingButtonRef = useRef(null);
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
@@ -129,6 +143,28 @@ export default function LearningHub({
     isLearningHubGuideActive && learningHubGuidePhase === "await-open";
   const isLearningHubGuidePreview =
     isLearningHubGuideActive && learningHubGuidePhase === "preview";
+
+  const closeGuidedOnboardingIntro = useCallback(
+    ({ restoreFocus = true } = {}) => {
+      setIsGuidedOnboardingIntroOpen(false);
+
+      if (!restoreFocus || typeof window === "undefined") return;
+
+      window.requestAnimationFrame(() => {
+        try {
+          guidedOnboardingButtonRef.current?.focus({ preventScroll: true });
+        } catch {
+          guidedOnboardingButtonRef.current?.focus();
+        }
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isGuideMode && !shouldLoadHub) return;
+    setIsGuidedOnboardingIntroOpen(false);
+  }, [isGuideMode, shouldLoadHub]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -182,9 +218,14 @@ export default function LearningHub({
   }, []);
 
   const handleGuidedOnboardingClick = () => {
+    setIsGuidedOnboardingIntroOpen(true);
+  };
+
+  const handleOpenGuidedOnboardingForm = () => {
     if (!WELCOME_SESSION_FORM_URL || typeof window === "undefined") return;
 
     window.open(WELCOME_SESSION_FORM_URL, "_blank", "noopener,noreferrer");
+    closeGuidedOnboardingIntro({ restoreFocus: false });
   };
 
   const handleOpenHub = () => {
@@ -276,7 +317,11 @@ export default function LearningHub({
                 className="clara-guide-float mr-1.5 justify-self-end"
                 style={{ animationDelay: "-0.5s" }}
               >
-                <GuidedOnboardingButton onClick={handleGuidedOnboardingClick} />
+                <GuidedOnboardingButton
+                  buttonRef={guidedOnboardingButtonRef}
+                  isOpen={isGuidedOnboardingIntroOpen}
+                  onClick={handleGuidedOnboardingClick}
+                />
               </div>
             ) : (
               <span aria-hidden="true" />
@@ -321,6 +366,12 @@ export default function LearningHub({
           <ClaraGuideLearningHubOverlay phase="await-open" />
         ) : null}
       </div>
+
+      <GuidedOnboardingIntroDialog
+        open={isGuidedOnboardingIntroOpen && !isGuideMode && !shouldLoadHub}
+        onClose={closeGuidedOnboardingIntro}
+        onContinue={handleOpenGuidedOnboardingForm}
+      />
     </section>
   );
 }
