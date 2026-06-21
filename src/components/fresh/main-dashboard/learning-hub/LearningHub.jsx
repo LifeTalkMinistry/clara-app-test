@@ -1,12 +1,4 @@
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { useNavigate } from "react-router-dom";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import ClaraGuideLearningHubInlineBubble from "../guide/ClaraGuideLearningHubInlineBubble";
@@ -16,8 +8,8 @@ import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+import { WELCOME_SESSION_FORM_URL } from "@/lib/welcome-session-schedule";
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
-import MonthlyCoachingComingSoonPopover from "./ui/MonthlyCoachingComingSoonPopover";
 
 const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
 
@@ -25,7 +17,6 @@ const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
 const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
-const MONTHLY_COACHING_BOOKING_UNDER_CONSTRUCTION = true;
 
 function getDashboardScrollRoot() {
   if (typeof document === "undefined") return null;
@@ -71,22 +62,15 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function MonthlyCoachingButton({
-  onClick,
-  buttonRef,
-  isNoticeOpen = false,
-}) {
+function GuidedOnboardingButton({ onClick }) {
   return (
     <button
-      ref={buttonRef}
       type="button"
       onClick={onClick}
-      data-clara-monthly-coaching-button="true"
+      data-clara-guided-onboarding-button="true"
       className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
-      aria-label="Open your monthly CLARA coaching calendar"
-      aria-expanded={isNoticeOpen}
-      aria-controls="clara-monthly-coaching-notice"
-      title="Monthly Coaching"
+      aria-label="Open the CLARA Guided Onboarding form"
+      title="CLARA Guided Onboarding"
     >
       <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.24),transparent_52%)]" />
       <CalendarClock className="relative z-10 h-4 w-4 text-cyan-100/85" />
@@ -131,13 +115,9 @@ export default function LearningHub({
   onOpenGuideIntro,
   onGuideDailyTipTap,
 }) {
-  const navigate = useNavigate();
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
   const [learningHubGuidePhase, setLearningHubGuidePhase] = useState("inactive");
-  const [isMonthlyCoachingNoticeOpen, setIsMonthlyCoachingNoticeOpen] =
-    useState(false);
   const learningHubGuideEntryScrollRef = useRef(null);
-  const monthlyCoachingButtonRef = useRef(null);
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
@@ -149,29 +129,6 @@ export default function LearningHub({
     isLearningHubGuideActive && learningHubGuidePhase === "await-open";
   const isLearningHubGuidePreview =
     isLearningHubGuideActive && learningHubGuidePhase === "preview";
-
-  const closeMonthlyCoachingNotice = useCallback(
-    ({ restoreFocus = true } = {}) => {
-      setIsMonthlyCoachingNoticeOpen(false);
-
-      if (!restoreFocus) return;
-
-      const button = monthlyCoachingButtonRef.current;
-      if (!button) return;
-
-      try {
-        button.focus({ preventScroll: true });
-      } catch {
-        button.focus();
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!isGuideMode && !shouldLoadHub) return;
-    setIsMonthlyCoachingNoticeOpen(false);
-  }, [isGuideMode, shouldLoadHub]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -224,13 +181,10 @@ export default function LearningHub({
     };
   }, []);
 
-  const handleMonthlyCoachingClick = () => {
-    if (MONTHLY_COACHING_BOOKING_UNDER_CONSTRUCTION) {
-      setIsMonthlyCoachingNoticeOpen(true);
-      return;
-    }
+  const handleGuidedOnboardingClick = () => {
+    if (!WELCOME_SESSION_FORM_URL || typeof window === "undefined") return;
 
-    navigate("/welcome-session");
+    window.open(WELCOME_SESSION_FORM_URL, "_blank", "noopener,noreferrer");
   };
 
   const handleOpenHub = () => {
@@ -322,11 +276,7 @@ export default function LearningHub({
                 className="clara-guide-float mr-1.5 justify-self-end"
                 style={{ animationDelay: "-0.5s" }}
               >
-                <MonthlyCoachingButton
-                  buttonRef={monthlyCoachingButtonRef}
-                  isNoticeOpen={isMonthlyCoachingNoticeOpen}
-                  onClick={handleMonthlyCoachingClick}
-                />
+                <GuidedOnboardingButton onClick={handleGuidedOnboardingClick} />
               </div>
             ) : (
               <span aria-hidden="true" />
@@ -371,14 +321,6 @@ export default function LearningHub({
           <ClaraGuideLearningHubOverlay phase="await-open" />
         ) : null}
       </div>
-
-      <MonthlyCoachingComingSoonPopover
-        isOpen={
-          isMonthlyCoachingNoticeOpen && !shouldLoadHub && !isGuideMode
-        }
-        anchorRef={monthlyCoachingButtonRef}
-        onRequestClose={closeMonthlyCoachingNotice}
-      />
     </section>
   );
 }
