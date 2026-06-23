@@ -3,8 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const SCROLL_SETTLE_DEBOUNCE_MS = 110;
 const PROGRAMMATIC_SCROLL_GUARD_MS = 520;
 const INSTANT_SCROLL_GUARD_MS = 90;
-const GUIDE_SWIPE_THRESHOLD_PX = 34;
-const GUIDE_SWIPE_AXIS_RATIO = 1.08;
+const GUIDE_DRAG_LOCK_THRESHOLD_PX = 7;
+const GUIDE_SWIPE_AXIS_RATIO = 1.05;
+const GUIDE_SWIPE_DISTANCE_MAX_PX = 52;
+const GUIDE_SWIPE_DISTANCE_RATIO = 0.16;
+const GUIDE_SWIPE_VELOCITY_THRESHOLD = 0.35;
 const GUIDE_WHEEL_LOCK_MS = 360;
 
 const clampIndex = (index, length) => {
@@ -20,6 +23,19 @@ const normalizeGuideMaxStep = (value) => {
   if (!Number.isFinite(numericValue) || numericValue <= 0) return null;
   return Math.max(1, Math.floor(numericValue));
 };
+
+const createGuidePointerGestureState = (startIndex = 0) => ({
+  active: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  startIndex,
+  startScrollLeft: 0,
+  lastX: 0,
+  lastTime: 0,
+  velocityX: 0,
+  isHorizontalDrag: false,
+});
 
 export default function useAutoMovingHorizontalCarousel({
   itemCount = 0,
@@ -41,13 +57,9 @@ export default function useAutoMovingHorizontalCarousel({
   const guideMaxStepPerInteractionRef = useRef(normalizeGuideMaxStep(guideMaxStepPerInteraction));
   const guideInteractionStartIndexRef = useRef(clampIndex(defaultIndex, itemCount));
   const guideInteractionActiveRef = useRef(false);
-  const guidePointerGestureRef = useRef({
-    active: false,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    startIndex: clampIndex(defaultIndex, itemCount),
-  });
+  const guidePointerGestureRef = useRef(
+    createGuidePointerGestureState(clampIndex(defaultIndex, itemCount))
+  );
   const guideWheelLockedRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(() =>
     clampIndex(defaultIndex, itemCount)
@@ -246,17 +258,31 @@ export default function useAutoMovingHorizontalCarousel({
   }, []);
 
   const handleControlledGuidePointerDown = useCallback((event) => {
-    beginGuideInteraction(true);
-
     if (!guideMaxStepPerInteractionRef.current) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
+    const container = carouselRef.current;
+    if (!container) return;
+
+    beginGuideInteraction(true);
+    clearScrollSettleTimer();
+
+    const startIndex = activeIndexRef.current;
+    const eventTime = Number(event.timeStamp);
+
+    guideInteractionStartIndexRef.current = startIndex;
+    guideInteractionActiveRef.current = true;
     guidePointerGestureRef.current = {
       active: true,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      startIndex: activeIndexRef.current,
+      startIndex,
+      startScrollLeft: container.scrollLeft,
+      lastX: event.clientX,
+      lastTime: Number.isFinite(eventTime) ? eventTime : 0,
+      velocityX: 0,
+      isHorizontalDrag: false,
     };
 
     try {
@@ -264,7 +290,66 @@ export default function useAutoMovingHorizontalCarousel({
     } catch {
       // Pointer capture is optional; the one-card guard still works without it.
     }
-  }, [beginGuideInteraction]);
+  }, [beginGuideInteraction, clearScrollSettleTimer]);
+
+  const handleControlledGuidePointerMove = useCallback((event) => {
+    if (!guideMaxStepPerInteractionRef.current) return;
+
+    const gesture = guidePointerGestureRef.current;
+    const container = carouselRef.current;
+
+    if (
+      !gesture.active ||
+      gesture.pointerId !== event.pointerId ||
+      !container
+    ) {
+      return;
+    }
+
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+    const eventTime = Number(event.timeStamp);
+    const currentTime = Number.isFinite(eventTime) ? eventTime : gesture.lastTime;
+    const elapsedTime = Math.max(1, currentTime - gesture.lastTime);
+    const stepDeltaX = event.clientX - gesture.lastX;
+
+    gesture.lastX = event.clientX;
+    gesture.lastTime = currentTime;
+
+    if (!gesture.isHorizontalDrag) {
+      const passedLockThreshold =
+        Math.abs(deltaX) >= GUIDE_DRAG_LOCK_THRESHOLD_PX;
+      const hasHorizontalIntent =
+        Math.abs(deltaX) > Math.abs(deltaY) * GUIDE_SWIPE_AXIS_RATIO;
+
+      if (!passedLockThreshold || !hasHorizontalIntent) {
+        return;
+      }
+
+      gesture.isHorizontalDrag = true;
+    }
+
+    clearScrollSettleTimer();
+
+    const instantVelocityX = stepDeltaX / elapsedTime;
+    gesture.velocityX =
+      gesture.velocityX * 0.65 +
+      instantVelocityX * 0.35;
+
+    const { minimumIndex, maximumIndex } = getGuideAllowedIndexRange();
+    const slideWidth = getSlideWidth();
+    const minimumLeft = slideWidth * minimumIndex;
+    const maximumLeft = slideWidth * maximumIndex;
+    const intendedLeft = gesture.startScrollLeft - deltaX;
+    const restrictedLeft = Math.max(
+      minimumLeft,
+      Math.min(maximumLeft, intendedLeft)
+    );
+
+    if (Math.abs(container.scrollLeft - restrictedLeft) > 0.1) {
+      container.scrollLeft = restrictedLeft;
+    }
+  }, [clearScrollSettleTimer, getGuideAllowedIndexRange, getSlideWidth]);
 
   const finishControlledGuidePointer = useCallback((event, cancelled = false) => {
     const gesture = guidePointerGestureRef.current;
@@ -273,33 +358,17 @@ export default function useAutoMovingHorizontalCarousel({
       return;
     }
 
-    guidePointerGestureRef.current = {
-      active: false,
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      startIndex: activeIndexRef.current,
-    };
-
     try {
       event.currentTarget?.releasePointerCapture?.(event.pointerId);
     } catch {
       // Ignore browsers that already released pointer capture.
     }
 
-    if (cancelled || !guideMaxStepPerInteractionRef.current) {
-      guideInteractionActiveRef.current = false;
-      guideInteractionStartIndexRef.current = activeIndexRef.current;
-      return;
-    }
+    guidePointerGestureRef.current =
+      createGuidePointerGestureState(activeIndexRef.current);
+    clearScrollSettleTimer();
 
-    const deltaX = event.clientX - gesture.startX;
-    const deltaY = event.clientY - gesture.startY;
-    const isHorizontalSwipe =
-      Math.abs(deltaX) >= GUIDE_SWIPE_THRESHOLD_PX &&
-      Math.abs(deltaX) > Math.abs(deltaY) * GUIDE_SWIPE_AXIS_RATIO;
-
-    if (!isHorizontalSwipe) {
+    if (!guideMaxStepPerInteractionRef.current) {
       guideInteractionActiveRef.current = false;
       guideInteractionStartIndexRef.current = activeIndexRef.current;
       return;
@@ -308,11 +377,41 @@ export default function useAutoMovingHorizontalCarousel({
     guideInteractionStartIndexRef.current = gesture.startIndex;
     guideInteractionActiveRef.current = true;
 
-    // Native momentum is disabled in the controlled guide viewport. Each
-    // completed gesture is converted into exactly one adjacent index move.
-    const directionStep = deltaX < 0 ? 1 : -1;
+    if (cancelled || !gesture.isHorizontalDrag) {
+      scrollToIndex(gesture.startIndex, "smooth");
+      return;
+    }
+
+    const deltaX = event.clientX - gesture.startX;
+    const eventTime = Number(event.timeStamp);
+    const releaseTime = Number.isFinite(eventTime) ? eventTime : gesture.lastTime;
+    const releaseElapsedTime = Math.max(1, releaseTime - gesture.lastTime);
+    const releaseStepDeltaX = event.clientX - gesture.lastX;
+    const releaseVelocityX =
+      Math.abs(releaseStepDeltaX) > 0.01
+        ? gesture.velocityX * 0.65 +
+          (releaseStepDeltaX / releaseElapsedTime) * 0.35
+        : gesture.velocityX;
+    const distanceThreshold = Math.min(
+      GUIDE_SWIPE_DISTANCE_MAX_PX,
+      getSlideWidth() * GUIDE_SWIPE_DISTANCE_RATIO
+    );
+    const passedDistance = Math.abs(deltaX) >= distanceThreshold;
+    const velocityMatchesDirection =
+      deltaX !== 0 &&
+      Math.sign(releaseVelocityX) === Math.sign(deltaX);
+    const passedVelocity =
+      Math.abs(releaseVelocityX) >= GUIDE_SWIPE_VELOCITY_THRESHOLD &&
+      velocityMatchesDirection;
+    const directionStep =
+      passedDistance || passedVelocity
+        ? deltaX < 0
+          ? 1
+          : -1
+        : 0;
+
     scrollToIndex(gesture.startIndex + directionStep, "smooth");
-  }, [scrollToIndex]);
+  }, [clearScrollSettleTimer, getSlideWidth, scrollToIndex]);
 
   const handleControlledGuideWheel = useCallback((event) => {
     beginGuideInteraction(false);
@@ -369,6 +468,10 @@ export default function useAutoMovingHorizontalCarousel({
 
       enforceGuideScrollRestrictions();
 
+      if (guidePointerGestureRef.current.active) {
+        return;
+      }
+
       scrollSettleTimerRef.current = window.setTimeout(() => {
         scrollSettleTimerRef.current = null;
         commitSettledScrollIndex();
@@ -379,12 +482,19 @@ export default function useAutoMovingHorizontalCarousel({
   const interactionHandlers = useMemo(
     () => ({
       onPointerDown: handleControlledGuidePointerDown,
+      onPointerMove: handleControlledGuidePointerMove,
       onPointerUp: (event) => finishControlledGuidePointer(event, false),
       onPointerCancel: (event) => finishControlledGuidePointer(event, true),
       onWheel: handleControlledGuideWheel,
       onKeyDown: handleControlledGuideKeyDown,
     }),
-    [finishControlledGuidePointer, handleControlledGuideKeyDown, handleControlledGuidePointerDown, handleControlledGuideWheel]
+    [
+      finishControlledGuidePointer,
+      handleControlledGuideKeyDown,
+      handleControlledGuidePointerDown,
+      handleControlledGuidePointerMove,
+      handleControlledGuideWheel,
+    ]
   );
 
   useEffect(() => {
@@ -397,13 +507,8 @@ export default function useAutoMovingHorizontalCarousel({
     guideMaxStepPerInteractionRef.current = normalizeGuideMaxStep(guideMaxStepPerInteraction);
     guideInteractionStartIndexRef.current = activeIndexRef.current;
     guideInteractionActiveRef.current = false;
-    guidePointerGestureRef.current = {
-      active: false,
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      startIndex: activeIndexRef.current,
-    };
+    guidePointerGestureRef.current =
+      createGuidePointerGestureState(activeIndexRef.current);
     clearGuideWheelLockTimer();
   }, [clearGuideWheelLockTimer, guideMaxStepPerInteraction]);
 
@@ -493,6 +598,11 @@ export default function useAutoMovingHorizontalCarousel({
     const handleScrollEnd = () => {
       clearScrollSettleTimer();
       enforceGuideScrollRestrictions();
+
+      if (guidePointerGestureRef.current.active) {
+        return;
+      }
+
       commitSettledScrollIndex();
     };
 
