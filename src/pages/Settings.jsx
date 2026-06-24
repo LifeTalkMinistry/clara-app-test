@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Mic, Moon, Save, Settings2, Shield, Sparkles, Trash2, User } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LifeBuoy, LogOut, Mail, Mic, Moon, Save, Settings2, Shield, Sparkles, Trash2, User } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
+import SupportEmailPanel from "@/components/settings/SupportEmailPanel";
 import { CLARA_VOICE_OPTIONS, readClaraSettings, saveClaraSettings } from "@/lib/clara-settings";
 
 const ROLE_STYLES = {
@@ -21,9 +22,10 @@ const SECTION_META = {
   security: { label: "Security", icon: KeyRound, subtitle: "Authentication and account protection." },
   preferences: { label: "App Preferences", icon: Settings2, subtitle: "Display and in-app experience preferences." },
   billing: { label: "Billing", icon: CreditCard, subtitle: "Plan and subscription access." },
+  support: { label: "Help & Support", icon: LifeBuoy, subtitle: "Contact CLARA Support through your email app." },
 };
 
-const SECTION_ORDER = ["account", "notifications", "privacy", "security", "preferences", "billing"];
+const SECTION_ORDER = ["account", "notifications", "privacy", "security", "preferences", "billing", "support"];
 
 function normalizeRole(profile) {
   return String(profile?.role || "user").trim().toLowerCase();
@@ -362,7 +364,7 @@ export default function Settings() {
             <h1 className="mt-1 text-lg font-bold">{isLauncherView ? "Settings" : activeMeta.label}</h1>
           </div>
 
-          {detailSection ? (
+          {detailSection && detailSection !== "support" ? (
             <button onClick={handleSave} disabled={!dirty || saving} className={`saveBtn ${!dirty || saving ? "saveBtnDisabled" : ""}`}>
               <Save size={16} />
             </button>
@@ -391,7 +393,7 @@ export default function Settings() {
                 </div>
               </div>
               <div className="px-5 py-4">
-                <p className="text-sm text-white/65">Open a focused settings area to manage your account, privacy, notifications, security, preferences, and billing without losing your place.</p>
+                <p className="text-sm text-white/65">Open a focused settings area to manage your account, privacy, notifications, security, preferences, billing, and support without losing your place.</p>
               </div>
             </div>
 
@@ -541,6 +543,17 @@ export default function Settings() {
                   action={<button type="button" onClick={() => navigate("/enroll")} className="inlineAction">Manage Plan</button>}
                 />
               </div>
+            )}
+
+            {detailSection === "support" && (
+              <SupportEmailPanel
+                profile={profile}
+                authUser={authUser}
+                userId={userId}
+                email={email}
+                planLabel={planLabel}
+                enrollmentStatus={enrollmentStatus}
+              />
             )}
           </Panel>
         )}
