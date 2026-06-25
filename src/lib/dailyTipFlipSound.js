@@ -3,7 +3,6 @@ let openFlipBuffer = null;
 let closeFlipBuffer = null;
 let resumePromise = null;
 let activeSource = null;
-let lastPlayedAt = 0;
 
 function getAudioContext() {
   if (typeof window === "undefined") return null;
@@ -191,10 +190,6 @@ function startFlipSound(context, direction) {
 }
 
 export function playDailyTipFlipSound({ direction = "open" } = {}) {
-  const now = Date.now();
-  if (now - lastPlayedAt < 140) return;
-  lastPlayedAt = now;
-
   const context = primeDailyTipFlipSound();
   if (!context) return;
 
