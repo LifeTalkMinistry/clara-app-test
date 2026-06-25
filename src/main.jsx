@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
+import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
   clearClaraGuideFeatureClasses,
@@ -47,6 +48,12 @@ window.CLARA_BILLING = window.CLARA_BILLING || {};
     console.warn("Billing auto-init failed:", error);
   }
 })();
+
+try {
+  installDailyTipFlipSound();
+} catch (error) {
+  console.warn("Daily Tip flip sound failed to init:", error);
+}
 
 try {
   installClaraGlobalClickSound();
