@@ -1,6 +1,8 @@
 let audioContext = null;
-let flipNoiseBuffer = null;
+let openFlipBuffer = null;
+let closeFlipBuffer = null;
 let resumePromise = null;
+let activeSource = null;
 let lastPlayedAt = 0;
 
 function getAudioContext() {
@@ -16,28 +18,102 @@ function getAudioContext() {
   return audioContext;
 }
 
-function getFlipNoiseBuffer(context) {
-  if (flipNoiseBuffer?.sampleRate === context.sampleRate) {
-    return flipNoiseBuffer;
-  }
+function createSeededNoise(seed) {
+  let state = seed >>> 0;
 
-  const duration = 0.2;
-  const frameCount = Math.max(1, Math.floor(context.sampleRate * duration));
-  const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+  return () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return ((state >>> 0) / 4294967295) * 2 - 1;
+  };
+}
+
+function smoothStep(value) {
+  const clamped = Math.max(0, Math.min(value, 1));
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+function createFlipBuffer(context, direction) {
+  const opening = direction !== "close";
+  const duration = opening ? 0.27 : 0.23;
+  const sampleRate = context.sampleRate;
+  const frameCount = Math.max(1, Math.floor(sampleRate * duration));
+  const buffer = context.createBuffer(1, frameCount, sampleRate);
   const samples = buffer.getChannelData(0);
+  const noise = createSeededNoise(opening ? 0x434c4152 : 0x54495043);
+
+  let phaseBody = 0;
+  let phaseWarmth = 0;
+  let phaseAir = 0;
   let smoothedNoise = 0;
+  let slowerNoise = 0;
+  let peak = 0;
 
   for (let index = 0; index < frameCount; index += 1) {
-    const progress = index / frameCount;
-    const whiteNoise = Math.random() * 2 - 1;
-    smoothedNoise = smoothedNoise * 0.68 + whiteNoise * 0.32;
+    const time = index / sampleRate;
+    const progress = index / Math.max(1, frameCount - 1);
+    const sweep = smoothStep(progress);
 
-    const envelope = Math.sin(Math.PI * progress);
-    samples[index] = (whiteNoise * 0.32 + smoothedNoise * 0.68) * envelope;
+    const attack = smoothStep(Math.min(1, time / 0.012));
+    const release = smoothStep(Math.min(1, (duration - time) / 0.055));
+    const envelope = attack * release * Math.pow(1 - progress * 0.42, 0.72);
+
+    const bodyFrequency = opening
+      ? 235 + 295 * sweep
+      : 510 - 275 * sweep;
+    const warmthFrequency = opening
+      ? 390 + 330 * sweep
+      : 705 - 320 * sweep;
+    const airFrequency = opening
+      ? 760 + 720 * sweep
+      : 1420 - 620 * sweep;
+
+    phaseBody += (Math.PI * 2 * bodyFrequency) / sampleRate;
+    phaseWarmth += (Math.PI * 2 * warmthFrequency) / sampleRate;
+    phaseAir += (Math.PI * 2 * airFrequency) / sampleRate;
+
+    const rawNoise = noise();
+    smoothedNoise = smoothedNoise * 0.82 + rawNoise * 0.18;
+    slowerNoise = slowerNoise * 0.94 + rawNoise * 0.06;
+    const shapedNoise = smoothedNoise - slowerNoise * 0.45;
+
+    const body = Math.sin(phaseBody) * 0.5;
+    const warmth = Math.sin(phaseWarmth) * 0.25;
+    const air = Math.sin(phaseAir) * 0.08;
+    const whoosh = shapedNoise * (opening ? 0.34 : 0.29);
+
+    const thumpEnvelope = Math.exp(-time * (opening ? 31 : 38));
+    const thumpFrequency = opening ? 285 : 325;
+    const thump = Math.sin(Math.PI * 2 * thumpFrequency * time) * thumpEnvelope * 0.26;
+
+    const rawSample = (body + warmth + air + whoosh) * envelope + thump;
+    const softenedSample = Math.tanh(rawSample * 1.35);
+
+    samples[index] = softenedSample;
+    peak = Math.max(peak, Math.abs(softenedSample));
   }
 
-  flipNoiseBuffer = buffer;
-  return flipNoiseBuffer;
+  const targetPeak = opening ? 0.88 : 0.82;
+  const normalization = peak > 0 ? targetPeak / peak : 1;
+
+  for (let index = 0; index < frameCount; index += 1) {
+    samples[index] *= normalization;
+  }
+
+  return buffer;
+}
+
+function ensureFlipBuffers(context) {
+  if (
+    openFlipBuffer?.sampleRate === context.sampleRate &&
+    closeFlipBuffer?.sampleRate === context.sampleRate
+  ) {
+    return;
+  }
+
+  openFlipBuffer = createFlipBuffer(context, "open");
+  closeFlipBuffer = createFlipBuffer(context, "close");
 }
 
 function resumeAudioContext(context) {
@@ -65,7 +141,7 @@ export function primeDailyTipFlipSound({ resume = false } = {}) {
   const context = getAudioContext();
   if (!context) return null;
 
-  getFlipNoiseBuffer(context);
+  ensureFlipBuffers(context);
 
   if (resume && context.state !== "running") {
     void resumeAudioContext(context);
@@ -74,111 +150,49 @@ export function primeDailyTipFlipSound({ resume = false } = {}) {
   return context;
 }
 
-function createMasterBus(context, start) {
-  const masterGain = context.createGain();
-  const compressor = context.createDynamicsCompressor();
-
-  masterGain.gain.setValueAtTime(1.45, start);
-
-  compressor.threshold.setValueAtTime(-18, start);
-  compressor.knee.setValueAtTime(8, start);
-  compressor.ratio.setValueAtTime(5, start);
-  compressor.attack.setValueAtTime(0.003, start);
-  compressor.release.setValueAtTime(0.12, start);
-
-  masterGain.connect(compressor);
-  compressor.connect(context.destination);
-
-  return masterGain;
-}
-
 function startFlipSound(context, direction) {
-  const opening = direction !== "close";
-  const start = context.currentTime + 0.002;
-  const duration = opening ? 0.21 : 0.18;
-  const master = createMasterBus(context, start);
+  ensureFlipBuffers(context);
 
-  const transient = context.createOscillator();
-  const transientGain = context.createGain();
+  if (activeSource) {
+    try {
+      activeSource.stop();
+    } catch {}
 
-  transient.type = "triangle";
-  transient.frequency.setValueAtTime(opening ? 640 : 900, start);
-  transient.frequency.exponentialRampToValueAtTime(opening ? 920 : 560, start + 0.055);
+    try {
+      activeSource.disconnect();
+    } catch {}
 
-  transientGain.gain.setValueAtTime(0.0001, start);
-  transientGain.gain.exponentialRampToValueAtTime(opening ? 0.18 : 0.15, start + 0.004);
-  transientGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.075);
-
-  transient.connect(transientGain);
-  transientGain.connect(master);
-  transient.start(start);
-  transient.stop(start + 0.085);
+    activeSource = null;
+  }
 
   const source = context.createBufferSource();
-  const highPass = context.createBiquadFilter();
-  const lowPass = context.createBiquadFilter();
-  const noiseGain = context.createGain();
+  const output = context.createGain();
+  const start = context.currentTime + 0.001;
 
-  source.buffer = getFlipNoiseBuffer(context);
+  source.buffer = direction === "close" ? closeFlipBuffer : openFlipBuffer;
+  output.gain.setValueAtTime(1, start);
 
-  highPass.type = "highpass";
-  highPass.frequency.setValueAtTime(360, start);
+  source.connect(output);
+  output.connect(context.destination);
 
-  lowPass.type = "lowpass";
-  lowPass.Q.setValueAtTime(0.75, start);
-  lowPass.frequency.setValueAtTime(opening ? 1250 : 2500, start);
-  lowPass.frequency.exponentialRampToValueAtTime(opening ? 3600 : 950, start + duration);
+  source.onended = () => {
+    if (activeSource === source) {
+      activeSource = null;
+    }
 
-  noiseGain.gain.setValueAtTime(0.0001, start);
-  noiseGain.gain.exponentialRampToValueAtTime(opening ? 0.22 : 0.18, start + 0.008);
-  noiseGain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    try {
+      source.disconnect();
+      output.disconnect();
+    } catch {}
+  };
 
-  source.connect(highPass);
-  highPass.connect(lowPass);
-  lowPass.connect(noiseGain);
-  noiseGain.connect(master);
-
+  activeSource = source;
   source.start(start);
-  source.stop(start + duration + 0.025);
-
-  const bodyTone = context.createOscillator();
-  const bodyGain = context.createGain();
-
-  bodyTone.type = "triangle";
-  bodyTone.frequency.setValueAtTime(opening ? 480 : 960, start);
-  bodyTone.frequency.exponentialRampToValueAtTime(opening ? 1040 : 500, start + duration * 0.82);
-
-  bodyGain.gain.setValueAtTime(0.0001, start);
-  bodyGain.gain.exponentialRampToValueAtTime(opening ? 0.19 : 0.16, start + 0.007);
-  bodyGain.gain.exponentialRampToValueAtTime(0.0001, start + duration * 0.9);
-
-  bodyTone.connect(bodyGain);
-  bodyGain.connect(master);
-  bodyTone.start(start);
-  bodyTone.stop(start + duration);
-
-  if (!opening) return;
-
-  const shimmer = context.createOscillator();
-  const shimmerGain = context.createGain();
-
-  shimmer.type = "sine";
-  shimmer.frequency.setValueAtTime(1220, start + 0.04);
-  shimmer.frequency.exponentialRampToValueAtTime(1660, start + 0.16);
-
-  shimmerGain.gain.setValueAtTime(0.0001, start + 0.035);
-  shimmerGain.gain.exponentialRampToValueAtTime(0.075, start + 0.065);
-  shimmerGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.19);
-
-  shimmer.connect(shimmerGain);
-  shimmerGain.connect(master);
-  shimmer.start(start + 0.035);
-  shimmer.stop(start + 0.2);
 }
 
 export function playDailyTipFlipSound({ direction = "open" } = {}) {
   const now = Date.now();
-  if (now - lastPlayedAt < 120) return;
+  if (now - lastPlayedAt < 140) return;
   lastPlayedAt = now;
 
   const context = primeDailyTipFlipSound();
