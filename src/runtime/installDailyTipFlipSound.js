@@ -1,7 +1,7 @@
 import { playDailyTipFlipSound } from "@/lib/dailyTipFlipSound";
 
 const DAILY_TIP_CARD_SELECTOR = "[data-clara-daily-tip-card='true']";
-const FLIP_SOUND_LOCK_MS = 650;
+const FLIP_SOUND_LOCK_MS = 180;
 
 let installed = false;
 const lastPlayedByCard = new WeakMap();
