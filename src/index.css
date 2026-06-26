@@ -211,7 +211,7 @@ body::after {
   opacity: 0.8 !important;
 }
 
-/* Budget category cards: enlarge the identity block without letting the progress track enter it. */
+/* Budget category cards: place the flexible title above the icon while keeping the progress track separate. */
 #root article:has([data-clara-budget-icon-trigger="true"]) > div:has([data-clara-budget-icon-trigger="true"]) {
   grid-template-columns: minmax(0, 1fr) 92px !important;
   column-gap: 0.75rem !important;
@@ -219,13 +219,17 @@ body::after {
 
 #root article:has([data-clara-budget-icon-trigger="true"]) div:has(> [data-clara-budget-icon-trigger="true"]) {
   width: 92px !important;
-  gap: 0.5rem !important;
+  gap: 0.45rem !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 #root [data-clara-budget-icon-trigger="true"] {
+  order: 2 !important;
   width: 40px !important;
   height: 40px !important;
   border-radius: 13px !important;
+  flex: 0 0 auto !important;
 }
 
 #root [data-clara-budget-icon-trigger="true"] > svg {
@@ -234,10 +238,18 @@ body::after {
 }
 
 #root [data-clara-budget-icon-trigger="true"] + p {
-  max-height: 30px !important;
+  order: 1 !important;
+  width: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  text-align: center !important;
   font-size: 11px !important;
   line-height: 1.15 !important;
-  color: rgba(255, 255, 255, 0.74) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
 }
 
 #root article:has([data-clara-budget-icon-trigger="true"]) > div:last-of-type {
