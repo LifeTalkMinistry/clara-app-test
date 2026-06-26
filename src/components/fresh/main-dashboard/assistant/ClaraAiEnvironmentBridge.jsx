@@ -11,8 +11,11 @@ import { buildDashboardSummaryAiSnapshot } from "@/lib/clara-dashboard-summary-a
 import { buildDashboardCardsAiSnapshot } from "@/lib/clara-dashboard-cards-ai-reader";
 import { getDebtObligations } from "@/lib/debtObligationStore";
 import { LOCAL_FINANCE_STORES, runLocalFinanceTransaction } from "@/lib/localFinanceStore";
-
-const LONG_PRESS_DELAY = 520;
+import {
+  CLARA_OPEN_BUY_CHECK_EVENT,
+  CLARA_PAUSE_OPEN_REQUEST_EVENT,
+  CLARA_RESET_BUY_CHECK_EVENT,
+} from "@/lib/clara-pause-events";
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
 const RETIRED_DEMO_LOCAL_USER_ID = "clara-demo-user";
 const YOUNG_PROFESSIONAL_SOURCE = "clara_young_professional_current_state";
@@ -68,14 +71,6 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
       transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 `;
-
-function isMoneyLeftOrbTarget(target) {
-  return Boolean(
-    target?.closest?.(
-      '[data-clara-manual-expense-orb="true"], [aria-label*="Tap to log expense"], [aria-label*="ask CLARA"]'
-    )
-  );
-}
 
 function getRealLocalUserId(user) {
   const value = user?.id || user?.email || "local-user";
@@ -403,8 +398,10 @@ export default function ClaraAiEnvironmentBridge() {
   }, [user, plan, expenses, incomes, incomeSources, wallets, walletTransactions, transfers, budgets, savingsGoals, emergencyFund, debtObligations, totalIncome, transactionHubSnapshot, incomeHubSnapshot, dashboardSummarySnapshot, dashboardCardsLiveSnapshot, loading, refreshing, claraAiEnvironment.messages]);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
-  const longPressTimerRef = useRef(null);
   const cleanupStartedRef = useRef(false);
+  const pauseRequestSequenceRef = useRef(0);
+  const pendingBuyCheckRequestRef = useRef(null);
+  const dispatchedBuyCheckRequestRef = useRef(null);
   const isActive = overlayVisible;
 
   useEffect(() => {
@@ -448,41 +445,87 @@ export default function ClaraAiEnvironmentBridge() {
   }, []);
 
   useEffect(() => {
-    if (typeof document === "undefined") return undefined;
+    if (typeof window === "undefined") return undefined;
 
-    const clearLongPressTimer = () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
+    const handlePauseOpenRequest = (event) => {
+      const requestId = String(
+        event?.detail?.requestId ||
+          `pause-${Date.now()}-${++pauseRequestSequenceRef.current}`
+      );
+
+      pendingBuyCheckRequestRef.current = requestId;
+      dispatchedBuyCheckRequestRef.current = null;
+      setOverlayVisible(true);
+      claraAiEnvironment.activateOverlay?.("money-left-orb-pause");
     };
 
-    const handlePointerDown = (event) => {
-      if (!isMoneyLeftOrbTarget(event.target)) return;
-      clearLongPressTimer();
-      longPressTimerRef.current = window.setTimeout(() => {
-        setOverlayVisible(true);
-        claraAiEnvironment.activateOverlay?.("money-left-orb-long-press");
-      }, LONG_PRESS_DELAY);
-    };
-
-    const handlePointerRelease = () => clearLongPressTimer();
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("pointerup", handlePointerRelease, true);
-    document.addEventListener("pointercancel", handlePointerRelease, true);
-    document.addEventListener("touchend", handlePointerRelease, true);
+    window.addEventListener(
+      CLARA_PAUSE_OPEN_REQUEST_EVENT,
+      handlePauseOpenRequest
+    );
 
     return () => {
-      clearLongPressTimer();
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("pointerup", handlePointerRelease, true);
-      document.removeEventListener("pointercancel", handlePointerRelease, true);
-      document.removeEventListener("touchend", handlePointerRelease, true);
+      window.removeEventListener(
+        CLARA_PAUSE_OPEN_REQUEST_EVENT,
+        handlePauseOpenRequest
+      );
     };
   }, [claraAiEnvironment]);
 
+  useEffect(() => {
+    if (
+      !overlayVisible ||
+      typeof window === "undefined" ||
+      typeof document === "undefined"
+    ) {
+      return undefined;
+    }
+
+    const requestId = pendingBuyCheckRequestRef.current;
+    if (!requestId || dispatchedBuyCheckRequestRef.current === requestId) {
+      return undefined;
+    }
+
+    let frameId = 0;
+
+    const dispatchBuyCheckWhenMounted = () => {
+      if (dispatchedBuyCheckRequestRef.current === requestId) return;
+
+      const entryBoard = document.querySelector(
+        '[data-clara-pause-entry-board="true"]'
+      );
+
+      if (!entryBoard) {
+        frameId = window.requestAnimationFrame(dispatchBuyCheckWhenMounted);
+        return;
+      }
+
+      dispatchedBuyCheckRequestRef.current = requestId;
+      window.dispatchEvent(
+        new CustomEvent(CLARA_OPEN_BUY_CHECK_EVENT, {
+          detail: {
+            requestId,
+            source: "clara-pause-overlay",
+          },
+        })
+      );
+    };
+
+    frameId = window.requestAnimationFrame(dispatchBuyCheckWhenMounted);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [overlayVisible]);
+
   const closeOverlay = () => {
+    pendingBuyCheckRequestRef.current = null;
+    dispatchedBuyCheckRequestRef.current = null;
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(CLARA_RESET_BUY_CHECK_EVENT));
+    }
+
     setOverlayVisible(false);
     claraAiEnvironment.clearEnvironment?.();
   };
