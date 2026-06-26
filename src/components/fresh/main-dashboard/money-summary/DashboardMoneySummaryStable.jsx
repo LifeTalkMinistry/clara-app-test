@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
@@ -297,10 +298,6 @@ export default function DashboardMoneySummaryStable({
         clearTapTimer();
       }
 
-      if (!isGuideMode) {
-        startMoneyLeftOrbLongPress?.(event);
-      }
-
       const scheduledEpoch = gestureEpochRef.current;
       const holdDelay = isGuideOrbInputPhase ? GUIDE_LONG_PRESS_DELAY : LONG_PRESS_DELAY;
       longPressTimerRef.current = setTimeout(() => {
@@ -332,6 +329,20 @@ export default function DashboardMoneySummaryStable({
 
         if (isAwaitSingleGuideActive() || isAwaitDoubleGuideActive()) {
           onGuideOrbLongPress?.();
+          return;
+        }
+
+        if (!guideState.isGuideMode && typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
+              detail: {
+                requestId: `money-left-orb-stable-${Date.now()}-${Math.random()
+                  .toString(36)
+                  .slice(2)}`,
+                source: "money-left-orb-stable",
+              },
+            })
+          );
         }
       }, holdDelay);
     },
@@ -375,13 +386,6 @@ export default function DashboardMoneySummaryStable({
       lastTapAtRef.current = 0;
       setGuideOrbHoldingSafe(false);
 
-      if (!isGuideMode) {
-        if (typeof moveMoneyLeftOrbLongPress === "function") {
-          moveMoneyLeftOrbLongPress(event);
-        } else {
-          endMoneyLeftOrbLongPress?.(event);
-        }
-      }
     },
     [
       clearLongPressTimer,
@@ -410,10 +414,6 @@ export default function DashboardMoneySummaryStable({
       ) {
         resetOrbGestureState();
         return;
-      }
-
-      if (!isGuideMode) {
-        endMoneyLeftOrbLongPress?.(event);
       }
 
       clearLongPressTimer();
@@ -526,10 +526,6 @@ export default function DashboardMoneySummaryStable({
     (event) => {
       stopOrbEvent(event);
       pointerIsDownRef.current = false;
-
-      if (!isGuideMode) {
-        endMoneyLeftOrbLongPress?.(event);
-      }
 
       resetOrbGestureState();
     },
@@ -812,7 +808,7 @@ export default function DashboardMoneySummaryStable({
                 ? "Tap twice to practice opening Transaction Hub"
                 : isGuideOrbAwaitHold
                   ? "Press and hold to practice opening CLARA Chat"
-                  : "Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
+                  : "Tap to log expense, double tap for Transaction Hub, long press to pause before buying"
           }
         >
           <img
