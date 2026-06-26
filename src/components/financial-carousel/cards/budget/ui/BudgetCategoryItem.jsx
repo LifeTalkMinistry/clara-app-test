@@ -1,19 +1,15 @@
-import { useState } from "react";
 import {
   Car,
   CreditCard,
-  Edit3,
   Film,
   Fuel,
   GraduationCap,
   HeartPulse,
   Home,
-  MoreHorizontal,
   Receipt,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
-  Trash2,
   Utensils,
   Wallet,
   Zap,
@@ -82,7 +78,6 @@ function getHealthState({ allocated, spent, isProtected }) {
   if (isProtected) {
     return {
       state: "protected",
-      label: "Protected",
       progressRgb: null,
       ratio: allocated > 0 ? 1 : 0,
     };
@@ -97,7 +92,6 @@ function getHealthState({ allocated, spent, isProtected }) {
   if (ratio >= 1) {
     return {
       state: "danger",
-      label: spent > allocated ? "Over budget" : "Limit reached",
       progressRgb: "248 113 113",
       ratio,
     };
@@ -106,7 +100,6 @@ function getHealthState({ allocated, spent, isProtected }) {
   if (ratio >= 0.8) {
     return {
       state: "warning",
-      label: "Near limit",
       progressRgb: "251 191 36",
       ratio,
     };
@@ -114,19 +107,12 @@ function getHealthState({ allocated, spent, isProtected }) {
 
   return {
     state: "healthy",
-    label: "Safe",
     progressRgb: null,
     ratio,
   };
 }
 
-export default function BudgetCategoryItem({
-  item,
-  financeActionLoading = false,
-  onEditBudgetCategory,
-  onDeleteBudgetCategory,
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function BudgetCategoryItem({ item }) {
   const isProtected =
     item?.isProtectedCommitment === true ||
     item?.is_protected_commitment === true;
@@ -158,16 +144,6 @@ export default function BudgetCategoryItem({
     ? "text-rose-100"
     : "text-white/96";
 
-  const closeAndEdit = () => {
-    setMenuOpen(false);
-    onEditBudgetCategory?.(item);
-  };
-
-  const closeAndDelete = () => {
-    setMenuOpen(false);
-    onDeleteBudgetCategory?.(item);
-  };
-
   return (
     <article
       className="relative rounded-[18px] border p-3 pl-4 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px"
@@ -198,30 +174,33 @@ export default function BudgetCategoryItem({
         }}
       />
 
-      <div className="relative grid grid-cols-[minmax(0,1fr)_52px] grid-rows-[40px_auto] items-center gap-x-4 gap-y-1">
-        <p className={`col-start-1 row-start-1 truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
-          {fmt(heroAmount)}
-        </p>
-
-        <div
-          className="col-start-2 row-start-1 grid h-10 w-10 justify-self-end place-items-center rounded-[13px] border"
-          style={{
-            color: `rgb(${reserveTone.rgb})`,
-            borderColor: `rgb(${reserveTone.rgb} / 0.25)`,
-            backgroundColor: `rgb(${reserveTone.rgb} / 0.11)`,
-            boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.055)`,
-          }}
-        >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} />
+      <div className="relative grid grid-cols-[minmax(0,1fr)_76px] items-center gap-x-4">
+        <div className="min-w-0 self-center">
+          <p className={`truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
+            {fmt(heroAmount)}
+          </p>
+          <p className="mt-1.5 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
+            {heroLabel}
+          </p>
         </div>
 
-        <p className="col-start-1 row-start-2 min-w-0 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
-          {heroLabel}
-        </p>
+        <div className="flex w-[76px] flex-col items-center justify-center gap-1.5 justify-self-end">
+          <div
+            className="grid h-8 w-8 place-items-center rounded-[11px] border"
+            style={{
+              color: `rgb(${reserveTone.rgb})`,
+              borderColor: `rgb(${reserveTone.rgb} / 0.20)`,
+              backgroundColor: `rgb(${reserveTone.rgb} / 0.08)`,
+              boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 12px rgb(${reserveTone.rgb} / 0.05)`,
+            }}
+          >
+            <Icon className="h-4 w-4" strokeWidth={2} />
+          </div>
 
-        <p className="col-start-2 row-start-2 min-w-0 truncate text-right text-[11px] font-black leading-tight tracking-[-0.015em] text-white/88">
-          {item?.title || "Budget category"}
-        </p>
+          <p className="max-h-[24px] w-full overflow-hidden whitespace-normal break-words text-center text-[10px] font-bold leading-[1.15] text-white/70">
+            {item?.title || "Budget category"}
+          </p>
+        </div>
       </div>
 
       <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.30] shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]">
