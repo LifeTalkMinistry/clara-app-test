@@ -1,0 +1,36 @@
+name: Verify Buy Check Single Render Python
+
+on:
+  pull_request:
+    types: [synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.head_ref == 'fix-buy-check-single-render-20260626'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 1
+          show-progress: false
+      - run: python .github/scripts/fix-buy-check-single-render.py
+      - run: git diff --check
+      - run: npm ci
+      - run: npm run build:web
+      - name: Commit verified changes
+        run: |
+          rm -f .github/scripts/fix-buy-check-single-render.mjs
+          rm -f .github/scripts/fix-buy-check-single-render.py
+          rm -f .github/workflows/buy-check-single-render-fix.yml
+          rm -f .github/scripts/trigger-buy-check-single-render.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Buy Check opening race at source"
+          git push origin HEAD:${{ github.head_ref }}
