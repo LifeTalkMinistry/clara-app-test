@@ -537,9 +537,9 @@ export default function ManualExpenseFullScreenSheet({
                 type="button"
                 role="option"
                 aria-selected={selected}
-                disabled={option.disabled}
+                aria-disabled={option.disabled || undefined}
                 onClick={() => selectBudget(option)}
-                className={`flex min-h-[62px] w-full items-center gap-3 rounded-[19px] border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 disabled:cursor-not-allowed disabled:opacity-45 ${optionTone(
+                className={`flex min-h-[62px] w-full items-center gap-3 rounded-[19px] border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 ${option.disabled ? "cursor-not-allowed opacity-45" : ""} ${optionTone(
                   option.tone,
                   selected
                 )}`}
