@@ -33,13 +33,6 @@ const RESERVE_TONES = {
   gold: { name: "Premium Gold", rgb: "232 201 122" },
 };
 
-const STATUS_STYLES = {
-  healthy: "border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-100/90",
-  warning: "border-amber-300/22 bg-amber-400/[0.11] text-amber-100",
-  danger: "border-rose-300/22 bg-rose-400/[0.11] text-rose-100",
-  protected: "border-white/[0.09] bg-white/[0.045] text-white/66",
-};
-
 function getReserveTone(item, allocated) {
   const explicitShare = safeNumber(item?.reserveShare ?? item?.reserve_share);
   const declared = safeNumber(
@@ -151,9 +144,6 @@ export default function BudgetCategoryItem({
   const Icon = getCategoryIcon(item?.title, isProtected);
   const progressRgb = health.progressRgb || reserveTone.rgb;
   const displayProgress = Math.min(Math.max(health.ratio * 100, 0), 100);
-  const usagePercent = categoryAllocated > 0
-    ? Math.round((categorySpent / categoryAllocated) * 100)
-    : 0;
   const heroAmount = isProtected
     ? categoryAllocated
     : overAmount > 0
@@ -180,11 +170,11 @@ export default function BudgetCategoryItem({
 
   return (
     <article
-      className="relative rounded-[20px] border p-4 pl-[18px] transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px"
+      className="relative rounded-[18px] border p-3 pl-4 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px"
       style={{
         borderColor: `rgb(${reserveTone.rgb} / 0.22)`,
         background: `radial-gradient(circle at 12% 0%, rgb(${reserveTone.rgb} / 0.115), transparent 38%), linear-gradient(145deg, rgba(8,20,38,0.97), rgba(8,13,31,0.985))`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.065), 0 12px 26px rgba(0,0,0,0.22), 0 0 22px rgb(${reserveTone.rgb} / 0.045)`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.065), 0 10px 22px rgba(0,0,0,0.20), 0 0 18px rgb(${reserveTone.rgb} / 0.04)`,
       }}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
@@ -195,158 +185,101 @@ export default function BudgetCategoryItem({
           }}
         />
         <div
-          className="absolute -right-10 -top-12 h-28 w-28 rounded-full blur-3xl"
-          style={{ backgroundColor: `rgb(${reserveTone.rgb} / 0.09)` }}
+          className="absolute -right-10 -top-12 h-24 w-24 rounded-full blur-3xl"
+          style={{ backgroundColor: `rgb(${reserveTone.rgb} / 0.08)` }}
         />
       </div>
 
       <div
-        className="pointer-events-none absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full"
+        className="pointer-events-none absolute bottom-2.5 left-0 top-2.5 w-[3px] rounded-r-full"
         style={{
           backgroundColor: `rgb(${reserveTone.rgb})`,
-          boxShadow: `0 0 14px rgb(${reserveTone.rgb} / 0.30)`,
+          boxShadow: `0 0 12px rgb(${reserveTone.rgb} / 0.28)`,
         }}
       />
 
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="relative grid grid-cols-[minmax(86px,0.85fr)_minmax(0,1fr)_32px] grid-rows-[40px_auto] items-center gap-x-2.5 gap-y-1">
+        <div
+          className="col-start-1 row-start-1 grid h-10 w-10 place-items-center rounded-[13px] border"
+          style={{
+            color: `rgb(${reserveTone.rgb})`,
+            borderColor: `rgb(${reserveTone.rgb} / 0.25)`,
+            backgroundColor: `rgb(${reserveTone.rgb} / 0.11)`,
+            boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.055)`,
+          }}
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} />
+        </div>
+
+        <p className={`col-start-2 row-start-1 truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
+          {fmt(heroAmount)}
+        </p>
+
+        {!isProtected ? (
           <div
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border"
-            style={{
-              color: `rgb(${reserveTone.rgb})`,
-              borderColor: `rgb(${reserveTone.rgb} / 0.25)`,
-              backgroundColor: `rgb(${reserveTone.rgb} / 0.11)`,
-              boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.055)`,
+            className="relative col-start-3 row-start-1 justify-self-end"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
             }}
           >
-            <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} />
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="truncate text-[15px] font-black leading-tight tracking-[-0.025em] text-white/95">
-              {item?.title || "Budget category"}
-            </h3>
-            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/34">
-              {reserveTone.name}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${STATUS_STYLES[health.state]}`}>
-            {health.label}
-          </span>
-
-          {!isProtected ? (
-            <div
-              className="relative"
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
-              }}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((current) => !current)}
+              disabled={financeActionLoading}
+              className="grid h-8 w-8 place-items-center rounded-xl border border-transparent bg-white/[0.025] text-white/48 transition hover:border-white/[0.09] hover:bg-white/[0.065] hover:text-white/82 disabled:opacity-40"
+              aria-label={`Open actions for ${item?.title || "budget category"}`}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
             >
-              <button
-                type="button"
-                onClick={() => setMenuOpen((current) => !current)}
-                disabled={financeActionLoading}
-                className="grid h-8 w-8 place-items-center rounded-xl border border-transparent bg-white/[0.025] text-white/48 transition hover:border-white/[0.09] hover:bg-white/[0.065] hover:text-white/82 disabled:opacity-40"
-                aria-label={`Open actions for ${item?.title || "budget category"}`}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
 
-              {menuOpen ? (
-                <div
-                  role="menu"
-                  className="absolute right-0 top-9 z-30 w-36 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#081426]/96 p-1.5 shadow-[0_18px_42px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.055)] backdrop-blur-xl"
+            {menuOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-9 z-30 w-36 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#081426]/96 p-1.5 shadow-[0_18px_42px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.055)] backdrop-blur-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={closeAndEdit}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-bold text-white/72 transition hover:bg-white/[0.07] hover:text-white"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={closeAndEdit}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-bold text-white/72 transition hover:bg-white/[0.07] hover:text-white"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                    Edit category
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={closeAndDelete}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-bold text-rose-100/72 transition hover:bg-rose-400/[0.10] hover:text-rose-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete category
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+                  <Edit3 className="h-3.5 w-3.5" />
+                  Edit category
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={closeAndDelete}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-bold text-rose-100/72 transition hover:bg-rose-400/[0.10] hover:text-rose-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete category
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="col-start-3 row-start-1" aria-hidden="true" />
+        )}
+
+        <p className="col-start-1 row-start-2 min-w-0 truncate text-[11px] font-black leading-tight tracking-[-0.015em] text-white/88">
+          {item?.title || "Budget category"}
+        </p>
+
+        <p className="col-start-2 row-start-2 min-w-0 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
+          {heroLabel}
+        </p>
       </div>
 
-      <div className="relative mt-4 flex items-end justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className={`truncate text-[22px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
-            {fmt(heroAmount)}
-          </p>
-          <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.15em] text-white/36">
-            {heroLabel}
-          </p>
-        </div>
-
-        <div className="min-w-0 max-w-[44%] shrink-0 text-right">
-          {isProtected ? (
-            <>
-              <p
-                className="truncate text-[15px] font-black leading-none"
-                style={{ color: `rgb(${reserveTone.rgb})` }}
-              >
-                100%
-              </p>
-              <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-white/38">
-                Protected
-              </p>
-            </>
-          ) : (
-            <>
-              <p
-                className="truncate text-[15px] font-black leading-none"
-                style={{
-                  color: health.state === "danger"
-                    ? "rgb(254 205 211)"
-                    : `rgb(${reserveTone.rgb})`,
-                }}
-              >
-                {fmt(categorySpent)}
-              </p>
-              <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-white/38">
-                Spent
-              </p>
-              <p
-                className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${
-                  health.state === "danger"
-                    ? "text-rose-100/90"
-                    : health.state === "warning"
-                      ? "text-amber-100/85"
-                      : "text-white/48"
-                }`}
-              >
-                {usagePercent}% used
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="relative mt-3.5 h-2 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.30] shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]">
+      <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.30] shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]">
         <div
           className="h-full rounded-full transition-[width] duration-500 ease-out"
           style={{
             width: `${displayProgress}%`,
             background: `linear-gradient(90deg, rgb(${progressRgb} / 0.78), rgb(${progressRgb}))`,
-            boxShadow: `0 0 12px rgb(${progressRgb} / 0.30)`,
+            boxShadow: `0 0 10px rgb(${progressRgb} / 0.28)`,
           }}
         />
       </div>
