@@ -18,10 +18,6 @@ function getShell() {
   return document.querySelector(SHELL_SELECTOR);
 }
 
-function getMain() {
-  return getShell()?.querySelector("main") || null;
-}
-
 function ensureStyles() {
   if (document.getElementById(STYLE_ID)) return;
 
@@ -105,10 +101,26 @@ function removeDuplicateOpeningQuestion(chat) {
   firstClaraRow?.remove();
 }
 
-function prepareInput(shell) {
-  const input = shell?.querySelector("input, textarea");
+function stabilizeOpeningInput(input) {
   if (!input) return;
+
   input.setAttribute("placeholder", "Type the item you want to buy");
+  input.setAttribute("readonly", "");
+  input.dataset.claraOpeningFocusGuard = "true";
+
+  const blockOpeningFocus = () => {
+    if (input.dataset.claraOpeningFocusGuard === "true") input.blur?.();
+  };
+
+  input.addEventListener("focus", blockOpeningFocus);
+  input.blur?.();
+
+  window.setTimeout(() => {
+    if (!document.contains(input)) return;
+    delete input.dataset.claraOpeningFocusGuard;
+    input.removeAttribute("readonly");
+    input.removeEventListener("focus", blockOpeningFocus);
+  }, 260);
 }
 
 function attachFinalBoard(shell, retainedBoard) {
@@ -121,7 +133,7 @@ function attachFinalBoard(shell, retainedBoard) {
   }
 
   removeDuplicateOpeningQuestion(chat);
-  prepareInput(shell);
+  stabilizeOpeningInput(shell.querySelector("input, textarea"));
   shell.setAttribute(READY_ATTRIBUTE, "true");
   shell.removeAttribute(INITIALIZING_ATTRIBUTE);
   return true;
