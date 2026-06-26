@@ -4,9 +4,11 @@ import WalletRecentActivity from '@/components/financial-carousel/cards/wallet/u
 import WalletEmptyState from '@/components/financial-carousel/cards/wallet/ui/WalletEmptyState';
 import FinanceCardExpandButton from '@/components/financial-carousel/shared/FinanceCardExpandButton';
 import FinanceCardExpandedPanel from '@/components/financial-carousel/shared/FinanceCardExpandedPanel';
-import FinancialCarouselPremiumCardShell from '@/components/financial-carousel/shared/FinancialCarouselPremiumCardShell';
 import WalletCreateButton from '@/components/financial-carousel/cards/wallet/ui/WalletCreateButton';
 import { fmt } from '@/components/financial-carousel/cards/wallet/logic/walletFormatting';
+
+const expandButtonClass =
+  'border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]';
 
 function getRegisteredWalletCount(wallets = []) {
   return (Array.isArray(wallets) ? wallets : []).filter(
@@ -47,10 +49,106 @@ const getPrimaryWalletName = (topWallet) => {
   );
 };
 
+function WalletHeader({ walletCount = 0, status }) {
+  const walletCountLabel = `${walletCount} ${walletCount === 1 ? 'Wallet' : 'Wallets'}`;
+
+  return (
+    <div className='mb-3 flex items-start gap-3'>
+      <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm'>
+        <WalletCards className='h-4 w-4' />
+      </div>
+
+      <div className='min-w-0 flex-1'>
+        <div className='flex items-start justify-between gap-2'>
+          <div className='min-w-0'>
+            <p className='text-base font-semibold tracking-tight text-white'>
+              Wallets
+            </p>
+            <p className='mt-0.5 text-[11px] font-medium text-white/76'>
+              Available across accounts
+            </p>
+          </div>
+
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${
+              status?.badge ||
+              'border border-cyan-300/16 bg-cyan-400/[0.075] text-cyan-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]'
+            }`}
+          >
+            {walletCountLabel}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WalletSummaryStats({ walletCount = 0, walletMoney = 0, topWallet, status, message }) {
+  const summaryTiles = [
+    {
+      label: 'Wallets',
+      value: walletCount,
+    },
+    {
+      label: 'Primary',
+      value: getPrimaryWalletName(topWallet),
+      valueClassName: 'text-cyan-200',
+    },
+  ];
+
+  return (
+    <>
+      <div className='mb-3'>
+        <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status?.text || 'text-white/93'}`}>
+          {fmt(walletMoney)}
+        </p>
+        <p className='mt-2 text-sm font-semibold leading-tight text-white/76'>
+          {message || 'Available across all wallets.'}
+        </p>
+      </div>
+
+      <div className='mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm'>
+        <div className='grid grid-cols-2 divide-x divide-white/[0.055]'>
+          {summaryTiles.map((tile) => (
+            <div key={tile.label} className='relative min-w-0 px-2.5 py-2.5 text-center'>
+              <div className='pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent' />
+              <p
+                className={`truncate text-[13px] font-black leading-none tracking-[-0.03em] ${
+                  tile.valueClassName || 'text-white/88'
+                }`}
+              >
+                {tile.value}
+              </p>
+              <p className='mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34'>
+                {tile.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ExpandButtonRow({ expanded, onToggleDetails }) {
+  return (
+    <div className='shrink-0 border-t border-white/[0.035] pt-3'>
+      <FinanceCardExpandButton
+        detailKey='wallets'
+        expanded={expanded}
+        onToggleDetails={onToggleDetails}
+        collapsedLabel='View Wallets'
+        expandedLabel='Hide Wallets'
+        className={expandButtonClass}
+      />
+    </div>
+  );
+}
+
 function WalletSkeletonLoader({ expanded = false }) {
   return (
     <div
-      aria-hidden="true"
+      aria-hidden='true'
       className={`animate-pulse ${expanded ? 'min-h-[420px]' : 'min-h-[260px]'}`}
     >
       <div className='h-6 w-28 rounded-xl bg-white/10' />
@@ -105,40 +203,38 @@ export default function WalletCardContent({
   if (!expanded) {
     if (shouldShowSkeleton) {
       return (
-        <div className='relative z-10 flex h-full min-h-[286px] flex-col overflow-hidden px-4 pb-4 pt-5'>
+        <div className='relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5'>
           <WalletSkeletonLoader expanded={false} />
         </div>
       );
     }
 
     return (
-      <FinancialCarouselPremiumCardShell
-        icon={<WalletCards className='h-4 w-4' />}
-        title='Wallets'
-        subtitle='Available across accounts'
-        statusLabel={`${walletCount} ${walletCount === 1 ? 'Wallet' : 'Wallets'}`}
-        mainValue={fmt(walletMoney)}
-        mainValueClassName={status?.text || 'text-white'}
-        supportText={message || 'Available across all wallets.'}
-        metrics={[
-          { label: 'Wallets', value: walletCount },
-          {
-            label: 'Primary',
-            value: getPrimaryWalletName(topWallet),
-            valueClassName: 'text-cyan-50 text-[12px] tracking-[-0.02em]',
-          },
-          {
-            label: 'Status',
-            value: status?.label || 'Ready',
-            valueClassName: status?.text || 'text-cyan-200',
-          },
-        ]}
-        detailKey='wallets'
-        expanded={expanded}
-        onToggleDetails={onToggleDetails}
-        actionLabel='View Wallets'
-        expandedActionLabel='Hide Wallets'
-      />
+      <div className='relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5'>
+        <div className='pointer-events-none absolute inset-0 opacity-[0.48]'>
+          <div className='absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl' />
+          <div className='absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl' />
+          <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]' />
+        </div>
+
+        <div className='relative flex min-h-0 flex-col gap-4'>
+          <div className='min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]'>
+            <WalletHeader walletCount={walletCount} status={status} />
+
+            <div className='mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3'>
+              <WalletSummaryStats
+                walletCount={walletCount}
+                walletMoney={walletMoney}
+                topWallet={topWallet}
+                status={status}
+                message={message}
+              />
+            </div>
+          </div>
+
+          <ExpandButtonRow expanded={false} onToggleDetails={onToggleDetails} />
+        </div>
+      </div>
     );
   }
 
@@ -162,16 +258,7 @@ export default function WalletCardContent({
           </p>
         </div>
 
-        <div className='shrink-0 border-t border-white/[0.035] pt-3'>
-          <FinanceCardExpandButton
-            detailKey='wallets'
-            expanded={expanded}
-            onToggleDetails={onToggleDetails}
-            collapsedLabel='View Wallets'
-            expandedLabel='Hide Wallets'
-            className='border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]'
-          />
-        </div>
+        <ExpandButtonRow expanded={expanded} onToggleDetails={onToggleDetails} />
       </div>
 
       <div className='min-h-0 flex-1 overflow-hidden pt-3'>
