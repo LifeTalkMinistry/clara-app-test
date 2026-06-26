@@ -326,11 +326,124 @@ function cardKindFromEyebrow(text = "") {
   return "";
 }
 
-function renderBullets(items = []) {
-  return `<ul class="clara-buy-check-card-bullets">${items
-    .filter(Boolean)
-    .map((item) => `<li>${escapeHtml(item)}</li>`)
-    .join("")}</ul>`;
+function getCardDetails(article) {
+  try {
+    const details = JSON.parse(article?.dataset.claraCardDetails || "[]");
+    return safeArray(details).map(clean).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function getActiveReportCard(report) {
+  const cards = Array.from(report?.querySelectorAll("article") || []);
+  if (!cards.length) return null;
+
+  const track = cards[0].parentElement;
+  if (!track) return cards[0];
+
+  const viewportCenter = track.scrollLeft + track.clientWidth / 2;
+  return cards.reduce((closest, card) => {
+    const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+    const closestCenter = closest.offsetLeft + closest.offsetWidth / 2;
+    return Math.abs(cardCenter - viewportCenter) < Math.abs(closestCenter - viewportCenter)
+      ? card
+      : closest;
+  }, cards[0]);
+}
+
+function closeReportDetails(report) {
+  report?.querySelector("[data-clara-buy-check-details-dialog]")?.remove();
+}
+
+function updateDetailsButton(report) {
+  const button = report?.querySelector("[data-clara-buy-check-details-button]");
+  const activeCard = getActiveReportCard(report);
+  const details = getCardDetails(activeCard);
+  if (!button) return;
+
+  button.hidden = details.length === 0;
+  const title = clean(activeCard?.querySelector("h3")?.textContent || "this card");
+  button.setAttribute("aria-label", `View detailed explanation for ${title}`);
+}
+
+function openReportDetails(report) {
+  const activeCard = getActiveReportCard(report);
+  const details = getCardDetails(activeCard);
+  if (!activeCard || !details.length) return;
+
+  closeReportDetails(report);
+
+  const paragraphs = activeCard.querySelectorAll("p");
+  const eyebrow = clean(paragraphs[0]?.textContent || "BUY CHECK DETAILS");
+  const body = clean(paragraphs[1]?.textContent || "");
+  const title = clean(activeCard.querySelector("h3")?.textContent || "Detailed explanation");
+  const dialog = document.createElement("div");
+  dialog.className = "clara-buy-check-details-dialog";
+  dialog.dataset.claraBuyCheckDetailsDialog = "true";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-label", `Detailed explanation for ${title}`);
+  dialog.innerHTML = `
+    <div class="clara-buy-check-details-sheet">
+      <button type="button" class="clara-buy-check-details-close" data-clara-buy-check-details-close="true" aria-label="Close detailed explanation">×</button>
+      <p class="clara-buy-check-details-eyebrow">${escapeHtml(eyebrow)}</p>
+      <h3>${escapeHtml(title)}</h3>
+      ${body ? `<p class="clara-buy-check-details-summary">${escapeHtml(body)}</p>` : ""}
+      <div class="clara-buy-check-details-list">
+        ${details.map((item, index) => `
+          <div class="clara-buy-check-details-item">
+            <span aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+            <p>${escapeHtml(item)}</p>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog || event.target.closest("[data-clara-buy-check-details-close]")) {
+      closeReportDetails(report);
+    }
+  });
+
+  report.appendChild(dialog);
+  requestAnimationFrame(() => dialog.querySelector("[data-clara-buy-check-details-close]")?.focus());
+}
+
+function ensureReportDetailsUi(report) {
+  const section = report.querySelector(":scope > section") || report.querySelector("section");
+  const cards = Array.from(report.querySelectorAll("article"));
+  const track = cards[0]?.parentElement;
+  if (!section || !cards.length) return;
+
+  let button = report.querySelector("[data-clara-buy-check-details-button]");
+  if (!button) {
+    button = document.createElement("button");
+    button.type = "button";
+    button.className = "clara-buy-check-details-button";
+    button.dataset.claraBuyCheckDetailsButton = "true";
+    button.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 10.75v5.25"></path>
+        <circle cx="12" cy="7.7" r="0.75" class="clara-buy-check-details-dot"></circle>
+      </svg>
+    `;
+    button.addEventListener("click", () => openReportDetails(report));
+    section.appendChild(button);
+  }
+
+  if (track && track.dataset.claraDetailsTracking !== "true") {
+    track.dataset.claraDetailsTracking = "true";
+    let scrollFrame = 0;
+    track.addEventListener("scroll", () => {
+      cancelAnimationFrame(scrollFrame);
+      scrollFrame = requestAnimationFrame(() => updateDetailsButton(report));
+    }, { passive: true });
+  }
+
+  updateDetailsButton(report);
 }
 
 function polishReportCards() {
@@ -353,13 +466,19 @@ function polishReportCards() {
 
     if (title && cardData.title) title.textContent = cardData.title;
     if (body) body.textContent = cardData.body;
+
+    article.dataset.claraCardDetails = JSON.stringify(safeArray(cardData.bullets));
     if (oldNote) {
       oldNote.className = "clara-buy-check-card-points";
-      oldNote.innerHTML = renderBullets(cardData.bullets);
+      oldNote.hidden = true;
+      oldNote.setAttribute("aria-hidden", "true");
+      oldNote.textContent = "";
     }
 
     article.dataset.claraContentPolished = "true";
   });
+
+  ensureReportDetailsUi(report);
 }
 
 function installBuyCheckReportContentPolish() {
@@ -369,6 +488,16 @@ function installBuyCheckReportContentPolish() {
 
   const observer = new MutationObserver(() => polishReportCards());
   observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const dialog = document.querySelector("[data-clara-buy-check-details-dialog]");
+    if (!dialog) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    dialog.remove();
+  }, true);
+
   polishReportCards();
 }
 
