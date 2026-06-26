@@ -241,7 +241,7 @@ export default function ClaraAiEnvironmentOverlay({
             <div ref={messagesEndRef} className="h-1 shrink-0" />
           </div>
         ) : (
-          <div className="flex min-h-full flex-col justify-end pb-24 pt-20">
+          <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-8">
             <PauseEntryBoard
               onClose={onClose}
               acknowledgmentMessage={acknowledgmentMessage}
