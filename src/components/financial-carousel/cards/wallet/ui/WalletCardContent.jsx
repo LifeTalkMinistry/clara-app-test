@@ -119,10 +119,19 @@ export default function WalletCardContent({
         statusLabel={`${walletCount} ${walletCount === 1 ? 'Wallet' : 'Wallets'}`}
         mainValue={fmt(walletMoney)}
         mainValueClassName={status?.text || 'text-white'}
-        supportText='Available across all wallets.'
+        supportText={message || 'Available across all wallets.'}
         metrics={[
           { label: 'Wallets', value: walletCount },
-          { label: 'Primary', value: getPrimaryWalletName(topWallet), valueClassName: 'text-cyan-50 text-[12px] tracking-[-0.02em]' },
+          {
+            label: 'Primary',
+            value: getPrimaryWalletName(topWallet),
+            valueClassName: 'text-cyan-50 text-[12px] tracking-[-0.02em]',
+          },
+          {
+            label: 'Status',
+            value: status?.label || 'Ready',
+            valueClassName: status?.text || 'text-cyan-200',
+          },
         ]}
         detailKey='wallets'
         expanded={expanded}
