@@ -8,11 +8,14 @@ import {
   Repeat2,
   Trash2,
 } from 'lucide-react';
-import { fmt } from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
+import {
+  fmt,
+  getWalletBalanceTone,
+} from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
 import { getWalletProviderFromWallet } from '@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry';
 
 const cardStyle =
-  'relative rounded-[24px] border border-white/[0.08] bg-black/[0.13] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_10px_26px_rgba(0,0,0,0.16)] backdrop-blur-xl';
+  'relative rounded-[20px] border px-3 py-3.5 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px';
 const menuButton =
   'relative z-[120] flex h-8 w-8 items-center justify-center rounded-full border border-white/18 bg-white/[0.055] text-white/78 transition hover:border-white/28 hover:bg-white/[0.10] hover:text-white disabled:opacity-50';
 const actionButton =
@@ -38,14 +41,15 @@ function stopWalletAction(event) {
   event?.nativeEvent?.stopImmediatePropagation?.();
 }
 
-function WalletProviderIcon({ provider }) {
+function WalletProviderIcon({ provider, tone }) {
   return (
     <div
-      className='flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-white/12 text-[11px] font-black tracking-[-0.04em] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_20px_rgba(0,0,0,0.16)]'
+      className='flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-[11px] font-black tracking-[-0.04em]'
       style={{
         background: provider.iconBg,
         color: provider.iconTextColor,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 20px rgba(0,0,0,0.16), 0 0 22px ${provider.accent}30`,
+        borderColor: `rgb(${tone.rgb} / 0.22)`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 18px rgba(0,0,0,0.16), 0 0 16px ${provider.accent}20`,
       }}
       aria-hidden='true'
     >
@@ -54,24 +58,22 @@ function WalletProviderIcon({ provider }) {
   );
 }
 
-function ProtectedLayer({ title, amount, tone = 'emerald' }) {
-  const dotClass = tone === 'cyan'
-    ? 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.75)]'
-    : 'bg-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.75)]';
-  const textClass = tone === 'cyan' ? 'text-cyan-100/82' : 'text-emerald-100/78';
-  const amountClass = tone === 'cyan' ? 'text-cyan-100' : 'text-emerald-100';
+function ProtectedRow({ title, amount, cyan = false }) {
+  const dot = cyan
+    ? 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.70)]'
+    : 'bg-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.70)]';
+  const label = cyan ? 'text-cyan-100/76' : 'text-emerald-100/76';
+  const value = cyan ? 'text-cyan-100' : 'text-emerald-100';
 
   return (
-    <div>
-      <div className='flex items-center gap-2'>
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-        <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${textClass}`}>
+    <div className='flex items-center justify-between gap-3'>
+      <div className='flex min-w-0 items-center gap-2'>
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+        <span className={`truncate text-[10px] font-black uppercase tracking-[0.12em] ${label}`}>
           {title}
         </span>
       </div>
-      <p className='mt-1 text-[11px] font-bold text-white/58'>
-        Protected: <span className={amountClass}>{fmt(amount)}</span>
-      </p>
+      <span className={`shrink-0 text-[11px] font-black ${value}`}>{fmt(amount)}</span>
     </div>
   );
 }
@@ -90,6 +92,7 @@ export default function WalletListItem({
   const walletId = wallet?.id ?? wallet?.wallet_id ?? wallet?.local_id;
   const provider = getWalletProviderFromWallet(wallet);
   const walletBalance = toWalletNumber(
+    wallet?.walletBalance,
     wallet?.balance,
     wallet?.derived_balance,
     wallet?.current_balance,
@@ -97,6 +100,12 @@ export default function WalletListItem({
     wallet?.available_balance,
     wallet?.starting_balance
   );
+  const walletTone = getWalletBalanceTone({
+    balance: walletBalance,
+    balanceShare: wallet?.balanceShare ?? wallet?.balance_share,
+    totalWalletBalance: wallet?.totalWalletBalance ?? wallet?.total_wallet_balance,
+  });
+  const isNegative = walletBalance < 0;
   const emergencyProtectedAmount = toWalletNumber(
     wallet?.emergencyProtectedAmount,
     wallet?.emergency_protected_amount,
@@ -114,8 +123,6 @@ export default function WalletListItem({
     wallet?.total_protected_amount,
     emergencyProtectedAmount + savingsProtectedAmount
   );
-  const hasEmergencyAllocation = emergencyProtectedAmount > 0;
-  const hasSavingsAllocation = savingsProtectedAmount > 0;
   const hasProtectedAllocation = totalProtectedAmount > 0;
   const spendableBalance = hasProtectedAllocation
     ? toWalletNumber(
@@ -130,51 +137,53 @@ export default function WalletListItem({
   const handleAction = (event, action) => {
     stopWalletAction(event);
     setShowMenu(false);
-    if (financeActionLoading) return;
-    action?.();
+    if (!financeActionLoading) action?.();
   };
 
   return (
-    <div
+    <article
       key={walletId || wallet?.name || `wallet-${index}`}
       className={`${cardStyle} ${showMenu ? 'z-[90]' : 'z-0'}`}
-      style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.045), 0 10px 26px rgba(0,0,0,0.16), 0 0 18px ${provider.accent}14` }}
+      style={{
+        borderColor: `rgb(${walletTone.rgb} / 0.22)`,
+        background: `radial-gradient(circle at 10% 0%, rgb(${walletTone.rgb} / 0.11), transparent 38%), linear-gradient(145deg, rgba(8,20,38,0.97), rgba(8,13,31,0.985))`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 26px rgba(0,0,0,0.22), 0 0 22px rgb(${walletTone.rgb} / 0.05)`,
+      }}
     >
-      <div className='pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.025),transparent_36%,rgba(0,0,0,0.10)_100%)]' />
+      <div className='pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]'>
+        <div
+          className='absolute inset-x-5 top-0 h-px'
+          style={{ background: `linear-gradient(90deg, transparent, rgb(${walletTone.rgb} / 0.40), transparent)` }}
+        />
+        <div
+          className='absolute -right-10 -top-12 h-24 w-24 rounded-full blur-3xl'
+          style={{ backgroundColor: `rgb(${walletTone.rgb} / 0.08)` }}
+        />
+      </div>
       <div
-        className='pointer-events-none absolute inset-y-3 left-0 w-1 rounded-r-full opacity-70'
-        style={{ background: provider.accent, boxShadow: `0 0 16px ${provider.accent}` }}
+        className='pointer-events-none absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full'
+        style={{
+          backgroundColor: `rgb(${walletTone.rgb})`,
+          boxShadow: `0 0 14px rgb(${walletTone.rgb} / 0.30)`,
+        }}
       />
 
-      <div className='relative flex items-center justify-between gap-3'>
-        <div className='flex min-w-0 items-center gap-3'>
-          <WalletProviderIcon provider={provider} />
-          <div className='min-w-0'>
-            <p className='truncate text-[14px] font-black tracking-[-0.02em] text-white/90'>
-              {wallet.name || provider.defaultWalletName || provider.label || 'Wallet'}
-            </p>
-            <p className='mt-1 text-[12px] font-bold leading-none text-white/58'>
-              Balance:{' '}
-              <span className='text-[14px] font-black tracking-[-0.025em] text-emerald-200'>
-                {fmt(walletBalance)}
-              </span>
-            </p>
+      <div className='relative grid grid-cols-[48px_minmax(0,1fr)_32px] items-start gap-3'>
+        <WalletProviderIcon provider={provider} tone={walletTone} />
 
-            {hasProtectedAllocation ? (
-              <div className='mt-2 space-y-2 rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.055] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]'>
-                {hasEmergencyAllocation ? (
-                  <ProtectedLayer title='Includes Emergency Fund' amount={emergencyProtectedAmount} />
-                ) : null}
-                {hasSavingsAllocation ? (
-                  <ProtectedLayer title='Includes Savings Goals' amount={savingsProtectedAmount} tone='cyan' />
-                ) : null}
-                <div className='border-t border-white/[0.06] pt-2 text-[11px] font-bold text-white/58'>
-                  Spendable:{' '}
-                  <span className='text-cyan-100'>{fmt(spendableBalance)}</span>
-                </div>
-              </div>
-            ) : null}
-          </div>
+        <div className='min-w-0 pt-0.5'>
+          <p className='truncate text-[14px] font-black tracking-[-0.02em] text-white/92'>
+            {wallet.name || provider.defaultWalletName || provider.label || 'Wallet'}
+          </p>
+          <p
+            className='mt-1.5 truncate text-[20px] font-black leading-none tracking-[-0.04em]'
+            style={{ color: isNegative ? 'rgb(251 113 133)' : `rgb(${walletTone.rgb})` }}
+          >
+            {fmt(walletBalance)}
+          </p>
+          <p className={`mt-1.5 text-[9px] font-black uppercase tracking-[0.16em] ${isNegative ? 'text-rose-200/82' : 'text-white/38'}`}>
+            {isNegative ? 'Negative balance' : 'Current balance'}
+          </p>
         </div>
 
         <div className='relative shrink-0'>
@@ -203,35 +212,44 @@ export default function WalletListItem({
               onTouchStartCapture={stopWalletGesture}
             >
               <button type='button' onClick={(event) => handleAction(event, () => openEditWallet?.(wallet))} className={actionButton}>
-                <Edit3 className='h-3.5 w-3.5 text-cyan-200' />
-                Edit / Rename
+                <Edit3 className='h-3.5 w-3.5 text-cyan-200' /> Edit / Rename
               </button>
               <button type='button' onClick={(event) => handleAction(event, () => onAddMoney?.(wallet))} className={actionButton}>
-                <Plus className='h-3.5 w-3.5 text-emerald-200' />
-                Add Money
+                <Plus className='h-3.5 w-3.5 text-emerald-200' /> Add Money
               </button>
               <button type='button' onClick={(event) => handleAction(event, () => onTransferMoney?.(wallet))} className={actionButton}>
-                <Repeat2 className='h-3.5 w-3.5 text-sky-200' />
-                Transfer
+                <Repeat2 className='h-3.5 w-3.5 text-sky-200' /> Transfer
               </button>
               <div className='my-1 h-px bg-white/12' />
               <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, -1))} className={actionButton}>
-                <ArrowUp className='h-3.5 w-3.5 text-amber-200' />
-                Move Up
+                <ArrowUp className='h-3.5 w-3.5 text-amber-200' /> Move Up
               </button>
               <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, 1))} className={actionButton}>
-                <ArrowDown className='h-3.5 w-3.5 text-amber-200' />
-                Move Down
+                <ArrowDown className='h-3.5 w-3.5 text-amber-200' /> Move Down
               </button>
               <div className='my-1 h-px bg-white/12' />
               <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onDeleteWallet?.(walletId))} className='flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-rose-100 transition hover:bg-rose-500/14 disabled:opacity-50'>
-                <Trash2 className='h-3.5 w-3.5 text-rose-200' />
-                Delete Wallet
+                <Trash2 className='h-3.5 w-3.5 text-rose-200' /> Delete Wallet
               </button>
             </div>
           ) : null}
         </div>
       </div>
-    </div>
+
+      {hasProtectedAllocation ? (
+        <div className='relative mt-3 space-y-2.5 rounded-2xl border border-white/[0.055] bg-black/[0.18] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'>
+          {emergencyProtectedAmount > 0 ? (
+            <ProtectedRow title='Emergency Fund protected' amount={emergencyProtectedAmount} />
+          ) : null}
+          {savingsProtectedAmount > 0 ? (
+            <ProtectedRow title='Savings Goals protected' amount={savingsProtectedAmount} cyan />
+          ) : null}
+          <div className='flex items-center justify-between gap-3 border-t border-white/[0.06] pt-2.5'>
+            <span className='text-[10px] font-black uppercase tracking-[0.14em] text-white/42'>Spendable</span>
+            <span className='text-[12px] font-black text-cyan-100'>{fmt(spendableBalance)}</span>
+          </div>
+        </div>
+      ) : null}
+    </article>
   );
 }
