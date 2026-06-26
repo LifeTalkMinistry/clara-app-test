@@ -3,9 +3,12 @@ import { CLARA_OPEN_BUY_CHECK_EVENT } from "@/lib/clara-pause-events";
 const INSTALL_FLAG = "__CLARA_BUY_CHECK_AUTO_START_BRIDGE_INSTALLED__";
 const STYLE_ID = "clara-buy-check-auto-start-style";
 const SHELL_SELECTOR = '[data-clara-pause-overlay="true"]';
+const ENTRY_BOARD_SELECTOR = '[data-clara-pause-entry-board="true"]';
 const START_SELECTOR = '[data-clara-start-buy-check="true"]';
 const STATIC_CHAT_SELECTOR = '[data-clara-buy-check-static-chat="true"]';
 const RETAINED_BOARD_SELECTOR = '[data-clara-buy-check-intro-retained="true"]';
+const READY_ATTRIBUTE = "data-clara-buy-check-ready";
+const INITIALIZING_ATTRIBUTE = "data-clara-buy-check-initializing";
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -77,20 +80,22 @@ function buildRetainedBoard(board) {
     )
     .forEach((node) => node.remove());
 
-  const activeQuestion = document.createElement("div");
-  activeQuestion.className = "clara-buy-check-active-question";
-  activeQuestion.dataset.claraBuyCheckActiveQuestion = "true";
-  activeQuestion.setAttribute("aria-live", "polite");
-  activeQuestion.innerHTML = `
-    <strong>Hi, Max! What do you want to buy?</strong>
-    <span>Type the exact item first. <em>Example: Running shoes</em></span>
-  `;
+  if (!retainedBoard.querySelector("[data-clara-buy-check-active-question]")) {
+    const activeQuestion = document.createElement("div");
+    activeQuestion.className = "clara-buy-check-active-question";
+    activeQuestion.dataset.claraBuyCheckActiveQuestion = "true";
+    activeQuestion.setAttribute("aria-live", "polite");
+    activeQuestion.innerHTML = `
+      <strong>Hi, Max! What do you want to buy?</strong>
+      <span>Type the exact item first. <em>Example: Running shoes</em></span>
+    `;
+    retainedBoard.appendChild(activeQuestion);
+  }
 
-  retainedBoard.appendChild(activeQuestion);
   return retainedBoard;
 }
 
-function hideDuplicateOpeningQuestion(chat) {
+function removeDuplicateOpeningQuestion(chat) {
   const firstClaraRow = Array.from(
     chat.querySelectorAll(".clara-buy-check-static-bubble-row.clara")
   ).find((row) =>
@@ -100,62 +105,77 @@ function hideDuplicateOpeningQuestion(chat) {
   firstClaraRow?.remove();
 }
 
-function prepareInput() {
-  const input = getShell()?.querySelector("input, textarea");
+function prepareInput(shell) {
+  const input = shell?.querySelector("input, textarea");
   if (!input) return;
-
   input.setAttribute("placeholder", "Type the item you want to buy");
-  window.setTimeout(() => input.focus?.(), 80);
 }
 
-function attachRetainedBoard(retainedBoard, attempt = 0) {
-  const main = getMain();
+function attachFinalBoard(shell, retainedBoard) {
+  const main = shell?.querySelector("main");
   const chat = main?.querySelector(STATIC_CHAT_SELECTOR);
-
-  if (!chat) {
-    if (attempt < 10) {
-      window.requestAnimationFrame(() =>
-        attachRetainedBoard(retainedBoard, attempt + 1)
-      );
-    }
-    return;
-  }
+  if (!chat) return false;
 
   if (!chat.querySelector(RETAINED_BOARD_SELECTOR)) {
     chat.prepend(retainedBoard);
   }
 
-  hideDuplicateOpeningQuestion(chat);
-  prepareInput();
+  removeDuplicateOpeningQuestion(chat);
+  prepareInput(shell);
+  shell.setAttribute(READY_ATTRIBUTE, "true");
+  shell.removeAttribute(INITIALIZING_ATTRIBUTE);
+  return true;
 }
 
-function autoStartBoard(board) {
-  if (!board || board.dataset.claraBuyCheckAutoStarted === "true") return;
-
-  const startButton = board.querySelector(START_SELECTOR);
-  if (!startButton) return;
-
-  board.dataset.claraBuyCheckAutoStarted = "true";
-  const retainedBoard = buildRetainedBoard(board);
-
-  startButton.click();
-  window.requestAnimationFrame(() => attachRetainedBoard(retainedBoard));
-}
-
-function scanForStartBoard() {
-  const shell = getShell();
-  if (!shell) return;
+function finalizeControllerBoard(shell) {
+  if (!shell || shell.getAttribute(READY_ATTRIBUTE) === "true") return true;
 
   const startButton = shell.querySelector(START_SELECTOR);
   const board = startButton?.closest?.(
     '[data-clara-buy-check-board="true"], [data-clara-pause-entry-board="true"], section'
   );
+  if (!startButton || !board) return false;
 
-  autoStartBoard(board);
+  const retainedBoard = buildRetainedBoard(board);
+  startButton.click();
+  return attachFinalBoard(shell, retainedBoard);
 }
 
-function scheduleScan() {
-  window.requestAnimationFrame(scanForStartBoard);
+function initializeMountedOverlay() {
+  const shell = getShell();
+  if (!shell || shell.getAttribute(READY_ATTRIBUTE) === "true") return;
+  if (shell.getAttribute(INITIALIZING_ATTRIBUTE) === "true") return;
+  if (!shell.querySelector(ENTRY_BOARD_SELECTOR)) return;
+
+  shell.setAttribute(INITIALIZING_ATTRIBUTE, "true");
+
+  window.dispatchEvent(
+    new CustomEvent(CLARA_OPEN_BUY_CHECK_EVENT, {
+      detail: {
+        requestId: `single-render-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        source: "buy-check-single-render-init",
+      },
+    })
+  );
+
+  if (!finalizeControllerBoard(shell)) {
+    shell.removeAttribute(INITIALIZING_ATTRIBUTE);
+  }
+}
+
+function blockDuplicateOfficialOpen(event) {
+  const shell = getShell();
+  if (!shell || shell.getAttribute(READY_ATTRIBUTE) !== "true") return;
+  if (event?.detail?.source !== "clara-pause-overlay") return;
+
+  event.preventDefault?.();
+  event.stopImmediatePropagation?.();
+}
+
+function finishOpenAfterController() {
+  const shell = getShell();
+  if (!shell || shell.getAttribute(READY_ATTRIBUTE) === "true") return;
+  finalizeControllerBoard(shell);
 }
 
 function installBuyCheckAutoStartBridge() {
@@ -165,15 +185,27 @@ function installBuyCheckAutoStartBridge() {
   window[INSTALL_FLAG] = true;
   ensureStyles();
 
-  window.addEventListener(CLARA_OPEN_BUY_CHECK_EVENT, scheduleScan);
+  window.addEventListener(
+    CLARA_OPEN_BUY_CHECK_EVENT,
+    blockDuplicateOfficialOpen,
+    true
+  );
+  window.addEventListener(
+    CLARA_OPEN_BUY_CHECK_EVENT,
+    finishOpenAfterController
+  );
 
-  const observer = new MutationObserver(scheduleScan);
+  const observer = new MutationObserver(() => {
+    initializeMountedOverlay();
+    finishOpenAfterController();
+  });
+
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
   });
 
-  scanForStartBoard();
+  initializeMountedOverlay();
 }
 
 installBuyCheckAutoStartBridge();
