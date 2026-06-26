@@ -286,8 +286,8 @@ export default function BudgetCategoryItem({
         </div>
       </div>
 
-      <div className="relative mt-4 flex items-end justify-between gap-3">
-        <div className="min-w-0">
+      <div className="relative mt-4 flex items-end justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <p className={`truncate text-[22px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
             {fmt(heroAmount)}
           </p>
@@ -296,16 +296,47 @@ export default function BudgetCategoryItem({
           </p>
         </div>
 
-        <div className="shrink-0 text-right">
-          <p
-            className="text-[13px] font-black leading-none"
-            style={{ color: `rgb(${reserveTone.rgb})` }}
-          >
-            {fmt(categoryAllocated)}
-          </p>
-          <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-white/32">
-            Reserved
-          </p>
+        <div className="min-w-0 max-w-[44%] shrink-0 text-right">
+          {isProtected ? (
+            <>
+              <p
+                className="truncate text-[15px] font-black leading-none"
+                style={{ color: `rgb(${reserveTone.rgb})` }}
+              >
+                100%
+              </p>
+              <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-white/38">
+                Protected
+              </p>
+            </>
+          ) : (
+            <>
+              <p
+                className="truncate text-[15px] font-black leading-none"
+                style={{
+                  color: health.state === "danger"
+                    ? "rgb(254 205 211)"
+                    : `rgb(${reserveTone.rgb})`,
+                }}
+              >
+                {fmt(categorySpent)}
+              </p>
+              <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-white/38">
+                Spent
+              </p>
+              <p
+                className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${
+                  health.state === "danger"
+                    ? "text-rose-100/90"
+                    : health.state === "warning"
+                      ? "text-amber-100/85"
+                      : "text-white/48"
+                }`}
+              >
+                {usagePercent}% used
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -318,15 +349,6 @@ export default function BudgetCategoryItem({
             boxShadow: `0 0 12px rgb(${progressRgb} / 0.30)`,
           }}
         />
-      </div>
-
-      <div className="relative mt-2.5 flex items-center justify-between gap-3 text-[10px] font-bold text-white/50">
-        <span>
-          {isProtected ? `${fmt(categoryAllocated)} protected` : `${fmt(categorySpent)} spent`}
-        </span>
-        <span className={health.state === "danger" ? "text-rose-100/90" : "text-white/58"}>
-          {isProtected ? "100% protected" : `${usagePercent}% used`}
-        </span>
       </div>
     </article>
   );
