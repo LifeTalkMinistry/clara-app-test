@@ -212,3 +212,141 @@ html:not(.clara-guide-finance-carousel-active)
 #root .clara-production-guide-matched-carousel .clara-finance-bubble-card [class*='divide-x'] > * {
   min-width: 0;
 }
+
+/*
+  Expanded budget category palette.
+
+  Budget categories are already rendered in reserved-amount order. The first ten
+  rows receive ten distinct premium accents, then the sequence repeats from row 11.
+  This only changes the category identity accent; spend-health warning logic remains
+  controlled by the category component.
+*/
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 1) {
+  --clara-budget-category-tone: 167 139 250;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 2) {
+  --clara-budget-category-tone: 96 165 250;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 3) {
+  --clara-budget-category-tone: 45 212 191;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 4) {
+  --clara-budget-category-tone: 34 211 238;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 5) {
+  --clara-budget-category-tone: 52 211 153;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 6) {
+  --clara-budget-category-tone: 56 189 248;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 7) {
+  --clara-budget-category-tone: 129 140 248;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 8) {
+  --clara-budget-category-tone: 192 132 252;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 9) {
+  --clara-budget-category-tone: 244 114 182;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article:nth-child(10n + 10) {
+  --clara-budget-category-tone: 232 201 122;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article {
+  border-color: rgb(var(--clara-budget-category-tone) / 0.22) !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(var(--clara-budget-category-tone) / 0.115), transparent 38%),
+    linear-gradient(145deg, rgba(8, 20, 38, 0.97), rgba(8, 13, 31, 0.985)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    0 10px 22px rgba(0, 0, 0, 0.20),
+    0 0 18px rgb(var(--clara-budget-category-tone) / 0.04) !important;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article > div:first-child > div:first-child {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--clara-budget-category-tone) / 0.42),
+    transparent
+  ) !important;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article > div:first-child > div:last-child {
+  background-color: rgb(var(--clara-budget-category-tone) / 0.08) !important;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article > div:nth-child(2) {
+  background-color: rgb(var(--clara-budget-category-tone)) !important;
+  box-shadow: 0 0 12px rgb(var(--clara-budget-category-tone) / 0.28) !important;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article > div:nth-child(3) button {
+  color: rgb(var(--clara-budget-category-tone)) !important;
+  border-color: rgb(var(--clara-budget-category-tone) / 0.20) !important;
+  background-color: rgb(var(--clara-budget-category-tone) / 0.08) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 0 12px rgb(var(--clara-budget-category-tone) / 0.05) !important;
+}
+
+html:not(.clara-guide-finance-carousel-active)
+#root .clara-production-guide-matched-carousel
+[data-finance-card='budget'][data-expanded='true']
+[class~='space-y-2.5'] > article > div:nth-child(3) button > span {
+  background-color: rgb(var(--clara-budget-category-tone)) !important;
+}
