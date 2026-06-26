@@ -1,0 +1,65 @@
+name: Verify Buy Check Clean Details
+
+on:
+  pull_request:
+    types: [opened]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-and-commit:
+    if: github.head_ref == 'codex/simplify-buy-check-report'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply clean report details patch
+        run: node .github/scripts/simplify-buy-check-report.mjs
+
+      - name: Verify UI behavior
+        shell: bash
+        run: |
+          git diff --check
+          grep -q 'data-clara-buy-check-details-button' src/clara-buy-check-report-content-polish.js
+          grep -q 'data-clara-buy-check-details-dialog' src/clara-buy-check-report-content-polish.js
+          grep -q 'claraCardDetails' src/clara-buy-check-report-content-polish.js
+          grep -q 'oldNote.hidden = true' src/clara-buy-check-report-content-polish.js
+          ! grep -q 'oldNote.innerHTML = renderBullets' src/clara-buy-check-report-content-polish.js
+          grep -q 'clara-buy-check-details-button' src/clara-buy-check-report-content-polish.css
+          grep -q 'display: none !important' src/clara-buy-check-report-content-polish.css
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build:web
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GEMINI_MODEL: gemini-2.5-flash
+
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          rm -f .github/scripts/simplify-buy-check-report.mjs
+          rm -f .github/scripts/trigger-buy-check-clean-details.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Simplify Buy Check report details"
+          git push origin HEAD:${{ github.head_ref }}
