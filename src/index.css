@@ -211,8 +211,36 @@ body::after {
   opacity: 0.8 !important;
 }
 
-/* Budget category cards: keep the progress track inside the financial column only. */
+/* Budget category cards: enlarge the identity block without letting the progress track enter it. */
+#root article:has([data-clara-budget-icon-trigger="true"]) > div:has([data-clara-budget-icon-trigger="true"]) {
+  grid-template-columns: minmax(0, 1fr) 92px !important;
+  column-gap: 0.75rem !important;
+}
+
+#root article:has([data-clara-budget-icon-trigger="true"]) div:has(> [data-clara-budget-icon-trigger="true"]) {
+  width: 92px !important;
+  gap: 0.5rem !important;
+}
+
+#root [data-clara-budget-icon-trigger="true"] {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 13px !important;
+}
+
+#root [data-clara-budget-icon-trigger="true"] > svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#root [data-clara-budget-icon-trigger="true"] + p {
+  max-height: 30px !important;
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  color: rgba(255, 255, 255, 0.74) !important;
+}
+
 #root article:has([data-clara-budget-icon-trigger="true"]) > div:last-of-type {
-  width: calc(100% - 92px) !important;
-  margin-right: 92px !important;
+  width: calc(100% - 104px) !important;
+  margin-right: 104px !important;
 }
