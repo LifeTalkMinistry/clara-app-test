@@ -1,6 +1,10 @@
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { supabase } from "@/lib/supabaseClient";
 import { getClaraEffectiveFinanceContext } from "@/lib/clara-effective-finance-context";
+import {
+  CLARA_OPEN_BUY_CHECK_EVENT,
+  CLARA_RESET_BUY_CHECK_EVENT,
+} from "@/lib/clara-pause-events";
 
 const STATE_KEY = "__CLARA_BUY_CHECK_REPORT_ROUTER_STATE__";
 const FALLBACK_USER_ID = "clara-demo-user";
@@ -539,6 +543,8 @@ function install() {
   if (window.__CLARA_BUY_CHECK_REPORT_ROUTER_INSTALLED__) return;
   window.__CLARA_BUY_CHECK_REPORT_ROUTER_INSTALLED__ = true;
   installConfirmStyles();
+  window.addEventListener(CLARA_OPEN_BUY_CHECK_EVENT, resetState);
+  window.addEventListener(CLARA_RESET_BUY_CHECK_EVENT, resetState);
   document.addEventListener("submit", route, true);
   document.addEventListener("click", (event) => {
     const shell = getShell();

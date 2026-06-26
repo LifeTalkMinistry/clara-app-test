@@ -9,6 +9,10 @@ import {
 } from "@/lib/financeRepository";
 import { buildClaraBridgeReadableContext } from "@/lib/clara-bridge-context-readers";
 import { MEMORY_CABINET_DEFINITIONS, readMemoryCabinet } from "@/lib/memory-cabinets";
+import {
+  CLARA_OPEN_BUY_CHECK_EVENT,
+  CLARA_RESET_BUY_CHECK_EVENT,
+} from "@/lib/clara-pause-events";
 
 const BUY_CHECK_LABEL = "Buy Check";
 const SMART_ACTIONS_LABELS = ["Smart Actions", "Analytic"];
@@ -17,6 +21,7 @@ const BUY_CHECK_STYLE_ID = "clara-buy-check-board-style";
 const BUY_CHECK_DEMO_USER_ID = "clara-demo-user";
 
 let buyCheckFlow = null;
+let lastExplicitOpenRequestId = null;
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -53,6 +58,11 @@ function extractPrice(text = "") {
 
 function getAssistantShell() {
   if (typeof document === "undefined") return null;
+
+  const pauseShell = document.querySelector(
+    '[data-clara-pause-overlay="true"]'
+  );
+  if (pauseShell) return pauseShell;
 
   return Array.from(document.querySelectorAll(".fixed")).find((shell) => {
     const text = clean(shell.textContent);
@@ -240,6 +250,11 @@ function ensureBuyCheckBoardStyle() {
 function findInstructionBoard() {
   const shell = getAssistantShell();
   if (!shell) return null;
+
+  const explicitBoard = shell.querySelector(
+    '[data-clara-pause-entry-board="true"]'
+  );
+  if (explicitBoard) return explicitBoard;
 
   const closeButton = shell.querySelector('button[aria-label="Close CLARA AI mode"]');
   const board = closeButton?.closest?.(".relative");
@@ -682,6 +697,21 @@ function openBuyCheckMode() {
   renderBuyCheckBoard();
 }
 
+function resetBuyCheckSession() {
+  buyCheckFlow = null;
+  lastExplicitOpenRequestId = null;
+}
+
+function handleExplicitBuyCheckOpen(event) {
+  const requestId = clean(event?.detail?.requestId);
+
+  if (requestId && requestId === lastExplicitOpenRequestId) return;
+
+  lastExplicitOpenRequestId = requestId || `buy-check-${Date.now()}`;
+  buyCheckFlow = null;
+  openBuyCheckMode();
+}
+
 function installBuyCheckClickCapture() {
   document.addEventListener("click", (event) => {
     const closeBoard = event.target?.closest?.("[data-clara-buy-check-close-board]");
@@ -750,6 +780,14 @@ function installClaraAssistantBuyCheckTab() {
   if (window.__CLARA_ASSISTANT_BUY_CHECK_TAB_INSTALLED__) return;
 
   window.__CLARA_ASSISTANT_BUY_CHECK_TAB_INSTALLED__ = true;
+  window.addEventListener(
+    CLARA_OPEN_BUY_CHECK_EVENT,
+    handleExplicitBuyCheckOpen
+  );
+  window.addEventListener(
+    CLARA_RESET_BUY_CHECK_EVENT,
+    resetBuyCheckSession
+  );
   installBuyCheckClickCapture();
   installBuyCheckSubmitCapture();
   installBuyCheckObserver();

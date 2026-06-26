@@ -7,6 +7,7 @@ import {
 } from "@/lib/clara-gemini-client";
 import { readLatestClaraLifeProfileOnDevice } from "@/lib/clara-life-profile";
 import { addExpense as repoAddExpense } from "@/lib/financeRepository";
+import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
@@ -657,6 +658,8 @@ export default function DashboardMoneySummary({
     ]
   );
 
+  // Legacy compatibility: the old inline dashboard chat remains available to
+  // non-orb callers during Phase 1, but the actual orb no longer opens it.
   const [claraMode, setClaraMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
   const [pendingExpenseReview, setPendingExpenseReview] = useState(null);
@@ -723,20 +726,21 @@ export default function DashboardMoneySummary({
     [moneyLeftSummaryHandlers]
   );
 
-  const openClaraInline = useCallback(() => {
+  const requestPauseOpen = useCallback(() => {
     clearTapTimer();
     claraTriggeredRef.current = true;
     endMoneyLeftOrbLongPress?.();
-    setClaraMode(true);
-    setPendingExpenseReview(null);
-    setPendingExpenseDraft(null);
-    setPendingBudgetConfirmation(null);
-    setPendingFinalExpenseConfirmation(null);
-    setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
 
-    window.setTimeout(() => {
-      claraInputRef.current?.focus?.();
-    }, 120);
+    window.dispatchEvent(
+      new CustomEvent(CLARA_PAUSE_OPEN_REQUEST_EVENT, {
+        detail: {
+          requestId: `money-left-orb-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}`,
+          source: "money-left-orb",
+        },
+      })
+    );
   }, [clearTapTimer, endMoneyLeftOrbLongPress]);
 
   const closeClaraInline = useCallback(
@@ -764,10 +768,16 @@ export default function DashboardMoneySummary({
       startMoneyLeftOrbLongPress?.(event);
 
       longPressTimerRef.current = setTimeout(() => {
-        openClaraInline();
+        longPressTimerRef.current = null;
+        requestPauseOpen();
       }, CLARA_LONG_PRESS_DELAY);
     },
-    [clearLongPressTimer, openClaraInline, startMoneyLeftOrbLongPress, stopOrbEvent]
+    [
+      clearLongPressTimer,
+      requestPauseOpen,
+      startMoneyLeftOrbLongPress,
+      stopOrbEvent,
+    ]
   );
 
   const handleOrbPointerUp = useCallback(
@@ -1267,6 +1277,7 @@ export default function DashboardMoneySummary({
       "radial-gradient(circle at 105% 122%, rgba(99,102,241,0.18), transparent 56%), linear-gradient(135deg, rgba(255,255,255,0.026), rgba(255,255,255,0.012))",
   };
 
+  // Legacy compatibility surface. The orb cannot reach this branch in Phase 1.
   if (claraMode) {
     return (
       <div
@@ -1366,7 +1377,7 @@ export default function DashboardMoneySummary({
             onContextMenu={handleOrbClick}
             className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white transition hover:bg-white/[0.14] active:scale-95"
             style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-            aria-label="Tap to log expense, double tap for Transaction Hub, long press to ask CLARA"
+            aria-label="Tap to log expense, double tap for Transaction Hub, long press to pause before buying"
           >
             <Plus className="h-5 w-5" />
           </button>
