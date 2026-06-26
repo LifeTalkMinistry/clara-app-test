@@ -19,6 +19,14 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 1
           show-progress: false
+      - name: Correct patch template escaping
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/fix-buy-check-single-render.mjs')
+          text = path.read_text()
+          path.write_text(text.replace('\\\\`', '\\`'))
+          PY
       - name: Apply source-owned opening flow
         id: patch
         continue-on-error: true
