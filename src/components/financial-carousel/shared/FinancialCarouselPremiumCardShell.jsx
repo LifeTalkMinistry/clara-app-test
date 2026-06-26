@@ -32,9 +32,9 @@ export default function FinancialCarouselPremiumCardShell({
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.022),transparent_32%,rgba(0,0,0,0.15)_100%)]" />
       </div>
 
-      <div className="relative flex min-h-0 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <div
-          className={`relative min-h-0 overflow-hidden rounded-[30px] border border-cyan-100/[0.12] bg-[linear-gradient(135deg,rgba(10,70,82,0.30),rgba(16,33,78,0.34)_48%,rgba(72,38,130,0.28))] px-6 pb-5 pt-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.085),0_18px_36px_rgba(0,0,0,0.18),0_0_30px_rgba(103,232,249,0.045)] backdrop-blur-xl ${innerClassName}`}
+          className={`relative min-h-0 flex-1 overflow-hidden rounded-[30px] border border-cyan-100/[0.12] bg-[linear-gradient(135deg,rgba(10,70,82,0.30),rgba(16,33,78,0.34)_48%,rgba(72,38,130,0.28))] px-6 pb-5 pt-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.085),0_18px_36px_rgba(0,0,0,0.18),0_0_30px_rgba(103,232,249,0.045)] backdrop-blur-xl ${innerClassName}`}
         >
           <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_16%_0%,rgba(103,232,249,0.14),transparent_36%),radial-gradient(circle_at_88%_100%,rgba(168,85,247,0.15),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.006)_44%,rgba(0,0,0,0.12))]" />
           <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/30 to-transparent" />
