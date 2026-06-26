@@ -211,7 +211,7 @@ body::after {
   opacity: 0.8 !important;
 }
 
-/* Budget category cards: place the flexible title above the icon while keeping the progress track separate. */
+/* Budget category cards: keep the title on top and lower only the icon toward the progress baseline. */
 #root article:has([data-clara-budget-icon-trigger="true"]) > div:has([data-clara-budget-icon-trigger="true"]) {
   grid-template-columns: minmax(0, 1fr) 92px !important;
   column-gap: 0.75rem !important;
@@ -219,9 +219,11 @@ body::after {
 
 #root article:has([data-clara-budget-icon-trigger="true"]) div:has(> [data-clara-budget-icon-trigger="true"]) {
   width: 92px !important;
-  gap: 0.45rem !important;
+  min-height: 64px !important;
+  gap: 0 !important;
+  align-self: stretch !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: space-between !important;
 }
 
 #root [data-clara-budget-icon-trigger="true"] {
@@ -230,6 +232,8 @@ body::after {
   height: 40px !important;
   border-radius: 13px !important;
   flex: 0 0 auto !important;
+  margin-top: auto !important;
+  transform: translateY(4px) !important;
 }
 
 #root [data-clara-budget-icon-trigger="true"] > svg {
