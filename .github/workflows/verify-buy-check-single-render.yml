@@ -1,0 +1,50 @@
+name: Verify Buy Check Single Render
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    if: github.head_ref == 'fix-buy-check-single-render-20260626'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply source-owned opening flow
+        run: node .github/scripts/fix-buy-check-single-render.mjs
+      - name: Verify race paths are removed
+        shell: bash
+        run: |
+          git diff --check
+          test ! -f src/clara-buy-check-auto-start-bridge.js
+          grep -q 'data-clara-buy-check-opening-board="true"' src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx
+          grep -q 'function createStaticBuyCheckFlow' src/clara-assistant-buy-check-tab.js
+          grep -q 'board.dataset.claraBuyCheckOpeningBoard === "true"' src/clara-assistant-buy-check-tab.js
+          ! grep -q 'Start Buy Check' src/clara-assistant-buy-check-tab.js
+          ! grep -q 'clara-buy-check-auto-start-bridge' src/runtime/installClaraRuntimePatches.js
+          ! grep -q 'inputRef.current?.focus' src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx
+      - run: npm ci
+      - run: npm run build:web
+      - name: Commit verified source fix
+        shell: bash
+        run: |
+          rm -f .github/scripts/fix-buy-check-single-render.mjs
+          rm -f .github/workflows/buy-check-single-render-fix.yml
+          rm -f .github/scripts/trigger-buy-check-single-render.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Buy Check opening race at source"
+          git push origin HEAD:${{ github.head_ref }}
