@@ -3,6 +3,45 @@ import { ArrowUp, X } from "lucide-react";
 
 const CLARA_AI_BRAIN_VERSION = "pause-phase-one-buy-check";
 
+const BUY_CHECK_ACKNOWLEDGMENTS = [
+  "Wow—look at you pausing before buying. Good move. Let’s see if it fits your money.",
+  "Nice. You stopped for a moment before spending. Let’s check this purchase together.",
+  "Good move—you gave yourself time to think before buying. Let’s take a closer look.",
+  "That pause matters. Now let’s see if this purchase makes sense for you.",
+  "You didn’t rush it. That is already a better money decision. Let’s check it.",
+  "Look at you checking first instead of regretting later. Let’s begin.",
+  "A quick pause can protect your next payday. Let’s check this one carefully.",
+  "Good discipline starts here. Let’s see whether you can safely buy it.",
+  "You stopped before tapping buy. Smart move. Let’s examine it first.",
+  "No judgment—just a clearer decision before your money leaves.",
+  "You gave yourself a moment to think. Let’s make that moment count.",
+  "This is what financial awareness looks like. Let’s check the purchase.",
+  "Before the money leaves, let’s make sure the decision deserves it.",
+  "You paused. That means you are choosing control over impulse.",
+  "One thoughtful pause can prevent one expensive regret. Let’s check first.",
+  "You are not saying no yet—you are simply checking before deciding.",
+  "Smart spending does not begin at checkout. It begins with a pause.",
+  "Good call. Let’s see whether this purchase supports your priorities.",
+  "You brought the decision here before spending. That is real progress.",
+  "Let’s make sure this purchase helps your life instead of pressuring it.",
+];
+
+function selectAcknowledgment(previousIndex = -1) {
+  const messageCount = BUY_CHECK_ACKNOWLEDGMENTS.length;
+  if (!messageCount) return { index: -1, message: "Good call. Let’s check this purchase first." };
+
+  let index = Math.floor(Math.random() * messageCount);
+  if (messageCount > 1 && index === previousIndex) {
+    const offset = 1 + Math.floor(Math.random() * (messageCount - 1));
+    index = (index + offset) % messageCount;
+  }
+
+  return {
+    index,
+    message: BUY_CHECK_ACKNOWLEDGMENTS[index],
+  };
+}
+
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -20,31 +59,39 @@ function FloatingCloseButton({ onClose }) {
   );
 }
 
-function PauseEntryBoard({ onClose }) {
+function PauseEntryBoard({ onClose, acknowledgmentMessage }) {
   return (
     <section
       data-clara-pause-entry-board="true"
       data-clara-buy-check-board="true"
       data-clara-buy-check-opening-board="true"
-      className="relative overflow-hidden rounded-[30px] border border-cyan-100/22 bg-white/[0.055] px-6 pb-6 pt-8 text-center shadow-[0_26px_80px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
+      className="relative overflow-hidden rounded-[30px] border border-cyan-100/22 bg-white/[0.055] px-6 pb-7 pt-9 text-center shadow-[0_26px_80px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
     >
       <FloatingCloseButton onClose={onClose} />
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_0%,rgba(45,212,191,0.22),transparent_34%),radial-gradient(circle_at_85%_18%,rgba(124,58,237,0.30),transparent_38%),linear-gradient(145deg,rgba(8,47,73,0.35),rgba(30,27,75,0.38))]" />
+
       <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100/55">BUY CHECK</p>
-      <h3 className="mx-auto mt-4 max-w-[318px] text-[22px] font-black leading-[1.15] tracking-[-0.035em] text-white">Let’s check this purchase first.</h3>
-      <p className="mx-auto mt-4 max-w-[292px] text-[13.5px] font-medium leading-6 text-slate-300/76">Answer clearly so CLARA can judge the decision properly.</p>
-      <div className="mx-auto mt-4 grid max-w-[250px] gap-2.5 text-left">
-        {["Item you want to buy", "Amount or price", "Why you want it"].map((label, index) => (
-          <div key={label} className="flex items-center gap-2.5 text-[12.5px] font-extrabold leading-[1.35] text-slate-200/85">
-            <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-300/10 text-[11px] font-black text-emerald-300/95">{index + 1}</span>
-            <span>{label}</span>
-          </div>
-        ))}
+
+      <div className="mx-auto mt-5 flex min-h-[96px] max-w-[318px] items-center justify-center rounded-[22px] border border-white/10 bg-slate-950/20 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <p className="text-[16px] font-extrabold leading-[1.48] tracking-[-0.018em] text-white/92">
+          {acknowledgmentMessage}
+        </p>
       </div>
-      <p className="mx-auto mt-4 max-w-[286px] text-[12px] font-bold leading-[1.55] text-slate-300/62">Then CLARA checks wallet, budget, schedule, Me profile, goals, and memory before giving a decision.</p>
-      <div data-clara-buy-check-active-question="true" aria-live="polite" className="mx-auto mt-5 max-w-[292px] rounded-[18px] border border-emerald-300/15 bg-slate-950/25 px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-        <strong className="block text-[13px] font-black leading-[1.45] text-white/95">Hi, Max! What do you want to buy?</strong>
-        <span className="mt-1 block text-[11.5px] font-semibold leading-[1.5] text-slate-300/72">Type the exact item first. <em className="font-extrabold not-italic text-emerald-300/90">Example: Running shoes</em></span>
+
+      <div
+        data-clara-buy-check-active-question="true"
+        aria-live="polite"
+        className="mx-auto mt-5 max-w-[292px] text-left"
+      >
+        <strong className="block text-[16px] font-black leading-[1.4] tracking-[-0.015em] text-white/95">
+          What do you want to buy?
+        </strong>
+        <span className="mt-1.5 block text-[12px] font-semibold leading-[1.55] text-slate-300/72">
+          Type the exact item for us to start.
+        </span>
+        <span className="mt-1 block text-[11.5px] font-extrabold leading-[1.5] text-emerald-300/88">
+          Example: Running shoes
+        </span>
       </div>
     </section>
   );
@@ -63,7 +110,31 @@ export default function ClaraAiEnvironmentOverlay({
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const previousAcknowledgmentIndexRef = useRef(-1);
+  const acknowledgmentSessionRef = useRef({
+    active: false,
+    index: -1,
+    message: "",
+  });
   const isGuidePreview = layoutVariant === "guide-preview";
+
+  if (isActive && !acknowledgmentSessionRef.current.active) {
+    const selection = selectAcknowledgment(previousAcknowledgmentIndexRef.current);
+    acknowledgmentSessionRef.current = {
+      active: true,
+      ...selection,
+    };
+    previousAcknowledgmentIndexRef.current = selection.index;
+  } else if (!isActive && acknowledgmentSessionRef.current.active) {
+    acknowledgmentSessionRef.current = {
+      active: false,
+      index: -1,
+      message: "",
+    };
+  }
+
+  const acknowledgmentMessage =
+    acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0];
 
   const visibleMessages = useMemo(
     () => (Array.isArray(messages) ? messages : []).filter(Boolean),
@@ -171,7 +242,10 @@ export default function ClaraAiEnvironmentOverlay({
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-end pb-24 pt-20">
-            <PauseEntryBoard onClose={onClose} />
+            <PauseEntryBoard
+              onClose={onClose}
+              acknowledgmentMessage={acknowledgmentMessage}
+            />
           </div>
         )}
       </main>

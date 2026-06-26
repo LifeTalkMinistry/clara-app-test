@@ -128,36 +128,6 @@ function ensureBuyCheckBoardStyle() {
       z-index: 20;
     }
 
-    .clara-buy-check-board-steps {
-      margin: 16px auto 0;
-      display: grid;
-      max-width: 250px;
-      gap: 9px;
-      text-align: left;
-    }
-
-    .clara-buy-check-board-steps span {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      color: rgba(226,232,240,.82);
-      font: 800 12.5px/1.35 system-ui, sans-serif;
-    }
-
-    .clara-buy-check-board-steps b {
-      display: grid;
-      width: 22px;
-      height: 22px;
-      place-items: center;
-      flex: 0 0 auto;
-      border-radius: 999px;
-      border: 1px solid rgba(110,231,183,.20);
-      background: rgba(110,231,183,.10);
-      color: rgba(110,231,183,.96);
-      font: 950 11px/1 system-ui, sans-serif;
-    }
-
-    .clara-buy-check-board-start,
     .clara-buy-check-static-button {
       margin: 18px auto 0;
       display: inline-flex;
@@ -170,13 +140,6 @@ function ensureBuyCheckBoardStyle() {
       padding: 12px 18px;
       font: 950 13px/1 system-ui, sans-serif;
       box-shadow: 0 0 28px rgba(45,212,191,.18);
-    }
-
-    .clara-buy-check-board-note {
-      margin: 15px auto 0;
-      max-width: 286px;
-      color: rgba(203,213,225,.62);
-      font: 750 12px/1.55 system-ui, sans-serif;
     }
 
     .clara-buy-check-static-wrap {
@@ -339,7 +302,7 @@ function renderStaticBuyCheckChat() {
   });
 }
 
-function createStaticBuyCheckFlow() {
+function createStaticBuyCheckFlow({ includeItemPrompt = false } = {}) {
   return {
     step: "item",
     item: "",
@@ -347,14 +310,19 @@ function createStaticBuyCheckFlow() {
     reason: "",
     busy: false,
     done: false,
-    messages: [
-      makeFlowMessage("clara", "Hi, Max! What do you want to buy?\n\nType the exact item first. Example: Running shoes"),
-    ],
+    messages: includeItemPrompt
+      ? [
+          makeFlowMessage(
+            "clara",
+            "What do you want to buy?\n\nType the exact item for us to start. Example: Running shoes"
+          ),
+        ]
+      : [],
   };
 }
 
 function startStaticBuyCheckFlow() {
-  buyCheckFlow = createStaticBuyCheckFlow();
+  buyCheckFlow = createStaticBuyCheckFlow({ includeItemPrompt: true });
   renderStaticBuyCheckChat();
 }
 
@@ -689,17 +657,11 @@ function renderBuyCheckBoard() {
   board.innerHTML = `
     <button type="button" class="clara-buy-check-board-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK</p>
-    <h3 class="mt-3 text-xl font-black leading-tight tracking-tight text-white">Let’s check this purchase first.</h3>
-    <div class="mx-auto mt-3 max-w-[292px] text-sm leading-6 text-slate-300/75"><p>Answer clearly so CLARA can judge the decision properly.</p></div>
-    <div class="clara-buy-check-board-steps">
-      <span><b>1</b> Item you want to buy</span>
-      <span><b>2</b> Amount or price</span>
-      <span><b>3</b> Why you want it</span>
-    </div>
-    <p class="clara-buy-check-board-note">Then CLARA checks wallet, budget, schedule, Me profile, goals, and memory before giving a decision.</p>
-    <div class="clara-buy-check-active-question" data-clara-buy-check-active-question="true" aria-live="polite">
-      <strong>Hi, Max! What do you want to buy?</strong>
-      <span>Type the exact item first. <em>Example: Running shoes</em></span>
+    <div class="mx-auto mt-5 max-w-[318px] rounded-[22px] border border-white/10 bg-slate-950/20 px-5 py-4 text-[16px] font-extrabold leading-6 text-white/90">Good call. You paused before spending. Let’s check this purchase clearly.</div>
+    <div class="mx-auto mt-5 max-w-[292px] text-left" data-clara-buy-check-active-question="true" aria-live="polite">
+      <strong class="block text-[16px] font-black leading-6 text-white/95">What do you want to buy?</strong>
+      <span class="mt-1 block text-[12px] font-semibold leading-5 text-slate-300/72">Type the exact item for us to start.</span>
+      <span class="mt-1 block text-[11.5px] font-extrabold leading-5 text-emerald-300/90">Example: Running shoes</span>
     </div>
   `;
 
