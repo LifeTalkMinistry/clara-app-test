@@ -30,6 +30,66 @@ export {
   walletTypes,
 };
 
+export const WALLET_BALANCE_TONES = {
+  neutral: { name: "Neutral Slate", rgb: "148 163 184" },
+  frost: { name: "Frost Blue", rgb: "125 211 252" },
+  cyan: { name: "Cyan", rgb: "34 211 238" },
+  teal: { name: "Aqua Teal", rgb: "45 212 191" },
+  sapphire: { name: "Sapphire", rgb: "96 165 250" },
+  violet: { name: "Royal Violet", rgb: "167 139 250" },
+  gold: { name: "Premium Gold", rgb: "232 201 122" },
+};
+
+export function getWalletBalanceValue(wallet = {}) {
+  const values = [
+    wallet?.walletBalance,
+    wallet?.balance,
+    wallet?.derived_balance,
+    wallet?.current_balance,
+    wallet?.wallet_balance,
+    wallet?.available_balance,
+    wallet?.starting_balance,
+  ];
+
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const parsed =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[₱,\s]/g, ""));
+
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return 0;
+}
+
+export function getWalletBalanceTone({
+  balance,
+  balanceShare,
+  totalWalletBalance,
+} = {}) {
+  const safeBalance = Math.max(Number(balance) || 0, 0);
+  const share =
+    Number(balanceShare) > 0
+      ? Number(balanceShare)
+      : Number(totalWalletBalance) > 0
+        ? safeBalance / Number(totalWalletBalance)
+        : 0;
+
+  if (safeBalance <= 0 || share <= 0) {
+    return { ...WALLET_BALANCE_TONES.neutral, share: 0 };
+  }
+
+  if (share <= 0.05) return { ...WALLET_BALANCE_TONES.frost, share };
+  if (share <= 0.10) return { ...WALLET_BALANCE_TONES.cyan, share };
+  if (share <= 0.20) return { ...WALLET_BALANCE_TONES.teal, share };
+  if (share <= 0.35) return { ...WALLET_BALANCE_TONES.sapphire, share };
+  if (share <= 0.50) return { ...WALLET_BALANCE_TONES.violet, share };
+
+  return { ...WALLET_BALANCE_TONES.gold, share };
+}
+
 function getWalletOrderValue(wallet = {}, fallbackIndex = 0) {
   const rawOrder = wallet?.sort_order ?? wallet?.position ?? wallet?.order;
   const parsedOrder = Number(rawOrder);
@@ -53,6 +113,29 @@ function sortWalletsByDisplayOrder(wallets = []) {
     .map(({ wallet }) => wallet);
 }
 
+function attachWalletBalanceHierarchy(wallets = []) {
+  const totalPositiveWalletBalance = wallets.reduce(
+    (sum, wallet) => sum + Math.max(getWalletBalanceValue(wallet), 0),
+    0
+  );
+
+  return wallets.map((wallet) => {
+    const walletBalance = getWalletBalanceValue(wallet);
+    const positiveBalance = Math.max(walletBalance, 0);
+    const balanceShare =
+      totalPositiveWalletBalance > 0
+        ? positiveBalance / totalPositiveWalletBalance
+        : 0;
+
+    return {
+      ...wallet,
+      walletBalance,
+      totalWalletBalance: totalPositiveWalletBalance,
+      balanceShare,
+    };
+  });
+}
+
 export default function useWalletCardLogic({
   wallets = [],
   walletMoney = 0,
@@ -66,10 +149,13 @@ export default function useWalletCardLogic({
   const [editForm, setEditForm] = useState({ name: "", type: "cash" });
   const [isSavingWalletEdit, setIsSavingWalletEdit] = useState(false);
 
-  const activeWallets = useMemo(
-    () => (Array.isArray(wallets) ? sortWalletsByDisplayOrder(wallets) : []),
-    [wallets]
-  );
+  const activeWallets = useMemo(() => {
+    const orderedWallets = Array.isArray(wallets)
+      ? sortWalletsByDisplayOrder(wallets)
+      : [];
+
+    return attachWalletBalanceHierarchy(orderedWallets);
+  }, [wallets]);
 
   const topWallet = useMemo(() => getTopWallet(activeWallets), [activeWallets]);
   const status = getWalletStatus(activeWallets.length, walletMoney);
@@ -130,7 +216,6 @@ export default function useWalletCardLogic({
         icon: getWalletIcon(nextType, editingWallet?.icon || "💰"),
         updated_at: new Date().toISOString(),
       });
-
       await refreshData?.();
       closeEditWallet();
     } catch (error) {
