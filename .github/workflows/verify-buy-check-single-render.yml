@@ -18,10 +18,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+          show-progress: false
       - name: Apply source-owned opening flow
         id: patch
         continue-on-error: true
