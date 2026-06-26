@@ -183,23 +183,40 @@ export default function useBudgetCardLogic({
 
   const categories = useMemo(() => {
     return [...rawCategories]
-      .map((item) => ({ ...item, risk: getCategoryRisk(item) }))
+      .map((item, sourceIndex) => ({
+        ...item,
+        risk: getCategoryRisk(item),
+        __sourceIndex: sourceIndex,
+      }))
       .sort((a, b) => {
         const aProtected = isProtectedBudgetCommitment(a);
         const bProtected = isProtectedBudgetCommitment(b);
 
         if (aProtected !== bProtected) return aProtected ? -1 : 1;
-        if (aProtected && bProtected) return 0;
 
-        const aAllocated = safeNumber(a?.allocated ?? a?.allocated_amount);
-        const bAllocated = safeNumber(b?.allocated ?? b?.allocated_amount);
-        const aSpent = safeNumber(a?.spent ?? a?.spent_amount ?? a?.used);
-        const bSpent = safeNumber(b?.spent ?? b?.spent_amount ?? b?.used);
-        const aPct = aAllocated > 0 ? aSpent / aAllocated : 0;
-        const bPct = bAllocated > 0 ? bSpent / bAllocated : 0;
+        const aOrderValue =
+          a?.sortOrder ??
+          a?.sort_order ??
+          a?.displayOrder ??
+          a?.display_order ??
+          a?.position;
+        const bOrderValue =
+          b?.sortOrder ??
+          b?.sort_order ??
+          b?.displayOrder ??
+          b?.display_order ??
+          b?.position;
+        const aHasOrder = hasValue(aOrderValue) && Number.isFinite(Number(aOrderValue));
+        const bHasOrder = hasValue(bOrderValue) && Number.isFinite(Number(bOrderValue));
 
-        return bPct - aPct || bSpent - aSpent;
-      });
+        if (aHasOrder && bHasOrder && Number(aOrderValue) !== Number(bOrderValue)) {
+          return Number(aOrderValue) - Number(bOrderValue);
+        }
+        if (aHasOrder !== bHasOrder) return aHasOrder ? -1 : 1;
+
+        return a.__sourceIndex - b.__sourceIndex;
+      })
+      .map(({ __sourceIndex, ...item }) => item);
   }, [rawCategories]);
 
   const categorySpent = categories.reduce(
@@ -231,6 +248,16 @@ export default function useBudgetCardLogic({
   const allocated = categories.length > 0
     ? categories.reduce((sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount), 0)
     : safeNumber(activeBudget?.allocated ?? activeBudget?.allocated_amount ?? activeBudget?.allocated_total ?? activeBudget?.totalAllocated);
+  const reserveDenominator = declared > 0 ? declared : allocated;
+  const displayCategories = categories.map((item) => {
+    const categoryAllocated = safeNumber(item?.allocated ?? item?.allocated_amount);
+    return {
+      ...item,
+      declaredBudget: declared,
+      totalAllocated: allocated,
+      reserveShare: reserveDenominator > 0 ? categoryAllocated / reserveDenominator : 0,
+    };
+  });
   const spent = activeBudgetSpent;
   const protectedCommitments = safeNumber(
     activeBudget?.totalProtectedCommitments ??
@@ -279,7 +306,7 @@ export default function useBudgetCardLogic({
   return {
     showModal,
     setShowModal,
-    categories,
+    categories: displayCategories,
     declared,
     allocated,
     spent,
