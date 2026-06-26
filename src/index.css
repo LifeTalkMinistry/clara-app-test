@@ -210,3 +210,9 @@ body::after {
 #root button[aria-label="Open reader options"][aria-controls="clara-reader-options"]:hover {
   opacity: 0.8 !important;
 }
+
+/* Budget category cards: keep the progress track inside the financial column only. */
+#root article:has([data-clara-budget-icon-trigger="true"]) > div:last-of-type {
+  width: calc(100% - 92px) !important;
+  margin-right: 92px !important;
+}
