@@ -1,1 +1,1 @@
-Apply the source-owned Buy Check opening flow and remove the temporary bridge.
+Apply the source-owned Buy Check opening flow, remove the temporary bridge, and rerun diagnostics.
