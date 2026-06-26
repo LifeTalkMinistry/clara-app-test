@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useManualExpenseGuideSimulation } from "@/components/fresh/main-dashboard/manual-expense/ManualExpenseGuideSimulationContext";
 
-const MANUAL_EXPENSE_STEPS = Object.freeze({
+const STEPS = Object.freeze({
   AMOUNT: "amount",
   BUDGET: "budget",
   REASON: "reason",
@@ -27,7 +27,7 @@ const MANUAL_EXPENSE_STEPS = Object.freeze({
   CONFIRM: "confirm",
 });
 
-const FOCUSABLE_SELECTOR = [
+const FOCUSABLE = [
   "button:not([disabled])",
   "input:not([disabled])",
   "textarea:not([disabled])",
@@ -43,34 +43,48 @@ const moneyFormatter = new Intl.NumberFormat("en-PH", {
   maximumFractionDigits: 2,
 });
 
+const primaryButtonClass =
+  "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[19px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-cyan-500 px-4 text-sm font-black text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.20)] transition hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40";
+
 function formatMoney(value) {
-  const amount = Number(value);
-  return moneyFormatter.format(Number.isFinite(amount) ? amount : 0);
+  const number = Number(value);
+  return moneyFormatter.format(Number.isFinite(number) ? number : 0);
 }
 
 function readMoney(value) {
-  const amount = Number(
+  const number = Number(
     String(value ?? "")
       .replace(/php/gi, "")
       .replace(/[^0-9.-]/g, "")
   );
-  return Number.isFinite(amount) ? amount : 0;
+  return Number.isFinite(number) ? number : 0;
 }
 
 function findElement(node, predicate) {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, predicate);
+      if (found) return found;
+    }
+    return null;
+  }
+
   if (!isValidElement(node)) return null;
   if (predicate(node)) return node;
 
-  const descendants = Children.toArray(node.props?.children);
-  for (const descendant of descendants) {
-    const found = findElement(descendant, predicate);
+  for (const child of Children.toArray(node.props?.children)) {
+    const found = findElement(child, predicate);
     if (found) return found;
   }
 
   return null;
 }
 
-function getToneClasses(tone = "neutral", selected = false) {
+function optionTone(tone = "neutral", selected = false, danger = false) {
+  if (danger) {
+    return "border-rose-300/20 bg-rose-400/[0.07] shadow-[0_12px_28px_rgba(244,63,94,0.06)]";
+  }
+
   const tones = {
     emerald:
       "border-emerald-300/18 bg-emerald-400/[0.075] shadow-[0_12px_28px_rgba(16,185,129,0.06)]",
@@ -122,17 +136,15 @@ function ProgressIndicator({ current, total }) {
   return (
     <div className="mt-2 flex items-center gap-1.5" aria-label={`Step ${current} of ${total}`}>
       {Array.from({ length: total }, (_, index) => {
-        const step = index + 1;
-        const active = step === current;
-        const complete = step < current;
+        const number = index + 1;
         return (
           <span
-            key={step}
-            aria-current={active ? "step" : undefined}
+            key={number}
+            aria-current={number === current ? "step" : undefined}
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              active
+              number === current
                 ? "w-8 bg-cyan-200"
-                : complete
+                : number < current
                   ? "w-4 bg-emerald-300/75"
                   : "w-4 bg-white/12"
             }`}
@@ -157,14 +169,14 @@ export default function ManualExpenseFullScreenSheet({
   const dialogRef = useRef(null);
   const openedCycleRef = useRef(false);
   const previousFocusRef = useRef(null);
-  const [step, setStep] = useState(MANUAL_EXPENSE_STEPS.AMOUNT);
+  const [step, setStep] = useState(STEPS.AMOUNT);
   const [inlineError, setInlineError] = useState("");
 
-  const childArray = useMemo(() => Children.toArray(children), [children]);
-  const amountField = childArray[0] || null;
-  const budgetField = childArray[1] || null;
-  const walletField = childArray[2] || null;
-  const conditionalContent = childArray.slice(3);
+  const fields = useMemo(() => Children.toArray(children), [children]);
+  const amountField = fields[0] || null;
+  const budgetField = fields[1] || null;
+  const walletField = fields[2] || null;
+  const conditionalFields = fields.slice(3);
 
   const amountInput = findElement(
     amountField,
@@ -179,16 +191,16 @@ export default function ManualExpenseFullScreenSheet({
     (element) => element.props?.ariaLabel === "Select wallet for expense"
   );
   const unplannedTextarea = findElement(
-    conditionalContent,
+    conditionalFields,
     (element) => element.type === "textarea"
   );
   const undocumentedDropdown = findElement(
-    conditionalContent,
+    conditionalFields,
     (element) =>
       element.props?.ariaLabel === "Select undocumented spending reason"
   );
   const undocumentedNoteInput = findElement(
-    conditionalContent,
+    conditionalFields,
     (element) =>
       element.type === "input" &&
       String(element.props?.placeholder || "").toLowerCase().includes("short note")
@@ -216,11 +228,11 @@ export default function ManualExpenseFullScreenSheet({
   const needsReason = isUnplanned || isUndocumented;
   const totalSteps = needsReason ? 4 : 3;
   const currentStepNumber =
-    step === MANUAL_EXPENSE_STEPS.AMOUNT
+    step === STEPS.AMOUNT
       ? 1
-      : step === MANUAL_EXPENSE_STEPS.BUDGET
+      : step === STEPS.BUDGET
         ? 2
-        : step === MANUAL_EXPENSE_STEPS.REASON
+        : step === STEPS.REASON
           ? 3
           : needsReason
             ? 4
@@ -240,11 +252,7 @@ export default function ManualExpenseFullScreenSheet({
     if (openedCycleRef.current) return;
     openedCycleRef.current = true;
     setInlineError("");
-    setStep(
-      isGuideSimulation
-        ? MANUAL_EXPENSE_STEPS.CONFIRM
-        : MANUAL_EXPENSE_STEPS.AMOUNT
-    );
+    setStep(isGuideSimulation ? STEPS.CONFIRM : STEPS.AMOUNT);
 
     if (
       !isGuideSimulation &&
@@ -267,19 +275,17 @@ export default function ManualExpenseFullScreenSheet({
 
     previousFocusRef.current = document.activeElement;
     const previousOverflow = document.body.style.overflow;
-    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    const previousOverscroll = document.body.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "contain";
 
-    const focusFirstControl = () => {
+    const focusFrame = window.requestAnimationFrame(() => {
       const preferred = dialogRef.current?.querySelector(
         '[data-manual-expense-initial-focus="true"]'
       );
-      const firstFocusable = dialogRef.current?.querySelector(FOCUSABLE_SELECTOR);
-      (preferred || firstFocusable)?.focus?.({ preventScroll: true });
-    };
-
-    const animationFrame = window.requestAnimationFrame(focusFirstControl);
+      const first = dialogRef.current?.querySelector(FOCUSABLE);
+      (preferred || first)?.focus?.({ preventScroll: true });
+    });
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
@@ -290,12 +296,13 @@ export default function ManualExpenseFullScreenSheet({
 
       if (event.key !== "Tab" || !dialogRef.current) return;
       const focusable = Array.from(
-        dialogRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
-      ).filter((element) => !element.hasAttribute("inert"));
-      if (!focusable.length) return;
+        dialogRef.current.querySelectorAll(FOCUSABLE)
+      ).filter((element) => !element.closest("[inert]"));
 
+      if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -308,72 +315,71 @@ export default function ManualExpenseFullScreenSheet({
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.cancelAnimationFrame(animationFrame);
+      window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
-      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+      document.body.style.overscrollBehavior = previousOverscroll;
       previousFocusRef.current?.focus?.({ preventScroll: true });
     };
   }, [effectiveClose, open]);
 
   useEffect(() => {
-    if (!open || isGuideSimulation || typeof window === "undefined") return;
-    const animationFrame = window.requestAnimationFrame(() => {
-      dialogRef.current
-        ?.querySelector(`[data-expense-step="${step}"] ${FOCUSABLE_SELECTOR}`)
-        ?.focus?.({ preventScroll: true });
+    if (!open || isGuideSimulation || typeof window === "undefined") return undefined;
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const scope = dialogRef.current?.querySelector(
+        `[data-expense-step="${step}"]`
+      );
+      scope?.querySelector(FOCUSABLE)?.focus?.({ preventScroll: true });
     });
-    return () => window.cancelAnimationFrame(animationFrame);
+
+    return () => window.cancelAnimationFrame(focusFrame);
   }, [isGuideSimulation, open, step]);
 
   if (!open) return null;
 
-  const emitInputChange = (element, nextValue) => {
-    element?.props?.onChange?.({ target: { value: nextValue } });
+  const emitInputChange = (element, value) => {
+    element?.props?.onChange?.({ target: { value } });
   };
 
-  const moveToAmount = () => {
+  const editAmount = () => {
     setInlineError("");
-    setStep(MANUAL_EXPENSE_STEPS.AMOUNT);
+    setStep(STEPS.AMOUNT);
   };
 
-  const moveToBudget = () => {
+  const editBudget = () => {
     setInlineError("");
-    setStep(MANUAL_EXPENSE_STEPS.BUDGET);
+    setStep(STEPS.BUDGET);
   };
 
-  const moveToWallet = () => {
+  const editWallet = () => {
     setInlineError("");
-    setStep(MANUAL_EXPENSE_STEPS.WALLET);
+    setStep(STEPS.WALLET);
   };
 
   const handleBack = () => {
     setInlineError("");
-    if (step === MANUAL_EXPENSE_STEPS.BUDGET) {
-      setStep(MANUAL_EXPENSE_STEPS.AMOUNT);
-    } else if (step === MANUAL_EXPENSE_STEPS.REASON) {
-      setStep(MANUAL_EXPENSE_STEPS.BUDGET);
-    } else if (step === MANUAL_EXPENSE_STEPS.WALLET) {
-      setStep(
-        needsReason
-          ? MANUAL_EXPENSE_STEPS.REASON
-          : MANUAL_EXPENSE_STEPS.BUDGET
-      );
-    } else if (step === MANUAL_EXPENSE_STEPS.CONFIRM) {
-      setStep(MANUAL_EXPENSE_STEPS.WALLET);
+
+    if (step === STEPS.BUDGET) setStep(STEPS.AMOUNT);
+    else if (step === STEPS.REASON) setStep(STEPS.BUDGET);
+    else if (step === STEPS.WALLET) {
+      setStep(needsReason ? STEPS.REASON : STEPS.BUDGET);
+    } else if (step === STEPS.CONFIRM) {
+      setStep(STEPS.WALLET);
     }
   };
 
-  const handleAmountContinue = () => {
+  const continueAmount = () => {
     if (!validAmount) {
       setInlineError("Enter an amount greater than zero.");
       return;
     }
+
     setInlineError("");
-    setStep(MANUAL_EXPENSE_STEPS.BUDGET);
+    setStep(STEPS.BUDGET);
   };
 
-  const handleBudgetSelection = (option) => {
+  const selectBudget = (option) => {
     if (option.disabled) {
       option.onDisabledClick?.();
       return;
@@ -383,12 +389,12 @@ export default function ManualExpenseFullScreenSheet({
     setInlineError("");
     setStep(
       option.value === "__unplanned__" || option.value === "__undocumented__"
-        ? MANUAL_EXPENSE_STEPS.REASON
-        : MANUAL_EXPENSE_STEPS.WALLET
+        ? STEPS.REASON
+        : STEPS.WALLET
     );
   };
 
-  const handleReasonContinue = () => {
+  const continueReason = () => {
     if (isUnplanned && !unplannedReason) {
       setInlineError("Add a short reason before continuing.");
       return;
@@ -399,13 +405,14 @@ export default function ManualExpenseFullScreenSheet({
       return;
     }
 
-    moveToWallet();
+    setInlineError("");
+    setStep(STEPS.WALLET);
   };
 
-  const handleWalletSelection = (option) => {
+  const selectWallet = (option) => {
     walletDropdown?.props?.onChange?.(option.value, option);
     setInlineError("");
-    setStep(MANUAL_EXPENSE_STEPS.CONFIRM);
+    setStep(STEPS.CONFIRM);
   };
 
   const handleSubmit = (event) => {
@@ -414,46 +421,44 @@ export default function ManualExpenseFullScreenSheet({
       event.stopPropagation();
       return;
     }
+
     onSubmit?.(event);
   };
 
-  const renderSummaries = () => (
+  const summaries = legacyShapeReady ? (
     <div className="space-y-2">
-      {step !== MANUAL_EXPENSE_STEPS.AMOUNT && validAmount ? (
+      {step !== STEPS.AMOUNT && validAmount ? (
         <SummaryRow
           icon={CircleDollarSign}
           label="Amount"
           value={formatMoney(amount)}
-          onEdit={moveToAmount}
+          onEdit={editAmount}
         />
       ) : null}
 
-      {[
-        MANUAL_EXPENSE_STEPS.REASON,
-        MANUAL_EXPENSE_STEPS.WALLET,
-        MANUAL_EXPENSE_STEPS.CONFIRM,
-      ].includes(step) && selectedBudget ? (
+      {[STEPS.REASON, STEPS.WALLET, STEPS.CONFIRM].includes(step) &&
+      selectedBudget ? (
         <SummaryRow
           icon={ReceiptText}
           label="Budget"
           value={selectedBudget.label}
-          onEdit={moveToBudget}
+          onEdit={editBudget}
         />
       ) : null}
 
-      {step === MANUAL_EXPENSE_STEPS.CONFIRM && selectedWallet ? (
+      {step === STEPS.CONFIRM && selectedWallet ? (
         <SummaryRow
           icon={WalletCards}
           label="Wallet"
           value={selectedWallet.label}
-          onEdit={moveToWallet}
+          onEdit={editWallet}
         />
       ) : null}
     </div>
-  );
+  ) : null;
 
-  const renderAmountStep = () => (
-    <section data-expense-step={MANUAL_EXPENSE_STEPS.AMOUNT}>
+  const amountStep = (
+    <section data-expense-step={STEPS.AMOUNT}>
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">
         First, the amount
       </p>
@@ -485,7 +490,7 @@ export default function ManualExpenseFullScreenSheet({
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              handleAmountContinue();
+              continueAmount();
             }
           }}
           placeholder="0"
@@ -496,9 +501,9 @@ export default function ManualExpenseFullScreenSheet({
 
       <button
         type="button"
-        onClick={handleAmountContinue}
+        onClick={continueAmount}
         disabled={loading}
-        className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[19px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-cyan-500 px-4 text-sm font-black text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.20)] transition hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45"
+        className={`mt-5 ${primaryButtonClass}`}
       >
         Continue
         <ChevronRight className="h-4 w-4" />
@@ -506,8 +511,8 @@ export default function ManualExpenseFullScreenSheet({
     </section>
   );
 
-  const renderBudgetStep = () => (
-    <section data-expense-step={MANUAL_EXPENSE_STEPS.BUDGET}>
+  const budgetStep = (
+    <section data-expense-step={STEPS.BUDGET}>
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">
         Next, place it correctly
       </p>
@@ -533,8 +538,8 @@ export default function ManualExpenseFullScreenSheet({
                 role="option"
                 aria-selected={selected}
                 disabled={option.disabled}
-                onClick={() => handleBudgetSelection(option)}
-                className={`flex min-h-[62px] w-full items-center gap-3 rounded-[19px] border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 disabled:cursor-not-allowed disabled:opacity-45 ${getToneClasses(
+                onClick={() => selectBudget(option)}
+                className={`flex min-h-[62px] w-full items-center gap-3 rounded-[19px] border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 disabled:cursor-not-allowed disabled:opacity-45 ${optionTone(
                   option.tone,
                   selected
                 )}`}
@@ -569,8 +574,8 @@ export default function ManualExpenseFullScreenSheet({
     </section>
   );
 
-  const renderReasonStep = () => (
-    <section data-expense-step={MANUAL_EXPENSE_STEPS.REASON}>
+  const reasonStep = (
+    <section data-expense-step={STEPS.REASON}>
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-100/55">
         One quick clarification
       </p>
@@ -615,7 +620,7 @@ export default function ManualExpenseFullScreenSheet({
                   undocumentedDropdown?.props?.onChange?.(option.value, option);
                   setInlineError("");
                 }}
-                className={`flex min-h-[52px] w-full items-center justify-between gap-3 rounded-[18px] border px-3.5 py-3 text-left text-[12px] font-black text-white/82 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 ${getToneClasses(
+                className={`flex min-h-[52px] w-full items-center justify-between gap-3 rounded-[18px] border px-3.5 py-3 text-left text-[12px] font-black text-white/82 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 ${optionTone(
                   option.tone,
                   selected
                 )}`}
@@ -643,9 +648,9 @@ export default function ManualExpenseFullScreenSheet({
 
       <button
         type="button"
-        onClick={handleReasonContinue}
+        onClick={continueReason}
         disabled={loading}
-        className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[19px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-cyan-500 px-4 text-sm font-black text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.20)] transition hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45"
+        className={`mt-5 ${primaryButtonClass}`}
       >
         Continue
         <ChevronRight className="h-4 w-4" />
@@ -653,8 +658,8 @@ export default function ManualExpenseFullScreenSheet({
     </section>
   );
 
-  const renderWalletStep = () => (
-    <section data-expense-step={MANUAL_EXPENSE_STEPS.WALLET}>
+  const walletStep = (
+    <section data-expense-step={STEPS.WALLET}>
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">
         Finally, choose the source
       </p>
@@ -682,15 +687,15 @@ export default function ManualExpenseFullScreenSheet({
               type="button"
               role="option"
               aria-selected={selected}
-              onClick={() => handleWalletSelection(option)}
-              className={`flex min-h-[72px] w-full items-center gap-3 rounded-[20px] border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 ${
+              onClick={() => selectWallet(option)}
+              className={`flex min-h-[72px] w-full items-center gap-3 rounded-[20px] border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/50 ${optionTone(
+                option.tone,
+                selected,
                 insufficient
-                  ? "border-rose-300/18 bg-rose-400/[0.065]"
-                  : getToneClasses(option.tone, selected)
-              }`}
+              )}`}
             >
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-cyan-200/12 bg-cyan-300/[0.07] text-cyan-100/80">
-                <WalletCards className="h-4.5 w-4.5" />
+                <WalletCards className="h-[18px] w-[18px]" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-black text-white/92">
@@ -722,8 +727,8 @@ export default function ManualExpenseFullScreenSheet({
       {walletOptions.length === 1 && selectedWallet ? (
         <button
           type="button"
-          onClick={() => setStep(MANUAL_EXPENSE_STEPS.CONFIRM)}
-          className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[19px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-cyan-500 px-4 text-sm font-black text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.20)] transition hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 active:scale-[0.99]"
+          onClick={() => setStep(STEPS.CONFIRM)}
+          className={`mt-5 ${primaryButtonClass}`}
         >
           Continue
           <ChevronRight className="h-4 w-4" />
@@ -732,99 +737,95 @@ export default function ManualExpenseFullScreenSheet({
     </section>
   );
 
-  const renderConfirmStep = () => {
-    const walletBalance = readMoney(selectedWallet?.subtitle);
-    const projectedBalance = walletBalance - (validAmount ? amount : 0);
-    const insufficient = selectedWallet && projectedBalance < 0;
+  const selectedWalletBalance = readMoney(selectedWallet?.subtitle);
+  const projectedBalance = selectedWalletBalance - (validAmount ? amount : 0);
+  const insufficientWallet = Boolean(selectedWallet && projectedBalance < 0);
 
-    return (
-      <section data-expense-step={MANUAL_EXPENSE_STEPS.CONFIRM}>
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/55">
-          Ready to record
+  const confirmStep = (
+    <section data-expense-step={STEPS.CONFIRM}>
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/55">
+        Ready to record
+      </p>
+      <h3 className="mt-2 text-[23px] font-black leading-tight tracking-[-0.035em] text-white">
+        Confirm this expense
+      </h3>
+
+      <div className="relative mt-5 overflow-hidden rounded-[26px] border border-emerald-200/14 bg-[radial-gradient(circle_at_20%_0%,rgba(52,211,153,0.12),transparent_42%),rgba(255,255,255,0.035)] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_42px_rgba(0,0,0,0.20)]">
+        <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-cyan-300/[0.08] blur-3xl" />
+        <p className="relative text-[38px] font-black leading-none tracking-[-0.055em] text-emerald-100">
+          {formatMoney(amount)}
         </p>
-        <h3 className="mt-2 text-[23px] font-black leading-tight tracking-[-0.035em] text-white">
-          Confirm this expense
-        </h3>
+        <p className="relative mt-3 text-[13px] font-black text-white/86">
+          {selectedBudget?.label || "Budget category"}
+        </p>
+        <p className="relative mt-1 text-[11px] font-semibold text-white/46">
+          Paid from {selectedWallet?.label || "selected wallet"}
+        </p>
+      </div>
 
-        <div className="relative mt-5 overflow-hidden rounded-[26px] border border-emerald-200/14 bg-[radial-gradient(circle_at_20%_0%,rgba(52,211,153,0.12),transparent_42%),rgba(255,255,255,0.035)] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_42px_rgba(0,0,0,0.20)]">
-          <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-cyan-300/[0.08] blur-3xl" />
-          <p className="relative text-[38px] font-black leading-none tracking-[-0.055em] text-emerald-100">
-            {formatMoney(amount)}
-          </p>
-          <p className="relative mt-3 text-[13px] font-black text-white/86">
-            {selectedBudget?.label || "Budget category"}
-          </p>
-          <p className="relative mt-1 text-[11px] font-semibold text-white/46">
-            Paid from {selectedWallet?.label || "selected wallet"}
+      {selectedWallet ? (
+        <div
+          className={`mt-3 flex items-start gap-2.5 rounded-[18px] border px-3.5 py-3 ${
+            insufficientWallet
+              ? "border-rose-300/18 bg-rose-400/[0.07] text-rose-100"
+              : "border-emerald-300/14 bg-emerald-400/[0.055] text-emerald-100"
+          }`}
+        >
+          {insufficientWallet ? (
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <Check className="mt-0.5 h-4 w-4 shrink-0" />
+          )}
+          <p className="text-[11px] font-semibold leading-5">
+            {insufficientWallet
+              ? `${selectedWallet.label} is ${formatMoney(
+                  Math.abs(projectedBalance)
+                )} short for this expense.`
+              : `${selectedWallet.label} will have ${formatMoney(
+                  projectedBalance
+                )} remaining after this expense.`}
           </p>
         </div>
+      ) : null}
 
-        {selectedWallet ? (
-          <div
-            className={`mt-3 flex items-start gap-2.5 rounded-[18px] border px-3.5 py-3 ${
-              insufficient
-                ? "border-rose-300/18 bg-rose-400/[0.07] text-rose-100"
-                : "border-emerald-300/14 bg-emerald-400/[0.055] text-emerald-100"
-            }`}
-          >
-            {insufficient ? (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            ) : (
-              <Check className="mt-0.5 h-4 w-4 shrink-0" />
-            )}
-            <p className="text-[11px] font-semibold leading-5">
-              {insufficient
-                ? `${selectedWallet.label} is ${formatMoney(
-                    Math.abs(projectedBalance)
-                  )} short for this expense.`
-                : `${selectedWallet.label} will have ${formatMoney(
-                    projectedBalance
-                  )} remaining after this expense.`}
-            </p>
-          </div>
-        ) : null}
+      {!isGuideSimulation ? (
+        <button
+          type="submit"
+          disabled={submitDisabled || loading}
+          className={`mt-5 ${primaryButtonClass}`}
+        >
+          {loading ? "Saving..." : `Log ${formatMoney(amount)} Expense`}
+        </button>
+      ) : (
+        <div className="mt-5 rounded-[18px] border border-cyan-200/14 bg-cyan-300/[0.06] px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100/72">
+          Preview only
+        </div>
+      )}
+    </section>
+  );
 
+  let activeStep = amountStep;
+  if (step === STEPS.BUDGET) activeStep = budgetStep;
+  else if (step === STEPS.REASON) activeStep = reasonStep;
+  else if (step === STEPS.WALLET) activeStep = walletStep;
+  else if (step === STEPS.CONFIRM) activeStep = confirmStep;
+
+  if (!legacyShapeReady) {
+    activeStep = (
+      <div className="space-y-4">
+        {children}
         {!isGuideSimulation ? (
           <button
             type="submit"
             disabled={submitDisabled || loading}
-            className="mt-5 flex min-h-[54px] w-full items-center justify-center gap-2 rounded-[19px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-cyan-500 px-4 text-sm font-black text-slate-950 shadow-[0_16px_38px_rgba(16,185,129,0.22)] transition hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+            className={primaryButtonClass}
           >
-            {loading ? "Saving..." : `Log ${formatMoney(amount)} Expense`}
+            {loading ? "Saving..." : "Add Expense"}
           </button>
-        ) : (
-          <div className="mt-5 rounded-[18px] border border-cyan-200/14 bg-cyan-300/[0.06] px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100/72">
-            Preview only
-          </div>
-        )}
-      </section>
+        ) : null}
+      </div>
     );
-  };
-
-  const renderActiveStep = () => {
-    if (!legacyShapeReady) {
-      return (
-        <div className="space-y-4">
-          {children}
-          {!isGuideSimulation ? (
-            <button
-              type="submit"
-              disabled={submitDisabled || loading}
-              className="min-h-[52px] w-full rounded-[18px] bg-emerald-500 px-4 text-sm font-black text-white disabled:opacity-40"
-            >
-              {loading ? "Saving..." : "Add Expense"}
-            </button>
-          ) : null}
-        </div>
-      );
-    }
-
-    if (step === MANUAL_EXPENSE_STEPS.AMOUNT) return renderAmountStep();
-    if (step === MANUAL_EXPENSE_STEPS.BUDGET) return renderBudgetStep();
-    if (step === MANUAL_EXPENSE_STEPS.REASON) return renderReasonStep();
-    if (step === MANUAL_EXPENSE_STEPS.WALLET) return renderWalletStep();
-    return renderConfirmStep();
-  };
+  }
 
   const sheet = (
     <div
@@ -872,7 +873,7 @@ export default function ManualExpenseFullScreenSheet({
         <div className="pointer-events-none absolute -right-24 bottom-0 h-56 w-56 rounded-full bg-violet-400/[0.09] blur-3xl" />
 
         <header className="relative z-10 flex shrink-0 items-start gap-3 border-b border-white/[0.065] px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] sm:pt-4">
-          {step !== MANUAL_EXPENSE_STEPS.AMOUNT && !isGuideSimulation ? (
+          {step !== STEPS.AMOUNT && !isGuideSimulation ? (
             <button
               type="button"
               onClick={handleBack}
@@ -893,10 +894,7 @@ export default function ManualExpenseFullScreenSheet({
             >
               Log expense
             </h2>
-            <ProgressIndicator
-              current={currentStepNumber}
-              total={totalSteps}
-            />
+            <ProgressIndicator current={currentStepNumber} total={totalSteps} />
           </div>
 
           <button
@@ -909,7 +907,7 @@ export default function ManualExpenseFullScreenSheet({
                 : "Close log expense"
             }
           >
-            <X className="h-4.5 w-4.5" />
+            <X className="h-[18px] w-[18px]" />
           </button>
         </header>
 
@@ -922,17 +920,15 @@ export default function ManualExpenseFullScreenSheet({
             Step {currentStepNumber} of {totalSteps}
           </div>
 
-          {legacyShapeReady ? renderSummaries() : null}
+          {summaries}
 
           <div
             key={step}
             className={`${
-              legacyShapeReady && step !== MANUAL_EXPENSE_STEPS.AMOUNT
-                ? "mt-4"
-                : ""
+              legacyShapeReady && step !== STEPS.AMOUNT ? "mt-4" : ""
             } animate-[claraManualExpenseStepIn_180ms_ease-out]`}
           >
-            {renderActiveStep()}
+            {activeStep}
           </div>
 
           {inlineError ? (
