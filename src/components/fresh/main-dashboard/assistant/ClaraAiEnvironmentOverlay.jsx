@@ -81,7 +81,7 @@ function PauseEntryBoard({ onClose, acknowledgmentMessage }) {
       <div
         data-clara-buy-check-active-question="true"
         aria-live="polite"
-        className="mx-auto mt-5 max-w-[292px] text-left"
+        className="mx-auto mt-5 max-w-[318px] text-center"
       >
         <strong className="block text-[16px] font-black leading-[1.4] tracking-[-0.015em] text-white/95">
           What do you want to buy?
