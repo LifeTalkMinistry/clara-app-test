@@ -194,6 +194,11 @@ export default function useBudgetCardLogic({
 
         if (aProtected !== bProtected) return aProtected ? -1 : 1;
 
+        const aAllocated = safeNumber(a?.allocated ?? a?.allocated_amount);
+        const bAllocated = safeNumber(b?.allocated ?? b?.allocated_amount);
+
+        if (aAllocated !== bAllocated) return bAllocated - aAllocated;
+
         const aOrderValue =
           a?.sortOrder ??
           a?.sort_order ??
