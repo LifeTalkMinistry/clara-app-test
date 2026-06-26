@@ -339,8 +339,8 @@ function renderStaticBuyCheckChat() {
   });
 }
 
-function startStaticBuyCheckFlow() {
-  buyCheckFlow = {
+function createStaticBuyCheckFlow() {
+  return {
     step: "item",
     item: "",
     price: 0,
@@ -351,7 +351,10 @@ function startStaticBuyCheckFlow() {
       makeFlowMessage("clara", "Hi, Max! What do you want to buy?\n\nType the exact item first. Example: Running shoes"),
     ],
   };
+}
 
+function startStaticBuyCheckFlow() {
+  buyCheckFlow = createStaticBuyCheckFlow();
   renderStaticBuyCheckChat();
 }
 
@@ -667,9 +670,19 @@ function clearAssistantInput() {
 function renderBuyCheckBoard() {
   ensureBuyCheckBoardStyle();
 
+  if (!buyCheckFlow || buyCheckFlow.done) {
+    buyCheckFlow = createStaticBuyCheckFlow();
+  }
+
   const board = findInstructionBoard();
   if (!board) {
-    startStaticBuyCheckFlow();
+    renderStaticBuyCheckChat();
+    return;
+  }
+
+  if (board.dataset.claraBuyCheckOpeningBoard === "true") {
+    board.setAttribute("data-clara-buy-check-board", "true");
+    hidePanelTabsForBuyCheckBoard(board);
     return;
   }
 
@@ -677,16 +690,17 @@ function renderBuyCheckBoard() {
     <button type="button" class="clara-buy-check-board-close" data-clara-buy-check-close-board="true" aria-label="Close CLARA AI mode">×</button>
     <p class="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK</p>
     <h3 class="mt-3 text-xl font-black leading-tight tracking-tight text-white">Let’s check this purchase first.</h3>
-    <div class="mx-auto mt-3 max-w-[292px] text-sm leading-6 text-slate-300/75">
-      <p>Answer clearly so CLARA can judge the decision properly.</p>
-    </div>
+    <div class="mx-auto mt-3 max-w-[292px] text-sm leading-6 text-slate-300/75"><p>Answer clearly so CLARA can judge the decision properly.</p></div>
     <div class="clara-buy-check-board-steps">
       <span><b>1</b> Item you want to buy</span>
       <span><b>2</b> Amount or price</span>
       <span><b>3</b> Why you want it</span>
     </div>
     <p class="clara-buy-check-board-note">Then CLARA checks wallet, budget, schedule, Me profile, goals, and memory before giving a decision.</p>
-    <button type="button" class="clara-buy-check-board-start" data-clara-start-buy-check="true">Start Buy Check</button>
+    <div class="clara-buy-check-active-question" data-clara-buy-check-active-question="true" aria-live="polite">
+      <strong>Hi, Max! What do you want to buy?</strong>
+      <span>Type the exact item first. <em>Example: Running shoes</em></span>
+    </div>
   `;
 
   board.setAttribute("data-clara-buy-check-board", "true");
@@ -694,6 +708,9 @@ function renderBuyCheckBoard() {
 }
 
 function openBuyCheckMode() {
+  if (!buyCheckFlow || buyCheckFlow.done) {
+    buyCheckFlow = createStaticBuyCheckFlow();
+  }
   renderBuyCheckBoard();
 }
 
@@ -708,7 +725,7 @@ function handleExplicitBuyCheckOpen(event) {
   if (requestId && requestId === lastExplicitOpenRequestId) return;
 
   lastExplicitOpenRequestId = requestId || `buy-check-${Date.now()}`;
-  buyCheckFlow = null;
+  buyCheckFlow = createStaticBuyCheckFlow();
   openBuyCheckMode();
 }
 
@@ -720,14 +737,6 @@ function installBuyCheckClickCapture() {
       event.stopPropagation();
       buyCheckFlow = null;
       closeAssistantOverlay();
-      return;
-    }
-
-    const startButton = event.target?.closest?.("[data-clara-start-buy-check]");
-    if (startButton) {
-      event.preventDefault();
-      event.stopPropagation();
-      startStaticBuyCheckFlow();
       return;
     }
 

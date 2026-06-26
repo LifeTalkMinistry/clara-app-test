@@ -61,7 +61,6 @@ import "../google-play-already-owned-restore-bridge";
 // Later they should become real React tab configuration.
 // Assistant tab runtime controllers
 import "../clara-assistant-buy-check-tab";
-import "../clara-buy-check-auto-start-bridge";
 import "../clara-assistant-forecast-tab";
 import "../clara-assistant-analytic-tab";
 import "../clara-assistant-feature-dock-polish";
