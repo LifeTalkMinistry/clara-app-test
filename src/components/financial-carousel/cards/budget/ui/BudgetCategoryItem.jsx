@@ -198,9 +198,13 @@ export default function BudgetCategoryItem({
         }}
       />
 
-      <div className="relative grid grid-cols-[minmax(86px,0.85fr)_minmax(0,1fr)_32px] grid-rows-[40px_auto] items-center gap-x-2.5 gap-y-1">
+      <div className="relative grid grid-cols-[minmax(0,1fr)_52px] grid-rows-[40px_auto] items-center gap-x-4 gap-y-1">
+        <p className={`col-start-1 row-start-1 truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
+          {fmt(heroAmount)}
+        </p>
+
         <div
-          className="col-start-1 row-start-1 grid h-10 w-10 place-items-center rounded-[13px] border"
+          className="col-start-2 row-start-1 grid h-10 w-10 justify-self-end place-items-center rounded-[13px] border"
           style={{
             color: `rgb(${reserveTone.rgb})`,
             borderColor: `rgb(${reserveTone.rgb} / 0.25)`,
@@ -211,65 +215,12 @@ export default function BudgetCategoryItem({
           <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} />
         </div>
 
-        <p className={`col-start-2 row-start-1 truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
-          {fmt(heroAmount)}
-        </p>
-
-        {!isProtected ? (
-          <div
-            className="relative col-start-3 row-start-1 justify-self-end"
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setMenuOpen((current) => !current)}
-              disabled={financeActionLoading}
-              className="grid h-8 w-8 place-items-center rounded-xl border border-transparent bg-white/[0.025] text-white/48 transition hover:border-white/[0.09] hover:bg-white/[0.065] hover:text-white/82 disabled:opacity-40"
-              aria-label={`Open actions for ${item?.title || "budget category"}`}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-
-            {menuOpen ? (
-              <div
-                role="menu"
-                className="absolute right-0 top-9 z-30 w-36 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#081426]/96 p-1.5 shadow-[0_18px_42px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.055)] backdrop-blur-xl"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={closeAndEdit}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-bold text-white/72 transition hover:bg-white/[0.07] hover:text-white"
-                >
-                  <Edit3 className="h-3.5 w-3.5" />
-                  Edit category
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={closeAndDelete}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-bold text-rose-100/72 transition hover:bg-rose-400/[0.10] hover:text-rose-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete category
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="col-start-3 row-start-1" aria-hidden="true" />
-        )}
-
-        <p className="col-start-1 row-start-2 min-w-0 truncate text-[11px] font-black leading-tight tracking-[-0.015em] text-white/88">
-          {item?.title || "Budget category"}
-        </p>
-
-        <p className="col-start-2 row-start-2 min-w-0 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
+        <p className="col-start-1 row-start-2 min-w-0 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
           {heroLabel}
+        </p>
+
+        <p className="col-start-2 row-start-2 min-w-0 truncate text-right text-[11px] font-black leading-tight tracking-[-0.015em] text-white/88">
+          {item?.title || "Budget category"}
         </p>
       </div>
 
