@@ -1,23 +1,64 @@
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
+  Baby,
+  Banknote,
+  BookOpen,
+  Briefcase,
+  Building2,
+  Bus,
   Car,
+  Check,
+  Church,
+  Coins,
+  Coffee,
+  CookingPot,
   CreditCard,
+  Droplets,
+  Dumbbell,
   Film,
+  Flame,
   Fuel,
+  Gamepad2,
+  Gift,
   GraduationCap,
+  Hammer,
   HeartPulse,
   Home,
+  KeyRound,
+  Laptop,
+  MapPin,
+  Music,
+  PawPrint,
+  PiggyBank,
+  Pill,
+  Plane,
   Receipt,
+  RotateCcw,
+  Search,
+  ShieldAlert,
   ShieldCheck,
+  Shirt,
   ShoppingBag,
+  ShoppingBasket,
   ShoppingCart,
+  Smartphone,
+  Stethoscope,
+  Store,
+  Target,
   Utensils,
   Wallet,
+  Wifi,
+  Wrench,
+  X,
   Zap,
 } from "lucide-react";
 import {
   fmt,
   safeNumber,
 } from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
+
+const BUDGET_ICON_STORAGE_KEY = "clara_budget_category_icons_v1";
 
 const RESERVE_TONES = {
   neutral: { name: "Neutral Slate", rgb: "148 163 184" },
@@ -28,6 +69,149 @@ const RESERVE_TONES = {
   violet: { name: "Royal Violet", rgb: "167 139 250" },
   gold: { name: "Premium Gold", rgb: "232 201 122" },
 };
+
+const ICON_OPTIONS = [
+  { key: "wallet", label: "Wallet", group: "Money", icon: Wallet, keywords: "general budget other" },
+  { key: "banknote", label: "Cash", group: "Money", icon: Banknote, keywords: "money income salary" },
+  { key: "coins", label: "Coins", group: "Money", icon: Coins, keywords: "cash loose change" },
+  { key: "piggy-bank", label: "Savings", group: "Money", icon: PiggyBank, keywords: "save fund" },
+  { key: "credit-card", label: "Credit Card", group: "Money", icon: CreditCard, keywords: "debt loan payment" },
+  { key: "receipt", label: "Bills", group: "Money", icon: Receipt, keywords: "utility invoice payment" },
+
+  { key: "home", label: "Home", group: "Home", icon: Home, keywords: "house bahay housing" },
+  { key: "building", label: "Apartment", group: "Home", icon: Building2, keywords: "condo rent property" },
+  { key: "key", label: "Rent", group: "Home", icon: KeyRound, keywords: "lease housing" },
+  { key: "wrench", label: "Repairs", group: "Home", icon: Wrench, keywords: "maintenance fix" },
+  { key: "hammer", label: "Maintenance", group: "Home", icon: Hammer, keywords: "repair construction" },
+  { key: "store", label: "Household", group: "Home", icon: Store, keywords: "supplies market" },
+
+  { key: "zap", label: "Electricity", group: "Daily", icon: Zap, keywords: "power electric bill" },
+  { key: "droplets", label: "Water", group: "Daily", icon: Droplets, keywords: "water bill utility" },
+  { key: "flame", label: "Gas", group: "Daily", icon: Flame, keywords: "cooking gas utility" },
+  { key: "wifi", label: "Internet", group: "Daily", icon: Wifi, keywords: "connection broadband" },
+  { key: "smartphone", label: "Phone", group: "Daily", icon: Smartphone, keywords: "mobile load data" },
+  { key: "utensils", label: "Food", group: "Daily", icon: Utensils, keywords: "meal dining pagkain" },
+  { key: "cooking-pot", label: "Cooking", group: "Daily", icon: CookingPot, keywords: "kitchen meal" },
+  { key: "shopping-basket", label: "Groceries", group: "Daily", icon: ShoppingBasket, keywords: "grocery supermarket palengke" },
+  { key: "shopping-cart", label: "Shopping Cart", group: "Daily", icon: ShoppingCart, keywords: "market grocery" },
+  { key: "coffee", label: "Coffee", group: "Daily", icon: Coffee, keywords: "cafe drinks" },
+  { key: "car", label: "Car", group: "Daily", icon: Car, keywords: "vehicle transport" },
+  { key: "bus", label: "Commute", group: "Daily", icon: Bus, keywords: "public transport jeep pamasahe" },
+  { key: "fuel", label: "Fuel", group: "Daily", icon: Fuel, keywords: "gasoline diesel petrol" },
+  { key: "map-pin", label: "Travel Fare", group: "Daily", icon: MapPin, keywords: "location trip route" },
+
+  { key: "heart-pulse", label: "Health", group: "Life", icon: HeartPulse, keywords: "medical wellness" },
+  { key: "stethoscope", label: "Doctor", group: "Life", icon: Stethoscope, keywords: "checkup clinic" },
+  { key: "pill", label: "Medicine", group: "Life", icon: Pill, keywords: "medication pharmacy" },
+  { key: "dumbbell", label: "Fitness", group: "Life", icon: Dumbbell, keywords: "gym exercise" },
+  { key: "briefcase", label: "Work", group: "Life", icon: Briefcase, keywords: "job office business" },
+  { key: "graduation-cap", label: "Education", group: "Life", icon: GraduationCap, keywords: "school tuition study" },
+  { key: "book-open", label: "Books", group: "Life", icon: BookOpen, keywords: "reading school" },
+  { key: "laptop", label: "Technology", group: "Life", icon: Laptop, keywords: "computer work online" },
+  { key: "baby", label: "Child", group: "Life", icon: Baby, keywords: "kids family" },
+  { key: "paw-print", label: "Pets", group: "Life", icon: PawPrint, keywords: "dog cat animal" },
+  { key: "shirt", label: "Clothing", group: "Life", icon: Shirt, keywords: "clothes fashion" },
+  { key: "shopping-bag", label: "Shopping", group: "Life", icon: ShoppingBag, keywords: "personal purchase" },
+  { key: "film", label: "Entertainment", group: "Life", icon: Film, keywords: "movie cinema leisure" },
+  { key: "music", label: "Music", group: "Life", icon: Music, keywords: "audio concert" },
+  { key: "gamepad", label: "Gaming", group: "Life", icon: Gamepad2, keywords: "games recreation" },
+  { key: "gift", label: "Gifts", group: "Life", icon: Gift, keywords: "present celebration" },
+  { key: "plane", label: "Travel", group: "Life", icon: Plane, keywords: "vacation flight" },
+
+  { key: "target", label: "Goal", group: "Goals", icon: Target, keywords: "achievement milestone" },
+  { key: "shield-check", label: "Protected Fund", group: "Goals", icon: ShieldCheck, keywords: "secure savings emergency" },
+  { key: "shield-alert", label: "Emergency", group: "Goals", icon: ShieldAlert, keywords: "urgent protection" },
+  { key: "church", label: "Church", group: "Goals", icon: Church, keywords: "offering ministry donation" },
+];
+
+const ICON_GROUPS = ["All", "Money", "Home", "Daily", "Life", "Goals"];
+const ICON_BY_KEY = Object.fromEntries(ICON_OPTIONS.map((option) => [option.key, option]));
+
+function normalizeText(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function getCategoryIdentity(item = {}) {
+  const id = String(item?.id || item?.key || item?.budget_id || "").trim();
+  if (id) return `id:${id}`;
+
+  const title = normalizeText(item?.title || item?.name || item?.category || item?.budget_category);
+  return `title:${title || "budget-category"}`;
+}
+
+function readStoredIconKey(item) {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const raw = window.localStorage.getItem(BUDGET_ICON_STORAGE_KEY);
+    const stored = raw ? JSON.parse(raw) : {};
+    return typeof stored?.[getCategoryIdentity(item)] === "string"
+      ? stored[getCategoryIdentity(item)]
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStoredIconKey(item, iconKey) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const raw = window.localStorage.getItem(BUDGET_ICON_STORAGE_KEY);
+    const stored = raw ? JSON.parse(raw) : {};
+    stored[getCategoryIdentity(item)] = iconKey;
+    window.localStorage.setItem(BUDGET_ICON_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // Icon selection remains available for the current session even if storage is unavailable.
+  }
+}
+
+function clearStoredIconKey(item) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const raw = window.localStorage.getItem(BUDGET_ICON_STORAGE_KEY);
+    const stored = raw ? JSON.parse(raw) : {};
+    delete stored[getCategoryIdentity(item)];
+    window.localStorage.setItem(BUDGET_ICON_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // No-op when storage is unavailable.
+  }
+}
+
+function getRecordIconKey(item = {}) {
+  const value = String(
+    item?.iconKey ||
+      item?.icon_key ||
+      item?.categoryIcon ||
+      item?.category_icon ||
+      ""
+  ).trim();
+
+  return ICON_BY_KEY[value] ? value : "";
+}
+
+function inferDefaultIconKey(title = "", isProtected = false) {
+  if (isProtected) return "shield-check";
+
+  const value = normalizeText(title);
+  if (/\b(food|meal|dining|restaurant|pagkain)\b/.test(value)) return "utensils";
+  if (/\b(grocery|groceries|supermarket|palengke)\b/.test(value)) return "shopping-basket";
+  if (/\b(bill|bills|utility|utilities|internet|phone|subscription)\b/.test(value)) return "receipt";
+  if (/\b(electric|electricity|power|kuryente)\b/.test(value)) return "zap";
+  if (/\b(water|tubig)\b/.test(value)) return "droplets";
+  if (/\b(bahay|rent|house|home|housing)\b/.test(value)) return "home";
+  if (/\b(transport|transportation|commute|car|jeep|taxi|grab|fare|pamasahe)\b/.test(value)) return "bus";
+  if (/\b(gas|gasoline|fuel|diesel|petrol)\b/.test(value)) return "fuel";
+  if (/\b(health|medical|medicine|doctor|hospital|gamot)\b/.test(value)) return "heart-pulse";
+  if (/\b(school|education|tuition|study|college)\b/.test(value)) return "graduation-cap";
+  if (/\b(movie|entertainment|fun|leisure|cinema)\b/.test(value)) return "film";
+  if (/\b(shopping|clothes|clothing|fashion)\b/.test(value)) return "shopping-bag";
+  if (/\b(debt|loan|credit|utang)\b/.test(value)) return "credit-card";
+  if (/\b(saving|savings|emergency|reserve|fund)\b/.test(value)) return "piggy-bank";
+  if (/\b(church|offering|tithe|ministry|donation)\b/.test(value)) return "church";
+  return "wallet";
+}
 
 function getReserveTone(item, allocated) {
   const explicitShare = safeNumber(item?.reserveShare ?? item?.reserve_share);
@@ -52,26 +236,6 @@ function getReserveTone(item, allocated) {
   if (share <= 0.35) return { ...RESERVE_TONES.sapphire, share };
   if (share <= 0.50) return { ...RESERVE_TONES.violet, share };
   return { ...RESERVE_TONES.gold, share };
-}
-
-function getCategoryIcon(title = "", isProtected = false) {
-  if (isProtected) return ShieldCheck;
-
-  const value = String(title).trim().toLowerCase();
-  if (/food|meal|dining|restaurant/.test(value)) return Utensils;
-  if (/grocery|groceries|market/.test(value)) return ShoppingCart;
-  if (/bill|utility|internet|phone|subscription/.test(value)) return Receipt;
-  if (/electric|power|water/.test(value)) return Zap;
-  if (/rent|house|home|housing/.test(value)) return Home;
-  if (/transport|commute|car|jeep|taxi|grab|fare/.test(value)) return Car;
-  if (/gas|fuel/.test(value)) return Fuel;
-  if (/health|medical|medicine|doctor/.test(value)) return HeartPulse;
-  if (/school|education|tuition|study/.test(value)) return GraduationCap;
-  if (/movie|entertainment|fun|leisure/.test(value)) return Film;
-  if (/shopping|clothes|clothing/.test(value)) return ShoppingBag;
-  if (/debt|loan|credit/.test(value)) return CreditCard;
-  if (/saving|emergency|reserve/.test(value)) return ShieldCheck;
-  return Wallet;
 }
 
 function getHealthState({ allocated, spent, isProtected }) {
@@ -112,6 +276,202 @@ function getHealthState({ allocated, spent, isProtected }) {
   };
 }
 
+function BudgetIconPickerModal({
+  categoryTitle,
+  selectedIconKey,
+  reserveTone,
+  onClose,
+  onReset,
+  onSelect,
+}) {
+  const [query, setQuery] = useState("");
+  const [activeGroup, setActiveGroup] = useState("All");
+
+  const filteredIcons = useMemo(() => {
+    const normalizedQuery = normalizeText(query);
+
+    return ICON_OPTIONS.filter((option) => {
+      const matchesGroup = activeGroup === "All" || option.group === activeGroup;
+      if (!matchesGroup) return false;
+      if (!normalizedQuery) return true;
+
+      const searchable = normalizeText(
+        `${option.label} ${option.key} ${option.group} ${option.keywords || ""}`
+      );
+      return searchable.includes(normalizedQuery);
+    });
+  }, [activeGroup, query]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  const SelectedIcon = ICON_BY_KEY[selectedIconKey]?.icon || Wallet;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/78 px-4 py-5 backdrop-blur-xl"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+      onTouchStart={(event) => event.stopPropagation()}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="budget-icon-picker-title"
+        className="relative flex max-h-[min(86dvh,680px)] w-full max-w-[390px] flex-col overflow-hidden rounded-[30px] border border-cyan-100/[0.14] bg-[linear-gradient(145deg,rgba(5,18,38,0.985),rgba(8,23,54,0.985)_52%,rgba(31,20,72,0.985))] text-white shadow-[0_30px_90px_rgba(0,0,0,0.66),0_0_54px_rgba(34,211,238,0.11)]"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/[0.10] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -right-14 h-52 w-52 rounded-full bg-violet-400/[0.13] blur-3xl" />
+
+        <header className="relative flex items-start gap-3 border-b border-white/[0.065] px-4 pb-4 pt-4">
+          <div
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border"
+            style={{
+              color: `rgb(${reserveTone.rgb})`,
+              borderColor: `rgb(${reserveTone.rgb} / 0.24)`,
+              backgroundColor: `rgb(${reserveTone.rgb} / 0.10)`,
+              boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 18px rgb(${reserveTone.rgb} / 0.08)`,
+            }}
+          >
+            <SelectedIcon className="h-5 w-5" strokeWidth={2} />
+          </div>
+
+          <div className="min-w-0 flex-1 pt-0.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100/52">
+              Budget category
+            </p>
+            <h2 id="budget-icon-picker-title" className="mt-1 truncate text-[18px] font-black tracking-[-0.035em] text-white/94">
+              Choose an icon
+            </h2>
+            <p className="mt-1 truncate text-[11px] font-semibold text-white/50">
+              {categoryTitle || "Budget category"}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.09] bg-white/[0.055] text-white/58 transition hover:bg-white/[0.10] hover:text-white"
+            aria-label="Close icon picker"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="relative border-b border-white/[0.05] px-4 py-3.5">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search icons"
+              className="h-11 w-full rounded-2xl border border-white/[0.08] bg-black/[0.18] pl-10 pr-3 text-[12px] font-semibold text-white/88 outline-none transition placeholder:text-white/28 focus:border-cyan-200/24 focus:bg-black/[0.24]"
+            />
+          </label>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {ICON_GROUPS.map((group) => {
+              const active = activeGroup === group;
+              return (
+                <button
+                  type="button"
+                  key={group}
+                  onClick={() => setActiveGroup(group)}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] transition ${
+                    active
+                      ? "border-cyan-200/24 bg-cyan-300/[0.13] text-cyan-50"
+                      : "border-white/[0.07] bg-white/[0.035] text-white/40 hover:bg-white/[0.065] hover:text-white/68"
+                  }`}
+                >
+                  {group}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {filteredIcons.length ? (
+            <div className="grid grid-cols-4 gap-2.5">
+              {filteredIcons.map((option) => {
+                const OptionIcon = option.icon;
+                const selected = option.key === selectedIconKey;
+
+                return (
+                  <button
+                    type="button"
+                    key={option.key}
+                    onClick={() => onSelect?.(option.key)}
+                    className={`relative flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-[18px] border px-1.5 py-2.5 text-center transition active:scale-[0.97] ${
+                      selected
+                        ? "border-cyan-200/30 bg-cyan-300/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_20px_rgba(34,211,238,0.08)]"
+                        : "border-white/[0.065] bg-white/[0.035] hover:border-white/[0.12] hover:bg-white/[0.065]"
+                    }`}
+                    aria-pressed={selected}
+                    aria-label={`Use ${option.label} icon`}
+                  >
+                    {selected ? (
+                      <span className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-cyan-200 text-slate-950">
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                      </span>
+                    ) : null}
+                    <OptionIcon
+                      className={`h-5 w-5 ${selected ? "text-cyan-100" : "text-white/58"}`}
+                      strokeWidth={2}
+                    />
+                    <span className={`line-clamp-2 text-[9px] font-bold leading-[1.15] ${selected ? "text-white/90" : "text-white/48"}`}>
+                      {option.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+              <Search className="h-7 w-7 text-white/20" />
+              <p className="mt-3 text-sm font-black text-white/70">No icon found</p>
+              <p className="mt-1 text-[11px] font-semibold text-white/35">Try a simpler search word.</p>
+            </div>
+          )}
+        </div>
+
+        <footer className="relative flex items-center justify-between gap-3 border-t border-white/[0.055] bg-black/[0.10] px-4 py-3.5">
+          <p className="text-[10px] font-semibold text-white/34">Tap an icon to apply it instantly.</p>
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.075] bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.10em] text-white/48 transition hover:bg-white/[0.08] hover:text-white/72"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Automatic
+          </button>
+        </footer>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 export default function BudgetCategoryItem({ item }) {
   const isProtected =
     item?.isProtectedCommitment === true ||
@@ -127,7 +487,24 @@ export default function BudgetCategoryItem({ item }) {
     spent: categorySpent,
     isProtected,
   });
-  const Icon = getCategoryIcon(item?.title, isProtected);
+  const inferredIconKey = inferDefaultIconKey(item?.title, isProtected);
+  const storageIdentity = getCategoryIdentity(item);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [selectedIconKey, setSelectedIconKey] = useState(() => {
+    const recordIconKey = getRecordIconKey(item);
+    const storedIconKey = readStoredIconKey(item);
+    return recordIconKey || (ICON_BY_KEY[storedIconKey] ? storedIconKey : "") || inferredIconKey;
+  });
+
+  useEffect(() => {
+    const recordIconKey = getRecordIconKey(item);
+    const storedIconKey = readStoredIconKey(item);
+    setSelectedIconKey(
+      recordIconKey || (ICON_BY_KEY[storedIconKey] ? storedIconKey : "") || inferredIconKey
+    );
+  }, [inferredIconKey, item, storageIdentity]);
+
+  const Icon = ICON_BY_KEY[selectedIconKey]?.icon || Wallet;
   const progressRgb = health.progressRgb || reserveTone.rgb;
   const displayProgress = Math.min(Math.max(health.ratio * 100, 0), 100);
   const heroAmount = isProtected
@@ -144,75 +521,132 @@ export default function BudgetCategoryItem({ item }) {
     ? "text-rose-100"
     : "text-white/96";
 
+  const stopCardInteraction = (event) => {
+    event?.stopPropagation?.();
+  };
+
+  const selectIcon = (iconKey) => {
+    if (!ICON_BY_KEY[iconKey]) return;
+    setSelectedIconKey(iconKey);
+    writeStoredIconKey(item, iconKey);
+    setIconPickerOpen(false);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("clara:budget-icon-updated", {
+          detail: {
+            categoryId: item?.id || null,
+            categoryTitle: item?.title || item?.name || "Budget category",
+            iconKey,
+          },
+        })
+      );
+    }
+  };
+
+  const resetIcon = () => {
+    clearStoredIconKey(item);
+    setSelectedIconKey(inferredIconKey);
+    setIconPickerOpen(false);
+  };
+
   return (
-    <article
-      className="relative rounded-[18px] border p-3 pl-4 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px"
-      style={{
-        borderColor: `rgb(${reserveTone.rgb} / 0.22)`,
-        background: `radial-gradient(circle at 12% 0%, rgb(${reserveTone.rgb} / 0.115), transparent 38%), linear-gradient(145deg, rgba(8,20,38,0.97), rgba(8,13,31,0.985))`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.065), 0 10px 22px rgba(0,0,0,0.20), 0 0 18px rgb(${reserveTone.rgb} / 0.04)`,
-      }}
-    >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
-        <div
-          className="absolute inset-x-5 top-0 h-px"
-          style={{
-            background: `linear-gradient(90deg, transparent, rgb(${reserveTone.rgb} / 0.42), transparent)`,
-          }}
-        />
-        <div
-          className="absolute -right-10 -top-12 h-24 w-24 rounded-full blur-3xl"
-          style={{ backgroundColor: `rgb(${reserveTone.rgb} / 0.08)` }}
-        />
-      </div>
-
-      <div
-        className="pointer-events-none absolute bottom-2.5 left-0 top-2.5 w-[3px] rounded-r-full"
+    <>
+      <article
+        className="relative rounded-[18px] border p-3 pl-4 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-px"
         style={{
-          backgroundColor: `rgb(${reserveTone.rgb})`,
-          boxShadow: `0 0 12px rgb(${reserveTone.rgb} / 0.28)`,
+          borderColor: `rgb(${reserveTone.rgb} / 0.22)`,
+          background: `radial-gradient(circle at 12% 0%, rgb(${reserveTone.rgb} / 0.115), transparent 38%), linear-gradient(145deg, rgba(8,20,38,0.97), rgba(8,13,31,0.985))`,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.065), 0 10px 22px rgba(0,0,0,0.20), 0 0 18px rgb(${reserveTone.rgb} / 0.04)`,
         }}
-      />
-
-      <div className="relative grid grid-cols-[minmax(0,1fr)_76px] items-center gap-x-4">
-        <div className="min-w-0 self-center">
-          <p className={`truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
-            {fmt(heroAmount)}
-          </p>
-          <p className="mt-1.5 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
-            {heroLabel}
-          </p>
+      >
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          <div
+            className="absolute inset-x-5 top-0 h-px"
+            style={{
+              background: `linear-gradient(90deg, transparent, rgb(${reserveTone.rgb} / 0.42), transparent)`,
+            }}
+          />
+          <div
+            className="absolute -right-10 -top-12 h-24 w-24 rounded-full blur-3xl"
+            style={{ backgroundColor: `rgb(${reserveTone.rgb} / 0.08)` }}
+          />
         </div>
 
-        <div className="flex w-[76px] flex-col items-center justify-center gap-1.5 justify-self-end">
-          <div
-            className="grid h-8 w-8 place-items-center rounded-[11px] border"
-            style={{
-              color: `rgb(${reserveTone.rgb})`,
-              borderColor: `rgb(${reserveTone.rgb} / 0.20)`,
-              backgroundColor: `rgb(${reserveTone.rgb} / 0.08)`,
-              boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 12px rgb(${reserveTone.rgb} / 0.05)`,
-            }}
-          >
-            <Icon className="h-4 w-4" strokeWidth={2} />
+        <div
+          className="pointer-events-none absolute bottom-2.5 left-0 top-2.5 w-[3px] rounded-r-full"
+          style={{
+            backgroundColor: `rgb(${reserveTone.rgb})`,
+            boxShadow: `0 0 12px rgb(${reserveTone.rgb} / 0.28)`,
+          }}
+        />
+
+        <div className="relative grid grid-cols-[minmax(0,1fr)_76px] items-center gap-x-4">
+          <div className="min-w-0 self-center">
+            <p className={`truncate text-[20px] font-black leading-none tracking-[-0.045em] ${heroTone}`}>
+              {fmt(heroAmount)}
+            </p>
+            <p className="mt-1.5 truncate text-[9px] font-black uppercase leading-none tracking-[0.14em] text-white/42">
+              {heroLabel}
+            </p>
           </div>
 
-          <p className="max-h-[24px] w-full overflow-hidden whitespace-normal break-words text-center text-[10px] font-bold leading-[1.15] text-white/70">
-            {item?.title || "Budget category"}
-          </p>
-        </div>
-      </div>
+          <div className="flex w-[76px] flex-col items-center justify-center gap-1.5 justify-self-end">
+            <button
+              type="button"
+              onPointerDown={stopCardInteraction}
+              onTouchStart={stopCardInteraction}
+              onClick={(event) => {
+                stopCardInteraction(event);
+                setIconPickerOpen(true);
+              }}
+              className="group relative grid h-8 w-8 place-items-center rounded-[11px] border transition hover:-translate-y-px active:scale-[0.96]"
+              style={{
+                color: `rgb(${reserveTone.rgb})`,
+                borderColor: `rgb(${reserveTone.rgb} / 0.20)`,
+                backgroundColor: `rgb(${reserveTone.rgb} / 0.08)`,
+                boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 12px rgb(${reserveTone.rgb} / 0.05)`,
+              }}
+              aria-label={`Change icon for ${item?.title || "budget category"}`}
+              aria-haspopup="dialog"
+              aria-expanded={iconPickerOpen}
+              data-clara-budget-icon-trigger="true"
+            >
+              <Icon className="h-4 w-4 transition-transform group-hover:scale-105" strokeWidth={2} />
+              <span
+                className="pointer-events-none absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-[#081426]"
+                style={{ backgroundColor: `rgb(${reserveTone.rgb})` }}
+              />
+            </button>
 
-      <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.30] shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]">
-        <div
-          className="h-full rounded-full transition-[width] duration-500 ease-out"
-          style={{
-            width: `${displayProgress}%`,
-            background: `linear-gradient(90deg, rgb(${progressRgb} / 0.78), rgb(${progressRgb}))`,
-            boxShadow: `0 0 10px rgb(${progressRgb} / 0.28)`,
-          }}
+            <p className="max-h-[24px] w-full overflow-hidden whitespace-normal break-words text-center text-[10px] font-bold leading-[1.15] text-white/70">
+              {item?.title || "Budget category"}
+            </p>
+          </div>
+        </div>
+
+        <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.30] shadow-[inset_0_1px_2px_rgba(0,0,0,0.32)]">
+          <div
+            className="h-full rounded-full transition-[width] duration-500 ease-out"
+            style={{
+              width: `${displayProgress}%`,
+              background: `linear-gradient(90deg, rgb(${progressRgb} / 0.78), rgb(${progressRgb}))`,
+              boxShadow: `0 0 10px rgb(${progressRgb} / 0.28)`,
+            }}
+          />
+        </div>
+      </article>
+
+      {iconPickerOpen ? (
+        <BudgetIconPickerModal
+          categoryTitle={item?.title || item?.name || "Budget category"}
+          selectedIconKey={selectedIconKey}
+          reserveTone={reserveTone}
+          onClose={() => setIconPickerOpen(false)}
+          onReset={resetIcon}
+          onSelect={selectIcon}
         />
-      </div>
-    </article>
+      ) : null}
+    </>
   );
 }
