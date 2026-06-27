@@ -1,5 +1,7 @@
-import { primeDailyTipFlipSound } from "@/lib/dailyTipFlipSound";
-import { playUploadedDailyTipSound } from "@/lib/dailyTipUploadedSound";
+import {
+  playUploadedDailyTipSound,
+  primeUploadedDailyTipSound,
+} from "@/lib/dailyTipUploadedSound";
 
 const DAILY_TIP_CARD_SELECTOR = "[data-clara-daily-tip-card='true']";
 
@@ -27,7 +29,7 @@ function prepareCardSound(interactive) {
   if (isNonFlipInteraction(interactive)) return;
 
   interactive.setAttribute("data-clara-no-sound", "true");
-  primeDailyTipFlipSound({ resume: true });
+  primeUploadedDailyTipSound();
 }
 
 function playForCard(interactive) {
@@ -41,7 +43,7 @@ export function installDailyTipFlipSound() {
   if (installed || typeof document === "undefined") return () => {};
   installed = true;
 
-  primeDailyTipFlipSound();
+  primeUploadedDailyTipSound();
 
   const handlePointerDown = (event) => {
     if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
