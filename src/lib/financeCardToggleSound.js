@@ -1,4 +1,5 @@
 import learningHubSoundUrl from "../../learning-hub.mp3.wav";
+import { triggerClaraHaptic } from "@/lib/claraHaptics";
 
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
@@ -44,6 +45,7 @@ function getFinanceToggleAudio() {
 }
 
 export function playFinanceCardToggleSound() {
+  triggerClaraHaptic("light");
   if (!isSoundEnabled()) return false;
 
   const audio = getFinanceToggleAudio();
