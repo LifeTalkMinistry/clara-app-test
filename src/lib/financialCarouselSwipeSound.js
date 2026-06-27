@@ -1,4 +1,5 @@
 import swipeSoundUrl from "../assets/sounds/real-swipe-sound-effect.mp3.wav";
+import { triggerClaraHaptic } from "@/lib/claraHaptics";
 
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
@@ -47,6 +48,7 @@ export function primeFinancialCarouselSwipeSound() {
 }
 
 export function playFinancialCarouselSwipeSound() {
+  triggerClaraHaptic("selection");
   if (!isSoundEnabled()) return false;
 
   const audio = getSwipeAudio();
