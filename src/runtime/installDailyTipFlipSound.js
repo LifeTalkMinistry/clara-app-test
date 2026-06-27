@@ -17,25 +17,14 @@ function findInteractiveCard(target) {
   return interactive;
 }
 
-function isNonFlipInteraction(interactive) {
-  if (!interactive) return true;
-  if (interactive.getAttribute("aria-disabled") === "true") return true;
-
-  const label = String(interactive.getAttribute("aria-label") || "").toLowerCase();
-  return label.includes("guide step") || label.includes("unlock");
-}
-
-function prepareCardSound(interactive) {
-  if (isNonFlipInteraction(interactive)) return;
-
-  interactive.setAttribute("data-clara-no-sound", "true");
-  primeUploadedDailyTipSound();
+function markAsCustomSound(interactive) {
+  interactive?.setAttribute?.("data-clara-no-sound", "true");
 }
 
 function playForCard(interactive) {
-  if (isNonFlipInteraction(interactive)) return;
+  if (!interactive) return;
 
-  interactive.setAttribute("data-clara-no-sound", "true");
+  markAsCustomSound(interactive);
   playUploadedDailyTipSound();
 }
 
@@ -50,13 +39,15 @@ export function installDailyTipFlipSound() {
 
     const interactive = findInteractiveCard(event.target);
     if (!interactive) return;
-    prepareCardSound(interactive);
+
+    playForCard(interactive);
   };
 
   const handleClick = (event) => {
     const interactive = findInteractiveCard(event.target);
     if (!interactive) return;
-    playForCard(interactive);
+
+    markAsCustomSound(interactive);
   };
 
   const handleKeyDown = (event) => {
@@ -65,7 +56,6 @@ export function installDailyTipFlipSound() {
     const interactive = findInteractiveCard(event.target);
     if (!interactive) return;
 
-    prepareCardSound(interactive);
     playForCard(interactive);
   };
 
