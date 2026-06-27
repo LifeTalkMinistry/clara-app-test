@@ -9,6 +9,7 @@ import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
 import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
+import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
   clearClaraGuideFeatureClasses,
@@ -60,6 +61,12 @@ try {
   installLearningHubOpenSound();
 } catch (error) {
   console.warn("Learning Hub opening sound failed to init:", error);
+}
+
+try {
+  installMoneyVisibilitySound();
+} catch (error) {
+  console.warn("Money visibility sound failed to init:", error);
 }
 
 try {
