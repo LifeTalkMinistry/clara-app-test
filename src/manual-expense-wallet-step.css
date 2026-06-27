@@ -46,6 +46,7 @@
   + div
   > div {
   min-height: 42px;
+  margin-top: 0 !important;
   gap: 7px;
   border-color: rgba(165, 243, 252, 0.1);
   border-radius: 14px;
