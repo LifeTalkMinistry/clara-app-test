@@ -1,8 +1,7 @@
-import swipeSoundUrl from "../../Swipe Sound Effect.mp3";
+import swipeSoundUrl from "../../swip-sound-effect.mp3.wav";
 
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
-const LEADING_ENCODER_SILENCE_SECONDS = 0.06;
 
 let swipeAudio = null;
 
@@ -55,7 +54,7 @@ export function playFinancialCarouselSwipeSound() {
 
   try {
     audio.pause();
-    audio.currentTime = LEADING_ENCODER_SILENCE_SECONDS;
+    audio.currentTime = 0;
     audio.muted = false;
     audio.volume = getSoundVolume();
 
