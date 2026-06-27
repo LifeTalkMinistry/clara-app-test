@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { playFinanceCardToggleSound } from "@/lib/financeCardToggleSound";
 import { FINANCE_CARD_EXPAND_BUTTON_CLASS } from "./financeCardStyles";
 
 const COLLAPSED_VIEW_BUTTON_CLASS =
@@ -15,6 +16,16 @@ export default function FinanceCardExpandButton({
   collapsedLabel = "Show details",
   expandedLabel = "Hide details",
 }) {
+  const handlePointerDown = (event) => {
+    if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
+    playFinanceCardToggleSound();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
+    playFinanceCardToggleSound();
+  };
+
   const handleClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -27,6 +38,10 @@ export default function FinanceCardExpandButton({
   return (
     <button
       type="button"
+      data-clara-no-sound="true"
+      data-clara-finance-expand-toggle="true"
+      onPointerDown={handlePointerDown}
+      onKeyDown={handleKeyDown}
       onClick={handleClick}
       className={[
         FINANCE_CARD_EXPAND_BUTTON_CLASS,
