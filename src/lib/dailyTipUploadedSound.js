@@ -15,7 +15,10 @@ function isSoundEnabled() {
 
 function getSoundVolume() {
   try {
-    const saved = Number(window.localStorage?.getItem(CLARA_SOUND_VOLUME_KEY));
+    const raw = window.localStorage?.getItem(CLARA_SOUND_VOLUME_KEY);
+    if (raw === null || raw === undefined || raw === "") return 1;
+
+    const saved = Number(raw);
     if (Number.isFinite(saved)) return Math.max(0, Math.min(saved, 1));
   } catch {}
 
