@@ -1,7 +1,5 @@
-import {
-  playDailyTipFlipSound,
-  primeDailyTipFlipSound,
-} from "@/lib/dailyTipFlipSound";
+import { primeDailyTipFlipSound } from "@/lib/dailyTipFlipSound";
+import { playUploadedDailyTipSound } from "@/lib/dailyTipUploadedSound";
 
 const DAILY_TIP_CARD_SELECTOR = "[data-clara-daily-tip-card='true']";
 
@@ -36,9 +34,7 @@ function playForCard(interactive) {
   if (isNonFlipInteraction(interactive)) return;
 
   interactive.setAttribute("data-clara-no-sound", "true");
-
-  const isCurrentlyRevealed = interactive.getAttribute("aria-pressed") === "true";
-  playDailyTipFlipSound({ direction: isCurrentlyRevealed ? "close" : "open" });
+  playUploadedDailyTipSound();
 }
 
 export function installDailyTipFlipSound() {
