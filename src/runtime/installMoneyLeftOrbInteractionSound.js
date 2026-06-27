@@ -1,4 +1,5 @@
 import learningHubSoundUrl from "../../learning-hub.mp3.wav";
+import { triggerClaraHaptic } from "@/lib/claraHaptics";
 
 const ORB_SELECTOR = '[data-clara-manual-expense-orb="true"]';
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
@@ -52,10 +53,12 @@ function getOrbAudio() {
   return orbAudio;
 }
 
-function playOrbInteractionSound(button) {
-  if (!button || !isSoundEnabled()) return false;
+function playOrbInteractionSound(button, hapticType = "light") {
+  if (!button) return false;
 
   button.setAttribute("data-clara-no-sound", "true");
+  triggerClaraHaptic(hapticType);
+  if (!isSoundEnabled()) return false;
 
   const audio = getOrbAudio();
   if (!audio) return false;
@@ -175,7 +178,7 @@ export function installMoneyLeftOrbInteractionSound() {
 
       pointerState.longPressTriggered = true;
       resetButtonTapState(button);
-      playOrbInteractionSound(button);
+      playOrbInteractionSound(button, "heavy");
     }, holdDelay);
 
     pointerStates.set(event.pointerId, pointerState);
@@ -220,7 +223,7 @@ export function installMoneyLeftOrbInteractionSound() {
 
     if (guidePhase === "await-single") {
       resetButtonTapState(button);
-      playOrbInteractionSound(button);
+      playOrbInteractionSound(button, "light");
       return;
     }
 
@@ -230,7 +233,7 @@ export function installMoneyLeftOrbInteractionSound() {
     if (state.lastTapAt && now - state.lastTapAt <= DOUBLE_TAP_WINDOW_MS) {
       clearSingleTapTimer(button);
       state.lastTapAt = 0;
-      playOrbInteractionSound(button);
+      playOrbInteractionSound(button, "double");
       return;
     }
 
@@ -250,7 +253,7 @@ export function installMoneyLeftOrbInteractionSound() {
       state.lastTapAt = 0;
 
       if (!isButtonUnavailable(button)) {
-        playOrbInteractionSound(button);
+        playOrbInteractionSound(button, "light");
       }
     }, SINGLE_TAP_DELAY_MS);
   };
