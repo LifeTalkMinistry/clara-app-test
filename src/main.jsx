@@ -11,6 +11,7 @@ import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
+import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
   clearClaraGuideFeatureClasses,
@@ -74,6 +75,12 @@ try {
   installFinancialCarouselSwipeSound();
 } catch (error) {
   console.warn("Financial carousel swipe sound failed to init:", error);
+}
+
+try {
+  installMoneyLeftOrbInteractionSound();
+} catch (error) {
+  console.warn("Money Left orb interaction sound failed to init:", error);
 }
 
 try {
