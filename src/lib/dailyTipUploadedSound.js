@@ -22,15 +22,25 @@ function getSoundVolume() {
   return 1;
 }
 
-export function primeUploadedDailyTipSound() {
-  if (typeof window === "undefined") return null;
-
-  if (!dailyTipAudio) {
-    dailyTipAudio = new window.Audio(dailyMoneyTipSoundUrl);
-    dailyTipAudio.preload = "auto";
+function createDailyTipAudio() {
+  if (typeof window === "undefined" || typeof window.Audio !== "function") {
+    return null;
   }
 
-  dailyTipAudio.volume = getSoundVolume();
+  const audio = new window.Audio();
+  audio.preload = "auto";
+  audio.src = dailyMoneyTipSoundUrl;
+  audio.muted = false;
+  audio.volume = getSoundVolume();
+  audio.load();
+  return audio;
+}
+
+export function primeUploadedDailyTipSound() {
+  if (!dailyTipAudio) {
+    dailyTipAudio = createDailyTipAudio();
+  }
+
   return dailyTipAudio;
 }
 
@@ -40,16 +50,22 @@ export function playUploadedDailyTipSound() {
   const audio = primeUploadedDailyTipSound();
   if (!audio) return false;
 
-  audio.pause();
-  audio.currentTime = 0;
-  audio.volume = getSoundVolume();
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = false;
+    audio.volume = getSoundVolume();
 
-  const playback = audio.play();
-  if (playback?.catch) {
-    playback.catch((error) => {
-      console.warn("Daily Money Tip sound failed:", error?.message || error);
-    });
+    const playback = audio.play();
+    if (playback?.catch) {
+      playback.catch((error) => {
+        console.warn("Daily Money Tip sound failed:", error?.message || error);
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.warn("Daily Money Tip sound failed:", error?.message || error);
+    return false;
   }
-
-  return true;
 }
