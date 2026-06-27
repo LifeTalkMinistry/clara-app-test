@@ -2,7 +2,8 @@ import learningHubSoundUrl from "../../learning-hub.mp3.wav";
 
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
-const LEARNING_HUB_OPEN_SELECTOR = 'button[aria-label="Open Learning Hub."]';
+const LEARNING_HUB_TOGGLE_SELECTOR =
+  'button[aria-label="Open Learning Hub."], button[aria-label="Collapse Learning Hub."]';
 const LEADING_SILENCE_SECONDS = 0.04;
 
 let installed = false;
@@ -45,15 +46,15 @@ function getLearningHubAudio() {
   return learningHubAudio;
 }
 
-function findOpenButton(target) {
-  return target?.closest?.(LEARNING_HUB_OPEN_SELECTOR) || null;
+function findToggleButton(target) {
+  return target?.closest?.(LEARNING_HUB_TOGGLE_SELECTOR) || null;
 }
 
 function markAsCustomSound(button) {
   button?.setAttribute?.("data-clara-no-sound", "true");
 }
 
-function playLearningHubOpenSound(button) {
+function playLearningHubToggleSound(button) {
   if (!button || !isSoundEnabled()) return;
 
   markAsCustomSound(button);
@@ -70,11 +71,11 @@ function playLearningHubOpenSound(button) {
     const playback = audio.play();
     if (playback?.catch) {
       playback.catch((error) => {
-        console.warn("Learning Hub opening sound failed:", error?.message || error);
+        console.warn("Learning Hub toggle sound failed:", error?.message || error);
       });
     }
   } catch (error) {
-    console.warn("Learning Hub opening sound failed:", error?.message || error);
+    console.warn("Learning Hub toggle sound failed:", error?.message || error);
   }
 }
 
@@ -87,14 +88,14 @@ export function installLearningHubOpenSound() {
   const handlePointerDown = (event) => {
     if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
 
-    const button = findOpenButton(event.target);
+    const button = findToggleButton(event.target);
     if (!button) return;
 
-    playLearningHubOpenSound(button);
+    playLearningHubToggleSound(button);
   };
 
   const handleClick = (event) => {
-    const button = findOpenButton(event.target);
+    const button = findToggleButton(event.target);
     if (!button) return;
 
     markAsCustomSound(button);
@@ -103,10 +104,10 @@ export function installLearningHubOpenSound() {
   const handleKeyDown = (event) => {
     if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
 
-    const button = findOpenButton(event.target);
+    const button = findToggleButton(event.target);
     if (!button) return;
 
-    playLearningHubOpenSound(button);
+    playLearningHubToggleSound(button);
   };
 
   document.addEventListener("pointerdown", handlePointerDown, true);
