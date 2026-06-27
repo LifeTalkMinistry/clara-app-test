@@ -1,0 +1,257 @@
+/*
+ * Surgical cleanup for the manual expense wallet step.
+ *
+ * The amount screen intentionally remains untouched. These rules activate only
+ * while the wallet step is mounted, so the transaction context stays compact,
+ * the question remains fixed, and only the wallet choices scroll.
+ */
+
+.clara-manual-expense-sheet form:has(section[data-expense-step="wallet"]) {
+  height: min(720px, 85dvh);
+}
+
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  > div:nth-of-type(2) {
+  opacity: 0.38;
+  transform: scale(0.78);
+  transform-origin: right bottom;
+}
+
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  > header
+  + div {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* Convert the separate amount and budget summaries into one compact context row. */
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: 8px;
+}
+
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div
+  > div {
+  min-height: 42px;
+  gap: 7px;
+  border-color: rgba(165, 243, 252, 0.1);
+  border-radius: 14px;
+  background: rgba(2, 8, 23, 0.3);
+  padding: 7px 8px 7px 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div
+  > div
+  > span:first-child,
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div
+  > div
+  p:first-child {
+  display: none;
+}
+
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div
+  > div
+  p:last-child {
+  margin-top: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div
+  > div
+  > button {
+  min-height: 28px;
+  border-radius: 9px;
+  padding-right: 7px;
+  padding-left: 7px;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+}
+
+/* The body itself no longer scrolls. The wallet list becomes the only scroll area. */
+.clara-manual-expense-sheet
+  form:has(section[data-expense-step="wallet"])
+  [aria-live="polite"]
+  + div
+  + div {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  margin-top: 12px !important;
+}
+
+.clara-manual-expense-sheet section[data-expense-step="wallet"] {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.clara-manual-expense-sheet
+  section[data-expense-step="wallet"]
+  > p:first-child {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 {
+  margin-top: 6px;
+  font-size: 21px;
+}
+
+.clara-manual-expense-sheet
+  section[data-expense-step="wallet"]
+  > h3
+  + p {
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+.clara-manual-expense-sheet [aria-label="Expense wallets"] {
+  flex: 1;
+  min-height: 0;
+  max-height: none !important;
+  margin-top: 14px !important;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0;
+  padding-bottom: 4px;
+  scroll-padding-block: 4px;
+}
+
+.clara-manual-expense-sheet [aria-label="Expense wallets"]:empty::before {
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 20px 16px;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  content: "No wallets are available yet.";
+}
+
+/* Two visual rows per wallet: name, then available balance + projected balance. */
+.clara-manual-expense-sheet [aria-label="Expense wallets"] > button {
+  min-height: 62px;
+  gap: 10px;
+  border-radius: 17px;
+  padding: 9px 11px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.clara-manual-expense-sheet
+  [aria-label="Expense wallets"]
+  > button
+  > span:first-child {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.clara-manual-expense-sheet
+  [aria-label="Expense wallets"]
+  > button
+  > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: baseline;
+}
+
+.clara-manual-expense-sheet
+  [aria-label="Expense wallets"]
+  > button
+  > span:nth-child(2)
+  > span:first-child {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.clara-manual-expense-sheet
+  [aria-label="Expense wallets"]
+  > button
+  > span:nth-child(2)
+  > span:nth-child(2) {
+  min-width: 0;
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clara-manual-expense-sheet
+  [aria-label="Expense wallets"]
+  > button
+  > span:nth-child(2)
+  > span:nth-child(3) {
+  justify-self: end;
+  margin-top: 3px;
+  font-size: 9px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.clara-manual-expense-sheet
+  [aria-label="Expense wallets"]
+  > button
+  > svg:last-child {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-height: 680px) {
+  .clara-manual-expense-sheet
+    form:has(section[data-expense-step="wallet"])
+    > header {
+    padding-bottom: 12px;
+  }
+
+  .clara-manual-expense-sheet
+    form:has(section[data-expense-step="wallet"])
+    [aria-live="polite"]
+    + div
+    > div {
+    min-height: 38px;
+  }
+
+  .clara-manual-expense-sheet [aria-label="Expense wallets"] > button {
+    min-height: 58px;
+  }
+}
