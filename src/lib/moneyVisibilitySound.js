@@ -1,4 +1,5 @@
 import soundUrl from "../../back-sound.mp3.wav";
+import { triggerClaraHaptic } from "@/lib/claraHaptics";
 
 let audio = null;
 
@@ -22,7 +23,10 @@ function enabled() {
 }
 
 export function playMoneyVisibilitySound() {
-  if (!enabled() || typeof window?.Audio !== "function") return false;
+  triggerClaraHaptic("light");
+  if (typeof window === "undefined" || !enabled() || typeof window.Audio !== "function") {
+    return false;
+  }
 
   if (!audio) {
     audio = new window.Audio(soundUrl);
