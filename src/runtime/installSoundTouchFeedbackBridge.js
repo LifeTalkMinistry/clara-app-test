@@ -50,3 +50,9 @@ export function installSoundTouchFeedbackBridge() {
     installed = false;
   };
 }
+
+try {
+  installSoundTouchFeedbackBridge();
+} catch (error) {
+  console.warn("Sound feedback bridge failed to initialize:", error);
+}

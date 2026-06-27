@@ -11,6 +11,9 @@
  * - manual dashboard/billing/supabase smoke tests
  */
 
+// Media playback runtime
+import "./installSoundTouchFeedbackBridge";
+
 // Core memory runtime
 import "../clara-memory-bridge";
 
@@ -86,7 +89,7 @@ import "../life-stage-living-with-partner-reveal";
 import "../life-stage-trend-snapshot";
 import "../life-stage-setup-flow-polish";
 import "../life-stage-working-student-identity-context";
-import "../life-stage-apply-diagnosis";
+import "../life-stage-apply-diagosis";
 import "../life-stage-working-student-signal-fit";
 
 // Global/mobile CSS patches
