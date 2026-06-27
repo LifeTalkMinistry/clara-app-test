@@ -10,6 +10,7 @@ import { installNativeNotificationListeners } from "@/lib/notifications/nativePu
 import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
+import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
   clearClaraGuideFeatureClasses,
@@ -67,6 +68,12 @@ try {
   installMoneyVisibilitySound();
 } catch (error) {
   console.warn("Money visibility sound failed to init:", error);
+}
+
+try {
+  installFinancialCarouselSwipeSound();
+} catch (error) {
+  console.warn("Financial carousel swipe sound failed to init:", error);
 }
 
 try {
