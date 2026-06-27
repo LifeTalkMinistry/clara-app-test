@@ -1,4 +1,5 @@
 import dailyMoneyTipSoundUrl from "@/assets/sounds/daily-money-tip.mp3.wav";
+import { triggerClaraHaptic } from "@/lib/claraHaptics";
 
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
@@ -48,6 +49,7 @@ export function primeUploadedDailyTipSound() {
 }
 
 export function playUploadedDailyTipSound() {
+  triggerClaraHaptic("selection");
   if (!isSoundEnabled()) return false;
 
   const audio = primeUploadedDailyTipSound();
