@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
 import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
+import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
   clearClaraGuideFeatureClasses,
@@ -53,6 +54,12 @@ try {
   installDailyTipFlipSound();
 } catch (error) {
   console.warn("Daily Tip flip sound failed to init:", error);
+}
+
+try {
+  installLearningHubOpenSound();
+} catch (error) {
+  console.warn("Learning Hub opening sound failed to init:", error);
 }
 
 try {
