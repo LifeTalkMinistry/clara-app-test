@@ -1,0 +1,43 @@
+name: Validate expanded finance reconstruction
+
+on:
+  push:
+    branches:
+      - ui/premium-expanded-finance-surfaces
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Lint changed finance files
+        run: >-
+          npx eslint
+          src/components/SavingsCardRefined.jsx
+          src/components/ObligationDebt.jsx
+          src/components/financial-carousel/cards/debt/ui/DebtObligationItem.jsx
+          src/components/financial-carousel/cards/investment/ui/InvestmentCardView.jsx
+          src/components/financial-carousel/cards/investment/ui/IncomeHubExpandedSurfaces.jsx
+          src/components/financial-carousel/shared/PremiumFinanceItemSurface.jsx
+          src/components/financial-carousel/shared/financeItemHierarchy.js
+          src/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWalletMoveConfirm.jsx
+          src/components/fresh/main-dashboard/carousel/EmergencyFundExpandedSurfaces.jsx
+          src/components/fresh/main-dashboard/carousel/EmergencyFundCardModals.jsx
