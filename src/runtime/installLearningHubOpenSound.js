@@ -3,8 +3,21 @@ import { triggerClaraHaptic } from "@/lib/claraHaptics";
 
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
-const LEARNING_HUB_TOGGLE_SELECTOR =
-  'button[aria-label="Open Learning Hub."], button[aria-label="Collapse Learning Hub."], button[data-clara-pressure-signal]';
+const LEARNING_HUB_TOGGLE_SELECTOR = [
+  'button[aria-label="Open Learning Hub."]',
+  'button[aria-label="Collapse Learning Hub."]',
+  "button[data-clara-pressure-signal]",
+  'button[aria-label="Open CLARA Guide Mode"]',
+  "button.clara-guide-next-button",
+  "button.clara-guide-carousel-next-button",
+  "button.clara-guide-orb-next",
+  "button.clara-guide-orb-feature-next",
+  "button.clara-guide-learning-hub-next",
+  'button[data-clara-guide-action="next"]',
+  'button[data-clara-guide-orb-preview-next="true"]',
+  'button[data-clara-guide-orb-ui-next="true"]',
+  'button[data-clara-guide-learning-hub-next="true"]',
+].join(", ");
 const LEADING_SILENCE_SECONDS = 0.04;
 
 let installed = false;
