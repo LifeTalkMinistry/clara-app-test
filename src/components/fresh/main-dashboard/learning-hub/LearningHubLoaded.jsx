@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { PlayCircle, Sparkles, X } from "lucide-react";
 import useLearningHub from "./logic/useLearningHub";
 import LearningHubCarousel from "./ui/LearningHubCarousel";
+import { LearningHubCollapseProvider } from "./ui/LearningHubToggleButton";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
@@ -62,18 +63,19 @@ export default function LearningHubLoaded({
 
   return (
     <>
-      <LearningHubCarousel
-        items={carouselItems}
-        activeCategory={activeCategory}
-        activeCategoryLabel={activeCategoryMeta?.title || ""}
-        hasCommittedAccess={hasCommittedAccess}
-        initialExpanded={initialExpanded}
-        flushSpacing={flushSpacing}
-        onBackToCategories={backToHome}
-        onOpenCommitmentBooklet={openCommittedVersionModal}
-        onOpenItem={handleOpenItem}
-        onCollapse={onCollapse}
-      />
+      <LearningHubCollapseProvider onCollapse={onCollapse}>
+        <LearningHubCarousel
+          items={carouselItems}
+          activeCategory={activeCategory}
+          activeCategoryLabel={activeCategoryMeta?.title || ""}
+          hasCommittedAccess={hasCommittedAccess}
+          initialExpanded={initialExpanded}
+          flushSpacing={flushSpacing}
+          onBackToCategories={backToHome}
+          onOpenCommitmentBooklet={openCommittedVersionModal}
+          onOpenItem={handleOpenItem}
+        />
+      </LearningHubCollapseProvider>
 
       {hasCommittedAccess && isOpen && selectedMaterial ? (
         <Suspense fallback={null}>
