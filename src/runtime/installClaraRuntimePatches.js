@@ -17,17 +17,22 @@ import "./installSoundTouchFeedbackBridge";
 // Core memory runtime
 import "../clara-memory-bridge";
 
-// WARNING:
-// Buy Check patches share global state, DOM selectors, and report context.
-// Do not remove or reorder without testing:
-// - Buy Check start flow
-// - planned budget prefilter
-// - report generation
-// - Will buy expense logging
-// - Not buy reflection saving
-// Buy Check runtime controllers
-import "../clara-buy-check-budget-aware-prefilter";
-import "../clara-buy-check-report-router";
+// Buy Check ownership note:
+// The active Pause Buy Check flow is now owned by React through
+// ClaraAiEnvironmentOverlay + useClaraBuyCheckFlow. The former global
+// controllers are intentionally not imported here because they installed
+// overlapping submit/click/keydown handlers, independent session stores,
+// DOM replacement, and duplicate opening-message observers.
+// Retired active controllers:
+// - clara-buy-check-budget-aware-prefilter
+// - clara-buy-check-report-router
+// - clara-assistant-buy-check-tab
+// - clara-buy-check-effective-context-guard
+// - clara-buy-check-price-question-copy
+// - clara-buy-check-message-hierarchy
+// - clara-buy-check-not-buy-completion-flow
+// Their reusable budget, context, confirmation, and report behavior now lives
+// in the React-owned flow rather than side-effect patches.
 
 // Forecast runtime controllers
 import "../clara-forecast-report-router";
@@ -39,8 +44,8 @@ import "../clara-analytics-report-router";
 import "../clara-forecast-slide5-final";
 import "../clara-forecast-report-final-affirmation";
 
-// Buy Check report polish and completion behavior
-import "../clara-buy-check-price-question-copy";
+// Buy Check report-only visual polish. These are inert unless a legacy static
+// report exists, and they do not own input or session state.
 import "../clara-buy-check-report-content-polish";
 import "../clara-buy-check-report-focus-mode";
 
@@ -49,9 +54,6 @@ import "../clara-forecast-report-focus-mode.css";
 import "../clara-forecast-report-stat-row-nowrap.css";
 import "../clara-forecast-report-explanation-container.css";
 import "../clara-forecast-transition-loader.css";
-
-// Buy Check runtime controllers
-import "../clara-buy-check-effective-context-guard";
 
 // Schedule notification runtime bridge
 import "../clara-schedule-notification-runtime-bridge";
@@ -63,7 +65,6 @@ import "../google-play-already-owned-restore-bridge";
 // These patches relabel/replace assistant tabs through DOM selectors.
 // Later they should become real React tab configuration.
 // Assistant tab runtime controllers
-import "../clara-assistant-buy-check-tab";
 import "../clara-assistant-forecast-tab";
 import "../clara-assistant-analytic-tab";
 import "../clara-assistant-feature-dock-polish";
@@ -132,16 +133,13 @@ import "../savings-goals-modal-polish.css";
 import "../finance-action-modal-copy-polish.css";
 import "../emergency-fund-header-copy-fit.css";
 
-// Buy Check report polish and completion behavior
-import "../clara-buy-check-not-buy-completion-flow";
-
 // Settings and demo runtime behavior
 import "../settings-hide-theme-appearance.js";
 import "../clara-settings-young-professional-current-state.js";
 
-// Buy Check report polish and completion behavior
+// Legacy Buy Check CSS can remain for old snapshots without installing runtime
+// ownership or DOM observers.
 import "../clara-buy-check-bottom-position.css";
-import "../clara-buy-check-message-hierarchy";
 import "../clara-buy-check-report-card-polish.css";
 import "../clara-buy-check-report-content-polish.css";
 import "../clara-buy-check-report-focus-mode.css";
