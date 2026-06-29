@@ -1,5 +1,20 @@
 /* CLARA Guide Mode — Learning Hub chapter. */
 
+/* Normal and guided Learning Hub openings must not become the dashboard scroll anchor. */
+#root .clara-budget-focus-hub,
+#root .clara-learning-hub-open-boundary,
+#root .clara-learning-hub-expanded {
+  overflow-anchor: none;
+}
+
+/* Override the older compact-phone visible-overflow rule only for the Learning Hub opening shell. */
+@media (max-width: 430px) {
+  #root .theme-page-shell main .clara-learning-hub-expanded,
+  #root .theme-page-shell main .clara-learning-hub-expanded > .clara-learning-hub-clip {
+    overflow: hidden !important;
+  }
+}
+
 html:is(.clara-guide-learning-hub-await-active, .clara-guide-learning-hub-preview-active)
 #root .clara-budget-focus-hub .clara-guide-bubble-shell {
   display: none !important;
