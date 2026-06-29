@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import useDailyTip from "../logic/useDailyTip";
 import useDailyCheckIn from "../logic/useDailyCheckIn";
 import { exitYoungProfessionalCurrentState } from "@/lib/clara-young-professional-current-state";
@@ -23,6 +24,7 @@ function readActiveCurrentState() {
 }
 
 export default function DailyTipCard({
+  userId: providedUserId,
   hasCommittedAccess = true,
   onOpenCommitmentBooklet,
   flushSpacing = false,
@@ -31,26 +33,34 @@ export default function DailyTipCard({
   isDailyTipGuideActive = false,
   onGuideDailyTipTap,
 }) {
-  const { tip, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode: isGuideMode });
+  const { user } = useAuth();
+  const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
+  const simulationMode = isGuideMode || Boolean(activeCurrentState);
+  const userId = providedUserId || user?.id || "guest";
+  const { tip, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode });
   const {
     checkedInToday,
-    totalCompleted,
+    challengeProgress,
     challengeDay,
     currentStreak,
     checkInToday,
-  } = useDailyCheckIn({ simulationMode: isGuideMode });
+  } = useDailyCheckIn({ userId, simulationMode });
   const [flipped, setFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationLevel, setCelebrationLevel] = useState("normal");
   const isFlippingRef = useRef(false);
   const flipUnlockTimerRef = useRef(null);
   const celebrationTimerRef = useRef(null);
-  const [activeCurrentState, setActiveCurrentState] = useState(() => readActiveCurrentState());
   const [exiting, setExiting] = useState(false);
   const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
   const isGuideStepActive = isGuideMode && isDailyTipGuideActive && guideStep === 0;
   const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
-  const cardHeadline = isGuideMode ? "Today's money reminder" : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
+  const cardHeadline = isGuideMode
+    ? "Today's money reminder"
+    : currentStreak >= CHECK_IN_DAYS
+      ? "30-Day Goal Complete"
+      : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
   const cardSubtitle = isGuideMode
     ? "Tap this card to learn what CLARA gives you each day."
     : "Tap today to protect your money discipline.";
@@ -103,10 +113,22 @@ export default function DailyTipCard({
     };
   }, []);
 
-  const triggerCheckInCelebration = () => {
+  const triggerCheckInCelebration = (milestoneType = null) => {
     if (typeof window === "undefined") return;
 
+    const level =
+      milestoneType === "streak_30_completed"
+        ? "thirty"
+        : milestoneType === "streak_14_day"
+          ? "fourteen"
+          : milestoneType === "streak_7_day"
+            ? "seven"
+            : "normal";
+    const duration =
+      level === "thirty" ? 1900 : level === "fourteen" ? 1450 : level === "seven" ? 1200 : 950;
+
     setShowCelebration(false);
+    setCelebrationLevel(level);
 
     if (celebrationTimerRef.current) {
       window.clearTimeout(celebrationTimerRef.current);
@@ -119,7 +141,7 @@ export default function DailyTipCard({
       celebrationTimerRef.current = window.setTimeout(() => {
         setShowCelebration(false);
         celebrationTimerRef.current = null;
-      }, 950);
+      }, duration);
     };
 
     if (typeof window.requestAnimationFrame === "function") {
@@ -151,8 +173,10 @@ export default function DailyTipCard({
     setIsFlipping(true);
 
     if (willRevealTip && !checkedInToday) {
-      checkInToday();
-      triggerCheckInCelebration();
+      const checkInResult = checkInToday();
+      if (checkInResult?.status === "completed") {
+        triggerCheckInCelebration(checkInResult.milestoneType);
+      }
     }
 
     setFlipped((current) => !current);
@@ -220,6 +244,15 @@ export default function DailyTipCard({
       </div>
     );
   }
+
+  const sparkCount =
+    celebrationLevel === "thirty"
+      ? 30
+      : celebrationLevel === "fourteen"
+        ? 24
+        : celebrationLevel === "seven"
+          ? 20
+          : 18;
 
   return (
     <div
@@ -300,8 +333,11 @@ export default function DailyTipCard({
                 <div className="pt-1">
                   <div className="clara-checkin-grid" aria-hidden="true">
                     {Array.from({ length: CHECK_IN_DAYS }).map((_, dotIndex) => {
-                      const isDone = dotIndex < totalCompleted;
-                      const isToday = !checkedInToday && dotIndex === Math.min(totalCompleted, CHECK_IN_DAYS - 1);
+                      const isDone = dotIndex < challengeProgress;
+                      const isToday =
+                        !checkedInToday &&
+                        challengeProgress < CHECK_IN_DAYS &&
+                        dotIndex === challengeProgress;
 
                       return (
                         <span
@@ -340,11 +376,22 @@ export default function DailyTipCard({
         </div>
 
         {showCelebration ? (
-          <div className="clara-checkin-celebration" aria-hidden="true">
-            {Array.from({ length: 18 }).map((_, index) => (
+          <div
+            className="clara-checkin-celebration"
+            aria-hidden="true"
+            style={{
+              transform:
+                celebrationLevel === "thirty"
+                  ? "scale(1.08)"
+                  : celebrationLevel === "fourteen"
+                    ? "scale(1.04)"
+                    : undefined,
+            }}
+          >
+            {Array.from({ length: sparkCount }).map((_, index) => (
               <span
                 key={index}
-                className={`clara-checkin-spark clara-checkin-spark--${index + 1}`}
+                className={`clara-checkin-spark clara-checkin-spark--${(index % 18) + 1}`}
               />
             ))}
           </div>
