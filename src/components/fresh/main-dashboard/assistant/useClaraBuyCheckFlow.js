@@ -1,2 +1,3 @@
-// Canonical export kept at the original import path.
-export { default } from "./useClaraBuyCheckFlowV4.js";
+import useClaraBuyCheckFlow from "./useClaraBuyCheckFlowV5.js";
+
+export default useClaraBuyCheckFlow;
