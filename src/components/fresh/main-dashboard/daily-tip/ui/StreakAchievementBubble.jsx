@@ -26,7 +26,7 @@ function getBubbleCopy(event) {
       return {
         eyebrow: "Your progress remains",
         title: `You showed up for ${previousStreak} ${dayLabel} straight! 🔥`,
-        body: `That consistency was real progress. A full daily check-in was missed, so your active streak has restarted—but your ${previousStreak}-${dayLabel.slice(0, -1) || "day"} achievement remains part of your journey.`,
+        body: `That consistency was real progress. A full daily check-in was missed, so your active streak has restarted—but your ${previousStreak}-day achievement remains part of your journey.`,
         action: "Start again today",
         icon: Flame,
       };
