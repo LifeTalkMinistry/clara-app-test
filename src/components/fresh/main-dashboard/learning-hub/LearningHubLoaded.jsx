@@ -14,7 +14,11 @@ const FourPicsOneMoneyWordModal = lazy(() => import("./modal/FourPicsOneMoneyWor
 const MoneyRushModal = lazy(() => import("./modal/MoneyRushModal"));
 const MoneyPulseModal = lazy(() => import("./modal/MoneyPulseModal"));
 
-export default function LearningHubLoaded({ initialExpanded = false, flushSpacing = false }) {
+export default function LearningHubLoaded({
+  initialExpanded = false,
+  flushSpacing = false,
+  onCollapse,
+}) {
   const {
     activeCategory,
     activeCategoryMeta,
@@ -68,6 +72,7 @@ export default function LearningHubLoaded({ initialExpanded = false, flushSpacin
         onBackToCategories={backToHome}
         onOpenCommitmentBooklet={openCommittedVersionModal}
         onOpenItem={handleOpenItem}
+        onCollapse={onCollapse}
       />
 
       {hasCommittedAccess && isOpen && selectedMaterial ? (
