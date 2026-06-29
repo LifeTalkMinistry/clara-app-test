@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 
-const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v1";
+const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v2";
 
 const BUY_CHECK_ACKNOWLEDGMENTS = [
   "Good move—you paused before buying. Let’s see if it fits your money.",
@@ -14,6 +14,13 @@ const BUY_CHECK_ACKNOWLEDGMENTS = [
 
 function clean(value = "") {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function money(value = 0) {
+  const parsed = Number(String(value || "").replace(/[₱,\s]/g, ""));
+  return `₱${(Number.isFinite(parsed) ? parsed : 0).toLocaleString("en-PH", {
+    maximumFractionDigits: 0,
+  })}`;
 }
 
 function selectAcknowledgment(previousIndex = -1) {
@@ -83,7 +90,92 @@ function BuyCheckReport({ diagnosis }) {
   );
 }
 
-function ActionBar({ step, busy, onConfirm, onEdit, onCheckAnother, onClose }) {
+function FinalDecisionPanel({
+  finalDecision,
+  walletOptions,
+  item,
+  price,
+  onExplanationChange,
+  onWalletChange,
+  onSave,
+  onCancel,
+}) {
+  if (!finalDecision || !["explain", "resolved"].includes(finalDecision.phase)) return null;
+
+  if (finalDecision.phase === "resolved") {
+    return (
+      <section className="rounded-[26px] border border-emerald-200/20 bg-emerald-300/10 px-5 py-5 text-left shadow-[0_18px_44px_rgba(0,0,0,0.18)]">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200/65">DECISION SAVED</p>
+        <h3 className="mt-2 text-[19px] font-black text-white">{finalDecision.result?.title}</h3>
+        <p className="mt-2 text-[13px] font-semibold leading-6 text-slate-100/80">{finalDecision.result?.message}</p>
+      </section>
+    );
+  }
+
+  const isBuy = finalDecision.choice === "buy";
+  return (
+    <section data-clara-buy-check-final-decision-panel={finalDecision.choice} className="rounded-[26px] border border-cyan-100/16 bg-white/[0.07] px-4 py-5 text-left shadow-[0_18px_44px_rgba(0,0,0,0.2)] backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/55">YOUR FINAL DECISION</p>
+      <h3 className="mt-2 text-[19px] font-black text-white">{isBuy ? `You chose to buy ${item}` : `You chose not to buy ${item}`}</h3>
+      <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-300/75">
+        {isBuy
+          ? `Tell CLARA why you will continue with this ${money(price)} purchase. Your explanation will be attached to the expense.`
+          : "Tell CLARA why you changed your mind or decided to wait. This reflection will be remembered for future Buy Checks."}
+      </p>
+
+      <textarea
+        rows={3}
+        value={finalDecision.explanation || ""}
+        onChange={(event) => onExplanationChange?.(event.target.value)}
+        placeholder={isBuy ? "Example: I need it for work because my current one is broken." : "Example: It is not urgent, so I decided to save first."}
+        className="mt-4 w-full resize-none rounded-[18px] border border-white/10 bg-slate-950/28 px-4 py-3 text-[13px] font-semibold leading-5 text-white outline-none placeholder:text-slate-400/60 focus:border-cyan-200/35"
+        disabled={finalDecision.busy}
+      />
+
+      {isBuy ? (
+        <div className="mt-3">
+          <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-300/60">PAY FROM</label>
+          <select
+            value={finalDecision.walletId || ""}
+            onChange={(event) => onWalletChange?.(event.target.value)}
+            disabled={finalDecision.busy}
+            className="w-full rounded-[18px] border border-white/10 bg-slate-950 px-4 py-3 text-[13px] font-bold text-white outline-none focus:border-cyan-200/35"
+          >
+            <option value="">Choose a wallet</option>
+            {(walletOptions || []).map((wallet) => (
+              <option key={wallet.id || wallet.name} value={wallet.id} disabled={!wallet.enough}>
+                {wallet.name} — {money(wallet.balance)}{wallet.enough ? "" : " (not enough)"}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {finalDecision.error ? (
+        <p className="mt-3 text-[11px] font-black leading-5 text-rose-200/90" aria-live="polite">{finalDecision.error}</p>
+      ) : null}
+
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <button type="button" onClick={onSave} disabled={finalDecision.busy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950 disabled:opacity-50">
+          {finalDecision.busy ? "Saving..." : isBuy ? "Log expense" : "Save reflection"}
+        </button>
+        <button type="button" onClick={onCancel} disabled={finalDecision.busy} className="min-h-11 rounded-full border border-white/15 bg-white/[0.08] px-4 text-[12px] font-black text-white/88 disabled:opacity-50">Back</button>
+      </div>
+    </section>
+  );
+}
+
+function ActionBar({
+  step,
+  busy,
+  finalDecision,
+  onConfirm,
+  onEdit,
+  onWillBuy,
+  onNotBuy,
+  onCheckAnother,
+  onClose,
+}) {
   if (step === "confirm") {
     return (
       <div className="grid grid-cols-2 gap-2.5 px-1 pb-2">
@@ -93,7 +185,16 @@ function ActionBar({ step, busy, onConfirm, onEdit, onCheckAnother, onClose }) {
     );
   }
 
-  if (step === "complete") {
+  if (step === "complete" && finalDecision?.phase === "choose") {
+    return (
+      <div className="grid grid-cols-2 gap-2.5 px-1 pb-2">
+        <button type="button" onClick={onWillBuy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950">Will buy</button>
+        <button type="button" onClick={onNotBuy} className="min-h-11 rounded-full border border-white/15 bg-white/[0.08] px-4 text-[12px] font-black text-white/88">Not buy</button>
+      </div>
+    );
+  }
+
+  if (step === "complete" && finalDecision?.phase === "resolved") {
     return (
       <div className="grid grid-cols-2 gap-2.5 px-1 pb-2">
         <button type="button" onClick={onCheckAnother} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950">Check another</button>
@@ -110,7 +211,7 @@ function placeholderFor(step) {
   if (step === "reason") return "Why do you want to buy it?";
   if (step === "confirm") return "Use Continue or Edit answers";
   if (step === "diagnosis") return "CLARA is checking your context";
-  if (step === "complete") return "Buy Check complete";
+  if (step === "complete") return "Choose Will buy or Not buy";
   return "Type the item you want to buy";
 }
 
@@ -152,9 +253,11 @@ export default function ClaraAiEnvironmentOverlay({
   const confirmBuyCheck = isGuidePreview ? onConfirmBuyCheck : ownedFlow.confirm;
   const editBuyCheck = isGuidePreview ? onEditBuyCheck : ownedFlow.editAnswers;
   const checkAnother = isGuidePreview ? onCheckAnother : ownedFlow.checkAnother;
+  const finalDecision = activeState?.finalDecision;
+  const walletOptions = activeState?.walletOptions || [];
   const sessionId = activeState?.sessionId || "preview-session";
   const step = activeState?.step || "item";
-  const busy = Boolean(activeState?.busy);
+  const busy = Boolean(activeState?.busy || finalDecision?.busy);
   const inputLocked = Boolean(activeState && ["confirm", "diagnosis", "complete"].includes(step));
 
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
@@ -189,7 +292,7 @@ export default function ClaraAiEnvironmentOverlay({
     if (!isActive || !visibleMessages.length) return undefined;
     const frame = window.requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }));
     return () => window.cancelAnimationFrame(frame);
-  }, [isActive, scrollKey, step, visibleMessages.length]);
+  }, [finalDecision?.phase, isActive, scrollKey, step, visibleMessages.length]);
 
   if (!isActive) return null;
 
@@ -228,6 +331,16 @@ export default function ClaraAiEnvironmentOverlay({
               );
             })}
             <BuyCheckReport diagnosis={activeState?.diagnosis} />
+            <FinalDecisionPanel
+              finalDecision={finalDecision}
+              walletOptions={walletOptions}
+              item={activeState?.item || "this purchase"}
+              price={activeState?.price}
+              onExplanationChange={ownedFlow.setDecisionExplanation}
+              onWalletChange={ownedFlow.setDecisionWallet}
+              onSave={ownedFlow.submitFinalDecision}
+              onCancel={ownedFlow.cancelFinalDecision}
+            />
             <div ref={messagesEndRef} className="h-1 shrink-0" />
           </div>
         ) : (
@@ -237,7 +350,17 @@ export default function ClaraAiEnvironmentOverlay({
         )}
       </main>
 
-      <ActionBar step={step} busy={busy} onConfirm={confirmBuyCheck} onEdit={editBuyCheck} onCheckAnother={checkAnother} onClose={onClose} />
+      <ActionBar
+        step={step}
+        busy={busy}
+        finalDecision={finalDecision}
+        onConfirm={confirmBuyCheck}
+        onEdit={editBuyCheck}
+        onWillBuy={() => ownedFlow.chooseFinalDecision?.("buy")}
+        onNotBuy={() => ownedFlow.chooseFinalDecision?.("not_buy")}
+        onCheckAnother={checkAnother}
+        onClose={onClose}
+      />
 
       <form onSubmit={submitDraft} data-clara-buy-check-react-form="true" className="shrink-0 rounded-[28px] border border-cyan-100/22 bg-white/[0.055] p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
