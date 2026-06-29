@@ -17,9 +17,15 @@ import {
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import { WELCOME_SESSION_FORM_URL } from "@/lib/welcome-session-schedule";
 import GuidedOnboardingIntroDialog from "./ui/GuidedOnboardingIntroDialog";
-import LearningHubToggleButton from "./ui/LearningHubToggleButton";
+import LearningHubToggleButton, {
+  LEARNING_HUB_EXPAND_DURATION_MS,
+  LEARNING_HUB_STAGE_HEIGHT,
+  LearningHubOpenBoundary,
+  LearningHubOpeningShell,
+} from "./ui/LearningHubToggleButton";
 
-const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
+const loadLearningHubLoaded = () => import("./LearningHubLoaded");
+const LearningHubLoaded = lazy(loadLearningHubLoaded);
 
 const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
@@ -248,6 +254,7 @@ export default function LearningHub({
       return;
     }
 
+    void loadLearningHubLoaded();
     setShouldLoadHub(true);
   };
 
@@ -286,6 +293,7 @@ export default function LearningHub({
     <section
       data-clara-guide-learning-hub-section="true"
       className="clara-budget-focus-shift clara-budget-focus-hub w-full"
+      style={{ overflowAnchor: "none" }}
     >
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
         <div
@@ -357,9 +365,16 @@ export default function LearningHub({
             />
           </div>
         ) : (
-          <Suspense fallback={null}>
-            <LearningHubLoaded initialExpanded flushSpacing={true} />
-          </Suspense>
+          <LearningHubOpenBoundary>
+            <Suspense fallback={<LearningHubOpeningShell />}>
+              <LearningHubLoaded
+                initialExpanded
+                flushSpacing={true}
+                stageHeight={LEARNING_HUB_STAGE_HEIGHT}
+                expandDurationMs={LEARNING_HUB_EXPAND_DURATION_MS}
+              />
+            </Suspense>
+          </LearningHubOpenBoundary>
         )}
 
         {isLearningHubGuideAwaitOpen ? (
