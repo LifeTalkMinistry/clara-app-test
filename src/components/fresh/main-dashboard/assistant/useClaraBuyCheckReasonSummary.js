@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useClaraBuyCheckFlowV4 from "./useClaraBuyCheckFlowV4.js";
 import { formatMoney, interpretBuyCheckReason, normalizeReasonSummary } from "./buyCheckReasonInterpreter.js";
 
@@ -10,6 +10,8 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
   const [reason, setReason] = useState(blank);
   const sessionRef = useRef("");
   sessionRef.current = flow.state?.sessionId || "";
+
+  useEffect(() => setReason(blank()), [flow.state?.sessionId]);
 
   const submitAnswer = useCallback(async (raw = "") => {
     const answer = clean(raw);
@@ -35,7 +37,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
 
   const messages = useMemo(() => {
     const list = flow.messages || [];
-    if (reason.busy) return [...list, { id: `reason-${reason.sessionId}`, role: "clara", text: "Let me make sure I understood your reason correctly..." }];
+    if (reason.busy && reason.sessionId === flow.state?.sessionId) return [...list, { id: `reason-${reason.sessionId}`, role: "clara", text: "Let me make sure I understood your reason correctly..." }];
     if (!reason.confirmation || reason.sessionId !== flow.state?.sessionId) return list;
     return list.map((message, index) => index === reason.index ? { ...message, role: "user", text: reason.original } : index === reason.index + 1 ? { ...message, role: "clara", text: reason.confirmation } : message);
   }, [flow.messages, flow.state?.sessionId, reason]);
