@@ -161,6 +161,10 @@ export default function LearningHub({
     [],
   );
 
+  const handleCloseHub = useCallback(() => {
+    setShouldLoadHub(false);
+  }, []);
+
   useEffect(() => {
     if (!isGuideMode && !shouldLoadHub) return;
     setIsGuidedOnboardingIntroOpen(false);
@@ -358,7 +362,11 @@ export default function LearningHub({
           </div>
         ) : (
           <Suspense fallback={null}>
-            <LearningHubLoaded initialExpanded flushSpacing={true} />
+            <LearningHubLoaded
+              initialExpanded
+              flushSpacing={true}
+              onCollapse={handleCloseHub}
+            />
           </Suspense>
         )}
 
