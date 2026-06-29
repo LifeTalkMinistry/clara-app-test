@@ -55,7 +55,7 @@ function markAsCustomSound(button) {
   button?.setAttribute?.("data-clara-no-sound", "true");
 }
 
-function playLearningHubToggleSound(button) {
+export function playLearningHubToggleSound(button) {
   if (!button) return;
 
   markAsCustomSound(button);
