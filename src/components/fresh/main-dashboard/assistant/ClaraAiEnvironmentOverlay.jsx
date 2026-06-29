@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
+import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 
 const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v1";
 
@@ -116,6 +117,7 @@ function placeholderFor(step) {
 export default function ClaraAiEnvironmentOverlay({
   isActive = false,
   messages = [],
+  claraAssistantContext = {},
   buyCheckState = null,
   onSubmitBuyCheckAnswer,
   onConfirmBuyCheck,
@@ -129,11 +131,31 @@ export default function ClaraAiEnvironmentOverlay({
   const messagesEndRef = useRef(null);
   const previousAcknowledgmentIndexRef = useRef(-1);
   const acknowledgmentSessionRef = useRef({ active: false, sessionId: "", index: -1, message: "" });
+  const previousActiveRef = useRef(false);
   const isGuidePreview = layoutVariant === "guide-preview";
-  const sessionId = buyCheckState?.sessionId || "preview-session";
-  const step = buyCheckState?.step || "item";
-  const busy = Boolean(buyCheckState?.busy);
-  const inputLocked = Boolean(buyCheckState && ["confirm", "diagnosis", "complete"].includes(step));
+  const ownedFlow = useClaraBuyCheckFlow({ assistantContext: claraAssistantContext });
+
+  useEffect(() => {
+    if (isGuidePreview) return;
+    if (isActive && !previousActiveRef.current) {
+      ownedFlow.startSession(`pause-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    }
+    if (!isActive && previousActiveRef.current) {
+      ownedFlow.clearSession();
+    }
+    previousActiveRef.current = isActive;
+  }, [isActive, isGuidePreview, ownedFlow.clearSession, ownedFlow.startSession]);
+
+  const activeState = isGuidePreview ? buyCheckState : ownedFlow.state;
+  const activeMessages = isGuidePreview ? messages : ownedFlow.messages;
+  const submitAnswer = isGuidePreview ? onSubmitBuyCheckAnswer : ownedFlow.submitAnswer;
+  const confirmBuyCheck = isGuidePreview ? onConfirmBuyCheck : ownedFlow.confirm;
+  const editBuyCheck = isGuidePreview ? onEditBuyCheck : ownedFlow.editAnswers;
+  const checkAnother = isGuidePreview ? onCheckAnother : ownedFlow.checkAnother;
+  const sessionId = activeState?.sessionId || "preview-session";
+  const step = activeState?.step || "item";
+  const busy = Boolean(activeState?.busy);
+  const inputLocked = Boolean(activeState && ["confirm", "diagnosis", "complete"].includes(step));
 
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
     const selection = selectAcknowledgment(previousAcknowledgmentIndexRef.current);
@@ -143,7 +165,7 @@ export default function ClaraAiEnvironmentOverlay({
     acknowledgmentSessionRef.current = { active: false, sessionId: "", index: -1, message: "" };
   }
 
-  const visibleMessages = useMemo(() => (Array.isArray(messages) ? messages : []).filter(Boolean), [messages]);
+  const visibleMessages = useMemo(() => (Array.isArray(activeMessages) ? activeMessages : []).filter(Boolean), [activeMessages]);
   const scrollKey = useMemo(() => visibleMessages.map((message) => `${message.id || "message"}:${String(message.text || message.content || "").length}`).join("|"), [visibleMessages]);
 
   useEffect(() => {
@@ -176,7 +198,7 @@ export default function ClaraAiEnvironmentOverlay({
     event.stopPropagation();
     const answer = draft.trim();
     if (!answer || inputLocked || busy) return;
-    onSubmitBuyCheckAnswer?.(answer);
+    submitAnswer?.(answer);
     setDraft("");
   };
 
@@ -205,7 +227,7 @@ export default function ClaraAiEnvironmentOverlay({
                 </div>
               );
             })}
-            <BuyCheckReport diagnosis={buyCheckState?.diagnosis} />
+            <BuyCheckReport diagnosis={activeState?.diagnosis} />
             <div ref={messagesEndRef} className="h-1 shrink-0" />
           </div>
         ) : (
@@ -215,7 +237,7 @@ export default function ClaraAiEnvironmentOverlay({
         )}
       </main>
 
-      <ActionBar step={step} busy={busy} onConfirm={onConfirmBuyCheck} onEdit={onEditBuyCheck} onCheckAnother={onCheckAnother} onClose={onClose} />
+      <ActionBar step={step} busy={busy} onConfirm={confirmBuyCheck} onEdit={editBuyCheck} onCheckAnother={checkAnother} onClose={onClose} />
 
       <form onSubmit={submitDraft} data-clara-buy-check-react-form="true" className="shrink-0 rounded-[28px] border border-cyan-100/22 bg-white/[0.055] p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
