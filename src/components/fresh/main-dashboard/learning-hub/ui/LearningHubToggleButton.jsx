@@ -19,6 +19,7 @@ export default function LearningHubToggleButton({
   className = "",
   flushSpacing = false,
   guideTarget = false,
+  disabledForLoading = false,
 }) {
   const spacingClass = flushSpacing || isExpanded ? "mt-0 mb-0" : "mt-3 mb-0";
 
@@ -27,19 +28,23 @@ export default function LearningHubToggleButton({
       type="button"
       data-clara-guide-learning-hub-toggle={guideTarget ? "true" : undefined}
       aria-expanded={isLocked ? false : isExpanded}
+      aria-busy={disabledForLoading || undefined}
       aria-label={
-        isLocked
-          ? "Open the Committed Version to unlock Learning Hub."
-          : isInsideCategory
-            ? "Back to Learning Hub categories."
-            : isExpanded
-              ? "Collapse Learning Hub."
-              : "Open Learning Hub."
+        disabledForLoading
+          ? "Opening Learning Hub."
+          : isLocked
+            ? "Open the Committed Version to unlock Learning Hub."
+            : isInsideCategory
+              ? "Back to Learning Hub categories."
+              : isExpanded
+                ? "Collapse Learning Hub."
+                : "Open Learning Hub."
       }
-      onClick={onClick}
-      onTouchStart={isLocked ? undefined : onTouchStart}
-      onTouchEnd={isLocked ? undefined : onTouchEnd}
-      className={`clara-learning-motion relative isolate mx-auto ${spacingClass} flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98] ${className}`}
+      disabled={disabledForLoading}
+      onClick={disabledForLoading ? undefined : onClick}
+      onTouchStart={isLocked || disabledForLoading ? undefined : onTouchStart}
+      onTouchEnd={isLocked || disabledForLoading ? undefined : onTouchEnd}
+      className={`clara-learning-motion relative isolate mx-auto ${spacingClass} flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98] disabled:cursor-default disabled:opacity-100 ${className}`}
       style={learningHubToggleSurface}
     >
       <span className="pointer-events-none absolute -left-12 -top-14 z-0 h-24 w-24 rounded-full bg-cyan-300/[0.08]" />
