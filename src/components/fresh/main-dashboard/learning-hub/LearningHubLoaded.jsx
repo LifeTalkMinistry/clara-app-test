@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { PlayCircle, Sparkles, X } from "lucide-react";
 import useLearningHub from "./logic/useLearningHub";
 import LearningHubCarousel from "./ui/LearningHubCarousel";
+import { LearningHubCollapseProvider } from "./ui/LearningHubToggleButton";
 import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
@@ -14,7 +15,11 @@ const FourPicsOneMoneyWordModal = lazy(() => import("./modal/FourPicsOneMoneyWor
 const MoneyRushModal = lazy(() => import("./modal/MoneyRushModal"));
 const MoneyPulseModal = lazy(() => import("./modal/MoneyPulseModal"));
 
-export default function LearningHubLoaded({ initialExpanded = false, flushSpacing = false }) {
+export default function LearningHubLoaded({
+  initialExpanded = false,
+  flushSpacing = false,
+  onCollapse,
+}) {
   const {
     activeCategory,
     activeCategoryMeta,
@@ -58,17 +63,19 @@ export default function LearningHubLoaded({ initialExpanded = false, flushSpacin
 
   return (
     <>
-      <LearningHubCarousel
-        items={carouselItems}
-        activeCategory={activeCategory}
-        activeCategoryLabel={activeCategoryMeta?.title || ""}
-        hasCommittedAccess={hasCommittedAccess}
-        initialExpanded={initialExpanded}
-        flushSpacing={flushSpacing}
-        onBackToCategories={backToHome}
-        onOpenCommitmentBooklet={openCommittedVersionModal}
-        onOpenItem={handleOpenItem}
-      />
+      <LearningHubCollapseProvider onCollapse={onCollapse}>
+        <LearningHubCarousel
+          items={carouselItems}
+          activeCategory={activeCategory}
+          activeCategoryLabel={activeCategoryMeta?.title || ""}
+          hasCommittedAccess={hasCommittedAccess}
+          initialExpanded={initialExpanded}
+          flushSpacing={flushSpacing}
+          onBackToCategories={backToHome}
+          onOpenCommitmentBooklet={openCommittedVersionModal}
+          onOpenItem={handleOpenItem}
+        />
+      </LearningHubCollapseProvider>
 
       {hasCommittedAccess && isOpen && selectedMaterial ? (
         <Suspense fallback={null}>

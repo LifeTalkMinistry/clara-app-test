@@ -1,4 +1,8 @@
+import { createContext, useContext, useRef } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, Lock } from "lucide-react";
+
+const LearningHubCollapseContext = createContext(null);
+const SWIPE_THRESHOLD = 34;
 
 const learningHubToggleSurface = {
   background:
@@ -7,6 +11,14 @@ const learningHubToggleSurface = {
   boxShadow:
     "0 10px 26px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
 };
+
+export function LearningHubCollapseProvider({ onCollapse, children }) {
+  return (
+    <LearningHubCollapseContext.Provider value={onCollapse}>
+      {children}
+    </LearningHubCollapseContext.Provider>
+  );
+}
 
 export default function LearningHubToggleButton({
   isExpanded = false,
@@ -20,7 +32,43 @@ export default function LearningHubToggleButton({
   flushSpacing = false,
   guideTarget = false,
 }) {
+  const collapseMainHub = useContext(LearningHubCollapseContext);
+  const touchStartYRef = useRef(null);
   const spacingClass = flushSpacing || isExpanded ? "mt-0 mb-0" : "mt-3 mb-0";
+  const usesParentCollapse =
+    isExpanded && !isInsideCategory && typeof collapseMainHub === "function";
+
+  const handleClick = (event) => {
+    if (usesParentCollapse) {
+      collapseMainHub();
+      return;
+    }
+
+    onClick?.(event);
+  };
+
+  const handleTouchStart = (event) => {
+    touchStartYRef.current = event.touches?.[0]?.clientY ?? null;
+    onTouchStart?.(event);
+  };
+
+  const handleTouchEnd = (event) => {
+    const startY = touchStartYRef.current;
+    const endY = event.changedTouches?.[0]?.clientY;
+    touchStartYRef.current = null;
+
+    if (
+      usesParentCollapse &&
+      startY !== null &&
+      Number.isFinite(endY) &&
+      endY - startY < -SWIPE_THRESHOLD
+    ) {
+      collapseMainHub();
+      return;
+    }
+
+    onTouchEnd?.(event);
+  };
 
   return (
     <button
@@ -36,9 +84,9 @@ export default function LearningHubToggleButton({
               ? "Collapse Learning Hub."
               : "Open Learning Hub."
       }
-      onClick={onClick}
-      onTouchStart={isLocked ? undefined : onTouchStart}
-      onTouchEnd={isLocked ? undefined : onTouchEnd}
+      onClick={handleClick}
+      onTouchStart={isLocked ? undefined : handleTouchStart}
+      onTouchEnd={isLocked ? undefined : handleTouchEnd}
       className={`clara-learning-motion relative isolate mx-auto ${spacingClass} flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/64 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98] ${className}`}
       style={learningHubToggleSurface}
     >
