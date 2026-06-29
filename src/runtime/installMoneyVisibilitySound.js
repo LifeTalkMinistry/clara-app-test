@@ -1,6 +1,7 @@
 import { playMoneyVisibilitySound } from "@/lib/moneyVisibilitySound";
 
-const SELECTOR = "[data-clara-summary-privacy-toggle='true']";
+const SELECTOR =
+  "[data-clara-summary-privacy-toggle='true'], button[data-clara-trend-card='true']";
 let installed = false;
 
 function findButton(target) {
