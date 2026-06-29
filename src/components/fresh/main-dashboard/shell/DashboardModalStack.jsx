@@ -3,6 +3,7 @@ import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/she
 import DashboardFinanceExpandedSheetLayer from "@/components/fresh/main-dashboard/shell/DashboardFinanceExpandedSheetLayer";
 import DashboardProgramOnboardingModal from "@/components/fresh/main-dashboard/onboarding/DashboardProgramOnboardingModal";
 import EmergencyReserveExpenseGuard from "@/components/fresh/main-dashboard/finance-content/EmergencyReserveExpenseGuard";
+import StreakAchievementBubble from "@/components/fresh/main-dashboard/daily-tip/ui/StreakAchievementBubble";
 
 export default function DashboardModalStack({
   expandedSheetLayerProps,
@@ -23,6 +24,7 @@ export default function DashboardModalStack({
       />
 
       <DashboardFinanceModalRenderer {...financeModalRendererProps} />
+      <StreakAchievementBubble />
     </DashboardModalLayer>
   );
 }
