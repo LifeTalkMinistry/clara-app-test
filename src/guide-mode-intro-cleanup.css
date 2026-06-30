@@ -1,0 +1,4 @@
+/* The Guide Mode intro already has a clear Not Now action, so the extra floating X is hidden. */
+#root [role='dialog'] button[aria-label='Close CLARA Guide intro'] {
+  display: none !important;
+}
