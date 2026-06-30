@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { addExpense as repoAddExpense } from "@/lib/financeRepository";
 import useClaraBuyCheckBudgetFlow from "./useClaraBuyCheckBudgetFlow.js";
 import {
+  buildFinalBuyExplanationFallback,
+  interpretFinalBuyExplanation,
+} from "./buyCheckReasonInterpreter.js";
+import {
   clean,
   createDecisionState,
   dispatchFinanceUpdates,
@@ -42,20 +46,82 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
   const chooseFinalDecision = useCallback((choice) => {
     if (base.state?.step !== "complete" || !["buy", "not_buy"].includes(choice)) return;
     const defaultWallet = choice === "buy" ? walletOptions.find((wallet) => wallet.enough)?.id || "" : "";
+
+    if (choice === "not_buy") {
+      setDecision({
+        phase: "explain",
+        choice,
+        explanation: "",
+        walletId: "",
+        busy: false,
+        error: "",
+        result: null,
+      });
+      return;
+    }
+
+    const pkg = base.state?.diagnosis?.contextPackage || {};
+    const matchedBudget = pkg.finance?.matchingBudget || null;
+    const budgetAssessment = pkg.finance?.budgetAssessment || base.state?.budgetAssessment || {};
+    const draftInput = {
+      item: clean(base.state?.item),
+      price: amount,
+      summarizedReason: clean(base.state?.reason),
+      recommendation: clean(base.state?.diagnosis?.decision || "PAUSE"),
+      budget: matchedBudget,
+      budgetAssessment,
+      assistantContext,
+    };
+    const fallback = buildFinalBuyExplanationFallback(draftInput);
+
     setDecision({
       phase: "explain",
       choice,
-      explanation: "",
+      explanation: fallback,
+      autoExplanation: fallback,
+      explanationSource: "context",
+      generatingExplanation: true,
+      userEdited: false,
       walletId: defaultWallet,
       busy: false,
       error: "",
       result: null,
     });
-  }, [base.state?.step, walletOptions]);
+
+    void interpretFinalBuyExplanation(draftInput)
+      .then((result) => {
+        setDecision((current) => {
+          if (current.phase !== "explain" || current.choice !== "buy") return current;
+          if (current.userEdited) return { ...current, generatingExplanation: false };
+          const explanation = clean(result?.explanation) || current.explanation;
+          return {
+            ...current,
+            explanation,
+            autoExplanation: explanation,
+            explanationSource: result?.source || "fallback",
+            generatingExplanation: false,
+          };
+        });
+      })
+      .catch((error) => {
+        console.warn("[CLARA Buy Check] Editable expense note refinement failed safely.", error);
+        setDecision((current) =>
+          current.phase === "explain" && current.choice === "buy"
+            ? { ...current, generatingExplanation: false }
+            : current,
+        );
+      });
+  }, [amount, assistantContext, base.state, walletOptions]);
 
   const cancelFinalDecision = useCallback(() => setDecision(createDecisionState()), []);
   const setDecisionExplanation = useCallback((explanation) => {
-    setDecision((current) => ({ ...current, explanation, error: "" }));
+    setDecision((current) => ({
+      ...current,
+      explanation,
+      userEdited: true,
+      generatingExplanation: false,
+      error: "",
+    }));
   }, []);
   const setDecisionWallet = useCallback((walletId) => {
     setDecision((current) => ({ ...current, walletId, error: "" }));
@@ -118,6 +184,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           clara_recommendation: recommendation,
           user_action: "buy",
           explanation,
+          explanation_source: decision.explanationSource || "user",
           wallet_id: wallet.id,
           wallet_name: wallet.name,
           purchase,
