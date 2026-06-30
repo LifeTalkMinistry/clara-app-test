@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useClaraBuyCheckFlowV4 from "./useClaraBuyCheckFlowV4.js";
+import useClaraBuyCheckFlowV5 from "./useClaraBuyCheckFlowV5.js";
 import { formatMoney, interpretBuyCheckReason, normalizeReasonSummary } from "./buyCheckReasonInterpreter.js";
 
 const blank = () => ({ busy: false, original: "", summary: "", confirmation: "", sessionId: "", index: -1, source: "" });
 const clean = (v = "") => String(v ?? "").replace(/\s+/g, " ").trim();
 
 export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } = {}) {
-  const flow = useClaraBuyCheckFlowV4({ assistantContext });
+  const flow = useClaraBuyCheckFlowV5({ assistantContext });
   const [reason, setReason] = useState(blank);
   const sessionRef = useRef("");
   sessionRef.current = flow.state?.sessionId || "";
