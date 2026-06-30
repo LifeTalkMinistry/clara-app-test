@@ -1,7 +1,7 @@
 import {
-  generateClaraGeminiReply,
-  hasGeminiConfig,
-} from "@/lib/clara-gemini-client";
+  getClaraGeminiProxyModelCandidates,
+  requestClaraGeminiProxyText,
+} from "@/lib/clara-gemini-proxy-client";
 
 function clean(value = "") {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -37,35 +37,41 @@ export async function interpretBuyCheckReason({
   assistantContext,
 }) {
   const fallback = normalizeReasonSummary(originalReason, originalReason);
-  if (!hasGeminiConfig()) {
-    return { summary: fallback, source: "fallback" };
-  }
+  const profile =
+    assistantContext?.meProfileContext ||
+    assistantContext?.lifeProfile ||
+    assistantContext?.user?.user_metadata ||
+    null;
+  const prompt = `You are CLARA interpreting one user's reason before a Buy Check confirmation.
 
-  try {
-    const reply = await generateClaraGeminiReply({
-      message: `Interpret the user's reason for this Buy Check.\n\nItem: ${clean(item)}\nPrice: ${formatMoney(price)}\nExact reason: ${clean(originalReason)}\n\nReturn one concise second-person reason clause. Preserve the meaning and urgency. Match the user's language, including Taglish. Do not judge, advise, add facts, mention the price, or ask a question. Return only the rewritten reason without a label or quotation marks.`,
-      context: {
-        purchase: {
-          item: clean(item),
-          price: toNumber(price),
-          originalReason: clean(originalReason),
+Item: ${clean(item)}
+Price: ${formatMoney(price)}
+User's exact words: ${clean(originalReason)}
+Profile context: ${profile ? JSON.stringify(profile) : "Not available"}
+
+Rewrite the reason into one natural second-person clause that clearly shows what the user means. Preserve the exact meaning and urgency. Match the user's language, including Taglish. Do not repeat the sentence word-for-word unless it is already impossible to improve. Do not judge, advise, add facts, mention CLARA, mention the price, or ask a question. Return only the rewritten reason with no label or quotation marks.`;
+
+  let lastError = null;
+  for (const model of getClaraGeminiProxyModelCandidates()) {
+    try {
+      const reply = await requestClaraGeminiProxyText({
+        prompt,
+        model,
+        generationConfig: {
+          temperature: 0.35,
+          topP: 0.82,
+          maxOutputTokens: 120,
         },
-        meProfile:
-          assistantContext?.meProfileContext ||
-          assistantContext?.lifeProfile ||
-          assistantContext?.user?.user_metadata ||
-          null,
-      },
-      mode: "buy_check_reason_interpretation",
-      conversationHistory: [],
-    });
-
-    return {
-      summary: normalizeReasonSummary(reply, fallback),
-      source: "ai",
-    };
-  } catch (error) {
-    console.warn("[CLARA Buy Check] Reason interpretation fallback used.", error);
-    return { summary: fallback, source: "fallback" };
+      });
+      const summary = normalizeReasonSummary(reply, "");
+      if (summary) return { summary, source: "ai", model };
+    } catch (error) {
+      lastError = error;
+    }
   }
+
+  if (lastError) {
+    console.warn("[CLARA Buy Check] Direct reason interpretation fallback used.", lastError);
+  }
+  return { summary: fallback, source: "fallback" };
 }
