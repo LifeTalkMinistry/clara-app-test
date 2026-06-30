@@ -112,3 +112,120 @@ Rewrite the reason into one complete, natural second-person clause that clearly 
   }
   return { summary: fallback, source: "fallback" };
 }
+
+function normalizeFinalExplanation(value = "", fallback = "") {
+  const explanation = clean(value)
+    .replace(/^```(?:text)?/i, "")
+    .replace(/```$/i, "")
+    .replace(/^(?:note|expense note|explanation)\s*:\s*/i, "")
+    .replace(/^['“”"]+|['“”"]+$/g, "")
+    .trim();
+  return explanation || clean(fallback);
+}
+
+export function buildFinalBuyExplanationFallback({
+  item,
+  price,
+  summarizedReason,
+  recommendation,
+  budget,
+  budgetAssessment,
+}) {
+  const purchaseItem = clean(item || "this item");
+  const reason = normalizeReasonSummary(summarizedReason, "I have decided that this purchase is still necessary")
+    .replace(/^because\s+/i, "");
+  const decision = clean(recommendation || "").toUpperCase();
+  const status = clean(budgetAssessment?.status || "");
+  const sentences = [
+    `I’m proceeding with this ${formatMoney(price)} ${purchaseItem} purchase because ${reason}.`,
+  ];
+
+  if (status === "full" && budget) {
+    sentences.push(
+      `It is covered by my ${clean(budget.title || "available")} budget${Number.isFinite(Number(budget.remainingAfter)) ? `, with ${formatMoney(budget.remainingAfter)} remaining afterward` : ""}.`,
+    );
+  } else if (status === "partial" && budget) {
+    sentences.push(
+      `I understand it is ${formatMoney(budgetAssessment?.shortfall)} over my ${clean(budget.title || "matched")} budget.`,
+    );
+  } else if (status === "wallet_shortfall") {
+    sentences.push(
+      `I understand my spendable wallets are short by ${formatMoney(budgetAssessment?.walletShortfall)}.`,
+    );
+  } else if (["exhausted", "no_match"].includes(status)) {
+    sentences.push("I understand this purchase is not currently covered by an available budget.");
+  } else if (decision && !["BUY", "BUY WITH CAP"].includes(decision)) {
+    sentences.push(`I understand CLARA recommended ${decision}, but I have decided to continue.`);
+  }
+
+  return sentences.join(" ");
+}
+
+function isUsableFinalExplanation(value = "") {
+  const explanation = normalizeFinalExplanation(value, "");
+  if (explanation.length < 24 || explanation.split(/\s+/).length < 6) return false;
+  if (/CLARA AI is unavailable/i.test(explanation)) return false;
+  if (/[,:;\-–—]$/.test(explanation)) return false;
+  return /[.!?]$/.test(explanation);
+}
+
+export async function interpretFinalBuyExplanation({
+  item,
+  price,
+  summarizedReason,
+  recommendation,
+  budget,
+  budgetAssessment,
+  assistantContext,
+}) {
+  const fallback = buildFinalBuyExplanationFallback({
+    item,
+    price,
+    summarizedReason,
+    recommendation,
+    budget,
+    budgetAssessment,
+  });
+  const profile =
+    assistantContext?.meProfileContext ||
+    assistantContext?.lifeProfile ||
+    assistantContext?.user?.user_metadata ||
+    null;
+  const prompt = `You are CLARA preparing an editable expense note after a user chooses Will buy.
+
+Item: ${clean(item)}
+Price: ${formatMoney(price)}
+User's interpreted reason: ${clean(summarizedReason)}
+CLARA recommendation: ${clean(recommendation || "Not available")}
+Matched budget: ${budget ? JSON.stringify(budget) : "None"}
+Budget assessment: ${budgetAssessment ? JSON.stringify(budgetAssessment) : "Not available"}
+Profile context: ${profile ? JSON.stringify(profile) : "Not available"}
+
+Write a natural first-person expense note in one or two complete sentences. Preserve the user's reason exactly in meaning. Mention the price and item naturally. Include the budget result only when supported by the provided data. When CLARA recommended PAUSE, WAIT, or REDUCE and the user still chose to buy, acknowledge that decision calmly without scolding. Match the user's language, including Taglish. Do not invent a new reason, urgency, budget, wallet, or personal detail. Do not use a label, quotation marks, bullets, or advice. Return only the editable note.`;
+
+  let lastError = null;
+  for (const model of getClaraGeminiProxyModelCandidates()) {
+    try {
+      const reply = await requestClaraGeminiProxyText({
+        prompt,
+        model,
+        generationConfig: {
+          temperature: 0.28,
+          topP: 0.82,
+          maxOutputTokens: 220,
+        },
+      });
+      const explanation = normalizeFinalExplanation(reply, "");
+      if (isUsableFinalExplanation(explanation)) {
+        return { explanation, source: "ai", model };
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    console.warn("[CLARA Buy Check] Final expense note fallback used.", lastError);
+  }
+  return { explanation: fallback, source: "fallback" };
+}
