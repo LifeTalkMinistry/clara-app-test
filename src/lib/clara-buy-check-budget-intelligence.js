@@ -10,6 +10,7 @@ import {
 } from "@/lib/clara-buy-check-budget-core";
 
 const PH_TIME_ZONE = "Asia/Manila";
+const isRecord = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value));
 
 function scheduleItems(contextValue) {
   const context = safeRecord(contextValue);
