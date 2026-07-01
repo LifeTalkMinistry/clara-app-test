@@ -9,6 +9,7 @@
     "build:android": "vite build --base=./",
     "build:web": "vite build --base=/clara-app-test/",
     "preview": "vite preview",
+    "test": "node --test tests/buy-check-deterministic.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "deploy": "npm run build:web && gh-pages -d dist"
@@ -35,7 +36,7 @@
     "@radix-ui/react-menubar": "^1.1.6",
     "@radix-ui/react-navigation-menu": "^1.2.5",
     "@radix-ui/react-popover": "^1.1.6",
-    "@radix-ui/react-progress": "^1.1.2",
+    "@radix-ui/react-progress": "^1.2.3",
     "@radix-ui/react-radio-group": "^1.2.3",
     "@radix-ui/react-scroll-area": "^1.2.3",
     "@radix-ui/react-select": "^2.1.6",
