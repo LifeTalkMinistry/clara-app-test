@@ -1,6 +1,9 @@
 name: Run guided category refinement
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/refine_guided_category_screen.py
 permissions:
   contents: write
 jobs:
