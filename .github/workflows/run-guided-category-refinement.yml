@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - scripts/refine_guided_category_screen.py
+      - .github/workflows/run-guided-category-refinement.yml
 permissions:
   contents: write
 jobs:
