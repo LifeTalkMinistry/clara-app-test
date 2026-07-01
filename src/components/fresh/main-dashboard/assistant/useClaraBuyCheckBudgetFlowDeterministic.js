@@ -47,27 +47,43 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
             messages: [...current.messages, userMessage, createMessage("clara", `How much does ${answer} cost? Type the amount only. Example: ₱3,500`)],
           };
         }
+
         if (current.step === "price") {
           const price = parsePrice(answer);
           if (!price) {
-            return { ...current, messages: [...current.messages, userMessage, createMessage("clara", "Please type the price clearly. Example: ₱3,500")] };
+            return {
+              ...current,
+              messages: [...current.messages, userMessage, createMessage("clara", "Please type the price clearly. Example: ₱3,500")],
+            };
           }
+
           const assessment = analyzeBuyCheckBudgetCoverage(current.item, price, assistantContext, current.reason);
           const coverage = budgetCoverageFromAssessment(assessment);
+
           if (coverage) {
             const next = {
               ...current,
               price,
-              reason: `Already covered by the ${coverage.budgetTitle} budget`,
+              reason: "",
               planningStatus: "planned",
               budgetCoverage: coverage,
               budgetAssessment: assessment,
               step: "confirm",
             };
-            next.confirmation = { item: next.item, price: next.price, reason: next.reason, planningStatus: next.planningStatus };
-            next.messages = [...current.messages, userMessage, createMessage("clara", priceStepMessage(assessment))];
+            next.confirmation = {
+              item: next.item,
+              price: next.price,
+              reason: "",
+              planningStatus: next.planningStatus,
+            };
+            next.messages = [
+              ...current.messages,
+              userMessage,
+              createMessage("clara", confirmationText(next)),
+            ];
             return next;
           }
+
           return {
             ...current,
             price,
@@ -75,15 +91,22 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
             budgetCoverage: null,
             budgetAssessment: assessment,
             step: "reason",
-            messages: [...current.messages, userMessage, createMessage("clara", priceStepMessage(assessment))],
+            messages: [...current.messages, userMessage, createMessage("clara", priceStepMessage())],
           };
         }
+
         if (current.step === "reason") {
           const next = { ...current, reason: answer, step: "confirm" };
-          next.confirmation = { item: next.item, price: next.price, reason: next.reason, planningStatus: next.planningStatus };
+          next.confirmation = {
+            item: next.item,
+            price: next.price,
+            reason: next.reason,
+            planningStatus: next.planningStatus,
+          };
           next.messages = [...current.messages, userMessage, createMessage("clara", confirmationText(next))];
           return next;
         }
+
         return current;
       } catch (error) {
         return recoveryState(current, userMessage, error);
@@ -111,6 +134,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
     const snapshot = state;
     const checking = createMessage("clara", "Got it. I’m checking your wallet, every active budget, goals, emergency fund, schedule, Me profile, and memory now.");
     setState({ ...snapshot, step: "diagnosis", busy: true, messages: [...snapshot.messages, createMessage("user", "Continue"), checking] });
+
     try {
       const result = await diagnoseBuyCheck(snapshot, assistantContext);
       setState((current) => current.sessionId !== snapshot.sessionId ? current : {
@@ -153,5 +177,15 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
   }, [assistantContext, state]);
 
   const checkAnother = useCallback(() => setState(createInitialState(`buy-check-${Date.now()}-${Math.random().toString(36).slice(2)}`)), []);
-  return useMemo(() => ({ state, messages: state.messages, startSession, clearSession, submitAnswer, confirm, editAnswers, checkAnother }), [checkAnother, clearSession, confirm, editAnswers, startSession, state, submitAnswer]);
+
+  return useMemo(() => ({
+    state,
+    messages: state.messages,
+    startSession,
+    clearSession,
+    submitAnswer,
+    confirm,
+    editAnswers,
+    checkAnother,
+  }), [checkAnother, clearSession, confirm, editAnswers, startSession, state, submitAnswer]);
 }
