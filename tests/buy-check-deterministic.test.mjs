@@ -12,6 +12,10 @@ import {
   calculateBuyCheckDiagnosis,
   validateBuyCheckDiagnosis,
 } from "../src/lib/clara-buy-check-decision-core.js";
+import {
+  confirmationText,
+  priceStepMessage,
+} from "../src/lib/clara-buy-check-conversation-copy.js";
 
 const budget = (overrides = {}) => ({
   id: `budget-${Math.random()}`,
@@ -147,4 +151,38 @@ test("invalid decision-risk combinations are rejected atomically", () => {
   assert.equal(validateBuyCheckDiagnosis({ decision: "BUY", risk: "High", saferMove: "Buy." }), null);
   assert.equal(validateBuyCheckDiagnosis({ decision: "PAUSE", risk: "Low", saferMove: "Pause." }), null);
   assert.equal(validateBuyCheckDiagnosis({ decision: "WAIT", risk: "High", saferMove: "Wait." }).decision, "WAIT");
+});
+
+test("covered purchase confirmation summarizes only item and price", () => {
+  const text = confirmationText({
+    item: "Iphone",
+    price: 5000,
+    planningStatus: "planned",
+    budgetCoverage: { budgetTitle: "Monthly Spending Plan", remaining: 25000, remainingAfter: 20000 },
+  });
+  assert.equal(text, "You’re considering Iphone for ₱5,000. Did I get that right before I run the full Buy Check?");
+  assert.doesNotMatch(text, /budget|remaining|available/i);
+});
+
+test("uncovered purchase confirmation summarizes item price and reason only", () => {
+  const text = confirmationText({
+    item: "Running shoes",
+    price: 3500,
+    reason: "your current pair is already damaged",
+    budgetAssessment: { status: "partial", shortfall: 2000, selectedBudget: { title: "Shopping" } },
+  });
+  assert.match(text, /Running shoes/);
+  assert.match(text, /₱3,500/);
+  assert.match(text, /current pair is already damaged/);
+  assert.doesNotMatch(text, /budget|shortfall/i);
+});
+
+test("price step never exposes budget analysis before the report", () => {
+  const text = priceStepMessage({
+    status: "partial",
+    shortfall: 2000,
+    selectedBudget: { title: "Shopping", remaining: 1500 },
+  });
+  assert.match(text, /Why do you want to buy it/i);
+  assert.doesNotMatch(text, /budget|shortfall|remaining|available/i);
 });
