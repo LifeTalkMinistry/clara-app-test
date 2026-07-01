@@ -1,0 +1,158 @@
+name: Surgically unify guided budget layout
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/surgical-guided-budget-layout.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guided budget layout patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          guided_path = Path('src/pages/monthly-budget-plan/MonthlyBudgetPlanGuided.jsx')
+          source = guided_path.read_text()
+
+          source = source.replace('  Sparkles,\n', '', 1)
+          source = source.replace('  const showPlanSoFar = declared > 0;\n', '', 1)
+
+          old_balance = '''  const left = Math.max(declared - allocated, 0);
+  const canFinish = declared > 0 && budgetOptions.length > 0 && left <= 0;'''
+          new_balance = '''  const rawBalance = declared - allocated;
+  const left = Math.max(rawBalance, 0);
+  const overallocated = rawBalance < -0.005;
+  const hasAnyAllocation = allocated > 0;
+  const canFinish = declared > 0 && hasAnyAllocation && Math.abs(rawBalance) <= 0.005;'''
+          if old_balance not in source:
+              raise SystemExit('Balance calculation marker not found')
+          source = source.replace(old_balance, new_balance, 1)
+
+          old_protected = '''  const protectedAmount = firstAmount(
+    plan.totalProtectedCommitments,
+    plan.protected_commitments_total,
+  );'''
+          new_protected = old_protected + '''
+  const protectedRows = (plan.budgetDisplayCategories || plan.displayCategories || []).filter(
+    (item) => item?.isProtectedCommitment || item?.is_protected_commitment,
+  );'''
+          if old_protected not in source:
+              raise SystemExit('Protected amount marker not found')
+          source = source.replace(old_protected, new_protected, 1)
+
+          source = source.replace(
+              '  const pageBadge = isActiveBudget ? "Active" : canFinish ? "Ready" : "Draft";',
+              '  const pageBadge = isActiveBudget ? "Active" : canFinish ? "Ready" : overallocated ? "Over" : "Draft";',
+              1,
+          )
+          source = source.replace(
+              'if (isActiveBudget || (hasSavedAmount && budgetOptions.length > 0 && canFinish)) {',
+              'if (isActiveBudget || (hasSavedAmount && hasAnyAllocation && canFinish)) {',
+              1,
+          )
+
+          old_activate = '''    if (!canActivate) {
+      setNotice(
+        budgetOptions.length === 0
+          ? "Add at least one category before activating."
+          : `You still need to assign ${fmt(left)}.`,
+      );
+      return;
+    }'''
+          new_activate = '''    if (!canActivate) {
+      setNotice(
+        !hasAnyAllocation
+          ? "Add at least one allocation before activating."
+          : overallocated
+            ? `This plan is ${fmt(Math.abs(rawBalance))} over the available budget.`
+            : `You still need to assign ${fmt(left)}.`,
+      );
+      return;
+    }'''
+          if old_activate not in source:
+              raise SystemExit('Activation guard marker not found')
+          source = source.replace(old_activate, new_activate, 1)
+
+          start = source.find('        {showPlanSoFar && step !== 5 ? (')
+          end = source.find('        {isActiveBudget && step === 5 ? (', start)
+          if start < 0 or end < 0:
+              raise SystemExit('Separate plan summary block not found')
+          source = source[:start] + source[end:]
+
+          source = source.replace('            {budgetOptions.length > 0 ? (', '            {budgetOptions.length > 0 || protectedRows.length > 0 ? (', 1)
+
+          old_heading = '''                    <p className="text-sm font-black">Categories added</p>
+                    <p className="mt-0.5 text-xs font-semibold text-white/38">
+                      {fmt(categoryAllocated)} assigned across {budgetOptions.length} {budgetOptions.length === 1 ? "category" : "categories"}.
+                    </p>'''
+          new_heading = '''                    <p className="text-sm font-black">
+                      {fmt(allocated)} allocated · {budgetOptions.length} {budgetOptions.length === 1 ? "category" : "categories"} · {overallocated ? `${fmt(Math.abs(rawBalance))} over` : `${fmt(left)} left`}
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-white/38">Exact allocated items</p>'''
+          if old_heading not in source:
+              raise SystemExit('Category heading marker not found')
+          source = source.replace(old_heading, new_heading, 1)
+
+          old_rows = '''                <div className="mt-3 space-y-2">
+                  {budgetOptions.map((item) => ('''
+          new_rows = '''                <div className="mt-3 space-y-2">
+                  {protectedRows.map((item) => (
+                    <div key={item.id || item.key || item.title} className="flex items-center gap-3 rounded-2xl border border-emerald-300/12 bg-emerald-400/[0.05] px-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black">{item.title}</p>
+                        <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/45">Protected</p>
+                      </div>
+                      <p className="text-sm font-black text-emerald-100">{fmt(item.allocated)}</p>
+                    </div>
+                  ))}
+                  {budgetOptions.map((item) => ('''
+          if old_rows not in source:
+              raise SystemExit('Category rows marker not found')
+          source = source.replace(old_rows, new_rows, 1)
+
+          source = source.replace(
+              'title={isActiveBudget ? "Review your active budget" : "Does this plan cover the full amount?"}',
+              'title={isActiveBudget ? "Review your active budget" : overallocated ? "Your plan is over the available amount" : "Does this plan cover the full amount?"}',
+              1,
+          )
+          source = source.replace('>Unallocated</p>', '>{overallocated ? "Over budget" : "Unallocated"}</p>', 1)
+          source = source.replace('{fmt(left)}</p>', '{overallocated ? fmt(Math.abs(rawBalance)) : fmt(left)}</p>', 1)
+          source = source.replace('Assign the remaining {fmt(left)}', '{overallocated ? `Reduce allocations by ${fmt(Math.abs(rawBalance))}` : `Assign the remaining ${fmt(left)}`}', 2)
+
+          guided_path.write_text(source)
+
+          wrapper_path = Path('src/pages/MonthlyBudgetPlan.jsx')
+          wrapper = wrapper_path.read_text()
+          wrapper = wrapper.replace(
+              'const STEP_LABELS = ["Amount", "Cycle", "Protection", "Categories", "Review"];',
+              'const STEP_LABELS = ["Basics", "Protection", "Categories", "Review"];',
+              1,
+          )
+          old_step = 'const currentStep = Math.min(5, Math.max(1, Number(stepMatch?.[1]) || 1));'
+          new_step = '''const rawStep = Math.min(5, Math.max(1, Number(stepMatch?.[1]) || 1));
+      const currentStep = rawStep <= 2 ? 1 : rawStep - 1;'''
+          if old_step not in wrapper:
+              raise SystemExit('Wrapper step marker not found')
+          wrapper = wrapper.replace(old_step, new_step, 1)
+          wrapper = wrapper.replace(
+              'const nextProgressText = `Step ${currentStep} of 5 · ${currentLabel}`;',
+              'const nextProgressText = `Step ${currentStep} of 4 · ${currentLabel}`;',
+              1,
+          )
+          wrapper_path.write_text(wrapper)
+          PY
+      - name: Commit guided budget patch
+        run: |
+          rm -rf .github/budget-patch
+          rm -f .github/workflows/surgical-guided-budget-layout.yml
+          rm -f .github/workflows/apply-guided-budget-unified-workspace.yml
+          rm -rf src/pages/monthly-budget-plan/guided
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "Unify guided budget setup layout" && git push origin main)
