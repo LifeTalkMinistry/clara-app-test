@@ -8,7 +8,6 @@ import {
   ListChecks,
   Plus,
   ShieldCheck,
-  Sparkles,
   Trash2,
   Wallet,
   X,
@@ -1151,7 +1150,6 @@ export default function MonthlyBudgetPlanGuided() {
     }
   };
 
-  const showPlanSoFar = declared > 0;
   const budgetProtectionLabel = hasEmergencyProtectionSetup && hasActiveSavingsGoals
     ? "Emergency Fund and Savings Goals"
     : hasEmergencyProtectionSetup
@@ -1674,72 +1672,6 @@ export default function MonthlyBudgetPlanGuided() {
           <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-semibold leading-5 text-amber-50">
             {notice}
           </div>
-        ) : null}
-
-        {showPlanSoFar && step !== 5 ? (
-          <section className={`${card} p-4`}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-violet-300/15 bg-violet-400/10 text-violet-100/75">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-black">Your plan so far</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-white/35">Updates as you answer</p>
-                </div>
-              </div>
-              <p className="text-xs font-black text-emerald-200">{fmt(left)} left</p>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-1.5">
-              <div className="rounded-2xl border border-white/8 bg-black/12 px-2 py-2.5 text-center">
-                <p className="truncate text-xs font-black">{fmt(allocated)}</p>
-                <p className="mt-1 text-[7px] font-black uppercase tracking-[0.13em] text-white/32">Allocated</p>
-              </div>
-              <div className="rounded-2xl border border-emerald-300/12 bg-emerald-400/[0.05] px-2 py-2.5 text-center">
-                <p className="truncate text-xs font-black text-emerald-100">{fmt(left)}</p>
-                <p className="mt-1 text-[7px] font-black uppercase tracking-[0.13em] text-emerald-100/35">Unallocated</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-black/12 px-2 py-2.5 text-center">
-                <p className="truncate text-xs font-black">{budgetOptions.length}</p>
-                <p className="mt-1 text-[7px] font-black uppercase tracking-[0.13em] text-white/32">Categories</p>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              <SummaryRow
-                icon={Wallet}
-                label="Available"
-                value={fmt(declared)}
-                onEdit={() => setStep(1)}
-              />
-              {cycleConfirmed ? (
-                <SummaryRow
-                  icon={CalendarDays}
-                  label="Cycle"
-                  value={cycle.label}
-                  onEdit={() => setStep(2)}
-                />
-              ) : null}
-              {protectionConfirmed ? (
-                <SummaryRow
-                  icon={ShieldCheck}
-                  label="Protection"
-                  value={protectedAmount > 0 ? fmt(protectedAmount) : "None added"}
-                  onEdit={() => setStep(3)}
-                />
-              ) : null}
-              {budgetOptions.length > 0 ? (
-                <SummaryRow
-                  icon={ListChecks}
-                  label="Categories"
-                  value={`${budgetOptions.length} added`}
-                  note={`${fmt(categoryAllocated)} assigned`}
-                  onEdit={() => setStep(4)}
-                />
-              ) : null}
-            </div>
-          </section>
         ) : null}
 
         {isActiveBudget && step === 5 ? (
