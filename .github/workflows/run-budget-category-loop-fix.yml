@@ -1,0 +1,19 @@
+name: Run budget category loop fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fix_budget_category_loop.py
+      - .github/workflows/run-budget-category-loop-fix.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/fix_budget_category_loop.py
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Prevent duplicate budget category loop
+          file_pattern: src/pages/monthly-budget-plan/MonthlyBudgetPlanGuided.jsx
