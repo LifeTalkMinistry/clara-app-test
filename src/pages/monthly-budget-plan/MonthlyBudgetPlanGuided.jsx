@@ -1020,6 +1020,20 @@ export default function MonthlyBudgetPlanGuided() {
       setCategoryQuestion("name");
       return;
     }
+
+    const duplicateCategory = budgetOptions.find((item) => {
+      const sameName = normalizeString(item?.title).toLowerCase() === title.toLowerCase();
+      const sameItem = editing && String(item?.id || item?.key) === String(editing?.id || editing?.key);
+      return sameName && !sameItem;
+    });
+
+    if (duplicateCategory) {
+      setNotice(`${duplicateCategory.title} is already in your budget. Use its edit button to change the total amount.`);
+      setCategoryQuestion("name");
+      setCategoryAmount("");
+      return;
+    }
+
     if (amount <= 0) {
       setNotice("Enter an amount above ₱0.");
       return;
@@ -1408,7 +1422,9 @@ export default function MonthlyBudgetPlanGuided() {
               body={
                 categoryQuestion === "name"
                   ? null
-                  : `You can assign up to ${fmt(Math.max(declared - (editing ? allocated - firstAmount(editing.allocated) : allocated), 0))}.`
+                  : editing
+                    ? `Set the new total allocation. ${fmt(editing.allocated)} is currently assigned.`
+                    : `You can assign up to ${fmt(Math.max(declared - allocated, 0))}.`
               }
             />
 
@@ -1441,25 +1457,46 @@ export default function MonthlyBudgetPlanGuided() {
                   className={input}
                 />
                 <div className="flex flex-wrap gap-2">
-                  {["Food", "Bills", "Rent", "Transport", "Groceries"].map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => {
-                        setCategoryName(suggestion);
-                        setNotice("");
-                      }}
-                      className="rounded-full border border-white/9 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white/55"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                  {["Food", "Bills", "Rent", "Transport", "Groceries"]
+                    .filter(
+                      (suggestion) =>
+                        !budgetOptions.some(
+                          (item) =>
+                            normalizeString(item?.title).toLowerCase() === suggestion.toLowerCase(),
+                        ),
+                    )
+                    .map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          setCategoryName(suggestion);
+                          setNotice("");
+                        }}
+                        className="rounded-full border border-white/9 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white/55"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    if (!normalizeString(categoryName)) {
+                    const cleanCategoryName = normalizeString(categoryName);
+                    if (!cleanCategoryName) {
                       setNotice("Name the category first.");
+                      return;
+                    }
+                    const duplicateCategory = budgetOptions.find((item) => {
+                      const sameName =
+                        normalizeString(item?.title).toLowerCase() === cleanCategoryName.toLowerCase();
+                      const sameItem =
+                        editing &&
+                        String(item?.id || item?.key) === String(editing?.id || editing?.key);
+                      return sameName && !sameItem;
+                    });
+                    if (duplicateCategory) {
+                      setNotice(`${duplicateCategory.title} is already in your budget. Use its edit button to change the total amount.`);
                       return;
                     }
                     setNotice("");
