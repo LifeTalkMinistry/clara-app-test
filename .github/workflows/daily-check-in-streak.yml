@@ -1,0 +1,29 @@
+name: Daily Check-In Streak
+
+on:
+  pull_request:
+    paths:
+      - "src/components/fresh/main-dashboard/daily-tip/**"
+      - "src/lib/challenge-schedule.js"
+      - "tests/daily-check-in-streak.test.mjs"
+      - ".github/workflows/daily-check-in-streak.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/components/fresh/main-dashboard/daily-tip/**"
+      - "src/lib/challenge-schedule.js"
+      - "tests/daily-check-in-streak.test.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/daily-check-in-streak.test.mjs
