@@ -1,0 +1,59 @@
+name: Verify Buy Check Reconstruction
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/clara-buy-check-*.js"
+      - "src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay*.jsx"
+      - "src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreter*.js"
+      - "src/components/fresh/main-dashboard/assistant/useClaraBuyCheck*.js"
+      - "tests/buy-check-deterministic.test.mjs"
+      - "package.json"
+      - ".github/workflows/verify-buy-check-reconstruction.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run deterministic Buy Check tests
+        run: npm test
+
+      - name: Lint changed Buy Check files
+        run: >-
+          npx eslint
+          src/lib/clara-buy-check-budget-engine.js
+          src/lib/clara-buy-check-budget-intelligence.js
+          src/lib/clara-buy-check-budget-intelligence-v2.js
+          src/lib/clara-buy-check-category-engine.js
+          src/lib/clara-buy-check-decision-core.js
+          src/lib/clara-buy-check-diagnosis-v5.js
+          src/lib/clara-buy-check-expense-repository.js
+          src/lib/clara-buy-check-wallet-engine.js
+          src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx
+          src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx
+          src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreter.js
+          src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreterV2.js
+          src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlow.js
+          src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlowDeterministic.js
+          src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js
+          tests/buy-check-deterministic.test.mjs
+
+      - name: Build production app
+        run: npm run build
