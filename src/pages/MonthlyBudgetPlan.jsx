@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef } from "react";
 import MonthlyBudgetPlanGuided from "./monthly-budget-plan/MonthlyBudgetPlanGuided";
 
+const STEP_LABELS = ["Amount", "Cycle", "Protection", "Categories", "Review"];
+
 export default function MonthlyBudgetPlan() {
   const pageRef = useRef(null);
 
@@ -27,8 +29,14 @@ export default function MonthlyBudgetPlan() {
       const header = root.querySelector("header");
       if (!screen || !header) return;
 
-      const eyebrow = header.querySelector("p");
+      const eyebrow = header.querySelector("p:not([data-budget-progress-text])");
       const title = header.querySelector("h1");
+      const progressSection = Array.from(root.querySelectorAll("section")).find((section) =>
+        /step\s*\d+\s*of\s*5/i.test(section.textContent || ""),
+      );
+      const stepMatch = progressSection?.textContent?.match(/step\s*(\d+)\s*of\s*5/i);
+      const currentStep = Math.min(5, Math.max(1, Number(stepMatch?.[1]) || 1));
+      const currentLabel = STEP_LABELS[currentStep - 1];
 
       if (eyebrow) {
         eyebrow.setAttribute("aria-hidden", "true");
@@ -38,6 +46,38 @@ export default function MonthlyBudgetPlan() {
       if (title && title.textContent !== "Budget Setup") {
         title.textContent = "Budget Setup";
         title.setAttribute("aria-label", "Budget Setup");
+      }
+
+      if (progressSection) {
+        progressSection.setAttribute("aria-hidden", "true");
+        progressSection.style.display = "none";
+      }
+
+      if (title?.parentElement) {
+        let progressText = title.parentElement.querySelector("[data-budget-progress-text]");
+
+        if (!progressText) {
+          progressText = document.createElement("p");
+          progressText.setAttribute("data-budget-progress-text", "true");
+          progressText.setAttribute("aria-live", "polite");
+          Object.assign(progressText.style, {
+            display: "block",
+            margin: "2px 0 0",
+            color: "rgba(207, 250, 254, 0.58)",
+            fontSize: "9px",
+            fontWeight: "800",
+            letterSpacing: "0.12em",
+            lineHeight: "1.2",
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+          });
+          title.insertAdjacentElement("afterend", progressText);
+        }
+
+        const nextProgressText = `Step ${currentStep} of 5 · ${currentLabel}`;
+        if (progressText.textContent !== nextProgressText) {
+          progressText.textContent = nextProgressText;
+        }
       }
 
       Object.assign(screen.style, {
