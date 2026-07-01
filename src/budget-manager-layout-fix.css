@@ -1,0 +1,8 @@
+#root div:has(> .mx-auto > header):has(button[aria-label="Edit total budget"]) {
+  padding-top: 0 !important;
+}
+
+#root div:has(> .mx-auto > header):has(button[aria-label="Edit total budget"]) > .mx-auto > header {
+  margin-top: 0 !important;
+  border-top: 0 !important;
+}
