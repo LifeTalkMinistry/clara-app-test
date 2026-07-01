@@ -915,7 +915,7 @@ export default function MonthlyBudgetPlan() {
   });
 
   const editingCategory = Boolean(location.state?.editCategoryId);
-  const showCurrentPlan = budgetOptions.length > 0 && !editingCategory;
+  const showCurrentPlan = Boolean(monthlyBudgetHeader) && budgetOptions.length > 0 && !editingCategory;
   useLockedBudgetViewport(pageRef, !showCurrentPlan);
 
   return (
