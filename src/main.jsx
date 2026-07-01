@@ -13,7 +13,6 @@ import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySou
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
-import { installBudgetManagerHeaderPolish } from "./runtime/installBudgetManagerHeaderPolish";
 import {
   clearClaraGuideFeatureClasses,
   installClaraGuideCarouselStep,
@@ -96,12 +95,6 @@ try {
   installClaraGuideDemoPatches();
 } catch (error) {
   console.warn("CLARA guide demo patches failed to init:", error);
-}
-
-try {
-  installBudgetManagerHeaderPolish();
-} catch (error) {
-  console.warn("Budget manager header polish failed to init:", error);
 }
 
 try {
