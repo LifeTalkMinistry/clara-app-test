@@ -1,3 +1,4 @@
+# Trigger refinement workflow
 from pathlib import Path
 
 path = Path("src/pages/monthly-budget-plan/MonthlyBudgetPlanGuided.jsx")
