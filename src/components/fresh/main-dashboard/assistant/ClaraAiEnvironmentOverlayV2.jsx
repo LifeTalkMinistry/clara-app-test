@@ -132,9 +132,9 @@ function getRecommendationActions(decision = "") {
   return { primary: "Review my budget", primaryAction: "not_buy", secondary: "Continue anyway", secondaryAction: "buy" };
 }
 
-function ActionBar({ step, busy, finalDecision, diagnosis, onConfirm, onEdit, onWillBuy, onNotBuy, onCheckAnother, onClose }) {
+function ActionBar({ step, busy, finalDecision, diagnosis, onConfirm, onEditReason, onEdit, onWillBuy, onNotBuy, onCheckAnother, onClose }) {
   if (step === "confirm") {
-    return <div className="relative z-10 grid grid-cols-2 gap-2.5 px-1 pb-2"><button type="button" onClick={onConfirm} disabled={busy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950 disabled:opacity-55">Continue</button><button type="button" onClick={onEdit} disabled={busy} className="min-h-11 rounded-full border border-white/15 bg-slate-900/92 px-4 text-[12px] font-black text-white/92 disabled:opacity-55">Edit answers</button></div>;
+    return <div className="relative z-10 grid grid-cols-2 gap-2.5 px-1 pb-2"><button type="button" onClick={onConfirm} disabled={busy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950 disabled:opacity-55">Yes</button><button type="button" onClick={onEditReason} disabled={busy} className="min-h-11 rounded-full border border-white/15 bg-slate-900/92 px-4 text-[12px] font-black text-white/92 disabled:opacity-55">No</button></div>;
   }
   if (step === "complete" && finalDecision?.phase === "choose") {
     const actions = getRecommendationActions(diagnosis?.decision);
@@ -150,7 +150,7 @@ function ActionBar({ step, busy, finalDecision, diagnosis, onConfirm, onEdit, on
 function placeholderFor(step) {
   if (step === "price") return "Enter the price, e.g. ₱3,500";
   if (step === "reason") return "Why do you want to buy it?";
-  if (step === "confirm") return "Use Continue or Edit answers";
+  if (step === "confirm") return "Choose Yes or No";
   if (step === "diagnosis") return "CLARA is checking your context";
   if (step === "complete") return "Choose your final action";
   return "Type the item you want to buy";
@@ -177,6 +177,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const activeMessages = isGuidePreview ? messages : ownedFlow.messages;
   const submitAnswer = isGuidePreview ? onSubmitBuyCheckAnswer : ownedFlow.submitAnswer;
   const confirmBuyCheck = isGuidePreview ? onConfirmBuyCheck : ownedFlow.confirm;
+  const editReason = isGuidePreview ? onEditBuyCheck : ownedFlow.editReason;
   const editBuyCheck = isGuidePreview ? onEditBuyCheck : ownedFlow.editAnswers;
   const checkAnother = isGuidePreview ? onCheckAnother : ownedFlow.checkAnother;
   const finalDecision = activeState?.finalDecision;
@@ -249,7 +250,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
           </div>
         ) : <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-8"><PauseEntryBoard onClose={onClose} acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]} /></div>}
       </main>
-      <ActionBar step={step} busy={busy} finalDecision={finalDecision} diagnosis={activeState?.diagnosis} onConfirm={confirmBuyCheck} onEdit={editBuyCheck} onWillBuy={() => ownedFlow.chooseFinalDecision?.("buy")} onNotBuy={() => ownedFlow.chooseFinalDecision?.("not_buy")} onCheckAnother={checkAnother} onClose={onClose} />
+      <ActionBar step={step} busy={busy} finalDecision={finalDecision} diagnosis={activeState?.diagnosis} onConfirm={confirmBuyCheck} onEditReason={editReason} onEdit={editBuyCheck} onWillBuy={() => ownedFlow.chooseFinalDecision?.("buy")} onNotBuy={() => ownedFlow.chooseFinalDecision?.("not_buy")} onCheckAnother={checkAnother} onClose={onClose} />
       <form onSubmit={submitDraft} data-clara-buy-check-react-form="true" className="relative z-10 shrink-0 rounded-[28px] border border-white/14 bg-slate-950/95 p-2.5 shadow-[0_-20px_56px_rgba(0,0,0,0.52)] backdrop-blur-2xl">
         <div className="flex items-center gap-2 rounded-[22px] border border-white/12 bg-slate-900/95 px-3 py-2 shadow-inner">
           <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={inputLocked || busy} className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55" placeholder={placeholderFor(step)} inputMode={step === "price" ? "decimal" : "text"} aria-label={placeholderFor(step)} />
