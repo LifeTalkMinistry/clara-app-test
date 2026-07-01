@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm test && npm run lint:buy-check",
     "build": "vite build --base=./",
     "build:android": "vite build --base=./",
     "build:web": "vite build --base=/clara-app-test/",
     "preview": "vite preview",
     "test": "node --test tests/buy-check-deterministic.test.mjs",
+    "lint:buy-check": "eslint src/lib/clara-buy-check-budget-engine.js src/lib/clara-buy-check-budget-intelligence.js src/lib/clara-buy-check-budget-intelligence-v2.js src/lib/clara-buy-check-category-engine.js src/lib/clara-buy-check-decision-core.js src/lib/clara-buy-check-diagnosis-v5.js src/lib/clara-buy-check-expense-repository.js src/lib/clara-buy-check-wallet-engine.js src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay.jsx src/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlayV2.jsx src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreter.js src/components/fresh/main-dashboard/assistant/buyCheckReasonInterpreterV2.js src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlow.js src/components/fresh/main-dashboard/assistant/useClaraBuyCheckBudgetFlowDeterministic.js src/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlowV5.js tests/buy-check-deterministic.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "deploy": "npm run build:web && gh-pages -d dist"
