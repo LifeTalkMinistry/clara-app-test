@@ -17,6 +17,63 @@ export function formatMoney(value = 0) {
   return `₱${toNumber(value).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
+function normalizeKnownProductCasing(value = "") {
+  return clean(value)
+    .replace(/\biphone\b/gi, "iPhone")
+    .replace(/\bipad\b/gi, "iPad")
+    .replace(/\bmacbook\b/gi, "MacBook")
+    .replace(/\bairpods\b/gi, "AirPods");
+}
+
+function buildItemFallback(value = "") {
+  const source = clean(value)
+    .replace(/^(?:i\s+want\s+to\s+buy|i\s+want|i\s+need\s+to\s+buy|i\s+need|can\s+i\s+buy|please\s+buy|gusto\s+ko\s+(?:sanang\s+)?bumili\s+ng|gusto\s+ko|bibili\s+ako\s+ng|kailangan\s+ko\s+ng)\s+/i, "")
+    .replace(/\s+(?:sir|ma'am|maam|po|please)$/i, "")
+    .replace(/[?.!]+$/g, "")
+    .trim();
+  return normalizeKnownProductCasing(source || value);
+}
+
+export function normalizeItemSummary(value = "", fallback = "") {
+  const item = clean(value)
+    .replace(/^```(?:text)?/i, "")
+    .replace(/```$/i, "")
+    .replace(/^(?:item|purchase|product|summary)\s*:\s*/i, "")
+    .replace(/^['“”"]+|['“”"]+$/g, "")
+    .replace(/[?.!]+$/g, "")
+    .trim();
+  return normalizeKnownProductCasing(item || buildItemFallback(fallback));
+}
+
+function isUsableItemSummary(value = "") {
+  const item = normalizeItemSummary(value, "");
+  if (!item || item.length > 80 || item.split(/\s+/).length > 12) return false;
+  if (/CLARA AI is unavailable/i.test(item)) return false;
+  if (/\b(budget|wallet|remaining|available|covered|shortfall|risk|recommend)\b/i.test(item)) return false;
+  return true;
+}
+
+export async function interpretBuyCheckItem({ originalItem }) {
+  const fallback = buildItemFallback(originalItem);
+  const prompt = `You are CLARA extracting the exact item a user wants to buy before a Buy Check.\n\nUser's exact words: ${clean(originalItem)}\n\nReturn only the item, product, service, or purchase name. Remove conversational phrases, greetings, honorifics, and filler words. Preserve important brand, model, size, quantity, or variant details. Correct obvious product capitalization such as iPhone. Do not add a reason, price, budget, wallet, advice, recommendation, label, punctuation, or quotation marks. Keep it concise.`;
+  let lastError = null;
+  for (const model of getClaraGeminiProxyModelCandidates()) {
+    try {
+      const reply = await requestClaraGeminiProxyText({
+        prompt,
+        model,
+        generationConfig: { temperature: 0.1, topP: 0.75, maxOutputTokens: 60 },
+      });
+      const item = normalizeItemSummary(reply, "");
+      if (isUsableItemSummary(item)) return { item, source: "ai", model };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) console.warn("[CLARA Buy Check] Item interpretation fallback used.", lastError);
+  return { item: fallback, source: "fallback" };
+}
+
 export function normalizeReasonSummary(value = "", fallback = "") {
   const summary = clean(value)
     .replace(/^```(?:text)?/i, "")
@@ -57,7 +114,7 @@ async function requestCompleteSummary({ prompt, model }) {
 export async function interpretBuyCheckReason({ item, price, originalReason, assistantContext }) {
   const fallback = normalizeReasonSummary(originalReason, originalReason);
   const profile = assistantContext?.meProfileContext || assistantContext?.lifeProfile || assistantContext?.user?.user_metadata || null;
-  const prompt = `You are CLARA interpreting one user's reason before a Buy Check confirmation.\n\nItem: ${clean(item)}\nPrice: ${formatMoney(price)}\nUser's exact words: ${clean(originalReason)}\nProfile context: ${profile ? JSON.stringify(profile) : "Not available"}\n\nRewrite the reason into one complete, natural second-person clause that clearly shows what the user means and can grammatically follow the word "because." Preserve the exact meaning and urgency. Match the user's language, including Taglish. Do not repeat the sentence word-for-word unless it is already impossible to improve. Do not judge, advise, add facts, mention CLARA, mention the price, or ask a question. Finish the thought completely. Return only the rewritten reason with no label or quotation marks.`;
+  const prompt = `You are CLARA interpreting one user's reason before a Buy Check confirmation.\n\nItem: ${clean(item)}\nPrice: ${formatMoney(price)}\nUser's exact words: ${clean(originalReason)}\nProfile context: ${profile ? JSON.stringify(profile) : "Not available"}\n\nRewrite the reason into one complete, natural second-person clause that clearly shows what the user means and can grammatically follow the word "because." Preserve the exact meaning and urgency. Match the user's language, including Taglish. Do not repeat the sentence word-for-word unless it is already impossible to improve. Do not judge, advise, add facts, mention CLARA, mention the price, budget, wallet, coverage, or recommendation, and do not ask a question. Finish the thought completely. Return only the rewritten reason with no label or quotation marks.`;
   let lastError = null;
   for (const model of getClaraGeminiProxyModelCandidates()) {
     try {
@@ -70,6 +127,60 @@ export async function interpretBuyCheckReason({ item, price, originalReason, ass
   }
   if (lastError) console.warn("[CLARA Buy Check] Complete reason interpretation fallback used.", lastError);
   return { summary: fallback, source: "fallback" };
+}
+
+export function buildBuyCheckConfirmationFallback({ item, price, reason = "" }) {
+  const purchaseItem = normalizeItemSummary(item, "this item");
+  const amount = formatMoney(price);
+  const interpretedReason = normalizeReasonSummary(reason, "");
+  return interpretedReason
+    ? `So you’re considering ${purchaseItem} for ${amount} because ${interpretedReason}. Did I understand that correctly before I run the full Buy Check?`
+    : `So you’re considering ${purchaseItem} for ${amount}. Did I understand that correctly before I run the full Buy Check?`;
+}
+
+function normalizeConfirmation(value = "", fallback = "") {
+  const confirmation = clean(value)
+    .replace(/^```(?:text)?/i, "")
+    .replace(/```$/i, "")
+    .replace(/^(?:confirmation|summary)\s*:\s*/i, "")
+    .replace(/^['“”"]+|['“”"]+$/g, "")
+    .trim();
+  return confirmation || clean(fallback);
+}
+
+function isUsableConfirmation(value, { item, price, reason = "" }) {
+  const confirmation = normalizeConfirmation(value, "");
+  const amount = formatMoney(price);
+  const itemWords = normalizeItemSummary(item, "").toLowerCase().split(/\s+/).filter((word) => word.length > 2);
+  if (confirmation.length < 28 || confirmation.length > 320) return false;
+  if (!confirmation.includes(amount)) return false;
+  if (itemWords.length && !itemWords.some((word) => confirmation.toLowerCase().includes(word))) return false;
+  if (reason && !/because|dahil|kasi/i.test(confirmation)) return false;
+  if (/\b(budget|wallet|remaining|available|covered|shortfall|risk|recommend|approval)\b/i.test(confirmation)) return false;
+  return /\?$/.test(confirmation);
+}
+
+export async function interpretBuyCheckConfirmation({ item, price, reason = "" }) {
+  const fallback = buildBuyCheckConfirmationFallback({ item, price, reason });
+  const prompt = `You are CLARA naturally confirming the user's answers before running a Buy Check.\n\nItem: ${normalizeItemSummary(item, item)}\nPrice: ${formatMoney(price)}\nInterpreted reason: ${normalizeReasonSummary(reason, "Not provided")}\n\nWrite one concise, warm confirmation in the user's likely language style. Mention the exact item and exact formatted price. Include the reason only when one is provided. End by asking whether you understood correctly before running the full Buy Check. Do not mention or imply any budget, wallet, balance, remaining amount, coverage, shortfall, risk, approval, recommendation, or financial result. Do not add facts or advice. Return only the confirmation with no label or quotation marks.`;
+  let lastError = null;
+  for (const model of getClaraGeminiProxyModelCandidates()) {
+    try {
+      const reply = await requestClaraGeminiProxyText({
+        prompt,
+        model,
+        generationConfig: { temperature: 0.28, topP: 0.82, maxOutputTokens: 130 },
+      });
+      const confirmation = normalizeConfirmation(reply, "");
+      if (isUsableConfirmation(confirmation, { item, price, reason })) {
+        return { confirmation, source: "ai", model };
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) console.warn("[CLARA Buy Check] Confirmation interpretation fallback used.", lastError);
+  return { confirmation: fallback, source: "fallback" };
 }
 
 function normalizeFinalExplanation(value = "", fallback = "") {
