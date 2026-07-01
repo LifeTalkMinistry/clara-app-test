@@ -4,7 +4,6 @@ export {
   buildContextPackage,
   buildContextSignals,
   clean,
-  confirmationText,
   createDecisionState,
   createInitialState,
   createMessage,
@@ -15,7 +14,6 @@ export {
   normalizeExpenseCategory,
   normalizeNeedType,
   parsePrice,
-  priceStepMessage,
   remainingOrShortfall,
   safeList,
   safeRecord,
@@ -23,3 +21,8 @@ export {
   signedMoney,
   toNumber,
 } from "./clara-buy-check-budget-intelligence-v2.js";
+
+export {
+  confirmationText,
+  priceStepMessage,
+} from "./clara-buy-check-conversation-copy.js";
