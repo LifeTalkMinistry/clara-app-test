@@ -1,8 +1,25 @@
-#root div:has(> .mx-auto > header):has(button[aria-label="Edit total budget"]) {
+#root main:has(> div[class*="h-[100svh]"][class*="max-h-[100svh]"]) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: hidden !important;
+}
+
+#root main:has(> div[class*="h-[100svh]"][class*="max-h-[100svh]"])
+  > div[class*="h-[100svh]"][class*="max-h-[100svh]"] {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+#root main:has(> div[class*="h-[100svh]"][class*="max-h-[100svh]"])
+  > div[class*="h-[100svh]"][class*="max-h-[100svh]"]
+  > div[class*="min-h-[100svh]"] {
+  min-height: 100% !important;
   padding-top: 0 !important;
 }
 
-#root div:has(> .mx-auto > header):has(button[aria-label="Edit total budget"]) > .mx-auto > header {
+#root div:has(> .mx-auto > header):has(button[aria-label="Edit total budget"])
+  > .mx-auto
+  > header {
   margin-top: 0 !important;
   border-top: 0 !important;
 }
