@@ -31,6 +31,7 @@ import "./guide-mode-me-bubble-spacing.css";
 import "./guide-mode-schedule.css";
 import "./guide-mode-intro-cleanup.css";
 import "./welcome-session-calendar-status.css";
+import "./budget-manager-layout-fix.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
