@@ -766,6 +766,7 @@ export default function MonthlyBudgetPlanGuided() {
   } = useFinancialData(user);
   const { monthlyBudgetHeader, declaredMonthlyBudgetAmount } = useDashboardMonthlyBudgetHeader({
     budgets,
+    includeDraft: true,
   });
   const budgetOptions = useDashboardManualExpenseBudgetOptions({ budgets });
 
