@@ -115,6 +115,27 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
     return true;
   }, [assistantContext]);
 
+  const editReason = useCallback(() => {
+    let changed = false;
+    setState((current) => {
+      if (current.step !== "confirm" || current.busy) return current;
+      changed = true;
+      return {
+        ...current,
+        reason: "",
+        confirmation: null,
+        step: "reason",
+        done: false,
+        messages: [
+          ...current.messages,
+          createMessage("user", "No"),
+          createMessage("clara", "No problem. Please tell me the correct reason you want to buy it."),
+        ],
+      };
+    });
+    return changed;
+  }, []);
+
   const editAnswers = useCallback(() => {
     setState((current) => {
       if (!["confirm", "complete"].includes(current.step) || current.busy) return current;
@@ -133,7 +154,7 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
     if (state.step !== "confirm" || state.busy || !state.confirmation) return;
     const snapshot = state;
     const checking = createMessage("clara", "Got it. I’m checking your wallet, every active budget, goals, emergency fund, schedule, Me profile, and memory now.");
-    setState({ ...snapshot, step: "diagnosis", busy: true, messages: [...snapshot.messages, createMessage("user", "Continue"), checking] });
+    setState({ ...snapshot, step: "diagnosis", busy: true, messages: [...snapshot.messages, createMessage("user", "Yes"), checking] });
 
     try {
       const result = await diagnoseBuyCheck(snapshot, assistantContext);
@@ -185,7 +206,8 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
     clearSession,
     submitAnswer,
     confirm,
+    editReason,
     editAnswers,
     checkAnother,
-  }), [checkAnother, clearSession, confirm, editAnswers, startSession, state, submitAnswer]);
+  }), [checkAnother, clearSession, confirm, editAnswers, editReason, startSession, state, submitAnswer]);
 }
