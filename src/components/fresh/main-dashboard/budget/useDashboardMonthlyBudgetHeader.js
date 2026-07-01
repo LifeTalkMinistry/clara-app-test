@@ -1,5 +1,9 @@
 import { useMemo } from "react";
-import { isActiveBudgetHeader } from "@/lib/clara-budget-plan-truth";
+import {
+  isActiveBudgetHeader,
+  isBudgetHeader,
+  isInactiveBudgetPlan,
+} from "@/lib/clara-budget-plan-truth";
 import {
   firstValidNumber,
   getPHMonthKey,
@@ -68,28 +72,49 @@ function getBudgetCycleLabel(budget) {
   return "Monthly";
 }
 
-export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
+function getTimestamp(value) {
+  const parsed = new Date(value || 0).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export default function useDashboardMonthlyBudgetHeader({ budgets = [], includeDraft = false } = {}) {
   const monthlyBudgetHeader = useMemo(() => {
     const currentMonthKey = getPHMonthKey();
     const currentDate = todayKey();
-    const candidates = (Array.isArray(budgets) ? budgets : []).filter((budget) => {
-      const month = normalizeString(
-        budget?.month || budget?.budget_month || budget?.month_key
+    const currentHeaders = (Array.isArray(budgets) ? budgets : [])
+      .filter((budget) => {
+        const month = normalizeString(
+          budget?.month || budget?.budget_month || budget?.month_key
+        );
+        const isCurrentMonth = !month || month === currentMonthKey;
+
+        return isCurrentMonth && isBudgetHeader(budget) && !isInactiveBudgetPlan(budget);
+      })
+      .sort(
+        (a, b) =>
+          getTimestamp(b?.updated_at || b?.created_at) -
+          getTimestamp(a?.updated_at || a?.created_at)
       );
-      const isCurrentMonth = !month || month === currentMonthKey;
 
-      return isCurrentMonth && isActiveBudgetHeader(budget);
-    });
+    const activeCandidates = currentHeaders.filter(isActiveBudgetHeader);
+    const activeHeader =
+      activeCandidates.find((budget) => isInsideCycle(budget, currentDate)) ||
+      activeCandidates[0] ||
+      null;
 
+    if (activeHeader || !includeDraft) return activeHeader;
+
+    const draftCandidates = currentHeaders.filter((budget) => !isActiveBudgetHeader(budget));
     return (
-      candidates.find((budget) => isInsideCycle(budget, currentDate)) ||
-      candidates[0] ||
+      draftCandidates.find((budget) => isInsideCycle(budget, currentDate)) ||
+      draftCandidates[0] ||
       null
     );
-  }, [budgets]);
+  }, [budgets, includeDraft]);
 
   const declaredMonthlyBudgetAmount = useMemo(() => {
-    if (!isActiveBudgetHeader(monthlyBudgetHeader)) return 0;
+    if (!monthlyBudgetHeader) return 0;
+    if (!includeDraft && !isActiveBudgetHeader(monthlyBudgetHeader)) return 0;
 
     return firstValidNumber(
       monthlyBudgetHeader?.declared_amount,
@@ -100,7 +125,7 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
       monthlyBudgetHeader?.budget_amount,
       monthlyBudgetHeader?.amount
     );
-  }, [monthlyBudgetHeader]);
+  }, [monthlyBudgetHeader, includeDraft]);
 
   const budgetCycle = useMemo(() => {
     const start = getCycleStart(monthlyBudgetHeader);
@@ -115,10 +140,13 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [] } = {}) {
     };
   }, [monthlyBudgetHeader]);
 
+  const hasActiveBudgetPlan = isActiveBudgetHeader(monthlyBudgetHeader);
+
   return {
     monthlyBudgetHeader,
     declaredMonthlyBudgetAmount,
     budgetCycle,
-    hasActiveBudgetPlan: Boolean(monthlyBudgetHeader),
+    hasActiveBudgetPlan,
+    hasDraftBudgetPlan: Boolean(monthlyBudgetHeader) && !hasActiveBudgetPlan,
   };
 }
