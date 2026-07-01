@@ -154,6 +154,13 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
     reasonState.busy,
   ]);
 
+  const editReason = useCallback(() => {
+    if (itemState.busy || reasonState.busy || confirmationState.busy || flow.state?.busy) return false;
+    setReasonState(blankReason());
+    setConfirmationState(blankConfirmation());
+    return flow.editReason?.() ?? false;
+  }, [confirmationState.busy, flow.editReason, flow.state?.busy, itemState.busy, reasonState.busy]);
+
   const messages = useMemo(() => {
     let list = [...(flow.messages || [])];
     const activeSessionId = flow.state?.sessionId;
@@ -217,6 +224,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
   return {
     ...flow,
     submitAnswer,
+    editReason,
     messages,
     state: {
       ...flow.state,
