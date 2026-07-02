@@ -4,16 +4,17 @@ import {
   money,
   remainingOrShortfall,
   safeRecord,
+  signedMoney,
   toNumber,
-} from "@/lib/clara-buy-check-budget-intelligence";
+} from "./clara-buy-check-budget-intelligence.js";
 import {
   getClaraGeminiProxyModelCandidates,
   requestClaraGeminiProxyJson,
-} from "@/lib/clara-gemini-proxy-client";
+} from "./clara-gemini-proxy-client.js";
 import {
   calculateBuyCheckDiagnosis,
   validateBuyCheckDiagnosis,
-} from "@/lib/clara-buy-check-decision-core";
+} from "./clara-buy-check-decision-core.js";
 
 function parseJsonObject(value = "") {
   const source = String(value || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
@@ -30,24 +31,25 @@ async function explainBuyCheckDiagnosis({ diagnosis, pkg }) {
     saferMoveExplanation: diagnosis.saferMove,
     source: "deterministic",
   };
-  const prompt = `You are CLARA explaining a deterministic Buy Check result. The local financial engine has already made the final decision. You are not allowed to change the decision, risk, money amounts, budget, wallet facts, or safer move.
+  const prompt = `You are CLARA explaining a deterministic Buy Check result. The local financial engine has already made the final decision. You are not allowed to change the decision, risk, money amounts, budget, wallet facts, income timing, obligations, goals, calendar facts, or safer move.
 
 Final decision: ${diagnosis.decision}
+User-facing decision: ${diagnosis.userFacingDecision}
 Risk: ${diagnosis.risk}
 Reason code: ${diagnosis.reasonCode}
 Deterministic explanation: ${diagnosis.explanation}
 Deterministic safer move: ${diagnosis.saferMove}
 
-Purchase and verified context:
+Verified context:
 ${JSON.stringify(pkg, null, 2)}
 
 Return valid JSON only:
 {
-  "explanation": "one or two natural sentences that preserve the verified facts",
+  "explanation": "one or two natural sentences that preserve every verified fact",
   "saferMoveExplanation": "one clear action that preserves the deterministic safer move"
 }
 
-Match the user's language, including Taglish when supported by their reason. Do not invent facts, advice, money, urgency, or personal details.`;
+Match the user's language, including Taglish when supported by their reason. Do not invent facts, dates, advice, amounts, urgency, or personal details.`;
 
   for (const model of getClaraGeminiProxyModelCandidates()) {
     try {
@@ -70,9 +72,9 @@ Match the user's language, including Taglish when supported by their reason. Do 
 }
 
 export function buildBuyCheckBudgetCardCopy(pkg) {
-  const price = toNumber(pkg.purchase.price);
-  const budget = pkg.finance.matchingBudget;
-  const assessment = pkg.finance.budgetAssessment || {};
+  const price = toNumber(pkg.purchase.price ?? pkg.purchase.amount);
+  const budget = pkg.finance?.matchingBudget || pkg.budget?.selectedBudget;
+  const assessment = pkg.finance?.budgetAssessment || pkg.budget || {};
   if (assessment.status === "full" && budget) {
     return {
       title: `${budget.title} budget`,
@@ -103,6 +105,14 @@ export function buildBuyCheckBudgetCardCopy(pkg) {
         : "No other matched budget could fully cover the purchase.",
     };
   }
+  if (assessment.status === "no_budget") {
+    return {
+      title: "Budget check",
+      stat: "No active budget",
+      body: "CLARA can check wallet liquidity, but no active budget is configured to verify this purchase.",
+      note: "Set up or assign a budget for a complete result.",
+    };
+  }
   return {
     title: "Budget check",
     stat: "No safe match",
@@ -111,55 +121,138 @@ export function buildBuyCheckBudgetCardCopy(pkg) {
   };
 }
 
-function buildReportCards(pkg, diagnosis) {
-  const price = toNumber(pkg.purchase.price);
-  const spendable = toNumber(pkg.finance.spendableTotal);
-  const largestWallet = toNumber(pkg.finance.largestEligibleBalance);
+function dateLabel(value) {
+  if (!value) return "No reliable date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No reliable date";
+  return new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(date);
+}
+
+function buildDetailCards(pkg, diagnosis) {
+  const cards = [];
+  const price = toNumber(pkg.purchase.price ?? pkg.purchase.amount);
   const budgetCard = buildBuyCheckBudgetCardCopy(pkg);
-  const goal = pkg.finance.savingsGoals?.[0] || null;
-  const emergency = pkg.finance.emergencyFund;
-  return [
-    {
-      eyebrow: "01 / PURCHASE",
-      title: pkg.purchase.item,
-      stat: money(price),
-      body: `Reason: ${pkg.purchase.reason || "No reason recorded"}. Category: ${pkg.purchase.category}.`,
-      note: "What you want to buy and why it matters.",
-    },
-    {
-      eyebrow: "02 / WALLET",
-      title: "Spendable money",
-      stat: money(spendable),
-      body: `${remainingOrShortfall(spendable - price)} across spendable wallets after this purchase. Largest eligible wallet: ${money(largestWallet)}.`,
-      note: "Protected and reserved money was excluded.",
-    },
-    { eyebrow: "03 / BUDGET", ...budgetCard },
-    {
-      eyebrow: "04 / PROTECTION",
-      title: goal?.name || goal?.title || "Goals and emergency fund",
-      stat: pkg.finance.reservedAmount > 0 ? money(pkg.finance.reservedAmount) : goal || emergency ? "Protected" : "No record",
-      body: pkg.contextSignals?.protectedMoneyRisk === "critical"
-        ? "This purchase would require protected or reserved money."
-        : "The current decision does not require protected money.",
-      note: "Protected progress should not fund ordinary spending.",
-    },
-    {
-      eyebrow: "05 / TIMING & PATTERN",
-      title: "Context check",
-      stat: pkg.contextSignals?.upcomingObligationRisk === "critical" ? "Conflict found" : "Checked",
-      body: `Upcoming obligation risk: ${pkg.contextSignals?.upcomingObligationRisk || "none"}. Pattern signal: ${pkg.memory}`,
-      note: "Only supported timing and saved-pattern signals affect the decision.",
-    },
-    {
-      eyebrow: "06 / FINAL DECISION",
-      title: diagnosis.decision,
-      stat: `Risk: ${diagnosis.risk}`,
-      body: diagnosis.explanation,
-      note: `Safer move: ${diagnosis.saferMove}`,
-      final: true,
-      decision: diagnosis.decision,
-    },
-  ];
+  cards.push({
+    eyebrow: "01 / DECISION SUMMARY",
+    title: diagnosis.userFacingDecision || diagnosis.decision,
+    stat: `Risk: ${diagnosis.risk}`,
+    body: diagnosis.explanation,
+    note: `Safer move: ${diagnosis.saferMove}`,
+    final: true,
+    decision: diagnosis.decision,
+  });
+
+  if (pkg.incomeRunway?.connected) {
+    cards.push({
+      eyebrow: "02 / INCOME RUNWAY",
+      title: pkg.incomeRunway.estimatedNextIncomeDate ? "Next income estimate" : "Income timing unavailable",
+      stat: pkg.incomeRunway.daysUntilNextIncome === null ? "Unconfirmed" : `${pkg.incomeRunway.daysUntilNextIncome} day${pkg.incomeRunway.daysUntilNextIncome === 1 ? "" : "s"}`,
+      body: pkg.incomeRunway.estimatedNextIncomeDate
+        ? `${pkg.incomeRunway.sourceName || "Your income"} is estimated around ${dateLabel(pkg.incomeRunway.estimatedNextIncomeDate)}.`
+        : "CLARA could not confirm a reliable next-income date from the available history.",
+      note: `Confidence: ${pkg.incomeRunway.confidence || "none"}.`,
+    });
+  }
+
+  cards.push({
+    eyebrow: "03 / WALLET LIQUIDITY",
+    title: "Spendable money",
+    stat: money(pkg.wallet?.spendableTotal ?? pkg.finance?.spendableTotal),
+    body: `${remainingOrShortfall((pkg.wallet?.spendableTotal ?? pkg.finance?.spendableTotal) - price)} across spendable wallets after this purchase. Largest eligible wallet: ${money(pkg.wallet?.largestEligibleWallet ?? pkg.finance?.largestEligibleBalance)}.`,
+    note: "Protected wallets and wallet-level reservations were excluded.",
+  });
+
+  if (pkg.safety) {
+    cards.push({
+      eyebrow: "04 / SAFE TO SPEND",
+      title: "After protected commitments",
+      stat: signedMoney(pkg.safety.safeToSpendAfterPurchase),
+      body: `${money(pkg.safety.commitmentsBeforeNextIncome)} is reserved for recorded commitments before the next income window.`,
+      note: `Data confidence: ${pkg.safety.dataConfidence}.`,
+    });
+  }
+
+  cards.push({ eyebrow: "05 / BUDGET", ...budgetCard });
+
+  if (pkg.obligations?.connected) {
+    cards.push({
+      eyebrow: "06 / DEBT & OBLIGATIONS",
+      title: pkg.obligations.nearestDueObligation?.title || "Recorded obligations",
+      stat: money(pkg.obligations.totalDueBeforeNextIncome),
+      body: pkg.obligations.dueBeforeNextIncome?.length
+        ? `${pkg.obligations.dueBeforeNextIncome.length} recorded obligation${pkg.obligations.dueBeforeNextIncome.length === 1 ? " is" : "s are"} due inside the current decision window.`
+        : "No recorded debt obligation is due inside the current decision window.",
+      note: `${money(pkg.obligations.alreadyProtectedByBudget)} is linked to matching budget protection.`,
+    });
+  }
+
+  if (pkg.emergencyFund?.configured) {
+    cards.push({
+      eyebrow: "07 / EMERGENCY FUND",
+      title: pkg.emergencyFund.targetComplete ? "Target completed" : "Emergency protection",
+      stat: money(pkg.emergencyFund.savedAmount),
+      body: pkg.emergencyFund.stillRequiredThisCycle > 0
+        ? `${money(pkg.emergencyFund.stillRequiredThisCycle)} remains in the recorded commitment for this cycle.`
+        : "No unfinished emergency fund contribution was detected for this cycle.",
+      note: pkg.emergencyFund.wouldBeAffected ? "This purchase would affect the current commitment." : "The current commitment remains protected.",
+    });
+  }
+
+  if (pkg.savingsGoals?.records?.length) {
+    cards.push({
+      eyebrow: "08 / SAVINGS GOALS",
+      title: pkg.savingsGoals.highestPriorityGoal?.name || "Savings goals",
+      stat: money(pkg.savingsGoals.stillRequiredThisCycle),
+      body: pkg.savingsGoals.stillRequiredThisCycle > 0
+        ? "This is the remaining recorded contribution across active goals for the current cycle."
+        : "No unfinished savings contribution was detected for this cycle.",
+      note: pkg.savingsGoals.wouldBeAffected ? "The purchase may delay recorded goal progress." : "Recorded goal commitments remain protected.",
+    });
+  }
+
+  if (pkg.lifeStage?.hasProfile) {
+    cards.push({
+      eyebrow: "09 / LIFE STAGE",
+      title: pkg.lifeStage.stage || "Current context",
+      stat: pkg.lifeStage.relevance || "neutral",
+      body: pkg.lifeStage.dominantPressures?.length
+        ? `Current pressure: ${pkg.lifeStage.dominantPressures[0]}.`
+        : "No dominant Life Stage pressure was used to change the financial facts.",
+      note: "Life Stage adds context but cannot override verified money data.",
+    });
+  }
+
+  if (pkg.calendar?.connected && (pkg.calendar.eventsBeforeNextIncome?.length || pkg.calendar.unknownCostEvents?.length)) {
+    cards.push({
+      eyebrow: "10 / CALENDAR",
+      title: pkg.calendar.nextRelevantEvent?.title || "Upcoming events",
+      stat: money(pkg.calendar.knownMoneyImpactTotal),
+      body: pkg.calendar.unknownCostEvents?.length
+        ? `${pkg.calendar.unknownCostEvents.length} upcoming event${pkg.calendar.unknownCostEvents.length === 1 ? " has" : "s have"} no recorded cost.`
+        : "Known event costs inside the decision window were included once.",
+      note: `Window basis: ${pkg.calendar.horizonBasis === "next_reliable_income" ? "before next reliable income" : "next 14 days"}.`,
+    });
+  }
+
+  if (pkg.behavior?.recentPatterns?.length) {
+    cards.push({
+      eyebrow: "11 / SPENDING PATTERN",
+      title: "Saved pattern signal",
+      stat: pkg.behavior.repeatedImpulseRisk === "present" ? "Caution" : "Checked",
+      body: pkg.behavior.memorySummary,
+      note: "Behavioral context can increase caution but cannot invent financial facts.",
+    });
+  }
+
+  cards.push({
+    eyebrow: "12 / FINAL CALCULATION",
+    title: "Purchase impact",
+    stat: diagnosis.impact?.formattedValue || signedMoney(pkg.safety?.safeToSpendAfterPurchase),
+    body: diagnosis.impact?.label || "Safe money left after purchase",
+    note: `Purchase amount: ${money(price)}.`,
+  });
+
+  return cards;
 }
 
 export async function diagnoseBuyCheck(flow, context) {
@@ -173,7 +266,20 @@ export async function diagnoseBuyCheck(flow, context) {
     saferMove: explanation.saferMoveExplanation || deterministic.saferMove,
     explanationSource: explanation.source,
   };
-  return { ...result, contextPackage: pkg, cards: buildReportCards(pkg, result) };
+  result.dominantFinding = {
+    ...result.dominantFinding,
+    explanation: result.explanation,
+  };
+  result.summaryCard = {
+    eyebrow: "BUY CHECK",
+    verdict: result.userFacingDecision || result.decision,
+    explanation: result.explanation,
+    impactValue: result.impact?.formattedValue || signedMoney(pkg.safety?.safeToSpendAfterPurchase),
+    impactLabel: result.impact?.label || "Safe money left after purchase",
+    informationLabel: "Why this result?",
+  };
+  const detailCards = buildDetailCards(pkg, result);
+  return { ...result, contextPackage: pkg, detailCards, cards: detailCards };
 }
 
 export {
