@@ -1,0 +1,221 @@
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
+import { useAuth } from "@/context/AuthContext";
+import useFinancialData from "@/hooks/useFinancialData";
+import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";
+import { financeInputClassName } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
+import {
+  INCOME_SOURCE_CATEGORIES,
+  INCOME_SOURCE_STABILITY,
+  getIncomeHubLocalUserId,
+  upsertIncomeSource,
+} from "@/lib/incomeHubRepository";
+
+const DEFAULT_CATEGORY = INCOME_SOURCE_CATEGORIES.includes("Salary")
+  ? "Salary"
+  : INCOME_SOURCE_CATEGORIES[0] || "Other Income";
+
+const DEFAULT_STABILITY = INCOME_SOURCE_STABILITY.includes("Stable")
+  ? "Stable"
+  : INCOME_SOURCE_STABILITY[0] || "Irregular";
+
+const createEmptyForm = () => ({
+  name: "",
+  category: DEFAULT_CATEGORY,
+  stability: DEFAULT_STABILITY,
+});
+
+const createFormFromSource = (source) => ({
+  name: source?.name || "",
+  category: INCOME_SOURCE_CATEGORIES.includes(source?.category) ? source.category : DEFAULT_CATEGORY,
+  stability: INCOME_SOURCE_STABILITY.includes(source?.stability) ? source.stability : DEFAULT_STABILITY,
+});
+
+export default function IncomeSourceCreateModalBase({ open = false, source = null, onClose }) {
+  const { user } = useAuth();
+  const financial = useFinancialData(user);
+  const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
+  const [form, setForm] = useState(createEmptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const isEditing = Boolean(source?.id);
+
+  useEffect(() => {
+    if (!open) return;
+
+    setForm(isEditing ? createFormFromSource(source) : createEmptyForm());
+    setError("");
+  }, [open, isEditing, source]);
+
+  const closeModal = () => {
+    if (saving) return;
+
+    setForm(createEmptyForm());
+    setError("");
+    onClose?.();
+  };
+
+  const refreshFinanceEvents = async () => {
+    if (typeof financial.refreshData === "function") {
+      await financial.refreshData();
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("clara-income-hub-updated"));
+      window.dispatchEvent(new Event("clara-finance-updated"));
+    }
+  };
+
+  const saveSource = async () => {
+    const sourceName = form.name.trim();
+
+    if (!sourceName) {
+      setError("Source name is required.");
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+
+    try {
+      setSaving(true);
+      setError("");
+
+      await upsertIncomeSource(localUserId, {
+        ...(source || {}),
+        id: source?.id,
+        name: sourceName,
+        category: form.category || DEFAULT_CATEGORY,
+        stability: form.stability || DEFAULT_STABILITY,
+        totalMoneyIn: source?.totalMoneyIn ?? source?.total_money_in ?? 0,
+        total_money_in: source?.total_money_in ?? source?.totalMoneyIn ?? 0,
+        totalMoneyOut: source?.totalMoneyOut ?? source?.total_money_out ?? 0,
+        total_money_out: source?.total_money_out ?? source?.totalMoneyOut ?? 0,
+        currentBalance: source?.currentBalance ?? source?.current_balance ?? 0,
+        current_balance: source?.current_balance ?? source?.currentBalance ?? 0,
+        lastActivityAt: isEditing ? source?.lastActivityAt || source?.last_activity_at || timestamp : timestamp,
+        last_activity_at: isEditing ? source?.last_activity_at || source?.lastActivityAt || timestamp : timestamp,
+        createdAt: source?.createdAt || source?.created_at,
+        created_at: source?.created_at || source?.createdAt,
+      });
+
+      await refreshFinanceEvents();
+      setForm(createEmptyForm());
+      onClose?.();
+    } catch (saveError) {
+      console.error("CLARA income source save error:", saveError);
+      setError(isEditing ? "Unable to update source. Please try again." : "Unable to create source. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const modal = (
+    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
+      <div className="relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            saveSource();
+          }}
+          className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible"
+        >
+          <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-[28px] font-black tracking-[-0.04em] text-white">
+                  {isEditing ? "Edit income source" : "Create income source"}
+                </h3>
+                <p className="mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64">
+                  {isEditing ? "Update where this money comes from." : "Add a new place where money comes from."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeModal}
+                className="mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <FinanceField label="Source name" helper={error}>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(event) => {
+                  setForm((prev) => ({ ...prev, name: event.target.value }));
+                  if (error) setError("");
+                }}
+                placeholder="Salary, Online Selling, Freelance, Allowance"
+                className={financeInputClassName}
+                autoFocus
+              />
+            </FinanceField>
+
+            <FinanceField label="Category">
+              <select
+                value={form.category}
+                onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
+                className={financeInputClassName}
+              >
+                {INCOME_SOURCE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </FinanceField>
+
+            <FinanceField label="Stability">
+              <select
+                value={form.stability}
+                onChange={(event) => setForm((prev) => ({ ...prev, stability: event.target.value }))}
+                className={financeInputClassName}
+              >
+                {INCOME_SOURCE_STABILITY.map((stability) => (
+                  <option key={stability} value={stability}>
+                    {stability}
+                  </option>
+                ))}
+              </select>
+            </FinanceField>
+          </div>
+
+          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl">
+            <div className="grid grid-cols-[0.82fr_1.18fr] gap-2.5">
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={saving}
+                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/76 transition hover:bg-white/[0.10] hover:text-white disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)] transition disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {saving ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Source" : "Create Source"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  if (typeof document === "undefined") return modal;
+
+  return createPortal(modal, document.body);
+}

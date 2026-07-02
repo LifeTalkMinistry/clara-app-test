@@ -1,19 +1,64 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import useUserRole from "@/hooks/useUserRole";
 import {
   firstValidNumber,
   getBudgetListTitle,
   getBudgetNeedType,
   getPHMonthKey,
+  getPHMonthRange,
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import {
+  getRecurringBills,
+  getRecurringBudgetItems,
+  getRecurringCashFlowOwnerId,
+  RECURRING_CASH_FLOW_UPDATED_EVENT,
+  resolveIncomeBasedBudgetPeriod,
+} from "@/lib/recurringCashFlowRepository";
+
+function readBudgetRange(header, ownerId) {
+  const explicitStart = header?.cycle_start || header?.budget_cycle_start || header?.period_start || header?.range_start || header?.tracking_start_date;
+  const explicitEnd = header?.cycle_end || header?.budget_cycle_end || header?.period_end || header?.range_end;
+  if (explicitStart && explicitEnd) return { start: explicitStart, end: explicitEnd, source: "budget" };
+
+  const incomePeriod = resolveIncomeBasedBudgetPeriod(ownerId, new Date());
+  if (incomePeriod?.start && incomePeriod?.end) return incomePeriod;
+  return { ...getPHMonthRange(), source: "existing_budget_period" };
+}
 
 export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } = {}) {
+  const { user } = useUserRole() || {};
+  const ownerId = getRecurringCashFlowOwnerId(user);
+  const [recurringTick, setRecurringTick] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const refresh = () => setRecurringTick((current) => current + 1);
+    window.addEventListener(RECURRING_CASH_FLOW_UPDATED_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(RECURRING_CASH_FLOW_UPDATED_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
   return useMemo(() => {
     const currentMonthKey = getPHMonthKey();
+    const safeBudgets = Array.isArray(budgets) ? budgets : [];
     const seen = new Set();
+    const header = safeBudgets.find((budget) => {
+      const isHeader =
+        budget?.is_plan_header === true ||
+        budget?.plan_type === "monthly_budget" ||
+        normalizeLower(budget?.category) === "__monthly_budget__" ||
+        normalizeLower(budget?.budget_category) === "__monthly_budget__" ||
+        normalizeLower(budget?.type) === "monthly_budget";
+      const month = normalizeString(budget?.month || budget?.budget_month || budget?.month_key);
+      return isHeader && (!month || month === currentMonthKey);
+    }) || null;
 
-    return (Array.isArray(budgets) ? budgets : [])
+    const existingOptions = safeBudgets
       .filter((budget) => {
         const month = normalizeString(
           budget?.month || budget?.budget_month || budget?.month_key
@@ -70,7 +115,31 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
         }
         seen.add(signature);
         return true;
-      })
+      });
+
+    const existingTitles = new Set(existingOptions.map((item) => normalizeLower(item.title)));
+    const budgetOriginBillIds = new Set(
+      getRecurringBills(ownerId)
+        .filter((bill) => (bill.createdOrigin || bill.created_origin) === "budget")
+        .filter((bill) => {
+          const sourceMonth = normalizeString(bill.sourceBudgetMonth || bill.source_budget_month);
+          const sourceTitle = normalizeLower(bill.sourceBudgetTitle || bill.source_budget_title || bill.title);
+          return (!sourceMonth || sourceMonth === currentMonthKey) && existingTitles.has(sourceTitle);
+        })
+        .map((bill) => String(bill.id))
+    );
+
+    const period = readBudgetRange(header, ownerId);
+    const recurringOptions = getRecurringBudgetItems({
+      ownerId,
+      budgets: safeBudgets,
+      periodStart: period.start,
+      periodEnd: period.end,
+      budgetId: header?.id || `budget-${currentMonthKey}`,
+      monthKey: currentMonthKey,
+    }).filter((item) => !budgetOriginBillIds.has(String(item.recurring_bill_id || item.recurringBillId)));
+
+    return [...recurringOptions, ...existingOptions]
       .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
-  }, [budgets]);
+  }, [budgets, ownerId, recurringTick]);
 }

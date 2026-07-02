@@ -23,6 +23,32 @@ function getHealthText({ allocated = 0, spent = 0, remaining = 0, safeFmt }) {
   return `${safeFmt(remaining)} left • healthy pace`;
 }
 
+function formatDueDate(value) {
+  if (!value) return "";
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(value);
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+}
+
+function recurringBillSubtitle(item, matchingCategory) {
+  const candidates = [
+    matchingCategory?.budget,
+    matchingCategory,
+    item?.budget,
+    item,
+  ].filter(Boolean);
+  const record = candidates.find(
+    (candidate) =>
+      candidate.isRecurringBillOccurrence === true ||
+      candidate.is_recurring_bill_occurrence === true
+  );
+  if (!record) return "";
+  const dueDate = record.occurrenceDueDate || record.occurrence_due_date;
+  const estimated = record.estimated === true;
+  return `${estimated ? "Estimated" : "Bill"}${dueDate ? ` · Due ${formatDueDate(dueDate)}` : ""} · Auto-added`;
+}
+
 export default function useDashboardManualExpenseBudgetListItems({
   manualExpenseBudgetOptions = [],
   monthlyBudgetPlan = null,
@@ -69,12 +95,13 @@ export default function useDashboardManualExpenseBudgetListItems({
       const allocated = firstValidNumber(matchingCategory?.allocated, item?.allocated);
       const spent = firstValidNumber(matchingCategory?.spent, matchingCategory?.used);
       const remaining = Math.max(firstValidNumber(matchingCategory?.remaining, allocated - spent), 0);
+      const billSubtitle = recurringBillSubtitle(item, matchingCategory);
 
       return {
         key: item.key,
         id: item.id || null,
         title: item.title,
-        subtitle: getHealthText({ allocated, spent, remaining, safeFmt }),
+        subtitle: billSubtitle || getHealthText({ allocated, spent, remaining, safeFmt }),
         tone: getHealthTone({ allocated, spent }),
         allocated,
         spent,
