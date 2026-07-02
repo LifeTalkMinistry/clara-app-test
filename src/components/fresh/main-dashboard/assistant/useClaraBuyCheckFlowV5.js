@@ -17,6 +17,16 @@ import {
   toNumber,
 } from "@/lib/clara-buy-check-budget-intelligence";
 
+function automaticDecisionNote({ choice, diagnosis, item, amount, budgetName }) {
+  const verdict = clean(diagnosis?.userFacingDecision || diagnosis?.decision || "Buy Check result");
+  const reasonCode = clean(diagnosis?.reasonCode || "UNSPECIFIED");
+  if (choice === "not_buy") {
+    return `I decided to wait based on CLARA's ${verdict} result. Reason: ${reasonCode}.`;
+  }
+  const budgetText = budgetName ? ` Covered by ${budgetName}.` : " No budget was linked.";
+  return `${item} — User continued after CLARA's ${verdict} result for ₱${Number(amount || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 })}.${budgetText} Reason: ${reasonCode}.`;
+}
+
 export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
   const base = useClaraBuyCheckBudgetFlow({ assistantContext });
   const [decision, setDecision] = useState(createDecisionState);
@@ -42,28 +52,48 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
 
   const chooseFinalDecision = useCallback((choice) => {
     if (base.state?.step !== "complete" || !["buy", "not_buy"].includes(choice)) return;
-    const defaultWallet = choice === "buy" ? walletOptions.find((wallet) => wallet.enough)?.id || "" : "";
+    const eligibleWallets = walletOptions.filter((wallet) => wallet.enough);
+    const defaultWallet = choice === "buy" && eligibleWallets.length === 1 ? eligibleWallets[0].id : "";
     const sessionId = clean(base.state?.sessionId);
     const item = clean(base.state?.item);
+    const pkg = base.state?.diagnosis?.contextPackage || {};
+    const matchedBudget = pkg.finance?.matchingBudget || pkg.budget?.selectedBudget || null;
+    const diagnosis = base.state?.diagnosis || {};
+    const automaticNote = automaticDecisionNote({
+      choice,
+      diagnosis,
+      item,
+      amount,
+      budgetName: matchedBudget?.title || "",
+    });
 
     if (choice === "not_buy") {
-      setDecision({ ...createDecisionState(), phase: "explain", choice, sessionId, item, amount });
+      setDecision({
+        ...createDecisionState(),
+        phase: "explain",
+        choice,
+        sessionId,
+        item,
+        amount,
+        explanation: automaticNote,
+        autoExplanation: automaticNote,
+        explanationSource: "deterministic",
+        userEdited: false,
+      });
       return;
     }
 
-    const pkg = base.state?.diagnosis?.contextPackage || {};
-    const matchedBudget = pkg.finance?.matchingBudget || null;
-    const budgetAssessment = pkg.finance?.budgetAssessment || base.state?.budgetAssessment || {};
+    const budgetAssessment = pkg.finance?.budgetAssessment || pkg.budget || base.state?.budgetAssessment || {};
     const draftInput = {
       item,
       price: amount,
       summarizedReason: clean(base.state?.reason),
-      recommendation: clean(base.state?.diagnosis?.decision || "PAUSE"),
+      recommendation: clean(diagnosis?.decision || "PAUSE"),
       budget: matchedBudget,
       budgetAssessment,
       assistantContext,
     };
-    const fallback = buildFinalBuyExplanationFallback(draftInput);
+    const fallback = clean(buildFinalBuyExplanationFallback(draftInput)) || automaticNote;
 
     setDecision({
       ...createDecisionState(),
@@ -86,7 +116,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           const stale = current.phase !== "explain" || current.choice !== "buy" || current.sessionId !== sessionId || current.item !== item || toNumber(current.amount) !== amount;
           if (stale) return current;
           if (current.userEdited) return { ...current, generatingExplanation: false };
-          const explanation = clean(result?.explanation) || current.explanation;
+          const explanation = clean(result?.explanation) || current.explanation || automaticNote;
           return {
             ...current,
             explanation,
@@ -97,7 +127,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         });
       })
       .catch((error) => {
-        console.warn("[CLARA Buy Check] Editable expense note refinement failed safely.", error);
+        console.warn("[CLARA Buy Check] Optional expense note refinement failed safely.", error);
         setDecision((current) => current.phase === "explain" && current.choice === "buy" && current.sessionId === sessionId && current.item === item && toNumber(current.amount) === amount
           ? { ...current, generatingExplanation: false }
           : current);
@@ -119,17 +149,8 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       return false;
     }
 
-    const explanation = clean(decision.explanation);
-    if (!explanation) {
-      setDecision((current) => ({
-        ...current,
-        error: current.choice === "buy" ? "Please explain why you will buy it." : "Please explain why you decided not to buy it.",
-      }));
-      return false;
-    }
-
     const pkg = base.state?.diagnosis?.contextPackage || {};
-    const matchedBudget = pkg.finance?.matchingBudget || null;
+    const matchedBudget = pkg.finance?.matchingBudget || pkg.budget?.selectedBudget || null;
     const purchase = {
       item: clean(base.state?.item),
       price: amount,
@@ -140,6 +161,13 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
       budgetName: matchedBudget?.title || "",
     };
     const recommendation = clean(base.state?.diagnosis?.decision || "PAUSE");
+    const explanation = clean(decision.explanation) || automaticDecisionNote({
+      choice: decision.choice,
+      diagnosis: base.state?.diagnosis,
+      item: purchase.item,
+      amount,
+      budgetName: purchase.budgetName,
+    });
     const createdAt = new Date().toISOString();
 
     setDecision((current) => ({ ...current, busy: true, error: "" }));
@@ -158,7 +186,7 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           category: purchase.category,
           wallet_id: wallet.id,
           date: getPHDateString(),
-          notes: `${purchase.item} — ${explanation}`,
+          notes: explanation,
           need_type: normalizeNeedType(`${purchase.reason} ${explanation}`, purchase.category),
           planning_status: planningStatus,
           unplanned_reason: planningStatus === "unplanned" ? `Buy Check decision — ${explanation}` : null,
@@ -177,8 +205,9 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
           source: "buy_check_buy",
           clara_recommendation: recommendation,
           user_action: "buy",
+          override: !["BUY", "BUY WITH CAP"].includes(recommendation),
           explanation,
-          explanation_source: decision.explanationSource || "user",
+          explanation_source: decision.explanationSource || "deterministic",
           wallet_id: wallet.id,
           wallet_name: wallet.name,
           purchase,
@@ -220,8 +249,8 @@ export default function useClaraBuyCheckFlowV5({ assistantContext = {} } = {}) {
         error: "",
         result: {
           choice: "not_buy",
-          title: "Reflection saved",
-          message: "Your decision not to buy was saved so CLARA can remember this pattern.",
+          title: "Decision saved",
+          message: "Your decision to wait was saved so CLARA can remember this pattern.",
         },
       }));
       return true;
