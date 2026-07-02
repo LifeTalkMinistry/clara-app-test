@@ -1,3 +1,1 @@
-import useDailyCheckIn from "./useDailyCheckInCore.js";
-
-export default useDailyCheckIn;
+export { default } from "./useDailyCheckInCore.js";
