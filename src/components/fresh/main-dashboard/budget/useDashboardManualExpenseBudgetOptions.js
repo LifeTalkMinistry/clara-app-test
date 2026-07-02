@@ -10,6 +10,7 @@ import {
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
 import {
+  getRecurringBills,
   getRecurringBudgetItems,
   getRecurringCashFlowOwnerId,
   RECURRING_CASH_FLOW_UPDATED_EVENT,
@@ -116,6 +117,18 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
         return true;
       });
 
+    const existingTitles = new Set(existingOptions.map((item) => normalizeLower(item.title)));
+    const budgetOriginBillIds = new Set(
+      getRecurringBills(ownerId)
+        .filter((bill) => (bill.createdOrigin || bill.created_origin) === "budget")
+        .filter((bill) => {
+          const sourceMonth = normalizeString(bill.sourceBudgetMonth || bill.source_budget_month);
+          const sourceTitle = normalizeLower(bill.sourceBudgetTitle || bill.source_budget_title || bill.title);
+          return (!sourceMonth || sourceMonth === currentMonthKey) && existingTitles.has(sourceTitle);
+        })
+        .map((bill) => String(bill.id))
+    );
+
     const period = readBudgetRange(header, ownerId);
     const recurringOptions = getRecurringBudgetItems({
       ownerId,
@@ -124,7 +137,7 @@ export default function useDashboardManualExpenseBudgetOptions({ budgets = [] } 
       periodEnd: period.end,
       budgetId: header?.id || `budget-${currentMonthKey}`,
       monthKey: currentMonthKey,
-    });
+    }).filter((item) => !budgetOriginBillIds.has(String(item.recurring_bill_id || item.recurringBillId)));
 
     return [...recurringOptions, ...existingOptions]
       .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
