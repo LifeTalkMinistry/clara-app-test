@@ -76,7 +76,7 @@ export default function BuyCheckDetailCarouselCompact({ cards = [], onIndexChang
 
   return (
     <div
-      className="flex min-h-full w-full flex-col justify-center py-4"
+      className="w-full"
       role="region"
       aria-roledescription="carousel"
       aria-label="Buy Check financial report"
