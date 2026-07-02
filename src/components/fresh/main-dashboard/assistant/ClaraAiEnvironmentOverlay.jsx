@@ -1,1 +1,1 @@
-export { default } from "./ClaraAiEnvironmentOverlayV3.jsx";
+export { default } from "./ClaraAiEnvironmentOverlayV2.jsx";
