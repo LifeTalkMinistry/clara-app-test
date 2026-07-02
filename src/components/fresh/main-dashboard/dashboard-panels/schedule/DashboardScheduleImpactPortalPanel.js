@@ -56,7 +56,7 @@ function findOriginalActionButtons(form) {
 
 function showBillValidation(form, message = "") {
   const validation = form?.querySelector("[data-bill-save-validation]");
-  if (validation) validation.textContent = message;
+  if (validation && validation.textContent !== message) validation.textContent = message;
 }
 
 function validateBillDraft(form, draft) {
@@ -116,7 +116,8 @@ function configureBillActions(form) {
 
   const recurrence = controls.querySelector("[data-bill-recurrence]")?.value || "one_time";
   if (primarySave) {
-    primarySave.textContent = recurrence === "one_time" ? "Save bill" : "Save recurring bill";
+    const nextLabel = recurrence === "one_time" ? "Save bill" : "Save recurring bill";
+    if (primarySave.textContent !== nextLabel) primarySave.textContent = nextLabel;
     primarySave.hidden = !isBill;
   }
   if (actionArea) actionArea.hidden = !isBill;
@@ -153,6 +154,17 @@ function markPlannerButtons(pendingBill) {
       button.dataset.recurringBillScheduleSave = "true";
       button.textContent = "Save bill without impact";
     }
+  });
+}
+
+function mutationNeedsEnhancement(mutation) {
+  return [...mutation.addedNodes].some((node) => {
+    if (node.nodeType !== 1) return false;
+    const element = node;
+    return (
+      element.matches?.('form, [role="dialog"], input[placeholder="Schedule title"], input[placeholder="Bill title"]') ||
+      element.querySelector?.('form, [role="dialog"], input[placeholder="Schedule title"], input[placeholder="Bill title"]')
+    );
   });
 }
 
@@ -236,7 +248,15 @@ export default function DashboardScheduleImpactPortalPanel(props) {
       }
     };
 
-    const observer = new MutationObserver(enhance);
+    let scheduled = false;
+    const observer = new MutationObserver((mutations) => {
+      if (!mutations.some(mutationNeedsEnhancement) || scheduled) return;
+      scheduled = true;
+      window.requestAnimationFrame(() => {
+        scheduled = false;
+        enhance();
+      });
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("pointerdown", onPointerDown, true);
     enhance();
