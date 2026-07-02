@@ -38,6 +38,10 @@ export function saveRecurringBillFromBudget({ ownerId, draft, financeForm }) {
   const expectedAmount = cleanRecurringBudgetMoney(financeForm?.totalBudget);
   const dueDate = draft.dueDate || toLocalDateKey(new Date());
   const due = new Date(`${dueDate}T12:00:00`);
+  const customDates = String(draft.customDates || "")
+    .split(/[\s,]+/)
+    .map((value) => toLocalDateKey(value))
+    .filter(Boolean);
   const existingBill = findExistingBill(ownerId, title, draft.billId);
 
   const bill = upsertRecurringBill(ownerId, {
@@ -53,6 +57,7 @@ export function saveRecurringBillFromBudget({ ownerId, draft, financeForm }) {
         startDate: dueDate,
         dayOfWeek: due.getDay(),
         dayOfMonth: due.getDate(),
+        customDates,
       },
       { kind: "bill", fallbackDate: dueDate }
     ),
