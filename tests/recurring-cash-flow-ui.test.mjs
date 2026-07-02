@@ -13,7 +13,7 @@ test("Schedule Bill fields are conditionally hidden for non-Bill categories", as
   assert.match(source, /controls\.hidden = !isBill/);
   assert.match(source, /Expected amount/);
   assert.match(source, /Automatically include in my budget/);
-  assert.match(source, /Check money impact/);
+  assert.match(source, /Check budget impact/);
 });
 
 test("Budget recurrence controls appear only after the item is classified as a Bill", async () => {
