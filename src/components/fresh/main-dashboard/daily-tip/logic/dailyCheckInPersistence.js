@@ -45,11 +45,17 @@ export function writeState(userId, value, reason, todayKey = getLocalDateKey()) 
 
   memoryStateByUser.set(resolvedUserId, state);
   if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent(UPDATE_EVENT, {
-        detail: { userId: resolvedUserId, state, reason },
-      }),
-    );
+    try {
+      window.dispatchEvent(
+        new CustomEvent(UPDATE_EVENT, {
+          detail: { userId: resolvedUserId, state, reason },
+        }),
+      );
+    } catch {
+      console.warn("[CLARA Daily Check-In] Local update notification failed.", {
+        reason,
+      });
+    }
   }
   return { ok: true, state };
 }
@@ -173,7 +179,7 @@ function safeSet(key, value) {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(key, value);
-    return true;
+    return window.localStorage.getItem(key) === value;
   } catch {
     return false;
   }
@@ -183,7 +189,7 @@ function safeRemove(key) {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.removeItem(key);
-    return true;
+    return window.localStorage.getItem(key) === null;
   } catch {
     return false;
   }
