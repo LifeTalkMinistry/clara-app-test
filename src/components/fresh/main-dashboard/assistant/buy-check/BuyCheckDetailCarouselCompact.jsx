@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -76,11 +75,31 @@ export default function BuyCheckDetailCarouselCompact({ cards = [], onIndexChang
   const last = index === items.length - 1;
 
   return (
-    <div role="region" aria-roledescription="carousel" aria-label="Buy Check financial report" tabIndex={0} onKeyDown={(event) => {
-      if (event.key === "ArrowLeft") { event.preventDefault(); goTo(index - 1); }
-      if (event.key === "ArrowRight") { event.preventDefault(); last ? onFinish?.() : goTo(index + 1); }
-    }}>
-      <div ref={trackRef} onScroll={readPosition} className="flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollPaddingInline: 0 }}>
+    <div
+      className="flex min-h-full w-full flex-col justify-center py-4"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Buy Check financial report"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          goTo(index - 1);
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          last ? onFinish?.() : goTo(index + 1);
+        }
+      }}
+    >
+      <span className="sr-only" aria-live="polite">Report {index + 1} of {items.length}</span>
+
+      <div
+        ref={trackRef}
+        onScroll={readPosition}
+        className="flex w-full snap-x snap-mandatory items-center gap-3 overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ scrollPaddingInline: 0 }}
+      >
         {items.map((card, slideIndex) => (
           <article
             key={`${card.eyebrow || "detail"}-${slideIndex}`}
@@ -88,7 +107,7 @@ export default function BuyCheckDetailCarouselCompact({ cards = [], onIndexChang
             role="group"
             aria-roledescription="slide"
             aria-label={`${slideIndex + 1} of ${items.length}: ${card.title || "Buy Check finding"}`}
-            className={`w-full shrink-0 snap-start rounded-[24px] border border-white/[0.08] px-5 py-5 text-left shadow-[0_18px_42px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] ${surfaceFor(card)}`}
+            className={`min-h-[300px] w-full shrink-0 snap-start rounded-[24px] border border-white/[0.08] px-5 py-5 text-left shadow-[0_18px_42px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] ${surfaceFor(card)}`}
           >
             <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-100/56">{card.eyebrow}</p>
             <h3 className="mt-3 max-w-[96%] text-[21px] font-extrabold leading-[1.16] tracking-[-0.025em] text-white/95">{card.title}</h3>
@@ -103,16 +122,6 @@ export default function BuyCheckDetailCarouselCompact({ cards = [], onIndexChang
             </div> : null}
           </article>
         ))}
-      </div>
-
-      <div className="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-3">
-        <button type="button" onClick={() => goTo(index - 1)} disabled={index === 0} aria-label="Previous report card" className="inline-flex min-h-11 items-center gap-1 px-1 text-[11px] font-semibold text-slate-100/76 disabled:opacity-25">
-          <ChevronLeft className="h-4 w-4" /> Previous
-        </button>
-        <span aria-live="polite" className="text-[11px] font-medium tabular-nums text-slate-300/64">{index + 1} of {items.length}</span>
-        <button type="button" onClick={() => last ? onFinish?.() : goTo(index + 1)} aria-label={last ? "Back to Buy Check result" : "Next report card"} className="inline-flex min-h-11 items-center gap-1 px-1 text-[11px] font-semibold text-cyan-100/82">
-          {last ? "Back to result" : "Next"} <ChevronRight className="h-4 w-4" />
-        </button>
       </div>
     </div>
   );
