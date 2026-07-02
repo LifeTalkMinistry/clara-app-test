@@ -4,13 +4,68 @@ const clean = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 
 function actionConfig(decision = "", reasonCode = "") {
   const normalized = clean(decision).toUpperCase();
-  if (["NO_PAYABLE_WALLET", "SCAN_FAILED"].includes(clean(reasonCode).toUpperCase())) return { primary: "Review setup", primaryAction: "open_details", secondary: "Not now", secondaryAction: "not_buy" };
-  if (normalized === "BUY") return { primary: "Buy and log expense", primaryAction: "buy", secondary: "Not now", secondaryAction: "not_buy" };
-  if (normalized === "BUY WITH CAP") return { primary: "Buy within limit", primaryAction: "buy", secondary: "Wait for now", secondaryAction: "not_buy" };
-  if (normalized === "REDUCE") return { primary: "Adjust amount", primaryAction: "edit_amount", secondary: "Continue anyway", secondaryAction: "buy" };
-  if (normalized === "WAIT") return { primary: "Wait for now", primaryAction: "not_buy", secondary: "Continue anyway", secondaryAction: "buy" };
-  if (normalized === "DO NOT BUY") return { primary: "Protect my money", primaryAction: "not_buy", secondary: "Continue anyway", secondaryAction: "buy" };
-  return { primary: "Review setup", primaryAction: "open_details", secondary: "Continue carefully", secondaryAction: "buy" };
+  const normalizedReason = clean(reasonCode).toUpperCase();
+
+  if (["NO_PAYABLE_WALLET", "SCAN_FAILED"].includes(normalizedReason)) {
+    return {
+      primary: "Will not buy yet",
+      primaryAction: "not_buy",
+      secondary: "Buy anyway",
+      secondaryAction: "buy",
+    };
+  }
+
+  if (normalized === "BUY") {
+    return {
+      primary: "Will buy",
+      primaryAction: "buy",
+      secondary: "Will not buy",
+      secondaryAction: "not_buy",
+    };
+  }
+
+  if (normalized === "BUY WITH CAP") {
+    return {
+      primary: "Will buy within limit",
+      primaryAction: "buy",
+      secondary: "Will not buy",
+      secondaryAction: "not_buy",
+    };
+  }
+
+  if (normalized === "REDUCE") {
+    return {
+      primary: "Will reduce amount",
+      primaryAction: "edit_amount",
+      secondary: "Buy anyway",
+      secondaryAction: "buy",
+    };
+  }
+
+  if (normalized === "WAIT") {
+    return {
+      primary: "Will wait for now",
+      primaryAction: "not_buy",
+      secondary: "Buy anyway",
+      secondaryAction: "buy",
+    };
+  }
+
+  if (normalized === "DO NOT BUY") {
+    return {
+      primary: "Will not buy",
+      primaryAction: "not_buy",
+      secondary: "Buy anyway",
+      secondaryAction: "buy",
+    };
+  }
+
+  return {
+    primary: "Will wait for now",
+    primaryAction: "not_buy",
+    secondary: "Buy anyway",
+    secondaryAction: "buy",
+  };
 }
 
 function themeFor(decision = "") {
