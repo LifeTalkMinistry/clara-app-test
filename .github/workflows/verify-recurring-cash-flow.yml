@@ -21,8 +21,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --silent
       - name: Run recurring cash flow tests
         run: node --test tests/recurring-cash-flow-dates.test.mjs tests/recurring-cash-flow-budget.test.mjs
       - name: Build application
-        run: npm run build
+        shell: bash
+        run: |
+          if ! npm run build > recurring-build.log 2>&1; then
+            echo "BUILD_FAILED"
+            tail -80 recurring-build.log
+            exit 1
+          fi
+          tail -20 recurring-build.log
