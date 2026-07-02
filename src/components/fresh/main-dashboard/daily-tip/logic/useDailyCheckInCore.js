@@ -36,8 +36,7 @@ export default function useDailyCheckIn({
     simulationMode ||
     (typeof identityReadyOverride === "boolean"
       ? identityReadyOverride
-      : resolvedUserId !== "guest" &&
-        (!identityMatchesAuth || (authReady && !authLoading)));
+      : Boolean(authReady && !authLoading && resolvedUserId !== "guest"));
   const isTemporaryIdentity =
     typeof temporaryIdentityOverride === "boolean"
       ? temporaryIdentityOverride
