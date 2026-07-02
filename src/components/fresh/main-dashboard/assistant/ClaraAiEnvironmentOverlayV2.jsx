@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
+import BuyCheckDecisionCard from "@/components/fresh/main-dashboard/assistant/buy-check/BuyCheckDecisionCard";
+import BuyCheckEvidencePanel from "@/components/fresh/main-dashboard/assistant/buy-check/BuyCheckEvidencePanel";
 
 const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v3-deterministic";
 const BUY_CHECK_ACKNOWLEDGMENTS = [
@@ -24,16 +26,6 @@ function selectAcknowledgment(previousIndex = -1) {
   let index = Math.floor(Math.random() * BUY_CHECK_ACKNOWLEDGMENTS.length);
   if (BUY_CHECK_ACKNOWLEDGMENTS.length > 1 && index === previousIndex) index = (index + 1) % BUY_CHECK_ACKNOWLEDGMENTS.length;
   return { index, message: BUY_CHECK_ACKNOWLEDGMENTS[index] };
-}
-
-function decisionTheme(decision = "") {
-  const normalized = clean(decision).toUpperCase();
-  if (normalized === "BUY") return { card: "border-emerald-200/20 bg-emerald-300/10", note: "text-emerald-50/90" };
-  if (normalized === "BUY WITH CAP") return { card: "border-cyan-200/20 bg-cyan-300/10", note: "text-cyan-50/90" };
-  if (normalized === "REDUCE") return { card: "border-amber-200/25 bg-amber-300/10", note: "text-amber-50/90" };
-  if (normalized === "WAIT") return { card: "border-orange-200/25 bg-orange-300/10", note: "text-orange-50/90" };
-  if (normalized === "PAUSE") return { card: "border-violet-200/25 bg-violet-300/10", note: "text-violet-50/90" };
-  return { card: "border-white/12 bg-slate-950/24", note: "text-slate-200/80" };
 }
 
 function FloatingCloseButton({ onClose }) {
@@ -62,32 +54,7 @@ function PauseEntryBoard({ onClose, acknowledgmentMessage }) {
   );
 }
 
-function BuyCheckReport({ diagnosis }) {
-  const cards = Array.isArray(diagnosis?.cards) ? diagnosis.cards : [];
-  if (!cards.length) return null;
-  return (
-    <section data-clara-buy-check-react-report="true" className="mt-2 rounded-[28px] border border-cyan-100/15 bg-white/[0.065] px-4 pb-5 pt-5 text-center shadow-[0_22px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">BUY CHECK REPORT</p>
-      <p className="mt-2 text-[11px] font-bold text-slate-300/65">Swipe through the evidence</p>
-      <div className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {cards.map((card, index) => {
-          const theme = card.final ? decisionTheme(card.decision || diagnosis?.decision || card.title) : null;
-          return (
-            <article key={`${card.eyebrow || "card"}-${index}`} className={`min-w-full snap-center rounded-[24px] border px-5 py-5 text-left ${card.final ? theme.card : "border-white/10 bg-slate-950/20"}`}>
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/45">{card.eyebrow}</p>
-              <h3 className="mt-2 text-[21px] font-black leading-tight text-white">{card.title}</h3>
-              <div className="mt-3 inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-black text-slate-100/90">{card.stat}</div>
-              <p className="mt-4 text-[13px] font-bold leading-6 text-slate-100/90">{card.body}</p>
-              <p className={`mt-4 text-[11px] font-black leading-5 ${card.final ? theme.note : "text-slate-300/58"}`}>{card.note}</p>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function FinalDecisionPanel({ finalDecision, walletOptions, item, price, onExplanationChange, onWalletChange, onSave, onCancel }) {
+function FinalDecisionPanel({ finalDecision, walletOptions, item, onExplanationChange, onWalletChange, onSave, onCancel }) {
   if (!finalDecision || !["explain", "resolved"].includes(finalDecision.phase)) return null;
   if (finalDecision.phase === "resolved") {
     return (
@@ -103,8 +70,8 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, price, onExpla
     <section data-clara-buy-check-final-decision-panel={finalDecision.choice} className="rounded-[26px] border border-cyan-100/20 bg-slate-950/95 px-4 py-5 text-left shadow-[0_22px_56px_rgba(0,0,0,0.48)] backdrop-blur-2xl">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/65">YOUR FINAL DECISION</p>
       <h3 className="mt-2 text-[19px] font-black text-white">{isBuy ? `You chose to continue with ${item}` : `You chose not to buy ${item}`}</h3>
-      <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-200/82">{isBuy ? `Tell CLARA why you will continue with this ${money(price)} purchase. Your explanation will be attached to the expense.` : "Tell CLARA why you changed your mind or decided to wait. This reflection will be remembered for future Buy Checks."}</p>
-      <textarea rows={3} value={finalDecision.explanation || ""} onChange={(event) => onExplanationChange?.(event.target.value)} placeholder={isBuy ? "Example: I need it for work because my current one is broken." : "Example: It is not urgent, so I decided to save first."} className="mt-4 w-full resize-none rounded-[18px] border border-white/14 bg-slate-900/95 px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-inner outline-none placeholder:text-slate-400/72 focus:border-cyan-200/40" disabled={finalDecision.busy} />
+      <p className="mt-2 text-[12px] font-semibold leading-5 text-slate-200/82">CLARA already prepared the decision note. You may edit it, but no explanation is required.</p>
+      <textarea rows={3} value={finalDecision.explanation || ""} onChange={(event) => onExplanationChange?.(event.target.value)} placeholder="Optional note" className="mt-4 w-full resize-none rounded-[18px] border border-white/14 bg-slate-900/95 px-4 py-3 text-[13px] font-semibold leading-5 text-white shadow-inner outline-none placeholder:text-slate-400/72 focus:border-cyan-200/40" disabled={finalDecision.busy} />
       {isBuy ? (
         <div className="mt-3">
           <label className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] text-slate-300/72">PAY FROM</label>
@@ -116,30 +83,16 @@ function FinalDecisionPanel({ finalDecision, walletOptions, item, price, onExpla
       ) : null}
       {finalDecision.error ? <p className="mt-3 text-[11px] font-black leading-5 text-rose-200/90" aria-live="polite">{finalDecision.error}</p> : null}
       <div className="mt-4 grid grid-cols-2 gap-2.5">
-        <button type="button" onClick={onSave} disabled={finalDecision.busy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950 disabled:opacity-50">{finalDecision.busy ? "Saving..." : isBuy ? "Log expense" : "Save reflection"}</button>
+        <button type="button" onClick={onSave} disabled={finalDecision.busy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950 disabled:opacity-50">{finalDecision.busy ? "Saving..." : isBuy ? "Log expense" : "Save decision"}</button>
         <button type="button" onClick={onCancel} disabled={finalDecision.busy} className="min-h-11 rounded-full border border-white/15 bg-slate-800/95 px-4 text-[12px] font-black text-white/92 disabled:opacity-50">Back</button>
       </div>
     </section>
   );
 }
 
-function getRecommendationActions(decision = "") {
-  const normalized = clean(decision).toUpperCase();
-  if (normalized === "BUY") return { primary: "Will buy", primaryAction: "buy", secondary: "Not buy", secondaryAction: "not_buy" };
-  if (normalized === "BUY WITH CAP") return { primary: "Buy within cap", primaryAction: "buy", secondary: "Not buy", secondaryAction: "not_buy" };
-  if (normalized === "REDUCE") return { primary: "Adjust amount", primaryAction: "edit", secondary: "Continue at full price", secondaryAction: "buy" };
-  if (normalized === "WAIT") return { primary: "I’ll wait", primaryAction: "not_buy", secondary: "Continue anyway", secondaryAction: "buy" };
-  return { primary: "Review my budget", primaryAction: "not_buy", secondary: "Continue anyway", secondaryAction: "buy" };
-}
-
-function ActionBar({ step, busy, finalDecision, diagnosis, onConfirm, onEditReason, onEdit, onWillBuy, onNotBuy, onCheckAnother, onClose }) {
+function ActionBar({ step, busy, finalDecision, onConfirm, onEditReason, onCheckAnother, onClose }) {
   if (step === "confirm") {
     return <div className="relative z-10 grid grid-cols-2 gap-2.5 px-1 pb-2"><button type="button" onClick={onConfirm} disabled={busy} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950 disabled:opacity-55">Yes</button><button type="button" onClick={onEditReason} disabled={busy} className="min-h-11 rounded-full border border-white/15 bg-slate-900/92 px-4 text-[12px] font-black text-white/92 disabled:opacity-55">No</button></div>;
-  }
-  if (step === "complete" && finalDecision?.phase === "choose") {
-    const actions = getRecommendationActions(diagnosis?.decision);
-    const run = (action) => action === "buy" ? onWillBuy?.() : action === "not_buy" ? onNotBuy?.() : onEdit?.();
-    return <div className="relative z-10 grid grid-cols-2 gap-2.5 px-1 pb-2"><button type="button" onClick={() => run(actions.primaryAction)} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950">{actions.primary}</button><button type="button" onClick={() => run(actions.secondaryAction)} className="min-h-11 rounded-full border border-white/15 bg-slate-900/92 px-4 text-[12px] font-black text-white/92">{actions.secondary}</button></div>;
   }
   if (step === "complete" && finalDecision?.phase === "resolved") {
     return <div className="relative z-10 grid grid-cols-2 gap-2.5 px-1 pb-2"><button type="button" onClick={onCheckAnother} className="min-h-11 rounded-full bg-cyan-300 px-4 text-[12px] font-black text-slate-950">Check another</button><button type="button" onClick={onClose} className="min-h-11 rounded-full border border-white/15 bg-slate-900/92 px-4 text-[12px] font-black text-white/92">Done</button></div>;
@@ -158,6 +111,7 @@ function placeholderFor(step) {
 
 export default function ClaraAiEnvironmentOverlay({ isActive = false, messages = [], claraAssistantContext = {}, buyCheckState = null, onSubmitBuyCheckAnswer, onConfirmBuyCheck, onEditBuyCheck, onCheckAnother, onClose, layoutVariant = "default" }) {
   const [draft, setDraft] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const previousAcknowledgmentIndexRef = useRef(-1);
@@ -178,7 +132,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const submitAnswer = isGuidePreview ? onSubmitBuyCheckAnswer : ownedFlow.submitAnswer;
   const confirmBuyCheck = isGuidePreview ? onConfirmBuyCheck : ownedFlow.confirm;
   const editReason = isGuidePreview ? onEditBuyCheck : ownedFlow.editReason;
-  const editBuyCheck = isGuidePreview ? onEditBuyCheck : ownedFlow.editAnswers;
+  const editAmount = isGuidePreview ? onEditBuyCheck : ownedFlow.editAmount;
   const checkAnother = isGuidePreview ? onCheckAnother : ownedFlow.checkAnother;
   const finalDecision = activeState?.finalDecision;
   const walletOptions = activeState?.walletOptions || [];
@@ -186,6 +140,8 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const step = activeState?.step || "item";
   const busy = Boolean(activeState?.busy || finalDecision?.busy);
   const inputLocked = Boolean(activeState && ["confirm", "diagnosis", "complete"].includes(step));
+
+  useEffect(() => setDetailsOpen(false), [sessionId, isActive]);
 
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
     const selection = selectAcknowledgment(previousAcknowledgmentIndexRef.current);
@@ -205,15 +161,19 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   }, [busy, inputLocked, isActive, step]);
   useEffect(() => {
     if (!isActive) return undefined;
-    const handleEscape = (event) => event.key === "Escape" && onClose?.();
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (detailsOpen) setDetailsOpen(false);
+      else onClose?.();
+    };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isActive, onClose]);
+  }, [detailsOpen, isActive, onClose]);
   useEffect(() => {
-    if (!isActive || !visibleMessages.length) return undefined;
+    if (!isActive || !visibleMessages.length || detailsOpen) return undefined;
     const frame = window.requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }));
     return () => window.cancelAnimationFrame(frame);
-  }, [finalDecision?.phase, isActive, scrollKey, step, visibleMessages.length]);
+  }, [detailsOpen, finalDecision?.phase, isActive, scrollKey, step, visibleMessages.length]);
 
   if (!isActive) return null;
   const submitDraft = (event) => {
@@ -226,7 +186,17 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   };
   const userBubble = isGuidePreview ? "w-fit max-w-[78%] rounded-[22px] bg-emerald-300 px-4 py-2.5 text-[13px] font-semibold leading-5 text-slate-950" : "max-w-[86%] rounded-[24px] bg-emerald-300 px-4 py-3 text-[13px] font-semibold leading-5 text-slate-950";
   const claraBubble = isGuidePreview ? "w-fit max-w-[86%] rounded-[22px] border border-white/10 bg-white/[0.075] px-4 py-3 text-[13.5px] leading-[1.55] text-white/90 backdrop-blur-xl" : "w-[94%] max-w-[94%] rounded-[26px] border border-white/10 bg-white/[0.075] px-4 py-4 text-[13.5px] leading-6 text-white/90 backdrop-blur-xl";
+  const showDecisionCard = step === "complete" && finalDecision?.phase === "choose";
   const showFinalDecisionPanel = Boolean(finalDecision && ["explain", "resolved"].includes(finalDecision.phase));
+  const runDecisionAction = (action) => {
+    if (isGuidePreview) {
+      if (action === "edit_amount") editAmount?.();
+      return;
+    }
+    if (action === "buy") ownedFlow.chooseFinalDecision?.("buy");
+    else if (action === "not_buy") ownedFlow.chooseFinalDecision?.("not_buy");
+    else if (action === "edit_amount") editAmount?.();
+  };
 
   return (
     <div className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/78 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]" data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION} data-clara-ai-layout-variant={layoutVariant} data-clara-pause-overlay="true" data-clara-buy-check-react-owner="true">
@@ -240,23 +210,24 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
               const isUser = message.role === "user";
               return <div key={message.id || `${message.role || "message"}-${index}`} className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}><div className={`min-w-0 break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:break-word] ${isUser ? userBubble : claraBubble}`}><span className="whitespace-pre-wrap">{clean(message.text || message.content || "")}</span></div></div>;
             })}
-            <BuyCheckReport diagnosis={activeState?.diagnosis} />
+            {showDecisionCard ? <BuyCheckDecisionCard diagnosis={activeState?.diagnosis} onOpenDetails={() => setDetailsOpen(true)} onAction={runDecisionAction} /> : null}
             {showFinalDecisionPanel ? (
               <div className="mt-3 border-t border-white/10 pt-3">
-                <FinalDecisionPanel finalDecision={finalDecision} walletOptions={walletOptions} item={activeState?.item || "this purchase"} price={activeState?.price} onExplanationChange={ownedFlow.setDecisionExplanation} onWalletChange={ownedFlow.setDecisionWallet} onSave={ownedFlow.submitFinalDecision} onCancel={ownedFlow.cancelFinalDecision} />
+                <FinalDecisionPanel finalDecision={finalDecision} walletOptions={walletOptions} item={activeState?.item || "this purchase"} onExplanationChange={ownedFlow.setDecisionExplanation} onWalletChange={ownedFlow.setDecisionWallet} onSave={ownedFlow.submitFinalDecision} onCancel={ownedFlow.cancelFinalDecision} />
               </div>
             ) : null}
             <div ref={messagesEndRef} className="h-1 shrink-0" />
           </div>
         ) : <div className="flex min-h-full flex-col justify-center px-1 pb-24 pt-8"><PauseEntryBoard onClose={onClose} acknowledgmentMessage={acknowledgmentSessionRef.current.message || BUY_CHECK_ACKNOWLEDGMENTS[0]} /></div>}
       </main>
-      <ActionBar step={step} busy={busy} finalDecision={finalDecision} diagnosis={activeState?.diagnosis} onConfirm={confirmBuyCheck} onEditReason={editReason} onEdit={editBuyCheck} onWillBuy={() => ownedFlow.chooseFinalDecision?.("buy")} onNotBuy={() => ownedFlow.chooseFinalDecision?.("not_buy")} onCheckAnother={checkAnother} onClose={onClose} />
+      <ActionBar step={step} busy={busy} finalDecision={finalDecision} onConfirm={confirmBuyCheck} onEditReason={editReason} onCheckAnother={checkAnother} onClose={onClose} />
       <form onSubmit={submitDraft} data-clara-buy-check-react-form="true" className="relative z-10 shrink-0 rounded-[28px] border border-white/14 bg-slate-950/95 p-2.5 shadow-[0_-20px_56px_rgba(0,0,0,0.52)] backdrop-blur-2xl">
         <div className="flex items-center gap-2 rounded-[22px] border border-white/12 bg-slate-900/95 px-3 py-2 shadow-inner">
           <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={inputLocked || busy} className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/72 disabled:opacity-55" placeholder={placeholderFor(step)} inputMode={step === "price" ? "decimal" : "text"} aria-label={placeholderFor(step)} />
           <button type="submit" disabled={!draft.trim() || inputLocked || busy} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cyan-300/80 text-slate-950 transition disabled:opacity-45" aria-label="Send Buy Check answer"><ArrowUp className="h-5 w-5" /></button>
         </div>
       </form>
+      <BuyCheckEvidencePanel open={detailsOpen} diagnosis={activeState?.diagnosis} onClose={() => setDetailsOpen(false)} />
     </div>
   );
 }
