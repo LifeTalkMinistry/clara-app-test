@@ -208,16 +208,10 @@ export default function IncomeSourceCreateModal(props) {
     if (!props.open || typeof document === "undefined") return undefined;
     let cancelled = false;
     let firstBudgetTimingDefault = false;
-
-    getIncomeSources(localUserId).then((sources) => {
-      firstBudgetTimingDefault = !(sources || []).some((item) =>
-        (item?.usualIncomeDateEnabled === true || item?.usual_income_date_enabled === true) &&
-        (item?.useForBudgetTiming === true || item?.use_for_budget_timing === true)
-      );
-    }).catch(() => {});
+    let timingDefaultsReady = Boolean(props.source?.id);
 
     const enhance = () => {
-      if (cancelled) return;
+      if (cancelled || !timingDefaultsReady) return;
       const heading = [...document.querySelectorAll("h3")].find((node) => /income source/i.test(node.textContent || ""));
       const form = heading?.closest("form");
       const scroller = form?.querySelector(".overflow-y-auto");
@@ -262,6 +256,21 @@ export default function IncomeSourceCreateModal(props) {
         window.setTimeout(() => persist(), 0);
       }, true);
     };
+
+    getIncomeSources(localUserId)
+      .then((sources) => {
+        firstBudgetTimingDefault = !(sources || []).some((item) =>
+          (item?.usualIncomeDateEnabled === true || item?.usual_income_date_enabled === true) &&
+          (item?.useForBudgetTiming === true || item?.use_for_budget_timing === true)
+        );
+        timingDefaultsReady = true;
+        enhance();
+      })
+      .catch(() => {
+        firstBudgetTimingDefault = !props.source?.id;
+        timingDefaultsReady = true;
+        enhance();
+      });
 
     const observer = new MutationObserver(enhance);
     observer.observe(document.body, { childList: true, subtree: true });
