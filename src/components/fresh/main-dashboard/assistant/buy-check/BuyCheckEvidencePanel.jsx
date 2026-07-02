@@ -5,7 +5,7 @@ export default function BuyCheckEvidencePanel({ open = false, diagnosis, onClose
   if (!open) return null;
   const cards = diagnosis?.detailCards || diagnosis?.cards || [];
   return (
-    <section data-clara-buy-check-details-sheet="true" className="absolute inset-0 z-[100] flex flex-col overflow-hidden bg-slate-950 px-3 pb-[max(env(safe-area-inset-bottom),16px)] pt-[max(env(safe-area-inset-top),18px)] text-white">
+    <section data-clara-buy-check-details-sheet="true" className="fixed inset-0 z-[400] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950 px-3 pb-[max(env(safe-area-inset-bottom),16px)] pt-[max(env(safe-area-inset-top),18px)] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(45,212,191,0.18),transparent_34%),radial-gradient(circle_at_88%_10%,rgba(124,58,237,0.24),transparent_40%),linear-gradient(180deg,#020617_0%,#020617_100%)]" />
       <header className="relative z-10 flex shrink-0 items-start justify-between gap-3 px-2 pb-5 pt-2">
         <div>
