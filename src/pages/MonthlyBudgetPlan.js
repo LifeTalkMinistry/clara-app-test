@@ -1,1 +1,1 @@
-// recurring budget wrapper placeholder
+export { default } from "./MonthlyBudgetPlan.jsx";
