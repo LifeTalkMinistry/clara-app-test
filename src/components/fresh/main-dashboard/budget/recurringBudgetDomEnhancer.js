@@ -8,6 +8,7 @@ export function createDefaultRecurringBudgetDraft() {
     makeRecurringBill: false,
     dueDate: toLocalDateKey(new Date()),
     recurrence: "monthly",
+    customDates: "",
     amountType: "fixed",
     autoIncludeInBudget: true,
   };
@@ -15,12 +16,14 @@ export function createDefaultRecurringBudgetDraft() {
 
 export function recurringBillToDraft(bill) {
   if (!bill) return createDefaultRecurringBudgetDraft();
+  const recurrence = bill.recurrence || bill.recurrence_rule || {};
   return {
     itemType: "bill",
     makeRecurringBill: true,
     billId: bill.id,
     dueDate: bill.dueDate || bill.due_date || toLocalDateKey(new Date()),
-    recurrence: bill.recurrence?.type || bill.recurrence_rule?.type || "monthly",
+    recurrence: recurrence.type || "monthly",
+    customDates: (recurrence.customDates || recurrence.custom_dates || []).join(", "),
     amountType: bill.amountType || bill.amount_type || "fixed",
     autoIncludeInBudget: bill.autoIncludeInBudget === true || bill.auto_include_in_budget === true,
   };
@@ -109,6 +112,13 @@ export function installRecurringBudgetControls(group, draftRef) {
     ["monthly", "Monthly"],
     ["custom", "Custom"],
   ], initial.recurrence);
+  const customDates = createInput("text", initial.customDates);
+  customDates.placeholder = "2026-07-16, 2026-08-16";
+  const customDatesField = createField(
+    "Custom dates",
+    customDates,
+    "Use YYYY-MM-DD separated by commas."
+  );
   const amountType = createSelect([
     ["fixed", "Fixed"],
     ["variable", "May change"],
@@ -122,6 +132,7 @@ export function installRecurringBudgetControls(group, draftRef) {
   details.append(
     createField("Usual due date", dueDate),
     createField("Recurrence", recurrence),
+    customDatesField,
     createField("Amount type", amountType),
     autoInclude.wrapper
   );
@@ -135,18 +146,20 @@ export function installRecurringBudgetControls(group, draftRef) {
     const billSelected = itemType.value === "bill";
     recurringToggle.wrapper.hidden = !billSelected;
     details.hidden = !billSelected || !recurringToggle.input.checked;
+    customDatesField.hidden = recurrence.value !== "custom";
     draftRef.current = {
       ...(draftRef.current || {}),
       itemType: itemType.value,
       makeRecurringBill: billSelected && recurringToggle.input.checked,
       dueDate: dueDate.value || toLocalDateKey(new Date()),
       recurrence: recurrence.value,
+      customDates: customDates.value,
       amountType: amountType.value,
       autoIncludeInBudget: autoInclude.input.checked,
     };
   };
 
-  [itemType, recurringToggle.input, dueDate, recurrence, amountType, autoInclude.input].forEach((control) => {
+  [itemType, recurringToggle.input, dueDate, recurrence, customDates, amountType, autoInclude.input].forEach((control) => {
     control.addEventListener("change", syncDraft);
     control.addEventListener("input", syncDraft);
   });
