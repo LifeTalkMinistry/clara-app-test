@@ -23,7 +23,7 @@ jobs:
           cache: npm
       - run: npm ci --silent
       - name: Run recurring cash flow tests
-        run: node --test tests/recurring-cash-flow-dates.test.mjs tests/recurring-cash-flow-budget.test.mjs
+        run: node --test tests/recurring-cash-flow-dates.test.mjs tests/recurring-cash-flow-budget.test.mjs tests/recurring-cash-flow-ui.test.mjs
       - name: Build application
         shell: bash
         run: |
