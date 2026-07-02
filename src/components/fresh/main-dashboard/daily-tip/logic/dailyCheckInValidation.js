@@ -1,21 +1,23 @@
-import { addLocalDays, compareDateKeys, getLocalDateKey } from "@/lib/challenge-schedule";
-import { createBubble, higherPriorityBubble } from "./dailyCheckInBubbles";
-import { normalizeState } from "./dailyCheckInState";
+import { addLocalDays, getLocalDateKey } from "../../../../../lib/challenge-schedule.js";
+import { createBubble, higherPriorityBubble } from "./dailyCheckInBubbles.js";
+import { calculateStreakEndingAtDate } from "./dailyCheckInEngine.js";
+import { normalizeState } from "./dailyCheckInState.js";
 
 export function validateState(value, userId, todayKey) {
   const state = normalizeState(value, userId, todayKey);
-  if (!state.lastCheckInDate) return { state, changed: false, reason: "validation" };
+  const latestCompletedDate = state.lastCheckInDate;
+  if (!latestCompletedDate) return { state, changed: false, reason: "validation" };
 
   const yesterdayKey = addLocalDays(todayKey, -1);
-  if (
-    state.completedDates.includes(todayKey) ||
-    state.completedDates.includes(yesterdayKey) ||
-    compareDateKeys(state.lastCheckInDate, todayKey) > 0
-  ) {
+  if (state.completedDates.includes(todayKey) || state.completedDates.includes(yesterdayKey)) {
     return { state, changed: false, reason: "validation" };
   }
 
-  const previousStreak = Math.max(0, state.currentStreak);
+  if (state.lastResetForDate === latestCompletedDate) {
+    return { state, changed: false, reason: "validation" };
+  }
+
+  const previousStreak = calculateStreakEndingAtDate(state.completedDates, latestCompletedDate);
   const resetBubble = previousStreak > 0
     ? createBubble("streak_reset", previousStreak, todayKey)
     : null;
@@ -27,11 +29,9 @@ export function validateState(value, userId, todayKey) {
     state: normalizeState(
       {
         ...state,
-        currentStreak: 0,
         longestStreak: Math.max(state.longestStreak, previousStreak),
-        cycleStartedAt: null,
-        lastCheckInDate: null,
         lastResetAt: nowIso,
+        lastResetForDate: latestCompletedDate,
         pendingBubble: higherPriorityBubble(state.pendingBubble, resetBubble),
         updatedAt: nowIso,
       },

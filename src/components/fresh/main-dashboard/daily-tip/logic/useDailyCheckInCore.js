@@ -1,40 +1,60 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addLocalDays, getLocalDateKey } from "@/lib/challenge-schedule";
-import {
-  createBubble,
-  higherPriorityBubble,
-  selectMilestone,
-} from "./dailyCheckInBubbles";
-import { calculateActiveStreak, normalizeDates } from "./dailyCheckInEngine";
+import { useAuth } from "@/context/AuthContext";
+import { getLocalDateKey } from "../../../../../lib/challenge-schedule.js";
+import { performDailyCheckIn, buildResult } from "./dailyCheckInActions.js";
+import { deriveChallengeMetrics } from "./dailyCheckInEngine.js";
 import {
   LEGACY_KEY,
   UPDATE_EVENT,
   loadState,
+  migrateSessionIdentityState,
   storageKey,
   writeState,
-} from "./dailyCheckInPersistence";
+} from "./dailyCheckInPersistence.js";
 import {
   createEmptyState,
   createSimulationState,
   normalizeState,
   normalizeUserId,
-} from "./dailyCheckInState";
+} from "./dailyCheckInState.js";
 import {
   millisecondsUntilNextManilaMidnight,
   validateState,
-} from "./dailyCheckInValidation";
+} from "./dailyCheckInValidation.js";
 
-const MAX_VISIBLE_DAYS = 30;
-
-export default function useDailyCheckIn({ userId = "guest", simulationMode = false } = {}) {
+export default function useDailyCheckIn({
+  userId = "guest",
+  simulationMode = false,
+  identityReady: identityReadyOverride,
+  isTemporaryIdentity: temporaryIdentityOverride,
+} = {}) {
+  const { user: authUser, profile, loading: authLoading, authReady } = useAuth();
   const resolvedUserId = normalizeUserId(userId);
+  const authUserId = authUser?.id ? normalizeUserId(authUser.id) : null;
+  const identityMatchesAuth = Boolean(authUserId && authUserId === resolvedUserId);
+  const identityReady =
+    simulationMode ||
+    (typeof identityReadyOverride === "boolean"
+      ? identityReadyOverride
+      : Boolean(authReady && !authLoading && resolvedUserId !== "guest"));
+  const isTemporaryIdentity =
+    typeof temporaryIdentityOverride === "boolean"
+      ? temporaryIdentityOverride
+      : resolvedUserId === "guest" ||
+        (identityMatchesAuth &&
+          resolvedUserId === "local-dev-user" &&
+          profile?.enrollment_source === "local_auth_fallback");
   const [todayKey, setTodayKey] = useState(() => getLocalDateKey());
-  const [checkInState, setCheckInState] = useState(() =>
-    simulationMode
-      ? createSimulationState(resolvedUserId, getLocalDateKey())
-      : loadState(resolvedUserId, getLocalDateKey()),
-  );
+  const [checkInState, setCheckInState] = useState(() => {
+    const initialTodayKey = getLocalDateKey();
+    if (simulationMode) return createSimulationState(resolvedUserId, initialTodayKey);
+    if (!identityReady) return createEmptyState(resolvedUserId);
+    return loadState(resolvedUserId, initialTodayKey);
+  });
   const checkInLockRef = useRef(false);
+  const temporaryIdentityIdsRef = useRef(
+    new Set(isTemporaryIdentity || !identityReady ? [resolvedUserId] : []),
+  );
 
   const validateStreak = useCallback(() => {
     const freshTodayKey = getLocalDateKey();
@@ -46,25 +66,68 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
       return nextSimulationState;
     }
 
+    if (!identityReady) {
+      const unavailableState = createEmptyState(resolvedUserId);
+      setCheckInState(unavailableState);
+      return unavailableState;
+    }
+
     const latestState = loadState(resolvedUserId, freshTodayKey);
     const validation = validateState(latestState, resolvedUserId, freshTodayKey);
-    const nextState = validation.changed
-      ? writeState(resolvedUserId, validation.state, validation.reason)
-      : validation.state;
+    if (!validation.changed) {
+      setCheckInState(validation.state);
+      return validation.state;
+    }
 
+    const writeResult = writeState(
+      resolvedUserId,
+      validation.state,
+      validation.reason,
+      freshTodayKey,
+    );
+    const nextState = writeResult.ok ? writeResult.state : latestState;
     setCheckInState(nextState);
     return nextState;
-  }, [resolvedUserId, simulationMode]);
+  }, [identityReady, resolvedUserId, simulationMode]);
 
   useEffect(() => {
+    const freshTodayKey = getLocalDateKey();
+    setTodayKey(freshTodayKey);
+
     if (simulationMode) {
-      const freshTodayKey = getLocalDateKey();
-      setTodayKey(freshTodayKey);
       setCheckInState(createSimulationState(resolvedUserId, freshTodayKey));
       return undefined;
     }
 
+    if (isTemporaryIdentity || !identityReady) {
+      temporaryIdentityIdsRef.current.add(resolvedUserId);
+    }
+
+    if (!identityReady) {
+      setCheckInState(createEmptyState(resolvedUserId));
+      return undefined;
+    }
+
+    if (!isTemporaryIdentity) {
+      for (const sourceUserId of [...temporaryIdentityIdsRef.current]) {
+        if (sourceUserId === resolvedUserId) {
+          temporaryIdentityIdsRef.current.delete(sourceUserId);
+          continue;
+        }
+
+        const migrationResult = migrateSessionIdentityState(
+          sourceUserId,
+          resolvedUserId,
+          freshTodayKey,
+        );
+        if (migrationResult.ok) {
+          temporaryIdentityIdsRef.current.delete(sourceUserId);
+        }
+      }
+    }
+
     validateStreak();
+
     if (typeof window === "undefined") return undefined;
 
     let midnightTimer = null;
@@ -79,14 +142,22 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
       if (document.visibilityState === "visible") validateStreak();
     };
     const handleStorage = (event) => {
-      if (event.key && event.key !== storageKey(resolvedUserId) && event.key !== LEGACY_KEY) return;
+      if (
+        event.key &&
+        event.key !== storageKey(resolvedUserId) &&
+        event.key !== LEGACY_KEY
+      ) {
+        return;
+      }
       validateStreak();
     };
     const handleLocalUpdate = (event) => {
       if (normalizeUserId(event?.detail?.userId) !== resolvedUserId) return;
-      const freshTodayKey = getLocalDateKey();
-      setTodayKey(freshTodayKey);
-      setCheckInState(normalizeState(event.detail.state, resolvedUserId, freshTodayKey));
+      const eventTodayKey = getLocalDateKey();
+      setTodayKey(eventTodayKey);
+      setCheckInState(
+        normalizeState(event.detail.state, resolvedUserId, eventTodayKey),
+      );
     };
 
     scheduleMidnightValidation();
@@ -102,7 +173,13 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
       window.removeEventListener(UPDATE_EVENT, handleLocalUpdate);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [resolvedUserId, simulationMode, validateStreak]);
+  }, [
+    identityReady,
+    isTemporaryIdentity,
+    resolvedUserId,
+    simulationMode,
+    validateStreak,
+  ]);
 
   const checkInToday = useCallback(() => {
     const freshTodayKey = getLocalDateKey();
@@ -112,6 +189,13 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
       const nextState = createSimulationState(resolvedUserId, freshTodayKey, true);
       setCheckInState(nextState);
       return buildResult("completed", nextState);
+    }
+
+    if (!identityReady) {
+      return buildResult(
+        "identity_unavailable",
+        createEmptyState(resolvedUserId),
+      );
     }
 
     if (checkInLockRef.current) {
@@ -126,65 +210,34 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
     try {
       const latestState = loadState(resolvedUserId, freshTodayKey);
       const validation = validateState(latestState, resolvedUserId, freshTodayKey);
-      const baseState = validation.state;
-
-      if (baseState.completedDates.includes(freshTodayKey)) {
-        const existingState = validation.changed
-          ? writeState(resolvedUserId, baseState, validation.reason)
-          : baseState;
-        setCheckInState(existingState);
-        return buildResult("already_checked_in", existingState);
-      }
-
-      const completedDates = normalizeDates([...baseState.completedDates, freshTodayKey]);
-      const nextStreak = Math.max(1, calculateActiveStreak(completedDates, freshTodayKey));
-      const previousLongest = baseState.longestStreak;
-      const milestoneType = selectMilestone({
-        nextStreak,
-        previousLongest,
-        completedThirtyDays: baseState.completedThirtyDays,
-        hasResetHistory: Boolean(baseState.lastResetAt),
+      const result = performDailyCheckIn({
+        value: validation.state,
+        userId: resolvedUserId,
+        todayKey: freshTodayKey,
+        persist: (nextState) =>
+          writeState(resolvedUserId, nextState, "check_in", freshTodayKey),
       });
-      const milestoneBubble = milestoneType
-        ? createBubble(milestoneType, nextStreak, freshTodayKey)
-        : null;
-      const nowIso = new Date().toISOString();
-      const nextState = normalizeState(
-        {
-          ...baseState,
-          currentStreak: nextStreak,
-          longestStreak: Math.max(previousLongest, nextStreak),
-          lifetimeCheckIns: completedDates.length,
-          cycleStartedAt: addLocalDays(freshTodayKey, -(nextStreak - 1)),
-          lastCheckInDate: freshTodayKey,
-          completedDates,
-          completedThirtyDays: baseState.completedThirtyDays || nextStreak >= 30,
-          completedThirtyDaysAt:
-            nextStreak >= 30 && !baseState.completedThirtyDaysAt
-              ? nowIso
-              : baseState.completedThirtyDaysAt,
-          pendingBubble: higherPriorityBubble(baseState.pendingBubble, milestoneBubble),
-          updatedAt: nowIso,
-        },
-        resolvedUserId,
-        freshTodayKey,
-      );
-      const writtenState = writeState(resolvedUserId, nextState, "check_in");
-      setCheckInState(writtenState);
-      return buildResult("completed", writtenState, milestoneType, milestoneBubble);
+
+      if (result.status === "completed" || result.status === "already_checked_in") {
+        setCheckInState(result.state);
+      } else if (result.status === "storage_error") {
+        setCheckInState(latestState);
+      }
+      return result;
     } finally {
       checkInLockRef.current = false;
     }
-  }, [checkInState, resolvedUserId, simulationMode]);
+  }, [checkInState, identityReady, resolvedUserId, simulationMode]);
 
   const dismissPendingBubble = useCallback(
     (eventId = null) => {
-      if (simulationMode) return;
-      const latestState = loadState(resolvedUserId, getLocalDateKey());
+      if (simulationMode || !identityReady) return;
+      const freshTodayKey = getLocalDateKey();
+      const latestState = loadState(resolvedUserId, freshTodayKey);
       if (!latestState.pendingBubble) return;
       if (eventId && latestState.pendingBubble.id !== eventId) return;
 
-      const nextState = writeState(
+      const writeResult = writeState(
         resolvedUserId,
         {
           ...latestState,
@@ -192,10 +245,11 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
           updatedAt: new Date().toISOString(),
         },
         "bubble_dismissed",
+        freshTodayKey,
       );
-      setCheckInState(nextState);
+      if (writeResult.ok) setCheckInState(writeResult.state);
     },
-    [resolvedUserId, simulationMode],
+    [identityReady, resolvedUserId, simulationMode],
   );
 
   const displayState = useMemo(
@@ -205,14 +259,8 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
         : createEmptyState(resolvedUserId),
     [checkInState, resolvedUserId, todayKey],
   );
-  const checkedInToday = displayState.completedDates.includes(todayKey);
-  const challengeProgress = Math.min(displayState.currentStreak, MAX_VISIBLE_DAYS);
-  const challengeDay =
-    displayState.currentStreak >= MAX_VISIBLE_DAYS
-      ? MAX_VISIBLE_DAYS
-      : checkedInToday
-        ? Math.max(1, displayState.currentStreak)
-        : Math.min(MAX_VISIBLE_DAYS, displayState.currentStreak + 1);
+  const { checkedInToday, challengeProgress, challengeDay } =
+    deriveChallengeMetrics(displayState, todayKey);
 
   return {
     todayKey,
@@ -229,16 +277,5 @@ export default function useDailyCheckIn({ userId = "guest", simulationMode = fal
     checkInToday,
     dismissPendingBubble,
     validateStreak,
-  };
-}
-
-function buildResult(status, state, milestoneType = null, bubbleEvent = null) {
-  return {
-    status,
-    currentStreak: state.currentStreak,
-    longestStreak: state.longestStreak,
-    milestoneType,
-    bubbleEvent,
-    state,
   };
 }
