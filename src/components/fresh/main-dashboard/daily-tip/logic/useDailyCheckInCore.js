@@ -53,10 +53,9 @@ export default function useDailyCheckIn({
     return loadState(resolvedUserId, initialTodayKey);
   });
   const checkInLockRef = useRef(false);
-  const previousIdentityRef = useRef({
-    userId: resolvedUserId,
-    temporary: Boolean(isTemporaryIdentity || !identityReady),
-  });
+  const temporaryIdentityIdsRef = useRef(
+    new Set(isTemporaryIdentity || !identityReady ? [resolvedUserId] : []),
+  );
 
   const validateStreak = useCallback(() => {
     const freshTodayKey = getLocalDateKey();
@@ -97,40 +96,37 @@ export default function useDailyCheckIn({
     setTodayKey(freshTodayKey);
 
     if (simulationMode) {
-      previousIdentityRef.current = {
-        userId: resolvedUserId,
-        temporary: Boolean(isTemporaryIdentity),
-      };
       setCheckInState(createSimulationState(resolvedUserId, freshTodayKey));
       return undefined;
     }
 
-    const previousIdentity = previousIdentityRef.current;
+    if (isTemporaryIdentity || !identityReady) {
+      temporaryIdentityIdsRef.current.add(resolvedUserId);
+    }
+
     if (!identityReady) {
-      previousIdentityRef.current = { userId: resolvedUserId, temporary: true };
       setCheckInState(createEmptyState(resolvedUserId));
       return undefined;
     }
 
-    if (
-      previousIdentity.temporary &&
-      !isTemporaryIdentity &&
-      previousIdentity.userId !== resolvedUserId
-    ) {
-      const migrationResult = migrateSessionIdentityState(
-        previousIdentity.userId,
-        resolvedUserId,
-        freshTodayKey,
-      );
-      if (migrationResult.ok && migrationResult.migrated) {
-        setCheckInState(migrationResult.state);
+    if (!isTemporaryIdentity) {
+      for (const sourceUserId of [...temporaryIdentityIdsRef.current]) {
+        if (sourceUserId === resolvedUserId) {
+          temporaryIdentityIdsRef.current.delete(sourceUserId);
+          continue;
+        }
+
+        const migrationResult = migrateSessionIdentityState(
+          sourceUserId,
+          resolvedUserId,
+          freshTodayKey,
+        );
+        if (migrationResult.ok) {
+          temporaryIdentityIdsRef.current.delete(sourceUserId);
+        }
       }
     }
 
-    previousIdentityRef.current = {
-      userId: resolvedUserId,
-      temporary: Boolean(isTemporaryIdentity),
-    };
     validateStreak();
 
     if (typeof window === "undefined") return undefined;
