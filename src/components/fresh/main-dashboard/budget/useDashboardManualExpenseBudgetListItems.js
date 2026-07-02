@@ -32,9 +32,18 @@ function formatDueDate(value) {
 }
 
 function recurringBillSubtitle(item, matchingCategory) {
-  const record = matchingCategory?.budget || matchingCategory || item?.budget || item || {};
-  const recurring = record.isRecurringBillOccurrence === true || record.is_recurring_bill_occurrence === true;
-  if (!recurring) return "";
+  const candidates = [
+    matchingCategory?.budget,
+    matchingCategory,
+    item?.budget,
+    item,
+  ].filter(Boolean);
+  const record = candidates.find(
+    (candidate) =>
+      candidate.isRecurringBillOccurrence === true ||
+      candidate.is_recurring_bill_occurrence === true
+  );
+  if (!record) return "";
   const dueDate = record.occurrenceDueDate || record.occurrence_due_date;
   const estimated = record.estimated === true;
   return `${estimated ? "Estimated" : "Bill"}${dueDate ? ` · Due ${formatDueDate(dueDate)}` : ""} · Auto-added`;
