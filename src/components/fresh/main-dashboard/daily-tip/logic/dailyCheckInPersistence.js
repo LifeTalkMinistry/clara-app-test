@@ -1,11 +1,7 @@
-import { addLocalDays, getLocalDateKey } from "@/lib/challenge-schedule";
-import {
-  calculateActiveStreak,
-  calculateLongestStreak,
-  isDateKey,
-  normalizeDates,
-} from "./dailyCheckInEngine";
-import { createEmptyState, normalizeState, normalizeUserId } from "./dailyCheckInState";
+import { getLocalDateKey } from "../../../../../lib/challenge-schedule.js";
+import { higherPriorityBubble } from "./dailyCheckInBubbles.js";
+import { normalizeDates } from "./dailyCheckInEngine.js";
+import { createEmptyState, normalizeState, normalizeUserId } from "./dailyCheckInState.js";
 
 export const LEGACY_KEY = "clara_daily_check_in_v1";
 export const UPDATE_EVENT = "clara:daily-check-in-updated";
@@ -37,12 +33,17 @@ export function loadState(userId, todayKey) {
   return emptyState;
 }
 
-export function writeState(userId, value, reason) {
+export function writeState(userId, value, reason, todayKey = getLocalDateKey()) {
   const resolvedUserId = normalizeUserId(userId);
-  const state = normalizeState(value, resolvedUserId, getLocalDateKey());
-  memoryStateByUser.set(resolvedUserId, state);
-  safeSet(storageKey(resolvedUserId), JSON.stringify(state));
+  const state = normalizeState(value, resolvedUserId, todayKey);
+  const persisted = safeSet(storageKey(resolvedUserId), JSON.stringify(state));
 
+  if (!persisted) {
+    console.error("[CLARA Daily Check-In] Local persistence failed.", { reason });
+    return { ok: false, state };
+  }
+
+  memoryStateByUser.set(resolvedUserId, state);
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent(UPDATE_EVENT, {
@@ -50,7 +51,75 @@ export function writeState(userId, value, reason) {
       }),
     );
   }
-  return state;
+  return { ok: true, state };
+}
+
+export function migrateSessionIdentityState(sourceUserId, destinationUserId, todayKey) {
+  const sourceId = normalizeUserId(sourceUserId);
+  const destinationId = normalizeUserId(destinationUserId);
+  const destinationState = loadState(destinationId, todayKey);
+
+  if (sourceId === destinationId || destinationId === "guest") {
+    return { ok: true, migrated: false, state: destinationState };
+  }
+
+  const sourceRaw = safeParse(safeGet(storageKey(sourceId)));
+  if (!sourceRaw) {
+    return { ok: true, migrated: false, state: destinationState };
+  }
+
+  const sourceState = normalizeState(sourceRaw, sourceId, todayKey);
+  const completedDates = normalizeDates(
+    [...destinationState.completedDates, ...sourceState.completedDates],
+    todayKey,
+  );
+  const mergedState = normalizeState(
+    {
+      ...destinationState,
+      completedDates,
+      longestStreak: Math.max(
+        destinationState.longestStreak,
+        sourceState.longestStreak,
+      ),
+      lifetimeCheckIns: Math.max(
+        completedDates.length,
+        destinationState.lifetimeCheckIns,
+        sourceState.lifetimeCheckIns,
+      ),
+      completedThirtyDays:
+        destinationState.completedThirtyDays || sourceState.completedThirtyDays,
+      completedThirtyDaysAt:
+        destinationState.completedThirtyDaysAt || sourceState.completedThirtyDaysAt,
+      lastResetAt: latestIso(destinationState.lastResetAt, sourceState.lastResetAt),
+      lastResetForDate:
+        destinationState.lastResetForDate || sourceState.lastResetForDate,
+      pendingBubble: higherPriorityBubble(
+        destinationState.pendingBubble,
+        sourceState.pendingBubble,
+      ),
+      updatedAt: new Date().toISOString(),
+    },
+    destinationId,
+    todayKey,
+  );
+
+  const writeResult = writeState(
+    destinationId,
+    mergedState,
+    "identity_migration",
+    todayKey,
+  );
+  if (!writeResult.ok) {
+    return { ok: false, migrated: false, state: destinationState };
+  }
+
+  if (!safeRemove(storageKey(sourceId))) {
+    console.error("[CLARA Daily Check-In] Temporary identity cleanup failed.");
+  } else {
+    memoryStateByUser.delete(sourceId);
+  }
+
+  return { ok: true, migrated: true, state: writeResult.state };
 }
 
 function migrateLegacyState(userId, todayKey) {
@@ -61,46 +130,34 @@ function migrateLegacyState(userId, todayKey) {
   const legacyState = safeParse(safeGet(LEGACY_KEY));
   if (!legacyState) return null;
 
-  const completedDates = normalizeDates(legacyState.completedDates);
-  const currentStreak = calculateActiveStreak(completedDates, todayKey);
-  const longestStreak = calculateLongestStreak(completedDates);
-  const latestDate = completedDates[completedDates.length - 1] || null;
-  const lastCheckInDate = currentStreak > 0
-    ? isDateKey(legacyState.lastCheckInDate)
-      ? legacyState.lastCheckInDate
-      : latestDate
-    : null;
   const migratedState = normalizeState(
     {
+      ...legacyState,
       ...createEmptyState(userId),
-      currentStreak,
-      longestStreak,
-      lifetimeCheckIns: completedDates.length,
-      cycleStartedAt:
-        currentStreak > 0 && lastCheckInDate
-          ? addLocalDays(lastCheckInDate, -(currentStreak - 1))
-          : null,
-      lastCheckInDate,
-      completedDates,
-      completedThirtyDays: longestStreak >= 30,
+      completedDates: legacyState.completedDates,
+      lastCheckInDate: legacyState.lastCheckInDate,
+      longestStreak: legacyState.longestStreak,
+      lifetimeCheckIns: legacyState.lifetimeCheckIns,
+      completedThirtyDays: legacyState.completedThirtyDays,
+      completedThirtyDaysAt: legacyState.completedThirtyDaysAt,
+      lastResetAt: legacyState.lastResetAt,
+      pendingBubble: legacyState.pendingBubble,
       updatedAt: new Date().toISOString(),
     },
     userId,
     todayKey,
   );
 
-  memoryStateByUser.set(userId, migratedState);
-  if (safeSet(storageKey(userId), JSON.stringify(migratedState))) {
-    safeSet(MIGRATION_OWNER_KEY, userId);
-  }
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent(UPDATE_EVENT, {
-        detail: { userId, state: migratedState, reason: "migration" },
-      }),
-    );
-  }
-  return migratedState;
+  const writeResult = writeState(userId, migratedState, "legacy_migration", todayKey);
+  if (!writeResult.ok) return migratedState;
+  safeSet(MIGRATION_OWNER_KEY, userId);
+  return writeResult.state;
+}
+
+function latestIso(left, right) {
+  if (typeof left !== "string") return typeof right === "string" ? right : null;
+  if (typeof right !== "string") return left;
+  return left > right ? left : right;
 }
 
 function safeGet(key) {
@@ -116,6 +173,16 @@ function safeSet(key, value) {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeRemove(key) {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.removeItem(key);
     return true;
   } catch {
     return false;
