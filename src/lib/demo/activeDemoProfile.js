@@ -2,6 +2,7 @@ import {
   ACTIVE_CURRENT_STATE_KEY,
   SAMPLE_DATA_LOCAL_USER_ID,
 } from "../clara-young-professional-current-state";
+import "../start-local-vault-identity.js";
 import { ensureActiveLocalVaultId } from "../localVaultIdentity.js";
 
 export const YOUNG_PROFESSIONAL_DEMO_PROFILE_ID = "young-professional-12m";
