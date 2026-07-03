@@ -14,6 +14,7 @@ import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySou
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
+import { installLocalVaultSettingsExperience } from "./runtime/installLocalVaultSettingsExperience";
 import {
   clearClaraGuideFeatureClasses,
   installClaraGuideCarouselStep,
@@ -117,6 +118,12 @@ try {
   installNativeNotificationListeners();
 } catch (error) {
   console.warn("CLARA native notification listeners failed to init:", error);
+}
+
+try {
+  installLocalVaultSettingsExperience();
+} catch (error) {
+  console.warn("CLARA local vault settings experience failed to init:", error);
 }
 
 function renderClara() {
