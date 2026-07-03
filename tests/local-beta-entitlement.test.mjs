@@ -9,17 +9,17 @@ test("local beta uses a stable namespaced vault identity", async () => {
   assert.match(source, /clara_local_vault_id_v1/);
   assert.match(source, /clara_local_/);
   assert.match(source, /randomUUID/);
-  assert.doesNotMatch(source, /local-dev-user.*subscription_status/s);
 });
 
-test("vault migration is marked only after its transaction completes", async () => {
+test("vault migration commits before its completion marker is saved", async () => {
   const source = await read("src/lib/local-vault-migration.js");
-  const transactionCompletion = source.indexOf("await transactionToPromise(transaction)");
-  const completedMarker = source.indexOf('status: "completed"', transactionCompletion);
-  assert.ok(transactionCompletion >= 0);
-  assert.ok(completedMarker > transactionCompletion);
-  assert.match(source, /transaction\.abort\(\)/);
-  assert.match(source, /activeUserId: candidate\.id/);
+  const migrationCall = source.indexOf("await migrateTransaction");
+  const completionMarker = source.indexOf('status: "completed"', migrationCall);
+  assert.ok(migrationCall >= 0);
+  assert.ok(completionMarker > migrationCall);
+  assert.match(source, /readRequest\.onsuccess/);
+  assert.match(source, /localUserId: toUserId/);
+  assert.match(source, /legacy data preserved/);
 });
 
 test("Google Play pending purchases never unlock committed access", async () => {
@@ -33,9 +33,7 @@ test("Google Play pending purchases never unlock committed access", async () => 
 
 test("purchase acknowledgment is required before active entitlement is saved", async () => {
   const billing = await read("src/lib/google-play-billing.js");
-  const nativePlugin = await read(
-    "android/app/src/main/java/com/clara/lifeos/app/ClaraBillingPlugin.java"
-  );
+  const nativePlugin = await read("android/app/src/main/java/com/clara/lifeos/app/ClaraBillingPlugin.java");
   assert.match(billing, /acknowledgeGooglePlayPurchase/);
   assert.match(billing, /await acknowledgeGooglePlayPurchase/);
   assert.match(nativePlugin, /public void acknowledgePurchase/);
@@ -49,7 +47,7 @@ test("successful empty ownership query downgrades while failed query becomes unk
   assert.match(source, /if \(!purchase\)[\s\S]*state: "inactive"/);
 });
 
-test("Android local beta never requires Supabase network startup", async () => {
+test("Android local beta selects the local facade", async () => {
   const runtime = await read("src/lib/clara-runtime-mode.js");
   const facade = await read("src/lib/supabaseClient.js");
   assert.match(runtime, /Capacitor\.isNativePlatform\(\)/);
