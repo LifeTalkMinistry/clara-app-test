@@ -19,6 +19,7 @@ import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/pe
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
+const LinkLocalVault = lazy(() => import("./pages/LinkLocalVault"));
 const AppPreview = lazy(() => import("./pages/AppPreview"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const InvestmentPlan = lazy(() => import("./pages/InvestmentPlan"));
@@ -110,6 +111,8 @@ function AdminRescueButton({ show }) {
 function AppRoutes() {
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
+  const isAccountLinkRoute = location.pathname === "/link-local-vault";
+  const isPublicAuthRoute = isLoginRoute || isAccountLinkRoute;
   const isUniversalOnboardingRoute = location.pathname === "/onboarding";
   const { user, profile, loading, refreshProfile } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
@@ -193,7 +196,7 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  if (!isLoginRoute && (loading || roleLoading)) return <FullScreenLoader />;
+  if (!isPublicAuthRoute && (loading || roleLoading)) return <FullScreenLoader />;
 
   const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
     <GuardedRoute
@@ -217,6 +220,7 @@ function AppRoutes() {
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/link-local-vault" element={<LinkLocalVault />} />
         <Route path="/app-preview" element={<AppPreview />} />
         <Route
           path="/*"
@@ -228,7 +232,6 @@ function AppRoutes() {
                 <Layout>
                   <Routes>
                     <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
-
                     <Route path="/onboarding" element={<UniversalOnboarding />} />
                     <Route path="/program-onboarding" element={<ProgramOnboarding />} />
                     <Route path="/pending" element={<Navigate to="/dashboard" replace />} />
@@ -236,7 +239,6 @@ function AppRoutes() {
                     <Route path="/tier-select" element={<TierSelect />} />
                     <Route path="/activation" element={<Activation />} />
                     <Route path="/advertiser" element={<AdvertiserDashboard />} />
-
                     <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
                     <Route path="/welcome-session" element={<WelcomeSession />} />
                     <Route path="/coaching-mock-preview" element={<CoachingAdminPage />} />
@@ -259,18 +261,15 @@ function AppRoutes() {
                     <Route path="/news" element={guard(<News />, "/news")} />
                     <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
                     <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
-
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/settings/:section" element={<Settings />} />
                     <Route path="/profile" element={<Profile />} />
-
                     <Route path="/admin" element={admin(<AdminPanel />)} />
                     <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
                     <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
                     <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
-
                     <Route path="*" element={<PageNotFound />} />
                   </Routes>
                 </Layout>

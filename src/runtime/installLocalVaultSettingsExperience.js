@@ -46,7 +46,7 @@ function patch() {
       );
       return;
     }
-    window.location.hash = "#/login?intent=link-local-vault";
+    window.location.hash = "#/link-local-vault";
   };
 
   const details = [...section.querySelectorAll("button")].find((node) =>
@@ -73,3 +73,5 @@ export function installLocalVaultSettingsExperience() {
   window.addEventListener("hashchange", schedule);
   schedule();
 }
+
+installLocalVaultSettingsExperience();
