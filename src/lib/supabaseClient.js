@@ -12,8 +12,6 @@ export const supabaseUrl = cloudSupabaseUrl;
 export const supabaseAnonKey = cloudSupabaseAnonKey;
 export const isSupabaseConfigured = isCloudSupabaseConfigured;
 
-const localSupabase = withLocalAuthEvents(createLocalSupabaseFacade());
-
 export const supabase = isLocalBetaMode()
-  ? localSupabase
+  ? withLocalAuthEvents(createLocalSupabaseFacade())
   : cloudSupabase;
