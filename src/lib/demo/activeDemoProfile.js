@@ -2,6 +2,7 @@ import {
   ACTIVE_CURRENT_STATE_KEY,
   SAMPLE_DATA_LOCAL_USER_ID,
 } from "../clara-young-professional-current-state";
+import { ensureActiveLocalVaultId } from "../localVaultIdentity.js";
 
 export const YOUNG_PROFESSIONAL_DEMO_PROFILE_ID = "young-professional-12m";
 export const YOUNG_PROFESSIONAL_DEMO_PROFILE_NAME = "Young Professional";
@@ -39,8 +40,8 @@ export function getActiveDemoFinanceLocalUserId() {
   return clean(state.demoLocalUserId) || clean(state.localUserId) || SAMPLE_DATA_LOCAL_USER_ID;
 }
 
-export function getEffectiveDemoFinanceLocalUserId(localUserId) {
-  return getActiveDemoFinanceLocalUserId() || clean(localUserId) || "local-user";
+export function getEffectiveDemoFinanceLocalUserId() {
+  return getActiveDemoFinanceLocalUserId() || ensureActiveLocalVaultId();
 }
 
 export function isYoungProfessionalDemoActive() {
