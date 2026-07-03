@@ -9,12 +9,12 @@ const ACCESS_SNAPSHOT_LAST_KEY = "clara_access_snapshot_v2:last";
 const ACTIVE_MEMORY_USER_KEY = "clara_active_memory_user_id";
 const KNOWN_TEMPORARY_IDS = ["local-dev-user", "local-user"];
 
-function getStorage() {
+function storage() {
   if (typeof window === "undefined" || !window.localStorage) return null;
   return window.localStorage;
 }
 
-function safeParse(value) {
+function parse(value) {
   try {
     return value ? JSON.parse(value) : null;
   } catch {
@@ -22,96 +22,148 @@ function safeParse(value) {
   }
 }
 
-function requestToPromise(request) {
+function requestResult(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () =>
-      reject(request.error || new Error("IndexedDB request failed during CLARA vault migration."));
+      reject(request.error || new Error("IndexedDB request failed."));
   });
 }
 
-function transactionToPromise(transaction) {
+function transactionResult(transaction) {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve(true);
     transaction.onerror = () =>
-      reject(transaction.error || new Error("CLARA vault migration transaction failed."));
+      reject(transaction.error || new Error("IndexedDB transaction failed."));
     transaction.onabort = () =>
-      reject(transaction.error || new Error("CLARA vault migration transaction was aborted."));
+      reject(transaction.error || new Error("IndexedDB transaction aborted."));
   });
 }
 
-function addCandidate(list, value, source, priority) {
+function addCandidate(candidates, value, source, priority) {
   const id = String(value || "").trim();
-  if (!id || list.some((candidate) => candidate.id === id)) return;
-  list.push({ id, source, priority });
+  if (!id || candidates.some((candidate) => candidate.id === id)) return;
+  candidates.push({ id, source, priority });
 }
 
 async function summarizeVaults(db) {
   const counts = new Map();
-  const latestUpdatedAt = new Map();
+  const updatedAt = new Map();
   const stores = LOCAL_FINANCE_PRIVATE_STORES.filter((name) =>
     db.objectStoreNames.contains(name)
   );
-
-  if (!stores.length) return { counts, latestUpdatedAt };
+  if (!stores.length) return { counts, updatedAt };
 
   const transaction = db.transaction(stores, "readonly");
-  const pending = stores.map(async (storeName) => {
-    const records = await requestToPromise(transaction.objectStore(storeName).getAll());
-    records.forEach((record) => {
-      const id = String(record?.localUserId || "").trim();
-      if (!id) return;
-      counts.set(id, (counts.get(id) || 0) + 1);
-      const updatedAt = Date.parse(record?.updatedAt || record?.createdAt || "") || 0;
-      latestUpdatedAt.set(id, Math.max(latestUpdatedAt.get(id) || 0, updatedAt));
-    });
-  });
+  const requests = stores.map((name) =>
+    requestResult(transaction.objectStore(name).getAll())
+  );
+  const recordGroups = await Promise.all(requests);
+  await transactionResult(transaction);
 
-  await Promise.all(pending);
-  await transactionToPromise(transaction);
-  return { counts, latestUpdatedAt };
+  for (const records of recordGroups) {
+    for (const record of records) {
+      const id = String(record?.localUserId || "").trim();
+      if (!id) continue;
+      counts.set(id, (counts.get(id) || 0) + 1);
+      const timestamp =
+        Date.parse(record?.updatedAt || record?.createdAt || "") || 0;
+      updatedAt.set(id, Math.max(updatedAt.get(id) || 0, timestamp));
+    }
+  }
+  return { counts, updatedAt };
 }
 
-async function resolveLegacyVaultCandidate(db, targetLocalUserId) {
-  const storage = getStorage();
+async function resolveLegacyCandidate(db, targetId) {
   const candidates = [];
-  const snapshot = safeParse(storage?.getItem(ACCESS_SNAPSHOT_LAST_KEY));
+  const snapshot = parse(storage()?.getItem(ACCESS_SNAPSHOT_LAST_KEY));
 
   addCandidate(candidates, snapshot?.userId, "last_access_snapshot_user_id", 1);
   addCandidate(candidates, snapshot?.email, "last_access_snapshot_email", 2);
-  addCandidate(candidates, storage?.getItem(ACTIVE_MEMORY_USER_KEY), "active_memory_user", 3);
+  addCandidate(
+    candidates,
+    storage()?.getItem(ACTIVE_MEMORY_USER_KEY),
+    "active_memory_user",
+    3
+  );
   KNOWN_TEMPORARY_IDS.forEach((id, index) =>
     addCandidate(candidates, id, `known_temporary_${id}`, 4 + index)
   );
 
-  const { counts, latestUpdatedAt } = await summarizeVaults(db);
+  const { counts, updatedAt } = await summarizeVaults(db);
   [...counts.keys()]
-    .sort((a, b) => (latestUpdatedAt.get(b) || 0) - (latestUpdatedAt.get(a) || 0))
-    .forEach((id, index) => addCandidate(candidates, id, "most_recent_populated_vault", 10 + index));
+    .sort((a, b) => (updatedAt.get(b) || 0) - (updatedAt.get(a) || 0))
+    .forEach((id, index) =>
+      addCandidate(candidates, id, "most_recent_populated_vault", 10 + index)
+    );
 
   return (
     candidates
-      .filter((candidate) => candidate.id !== targetLocalUserId)
+      .filter((candidate) => candidate.id !== targetId)
       .filter((candidate) => (counts.get(candidate.id) || 0) > 0)
       .sort((a, b) => a.priority - b.priority)[0] || null
   );
 }
 
 export function getLocalVaultMigrationMarker() {
-  return safeParse(getStorage()?.getItem(MIGRATION_MARKER_KEY));
+  return parse(storage()?.getItem(MIGRATION_MARKER_KEY));
+}
+
+function migrateTransaction(db, storeNames, fromUserId, toUserId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeNames, "readwrite");
+    const recordCounts = {};
+    let failed = false;
+
+    const fail = (error) => {
+      if (failed) return;
+      failed = true;
+      try {
+        transaction.abort();
+      } catch {
+        // It may already be aborting.
+      }
+      reject(error || new Error("CLARA vault migration failed."));
+    };
+
+    transaction.oncomplete = () => {
+      if (!failed) resolve(recordCounts);
+    };
+    transaction.onerror = () =>
+      fail(transaction.error || new Error("CLARA vault migration failed."));
+    transaction.onabort = () =>
+      fail(transaction.error || new Error("CLARA vault migration aborted."));
+
+    for (const storeName of storeNames) {
+      const store = transaction.objectStore(storeName);
+      const readRequest = store.getAll();
+      readRequest.onerror = () =>
+        fail(readRequest.error || new Error(`Could not read ${storeName}.`));
+      readRequest.onsuccess = () => {
+        let count = 0;
+        for (const record of readRequest.result || []) {
+          if (String(record?.localUserId || "").trim() !== fromUserId) continue;
+          const writeRequest = store.put({ ...record, localUserId: toUserId });
+          writeRequest.onerror = () =>
+            fail(
+              writeRequest.error ||
+                new Error(`Could not migrate a record in ${storeName}.`)
+            );
+          count += 1;
+        }
+        if (count > 0) recordCounts[storeName] = count;
+      };
+    }
+  });
 }
 
 export async function migrateLocalVaultOwnership(targetLocalUserId) {
   const targetId = String(targetLocalUserId || "").trim();
   if (!targetId) throw new Error("A target local vault ID is required.");
 
-  const existingMarker = getLocalVaultMigrationMarker();
-  if (existingMarker?.status === "completed" && existingMarker?.toUserId === targetId) {
-    return {
-      ...existingMarker,
-      activeUserId: targetId,
-      alreadyCompleted: true,
-    };
+  const marker = getLocalVaultMigrationMarker();
+  if (marker?.status === "completed" && marker?.toUserId === targetId) {
+    return { ...marker, activeUserId: targetId, alreadyCompleted: true };
   }
 
   if (typeof indexedDB === "undefined") {
@@ -124,10 +176,10 @@ export async function migrateLocalVaultOwnership(targetLocalUserId) {
   }
 
   const db = await openLocalFinanceDb();
-  const candidate = await resolveLegacyVaultCandidate(db, targetId);
+  const candidate = await resolveLegacyCandidate(db, targetId);
 
   if (!candidate) {
-    const marker = {
+    const completed = {
       status: "completed",
       fromUserId: null,
       toUserId: targetId,
@@ -135,42 +187,27 @@ export async function migrateLocalVaultOwnership(targetLocalUserId) {
       recordCounts: {},
       reason: "no_legacy_vault",
     };
-    getStorage()?.setItem(MIGRATION_MARKER_KEY, JSON.stringify(marker));
-    return { ...marker, activeUserId: targetId };
+    storage()?.setItem(MIGRATION_MARKER_KEY, JSON.stringify(completed));
+    return { ...completed, activeUserId: targetId };
   }
 
   const storeNames = [
-    ...LOCAL_FINANCE_PRIVATE_STORES.filter((name) => db.objectStoreNames.contains(name)),
+    ...LOCAL_FINANCE_PRIVATE_STORES.filter((name) =>
+      db.objectStoreNames.contains(name)
+    ),
     ...(db.objectStoreNames.contains(LOCAL_FINANCE_STORES.metadata)
       ? [LOCAL_FINANCE_STORES.metadata]
       : []),
   ];
-  const transaction = db.transaction(storeNames, "readwrite");
-  const recordCounts = {};
 
   try {
-    for (const storeName of storeNames) {
-      const store = transaction.objectStore(storeName);
-      const records = await requestToPromise(store.getAll());
-      let count = 0;
-
-      for (const record of records) {
-        if (String(record?.localUserId || "").trim() !== candidate.id) continue;
-        await requestToPromise(
-          store.put({
-            ...record,
-            localUserId: targetId,
-          })
-        );
-        count += 1;
-      }
-
-      if (count > 0) recordCounts[storeName] = count;
-    }
-
-    await transactionToPromise(transaction);
-
-    const marker = {
+    const recordCounts = await migrateTransaction(
+      db,
+      storeNames,
+      candidate.id,
+      targetId
+    );
+    const completed = {
       status: "completed",
       fromUserId: candidate.id,
       toUserId: targetId,
@@ -178,22 +215,15 @@ export async function migrateLocalVaultOwnership(targetLocalUserId) {
       migratedAt: new Date().toISOString(),
       recordCounts,
     };
-    getStorage()?.setItem(MIGRATION_MARKER_KEY, JSON.stringify(marker));
-    console.info("[CLARA Vault Migration] migration completed", marker);
-    return { ...marker, activeUserId: targetId };
+    storage()?.setItem(MIGRATION_MARKER_KEY, JSON.stringify(completed));
+    console.info("[CLARA Vault Migration] migration completed", completed);
+    return { ...completed, activeUserId: targetId };
   } catch (error) {
-    try {
-      transaction.abort();
-    } catch {
-      // The transaction may already be aborted.
-    }
-
-    console.error("[CLARA Vault Migration] migration failed; preserving legacy vault", {
+    console.error("[CLARA Vault Migration] migration failed; legacy data preserved", {
       fromUserId: candidate.id,
       toUserId: targetId,
       message: error?.message || String(error),
     });
-
     return {
       status: "failed",
       fromUserId: candidate.id,
