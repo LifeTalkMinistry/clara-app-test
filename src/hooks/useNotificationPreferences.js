@@ -3,8 +3,10 @@ import {
   persistNotificationPreferences,
   readNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
+import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
-export default function useNotificationPreferences(userId) {
+export default function useNotificationPreferences() {
+  const userId = ensureActiveLocalVaultId();
   const [preferences, setPreferencesState] = useState(() =>
     readNotificationPreferences(userId)
   );
