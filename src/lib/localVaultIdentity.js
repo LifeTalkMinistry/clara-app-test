@@ -23,12 +23,14 @@ function writeStoredVaultId(vaultId) {
   try {
     window.localStorage?.setItem(ACTIVE_LOCAL_VAULT_KEY, memoryVaultId);
   } catch {
-    // Keep the in-memory value when browser storage is unavailable.
+    // Keep the session value when browser storage is unavailable.
   }
 }
 
 function createVaultId() {
-  if (globalThis?.crypto?.randomUUID) return `vault_${globalThis.crypto.randomUUID()}`;
+  if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
+    return `vault_${globalThis.crypto.randomUUID()}`;
+  }
   return `vault_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
 }
 
@@ -58,7 +60,9 @@ export function resolveLocalVaultId({
   const counts = Object.entries(ownerCounts || {}).reduce((acc, [ownerId, count]) => {
     const cleanOwnerId = normalize(ownerId);
     const safeCount = Number(count);
-    if (cleanOwnerId && Number.isFinite(safeCount) && safeCount > 0) acc[cleanOwnerId] = safeCount;
+    if (cleanOwnerId && Number.isFinite(safeCount) && safeCount > 0) {
+      acc[cleanOwnerId] = safeCount;
+    }
     return acc;
   }, {});
 
@@ -79,6 +83,7 @@ export function resolveLocalVaultId({
 
 export async function getLocalVaultOwnerCounts() {
   if (typeof globalThis === "undefined" || !globalThis.indexedDB) return {};
+
   const db = await openLocalFinanceDb();
   const stores = [...LOCAL_FINANCE_PRIVATE_STORES];
   const transaction = db.transaction(stores, "readonly");
@@ -105,10 +110,17 @@ export function getActiveLocalVaultId() {
 export function setActiveLocalVaultId(vaultId) {
   const cleanVaultId = normalize(vaultId);
   if (!cleanVaultId) throw new Error("A valid local vault ID is required.");
+
   writeStoredVaultId(cleanVaultId);
-  window?.dispatchEvent?.(
-    new CustomEvent("clara:active-local-vault-updated", { detail: { vaultId: cleanVaultId } })
-  );
+
+  if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("clara:active-local-vault-updated", {
+        detail: { vaultId: cleanVaultId },
+      })
+    );
+  }
+
   return cleanVaultId;
 }
 
