@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { getWalletDisplayBalance } from "@/utils/dashboard/dashboardHelpers";
+import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
 export const CLARA_EMERGENCY_RESERVE_WALLET_ID = "clara-emergency-reserve-wallet";
 
 export default function useDashboardFinanceStateSync({
-  cacheKey,
   financeWallets = [],
   financeWalletTransactions = [],
   financeTransfers = [],
@@ -25,6 +25,8 @@ export default function useDashboardFinanceStateSync({
   setLoading,
   onCacheUpdate,
 }) {
+  const cacheKey = ensureActiveLocalVaultId();
+
   useEffect(() => {
     const safeWallets = Array.isArray(financeWallets)
       ? financeWallets.filter(
@@ -57,11 +59,6 @@ export default function useDashboardFinanceStateSync({
       (sum, wallet) => sum + getWalletDisplayBalance(wallet),
       0
     );
-
-    // IMPORTANT:
-    // Emergency Fund reserve should NOT exist inside global wallet state.
-    // It causes wallet cards and wallet carousels to flicker.
-    // The reserve wallet should only be injected locally into the Manual Log dropdown.
 
     setWallets(safeWallets);
     setWalletTransactions(safeWalletTransactions);

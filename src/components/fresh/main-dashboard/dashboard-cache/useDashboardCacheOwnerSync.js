@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
+import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
 export default function useDashboardCacheOwnerSync({
-  cacheKey,
   initialCache,
   financeDataLoading = false,
   hasLoadedDashboardRef,
@@ -13,6 +13,8 @@ export default function useDashboardCacheOwnerSync({
   setGuardChecked,
   setLoading,
 } = {}) {
+  const cacheKey = ensureActiveLocalVaultId();
+
   useEffect(() => {
     const currentDashboardCache =
       typeof getDashboardPageCache === "function" ? getDashboardPageCache() : null;

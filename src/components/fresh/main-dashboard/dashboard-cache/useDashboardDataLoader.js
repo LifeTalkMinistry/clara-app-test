@@ -13,6 +13,7 @@ import {
   getSupabaseQuotaNotice,
   isSupabaseQuotaBlocked,
 } from "@/lib/supabaseQuotaGuard";
+import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
 const LOCAL_AUTH_FALLBACK_USER_ID = "local-dev-user";
 
@@ -98,7 +99,7 @@ export default function useDashboardDataLoader({
         return emptyCache;
       }
 
-      const ownerKey = cacheKey || currentUser.id || currentUser.email || "guest";
+      const ownerKey = ensureActiveLocalVaultId();
       const activeInFlight =
         typeof getDashboardPageInFlight === "function"
           ? getDashboardPageInFlight()
@@ -145,7 +146,7 @@ export default function useDashboardDataLoader({
             0
           );
 
-          const storedPrefs = readDashboardPrefs(currentUser.id);
+          const storedPrefs = readDashboardPrefs(ownerKey);
 
           if (localAuthFallbackActive) {
             const localProfile = {
@@ -199,7 +200,7 @@ export default function useDashboardDataLoader({
                 localProfile?.monthly_survival_expense,
                 localProfile?.survival_expense,
                 localProfile?.clara_survival_expense,
-                readStoredSurvivalExpense(currentUser.id),
+                readStoredSurvivalExpense(ownerKey),
                 survivalExpense,
                 dashboardCacheSnapshot?.survivalExpense
               ),
@@ -271,7 +272,7 @@ export default function useDashboardDataLoader({
               safeProfile?.monthly_survival_expense,
               safeProfile?.survival_expense,
               safeProfile?.clara_survival_expense,
-              readStoredSurvivalExpense(currentUser.id),
+              readStoredSurvivalExpense(ownerKey),
               survivalExpense,
               dashboardCacheSnapshot?.survivalExpense
             ),
