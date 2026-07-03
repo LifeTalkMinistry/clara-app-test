@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
+import { startLocalEntitlementLifecycle } from "@/lib/local-entitlement-lifecycle";
 import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
@@ -55,6 +56,12 @@ window.CLARA_BILLING = window.CLARA_BILLING || {};
     console.warn("Billing auto-init failed:", error);
   }
 })();
+
+try {
+  startLocalEntitlementLifecycle();
+} catch (error) {
+  console.warn("CLARA local entitlement lifecycle failed to init:", error);
+}
 
 try {
   installDailyTipFlipSound();
