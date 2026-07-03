@@ -7,20 +7,17 @@ const normalizeBoolean = (value, fallback = false) => {
 };
 
 const readEnvFlag = (key, fallback = false) => {
-  const envValue = import.meta?.env?.[key];
+  const envValue = import.meta.env?.[key];
   const runtimeValue =
     typeof window !== "undefined" ? window.__CLARA_FEATURE_FLAGS__?.[key] : undefined;
   return normalizeBoolean(runtimeValue ?? envValue, fallback);
 };
 
-// Account services remain opt-in while the Supabase organization is restricted.
 export const CLARA_AUTH_ENABLED = readEnvFlag("VITE_CLARA_AUTH_ENABLED", false);
 export const CLARA_ACCOUNT_LINKING_ENABLED = readEnvFlag(
   "VITE_CLARA_ACCOUNT_LINKING_ENABLED",
   false
 );
-
-// Local mode remains available before login, after logout, and when account services fail.
 export const CLARA_LOCAL_MODE_ENABLED = readEnvFlag(
   "VITE_CLARA_LOCAL_MODE_ENABLED",
   true
