@@ -1,0 +1,42 @@
+name: Verify local vault continuation
+
+on:
+  push:
+    branches:
+      - feat/local-vault-account-linking
+    paths:
+      - .github/scripts/patch_vault_core.py
+      - .github/scripts/patch_vault_settings.py
+      - .github/scripts/patch_vault_security_card.py
+      - .github/scripts/write_vault_tests.py
+      - .github/workflows/verify-local-vault-continuation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/local-vault-account-linking
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: python .github/scripts/patch_vault_core.py
+      - run: python .github/scripts/patch_vault_settings.py
+      - run: python .github/scripts/patch_vault_security_card.py
+      - run: python .github/scripts/write_vault_tests.py
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: local-vault-generated-source
+          path: |
+            src
+            tests
+            package.json
