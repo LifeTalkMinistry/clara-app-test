@@ -2,11 +2,11 @@ import { useEffect } from "react";
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import { persistDashboardTheme } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import { normalizeString } from "@/utils/dashboard/dashboardHelpers";
+import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
-export default function useDashboardThemePersistence({
-  selectedDashboardTheme,
-  userId,
-}) {
+export default function useDashboardThemePersistence({ selectedDashboardTheme }) {
+  const userId = ensureActiveLocalVaultId();
+
   useEffect(() => {
     const themeKey = normalizeString(
       selectedDashboardTheme?.key ||
@@ -26,7 +26,7 @@ export default function useDashboardThemePersistence({
       key: themeKey,
       dashboardTheme: themeKey,
       selectedTheme: themeKey,
-      userId: userId || null,
+      userId,
       isLight: selectedDashboardTheme?.isLight === true,
     };
 
