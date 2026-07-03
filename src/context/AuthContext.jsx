@@ -10,6 +10,10 @@ import {
 import { supabase } from '@/lib/supabaseClient';
 import { resolveMembership } from '@/lib/membership';
 import {
+  CLARA_AUTH_ENABLED,
+  CLARA_LOCAL_MODE_ENABLED,
+} from '@/config/claraFeatureFlags';
+import {
   clearAccessSnapshot,
   getAccessSnapshot,
   getOfflineFallbackFlow,
@@ -22,9 +26,7 @@ const AuthContext = createContext(null);
 
 const AUTH_TIMEOUT_MS = 6000;
 const PROFILE_TIMEOUT_MS = 6500;
-
-// TEMP AUTH BYPASS: Used while Supabase project is restricted. Remove or disable when Supabase Auth is restored.
-const TEMP_AUTH_BYPASS_ENABLED = true;
+const TEMP_AUTH_BYPASS_ENABLED = CLARA_LOCAL_MODE_ENABLED;
 
 const LOCAL_DEV_AUTH_USER = {
   id: 'local-dev-user',
@@ -651,6 +653,11 @@ export function AuthProvider({ children }) {
       try {
         setAuthReady(false);
 
+        if (!CLARA_AUTH_ENABLED) {
+          applyLocalAuthBypass();
+          return;
+        }
+
         const cachedSnapshot = getAccessSnapshot();
 
         if (isAccessSnapshotUsable(cachedSnapshot)) {
@@ -739,6 +746,12 @@ export function AuthProvider({ children }) {
 
     init();
 
+    if (!CLARA_AUTH_ENABLED) {
+      return () => {
+        mounted = false;
+      };
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
@@ -782,7 +795,7 @@ export function AuthProvider({ children }) {
   }, [applyLocalAuthBypass, applySession]);
 
   useEffect(() => {
-    if (!user?.id) return undefined;
+    if (!CLARA_AUTH_ENABLED || !user?.id || isLocalFallbackUser(user)) return undefined;
     if (profile?.offline_access || profile?.offline_limited_access) return undefined;
 
     const channel = supabase
@@ -815,7 +828,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    if (!user?.id) return undefined;
+    if (!CLARA_AUTH_ENABLED || !user?.id || isLocalFallbackUser(user)) return undefined;
 
     const handleOnline = () => {
       refreshProfileSilently(user).catch((error) => {
@@ -831,6 +844,10 @@ export function AuthProvider({ children }) {
   }, [refreshProfileSilently, user]);
 
   const signUp = async ({ email, password, fullName }) => {
+    if (!CLARA_AUTH_ENABLED) {
+      throw new Error('CLARA account services are temporarily unavailable.');
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
@@ -845,6 +862,10 @@ export function AuthProvider({ children }) {
   };
 
   const signIn = async ({ email, password }) => {
+    if (!CLARA_AUTH_ENABLED) {
+      throw new Error('CLARA account services are temporarily unavailable.');
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -889,6 +910,10 @@ export function AuthProvider({ children }) {
   };
 
   const signInWithGoogle = async () => {
+    if (!CLARA_AUTH_ENABLED) {
+      throw new Error('CLARA account services are temporarily unavailable.');
+    }
+
     const redirectTo = `${window.location.origin}${window.location.pathname}`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -905,6 +930,11 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     const previousUserKey = user?.id || user?.email || null;
     manualSignInSessionRef.current = null;
+
+    if (isLocalFallbackUser(user) || !CLARA_AUTH_ENABLED) {
+      applyLocalAuthBypass();
+      return;
+    }
 
     await supabase.auth.signOut();
 
