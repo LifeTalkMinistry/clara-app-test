@@ -7,6 +7,7 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import { installNativeNotificationListeners } from "@/lib/notifications/nativePushNotifications";
+import { initializeLocalVaultIdentity } from "@/lib/localVaultIdentity";
 import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
@@ -118,16 +119,26 @@ try {
   console.warn("CLARA native notification listeners failed to init:", error);
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClientInstance}>
-      <AuthProvider>
-        <ThemeProvider>
-          <HashRouter>
-            <App />
-          </HashRouter>
-        </ThemeProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+function renderClara() {
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClientInstance}>
+        <AuthProvider>
+          <ThemeProvider>
+            <HashRouter>
+              <App />
+            </HashRouter>
+          </ThemeProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+}
+
+initializeLocalVaultIdentity()
+  .catch((error) => {
+    console.warn("[CLARA Vault] Startup initialization failed.", {
+      code: error?.name || "VAULT_STARTUP_FAILED",
+    });
+  })
+  .finally(renderClara);
