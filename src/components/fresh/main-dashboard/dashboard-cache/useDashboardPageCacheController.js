@@ -1,5 +1,6 @@
 import { useCallback, useRef } from "react";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
+import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
@@ -16,7 +17,8 @@ function hasUsableInitialFinanceCache(initialCache) {
   );
 }
 
-export default function useDashboardPageCacheController({ cacheKey = null } = {}) {
+export default function useDashboardPageCacheController() {
+  const cacheKey = ensureActiveLocalVaultId();
   const hasLoadedDashboardRef = useRef(false);
 
   const initialCache =
@@ -30,8 +32,9 @@ export default function useDashboardPageCacheController({ cacheKey = null } = {}
     dashboardPageCache = {
       ...dashboardPageCache,
       ...nextFinanceCache,
+      key: cacheKey,
     };
-  }, []);
+  }, [cacheKey]);
 
   const getDashboardPageCache = useCallback(() => dashboardPageCache, []);
 
