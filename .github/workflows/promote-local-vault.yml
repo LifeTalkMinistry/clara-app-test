@@ -1,0 +1,42 @@
+name: Validate and promote local vault
+
+on:
+  push:
+    branches:
+      - feat/local-vault-account-linking-clean
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          ref: feat/local-vault-account-linking-clean
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Confirm fast-forward safety
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor origin/main HEAD
+
+      - name: Promote verified commit to main
+        run: git push origin HEAD:main
