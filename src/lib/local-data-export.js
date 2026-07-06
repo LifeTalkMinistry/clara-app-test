@@ -177,6 +177,58 @@ function buildFileName() {
   return `clara-local-backup-${timestamp}.json`;
 }
 
+function toStorageValue(value) {
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function validateBackup(backup) {
+  if (!backup || typeof backup !== "object") {
+    throw new Error("This is not a valid CLARA backup file.");
+  }
+
+  if (backup.app !== "CLARA" || backup.type !== "local-device-transfer-backup") {
+    throw new Error("This file is not a CLARA device transfer backup.");
+  }
+
+  if (Number(backup.version || 0) > EXPORT_VERSION) {
+    throw new Error("This backup was created by a newer CLARA version. Please update the app first.");
+  }
+}
+
+function getBackupStorageEntries(backup, storageKey) {
+  const rawEntries = backup?.raw?.[storageKey];
+  if (rawEntries && typeof rawEntries === "object") return rawEntries;
+
+  const parsedEntries = backup?.data?.[storageKey];
+  if (parsedEntries && typeof parsedEntries === "object") return parsedEntries;
+
+  return {};
+}
+
+function writeStorageEntries(storage, entries = {}) {
+  const restored = [];
+  const skipped = [];
+
+  if (!storage) return { restored, skipped };
+
+  Object.entries(entries).forEach(([key, value]) => {
+    if (!shouldIncludeStorageKey(key)) {
+      skipped.push({ key, reason: "Skipped because this key is outside CLARA backup scope." });
+      return;
+    }
+
+    try {
+      storage.setItem(key, toStorageValue(value));
+      restored.push(key);
+    } catch (error) {
+      skipped.push({ key, reason: error?.message || "Unable to write storage value." });
+    }
+  });
+
+  return { restored, skipped };
+}
+
 export async function buildClaraLocalDataExport({ user = null, profile = null } = {}) {
   if (!isBrowser()) {
     throw new Error("CLARA data export can only run inside the app.");
@@ -223,9 +275,9 @@ export async function buildClaraLocalDataExport({ user = null, profile = null } 
       localStorage: localStorageExport.skipped,
       sessionStorage: sessionStorageExport.skipped,
     },
-    restore_status: "export-only-v1",
+    restore_status: "export-import-v1",
     restore_note:
-      "This backup is designed for device transfer. Import/restore will be added separately after the export flow is confirmed stable.",
+      "This backup can restore CLARA localStorage and sessionStorage on another device. IndexedDB contents are exported for review and future compatibility.",
   };
 }
 
@@ -265,5 +317,54 @@ export function countExportedItems(backup) {
     sessionStorage: sessionCount,
     indexedDBStores: indexedDbCount,
     total: localCount + sessionCount + indexedDbCount,
+  };
+}
+
+export async function readClaraBackupFile(file) {
+  if (!file) throw new Error("No backup file selected.");
+  const text = await file.text();
+
+  try {
+    const backup = JSON.parse(text);
+    validateBackup(backup);
+    return backup;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("This backup file is not valid JSON.");
+    }
+    throw error;
+  }
+}
+
+export async function restoreClaraLocalDataFromFile(file) {
+  if (!isBrowser()) {
+    throw new Error("CLARA backup upload can only run inside the app.");
+  }
+
+  const backup = await readClaraBackupFile(file);
+  const localEntries = getBackupStorageEntries(backup, "localStorage");
+  const sessionEntries = getBackupStorageEntries(backup, "sessionStorage");
+  const localResult = writeStorageEntries(window.localStorage, localEntries);
+  const sessionResult = writeStorageEntries(window.sessionStorage, sessionEntries);
+  const indexedDbStoreCount = (backup?.data?.indexedDB?.databases || []).reduce(
+    (total, database) => total + Object.keys(database?.stores || {}).length,
+    0
+  );
+
+  return {
+    backup,
+    restored: {
+      localStorage: localResult.restored,
+      sessionStorage: sessionResult.restored,
+      indexedDBStores: indexedDbStoreCount,
+    },
+    skipped: {
+      localStorage: localResult.skipped,
+      sessionStorage: sessionResult.skipped,
+    },
+    note:
+      indexedDbStoreCount > 0
+        ? "IndexedDB data was detected in the backup but is not written automatically in this version. Local app settings and CLARA storage keys were restored."
+        : "Local app settings and CLARA storage keys were restored.",
   };
 }
