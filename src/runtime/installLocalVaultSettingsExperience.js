@@ -31,28 +31,45 @@ function patch() {
 
   const heading = findExactText("Your CLARA data is private")[0];
   const section = heading?.closest("section");
-  if (!section || section.querySelector("#clara-link-local-data")) return;
-
-  const button = document.createElement("button");
-  button.id = "clara-link-local-data";
-  button.type = "button";
-  button.textContent = "Protect & link my data";
-  button.className =
-    "mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950";
-  button.onclick = () => {
-    if (!CLARA_AUTH_ENABLED || !CLARA_ACCOUNT_LINKING_ENABLED) {
-      window.alert(
-        "Account linking is temporarily unavailable. Your current data remains safe on this device."
-      );
-      return;
-    }
-    window.location.hash = "#/link-local-vault";
-  };
+  if (!section) return;
 
   const details = [...section.querySelectorAll("button")].find((node) =>
     String(node.textContent || "").includes("View data details")
   );
-  section.insertBefore(button, details || null);
+
+  if (!section.querySelector("#clara-download-local-backup")) {
+    const downloadButton = document.createElement("button");
+    downloadButton.id = "clara-download-local-backup";
+    downloadButton.type = "button";
+    downloadButton.textContent = "Download CLARA backup";
+    downloadButton.className =
+      "mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100";
+    downloadButton.onclick = () => {
+      window.location.hash = "#/data-export";
+    };
+
+    section.insertBefore(downloadButton, details || null);
+  }
+
+  if (!section.querySelector("#clara-link-local-data")) {
+    const button = document.createElement("button");
+    button.id = "clara-link-local-data";
+    button.type = "button";
+    button.textContent = "Protect & link my data";
+    button.className =
+      "mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950";
+    button.onclick = () => {
+      if (!CLARA_AUTH_ENABLED || !CLARA_ACCOUNT_LINKING_ENABLED) {
+        window.alert(
+          "Account linking is temporarily unavailable. Your current data remains safe on this device."
+        );
+        return;
+      }
+      window.location.hash = "#/link-local-vault";
+    };
+
+    section.insertBefore(button, details || null);
+  }
 }
 
 export function installLocalVaultSettingsExperience() {
