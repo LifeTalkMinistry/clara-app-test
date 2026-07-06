@@ -18,6 +18,7 @@ import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/pe
 
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
+const DataExport = lazy(() => import("./pages/DataExport"));
 const Login = lazy(() => import("./pages/Login"));
 const LinkLocalVault = lazy(() => import("./pages/LinkLocalVault"));
 const AppPreview = lazy(() => import("./pages/AppPreview"));
@@ -264,6 +265,7 @@ function AppRoutes() {
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/settings/:section" element={<Settings />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/data-export" element={<DataExport />} />
                     <Route path="/admin" element={admin(<AdminPanel />)} />
                     <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
                     <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
