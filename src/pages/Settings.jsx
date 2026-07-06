@@ -1,5 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LifeBuoy, LogOut, Mail, Mic, Moon, Save, Settings2, Shield, Sparkles, Trash2, User } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bell,
+  ChevronRight,
+  CreditCard,
+  Download,
+  KeyRound,
+  LifeBuoy,
+  LogOut,
+  Mail,
+  Mic,
+  Moon,
+  Save,
+  Settings2,
+  Shield,
+  Sparkles,
+  Trash2,
+  User,
+} from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
@@ -19,7 +38,7 @@ const SECTION_META = {
   account: { label: "Account", icon: User, subtitle: "Identity, plan, and account overview." },
   notifications: { label: "Notifications", icon: Bell, subtitle: "Control reminders and product communication." },
   privacy: { label: "Privacy", icon: Shield, subtitle: "Manage visibility, analytics, and session privacy." },
-  security: { label: "Security", icon: KeyRound, subtitle: "Authentication and account protection." },
+  security: { label: "Security", icon: KeyRound, subtitle: "Authentication, backup, and account protection." },
   preferences: { label: "App Preferences", icon: Settings2, subtitle: "Display and in-app experience preferences." },
   billing: { label: "Billing", icon: CreditCard, subtitle: "Plan and subscription access." },
   support: { label: "Help & Support", icon: LifeBuoy, subtitle: "Contact CLARA Support through your email app." },
@@ -440,6 +459,13 @@ export default function Settings() {
 
             {detailSection === "security" && (
               <div className="space-y-3">
+                <InfoRow
+                  icon={Download}
+                  label="Download CLARA Backup"
+                  value="Export this device’s local CLARA data for transfer."
+                  hint="Creates one private JSON backup file. Import/restore will be added separately."
+                  action={<button type="button" onClick={() => navigate("/data-export")} className="inlineAction inlineActionPrimary">Open</button>}
+                />
                 <InfoRow
                   icon={KeyRound}
                   label="Password Reset"
