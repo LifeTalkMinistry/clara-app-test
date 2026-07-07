@@ -10,6 +10,7 @@ import {
 import {
   analyzeBuyCheckBudgetCoverage,
   budgetCoverageFromAssessment,
+  needsPurchaseClarification,
   parsePrice,
 } from "@/lib/clara-buy-check-budget-intelligence";
 
@@ -106,7 +107,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
       const item = clean(flow.state?.item || "this purchase");
       const price = Number(flow.state?.price || 0);
       setReasonState({ busy: true, original: answer, summary: "", sessionId, index, source: "" });
-      setConfirmationState({ busy: true, text: "", sessionId, index, source: "" });
+      setConfirmationState(blankConfirmation());
 
       const reasonResult = await interpretBuyCheckReason({
         item,
@@ -117,9 +118,7 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
       if (sessionRef.current !== sessionId) return false;
 
       const summary = normalizeReasonSummary(reasonResult.summary, answer);
-      const confirmationResult = await interpretBuyCheckConfirmation({ item, price, reason: summary });
-      if (sessionRef.current !== sessionId) return false;
-
+      const shouldClarify = needsPurchaseClarification(answer, item) || needsPurchaseClarification(summary, item);
       const submitted = flow.submitAnswer(summary);
       if (!submitted) {
         setReasonState(blankReason());
@@ -135,6 +134,16 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
         index,
         source: reasonResult.source,
       });
+
+      if (shouldClarify) {
+        setConfirmationState(blankConfirmation());
+        return true;
+      }
+
+      setConfirmationState({ busy: true, text: "", sessionId, index, source: "" });
+      const confirmationResult = await interpretBuyCheckConfirmation({ item, price, reason: summary });
+      if (sessionRef.current !== sessionId) return false;
+
       setConfirmationState({
         busy: false,
         text: confirmationResult.confirmation,
@@ -143,6 +152,11 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
         source: confirmationResult.source,
       });
       return true;
+    }
+
+    if (step === "clarification") {
+      setConfirmationState(blankConfirmation());
+      return flow.submitAnswer(answer);
     }
 
     return flow.submitAnswer(answer);
