@@ -23,6 +23,8 @@ export {
 } from "./clara-buy-check-budget-intelligence-v2.js";
 
 export {
+  clarificationQuestion,
   confirmationText,
+  needsPurchaseClarification,
   priceStepMessage,
 } from "./clara-buy-check-conversation-copy.js";
