@@ -3,15 +3,17 @@ import { diagnoseBuyCheck } from "@/lib/clara-buy-check-diagnosis-v5";
 import {
   analyzeBuyCheckBudgetCoverage,
   budgetCoverageFromAssessment,
-  clarificationQuestion,
   clean,
   confirmationText,
   createInitialState,
   createMessage,
-  needsPurchaseClarification,
   parsePrice,
   priceStepMessage,
 } from "@/lib/clara-buy-check-budget-intelligence";
+import {
+  confirmBuyCheckConversation,
+  evaluateBuyCheckConversation,
+} from "@/lib/clara-buy-check-conversation-ai";
 
 function recoveryState(current, userMessage, error) {
   console.warn("[CLARA Buy Check] Answer transition recovered safely.", error);
@@ -29,14 +31,126 @@ function recoveryState(current, userMessage, error) {
   };
 }
 
+function buildConfirmationState(current, confirmationTextValue, clarification = "") {
+  const next = {
+    ...current,
+    clarification,
+    followUpAnswer: clarification,
+    purchaseContext: clarification,
+    step: "confirm",
+    busy: false,
+  };
+
+  next.confirmation = {
+    item: next.item,
+    price: next.price,
+    reason: next.reason,
+    clarification,
+    followUpAnswer: clarification,
+    purchaseContext: clarification,
+    planningStatus: next.planningStatus,
+  };
+
+  next.messages = [
+    ...current.messages,
+    createMessage("clara", confirmationTextValue || confirmationText(next)),
+  ];
+
+  return next;
+}
+
 export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantContext = {} } = {}) {
   const [state, setState] = useState(() => createInitialState());
   const startSession = useCallback((sessionId = "") => setState(createInitialState(sessionId || `buy-check-${Date.now()}`)), []);
   const clearSession = useCallback(() => setState(createInitialState()), []);
 
-  const submitAnswer = useCallback((raw = "") => {
+  const submitAnswer = useCallback(async (raw = "") => {
     const answer = clean(raw);
     if (!answer) return false;
+
+    if (state.step === "reason" && !state.busy && !state.done) {
+      const snapshot = state;
+      const userMessage = createMessage("user", answer);
+
+      setState((current) => {
+        if (current.sessionId !== snapshot.sessionId || current.step !== "reason" || current.busy || current.done) return current;
+        return {
+          ...current,
+          reason: answer,
+          busy: true,
+          messages: [...current.messages, userMessage],
+        };
+      });
+
+      try {
+        const conversation = await evaluateBuyCheckConversation({
+          item: snapshot.item,
+          price: snapshot.price,
+          reason: answer,
+          assistantContext,
+        });
+
+        setState((current) => {
+          if (current.sessionId !== snapshot.sessionId || current.step !== "reason") return current;
+
+          if (!current.askedClarification && conversation.needsClarification) {
+            return {
+              ...current,
+              busy: false,
+              askedClarification: true,
+              step: "clarification",
+              messages: [...current.messages, createMessage("clara", conversation.question)],
+            };
+          }
+
+          return buildConfirmationState(current, conversation.confirmation, "");
+        });
+      } catch (error) {
+        setState((current) => current.sessionId !== snapshot.sessionId
+          ? current
+          : recoveryState(current, createMessage("user", answer), error));
+      }
+
+      return true;
+    }
+
+    if (state.step === "clarification" && !state.busy && !state.done) {
+      const snapshot = state;
+      const userMessage = createMessage("user", answer);
+
+      setState((current) => {
+        if (current.sessionId !== snapshot.sessionId || current.step !== "clarification" || current.busy || current.done) return current;
+        return {
+          ...current,
+          clarification: answer,
+          followUpAnswer: answer,
+          purchaseContext: answer,
+          busy: true,
+          messages: [...current.messages, userMessage],
+        };
+      });
+
+      try {
+        const conversation = await confirmBuyCheckConversation({
+          item: snapshot.item,
+          price: snapshot.price,
+          reason: snapshot.reason,
+          clarification: answer,
+          assistantContext,
+        });
+
+        setState((current) => current.sessionId !== snapshot.sessionId || current.step !== "clarification"
+          ? current
+          : buildConfirmationState(current, conversation.confirmation, answer));
+      } catch (error) {
+        setState((current) => current.sessionId !== snapshot.sessionId
+          ? current
+          : recoveryState(current, createMessage("user", answer), error));
+      }
+
+      return true;
+    }
+
     setState((current) => {
       if (current.busy || current.done || current.step === "confirm" || current.step === "diagnosis") return current;
       const userMessage = createMessage("user", answer);
@@ -108,66 +222,13 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
           };
         }
 
-        if (current.step === "reason") {
-          if (!current.askedClarification && needsPurchaseClarification(answer, current.item)) {
-            return {
-              ...current,
-              reason: answer,
-              askedClarification: true,
-              step: "clarification",
-              messages: [...current.messages, userMessage, createMessage("clara", clarificationQuestion(current.item, answer))],
-            };
-          }
-
-          const next = {
-            ...current,
-            reason: answer,
-            clarification: "",
-            followUpAnswer: "",
-            purchaseContext: "",
-            step: "confirm",
-          };
-          next.confirmation = {
-            item: next.item,
-            price: next.price,
-            reason: next.reason,
-            clarification: "",
-            followUpAnswer: "",
-            purchaseContext: "",
-            planningStatus: next.planningStatus,
-          };
-          next.messages = [...current.messages, userMessage, createMessage("clara", confirmationText(next))];
-          return next;
-        }
-
-        if (current.step === "clarification") {
-          const next = {
-            ...current,
-            clarification: answer,
-            followUpAnswer: answer,
-            purchaseContext: answer,
-            step: "confirm",
-          };
-          next.confirmation = {
-            item: next.item,
-            price: next.price,
-            reason: next.reason,
-            clarification: next.clarification,
-            followUpAnswer: next.followUpAnswer,
-            purchaseContext: next.purchaseContext,
-            planningStatus: next.planningStatus,
-          };
-          next.messages = [...current.messages, userMessage, createMessage("clara", confirmationText(next))];
-          return next;
-        }
-
         return current;
       } catch (error) {
         return recoveryState(current, userMessage, error);
       }
     });
     return true;
-  }, [assistantContext]);
+  }, [assistantContext, state]);
 
   const editReason = useCallback(() => {
     let changed = false;
