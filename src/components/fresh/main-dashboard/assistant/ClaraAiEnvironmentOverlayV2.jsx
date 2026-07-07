@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "@/components/fresh/main-dashboard/assistant/useClaraBuyCheckFlow";
 import BuyCheckDecisionCard from "@/components/fresh/main-dashboard/assistant/buy-check/BuyCheckDecisionCard";
-import BuyCheckEvidencePanel from "@/components/fresh/main-dashboard/assistant/buy-check/BuyCheckEvidencePanel";
 
 const CLARA_AI_BRAIN_VERSION = "pause-react-owned-buy-check-v3-deterministic";
 const BUY_CHECK_ACKNOWLEDGMENTS = [
@@ -111,7 +110,6 @@ function placeholderFor(step) {
 
 export default function ClaraAiEnvironmentOverlay({ isActive = false, messages = [], claraAssistantContext = {}, buyCheckState = null, onSubmitBuyCheckAnswer, onConfirmBuyCheck, onEditBuyCheck, onCheckAnother, onClose, layoutVariant = "default" }) {
   const [draft, setDraft] = useState("");
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const previousAcknowledgmentIndexRef = useRef(-1);
@@ -141,8 +139,6 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const busy = Boolean(activeState?.busy || finalDecision?.busy);
   const inputLocked = Boolean(activeState && ["confirm", "diagnosis", "complete"].includes(step));
 
-  useEffect(() => setDetailsOpen(false), [sessionId, isActive]);
-
   if (isActive && (!acknowledgmentSessionRef.current.active || acknowledgmentSessionRef.current.sessionId !== sessionId)) {
     const selection = selectAcknowledgment(previousAcknowledgmentIndexRef.current);
     acknowledgmentSessionRef.current = { active: true, sessionId, ...selection };
@@ -163,17 +159,16 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     if (!isActive) return undefined;
     const handleEscape = (event) => {
       if (event.key !== "Escape") return;
-      if (detailsOpen) setDetailsOpen(false);
-      else onClose?.();
+      onClose?.();
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [detailsOpen, isActive, onClose]);
+  }, [isActive, onClose]);
   useEffect(() => {
-    if (!isActive || !visibleMessages.length || detailsOpen) return undefined;
+    if (!isActive || !visibleMessages.length) return undefined;
     const frame = window.requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }));
     return () => window.cancelAnimationFrame(frame);
-  }, [detailsOpen, finalDecision?.phase, isActive, scrollKey, step, visibleMessages.length]);
+  }, [finalDecision?.phase, isActive, scrollKey, step, visibleMessages.length]);
 
   if (!isActive) return null;
   const submitDraft = (event) => {
@@ -210,7 +205,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
               const isUser = message.role === "user";
               return <div key={message.id || `${message.role || "message"}-${index}`} className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}><div className={`min-w-0 break-words shadow-[0_14px_34px_rgba(0,0,0,0.16)] [overflow-wrap:break-word] ${isUser ? userBubble : claraBubble}`}><span className="whitespace-pre-wrap">{clean(message.text || message.content || "")}</span></div></div>;
             })}
-            {showDecisionCard ? <BuyCheckDecisionCard diagnosis={activeState?.diagnosis} onOpenDetails={() => setDetailsOpen(true)} onAction={runDecisionAction} /> : null}
+            {showDecisionCard ? <BuyCheckDecisionCard diagnosis={activeState?.diagnosis} onAction={runDecisionAction} /> : null}
             {showFinalDecisionPanel ? (
               <div className="mt-3 border-t border-white/10 pt-3">
                 <FinalDecisionPanel finalDecision={finalDecision} walletOptions={walletOptions} item={activeState?.item || "this purchase"} onExplanationChange={ownedFlow.setDecisionExplanation} onWalletChange={ownedFlow.setDecisionWallet} onSave={ownedFlow.submitFinalDecision} onCancel={ownedFlow.cancelFinalDecision} />
@@ -227,7 +222,6 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
           <button type="submit" disabled={!draft.trim() || inputLocked || busy} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-cyan-300/80 text-slate-950 transition disabled:opacity-45" aria-label="Send Buy Check answer"><ArrowUp className="h-5 w-5" /></button>
         </div>
       </form>
-      <BuyCheckEvidencePanel open={detailsOpen} diagnosis={activeState?.diagnosis} onClose={() => setDetailsOpen(false)} />
     </div>
   );
 }
