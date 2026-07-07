@@ -369,7 +369,8 @@ function expenseSearchText(value) {
       .filter(Boolean)
       .join(" "),
   );
-}\n
+}
+
 function budgetFamily(value) {
   if (isFlexibleBudget(value)) return "flexible";
   return inferCategoryKey(budgetSearchText(value));
