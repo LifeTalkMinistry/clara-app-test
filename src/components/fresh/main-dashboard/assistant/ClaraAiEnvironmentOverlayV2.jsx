@@ -102,6 +102,7 @@ function ActionBar({ step, busy, finalDecision, onConfirm, onEditReason, onCheck
 function placeholderFor(step) {
   if (step === "price") return "Enter the price, e.g. ₱3,500";
   if (step === "reason") return "Why do you want to buy it?";
+  if (step === "clarification") return "Answer CLARA’s follow-up";
   if (step === "confirm") return "Choose Yes or No";
   if (step === "diagnosis") return "CLARA is checking your context";
   if (step === "complete") return "Choose your final action";
