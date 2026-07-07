@@ -3,10 +3,12 @@ import { diagnoseBuyCheck } from "@/lib/clara-buy-check-diagnosis-v5";
 import {
   analyzeBuyCheckBudgetCoverage,
   budgetCoverageFromAssessment,
+  clarificationQuestion,
   clean,
   confirmationText,
   createInitialState,
   createMessage,
+  needsPurchaseClarification,
   parsePrice,
   priceStepMessage,
 } from "@/lib/clara-buy-check-budget-intelligence";
@@ -65,6 +67,10 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
               ...current,
               price,
               reason: "",
+              clarification: "",
+              followUpAnswer: "",
+              purchaseContext: "",
+              askedClarification: false,
               planningStatus: "planned",
               budgetCoverage: coverage,
               budgetAssessment: assessment,
@@ -74,6 +80,9 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
               item: next.item,
               price: next.price,
               reason: "",
+              clarification: "",
+              followUpAnswer: "",
+              purchaseContext: "",
               planningStatus: next.planningStatus,
             };
             next.messages = [
@@ -87,6 +96,10 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
           return {
             ...current,
             price,
+            clarification: "",
+            followUpAnswer: "",
+            purchaseContext: "",
+            askedClarification: false,
             planningStatus: "unplanned",
             budgetCoverage: null,
             budgetAssessment: assessment,
@@ -96,11 +109,52 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
         }
 
         if (current.step === "reason") {
-          const next = { ...current, reason: answer, step: "confirm" };
+          if (!current.askedClarification && needsPurchaseClarification(answer, current.item)) {
+            return {
+              ...current,
+              reason: answer,
+              askedClarification: true,
+              step: "clarification",
+              messages: [...current.messages, userMessage, createMessage("clara", clarificationQuestion(current.item, answer))],
+            };
+          }
+
+          const next = {
+            ...current,
+            reason: answer,
+            clarification: "",
+            followUpAnswer: "",
+            purchaseContext: "",
+            step: "confirm",
+          };
           next.confirmation = {
             item: next.item,
             price: next.price,
             reason: next.reason,
+            clarification: "",
+            followUpAnswer: "",
+            purchaseContext: "",
+            planningStatus: next.planningStatus,
+          };
+          next.messages = [...current.messages, userMessage, createMessage("clara", confirmationText(next))];
+          return next;
+        }
+
+        if (current.step === "clarification") {
+          const next = {
+            ...current,
+            clarification: answer,
+            followUpAnswer: answer,
+            purchaseContext: answer,
+            step: "confirm",
+          };
+          next.confirmation = {
+            item: next.item,
+            price: next.price,
+            reason: next.reason,
+            clarification: next.clarification,
+            followUpAnswer: next.followUpAnswer,
+            purchaseContext: next.purchaseContext,
             planningStatus: next.planningStatus,
           };
           next.messages = [...current.messages, userMessage, createMessage("clara", confirmationText(next))];
@@ -123,6 +177,10 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
       return {
         ...current,
         reason: "",
+        clarification: "",
+        followUpAnswer: "",
+        purchaseContext: "",
+        askedClarification: false,
         confirmation: null,
         step: "reason",
         done: false,
@@ -145,6 +203,10 @@ export default function useClaraBuyCheckBudgetFlowDeterministic({ assistantConte
         ...current,
         price: 0,
         reason: "",
+        clarification: "",
+        followUpAnswer: "",
+        purchaseContext: "",
+        askedClarification: false,
         planningStatus: null,
         budgetCoverage: null,
         budgetAssessment: null,
