@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import useClaraBuyCheckFlow from "./useClaraBuyCheckFlow.js";
 import BuyCheckDecisionCard from "./buy-check/BuyCheckDecisionCard.jsx";
-import BuyCheckEvidencePanel from "./buy-check/BuyCheckEvidencePanel.jsx";
 
 const clean = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 const money = (value = 0) => `₱${Number(value || 0).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
@@ -52,7 +51,6 @@ function DecisionSavePanel({ state, flow }) {
 
 export default function ClaraAiEnvironmentOverlayV3({ isActive = false, messages = [], claraAssistantContext = {}, buyCheckState = null, onSubmitBuyCheckAnswer, onConfirmBuyCheck, onEditBuyCheck, onCheckAnother, onClose, layoutVariant = "default" }) {
   const [draft, setDraft] = useState("");
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const previousActive = useRef(false);
   const inputRef = useRef(null);
   const preview = layoutVariant === "guide-preview";
@@ -71,7 +69,6 @@ export default function ClaraAiEnvironmentOverlayV3({ isActive = false, messages
   const busy = Boolean(state.busy || state.finalDecision?.busy);
   const locked = ["confirm", "diagnosis", "complete"].includes(step);
 
-  useEffect(() => setDetailsOpen(false), [isActive, state.sessionId]);
   useEffect(() => {
     if (!isActive || locked || busy) return;
     const frame = requestAnimationFrame(() => inputRef.current?.focus?.());
@@ -113,7 +110,7 @@ export default function ClaraAiEnvironmentOverlayV3({ isActive = false, messages
               const user = message.role === "user";
               return <div key={message.id || index} className={`flex ${user ? "justify-end" : "justify-start"}`}><div className={`max-w-[90%] rounded-[22px] px-4 py-3 text-[13px] font-semibold leading-6 ${user ? "bg-emerald-300 text-slate-950" : "border border-white/10 bg-white/[0.07] text-white/90"}`}>{clean(message.text || message.content)}</div></div>;
             })}
-            {step === "complete" && state.finalDecision?.phase === "choose" ? <BuyCheckDecisionCard diagnosis={state.diagnosis} onOpenDetails={() => setDetailsOpen(true)} onAction={runAction} /> : null}
+            {step === "complete" && state.finalDecision?.phase === "choose" ? <BuyCheckDecisionCard diagnosis={state.diagnosis} onAction={runAction} /> : null}
             <DecisionSavePanel state={state} flow={ownedFlow} />
           </div>
         )}
@@ -136,7 +133,6 @@ export default function ClaraAiEnvironmentOverlayV3({ isActive = false, messages
           <button type="submit" disabled={!draft.trim() || locked || busy} className="grid h-11 w-11 place-items-center rounded-full bg-cyan-300 text-slate-950 disabled:opacity-40"><ArrowUp className="h-5 w-5" /></button>
         </div>
       </form>
-      <BuyCheckEvidencePanel open={detailsOpen} diagnosis={state.diagnosis} onClose={() => setDetailsOpen(false)} />
     </div>
   );
 }
