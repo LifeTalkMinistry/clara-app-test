@@ -3,14 +3,11 @@ import useClaraBuyCheckFlowV5 from "./useClaraBuyCheckFlowV5.js";
 import {
   interpretBuyCheckConfirmation,
   interpretBuyCheckItem,
-  interpretBuyCheckReason,
   normalizeItemSummary,
-  normalizeReasonSummary,
 } from "./buyCheckReasonInterpreter.js";
 import {
   analyzeBuyCheckBudgetCoverage,
   budgetCoverageFromAssessment,
-  needsPurchaseClarification,
   parsePrice,
 } from "@/lib/clara-buy-check-budget-intelligence";
 
@@ -104,57 +101,13 @@ export default function useClaraBuyCheckReasonSummary({ assistantContext = {} } 
     }
 
     if (step === "reason") {
-      const item = clean(flow.state?.item || "this purchase");
-      const price = Number(flow.state?.price || 0);
-      setReasonState({ busy: true, original: answer, summary: "", sessionId, index, source: "" });
+      setReasonState(blankReason());
       setConfirmationState(blankConfirmation());
-
-      const reasonResult = await interpretBuyCheckReason({
-        item,
-        price,
-        originalReason: answer,
-        assistantContext,
-      });
-      if (sessionRef.current !== sessionId) return false;
-
-      const summary = normalizeReasonSummary(reasonResult.summary, answer);
-      const shouldClarify = needsPurchaseClarification(answer, item) || needsPurchaseClarification(summary, item);
-      const submitted = flow.submitAnswer(summary);
-      if (!submitted) {
-        setReasonState(blankReason());
-        setConfirmationState(blankConfirmation());
-        return false;
-      }
-
-      setReasonState({
-        busy: false,
-        original: answer,
-        summary,
-        sessionId,
-        index,
-        source: reasonResult.source,
-      });
-
-      if (shouldClarify) {
-        setConfirmationState(blankConfirmation());
-        return true;
-      }
-
-      setConfirmationState({ busy: true, text: "", sessionId, index, source: "" });
-      const confirmationResult = await interpretBuyCheckConfirmation({ item, price, reason: summary });
-      if (sessionRef.current !== sessionId) return false;
-
-      setConfirmationState({
-        busy: false,
-        text: confirmationResult.confirmation,
-        sessionId,
-        index,
-        source: confirmationResult.source,
-      });
-      return true;
+      return flow.submitAnswer(answer);
     }
 
     if (step === "clarification") {
+      setReasonState(blankReason());
       setConfirmationState(blankConfirmation());
       return flow.submitAnswer(answer);
     }
