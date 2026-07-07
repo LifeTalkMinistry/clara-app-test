@@ -49,12 +49,14 @@ const WEAK_REASON_PATTERNS = [
   /^ewan$/i,
 ];
 
+const WEAK_CONTEXT_PATTERN = /\b(reward|rewarding|rewarded|treat|treating|trip|stress|sad|bored|boredom|tempted|craving|deserve|deserved|feel|feeling|emotion|impulse)\b/i;
+
 function meaningfulWords(value = "") {
   return clean(value)
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((word) => word && !["i", "a", "an", "the", "it", "to", "for", "me", "my", "ko", "po", "lang", "just", "because"].includes(word));
+    .filter((word) => word && !["i", "a", "an", "the", "it", "to", "for", "me", "my", "ko", "po", "lang", "just", "because", "youre", "you're", "yourself", "myself", "giving"].includes(word));
 }
 
 function includesStrongPurpose(value = "") {
@@ -67,15 +69,15 @@ function needsPurchaseClarification(reason = "", item = "") {
   if (!text) return true;
   if (includesStrongPurpose(`${reason} ${item}`)) return false;
   if (WEAK_REASON_PATTERNS.some((pattern) => pattern.test(text))) return true;
+  if (WEAK_CONTEXT_PATTERN.test(text) && !includesStrongPurpose(text)) return true;
   if (meaningfulWords(text).length < 3) return true;
-  if (/stress|sad|bored|boredom|tempted|craving|deserve|deserved|feel|feeling|emotion|impulse/i.test(text) && !includesStrongPurpose(text)) return true;
   return false;
 }
 
 function clarificationQuestion(item = "", reason = "") {
   const purchase = clean(item || "this purchase").toLowerCase();
   const trimmedReason = clean(reason).toLowerCase();
-  if (/stress|sad|bored|craving|tempted|deserve|feel|feeling|emotion|impulse/i.test(trimmedReason)) {
+  if (WEAK_CONTEXT_PATTERN.test(trimmedReason)) {
     return `Got it. Before I decide, help me understand one thing: what problem does ${purchase} solve right now?`;
   }
   return `Got it. Before I decide, help me understand one thing: what problem does ${purchase} solve right now?`;
