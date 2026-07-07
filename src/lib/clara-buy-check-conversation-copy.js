@@ -11,7 +11,6 @@ const STRONG_PURPOSE_KEYWORDS = [
   "medical",
   "medicine",
   "family",
-  "gift",
   "repair",
   "daily use",
   "everyday",
@@ -43,6 +42,8 @@ const WEAK_REASON_PATTERNS = [
   /^reward$/i,
   /^treat$/i,
   /^trip$/i,
+  /^just a gift$/i,
+  /^gift$/i,
   /^para sa akin$/i,
   /^gusto ko$/i,
   /^wala$/i,
@@ -50,6 +51,8 @@ const WEAK_REASON_PATTERNS = [
 ];
 
 const WEAK_CONTEXT_PATTERN = /\b(reward|rewarding|rewarded|treat|treating|trip|stress|sad|bored|boredom|tempted|craving|deserve|deserved|feel|feeling|emotion|impulse)\b/i;
+const GIFT_PATTERN = /\b(gift|regalo|present)\b/i;
+const GIFT_CONTEXT_PATTERN = /\b(mom|mother|mama|nanay|dad|father|papa|tatay|parent|parents|wife|husband|partner|child|kid|son|daughter|brother|sister|friend|birthday|anniversary|christmas|graduation|wedding|occasion)\b/i;
 
 function meaningfulWords(value = "") {
   return clean(value)
@@ -64,12 +67,19 @@ function includesStrongPurpose(value = "") {
   return STRONG_PURPOSE_KEYWORDS.some((keyword) => text.includes(keyword));
 }
 
+function isVagueGiftReason(value = "") {
+  const text = clean(value);
+  if (!GIFT_PATTERN.test(text)) return false;
+  return !GIFT_CONTEXT_PATTERN.test(text) || meaningfulWords(text).length < 3;
+}
+
 function needsPurchaseClarification(reason = "", item = "") {
   const text = clean(reason);
   if (!text) return true;
-  if (includesStrongPurpose(`${reason} ${item}`)) return false;
   if (WEAK_REASON_PATTERNS.some((pattern) => pattern.test(text))) return true;
+  if (isVagueGiftReason(text)) return true;
   if (WEAK_CONTEXT_PATTERN.test(text) && !includesStrongPurpose(text)) return true;
+  if (includesStrongPurpose(`${reason} ${item}`)) return false;
   if (meaningfulWords(text).length < 3) return true;
   return false;
 }
@@ -77,8 +87,8 @@ function needsPurchaseClarification(reason = "", item = "") {
 function clarificationQuestion(item = "", reason = "") {
   const purchase = clean(item || "this purchase").toLowerCase();
   const trimmedReason = clean(reason).toLowerCase();
-  if (WEAK_CONTEXT_PATTERN.test(trimmedReason)) {
-    return `Got it. Before I decide, help me understand one thing: what problem does ${purchase} solve right now?`;
+  if (GIFT_PATTERN.test(trimmedReason) && !GIFT_CONTEXT_PATTERN.test(trimmedReason)) {
+    return "Got it. Who is the gift for, and is there a specific occasion?";
   }
   return `Got it. Before I decide, help me understand one thing: what problem does ${purchase} solve right now?`;
 }
