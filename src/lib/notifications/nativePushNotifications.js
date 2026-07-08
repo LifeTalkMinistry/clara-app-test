@@ -1,4 +1,8 @@
 import { supabase } from "@/lib/supabaseClient";
+import {
+  cloudSupabase,
+  isCloudSupabaseConfigured,
+} from "@/lib/cloud-supabase-client";
 import { getNotificationEnvironment } from "@/lib/notifications/notificationEnvironment";
 
 let listenersInstalled = false;
@@ -45,11 +49,27 @@ function safeRouteFromNotification(data = {}) {
   window.location.hash = `/${rawUrl.replace(/^\/+/, "")}`;
 }
 
-async function saveNativeToken({ userId, token, platform }) {
-  const cleanToken = String(token || "").trim();
-  if (!cleanToken) throw new Error("Native push registration did not return a token.");
+function nativePushClient({ requireCloud = false } = {}) {
+  if (requireCloud) return cloudSupabase;
+  return isCloudSupabaseConfigured ? cloudSupabase : supabase;
+}
 
-  const { error } = await supabase.from("user_notification_devices").upsert(
+function buildTokenSaveError(error) {
+  const message = String(error?.message || error || "");
+  if (/relation .*user_notification_devices|does not exist|schema cache/i.test(message)) {
+    return new Error("Missing Supabase migration: public.user_notification_devices was not found. Run supabase/universal_notification_devices.sql.");
+  }
+  if (/row-level security|permission denied|violates row-level security/i.test(message)) {
+    return new Error("Supabase rejected the device token save. Check RLS policies for public.user_notification_devices.");
+  }
+  return error instanceof Error ? error : new Error(message || "Unable to save native push token.");
+}
+
+async function saveNativeToken({ userId, token, platform, client = nativePushClient() }) {
+  const cleanToken = String(token || "").trim();
+  if (!cleanToken) throw new Error("Native push registration did not return an FCM token. Check Firebase/google-services.json and Android build config.");
+
+  const { error } = await client.from("user_notification_devices").upsert(
     {
       user_id: userId,
       channel: channelForPlatform(platform),
@@ -65,7 +85,7 @@ async function saveNativeToken({ userId, token, platform }) {
     { onConflict: "token" }
   );
 
-  if (error) throw error;
+  if (error) throw buildTokenSaveError(error);
 }
 
 export async function requestNativeNotificationPermission() {
@@ -90,7 +110,7 @@ export async function requestNativeNotificationPermission() {
   return { permission, configured: permission === "granted" };
 }
 
-export async function enableNativePushNotifications({ userId }) {
+export async function enableNativePushNotifications({ userId, requireCloud = false } = {}) {
   const environment = getNotificationEnvironment();
   if (!environment.supportsNativePush) {
     return { permission: "unsupported", configured: false, token: null, environment };
@@ -98,6 +118,10 @@ export async function enableNativePushNotifications({ userId }) {
 
   if (!userId) {
     throw new Error("Sign in to enable device notifications.");
+  }
+
+  if (requireCloud && !isCloudSupabaseConfigured) {
+    throw new Error("Supabase cloud is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before testing real push.");
   }
 
   const PushNotifications = await loadPushPlugin();
@@ -141,12 +165,12 @@ export async function enableNativePushNotifications({ userId }) {
       });
 
       errorHandle = await PushNotifications.addListener("registrationError", (registrationError) => {
-        const message = registrationError?.error || registrationError?.message || "Native push registration failed.";
+        const message = registrationError?.error || registrationError?.message || "Native push registration failed. Check Firebase google-services.json and Android configuration.";
         finish(reject, new Error(message));
       });
 
       timeoutId = window.setTimeout(() => {
-        finish(reject, new Error("Native push registration timed out."));
+        finish(reject, new Error("Native push registration timed out. Check Firebase google-services.json, Play services, and Android build configuration."));
       }, 15000);
 
       await PushNotifications.register();
@@ -155,7 +179,12 @@ export async function enableNativePushNotifications({ userId }) {
     }
   });
 
-  await saveNativeToken({ userId, token, platform: environment.platform });
+  await saveNativeToken({
+    userId,
+    token,
+    platform: environment.platform,
+    client: nativePushClient({ requireCloud }),
+  });
 
   return {
     permission: "granted",
