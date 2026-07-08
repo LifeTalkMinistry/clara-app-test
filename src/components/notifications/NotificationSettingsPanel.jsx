@@ -12,6 +12,10 @@ import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import {
   hasStoredNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
+import {
+  sendRealPushTestNotification,
+  showTestDeviceNotification,
+} from "@/lib/notifications/deviceNotifications";
 
 const EXPENSE_LOG_FREQUENCY_OPTIONS = [
   { value: 1, label: "Once a day" },
@@ -332,6 +336,8 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
   const [taskApplicable, setTaskApplicable] = useState(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [localTestSending, setLocalTestSending] = useState(false);
+  const [realPushTestSending, setRealPushTestSending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -451,6 +457,40 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
     }
   }, [syncTaskSettings, taskReminderSettings, updatePreference]);
 
+  const sendLocalDeviceTest = useCallback(async () => {
+    setNotice("");
+    setError("");
+    setLocalTestSending(true);
+
+    try {
+      await showTestDeviceNotification();
+      setNotice("Local test notification sent from this device. This does not prove Supabase/Firebase push works.");
+    } catch (testError) {
+      console.error("Local device notification test failed:", testError);
+      setError(testError?.message || "Local device notification test failed.");
+    } finally {
+      setLocalTestSending(false);
+    }
+  }, []);
+
+  const sendRealPushTest = useCallback(async () => {
+    setNotice("");
+    setError("");
+    setRealPushTestSending(true);
+
+    try {
+      const result = await sendRealPushTestNotification();
+      const sent = Number(result.nativeSent || result.sent || 0);
+      setNotice(`Real push test sent through Supabase/Firebase. nativeSent: ${Number(result.nativeSent || 0)}, sent: ${sent}. Check the phone notification tray or lock screen.`);
+      await taskReminderSettings.refreshPushStatus();
+    } catch (testError) {
+      console.error("Real push notification test failed:", testError);
+      setError(testError?.message || "Real push test failed. Do not treat local notifications as proof that push works.");
+    } finally {
+      setRealPushTestSending(false);
+    }
+  }, [taskReminderSettings]);
+
   const tasksDisabled = taskApplicable !== true;
 
   return (
@@ -501,7 +541,11 @@ export default function NotificationSettingsPanel({ userId, embedded = false }) 
               permissionState={taskReminderSettings.permissionState}
               pushConfigured={taskReminderSettings.pushConfigured}
               pushEnabling={taskReminderSettings.pushEnabling}
+              localTestSending={localTestSending}
+              realPushTestSending={realPushTestSending}
               onEnablePush={enableDeviceNotifications}
+              onSendLocalTest={sendLocalDeviceTest}
+              onSendRealPushTest={sendRealPushTest}
             />
             <button
               type="button"
