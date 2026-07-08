@@ -1,17 +1,15 @@
 import { higherPriorityBubble, createBubble, selectMilestone } from "./dailyCheckInBubbles.js";
 import {
-  DAILY_CHECK_IN_EVENT_TYPE,
-  DAILY_CHECK_IN_SOURCE,
-  eventIdFor,
+  EVENT_TYPE,
+  createDailyCheckInEvent,
   normalizeCheckInEvents,
 } from "./dailyCheckInEngine.js";
 import { normalizeState } from "./dailyCheckInState.js";
-import { getChallengeTimeZone } from "../../../../../lib/challenge-schedule.js";
 
 export function prepareDailyCheckIn(value, userId, todayKey) {
   const baseState = normalizeState(value, userId, todayKey);
   const existingEvent = baseState.checkInEvents.find(
-    (event) => event.eventType === DAILY_CHECK_IN_EVENT_TYPE && event.eligibleDay === todayKey,
+    (event) => event.eventType === EVENT_TYPE && event.eligibleDay === todayKey,
   );
 
   if (existingEvent) {
@@ -19,16 +17,7 @@ export function prepareDailyCheckIn(value, userId, todayKey) {
   }
 
   const nowIso = new Date().toISOString();
-  const nextEvent = {
-    eventId: eventIdFor(userId, todayKey),
-    userId,
-    eventType: DAILY_CHECK_IN_EVENT_TYPE,
-    eligibleDay: todayKey,
-    clientOccurredAt: nowIso,
-    timezone: getChallengeTimeZone(),
-    source: DAILY_CHECK_IN_SOURCE,
-    createdAt: nowIso,
-  };
+  const nextEvent = createDailyCheckInEvent({ userId, eligibleDay: todayKey });
   const checkInEvents = normalizeCheckInEvents(
     [...baseState.checkInEvents, nextEvent],
     userId,
