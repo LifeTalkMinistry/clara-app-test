@@ -201,6 +201,7 @@ export default function Layout({ children }) {
   const { user, loading = false } = useUserRole() || {};
 
   const isDashboard = location.pathname === "/dashboard";
+  const isDataExportPage = location.pathname === "/data-export";
   const activeMotionPage = isMotionPage(location.pathname);
   const dragProgress = useMemo(() => Math.min(Math.max(dragY / 360, 0), 1), [dragY]);
   const overlayOpacity = Math.max(0.18, 1 - dragProgress * 0.78);
@@ -421,8 +422,9 @@ export default function Layout({ children }) {
   }, [activeMotionPage, dragY, handleBackToDashboard, isDraggingMotion, motionClosing]);
 
   return (
-    <div className="theme-page-shell flex h-screen overflow-hidden text-white">
+    <div className={`theme-page-shell flex h-screen overflow-hidden text-white${isDataExportPage ? " clara-data-export-layout" : ""}`}>
       <style>{`
+        .clara-data-export-layout main { padding-top: 0 !important; }
         @keyframes claraMotionExpandIn { 0% { opacity: 0.42; transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(62deg); border-radius: var(--clara-origin-radius); filter: blur(5px) saturate(1.14); box-shadow: 0 22px 80px rgba(0,0,0,0.10); } 38% { opacity: 0.92; transform: translate3d(calc(var(--clara-origin-x) * .18), calc(var(--clara-origin-y) * .18 - 22px), 0) scale(.92, .9) rotateX(13deg); border-radius: 30px; filter: blur(1px) saturate(1.08); box-shadow: 0 30px 110px rgba(0,0,0,0.28); } 68% { opacity: 1; transform: translate3d(0, -10px, 0) scale(1.018, 1.012) rotateX(-4deg); border-radius: 26px; filter: blur(0px) saturate(1.04); box-shadow: 0 24px 90px rgba(0,0,0,0.22); } 100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1, 1) rotateX(0deg); border-radius: 0px; filter: blur(0px) saturate(1); box-shadow: none; } }
         @keyframes claraMotionCollapseOut { 0% { opacity: 1; transform: translate3d(0, var(--clara-drag-y, 0), 0) scale(var(--clara-drag-scale, 1)) rotateX(0deg); border-radius: var(--clara-drag-radius, 0px); filter: blur(0px) saturate(1); } 100% { opacity: 0.14; transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(64deg); border-radius: var(--clara-origin-radius); filter: blur(6px) saturate(1.18); } }
         @keyframes claraOverlayIn { 0% { opacity: 0; backdrop-filter: blur(0px); } 100% { opacity: 1; backdrop-filter: blur(10px); } }

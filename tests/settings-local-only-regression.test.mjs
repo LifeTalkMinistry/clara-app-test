@@ -10,6 +10,7 @@ const activeSettingsSource = readSource(
 );
 const dataExportSource = readSource("src/pages/DataExport.jsx");
 const appSource = readSource("src/App.jsx");
+const layoutSource = readSource("src/components/Layout.jsx");
 const dashboardPanelRendererSource = readSource(
   "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
 );
@@ -94,3 +95,12 @@ test("obsolete DOM Settings patch is no longer initialized", () => {
     false
   );
 });
+test("data export page does not expose the global top padding accent", () => {
+  assert.match(layoutSource, /isDataExportPage = location\.pathname === "\/data-export"/);
+  assert.match(layoutSource, /clara-data-export-layout/);
+  assert.match(
+    layoutSource,
+    /\.clara-data-export-layout main \{ padding-top: 0 !important; \}/
+  );
+});
+
