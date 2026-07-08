@@ -80,15 +80,16 @@ export default function GuidedOnboardingIntroDialog({
                 id="clara-guided-onboarding-title"
                 className="mt-5 max-w-[19rem] text-[clamp(2rem,8.5vw,2.45rem)] font-black leading-[0.98] tracking-[-0.05em] text-white"
               >
-                Book a CLARA Walkthrough
+                Book Your Free CLARA Walkthrough
               </h1>
 
               <p
                 id="clara-guided-onboarding-description"
                 className="mt-5 text-[15px] font-medium leading-[1.65] text-slate-100/86"
               >
-                Get personal guidance to understand CLARA, ask questions, and focus on
-                the features most relevant to you.
+                Get a free one-on-one session with a CLARA guide who can answer your
+                questions, help you understand the app, and show you the features most
+                relevant to you.
               </p>
 
               <div className="mt-6 rounded-[22px] bg-white/[0.055] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
