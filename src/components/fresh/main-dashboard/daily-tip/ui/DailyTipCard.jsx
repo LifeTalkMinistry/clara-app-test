@@ -42,7 +42,7 @@ export default function DailyTipCard({
     todayKey,
     checkedInToday,
     challengeDay,
-    challengeDots,
+    challengeDotStates,
     challengeStatus,
     currentStreak,
     checkInToday,
@@ -353,9 +353,9 @@ export default function DailyTipCard({
 
                 <div className="pt-1">
                   <div className="clara-checkin-grid" aria-hidden="true">
-                    {(challengeDots?.length ? challengeDots : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
+                    {(challengeDotStates?.length ? challengeDotStates : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
                       const isDone = Boolean(dot?.completed);
-                      const isToday = Boolean(dot?.current);
+                      const isToday = Boolean(dot?.today);
 
                       return (
                         <span
