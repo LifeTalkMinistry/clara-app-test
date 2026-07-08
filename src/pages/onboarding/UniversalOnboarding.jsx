@@ -37,6 +37,7 @@ const MOBILE_QUERY = "(max-width: 640px)";
 const QUESTION_SETS = [
   {
     id: "commitment_level",
+    selectionMode: "single",
     eyebrow: "Commitment check",
     title: "How ready are you to work on your money right now?",
     description: "No pressure. CLARA only needs to understand your readiness level.",
@@ -49,6 +50,7 @@ const QUESTION_SETS = [
   },
   {
     id: "lifestyle_context",
+    selectionMode: "multiple",
     eyebrow: "Lifestyle clarity",
     title: "What kind of life is your money supporting right now?",
     description: "This helps CLARA understand the responsibilities around your money.",
@@ -64,6 +66,8 @@ const QUESTION_SETS = [
   },
   {
     id: "money_pressure_point",
+    selectionMode: "multiple",
+    exclusiveOptionIds: ["not_sure_yet"],
     eyebrow: "Current pressure",
     title: "What feels heaviest in your money life right now?",
     description: "CLARA will use this as your first pressure point to watch.",
@@ -80,6 +84,7 @@ const QUESTION_SETS = [
   },
   {
     id: "spending_trigger",
+    selectionMode: "multiple",
     eyebrow: "Ask before you spend",
     title: "When do you usually need help before spending?",
     description: "This tells CLARA when to help you pause before a risky decision.",
@@ -94,6 +99,7 @@ const QUESTION_SETS = [
   },
   {
     id: "spending_guidance_style",
+    selectionMode: "multiple",
     eyebrow: "Spending check preference",
     title: "What kind of spending check would help you most?",
     description: "CLARA can be gentle, direct, or budget-based depending on what helps you act.",
@@ -107,6 +113,7 @@ const QUESTION_SETS = [
   },
   {
     id: "guidance_intensity",
+    selectionMode: "single",
     eyebrow: "Real guidance",
     title: "How do you want CLARA to guide you?",
     description: "This shapes how strong CLARA’s coaching voice should feel.",
@@ -209,13 +216,63 @@ function isPlainObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function toAnswerArray(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))];
+  }
+  const singleValue = String(value || "").trim();
+  return singleValue ? [singleValue] : [];
+}
+
+function hasAnswerValue(value) {
+  return toAnswerArray(value).length > 0;
+}
+
+function getQuestionById(questionId) {
+  return QUESTION_SETS.find((question) => question.id === questionId) || null;
+}
+
+function normalizeAnswerValue(question, value) {
+  if (!question) return value;
+  const validOptionIds = new Set(question.options.map((option) => option.id));
+  const validValues = toAnswerArray(value).filter((item) => validOptionIds.has(item));
+
+  if (question.selectionMode === "multiple") return validValues;
+  return validValues[0] || "";
+}
+
+function normalizeAnswers(rawAnswers) {
+  if (!isPlainObject(rawAnswers)) return {};
+
+  return QUESTION_SETS.reduce((normalized, question) => {
+    const value = normalizeAnswerValue(question, rawAnswers[question.id]);
+    if (hasAnswerValue(value)) normalized[question.id] = value;
+    return normalized;
+  }, {});
+}
+
+function toggleMultipleAnswer(question, currentValue, optionId) {
+  const currentValues = toAnswerArray(currentValue);
+  const exclusiveIds = new Set(question?.exclusiveOptionIds || []);
+
+  if (exclusiveIds.has(optionId)) {
+    return currentValues.includes(optionId) ? [] : [optionId];
+  }
+
+  const withoutExclusiveValues = currentValues.filter((item) => !exclusiveIds.has(item));
+  if (withoutExclusiveValues.includes(optionId)) {
+    return withoutExclusiveValues.filter((item) => item !== optionId);
+  }
+  return [...withoutExclusiveValues, optionId];
+}
+
 function safelyParseOnboardingDraft() {
   if (typeof window === "undefined") return null;
   try {
     const rawDraft = window.sessionStorage?.getItem(UNIVERSAL_ONBOARDING_DRAFT_KEY);
     if (!rawDraft) return null;
     const parsedDraft = JSON.parse(rawDraft);
-    return isPlainObject(parsedDraft) ? parsedDraft : null;
+    return isPlainObject(parsedDraft) ? normalizeAnswers(parsedDraft) : null;
   } catch (error) {
     warnInDevelopment("CLARA onboarding draft parse failed:", error);
     return null;
@@ -227,7 +284,7 @@ function persistOnboardingDraft(nextAnswers) {
   try {
     window.sessionStorage?.setItem(
       UNIVERSAL_ONBOARDING_DRAFT_KEY,
-      JSON.stringify(nextAnswers)
+      JSON.stringify(normalizeAnswers(nextAnswers))
     );
   } catch {
     // Session draft persistence is best effort only.
@@ -252,25 +309,28 @@ function getRecommendedAccessLevel(answers) {
     "risk_warnings",
     "money_coach",
   ]);
-  const hasCommittedSignal = [
-    answers.commitment_level,
-    answers.spending_guidance_style,
-    answers.guidance_intensity,
-  ].some((value) => committedSignals.has(value));
+  const relevantAnswers = [
+    ...toAnswerArray(answers.commitment_level),
+    ...toAnswerArray(answers.spending_guidance_style),
+    ...toAnswerArray(answers.guidance_intensity),
+  ];
+  const hasCommittedSignal = relevantAnswers.some((value) => committedSignals.has(value));
   return hasCommittedSignal ? "committed" : "free";
 }
 
 function getMissingRequiredAnswer(answers) {
-  return QUESTION_SETS.find((question) => !answers[question.id]);
+  return QUESTION_SETS.find((question) => !hasAnswerValue(answers[question.id]));
 }
 
 function buildOnboardingMemoryEntries(answers) {
-  return Object.entries(ONBOARDING_MEMORY_MAPPINGS)
-    .map(([answerKey, mapping]) => {
-      const content = mapping.content[answers[answerKey]];
-      return content ? { category: mapping.category, content } : null;
-    })
-    .filter(Boolean);
+  return Object.entries(ONBOARDING_MEMORY_MAPPINGS).flatMap(([answerKey, mapping]) =>
+    toAnswerArray(answers[answerKey])
+      .map((answerValue) => {
+        const content = mapping.content[answerValue];
+        return content ? { category: mapping.category, content } : null;
+      })
+      .filter(Boolean)
+  );
 }
 
 function saveOnboardingAnswersToLocalMemory(userId, answers) {
@@ -296,7 +356,7 @@ function saveOnboardingAnswersToLocalMemory(userId, answers) {
         new CustomEvent("clara-onboarding-memory-updated", {
           detail: {
             userId,
-            categories: memoryEntries.map((memory) => memory.category),
+            categories: [...new Set(memoryEntries.map((memory) => memory.category))],
           },
         })
       );
@@ -399,7 +459,11 @@ function WelcomeStep({ content, onNext }) {
   );
 }
 
-function QuestionStep({ question, selectedAnswer, onSelect, disabled }) {
+function QuestionStep({ question, selectedAnswer, onSelect, onContinue, disabled }) {
+  const isMultiple = question.selectionMode === "multiple";
+  const selectedValues = toAnswerArray(selectedAnswer);
+  const hasSelection = selectedValues.length > 0;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
@@ -410,10 +474,15 @@ function QuestionStep({ question, selectedAnswer, onSelect, disabled }) {
           {question.title}
         </h2>
         <p className="mt-3 text-base leading-7 text-white/68">{question.description}</p>
+        {isMultiple ? (
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#f4cd71]/72">
+            Select all that apply
+          </p>
+        ) : null}
       </div>
       <div className="grid gap-3">
         {question.options.map((option) => {
-          const isSelected = selectedAnswer === option.id;
+          const isSelected = selectedValues.includes(option.id);
           return (
             <button
               key={option.id}
@@ -429,7 +498,9 @@ function QuestionStep({ question, selectedAnswer, onSelect, disabled }) {
             >
               <div className="flex items-start gap-3">
                 <div
-                  className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-75 ${
+                  className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center border transition-colors duration-75 ${
+                    isMultiple ? "rounded-md" : "rounded-full"
+                  } ${
                     isSelected
                       ? "border-[#f4cd71] bg-[#f4cd71] text-[#111827]"
                       : "border-white/20 bg-transparent"
@@ -448,6 +519,17 @@ function QuestionStep({ question, selectedAnswer, onSelect, disabled }) {
           );
         })}
       </div>
+      {isMultiple ? (
+        <Button
+          type="button"
+          onClick={() => onContinue(question.id)}
+          disabled={!hasSelection || disabled}
+          className="h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e] disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          Continue
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -595,11 +677,10 @@ export default function UniversalOnboarding() {
     const localAnswers =
       isPlainObject(localSetupProfile?.answers) &&
       Object.keys(localSetupProfile.answers).length > 0
-        ? localSetupProfile.answers
+        ? normalizeAnswers(localSetupProfile.answers)
         : null;
     const draftAnswers = localAnswers ? null : safelyParseOnboardingDraft();
-    const nextAnswers = localAnswers || draftAnswers || {};
-    if (!isPlainObject(nextAnswers)) return;
+    const nextAnswers = normalizeAnswers(localAnswers || draftAnswers || {});
 
     hasHydratedAnswersRef.current = true;
     answersRef.current = nextAnswers;
@@ -684,7 +765,7 @@ export default function UniversalOnboarding() {
     const currentAnswers = isPlainObject(answersRef.current)
       ? answersRef.current
       : answers;
-    return isPlainObject(currentAnswers) ? { ...currentAnswers } : {};
+    return normalizeAnswers(currentAnswers);
   }
 
   function goNext() {
@@ -718,21 +799,54 @@ export default function UniversalOnboarding() {
     advanceScheduleRef.current = { firstFrame, secondFrame: null, timer: null };
   }
 
+  function commitAnswers(nextAnswers) {
+    const normalizedAnswers = normalizeAnswers(nextAnswers);
+    answersRef.current = normalizedAnswers;
+    setAnswers(normalizedAnswers);
+    persistOnboardingDraft(normalizedAnswers);
+    setNameError("");
+    return normalizedAnswers;
+  }
+
   function handleSelectAnswer(questionId, optionId) {
+    const question = getQuestionById(questionId);
+    if (!question) return;
+
+    if (question.selectionMode === "multiple") {
+      const currentAnswers = getStableAnswersSnapshot();
+      const nextSelectedValues = toggleMultipleAnswer(
+        question,
+        currentAnswers[questionId],
+        optionId
+      );
+      commitAnswers({
+        ...currentAnswers,
+        [questionId]: nextSelectedValues,
+      });
+      return;
+    }
+
     if (isAdvancingRef.current) return;
     isAdvancingRef.current = true;
 
-    const nextAnswers = {
+    commitAnswers({
       ...getStableAnswersSnapshot(),
       [questionId]: optionId,
-    };
-    answersRef.current = nextAnswers;
-    setAnswers(nextAnswers);
-    persistOnboardingDraft(nextAnswers);
-    setNameError("");
+    });
 
     clearAdvanceSchedule();
     scheduleQuestionAdvance();
+  }
+
+  function handleContinueQuestion(questionId) {
+    const question = getQuestionById(questionId);
+    if (!question || question.selectionMode !== "multiple") return;
+    if (!hasAnswerValue(getStableAnswersSnapshot()[questionId])) return;
+    if (isAdvancingRef.current) return;
+
+    isAdvancingRef.current = true;
+    clearAdvanceSchedule();
+    goNext();
   }
 
   function saveCompletedOnboardingAccessSnapshot(recommendedAccessSnapshot) {
@@ -935,6 +1049,7 @@ export default function UniversalOnboarding() {
                   question={currentQuestion}
                   selectedAnswer={answers[currentQuestion.id]}
                   onSelect={handleSelectAnswer}
+                  onContinue={handleContinueQuestion}
                   disabled={isAdvancingRef.current}
                 />
               ) : null}
