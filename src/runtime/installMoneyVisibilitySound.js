@@ -7,6 +7,31 @@ const MONEY_WORD_LETTER_SELECTOR = [
   'button[aria-label^="Choose letter "]',
   'button[aria-label^="Remove letter "]',
 ].join(", ");
+const MODAL_CLOSE_SELECTOR = [
+  'button[aria-label*="close" i]',
+  'button[aria-label*="dismiss" i]',
+  'button[aria-label*="exit" i]',
+  'button[title*="close" i]',
+  '[role="button"][aria-label*="close" i]',
+  '[role="button"][aria-label*="dismiss" i]',
+  '[role="button"][aria-label*="exit" i]',
+  '[data-radix-dialog-close]',
+  '[data-clara-modal-close="true"]',
+].join(", ");
+const MODAL_ROOT_SELECTOR = [
+  '[role="dialog"]',
+  '[aria-modal="true"]',
+  '[data-radix-dialog-content]',
+  '[data-vaul-drawer]',
+  '[data-clara-modal="true"]',
+].join(", ");
+const X_ICON_SELECTOR = [
+  "svg.lucide-x",
+  "svg.lucide-circle-x",
+  "svg.lucide-x-circle",
+  '[data-lucide="x"]',
+  '[data-lucide="circle-x"]',
+].join(", ");
 const SELECTOR =
   `[data-clara-summary-privacy-toggle='true'], button[data-clara-trend-card='true'], [data-clara-heart-cta='true'], ${CALENDAR_DATE_SELECTOR}, ${MONEY_WORD_LETTER_SELECTOR}`;
 const CALENDAR_DOUBLE_CLICK_MS = 380;
@@ -31,11 +56,44 @@ function findMoneyWordSubmitButton(target) {
   return isMoneyWordGameRoot(button.closest?.("main")) ? button : null;
 }
 
+function hasStandaloneX(button) {
+  if (!button) return false;
+
+  const text = String(button.textContent || "").trim().toLowerCase();
+  const hasXText = text === "x" || text === "×" || text === "✕" || text === "✖";
+  const hasXIcon = Boolean(button.querySelector?.(X_ICON_SELECTOR));
+
+  return hasXText || hasXIcon;
+}
+
+function findModalCloseButton(target) {
+  const button = target?.closest?.('button, [role="button"]');
+  if (!button) return null;
+
+  if (button.matches?.(MODAL_CLOSE_SELECTOR)) return button;
+
+  const ariaLabel = String(button.getAttribute?.("aria-label") || "").trim();
+  const title = String(button.getAttribute?.("title") || "").trim();
+  const hasExplicitLabel = Boolean(ariaLabel || title);
+  const isInsideModal = Boolean(button.closest?.(MODAL_ROOT_SELECTOR));
+
+  if (!hasExplicitLabel && isInsideModal && hasStandaloneX(button)) {
+    return button;
+  }
+
+  return null;
+}
+
 function findButton(target) {
-  const button = target?.closest?.(SELECTOR) || findMoneyWordSubmitButton(target);
+  const button =
+    target?.closest?.(SELECTOR) ||
+    findMoneyWordSubmitButton(target) ||
+    findModalCloseButton(target);
+
   if (!button || button.disabled || button.getAttribute?.("aria-disabled") === "true") {
     return null;
   }
+
   return button;
 }
 
