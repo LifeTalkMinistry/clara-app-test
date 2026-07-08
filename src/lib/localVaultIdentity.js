@@ -2,40 +2,20 @@ import {
   LOCAL_FINANCE_PRIVATE_STORES,
   openLocalFinanceDb,
 } from "./localFinanceStore.js";
+import {
+  LOCAL_VAULT_ID_KEY,
+  getLocalVaultId,
+  getOrCreateLocalVaultId,
+  isLegacyLocalUserId,
+  setLocalVaultId,
+} from "./local-user-identity.js";
 
-export const ACTIVE_LOCAL_VAULT_KEY = "clara_active_local_vault_v1";
+export const ACTIVE_LOCAL_VAULT_KEY = LOCAL_VAULT_ID_KEY;
 export const LEGACY_LOCAL_VAULT_ID = "local-dev-user";
 export const TEMPORARY_LOCAL_EMAIL = "local@clara.app";
-export const LOCAL_VAULT_VERSION = 1;
+export const LOCAL_VAULT_VERSION = 2;
 
-let memoryVaultId = "";
 const normalize = (value) => String(value ?? "").trim();
-
-function readStoredVaultId() {
-  if (typeof window === "undefined") return memoryVaultId;
-  try {
-    return normalize(window.localStorage?.getItem(ACTIVE_LOCAL_VAULT_KEY)) || memoryVaultId;
-  } catch {
-    return memoryVaultId;
-  }
-}
-
-function writeStoredVaultId(vaultId) {
-  memoryVaultId = normalize(vaultId);
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage?.setItem(ACTIVE_LOCAL_VAULT_KEY, memoryVaultId);
-  } catch {
-    // Keep the session value when browser storage is unavailable.
-  }
-}
-
-function createVaultId() {
-  if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
-    return `vault_${globalThis.crypto.randomUUID()}`;
-  }
-  return `vault_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
-}
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -46,7 +26,7 @@ function requestToPromise(request) {
 
 export function isTemporaryLocalAuthUser(user = {}) {
   return Boolean(
-    normalize(user?.id) === LEGACY_LOCAL_VAULT_ID ||
+    isLegacyLocalUserId(user?.id) ||
       normalize(user?.email).toLowerCase() === TEMPORARY_LOCAL_EMAIL
   );
 }
@@ -55,10 +35,10 @@ export function resolveLocalVaultId({
   persistedVaultId = "",
   ownerCounts = {},
   candidateOwnerIds = [],
-  createId = createVaultId,
+  createId = () => getOrCreateLocalVaultId(),
 } = {}) {
   const persisted = normalize(persistedVaultId);
-  if (persisted) return persisted;
+  if (persisted && !isLegacyLocalUserId(persisted)) return persisted;
 
   const counts = Object.entries(ownerCounts || {}).reduce((acc, [ownerId, count]) => {
     const cleanOwnerId = normalize(ownerId);
@@ -69,19 +49,26 @@ export function resolveLocalVaultId({
     return acc;
   }, {});
 
-  if (counts[LEGACY_LOCAL_VAULT_ID] > 0) return LEGACY_LOCAL_VAULT_ID;
-
   for (const candidate of candidateOwnerIds || []) {
     const cleanCandidate = normalize(candidate);
-    if (cleanCandidate && counts[cleanCandidate] > 0) return cleanCandidate;
+    if (
+      cleanCandidate &&
+      !isLegacyLocalUserId(cleanCandidate) &&
+      counts[cleanCandidate] > 0
+    ) {
+      return cleanCandidate;
+    }
   }
 
-  const existingOwners = Object.entries(counts).sort((left, right) => {
-    if (right[1] !== left[1]) return right[1] - left[1];
-    return left[0].localeCompare(right[0]);
-  });
+  const existingOwner = Object.entries(counts)
+    .filter(([ownerId]) => !isLegacyLocalUserId(ownerId))
+    .sort((left, right) => {
+      if (right[1] !== left[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0]);
+    })[0]?.[0];
 
-  return existingOwners[0]?.[0] || normalize(createId()) || createVaultId();
+  const created = normalize(createId());
+  return existingOwner || (created && !isLegacyLocalUserId(created) ? created : getOrCreateLocalVaultId());
 }
 
 export async function getLocalVaultOwnerCounts() {
@@ -103,18 +90,15 @@ export async function getLocalVaultOwnerCounts() {
 
 export async function detectLegacyLocalVault() {
   const counts = await getLocalVaultOwnerCounts();
-  return (counts[LEGACY_LOCAL_VAULT_ID] || 0) > 0;
+  return (counts[LEGACY_LOCAL_VAULT_ID] || 0) > 0 || (counts["local-user"] || 0) > 0;
 }
 
 export function getActiveLocalVaultId() {
-  return readStoredVaultId();
+  return getLocalVaultId();
 }
 
 export function setActiveLocalVaultId(vaultId) {
-  const cleanVaultId = normalize(vaultId);
-  if (!cleanVaultId) throw new Error("A valid local vault ID is required.");
-
-  writeStoredVaultId(cleanVaultId);
+  const cleanVaultId = setLocalVaultId(vaultId);
 
   if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
     window.dispatchEvent(
@@ -128,41 +112,19 @@ export function setActiveLocalVaultId(vaultId) {
 }
 
 export function ensureActiveLocalVaultId() {
-  return getActiveLocalVaultId() || setActiveLocalVaultId(createVaultId());
+  return getOrCreateLocalVaultId();
 }
 
-export async function initializeLocalVaultIdentity({ candidateOwnerIds = [] } = {}) {
-  const persistedVaultId = getActiveLocalVaultId();
-  if (persistedVaultId) return persistedVaultId;
-
-  let ownerCounts = {};
-  let scanFailed = false;
-  try {
-    ownerCounts = await getLocalVaultOwnerCounts();
-  } catch (error) {
-    scanFailed = true;
-    console.warn("[CLARA Vault] Existing owner scan failed.", {
-      code: error?.name || "VAULT_SCAN_FAILED",
-    });
-  }
-
-  const vaultId = scanFailed
-    ? LEGACY_LOCAL_VAULT_ID
-    : resolveLocalVaultId({ ownerCounts, candidateOwnerIds });
-  setActiveLocalVaultId(vaultId);
-  console.info("[CLARA Vault] Active local vault resolved.", {
-    vaultId,
-    preservedLegacyVault: vaultId === LEGACY_LOCAL_VAULT_ID,
-  });
-  return vaultId;
+export async function initializeLocalVaultIdentity() {
+  return getOrCreateLocalVaultId();
 }
 
 export function getLocalVaultState() {
-  const vaultId = getActiveLocalVaultId();
+  const vaultId = getOrCreateLocalVaultId();
   return {
-    vaultId: vaultId || null,
+    vaultId,
     vaultVersion: LOCAL_VAULT_VERSION,
-    initialized: Boolean(vaultId),
-    legacy: vaultId === LEGACY_LOCAL_VAULT_ID,
+    initialized: true,
+    legacy: false,
   };
 }
