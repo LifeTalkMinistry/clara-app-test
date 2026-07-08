@@ -127,6 +127,25 @@ export function saveLocalAccountProfile(localUserId, patch = {}) {
   return next;
 }
 
+export function clearLocalAccountProfile(localUserId, { clearSetup = true } = {}) {
+  const id = String(localUserId || "").trim();
+  if (!id) throw new Error("localUserId is required for the local CLARA profile reset.");
+
+  const storage = getStorage();
+  storage?.removeItem(profileKey(id));
+
+  if (clearSetup) {
+    storage?.removeItem(`clara_me_life_setup:${id}`);
+    storage?.removeItem(LOCAL_SETUP_KEY);
+  }
+
+  window?.dispatchEvent?.(
+    new CustomEvent("clara-local-profile-updated", {
+      detail: { localUserId: id, cleared: true },
+    })
+  );
+}
+
 export function buildLocalMembershipProfile(localUser, localProfile, entitlementProfile = {}) {
   return {
     ...localProfile,
