@@ -18,9 +18,11 @@ import {
   getOrCreateLocalVaultId,
   LEGACY_ACTIVE_LOCAL_VAULT_KEY,
 } from "@/lib/local-user-identity";
+import {
+  clearDailyCheckInState,
+} from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence";
 
 const LEGACY_LOCAL_IDS = ["local-dev-user", "local-user"];
-const DAILY_CHECK_IN_PREFIX = "clara_daily_check_in_v2:";
 const PROFILE_PREFIX = "clara_local_account_profile_v1:";
 const ENTITLEMENT_PREFIX = "clara_google_play_entitlement_v1:";
 
@@ -69,7 +71,7 @@ function clearScopedLocalStorage(localUserIds) {
   ALWAYS_CLEAR_KEYS.forEach((key) => removeKey(storage, key));
 
   localUserIds.forEach((localUserId) => {
-    removeKey(storage, `${DAILY_CHECK_IN_PREFIX}${localUserId}`);
+    clearDailyCheckInState(localUserId);
     removeKey(storage, `clara_memory_${localUserId}`);
     removeKey(storage, `clara_me_life_setup:${localUserId}`);
     removeKey(storage, `${PROFILE_PREFIX}${localUserId}`);
