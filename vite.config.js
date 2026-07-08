@@ -13,10 +13,6 @@ function getManualChunk(id) {
     return "router-vendor";
   }
 
-  if (id.includes("node_modules/@supabase/")) {
-    return "supabase-vendor";
-  }
-
   if (id.includes("node_modules/@tanstack/")) {
     return "query-vendor";
   }
