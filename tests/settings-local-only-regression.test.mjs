@@ -10,6 +10,9 @@ const activeSettingsSource = readSource(
 );
 const dataExportSource = readSource("src/pages/DataExport.jsx");
 const appSource = readSource("src/App.jsx");
+const dashboardPanelRendererSource = readSource(
+  "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
+);
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
 
 test("active Settings directly exposes Backup & Transfer through /data-export", () => {
@@ -26,6 +29,32 @@ test("active local-only Settings does not render authentication or account-linki
   assert.doesNotMatch(activeSettingsSource, /auth\.signOut/);
   assert.doesNotMatch(activeSettingsSource, /Protect & link my data/);
   assert.doesNotMatch(activeSettingsSource, /Signed in as/);
+});
+
+test("dashboard renderer does not append a second logout control", () => {
+  assert.doesNotMatch(dashboardPanelRendererSource, /SettingsLogoutButton/);
+  assert.doesNotMatch(dashboardPanelRendererSource, /renderSettingsWithLogout/);
+  assert.doesNotMatch(dashboardPanelRendererSource, /Log out/);
+  assert.doesNotMatch(dashboardPanelRendererSource, /auth\.signOut/);
+  assert.match(
+    dashboardPanelRendererSource,
+    /activePanel === "settings"[\s\S]*renderSettings\?\.\(\) \?\? fallback/
+  );
+});
+
+test("login and account-link URLs stay hidden in local-only mode", () => {
+  assert.doesNotMatch(appSource, /pages\/Login/);
+  assert.doesNotMatch(appSource, /pages\/LinkLocalVault/);
+  assert.doesNotMatch(appSource, /<Login \/>/);
+  assert.doesNotMatch(appSource, /<LinkLocalVault \/>/);
+  assert.match(
+    appSource,
+    /path="\/login" element=\{<Navigate to="\/dashboard" replace \/>\}/
+  );
+  assert.match(
+    appSource,
+    /path="\/link-local-vault" element=\{<Navigate to="\/dashboard" replace \/>\}/
+  );
 });
 
 test("backup page keeps download, upload, validation, confirmation, restore, and reload behavior", () => {
