@@ -114,7 +114,8 @@ export default function GuidedOnboardingIntroDialog({
             <div className="mt-auto pt-7">
               <div className="border-t border-white/[0.08] pt-5">
                 <p className="text-[13px] font-medium leading-[1.6] text-slate-300/68">
-                  You do not need to finish setting up CLARA before booking.
+                  No payment required. You do not need to finish setting up CLARA before
+                  booking.
                 </p>
 
                 <button
@@ -123,7 +124,7 @@ export default function GuidedOnboardingIntroDialog({
                   onClick={onContinue}
                   className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.96),rgba(99,102,241,0.98))] px-4 text-[12px] font-extrabold tracking-[0.02em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-[0.99]"
                 >
-                  Continue to Booking Form
+                  Reserve My Free Session
                   <ExternalLink className="h-4 w-4" />
                 </button>
               </div>
