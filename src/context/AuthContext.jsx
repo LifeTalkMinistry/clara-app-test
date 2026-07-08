@@ -21,6 +21,7 @@ import {
   toLocalEnrollment,
 } from "@/lib/local-google-play-entitlement";
 import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
+import { migrateLegacyLocalIdentityStorage } from "@/lib/local-identity-storage-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 
 const AuthContext = createContext(null);
@@ -74,9 +75,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    migrateLocalVaultOwnership(state.localUserId)
+    (async () => {
+      await migrateLocalVaultOwnership(state.localUserId);
+      await migrateLegacyLocalIdentityStorage(state.localUserId);
+    })()
       .catch((error) => {
-        console.warn("[CLARA Auth] local vault migration could not complete", error);
+        console.warn("[CLARA Auth] local identity migration could not complete", error);
       })
       .finally(() => {
         if (mounted) refreshProfile();
@@ -104,6 +108,7 @@ export function AuthProvider({ children }) {
     window.addEventListener(GOOGLE_PLAY_ENTITLEMENT_EVENT, refresh);
     window.addEventListener("clara-membership-preview-updated", refresh);
     window.addEventListener("clara:active-local-vault-updated", refresh);
+    window.addEventListener("clara-local-journey-reset", refresh);
     window.addEventListener("storage", handleStorage);
 
     return () => {
@@ -112,6 +117,7 @@ export function AuthProvider({ children }) {
       window.removeEventListener(GOOGLE_PLAY_ENTITLEMENT_EVENT, refresh);
       window.removeEventListener("clara-membership-preview-updated", refresh);
       window.removeEventListener("clara:active-local-vault-updated", refresh);
+      window.removeEventListener("clara-local-journey-reset", refresh);
       window.removeEventListener("storage", handleStorage);
     };
   }, [refreshProfile]);
