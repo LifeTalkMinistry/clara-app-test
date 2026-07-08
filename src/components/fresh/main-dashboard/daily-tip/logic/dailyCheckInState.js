@@ -26,6 +26,7 @@ export function createEmptyState(userId) {
     currentStreak: 0,
     longestStreak: 0,
     lifetimeCheckIns: 0,
+    cycleStartedAt: null,
     lastCheckInDay: null,
     lastCheckInDate: null,
     streakStatus: "not_started",
@@ -50,6 +51,7 @@ export function createSimulationState(userId, todayKey, completedToday = false) 
     return {
       ...state,
       challengeStartDay: todayKey,
+      cycleStartedAt: todayKey,
       challengeCurrentDay: 1,
       challengeEndDay: todayKey,
       challengeStatus: "active",
@@ -60,6 +62,7 @@ export function createSimulationState(userId, todayKey, completedToday = false) 
     {
       ...state,
       challengeStartDay: todayKey,
+      cycleStartedAt: todayKey,
       checkInEvents: [
         {
           eventId: `daily_check_in:${normalizeUserId(userId)}:${todayKey}`,
@@ -102,6 +105,7 @@ export function normalizeState(value, userId, todayKey) {
     ...createEmptyState(resolvedUserId),
     userId: resolvedUserId,
     challengeStartDay: isRealDateKey(history.challengeStartDay) ? history.challengeStartDay : null,
+    cycleStartedAt: isRealDateKey(history.challengeStartDay) ? history.challengeStartDay : null,
     challengeCurrentDay: history.challengeCurrentDay,
     challengeEndDay: isRealDateKey(history.challengeEndDay) ? history.challengeEndDay : null,
     challengeStatus: history.challengeStatus,
