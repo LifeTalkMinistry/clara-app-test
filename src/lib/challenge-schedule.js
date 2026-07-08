@@ -72,7 +72,7 @@ export function compareDateKeys(left, right) {
 }
 
 export function daysBetweenDateKeys(startDateKey, endDateKey) {
-  const diff = compareDateKeys(startDateKey, endDateKey);
+  const diff = compareDateKeys(endDateKey, startDateKey);
   if (!Number.isFinite(diff)) return 0;
   return Math.floor(diff / DAY_MS);
 }
