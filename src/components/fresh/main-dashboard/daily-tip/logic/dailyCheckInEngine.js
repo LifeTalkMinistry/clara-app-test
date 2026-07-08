@@ -2,17 +2,16 @@ import {
   addLocalDays,
   compareDateKeys,
   daysBetweenDateKeys,
-  getChallengeTimeZone,
-  isRealDateKey,
+  isValidDateKey,
 } from "../../../../../lib/challenge-schedule.js";
 
 export const MAX_VISIBLE_DAYS = 30;
-export const DAILY_CHECK_IN_EVENT_TYPE = "daily_check_in";
-export const DAILY_CHECK_IN_SOURCE = "daily_check_in_card_flip";
-export const MIGRATION_SOURCE = "legacy_v2_migration";
+export const EVENT_TYPE = "daily_check_in";
+export const EVENT_SOURCE_CARD_FLIP = "daily_check_in_card_flip";
+export const EVENT_SOURCE_MIGRATION = "legacy_v2_migration";
 
 export function isDateKey(value) {
-  return isRealDateKey(value);
+  return isValidDateKey(value);
 }
 
 export function normalizeDates(value, todayKey = null) {
@@ -22,52 +21,52 @@ export function normalizeDates(value, todayKey = null) {
     .sort(compareDateKeys);
 }
 
-export function eventIdFor(userId, eligibleDay) {
-  const safeUserId = String(userId || "").trim().replace(/[^a-zA-Z0-9_.:-]/g, "_") || "guest";
-  return `${DAILY_CHECK_IN_EVENT_TYPE}:${safeUserId}:${eligibleDay}`;
+export function buildDailyCheckInEventId(userId, eligibleDay) {
+  return `daily_check_in:${String(userId || "").trim()}:${eligibleDay}`;
 }
 
-export function normalizeCheckInEvents(events, userId, todayKey = null) {
-  if (!Array.isArray(events)) return [];
-  const byId = new Map();
+export function createDailyCheckInEvent({ userId, eligibleDay, source = EVENT_SOURCE_CARD_FLIP, now = new Date() }) {
+  const createdAt = now.toISOString();
+  return {
+    eventId: buildDailyCheckInEventId(userId, eligibleDay),
+    userId: String(userId || "").trim(),
+    eventType: EVENT_TYPE,
+    eligibleDay,
+    clientOccurredAt: createdAt,
+    timezone: "Asia/Manila",
+    source,
+    createdAt,
+  };
+}
+
+export function normalizeCheckInEvents(value, userId, todayKey = null) {
+  const events = Array.isArray(value) ? value : [];
+  const byDay = new Map();
 
   events.forEach((event) => {
     const eligibleDay = event?.eligibleDay;
     if (!isDateKey(eligibleDay)) return;
     if (todayKey && compareDateKeys(eligibleDay, todayKey) > 0) return;
-
-    const normalizedUserId = userId || event?.userId || "guest";
-    const normalized = {
-      eventId: event?.eventId || eventIdFor(normalizedUserId, eligibleDay),
-      userId: normalizedUserId,
-      eventType: DAILY_CHECK_IN_EVENT_TYPE,
+    const eventType = event?.eventType || EVENT_TYPE;
+    if (eventType !== EVENT_TYPE) return;
+    if (byDay.has(eligibleDay)) return;
+    byDay.set(eligibleDay, {
+      eventId: event?.eventId || buildDailyCheckInEventId(userId, eligibleDay),
+      userId,
+      eventType: EVENT_TYPE,
       eligibleDay,
-      clientOccurredAt:
-        typeof event?.clientOccurredAt === "string" ? event.clientOccurredAt : null,
-      timezone: getChallengeTimeZone(),
-      source:
-        typeof event?.source === "string" && event.source
-          ? event.source
-          : DAILY_CHECK_IN_SOURCE,
+      clientOccurredAt: typeof event?.clientOccurredAt === "string" ? event.clientOccurredAt : null,
+      timezone: "Asia/Manila",
+      source: typeof event?.source === "string" ? event.source : EVENT_SOURCE_CARD_FLIP,
       createdAt: typeof event?.createdAt === "string" ? event.createdAt : null,
-    };
-    byId.set(eventIdFor(normalizedUserId, eligibleDay), normalized);
+    });
   });
 
-  return [...byId.values()].sort((a, b) => compareDateKeys(a.eligibleDay, b.eligibleDay));
+  return [...byDay.values()].sort((left, right) => compareDateKeys(left.eligibleDay, right.eligibleDay));
 }
 
-export function eventsFromDates(completedDates, userId, source = MIGRATION_SOURCE) {
-  return normalizeDates(completedDates).map((eligibleDay) => ({
-    eventId: eventIdFor(userId, eligibleDay),
-    userId,
-    eventType: DAILY_CHECK_IN_EVENT_TYPE,
-    eligibleDay,
-    clientOccurredAt: `${eligibleDay}T06:00:00+08:00`,
-    timezone: getChallengeTimeZone(),
-    source,
-    createdAt: new Date().toISOString(),
-  }));
+export function eventDays(checkInEvents, todayKey = null) {
+  return normalizeDates(checkInEvents.map((event) => event.eligibleDay), todayKey);
 }
 
 export function calculateStreakEndingAtDate(completedDates, endDateKey) {
@@ -111,13 +110,15 @@ export function deriveCheckInStateFromEvents({
   todayKey,
   storedLongestStreak = 0,
   storedLifetimeCheckIns = 0,
-  challengeStartDay = null,
-  completedThirtyDays = false,
 }) {
-  const normalizedEvents = normalizeCheckInEvents(checkInEvents, null, todayKey);
-  const completedDates = normalizeDates(normalizedEvents.map((event) => event.eligibleDay), todayKey);
+  const completedDates = eventDays(checkInEvents, todayKey);
   const lastCheckInDay = completedDates[completedDates.length - 1] || null;
   const currentStreak = calculateActiveStreak(completedDates, todayKey);
+  const activeEndDate = completedDates.includes(todayKey)
+    ? todayKey
+    : completedDates.includes(addLocalDays(todayKey, -1))
+      ? addLocalDays(todayKey, -1)
+      : null;
   const calculatedLongestStreak = calculateLongestStreak(completedDates);
   const validStoredLongest = Number.isFinite(Number(storedLongestStreak))
     ? Math.max(0, Math.floor(Number(storedLongestStreak)))
@@ -126,122 +127,144 @@ export function deriveCheckInStateFromEvents({
     ? Math.max(0, Math.floor(Number(storedLifetimeCheckIns)))
     : 0;
 
-  const startDay = isDateKey(challengeStartDay)
-    ? challengeStartDay
-    : lastCheckInDay
-      ? lastCheckInDay
-      : null;
-  const challengeEndDay = startDay ? addLocalDays(startDay, MAX_VISIBLE_DAYS - 1) : null;
-  const challengeCurrentDay = startDay
-    ? Math.max(1, Math.min(MAX_VISIBLE_DAYS, daysBetweenDateKeys(startDay, todayKey) + 1))
-    : 0;
-  const reachedCalendarEnd =
-    Boolean(startDay) && compareDateKeys(todayKey, challengeEndDay) >= 0;
-  const challengeStatus = startDay
-    ? completedThirtyDays || reachedCalendarEnd
-      ? "completed"
-      : "active"
-    : "not_started";
-
-  const completedCheckInDays =
-    startDay && challengeEndDay
-      ? completedDates.filter(
-          (day) => compareDateKeys(day, startDay) >= 0 && compareDateKeys(day, challengeEndDay) <= 0,
-        ).length
-      : 0;
-
   return {
-    checkInEvents: normalizedEvents,
     completedDates,
     currentStreak,
-    longestStreak: Math.max(calculatedLongestStreak, validStoredLongest),
-    lifetimeCheckIns: Math.max(completedDates.length, validStoredLifetime),
     lastCheckInDay,
     lastCheckInDate: lastCheckInDay,
-    challengeStartDay: startDay,
-    challengeCurrentDay,
-    challengeEndDay,
-    challengeStatus,
-    completedCheckInDays,
-    completedThirtyDays: completedThirtyDays || challengeStatus === "completed",
+    cycleStartedAt:
+      currentStreak > 0 && activeEndDate
+        ? addLocalDays(activeEndDate, -(currentStreak - 1))
+        : null,
+    calculatedLongestStreak,
+    longestStreak: Math.max(calculatedLongestStreak, validStoredLongest),
+    lifetimeCheckIns: Math.max(completedDates.length, validStoredLifetime),
   };
 }
 
-export function deriveCheckInStateFromDates({
-  completedDates,
-  todayKey,
-  storedLongestStreak = 0,
-}) {
-  return deriveCheckInStateFromEvents({
-    checkInEvents: eventsFromDates(completedDates, "guest"),
-    todayKey,
-    storedLongestStreak,
-  });
+export function deriveCheckInStateFromDates({ completedDates, todayKey, storedLongestStreak = 0 }) {
+  const checkInEvents = normalizeDates(completedDates, todayKey).map((eligibleDay) =>
+    createDailyCheckInEvent({ userId: "legacy", eligibleDay, source: EVENT_SOURCE_MIGRATION }),
+  );
+  return deriveCheckInStateFromEvents({ checkInEvents, todayKey, storedLongestStreak });
 }
 
-export function reconcileCheckInHistory(value, todayKey, userId = null) {
-  const resolvedUserId = userId || value?.userId || "guest";
-  const legacyDates = normalizeDates(
-    [
-      ...(Array.isArray(value?.completedDates) ? value.completedDates : []),
-      ...(isDateKey(value?.lastCheckInDate) ? [value.lastCheckInDate] : []),
-      ...(isDateKey(value?.lastCheckInDay) ? [value.lastCheckInDay] : []),
-    ],
-    todayKey,
-  );
-  const eventHistory = normalizeCheckInEvents(value?.checkInEvents, resolvedUserId, todayKey);
-  const events = normalizeCheckInEvents(
-    [...eventHistory, ...eventsFromDates(legacyDates, resolvedUserId)],
-    resolvedUserId,
+export function reconcileCheckInHistory(value, todayKey, userId = value?.userId || "guest") {
+  const legacyDates = normalizeDates(value?.completedDates, todayKey);
+  const explicitEvents = normalizeCheckInEvents(value?.checkInEvents, userId, todayKey);
+  const explicitDays = new Set(explicitEvents.map((event) => event.eligibleDay));
+  const migratedLegacyEvents = legacyDates
+    .filter((eligibleDay) => !explicitDays.has(eligibleDay))
+    .map((eligibleDay) => createDailyCheckInEvent({ userId, eligibleDay, source: EVENT_SOURCE_MIGRATION }));
+  const checkInEvents = normalizeCheckInEvents(
+    [...explicitEvents, ...migratedLegacyEvents],
+    userId,
     todayKey,
   );
 
-  return deriveCheckInStateFromEvents({
-    checkInEvents: events,
-    todayKey,
-    storedLongestStreak: value?.longestStreak,
-    storedLifetimeCheckIns: value?.lifetimeCheckIns,
-    challengeStartDay: value?.challengeStartDay || value?.cycleStartedAt || null,
-    completedThirtyDays: Boolean(value?.completedThirtyDays),
-  });
+  return {
+    checkInEvents,
+    ...deriveCheckInStateFromEvents({
+      checkInEvents,
+      todayKey,
+      storedLongestStreak: value?.longestStreak,
+      storedLifetimeCheckIns: value?.lifetimeCheckIns,
+    }),
+  };
+}
+
+export function calculateChallengeEndDay(challengeStartDay) {
+  return isDateKey(challengeStartDay) ? addLocalDays(challengeStartDay, MAX_VISIBLE_DAYS - 1) : null;
+}
+
+export function calculateChallengeCurrentDay(challengeStartDay, todayKey) {
+  if (!isDateKey(challengeStartDay) || !isDateKey(todayKey)) return 0;
+  const rawDay = daysBetweenDateKeys(challengeStartDay, todayKey) + 1;
+  return Math.max(1, Math.min(MAX_VISIBLE_DAYS, rawDay));
+}
+
+export function calculateCompletedCheckInDays(completedDates, challengeStartDay, challengeEndDay) {
+  if (!isDateKey(challengeStartDay) || !isDateKey(challengeEndDay)) return 0;
+  return normalizeDates(completedDates).filter(
+    (dateKey) => compareDateKeys(dateKey, challengeStartDay) >= 0 && compareDateKeys(dateKey, challengeEndDay) <= 0,
+  ).length;
+}
+
+export function deriveChallengeState({ state, todayKey }) {
+  const completedDates = normalizeDates(state?.completedDates, todayKey);
+  const challengeStartDay = isDateKey(state?.challengeStartDay)
+    ? state.challengeStartDay
+    : isDateKey(state?.cycleStartedAt)
+      ? state.cycleStartedAt
+      : isDateKey(state?.lastCheckInDay || state?.lastCheckInDate)
+        ? state.lastCheckInDay || state.lastCheckInDate
+        : null;
+
+  if (!challengeStartDay) {
+    return {
+      challengeStartDay: null,
+      challengeCurrentDay: 0,
+      challengeEndDay: null,
+      challengeStatus: "not_started",
+      completedCheckInDays: 0,
+      completedThirtyDays: Boolean(state?.completedThirtyDays),
+      completedThirtyDaysAt: typeof state?.completedThirtyDaysAt === "string" ? state.completedThirtyDaysAt : null,
+    };
+  }
+
+  const challengeEndDay = calculateChallengeEndDay(challengeStartDay);
+  const challengeCurrentDay = calculateChallengeCurrentDay(challengeStartDay, todayKey);
+  const completedCheckInDays = calculateCompletedCheckInDays(completedDates, challengeStartDay, challengeEndDay);
+  const isCalendarComplete = compareDateKeys(todayKey, challengeEndDay) >= 0;
+  const completedThirtyDays = Boolean(state?.completedThirtyDays) || isCalendarComplete;
+
+  return {
+    challengeStartDay,
+    challengeCurrentDay,
+    challengeEndDay,
+    challengeStatus: completedThirtyDays ? "completed" : "active",
+    completedCheckInDays,
+    completedThirtyDays,
+    completedThirtyDaysAt:
+      completedThirtyDays && typeof state?.completedThirtyDaysAt === "string"
+        ? state.completedThirtyDaysAt
+        : null,
+  };
 }
 
 export function deriveChallengeMetrics(state, todayKey, maxVisibleDays = MAX_VISIBLE_DAYS) {
-  const completedDates = normalizeDates(
-    state.completedDates ||
-      normalizeCheckInEvents(state.checkInEvents, state.userId, todayKey).map((event) => event.eligibleDay),
-    todayKey,
-  );
+  const completedDates = normalizeDates(state.completedDates, todayKey);
   const checkedInToday = completedDates.includes(todayKey);
-  const challengeDay = Math.max(0, Math.min(maxVisibleDays, Number(state.challengeCurrentDay || 0)));
-  const challengeProgress = Math.max(0, Math.min(maxVisibleDays, Number(state.completedCheckInDays || 0)));
-
-  const challengeStartDay = isDateKey(state.challengeStartDay) ? state.challengeStartDay : null;
-  const challengeEndDay = isDateKey(state.challengeEndDay)
-    ? state.challengeEndDay
-    : challengeStartDay
-      ? addLocalDays(challengeStartDay, maxVisibleDays - 1)
-      : null;
-  const completedDateSet = new Set(completedDates);
-
-  const challengeDots = Array.from({ length: maxVisibleDays }).map((_, index) => {
-    const dateKey = challengeStartDay ? addLocalDays(challengeStartDay, index) : null;
-    const completed = Boolean(dateKey && completedDateSet.has(dateKey));
-    const current =
-      Boolean(dateKey) &&
-      compareDateKeys(dateKey, todayKey) === 0 &&
-      state.challengeStatus !== "not_started";
-    const future = Boolean(dateKey && compareDateKeys(dateKey, todayKey) > 0);
-    const outsideWindow = Boolean(challengeEndDay && dateKey && compareDateKeys(dateKey, challengeEndDay) > 0);
-
+  const challengeCurrentDay = Math.min(maxVisibleDays, Math.max(0, Number(state.challengeCurrentDay || 0)));
+  const challengeDay = challengeCurrentDay || 1;
+  const challengeProgress = Math.min(maxVisibleDays, Math.max(0, Number(state.completedCheckInDays || 0)));
+  const challengeStartDay = state.challengeStartDay;
+  const challengeDotStates = Array.from({ length: maxVisibleDays }).map((_, index) => {
+    const dotDay = challengeStartDay ? addLocalDays(challengeStartDay, index) : null;
+    const completed = dotDay ? completedDates.includes(dotDay) : false;
+    const dayNumber = index + 1;
+    const isToday = Boolean(
+      dotDay &&
+      challengeCurrentDay === dayNumber &&
+      state.challengeStatus !== "completed" &&
+      !completed,
+    );
+    const isPast = Boolean(dotDay && challengeCurrentDay > dayNumber && !completed);
     return {
-      dayNumber: index + 1,
-      dateKey,
+      dayNumber,
+      dateKey: dotDay,
       completed,
-      current: current && !completed,
-      future: future || outsideWindow || !challengeStartDay,
+      today: isToday,
+      pastMissed: isPast,
+      future: Boolean(dotDay && challengeCurrentDay < dayNumber),
     };
   });
 
-  return { checkedInToday, challengeProgress, challengeDay, challengeDots };
+  return {
+    checkedInToday,
+    challengeProgress,
+    challengeDay,
+    challengeCurrentDay,
+    challengeDotStates,
+  };
 }
