@@ -32,41 +32,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate Supabase build variables
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
-        run: |
-          missing=0
-
-          if [ -z "$VITE_SUPABASE_URL" ]; then
-            echo "::error::Missing repository secret: VITE_SUPABASE_URL"
-            missing=1
-          fi
-
-          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
-            echo "::error::Missing repository secret: VITE_SUPABASE_ANON_KEY"
-            missing=1
-          fi
-
-          if [ -z "$VITE_GEMINI_API_KEY" ]; then
-            echo "::error::Missing repository secret: VITE_GEMINI_API_KEY"
-            missing=1
-          fi
-
-          if [ "$missing" -ne 0 ]; then
-            echo "Configure required secrets in GitHub: Settings -> Secrets and variables -> Actions."
-            exit 1
-          fi
-
       - name: Build GitHub Pages app
         run: npm run build:web
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           VITE_GEMINI_MODEL: gemini-2.5-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
