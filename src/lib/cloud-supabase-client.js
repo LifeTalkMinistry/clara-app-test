@@ -12,7 +12,14 @@ export const isCloudSupabaseConfigured = Boolean(
   cloudSupabaseUrl && cloudSupabaseAnonKey
 );
 
-const REMOTE_TABLE_ALLOWLIST = new Set(["profiles", "plans", "enrollments"]);
+const REMOTE_TABLE_ALLOWLIST = new Set([
+  "profiles",
+  "plans",
+  "enrollments",
+  "user_notification_devices",
+  "user_push_subscriptions",
+  "user_task_reminder_settings",
+]);
 const TERMINAL_QUERY_METHODS = new Set([
   "single",
   "maybeSingle",
@@ -212,6 +219,11 @@ function missingProxy() {
         if (property === "removeChannel") return async () => ({ error: null });
         if (property === "removeAllChannels") return async () => ({ error: null });
         if (property === "getChannels") return () => [];
+        if (property === "functions") {
+          return {
+            invoke: missingResponse,
+          };
+        }
         return undefined;
       },
     }
