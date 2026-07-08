@@ -16,7 +16,6 @@ import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
 import Layout from "./components/Layout";
 import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
-const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const DataExport = lazy(() => import("./pages/DataExport"));
 const Login = lazy(() => import("./pages/Login"));
@@ -262,8 +261,8 @@ function AppRoutes() {
                     <Route path="/news" element={guard(<News />, "/news")} />
                     <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
                     <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/settings/:section" element={<Settings />} />
+                    <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/settings/:section" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/data-export" element={<DataExport />} />
                     <Route path="/admin" element={admin(<AdminPanel />)} />

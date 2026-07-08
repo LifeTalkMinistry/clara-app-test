@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  Database,
   Edit,
   ExternalLink,
   FileText,
@@ -123,7 +124,6 @@ export default function DashboardSettingsPanel({
   const [profileName, setProfileName] = useState(initialDisplayName);
   const [settingsNotice, setSettingsNotice] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
   const [supportTopic, setSupportTopic] = useState("Billing / enrollment");
   const [supportMessage, setSupportMessage] = useState("");
   const [supportSent, setSupportSent] = useState(false);
@@ -340,21 +340,6 @@ const supportEmail = "claraprogram2026@gmail.com";
       setSettingsNotice({ type: "error", message: "Unable to reset local preferences." });
     }
   }, [resetThemeToDefault]);
-
-  const handleSignOut = useCallback(async () => {
-    setSigningOut(true);
-    setSettingsNotice(null);
-
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      navigate("/login", { replace: true });
-    } catch (error) {
-      console.error("Sign out failed:", error);
-      setSettingsNotice({ type: "error", message: "Sign out failed. Please try again." });
-      setSigningOut(false);
-    }
-  }, [navigate]);
 
   const openSupportMessages = useCallback(() => {
     if (typeof onOpenMessages === "function") {
@@ -910,16 +895,9 @@ const renderPlanPage = () => (
             <div className="min-w-0 flex-1">
               <h3 className="text-base font-black text-white">Your CLARA data is private</h3>
 
-              {user?.email ? (
-                <div className="mt-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">Signed in as</p>
-                  <p className="mt-1 break-all text-sm font-semibold leading-5 text-white/78">{user.email}</p>
-                </div>
-              ) : (
-                <p className="mt-3 text-sm font-semibold leading-6 text-white/68">
-                  This device is your private CLARA environment.
-                </p>
-              )}
+              <p className="mt-3 text-sm font-semibold leading-6 text-white/68">
+                This device is your private CLARA environment.
+              </p>
             </div>
           </div>
 
@@ -961,6 +939,26 @@ const renderPlanPage = () => (
             </div>
           ) : null}
         </section>
+
+        <button
+          type="button"
+          onClick={() => navigate("/data-export")}
+          className="group flex min-h-[72px] w-full items-center gap-3 rounded-[22px] border border-white/15 bg-white/[0.045] px-4 py-3.5 text-left transition hover:bg-white/[0.07]"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/18 bg-emerald-400/8 text-emerald-100">
+            <Database className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white">Backup & Transfer</p>
+            <p className="mt-1 text-xs leading-5 text-white/46">
+              Download or upload your CLARA device backup.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-white/45">
+            <span>Open</span>
+            <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-white/65" />
+          </div>
+        </button>
 
         <button
           type="button"
@@ -1602,21 +1600,6 @@ const renderPlanPage = () => (
         </section>
       ))}
 
-      <div className="space-y-2 pt-1">
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="flex w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/20 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.16),transparent_34%),rgba(244,63,94,0.08)] px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.08)] transition hover:bg-rose-500/15 disabled:opacity-55"
-        >
-          <X className="h-4 w-4" />
-          {signingOut ? "Signing out..." : "Log out"}
-        </button>
-
-        <p className="px-3 text-center text-[10px] font-semibold leading-4 text-white/32">
-          You can log back in anytime using your CLARA account.
-        </p>
-      </div>
     </div>
   );
 }
