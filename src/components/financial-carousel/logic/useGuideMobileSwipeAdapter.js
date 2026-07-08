@@ -2,13 +2,19 @@ import { useCallback, useMemo, useRef } from "react";
 
 const MOBILE_DRAG_LOCK_THRESHOLD_PX = 4;
 const MOBILE_SWIPE_AXIS_RATIO = 0.8;
+const MOBILE_SWIPE_DISTANCE_MAX_PX = 28;
+const MOBILE_SWIPE_DISTANCE_RATIO = 0.08;
+const MOBILE_SWIPE_VELOCITY_THRESHOLD = 0.18;
 
-// The existing controlled carousel settles at 52px / 0.35px-ms. Only the
-// release coordinate is amplified so the live card still follows the finger
-// at nearly 1:1 while mobile acceptance becomes about 28px / 0.19px-ms.
-const RELEASE_DISTANCE_SCALE = 52 / 28;
+// These mirror the guarded thresholds inside the existing controlled carousel.
+// The adapter only changes Guide Mode input before forwarding it.
 const INTERNAL_DRAG_LOCK_THRESHOLD_PX = 7;
+const INTERNAL_SWIPE_DISTANCE_MAX_PX = 52;
+const INTERNAL_SWIPE_DISTANCE_RATIO = 0.16;
+const INTERNAL_SWIPE_VELOCITY_THRESHOLD = 0.35;
 const LIVE_LOCK_PADDING_PX = 0.25;
+const VELOCITY_TIME_SCALE =
+  MOBILE_SWIPE_VELOCITY_THRESHOLD / INTERNAL_SWIPE_VELOCITY_THRESHOLD;
 
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
@@ -30,6 +36,7 @@ const createGestureState = () => ({
   pointerId: null,
   startX: 0,
   startY: 0,
+  startTime: 0,
   lastX: 0,
   lastY: 0,
   horizontalIntent: false,
@@ -38,15 +45,30 @@ const createGestureState = () => ({
 
 const isFiniteCoordinate = (value) => Number.isFinite(Number(value));
 
+const getEventTime = (event) => {
+  const value = Number(event?.timeStamp);
+  return Number.isFinite(value) ? value : 0;
+};
+
+const getAdaptedTime = (gesture, event) => {
+  const eventTime = getEventTime(event);
+  const elapsed = Math.max(0, eventTime - gesture.startTime);
+  return gesture.startTime + elapsed * VELOCITY_TIME_SCALE;
+};
+
 const isInteractiveTarget = (target) =>
   Boolean(target?.closest?.(INTERACTIVE_TARGET_SELECTOR));
 
-const createAdaptedPointerEvent = (event, { clientX, clientY }) => {
+const createAdaptedPointerEvent = (
+  event,
+  { clientX, clientY, timeStamp = getEventTime(event) }
+) => {
   const adaptedEvent = Object.create(event);
 
   Object.defineProperties(adaptedEvent, {
     clientX: { configurable: true, enumerable: true, value: clientX },
     clientY: { configurable: true, enumerable: true, value: clientY },
+    timeStamp: { configurable: true, enumerable: true, value: timeStamp },
     currentTarget: {
       configurable: true,
       enumerable: true,
@@ -67,12 +89,24 @@ const createAdaptedPointerEvent = (event, { clientX, clientY }) => {
   return adaptedEvent;
 };
 
+const getMobileDistanceThreshold = (viewportWidth) =>
+  Math.min(
+    MOBILE_SWIPE_DISTANCE_MAX_PX,
+    Math.max(1, viewportWidth) * MOBILE_SWIPE_DISTANCE_RATIO
+  );
+
+const getInternalDistanceThreshold = (viewportWidth) =>
+  Math.min(
+    INTERNAL_SWIPE_DISTANCE_MAX_PX,
+    Math.max(1, viewportWidth) * INTERNAL_SWIPE_DISTANCE_RATIO
+  );
+
 export const GUIDE_MOBILE_SWIPE_SETTINGS = Object.freeze({
   dragLockThresholdPx: MOBILE_DRAG_LOCK_THRESHOLD_PX,
   swipeAxisRatio: MOBILE_SWIPE_AXIS_RATIO,
-  distanceMaxPx: 28,
-  distanceRatioApprox: 0.086,
-  velocityThresholdApprox: 0.19,
+  distanceMaxPx: MOBILE_SWIPE_DISTANCE_MAX_PX,
+  distanceRatio: MOBILE_SWIPE_DISTANCE_RATIO,
+  velocityThreshold: MOBILE_SWIPE_VELOCITY_THRESHOLD,
 });
 
 export default function useGuideMobileSwipeAdapter({
@@ -102,6 +136,7 @@ export default function useGuideMobileSwipeAdapter({
         pointerId: event.pointerId,
         startX,
         startY,
+        startTime: getEventTime(event),
         lastX: startX,
         lastY: startY,
         horizontalIntent: false,
@@ -165,8 +200,12 @@ export default function useGuideMobileSwipeAdapter({
           );
       }
 
-      event.preventDefault?.();
-      event.nativeEvent?.preventDefault?.();
+      try {
+        event.preventDefault?.();
+        event.nativeEvent?.preventDefault?.();
+      } catch {
+        // touch-action: pan-y remains the browser-level vertical scroll guard.
+      }
 
       const liveDeltaX = deltaX + gesture.liveOffsetX;
       const maximumIntentY = Math.abs(liveDeltaX) / 1.1;
@@ -179,6 +218,7 @@ export default function useGuideMobileSwipeAdapter({
         createAdaptedPointerEvent(event, {
           clientX: gesture.startX + liveDeltaX,
           clientY: gesture.startY + liveDeltaY,
+          timeStamp: getAdaptedTime(gesture, event),
         })
       );
     },
@@ -214,8 +254,13 @@ export default function useGuideMobileSwipeAdapter({
         : gesture.lastY;
       const finalX = cancelled ? gesture.lastX : eventX;
       const finalY = cancelled ? gesture.lastY : eventY;
+      const actualDeltaX = finalX - gesture.startX;
+      const actualDeltaY = finalY - gesture.startY;
+      const stillHorizontal =
+        Math.abs(actualDeltaX) >
+        Math.abs(actualDeltaY) * MOBILE_SWIPE_AXIS_RATIO;
 
-      if (!gesture.horizontalIntent) {
+      if (!gesture.horizontalIntent || (cancelled && !stillHorizontal)) {
         const handler = cancelled
           ? interactionHandlers.onPointerCancel
           : interactionHandlers.onPointerUp;
@@ -230,16 +275,22 @@ export default function useGuideMobileSwipeAdapter({
         return;
       }
 
-      const releaseDeltaX =
-        (finalX - gesture.startX) * RELEASE_DISTANCE_SCALE;
+      const viewportWidth = Number(event.currentTarget?.clientWidth) || 1;
+      const passedDistance =
+        Math.abs(actualDeltaX) >= getMobileDistanceThreshold(viewportWidth);
+      const releaseDeltaX = passedDistance
+        ? Math.sign(actualDeltaX || 1) *
+          (getInternalDistanceThreshold(viewportWidth) + LIVE_LOCK_PADDING_PX)
+        : actualDeltaX + gesture.liveOffsetX;
 
-      // Treat a cancelled horizontal drag like a release, using the last real
-      // coordinates. This avoids throwing away a valid swipe when mobile
-      // Safari/Chrome cancels pointer capture during a completed gesture.
+      // A cancelled horizontal gesture is evaluated like a release using its
+      // latest real coordinates. Vertical cancellations still use the original
+      // cancellation path and snap safely to the starting card.
       interactionHandlers.onPointerUp?.(
         createAdaptedPointerEvent(event, {
           clientX: gesture.startX + releaseDeltaX,
           clientY: gesture.startY,
+          timeStamp: getAdaptedTime(gesture, event),
         })
       );
 
