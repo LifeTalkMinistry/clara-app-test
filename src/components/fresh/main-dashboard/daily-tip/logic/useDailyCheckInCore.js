@@ -261,18 +261,19 @@ export default function useDailyCheckIn({
         : createEmptyState(resolvedUserId),
     [checkInState, resolvedUserId, todayKey],
   );
-  const { checkedInToday, challengeProgress, challengeDay, challengeDots } =
+  const { checkedInToday, challengeProgress, challengeDay, challengeDotStates } =
     deriveChallengeMetrics(displayState, todayKey);
 
   return {
     todayKey,
+    eligibleDay: todayKey,
     checkedInToday,
     completedDates: displayState.completedDates,
     checkInEvents: displayState.checkInEvents,
     totalCompleted: challengeProgress,
     challengeProgress,
     challengeDay,
-    challengeDots,
+    challengeDotStates,
     challengeStatus: displayState.challengeStatus,
     completedCheckInDays: displayState.completedCheckInDays,
     currentStreak: displayState.currentStreak,
