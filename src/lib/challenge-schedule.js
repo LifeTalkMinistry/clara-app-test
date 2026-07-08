@@ -24,9 +24,19 @@ export function getChallengeTimeZone() {
   return MANILA_TIME_ZONE;
 }
 
+export function getEligibleDayBoundaryHour() {
+  return UNLOCK_HOUR;
+}
+
 export function getLocalDateKey(date = new Date(), timeZone = MANILA_TIME_ZONE) {
   const parts = partsFor(date, timeZone);
   return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function getEligibleDayKey(date = new Date()) {
+  const parts = partsFor(date, MANILA_TIME_ZONE);
+  const localDateKey = `${parts.year}-${parts.month}-${parts.day}`;
+  return Number(parts.hour || 0) < UNLOCK_HOUR ? addLocalDays(localDateKey, -1) : localDateKey;
 }
 
 function dateKeyToUtcNoon(dateKey) {
@@ -34,13 +44,27 @@ function dateKeyToUtcNoon(dateKey) {
   return Date.UTC(year, month - 1, day, 12, 0, 0, 0);
 }
 
+export function isRealDateKey(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const roundTrip = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0)).toISOString().slice(0, 10);
+  return roundTrip === value;
+}
+
 export function addLocalDays(dateKey, days) {
+  if (!isRealDateKey(dateKey)) return null;
   const next = new Date(dateKeyToUtcNoon(dateKey) + Number(days || 0) * DAY_MS);
   return next.toISOString().slice(0, 10);
 }
 
 export function compareDateKeys(left, right) {
   return dateKeyToUtcNoon(left) - dateKeyToUtcNoon(right);
+}
+
+export function daysBetweenDateKeys(startDateKey, endDateKey) {
+  if (!isRealDateKey(startDateKey) || !isRealDateKey(endDateKey)) return 0;
+  return Math.floor((dateKeyToUtcNoon(endDateKey) - dateKeyToUtcNoon(startDateKey)) / DAY_MS);
 }
 
 export function getChallengeDayUnlockDate(startDateKey, dayNumber) {
@@ -55,11 +79,8 @@ export function getChallengeDayUnlockLabel(startDateKey, dayNumber) {
 export function getCurrentChallengeDay(startDateKey, now = new Date()) {
   if (!startDateKey) return 0;
 
-  const currentKey = getLocalDateKey(now);
-  const currentParts = partsFor(now);
-  const beforeUnlock = Number(currentParts.hour || 0) < UNLOCK_HOUR;
-  const effectiveDateKey = beforeUnlock ? addLocalDays(currentKey, -1) : currentKey;
-  const diff = Math.floor((dateKeyToUtcNoon(effectiveDateKey) - dateKeyToUtcNoon(startDateKey)) / DAY_MS);
+  const effectiveDateKey = getEligibleDayKey(now);
+  const diff = daysBetweenDateKeys(startDateKey, effectiveDateKey);
   return Math.max(1, Math.min(30, diff + 1));
 }
 
@@ -68,12 +89,8 @@ export function isChallengeDayUnlocked(startDateKey, dayNumber, now = new Date()
   if (Number(dayNumber || 0) <= 1) return true;
 
   const unlockDateKey = getChallengeDayUnlockDate(startDateKey, dayNumber);
-  const currentKey = getLocalDateKey(now);
-  const currentParts = partsFor(now);
-
-  if (compareDateKeys(currentKey, unlockDateKey) > 0) return true;
-  if (compareDateKeys(currentKey, unlockDateKey) < 0) return false;
-  return Number(currentParts.hour || 0) >= UNLOCK_HOUR;
+  const effectiveDateKey = getEligibleDayKey(now);
+  return compareDateKeys(effectiveDateKey, unlockDateKey) >= 0;
 }
 
 export function getNextUnlockAt(startDateKey, currentUnlockedDay) {
