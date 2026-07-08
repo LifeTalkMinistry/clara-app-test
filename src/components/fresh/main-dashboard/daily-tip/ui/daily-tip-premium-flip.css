@@ -7,6 +7,12 @@
   transform: translateZ(0);
   contain: layout paint;
   isolation: isolate;
+  pointer-events: none;
+}
+
+[data-clara-daily-tip-card="true"] > [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .clara-daily-tip-scene::before {
@@ -34,6 +40,7 @@
   -webkit-transform-style: preserve-3d;
   transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+  pointer-events: none;
 }
 
 .clara-daily-tip-flipper--flipped {
@@ -50,24 +57,15 @@
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   will-change: transform;
+  pointer-events: none;
 }
 
 .clara-daily-tip-face--front {
   transform: translate3d(0, 0, 1px) rotateY(0deg);
-  pointer-events: auto;
 }
 
 .clara-daily-tip-face--back {
   transform: translate3d(0, 0, 1px) rotateY(180deg);
-  pointer-events: none;
-}
-
-.clara-daily-tip-flipper--flipped .clara-daily-tip-face--front {
-  pointer-events: none;
-}
-
-.clara-daily-tip-flipper--flipped .clara-daily-tip-face--back {
-  pointer-events: auto;
 }
 
 .clara-checkin-grid {
