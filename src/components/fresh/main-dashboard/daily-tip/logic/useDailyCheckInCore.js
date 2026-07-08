@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getLocalDateKey } from "../../../../../lib/challenge-schedule.js";
+import { getEligibleDayKey } from "../../../../../lib/challenge-schedule.js";
 import { performDailyCheckIn, buildResult } from "./dailyCheckInActions.js";
 import { deriveChallengeMetrics } from "./dailyCheckInEngine.js";
 import {
   LEGACY_KEY,
   UPDATE_EVENT,
+  legacyStorageKey,
   loadState,
   migrateSessionIdentityState,
   storageKey,
@@ -18,7 +19,7 @@ import {
   normalizeUserId,
 } from "./dailyCheckInState.js";
 import {
-  millisecondsUntilNextManilaMidnight,
+  millisecondsUntilNextEligibleDay,
   validateState,
 } from "./dailyCheckInValidation.js";
 
@@ -44,9 +45,9 @@ export default function useDailyCheckIn({
         (identityMatchesAuth &&
           resolvedUserId === "local-dev-user" &&
           profile?.enrollment_source === "local_auth_fallback");
-  const [todayKey, setTodayKey] = useState(() => getLocalDateKey());
+  const [todayKey, setTodayKey] = useState(() => getEligibleDayKey());
   const [checkInState, setCheckInState] = useState(() => {
-    const initialTodayKey = getLocalDateKey();
+    const initialTodayKey = getEligibleDayKey();
     if (simulationMode) return createSimulationState(resolvedUserId, initialTodayKey);
     if (!identityReady) return createEmptyState(resolvedUserId);
     return loadState(resolvedUserId, initialTodayKey);
@@ -57,7 +58,7 @@ export default function useDailyCheckIn({
   );
 
   const validateStreak = useCallback(() => {
-    const freshTodayKey = getLocalDateKey();
+    const freshTodayKey = getEligibleDayKey();
     setTodayKey(freshTodayKey);
 
     if (simulationMode) {
@@ -91,7 +92,7 @@ export default function useDailyCheckIn({
   }, [identityReady, resolvedUserId, simulationMode]);
 
   useEffect(() => {
-    const freshTodayKey = getLocalDateKey();
+    const freshTodayKey = getEligibleDayKey();
     setTodayKey(freshTodayKey);
 
     if (simulationMode) {
@@ -130,13 +131,13 @@ export default function useDailyCheckIn({
 
     if (typeof window === "undefined") return undefined;
 
-    let midnightTimer = null;
-    const scheduleMidnightValidation = () => {
-      if (midnightTimer) window.clearTimeout(midnightTimer);
-      midnightTimer = window.setTimeout(() => {
+    let eligibleDayTimer = null;
+    const scheduleEligibleDayValidation = () => {
+      if (eligibleDayTimer) window.clearTimeout(eligibleDayTimer);
+      eligibleDayTimer = window.setTimeout(() => {
         validateStreak();
-        scheduleMidnightValidation();
-      }, millisecondsUntilNextManilaMidnight());
+        scheduleEligibleDayValidation();
+      }, millisecondsUntilNextEligibleDay());
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") validateStreak();
@@ -145,6 +146,7 @@ export default function useDailyCheckIn({
       if (
         event.key &&
         event.key !== storageKey(resolvedUserId) &&
+        event.key !== legacyStorageKey(resolvedUserId) &&
         event.key !== LEGACY_KEY
       ) {
         return;
@@ -153,21 +155,21 @@ export default function useDailyCheckIn({
     };
     const handleLocalUpdate = (event) => {
       if (normalizeUserId(event?.detail?.userId) !== resolvedUserId) return;
-      const eventTodayKey = getLocalDateKey();
+      const eventTodayKey = getEligibleDayKey();
       setTodayKey(eventTodayKey);
       setCheckInState(
         normalizeState(event.detail.state, resolvedUserId, eventTodayKey),
       );
     };
 
-    scheduleMidnightValidation();
+    scheduleEligibleDayValidation();
     window.addEventListener("focus", validateStreak);
     window.addEventListener("storage", handleStorage);
     window.addEventListener(UPDATE_EVENT, handleLocalUpdate);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      if (midnightTimer) window.clearTimeout(midnightTimer);
+      if (eligibleDayTimer) window.clearTimeout(eligibleDayTimer);
       window.removeEventListener("focus", validateStreak);
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(UPDATE_EVENT, handleLocalUpdate);
@@ -182,7 +184,7 @@ export default function useDailyCheckIn({
   ]);
 
   const checkInToday = useCallback(() => {
-    const freshTodayKey = getLocalDateKey();
+    const freshTodayKey = getEligibleDayKey();
     setTodayKey(freshTodayKey);
 
     if (simulationMode) {
@@ -191,7 +193,7 @@ export default function useDailyCheckIn({
       return buildResult("completed", nextState);
     }
 
-    if (!identityReady) {
+    if (!identityReady || isTemporaryIdentity) {
       return buildResult(
         "identity_unavailable",
         createEmptyState(resolvedUserId),
@@ -200,7 +202,7 @@ export default function useDailyCheckIn({
 
     if (checkInLockRef.current) {
       const current = normalizeState(checkInState, resolvedUserId, freshTodayKey);
-      const status = current.completedDates.includes(freshTodayKey)
+      const status = current.checkInEvents.some((event) => event.eligibleDay === freshTodayKey)
         ? "already_checked_in"
         : "busy";
       return buildResult(status, current);
@@ -214,8 +216,8 @@ export default function useDailyCheckIn({
         value: validation.state,
         userId: resolvedUserId,
         todayKey: freshTodayKey,
-        persist: (nextState) =>
-          writeState(resolvedUserId, nextState, "check_in", freshTodayKey),
+        persist: (nextState, expectedEvent) =>
+          writeState(resolvedUserId, nextState, "check_in", freshTodayKey, expectedEvent),
       });
 
       if (result.status === "completed" || result.status === "already_checked_in") {
@@ -227,12 +229,12 @@ export default function useDailyCheckIn({
     } finally {
       checkInLockRef.current = false;
     }
-  }, [checkInState, identityReady, resolvedUserId, simulationMode]);
+  }, [checkInState, identityReady, isTemporaryIdentity, resolvedUserId, simulationMode]);
 
   const dismissPendingBubble = useCallback(
     (eventId = null) => {
       if (simulationMode || !identityReady) return;
-      const freshTodayKey = getLocalDateKey();
+      const freshTodayKey = getEligibleDayKey();
       const latestState = loadState(resolvedUserId, freshTodayKey);
       if (!latestState.pendingBubble) return;
       if (eventId && latestState.pendingBubble.id !== eventId) return;
@@ -259,16 +261,21 @@ export default function useDailyCheckIn({
         : createEmptyState(resolvedUserId),
     [checkInState, resolvedUserId, todayKey],
   );
-  const { checkedInToday, challengeProgress, challengeDay } =
+  const { checkedInToday, challengeProgress, challengeDay, challengeDotStates } =
     deriveChallengeMetrics(displayState, todayKey);
 
   return {
     todayKey,
+    eligibleDay: todayKey,
     checkedInToday,
     completedDates: displayState.completedDates,
+    checkInEvents: displayState.checkInEvents,
     totalCompleted: challengeProgress,
     challengeProgress,
     challengeDay,
+    challengeDotStates,
+    challengeStatus: displayState.challengeStatus,
+    completedCheckInDays: displayState.completedCheckInDays,
     currentStreak: displayState.currentStreak,
     longestStreak: displayState.longestStreak,
     lifetimeCheckIns: displayState.lifetimeCheckIns,

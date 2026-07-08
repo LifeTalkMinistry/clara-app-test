@@ -1,26 +1,34 @@
 import { higherPriorityBubble, createBubble, selectMilestone } from "./dailyCheckInBubbles.js";
-import { normalizeDates } from "./dailyCheckInEngine.js";
+import {
+  EVENT_TYPE,
+  createDailyCheckInEvent,
+  normalizeCheckInEvents,
+} from "./dailyCheckInEngine.js";
 import { normalizeState } from "./dailyCheckInState.js";
 
 export function prepareDailyCheckIn(value, userId, todayKey) {
   const baseState = normalizeState(value, userId, todayKey);
-  if (baseState.completedDates.includes(todayKey)) {
+  const existingEvent = baseState.checkInEvents.find(
+    (event) => event.eventType === EVENT_TYPE && event.eligibleDay === todayKey,
+  );
+
+  if (existingEvent) {
     return buildResult("already_checked_in", baseState);
   }
 
-  const completedDates = normalizeDates(
-    [...baseState.completedDates, todayKey],
+  const nowIso = new Date().toISOString();
+  const nextEvent = createDailyCheckInEvent({ userId, eligibleDay: todayKey });
+  const checkInEvents = normalizeCheckInEvents(
+    [...baseState.checkInEvents, nextEvent],
+    userId,
     todayKey,
   );
-  const nowIso = new Date().toISOString();
+
   const derivedState = normalizeState(
     {
       ...baseState,
-      completedDates,
-      lifetimeCheckIns: Math.max(
-        completedDates.length,
-        baseState.lifetimeCheckIns + 1,
-      ),
+      challengeStartDay: baseState.challengeStartDay || todayKey,
+      checkInEvents,
       updatedAt: nowIso,
     },
     userId,
@@ -39,9 +47,9 @@ export function prepareDailyCheckIn(value, userId, todayKey) {
     {
       ...derivedState,
       completedThirtyDays:
-        baseState.completedThirtyDays || derivedState.currentStreak >= 30,
+        baseState.completedThirtyDays || derivedState.challengeStatus === "completed",
       completedThirtyDaysAt:
-        derivedState.currentStreak >= 30 && !baseState.completedThirtyDaysAt
+        derivedState.challengeStatus === "completed" && !baseState.completedThirtyDaysAt
           ? nowIso
           : baseState.completedThirtyDaysAt,
       pendingBubble: higherPriorityBubble(
@@ -53,7 +61,7 @@ export function prepareDailyCheckIn(value, userId, todayKey) {
     todayKey,
   );
 
-  return buildResult("prepared", nextState, milestoneType, milestoneBubble, baseState);
+  return buildResult("prepared", nextState, milestoneType, milestoneBubble, baseState, nextEvent);
 }
 
 export function performDailyCheckIn({ value, userId, todayKey, persist }) {
@@ -61,7 +69,7 @@ export function performDailyCheckIn({ value, userId, todayKey, persist }) {
   if (prepared.status === "already_checked_in") return prepared;
 
   try {
-    const persistenceResult = persist(prepared.state);
+    const persistenceResult = persist(prepared.state, prepared.event);
     if (!persistenceResult?.ok) {
       return buildResult("storage_error", prepared.baseState);
     }
@@ -82,14 +90,19 @@ export function buildResult(
   milestoneType = null,
   bubbleEvent = null,
   baseState = null,
+  event = null,
 ) {
   return {
     status,
     currentStreak: state.currentStreak,
     longestStreak: state.longestStreak,
+    challengeStatus: state.challengeStatus,
+    challengeCurrentDay: state.challengeCurrentDay,
+    completedCheckInDays: state.completedCheckInDays,
     milestoneType,
     bubbleEvent,
     state,
     baseState,
+    event,
   };
 }
