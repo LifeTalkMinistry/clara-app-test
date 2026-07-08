@@ -4,6 +4,7 @@ import CarouselViewport from "./ui/CarouselViewport";
 import CarouselDots from "./ui/CarouselDots";
 import CarouselSlideShell from "./ui/CarouselSlideShell";
 import useAutoMovingHorizontalCarousel from "./logic/useAutoMovingHorizontalCarousel";
+import useGuideMobileSwipeAdapter from "./logic/useGuideMobileSwipeAdapter";
 import { getCarouselData, getDefaultCarouselIndex } from "./logic/FinancialCarouselLogic";
 import {
   EXPANDED_TOP_PULL,
@@ -91,11 +92,19 @@ export default function FinancialCarousel(props) {
     [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, firstPositiveNumber, readStoredSurvivalExpense, isGuideMode]
   );
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
+  const isActiveGuideCarousel = isGuideMode && typeof onGuideCarouselIndexChange === "function";
+  const effectiveGuideMaxStepPerInteraction = isActiveGuideCarousel && !guideCarouselLocked
+    ? Math.max(1, Number(guideMaxStepPerInteraction) || 1)
+    : null;
   const { carouselRef, activeIndex, scrollToIndex, handleScroll, interactionHandlers } = useAutoMovingHorizontalCarousel({
     itemCount: items.length,
     defaultIndex,
-    guideAllowedSwipeDirection: isGuideMode ? guideAllowedSwipeDirection : null,
-    guideMaxStepPerInteraction: isGuideMode ? guideMaxStepPerInteraction : null,
+    guideAllowedSwipeDirection: isActiveGuideCarousel ? guideAllowedSwipeDirection : null,
+    guideMaxStepPerInteraction: effectiveGuideMaxStepPerInteraction,
+  });
+  const guideInteractionHandlers = useGuideMobileSwipeAdapter({
+    enabled: isActiveGuideCarousel && Number(effectiveGuideMaxStepPerInteraction) > 0 && !guideCarouselLocked,
+    interactionHandlers,
   });
   const expandedCardIndex = useMemo(
     () => getExpandedCarouselCardIndex(items, expandedFinanceCard),
@@ -105,7 +114,7 @@ export default function FinancialCarousel(props) {
   const isTerminalGuideLocked = isGuideMode && guideCarouselLocked;
   const isSwipeLocked = isInlineFocusExpanded || isTerminalGuideLocked;
   const isControlledGuideSwipe =
-    isGuideMode && Number(guideMaxStepPerInteraction) > 0 && !isTerminalGuideLocked;
+    isActiveGuideCarousel && Number(effectiveGuideMaxStepPerInteraction) > 0 && !isTerminalGuideLocked;
   const bottomSpacingClass = flushSpacing ? "mb-0" : "mb-5";
   const productionGuideMatchedClass = isGuideMode ? "" : "clara-production-guide-matched-carousel";
 
@@ -148,7 +157,7 @@ export default function FinancialCarousel(props) {
       <CarouselViewport
         carouselRef={carouselRef}
         onScroll={handleScroll}
-        interactionHandlers={isTerminalGuideLocked ? {} : interactionHandlers}
+        interactionHandlers={isTerminalGuideLocked ? {} : guideInteractionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
         allowVerticalOverflow={isInlineFocusExpanded}
         isSwipeLocked={isSwipeLocked}
