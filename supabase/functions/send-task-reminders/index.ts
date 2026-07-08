@@ -25,10 +25,37 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function isAuthorized(request: Request) {
+function getBearerToken(request: Request) {
   const authorization = request.headers.get("authorization") || "";
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  return authorization.replace(/^Bearer\s+/i, "").trim();
+}
+
+function isServiceAuthorizedToken(token: string) {
   return Boolean(token && (token === serviceRoleKey || token === internalSecret));
+}
+
+async function authorizeRequest(request: Request, userId: string, eventType: string) {
+  const token = getBearerToken(request);
+  if (isServiceAuthorizedToken(token)) return { authorized: true, mode: "service" };
+
+  if (eventType !== "manual_push_test") {
+    return { authorized: false, mode: "none", reason: "Unauthorized" };
+  }
+
+  if (!token) {
+    return { authorized: false, mode: "none", reason: "Manual push test requires a signed-in Supabase session." };
+  }
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    return { authorized: false, mode: "user", reason: "Manual push test session could not be verified." };
+  }
+
+  if (data.user.id !== userId) {
+    return { authorized: false, mode: "user", reason: "Manual push test user_id does not match the signed-in user." };
+  }
+
+  return { authorized: true, mode: "user" };
 }
 
 function base64UrlFromString(value: string) {
@@ -56,8 +83,8 @@ function pemToArrayBuffer(pem: string) {
 }
 
 async function createServiceAccountJwt() {
-  if (!firebaseClientEmail || !firebasePrivateKey) {
-    throw new Error("Firebase service account secrets are not configured.");
+  if (!firebaseProjectId || !firebaseClientEmail || !firebasePrivateKey) {
+    throw new Error("Firebase service account secrets are not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.");
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -140,7 +167,13 @@ async function deactivateDevice(id: string) {
     .eq("id", id);
 }
 
-async function sendUniversalDevice(device: Record<string, any>, notification: Record<string, unknown>) {
+async function sendUniversalDevice(
+  device: Record<string, any>,
+  notification: Record<string, unknown>,
+  options: { strictNative?: boolean } = {}
+) {
+  const strictNative = Boolean(options.strictNative);
+
   if (device.channel === "web_push") {
     if (!device.subscription) return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 1 };
 
@@ -159,10 +192,15 @@ async function sendUniversalDevice(device: Record<string, any>, notification: Re
 
   if (device.channel === "fcm") {
     if (!firebaseProjectId || !firebaseClientEmail || !firebasePrivateKey) {
+      const message = "Firebase service account secrets are not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.";
+      if (strictNative) throw new Error(message);
       console.warn("FCM skipped because Firebase secrets are not configured.");
       return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 1 };
     }
-    if (!device.token) return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 1 };
+    if (!device.token) {
+      if (strictNative) throw new Error("No FCM token exists for this active notification device.");
+      return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 1 };
+    }
 
     try {
       const accessToken = await getFcmAccessToken();
@@ -204,12 +242,14 @@ async function sendUniversalDevice(device: Record<string, any>, notification: Re
           return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 1, skipped: 0 };
         }
         console.error("FCM send failed:", response.status, text);
+        if (strictNative) throw new Error(`FCM send failed: ${response.status} ${text}`);
         return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 1 };
       }
 
       return { sent: 1, webSent: 0, nativeSent: 1, deactivated: 0, skipped: 0 };
     } catch (error) {
       console.error("FCM send failed:", error);
+      if (strictNative) throw error;
       return { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 1 };
     }
   }
@@ -265,14 +305,12 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
-  if (!isAuthorized(request)) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
-  }
 
   try {
     const payload = await request.json();
     const userId = String(payload.user_id || "").trim();
     const notification = buildNotificationPayload(payload);
+    const isManualPushTest = notification.eventType === "manual_push_test";
 
     if (!userId) {
       return jsonResponse({ error: "user_id is required" }, 400);
@@ -281,19 +319,59 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "dedupe_key is required" }, 400);
     }
 
-    const { data: reminderSettings, error: settingsError } = await supabase
-      .from("user_task_reminder_settings")
+    const authorization = await authorizeRequest(request, userId, notification.eventType);
+    if (!authorization.authorized) {
+      return jsonResponse({ error: authorization.reason || "Unauthorized" }, 401);
+    }
+
+    if (!isManualPushTest) {
+      const { data: reminderSettings, error: settingsError } = await supabase
+        .from("user_task_reminder_settings")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      if (
+        !reminderSettings ||
+        !reminderSettings.reminders_enabled ||
+        !["push_only", "push_and_in_app"].includes(reminderSettings.reminder_mode)
+      ) {
+        return jsonResponse({
+          sent: 0,
+          webSent: 0,
+          nativeSent: 0,
+          deactivated: 0,
+          skipped: 1,
+          dedupe_key: notification.dedupeKey,
+          reason: "User reminder settings do not allow push notifications",
+        });
+      }
+    }
+
+    let deviceQuery = supabase
+      .from("user_notification_devices")
       .select("*")
       .eq("user_id", userId)
-      .maybeSingle();
+      .eq("is_active", true);
 
-    if (settingsError) throw settingsError;
+    if (isManualPushTest) {
+      deviceQuery = deviceQuery.eq("channel", "fcm").eq("platform", "android");
+    }
 
-    if (
-      !reminderSettings ||
-      !reminderSettings.reminders_enabled ||
-      !["push_only", "push_and_in_app"].includes(reminderSettings.reminder_mode)
-    ) {
+    const universalResult = await deviceQuery;
+
+    if (universalResult.error) {
+      if (isManualPushTest) {
+        throw new Error("Missing Supabase migration or device table access: public.user_notification_devices could not be queried.");
+      }
+      console.warn("Universal notification device lookup failed; falling back to legacy web push:", universalResult.error);
+    }
+
+    const devices = universalResult.error ? [] : universalResult.data || [];
+
+    if (isManualPushTest && !devices.length) {
       return jsonResponse({
         sent: 0,
         webSent: 0,
@@ -301,26 +379,17 @@ Deno.serve(async (request) => {
         deactivated: 0,
         skipped: 1,
         dedupe_key: notification.dedupeKey,
-        reason: "User reminder settings do not allow push notifications",
+        reason: "No active Android FCM token found in public.user_notification_devices for this user.",
       });
-    }
-
-    const universalResult = await supabase
-      .from("user_notification_devices")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("is_active", true);
-
-    const devices = universalResult.error ? [] : universalResult.data || [];
-    if (universalResult.error) {
-      console.warn("Universal notification device lookup failed; falling back to legacy web push:", universalResult.error);
     }
 
     let totals = { sent: 0, webSent: 0, nativeSent: 0, deactivated: 0, skipped: 0 };
 
     if (devices.length) {
       for (const device of devices) {
-        const result = await sendUniversalDevice(device, notification);
+        const result = await sendUniversalDevice(device, notification, {
+          strictNative: isManualPushTest,
+        });
         totals = {
           sent: totals.sent + result.sent,
           webSent: totals.webSent + result.webSent,
@@ -333,7 +402,12 @@ Deno.serve(async (request) => {
       totals = await sendLegacyWebPush(userId, notification);
     }
 
-    return jsonResponse({ ...totals, dedupe_key: notification.dedupeKey });
+    return jsonResponse({
+      ...totals,
+      dedupe_key: notification.dedupeKey,
+      manualPushTest: isManualPushTest,
+      authMode: authorization.mode,
+    });
   } catch (error) {
     console.error("send-task-reminders failed:", error);
     return jsonResponse(
