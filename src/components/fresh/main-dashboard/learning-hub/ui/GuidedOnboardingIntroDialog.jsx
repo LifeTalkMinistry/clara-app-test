@@ -53,7 +53,7 @@ export default function GuidedOnboardingIntroDialog({
         aria-describedby="clara-guided-onboarding-description"
         className="relative flex h-[calc(100dvh-32px)] max-h-[820px] w-full max-w-[430px] items-center justify-center text-white"
       >
-        <article className="relative flex h-[calc(100%-100px)] min-h-[520px] max-h-[716px] w-[calc(100%-32px)] max-w-[398px] flex-col overflow-y-auto rounded-[32px] border border-cyan-100/16 bg-[linear-gradient(150deg,rgba(7,54,71,0.96),rgba(8,20,54,0.97)_48%,rgba(34,14,79,0.97))] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_46px_rgba(0,0,0,0.28)] sm:px-6 sm:py-7">
+        <article className="relative flex h-[calc(100%_-_100px)] min-h-[520px] max-h-[716px] w-[calc(100%_-_32px)] max-w-[398px] flex-col overflow-y-auto rounded-[32px] border border-cyan-100/16 bg-[linear-gradient(150deg,rgba(7,54,71,0.96),rgba(8,20,54,0.97)_48%,rgba(34,14,79,0.97))] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_46px_rgba(0,0,0,0.28)] sm:px-6 sm:py-7">
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
             <div className="absolute -left-20 -top-24 h-56 w-56 rounded-full bg-cyan-300/[0.09] blur-3xl" />
             <div className="absolute -bottom-24 -right-16 h-60 w-60 rounded-full bg-violet-500/[0.14] blur-3xl" />
