@@ -1,9 +1,11 @@
 import {
   getChallengeTimeZone,
   getEligibleDayBoundaryHour,
-  isRealDateKey,
+  isValidDateKey,
 } from "../../../../../lib/challenge-schedule.js";
 import {
+  createDailyCheckInEvent,
+  deriveChallengeState,
   reconcileCheckInHistory,
 } from "./dailyCheckInEngine.js";
 import { normalizeBubble } from "./dailyCheckInBubbles.js";
@@ -32,11 +34,10 @@ export function createEmptyState(userId) {
     streakStatus: "not_started",
 
     checkInEvents: [],
-
     completedDates: [],
+
     completedThirtyDays: false,
     completedThirtyDaysAt: null,
-
     lastResetAt: null,
     lastResetForDay: null,
     lastResetForDate: null,
@@ -47,52 +48,51 @@ export function createEmptyState(userId) {
 
 export function createSimulationState(userId, todayKey, completedToday = false) {
   const state = createEmptyState(userId);
-  if (!completedToday) {
-    return {
-      ...state,
-      challengeStartDay: todayKey,
-      cycleStartedAt: todayKey,
-      challengeCurrentDay: 1,
-      challengeEndDay: todayKey,
-      challengeStatus: "active",
-    };
-  }
-
+  const checkInEvents = completedToday
+    ? [createDailyCheckInEvent({ userId: normalizeUserId(userId), eligibleDay: todayKey })]
+    : [];
   return normalizeState(
     {
       ...state,
       challengeStartDay: todayKey,
       cycleStartedAt: todayKey,
-      checkInEvents: [
-        {
-          eventId: `daily_check_in:${normalizeUserId(userId)}:${todayKey}`,
-          userId: normalizeUserId(userId),
-          eventType: "daily_check_in",
-          eligibleDay: todayKey,
-          clientOccurredAt: new Date().toISOString(),
-          timezone: getChallengeTimeZone(),
-          source: "daily_check_in_card_flip",
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      checkInEvents,
     },
     userId,
     todayKey,
   );
 }
 
+function resolveChallengeStart(value, history) {
+  if (isValidDateKey(value?.challengeStartDay)) return value.challengeStartDay;
+  if (isValidDateKey(value?.cycleStartedAt)) return value.cycleStartedAt;
+  if (Boolean(value?.completedThirtyDays) && history.completedDates.length >= 30) {
+    return history.completedDates[Math.max(0, history.completedDates.length - 30)];
+  }
+  if (isValidDateKey(value?.lastCheckInDay)) return value.lastCheckInDay;
+  if (isValidDateKey(value?.lastCheckInDate)) return value.lastCheckInDate;
+  return null;
+}
+
 export function normalizeState(value, userId, todayKey) {
   const resolvedUserId = normalizeUserId(userId || value?.userId);
   const history = reconcileCheckInHistory(value || {}, todayKey, resolvedUserId);
-  const storedLifetime = Number.isFinite(Number(value?.lifetimeCheckIns))
-    ? Math.max(0, Math.floor(Number(value.lifetimeCheckIns)))
-    : 0;
-  const completedThirtyDays = Boolean(value?.completedThirtyDays) || history.completedThirtyDays;
+  const challengeStartDay = resolveChallengeStart(value || {}, history);
+  const challenge = deriveChallengeState({
+    state: {
+      ...(value || {}),
+      challengeStartDay,
+      completedDates: history.completedDates,
+    },
+    todayKey,
+  });
+  const completedThirtyDays = Boolean(value?.completedThirtyDays) || challenge.completedThirtyDays;
+  const nowIso = new Date().toISOString();
   const completedThirtyDaysAt =
     typeof value?.completedThirtyDaysAt === "string"
       ? value.completedThirtyDaysAt
-      : completedThirtyDays && history.challengeStatus === "completed"
-        ? new Date().toISOString()
+      : completedThirtyDays
+        ? nowIso
         : null;
   const lastResetForDay =
     typeof value?.lastResetForDay === "string"
@@ -104,16 +104,17 @@ export function normalizeState(value, userId, todayKey) {
   return {
     ...createEmptyState(resolvedUserId),
     userId: resolvedUserId,
-    challengeStartDay: isRealDateKey(history.challengeStartDay) ? history.challengeStartDay : null,
-    cycleStartedAt: isRealDateKey(history.challengeStartDay) ? history.challengeStartDay : null,
-    challengeCurrentDay: history.challengeCurrentDay,
-    challengeEndDay: isRealDateKey(history.challengeEndDay) ? history.challengeEndDay : null,
-    challengeStatus: history.challengeStatus,
-    completedCheckInDays: history.completedCheckInDays,
+
+    challengeStartDay: challenge.challengeStartDay,
+    cycleStartedAt: challenge.challengeStartDay,
+    challengeCurrentDay: challenge.challengeCurrentDay,
+    challengeEndDay: challenge.challengeEndDay,
+    challengeStatus: challenge.challengeStatus,
+    completedCheckInDays: challenge.completedCheckInDays,
 
     currentStreak: history.currentStreak,
     longestStreak: history.longestStreak,
-    lifetimeCheckIns: Math.max(history.lifetimeCheckIns, storedLifetime),
+    lifetimeCheckIns: history.lifetimeCheckIns,
     lastCheckInDay: history.lastCheckInDay,
     lastCheckInDate: history.lastCheckInDay,
     streakStatus:
