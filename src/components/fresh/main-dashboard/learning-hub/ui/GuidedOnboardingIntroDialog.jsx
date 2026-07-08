@@ -72,7 +72,7 @@ export default function GuidedOnboardingIntroDialog({
             <div>
               <div className="pr-12">
                 <span className="inline-flex w-fit items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-100">
-                  30-minute personal support
+                  Free 30-minute 1-on-1 session
                 </span>
               </div>
 
