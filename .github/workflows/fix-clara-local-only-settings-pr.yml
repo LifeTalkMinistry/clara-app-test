@@ -28,15 +28,7 @@ jobs:
           cache: npm
 
       - name: Apply the surgical source patch
-        shell: bash
-        run: |
-          awk '
-            /python <<'\''PY'\''/ { capture=1; next }
-            capture && /^          PY$/ { capture=0; exit }
-            capture { sub(/^          /, ""); print }
-          ' .github/workflows/fix-clara-local-only-settings.yml > /tmp/apply-local-only-settings.py
-          test -s /tmp/apply-local-only-settings.py
-          python /tmp/apply-local-only-settings.py
+        run: python .github/scripts/apply-local-only-settings-fix.py
 
       - name: Install dependencies
         run: npm ci
@@ -56,6 +48,7 @@ jobs:
       - name: Commit verified fix to source branch
         shell: bash
         run: |
+          rm -f .github/scripts/apply-local-only-settings-fix.py
           rm -f .github/workflows/fix-clara-local-only-settings.yml
           rm -f .github/workflows/fix-clara-local-only-settings-pr.yml
           git config user.name "github-actions[bot]"
