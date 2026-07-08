@@ -69,28 +69,7 @@ export default function FinancialCarousel(props) {
   });
 
   const items = useMemo(
-    () =>
-      getCarouselData({
-        monthlyBudgetPlan,
-        savingsGoals,
-        totalSavingsSaved,
-        totalSavingsTarget,
-        primarySavingsGoal,
-        wallets,
-        walletMoney,
-        walletPreviewTransactions,
-        survivalExpense,
-        user: userId || userPlan ? { id: userId, plan: userPlan } : null,
-        plan,
-        guardChecked: isGuideMode ? false : guardChecked,
-        loading,
-        profileData,
-        featureFlags,
-        includeLocked,
-        firstPositiveNumber,
-        readStoredSurvivalExpense,
-      }),
-    [
+    () => getCarouselData({
       monthlyBudgetPlan,
       savingsGoals,
       totalSavingsSaved,
@@ -100,45 +79,31 @@ export default function FinancialCarousel(props) {
       walletMoney,
       walletPreviewTransactions,
       survivalExpense,
-      userId,
-      userPlan,
+      user: userId || userPlan ? { id: userId, plan: userPlan } : null,
       plan,
-      guardChecked,
+      guardChecked: isGuideMode ? false : guardChecked,
       loading,
       profileData,
       featureFlags,
       includeLocked,
       firstPositiveNumber,
       readStoredSurvivalExpense,
-      isGuideMode,
-    ]
+    }),
+    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, firstPositiveNumber, readStoredSurvivalExpense, isGuideMode]
   );
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
-  const isActiveGuideCarousel =
-    isGuideMode && typeof onGuideCarouselIndexChange === "function";
-  const effectiveGuideMaxStepPerInteraction =
-    isActiveGuideCarousel && !guideCarouselLocked
-      ? Math.max(1, Number(guideMaxStepPerInteraction) || 1)
-      : null;
-  const {
-    carouselRef,
-    activeIndex,
-    scrollToIndex,
-    handleScroll,
-    interactionHandlers,
-  } = useAutoMovingHorizontalCarousel({
+  const isActiveGuideCarousel = isGuideMode && typeof onGuideCarouselIndexChange === "function";
+  const effectiveGuideMaxStepPerInteraction = isActiveGuideCarousel && !guideCarouselLocked
+    ? Math.max(1, Number(guideMaxStepPerInteraction) || 1)
+    : null;
+  const { carouselRef, activeIndex, scrollToIndex, handleScroll, interactionHandlers } = useAutoMovingHorizontalCarousel({
     itemCount: items.length,
     defaultIndex,
-    guideAllowedSwipeDirection: isActiveGuideCarousel
-      ? guideAllowedSwipeDirection
-      : null,
+    guideAllowedSwipeDirection: isActiveGuideCarousel ? guideAllowedSwipeDirection : null,
     guideMaxStepPerInteraction: effectiveGuideMaxStepPerInteraction,
   });
   const guideInteractionHandlers = useGuideMobileSwipeAdapter({
-    enabled:
-      isActiveGuideCarousel &&
-      Number(effectiveGuideMaxStepPerInteraction) > 0 &&
-      !guideCarouselLocked,
+    enabled: isActiveGuideCarousel && Number(effectiveGuideMaxStepPerInteraction) > 0 && !guideCarouselLocked,
     interactionHandlers,
   });
   const expandedCardIndex = useMemo(
@@ -149,39 +114,25 @@ export default function FinancialCarousel(props) {
   const isTerminalGuideLocked = isGuideMode && guideCarouselLocked;
   const isSwipeLocked = isInlineFocusExpanded || isTerminalGuideLocked;
   const isControlledGuideSwipe =
-    isActiveGuideCarousel &&
-    Number(effectiveGuideMaxStepPerInteraction) > 0 &&
-    !isTerminalGuideLocked;
+    isActiveGuideCarousel && Number(effectiveGuideMaxStepPerInteraction) > 0 && !isTerminalGuideLocked;
   const bottomSpacingClass = flushSpacing ? "mb-0" : "mb-5";
-  const productionGuideMatchedClass = isGuideMode
-    ? ""
-    : "clara-production-guide-matched-carousel";
+  const productionGuideMatchedClass = isGuideMode ? "" : "clara-production-guide-matched-carousel";
 
   useEffect(() => {
     if (expandedCardIndex < 0 || typeof window === "undefined") return undefined;
-    const frame = window.requestAnimationFrame(() =>
-      scrollToIndex(expandedCardIndex, "smooth")
-    );
+    const frame = window.requestAnimationFrame(() => scrollToIndex(expandedCardIndex, "smooth"));
     return () => window.cancelAnimationFrame(frame);
   }, [expandedCardIndex, scrollToIndex]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
     const root = document.documentElement;
-    root.classList.toggle(
-      FINANCIAL_CAROUSEL_FOCUS_CLASS,
-      isInlineFocusExpanded
-    );
+    root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
     return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
   }, [isInlineFocusExpanded]);
 
   useEffect(() => {
-    if (
-      !isGuideMode ||
-      typeof onGuideCarouselIndexChange !== "function"
-    ) {
-      return undefined;
-    }
+    if (!isGuideMode || typeof onGuideCarouselIndexChange !== "function") return undefined;
 
     const activeItem = items[activeIndex] || null;
 
@@ -201,17 +152,12 @@ export default function FinancialCarousel(props) {
   if (!items.length) return null;
 
   return (
-    <div
-      className={`relative z-20 ${productionGuideMatchedClass} ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`}
-      style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}
-    >
+    <div className={`relative z-20 ${productionGuideMatchedClass} ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
       <CarouselViewport
         carouselRef={carouselRef}
         onScroll={handleScroll}
-        interactionHandlers={
-          isTerminalGuideLocked ? {} : guideInteractionHandlers
-        }
+        interactionHandlers={isTerminalGuideLocked ? {} : guideInteractionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
         allowVerticalOverflow={isInlineFocusExpanded}
         isSwipeLocked={isSwipeLocked}
@@ -220,8 +166,7 @@ export default function FinancialCarousel(props) {
         {items.map((item, index) => {
           const isActiveSlide = index === activeIndex;
           const isNearbySlide = Math.abs(index - activeIndex) <= 1;
-          const isInlineExpanded =
-            item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
+          const isInlineExpanded = item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
           // Visual performance:
           // Active/expanded cards get full premium visuals.
           // Nearby cards get medium visuals.
@@ -234,53 +179,18 @@ export default function FinancialCarousel(props) {
               : isNearbySlide
                 ? "medium"
                 : "lite";
-          const cardItem =
-            item.type === "investmentFund"
-              ? {
-                  ...item,
-                  data: {
-                    ...item.data,
-                    incomeSources,
-                    incomeData,
-                    refreshData,
-                    isActiveSlide,
-                    isNearbySlide,
-                    performanceMode,
-                  },
-                }
-              : item;
+          const cardItem = item.type === "investmentFund"
+            ? { ...item, data: { ...item.data, incomeSources, incomeData, refreshData, isActiveSlide, isNearbySlide, performanceMode } }
+            : item;
 
           return (
-            <CarouselSlideShell
-              key={cardItem.key}
-              item={cardItem}
-              selectedDashboardTheme={selectedDashboardTheme}
-              dashboardScale={dashboardScale}
-              isExpanded={isInlineExpanded}
-              performanceMode={performanceMode}
-            >
-              <CarouselItemCard
-                {...props}
-                item={cardItem}
-                selectedDashboardTheme={selectedDashboardTheme}
-                expandedFinanceCard={expandedFinanceCard}
-                loading={loading}
-                performanceMode={performanceMode}
-                isActiveSlide={isActiveSlide}
-                isNearbySlide={isNearbySlide}
-              />
+            <CarouselSlideShell key={cardItem.key} item={cardItem} selectedDashboardTheme={selectedDashboardTheme} dashboardScale={dashboardScale} isExpanded={isInlineExpanded} performanceMode={performanceMode}>
+              <CarouselItemCard {...props} item={cardItem} selectedDashboardTheme={selectedDashboardTheme} expandedFinanceCard={expandedFinanceCard} loading={loading} performanceMode={performanceMode} isActiveSlide={isActiveSlide} isNearbySlide={isNearbySlide} />
             </CarouselSlideShell>
           );
         })}
       </CarouselViewport>
-      <CarouselDots
-        items={items}
-        activeIndex={activeIndex}
-        onSelect={isTerminalGuideLocked ? undefined : scrollToIndex}
-        dashboardScale={dashboardScale}
-        selectedDashboardTheme={selectedDashboardTheme}
-        themeInactiveDotClass={themeInactiveDotClass}
-      />
+      <CarouselDots items={items} activeIndex={activeIndex} onSelect={isTerminalGuideLocked ? undefined : scrollToIndex} dashboardScale={dashboardScale} selectedDashboardTheme={selectedDashboardTheme} themeInactiveDotClass={themeInactiveDotClass} />
     </div>
   );
 }
