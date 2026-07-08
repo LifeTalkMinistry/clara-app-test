@@ -1,17 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  LEGACY_LOCAL_VAULT_ID,
   isTemporaryLocalAuthUser,
   resolveLocalVaultId,
 } from "../src/lib/localVaultIdentity.js";
 
-test("preserves the legacy local-dev-user vault when records exist", () => {
+test("does not promote the temporary local-dev-user identity", () => {
   const vaultId = resolveLocalVaultId({
-    ownerCounts: { [LEGACY_LOCAL_VAULT_ID]: 5, "real-user-id": 2 },
+    ownerCounts: { "local-dev-user": 5, "real-user-id": 2 },
     createId: () => "vault_new",
   });
-  assert.equal(vaultId, LEGACY_LOCAL_VAULT_ID);
+  assert.equal(vaultId, "real-user-id");
 });
 
 test("creates a device vault for a fresh installation", () => {
@@ -19,30 +18,30 @@ test("creates a device vault for a fresh installation", () => {
   assert.equal(vaultId, "vault_unique");
 });
 
-test("keeps a persisted vault unchanged across auth identity changes", () => {
-  const beforeLogin = resolveLocalVaultId({ persistedVaultId: "vault_stable" });
-  const afterLogin = resolveLocalVaultId({
-    persistedVaultId: beforeLogin,
-    ownerCounts: { "supabase-user-id": 10 },
-    candidateOwnerIds: ["supabase-user-id"],
+test("keeps a persisted vault unchanged across identity changes", () => {
+  const before = resolveLocalVaultId({ persistedVaultId: "vault_stable" });
+  const afterCandidateChange = resolveLocalVaultId({
+    persistedVaultId: before,
+    ownerCounts: { "other-owner-id": 10 },
+    candidateOwnerIds: ["other-owner-id"],
   });
-  const afterLogout = resolveLocalVaultId({ persistedVaultId: afterLogin });
-  assert.equal(beforeLogin, "vault_stable");
-  assert.equal(afterLogin, "vault_stable");
-  assert.equal(afterLogout, "vault_stable");
+  const afterReload = resolveLocalVaultId({ persistedVaultId: afterCandidateChange });
+  assert.equal(before, "vault_stable");
+  assert.equal(afterCandidateChange, "vault_stable");
+  assert.equal(afterReload, "vault_stable");
 });
 
-test("preserves an older authenticated owner when it is the only existing vault", () => {
+test("preserves an older non-temporary owner when it is the only existing vault", () => {
   const vaultId = resolveLocalVaultId({
-    ownerCounts: { "existing-supabase-owner": 7 },
-    candidateOwnerIds: ["existing-supabase-owner"],
+    ownerCounts: { "existing-local-owner": 7 },
+    candidateOwnerIds: ["existing-local-owner"],
     createId: () => "vault_new",
   });
-  assert.equal(vaultId, "existing-supabase-owner");
+  assert.equal(vaultId, "existing-local-owner");
 });
 
-test("temporary local identity is not treated as a genuine account", () => {
+test("temporary compatibility identities are still detectable for migration", () => {
   assert.equal(isTemporaryLocalAuthUser({ id: "local-dev-user" }), true);
   assert.equal(isTemporaryLocalAuthUser({ email: "local@clara.app" }), true);
-  assert.equal(isTemporaryLocalAuthUser({ id: "real-user", email: "max@example.com" }), false);
+  assert.equal(isTemporaryLocalAuthUser({ id: "real-user", email: null }), false);
 });
