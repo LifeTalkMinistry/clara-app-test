@@ -16,7 +16,7 @@ import {
   buildUniversalOnboardingContent,
   loadUniversalOnboardingContent,
 } from "@/lib/universal-onboarding-content";
-import { getMemories, setMemories, appendMemory } from "@/lib/ai/clara-memory";
+import { appendMemory, getMemories, setMemories } from "@/lib/ai/clara-memory";
 import { COMMITTED_PLAN_KEY, COMMITTED_PRODUCT_ID } from "@/lib/membership";
 import {
   COMMITTED_MONTHLY_PURCHASE_INTENT,
@@ -42,10 +42,26 @@ const QUESTION_SETS = [
     title: "How ready are you to work on your money right now?",
     description: "No pressure. CLARA only needs to understand your readiness level.",
     options: [
-      { id: "just_exploring", label: "I’m just exploring", description: "I want to look around and understand what CLARA can do." },
-      { id: "build_better_habits", label: "I want to build better habits", description: "I want my money routine to feel more consistent." },
-      { id: "take_seriously", label: "I’m ready to take this seriously", description: "I want structure, clarity, and a stronger direction." },
-      { id: "need_structure_now", label: "I badly need structure right now", description: "My money life feels heavy, and I need help organizing it." },
+      {
+        id: "just_exploring",
+        label: "I’m just exploring",
+        description: "I want to look around and understand what CLARA can do.",
+      },
+      {
+        id: "build_better_habits",
+        label: "I want to build better habits",
+        description: "I want my money routine to feel more consistent.",
+      },
+      {
+        id: "take_seriously",
+        label: "I’m ready to take this seriously",
+        description: "I want structure, clarity, and a stronger direction.",
+      },
+      {
+        id: "need_structure_now",
+        label: "I badly need structure right now",
+        description: "My money life feels heavy, and I need help organizing it.",
+      },
     ],
   },
   {
@@ -55,13 +71,41 @@ const QUESTION_SETS = [
     title: "What kind of life is your money supporting right now?",
     description: "This helps CLARA understand the responsibilities around your money.",
     options: [
-      { id: "just_myself", label: "Just myself", description: "My money mostly supports my own needs." },
-      { id: "family_household", label: "My family or household", description: "My money helps support people or responsibilities at home." },
-      { id: "partner_shared_expenses", label: "A partner or shared expenses", description: "I manage money with someone else or share regular costs." },
-      { id: "school_personal_needs", label: "School and personal needs", description: "My money has to support studies and everyday life." },
-      { id: "freelance_irregular_income", label: "Freelance or irregular income", description: "My income changes and is not always predictable." },
-      { id: "business_side_hustle", label: "Business or side hustle", description: "My money also supports income-building activities." },
-      { id: "debt_bills_pressure", label: "Debt, bills, or pressure from others", description: "A lot of my money is already pulled by obligations." },
+      {
+        id: "just_myself",
+        label: "Just myself",
+        description: "My money mostly supports my own needs.",
+      },
+      {
+        id: "family_household",
+        label: "My family or household",
+        description: "My money helps support people or responsibilities at home.",
+      },
+      {
+        id: "partner_shared_expenses",
+        label: "A partner or shared expenses",
+        description: "I manage money with someone else or share regular costs.",
+      },
+      {
+        id: "school_personal_needs",
+        label: "School and personal needs",
+        description: "My money has to support studies and everyday life.",
+      },
+      {
+        id: "freelance_irregular_income",
+        label: "Freelance or irregular income",
+        description: "My income changes and is not always predictable.",
+      },
+      {
+        id: "business_side_hustle",
+        label: "Business or side hustle",
+        description: "My money also supports income-building activities.",
+      },
+      {
+        id: "debt_bills_pressure",
+        label: "Debt, bills, or pressure from others",
+        description: "A lot of my money is already pulled by obligations.",
+      },
     ],
   },
   {
@@ -73,13 +117,37 @@ const QUESTION_SETS = [
     description: "CLARA will use this as your first pressure point to watch.",
     options: [
       { id: "bills", label: "Bills", description: "Regular payments are taking a lot of space." },
-      { id: "food_daily_needs", label: "Food and daily needs", description: "Everyday needs are the main pressure." },
-      { id: "family_responsibilities", label: "Family responsibilities", description: "Supporting others affects my money decisions." },
-      { id: "impulse_spending", label: "Impulse spending", description: "I sometimes spend before thinking it through." },
+      {
+        id: "food_daily_needs",
+        label: "Food and daily needs",
+        description: "Everyday needs are the main pressure.",
+      },
+      {
+        id: "family_responsibilities",
+        label: "Family responsibilities",
+        description: "Supporting others affects my money decisions.",
+      },
+      {
+        id: "impulse_spending",
+        label: "Impulse spending",
+        description: "I sometimes spend before thinking it through.",
+      },
       { id: "debt", label: "Debt", description: "Payments or balances feel hard to escape." },
-      { id: "irregular_income", label: "Irregular income", description: "My money timing is inconsistent." },
-      { id: "saving_money", label: "Saving money", description: "It is hard to keep money aside." },
-      { id: "not_sure_yet", label: "I’m not sure yet", description: "I need CLARA to help me see the pattern first." },
+      {
+        id: "irregular_income",
+        label: "Irregular income",
+        description: "My money timing is inconsistent.",
+      },
+      {
+        id: "saving_money",
+        label: "Saving money",
+        description: "It is hard to keep money aside.",
+      },
+      {
+        id: "not_sure_yet",
+        label: "I’m not sure yet",
+        description: "I need CLARA to help me see the pattern first.",
+      },
     ],
   },
   {
@@ -89,12 +157,36 @@ const QUESTION_SETS = [
     title: "When do you usually need help before spending?",
     description: "This tells CLARA when to help you pause before a risky decision.",
     options: [
-      { id: "sudden_purchase", label: "When I want to buy something suddenly", description: "The decision happens fast." },
-      { id: "friends_family_invite", label: "When friends or family invite me out", description: "Social pressure can affect my spending." },
-      { id: "stress_spending", label: "When I feel stressed", description: "Emotions can push me to spend." },
-      { id: "sale_promo", label: "When I see a sale or promo", description: "Discounts make the purchase feel urgent." },
-      { id: "payday_arrives", label: "When payday arrives", description: "Fresh income can disappear quickly." },
-      { id: "affordability_uncertain", label: "When I’m not sure if I can afford it", description: "I need a clear check before deciding." },
+      {
+        id: "sudden_purchase",
+        label: "When I want to buy something suddenly",
+        description: "The decision happens fast.",
+      },
+      {
+        id: "friends_family_invite",
+        label: "When friends or family invite me out",
+        description: "Social pressure can affect my spending.",
+      },
+      {
+        id: "stress_spending",
+        label: "When I feel stressed",
+        description: "Emotions can push me to spend.",
+      },
+      {
+        id: "sale_promo",
+        label: "When I see a sale or promo",
+        description: "Discounts make the purchase feel urgent.",
+      },
+      {
+        id: "payday_arrives",
+        label: "When payday arrives",
+        description: "Fresh income can disappear quickly.",
+      },
+      {
+        id: "affordability_uncertain",
+        label: "When I’m not sure if I can afford it",
+        description: "I need a clear check before deciding.",
+      },
     ],
   },
   {
@@ -104,11 +196,31 @@ const QUESTION_SETS = [
     title: "What kind of spending check would help you most?",
     description: "CLARA can be gentle, direct, or budget-based depending on what helps you act.",
     options: [
-      { id: "simple_yes_no", label: "Simple yes or no guidance", description: "Just tell me if it looks okay or risky." },
-      { id: "short_explanation", label: "A short explanation", description: "Give me a quick reason behind the guidance." },
-      { id: "strict_warning", label: "A strict warning when risky", description: "Be firm when the decision can hurt my plan." },
-      { id: "softer_reminder", label: "A softer reminder", description: "Guide me without making it feel heavy." },
-      { id: "budget_based_check", label: "A budget-based check", description: "Compare the decision with my actual budget first." },
+      {
+        id: "simple_yes_no",
+        label: "Simple yes or no guidance",
+        description: "Just tell me if it looks okay or risky.",
+      },
+      {
+        id: "short_explanation",
+        label: "A short explanation",
+        description: "Give me a quick reason behind the guidance.",
+      },
+      {
+        id: "strict_warning",
+        label: "A strict warning when risky",
+        description: "Be firm when the decision can hurt my plan.",
+      },
+      {
+        id: "softer_reminder",
+        label: "A softer reminder",
+        description: "Guide me without making it feel heavy.",
+      },
+      {
+        id: "budget_based_check",
+        label: "A budget-based check",
+        description: "Compare the decision with my actual budget first.",
+      },
     ],
   },
   {
@@ -118,11 +230,31 @@ const QUESTION_SETS = [
     title: "How do you want CLARA to guide you?",
     description: "This shapes how strong CLARA’s coaching voice should feel.",
     options: [
-      { id: "keep_simple", label: "Keep it simple", description: "I want clean guidance without too much detail." },
-      { id: "clear_next_steps", label: "Give me clear next steps", description: "Show me what to do next." },
-      { id: "risk_warnings", label: "Warn me when I’m at risk", description: "Help me catch problems before they grow." },
-      { id: "understand_patterns", label: "Help me understand my patterns", description: "Show me the behavior behind my money." },
-      { id: "money_coach", label: "Guide me like a money coach", description: "Give me stronger guidance and practical direction." },
+      {
+        id: "keep_simple",
+        label: "Keep it simple",
+        description: "I want clean guidance without too much detail.",
+      },
+      {
+        id: "clear_next_steps",
+        label: "Give me clear next steps",
+        description: "Show me what to do next.",
+      },
+      {
+        id: "risk_warnings",
+        label: "Warn me when I’m at risk",
+        description: "Help me catch problems before they grow.",
+      },
+      {
+        id: "understand_patterns",
+        label: "Help me understand my patterns",
+        description: "Show me the behavior behind my money.",
+      },
+      {
+        id: "money_coach",
+        label: "Guide me like a money coach",
+        description: "Give me stronger guidance and practical direction.",
+      },
     ],
   },
 ];
@@ -236,14 +368,11 @@ function normalizeAnswerValue(question, value) {
   if (!question) return value;
   const validOptionIds = new Set(question.options.map((option) => option.id));
   const validValues = toAnswerArray(value).filter((item) => validOptionIds.has(item));
-
-  if (question.selectionMode === "multiple") return validValues;
-  return validValues[0] || "";
+  return question.selectionMode === "multiple" ? validValues : validValues[0] || "";
 }
 
 function normalizeAnswers(rawAnswers) {
   if (!isPlainObject(rawAnswers)) return {};
-
   return QUESTION_SETS.reduce((normalized, question) => {
     const value = normalizeAnswerValue(question, rawAnswers[question.id]);
     if (hasAnswerValue(value)) normalized[question.id] = value;
@@ -260,10 +389,9 @@ function toggleMultipleAnswer(question, currentValue, optionId) {
   }
 
   const withoutExclusiveValues = currentValues.filter((item) => !exclusiveIds.has(item));
-  if (withoutExclusiveValues.includes(optionId)) {
-    return withoutExclusiveValues.filter((item) => item !== optionId);
-  }
-  return [...withoutExclusiveValues, optionId];
+  return withoutExclusiveValues.includes(optionId)
+    ? withoutExclusiveValues.filter((item) => item !== optionId)
+    : [...withoutExclusiveValues, optionId];
 }
 
 function safelyParseOnboardingDraft() {
@@ -314,8 +442,7 @@ function getRecommendedAccessLevel(answers) {
     ...toAnswerArray(answers.spending_guidance_style),
     ...toAnswerArray(answers.guidance_intensity),
   ];
-  const hasCommittedSignal = relevantAnswers.some((value) => committedSignals.has(value));
-  return hasCommittedSignal ? "committed" : "free";
+  return relevantAnswers.some((value) => committedSignals.has(value)) ? "committed" : "free";
 }
 
 function getMissingRequiredAnswer(answers) {
@@ -349,7 +476,7 @@ function saveOnboardingAnswersToLocalMemory(userId, answers) {
       try {
         window.localStorage?.setItem(ACTIVE_MEMORY_USER_ID_KEY, userId);
       } catch {
-        // Memory review bridge can still fall back to scanning local CLARA memory keys.
+        // The memory review bridge can still scan local CLARA memory keys.
       }
 
       window.dispatchEvent(
@@ -392,7 +519,6 @@ function useOnboardingMotionPreference() {
 
     update();
     media.addEventListener?.("change", update);
-
     const observer =
       typeof MutationObserver !== "undefined" ? new MutationObserver(update) : null;
     observer?.observe(document.documentElement, {
@@ -440,6 +566,7 @@ function WelcomeStep({ content, onNext }) {
           <p className="text-sm text-white/52">No judgment. Just clarity before guidance.</p>
         </div>
       </div>
+
       <div className="max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-3 sm:p-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#f4cd71]/75">
           Setup preview
@@ -480,6 +607,7 @@ function QuestionStep({ question, selectedAnswer, onSelect, onContinue, disabled
           </p>
         ) : null}
       </div>
+
       <div className="grid gap-3">
         {question.options.map((option) => {
           const isSelected = selectedValues.includes(option.id);
@@ -489,12 +617,12 @@ function QuestionStep({ question, selectedAnswer, onSelect, onContinue, disabled
               type="button"
               onClick={() => onSelect(question.id, option.id)}
               disabled={disabled}
-              className={`clara-universal-onboarding-option w-full rounded-[24px] border px-4 py-3.5 text-left transition-[border-color,background-color,color] duration-75 disabled:cursor-default sm:py-4 ${
+              aria-pressed={isSelected}
+              className={`clara-universal-onboarding-option w-full touch-manipulation rounded-[24px] border px-4 py-3.5 text-left transition-[border-color,background-color,color] duration-75 disabled:cursor-default sm:py-4 ${
                 isSelected
                   ? "border-[#f4cd71]/60 bg-[#f4cd71]/12 shadow-[0_10px_30px_rgba(244,205,113,0.12)]"
                   : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
               }`}
-              aria-pressed={isSelected}
             >
               <div className="flex items-start gap-3">
                 <div
@@ -519,12 +647,13 @@ function QuestionStep({ question, selectedAnswer, onSelect, onContinue, disabled
           );
         })}
       </div>
+
       {isMultiple ? (
         <Button
           type="button"
           onClick={() => onContinue(question.id)}
           disabled={!hasSelection || disabled}
-          className="h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e] disabled:cursor-not-allowed disabled:opacity-45"
+          className="h-12 w-full touch-manipulation rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e] disabled:cursor-not-allowed disabled:opacity-45"
         >
           Continue
           <ArrowRight className="h-4 w-4" />
@@ -658,10 +787,11 @@ export default function UniversalOnboarding() {
   const [screenIndex, setScreenIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [nameError, setNameError] = useState("");
+  const [advancingScreenId, setAdvancingScreenId] = useState(null);
   const answersRef = useRef({});
   const hasHydratedAnswersRef = useRef(false);
   const onboardingShellRef = useRef(null);
-  const isAdvancingRef = useRef(false);
+  const advancingScreenIdRef = useRef(null);
   const advanceScheduleRef = useRef({ firstFrame: null, secondFrame: null, timer: null });
 
   useEffect(() => {
@@ -713,22 +843,28 @@ export default function UniversalOnboarding() {
     advanceScheduleRef.current = { firstFrame: null, secondFrame: null, timer: null };
   }, []);
 
-  useEffect(() => {
-    return () => clearAdvanceSchedule();
-  }, [clearAdvanceSchedule]);
+  const clearScreenLock = useCallback(() => {
+    advancingScreenIdRef.current = null;
+    setAdvancingScreenId(null);
+  }, []);
+
+  useEffect(() => () => clearAdvanceSchedule(), [clearAdvanceSchedule]);
 
   useEffect(() => {
-    isAdvancingRef.current = false;
+    clearScreenLock();
     const frame = requestAnimationFrame(() => {
       onboardingShellRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
     return () => cancelAnimationFrame(frame);
-  }, [screenIndex]);
+  }, [clearScreenLock, screenIndex]);
 
   const screen = SCREENS[screenIndex];
   const currentQuestion =
     screen?.type === "question" ? QUESTION_SETS[screen.index] : null;
   const canGoBack = screenIndex > 0 && !saving;
+  const isCurrentScreenAdvancing =
+    Boolean(screen?.id) && advancingScreenId === screen.id;
+  const isQuestionScreen = screen?.type === "question";
   const progressValue = SCREENS.length
     ? ((screenIndex + 1) / SCREENS.length) * 100
     : 0;
@@ -745,7 +881,6 @@ export default function UniversalOnboarding() {
         transition: { duration: 0 },
       };
     }
-
     if (useMinimalMotion) {
       return {
         initial: { opacity: 0 },
@@ -753,7 +888,6 @@ export default function UniversalOnboarding() {
         transition: { duration: 0.1, ease: "easeOut" },
       };
     }
-
     return {
       initial: { opacity: 0, y: 6 },
       animate: { opacity: 1, y: 0 },
@@ -768,6 +902,14 @@ export default function UniversalOnboarding() {
     return normalizeAnswers(currentAnswers);
   }
 
+  function lockCurrentScreen() {
+    const currentScreenId = screen?.id || null;
+    if (!currentScreenId) return false;
+    advancingScreenIdRef.current = currentScreenId;
+    setAdvancingScreenId(currentScreenId);
+    return true;
+  }
+
   function goNext() {
     setScreenIndex((current) => Math.min(current + 1, SCREENS.length - 1));
   }
@@ -775,7 +917,7 @@ export default function UniversalOnboarding() {
   function goBack() {
     if (!canGoBack) return;
     clearAdvanceSchedule();
-    isAdvancingRef.current = false;
+    clearScreenLock();
     setNameError("");
     setScreenIndex((current) => Math.max(current - 1, 0));
   }
@@ -819,21 +961,17 @@ export default function UniversalOnboarding() {
         currentAnswers[questionId],
         optionId
       );
-      commitAnswers({
-        ...currentAnswers,
-        [questionId]: nextSelectedValues,
-      });
+      commitAnswers({ ...currentAnswers, [questionId]: nextSelectedValues });
       return;
     }
 
-    if (isAdvancingRef.current) return;
-    isAdvancingRef.current = true;
+    if (advancingScreenIdRef.current === screen?.id) return;
+    if (!lockCurrentScreen()) return;
 
     commitAnswers({
       ...getStableAnswersSnapshot(),
       [questionId]: optionId,
     });
-
     clearAdvanceSchedule();
     scheduleQuestionAdvance();
   }
@@ -842,9 +980,9 @@ export default function UniversalOnboarding() {
     const question = getQuestionById(questionId);
     if (!question || question.selectionMode !== "multiple") return;
     if (!hasAnswerValue(getStableAnswersSnapshot()[questionId])) return;
-    if (isAdvancingRef.current) return;
+    if (advancingScreenIdRef.current === screen?.id) return;
+    if (!lockCurrentScreen()) return;
 
-    isAdvancingRef.current = true;
     clearAdvanceSchedule();
     goNext();
   }
@@ -891,7 +1029,7 @@ export default function UniversalOnboarding() {
 
   async function completeOnboardingSetup() {
     clearAdvanceSchedule();
-    isAdvancingRef.current = false;
+    clearScreenLock();
 
     const answerSnapshot = getStableAnswersSnapshot();
     const missingAnswer = getMissingRequiredAnswer(answerSnapshot);
@@ -927,7 +1065,6 @@ export default function UniversalOnboarding() {
     saveCompletedOnboardingAccessSnapshot(recommendedAccessSnapshot);
     clearOnboardingDraft();
     saveOnboardingAnswersToLocalMemory(user?.id, answerSnapshot);
-
     return true;
   }
 
@@ -996,10 +1133,17 @@ export default function UniversalOnboarding() {
 
   if (!screen) return null;
 
+  const contentPanelClass = isQuestionScreen
+    ? "mt-4 w-full flex-none rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7"
+    : "mt-4 flex min-h-0 flex-1 rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7";
+  const screenContentClass = isQuestionScreen
+    ? "clara-universal-onboarding-screen flex w-full flex-col space-y-4 sm:space-y-6"
+    : "clara-universal-onboarding-screen flex min-h-full w-full flex-col space-y-4 sm:space-y-6";
+
   return (
     <div className="clara-universal-onboarding relative h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#08111f] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
-      <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(244,205,113,0.16),_transparent_32%),radial-gradient(circle_at_82%_18%,_rgba(18,129,92,0.15),_transparent_26%),radial-gradient(circle_at_12%_82%,_rgba(84,61,31,0.22),_transparent_32%),linear-gradient(180deg,_#08111f_0%,_#0b1525_48%,_#08111f_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)] opacity-35" />
       <div className="relative mx-auto flex h-[100dvh] min-h-0 w-full max-w-3xl items-start justify-start px-3 py-3 sm:items-center sm:justify-center sm:px-6 sm:py-6">
         <div
           ref={onboardingShellRef}
@@ -1034,12 +1178,8 @@ export default function UniversalOnboarding() {
             />
           </div>
 
-          <div className="mt-4 flex min-h-0 flex-1 rounded-[28px] border border-white/10 bg-[#0d1728]/82 p-4 sm:mt-6 sm:p-7">
-            <motion.div
-              key={screen.id}
-              {...motionProps}
-              className="clara-universal-onboarding-screen flex min-h-full w-full flex-col space-y-4 sm:space-y-6"
-            >
+          <div className={contentPanelClass}>
+            <motion.div key={screen.id} {...motionProps} className={screenContentClass}>
               {screen.type === "welcome" ? (
                 <WelcomeStep content={content} onNext={goNext} />
               ) : null}
@@ -1050,7 +1190,7 @@ export default function UniversalOnboarding() {
                   selectedAnswer={answers[currentQuestion.id]}
                   onSelect={handleSelectAnswer}
                   onContinue={handleContinueQuestion}
-                  disabled={isAdvancingRef.current}
+                  disabled={isCurrentScreenAdvancing}
                 />
               ) : null}
 
