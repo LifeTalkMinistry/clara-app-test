@@ -18,8 +18,6 @@ import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/pe
 
 const Profile = lazy(() => import("./pages/Profile"));
 const DataExport = lazy(() => import("./pages/DataExport"));
-const Login = lazy(() => import("./pages/Login"));
-const LinkLocalVault = lazy(() => import("./pages/LinkLocalVault"));
 const AppPreview = lazy(() => import("./pages/AppPreview"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const InvestmentPlan = lazy(() => import("./pages/InvestmentPlan"));
@@ -110,9 +108,6 @@ function AdminRescueButton({ show }) {
 
 function AppRoutes() {
   const location = useLocation();
-  const isLoginRoute = location.pathname === "/login";
-  const isAccountLinkRoute = location.pathname === "/link-local-vault";
-  const isPublicAuthRoute = isLoginRoute || isAccountLinkRoute;
   const isUniversalOnboardingRoute = location.pathname === "/onboarding";
   const { user, profile, loading, refreshProfile } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
@@ -196,7 +191,7 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  if (!isPublicAuthRoute && (loading || roleLoading)) return <FullScreenLoader />;
+  if (loading || roleLoading) return <FullScreenLoader />;
 
   const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
     <GuardedRoute
@@ -219,8 +214,8 @@ function AppRoutes() {
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/link-local-vault" element={<LinkLocalVault />} />
+        <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/link-local-vault" element={<Navigate to="/dashboard" replace />} />
         <Route path="/app-preview" element={<AppPreview />} />
         <Route
           path="/*"
