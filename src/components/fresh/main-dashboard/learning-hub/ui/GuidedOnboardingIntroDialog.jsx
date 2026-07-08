@@ -38,85 +38,106 @@ export default function GuidedOnboardingIntroDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-end justify-center bg-slate-950/80 px-3 py-3 backdrop-blur-md sm:items-center sm:p-6"
+      className="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#020817] px-[clamp(16px,5vw,30px)] pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(16px,env(safe-area-inset-top))]"
       role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
-      }}
     >
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-28 -top-32 h-80 w-80 rounded-full bg-cyan-400/[0.08] blur-3xl" />
+        <div className="absolute -bottom-32 -right-24 h-96 w-96 rounded-full bg-violet-600/[0.11] blur-3xl" />
+      </div>
+
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="clara-guided-onboarding-title"
         aria-describedby="clara-guided-onboarding-description"
-        className="relative w-full max-w-[430px] overflow-hidden rounded-[30px] border border-cyan-100/20 bg-[linear-gradient(155deg,rgba(4,25,42,0.995),rgba(8,17,43,0.995)_50%,rgba(31,12,70,0.995))] text-white shadow-[0_36px_110px_rgba(0,0,0,0.82),0_0_60px_rgba(34,211,238,0.12)]"
-        onMouseDown={(event) => event.stopPropagation()}
+        className="relative flex h-[calc(100dvh-32px)] max-h-[820px] w-full max-w-[430px] flex-col overflow-hidden rounded-[42px] border border-white/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.08),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.12),transparent_38%),rgba(4,10,24,0.99)] text-white shadow-[0_28px_96px_rgba(0,0,0,0.68),0_0_60px_rgba(34,211,238,0.08)]"
       >
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[30px]">
-          <div className="absolute -left-20 -top-24 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
-          <div className="absolute -bottom-24 -right-16 h-60 w-60 rounded-full bg-violet-500/15 blur-3xl" />
-        </div>
+        <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-white/28" />
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-cyan-400/[0.08] blur-3xl" />
 
-        <div className="relative z-10 px-5 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
+        <header className="relative z-10 shrink-0 border-b border-white/10 bg-[rgba(2,8,23,0.86)] px-5 pb-5 pt-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <span className="inline-flex items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100">
-                30-MINUTE PERSONAL SUPPORT
-              </span>
-              <h2
-                id="clara-guided-onboarding-title"
-                className="mt-3 text-[24px] font-black leading-[1.05] tracking-tight text-white"
-              >
-                Book a CLARA Walkthrough
-              </h2>
+            <div className="min-w-0 pt-1">
+              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/56">
+                CLARA Personal Support
+              </p>
+              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/72">
+                30-Minute Walkthrough
+              </p>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/70 transition hover:bg-white/[0.10] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-              aria-label="Close CLARA walkthrough information"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/18 bg-white/[0.06] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-white/[0.11] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+              aria-label="Close CLARA walkthrough page"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
+        </header>
 
-          <p
-            id="clara-guided-onboarding-description"
-            className="mt-4 text-[12px] font-semibold leading-[1.7] text-slate-200/78"
-          >
-            Get one-on-one guidance from a real person who can help you understand
-            CLARA, answer your questions, and focus on the features most relevant
-            to you.
-          </p>
-
-          <div className="mt-5 rounded-[20px] border border-cyan-100/12 bg-cyan-300/[0.06] px-4 py-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[13px] border border-cyan-100/15 bg-cyan-300/[0.08] text-cyan-100/85">
-                <CheckCircle2 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100/65">
-                  What happens next
-                </p>
-                <p className="mt-1.5 text-[11px] font-bold leading-relaxed text-white/90">
-                  You will continue to a short form where you can share what you
-                  need help with and choose your preferred schedule.
-                </p>
-              </div>
+        <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+          <article className="relative flex min-h-full flex-col justify-center overflow-hidden rounded-[32px] border border-cyan-100/16 bg-[linear-gradient(150deg,rgba(7,54,71,0.96),rgba(8,20,54,0.97)_48%,rgba(34,14,79,0.97))] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_46px_rgba(0,0,0,0.28)] sm:px-6 sm:py-7">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -left-20 -top-24 h-56 w-56 rounded-full bg-cyan-300/[0.09] blur-3xl" />
+              <div className="absolute -bottom-24 -right-16 h-60 w-60 rounded-full bg-violet-500/[0.14] blur-3xl" />
             </div>
-          </div>
 
-          <p className="mt-4 text-[10px] font-semibold leading-relaxed text-slate-300/65">
-            You do not need to finish setting up CLARA before booking.
-          </p>
+            <div className="relative z-10">
+              <span className="inline-flex items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100">
+                30-Minute Personal Support
+              </span>
 
-          <div className="mt-6 grid gap-2.5 sm:grid-cols-[1fr_auto]">
+              <h1
+                id="clara-guided-onboarding-title"
+                className="mt-5 max-w-[18rem] text-[clamp(1.65rem,7vw,2.1rem)] font-black leading-[0.98] tracking-[-0.045em] text-white"
+              >
+                Book a CLARA Walkthrough
+              </h1>
+
+              <p
+                id="clara-guided-onboarding-description"
+                className="mt-5 text-[12px] font-semibold leading-[1.75] text-slate-100/82"
+              >
+                Get one-on-one guidance from a real person who can help you understand
+                CLARA, answer your questions, and focus on the features most relevant
+                to you.
+              </p>
+
+              <div className="mt-6 rounded-[24px] border border-cyan-100/22 bg-slate-950/24 px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-cyan-100/18 bg-cyan-300/[0.09] text-cyan-100/90">
+                    <CheckCircle2 className="h-[18px] w-[18px]" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-[clamp(1.15rem,5.5vw,1.45rem)] font-black leading-none tracking-[-0.035em] text-white">
+                      What happens next
+                    </h2>
+                    <p className="mt-3 text-[11px] font-bold leading-[1.7] text-white/84">
+                      You will continue to a short form where you can share what you
+                      need help with and choose your preferred schedule.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-5 text-[10px] font-semibold leading-relaxed text-slate-300/60">
+                You do not need to finish setting up CLARA before booking.
+              </p>
+            </div>
+          </article>
+        </main>
+
+        <footer className="relative z-10 shrink-0 border-t border-white/10 bg-[rgba(2,8,23,0.9)] px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4 sm:px-6">
+          <div className="grid gap-2.5">
             <button
               ref={continueButtonRef}
               type="button"
               onClick={onContinue}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[17px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.94),rgba(99,102,241,0.96))] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.25)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-[0.99]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[17px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.96),rgba(99,102,241,0.98))] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-[0.99]"
             >
               Continue to Booking Form
               <ExternalLink className="h-3.5 w-3.5" />
@@ -130,7 +151,7 @@ export default function GuidedOnboardingIntroDialog({
               Not now
             </button>
           </div>
-        </div>
+        </footer>
       </section>
     </div>,
     document.body,
