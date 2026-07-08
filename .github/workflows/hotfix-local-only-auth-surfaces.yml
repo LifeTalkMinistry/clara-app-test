@@ -1,0 +1,114 @@
+name: Hotfix local-only auth surfaces
+
+on:
+  push:
+    branches:
+      - fix/remove-local-login-logout
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/remove-local-login-logout
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Remove remaining login and logout surfaces
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          renderer_path = Path("src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx")
+          renderer = renderer_path.read_text()
+          renderer = renderer.replace(
+              'import { Lock, LogOut, X } from "lucide-react";',
+              'import { Lock, X } from "lucide-react";',
+          )
+          renderer, removed = re.subn(
+              r'\nfunction SettingsLogoutButton\(\) \{.*?\n\}\n\nfunction renderSettingsWithLogout\(renderSettings, fallback\) \{.*?\n\}\n',
+              '\n',
+              renderer,
+              flags=re.S,
+          )
+          if removed != 1:
+              raise SystemExit(f"Expected to remove one Settings logout wrapper, removed {removed}")
+          old_settings_render = '{renderSettingsWithLogout(renderSettings, fallback)}'
+          if old_settings_render not in renderer:
+              raise SystemExit("Settings logout wrapper render call was not found")
+          renderer = renderer.replace(old_settings_render, '{renderSettings?.() ?? fallback}', 1)
+          renderer_path.write_text(renderer)
+
+          app_path = Path("src/App.jsx")
+          app = app_path.read_text()
+          app = app.replace('const Login = lazy(() => import("./pages/Login"));\n', '')
+          app = app.replace('const LinkLocalVault = lazy(() => import("./pages/LinkLocalVault"));\n', '')
+          auth_route_flags = '''  const isLoginRoute = location.pathname === "/login";\n  const isAccountLinkRoute = location.pathname === "/link-local-vault";\n  const isPublicAuthRoute = isLoginRoute || isAccountLinkRoute;\n'''
+          if auth_route_flags not in app:
+              raise SystemExit("Public authentication route flags were not found")
+          app = app.replace(auth_route_flags, '', 1)
+          loading_guard = '  if (!isPublicAuthRoute && (loading || roleLoading)) return <FullScreenLoader />;'
+          if loading_guard not in app:
+              raise SystemExit("Public authentication loading guard was not found")
+          app = app.replace(loading_guard, '  if (loading || roleLoading) return <FullScreenLoader />;', 1)
+          old_routes = '''        <Route path="/login" element={<Login />} />\n        <Route path="/link-local-vault" element={<LinkLocalVault />} />'''
+          new_routes = '''        <Route path="/login" element={<Navigate to="/dashboard" replace />} />\n        <Route path="/link-local-vault" element={<Navigate to="/dashboard" replace />} />'''
+          if old_routes not in app:
+              raise SystemExit("Login/account-link routes were not found")
+          app = app.replace(old_routes, new_routes, 1)
+          app_path.write_text(app)
+
+          test_path = Path("tests/settings-local-only-regression.test.mjs")
+          test_source = test_path.read_text()
+          marker = 'const appSource = readSource("src/App.jsx");\n'
+          renderer_const = '''const dashboardPanelRendererSource = readSource(\n  "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"\n);\n'''
+          if renderer_const not in test_source:
+              if marker not in test_source:
+                  raise SystemExit("Test insertion marker was not found")
+              test_source = test_source.replace(marker, marker + renderer_const, 1)
+
+          insertion_marker = 'test("backup page keeps download, upload, validation, confirmation, restore, and reload behavior", () => {'
+          new_tests = '''test("dashboard renderer does not append a second logout control", () => {\n  assert.doesNotMatch(dashboardPanelRendererSource, /SettingsLogoutButton/);\n  assert.doesNotMatch(dashboardPanelRendererSource, /renderSettingsWithLogout/);\n  assert.doesNotMatch(dashboardPanelRendererSource, /Log out/);\n  assert.doesNotMatch(dashboardPanelRendererSource, /auth\\.signOut/);\n  assert.match(\n    dashboardPanelRendererSource,\n    /activePanel === "settings"[\\s\\S]*renderSettings\\?\\.\\(\\) \\?\\? fallback/\n  );\n});\n\ntest("login and account-link URLs stay hidden in local-only mode", () => {\n  assert.doesNotMatch(appSource, /pages\\/Login/);\n  assert.doesNotMatch(appSource, /pages\\/LinkLocalVault/);\n  assert.doesNotMatch(appSource, /<Login \\/>/);\n  assert.doesNotMatch(appSource, /<LinkLocalVault \\/>/);\n  assert.match(\n    appSource,\n    /path="\\/login" element=\\{<Navigate to="\\/dashboard" replace \\/>\\}/\n  );\n  assert.match(\n    appSource,\n    /path="\\/link-local-vault" element=\\{<Navigate to="\\/dashboard" replace \\/>\\}/\n  );\n});\n\n'''
+          if 'dashboard renderer does not append a second logout control' not in test_source:
+              if insertion_marker not in test_source:
+                  raise SystemExit("Test block insertion marker was not found")
+              test_source = test_source.replace(insertion_marker, new_tests + insertion_marker, 1)
+          test_path.write_text(test_source)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused regression test
+        run: node --test tests/settings-local-only-regression.test.mjs
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Lint changed source files
+        run: npx eslint src/App.jsx src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx tests/settings-local-only-regression.test.mjs
+
+      - name: Build application
+        run: npm run build
+
+      - name: Commit verified hotfix
+        shell: bash
+        run: |
+          rm -f .github/workflows/hotfix-local-only-auth-surfaces.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx tests/settings-local-only-regression.test.mjs .github/workflows/hotfix-local-only-auth-surfaces.yml
+          git commit -m "Remove remaining local-only login and logout surfaces"
+          git push origin HEAD:fix/remove-local-login-logout
