@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, ExternalLink, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, UserRound, X } from "lucide-react";
 
 export default function GuidedOnboardingIntroDialog({
   open,
@@ -69,30 +69,38 @@ export default function GuidedOnboardingIntroDialog({
           </button>
 
           <div className="relative z-10 flex min-h-full flex-col">
-            <div>
-              <div className="pr-12">
-                <span className="inline-flex w-fit items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-100">
-                  Free 30-minute 1-on-1 session
-                </span>
+            <div className="pr-12">
+              <span className="inline-flex w-fit items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-100">
+                Free 30-minute 1-on-1 session
+              </span>
+            </div>
+
+            <h1
+              id="clara-guided-onboarding-title"
+              className="mt-5 max-w-[19rem] text-[clamp(2rem,8.5vw,2.45rem)] font-black leading-[0.98] tracking-[-0.05em] text-white"
+            >
+              Book Your Free CLARA Walkthrough
+            </h1>
+
+            <div className="mt-6 flex flex-1 flex-col justify-center gap-5">
+              <div className="rounded-[22px] bg-white/[0.045] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-cyan-300/[0.1] text-cyan-100/90">
+                    <UserRound className="h-[18px] w-[18px]" />
+                  </div>
+
+                  <p
+                    id="clara-guided-onboarding-description"
+                    className="min-w-0 text-[15px] font-medium leading-[1.65] text-slate-100/86"
+                  >
+                    Get a free one-on-one session with a CLARA guide who can answer your
+                    questions, help you understand the app, and show you the features most
+                    relevant to you.
+                  </p>
+                </div>
               </div>
 
-              <h1
-                id="clara-guided-onboarding-title"
-                className="mt-5 max-w-[19rem] text-[clamp(2rem,8.5vw,2.45rem)] font-black leading-[0.98] tracking-[-0.05em] text-white"
-              >
-                Book Your Free CLARA Walkthrough
-              </h1>
-
-              <p
-                id="clara-guided-onboarding-description"
-                className="mt-5 text-[15px] font-medium leading-[1.65] text-slate-100/86"
-              >
-                Get a free one-on-one session with a CLARA guide who can answer your
-                questions, help you understand the app, and show you the features most
-                relevant to you.
-              </p>
-
-              <div className="mt-6 rounded-[22px] bg-white/[0.055] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div className="rounded-[22px] bg-white/[0.055] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                 <div className="flex items-start gap-3.5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-cyan-300/[0.1] text-cyan-100/90">
                     <CheckCircle2 className="h-[18px] w-[18px]" />
@@ -111,7 +119,7 @@ export default function GuidedOnboardingIntroDialog({
               </div>
             </div>
 
-            <div className="mt-auto pt-7">
+            <div className="pt-6">
               <div className="border-t border-white/[0.08] pt-5">
                 <p className="text-[13px] font-medium leading-[1.6] text-slate-300/68">
                   No payment required. You do not need to finish setting up CLARA before
