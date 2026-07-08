@@ -35,25 +35,30 @@ export function getLocalDateKey(date = new Date(), timeZone = MANILA_TIME_ZONE) 
 
 export function getEligibleDayKey(date = new Date()) {
   const parts = partsFor(date, MANILA_TIME_ZONE);
-  const localDateKey = `${parts.year}-${parts.month}-${parts.day}`;
-  return Number(parts.hour || 0) < UNLOCK_HOUR ? addLocalDays(localDateKey, -1) : localDateKey;
+  const calendarKey = `${parts.year}-${parts.month}-${parts.day}`;
+  return Number(parts.hour || 0) < UNLOCK_HOUR ? addLocalDays(calendarKey, -1) : calendarKey;
+}
+
+export function isValidDateKey(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const utc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+  return (
+    utc.getUTCFullYear() === year &&
+    utc.getUTCMonth() === month - 1 &&
+    utc.getUTCDate() === day
+  );
 }
 
 function dateKeyToUtcNoon(dateKey) {
+  if (!isValidDateKey(dateKey)) return NaN;
   const [year, month, day] = String(dateKey).split("-").map(Number);
   return Date.UTC(year, month - 1, day, 12, 0, 0, 0);
 }
 
-export function isRealDateKey(value) {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
-  const roundTrip = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0)).toISOString().slice(0, 10);
-  return roundTrip === value;
-}
-
 export function addLocalDays(dateKey, days) {
-  if (!isRealDateKey(dateKey)) return null;
+  if (!isValidDateKey(dateKey)) return null;
   const next = new Date(dateKeyToUtcNoon(dateKey) + Number(days || 0) * DAY_MS);
   return next.toISOString().slice(0, 10);
 }
@@ -62,8 +67,8 @@ export function compareDateKeys(left, right) {
   return dateKeyToUtcNoon(left) - dateKeyToUtcNoon(right);
 }
 
-export function daysBetweenDateKeys(startDateKey, endDateKey) {
-  if (!isRealDateKey(startDateKey) || !isRealDateKey(endDateKey)) return 0;
+export function calendarDayDiff(startDateKey, endDateKey) {
+  if (!isValidDateKey(startDateKey) || !isValidDateKey(endDateKey)) return 0;
   return Math.floor((dateKeyToUtcNoon(endDateKey) - dateKeyToUtcNoon(startDateKey)) / DAY_MS);
 }
 
@@ -80,7 +85,7 @@ export function getCurrentChallengeDay(startDateKey, now = new Date()) {
   if (!startDateKey) return 0;
 
   const effectiveDateKey = getEligibleDayKey(now);
-  const diff = daysBetweenDateKeys(startDateKey, effectiveDateKey);
+  const diff = calendarDayDiff(startDateKey, effectiveDateKey);
   return Math.max(1, Math.min(30, diff + 1));
 }
 
