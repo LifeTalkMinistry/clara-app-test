@@ -10,7 +10,7 @@ export const UNIVERSAL_ONBOARDING_SETTINGS_DEFAULTS = {
   onboarding_mission_title: "CLARA was built for more than tracking money.",
   onboarding_mission_body:
     "CLARA exists to help people make better money decisions. As it grows, the goal is also to support students, families, and communities in need through the CLARA Charity Fund.",
-  onboarding_mission_cta: "Prepare my starting path",
+  onboarding_mission_cta: "Ready to Explore CLARA",
   onboarding_result_title: "Your CLARA starting path is ready.",
   onboarding_result_body:
     "Based on your answers, CLARA will start by helping you understand your lifestyle, notice your spending pressure points, and pause before risky money decisions.",
@@ -39,7 +39,7 @@ export function buildUniversalOnboardingContent(settings = {}) {
     mission: {
       title: merged.onboarding_mission_title,
       body: merged.onboarding_mission_body,
-      cta: merged.onboarding_mission_cta,
+      cta: "Ready to Explore CLARA",
     },
     result: {
       title: merged.onboarding_result_title,
