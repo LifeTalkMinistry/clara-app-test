@@ -17,11 +17,6 @@ import {
   loadUniversalOnboardingContent,
 } from "@/lib/universal-onboarding-content";
 import { appendMemory, getMemories, setMemories } from "@/lib/ai/clara-memory";
-import { COMMITTED_PLAN_KEY, COMMITTED_PRODUCT_ID } from "@/lib/membership";
-import {
-  COMMITTED_MONTHLY_PURCHASE_INTENT,
-  persistCommitmentBookletIntent,
-} from "@/lib/clara-commitment-framework";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 import {
   getLocalSetupProfile,
@@ -335,7 +330,6 @@ const SCREENS = [
     index,
   })),
   { id: "mission", type: "mission" },
-  { id: "result", type: "result" },
 ];
 
 function warnInDevelopment(...args) {
@@ -663,7 +657,7 @@ function QuestionStep({ question, selectedAnswer, onSelect, onContinue, disabled
   );
 }
 
-function MissionStep({ content, onNext }) {
+function MissionStep({ saving, error, onFinish }) {
   return (
     <div className="flex min-h-full flex-col justify-center space-y-5">
       <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#8ce6c0]/20 bg-[#8ce6c0]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a7efd0]">
@@ -692,87 +686,13 @@ function MissionStep({ content, onNext }) {
       </div>
       <Button
         type="button"
-        onClick={onNext}
-        className="h-12 w-fit rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7]"
+        onClick={onFinish}
+        disabled={saving}
+        className="h-12 w-fit touch-manipulation rounded-2xl bg-[#34d399] px-5 text-[#092218] hover:bg-[#52e6a7] disabled:cursor-not-allowed disabled:opacity-55"
       >
-        {content.mission.cta}
-        <ArrowRight className="h-4 w-4" />
+        {saving ? "Preparing CLARA..." : "Ready to Explore CLARA"}
+        {!saving ? <ArrowRight className="h-4 w-4" /> : null}
       </Button>
-    </div>
-  );
-}
-
-function ResultStep({ saving, error, onCommitted, onFree }) {
-  return (
-    <div className="flex min-h-full flex-col justify-between gap-4 sm:gap-5">
-      <div className="space-y-4 sm:space-y-5">
-        <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cd71]/25 bg-[#f4cd71]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f7d98e]">
-            CLARA STARTING PATH
-          </div>
-          <h2 className="max-w-xl text-[1.9rem] font-semibold leading-tight text-white sm:text-4xl">
-            Choose how you want to start with CLARA.
-          </h2>
-        </div>
-
-        <div className="grid gap-3">
-          <div className="rounded-[28px] border border-[#f4cd71]/28 bg-[linear-gradient(180deg,rgba(244,205,113,0.13),rgba(52,211,153,0.055)_55%,rgba(255,255,255,0.025))] p-4 shadow-[0_18px_50px_rgba(244,205,113,0.08)] sm:p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f4cd71]/16 text-[#f7d98e]">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-xl font-semibold text-white">Committed Version</h3>
-                  <span className="rounded-full border border-[#34d399]/20 bg-[#34d399]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a7efd0]">
-                    ₱249/month
-                  </span>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-white/68">
-                  Unlock CLARA’s guided money decision experience and continue with stronger
-                  structure.
-                </p>
-                <p className="mt-3 text-xs leading-5 text-[#f7d98e]/82">
-                  ₱249/month. Cancel anytime in Google Play before renewal.
-                </p>
-                <Button
-                  type="button"
-                  onClick={onCommitted}
-                  disabled={saving}
-                  className="mt-4 h-12 w-full rounded-2xl bg-[#f4cd71] text-[#101010] hover:bg-[#f7d98e]"
-                >
-                  {saving ? "Preparing your booklet..." : "Start My Commitment"}
-                  {!saving ? <ArrowRight className="h-4 w-4" /> : null}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-4 sm:p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/72">
-                <BadgeCheck className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-xl font-semibold text-white">Free Version</h3>
-                <p className="mt-2 text-sm leading-6 text-white/62">
-                  Start with basic CLARA clarity tools. You can explore first and upgrade when you
-                  are ready.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onFree}
-                  disabled={saving}
-                  className="mt-4 h-12 w-full rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]"
-                >
-                  Let’s stick with the Free Version
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
     </div>
   );
@@ -792,6 +712,7 @@ export default function UniversalOnboarding() {
   const hasHydratedAnswersRef = useRef(false);
   const onboardingShellRef = useRef(null);
   const advancingScreenIdRef = useRef(null);
+  const savingRef = useRef(false);
   const advanceScheduleRef = useRef({ firstFrame: null, secondFrame: null, timer: null });
 
   useEffect(() => {
@@ -865,13 +786,14 @@ export default function UniversalOnboarding() {
   const isCurrentScreenAdvancing =
     Boolean(screen?.id) && advancingScreenId === screen.id;
   const isQuestionScreen = screen?.type === "question";
+  const isFinalOnboardingScreen =
+    screen?.type === "mission" && screenIndex === SCREENS.length - 1;
   const progressValue = SCREENS.length
     ? ((screenIndex + 1) / SCREENS.length) * 100
     : 0;
-  const setupHelperText =
-    screen?.type === "result"
-      ? "Setup complete"
-      : `Guided setup ${screenIndex + 1} of ${SCREENS.length}`;
+  const setupHelperText = isFinalOnboardingScreen
+    ? "Setup complete"
+    : `Guided setup ${screenIndex + 1} of ${SCREENS.length}`;
 
   const motionProps = useMemo(() => {
     if (prefersReducedMotion) {
@@ -1034,17 +956,6 @@ export default function UniversalOnboarding() {
     const answerSnapshot = getStableAnswersSnapshot();
     const missingAnswer = getMissingRequiredAnswer(answerSnapshot);
     if (missingAnswer) {
-      if (screen?.type === "result") {
-        setNameError(
-          "Some setup answers are missing. Please review your setup before continuing."
-        );
-        warnInDevelopment("CLARA onboarding missing answer detected on result screen:", {
-          missingQuestionId: missingAnswer.id,
-          answerSnapshot,
-        });
-        return false;
-      }
-
       setNameError("Please complete your setup answers before continuing.");
       const missingScreenIndex = SCREENS.findIndex(
         (entry) => entry.id === `question-${missingAnswer.id}`
@@ -1069,7 +980,8 @@ export default function UniversalOnboarding() {
   }
 
   async function finishOnboarding(destination = FREE_VERSION_ROUTE) {
-    if (saving) return;
+    if (savingRef.current || saving) return;
+    savingRef.current = true;
     clearAdvanceSchedule();
 
     try {
@@ -1091,42 +1003,7 @@ export default function UniversalOnboarding() {
       console.error("Universal onboarding completion error:", error);
       setNameError(SAVE_ERROR_MESSAGE);
     } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleStartClaraCommitment() {
-    if (saving) return;
-    clearAdvanceSchedule();
-
-    try {
-      setSaving(true);
-      setNameError("");
-      const completed = await completeOnboardingSetup();
-      if (!completed) return;
-
-      const recommendedAccessSnapshot = getRecommendedAccessLevel(
-        getStableAnswersSnapshot()
-      );
-      persistCommitmentBookletIntent({
-        intent: COMMITTED_MONTHLY_PURCHASE_INTENT,
-        planKey: COMMITTED_PLAN_KEY,
-        productId: COMMITTED_PRODUCT_ID,
-        openedAt: Date.now(),
-      });
-      navigate(FREE_VERSION_ROUTE, {
-        replace: true,
-        state: {
-          fromOnboarding: true,
-          openCommitmentBooklet: true,
-          purchaseIntent: COMMITTED_MONTHLY_PURCHASE_INTENT,
-          recommendedAccessLevel: recommendedAccessSnapshot,
-        },
-      });
-    } catch (error) {
-      console.error("Universal onboarding commitment routing error:", error);
-      setNameError(SAVE_ERROR_MESSAGE);
-    } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -1195,15 +1072,10 @@ export default function UniversalOnboarding() {
               ) : null}
 
               {screen.type === "mission" ? (
-                <MissionStep content={content} onNext={goNext} />
-              ) : null}
-
-              {screen.type === "result" ? (
-                <ResultStep
+                <MissionStep
                   saving={saving}
                   error={nameError}
-                  onCommitted={handleStartClaraCommitment}
-                  onFree={() => finishOnboarding(FREE_VERSION_ROUTE)}
+                  onFinish={() => finishOnboarding(FREE_VERSION_ROUTE)}
                 />
               ) : null}
             </motion.div>
