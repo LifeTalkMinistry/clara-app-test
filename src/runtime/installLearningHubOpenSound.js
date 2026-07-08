@@ -8,6 +8,7 @@ const LEARNING_HUB_TOGGLE_SELECTOR = [
   'button[aria-label="Collapse Learning Hub."]',
   "button[data-clara-pressure-signal]",
   'button[aria-label="Open CLARA Guide Mode"]',
+  'button[data-clara-guided-onboarding-button="true"]',
   "button.clara-guide-next-button",
   "button.clara-guide-carousel-next-button",
   "button.clara-guide-orb-next",
