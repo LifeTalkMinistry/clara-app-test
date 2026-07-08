@@ -39,9 +39,11 @@ export default function DailyTipCard({
   const userId = providedUserId || user?.id || "guest";
   const { tip, hasSeenToday, markSeenToday } = useDailyTip({ simulationMode });
   const {
+    todayKey,
     checkedInToday,
-    challengeProgress,
     challengeDay,
+    challengeDots,
+    challengeStatus,
     currentStreak,
     checkInToday,
   } = useDailyCheckIn({ userId, simulationMode });
@@ -58,9 +60,9 @@ export default function DailyTipCard({
   const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
   const cardHeadline = isGuideMode
     ? "Today's money reminder"
-    : currentStreak >= CHECK_IN_DAYS
-      ? "30-Day Goal Complete"
-      : `Day ${challengeDay} of ${CHECK_IN_DAYS}`;
+    : challengeStatus === "completed"
+      ? "30-Day Challenge Complete"
+      : `Day ${Math.max(1, challengeDay || 1)} of ${CHECK_IN_DAYS}`;
   const cardSubtitle = isGuideMode
     ? "Tap this card to learn what CLARA gives you each day."
     : "Tap today to protect your money discipline.";
@@ -98,6 +100,12 @@ export default function DailyTipCard({
     setFlipped(false);
     releaseFlipLock();
   }, [isGuideMode, guideStep]);
+
+  useEffect(() => {
+    setFlipped(false);
+    setShowCelebration(false);
+    releaseFlipLock();
+  }, [todayKey]);
 
   useEffect(() => {
     return () => {
@@ -172,16 +180,29 @@ export default function DailyTipCard({
     isFlippingRef.current = true;
     setIsFlipping(true);
 
-    if (willRevealTip && !checkedInToday) {
-      const checkInResult = checkInToday();
-      if (checkInResult?.status === "completed") {
-        triggerCheckInCelebration(checkInResult.milestoneType);
-      }
+    if (!willRevealTip) {
+      setFlipped(false);
+      flipUnlockTimerRef.current = window.setTimeout(releaseFlipLock, FLIP_UNLOCK_DELAY_MS);
+      return;
     }
 
-    setFlipped((current) => !current);
+    const checkInResult = checkInToday();
+    const mayRevealTip =
+      checkInResult?.status === "completed" ||
+      checkInResult?.status === "already_checked_in";
 
-    if (willRevealTip && !hasSeenToday) {
+    if (!mayRevealTip) {
+      releaseFlipLock();
+      return;
+    }
+
+    if (checkInResult?.status === "completed") {
+      triggerCheckInCelebration(checkInResult.milestoneType);
+    }
+
+    setFlipped(true);
+
+    if (!hasSeenToday) {
       markSeenToday();
     }
 
@@ -332,16 +353,13 @@ export default function DailyTipCard({
 
                 <div className="pt-1">
                   <div className="clara-checkin-grid" aria-hidden="true">
-                    {Array.from({ length: CHECK_IN_DAYS }).map((_, dotIndex) => {
-                      const isDone = dotIndex < challengeProgress;
-                      const isToday =
-                        !checkedInToday &&
-                        challengeProgress < CHECK_IN_DAYS &&
-                        dotIndex === challengeProgress;
+                    {(challengeDots?.length ? challengeDots : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
+                      const isDone = Boolean(dot?.completed);
+                      const isToday = Boolean(dot?.current);
 
                       return (
                         <span
-                          key={dotIndex}
+                          key={dot?.dateKey || dotIndex}
                           className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
                             isToday ? "clara-checkin-dot--today" : ""
                           }`}
