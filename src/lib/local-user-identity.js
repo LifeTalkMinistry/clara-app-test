@@ -1,4 +1,5 @@
 const LOCAL_VAULT_ID_KEY = "clara_local_vault_id_v1";
+const LEGACY_ACTIVE_LOCAL_VAULT_KEY = "clara_active_local_vault_v1";
 const LEGACY_LOCAL_IDS = new Set(["local-dev-user", "local-user"]);
 
 function getStorage() {
@@ -14,17 +15,39 @@ function createUuid() {
     .slice(2, 12)}`;
 }
 
+function normalizeId(value) {
+  return String(value || "").trim();
+}
+
 export function getLocalVaultId() {
   const storage = getStorage();
-  const value = storage?.getItem(LOCAL_VAULT_ID_KEY);
-  return String(value || "").trim() || null;
+  if (!storage) return null;
+
+  const current = normalizeId(storage.getItem(LOCAL_VAULT_ID_KEY));
+  if (current) return current;
+
+  // Adopt the previous persisted vault ID when it is a real stable ID. Temporary
+  // compatibility identities are intentionally not promoted to canonical status.
+  const legacy = normalizeId(storage.getItem(LEGACY_ACTIVE_LOCAL_VAULT_KEY));
+  if (legacy && !LEGACY_LOCAL_IDS.has(legacy)) {
+    storage.setItem(LOCAL_VAULT_ID_KEY, legacy);
+    storage.removeItem(LEGACY_ACTIVE_LOCAL_VAULT_KEY);
+    return legacy;
+  }
+
+  return null;
 }
 
 export function setLocalVaultId(localVaultId) {
-  const value = String(localVaultId || "").trim();
+  const value = normalizeId(localVaultId);
   if (!value) throw new Error("A non-empty CLARA local vault ID is required.");
+  if (LEGACY_LOCAL_IDS.has(value)) {
+    throw new Error("A temporary CLARA identity cannot become the canonical local vault ID.");
+  }
 
-  getStorage()?.setItem(LOCAL_VAULT_ID_KEY, value);
+  const storage = getStorage();
+  storage?.setItem(LOCAL_VAULT_ID_KEY, value);
+  storage?.removeItem(LEGACY_ACTIVE_LOCAL_VAULT_KEY);
   return value;
 }
 
@@ -63,7 +86,7 @@ export function buildLocalAuthUser(localVaultId = getOrCreateLocalVaultId(), pro
 }
 
 export function isLegacyLocalUserId(value) {
-  return LEGACY_LOCAL_IDS.has(String(value || "").trim());
+  return LEGACY_LOCAL_IDS.has(normalizeId(value));
 }
 
 export function maskLocalIdentifier(value) {
@@ -72,4 +95,4 @@ export function maskLocalIdentifier(value) {
   return `${text.slice(0, 8)}…${text.slice(-4)}`;
 }
 
-export { LOCAL_VAULT_ID_KEY };
+export { LOCAL_VAULT_ID_KEY, LEGACY_ACTIVE_LOCAL_VAULT_KEY };
