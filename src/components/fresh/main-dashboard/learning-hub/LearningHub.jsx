@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Capacitor } from "@capacitor/core";
 import { CalendarClock, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import ClaraGuideLearningHubInlineBubble from "../guide/ClaraGuideLearningHubInlineBubble";
@@ -48,6 +49,35 @@ function restoreDashboardScrollPosition(scroller, scrollTop) {
       restore();
     });
   });
+}
+
+function openWelcomeSessionForm(url) {
+  const safeUrl = String(url || "").trim();
+  if (!safeUrl || typeof window === "undefined") return false;
+
+  if (Capacitor.isNativePlatform()) {
+    // Capacitor Android hands external top-level navigations to ACTION_VIEW,
+    // which opens the device browser instead of relying on unsupported popups.
+    window.location.assign(safeUrl);
+    return true;
+  }
+
+  try {
+    const popup = window.open(safeUrl, "_blank");
+    if (popup) {
+      try {
+        popup.opener = null;
+      } catch {
+        // The new tab is already isolated by the browser when opener is unavailable.
+      }
+      return true;
+    }
+  } catch {
+    // Fall through to a same-tab navigation when the browser blocks popups.
+  }
+
+  window.location.assign(safeUrl);
+  return true;
 }
 
 function ClaraGuideButton({ hasNewGuide = false, onClick }) {
@@ -226,9 +256,7 @@ export default function LearningHub({
   };
 
   const handleOpenGuidedOnboardingForm = () => {
-    if (!WELCOME_SESSION_FORM_URL || typeof window === "undefined") return;
-
-    window.open(WELCOME_SESSION_FORM_URL, "_blank", "noopener,noreferrer");
+    if (!openWelcomeSessionForm(WELCOME_SESSION_FORM_URL)) return;
     closeGuidedOnboardingIntro({ restoreFocus: false });
   };
 
