@@ -72,7 +72,7 @@ export default function GuidedOnboardingIntroDialog({
             <div>
               <div className="pr-12">
                 <span className="inline-flex w-fit items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-100">
-                  30-minute personal support
+                  Free 30-minute 1-on-1 session
                 </span>
               </div>
 
@@ -80,15 +80,16 @@ export default function GuidedOnboardingIntroDialog({
                 id="clara-guided-onboarding-title"
                 className="mt-5 max-w-[19rem] text-[clamp(2rem,8.5vw,2.45rem)] font-black leading-[0.98] tracking-[-0.05em] text-white"
               >
-                Book a CLARA Walkthrough
+                Book Your Free CLARA Walkthrough
               </h1>
 
               <p
                 id="clara-guided-onboarding-description"
                 className="mt-5 text-[15px] font-medium leading-[1.65] text-slate-100/86"
               >
-                Get personal guidance to understand CLARA, ask questions, and focus on
-                the features most relevant to you.
+                Get a free one-on-one session with a CLARA guide who can answer your
+                questions, help you understand the app, and show you the features most
+                relevant to you.
               </p>
 
               <div className="mt-6 rounded-[22px] bg-white/[0.055] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
@@ -113,7 +114,8 @@ export default function GuidedOnboardingIntroDialog({
             <div className="mt-auto pt-7">
               <div className="border-t border-white/[0.08] pt-5">
                 <p className="text-[13px] font-medium leading-[1.6] text-slate-300/68">
-                  You do not need to finish setting up CLARA before booking.
+                  No payment required. You do not need to finish setting up CLARA before
+                  booking.
                 </p>
 
                 <button
@@ -122,7 +124,7 @@ export default function GuidedOnboardingIntroDialog({
                   onClick={onContinue}
                   className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.96),rgba(99,102,241,0.98))] px-4 text-[12px] font-extrabold tracking-[0.02em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-[0.99]"
                 >
-                  Continue to Booking Form
+                  Reserve My Free Session
                   <ExternalLink className="h-4 w-4" />
                 </button>
               </div>
