@@ -17,6 +17,11 @@ import {
 import { getNotificationEnvironment } from "@/lib/notifications/notificationEnvironment";
 
 const IN_APP_FALLBACK_MESSAGE = "Device notifications are unavailable here, but CLARA will still use in-app notifications.";
+const ANDROID_REMINDER_CHANNEL_ID = "clara_reminders";
+const EXPENSE_LOG_EVENT_TYPE = "daily_money_check_in";
+const EXPENSE_LOG_REMINDER_KIND = "expense_log";
+const EXPENSE_LOG_NOTIFICATION_TITLE = "Log today’s expenses";
+const EXPENSE_LOG_NOTIFICATION_BODY = "Record what you spent today so CLARA can keep your money picture updated.";
 
 let localNotificationListenersInstalled = false;
 let warnedLocalNotificationsUnavailable = false;
@@ -122,6 +127,72 @@ function deterministicNotificationId(value) {
   return positive > 0 ? positive % 2147483647 : Math.floor(Date.now() % 2147483647);
 }
 
+function normalizeExpenseLogTime(value) {
+  const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function getExpenseLogLocalNotificationSlots(preferences = {}) {
+  const frequency = [1, 2, 3].includes(Number(preferences.expenseLogFrequency))
+    ? Number(preferences.expenseLogFrequency)
+    : 1;
+  const sourceTimes = Array.isArray(preferences.expenseLogTimes) && preferences.expenseLogTimes.length
+    ? preferences.expenseLogTimes
+    : [preferences.preferredTime || "12:30"];
+
+  return Array.from({ length: frequency }, (_, index) => {
+    const time = normalizeExpenseLogTime(sourceTimes[index] || sourceTimes[0] || "12:30");
+    if (!time) return null;
+
+    const [hour, minute] = time.split(":").map(Number);
+    return { index, time, hour, minute };
+  }).filter(Boolean);
+}
+
+function expenseLogLocalNotificationId({ userId, slotIndex, time }) {
+  return deterministicNotificationId(`${userId || "guest"}:${EXPENSE_LOG_EVENT_TYPE}:${slotIndex}:${time}`);
+}
+
+async function getPendingLocalNotifications(LocalNotifications) {
+  if (!LocalNotifications?.getPending) return [];
+
+  try {
+    const pending = await LocalNotifications.getPending();
+    return Array.isArray(pending?.notifications) ? pending.notifications : [];
+  } catch (error) {
+    console.warn("Unable to inspect pending CLARA local notifications:", error);
+    return [];
+  }
+}
+
+function isExpenseLogLocalNotification(notification) {
+  const extra = notification?.extra || {};
+  return extra.eventType === EXPENSE_LOG_EVENT_TYPE && extra.reminderKind === EXPENSE_LOG_REMINDER_KIND;
+}
+
+async function cancelExpenseLogLocalNotifications(LocalNotifications) {
+  const pending = await getPendingLocalNotifications(LocalNotifications);
+  const notificationIds = pending
+    .filter(isExpenseLogLocalNotification)
+    .map((notification) => Number(notification.id))
+    .filter((id) => Number.isInteger(id));
+
+  if (!notificationIds.length || !LocalNotifications?.cancel) return 0;
+
+  await LocalNotifications.cancel({
+    notifications: notificationIds.map((id) => ({ id })),
+  });
+
+  return notificationIds.length;
+}
+
 async function scheduleNativeRuntimeNotification({
   title,
   body,
@@ -160,7 +231,7 @@ async function scheduleNativeRuntimeNotification({
           tag: tag || "",
           eventType: eventType || "",
         },
-        channelId: environment?.platform === "android" ? "clara_reminders" : undefined,
+        channelId: environment?.platform === "android" ? ANDROID_REMINDER_CHANNEL_ID : undefined,
       },
     ],
   });
@@ -190,6 +261,67 @@ async function getCloudSessionUserId() {
     throw new Error("Real push test requires a signed-in Supabase cloud session. The local-only beta session cannot call Supabase/Firebase push.");
   }
   return session.user.id;
+}
+
+export async function syncExpenseLogLocalNotifications({ userId, preferences } = {}) {
+  const environment = getNotificationEnvironment();
+
+  if (!environment.supportsNativePush || environment.platform !== "android") {
+    return { scheduled: 0, cancelled: 0, permission: "unsupported", environment, reason: "android_native_only" };
+  }
+
+  const LocalNotifications = await loadLocalNotificationsPlugin();
+  if (!LocalNotifications) {
+    return { scheduled: 0, cancelled: 0, permission: "unsupported", environment, reason: IN_APP_FALLBACK_MESSAGE };
+  }
+
+  installLocalNotificationTapListener(LocalNotifications);
+
+  const cancelled = await cancelExpenseLogLocalNotifications(LocalNotifications);
+  const shouldSchedule = Boolean(
+    preferences?.dailyCheckIn && preferences?.deliveryMode === "device_and_in_app"
+  );
+
+  if (!shouldSchedule) {
+    return { scheduled: 0, cancelled, permission: "skipped", environment, reason: "expense_log_device_reminders_disabled" };
+  }
+
+  const slots = getExpenseLogLocalNotificationSlots(preferences);
+  if (!slots.length) {
+    return { scheduled: 0, cancelled, permission: "skipped", environment, reason: "no_valid_expense_log_times" };
+  }
+
+  const permission = await requestLocalNotificationPermission(LocalNotifications);
+  if (permission !== "granted") {
+    if (permission === "denied") {
+      console.warn("CLARA expense log local notifications skipped because Android notification permission is denied.");
+    }
+    return { scheduled: 0, cancelled, permission, environment };
+  }
+
+  const safeUrl = normalizeRuntimeNotificationUrl("#/dashboard");
+  const notifications = slots.map((slot) => ({
+    id: expenseLogLocalNotificationId({ userId, slotIndex: slot.index, time: slot.time }),
+    title: EXPENSE_LOG_NOTIFICATION_TITLE,
+    body: EXPENSE_LOG_NOTIFICATION_BODY,
+    schedule: {
+      on: { hour: slot.hour, minute: slot.minute },
+      repeats: true,
+      allowWhileIdle: true,
+    },
+    channelId: ANDROID_REMINDER_CHANNEL_ID,
+    extra: {
+      url: safeUrl,
+      eventType: EXPENSE_LOG_EVENT_TYPE,
+      reminderKind: EXPENSE_LOG_REMINDER_KIND,
+      slotIndex: slot.index,
+      time: slot.time,
+    },
+  }));
+
+  await LocalNotifications.schedule({ notifications });
+
+  return { scheduled: notifications.length, cancelled, permission, environment };
 }
 
 export async function scheduleNativeCalendarNotification({
@@ -238,7 +370,7 @@ export async function scheduleNativeCalendarNotification({
           tag: tag || "",
           eventType: eventType || "schedule_event_today",
         },
-        channelId: environment?.platform === "android" ? "clara_reminders" : undefined,
+        channelId: environment?.platform === "android" ? ANDROID_REMINDER_CHANNEL_ID : undefined,
       },
     ],
   });
