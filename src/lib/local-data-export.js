@@ -1,4 +1,15 @@
 const EXPORT_VERSION = 1;
+const ACTIVE_LOCAL_VAULT_KEYS = new Set([
+  "clara_local_vault_id_v1",
+  "clara_active_local_vault_v1",
+]);
+const CLARA_RESTORE_EVENTS = [
+  "clara-local-profile-updated",
+  "clara-local-setup-profile-updated",
+  "clara:active-local-vault-updated",
+  "clara-local-journey-reset",
+  "clara-data-restored",
+];
 const CLARA_KEY_PATTERNS = [
   /^clara/i,
   /^life_profile/i,
@@ -206,13 +217,23 @@ function getBackupStorageEntries(backup, storageKey) {
   return {};
 }
 
+function sortRestoreEntries(entries = {}) {
+  return Object.entries(entries).sort(([keyA], [keyB]) => {
+    const aIsVaultKey = ACTIVE_LOCAL_VAULT_KEYS.has(keyA);
+    const bIsVaultKey = ACTIVE_LOCAL_VAULT_KEYS.has(keyB);
+    if (aIsVaultKey && !bIsVaultKey) return -1;
+    if (!aIsVaultKey && bIsVaultKey) return 1;
+    return keyA.localeCompare(keyB);
+  });
+}
+
 function writeStorageEntries(storage, entries = {}) {
   const restored = [];
   const skipped = [];
 
   if (!storage) return { restored, skipped };
 
-  Object.entries(entries).forEach(([key, value]) => {
+  sortRestoreEntries(entries).forEach(([key, value]) => {
     if (!shouldIncludeStorageKey(key)) {
       skipped.push({ key, reason: "Skipped because this key is outside CLARA backup scope." });
       return;
@@ -227,6 +248,14 @@ function writeStorageEntries(storage, entries = {}) {
   });
 
   return { restored, skipped };
+}
+
+function dispatchRestoreEvents(detail = {}) {
+  if (!isBrowser()) return;
+
+  CLARA_RESTORE_EVENTS.forEach((eventName) => {
+    window.dispatchEvent(new CustomEvent(eventName, { detail }));
+  });
 }
 
 export async function buildClaraLocalDataExport({ user = null, profile = null } = {}) {
@@ -350,6 +379,14 @@ export async function restoreClaraLocalDataFromFile(file) {
     (total, database) => total + Object.keys(database?.stores || {}).length,
     0
   );
+  const restoreDetail = {
+    backupCreatedAt: backup?.created_at || null,
+    restoredLocalStorageKeys: localResult.restored,
+    restoredSessionStorageKeys: sessionResult.restored,
+    indexedDbStoreCount,
+  };
+
+  dispatchRestoreEvents(restoreDetail);
 
   return {
     backup,
@@ -362,9 +399,10 @@ export async function restoreClaraLocalDataFromFile(file) {
       localStorage: localResult.skipped,
       sessionStorage: sessionResult.skipped,
     },
+    shouldReload: true,
     note:
       indexedDbStoreCount > 0
-        ? "IndexedDB data was detected in the backup but is not written automatically in this version. Local app settings and CLARA storage keys were restored."
-        : "Local app settings and CLARA storage keys were restored.",
+        ? "IndexedDB data was detected in the backup but is not written automatically in this version. CLARA local storage was restored and the app should reload to read the transferred vault."
+        : "CLARA local storage was restored. Reload the app to read the transferred vault.",
   };
 }
