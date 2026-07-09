@@ -35,6 +35,7 @@ import {
 import {
   getRuntimeDeviceNotificationPermissionState,
   showRuntimeDeviceNotification,
+  syncExpenseLogLocalNotifications,
 } from "@/lib/notifications/deviceNotifications";
 
 const DAILY_COMPLETION_PREFIX = "clara_daily_money_check_in_completed_";
@@ -162,6 +163,17 @@ function expenseLogReminderSlots(preferences) {
   }).filter((slot) => /^\d{2}:\d{2}$/.test(slot.time));
 }
 
+function buildExpenseLogLocalSyncSignature(userId, preferences = {}) {
+  return JSON.stringify({
+    userId,
+    dailyCheckIn: Boolean(preferences.dailyCheckIn),
+    deliveryMode: preferences.deliveryMode || "in_app",
+    expenseLogFrequency: Number(preferences.expenseLogFrequency || 1),
+    expenseLogTimes: Array.isArray(preferences.expenseLogTimes) ? preferences.expenseLogTimes : [],
+    expenseLogStopAfterLogged: Boolean(preferences.expenseLogStopAfterLogged),
+  });
+}
+
 export default function useClaraNotificationRuntime({
   userId,
   budgets = [],
@@ -177,6 +189,7 @@ export default function useClaraNotificationRuntime({
   const evaluateTimeoutRef = useRef(null);
   const lastEvaluationAtRef = useRef(0);
   const lastCleanupAtRef = useRef(0);
+  const expenseLogLocalSyncSignatureRef = useRef("");
   const latestDataRef = useRef({
     budgets,
     expenses,
@@ -211,6 +224,7 @@ export default function useClaraNotificationRuntime({
 
     lastEvaluationAtRef.current = 0;
     lastCleanupAtRef.current = readCleanupTimestamp(userId);
+    expenseLogLocalSyncSignatureRef.current = "";
 
     const clearPendingEvaluation = () => {
       if (evaluateTimeoutRef.current !== null) {
@@ -225,8 +239,27 @@ export default function useClaraNotificationRuntime({
       if (typeof latestNavigate === "function") latestNavigate(destination);
     };
 
+    const syncExpenseLogPhoneSchedule = async (preferences) => {
+      const signature = buildExpenseLogLocalSyncSignature(userId, preferences);
+      if (expenseLogLocalSyncSignatureRef.current === signature) return;
+
+      expenseLogLocalSyncSignatureRef.current = signature;
+      try {
+        await syncExpenseLogLocalNotifications({ userId, preferences });
+      } catch (error) {
+        expenseLogLocalSyncSignatureRef.current = "";
+        console.warn("CLARA expense log Android local notification sync failed:", error);
+      }
+    };
+
     const deliverDeviceNotificationIfAllowed = async (notification, preferences) => {
       if (preferences.deliveryMode !== "device_and_in_app") return;
+      if (
+        notification?.eventType === "daily_money_check_in" &&
+        notification?.metadata?.reminderKind === "expense_log"
+      ) {
+        return;
+      }
 
       let permission = "unsupported";
       try {
@@ -508,6 +541,8 @@ export default function useClaraNotificationRuntime({
           walletTransactions: latestWalletTransactions,
           emergencyFund: latestEmergencyFund,
         } = latestDataRef.current;
+
+        await syncExpenseLogPhoneSchedule(preferences);
 
         if (!isRuntimeActive()) return;
         await evaluateFinancialNotifications({
