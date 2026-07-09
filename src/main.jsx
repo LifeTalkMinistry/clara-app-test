@@ -13,6 +13,7 @@ import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSou
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
+import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import {
   clearClaraGuideFeatureClasses,
@@ -34,6 +35,12 @@ import "./guide-mode-intro-cleanup.css";
 import "./welcome-session-calendar-status.css";
 import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
+
+try {
+  installClaraBackgroundRuntimeGuard();
+} catch (error) {
+  console.warn("CLARA background runtime guard failed to init:", error);
+}
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
