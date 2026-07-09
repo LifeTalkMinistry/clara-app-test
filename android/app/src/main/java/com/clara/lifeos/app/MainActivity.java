@@ -1,5 +1,6 @@
 package com.clara.lifeos.app;
 
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
@@ -28,6 +29,9 @@ public class MainActivity extends BridgeActivity {
             NotificationManager.IMPORTANCE_HIGH
         );
         channel.setDescription("Money reminders and important CLARA updates.");
+        channel.enableVibration(true);
+        channel.setShowBadge(true);
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
 
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
