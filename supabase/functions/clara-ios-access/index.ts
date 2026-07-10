@@ -8,11 +8,10 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
-const ADMIN_PASSWORD_SHA256 = "8f59e2471a4d278d0881010d8f86852f729b7daa61f3524939febe730a6ca306";
+const ADMIN_PASSWORD_SHA256 = "164d9b59175c1ee29ff888ba65bf68a9b5772eb95266bb6a6b2ec06dcd684d0c";
 const ADMIN_SESSION_MS = 15 * 60 * 1000;
 const MAX_TEXT_LENGTH = 240;
 const CODE_PATTERN = /^CLARA-[A-F0-9]{6}$/;
-
 const encoder = new TextEncoder();
 
 function json(status: number, body: Record<string, unknown>) {
@@ -88,7 +87,6 @@ async function signAdminToken(serviceRoleKey: string) {
 async function verifyAdminToken(token: string, serviceRoleKey: string) {
   const [encoded, suppliedSignature] = token.split(".");
   if (!encoded || !suppliedSignature) return false;
-
   const expectedSignature = await hmac(encoded, `${serviceRoleKey}:clara-hidden-admin`);
   if (!constantTimeEqual(suppliedSignature, expectedSignature)) return false;
 
@@ -175,11 +173,7 @@ Deno.serve(async (request: Request) => {
       }
 
       const session = await signAdminToken(serviceRoleKey);
-      return json(200, {
-        ok: true,
-        adminToken: session.token,
-        expiresAt: session.expiresAt,
-      });
+      return json(200, { ok: true, adminToken: session.token, expiresAt: session.expiresAt });
     }
 
     if (action === "admin_list" || action === "admin_update") {
@@ -193,12 +187,8 @@ Deno.serve(async (request: Request) => {
           .from("clara_ios_access_codes")
           .select("*")
           .order("created_at", { ascending: true });
-
         if (error) throw error;
-        return json(200, {
-          ok: true,
-          codes: (data || []).map(serializeCode),
-        });
+        return json(200, { ok: true, codes: (data || []).map(serializeCode) });
       }
 
       const codeId = cleanText(body.codeId, 80);
@@ -210,12 +200,10 @@ Deno.serve(async (request: Request) => {
         .select("*")
         .eq("id", codeId)
         .maybeSingle();
-
       if (currentError) throw currentError;
       if (!current) return fail(404, "code_not_found", "Access code not found.");
 
       let changes: Record<string, unknown> = {};
-
       if (operation === "toggle") {
         changes = { enabled: Boolean(body.enabled) };
       } else if (operation === "extend") {
@@ -231,13 +219,14 @@ Deno.serve(async (request: Request) => {
           if (![7, 15, 30].includes(days)) {
             return fail(400, "invalid_extension", "Choose a valid extension.");
           }
-          nextExpiry = new Date(Math.max(Date.now(), Date.parse(current.expires_at)) + days * 86_400_000);
+          nextExpiry = new Date(
+            Math.max(Date.now(), Date.parse(current.expires_at)) + days * 86_400_000
+          );
         }
 
         if (!Number.isFinite(nextExpiry.getTime()) || nextExpiry.getTime() <= Date.now()) {
           return fail(400, "invalid_extension", "Choose a valid future expiration date.");
         }
-
         changes = { expires_at: nextExpiry.toISOString() };
       } else if (operation === "reset") {
         changes = {
@@ -251,10 +240,7 @@ Deno.serve(async (request: Request) => {
           access_token_hash: null,
         };
       } else if (operation === "revoke") {
-        changes = {
-          enabled: false,
-          revoked_at: new Date().toISOString(),
-        };
+        changes = { enabled: false, revoked_at: new Date().toISOString() };
       } else if (operation === "note") {
         changes = { admin_note: cleanText(body.adminNote, 2000) };
       } else {
@@ -267,7 +253,6 @@ Deno.serve(async (request: Request) => {
         .eq("id", codeId)
         .select("*")
         .single();
-
       if (updateError) throw updateError;
       return json(200, { ok: true, code: serializeCode(updated) });
     }
@@ -286,7 +271,6 @@ Deno.serve(async (request: Request) => {
         .select("*")
         .eq("code", code)
         .maybeSingle();
-
       if (findError) throw findError;
       if (!record) return fail(404, "code_not_found", "That access code was not found.");
       if (record.revoked_at) return fail(403, "code_revoked", "That access code has been revoked.");
@@ -321,12 +305,13 @@ Deno.serve(async (request: Request) => {
         .from("clara_ios_access_codes")
         .update(changes)
         .eq("id", record.id);
-
       if (isFirstActivation) updateQuery = updateQuery.is("activated_by_user_id", null);
 
       const { data: updated, error: updateError } = await updateQuery.select("*").maybeSingle();
       if (updateError) throw updateError;
-      if (!updated) return fail(409, "code_assigned", "That access code was just assigned to another user.");
+      if (!updated) {
+        return fail(409, "code_assigned", "That access code was just assigned to another user.");
+      }
 
       return json(200, {
         ok: true,
@@ -347,7 +332,6 @@ Deno.serve(async (request: Request) => {
         .select("*")
         .eq("access_token_hash", accessTokenHash)
         .maybeSingle();
-
       if (findError) throw findError;
       if (!record) return fail(401, "invalid_session", "This iPhone access session is no longer valid.");
       if (record.revoked_at) return fail(403, "code_revoked", "This iPhone access has been revoked.");
