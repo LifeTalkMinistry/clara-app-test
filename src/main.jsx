@@ -15,12 +15,13 @@ import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCa
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
+import { installSettingsAccessLogout } from "./runtime/installSettingsAccessLogout";
 import {
   clearClaraGuideFeatureClasses,
   installClaraGuideCarouselStep,
 } from "./runtime/installClaraGuideCarouselStep";
 import { installClaraGuideSchedulePhaseRedirect } from "./runtime/claraGuideSchedulePhaseRedirect";
-import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
+import { installClaraGuideScheduleRuntime } from "./runtime/installClaraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
@@ -40,6 +41,12 @@ try {
   installClaraBackgroundRuntimeGuard();
 } catch (error) {
   console.warn("CLARA background runtime guard failed to init:", error);
+}
+
+try {
+  installSettingsAccessLogout();
+} catch (error) {
+  console.warn("CLARA Settings access logout failed to init:", error);
 }
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
