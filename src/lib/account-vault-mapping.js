@@ -42,6 +42,16 @@ function createLocalVaultId() {
   return `clara_local_${value}`;
 }
 
+async function verifyAndActivateVault({ vaultId, accountId, email }) {
+  setActiveLocalVaultId(vaultId);
+  await linkLocalVaultToAccount({
+    expectedVaultId: vaultId,
+    accountUserId: accountId,
+    accountEmail: email,
+  });
+  return vaultId;
+}
+
 export function getMappedLocalVaultId(accountId) {
   return clean(readMap()[clean(accountId)]) || null;
 }
@@ -63,7 +73,11 @@ export async function resolveLocalVaultForAccount({ accountId, email }) {
   let vaultId = mappedVaultId;
 
   if (vaultId) {
-    setActiveLocalVaultId(vaultId);
+    await verifyAndActivateVault({
+      vaultId,
+      accountId: normalizedAccountId,
+      email,
+    });
   } else {
     const currentVaultId = getActiveLocalVaultId() || ensureActiveLocalVaultId();
     const metadata = await getActiveVaultMetadata(currentVaultId);
@@ -71,15 +85,14 @@ export async function resolveLocalVaultForAccount({ accountId, email }) {
 
     if (metadata?.linkStatus === "linked" && linkedAccountId && linkedAccountId !== normalizedAccountId) {
       vaultId = createLocalVaultId();
-      setActiveLocalVaultId(vaultId);
     } else {
       vaultId = currentVaultId;
     }
 
-    await linkLocalVaultToAccount({
-      expectedVaultId: vaultId,
-      accountUserId: normalizedAccountId,
-      accountEmail: email,
+    await verifyAndActivateVault({
+      vaultId,
+      accountId: normalizedAccountId,
+      email,
     });
 
     map[normalizedAccountId] = vaultId;
@@ -87,11 +100,13 @@ export async function resolveLocalVaultForAccount({ accountId, email }) {
   }
 
   storage()?.setItem(ACTIVE_ACCOUNT_KEY, normalizedAccountId);
-  window?.dispatchEvent?.(
-    new CustomEvent("clara:account-vault-resolved", {
-      detail: { accountId: normalizedAccountId, vaultId },
-    })
-  );
+  if (typeof window !== "undefined") {
+    window.dispatchEvent?.(
+      new CustomEvent("clara:account-vault-resolved", {
+        detail: { accountId: normalizedAccountId, vaultId },
+      })
+    );
+  }
 
   return vaultId;
 }
