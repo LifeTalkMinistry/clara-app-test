@@ -20,7 +20,13 @@ export async function withTransaction(pool, callback) {
     await client.query("COMMIT");
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
+    // The refresh replay path revokes the entire session chain and then returns a
+    // generic unauthorized error. That security mutation must survive the error.
+    if (error?.code === "invalid_refresh_session") {
+      await client.query("COMMIT");
+    } else {
+      await client.query("ROLLBACK");
+    }
     throw error;
   } finally {
     client.release();
