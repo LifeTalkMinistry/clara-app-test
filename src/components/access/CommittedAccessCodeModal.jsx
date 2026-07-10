@@ -30,20 +30,26 @@ function getFriendlyError(error) {
 
 function findLockedCommittedPreview(target) {
   let node = target instanceof Element ? target : null;
-  let depth = 0;
 
-  while (node && depth < 10) {
-    const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
-    if (
-      text.includes("COMMITTED VERSION") &&
-      text.includes("Ready to Commit?") &&
-      text.includes("Tap to see more.")
-    ) {
-      return node;
+  while (node && node !== document.body) {
+    const isLockedPanelWrapper =
+      node.classList?.contains("relative") &&
+      node.classList?.contains("min-h-full") &&
+      node.classList?.contains("overflow-hidden") &&
+      node.classList?.contains("rounded-[30px]");
+
+    if (isLockedPanelWrapper) {
+      const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
+      if (
+        text.includes("COMMITTED VERSION") &&
+        text.includes("Ready to Commit?") &&
+        text.includes("Tap to see more.")
+      ) {
+        return node;
+      }
     }
 
     node = node.parentElement;
-    depth += 1;
   }
 
   return null;
