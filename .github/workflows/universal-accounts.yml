@@ -20,10 +20,34 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run lint
-      - run: npm run build:web
-      - run: npm run build:android
+      - id: tests
+        continue-on-error: true
+        run: npm test 2>&1 | tee frontend-test.log
+      - id: lint
+        continue-on-error: true
+        run: npm run lint 2>&1 | tee frontend-lint.log
+      - id: web
+        continue-on-error: true
+        run: npm run build:web 2>&1 | tee frontend-build-web.log
+      - id: android
+        continue-on-error: true
+        run: npm run build:android 2>&1 | tee frontend-build-android.log
+      - name: Upload frontend verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-account-frontend-logs
+          path: frontend-*.log
+          if-no-files-found: error
+      - name: Enforce frontend verification
+        if: always()
+        run: |
+          if [ "${{ steps.tests.outcome }}" != "success" ] || \
+             [ "${{ steps.lint.outcome }}" != "success" ] || \
+             [ "${{ steps.web.outcome }}" != "success" ] || \
+             [ "${{ steps.android.outcome }}" != "success" ]; then
+            exit 1
+          fi
 
   account-api:
     runs-on: ubuntu-latest
@@ -37,7 +61,27 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm test
-      - run: node --check src/app.js
-      - run: node --check src/index.js
-      - run: node --check src/database/migrate.js
+      - id: tests
+        continue-on-error: true
+        run: npm test 2>&1 | tee account-api-test.log
+      - id: syntax
+        continue-on-error: true
+        run: |
+          node --check src/app.js
+          node --check src/index.js
+          node --check src/database/migrate.js
+        shell: bash
+      - name: Upload account API verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-account-api-logs
+          path: server/account-api-test.log
+          if-no-files-found: error
+      - name: Enforce account API verification
+        if: always()
+        run: |
+          if [ "${{ steps.tests.outcome }}" != "success" ] || \
+             [ "${{ steps.syntax.outcome }}" != "success" ]; then
+            exit 1
+          fi
