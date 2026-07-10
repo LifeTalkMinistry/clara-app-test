@@ -1,28 +1,83 @@
 import { useMemo, useState } from "react";
-import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { Navigate, useLocation } from "react-router-dom";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import ClaraLogo from "@/components/ClaraLogo";
+
+const MODE_COPY = {
+  login: {
+    subtitle: "Access your CLARA account",
+    button: "Log in",
+    secondaryLead: "New to CLARA?",
+    secondaryAction: "Create account",
+  },
+  signup: {
+    title: "Create your account",
+    subtitle: "Start your journey to financial clarity",
+    button: "Create account",
+    secondaryLead: "Already have an account?",
+    secondaryAction: "Log in",
+  },
+};
+
+function FieldShell({ label, hint, children }) {
+  return (
+    <label className="block space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-medium text-white/88">{label}</span>
+        {hint ? <span className="text-[11px] text-white/38">{hint}</span> : null}
+      </div>
+      {children}
+    </label>
+  );
+}
 
 function friendlyError(error) {
   if (error?.code === "account_api_not_configured") return error.message;
   if (error?.code === "weak_password") return error.message;
-  if (error?.code === "account_unavailable") return "That account cannot be created. Try logging in instead.";
-  if (error?.code === "authentication_failed") return "The email or password was not accepted.";
-  if (error?.code === "account_blocked") return "This CLARA account is currently unavailable.";
-  return "CLARA could not complete the request. Check your connection and try again.";
+  if (error?.code === "account_unavailable") {
+    return "That account cannot be created. Try logging in instead.";
+  }
+  if (error?.code === "authentication_failed") {
+    return "Invalid email or password.";
+  }
+  if (error?.code === "account_blocked") {
+    return "This CLARA account is currently unavailable.";
+  }
+
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("failed to fetch") || message.includes("network")) {
+    return "Login connection was interrupted. Please try again.";
+  }
+  if (message.includes("rate limit") || message.includes("too many")) {
+    return "Too many attempts. Please wait and try again.";
+  }
+
+  return error?.message || "CLARA could not complete the request.";
 }
 
 export default function Login() {
   const location = useLocation();
-  const { signIn, signUp, user, loading, authReady, configurationRequired } = useAuth();
+  const {
+    signIn,
+    signUp,
+    user,
+    loading,
+    authReady,
+    configurationRequired,
+  } = useAuth();
+
   const [mode, setMode] = useState("login");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
 
+  const copy = MODE_COPY[mode];
+  const authLocked = configurationRequired;
   const passwordReady = useMemo(
     () =>
       password.length >= 10 &&
@@ -35,173 +90,265 @@ export default function Login() {
 
   if (authReady && user) {
     const destination = location.state?.from?.pathname || "/dashboard";
-    return <Navigate to={user.must_change_password ? "/change-password" : destination} replace />;
+    return (
+      <Navigate
+        to={user.must_change_password ? "/change-password" : destination}
+        replace
+      />
+    );
   }
 
-  const submit = async (event) => {
+  const validate = () => {
+    if (mode === "signup" && !displayName.trim()) {
+      return "Display name is required.";
+    }
+    if (!email.trim()) return "Email is required.";
+    if (!password) return "Password is required.";
+    if (mode === "signup" && !passwordReady) {
+      return "Use 10+ characters with uppercase, lowercase, a number, and a symbol.";
+    }
+    if (mode === "signup" && password !== confirmPassword) {
+      return "The passwords do not match.";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (loading || configurationRequired) return;
-    setError("");
+    if (loading || authLocked) return;
+
+    const validationError = validate();
+    if (validationError) {
+      setSuccess(false);
+      setMessage(validationError);
+      return;
+    }
+
+    setMessage("");
+    setSuccess(false);
 
     try {
       if (mode === "signup") {
-        if (!displayName.trim()) throw new Error("Enter your display name.");
-        if (!passwordReady) throw new Error("Use a stronger password before creating your account.");
-        if (password !== confirmPassword) throw new Error("The passwords do not match.");
-        await signUp({ displayName: displayName.trim(), email: email.trim(), password });
+        await signUp({
+          displayName: displayName.trim(),
+          email: email.trim(),
+          password,
+        });
       } else {
         await signIn({ email: email.trim(), password });
       }
-    } catch (submitError) {
-      setError(submitError?.code ? friendlyError(submitError) : submitError.message);
+    } catch (error) {
+      setSuccess(false);
+      setMessage(friendlyError(error));
     }
   };
 
+  const switchMode = (nextMode) => {
+    if (loading || nextMode === mode) return;
+    setMode(nextMode);
+    setMessage("");
+    setSuccess(false);
+    setConfirmPassword("");
+  };
+
   return (
-    <main className="theme-page-shell min-h-screen px-4 py-8 text-white sm:flex sm:items-center sm:justify-center">
-      <section className="mx-auto w-full max-w-md overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.18),transparent_46%),rgba(5,16,35,0.97)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-6">
-        <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-cyan-200/20 bg-cyan-300/10 text-cyan-100">
-          <LockKeyhole className="h-6 w-6" />
-        </div>
-        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
-          Universal CLARA Account
-        </p>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-white">
-          {mode === "login" ? "Welcome back" : "Create your CLARA account"}
-        </h1>
-        <p className="mt-2 text-sm font-semibold leading-6 text-white/58">
-          One account works on iPhone, Android, and the web. Your budgets and financial records stay on this device.
-        </p>
+    <div className="relative min-h-screen overflow-hidden bg-[#050716] text-white">
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#050716_0%,#070a1f_46%,#02030b_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,211,238,0.11)_0%,transparent_34%),linear-gradient(225deg,rgba(139,92,246,0.12)_0%,transparent_36%)]" />
+        <div className="absolute inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,rgba(59,130,246,0.15)_0%,transparent_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(0,0,0,0.74)_0%,transparent_100%)]" />
+        <div className="absolute inset-0 opacity-[0.045] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
+      </div>
 
-        <div className="mt-5 grid grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1">
-          {[
-            ["login", "Log In"],
-            ["signup", "Create Account"],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setMode(value);
-                setError("");
-              }}
-              className={`rounded-xl px-3 py-2.5 text-sm font-black transition ${
-                mode === value ? "bg-cyan-200 text-slate-950" : "text-white/60 hover:text-white"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-6">
+        <div className="mb-4 flex justify-center">
+          <ClaraLogo variant="icon" theme="dark" />
         </div>
 
-        <form onSubmit={submit} className="mt-5 space-y-4">
-          {mode === "signup" ? (
-            <label className="block space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Display name</span>
-              <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/20 px-4 focus-within:border-cyan-200/35">
-                <UserRound className="h-4 w-4 text-cyan-100/65" />
-                <input
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  autoComplete="name"
-                  disabled={loading}
-                  className="min-h-14 w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/25"
-                  placeholder="Your name"
-                />
-              </div>
-            </label>
-          ) : null}
+        <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(12,18,38,0.72)_0%,rgba(5,8,22,0.62)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(56,189,248,0.08)_0%,transparent_44%),linear-gradient(225deg,rgba(167,139,250,0.08)_0%,transparent_44%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
 
-          <label className="block space-y-2">
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Email</span>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/20 px-4 focus-within:border-cyan-200/35">
-              <Mail className="h-4 w-4 text-cyan-100/65" />
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
-                required
-                disabled={loading}
-                className="min-h-14 w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/25"
-                placeholder="you@example.com"
-              />
-            </div>
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Password</span>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/20 px-4 focus-within:border-cyan-200/35">
-              <LockKeyhole className="h-4 w-4 text-cyan-100/65" />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                required
-                disabled={loading}
-                className="min-h-14 w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/25"
-                placeholder="Password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((current) => !current)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-white/55 hover:bg-white/8 hover:text-white"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+          <div className="relative p-5 sm:p-6">
+            <div className="overflow-hidden">
+              <div
+                key={mode}
+                className="animate-[fadeIn_.28s_ease] transition-all duration-300"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+                {copy.title ? (
+                  <h1 className="text-[1.9rem] font-bold leading-tight text-white">
+                    {copy.title}
+                  </h1>
+                ) : null}
+                <p
+                  className={`text-sm leading-relaxed text-white/58 ${
+                    copy.title ? "mt-1.5" : ""
+                  }`}
+                >
+                  {copy.subtitle}
+                </p>
+              </div>
             </div>
-          </label>
 
-          {mode === "signup" ? (
-            <>
-              <label className="block space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Confirm password</span>
-                <div className="rounded-2xl border border-white/15 bg-black/20 px-4 focus-within:border-cyan-200/35">
+            {authLocked ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-amber-200/80 shadow-[0_0_14px_rgba(253,230,138,0.3)]" />
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
+                    Account service setup required
+                  </p>
+                </div>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-white/78">
+                  Login will become available after the CLARA account API is deployed and connected.
+                </p>
+              </div>
+            ) : null}
+
+            <form
+              onSubmit={handleSubmit}
+              className={`mt-5 space-y-3.5 transition duration-200 ${
+                authLocked ? "opacity-60 grayscale-[0.18]" : ""
+              }`}
+              aria-disabled={authLocked}
+            >
+              {mode === "signup" ? (
+                <FieldShell label="Display name">
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    autoComplete="name"
+                    disabled={authLocked || loading}
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
+                  />
+                </FieldShell>
+              ) : null}
+
+              <FieldShell label="Email address">
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                  disabled={authLocked || loading}
+                  className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
+                />
+              </FieldShell>
+
+              <FieldShell
+                label="Password"
+                hint={mode === "signup" ? "10+ characters" : null}
+              >
+                <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    autoComplete="new-password"
+                    placeholder={
+                      mode === "signup" ? "Create a password" : "Enter your password"
+                    }
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     required
-                    disabled={loading}
-                    className="min-h-14 w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/25"
-                    placeholder="Repeat your password"
+                    disabled={authLocked || loading}
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    disabled={authLocked}
+                    className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35 disabled:cursor-not-allowed disabled:text-white/22 disabled:hover:bg-transparent"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-[18px] w-[18px]" />
+                    ) : (
+                      <Eye className="h-[18px] w-[18px]" />
+                    )}
+                  </button>
                 </div>
-              </label>
-              <p className={`text-xs font-semibold leading-5 ${passwordReady ? "text-emerald-200" : "text-white/42"}`}>
-                Use 10+ characters with uppercase, lowercase, a number, and a symbol.
-              </p>
-            </>
-          ) : null}
+              </FieldShell>
 
-          {configurationRequired ? (
-            <div className="rounded-2xl border border-amber-200/18 bg-amber-400/10 px-4 py-3 text-sm font-semibold leading-5 text-amber-100">
-              Account login is safely disabled until the custom API is deployed and VITE_CLARA_ACCOUNT_API_URL is configured.
+              {mode === "signup" ? (
+                <>
+                  <FieldShell label="Confirm password">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Repeat your password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      autoComplete="new-password"
+                      required
+                      disabled={authLocked || loading}
+                      className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
+                    />
+                  </FieldShell>
+                  <p
+                    className={`text-xs font-medium leading-relaxed ${
+                      passwordReady ? "text-emerald-200" : "text-white/42"
+                    }`}
+                  >
+                    Use uppercase, lowercase, a number, and a symbol.
+                  </p>
+                </>
+              ) : null}
+
+              {mode === "login" ? (
+                <div className="-mt-1 flex justify-end">
+                  <span className="px-1 py-1 text-[12px] text-white/28">
+                    Password recovery is handled by CLARA support
+                  </span>
+                </div>
+              ) : null}
+
+              {message ? (
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed ${
+                    success
+                      ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
+                      : "border-red-400/20 bg-red-500/10 text-red-200"
+                  }`}
+                >
+                  {message}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading || authLocked}
+                className="group mt-1 inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-none disabled:bg-white/10 disabled:text-white/35 disabled:shadow-none disabled:opacity-70"
+              >
+                <span>
+                  {authLocked
+                    ? "Login unavailable"
+                    : loading
+                      ? "Processing..."
+                      : copy.button}
+                </span>
+                {!loading && !authLocked ? (
+                  <ArrowRight className="h-[17px] w-[17px] transition group-hover:translate-x-0.5" />
+                ) : null}
+              </button>
+            </form>
+
+            <div className="mt-4 text-center text-sm text-white/55">
+              <span>{copy.secondaryLead}</span>{" "}
+              <button
+                type="button"
+                onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+                disabled={loading}
+                className="font-semibold text-cyan-300 transition hover:text-violet-200 disabled:cursor-not-allowed disabled:text-white/30"
+              >
+                {copy.secondaryAction}
+              </button>
             </div>
-          ) : null}
-
-          {error ? (
-            <div className="rounded-2xl border border-rose-200/18 bg-rose-400/10 px-4 py-3 text-sm font-semibold leading-5 text-rose-100">
-              {error}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={loading || configurationRequired || !email.trim() || !password}
-            className="min-h-14 w-full rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-200 to-emerald-300 px-4 text-sm font-black text-slate-950 shadow-[0_16px_40px_rgba(34,211,238,0.22)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            {loading ? "Please wait..." : mode === "login" ? "Log In to CLARA" : "Create Account"}
-          </button>
-        </form>
-
-        <p className="mt-5 text-center text-[11px] font-semibold leading-5 text-white/38">
-          Signing in does not upload or restore your budgets, wallets, expenses, savings, or financial history.
-        </p>
-      </section>
-    </main>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
