@@ -196,9 +196,7 @@ export function deriveChallengeState({ state, todayKey }) {
     ? state.challengeStartDay
     : isDateKey(state?.cycleStartedAt)
       ? state.cycleStartedAt
-      : isDateKey(state?.lastCheckInDay || state?.lastCheckInDate)
-        ? state.lastCheckInDay || state.lastCheckInDate
-        : null;
+      : null;
 
   if (!challengeStartDay) {
     return {
@@ -215,8 +213,8 @@ export function deriveChallengeState({ state, todayKey }) {
   const challengeEndDay = calculateChallengeEndDay(challengeStartDay);
   const challengeCurrentDay = calculateChallengeCurrentDay(challengeStartDay, todayKey);
   const completedCheckInDays = calculateCompletedCheckInDays(completedDates, challengeStartDay, challengeEndDay);
-  const isCalendarComplete = compareDateKeys(todayKey, challengeEndDay) >= 0;
-  const completedThirtyDays = Boolean(state?.completedThirtyDays) || isCalendarComplete;
+  const completedThirtyDays =
+    Boolean(state?.completedThirtyDays) || completedCheckInDays >= MAX_VISIBLE_DAYS;
 
   return {
     challengeStartDay,
