@@ -205,13 +205,7 @@ export default function Login() {
               </div>
             ) : null}
 
-            <form
-              onSubmit={handleSubmit}
-              className={`mt-5 space-y-3.5 transition duration-200 ${
-                authLocked ? "opacity-60 grayscale-[0.18]" : ""
-              }`}
-              aria-disabled={authLocked}
-            >
+            <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
               {mode === "signup" ? (
                 <FieldShell label="Display name">
                   <input
@@ -220,7 +214,7 @@ export default function Login() {
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
                     autoComplete="name"
-                    disabled={authLocked || loading}
+                    disabled={loading}
                     className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                   />
                 </FieldShell>
@@ -234,7 +228,7 @@ export default function Login() {
                   onChange={(event) => setEmail(event.target.value)}
                   autoComplete="email"
                   required
-                  disabled={authLocked || loading}
+                  disabled={loading}
                   className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                 />
               </FieldShell>
@@ -253,14 +247,14 @@ export default function Login() {
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     required
-                    disabled={authLocked || loading}
+                    disabled={loading}
                     className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                   />
 
                   <button
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
-                    disabled={authLocked}
+                    disabled={loading}
                     className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35 disabled:cursor-not-allowed disabled:text-white/22 disabled:hover:bg-transparent"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
@@ -283,7 +277,7 @@ export default function Login() {
                       onChange={(event) => setConfirmPassword(event.target.value)}
                       autoComplete="new-password"
                       required
-                      disabled={authLocked || loading}
+                      disabled={loading}
                       className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] px-4 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:border-white/7 disabled:bg-white/[0.035] disabled:text-white/34 disabled:placeholder:text-white/18"
                     />
                   </FieldShell>
@@ -324,7 +318,9 @@ export default function Login() {
               >
                 <span>
                   {authLocked
-                    ? "Login unavailable"
+                    ? mode === "login"
+                      ? "Login unavailable"
+                      : "Account creation unavailable"
                     : loading
                       ? "Processing..."
                       : copy.button}
