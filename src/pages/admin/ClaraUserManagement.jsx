@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, KeyRound, RefreshCcw, Search, ShieldAlert, UserRoundCog } from "lucide-react";
+import { ArrowLeft, KeyRound, Link2, RefreshCcw, Search, ShieldAlert, UserRoundCog } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -7,6 +7,7 @@ import {
   fetchAdminUser,
   fetchAdminUsers,
   fetchLegacyIosAccessRecords,
+  linkLegacyIosAccessRecord,
   revokeAdminUserSessions,
   setAdminTemporaryPassword,
   softDeleteAdminUser,
@@ -29,12 +30,32 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
 }
 
+function toLocalDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 16);
+}
+
 function Field({ label, children }) {
   return (
     <label className="block space-y-2">
       <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">{label}</span>
       {children}
     </label>
+  );
+}
+
+function StatusPill({ children, tone = "default" }) {
+  const toneClass =
+    tone === "warning"
+      ? "border-amber-200/15 bg-amber-300/10 text-amber-100"
+      : tone === "danger"
+        ? "border-rose-200/15 bg-rose-300/10 text-rose-100"
+        : "border-cyan-200/15 bg-cyan-300/10 text-cyan-100";
+  return (
+    <span className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${toneClass}`}>
+      {children}
+    </span>
   );
 }
 
@@ -49,6 +70,7 @@ export default function ClaraUserManagement() {
   const [selectedId, setSelectedId] = useState(null);
   const [selected, setSelected] = useState(null);
   const [legacyRecords, setLegacyRecords] = useState([]);
+  const [legacyLinks, setLegacyLinks] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ displayName: "", email: "" });
@@ -56,6 +78,7 @@ export default function ClaraUserManagement() {
     plan: "free",
     subscriptionStatus: "active",
     source: "free",
+    startedAt: "",
     currentPeriodEnd: "",
     cancelAtPeriodEnd: false,
   });
@@ -97,9 +120,8 @@ export default function ClaraUserManagement() {
         plan: payload.membership?.plan || "free",
         subscriptionStatus: payload.membership?.subscriptionStatus || "active",
         source: payload.membership?.source || "free",
-        currentPeriodEnd: payload.membership?.currentPeriodEnd
-          ? new Date(payload.membership.currentPeriodEnd).toISOString().slice(0, 16)
-          : "",
+        startedAt: toLocalDateTime(payload.membership?.startedAt),
+        currentPeriodEnd: toLocalDateTime(payload.membership?.currentPeriodEnd),
         cancelAtPeriodEnd: Boolean(payload.membership?.cancelAtPeriodEnd),
       });
     } catch (error) {
@@ -139,6 +161,21 @@ export default function ClaraUserManagement() {
       await Promise.all([loadUsers(), loadSelected(selectedId)]);
     } catch (error) {
       toast.error(error?.message || "The account could not be updated.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const linkLegacyRecord = async (recordId) => {
+    const userId = legacyLinks[recordId];
+    if (!userId || saving) return;
+    setSaving(true);
+    try {
+      await linkLegacyIosAccessRecord(recordId, userId);
+      toast.success("Legacy iOS record linked to the CLARA account.");
+      await loadLegacy();
+    } catch (error) {
+      toast.error(error?.message || "The legacy record could not be linked.");
     } finally {
       setSaving(false);
     }
@@ -233,6 +270,7 @@ export default function ClaraUserManagement() {
                     <span className="block truncate text-sm font-black text-white">{user.displayName}</span>
                     <span className="mt-1 block truncate text-xs font-semibold text-white/42">{user.email}</span>
                     <span className="mt-1 block truncate text-[10px] text-white/25">{user.id}</span>
+                    {user.mustChangePassword ? <span className="mt-2 block text-[9px] font-black uppercase tracking-[0.1em] text-amber-200">Password change required</span> : null}
                   </span>
                   <span className="text-xs font-bold text-white/65">{user.signupPlatform}</span>
                   <span className="text-xs font-bold text-white/65">{user.plan}</span>
@@ -255,6 +293,14 @@ export default function ClaraUserManagement() {
                   <p className="text-lg font-black">{selected.user.displayName}</p>
                   <p className="text-xs font-semibold text-white/42">Created {formatDate(selected.user.createdAt)}</p>
                   <p className="mt-1 break-all text-[10px] text-white/28">Account ID: {selected.user.id}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <StatusPill>{selected.user.signupPlatform}</StatusPill>
+                    <StatusPill tone={selected.user.accountStatus === "active" ? "default" : "danger"}>{selected.user.accountStatus}</StatusPill>
+                    <StatusPill tone={selected.user.mustChangePassword ? "warning" : "default"}>
+                      {selected.user.mustChangePassword ? "Must change password" : "Private password set"}
+                    </StatusPill>
+                    {selected.membership?.cancelAtPeriodEnd ? <StatusPill tone="warning">Cancels at period end</StatusPill> : null}
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -268,18 +314,43 @@ export default function ClaraUserManagement() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Account status">
                     <select className={inputClass} value={selected.user.accountStatus} onChange={(event) => perform(() => updateAdminAccountStatus(selectedId, event.target.value), "Account status updated.")}>
-                      <option value="active">Active</option><option value="suspended">Suspended</option><option value="disabled">Disabled</option><option value="deleted">Deleted</option>
+                      <option value="active">Active / Restore</option>
+                      <option value="suspended">Suspended</option>
+                      <option value="disabled">Disabled</option>
+                      <option value="deleted" disabled>Deleted</option>
                     </select>
                   </Field>
                   <Field label="Plan"><select className={inputClass} value={membershipForm.plan} onChange={(event) => setMembershipForm((current) => ({ ...current, plan: event.target.value }))}><option value="free">Free</option><option value="beta">Beta</option><option value="committed">Committed</option></select></Field>
                   <Field label="Subscription status"><select className={inputClass} value={membershipForm.subscriptionStatus} onChange={(event) => setMembershipForm((current) => ({ ...current, subscriptionStatus: event.target.value }))}><option value="active">Active</option><option value="cancelled">Cancelled</option><option value="expired">Expired</option><option value="suspended">Suspended</option><option value="refunded">Refunded</option></select></Field>
                   <Field label="Source"><select className={inputClass} value={membershipForm.source} onChange={(event) => setMembershipForm((current) => ({ ...current, source: event.target.value }))}><option value="free">Free</option><option value="manual">Manual</option><option value="beta">Beta</option><option value="android">Android</option><option value="ios">iOS</option><option value="web">Web</option></select></Field>
+                  <Field label="Subscription start"><input className={inputClass} type="datetime-local" value={membershipForm.startedAt} onChange={(event) => setMembershipForm((current) => ({ ...current, startedAt: event.target.value }))} /></Field>
                   <Field label="Current-period end"><input className={inputClass} type="datetime-local" value={membershipForm.currentPeriodEnd} onChange={(event) => setMembershipForm((current) => ({ ...current, currentPeriodEnd: event.target.value }))} /></Field>
                   <label className="flex min-h-11 items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 text-xs font-bold text-white/65"><input type="checkbox" checked={membershipForm.cancelAtPeriodEnd} onChange={(event) => setMembershipForm((current) => ({ ...current, cancelAtPeriodEnd: event.target.checked }))} />Cancel at period end</label>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <button type="button" disabled={saving} onClick={() => perform(() => updateAdminMembership(selectedId, { ...membershipForm, currentPeriodEnd: membershipForm.currentPeriodEnd ? new Date(membershipForm.currentPeriodEnd).toISOString() : null }), "Membership updated.")} className="min-h-11 rounded-xl bg-emerald-300 px-4 text-sm font-black text-slate-950 disabled:opacity-50">Save Membership</button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => perform(
+                      () => updateAdminMembership(selectedId, {
+                        ...membershipForm,
+                        startedAt: membershipForm.startedAt ? new Date(membershipForm.startedAt).toISOString() : null,
+                        currentPeriodEnd: membershipForm.currentPeriodEnd ? new Date(membershipForm.currentPeriodEnd).toISOString() : null,
+                      }),
+                      "Membership updated."
+                    )}
+                    className="min-h-11 rounded-xl bg-emerald-300 px-4 text-sm font-black text-slate-950 disabled:opacity-50"
+                  >
+                    Save Membership
+                  </button>
                   <button type="button" disabled={saving} onClick={() => perform(() => updateAdminMembership(selectedId, { cancelImmediately: true }), "Subscription cancelled immediately.")} className="min-h-11 rounded-xl border border-amber-200/18 bg-amber-400/10 px-4 text-sm font-black text-amber-100 disabled:opacity-50">Cancel Immediately</button>
+                </div>
+
+                <div className="rounded-2xl border border-white/8 bg-black/15 p-3 text-xs font-semibold leading-5 text-white/50">
+                  <p>Source: {selected.membership?.source || "free"}</p>
+                  <p>Started: {formatDate(selected.membership?.startedAt)}</p>
+                  <p>Period end: {formatDate(selected.membership?.currentPeriodEnd)}</p>
+                  <p>Cancelled: {formatDate(selected.membership?.cancelledAt)}</p>
                 </div>
 
                 <div className="h-px bg-white/8" />
@@ -294,9 +365,21 @@ export default function ClaraUserManagement() {
                 </Field>
                 <button type="button" disabled={saving || !adminNote.trim()} onClick={() => perform(async () => { await addAdminUserNote(selectedId, adminNote.trim()); setAdminNote(""); }, "Administrator note added.")} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm font-black text-white/75 disabled:opacity-50">Add Note</button>
 
+                {selected.notes?.length ? (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/40">Administrator notes</p>
+                    {selected.notes.map((note) => (
+                      <div key={note.id} className="rounded-2xl border border-white/8 bg-black/15 px-3 py-2.5">
+                        <p className="text-xs font-semibold leading-5 text-white/70">{note.note}</p>
+                        <p className="mt-1 text-[10px] text-white/30">{formatDate(note.created_at)} · {note.admin_identifier}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 <button
                   type="button"
-                  disabled={saving}
+                  disabled={saving || selected.user.accountStatus === "deleted"}
                   onClick={() => {
                     if (!window.confirm("Soft-delete this CLARA account and revoke all sessions? Local financial data on the user’s device will not be erased.")) return;
                     perform(() => softDeleteAdminUser(selectedId), "Account soft-deleted.");
@@ -312,8 +395,41 @@ export default function ClaraUserManagement() {
 
         <section className="mt-5 rounded-[26px] border border-amber-200/12 bg-amber-400/[0.06] p-4">
           <h2 className="text-sm font-black text-amber-100">Legacy iOS Access</h2>
-          <p className="mt-1 text-xs font-semibold leading-5 text-amber-100/55">The old code system is deprecated and no longer gates new users. Historical records remain preserved until exported or imported into this migration table.</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-amber-100/55">The old code system is deprecated and no longer gates new users. Import activated historical records into the migration table before linking them to new CLARA accounts.</p>
           <p className="mt-3 text-xs font-bold text-amber-100/70">Imported legacy records: {legacyRecords.length}</p>
+          {legacyRecords.length ? (
+            <div className="mt-3 space-y-2">
+              {legacyRecords.map((record) => (
+                <div key={record.id} className="grid gap-3 rounded-2xl border border-amber-100/10 bg-black/15 p-3 md:grid-cols-[1fr_minmax(220px,0.8fr)_auto] md:items-center">
+                  <div>
+                    <p className="text-sm font-black text-amber-50">{record.activated_name || record.legacy_code_label || "Legacy iOS user"}</p>
+                    <p className="mt-1 text-xs font-semibold text-amber-100/45">{record.activated_email || "No email recorded"}</p>
+                    <p className="mt-1 text-[10px] text-amber-100/30">Activated {formatDate(record.activated_at)}</p>
+                  </div>
+                  {record.linked_user_id ? (
+                    <StatusPill>Linked to {record.linked_user_id}</StatusPill>
+                  ) : (
+                    <select
+                      className={inputClass}
+                      value={legacyLinks[record.id] || ""}
+                      onChange={(event) => setLegacyLinks((current) => ({ ...current, [record.id]: event.target.value }))}
+                    >
+                      <option value="">Choose CLARA account</option>
+                      {users.map((user) => <option key={user.id} value={user.id}>{user.displayName} — {user.email}</option>)}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    disabled={saving || Boolean(record.linked_user_id) || !legacyLinks[record.id]}
+                    onClick={() => linkLegacyRecord(record.id)}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-100/15 bg-amber-300/10 px-3 text-xs font-black text-amber-50 disabled:opacity-45"
+                  >
+                    <Link2 className="h-4 w-4" /> Link
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
