@@ -4,6 +4,7 @@ import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framew
 
 export const CLARA_COMMITTED_PLAN_KEY = COMMITTED_PLAN_KEY;
 export const OPEN_COMMITMENT_BOOKLET_EVENT = "clara:open-commitment-booklet";
+export const OPEN_COMMITTED_ACCESS_CODE_EVENT = "clara:open-committed-access-code";
 
 export function resolveCommittedMembershipState(options = {}) {
   const membership = resolveMembership({
@@ -69,5 +70,9 @@ export function useCommittedFeatureAccess({ preview = null, previewPlan = "" } =
 
 export function openCommittedVersionModal(purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(OPEN_COMMITMENT_BOOKLET_EVENT, { detail: { purchaseIntent } }));
+  window.dispatchEvent(
+    new CustomEvent(OPEN_COMMITTED_ACCESS_CODE_EVENT, {
+      detail: { purchaseIntent },
+    })
+  );
 }
