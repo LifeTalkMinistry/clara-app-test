@@ -1,10 +1,16 @@
 import { Capacitor } from "@capacitor/core";
 import { createClient } from "@supabase/supabase-js";
+import { getOrCreateLocalVaultId } from "@/lib/local-user-identity";
+import {
+  getLocalGooglePlayEntitlement,
+  saveLocalGooglePlayEntitlement,
+} from "@/lib/local-google-play-entitlement";
 
 const IOS_ACCESS_FUNCTION = "clara-ios-access";
 const IOS_ACCESS_SESSION_KEY = "clara_ios_access_session_v1";
 const IOS_ACCESS_OFFLINE_KEY = "clara_ios_access_offline_v1";
 const HIDDEN_ADMIN_SESSION_KEY = "clara_hidden_admin_session_v1";
+const COMMITTED_PLAN_KEY = "committed_249";
 
 // Supabase publishable credentials are intentionally public client identifiers,
 // not secrets. All sensitive operations remain protected inside the Edge Function.
@@ -45,6 +51,56 @@ function removeStorage(storage, key) {
     storage?.removeItem?.(key);
   } catch {
     // Ignore unavailable storage.
+  }
+}
+
+function normalizeAccessPlanKey(value) {
+  return String(value || "").trim() === COMMITTED_PLAN_KEY
+    ? COMMITTED_PLAN_KEY
+    : "free";
+}
+
+function applyAccessCodeMembership({ planKey, userId, expiresAt, verifiedAt }) {
+  if (typeof window === "undefined") return;
+
+  const localUserId = String(userId || getOrCreateLocalVaultId() || "").trim();
+  if (!localUserId) return;
+
+  const normalizedPlanKey = normalizeAccessPlanKey(planKey);
+  const timestamp = verifiedAt || new Date().toISOString();
+  const current = getLocalGooglePlayEntitlement(localUserId);
+
+  if (normalizedPlanKey === COMMITTED_PLAN_KEY) {
+    saveLocalGooglePlayEntitlement(localUserId, {
+      state: "active",
+      purchaseState: "ACCESS_CODE",
+      acknowledged: true,
+      lastVerifiedAt: timestamp,
+      lastSuccessfulQueryAt: timestamp,
+      previousConfirmedState: "active",
+      grantSource: "access_code",
+      accessCodeExpiresAt: expiresAt || null,
+      purchaseTokenMasked: null,
+      orderIdMasked: null,
+      errorCode: null,
+    });
+    return;
+  }
+
+  if (current?.grantSource === "access_code") {
+    saveLocalGooglePlayEntitlement(localUserId, {
+      state: "inactive",
+      purchaseState: "UNSPECIFIED",
+      acknowledged: null,
+      lastVerifiedAt: timestamp,
+      lastSuccessfulQueryAt: timestamp,
+      previousConfirmedState: null,
+      grantSource: null,
+      accessCodeExpiresAt: null,
+      purchaseTokenMasked: null,
+      orderIdMasked: null,
+      errorCode: null,
+    });
   }
 }
 
@@ -148,6 +204,14 @@ export function readIosAccessSession() {
 
 export function clearIosAccessSession() {
   if (typeof window === "undefined") return;
+
+  const session = readIosAccessSession();
+  applyAccessCodeMembership({
+    planKey: "free",
+    userId: session?.userId,
+    verifiedAt: new Date().toISOString(),
+  });
+
   removeStorage(window.localStorage, IOS_ACCESS_SESSION_KEY);
   removeStorage(window.localStorage, IOS_ACCESS_OFFLINE_KEY);
 }
@@ -161,18 +225,23 @@ export async function redeemIosAccessCode({ code, userId, name, email }) {
     email,
   });
 
+  const verifiedAt = new Date().toISOString();
   const session = {
     token: data.accessToken,
     codeLabel: data.codeLabel,
+    planKey: normalizeAccessPlanKey(data.planKey),
+    userId,
     expiresAt: data.expiresAt,
     activatedAt: data.activatedAt,
+    verifiedAt,
   };
 
   writeStorage(window.localStorage, IOS_ACCESS_SESSION_KEY, session);
   writeStorage(window.localStorage, IOS_ACCESS_OFFLINE_KEY, {
-    verifiedAt: new Date().toISOString(),
+    verifiedAt,
     expiresAt: data.expiresAt,
   });
+  applyAccessCodeMembership(session);
 
   return data;
 }
@@ -187,10 +256,23 @@ export async function validateIosAccessSession() {
       accessToken: session.token,
     });
 
+    const verifiedAt = new Date().toISOString();
+    const nextSession = {
+      ...session,
+      codeLabel: data.codeLabel || session.codeLabel,
+      planKey: normalizeAccessPlanKey(data.planKey),
+      userId: session.userId || getOrCreateLocalVaultId(),
+      activatedAt: data.activatedAt || session.activatedAt,
+      expiresAt: data.expiresAt,
+      verifiedAt,
+    };
+
+    writeStorage(window.localStorage, IOS_ACCESS_SESSION_KEY, nextSession);
     writeStorage(window.localStorage, IOS_ACCESS_OFFLINE_KEY, {
-      verifiedAt: new Date().toISOString(),
+      verifiedAt,
       expiresAt: data.expiresAt,
     });
+    applyAccessCodeMembership(nextSession);
 
     return { valid: true, ...data };
   } catch (error) {
