@@ -1,8 +1,8 @@
 import {
   clearHiddenAdminSession,
   clearIosAccessSession,
-  isNativeAndroidApp,
 } from "@/lib/ios-access-client";
+import { supabase } from "@/lib/supabaseClient";
 
 const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
 
@@ -11,26 +11,21 @@ function normalizeText(value) {
 }
 
 function findAboutClaraRow() {
-  return [...document.querySelectorAll("button")].find((button) => {
-    const text = normalizeText(button.textContent);
-    return (
-      text.includes("About CLARA") &&
-      text.includes("Mission, vision, app info") &&
-      text.includes("Info")
-    );
-  });
+  return [...document.querySelectorAll("button")].find((button) =>
+    normalizeText(button.textContent).includes("About CLARA")
+  );
 }
 
 function createLogoutControl() {
   const container = document.createElement("div");
   container.id = LOGOUT_CONTAINER_ID;
-  container.className = "space-y-2 pb-8 pt-1";
+  container.className = "mt-3 space-y-2 pb-10";
 
   const button = document.createElement("button");
   button.type = "button";
   button.className =
-    "flex w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/20 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.16),transparent_34%),rgba(244,63,94,0.08)] px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.08)] transition hover:bg-rose-500/15 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55";
-  button.setAttribute("aria-label", "Log out of CLARA access");
+    "flex min-h-14 w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/25 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.18),transparent_34%),rgba(244,63,94,0.10)] px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.10)] transition hover:bg-rose-500/18 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55";
+  button.setAttribute("aria-label", "Log out of CLARA");
   button.innerHTML = `
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -43,9 +38,9 @@ function createLogoutControl() {
   const note = document.createElement("p");
   note.className = "px-3 text-center text-[10px] font-semibold leading-4 text-white/32";
   note.textContent =
-    "Your financial records stay on this device. Enter your CLARA access code again to return.";
+    "Your financial records stay on this device. You can enter your CLARA access again after logging out.";
 
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     if (button.disabled) return;
 
     button.disabled = true;
@@ -54,6 +49,12 @@ function createLogoutControl() {
 
     clearIosAccessSession();
     clearHiddenAdminSession();
+
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn("CLARA Settings logout could not clear the compatibility session:", error);
+    }
 
     window.setTimeout(() => {
       window.location.reload();
@@ -88,7 +89,6 @@ function syncSettingsLogoutControl() {
 export function installSettingsAccessLogout() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__claraSettingsAccessLogoutInstalled) return;
-  if (isNativeAndroidApp()) return;
 
   window.__claraSettingsAccessLogoutInstalled = true;
 
