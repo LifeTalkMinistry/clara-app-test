@@ -1,13 +1,18 @@
 import { Capacitor } from "@capacitor/core";
 import { createClient } from "@supabase/supabase-js";
+import {
+  clearHiddenAdminSession as clearUniversalAdminSession,
+  hasHiddenAdminSession as hasUniversalAdminSession,
+  verifyHiddenAdminPassword as verifyUniversalAdminPassword,
+} from "@/lib/account-api-client";
 
 const IOS_ACCESS_FUNCTION = "clara-ios-access";
 const IOS_ACCESS_SESSION_KEY = "clara_ios_access_session_v1";
 const IOS_ACCESS_OFFLINE_KEY = "clara_ios_access_offline_v1";
 const HIDDEN_ADMIN_SESSION_KEY = "clara_hidden_admin_session_v1";
 
-// Supabase publishable credentials are intentionally public client identifiers,
-// not secrets. All sensitive operations remain protected inside the Edge Function.
+// This client remains only for preserving and exporting historical iPhone access-code
+// records. New account and administrator authentication uses account-api-client.
 const IOS_ACCESS_SUPABASE_URL = "https://aydgnziueszxxhusatsv.supabase.co";
 const IOS_ACCESS_PUBLISHABLE_KEY = "sb_publishable_mp0vfLH556XEuNEvLllcrw_JfPJgTWk";
 
@@ -110,7 +115,7 @@ async function invokeIosAccess(body) {
   try {
     result = await iosAccessSupabase.functions.invoke(IOS_ACCESS_FUNCTION, { body });
   } catch (error) {
-    const networkError = new Error("CLARA could not reach the access service. Check your connection and try again.");
+    const networkError = new Error("CLARA could not reach the legacy access service.");
     networkError.code = "network_error";
     networkError.cause = error;
     throw networkError;
@@ -123,8 +128,8 @@ async function invokeIosAccess(body) {
     const accessError = new Error(
       payload?.message ||
         (error?.name === "FunctionsFetchError"
-          ? "CLARA could not reach the access service. Check your connection and try again."
-          : "CLARA access service is unavailable.")
+          ? "CLARA could not reach the legacy access service."
+          : "CLARA legacy access service is unavailable.")
     );
     accessError.code =
       payload?.code ||
@@ -133,7 +138,7 @@ async function invokeIosAccess(body) {
   }
 
   if (!data?.ok) {
-    const accessError = new Error(data?.message || "Unable to complete this request.");
+    const accessError = new Error(data?.message || "Unable to complete this legacy request.");
     accessError.code = data?.code || "ios_access_error";
     throw accessError;
   }
@@ -225,7 +230,7 @@ export function readHiddenAdminSession() {
   if (!session?.token || !session?.expiresAt) return null;
 
   if (Date.now() >= Date.parse(session.expiresAt)) {
-    clearHiddenAdminSession();
+    removeStorage(window.sessionStorage, HIDDEN_ADMIN_SESSION_KEY);
     return null;
   }
 
@@ -233,32 +238,24 @@ export function readHiddenAdminSession() {
 }
 
 export function hasHiddenAdminSession() {
-  return Boolean(readHiddenAdminSession()?.token);
+  return hasUniversalAdminSession() || Boolean(readHiddenAdminSession()?.token);
 }
 
 export function clearHiddenAdminSession() {
-  if (typeof window === "undefined") return;
-  removeStorage(window.sessionStorage, HIDDEN_ADMIN_SESSION_KEY);
+  clearUniversalAdminSession();
+  if (typeof window !== "undefined") {
+    removeStorage(window.sessionStorage, HIDDEN_ADMIN_SESSION_KEY);
+  }
 }
 
-export async function verifyHiddenAdminPassword(password) {
-  const data = await invokeIosAccess({
-    action: "verify_admin",
-    password,
-  });
-
-  writeStorage(window.sessionStorage, HIDDEN_ADMIN_SESSION_KEY, {
-    token: data.adminToken,
-    expiresAt: data.expiresAt,
-  });
-
-  return data;
+export function verifyHiddenAdminPassword(password) {
+  return verifyUniversalAdminPassword(password);
 }
 
 export async function fetchIosAccessCodes() {
   const session = readHiddenAdminSession();
   if (!session?.token) {
-    const error = new Error("Admin authorization has expired.");
+    const error = new Error("Legacy administrator authorization has expired.");
     error.code = "unauthorized";
     throw error;
   }
@@ -272,7 +269,7 @@ export async function fetchIosAccessCodes() {
 export async function updateIosAccessCode(payload) {
   const session = readHiddenAdminSession();
   if (!session?.token) {
-    const error = new Error("Admin authorization has expired.");
+    const error = new Error("Legacy administrator authorization has expired.");
     error.code = "unauthorized";
     throw error;
   }
