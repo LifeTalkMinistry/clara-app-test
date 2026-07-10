@@ -14,7 +14,6 @@ import {
   hashRefreshToken,
   normalizeEmail,
   parseRefreshCredential,
-  sanitizeSafeText,
   signAccessToken,
   validatePasswordStrength,
   verifyAccessToken,
@@ -236,17 +235,26 @@ export async function buildApp({ config, pool = createPool(config) }) {
         callback(null, true);
         return;
       }
-      callback(new Error("Origin is not allowed."), false);
+      const error = apiError(403, "origin_not_allowed", "Origin is not allowed.");
+      callback(error, false);
     },
   });
 
   app.setErrorHandler((error, request, reply) => {
-    const statusCode = Number(error.statusCode) || 500;
+    const validationError = error instanceof z.ZodError;
+    const statusCode = validationError ? 400 : Number(error.statusCode) || 500;
     if (statusCode >= 500) request.log.error(error);
     reply.code(statusCode).send({
       ok: false,
-      code: error.code || (statusCode >= 500 ? "server_error" : "request_failed"),
-      message: statusCode >= 500 ? "CLARA account service is temporarily unavailable." : error.message,
+      code: validationError
+        ? "invalid_request"
+        : error.code || (statusCode >= 500 ? "server_error" : "request_failed"),
+      message:
+        statusCode >= 500
+          ? "CLARA account service is temporarily unavailable."
+          : validationError
+            ? "Please check the submitted information."
+            : error.message,
     });
   });
 
@@ -277,7 +285,7 @@ export async function buildApp({ config, pool = createPool(config) }) {
       throw apiError(401, "session_revoked", "This session is no longer valid.");
     }
     assertAccountCanAuthenticate(row);
-    request.auth = { userId: row.id, sessionId: payload.sid };
+    request.auth = { userId: row.id, sessionId: payload.sid, mustChangePassword: row.must_change_password };
   }
 
   async function requireAdmin(request) {
@@ -395,7 +403,16 @@ export async function buildApp({ config, pool = createPool(config) }) {
     try {
       const refreshed = await withTransaction(pool, async (client) => {
         const result = await client.query(
-          `SELECT s.*, u.*
+          `SELECT
+             s.id AS session_id,
+             s.user_id AS session_user_id,
+             s.refresh_token_hash,
+             s.device_id,
+             s.platform AS session_platform,
+             s.expires_at AS session_expires_at,
+             s.revoked_at AS session_revoked_at,
+             s.replaced_by_session_id,
+             u.*
            FROM sessions s
            JOIN users u ON u.id = s.user_id
            WHERE s.id = $1
@@ -403,26 +420,33 @@ export async function buildApp({ config, pool = createPool(config) }) {
           [parsed.sessionId]
         );
         const row = result.rows[0];
+        const tokenHashMatches = row?.refresh_token_hash === hashRefreshToken(parsed.token);
         if (
           !row ||
-          row.revoked_at ||
-          Date.parse(row.expires_at) <= Date.now() ||
-          row.refresh_token_hash !== hashRefreshToken(parsed.token)
+          row.session_revoked_at ||
+          Date.parse(row.session_expires_at) <= Date.now() ||
+          !tokenHashMatches
         ) {
+          if (row?.id && (row.session_revoked_at || !tokenHashMatches)) {
+            await client.query(
+              "UPDATE sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE user_id = $1",
+              [row.id]
+            );
+          }
           throw apiError(401, "invalid_refresh_session", "The refresh session is no longer valid.");
         }
         assertAccountCanAuthenticate(row);
         const issued = await createUserSession(client, {
           user: row,
-          platform: row.platform,
+          platform: row.session_platform,
           deviceId: row.device_id,
           config,
         });
         await client.query(
           "UPDATE sessions SET revoked_at = now(), replaced_by_session_id = $2 WHERE id = $1",
-          [row.id, issued.session.id]
+          [row.session_id, issued.session.id]
         );
-        const loaded = await loadUserAndMembership(client, row.user_id);
+        const loaded = await loadUserAndMembership(client, row.id);
         return { ...loaded, issued };
       });
       reply.setCookie(
@@ -600,8 +624,7 @@ export async function buildApp({ config, pool = createPool(config) }) {
       values.push(value);
       where.push(clause.replace("?", `$${values.length}`));
     };
-    if (query.search) add("(u.display_name ILIKE ? OR u.email ILIKE ?)", `%${query.search}%`);
-    if (query.search) values.push(`%${query.search}%`);
+    if (query.search) add("concat_ws(' ', u.display_name, u.email) ILIKE ?", `%${query.search.trim()}%`);
     if (query.platform) add("u.signup_platform = ?", query.platform);
     if (query.plan) add("m.plan = ?", query.plan);
     if (query.subscriptionStatus) add("m.subscription_status = ?", query.subscriptionStatus);
@@ -730,36 +753,51 @@ export async function buildApp({ config, pool = createPool(config) }) {
       }),
       request.body
     );
-    const fields = [];
+
+    const assignments = new Map();
     const values = [userId];
-    const add = (column, value) => {
+    const setParameter = (column, value) => {
       values.push(value);
-      fields.push(`${column} = $${values.length}`);
+      assignments.set(column, `$${values.length}`);
     };
-    if (input.plan) add("plan", input.plan);
-    if (input.subscriptionStatus) add("subscription_status", input.subscriptionStatus);
-    if (input.source) add("source", input.source);
-    if (input.startedAt !== undefined) add("started_at", input.startedAt);
-    if (input.currentPeriodEnd !== undefined) add("current_period_end", input.currentPeriodEnd);
-    if (input.cancelAtPeriodEnd !== undefined) add("cancel_at_period_end", input.cancelAtPeriodEnd);
+    const setExpression = (column, expression) => {
+      assignments.set(column, expression);
+    };
+
+    if (input.plan) setParameter("plan", input.plan);
+    if (input.subscriptionStatus) setParameter("subscription_status", input.subscriptionStatus);
+    if (input.source) setParameter("source", input.source);
+    if (input.startedAt !== undefined) setParameter("started_at", input.startedAt);
+    if (input.currentPeriodEnd !== undefined) setParameter("current_period_end", input.currentPeriodEnd);
+    if (input.cancelAtPeriodEnd !== undefined) setParameter("cancel_at_period_end", input.cancelAtPeriodEnd);
+
+    if (input.subscriptionStatus === "cancelled") {
+      setExpression("cancelled_at", "COALESCE(cancelled_at, now())");
+    }
+    if (input.subscriptionStatus === "expired") setExpression("expired_at", "COALESCE(expired_at, now())");
+    if (input.subscriptionStatus === "refunded") setExpression("refunded_at", "COALESCE(refunded_at, now())");
+    if (input.subscriptionStatus === "suspended") setExpression("suspended_at", "COALESCE(suspended_at, now())");
+
     if (input.cancelImmediately) {
-      add("subscription_status", "cancelled");
-      add("cancel_at_period_end", false);
-      fields.push("cancelled_at = now()", "current_period_end = now()");
-    } else if (input.subscriptionStatus === "cancelled") {
-      fields.push("cancelled_at = COALESCE(cancelled_at, now())");
+      setExpression("subscription_status", "'cancelled'");
+      setExpression("cancel_at_period_end", "false");
+      setExpression("cancelled_at", "now()");
+      setExpression("current_period_end", "now()");
     }
+
     if (input.plan === "free") {
-      fields.push(
-        "subscription_status = 'active'",
-        "source = 'free'",
-        "cancel_at_period_end = false",
-        "current_period_end = NULL",
-        "expired_at = NULL",
-        "suspended_at = NULL"
-      );
+      setExpression("subscription_status", "'active'");
+      setExpression("source", "'free'");
+      setExpression("cancel_at_period_end", "false");
+      setExpression("current_period_end", "NULL");
+      setExpression("cancelled_at", "NULL");
+      setExpression("expired_at", "NULL");
+      setExpression("refunded_at", "NULL");
+      setExpression("suspended_at", "NULL");
     }
-    if (!fields.length) throw apiError(400, "invalid_request", "No membership changes were submitted.");
+
+    if (!assignments.size) throw apiError(400, "invalid_request", "No membership changes were submitted.");
+    const fields = Array.from(assignments, ([column, expression]) => `${column} = ${expression}`);
     const result = await pool.query(
       `UPDATE memberships SET ${fields.join(", ")}, updated_at = now() WHERE user_id = $1 RETURNING *`,
       values
@@ -826,8 +864,7 @@ export async function buildApp({ config, pool = createPool(config) }) {
 
   app.delete("/admin/users/:id", { preHandler: requireAdmin }, async (request) => {
     const userId = uuidSchema.parse(request.params.id);
-    const input = parseBody(z.object({ confirmation: z.literal("DELETE") }), request.body);
-    void input;
+    parseBody(z.object({ confirmation: z.literal("DELETE") }), request.body);
     const result = await withTransaction(pool, async (client) => {
       const updated = await client.query(
         `UPDATE users
