@@ -97,10 +97,7 @@ async function persistThemeToProfile(userId, themeKey) {
   try {
     const { error } = await supabase
       .from("profiles")
-      .update({
-        [THEME_PROFILE_FIELD]: themeKey,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ [THEME_PROFILE_FIELD]: themeKey })
       .eq("id", userId);
 
     if (!error) return true;
@@ -133,11 +130,11 @@ export function ThemeProvider({ children }) {
 
   const selectedTheme = useMemo(() => getThemeByKey(themeKey), [themeKey]);
   const themeGroups = useMemo(() => buildThemeGroups(), []);
+  const profileThemeKey = useMemo(() => extractProfileThemeKey(profile), [profile]);
 
   const broadcastTheme = useCallback(
     (nextThemeKey) => {
       if (typeof window === "undefined") return;
-
       const nextTheme = getThemeByKey(nextThemeKey);
       const detail = {
         themeKey: nextTheme.key,
@@ -146,7 +143,6 @@ export function ThemeProvider({ children }) {
         userId: user?.id || null,
         palette: buildNavPalette(nextTheme),
       };
-
       window.dispatchEvent(new CustomEvent("clara-theme-change", { detail }));
       window.dispatchEvent(new CustomEvent("clara-theme-selected", { detail }));
     },
@@ -156,16 +152,11 @@ export function ThemeProvider({ children }) {
   const commitTheme = useCallback(
     (nextThemeKey, { markUserSelected = false } = {}) => {
       const nextTheme = getThemeByKey(nextThemeKey);
-
-      if (markUserSelected) {
-        userSelectedThemeRef.current = true;
-      }
-
+      if (markUserSelected) userSelectedThemeRef.current = true;
       writeStoredThemeKey(nextTheme.key);
       setThemeKeyState(nextTheme.key);
       applyThemeToDocument(nextTheme);
       broadcastTheme(nextTheme.key);
-
       return nextTheme.key;
     },
     [broadcastTheme]
@@ -174,7 +165,6 @@ export function ThemeProvider({ children }) {
   const setTheme = useCallback(
     async (nextThemeKey) => {
       const committedThemeKey = commitTheme(nextThemeKey, { markUserSelected: true });
-
       if (user?.id && !isThemeProfileSyncDisabled()) {
         pendingRemoteSyncRef.current = committedThemeKey;
         await persistThemeToProfile(user.id, committedThemeKey);
@@ -199,20 +189,14 @@ export function ThemeProvider({ children }) {
     if (!authReady) return;
 
     const storedThemeKey = getReliableStoredThemeKey();
-    const profileThemeKey = extractProfileThemeKey(profile);
     const hasUserStoredTheme = Boolean(storedThemeKey && storedThemeKey !== DEFAULT_THEME_KEY);
 
     if (user?.id) {
-      // Local-first rule:
-      // 1. If the user picked a theme on this device, never let a stale/default profile overwrite it.
-      // 2. If local storage has a non-default theme, prefer it over profile default.
-      // 3. Use profile theme only when there is no stronger local preference.
       const shouldPreferLocal =
         userSelectedThemeRef.current ||
         hasUserStoredTheme ||
         !profileThemeKey ||
         profileThemeKey === DEFAULT_THEME_KEY;
-
       const nextThemeKey = shouldPreferLocal
         ? storedThemeKey || DEFAULT_THEME_KEY
         : profileThemeKey;
@@ -232,17 +216,13 @@ export function ThemeProvider({ children }) {
           pendingRemoteSyncRef.current = null;
         });
       }
-
       return;
     }
 
     hydratedProfileRef.current = false;
     userSelectedThemeRef.current = false;
-
-    if (storedThemeKey !== themeKey) {
-      commitTheme(storedThemeKey);
-    }
-  }, [authReady, commitTheme, profile, themeKey, user?.id]);
+    if (storedThemeKey !== themeKey) commitTheme(storedThemeKey);
+  }, [authReady, commitTheme, profileThemeKey, themeKey, user?.id]);
 
   const value = useMemo(
     () => ({
@@ -272,10 +252,6 @@ export function ThemeProvider({ children }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext);
-
-  if (!context) {
-    throw new Error("useTheme must be used within ThemeProvider");
-  }
-
+  if (!context) throw new Error("useTheme must be used within ThemeProvider");
   return context;
 }
