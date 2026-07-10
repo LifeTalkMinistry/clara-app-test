@@ -22,16 +22,28 @@ jobs:
       - run: npm ci
       - id: tests
         continue-on-error: true
-        run: npm test 2>&1 | tee frontend-test.log
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee frontend-test.log
       - id: lint
         continue-on-error: true
-        run: npm run lint 2>&1 | tee frontend-lint.log
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee frontend-lint.log
       - id: web
         continue-on-error: true
-        run: npm run build:web 2>&1 | tee frontend-build-web.log
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:web 2>&1 | tee frontend-build-web.log
       - id: android
         continue-on-error: true
-        run: npm run build:android 2>&1 | tee frontend-build-android.log
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:android 2>&1 | tee frontend-build-android.log
       - name: Upload frontend verification logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,7 +91,10 @@ jobs:
       - run: npm install
       - id: tests
         continue-on-error: true
-        run: npm test 2>&1 | tee account-api-test.log
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee account-api-test.log
       - id: syntax
         continue-on-error: true
         run: |
