@@ -5,6 +5,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
+const COMPACT_OVERVIEW_CLASS = "clara-settings-compact-overview";
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -16,10 +17,27 @@ function findAboutClaraRow() {
   );
 }
 
+function compactSettingsOverview(overviewRoot) {
+  if (!overviewRoot) return;
+
+  overviewRoot.classList.add(COMPACT_OVERVIEW_CLASS);
+  overviewRoot.style.marginTop = "-20px";
+  overviewRoot.style.paddingBottom = "8px";
+
+  [...overviewRoot.querySelectorAll(":scope > section")].forEach((section) => {
+    section.style.marginTop = "14px";
+  });
+
+  [...overviewRoot.querySelectorAll(":scope > section button")].forEach((button) => {
+    button.style.paddingTop = "13px";
+    button.style.paddingBottom = "13px";
+  });
+}
+
 function createLogoutControl() {
   const container = document.createElement("div");
   container.id = LOGOUT_CONTAINER_ID;
-  container.className = "mt-3 space-y-2 pb-10";
+  container.className = "mt-2 space-y-1 pb-4";
 
   const button = document.createElement("button");
   button.type = "button";
@@ -36,9 +54,9 @@ function createLogoutControl() {
   `;
 
   const note = document.createElement("p");
-  note.className = "px-3 text-center text-[10px] font-semibold leading-4 text-white/32";
+  note.className = "px-2 text-center text-[10px] font-semibold leading-4 text-white/55";
   note.textContent =
-    "Your financial records stay on this device. You can enter your CLARA access again after logging out.";
+    "Your financial records stay on this device. Enter your CLARA access again anytime.";
 
   button.addEventListener("click", async () => {
     if (button.disabled) return;
@@ -79,6 +97,9 @@ function syncSettingsLogoutControl() {
     existing?.remove();
     return;
   }
+
+  const overviewRoot = programSection.parentElement;
+  compactSettingsOverview(overviewRoot);
 
   if (existing?.previousElementSibling === programSection) return;
 
