@@ -54,8 +54,7 @@ export default function DataExport() {
       setImporting(true);
       setError("");
       const applied = await restoreClaraLocalDataFromFile(file);
-      const appliedCount = applied.restored.localStorage.length + applied.restored.sessionStorage.length;
-      setUploadResult({ fileName: file.name, appliedCount, note: applied.note });
+      setUploadResult({ fileName: file.name, summary: applied.summary, note: applied.note, errors: applied.errors || [] });
     } catch (err) {
       console.error("CLARA backup upload failed:", err);
       setError(err?.message || "Unable to upload CLARA backup right now.");
@@ -125,7 +124,7 @@ export default function DataExport() {
           <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm leading-6 text-emerald-100">
             <div className="mb-2 flex items-center gap-2 font-bold"><CheckCircle2 size={16} />Backup downloaded</div>
             <p className="break-all text-emerald-50/90">{result.fileName}</p>
-            <p className="mt-2 text-emerald-50/80">Exported {result.counts.total} storage group{result.counts.total === 1 ? "" : "s"} from this device.</p>
+            <p className="mt-2 text-emerald-50/80">Exported {result.counts.total} local item{result.counts.total === 1 ? "" : "s"} from this device.</p>
           </div>
         ) : null}
 
@@ -133,7 +132,11 @@ export default function DataExport() {
           <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm leading-6 text-cyan-100">
             <div className="mb-2 flex items-center gap-2 font-bold"><CheckCircle2 size={16} />Backup uploaded</div>
             <p className="break-all text-cyan-50/90">{uploadResult.fileName}</p>
-            <p className="mt-2 text-cyan-50/80">Applied {uploadResult.appliedCount} local item{uploadResult.appliedCount === 1 ? "" : "s"}.</p>
+            <p className="mt-2 text-cyan-50/80">Applied {uploadResult.summary?.totalApplied || 0} local item{uploadResult.summary?.totalApplied === 1 ? "" : "s"}.</p>
+            <p className="mt-2 text-cyan-50/70">
+              Local keys: {uploadResult.summary?.restoredLocalStorageKeys || 0} · Session keys: {uploadResult.summary?.restoredSessionStorageKeys || 0} · IndexedDB records: {uploadResult.summary?.restoredIndexedDBRecords || 0}
+            </p>
+            {uploadResult.errors.length ? <p className="mt-2 text-amber-100">Some restore warnings were recorded. Reload first, then review any missing data.</p> : null}
             <p className="mt-2 text-cyan-50/70">{uploadResult.note}</p>
             <button type="button" onClick={() => window.location.reload()} className="mt-3 w-full rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950">Reload CLARA now</button>
           </div>
