@@ -1,0 +1,25 @@
+{
+  "name": "clara-account-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "migrate": "node src/database/migrate.js",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/rate-limit": "^10.2.0",
+    "argon2": "^0.41.1",
+    "fastify": "^5.2.0",
+    "pg": "^8.13.0",
+    "zod": "^3.24.0"
+  }
+}
