@@ -21,7 +21,7 @@ import {
   installClaraGuideCarouselStep,
 } from "./runtime/installClaraGuideCarouselStep";
 import { installClaraGuideSchedulePhaseRedirect } from "./runtime/claraGuideSchedulePhaseRedirect";
-import { installClaraGuideScheduleRuntime } from "./runtime/installClaraGuideScheduleRuntime";
+import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import App from "./App.jsx";
 import "./index.css";
