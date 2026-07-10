@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$ BEGIN
@@ -126,5 +124,3 @@ CREATE TABLE IF NOT EXISTS legacy_ios_access_links (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-COMMIT;
