@@ -43,13 +43,21 @@ function createLocalVaultId() {
 }
 
 async function verifyAndActivateVault({ vaultId, accountId, email }) {
+  const previousVaultId = getActiveLocalVaultId();
   setActiveLocalVaultId(vaultId);
-  await linkLocalVaultToAccount({
-    expectedVaultId: vaultId,
-    accountUserId: accountId,
-    accountEmail: email,
-  });
-  return vaultId;
+  try {
+    await linkLocalVaultToAccount({
+      expectedVaultId: vaultId,
+      accountUserId: accountId,
+      accountEmail: email,
+    });
+    return vaultId;
+  } catch (error) {
+    if (previousVaultId && previousVaultId !== vaultId) {
+      setActiveLocalVaultId(previousVaultId);
+    }
+    throw error;
+  }
 }
 
 export function getMappedLocalVaultId(accountId) {
