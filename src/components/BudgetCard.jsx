@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, KeyRound, Smartphone } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
@@ -7,6 +8,10 @@ import { useAuth } from "@/context/AuthContext";
 import { writeDeveloperMembershipPreview } from "@/lib/membership";
 import { getOrCreateLocalVaultId } from "@/lib/local-user-identity";
 import { resetLocalClaraJourney } from "@/lib/reset-local-clara-journey";
+import {
+  hasHiddenAdminSession,
+  verifyHiddenAdminPassword,
+} from "@/lib/ios-access-client";
 
 const BUDGET_GLOW_LAYERS = [
   "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-teal-300/[0.085] blur-[78px]",
@@ -54,9 +59,15 @@ export default function BudgetCard({
   onDeleteBudgetCategory,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshProfile } = useAuth();
   const cardRef = useRef(null);
   const [showPlanPreview, setShowPlanPreview] = useState(false);
+  const [showAdminPasswordPrompt, setShowAdminPasswordPrompt] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [adminPasswordError, setAdminPasswordError] = useState("");
+  const [verifyingAdminPassword, setVerifyingAdminPassword] = useState(false);
   const [resetError, setResetError] = useState("");
   const [isResettingJourney, setIsResettingJourney] = useState(false);
 
@@ -96,6 +107,33 @@ export default function BudgetCard({
     });
   };
 
+  const openProtectedHiddenAdmin = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setResetError("");
+    setAdminPasswordError("");
+
+    if (hasHiddenAdminSession()) {
+      setShowPlanPreview(true);
+      return;
+    }
+
+    setAdminPassword("");
+    setShowAdminPassword(false);
+    setShowAdminPasswordPrompt(true);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    if (params.get("hiddenAdmin") !== "1") return;
+
+    if (hasHiddenAdminSession()) {
+      setShowPlanPreview(true);
+    }
+
+    navigate("/dashboard", { replace: true });
+  }, [location.search, navigate]);
+
   useEffect(() => {
     const card = cardRef.current;
     if (!card) return undefined;
@@ -108,20 +146,13 @@ export default function BudgetCard({
 
     let lastTitleTapAt = 0;
 
-    const openPlanPreview = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setResetError("");
-      setShowPlanPreview(true);
-    };
-
     const handleTitleClick = (event) => {
       const now = Date.now();
       const clickedTwice = event.detail >= 2 || now - lastTitleTapAt <= 520;
       lastTitleTapAt = now;
 
       if (clickedTwice) {
-        openPlanPreview(event);
+        openProtectedHiddenAdmin(event);
       }
     };
 
@@ -134,6 +165,30 @@ export default function BudgetCard({
       titleNode.style.touchAction = "";
     };
   }, [expanded]);
+
+  const submitAdminPassword = async (event) => {
+    event.preventDefault();
+    if (verifyingAdminPassword) return;
+
+    if (!adminPassword) {
+      setAdminPasswordError("Enter the admin password.");
+      return;
+    }
+
+    setVerifyingAdminPassword(true);
+    setAdminPasswordError("");
+
+    try {
+      await verifyHiddenAdminPassword(adminPassword);
+      setAdminPassword("");
+      setShowAdminPasswordPrompt(false);
+      setShowPlanPreview(true);
+    } catch {
+      setAdminPasswordError("That password was not accepted.");
+    } finally {
+      setVerifyingAdminPassword(false);
+    }
+  };
 
   const applyPlanPreview = (value) => {
     setResetError("");
@@ -215,6 +270,73 @@ export default function BudgetCard({
         </FinanceCardShell>
       </div>
 
+      {showAdminPasswordPrompt && (
+        <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/70 px-4 pb-6 backdrop-blur-sm sm:items-center sm:pb-0">
+          <form
+            onSubmit={submitAdminPassword}
+            className="w-full max-w-sm overflow-hidden rounded-[28px] border border-cyan-100/14 bg-[linear-gradient(145deg,rgba(5,21,42,0.98),rgba(14,20,58,0.98)_52%,rgba(45,24,83,0.98))] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.55)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-100/15 bg-cyan-300/10 text-cyan-100">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <p className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">
+                  Protected Admin Area
+                </p>
+                <h3 className="mt-1 text-xl font-black text-white">Enter admin password</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdminPasswordPrompt(false)}
+                disabled={verifyingAdminPassword}
+                className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-bold text-white/70 disabled:opacity-45"
+              >
+                Close
+              </button>
+            </div>
+
+            <label className="mt-5 block space-y-2">
+              <span className="text-xs font-bold text-white/48">Password</span>
+              <div className="flex items-center gap-2 rounded-2xl border border-white/14 bg-black/20 px-3 focus-within:border-cyan-200/30">
+                <input
+                  type={showAdminPassword ? "text" : "password"}
+                  value={adminPassword}
+                  onChange={(event) => setAdminPassword(event.target.value)}
+                  autoComplete="current-password"
+                  disabled={verifyingAdminPassword}
+                  className="min-h-[52px] w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/25"
+                  placeholder="Admin password"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword((current) => !current)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white/55 transition hover:bg-white/8 hover:text-white"
+                  aria-label={showAdminPassword ? "Hide password" : "Show password"}
+                >
+                  {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </label>
+
+            {adminPasswordError ? (
+              <p className="mt-3 rounded-2xl border border-rose-200/15 bg-rose-400/10 px-3 py-2.5 text-xs font-semibold text-rose-100">
+                {adminPasswordError}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={verifyingAdminPassword || !adminPassword}
+              className="mt-4 w-full rounded-2xl bg-gradient-to-r from-cyan-300 to-emerald-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {verifyingAdminPassword ? "Verifying..." : "Open Admin Area"}
+            </button>
+          </form>
+        </div>
+      )}
+
       {showPlanPreview && (
         <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 px-4 pb-6 backdrop-blur-sm sm:items-center sm:pb-0">
           <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(7,44,54,0.96),rgba(19,20,63,0.98)_52%,rgba(58,28,101,0.96))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.48)]">
@@ -237,6 +359,23 @@ export default function BudgetCard({
                 Close
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/admin/ios-users")}
+              disabled={isResettingJourney}
+              className="mb-3 flex w-full items-center gap-3 rounded-2xl border border-cyan-200/18 bg-cyan-300/10 px-4 py-3 text-left text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-cyan-300/15 disabled:opacity-45"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/15 bg-cyan-300/10">
+                <Smartphone className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-black">iOS Users</span>
+                <span className="mt-1 block text-xs font-semibold leading-5 text-cyan-50/55">
+                  Manage all 20 iPhone PWA access codes.
+                </span>
+              </span>
+            </button>
 
             <div className="space-y-2">
               {PLAN_PREVIEW_OPTIONS.map((option) => (
