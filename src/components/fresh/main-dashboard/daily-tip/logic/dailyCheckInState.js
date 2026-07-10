@@ -64,13 +64,17 @@ export function createSimulationState(userId, todayKey, completedToday = false) 
 }
 
 function resolveChallengeStart(value, history) {
-  if (isValidDateKey(value?.challengeStartDay)) return value.challengeStartDay;
-  if (isValidDateKey(value?.cycleStartedAt)) return value.cycleStartedAt;
-  if (Boolean(value?.completedThirtyDays) && history.completedDates.length >= 30) {
-    return history.completedDates[Math.max(0, history.completedDates.length - 30)];
+  if (Boolean(value?.completedThirtyDays)) {
+    if (isValidDateKey(value?.challengeStartDay)) return value.challengeStartDay;
+    if (history.completedDates.length >= 30) {
+      return history.completedDates[Math.max(0, history.completedDates.length - 30)];
+    }
   }
-  if (isValidDateKey(value?.lastCheckInDay)) return value.lastCheckInDay;
-  if (isValidDateKey(value?.lastCheckInDate)) return value.lastCheckInDate;
+
+  if (history.currentStreak > 0 && isValidDateKey(history.cycleStartedAt)) {
+    return history.cycleStartedAt;
+  }
+
   return null;
 }
 
