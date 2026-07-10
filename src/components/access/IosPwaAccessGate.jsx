@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { KeyRound, ShieldCheck, Smartphone } from "lucide-react";
+import { Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import ClaraLogo from "@/components/ClaraLogo";
 import {
   canUseTemporaryIosOfflineAccess,
-  isIosStandalonePwa,
+  hasHiddenAdminSession,
+  isNativeAndroidApp,
   redeemIosAccessCode,
   validateIosAccessSession,
+  verifyHiddenAdminPassword,
 } from "@/lib/ios-access-client";
 
 function getFriendlyError(error) {
@@ -22,14 +25,20 @@ function getFriendlyError(error) {
 
 export default function IosPwaAccessGate({ children }) {
   const { user, profile } = useAuth();
-  const requiresAccessCode = useMemo(() => isIosStandalonePwa(), []);
+  const requiresAccessCode = useMemo(() => !isNativeAndroidApp(), []);
   const [status, setStatus] = useState(requiresAccessCode ? "checking" : "allowed");
-  const [code, setCode] = useState("");
+  const [credential, setCredential] = useState("");
+  const [showCredential, setShowCredential] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const validate = useCallback(async () => {
     if (!requiresAccessCode) {
+      setStatus("allowed");
+      return;
+    }
+
+    if (hasHiddenAdminSession()) {
       setStatus("allowed");
       return;
     }
@@ -57,12 +66,12 @@ export default function IosPwaAccessGate({ children }) {
     validate();
   }, [validate]);
 
-  const submitCode = async (event) => {
+  const submitCredential = async (event) => {
     event.preventDefault();
     if (submitting) return;
 
-    const normalizedCode = code.trim().toUpperCase();
-    if (!normalizedCode) {
+    const rawCredential = credential.trim();
+    if (!rawCredential) {
       setError("Enter your CLARA access code.");
       return;
     }
@@ -71,20 +80,33 @@ export default function IosPwaAccessGate({ children }) {
     setError("");
 
     try {
-      await redeemIosAccessCode({
-        code: normalizedCode,
-        userId: user?.id,
-        name:
-          profile?.full_name ||
-          user?.full_name ||
-          user?.user_metadata?.full_name ||
-          user?.email?.split("@")?.[0] ||
-          "iPhone user",
-        email: user?.email || "",
-      });
+      try {
+        await redeemIosAccessCode({
+          code: rawCredential.toUpperCase(),
+          userId: user?.id,
+          name:
+            profile?.full_name ||
+            user?.full_name ||
+            user?.user_metadata?.full_name ||
+            user?.email?.split("@")?.[0] ||
+            "Web user",
+          email: user?.email || "",
+        });
+      } catch (redeemError) {
+        if (redeemError?.code === "network_error") throw redeemError;
+
+        try {
+          await verifyHiddenAdminPassword(rawCredential);
+        } catch (adminError) {
+          if (adminError?.code === "network_error") throw adminError;
+          throw redeemError;
+        }
+      }
+
+      setCredential("");
       setStatus("allowed");
-    } catch (redeemError) {
-      setError(getFriendlyError(redeemError));
+    } catch (accessError) {
+      setError(getFriendlyError(accessError));
     } finally {
       setSubmitting(false);
     }
@@ -94,69 +116,97 @@ export default function IosPwaAccessGate({ children }) {
 
   if (status === "checking") {
     return (
-      <div className="theme-page-shell min-h-screen flex items-center justify-center px-5 text-white">
-        <div className="flex flex-col items-center gap-3 text-center">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050716] px-5 text-white">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#050716_0%,#070a1f_46%,#02030b_100%)]" />
+        <div className="relative flex flex-col items-center gap-3 text-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-cyan-300" />
-          <p className="text-sm font-semibold text-white/70">Checking iPhone access...</p>
+          <p className="text-sm font-semibold text-white/70">Checking CLARA access...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="theme-page-shell min-h-screen flex items-center justify-center px-4 py-8 text-white">
-      <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-cyan-200/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.18),transparent_46%),rgba(5,16,35,0.96)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-6">
-        <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-cyan-200/20 bg-cyan-300/10 text-cyan-100">
-          <Smartphone className="h-6 w-6" />
+    <div className="relative min-h-screen overflow-hidden bg-[#050716] text-white">
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#050716_0%,#070a1f_46%,#02030b_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,211,238,0.11)_0%,transparent_34%),linear-gradient(225deg,rgba(139,92,246,0.12)_0%,transparent_36%)]" />
+        <div className="absolute inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,rgba(59,130,246,0.15)_0%,transparent_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(0,0,0,0.74)_0%,transparent_100%)]" />
+        <div className="absolute inset-0 opacity-[0.045] [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
+      </div>
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:px-6">
+        <div className="mb-4 flex justify-center">
+          <ClaraLogo variant="icon" theme="dark" />
         </div>
 
-        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
-          iPhone Home Screen Access
-        </p>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Enter your CLARA code</h1>
-        <p className="mt-2 text-sm font-semibold leading-6 text-white/58">
-          This code activates the iPhone version of CLARA for your device.
-        </p>
+        <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(12,18,38,0.72)_0%,rgba(5,8,22,0.62)_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(56,189,248,0.08)_0%,transparent_44%),linear-gradient(225deg,rgba(167,139,250,0.08)_0%,transparent_44%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/45 to-transparent" />
 
-        <form onSubmit={submitCode} className="mt-6 space-y-4">
-          <label className="block space-y-2">
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">
-              Access code
-            </span>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/20 px-4 focus-within:border-cyan-200/35">
-              <KeyRound className="h-4 w-4 shrink-0 text-cyan-100/65" />
-              <input
-                value={code}
-                onChange={(event) => setCode(event.target.value.toUpperCase())}
-                placeholder="CLARA-XXXXXX"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck={false}
-                disabled={submitting}
-                className="min-h-14 w-full bg-transparent text-base font-black tracking-[0.12em] text-white outline-none placeholder:text-white/25 disabled:opacity-60"
-              />
-            </div>
-          </label>
+          <div className="relative p-5 sm:p-6">
+            <p className="text-sm leading-relaxed text-white/72">Access CLARA</p>
+            <h1 className="mt-1.5 text-[1.9rem] font-bold leading-tight text-white">
+              Enter your access code
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-white/58">
+              Use the CLARA access code provided to you.
+            </p>
 
-          {error ? (
-            <div className="rounded-2xl border border-rose-200/18 bg-rose-400/10 px-4 py-3 text-sm font-semibold leading-5 text-rose-100">
-              {error}
-            </div>
-          ) : null}
+            <form onSubmit={submitCredential} className="mt-6 space-y-4">
+              <label className="block space-y-2">
+                <span className="text-[13px] font-medium text-white/88">Access code</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/65" />
+                  <input
+                    type={showCredential ? "text" : "password"}
+                    value={credential}
+                    onChange={(event) => setCredential(event.target.value)}
+                    placeholder="Enter your CLARA code"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={submitting}
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,0,0,0.28)_0%,rgba(0,0,0,0.36)_100%)] pl-11 pr-14 text-sm text-white placeholder:text-white/26 outline-none transition duration-200 focus:border-cyan-300/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.13)] disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCredential((current) => !current)}
+                    disabled={submitting}
+                    className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35 disabled:cursor-not-allowed disabled:text-white/22"
+                    aria-label={showCredential ? "Hide access code" : "Show access code"}
+                  >
+                    {showCredential ? (
+                      <EyeOff className="h-[18px] w-[18px]" />
+                    ) : (
+                      <Eye className="h-[18px] w-[18px]" />
+                    )}
+                  </button>
+                </div>
+              </label>
 
-          <button
-            type="submit"
-            disabled={submitting || !code.trim()}
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-200 to-emerald-300 px-4 text-sm font-black text-slate-950 shadow-[0_16px_40px_rgba(34,211,238,0.22)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            {submitting ? "Checking code..." : "Activate CLARA"}
-          </button>
-        </form>
+              {error ? (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-relaxed text-red-200">
+                  {error}
+                </div>
+              ) : null}
 
-        <p className="mt-5 text-center text-[11px] font-semibold leading-5 text-white/38">
-          Android app users are not required to enter an iPhone access code.
-        </p>
+              <button
+                type="submit"
+                disabled={submitting || !credential.trim()}
+                className="group inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 px-4 text-sm font-semibold text-[#020617] shadow-[0_18px_42px_rgba(59,130,246,0.32)] transition duration-200 hover:scale-[0.995] hover:shadow-[0_22px_52px_rgba(139,92,246,0.34)] active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-none disabled:bg-white/10 disabled:text-white/35 disabled:shadow-none disabled:opacity-70"
+              >
+                <ShieldCheck className="h-[17px] w-[17px]" />
+                <span>{submitting ? "Checking access..." : "Continue to CLARA"}</span>
+              </button>
+            </form>
+
+            <p className="mt-5 text-center text-[11px] font-semibold leading-5 text-white/38">
+              Installed Android app access continues through Google Play.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
