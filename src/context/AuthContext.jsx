@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -59,16 +60,40 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState(() => buildLocalAuthState());
   const [loading, setLoading] = useState(false);
   const [authReady, setAuthReady] = useState(true);
+  const refreshPromiseRef = useRef(null);
+  const queuedRefreshRef = useRef(false);
 
   const refreshProfile = useCallback(async () => {
-    setLoading(true);
+    if (refreshPromiseRef.current) {
+      queuedRefreshRef.current = true;
+      return refreshPromiseRef.current;
+    }
+
+    const refreshPromise = (async () => {
+      setLoading(true);
+      try {
+        const next = buildLocalAuthState();
+        setState(next);
+        setAuthReady(true);
+        return next.profile;
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    refreshPromiseRef.current = refreshPromise;
     try {
-      const next = buildLocalAuthState();
-      setState(next);
-      setAuthReady(true);
-      return next.profile;
+      return await refreshPromise;
     } finally {
-      setLoading(false);
+      refreshPromiseRef.current = null;
+      if (queuedRefreshRef.current) {
+        queuedRefreshRef.current = false;
+        queueMicrotask(() => {
+          refreshProfile().catch((error) => {
+            console.error("[CLARA Auth] queued local profile refresh failed", error);
+          });
+        });
+      }
     }
   }, []);
 
@@ -94,9 +119,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
+    let refreshQueued = false;
     const refresh = () => {
-      refreshProfile().catch((error) => {
-        console.error("[CLARA Auth] local profile refresh failed", error);
+      if (refreshQueued) return;
+      refreshQueued = true;
+      queueMicrotask(() => {
+        refreshQueued = false;
+        refreshProfile().catch((error) => {
+          console.error("[CLARA Auth] local profile refresh failed", error);
+        });
       });
     };
     const handleStorage = (event) => {
@@ -109,6 +140,7 @@ export function AuthProvider({ children }) {
     window.addEventListener("clara-membership-preview-updated", refresh);
     window.addEventListener("clara:active-local-vault-updated", refresh);
     window.addEventListener("clara-local-journey-reset", refresh);
+    window.addEventListener("clara-data-restored", refresh);
     window.addEventListener("storage", handleStorage);
 
     return () => {
@@ -118,6 +150,7 @@ export function AuthProvider({ children }) {
       window.removeEventListener("clara-membership-preview-updated", refresh);
       window.removeEventListener("clara:active-local-vault-updated", refresh);
       window.removeEventListener("clara-local-journey-reset", refresh);
+      window.removeEventListener("clara-data-restored", refresh);
       window.removeEventListener("storage", handleStorage);
     };
   }, [refreshProfile]);
