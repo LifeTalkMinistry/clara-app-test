@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
+import IosPwaAccessGate from "@/components/access/IosPwaAccessGate";
 import useUserRole from "./hooks/useUserRole";
 import { deriveAccessState, resolveAppFlow } from "./lib/access-control";
 import {
@@ -13,6 +14,7 @@ import {
   isAccessSnapshotUsable,
 } from "./lib/offline-access-cache";
 import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
+import { hasHiddenAdminSession } from "./lib/ios-access-client";
 import Layout from "./components/Layout";
 import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
@@ -48,6 +50,7 @@ const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
 const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
+const IosUserAccess = lazy(() => import("./pages/admin/IosUserAccess"));
 const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
@@ -91,6 +94,14 @@ function GuardedRoute({
 
 function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
   return isAdmin ? children : <Navigate to={redirectTo} replace />;
+}
+
+function HiddenAdminRoute({ children }) {
+  return hasHiddenAdminSession() ? (
+    children
+  ) : (
+    <Navigate to="/dashboard" replace state={{ hiddenAdminUnauthorized: true }} />
+  );
 }
 
 function AdminRescueButton({ show }) {
@@ -211,6 +222,8 @@ function AppRoutes() {
     </AdminRoute>
   );
 
+  const hiddenAdmin = (children) => <HiddenAdminRoute>{children}</HiddenAdminRoute>;
+
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
@@ -266,6 +279,7 @@ function AppRoutes() {
                     <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
                     <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
                     <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
+                    <Route path="/admin/ios-users" element={hiddenAdmin(<IosUserAccess />)} />
                     <Route path="*" element={<PageNotFound />} />
                   </Routes>
                 </Layout>
@@ -283,11 +297,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <>
+    <IosPwaAccessGate>
       <AppRoutes />
       <ThemePicker />
       <Toaster />
-    </>
+    </IosPwaAccessGate>
   );
 }
 
