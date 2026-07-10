@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, KeyRound, Smartphone } from "lucide-react";
+import { Eye, EyeOff, KeyRound, UsersRound } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
@@ -362,17 +362,17 @@ export default function BudgetCard({
 
             <button
               type="button"
-              onClick={() => navigate("/admin/ios-users")}
+              onClick={() => navigate("/admin/users")}
               disabled={isResettingJourney}
               className="mb-3 flex w-full items-center gap-3 rounded-2xl border border-cyan-200/18 bg-cyan-300/10 px-4 py-3 text-left text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-cyan-300/15 disabled:opacity-45"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/15 bg-cyan-300/10">
-                <Smartphone className="h-4 w-4" />
+                <UsersRound className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-black">iOS Users</span>
+                <span className="block text-sm font-black">CLARA User Management</span>
                 <span className="mt-1 block text-xs font-semibold leading-5 text-cyan-50/55">
-                  Manage all 20 iPhone PWA access codes.
+                  Manage every iPhone, Android, and web account.
                 </span>
               </span>
             </button>

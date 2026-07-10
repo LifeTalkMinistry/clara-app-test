@@ -1,0 +1,118 @@
+name: Universal CLARA Accounts
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [implement/universal-clara-accounts]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee frontend-test.log
+      - id: lint
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee frontend-lint.log
+      - id: web
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:web 2>&1 | tee frontend-build-web.log
+      - id: android
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:android 2>&1 | tee frontend-build-android.log
+      - name: Upload frontend verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-account-frontend-logs
+          path: frontend-*.log
+          if-no-files-found: error
+      - name: Enforce frontend verification
+        if: always()
+        run: |
+          if [ "${{ steps.tests.outcome }}" != "success" ] || \
+             [ "${{ steps.lint.outcome }}" != "success" ] || \
+             [ "${{ steps.web.outcome }}" != "success" ] || \
+             [ "${{ steps.android.outcome }}" != "success" ]; then
+            exit 1
+          fi
+
+  account-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clara
+          POSTGRES_PASSWORD: clara_test
+          POSTGRES_DB: clara_accounts_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://clara:clara_test@localhost:5432/clara_accounts_test
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee account-api-test.log
+      - id: syntax
+        continue-on-error: true
+        run: |
+          node --check src/app.js
+          node --check src/index.js
+          node --check src/database/migrate.js
+        shell: bash
+      - name: Upload account API verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-account-api-logs
+          path: server/account-api-test.log
+          if-no-files-found: error
+      - name: Enforce account API verification
+        if: always()
+        run: |
+          if [ "${{ steps.tests.outcome }}" != "success" ] || \
+             [ "${{ steps.syntax.outcome }}" != "success" ]; then
+            exit 1
+          fi
