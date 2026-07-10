@@ -33,14 +33,24 @@ Account login is not financial-data backup. Reinstalling CLARA does not restore 
 
 7. Add the exact production frontend origins to `CLARA_ALLOWED_ORIGINS`.
 8. Rebuild and deploy the GitHub Pages frontend and Android wrapper.
+9. Verify signup, refresh-cookie persistence, administrator login, and logout on a real iPhone PWA and Android installation before promoting the login gate to production.
 
 Until `VITE_CLARA_ACCOUNT_API_URL` is configured, production login remains visibly disabled. The frontend never falls back to a local fake global account database.
 
 ## Cookie and origin requirements
 
-The API uses a short-lived access token in frontend memory and a rotating refresh credential in an HttpOnly cookie. Production must use HTTPS. For the GitHub Pages/PWA origin, the cookie uses `SameSite=None; Secure`; the API must return credentialed CORS headers only for exact approved origins.
+The API uses a short-lived access token in frontend memory and a rotating refresh credential in an HttpOnly cookie. Production must use HTTPS. Credentialed CORS must allow only exact approved origins; never use `*`.
 
-Android Capacitor origins such as `capacitor://localhost` and local development origins must be explicitly listed when applicable. Do not use a wildcard CORS origin with credentials.
+For reliable iPhone PWA persistence, use same-site production hostnames whenever possible, for example:
+
+```text
+https://app.clara.example
+https://accounts.clara.example
+```
+
+A GitHub Pages origin calling an unrelated API domain requires `SameSite=None; Secure` and may still be affected by browser third-party-cookie restrictions. Do not claim iPhone persistence is production-verified until it has been tested on the final hostnames. A CLARA custom domain for the frontend plus a sibling API subdomain is the safer production arrangement.
+
+Android Capacitor origins such as `capacitor://localhost` and local development origins must be explicitly listed when applicable. Verify cookie persistence in the final Capacitor WebView build. No database credentials, administrator secrets, or reusable user passwords belong in Capacitor storage.
 
 ## Legacy iPhone access records
 
@@ -89,7 +99,7 @@ TRUST_PROXY
 
 Secrets must be supplied through the deployment platform. Do not commit production values.
 
-## Local verification
+## Verification
 
 Frontend:
 
@@ -110,4 +120,4 @@ npm --prefix server run migrate
 npm --prefix server start
 ```
 
-A real database is required for migration and endpoint integration verification. The pure security and membership tests do not require a database.
+The `Universal CLARA Accounts` GitHub Actions workflow provisions PostgreSQL 16 and runs the migration and endpoint integration suite against a real temporary database. A production database and final hosting origins are still required for deployment verification.
