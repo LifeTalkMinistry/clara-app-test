@@ -21,7 +21,7 @@ function compactSettingsOverview(overviewRoot) {
   if (!overviewRoot) return;
 
   overviewRoot.classList.add(COMPACT_OVERVIEW_CLASS);
-  overviewRoot.style.marginTop = "-20px";
+  overviewRoot.style.marginTop = "-8px";
   overviewRoot.style.paddingBottom = "8px";
 
   [...overviewRoot.querySelectorAll(":scope > section")].forEach((section) => {
