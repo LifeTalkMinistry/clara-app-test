@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import {
+  addLocalDays,
   getEligibleDayKey,
   isValidDateKey,
 } from "../src/lib/challenge-schedule.js";
@@ -113,20 +114,28 @@ test("stale stored currentStreak cannot override event history", () => {
   assert.equal(state.currentStreak, 3);
 });
 
-test("calendar challenge advances even when streak resets", () => {
-  const state = normalizeState({
-    challengeStartDay: TWO_DAYS_AGO,
-    checkInEvents: [event("calendar-user", TWO_DAYS_AGO), event("calendar-user", TODAY)],
-  }, "calendar-user", TODAY);
+test("missed day starts a new challenge cycle on the next check-in", () => {
+  const result = performDailyCheckIn({
+    value: {
+      challengeStartDay: TWO_DAYS_AGO,
+      checkInEvents: [event("cycle-user", TWO_DAYS_AGO)],
+    },
+    userId: "cycle-user",
+    todayKey: TODAY,
+    persist: (nextState) => ({ ok: true, state: nextState }),
+  });
 
-  assert.equal(state.challengeCurrentDay, 3);
-  assert.equal(state.completedCheckInDays, 2);
-  assert.equal(state.currentStreak, 1);
-  const metrics = deriveChallengeMetrics(state, TODAY);
-  assert.equal(metrics.challengeDay, 3);
+  assert.equal(result.status, "completed");
+  assert.equal(result.state.challengeStartDay, TODAY);
+  assert.equal(result.state.challengeCurrentDay, 1);
+  assert.equal(result.state.completedCheckInDays, 1);
+  assert.equal(result.state.currentStreak, 1);
+  assert.deepEqual(result.state.completedDates, [TWO_DAYS_AGO, TODAY]);
+
+  const metrics = deriveChallengeMetrics(result.state, TODAY);
+  assert.equal(metrics.challengeDay, 1);
   assert.equal(metrics.challengeDotStates[0].completed, true);
-  assert.equal(metrics.challengeDotStates[1].completed, false);
-  assert.equal(metrics.challengeDotStates[2].completed, true);
+  assert.equal(metrics.challengeDotStates[1].future, true);
 });
 
 test("genuine missed day records reset once and preserves history", () => {
@@ -143,15 +152,51 @@ test("genuine missed day records reset once and preserves history", () => {
   const first = validateState(initial, "user-5", TODAY);
   assert.equal(first.changed, true);
   assert.equal(first.state.currentStreak, 0);
-  assert.equal(first.state.challengeCurrentDay, 5);
+  assert.equal(first.state.challengeStartDay, null);
+  assert.equal(first.state.challengeCurrentDay, 0);
+  assert.equal(first.state.completedCheckInDays, 0);
   assert.equal(first.state.completedDates.length, 3);
   assert.equal(first.state.longestStreak, 5);
   assert.equal(first.state.lifetimeCheckIns, 9);
   assert.equal(first.state.pendingBubble.type, "streak_reset");
 
+  const metrics = deriveChallengeMetrics(first.state, TODAY);
+  assert.equal(metrics.challengeDay, 1);
+
   const second = validateState(first.state, "user-5", TODAY);
   assert.equal(second.changed, false);
   assert.equal(second.state.pendingBubble.id, first.state.pendingBubble.id);
+});
+
+test("day 30 completes only after the thirtieth consecutive check-in", () => {
+  const startDay = addLocalDays(TODAY, -29);
+  const firstTwentyNine = Array.from({ length: 29 }, (_, index) =>
+    event("thirty-user", addLocalDays(startDay, index)),
+  );
+  const before = normalizeState({
+    challengeStartDay: startDay,
+    checkInEvents: firstTwentyNine,
+  }, "thirty-user", TODAY);
+
+  assert.equal(before.currentStreak, 29);
+  assert.equal(before.challengeCurrentDay, 30);
+  assert.equal(before.completedCheckInDays, 29);
+  assert.equal(before.challengeStatus, "active");
+  assert.equal(before.completedThirtyDays, false);
+
+  const result = performDailyCheckIn({
+    value: before,
+    userId: "thirty-user",
+    todayKey: TODAY,
+    persist: (nextState) => ({ ok: true, state: nextState }),
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.state.currentStreak, 30);
+  assert.equal(result.state.completedCheckInDays, 30);
+  assert.equal(result.state.challengeStatus, "completed");
+  assert.equal(result.state.completedThirtyDays, true);
+  assert.equal(result.milestoneType, "streak_30_completed");
 });
 
 test("successful v3 persistence restores the same state after reload", () => {
