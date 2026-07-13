@@ -86,6 +86,7 @@ export function normalizeState(value, userId, todayKey) {
     state: {
       ...(value || {}),
       challengeStartDay,
+      cycleStartedAt: challengeStartDay,
       completedDates: history.completedDates,
     },
     todayKey,
