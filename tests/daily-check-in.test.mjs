@@ -16,6 +16,7 @@ import {
   deriveChallengeMetrics,
 } from "../src/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInEngine.js";
 import {
+  UPDATE_EVENT,
   clearDailyCheckInState,
   legacyStorageKey,
   loadState,
@@ -47,12 +48,13 @@ class MemoryStorage {
 }
 
 const localStorage = new MemoryStorage();
+const dispatchedEvents = [];
 globalThis.CustomEvent = class CustomEvent {
   constructor(type, init = {}) { this.type = type; this.detail = init.detail; }
 };
 globalThis.window = {
   localStorage,
-  dispatchEvent() {},
+  dispatchEvent(eventValue) { dispatchedEvents.push(eventValue); },
 };
 
 function event(userId, eligibleDay) {
@@ -114,6 +116,21 @@ test("stale stored currentStreak cannot override event history", () => {
   assert.equal(state.currentStreak, 3);
 });
 
+test("the next eligible day shows day 2 before the second check-in", () => {
+  const state = normalizeState({
+    challengeStartDay: YESTERDAY,
+    checkInEvents: [event("day-two-user", YESTERDAY)],
+  }, "day-two-user", TODAY);
+  const metrics = deriveChallengeMetrics(state, TODAY);
+
+  assert.equal(state.currentStreak, 1);
+  assert.equal(state.challengeCurrentDay, 2);
+  assert.equal(metrics.challengeDay, 2);
+  assert.equal(metrics.checkedInToday, false);
+  assert.equal(metrics.challengeDotStates[0].completed, true);
+  assert.equal(metrics.challengeDotStates[1].today, true);
+});
+
 test("missed day starts a new challenge cycle on the next check-in", () => {
   const result = performDailyCheckIn({
     value: {
@@ -168,6 +185,62 @@ test("genuine missed day records reset once and preserves history", () => {
   assert.equal(second.state.pendingBubble.id, first.state.pendingBubble.id);
 });
 
+test("stale Day 8 persisted state self-heals to Day 1 without deleting history", () => {
+  localStorage.clear();
+  const userId = "stale-cycle-user";
+  const oldCycleDay = addLocalDays(TODAY, -7);
+  const resetBubble = {
+    id: `streak_reset:${TODAY}:1:legacy`,
+    type: "streak_reset",
+    previousStreak: 1,
+    streakCount: 1,
+    createdAt: `${TODAY}T07:00:00.000Z`,
+  };
+
+  localStorage.setItem(storageKey(userId), JSON.stringify({
+    version: 3,
+    userId,
+    challengeStartDay: oldCycleDay,
+    cycleStartedAt: oldCycleDay,
+    challengeCurrentDay: 8,
+    challengeStatus: "active",
+    completedCheckInDays: 1,
+    currentStreak: 1,
+    longestStreak: 4,
+    lifetimeCheckIns: 9,
+    checkInEvents: [event(userId, oldCycleDay)],
+    completedDates: [oldCycleDay],
+    pendingBubble: resetBubble,
+    updatedAt: `${oldCycleDay}T08:00:00.000Z`,
+  }));
+
+  const loaded = loadState(userId, TODAY);
+  const metrics = deriveChallengeMetrics(loaded, TODAY);
+
+  assert.equal(loaded.currentStreak, 0);
+  assert.equal(loaded.challengeStartDay, null);
+  assert.equal(loaded.challengeCurrentDay, 0);
+  assert.equal(loaded.challengeStatus, "not_started");
+  assert.equal(metrics.challengeDay, 1);
+  assert.deepEqual(loaded.completedDates, [oldCycleDay]);
+  assert.equal(loaded.longestStreak, 4);
+  assert.equal(loaded.lifetimeCheckIns, 9);
+  assert.equal(loaded.pendingBubble.type, "streak_reset");
+  assert.equal(loaded.pendingBubble.previousStreak, 1);
+
+  const persisted = JSON.parse(localStorage.getItem(storageKey(userId)));
+  assert.equal(persisted.currentStreak, 0);
+  assert.equal(persisted.challengeStartDay, null);
+  assert.equal(persisted.challengeCurrentDay, 0);
+  assert.equal(persisted.challengeStatus, "not_started");
+  assert.deepEqual(persisted.completedDates, [oldCycleDay]);
+  assert.equal(persisted.pendingBubble.previousStreak, 1);
+
+  const reloaded = loadState(userId, TODAY);
+  assert.equal(reloaded.challengeStartDay, null);
+  assert.equal(deriveChallengeMetrics(reloaded, TODAY).challengeDay, 1);
+});
+
 test("day 30 completes only after the thirtieth consecutive check-in", () => {
   const startDay = addLocalDays(TODAY, -29);
   const firstTwentyNine = Array.from({ length: 29 }, (_, index) =>
@@ -210,6 +283,26 @@ test("successful v3 persistence restores the same state after reload", () => {
   assert.equal(reloaded.challengeCurrentDay, 3);
   assert.deepEqual(reloaded.completedDates, result.state.completedDates);
   assert.equal(reloaded.lastCheckInDay, result.state.lastCheckInDay);
+});
+
+test("successful writes emit the normalized state to local consumers", () => {
+  localStorage.clear();
+  dispatchedEvents.length = 0;
+
+  const result = writeState(
+    "sync-user",
+    { challengeStartDay: YESTERDAY, checkInEvents: [event("sync-user", YESTERDAY)] },
+    "sync-test",
+    TODAY,
+  );
+  const updateEvent = dispatchedEvents.at(-1);
+
+  assert.equal(result.ok, true);
+  assert.equal(updateEvent.type, UPDATE_EVENT);
+  assert.equal(updateEvent.detail.userId, "sync-user");
+  assert.equal(updateEvent.detail.reason, "sync-test");
+  assert.equal(updateEvent.detail.state.currentStreak, 1);
+  assert.equal(updateEvent.detail.state.challengeCurrentDay, 2);
 });
 
 test("persistence failure returns storage_error and does not show success", () => {
