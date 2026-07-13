@@ -32,6 +32,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run regression tests
+        run: npm test
+
+      - name: Stamp web build
+        run: |
+          printf '{"commit":"%s","builtAt":"%s"}\n' \
+            "$GITHUB_SHA" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > public/build-info.json
+
       - name: Build GitHub Pages app
         run: npm run build:web
         env:
