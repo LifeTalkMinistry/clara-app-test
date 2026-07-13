@@ -21,9 +21,11 @@ export function legacyStorageKey(userId) {
 
 export function loadState(userId, todayKey) {
   const resolvedUserId = normalizeUserId(userId);
-  const stored = safeParse(safeGet(storageKey(resolvedUserId)));
+  const rawStored = safeGet(storageKey(resolvedUserId));
+  const stored = safeParse(rawStored);
   if (stored) {
     const normalized = normalizeState(stored, resolvedUserId, todayKey);
+    persistNormalizedSnapshot(resolvedUserId, rawStored, normalized);
     memoryStateByUser.set(resolvedUserId, normalized);
     return normalized;
   }
@@ -37,6 +39,16 @@ export function loadState(userId, todayKey) {
   const emptyState = createEmptyState(resolvedUserId);
   memoryStateByUser.set(resolvedUserId, emptyState);
   return emptyState;
+}
+
+function persistNormalizedSnapshot(userId, rawStored, normalizedState) {
+  // State can be loaded during React initialization, so repair storage quietly.
+  const normalizedSerialized = JSON.stringify(normalizedState);
+  if (rawStored === normalizedSerialized) return;
+
+  if (!safeSet(storageKey(userId), normalizedSerialized)) {
+    console.warn("[CLARA Daily Check-In] Unable to persist a normalized state snapshot.");
+  }
 }
 
 export function writeState(userId, value, reason, todayKey = getEligibleDayKey(), expectedEvent = null) {
