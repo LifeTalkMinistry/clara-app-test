@@ -16,39 +16,51 @@ const mobileMarker =
   "/* Android WebView onboarding: keep the shell as the single vertical scroll owner. */";
 const mobileScrollCss = indexCss.slice(indexCss.indexOf(mobileMarker));
 
+function getRuleBody(source, selector) {
+  const selectorIndex = source.indexOf(selector);
+  assert.notEqual(selectorIndex, -1, `Missing selector: ${selector}`);
+
+  const openBraceIndex = source.indexOf("{", selectorIndex);
+  const closeBraceIndex = source.indexOf("}", openBraceIndex);
+  assert.notEqual(openBraceIndex, -1, `Missing opening brace for: ${selector}`);
+  assert.notEqual(closeBraceIndex, -1, `Missing closing brace for: ${selector}`);
+
+  return source.slice(openBraceIndex + 1, closeBraceIndex);
+}
+
 test("mobile Universal Onboarding has exactly one vertical scroll owner", () => {
   assert.notEqual(indexCss.indexOf(mobileMarker), -1);
-  assert.match(
+
+  const outerRule = getRuleBody(
     mobileScrollCss,
-    /#root \.clara-universal-onboarding \{[\s\S]*?overflow:\s*hidden !important;/
+    "#root .clara-universal-onboarding"
   );
-  assert.match(
+  const shellRule = getRuleBody(
     mobileScrollCss,
-    /#root \.clara-universal-onboarding-shell \{[\s\S]*?overflow-x:\s*hidden !important;[\s\S]*?overflow-y:\s*auto !important;/
+    "#root .clara-universal-onboarding-shell"
   );
-  assert.match(
-    mobileScrollCss,
-    /max-height:\s*calc\(100dvh - 24px\) !important;/
-  );
-  assert.doesNotMatch(
-    mobileScrollCss,
-    /\.clara-universal-onboarding-shell \{[\s\S]*?overflow:\s*visible !important;/
-  );
-  assert.doesNotMatch(
-    mobileScrollCss,
-    /\.clara-universal-onboarding \{[\s\S]*?overflow-y:\s*auto !important;/
-  );
+
+  assert.match(outerRule, /overflow:\s*hidden !important;/);
+  assert.doesNotMatch(outerRule, /overflow-y:\s*auto !important;/);
+
+  assert.match(shellRule, /overflow-x:\s*hidden !important;/);
+  assert.match(shellRule, /overflow-y:\s*auto !important;/);
+  assert.match(shellRule, /max-height:\s*calc\(100dvh - 24px\) !important;/);
+  assert.doesNotMatch(shellRule, /overflow:\s*visible !important;/);
 });
 
 test("vertical panning is allowed from every onboarding option descendant", () => {
+  const shellRule = getRuleBody(
+    mobileScrollCss,
+    "#root .clara-universal-onboarding-shell"
+  );
+
   assert.match(
     mobileScrollCss,
     /#root \.clara-universal-onboarding-screen,[\s\S]*?#root \.clara-universal-onboarding-option,[\s\S]*?#root \.clara-universal-onboarding-option \* \{[\s\S]*?touch-action:\s*pan-y;/
   );
-  assert.match(
-    mobileScrollCss,
-    /\.clara-universal-onboarding-shell \{[\s\S]*?overscroll-behavior-y:\s*contain;[\s\S]*?-webkit-overflow-scrolling:\s*touch;/
-  );
+  assert.match(shellRule, /overscroll-behavior-y:\s*contain;/);
+  assert.match(shellRule, /-webkit-overflow-scrolling:\s*touch;/);
 });
 
 test("Universal Onboarding isolates the dashboard document lock while mounted", () => {
@@ -65,10 +77,7 @@ test("Universal Onboarding isolates the dashboard document lock while mounted", 
     /root\.classList\.toggle\(UNIVERSAL_ONBOARDING_ROUTE_CLASS, isMounted\)/
   );
   assert.match(isolationRuntime, /new MutationObserver\(queueSync\)/);
-  assert.match(
-    isolationRuntime,
-    /attributeFilter:\s*\["class"\]/
-  );
+  assert.match(isolationRuntime, /attributeFilter:\s*\["class"\]/);
   assert.match(
     runtimeRegistry,
     /import "\.\/installUniversalOnboardingScrollIsolation";/
@@ -81,8 +90,5 @@ test("screen changes reset the active shell scroll container", () => {
     onboardingSource,
     /onboardingShellRef\.current\?\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)/
   );
-  assert.match(
-    onboardingSource,
-    /sm:h-\[calc\(100dvh-48px\)\]/
-  );
+  assert.match(onboardingSource, /sm:h-\[calc\(100dvh-48px\)\]/);
 });
