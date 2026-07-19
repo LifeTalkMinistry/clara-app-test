@@ -1,0 +1,57 @@
+name: Verify Universal Onboarding Scroll
+
+on:
+  pull_request:
+    paths:
+      - "src/index.css"
+      - "src/runtime/installUniversalOnboardingScrollIsolation.js"
+      - "src/runtime/installClaraRuntimePatches.js"
+      - "src/pages/onboarding/UniversalOnboarding.jsx"
+      - "tests/universal-onboarding-scroll.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "capacitor.config.json"
+      - ".github/workflows/verify-universal-onboarding-scroll.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VITE_CLARA_RUNTIME_MODE: local_only
+      VITE_CLARA_AUTH_ENABLED: "false"
+      VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run regression suite
+        run: npm test
+
+      - name: Lint scroll isolation runtime
+        run: npx eslint src/runtime/installUniversalOnboardingScrollIsolation.js
+
+      - name: Build Android web bundle
+        run: npm run build:android
+
+      - name: Sync Capacitor Android assets
+        run: npx cap sync android
+
+      - name: Verify generated Android assets
+        run: |
+          grep -R "clara-universal-onboarding-route" android/app/src/main/assets/public
+          grep -R "overscroll-behavior-y:contain" android/app/src/main/assets/public
+          grep -R "clara-universal-onboarding-option" android/app/src/main/assets/public
