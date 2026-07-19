@@ -261,11 +261,24 @@ body::after {
   margin-right: 104px !important;
 }
 
-/* Android WebView onboarding: use one native page scroll instead of a fixed nested scroller. */
+/* Android WebView onboarding: keep the shell as the single vertical scroll owner. */
 @media (max-width: 640px) {
   #root .clara-universal-onboarding {
-    height: auto !important;
+    height: 100dvh !important;
     min-height: 100dvh !important;
+    overflow: hidden !important;
+    touch-action: pan-y;
+  }
+
+  #root .clara-universal-onboarding > .relative {
+    height: 100dvh !important;
+    min-height: 0 !important;
+  }
+
+  #root .clara-universal-onboarding-shell {
+    height: calc(100dvh - 24px) !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 24px) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior-y: contain;
@@ -273,22 +286,9 @@ body::after {
     -webkit-overflow-scrolling: touch;
   }
 
-  #root .clara-universal-onboarding > .relative {
-    height: auto !important;
-    min-height: 100dvh !important;
-  }
-
-  #root .clara-universal-onboarding-shell {
-    height: auto !important;
-    min-height: calc(100dvh - 24px) !important;
-    max-height: none !important;
-    overflow: visible !important;
-    overscroll-behavior-y: auto !important;
-    touch-action: pan-y;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #root .clara-universal-onboarding-option {
+  #root .clara-universal-onboarding-screen,
+  #root .clara-universal-onboarding-option,
+  #root .clara-universal-onboarding-option * {
     touch-action: pan-y;
   }
 }

@@ -14,6 +14,9 @@
 // Media playback runtime
 import "./installSoundTouchFeedbackBridge";
 
+// Route-level scroll ownership
+import "./installUniversalOnboardingScrollIsolation";
+
 // Core memory runtime
 import "../clara-memory-bridge";
 
