@@ -24,60 +24,159 @@ import {
 import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
 import { migrateLegacyLocalIdentityStorage } from "@/lib/local-identity-storage-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
+import { linkLocalVaultToAccount } from "@/lib/accountLinking/linkLocalVaultToAccount";
+import {
+  clearBackendSession,
+  createClaraBackendAccount,
+  fetchCurrentBackendUser,
+  getStoredBackendToken,
+  isBackendNetworkError,
+  restoreClaraBackendSession,
+  signInWithClaraBackend,
+  signOutFromClaraBackend,
+} from "@/lib/clara-backend-client";
 
 const AuthContext = createContext(null);
 
-function buildLocalAuthState() {
+function emptyState() {
+  return {
+    serverUser: null,
+    user: null,
+    session: null,
+    profile: null,
+    entitlement: null,
+    enrollment: null,
+    localUserId: null,
+    offline: false,
+  };
+}
+
+async function buildAuthenticatedState({ serverUser, token, offline = false }) {
+  if (!serverUser?.id || !token) {
+    throw new Error("CLARA returned an incomplete account session.");
+  }
+
   const localUserId = getOrCreateLocalVaultId();
-  const account = getLocalAccountProfile(localUserId);
-  const user = buildLocalAuthUser(localUserId, account);
+  await linkLocalVaultToAccount({
+    expectedVaultId: localUserId,
+    accountUserId: String(serverUser.id),
+    accountEmail: serverUser.email,
+  });
+
+  const localAccount = getLocalAccountProfile(localUserId);
+  const localIdentity = buildLocalAuthUser(localUserId, localAccount);
+  const displayName = String(serverUser.name || localIdentity.display_name || "CLARA User").trim();
+  const role = String(serverUser.role || "user").trim().toLowerCase() || "user";
+  const user = {
+    ...localIdentity,
+    id: localUserId,
+    account_id: String(serverUser.id),
+    server_user_id: String(serverUser.id),
+    local_vault_id: localUserId,
+    email: serverUser.email || null,
+    display_name: displayName,
+    full_name: displayName,
+    role,
+    is_local_user: false,
+    created_at: serverUser.created_at || null,
+    user_metadata: {
+      ...localIdentity.user_metadata,
+      full_name: displayName,
+      name: displayName,
+      display_name: displayName,
+      role,
+      account_id: String(serverUser.id),
+    },
+  };
+
   const entitlement = getLocalGooglePlayEntitlement(localUserId);
   const entitlementProfile = deriveLocalMembershipProfile(entitlement);
-  const profile = buildLocalMembershipProfile(user, account, entitlementProfile);
+  const profile = {
+    ...buildLocalMembershipProfile(user, localAccount, entitlementProfile),
+    id: localUserId,
+    account_id: String(serverUser.id),
+    email: serverUser.email || null,
+    display_name: displayName,
+    full_name: displayName,
+    role,
+    is_local_user: false,
+    offline_access: offline,
+  };
   const enrollment = toLocalEnrollment(entitlement);
   const session = {
-    access_token: null,
+    access_token: token,
     refresh_token: null,
-    token_type: "local",
-    expires_at: null,
+    token_type: "Bearer",
     user,
-    is_local_session: true,
+    offline,
   };
 
   saveAccessSnapshot({
     user,
     profile,
     enrollment,
-    accessState: { role: "user", plan: profile.plan || "free" },
+    accessState: { role, plan: profile.plan || "free" },
     flow: "normal",
     currentPath: "/dashboard",
   });
 
-  return { localUserId, user, profile, entitlement, enrollment, session };
+  return {
+    serverUser,
+    user,
+    session,
+    profile,
+    entitlement,
+    enrollment,
+    localUserId,
+    offline,
+  };
 }
 
 export function AuthProvider({ children }) {
-  const [state, setState] = useState(() => buildLocalAuthState());
-  const [loading, setLoading] = useState(false);
-  const [authReady, setAuthReady] = useState(true);
+  const [state, setState] = useState(emptyState);
+  const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const refreshPromiseRef = useRef(null);
-  const queuedRefreshRef = useRef(false);
+
+  const applyBackendSession = useCallback(async ({ token, user, offline = false }) => {
+    const next = await buildAuthenticatedState({ serverUser: user, token, offline });
+    setState(next);
+    return next;
+  }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (refreshPromiseRef.current) {
-      queuedRefreshRef.current = true;
-      return refreshPromiseRef.current;
-    }
+    if (!state.user) return null;
+    if (refreshPromiseRef.current) return refreshPromiseRef.current;
 
     const refreshPromise = (async () => {
-      setLoading(true);
+      const token = getStoredBackendToken();
+      if (!token) {
+        setState(emptyState());
+        return null;
+      }
+
       try {
-        const next = buildLocalAuthState();
-        setState(next);
-        setAuthReady(true);
+        const serverUser = await fetchCurrentBackendUser(token);
+        const next = await applyBackendSession({ token, user: serverUser, offline: false });
         return next.profile;
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        if (isBackendNetworkError(error)) {
+          setState((current) => ({
+            ...current,
+            offline: true,
+            session: current.session ? { ...current.session, offline: true } : null,
+            profile: current.profile ? { ...current.profile, offline_access: true } : null,
+          }));
+          return state.profile;
+        }
+
+        if (error?.status === 401 || error?.status === 403) {
+          clearBackendSession();
+          setState(emptyState());
+          return null;
+        }
+
+        throw error;
       }
     })();
 
@@ -86,82 +185,142 @@ export function AuthProvider({ children }) {
       return await refreshPromise;
     } finally {
       refreshPromiseRef.current = null;
-      if (queuedRefreshRef.current) {
-        queuedRefreshRef.current = false;
-        queueMicrotask(() => {
-          refreshProfile().catch((error) => {
-            console.error("[CLARA Auth] queued local profile refresh failed", error);
-          });
-        });
-      }
     }
+  }, [applyBackendSession, state.profile, state.user]);
+
+  const signIn = useCallback(
+    async ({ email, password }) => {
+      setLoading(true);
+      try {
+        const session = await signInWithClaraBackend({ email, password });
+        try {
+          return await applyBackendSession(session);
+        } catch (error) {
+          signOutFromClaraBackend();
+          throw error;
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [applyBackendSession]
+  );
+
+  const signUp = useCallback(
+    async ({ email, password, fullName, name }) => {
+      setLoading(true);
+      try {
+        const session = await createClaraBackendAccount({
+          name: name || fullName,
+          email,
+          password,
+        });
+        try {
+          return await applyBackendSession(session);
+        } catch (error) {
+          signOutFromClaraBackend();
+          throw error;
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [applyBackendSession]
+  );
+
+  const signOut = useCallback(async () => {
+    signOutFromClaraBackend();
+    setState(emptyState());
   }, []);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      await migrateLocalVaultOwnership(state.localUserId);
-      await migrateLegacyLocalIdentityStorage(state.localUserId);
+      const localUserId = getOrCreateLocalVaultId();
+      await migrateLocalVaultOwnership(localUserId);
+      await migrateLegacyLocalIdentityStorage(localUserId);
+
+      const restored = await restoreClaraBackendSession();
+      if (!mounted || !restored) return;
+      const next = await buildAuthenticatedState({
+        serverUser: restored.user,
+        token: restored.token,
+        offline: restored.offline,
+      });
+      if (mounted) setState(next);
     })()
       .catch((error) => {
-        console.warn("[CLARA Auth] local identity migration could not complete", error);
+        clearBackendSession();
+        console.error("[CLARA Auth] backend session restoration failed", error);
       })
       .finally(() => {
-        if (mounted) refreshProfile();
+        if (mounted) {
+          setLoading(false);
+          setAuthReady(true);
+        }
       });
 
     return () => {
       mounted = false;
     };
-  }, [refreshProfile, state.localUserId]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
+    const refreshOnline = () => {
+      if (!state.user || navigator.onLine === false) return;
+      refreshProfile().catch((error) => {
+        console.error("[CLARA Auth] online account refresh failed", error);
+      });
+    };
+
+    window.addEventListener("online", refreshOnline);
+    return () => window.removeEventListener("online", refreshOnline);
+  }, [refreshProfile, state.user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !state.serverUser || !state.session?.access_token) {
+      return undefined;
+    }
+
     let refreshQueued = false;
-    const refresh = () => {
+    const rebuildLocalProfile = () => {
       if (refreshQueued) return;
       refreshQueued = true;
       queueMicrotask(() => {
         refreshQueued = false;
-        refreshProfile().catch((error) => {
-          console.error("[CLARA Auth] local profile refresh failed", error);
-        });
+        buildAuthenticatedState({
+          serverUser: state.serverUser,
+          token: state.session.access_token,
+          offline: state.offline,
+        })
+          .then(setState)
+          .catch((error) => {
+            console.error("[CLARA Auth] local profile rebuild failed", error);
+          });
       });
     };
-    const handleStorage = (event) => {
-      if (!event?.key || event.key.startsWith("clara_")) refresh();
-    };
 
-    window.addEventListener("clara-local-profile-updated", refresh);
-    window.addEventListener("clara-local-setup-profile-updated", refresh);
-    window.addEventListener(GOOGLE_PLAY_ENTITLEMENT_EVENT, refresh);
-    window.addEventListener("clara-membership-preview-updated", refresh);
-    window.addEventListener("clara:active-local-vault-updated", refresh);
-    window.addEventListener("clara-local-journey-reset", refresh);
-    window.addEventListener("clara-data-restored", refresh);
-    window.addEventListener("storage", handleStorage);
+    const events = [
+      "clara-local-profile-updated",
+      "clara-local-setup-profile-updated",
+      GOOGLE_PLAY_ENTITLEMENT_EVENT,
+      "clara-membership-preview-updated",
+      "clara-local-journey-reset",
+      "clara-data-restored",
+    ];
+    events.forEach((eventName) => window.addEventListener(eventName, rebuildLocalProfile));
 
     return () => {
-      window.removeEventListener("clara-local-profile-updated", refresh);
-      window.removeEventListener("clara-local-setup-profile-updated", refresh);
-      window.removeEventListener(GOOGLE_PLAY_ENTITLEMENT_EVENT, refresh);
-      window.removeEventListener("clara-membership-preview-updated", refresh);
-      window.removeEventListener("clara:active-local-vault-updated", refresh);
-      window.removeEventListener("clara-local-journey-reset", refresh);
-      window.removeEventListener("clara-data-restored", refresh);
-      window.removeEventListener("storage", handleStorage);
+      events.forEach((eventName) => window.removeEventListener(eventName, rebuildLocalProfile));
     };
-  }, [refreshProfile]);
+  }, [state.offline, state.serverUser, state.session?.access_token]);
 
-  const accountlessError = useCallback(() => {
-    throw new Error("CLARA is device-local and does not use user accounts.");
+  const unsupportedGoogleLogin = useCallback(() => {
+    throw new Error("Google login is not available yet. Use your CLARA email and password.");
   }, []);
-
-  const signOut = useCallback(async () => {
-    await refreshProfile();
-  }, [refreshProfile]);
 
   const value = useMemo(
     () => ({
@@ -170,15 +329,28 @@ export function AuthProvider({ children }) {
       profile: state.profile,
       loading,
       authReady,
-      isAuthenticated: true,
+      isAuthenticated: Boolean(state.user),
       isPro: Boolean(state.profile?.isPro),
-      signUp: accountlessError,
-      signIn: accountlessError,
-      signInWithGoogle: accountlessError,
+      offline: state.offline,
+      signUp,
+      signIn,
+      signInWithGoogle: unsupportedGoogleLogin,
       signOut,
       refreshProfile,
     }),
-    [accountlessError, authReady, loading, refreshProfile, signOut, state]
+    [
+      authReady,
+      loading,
+      refreshProfile,
+      signIn,
+      signOut,
+      signUp,
+      state.offline,
+      state.profile,
+      state.session,
+      state.user,
+      unsupportedGoogleLogin,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
