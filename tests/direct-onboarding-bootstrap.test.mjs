@@ -10,12 +10,17 @@ const onboardingContentSource = readFileSync(
 
 test("direct onboarding is selected before the full App module is needed", () => {
   assert.match(mainSource, /const App = React\.lazy\(\(\) => import\("\.\/App\.jsx"\)\);/);
+  assert.match(
+    mainSource,
+    /const UniversalOnboarding = React\.lazy\(\(\) =>[\s\S]*?import\("\.\/pages\/onboarding\/UniversalOnboarding\.jsx"\)/
+  );
   assert.match(mainSource, /function isUniversalOnboardingLocation\(location\)/);
   assert.match(
     mainSource,
     /if \(isUniversalOnboardingLocation\(location\)\) \{[\s\S]*?return <DirectOnboardingEntry \/>;[\s\S]*?\}/
   );
-  assert.match(mainSource, /return <UniversalOnboarding \/>;/);
+  assert.match(mainSource, /<StartupScreen message="Opening onboarding\.\.\." \/>/);
+  assert.match(mainSource, /<UniversalOnboarding \/>/);
 });
 
 test("direct onboarding keeps authentication enforcement after startup settles", () => {
