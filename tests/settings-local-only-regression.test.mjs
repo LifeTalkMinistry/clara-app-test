@@ -18,7 +18,7 @@ const dashboardPanelRendererSource = readSource(
 );
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
 
- test("active Settings directly exposes Backup & Transfer through /data-export", () => {
+test("active Settings directly exposes Backup & Transfer through /data-export", () => {
   assert.match(activeSettingsSource, /Backup & Transfer/);
   assert.match(activeSettingsSource, /Download or upload your CLARA device backup\./);
   assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
@@ -64,15 +64,14 @@ test("login and AuthContext use the custom backend instead of Supabase auth", ()
   assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
-test("backup page keeps download, upload, validation, confirmation, restore, and reload behavior", () => {
-  assert.match(dataExportSource, /Download CLARA Backup/);
-  assert.match(dataExportSource, /Upload CLARA Backup/);
+test("storage page exposes Online Sync, Local Only, private download, restore, confirmation, and reload", () => {
+  assert.match(dataExportSource, /Online Sync/);
+  assert.match(dataExportSource, /Local Only/);
+  assert.match(dataExportSource, /Download private backup/);
+  assert.match(dataExportSource, /Restore private backup/);
   assert.match(dataExportSource, /accept="application\/json,\.json"/);
-  assert.match(
-    dataExportSource,
-    /window\.confirm\("Use this CLARA backup file on this device\?"\)/
-  );
-  assert.match(dataExportSource, /restoreClaraLocalDataFromFile/);
+  assert.match(dataExportSource, /Switch to Local Only\?/);
+  assert.match(dataExportSource, /restoreClaraPrivateBackupFile/);
   assert.match(dataExportSource, /window\.location\.reload\(\)/);
 });
 
