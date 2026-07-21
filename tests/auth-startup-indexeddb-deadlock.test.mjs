@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { summarizeVaults } from "../src/lib/local-vault-migration.js";
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, "..");
@@ -11,41 +12,64 @@ function readRepositoryFile(relativePath) {
   return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 }
 
-test("vault summary listens for IndexedDB completion before read requests can finish", () => {
-  const source = readRepositoryFile("src/lib/local-vault-migration.js");
-  const start = source.indexOf("async function summarizeVaults");
-  const end = source.indexOf("async function resolveLegacyCandidate", start);
-  const summarizeVaults = source.slice(start, end);
+test("vault summary cannot miss a transaction that completes with the final read", async () => {
+  let pendingReads = 0;
+  let completionListenerWasPresent = false;
 
-  const transactionIndex = summarizeVaults.indexOf(
-    'const transaction = db.transaction(stores, "readonly");'
-  );
-  const completionListenerIndex = summarizeVaults.indexOf(
-    "const transactionDone = transactionResult(transaction);"
-  );
-  const requestIndex = summarizeVaults.indexOf("const requests = stores.map");
-  const awaitRequestsIndex = summarizeVaults.indexOf(
-    "const recordGroups = await Promise.all(requests);"
-  );
-  const awaitTransactionIndex = summarizeVaults.indexOf("await transactionDone;");
+  const transaction = {
+    oncomplete: null,
+    onerror: null,
+    onabort: null,
+    objectStore() {
+      return {
+        getAll() {
+          const request = {
+            result: [],
+            onsuccess: null,
+            onerror: null,
+          };
+          pendingReads += 1;
 
-  assert.ok(transactionIndex >= 0, "the readonly transaction must exist");
-  assert.ok(
-    completionListenerIndex > transactionIndex,
-    "the transaction completion promise must be created after the transaction"
-  );
-  assert.ok(
-    completionListenerIndex < requestIndex,
-    "the completion listener must be attached before IndexedDB reads can finish"
-  );
-  assert.ok(
-    requestIndex < awaitRequestsIndex,
-    "read requests must be awaited after they are created"
-  );
-  assert.ok(
-    awaitRequestsIndex < awaitTransactionIndex,
-    "the completed read values must be collected before awaiting transaction completion"
-  );
+          queueMicrotask(() => {
+            request.onsuccess?.();
+            pendingReads -= 1;
+
+            if (pendingReads === 0) {
+              completionListenerWasPresent = typeof transaction.oncomplete === "function";
+              transaction.oncomplete?.();
+            }
+          });
+
+          return request;
+        },
+      };
+    },
+  };
+
+  const database = {
+    objectStoreNames: {
+      contains() {
+        return true;
+      },
+    },
+    transaction() {
+      return transaction;
+    },
+  };
+
+  const result = await Promise.race([
+    summarizeVaults(database),
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error("vault summary remained pending after transaction completion")),
+        250
+      )
+    ),
+  ]);
+
+  assert.equal(completionListenerWasPresent, true);
+  assert.equal(result.counts.size, 0);
+  assert.equal(result.updatedAt.size, 0);
 });
 
 test("authentication startup still releases the global loader in a finally block", () => {
