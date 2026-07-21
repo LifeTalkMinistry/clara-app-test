@@ -120,7 +120,7 @@ function AdminRescueButton({ show }) {
 function AppRoutes() {
   const location = useLocation();
   const isUniversalOnboardingRoute = location.pathname === "/onboarding";
-  const { user, profile, loading, authReady, refreshProfile } = useAuth();
+  const { user, profile, loading, authReady } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
   const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
@@ -134,25 +134,20 @@ function AppRoutes() {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    const refreshOnlineState = () => {
-      const nextOffline = isAccessNetworkOffline();
-      setIsOffline(nextOffline);
-      if (!nextOffline && user) {
-        refreshProfile?.().catch((error) => console.error("CLARA access refresh failed:", error));
-        return;
-      }
+    const syncNetworkState = () => {
+      setIsOffline(isAccessNetworkOffline());
       setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
     };
 
-    window.addEventListener("online", refreshOnlineState);
-    window.addEventListener("offline", refreshOnlineState);
-    refreshOnlineState();
+    window.addEventListener("online", syncNetworkState);
+    window.addEventListener("offline", syncNetworkState);
+    syncNetworkState();
 
     return () => {
-      window.removeEventListener("online", refreshOnlineState);
-      window.removeEventListener("offline", refreshOnlineState);
+      window.removeEventListener("online", syncNetworkState);
+      window.removeEventListener("offline", syncNetworkState);
     };
-  }, [refreshProfile, user]);
+  }, [user?.email, user?.id]);
 
   useEffect(() => {
     setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
