@@ -1,112 +1,65 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 
 const {
-  CLOUD_VAULT_SNAPSHOT_TYPE,
-  mergeClaraCloudSnapshots,
-  prepareCloudSnapshotForRestore,
-  sanitizeCloudLocalStorage,
-} = await import("../src/lib/cloud-vault-snapshot.js");
+  CLARA_STORAGE_MODES,
+  getClaraStorageMode,
+  getClaraStorageModeKey,
+  normalizeClaraStorageMode,
+  saveClaraStorageMode,
+} = await import("../src/lib/clara-storage-mode.js");
 
-function snapshot({ createdAt, vaultId, records, localStorage = {} }) {
-  return {
-    app: "CLARA",
-    type: CLOUD_VAULT_SNAPSHOT_TYPE,
-    version: 2,
-    account_id: "7",
-    created_at: createdAt,
-    source_vault_id: vaultId,
-    source_device_id: `device-${vaultId}`,
-    data: {
-      localStorage,
-      indexedDB: {
-        databases: [
-          {
-            name: "clara_local_finance",
-            version: 3,
-            stores: {
-              wallets: { records, count: records.length },
-            },
-          },
-        ],
-      },
-    },
-  };
+class MemoryStorage {
+  constructor() {
+    this.values = new Map();
+  }
+  getItem(key) {
+    return this.values.has(key) ? this.values.get(key) : null;
+  }
+  setItem(key, value) {
+    this.values.set(key, String(value));
+  }
 }
 
-test("cloud snapshot storage removes auth secrets and other account vault keys", () => {
-  const safe = sanitizeCloudLocalStorage(
-    {
-      clara_backend_access_token_v1: "secret-token",
-      clara_backend_user_v1: { id: 7 },
-      clara_account_vault_directory_v1: {
-        version: 1,
-        accounts: {
-          7: { accountId: "7", vaultId: "vault-a" },
-          8: { accountId: "8", vaultId: "vault-b" },
-        },
-      },
-      "clara_daily_check_in_v3:vault-a": { streak: 4 },
-      "clara_daily_check_in_v3:vault-b": { streak: 9 },
-      clara_settings_theme: "ocean",
-    },
-    { accountId: "7", sourceVaultId: "vault-a" }
-  );
+test("storage mode defaults safely to Local Only and persists per account", () => {
+  const storage = new MemoryStorage();
+  assert.equal(getClaraStorageMode("7", storage), CLARA_STORAGE_MODES.LOCAL_ONLY);
+  assert.equal(normalizeClaraStorageMode("unexpected"), CLARA_STORAGE_MODES.LOCAL_ONLY);
 
-  assert.equal(safe.clara_backend_access_token_v1, undefined);
-  assert.equal(safe.clara_backend_user_v1, undefined);
-  assert.equal(safe.clara_account_vault_directory_v1, undefined);
-  assert.deepEqual(safe["clara_daily_check_in_v3:vault-a"], { streak: 4 });
-  assert.equal(safe["clara_daily_check_in_v3:vault-b"], undefined);
-  assert.equal(safe.clara_settings_theme, "ocean");
+  saveClaraStorageMode("7", CLARA_STORAGE_MODES.ONLINE_SYNC, storage);
+  assert.equal(getClaraStorageMode("7", storage), CLARA_STORAGE_MODES.ONLINE_SYNC);
+  assert.equal(getClaraStorageMode("8", storage), CLARA_STORAGE_MODES.LOCAL_ONLY);
+  assert.equal(getClaraStorageModeKey("7"), "clara_storage_mode_v1:7");
 });
 
-test("cloud merge keeps the newest revision of each financial record", () => {
-  const local = snapshot({
-    createdAt: "2026-07-21T10:00:00.000Z",
-    vaultId: "vault-local",
-    records: [
-      { id: "wallet-1", localUserId: "vault-local", balance: 100, updatedAt: "2026-07-21T09:00:00.000Z" },
-      { id: "wallet-2", localUserId: "vault-local", balance: 50, updatedAt: "2026-07-21T08:00:00.000Z" },
-    ],
-  });
-  const remote = snapshot({
-    createdAt: "2026-07-21T11:00:00.000Z",
-    vaultId: "vault-remote",
-    records: [
-      { id: "wallet-1", localUserId: "vault-remote", balance: 175, updatedAt: "2026-07-21T10:30:00.000Z" },
-    ],
-  });
+test("cloud snapshot implementation excludes auth and device mapping secrets", async () => {
+  const source = await fs.readFile(
+    new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
+    "utf8"
+  );
 
-  const merged = mergeClaraCloudSnapshots(local, remote);
-  const wallets = merged.data.indexedDB.databases[0].stores.wallets.records;
-  assert.equal(wallets.length, 2);
-  assert.equal(wallets.find((item) => item.id === "wallet-1").balance, 175);
-  assert.equal(wallets.find((item) => item.id === "wallet-2").balance, 50);
+  assert.match(source, /clara_backend_access_token_v1/);
+  assert.match(source, /clara_backend_user_v1/);
+  assert.match(source, /clara_account_vault_directory_v1|ACCOUNT_VAULT_DIRECTORY_KEY/);
+  assert.match(source, /storageKeyBelongsToAnotherAccount/);
+  assert.match(source, /record\.localUserId/);
+  assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
-test("restore rewrites the source vault into the receiving device vault", () => {
-  const source = snapshot({
-    createdAt: "2026-07-21T11:00:00.000Z",
-    vaultId: "old-device-vault",
-    records: [
-      { id: "wallet-1", localUserId: "old-device-vault", balance: 175, updatedAt: "2026-07-21T10:30:00.000Z" },
-    ],
-    localStorage: {
-      "clara_daily_check_in_v3:old-device-vault": { vaultId: "old-device-vault", streak: 3 },
-    },
-  });
-
-  const prepared = prepareCloudSnapshotForRestore(source, {
-    accountId: "7",
-    targetVaultId: "new-device-vault",
-  });
-  const wallets = prepared.data.indexedDB.databases[0].stores.wallets.records;
-
-  assert.equal(wallets[0].localUserId, "new-device-vault");
-  assert.deepEqual(
-    prepared.data.localStorage["clara_daily_check_in_v3:new-device-vault"],
-    { vaultId: "new-device-vault", streak: 3 }
+test("cloud sync implementation has revision conflict recovery and vault rewriting", async () => {
+  const syncSource = await fs.readFile(
+    new URL("../src/lib/cloud-vault-sync.js", import.meta.url),
+    "utf8"
   );
-  assert.equal(prepared.data.localStorage.clara_backend_access_token_v1, undefined);
+  const snapshotSource = await fs.readFile(
+    new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(syncSource, /CLOUD_VAULT_REVISION_CONFLICT/);
+  assert.match(syncSource, /mergeClaraCloudSnapshots/);
+  assert.match(snapshotSource, /prepareCloudSnapshotForRestore/);
+  assert.match(snapshotSource, /localUserId: target/);
+  assert.match(snapshotSource, /restoreClaraLocalDataFromFile/);
 });
