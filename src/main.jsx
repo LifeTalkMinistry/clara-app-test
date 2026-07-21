@@ -4,7 +4,6 @@ import { HashRouter, Navigate, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import OnboardingRouteGate from "@/components/auth/OnboardingRouteGate";
-import UniversalOnboarding from "@/pages/onboarding/UniversalOnboarding";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
@@ -23,7 +22,7 @@ import {
   installClaraGuideCarouselStep,
 } from "./runtime/installClaraGuideCarouselStep";
 import { installClaraGuideSchedulePhaseRedirect } from "./runtime/claraGuideSchedulePhaseRedirect";
-import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
+import { installClaraGuideScheduleRuntime } from "./runtime/installClaraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import "./index.css";
 import "./manual-expense-wallet-step.css";
@@ -39,6 +38,9 @@ import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
 
 const App = React.lazy(() => import("./App.jsx"));
+const UniversalOnboarding = React.lazy(() =>
+  import("./pages/onboarding/UniversalOnboarding.jsx")
+);
 
 function StartupScreen({ message = "Opening CLARA..." }) {
   return (
@@ -106,7 +108,11 @@ function DirectOnboardingEntry() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return <UniversalOnboarding />;
+  return (
+    <Suspense fallback={<StartupScreen message="Opening onboarding..." />}>
+      <UniversalOnboarding />
+    </Suspense>
+  );
 }
 
 function RootApplication() {
