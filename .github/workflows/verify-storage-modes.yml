@@ -1,0 +1,42 @@
+name: Verify Storage Modes
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/clara-storage-mode.js"
+      - "src/lib/cloud-vault-client.js"
+      - "src/lib/cloud-vault-snapshot.js"
+      - "src/lib/cloud-vault-sync.js"
+      - "src/components/CloudVaultSyncBridge.jsx"
+      - "src/pages/DataExport.jsx"
+      - "src/main.jsx"
+      - "tests/cloud-vault-sync.test.mjs"
+      - ".github/workflows/verify-storage-modes.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/clara-storage-mode.js"
+      - "src/lib/cloud-vault-client.js"
+      - "src/lib/cloud-vault-snapshot.js"
+      - "src/lib/cloud-vault-sync.js"
+      - "src/components/CloudVaultSyncBridge.jsx"
+      - "src/pages/DataExport.jsx"
+      - "src/main.jsx"
+      - "tests/cloud-vault-sync.test.mjs"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Cloud vault unit tests
+        run: node --test tests/cloud-vault-sync.test.mjs
+      - name: Existing regression suite
+        run: npm test
+      - name: Production web build
+        run: npm run build:web
