@@ -1,0 +1,31 @@
+name: Verify Auth Startup IndexedDB
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/lib/local-vault-migration.js"
+      - "src/context/AuthContext.jsx"
+      - "tests/auth-startup-indexeddb-deadlock.test.mjs"
+      - ".github/workflows/verify-auth-startup-indexeddb.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run auth startup deadlock regression
+        run: node --test tests/auth-startup-indexeddb-deadlock.test.mjs
