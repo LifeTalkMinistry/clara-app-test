@@ -3,12 +3,21 @@ import { migrateLegacyLocalIdentityStorage } from "@/lib/local-identity-storage-
 import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
 
 export const ACCOUNT_LINK_TIMEOUT_MS = 3_000;
+const BLOCKING_LOCAL_LINK_CODES = new Set([
+  "INVALID_ACCOUNT_ID",
+  "VAULT_ACCOUNT_CONFLICT",
+  "VAULT_CHANGED",
+]);
 
 function createTimeoutError(label, timeoutMs) {
   const error = new Error(`${label} did not finish within ${timeoutMs}ms.`);
   error.code = "LOCAL_AUTH_TASK_TIMEOUT";
   error.timeoutMs = timeoutMs;
   return error;
+}
+
+export function isBlockingLocalLinkError(error) {
+  return BLOCKING_LOCAL_LINK_CODES.has(String(error?.code || ""));
 }
 
 export async function waitForLocalAccountLink(input, options = {}) {
@@ -31,12 +40,20 @@ export async function waitForLocalAccountLink(input, options = {}) {
       }),
     ]);
   } catch (error) {
-    if (error?.code !== "LOCAL_AUTH_TASK_TIMEOUT") throw error;
+    if (isBlockingLocalLinkError(error)) throw error;
 
-    console.warn("[CLARA Auth] local account linking timed out; authentication will continue.", {
-      timeoutMs,
-    });
-    return { ok: false, timedOut: true };
+    const timedOut = error?.code === "LOCAL_AUTH_TASK_TIMEOUT";
+    console.warn(
+      timedOut
+        ? "[CLARA Auth] local account linking timed out; authentication will continue."
+        : "[CLARA Auth] local account linking was unavailable; authentication will continue.",
+      {
+        code: error?.code || "LOCAL_LINK_UNAVAILABLE",
+        message: error?.message || String(error),
+        timeoutMs,
+      }
+    );
+    return { ok: false, timedOut, skipped: !timedOut };
   } finally {
     if (timeoutId !== null) clearTimeout(timeoutId);
   }
