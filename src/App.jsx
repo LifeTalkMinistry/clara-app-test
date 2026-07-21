@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
+import UniversalOnboarding from "./pages/onboarding/UniversalOnboarding";
 import useUserRole from "./hooks/useUserRole";
 import { deriveAccessState, resolveAppFlow } from "./lib/access-control";
 import {
@@ -44,7 +45,6 @@ const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
 const WelcomeSession = lazy(() => import("./pages/WelcomeSession"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const Activation = lazy(() => import("./pages/Activation"));
-const UniversalOnboarding = lazy(() => import("./pages/onboarding/UniversalOnboarding"));
 const ProgramOnboarding = lazy(() => import("./pages/onboarding/ProgramOnboarding"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
@@ -54,12 +54,12 @@ const IosUserAccess = lazy(() => import("./pages/admin/IosUserAccess"));
 const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
-function FullScreenLoader() {
+function FullScreenLoader({ message = "Loading CLARA..." }) {
   return (
     <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
       <div className="flex flex-col items-center gap-3">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
-        <p className="text-sm text-white/75">Loading...</p>
+        <p className="text-sm text-white/75">{message}</p>
       </div>
     </div>
   );
@@ -197,7 +197,19 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  if (!authReady || loading || roleLoading) return <FullScreenLoader />;
+  // Universal Onboarding is intentionally outside the global auth/role loader.
+  // It can render while account restoration finishes, but redirects to Login once
+  // authentication has definitively completed without a user.
+  if (isUniversalOnboardingRoute) {
+    if (authReady && !loading && !user) {
+      return <Navigate to="/login" replace state={{ from: location }} />;
+    }
+    return <UniversalOnboarding />;
+  }
+
+  if (!authReady || loading || roleLoading) {
+    return <FullScreenLoader message="Restoring your CLARA account..." />;
+  }
 
   const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
     <GuardedRoute
@@ -220,7 +232,7 @@ function AppRoutes() {
   const hiddenAdmin = (children) => <HiddenAdminRoute>{children}</HiddenAdminRoute>;
 
   return (
-    <Suspense fallback={<FullScreenLoader />}>
+    <Suspense fallback={<FullScreenLoader message="Opening CLARA..." />}>
       <Routes>
         <Route
           path="/login"
@@ -232,56 +244,52 @@ function AppRoutes() {
           path="/*"
           element={
             user ? (
-              isUniversalOnboardingRoute ? (
-                <UniversalOnboarding />
-              ) : (
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
-                    <Route path="/onboarding" element={<UniversalOnboarding />} />
-                    <Route path="/program-onboarding" element={<ProgramOnboarding />} />
-                    <Route path="/pending" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/enroll" element={<Enroll />} />
-                    <Route path="/tier-select" element={<TierSelect />} />
-                    <Route path="/activation" element={<Activation />} />
-                    <Route path="/advertiser" element={<AdvertiserDashboard />} />
-                    <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
-                    <Route path="/welcome-session" element={<WelcomeSession />} />
-                    <Route path="/coaching-mock-preview" element={<CoachingAdminPage />} />
-                    <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
-                    <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
-                    <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
-                    <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
-                    <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
-                    <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
-                    <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
-                    <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
-                    <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
-                    <Route path="/modules" element={guard(<Modules />, "/modules")} />
-                    <Route path="/feed" element={guard(<Feed />, "/feed")} />
-                    <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
-                    <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
-                    <Route path="/community" element={guard(<Community />, "/community")} />
-                    <Route path="/messages" element={guard(<Messages />, "/messages")} />
-                    <Route path="/news" element={guard(<News />, "/news")} />
-                    <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
-                    <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
-                    <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/settings/:section" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/data-export" element={<DataExport />} />
-                    <Route path="/admin" element={admin(<AdminPanel />)} />
-                    <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
-                    <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
-                    <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
-                    <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
-                    <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
-                    <Route path="/admin/ios-users" element={hiddenAdmin(<IosUserAccess />)} />
-                    <Route path="*" element={<PageNotFound />} />
-                  </Routes>
-                </Layout>
-              )
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
+                  <Route path="/onboarding" element={<UniversalOnboarding />} />
+                  <Route path="/program-onboarding" element={<ProgramOnboarding />} />
+                  <Route path="/pending" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/enroll" element={<Enroll />} />
+                  <Route path="/tier-select" element={<TierSelect />} />
+                  <Route path="/activation" element={<Activation />} />
+                  <Route path="/advertiser" element={<AdvertiserDashboard />} />
+                  <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
+                  <Route path="/welcome-session" element={<WelcomeSession />} />
+                  <Route path="/coaching-mock-preview" element={<CoachingAdminPage />} />
+                  <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
+                  <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
+                  <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
+                  <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
+                  <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
+                  <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
+                  <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
+                  <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
+                  <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
+                  <Route path="/modules" element={guard(<Modules />, "/modules")} />
+                  <Route path="/feed" element={guard(<Feed />, "/feed")} />
+                  <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
+                  <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
+                  <Route path="/community" element={guard(<Community />, "/community")} />
+                  <Route path="/messages" element={guard(<Messages />, "/messages")} />
+                  <Route path="/news" element={guard(<News />, "/news")} />
+                  <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
+                  <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
+                  <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/settings/:section" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/data-export" element={<DataExport />} />
+                  <Route path="/admin" element={admin(<AdminPanel />)} />
+                  <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
+                  <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
+                  <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
+                  <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
+                  <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
+                  <Route path="/admin/ios-users" element={hiddenAdmin(<IosUserAccess />)} />
+                  <Route path="*" element={<PageNotFound />} />
+                </Routes>
+              </Layout>
             ) : (
               <Navigate to="/login" replace state={{ from: location }} />
             )
