@@ -11,6 +11,7 @@ import {
   buildLocalAuthUser,
   getOrCreateLocalVaultId,
 } from "@/lib/local-user-identity";
+import { resolveAccountLocalVault } from "@/lib/accountLinking/resolveAccountLocalVault";
 import {
   buildLocalMembershipProfile,
   getLocalAccountProfile,
@@ -22,10 +23,8 @@ import {
   toLocalEnrollment,
 } from "@/lib/local-google-play-entitlement";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
-import {
-  runLocalAuthMaintenance,
-  waitForLocalAccountLink,
-} from "@/lib/auth-startup-resilience";
+import { runLocalAuthMaintenance } from "@/lib/auth-startup-resilience";
+import { queryClientInstance } from "@/lib/query-client";
 import {
   clearBackendSession,
   createClaraBackendAccount,
@@ -57,12 +56,15 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
     throw new Error("CLARA returned an incomplete account session.");
   }
 
-  const localUserId = getOrCreateLocalVaultId();
-  await waitForLocalAccountLink({
-    expectedVaultId: localUserId,
+  const resolvedVault = await resolveAccountLocalVault({
     accountUserId: String(serverUser.id),
     accountEmail: serverUser.email,
   });
+  const localUserId = resolvedVault.vaultId;
+
+  if (resolvedVault.switched) {
+    queryClientInstance.clear();
+  }
 
   const localAccount = getLocalAccountProfile(localUserId);
   const localIdentity = buildLocalAuthUser(localUserId, localAccount);
@@ -163,7 +165,6 @@ export function AuthProvider({ children }) {
 
     const reason = String(options?.reason || "").trim();
     if (reason === "local_journey_reset") {
-      // The reset already dispatches a local rebuild event. Navigation must not depend on the backend.
       return stateRef.current.profile;
     }
 
@@ -172,6 +173,7 @@ export function AuthProvider({ children }) {
     const refreshPromise = (async () => {
       const token = getStoredBackendToken();
       if (!token) {
+        queryClientInstance.clear();
         commitState(emptyState());
         return null;
       }
@@ -184,13 +186,11 @@ export function AuthProvider({ children }) {
         if (isBackendNetworkError(error)) {
           const current = stateRef.current;
           if (!current.user) return null;
-
           const alreadyOffline = Boolean(
             current.offline &&
               (!current.session || current.session.offline) &&
               (!current.profile || current.profile.offline_access)
           );
-
           if (!alreadyOffline) {
             commitState({
               ...current,
@@ -199,16 +199,15 @@ export function AuthProvider({ children }) {
               profile: current.profile ? { ...current.profile, offline_access: true } : null,
             });
           }
-
           return current.profile;
         }
 
         if (error?.status === 401 || error?.status === 403) {
           clearBackendSession();
+          queryClientInstance.clear();
           commitState(emptyState());
           return null;
         }
-
         throw error;
       }
     })();
@@ -252,7 +251,13 @@ export function AuthProvider({ children }) {
           return await applyBackendSession(session);
         } catch (error) {
           signOutFromClaraBackend();
-          throw error;
+          const activationError = new Error(
+            "Your CLARA account was created, but this device could not open its local vault. Log in again to continue."
+          );
+          activationError.code = "ACCOUNT_CREATED_LOCAL_ACTIVATION_FAILED";
+          activationError.accountCreated = true;
+          activationError.cause = error;
+          throw activationError;
         }
       } finally {
         setLoading(false);
@@ -263,6 +268,7 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     signOutFromClaraBackend();
+    queryClientInstance.clear();
     commitState(emptyState());
   }, [commitState]);
 
@@ -272,10 +278,8 @@ export function AuthProvider({ children }) {
     const rebuildAfterLocalMaintenance = async (localUserId) => {
       await runLocalAuthMaintenance(localUserId);
       if (!mounted) return;
-
       const current = stateRef.current;
       if (!current.serverUser || !current.session?.access_token) return;
-
       try {
         const rebuilt = await buildAuthenticatedState({
           serverUser: current.serverUser,
@@ -292,12 +296,11 @@ export function AuthProvider({ children }) {
     };
 
     (async () => {
-      const localUserId = getOrCreateLocalVaultId();
+      const fallbackLocalUserId = getOrCreateLocalVaultId();
       const restored = await restoreClaraBackendSession();
-
       if (!mounted) return;
       if (!restored) {
-        void runLocalAuthMaintenance(localUserId);
+        void runLocalAuthMaintenance(fallbackLocalUserId);
         return;
       }
 
@@ -308,11 +311,12 @@ export function AuthProvider({ children }) {
       });
       if (mounted) {
         commitState(next);
-        void rebuildAfterLocalMaintenance(localUserId);
+        void rebuildAfterLocalMaintenance(next.localUserId);
       }
     })()
       .catch((error) => {
         clearBackendSession();
+        queryClientInstance.clear();
         console.error("[CLARA Auth] backend session restoration failed", error);
       })
       .finally(() => {
@@ -329,14 +333,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-
     const refreshOnline = () => {
       if (!stateRef.current.user || navigator.onLine === false) return;
       refreshProfile().catch((error) => {
         console.error("[CLARA Auth] online account refresh failed", error);
       });
     };
-
     window.addEventListener("online", refreshOnline);
     return () => window.removeEventListener("online", refreshOnline);
   }, [refreshProfile]);
@@ -373,7 +375,6 @@ export function AuthProvider({ children }) {
       "clara-data-restored",
     ];
     events.forEach((eventName) => window.addEventListener(eventName, rebuildLocalProfile));
-
     return () => {
       events.forEach((eventName) => window.removeEventListener(eventName, rebuildLocalProfile));
     };
@@ -419,10 +420,8 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-
   if (!context) {
     throw new Error("useAuth must be used inside AuthProvider");
   }
-
   return context;
 }
