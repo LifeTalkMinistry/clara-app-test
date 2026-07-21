@@ -55,11 +55,12 @@ async function summarizeVaults(db) {
   if (!stores.length) return { counts, updatedAt };
 
   const transaction = db.transaction(stores, "readonly");
+  const transactionDone = transactionResult(transaction);
   const requests = stores.map((name) =>
     requestResult(transaction.objectStore(name).getAll())
   );
   const recordGroups = await Promise.all(requests);
-  await transactionResult(transaction);
+  await transactionDone;
 
   for (const records of recordGroups) {
     for (const record of records) {
