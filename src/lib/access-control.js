@@ -19,7 +19,7 @@ export function getEnrollmentStatus(enrollment, profileLike) {
 export function hasCompletedOnboarding(profileLike = {}) {
   const role = normalizeAccessValue(profileLike?.role || "user");
   if (role === "admin" || role === "advertiser") return true;
-  return hasCompletedLocalSetup();
+  return hasCompletedLocalSetup(profileLike);
 }
 export function hasCompletedProgramOnboarding(_profileLike) {
   return true;
