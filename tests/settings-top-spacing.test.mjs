@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+// Protect the Settings-only top spacing from future layout regressions.
 const settingsCleanupCss = await readFile(
   new URL("../src/settings-cleanup.css", import.meta.url),
   "utf8"
