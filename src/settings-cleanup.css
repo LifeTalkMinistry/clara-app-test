@@ -1,7 +1,12 @@
 /* CLARA Settings Cleanup
    Simplifies the settings screen without touching underlying logic.
-   Keep this scoped to the settings content so the unified top nav is never affected.
+   Keep every rule scoped to the active Settings experience.
  */
+
+/* Lower the complete Settings header group slightly without shifting Home, Me, or Schedule. */
+#root .theme-page-shell > div.relative.shrink-0:has(button[aria-label="Settings"][aria-current="page"]) {
+  margin-top: 10px;
+}
 
 /* remove large profile hero card */
 #root .space-y-5.pb-6 > div.rounded-\[30px\].border.border-white\/15.bg-\[radial-gradient\(circle_at_top_left\,rgba\(255\,255\,255\,0\.08\)\,transparent_34\%\)\,rgba\(255\,255\,255\,0\.045\)\].p-4.shadow-\[0_18px_50px_rgba\(0\,0\,0\,0\.20\)\].backdrop-blur-xl {
