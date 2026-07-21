@@ -1,7 +1,7 @@
 import {
   clearLocalSetupProfile,
   getLocalSetupProfile,
-} from "@/lib/claraLocalProfile";
+} from "./claraLocalProfile.js";
 
 const PROFILE_KEY_PREFIX = "clara_local_account_profile_v1:";
 const VOLATILE_PROFILE_FIELDS = new Set(["updated_at"]);
