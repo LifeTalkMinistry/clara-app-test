@@ -3,9 +3,9 @@
    Keep every rule scoped to the active Settings experience.
  */
 
-/* Lower the complete Settings header group slightly without shifting Home, Me, or Schedule. */
-#root .theme-page-shell > div.relative.shrink-0:has(button[aria-label="Settings"][aria-current="page"]) {
-  margin-top: 10px;
+/* Keep the shared top navigation in place, then lower the complete Settings content area. */
+#root .theme-page-shell > div.relative.shrink-0:has(button[aria-label="Settings"][aria-current="page"]) + .clara-dashboard-content {
+  margin-top: 24px !important;
 }
 
 /* remove large profile hero card */
