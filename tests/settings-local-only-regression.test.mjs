@@ -10,26 +10,27 @@ const activeSettingsSource = readSource(
 );
 const dataExportSource = readSource("src/pages/DataExport.jsx");
 const appSource = readSource("src/App.jsx");
+const loginSource = readSource("src/pages/Login.jsx");
+const authContextSource = readSource("src/context/AuthContext.jsx");
 const layoutSource = readSource("src/components/Layout.jsx");
 const dashboardPanelRendererSource = readSource(
   "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
 );
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
 
-test("active Settings directly exposes Backup & Transfer through /data-export", () => {
+ test("active Settings directly exposes Backup & Transfer through /data-export", () => {
   assert.match(activeSettingsSource, /Backup & Transfer/);
   assert.match(activeSettingsSource, /Download or upload your CLARA device backup\./);
   assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
   assert.match(activeSettingsSource, />Open</);
 });
 
-test("active local-only Settings does not render authentication or account-linking controls", () => {
+test("active Settings keeps authentication controls out of the financial settings panel", () => {
   assert.doesNotMatch(activeSettingsSource, /Log out/);
   assert.doesNotMatch(activeSettingsSource, /Signing out/);
   assert.doesNotMatch(activeSettingsSource, /handleSignOut/);
   assert.doesNotMatch(activeSettingsSource, /auth\.signOut/);
   assert.doesNotMatch(activeSettingsSource, /Protect & link my data/);
-  assert.doesNotMatch(activeSettingsSource, /Signed in as/);
 });
 
 test("dashboard renderer does not append a second logout control", () => {
@@ -43,19 +44,24 @@ test("dashboard renderer does not append a second logout control", () => {
   );
 });
 
-test("login and account-link URLs stay hidden in local-only mode", () => {
-  assert.doesNotMatch(appSource, /pages\/Login/);
-  assert.doesNotMatch(appSource, /pages\/LinkLocalVault/);
-  assert.doesNotMatch(appSource, /<Login \/>/);
-  assert.doesNotMatch(appSource, /<LinkLocalVault \/>/);
+test("router exposes the CLARA backend login and protects app routes", () => {
+  assert.match(appSource, /pages\/Login/);
+  assert.match(appSource, /<Login \/>/);
+  assert.match(appSource, /!authReady \|\| loading \|\| roleLoading/);
+  assert.match(appSource, /<Navigate to="\/login" replace state=\{\{ from: location \}\} \/>/);
   assert.match(
     appSource,
-    /path="\/login" element=\{<Navigate to="\/dashboard" replace \/>\}/
+    /path="\/link-local-vault" element=\{<Navigate to=\{user \? "\/dashboard" : "\/login"\} replace \/>\}/
   );
-  assert.match(
-    appSource,
-    /path="\/link-local-vault" element=\{<Navigate to="\/dashboard" replace \/>\}/
-  );
+});
+
+test("login and AuthContext use the custom backend instead of Supabase auth", () => {
+  assert.doesNotMatch(loginSource, /supabase/i);
+  assert.match(loginSource, /signIn/);
+  assert.match(loginSource, /signUp/);
+  assert.match(authContextSource, /clara-backend-client/);
+  assert.match(authContextSource, /restoreClaraBackendSession/);
+  assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
 test("backup page keeps download, upload, validation, confirmation, restore, and reload behavior", () => {
@@ -95,6 +101,7 @@ test("obsolete DOM Settings patch is no longer initialized", () => {
     false
   );
 });
+
 test("data export page does not expose the global top padding accent", () => {
   assert.match(layoutSource, /isDataExportPage = location\.pathname === "\/data-export"/);
   assert.match(layoutSource, /clara-data-export-layout/);
@@ -103,4 +110,3 @@ test("data export page does not expose the global top padding accent", () => {
     /\.clara-data-export-layout main \{ padding-top: 0 !important; \}/
   );
 });
-
