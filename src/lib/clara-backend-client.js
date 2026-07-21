@@ -1,4 +1,5 @@
 const DEFAULT_API_URL = "https://groin-mothproof-sixties.ngrok-free.dev";
+const VERCEL_API_PROXY_PATH = "/clara-api";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const TOKEN_KEY = "clara_backend_access_token_v1";
 const USER_KEY = "clara_backend_user_v1";
@@ -11,9 +12,19 @@ function getBuildEnvironment() {
   }
 }
 
-const API_URL = String(getBuildEnvironment().VITE_CLARA_API_URL || DEFAULT_API_URL)
-  .trim()
-  .replace(/\/+$/, "");
+function isVercelWebRuntime() {
+  if (typeof window === "undefined") return false;
+  const hostname = String(window.location?.hostname || "").trim().toLowerCase();
+  return hostname === "clara-app-test.vercel.app" || hostname.endsWith(".vercel.app");
+}
+
+function resolveApiUrl() {
+  const configuredUrl = String(getBuildEnvironment().VITE_CLARA_API_URL || "").trim();
+  if (configuredUrl) return configuredUrl;
+  return isVercelWebRuntime() ? VERCEL_API_PROXY_PATH : DEFAULT_API_URL;
+}
+
+const API_URL = resolveApiUrl().replace(/\/+$/, "");
 
 function getStorage() {
   if (typeof window === "undefined") return null;
@@ -267,4 +278,5 @@ export {
   DEFAULT_REQUEST_TIMEOUT_MS,
   TOKEN_KEY,
   USER_KEY,
+  VERCEL_API_PROXY_PATH,
 };

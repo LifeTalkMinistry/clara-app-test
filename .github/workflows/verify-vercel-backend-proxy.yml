@@ -1,0 +1,23 @@
+name: Verify Vercel Backend Proxy
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/clara-backend-client.js"
+      - "vercel.json"
+      - "tests/vercel-backend-proxy.test.mjs"
+      - "package.json"
+      - ".github/workflows/verify-vercel-backend-proxy.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/vercel-backend-proxy.test.mjs tests/clara-backend-auth.test.mjs
+      - run: npm run build
