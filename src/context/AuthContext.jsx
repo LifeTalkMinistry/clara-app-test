@@ -157,8 +157,15 @@ export function AuthProvider({ children }) {
     [commitState]
   );
 
-  const refreshProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async (options = {}) => {
     if (!stateRef.current.user) return null;
+
+    const reason = String(options?.reason || "").trim();
+    if (reason === "local_journey_reset") {
+      // The reset already dispatches a local rebuild event. Navigation must not depend on the backend.
+      return stateRef.current.profile;
+    }
+
     if (refreshPromiseRef.current) return refreshPromiseRef.current;
 
     const refreshPromise = (async () => {
