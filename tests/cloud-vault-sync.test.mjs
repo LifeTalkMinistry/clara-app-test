@@ -47,7 +47,7 @@ test("cloud snapshot implementation excludes auth and device mapping secrets", a
   assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
-test("cloud sync implementation has revision conflict recovery and vault rewriting", async () => {
+test("cloud sync implementation has revision recovery and cross-device vault rewriting", async () => {
   const syncSource = await fs.readFile(
     new URL("../src/lib/cloud-vault-sync.js", import.meta.url),
     "utf8"
@@ -58,6 +58,10 @@ test("cloud sync implementation has revision conflict recovery and vault rewriti
   );
 
   assert.match(syncSource, /CLOUD_VAULT_REVISION_CONFLICT/);
+  assert.match(syncSource, /export function rebaseSnapshotVault/);
+  assert.match(syncSource, /key\.split\(sourceVaultId\)\.join\(target\)/);
+  assert.match(syncSource, /remoteSnapshotForLocal/);
+  assert.match(syncSource, /latestRemoteForLocal/);
   assert.match(syncSource, /mergeClaraCloudSnapshots/);
   assert.match(snapshotSource, /prepareCloudSnapshotForRestore/);
   assert.match(snapshotSource, /localUserId: target/);
