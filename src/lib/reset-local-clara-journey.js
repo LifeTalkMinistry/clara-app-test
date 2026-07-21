@@ -4,41 +4,16 @@ import {
   LOCAL_SETUP_PROFILE_KEY_PREFIX,
 } from "@/lib/claraLocalProfile";
 import { clearLocalUserVault } from "@/lib/localFinanceStore";
-import {
-  clearDeveloperMembershipPreview,
-} from "@/lib/membership";
-import {
-  clearAccessSnapshot,
-  clearOfflineQueue,
-} from "@/lib/offline-access-cache";
-import {
-  clearLocalAccountProfile,
-} from "@/lib/local-profile-repository";
-import {
-  clearLocalGooglePlayEntitlement,
-} from "@/lib/local-google-play-entitlement";
-import {
-  getOrCreateLocalVaultId,
-  LEGACY_ACTIVE_LOCAL_VAULT_KEY,
-} from "@/lib/local-user-identity";
-import {
-  clearDailyCheckInState,
-} from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence";
+import { clearLocalAccountProfile } from "@/lib/local-profile-repository";
+import { clearLocalGooglePlayEntitlement } from "@/lib/local-google-play-entitlement";
+import { getOrCreateLocalVaultId } from "@/lib/local-user-identity";
+import { clearDailyCheckInState } from "@/components/fresh/main-dashboard/daily-tip/logic/dailyCheckInPersistence";
 
-const LEGACY_LOCAL_IDS = ["local-dev-user", "local-user"];
 const PROFILE_PREFIX = "clara_local_account_profile_v1:";
 const ENTITLEMENT_PREFIX = "clara_google_play_entitlement_v1:";
-
-const ALWAYS_CLEAR_KEYS = [
-  "CLARA_USER_CONTEXT_STORY_V1",
-  "CLARA_LIVE_USER_MESSAGE_HISTORY",
-  "clara_behavioral_memory_v1",
-  "clara_active_memory_user_id",
-  "clara_daily_check_in_v1",
-  "clara_daily_check_in_v1_migrated_to",
-  "clara_local_setup_profile_v1",
-  "clara_offline_queue_v1",
-];
+const ACCESS_CACHE_PREFIX = "clara_access_snapshot_v2";
+const ACCESS_CACHE_LAST_KEY = `${ACCESS_CACHE_PREFIX}:last`;
+const OFFLINE_QUEUE_KEY = "clara_offline_queue_v1";
 
 const RESETTABLE_PREFIXES = [
   "clara_dashboard_cache",
@@ -60,6 +35,14 @@ function getStorage() {
   return window.localStorage;
 }
 
+function parse(value, fallback = null) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function removeKey(storage, key) {
   try {
     storage?.removeItem(key);
@@ -68,19 +51,40 @@ function removeKey(storage, key) {
   }
 }
 
-function clearScopedLocalStorage(localUserIds) {
+function clearScopedOfflineQueue(storage, localUserId) {
+  const queue = parse(storage?.getItem(OFFLINE_QUEUE_KEY), []);
+  if (!Array.isArray(queue)) return;
+  const filtered = queue.filter((item) => {
+    const owner = String(
+      item?.localUserId || item?.vaultId || item?.userId || item?.payload?.localUserId || ""
+    ).trim();
+    return owner && owner !== localUserId;
+  });
+  if (filtered.length) {
+    storage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(filtered));
+  } else {
+    removeKey(storage, OFFLINE_QUEUE_KEY);
+  }
+}
+
+function clearScopedAccessSnapshot(storage, localUserId) {
+  removeKey(storage, `${ACCESS_CACHE_PREFIX}:${localUserId.toLowerCase()}`);
+  const lastSnapshot = parse(storage?.getItem(ACCESS_CACHE_LAST_KEY));
+  const lastOwner = String(lastSnapshot?.userId || "").trim();
+  if (lastOwner === localUserId) removeKey(storage, ACCESS_CACHE_LAST_KEY);
+}
+
+function clearScopedLocalStorage(localUserId) {
   const storage = getStorage();
   if (!storage) return;
 
-  ALWAYS_CLEAR_KEYS.forEach((key) => removeKey(storage, key));
-
-  localUserIds.forEach((localUserId) => {
-    clearDailyCheckInState(localUserId);
-    clearLocalSetupProfile({ id: localUserId });
-    removeKey(storage, `clara_memory_${localUserId}`);
-    removeKey(storage, `clara_me_life_setup:${localUserId}`);
-    removeKey(storage, `${PROFILE_PREFIX}${localUserId}`);
-  });
+  clearDailyCheckInState(localUserId);
+  clearLocalSetupProfile({ id: localUserId });
+  removeKey(storage, `clara_memory_${localUserId}`);
+  removeKey(storage, `clara_me_life_setup:${localUserId}`);
+  removeKey(storage, `${PROFILE_PREFIX}${localUserId}`);
+  clearScopedAccessSnapshot(storage, localUserId);
+  clearScopedOfflineQueue(storage, localUserId);
 
   const keys = [];
   for (let index = 0; index < storage.length; index += 1) {
@@ -89,12 +93,10 @@ function clearScopedLocalStorage(localUserIds) {
   }
 
   keys.forEach((key) => {
-    const belongsToKnownIdentity = localUserIds.some((id) => key.includes(id));
+    const belongsToVault = key.includes(localUserId);
     const resettablePrefix = RESETTABLE_PREFIXES.some((prefix) => key.startsWith(prefix));
-    if (belongsToKnownIdentity && resettablePrefix) removeKey(storage, key);
+    if (belongsToVault && resettablePrefix) removeKey(storage, key);
   });
-
-  removeKey(storage, LEGACY_ACTIVE_LOCAL_VAULT_KEY);
 }
 
 export async function resetLocalClaraJourney({
@@ -102,40 +104,34 @@ export async function resetLocalClaraJourney({
   preserveEntitlement = true,
 } = {}) {
   const canonicalId = String(localUserId || "").trim() || getOrCreateLocalVaultId();
-  const localUserIds = [...new Set([canonicalId, ...LEGACY_LOCAL_IDS])];
 
-  clearDeveloperMembershipPreview();
-  clearOfflineQueue();
-
-  for (const userId of localUserIds) {
-    try {
-      await clearLocalUserVault(userId);
-    } catch (error) {
-      console.warn("[CLARA Reset] local finance vault clear skipped", {
-        userId,
-        message: error?.message || String(error),
-      });
-    }
-
-    clearMemories(userId);
-    clearAccessSnapshot(userId);
-
-    try {
-      clearLocalAccountProfile(userId, { clearSetup: true });
-    } catch (error) {
-      console.warn("[CLARA Reset] local profile clear skipped", {
-        userId,
-        message: error?.message || String(error),
-      });
-    }
-
-    if (!preserveEntitlement) {
-      clearLocalGooglePlayEntitlement(userId);
-    }
+  try {
+    await clearLocalUserVault(canonicalId);
+  } catch (error) {
+    console.warn("[CLARA Reset] local finance vault clear skipped", {
+      userId: canonicalId,
+      message: error?.message || String(error),
+    });
   }
 
-  clearScopedLocalStorage(localUserIds);
-  clearAccessSnapshot();
+  clearMemories(canonicalId);
+  clearLocalSetupProfile({ id: canonicalId });
+  clearDailyCheckInState(canonicalId);
+
+  try {
+    clearLocalAccountProfile(canonicalId, { clearSetup: true });
+  } catch (error) {
+    console.warn("[CLARA Reset] local profile clear skipped", {
+      userId: canonicalId,
+      message: error?.message || String(error),
+    });
+  }
+
+  if (!preserveEntitlement) {
+    clearLocalGooglePlayEntitlement(canonicalId);
+  }
+
+  clearScopedLocalStorage(canonicalId);
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(
