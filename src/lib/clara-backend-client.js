@@ -1,6 +1,7 @@
 const DEFAULT_API_URL = "https://groin-mothproof-sixties.ngrok-free.dev";
 const VERCEL_API_PROXY_PATH = "/clara-api";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+const BACKEND_UNAVAILABLE_STATUS_CODES = new Set([404, 502, 503, 504]);
 const TOKEN_KEY = "clara_backend_access_token_v1";
 const USER_KEY = "clara_backend_user_v1";
 
@@ -131,6 +132,7 @@ export function isStoredTokenLive(token, now = Date.now()) {
 
 export function isBackendNetworkError(error) {
   if (error?.code === "NETWORK_ERROR" || error?.code === "REQUEST_TIMEOUT") return true;
+  if (BACKEND_UNAVAILABLE_STATUS_CODES.has(Number(error?.status))) return true;
   const message = String(error?.message || "").toLowerCase();
   return (
     error instanceof TypeError ||
