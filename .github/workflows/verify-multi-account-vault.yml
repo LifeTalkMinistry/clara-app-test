@@ -17,7 +17,6 @@ on:
       - "tests/account-vault-auth-integration.test.mjs"
       - "tests/multi-account-reset-isolation.test.mjs"
       - "tests/multi-account-migration-safety.test.mjs"
-      - "package.json"
       - ".github/workflows/verify-multi-account-vault.yml"
   workflow_dispatch:
 
@@ -42,10 +41,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run multi-account isolation tests
-        run: npm run test:multi-account
+      - name: Test account-vault directory
+        run: node --test tests/account-vault-directory.test.mjs
 
-      - name: Run complete test suite
+      - name: Test multi-account resolver
+        run: node --test tests/multi-account-local-vault.test.mjs
+
+      - name: Test authentication integration
+        run: node --test tests/account-vault-auth-integration.test.mjs
+
+      - name: Test reset isolation
+        run: node --test tests/multi-account-reset-isolation.test.mjs
+
+      - name: Test migration safety
+        run: node --test tests/multi-account-migration-safety.test.mjs
+
+      - name: Preserve low-level conflict protection
+        run: node --test tests/local-vault-account-linking.test.mjs
+
+      - name: Run existing complete test suite
         run: npm test
 
       - name: Run production web build
