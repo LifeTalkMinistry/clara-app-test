@@ -4,37 +4,34 @@ import { readFileSync } from "node:fs";
 
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-test("universal onboarding is loaded directly instead of through Suspense", () => {
-  assert.match(
+test("universal onboarding is not imported into the live app flow", () => {
+  assert.doesNotMatch(
     appSource,
     /import UniversalOnboarding from "\.\/pages\/onboarding\/UniversalOnboarding";/
   );
   assert.doesNotMatch(
     appSource,
-    /const UniversalOnboarding = lazy\(\(\) => import\("\.\/pages\/onboarding\/UniversalOnboarding"\)\);/
+    /lazy\(\(\) => import\("\.\/pages\/onboarding\/UniversalOnboarding"\)\)/
   );
 });
 
-test("the onboarding route bypasses the global auth and role loader", () => {
-  const directEntryIndex = appSource.indexOf("if (isUniversalOnboardingRoute)");
-  const globalLoaderIndex = appSource.indexOf("if (!authReady || loading || roleLoading)");
-
-  assert.ok(directEntryIndex >= 0, "direct onboarding entry condition is missing");
-  assert.ok(globalLoaderIndex >= 0, "global startup loader condition is missing");
-  assert.ok(
-    directEntryIndex < globalLoaderIndex,
-    "onboarding must be considered before the global startup loader"
-  );
+test("the onboarding URL redirects authenticated users to the dashboard", () => {
   assert.match(
     appSource,
-    /if \(isUniversalOnboardingRoute\) \{[\s\S]*?authReady && !loading && !user[\s\S]*?<Navigate to="\/login"[\s\S]*?return <UniversalOnboarding \/>;/
+    /<Route path="\/onboarding" element=\{<Navigate to="\/dashboard" replace \/>\} \/>/
   );
+  assert.doesNotMatch(appSource, /if \(isUniversalOnboardingRoute\)/);
+  assert.doesNotMatch(appSource, /return <UniversalOnboarding \/>/);
 });
 
-test("other routes keep an explicit startup loader", () => {
+test("logged-out routes still wait for account restoration and then use Login", () => {
   assert.match(
     appSource,
     /<FullScreenLoader message="Restoring your CLARA account\.\.\." \/>/
+  );
+  assert.match(
+    appSource,
+    /<Navigate to="\/login" replace state=\{\{ from: location \}\} \/>/
   );
   assert.match(
     appSource,

@@ -1,9 +1,8 @@
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Navigate, useLocation } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
-import OnboardingRouteGate from "@/components/auth/OnboardingRouteGate";
+import { AuthProvider } from "@/context/AuthContext";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
@@ -38,9 +37,6 @@ import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
 
 const App = React.lazy(() => import("./App.jsx"));
-const UniversalOnboarding = React.lazy(() =>
-  import("./pages/onboarding/UniversalOnboarding.jsx")
-);
 
 function StartupScreen({ message = "Opening CLARA..." }) {
   return (
@@ -76,7 +72,7 @@ class StartupErrorBoundary extends React.Component {
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">CLARA startup</p>
           <h1 className="mt-3 text-2xl font-bold">CLARA could not finish opening.</h1>
           <p className="mt-3 text-sm leading-6 text-white/70">
-            Reload the latest version. Your saved onboarding answers and local financial data will not be deleted.
+            Reload the latest version. Your saved local financial data will not be deleted.
           </p>
           <button
             type="button"
@@ -91,43 +87,11 @@ class StartupErrorBoundary extends React.Component {
   }
 }
 
-function isUniversalOnboardingLocation(location) {
-  const routerPath = String(location?.pathname || "").replace(/\/+$/, "") || "/";
-  const rawHashPath = String(window.location.hash || "")
-    .replace(/^#/, "")
-    .split("?")[0]
-    .replace(/\/+$/, "");
-  return routerPath === "/onboarding" || rawHashPath === "/onboarding";
-}
-
-function DirectOnboardingEntry() {
-  const location = useLocation();
-  const { user, loading, authReady } = useAuth();
-
-  if (authReady && !loading && !user) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
-  }
-
-  return (
-    <Suspense fallback={<StartupScreen message="Opening onboarding..." />}>
-      <UniversalOnboarding />
-    </Suspense>
-  );
-}
-
 function RootApplication() {
-  const location = useLocation();
-
-  if (isUniversalOnboardingLocation(location)) {
-    return <DirectOnboardingEntry />;
-  }
-
   return (
-    <OnboardingRouteGate>
-      <Suspense fallback={<StartupScreen message="Opening CLARA..." />}>
-        <App />
-      </Suspense>
-    </OnboardingRouteGate>
+    <Suspense fallback={<StartupScreen message="Opening CLARA..." />}>
+      <App />
+    </Suspense>
   );
 }
 

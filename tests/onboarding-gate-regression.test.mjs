@@ -142,32 +142,30 @@ test("memory fallback cannot complete onboarding for another vault", async () =>
   }
 });
 
-test("authenticated routes are wrapped by a mandatory onboarding gate", () => {
+test("authenticated routes are no longer wrapped by a mandatory onboarding gate", () => {
   const mainSource = readRepositoryFile("src/main.jsx");
-  const gateSource = readRepositoryFile("src/components/auth/OnboardingRouteGate.jsx");
+  const appSource = readRepositoryFile("src/App.jsx");
 
+  assert.doesNotMatch(mainSource, /OnboardingRouteGate/);
+  assert.doesNotMatch(mainSource, /isUniversalOnboardingLocation/);
   assert.match(
     mainSource,
-    /function RootApplication\(\)[\s\S]*?<OnboardingRouteGate>[\s\S]*?<App \/>/
+    /function RootApplication\(\)[\s\S]*?<Suspense[\s\S]*?<App \/>/
   );
-  assert.match(mainSource, /if \(isUniversalOnboardingLocation\(location\)\)/);
-  assert.match(gateSource, /resolveAppFlow\(/);
   assert.match(
-    gateSource,
-    /flow === "universal_onboarding" && location\.pathname !== "\/onboarding"/
+    appSource,
+    /<Route path="\/onboarding" element=\{<Navigate to="\/dashboard" replace \/>\} \/>/
   );
-  assert.match(gateSource, /<Navigate[\s\S]*?to="\/onboarding"[\s\S]*?replace/);
 });
 
-test("access decisions and offline snapshots use the scoped profile", () => {
+test("access flow bypasses onboarding while keeping saved setup data intact", () => {
   const accessSource = readRepositoryFile("src/lib/access-control.js");
-  const offlineSource = readRepositoryFile("src/lib/offline-access-cache.js");
   const profileSource = readRepositoryFile("src/lib/local-profile-repository.js");
   const resetSource = readRepositoryFile("src/lib/reset-local-clara-journey.js");
 
-  assert.match(accessSource, /hasCompletedLocalSetup\(profileLike\)/);
-  assert.match(offlineSource, /lastResolvedAppFlow: onboardingCompleted[\s\S]*?ONBOARDING_FLOW/);
-  assert.match(offlineSource, /lastValidRoute: onboardingCompleted[\s\S]*?ONBOARDING_ROUTE/);
+  assert.match(accessSource, /export function hasCompletedOnboarding[\s\S]*?hasCompletedLocalSetup\(profileLike\)/);
+  assert.match(accessSource, /export function resolveAppFlow\(_profileLike, _enrollment\)[\s\S]*?return "normal";/);
+  assert.doesNotMatch(accessSource, /return "universal_onboarding";/);
   assert.match(profileSource, /getLocalSetupProfile\(\{ id: localUserId \}\)/);
   assert.match(profileSource, /clearLocalSetupProfile\(\{ id \}\)/);
   assert.match(resetSource, /LOCAL_SETUP_PROFILE_KEY_PREFIX/);

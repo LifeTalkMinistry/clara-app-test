@@ -8,28 +8,18 @@ const onboardingContentSource = readFileSync(
   "utf8"
 );
 
-test("direct onboarding is selected before the full App module is needed", () => {
+test("bootstrap loads only the full CLARA app", () => {
   assert.match(mainSource, /const App = React\.lazy\(\(\) => import\("\.\/App\.jsx"\)\);/);
+  assert.doesNotMatch(mainSource, /UniversalOnboarding/);
+  assert.doesNotMatch(mainSource, /isUniversalOnboardingLocation/);
+  assert.doesNotMatch(mainSource, /DirectOnboardingEntry/);
   assert.match(
     mainSource,
-    /const UniversalOnboarding = React\.lazy\(\(\) =>[\s\S]*?import\("\.\/pages\/onboarding\/UniversalOnboarding\.jsx"\)/
+    /function RootApplication\(\) \{[\s\S]*?<Suspense fallback=\{<StartupScreen message="Opening CLARA\.\.\." \/>\}>[\s\S]*?<App \/>/
   );
-  assert.match(mainSource, /function isUniversalOnboardingLocation\(location\)/);
-  assert.match(
-    mainSource,
-    /if \(isUniversalOnboardingLocation\(location\)\) \{[\s\S]*?return <DirectOnboardingEntry \/>;[\s\S]*?\}/
-  );
-  assert.match(mainSource, /<StartupScreen message="Opening onboarding\.\.\." \/>/);
-  assert.match(mainSource, /<UniversalOnboarding \/>/);
 });
 
-test("direct onboarding keeps authentication enforcement after startup settles", () => {
-  assert.match(mainSource, /const \{ user, loading, authReady \} = useAuth\(\);/);
-  assert.match(mainSource, /if \(authReady && !loading && !user\)/);
-  assert.match(mainSource, /<Navigate to="\/login" replace/);
-});
-
-test("onboarding content no longer imports a compatibility data service", () => {
+test("universal onboarding content remains available for a future restoration", () => {
   assert.doesNotMatch(onboardingContentSource, /supabase/i);
   assert.doesNotMatch(onboardingContentSource, /app_settings/);
   assert.match(
