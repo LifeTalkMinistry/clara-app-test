@@ -2,7 +2,7 @@ import {
   LOCAL_FINANCE_PRIVATE_STORES,
   LOCAL_FINANCE_STORES,
   openLocalFinanceDb,
-} from "@/lib/localFinanceStore";
+} from "./localFinanceStore.js";
 
 const MIGRATION_MARKER_KEY = "clara_local_vault_migration_v1";
 const ACCESS_SNAPSHOT_LAST_KEY = "clara_access_snapshot_v2:last";
@@ -46,7 +46,7 @@ function addCandidate(candidates, value, source, priority) {
   candidates.push({ id, source, priority });
 }
 
-async function summarizeVaults(db) {
+export async function summarizeVaults(db) {
   const counts = new Map();
   const updatedAt = new Map();
   const stores = LOCAL_FINANCE_PRIVATE_STORES.filter((name) =>
