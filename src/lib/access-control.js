@@ -39,8 +39,9 @@ export function shouldForceEnrollment(profileLike, enrollment) {
   if (!enrollment) return false;
   return membership.planKey === FREE_PLAN_KEY && !membership.isActiveCommitted && ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus);
 }
-export function resolveAppFlow(profileLike, _enrollment) {
-  if (!hasCompletedOnboarding(profileLike)) return "universal_onboarding";
+export function resolveAppFlow(_profileLike, _enrollment) {
+  // Universal onboarding is temporarily bypassed. Existing answers remain stored
+  // so the onboarding experience can be restored later without data loss.
   return "normal";
 }
 export function deriveAccessState(profileLike = {}, enrollment = null) {
