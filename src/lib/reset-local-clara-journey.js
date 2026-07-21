@@ -1,5 +1,8 @@
 import { clearMemories } from "@/lib/ai/clara-memory";
-import { clearLocalSetupProfile } from "@/lib/claraLocalProfile";
+import {
+  clearLocalSetupProfile,
+  LOCAL_SETUP_PROFILE_KEY_PREFIX,
+} from "@/lib/claraLocalProfile";
 import { clearLocalUserVault } from "@/lib/localFinanceStore";
 import {
   clearDeveloperMembershipPreview,
@@ -49,6 +52,7 @@ const RESETTABLE_PREFIXES = [
   "clara_live_user_message",
   "clara_buy_check_session",
   "clara_forecast_session",
+  LOCAL_SETUP_PROFILE_KEY_PREFIX,
 ];
 
 function getStorage() {
@@ -72,6 +76,7 @@ function clearScopedLocalStorage(localUserIds) {
 
   localUserIds.forEach((localUserId) => {
     clearDailyCheckInState(localUserId);
+    clearLocalSetupProfile({ id: localUserId });
     removeKey(storage, `clara_memory_${localUserId}`);
     removeKey(storage, `clara_me_life_setup:${localUserId}`);
     removeKey(storage, `${PROFILE_PREFIX}${localUserId}`);
@@ -100,7 +105,6 @@ export async function resetLocalClaraJourney({
   const localUserIds = [...new Set([canonicalId, ...LEGACY_LOCAL_IDS])];
 
   clearDeveloperMembershipPreview();
-  clearLocalSetupProfile();
   clearOfflineQueue();
 
   for (const userId of localUserIds) {

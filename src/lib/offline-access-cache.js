@@ -15,8 +15,10 @@ const ACCESS_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 120;
 const OFFLINE_QUEUE_KEY = "clara_offline_queue_v1";
 
 const DASHBOARD_ROUTE = "/dashboard";
+const ONBOARDING_ROUTE = "/onboarding";
 const LIMITED_OFFLINE_FLOW = "limited_offline";
 const ACTIVE_OFFLINE_FLOW = "active";
+const ONBOARDING_FLOW = "universal_onboarding";
 
 let lastStableSnapshot = null;
 let lastStableSnapshotSignature = "";
@@ -55,7 +57,10 @@ const clonePlain = (value) => {
 const sanitizeProfileSnapshot = (profile = {}) =>
   stripLocalSetupProfileFields(profile || {});
 
-const hasCompletedUniversalOnboarding = () => hasCompletedLocalSetup();
+const hasCompletedUniversalOnboarding = (profileLike = {}) => {
+  const role = safeLower(profileLike?.role || "user");
+  return role === "admin" || role === "advertiser" || hasCompletedLocalSetup(profileLike);
+};
 
 // ================================
 // OFFLINE QUEUE SYSTEM (NEW)
@@ -114,22 +119,34 @@ export function isAccessNetworkOffline(error = null) {
 export function normalizeAccessSnapshot(snapshot = {}) {
   const source = snapshot || {};
   const profile = sanitizeProfileSnapshot(source.profileBasic || source.profile || source.user || {});
+  const role = safeLower(source.role || profile.role || "user");
+  const onboardingCompleted =
+    role === "admin" ||
+    role === "advertiser" ||
+    Boolean(source.onboardingCompleted ?? hasCompletedUniversalOnboarding({
+      ...profile,
+      id: source.userId || profile.id,
+      email: source.email || profile.email,
+      role,
+    }));
 
   return {
     version: ACCESS_CACHE_VERSION,
     userId: source.userId || profile.id || null,
     email: source.email || profile.email || null,
     profileBasic: clonePlain(profile),
-    role: safeLower(source.role || profile.role || "user"),
+    role,
     plan: safeLower(source.plan || profile.plan || "free"),
     subscriptionStatus: safeLower(
       source.subscriptionStatus || profile.subscription_status || "free"
     ),
-    onboardingCompleted: Boolean(
-      source.onboardingCompleted ?? hasCompletedUniversalOnboarding()
-    ),
-    lastResolvedAppFlow: safeText(source.lastResolvedAppFlow || "normal"),
-    lastValidRoute: safeText(source.lastValidRoute || DASHBOARD_ROUTE),
+    onboardingCompleted,
+    lastResolvedAppFlow: onboardingCompleted
+      ? safeText(source.lastResolvedAppFlow || "normal")
+      : ONBOARDING_FLOW,
+    lastValidRoute: onboardingCompleted
+      ? safeText(source.lastValidRoute || DASHBOARD_ROUTE)
+      : ONBOARDING_ROUTE,
     enrollment: clonePlain(source.enrollment),
     accessState: clonePlain(source.accessState),
     savedAt: source.savedAt || nowIso(),
@@ -142,9 +159,7 @@ export function normalizeAccessSnapshot(snapshot = {}) {
 
 export function getAccessSnapshotSignature(snapshot = null) {
   if (!snapshot) return "none";
-
   const s = normalizeAccessSnapshot(snapshot);
-
   return [
     s.userId,
     s.email,
@@ -154,9 +169,7 @@ export function getAccessSnapshotSignature(snapshot = null) {
     s.onboardingCompleted ? "onboarding-complete" : "onboarding-incomplete",
     s.lastResolvedAppFlow,
     s.lastValidRoute,
-  ]
-    .map(safeLower)
-    .join("|");
+  ].map(safeLower).join("|");
 }
 
 // ================================
@@ -168,42 +181,28 @@ const getStorageKey = (userIdOrEmail) =>
 
 export function saveAccessSnapshot(snapshot) {
   if (!isBrowser()) return null;
-
   const normalized = normalizeAccessSnapshot(snapshot);
   const signature = getAccessSnapshotSignature(normalized);
-
-  if (signature === lastStableSnapshotSignature) {
-    return lastStableSnapshot;
-  }
-
+  if (signature === lastStableSnapshotSignature) return lastStableSnapshot;
   lastStableSnapshotSignature = signature;
   lastStableSnapshot = normalized;
-
   const key = getStorageKey(normalized.userId || normalized.email);
-
   localStorage.setItem(key, JSON.stringify(normalized));
   localStorage.setItem(ACCESS_CACHE_LAST_KEY, JSON.stringify(normalized));
-
   return normalized;
 }
 
 export function getAccessSnapshot(userIdOrEmail = null) {
   if (!isBrowser()) return null;
-
   const key = getStorageKey(userIdOrEmail);
   const direct = safeJsonParse(localStorage.getItem(key));
   const last = safeJsonParse(localStorage.getItem(ACCESS_CACHE_LAST_KEY));
-
   return direct || last;
 }
 
 export function clearAccessSnapshot(userIdOrEmail = null) {
   if (!isBrowser()) return;
-
-  if (userIdOrEmail) {
-    localStorage.removeItem(getStorageKey(userIdOrEmail));
-  }
-
+  if (userIdOrEmail) localStorage.removeItem(getStorageKey(userIdOrEmail));
   localStorage.removeItem(ACCESS_CACHE_LAST_KEY);
 }
 
@@ -213,10 +212,8 @@ export function clearAccessSnapshot(userIdOrEmail = null) {
 
 export function isAccessSnapshotUsable(snapshot) {
   if (!snapshot) return false;
-
   const normalized = normalizeAccessSnapshot(snapshot);
   const savedAtMs = parseDateMs(normalized.savedAt);
-
   return (
     savedAtMs > 0 &&
     Date.now() - savedAtMs <= ACCESS_CACHE_MAX_AGE_MS &&
@@ -230,10 +227,16 @@ export function isAccessSnapshotUsable(snapshot) {
 
 export function getOfflineFallbackFlow(snapshot = null) {
   if (!isAccessSnapshotUsable(snapshot)) {
+    return { flow: LIMITED_OFFLINE_FLOW, route: DASHBOARD_ROUTE, limited: true };
+  }
+
+  const normalized = normalizeAccessSnapshot(snapshot);
+  if (!normalized.onboardingCompleted) {
     return {
-      flow: LIMITED_OFFLINE_FLOW,
-      route: DASHBOARD_ROUTE,
-      limited: true,
+      flow: ONBOARDING_FLOW,
+      route: ONBOARDING_ROUTE,
+      limited: false,
+      snapshot: normalized,
     };
   }
 
@@ -241,7 +244,7 @@ export function getOfflineFallbackFlow(snapshot = null) {
     flow: ACTIVE_OFFLINE_FLOW,
     route: DASHBOARD_ROUTE,
     limited: false,
-    snapshot: normalizeAccessSnapshot(snapshot),
+    snapshot: normalized,
   };
 }
 
@@ -264,7 +267,13 @@ export function buildAccessSnapshot({
     role: accessState?.role,
     plan: accessState?.plan,
     subscriptionStatus: profile?.subscription_status,
-    onboardingCompleted: hasCompletedUniversalOnboarding(),
+    onboardingCompleted: hasCompletedUniversalOnboarding({
+      ...(profile || {}),
+      id: profile?.id || user?.id,
+      local_vault_id: profile?.local_vault_id || user?.local_vault_id || user?.id,
+      account_id: profile?.account_id || user?.account_id,
+      role: accessState?.role || profile?.role || user?.role,
+    }),
     lastResolvedAppFlow: flow,
     lastValidRoute: currentPath,
     enrollment,

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
+import OnboardingRouteGate from "@/components/auth/OnboardingRouteGate";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
@@ -146,7 +147,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <AuthProvider>
         <ThemeProvider>
           <HashRouter>
-            <App />
+            <OnboardingRouteGate>
+              <App />
+            </OnboardingRouteGate>
           </HashRouter>
         </ThemeProvider>
       </AuthProvider>

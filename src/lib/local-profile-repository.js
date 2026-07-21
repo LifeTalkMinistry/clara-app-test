@@ -1,5 +1,9 @@
+import {
+  clearLocalSetupProfile,
+  getLocalSetupProfile,
+} from "./claraLocalProfile.js";
+
 const PROFILE_KEY_PREFIX = "clara_local_account_profile_v1:";
-const LOCAL_SETUP_KEY = "clara_local_setup_profile_v1";
 const VOLATILE_PROFILE_FIELDS = new Set(["updated_at"]);
 
 function getStorage() {
@@ -32,7 +36,7 @@ function readLocalLifeSetup(localUserId) {
 
   return (
     safeParse(storage.getItem(`clara_me_life_setup:${localUserId}`)) ||
-    safeParse(storage.getItem(LOCAL_SETUP_KEY)) ||
+    getLocalSetupProfile({ id: localUserId }) ||
     null
   );
 }
@@ -166,7 +170,7 @@ export function clearLocalAccountProfile(localUserId, { clearSetup = true } = {}
 
   if (clearSetup) {
     storage?.removeItem(`clara_me_life_setup:${id}`);
-    storage?.removeItem(LOCAL_SETUP_KEY);
+    clearLocalSetupProfile({ id });
   }
 
   window?.dispatchEvent?.(
