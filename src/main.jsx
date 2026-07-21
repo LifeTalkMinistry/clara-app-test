@@ -22,7 +22,7 @@ import {
   installClaraGuideCarouselStep,
 } from "./runtime/installClaraGuideCarouselStep";
 import { installClaraGuideSchedulePhaseRedirect } from "./runtime/claraGuideSchedulePhaseRedirect";
-import { installClaraGuideScheduleRuntime } from "./runtime/installClaraGuideScheduleRuntime";
+import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import "./index.css";
 import "./manual-expense-wallet-step.css";
