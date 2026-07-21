@@ -30,6 +30,13 @@ body {
   background-color: transparent !important;
 }
 
+/* Never hide the auth/Suspense loader behind a reveal animation. Performance mode
+   disables animations globally, so an opacity-based reveal can otherwise stay blank. */
+.theme-page-shell:has(.animate-spin) {
+  opacity: 1 !important;
+  animation: none !important;
+}
+
 [class*="bg-[#05070d]"],
 [class*="bg-[#020617]"],
 [class*="bg-slate-950"],

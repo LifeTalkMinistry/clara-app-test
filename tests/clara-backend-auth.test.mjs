@@ -1,17 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
+  backendRequest,
   clearBackendSession,
   createClaraBackendAccount,
   DEFAULT_API_URL,
+  DEFAULT_REQUEST_TIMEOUT_MS,
   getStoredBackendToken,
   getStoredBackendUser,
+  isBackendNetworkError,
   isStoredTokenLive,
   restoreClaraBackendSession,
   signInWithClaraBackend,
   TOKEN_KEY,
   USER_KEY,
 } from "../src/lib/clara-backend-client.js";
+
+const indexCssSource = readFileSync(
+  new URL("../src/index.css", import.meta.url),
+  "utf8"
+);
 
 function createStorage() {
   const values = new Map();
@@ -48,6 +57,25 @@ function jsonResponse(status, payload) {
 function installBrowser(storage = createStorage()) {
   globalThis.window = { localStorage: storage };
   return storage;
+}
+
+function installHangingFetch(onAbort = () => {}) {
+  globalThis.fetch = (_url, options = {}) =>
+    new Promise((_resolve, reject) => {
+      const abortRequest = () => {
+        onAbort();
+        const error = new Error("The request was aborted.");
+        error.name = "AbortError";
+        reject(error);
+      };
+
+      if (options.signal?.aborted) {
+        abortRequest();
+        return;
+      }
+
+      options.signal?.addEventListener("abort", abortRequest, { once: true });
+    });
 }
 
 function removeBrowser() {
@@ -187,4 +215,63 @@ test("expired stored tokens are rejected before any network request", async () =
   assert.equal(storage.getItem(USER_KEY), null);
 
   removeBrowser();
+});
+
+test("backend requests time out instead of leaving auth startup pending", async () => {
+  installBrowser();
+  let abortObserved = false;
+  installHangingFetch(() => {
+    abortObserved = true;
+  });
+  const startedAt = Date.now();
+
+  try {
+    await assert.rejects(
+      () => backendRequest("/api/users/me", { timeoutMs: 25 }),
+      (error) => {
+        assert.equal(error.code, "REQUEST_TIMEOUT");
+        assert.equal(error.timeoutMs, 25);
+        assert.equal(isBackendNetworkError(error), true);
+        return true;
+      }
+    );
+    assert.equal(abortObserved, true);
+    assert.ok(Date.now() - startedAt < 1_000);
+    assert.equal(DEFAULT_REQUEST_TIMEOUT_MS, 10_000);
+  } finally {
+    removeBrowser();
+  }
+});
+
+test("session restoration uses the cached account when the backend times out", async () => {
+  const storage = installBrowser();
+  const token = createToken(Math.floor(Date.now() / 1000) + 3600);
+  const cachedUser = {
+    id: 21,
+    name: "Offline Max",
+    email: "offline@example.com",
+    role: "user",
+  };
+  storage.setItem(TOKEN_KEY, token);
+  storage.setItem(USER_KEY, JSON.stringify(cachedUser));
+  installHangingFetch();
+
+  try {
+    const restored = await restoreClaraBackendSession({ timeoutMs: 25 });
+
+    assert.equal(restored.offline, true);
+    assert.equal(restored.token, token);
+    assert.equal(restored.user.id, cachedUser.id);
+    assert.equal(restored.user.email, cachedUser.email);
+  } finally {
+    clearBackendSession();
+    removeBrowser();
+  }
+});
+
+test("startup loader remains visible when performance mode disables animation", () => {
+  assert.match(
+    indexCssSource,
+    /\.theme-page-shell:has\(\.animate-spin\)\s*\{[\s\S]*?opacity:\s*1\s*!important;[\s\S]*?animation:\s*none\s*!important;/
+  );
 });
