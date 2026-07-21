@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
-import UniversalOnboarding from "./pages/onboarding/UniversalOnboarding";
 import useUserRole from "./hooks/useUserRole";
 import { deriveAccessState, resolveAppFlow } from "./lib/access-control";
 import {
@@ -68,7 +67,6 @@ function FullScreenLoader({ message = "Loading CLARA..." }) {
 function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }) {
   if (offlineAccessActive) return "/dashboard";
   if (isAdvertiser) return "/advertiser";
-  if (flow === "universal_onboarding") return "/onboarding";
   if (flow === "program_onboarding") return "/program-onboarding";
   if (forceEnroll) return "/enroll";
   return "/dashboard";
@@ -119,7 +117,6 @@ function AdminRescueButton({ show }) {
 
 function AppRoutes() {
   const location = useLocation();
-  const isUniversalOnboardingRoute = location.pathname === "/onboarding";
   const { user, profile, loading, authReady } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
@@ -197,16 +194,6 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  // Universal Onboarding is intentionally outside the global auth/role loader.
-  // It can render while account restoration finishes, but redirects to Login once
-  // authentication has definitively completed without a user.
-  if (isUniversalOnboardingRoute) {
-    if (authReady && !loading && !user) {
-      return <Navigate to="/login" replace state={{ from: location }} />;
-    }
-    return <UniversalOnboarding />;
-  }
-
   if (!authReady || loading || roleLoading) {
     return <FullScreenLoader message="Restoring your CLARA account..." />;
   }
@@ -247,7 +234,7 @@ function AppRoutes() {
               <Layout>
                 <Routes>
                   <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
-                  <Route path="/onboarding" element={<UniversalOnboarding />} />
+                  <Route path="/onboarding" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/program-onboarding" element={<ProgramOnboarding />} />
                   <Route path="/pending" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/enroll" element={<Enroll />} />
