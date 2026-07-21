@@ -35,14 +35,59 @@ function getStorage() {
   }
 }
 
-function normalizeUser(user = {}) {
-  if (!user?.id) return null;
+function isObject(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function extractUserPayload(payload) {
+  let candidate = payload;
+
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (!isObject(candidate)) return candidate;
+    if (
+      candidate.id !== undefined ||
+      candidate.user_id !== undefined ||
+      candidate.userId !== undefined
+    ) {
+      return candidate;
+    }
+
+    if (isObject(candidate.user)) {
+      candidate = candidate.user;
+      continue;
+    }
+    if (isObject(candidate.data)) {
+      candidate = candidate.data;
+      continue;
+    }
+    if (isObject(candidate.profile)) {
+      candidate = candidate.profile;
+      continue;
+    }
+    if (isObject(candidate.account)) {
+      candidate = candidate.account;
+      continue;
+    }
+
+    return candidate;
+  }
+
+  return candidate;
+}
+
+function normalizeUser(payload = {}) {
+  const user = extractUserPayload(payload);
+  const id = user?.id ?? user?.user_id ?? user?.userId ?? null;
+  if (id === null || id === undefined || String(id).trim() === "") return null;
+
   return {
-    id: user.id,
-    name: String(user.name || "CLARA User").trim() || "CLARA User",
+    id,
+    name:
+      String(user.name || user.full_name || user.display_name || "CLARA User").trim() ||
+      "CLARA User",
     email: String(user.email || "").trim().toLowerCase(),
-    role: String(user.role || "user").trim().toLowerCase() || "user",
-    created_at: user.created_at || null,
+    role: String(user.role || user.user_role || "user").trim().toLowerCase() || "user",
+    created_at: user.created_at || user.createdAt || null,
   };
 }
 
@@ -229,15 +274,16 @@ export async function fetchCurrentBackendUser(
   { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}
 ) {
   if (!token) return null;
-  const user = normalizeUser(
-    await backendRequest("/api/users/me", {
-      token,
-      timeoutMs,
-    })
-  );
+  const payload = await backendRequest("/api/users/me", {
+    token,
+    timeoutMs,
+  });
+  const user = normalizeUser(payload);
 
   if (!user) {
-    throw new Error("CLARA returned an incomplete user profile.");
+    const error = new Error("CLARA returned an incomplete user profile.");
+    error.code = "INVALID_USER_PROFILE";
+    throw error;
   }
 
   getStorage()?.setItem(USER_KEY, JSON.stringify(user));
@@ -261,8 +307,17 @@ export async function restoreClaraBackendSession({ timeoutMs = DEFAULT_REQUEST_T
     }
 
     const cachedUser = getStoredBackendUser();
-    if (cachedUser && isBackendNetworkError(error)) {
+    const canUseCachedUser =
+      cachedUser &&
+      (isBackendNetworkError(error) || error?.code === "INVALID_USER_PROFILE");
+
+    if (canUseCachedUser) {
       return { token, user: cachedUser, offline: true };
+    }
+
+    if (error?.code === "INVALID_USER_PROFILE") {
+      clearBackendSession();
+      return null;
     }
 
     throw error;
