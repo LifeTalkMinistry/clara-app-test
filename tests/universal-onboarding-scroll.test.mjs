@@ -84,6 +84,32 @@ test("Universal Onboarding isolates the dashboard document lock while mounted", 
   );
 });
 
+test("Android WebView receives a measured viewport fallback", () => {
+  assert.match(
+    isolationRuntime,
+    /UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY\s*=\s*[\s\S]*?"--clara-universal-onboarding-viewport-height"/
+  );
+  assert.match(isolationRuntime, /window\.visualViewport\?\.height/);
+  assert.match(isolationRuntime, /window\.innerHeight/);
+  assert.match(
+    isolationRuntime,
+    /root\.style\.setProperty\([\s\S]*?UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY/
+  );
+  assert.match(
+    isolationRuntime,
+    /height:\s*var\(\$\{UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY\}, 100vh\) !important;/
+  );
+  assert.match(
+    isolationRuntime,
+    /max-height:\s*calc\(var\(\$\{UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY\}, 100vh\) - 24px\) !important;/
+  );
+  assert.match(isolationRuntime, /window\.addEventListener\("resize", queueSync/);
+  assert.match(
+    isolationRuntime,
+    /window\.visualViewport\?\.addEventListener\("resize", queueSync/
+  );
+});
+
 test("screen changes reset the active shell scroll container", () => {
   assert.match(onboardingSource, /ref=\{onboardingShellRef\}/);
   assert.match(
