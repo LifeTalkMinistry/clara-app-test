@@ -16,6 +16,7 @@ import "./installSoundTouchFeedbackBridge";
 
 // Route-level scroll ownership
 import "./installUniversalOnboardingScrollIsolation";
+import "./installSettingsScrollReset";
 
 // Core memory runtime
 import "../clara-memory-bridge";
