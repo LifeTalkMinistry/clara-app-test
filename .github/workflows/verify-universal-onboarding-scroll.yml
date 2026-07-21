@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "src/index.css"
+      - "src/universal-onboarding-viewport-fallback.css"
       - "src/runtime/installUniversalOnboardingScrollIsolation.js"
       - "src/runtime/installClaraRuntimePatches.js"
       - "src/pages/onboarding/UniversalOnboarding.jsx"
@@ -55,3 +56,4 @@ jobs:
           grep -R "clara-universal-onboarding-route" android/app/src/main/assets/public
           grep -R "overscroll-behavior-y:contain" android/app/src/main/assets/public
           grep -R "clara-universal-onboarding-option" android/app/src/main/assets/public
+          grep -R "100svh" android/app/src/main/assets/public

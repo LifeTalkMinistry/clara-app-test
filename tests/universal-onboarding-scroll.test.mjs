@@ -6,6 +6,9 @@ const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
 const indexCss = readSource("src/index.css");
+const viewportFallbackCss = readSource(
+  "src/universal-onboarding-viewport-fallback.css"
+);
 const onboardingSource = readSource("src/pages/onboarding/UniversalOnboarding.jsx");
 const isolationRuntime = readSource(
   "src/runtime/installUniversalOnboardingScrollIsolation.js"
@@ -84,30 +87,33 @@ test("Universal Onboarding isolates the dashboard document lock while mounted", 
   );
 });
 
-test("Android WebView receives a measured viewport fallback", () => {
+test("Android viewport fallback is CSS-only and cannot block React bootstrap", () => {
   assert.match(
     isolationRuntime,
-    /UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY\s*=\s*[\s\S]*?"--clara-universal-onboarding-viewport-height"/
+    /import "\.\.\/universal-onboarding-viewport-fallback\.css";/
   );
-  assert.match(isolationRuntime, /window\.visualViewport\?\.height/);
-  assert.match(isolationRuntime, /window\.innerHeight/);
+  assert.doesNotMatch(isolationRuntime, /visualViewport/);
+  assert.doesNotMatch(isolationRuntime, /window\.innerHeight/);
+  assert.doesNotMatch(isolationRuntime, /document\.createElement\("style"\)/);
+  assert.doesNotMatch(isolationRuntime, /style\.setProperty/);
+
+  assert.match(viewportFallbackCss, /height:\s*100vh !important;/);
+  assert.match(viewportFallbackCss, /height:\s*100svh !important;/);
   assert.match(
-    isolationRuntime,
-    /root\.style\.setProperty\([\s\S]*?UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY/
+    viewportFallbackCss,
+    /max-height:\s*calc\(100vh - 24px\) !important;/
   );
   assert.match(
-    isolationRuntime,
-    /height:\s*var\(\$\{UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY\}, 100vh\) !important;/
+    viewportFallbackCss,
+    /max-height:\s*calc\(100svh - 24px\) !important;/
   );
-  assert.match(
-    isolationRuntime,
-    /max-height:\s*calc\(var\(\$\{UNIVERSAL_ONBOARDING_VIEWPORT_HEIGHT_PROPERTY\}, 100vh\) - 24px\) !important;/
-  );
-  assert.match(isolationRuntime, /window\.addEventListener\("resize", queueSync/);
-  assert.match(
-    isolationRuntime,
-    /window\.visualViewport\?\.addEventListener\("resize", queueSync/
-  );
+  assert.match(viewportFallbackCss, /overflow-y:\s*auto !important;/);
+});
+
+test("the scroll isolation scheduler has an older-WebView fallback", () => {
+  assert.match(isolationRuntime, /typeof queueMicrotask === "function"/);
+  assert.match(isolationRuntime, /Promise\.resolve\(\)\.then\(callback\)/);
+  assert.match(isolationRuntime, /typeof MutationObserver === "function"/);
 });
 
 test("screen changes reset the active shell scroll container", () => {

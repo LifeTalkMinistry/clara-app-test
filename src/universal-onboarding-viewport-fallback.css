@@ -1,0 +1,65 @@
+/*
+ * Universal Onboarding viewport compatibility.
+ *
+ * Keep sizing in CSS so older Android WebViews can render the React app even
+ * when dynamic viewport APIs or units behave differently. The later, more
+ * specific rules override the 100dvh utilities in index.css without requiring
+ * JavaScript to measure or mutate the viewport before React mounts.
+ */
+@media (max-width: 640px) {
+  html.clara-universal-onboarding-route #root .clara-universal-onboarding,
+  html.clara-universal-onboarding-route
+    #root
+    .clara-universal-onboarding
+    > .relative {
+    height: 100vh !important;
+  }
+
+  html.clara-universal-onboarding-route #root .clara-universal-onboarding {
+    min-height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  html.clara-universal-onboarding-route
+    #root
+    .clara-universal-onboarding
+    > .relative {
+    min-height: 0 !important;
+  }
+
+  html.clara-universal-onboarding-route
+    #root
+    .clara-universal-onboarding-shell {
+    height: calc(100vh - 24px) !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 24px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@supports (height: 100svh) {
+  @media (max-width: 640px) {
+    html.clara-universal-onboarding-route #root .clara-universal-onboarding,
+    html.clara-universal-onboarding-route
+      #root
+      .clara-universal-onboarding
+      > .relative {
+      height: 100svh !important;
+    }
+
+    html.clara-universal-onboarding-route #root .clara-universal-onboarding {
+      min-height: 100svh !important;
+    }
+
+    html.clara-universal-onboarding-route
+      #root
+      .clara-universal-onboarding-shell {
+      height: calc(100svh - 24px) !important;
+      max-height: calc(100svh - 24px) !important;
+    }
+  }
+}
