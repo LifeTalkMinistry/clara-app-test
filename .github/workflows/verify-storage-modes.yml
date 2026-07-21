@@ -35,7 +35,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Cloud vault unit tests
-        run: node --test tests/cloud-vault-sync.test.mjs
+        run: node --experimental-specifier-resolution=node --test tests/cloud-vault-sync.test.mjs
       - name: Existing regression suite
         run: npm test
       - name: Production web build
