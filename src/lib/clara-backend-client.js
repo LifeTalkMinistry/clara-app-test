@@ -1,4 +1,5 @@
 const DEFAULT_API_URL = "https://groin-mothproof-sixties.ngrok-free.dev";
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const TOKEN_KEY = "clara_backend_access_token_v1";
 const USER_KEY = "clara_backend_user_v1";
 
@@ -49,6 +50,13 @@ function decodeBase64Url(value) {
   return "";
 }
 
+function createRequestTimeoutError(timeoutMs) {
+  const error = new Error(`CLARA account server did not respond within ${timeoutMs}ms.`);
+  error.code = "REQUEST_TIMEOUT";
+  error.timeoutMs = timeoutMs;
+  return error;
+}
+
 export function readJwtPayload(token) {
   try {
     const payload = String(token || "").split(".")[1];
@@ -66,13 +74,15 @@ export function isStoredTokenLive(token, now = Date.now()) {
 }
 
 export function isBackendNetworkError(error) {
-  if (error?.code === "NETWORK_ERROR") return true;
+  if (error?.code === "NETWORK_ERROR" || error?.code === "REQUEST_TIMEOUT") return true;
   const message = String(error?.message || "").toLowerCase();
   return (
     error instanceof TypeError ||
     message.includes("failed to fetch") ||
     message.includes("network") ||
-    message.includes("load failed")
+    message.includes("load failed") ||
+    message.includes("timed out") ||
+    message.includes("did not respond")
   );
 }
 
@@ -128,10 +138,21 @@ async function parseResponse(response) {
   return payload;
 }
 
-export async function backendRequest(path, { method = "GET", body, token } = {}) {
+export async function backendRequest(
+  path,
+  { method = "GET", body, token, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}
+) {
+  const numericTimeout = Number(timeoutMs);
+  const effectiveTimeoutMs = Number.isFinite(numericTimeout)
+    ? Math.max(0, numericTimeout)
+    : DEFAULT_REQUEST_TIMEOUT_MS;
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  let timeoutId = null;
+  let timedOut = false;
   let response;
+
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    const requestPromise = fetch(`${API_URL}${path}`, {
       method,
       cache: "no-store",
       headers: {
@@ -140,12 +161,32 @@ export async function backendRequest(path, { method = "GET", body, token } = {})
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
+      ...(controller ? { signal: controller.signal } : {}),
     });
+
+    if (effectiveTimeoutMs > 0) {
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          timedOut = true;
+          controller?.abort();
+          reject(createRequestTimeoutError(effectiveTimeoutMs));
+        }, effectiveTimeoutMs);
+      });
+      response = await Promise.race([requestPromise, timeoutPromise]);
+    } else {
+      response = await requestPromise;
+    }
   } catch (cause) {
+    if (cause?.code === "REQUEST_TIMEOUT" || timedOut) {
+      throw createRequestTimeoutError(effectiveTimeoutMs);
+    }
+
     const error = new Error("CLARA could not reach the account server.");
     error.code = "NETWORK_ERROR";
     error.cause = cause;
     throw error;
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
   }
 
   return parseResponse(response);
@@ -172,11 +213,15 @@ export async function createClaraBackendAccount({ name, email, password }) {
   return signInWithClaraBackend({ email, password });
 }
 
-export async function fetchCurrentBackendUser(token = getStoredBackendToken()) {
+export async function fetchCurrentBackendUser(
+  token = getStoredBackendToken(),
+  { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}
+) {
   if (!token) return null;
   const user = normalizeUser(
     await backendRequest("/api/users/me", {
       token,
+      timeoutMs,
     })
   );
 
@@ -188,7 +233,7 @@ export async function fetchCurrentBackendUser(token = getStoredBackendToken()) {
   return user;
 }
 
-export async function restoreClaraBackendSession() {
+export async function restoreClaraBackendSession({ timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}) {
   const token = getStoredBackendToken();
   if (!isStoredTokenLive(token)) {
     clearBackendSession();
@@ -196,7 +241,7 @@ export async function restoreClaraBackendSession() {
   }
 
   try {
-    const user = await fetchCurrentBackendUser(token);
+    const user = await fetchCurrentBackendUser(token, { timeoutMs });
     return { token, user, offline: false };
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
@@ -217,4 +262,9 @@ export function signOutFromClaraBackend() {
   clearBackendSession();
 }
 
-export { DEFAULT_API_URL, TOKEN_KEY, USER_KEY };
+export {
+  DEFAULT_API_URL,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  TOKEN_KEY,
+  USER_KEY,
+};
