@@ -48,6 +48,36 @@ function normalizeSnapshotForFingerprint(snapshot) {
   return JSON.stringify(normalizeValue(snapshot));
 }
 
+export function rebaseSnapshotVault(snapshot, targetVaultId) {
+  const sourceVaultId = String(snapshot?.source_vault_id || "").trim();
+  const target = String(targetVaultId || "").trim();
+  if (!snapshot || !sourceVaultId || !target || sourceVaultId === target) {
+    return snapshot;
+  }
+
+  const rewrite = (value) => {
+    if (typeof value === "string") {
+      return value.split(sourceVaultId).join(target);
+    }
+    if (Array.isArray(value)) return value.map(rewrite);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [
+          key.split(sourceVaultId).join(target),
+          rewrite(item),
+        ])
+      );
+    }
+    return value;
+  };
+
+  const rebased = rewrite(snapshot);
+  return {
+    ...rebased,
+    source_vault_id: target,
+  };
+}
+
 export function cloudSnapshotsMatch(first, second) {
   if (!first || !second) return false;
   return normalizeSnapshotForFingerprint(first) === normalizeSnapshotForFingerprint(second);
@@ -66,7 +96,11 @@ async function uploadWithConflictRecovery({ user, profile, snapshot, baseRevisio
     const latestRemote = await fetchCloudVaultStatus({ includeSnapshot: true });
     if (!latestRemote?.snapshot) throw error;
     const latestLocal = await buildClaraCloudVaultSnapshot({ user, profile });
-    const merged = mergeClaraCloudSnapshots(latestLocal, latestRemote.snapshot);
+    const latestRemoteForLocal = rebaseSnapshotVault(
+      latestRemote.snapshot,
+      latestLocal.source_vault_id
+    );
+    const merged = mergeClaraCloudSnapshots(latestLocal, latestRemoteForLocal);
 
     suppressSyncEventsUntil = Date.now() + 3_000;
     await restoreClaraCloudSnapshot(merged, { user });
@@ -110,15 +144,20 @@ async function performSync({ user, profile, preferRemote = false } = {}) {
     return result;
   }
 
-  if (cloudSnapshotsMatch(localSnapshot, remote.snapshot) && !preferRemote) {
+  const remoteSnapshotForLocal = rebaseSnapshotVault(
+    remote.snapshot,
+    localSnapshot.source_vault_id
+  );
+
+  if (cloudSnapshotsMatch(localSnapshot, remoteSnapshotForLocal) && !preferRemote) {
     const result = { ...remote, state: "synced", direction: "unchanged" };
     dispatchSyncStatus({ accountId, ...result });
     return result;
   }
 
   const merged = preferRemote
-    ? mergeClaraCloudSnapshots(localSnapshot, remote.snapshot)
-    : mergeClaraCloudSnapshots(remote.snapshot, localSnapshot);
+    ? mergeClaraCloudSnapshots(localSnapshot, remoteSnapshotForLocal)
+    : mergeClaraCloudSnapshots(remoteSnapshotForLocal, localSnapshot);
 
   suppressSyncEventsUntil = Date.now() + 3_000;
   await restoreClaraCloudSnapshot(merged, { user });
