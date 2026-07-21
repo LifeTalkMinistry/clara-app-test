@@ -136,22 +136,35 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState(emptyState);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
+  const stateRef = useRef(state);
   const refreshPromiseRef = useRef(null);
 
-  const applyBackendSession = useCallback(async ({ token, user, offline = false }) => {
-    const next = await buildAuthenticatedState({ serverUser: user, token, offline });
+  const commitState = useCallback((next) => {
+    stateRef.current = next;
     setState(next);
     return next;
   }, []);
 
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const applyBackendSession = useCallback(
+    async ({ token, user, offline = false }) => {
+      const next = await buildAuthenticatedState({ serverUser: user, token, offline });
+      return commitState(next);
+    },
+    [commitState]
+  );
+
   const refreshProfile = useCallback(async () => {
-    if (!state.user) return null;
+    if (!stateRef.current.user) return null;
     if (refreshPromiseRef.current) return refreshPromiseRef.current;
 
     const refreshPromise = (async () => {
       const token = getStoredBackendToken();
       if (!token) {
-        setState(emptyState());
+        commitState(emptyState());
         return null;
       }
 
@@ -161,18 +174,30 @@ export function AuthProvider({ children }) {
         return next.profile;
       } catch (error) {
         if (isBackendNetworkError(error)) {
-          setState((current) => ({
-            ...current,
-            offline: true,
-            session: current.session ? { ...current.session, offline: true } : null,
-            profile: current.profile ? { ...current.profile, offline_access: true } : null,
-          }));
-          return state.profile;
+          const current = stateRef.current;
+          if (!current.user) return null;
+
+          const alreadyOffline = Boolean(
+            current.offline &&
+              (!current.session || current.session.offline) &&
+              (!current.profile || current.profile.offline_access)
+          );
+
+          if (!alreadyOffline) {
+            commitState({
+              ...current,
+              offline: true,
+              session: current.session ? { ...current.session, offline: true } : null,
+              profile: current.profile ? { ...current.profile, offline_access: true } : null,
+            });
+          }
+
+          return current.profile;
         }
 
         if (error?.status === 401 || error?.status === 403) {
           clearBackendSession();
-          setState(emptyState());
+          commitState(emptyState());
           return null;
         }
 
@@ -186,7 +211,7 @@ export function AuthProvider({ children }) {
     } finally {
       refreshPromiseRef.current = null;
     }
-  }, [applyBackendSession, state.profile, state.user]);
+  }, [applyBackendSession, commitState]);
 
   const signIn = useCallback(
     async ({ email, password }) => {
@@ -230,8 +255,8 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     signOutFromClaraBackend();
-    setState(emptyState());
-  }, []);
+    commitState(emptyState());
+  }, [commitState]);
 
   useEffect(() => {
     let mounted = true;
@@ -248,7 +273,7 @@ export function AuthProvider({ children }) {
         token: restored.token,
         offline: restored.offline,
       });
-      if (mounted) setState(next);
+      if (mounted) commitState(next);
     })()
       .catch((error) => {
         clearBackendSession();
@@ -264,13 +289,13 @@ export function AuthProvider({ children }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [commitState]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
     const refreshOnline = () => {
-      if (!state.user || navigator.onLine === false) return;
+      if (!stateRef.current.user || navigator.onLine === false) return;
       refreshProfile().catch((error) => {
         console.error("[CLARA Auth] online account refresh failed", error);
       });
@@ -278,7 +303,7 @@ export function AuthProvider({ children }) {
 
     window.addEventListener("online", refreshOnline);
     return () => window.removeEventListener("online", refreshOnline);
-  }, [refreshProfile, state.user]);
+  }, [refreshProfile]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !state.serverUser || !state.session?.access_token) {
@@ -296,7 +321,7 @@ export function AuthProvider({ children }) {
           token: state.session.access_token,
           offline: state.offline,
         })
-          .then(setState)
+          .then(commitState)
           .catch((error) => {
             console.error("[CLARA Auth] local profile rebuild failed", error);
           });
@@ -316,7 +341,7 @@ export function AuthProvider({ children }) {
     return () => {
       events.forEach((eventName) => window.removeEventListener(eventName, rebuildLocalProfile));
     };
-  }, [state.offline, state.serverUser, state.session?.access_token]);
+  }, [commitState, state.offline, state.serverUser, state.session?.access_token]);
 
   const unsupportedGoogleLogin = useCallback(() => {
     throw new Error("Google login is not available yet. Use your CLARA email and password.");
