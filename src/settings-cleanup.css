@@ -6,6 +6,31 @@
 /* Keep the shared top navigation in place, then lower the complete Settings content area. */
 #root .theme-page-shell > div.relative.shrink-0:has(button[aria-label="Settings"][aria-current="page"]) + .clara-dashboard-content {
   margin-top: 24px !important;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  overflow: visible;
+}
+
+/*
+ * The global premium glow layers are fixed at a very high z-index in index.css.
+ * Keep the Settings experience above those materials so labels, breadcrumbs,
+ * and detail headers cannot look washed out or visually clipped.
+ */
+body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"]) {
+  position: relative;
+  isolation: isolate;
+}
+
+body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"])::before,
+body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"])::after {
+  display: none !important;
+}
+
+body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"]) #root {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 /* remove large profile hero card */
@@ -53,9 +78,9 @@
 
 /* section labels should feel atmospheric, not dead */
 #root .space-y-5.pb-6 section.space-y-2 > p {
-  color: rgba(207, 250, 254, 0.38) !important;
+  color: rgba(207, 250, 254, 0.52) !important;
   letter-spacing: 0.21em !important;
-  text-shadow: 0 0 14px rgba(34, 211, 238, 0.10);
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.08);
 }
 
 /* base settings cards only */
