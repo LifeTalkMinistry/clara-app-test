@@ -7,7 +7,7 @@ function harness({ activeVaultId = "vault-a", metadata = {}, mappings = {} } = {
   let counter = 0;
   const meta = new Map(Object.entries(metadata));
   const byAccount = new Map(Object.entries(mappings));
-  const records = new Map([["vault-a", [{ id: "expense-a", localUserId: "vault-a" }]]);
+  const records = new Map([["vault-a", [{ id: "expense-a", localUserId: "vault-a" }]]]);
 
   return {
     records,
