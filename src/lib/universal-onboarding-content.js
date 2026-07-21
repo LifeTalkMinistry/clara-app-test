@@ -1,5 +1,3 @@
-import { supabase } from "@/lib/supabaseClient";
-
 export const UNIVERSAL_ONBOARDING_SETTINGS_DEFAULTS = {
   onboarding_welcome_badge: "Guided setup",
   onboarding_welcome_headline: "Welcome to CLARA.",
@@ -51,24 +49,8 @@ export function buildUniversalOnboardingContent(settings = {}) {
 }
 
 export async function loadUniversalOnboardingContent() {
-  try {
-    const { data, error } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .in("key", UNIVERSAL_ONBOARDING_SETTINGS_KEYS);
-
-    if (error) {
-      throw error;
-    }
-
-    const settings = (data || []).reduce((acc, row) => {
-      acc[row.key] = row.value;
-      return acc;
-    }, {});
-
-    return buildUniversalOnboardingContent(settings);
-  } catch (error) {
-    console.warn("Falling back to default onboarding content:", error);
-    return buildUniversalOnboardingContent();
-  }
+  // Universal Onboarding must be available before any backend, compatibility
+  // facade, billing, or local migration finishes. Its visible copy is bundled
+  // with the app so opening setup cannot be blocked by another subsystem.
+  return buildUniversalOnboardingContent();
 }

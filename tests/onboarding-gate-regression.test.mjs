@@ -146,7 +146,11 @@ test("authenticated routes are wrapped by a mandatory onboarding gate", () => {
   const mainSource = readRepositoryFile("src/main.jsx");
   const gateSource = readRepositoryFile("src/components/auth/OnboardingRouteGate.jsx");
 
-  assert.match(mainSource, /<HashRouter>[\s\S]*?<OnboardingRouteGate>[\s\S]*?<App \/>/);
+  assert.match(
+    mainSource,
+    /function RootApplication\(\)[\s\S]*?<OnboardingRouteGate>[\s\S]*?<App \/>/
+  );
+  assert.match(mainSource, /if \(isUniversalOnboardingLocation\(location\)\)/);
   assert.match(gateSource, /resolveAppFlow\(/);
   assert.match(
     gateSource,

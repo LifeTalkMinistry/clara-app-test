@@ -1,8 +1,8 @@
-import React from "react";
+import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter } from "react-router-dom";
+import { HashRouter, Navigate, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import OnboardingRouteGate from "@/components/auth/OnboardingRouteGate";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
@@ -24,7 +24,6 @@ import {
 import { installClaraGuideSchedulePhaseRedirect } from "./runtime/claraGuideSchedulePhaseRedirect";
 import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
-import App from "./App.jsx";
 import "./index.css";
 import "./manual-expense-wallet-step.css";
 import "./guide-mode-stacking.css";
@@ -37,6 +36,100 @@ import "./guide-mode-intro-cleanup.css";
 import "./welcome-session-calendar-status.css";
 import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
+
+const App = React.lazy(() => import("./App.jsx"));
+const UniversalOnboarding = React.lazy(() =>
+  import("./pages/onboarding/UniversalOnboarding.jsx")
+);
+
+function StartupScreen({ message = "Opening CLARA..." }) {
+  return (
+    <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
+        <p className="text-sm text-white/75">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+class StartupErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("[CLARA Startup] application render failed", error, info);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="theme-page-shell min-h-screen flex items-center justify-center px-6 text-white">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.06] p-6 text-center shadow-2xl backdrop-blur-xl">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">CLARA startup</p>
+          <h1 className="mt-3 text-2xl font-bold">CLARA could not finish opening.</h1>
+          <p className="mt-3 text-sm leading-6 text-white/70">
+            Reload the latest version. Your saved onboarding answers and local financial data will not be deleted.
+          </p>
+          <button
+            type="button"
+            className="mt-6 h-12 w-full rounded-2xl bg-emerald-400 font-bold text-slate-950"
+            onClick={() => window.location.reload()}
+          >
+            Reload CLARA
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
+function isUniversalOnboardingLocation(location) {
+  const routerPath = String(location?.pathname || "").replace(/\/+$/, "") || "/";
+  const rawHashPath = String(window.location.hash || "")
+    .replace(/^#/, "")
+    .split("?")[0]
+    .replace(/\/+$/, "");
+  return routerPath === "/onboarding" || rawHashPath === "/onboarding";
+}
+
+function DirectOnboardingEntry() {
+  const location = useLocation();
+  const { user, loading, authReady } = useAuth();
+
+  if (authReady && !loading && !user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return (
+    <Suspense fallback={<StartupScreen message="Opening onboarding..." />}>
+      <UniversalOnboarding />
+    </Suspense>
+  );
+}
+
+function RootApplication() {
+  const location = useLocation();
+
+  if (isUniversalOnboardingLocation(location)) {
+    return <DirectOnboardingEntry />;
+  }
+
+  return (
+    <OnboardingRouteGate>
+      <Suspense fallback={<StartupScreen message="Opening CLARA..." />}>
+        <App />
+      </Suspense>
+    </OnboardingRouteGate>
+  );
+}
 
 try {
   installClaraBackgroundRuntimeGuard();
@@ -143,16 +236,16 @@ try {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClientInstance}>
-      <AuthProvider>
-        <ThemeProvider>
-          <HashRouter>
-            <OnboardingRouteGate>
-              <App />
-            </OnboardingRouteGate>
-          </HashRouter>
-        </ThemeProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <StartupErrorBoundary>
+      <QueryClientProvider client={queryClientInstance}>
+        <AuthProvider>
+          <ThemeProvider>
+            <HashRouter>
+              <RootApplication />
+            </HashRouter>
+          </ThemeProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </StartupErrorBoundary>
   </React.StrictMode>,
 );
