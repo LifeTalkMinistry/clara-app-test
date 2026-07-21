@@ -51,15 +51,20 @@ export function setLocalVaultId(localVaultId) {
   return value;
 }
 
+export function createLocalVaultId() {
+  const created = `clara_local_${createUuid()}`;
+  console.info("[CLARA Local Identity] created stable local vault", {
+    localVaultId: maskLocalIdentifier(created),
+  });
+  return created;
+}
+
 export function getOrCreateLocalVaultId() {
   const existing = getLocalVaultId();
   if (existing) return existing;
 
-  const created = `clara_local_${createUuid()}`;
+  const created = createLocalVaultId();
   setLocalVaultId(created);
-  console.info("[CLARA Local Identity] created stable local vault", {
-    localVaultId: maskLocalIdentifier(created),
-  });
   return created;
 }
 

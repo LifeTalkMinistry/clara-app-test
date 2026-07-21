@@ -10,27 +10,61 @@ const resilienceSource = readFileSync(
   new URL("../src/lib/auth-startup-resilience.js", import.meta.url),
   "utf8"
 );
+const resolverCoreSource = readFileSync(
+  new URL("../src/lib/accountLinking/resolveAccountLocalVaultCore.js", import.meta.url),
+  "utf8"
+);
+const linkerSource = readFileSync(
+  new URL("../src/lib/accountLinking/linkLocalVaultToAccount.js", import.meta.url),
+  "utf8"
+);
 
 test("local migrations cannot hold the global authentication loader open", () => {
   assert.match(
     authContextSource,
-    /import \{[\s\S]*?runLocalAuthMaintenance,[\s\S]*?waitForLocalAccountLink,[\s\S]*?\} from "@\/lib\/auth-startup-resilience";/
+    /import \{ runLocalAuthMaintenance \} from "@\/lib\/auth-startup-resilience";/
   );
   assert.doesNotMatch(authContextSource, /await migrateLocalVaultOwnership\(/);
   assert.doesNotMatch(authContextSource, /await migrateLegacyLocalIdentityStorage\(/);
   assert.match(authContextSource, /const restored = await restoreClaraBackendSession\(\);/);
-  assert.match(authContextSource, /commitState\(next\);[\s\S]*?void rebuildAfterLocalMaintenance\(localUserId\);/);
+  assert.match(
+    authContextSource,
+    /commitState\(next\);[\s\S]*?void rebuildAfterLocalMaintenance\(next\.localUserId\);/
+  );
 });
 
-test("local account linking is bounded without hiding account conflicts", () => {
-  assert.match(authContextSource, /await waitForLocalAccountLink\(\{/);
-  assert.match(resilienceSource, /export const ACCOUNT_LINK_TIMEOUT_MS = 3_000;/);
-  assert.match(resilienceSource, /return await Promise\.race\(\[/);
-  assert.match(resilienceSource, /"VAULT_ACCOUNT_CONFLICT"/);
-  assert.match(resilienceSource, /if \(isBlockingLocalLinkError\(error\)\) throw error;/);
+test("authentication resolves the correct account vault before local state is built", () => {
+  const resolverCallIndex = authContextSource.indexOf("await resolveAccountLocalVault({");
+  const localProfileIndex = authContextSource.indexOf(
+    "const localAccount = getLocalAccountProfile(localUserId);"
+  );
+  const stateReturnIndex = authContextSource.indexOf("return {", localProfileIndex);
+
+  assert.ok(resolverCallIndex >= 0, "authentication must call the account vault resolver");
+  assert.ok(
+    localProfileIndex > resolverCallIndex,
+    "the account vault must be resolved before local profile data is read"
+  );
+  assert.ok(
+    stateReturnIndex > localProfileIndex,
+    "authenticated state must be built only after the resolved vault is active"
+  );
+  assert.doesNotMatch(authContextSource, /await waitForLocalAccountLink\(\{/);
+});
+
+test("resolver saves mappings only after activation and successful low-level linking", () => {
   assert.match(
-    resilienceSource,
-    /local account linking timed out; authentication will continue\./
+    resolverCoreSource,
+    /await adapters\.activateVault\(vaultId\);[\s\S]*?await adapters\.linkVault\(/
+  );
+  assert.match(
+    resolverCoreSource,
+    /await activateAndLink\([\s\S]*?await adapters\.saveMapping\(/
+  );
+  assert.match(linkerSource, /"VAULT_ACCOUNT_CONFLICT"/);
+  assert.match(
+    linkerSource,
+    /This local vault is already linked to a different CLARA account\./
   );
 });
 

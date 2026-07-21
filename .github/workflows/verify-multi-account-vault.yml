@@ -1,0 +1,72 @@
+name: Verify Multi-Account Local Vaults
+
+on:
+  pull_request:
+    paths:
+      - "src/context/AuthContext.jsx"
+      - "src/pages/Login.jsx"
+      - "src/lib/account-vault-directory.js"
+      - "src/lib/accountLinking/**"
+      - "src/lib/local-user-identity.js"
+      - "src/lib/localVaultMetadata.js"
+      - "src/lib/local-vault-migration.js"
+      - "src/lib/local-identity-storage-migration.js"
+      - "src/lib/reset-local-clara-journey.js"
+      - "tests/account-vault-directory.test.mjs"
+      - "tests/multi-account-local-vault.test.mjs"
+      - "tests/account-vault-auth-integration.test.mjs"
+      - "tests/multi-account-reset-isolation.test.mjs"
+      - "tests/multi-account-migration-safety.test.mjs"
+      - ".github/workflows/verify-multi-account-vault.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test account-vault directory
+        run: node --test tests/account-vault-directory.test.mjs
+
+      - name: Test multi-account resolver
+        run: node --test tests/multi-account-local-vault.test.mjs
+
+      - name: Test authentication integration
+        run: node --test tests/account-vault-auth-integration.test.mjs
+
+      - name: Test reset isolation
+        run: node --test tests/multi-account-reset-isolation.test.mjs
+
+      - name: Test migration safety
+        run: node --test tests/multi-account-migration-safety.test.mjs
+
+      - name: Preserve low-level conflict protection
+        run: node --test tests/local-vault-account-linking.test.mjs
+
+      - name: Run existing complete test suite
+        run: npm test
+
+      - name: Run production web build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GEMINI_MODEL: gemini-2.5-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"

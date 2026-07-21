@@ -25,7 +25,13 @@ function friendlyError(error) {
   const normalized = message.toLowerCase();
 
   if (error?.code === "VAULT_ACCOUNT_CONFLICT") {
-    return "This device already contains financial records linked to another CLARA account.";
+    return "This local vault is already linked to another CLARA account.";
+  }
+  if (error?.code === "ACCOUNT_CREATED_LOCAL_ACTIVATION_FAILED") {
+    return "Your account was created, but its local vault could not open. Log in again to continue.";
+  }
+  if (error?.code === "ACCOUNT_VAULT_DIRECTORY_CONFLICT") {
+    return "CLARA found conflicting local account data and blocked access to protect your records.";
   }
   if (error?.code === "NETWORK_ERROR" || normalized.includes("account server")) {
     return "CLARA could not reach the account server. Check your connection and try again.";
@@ -75,7 +81,7 @@ export default function Login() {
 
   const copy = MODE_COPY[mode];
   const loading = submitting || authLoading;
-  const destination = location.state?.from?.pathname || "/";
+  const destination = location.state?.from?.pathname || "/dashboard";
 
   const validate = () => {
     if (mode === "signup" && !fullName.trim()) return "Your name is required.";
@@ -112,7 +118,7 @@ export default function Login() {
           password,
           fullName: fullName.trim(),
         });
-        navigate("/onboarding", { replace: true });
+        navigate("/dashboard", { replace: true });
       } else {
         await signIn({ email: email.trim(), password });
         navigate(destination, { replace: true });
@@ -136,7 +142,9 @@ export default function Login() {
 
   const handleForgotPassword = () => {
     setSuccess(false);
-    setMessage("Password recovery is not available yet. Please contact CLARA support for account assistance.");
+    setMessage(
+      "Password recovery is not available yet. Please contact CLARA support for account assistance."
+    );
   };
 
   const inputClass =
@@ -165,15 +173,9 @@ export default function Login() {
             <div className="overflow-hidden">
               <div key={mode} className="animate-[fadeIn_.28s_ease] transition-all duration-300">
                 {copy.title ? (
-                  <h1 className="text-[1.9rem] font-bold leading-tight text-white">
-                    {copy.title}
-                  </h1>
+                  <h1 className="text-[1.9rem] font-bold leading-tight text-white">{copy.title}</h1>
                 ) : null}
-                <p
-                  className={`text-sm leading-relaxed text-white/58 ${
-                    copy.title ? "mt-1.5" : ""
-                  }`}
-                >
+                <p className={`text-sm leading-relaxed text-white/58 ${copy.title ? "mt-1.5" : ""}`}>
                   {copy.subtitle}
                 </p>
               </div>
