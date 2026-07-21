@@ -21,10 +21,11 @@ import {
   GOOGLE_PLAY_ENTITLEMENT_EVENT,
   toLocalEnrollment,
 } from "@/lib/local-google-play-entitlement";
-import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
-import { migrateLegacyLocalIdentityStorage } from "@/lib/local-identity-storage-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
-import { linkLocalVaultToAccount } from "@/lib/accountLinking/linkLocalVaultToAccount";
+import {
+  runLocalAuthMaintenance,
+  waitForLocalAccountLink,
+} from "@/lib/auth-startup-resilience";
 import {
   clearBackendSession,
   createClaraBackendAccount,
@@ -57,7 +58,7 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
   }
 
   const localUserId = getOrCreateLocalVaultId();
-  await linkLocalVaultToAccount({
+  await waitForLocalAccountLink({
     expectedVaultId: localUserId,
     accountUserId: String(serverUser.id),
     accountEmail: serverUser.email,
@@ -268,19 +269,47 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
+    const rebuildAfterLocalMaintenance = async (localUserId) => {
+      await runLocalAuthMaintenance(localUserId);
+      if (!mounted) return;
+
+      const current = stateRef.current;
+      if (!current.serverUser || !current.session?.access_token) return;
+
+      try {
+        const rebuilt = await buildAuthenticatedState({
+          serverUser: current.serverUser,
+          token: current.session.access_token,
+          offline: current.offline,
+        });
+        if (mounted) commitState(rebuilt);
+      } catch (error) {
+        console.warn("[CLARA Auth] post-startup local profile rebuild was skipped.", {
+          errorName: error?.name || "Error",
+          message: error?.message || String(error),
+        });
+      }
+    };
+
     (async () => {
       const localUserId = getOrCreateLocalVaultId();
-      await migrateLocalVaultOwnership(localUserId);
-      await migrateLegacyLocalIdentityStorage(localUserId);
-
       const restored = await restoreClaraBackendSession();
-      if (!mounted || !restored) return;
+
+      if (!mounted) return;
+      if (!restored) {
+        void runLocalAuthMaintenance(localUserId);
+        return;
+      }
+
       const next = await buildAuthenticatedState({
         serverUser: restored.user,
         token: restored.token,
         offline: restored.offline,
       });
-      if (mounted) commitState(next);
+      if (mounted) {
+        commitState(next);
+        void rebuildAfterLocalMaintenance(localUserId);
+      }
     })()
       .catch((error) => {
         clearBackendSession();
