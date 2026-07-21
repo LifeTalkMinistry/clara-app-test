@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
-import IosPwaAccessGate from "@/components/access/IosPwaAccessGate";
 import useUserRole from "./hooks/useUserRole";
 import { deriveAccessState, resolveAppFlow } from "./lib/access-control";
 import {
@@ -18,6 +17,7 @@ import { hasHiddenAdminSession } from "./lib/ios-access-client";
 import Layout from "./components/Layout";
 import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
+const Login = lazy(() => import("./pages/Login"));
 const Profile = lazy(() => import("./pages/Profile"));
 const DataExport = lazy(() => import("./pages/DataExport"));
 const AppPreview = lazy(() => import("./pages/AppPreview"));
@@ -120,7 +120,7 @@ function AdminRescueButton({ show }) {
 function AppRoutes() {
   const location = useLocation();
   const isUniversalOnboardingRoute = location.pathname === "/onboarding";
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile, loading, authReady, refreshProfile } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
   const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
@@ -137,7 +137,7 @@ function AppRoutes() {
     const refreshOnlineState = () => {
       const nextOffline = isAccessNetworkOffline();
       setIsOffline(nextOffline);
-      if (!nextOffline) {
+      if (!nextOffline && user) {
         refreshProfile?.().catch((error) => console.error("CLARA access refresh failed:", error));
         return;
       }
@@ -152,7 +152,7 @@ function AppRoutes() {
       window.removeEventListener("online", refreshOnlineState);
       window.removeEventListener("offline", refreshOnlineState);
     };
-  }, [refreshProfile, user?.email, user?.id]);
+  }, [refreshProfile, user]);
 
   useEffect(() => {
     setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
@@ -202,7 +202,7 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  if (loading || roleLoading) return <FullScreenLoader />;
+  if (!authReady || loading || roleLoading) return <FullScreenLoader />;
 
   const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
     <GuardedRoute
@@ -227,8 +227,11 @@ function AppRoutes() {
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
-        <Route path="/login" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/link-local-vault" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/login"
+          element={user ? <Navigate to={homeRedirectPath} replace /> : <Login />}
+        />
+        <Route path="/link-local-vault" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
         <Route path="/app-preview" element={<AppPreview />} />
         <Route
           path="/*"
@@ -285,7 +288,7 @@ function AppRoutes() {
                 </Layout>
               )
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/login" replace state={{ from: location }} />
             )
           }
         />
@@ -297,11 +300,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <IosPwaAccessGate>
+    <>
       <AppRoutes />
       <ThemePicker />
       <Toaster />
-    </IosPwaAccessGate>
+    </>
   );
 }
 
