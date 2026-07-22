@@ -6,6 +6,10 @@ const loginSource = readFileSync(
   new URL("../src/pages/Login.jsx", import.meta.url),
   "utf8"
 );
+const appSource = readFileSync(
+  new URL("../src/App.jsx", import.meta.url),
+  "utf8"
+);
 
 test("login preserves the preferred CLARA glassmorphism layout", () => {
   assert.match(loginSource, /Access your CLARA account/);
@@ -29,4 +33,10 @@ test("preferred login UI remains connected to the custom backend AuthContext", (
   assert.doesNotMatch(loginSource, /LOGIN_MAINTENANCE_MODE/);
   assert.doesNotMatch(loginSource, /Welcome back/);
   assert.doesNotMatch(loginSource, /CLARA Account/);
+});
+
+test("login remains mounted while an authentication request is processing", () => {
+  assert.match(appSource, /const isLoginRoute = location\.pathname === "\/login";/);
+  assert.match(appSource, /loading && !isLoginRoute/);
+  assert.doesNotMatch(appSource, /if \(!authReady \|\| loading \|\| roleLoading\)/);
 });

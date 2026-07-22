@@ -194,7 +194,8 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  if (!authReady || loading || roleLoading) {
+  const isLoginRoute = location.pathname === "/login";
+  if (!authReady || roleLoading || (loading && !isLoginRoute)) {
     return <FullScreenLoader message="Restoring your CLARA account..." />;
   }
 
