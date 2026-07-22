@@ -47,7 +47,8 @@ test("dashboard renderer does not append a second logout control", () => {
 test("router exposes the CLARA backend login and protects app routes", () => {
   assert.match(appSource, /pages\/Login/);
   assert.match(appSource, /<Login \/>/);
-  assert.match(appSource, /!authReady \|\| loading \|\| roleLoading/);
+  assert.match(appSource, /const isLoginRoute = location\.pathname === "\/login";/);
+  assert.match(appSource, /!authReady \|\| roleLoading \|\| \(loading && !isLoginRoute\)/);
   assert.match(appSource, /<Navigate to="\/login" replace state=\{\{ from: location \}\} \/>/);
   assert.match(
     appSource,
