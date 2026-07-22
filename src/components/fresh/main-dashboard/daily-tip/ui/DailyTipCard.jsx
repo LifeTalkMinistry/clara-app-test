@@ -41,7 +41,7 @@ export default function DailyTipCard({
   const {
     todayKey,
     checkedInToday,
-    challengeDay,
+    completedCheckInDays,
     challengeDotStates,
     challengeStatus,
     currentStreak,
@@ -58,11 +58,17 @@ export default function DailyTipCard({
   const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
   const isGuideStepActive = isGuideMode && isDailyTipGuideActive && guideStep === 0;
   const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
+  const completedDayCount = Math.min(
+    CHECK_IN_DAYS,
+    Math.max(0, completedCheckInDays || 0),
+  );
   const cardHeadline = isGuideMode
     ? "Today's money reminder"
     : challengeStatus === "completed"
       ? "30-Day Challenge Complete"
-      : `Day ${Math.max(1, challengeDay || 1)} of ${CHECK_IN_DAYS}`;
+      : completedDayCount === 0
+        ? "Start Your 30-Day Challenge"
+        : `Day ${completedDayCount} of ${CHECK_IN_DAYS}`;
   const cardSubtitle = isGuideMode
     ? "Tap this card to learn what CLARA gives you each day."
     : "Tap today to protect your money discipline.";
