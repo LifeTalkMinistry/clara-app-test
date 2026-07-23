@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, Lock, RefreshCcw, X } from "lucide-react";
+import { CalendarDays, ExternalLink, Lock, MessageCircle, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
 import {
@@ -35,18 +34,13 @@ function ClaraCommitmentBookletModal({
 }) {
   const [bookletPage, setBookletPage] = useState(0);
   const [membershipInfoOpen, setMembershipInfoOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState("");
   const carouselRef = useRef(null);
-  const { refreshUser } = useUserRole();
 
   useEffect(() => {
     if (!open) return;
 
     setBookletPage(0);
     setMembershipInfoOpen(false);
-    setRefreshing(false);
-    setRefreshMessage("");
 
     window.requestAnimationFrame(() => {
       carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
@@ -55,37 +49,12 @@ function ClaraCommitmentBookletModal({
 
   if (!open) return null;
 
-  const handleRefreshMembership = async () => {
-    if (refreshing) return;
-
-    setRefreshing(true);
-    setRefreshMessage("Checking your CLARA account...");
-
-    try {
-      await refreshUser?.({ reason: "manual_membership_refresh" });
-      setRefreshMessage(
-        "Membership refreshed. Active Committed access will unlock automatically."
-      );
-    } catch (error) {
-      console.error("[CLARA Membership] manual refresh failed", error);
-      setRefreshMessage(
-        "CLARA could not refresh your account. Check your connection and try again."
-      );
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handleScheduleSession = () => {
-    if (refreshing) return;
-    setRefreshMessage("");
     setMembershipInfoOpen(false);
     onScheduleSession?.();
   };
 
   const handleDeclineCommitment = () => {
-    if (refreshing) return;
-    setRefreshMessage("");
     setMembershipInfoOpen(false);
     onDeclineCommitment?.();
   };
@@ -184,7 +153,6 @@ function ClaraCommitmentBookletModal({
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  setRefreshMessage("");
                   setMembershipInfoOpen(true);
                 }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
@@ -249,9 +217,7 @@ function ClaraCommitmentBookletModal({
         {membershipInfoOpen ? (
           <div
             className="absolute inset-0 z-40 flex items-center justify-center bg-[#020817]/84 px-5 backdrop-blur-sm"
-            onClick={() => {
-              if (!refreshing) setMembershipInfoOpen(false);
-            }}
+            onClick={() => setMembershipInfoOpen(false)}
           >
             <div
               className="relative w-full max-w-[350px] rounded-[32px] border border-cyan-100/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_42%),#081122] px-6 py-6 text-center text-white shadow-[0_24px_70px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
@@ -259,12 +225,9 @@ function ClaraCommitmentBookletModal({
             >
               <button
                 type="button"
-                onClick={() => {
-                  if (!refreshing) setMembershipInfoOpen(false);
-                }}
-                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-[15px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white/76 shadow-[0_10px_28px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.17] hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setMembershipInfoOpen(false)}
+                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-[15px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white/76 shadow-[0_10px_28px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.17] hover:text-white active:translate-y-0"
                 aria-label="Close membership information"
-                disabled={refreshing}
               >
                 <X className="h-[18px] w-[18px]" />
               </button>
@@ -294,50 +257,45 @@ function ClaraCommitmentBookletModal({
                 </p>
               </div>
 
-              {refreshMessage ? (
-                <p className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-bold leading-5 text-white/62">
-                  {refreshMessage}
-                </p>
-              ) : null}
-
               <div className="mt-5 space-y-3">
                 <button
                   type="button"
                   onClick={handleScheduleSession}
-                  disabled={refreshing}
-                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[18px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.92),rgba(99,102,241,0.96))] px-4 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(37,99,235,0.26),inset_0_1px_0_rgba(255,255,255,0.16)] transition hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[18px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.92),rgba(99,102,241,0.96))] px-4 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(37,99,235,0.26),inset_0_1px_0_rgba(255,255,255,0.16)] transition hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:scale-[0.99]"
                 >
                   <CalendarDays className="h-4 w-4" />
                   Schedule My Session
                 </button>
 
-                <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/[0.09] bg-white/[0.045] px-3.5 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-black text-white/78">
-                      Already enrolled?
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/42">
-                      Check your latest access.
-                    </p>
+                <div className="rounded-[18px] border border-white/[0.09] bg-white/[0.045] px-3.5 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="flex items-start gap-3">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[13px] border border-cyan-100/14 bg-cyan-100/[0.08] text-cyan-50/78">
+                      <MessageCircle className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black text-white/82">
+                        Concerned about your access?
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/46">
+                        Message us on the CLARA Facebook page.
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRefreshMembership}
-                    disabled={refreshing}
-                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-cyan-100/14 bg-cyan-100/[0.08] px-3 text-[10px] font-black text-cyan-50/76 transition hover:bg-cyan-100/[0.13] hover:text-cyan-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  <a
+                    href="https://www.facebook.com/profile.php?id=61590352695488&sk=followers"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] border border-cyan-100/14 bg-cyan-100/[0.08] px-4 text-[11px] font-black text-cyan-50/82 transition hover:bg-cyan-100/[0.14] hover:text-cyan-50 active:scale-[0.99]"
                   >
-                    <RefreshCcw
-                      className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-                    />
-                    {refreshing ? "Checking" : "Refresh"}
-                  </button>
+                    Message CLARA
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleDeclineCommitment}
-                  disabled={refreshing}
-                  className="mx-auto block rounded-full px-5 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/38 transition hover:bg-white/[0.045] hover:text-white/62 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mx-auto block rounded-full px-5 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/38 transition hover:bg-white/[0.045] hover:text-white/62"
                 >
                   Not now
                 </button>
