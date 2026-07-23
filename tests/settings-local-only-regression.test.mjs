@@ -82,7 +82,7 @@ test("router exposes the CLARA backend login and protects app routes", () => {
   assert.match(appSource, /<Navigate to="\/login" replace state=\{\{ from: location \}\} \/>/);
   assert.match(
     appSource,
-    /path="\/link-local-vault" element=\{<Navigate to=\{user \? "\/dashboard" : "\/login"\} replace \/>\}/
+    /path="\/link-local-vault"\s+element=\{<Navigate to=\{user \? "\/dashboard" : "\/login"\} replace \/>\}/
   );
 });
 
@@ -107,14 +107,14 @@ test("storage page exposes Online Sync, Local Only, private download, restore, c
 });
 
 test("router preserves /data-export and retires the legacy account-based Settings surface", () => {
-  assert.match(appSource, /path="\/data-export" element=\{<DataExport \/>\}/);
+  assert.match(appSource, /path="\/data-export"\s+element=\{<DataExport \/>\}/);
   assert.match(
     appSource,
-    /path="\/settings" element=\{<Navigate to="\/dashboard" replace \/>\}/
+    /path="\/settings"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
   );
   assert.match(
     appSource,
-    /path="\/settings\/:section" element=\{<Navigate to="\/dashboard" replace \/>\}/
+    /path="\/settings\/:section"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
   );
   assert.doesNotMatch(appSource, /<Settings \/>/);
 });
