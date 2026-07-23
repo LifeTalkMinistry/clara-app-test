@@ -37,7 +37,9 @@ export function normalizeAccessLevel(value, fallback = FREE_ACCESS_LEVEL) {
   const normalized = normalizeMembershipToken(value);
   if (normalized === COMMITTED_ACCESS_LEVEL) return COMMITTED_ACCESS_LEVEL;
   if (normalizePlanKey(normalized) === COMMITTED_PLAN_KEY) return COMMITTED_ACCESS_LEVEL;
-  return fallback === COMMITTED_ACCESS_LEVEL ? COMMITTED_ACCESS_LEVEL : FREE_ACCESS_LEVEL;
+  return fallback === COMMITTED_ACCESS_LEVEL
+    ? COMMITTED_ACCESS_LEVEL
+    : FREE_ACCESS_LEVEL;
 }
 
 export function readMembershipStatuses(profileLike = {}) {
@@ -61,22 +63,6 @@ export function hasCanonicalActivationSignal(profileLike = {}) {
   return planKey === COMMITTED_PLAN_KEY && statuses.includes("active");
 }
 
-// Inert compatibility exports while old UI modules are removed.
-// These functions never read, write, or grant membership.
-export function normalizeDeveloperMembershipPreview() {
-  return null;
-}
-
-export function readDeveloperMembershipPreview() {
-  return null;
-}
-
-export function writeDeveloperMembershipPreview() {
-  return null;
-}
-
-export function clearDeveloperMembershipPreview() {}
-
 export function resolveMembership({
   profile = {},
   user = null,
@@ -84,7 +70,8 @@ export function resolveMembership({
   loading = false,
   ready = true,
 } = {}) {
-  const profileLike = profile || user?.account_profile || user?.profile || user || {};
+  const profileLike =
+    profile || user?.account_profile || user?.profile || user || {};
   const planKey = normalizePlanKey(
     plan ||
       profileLike?.plan ||
@@ -96,8 +83,9 @@ export function resolveMembership({
   const membershipReady = Boolean(ready && !loading);
   const statusCandidates = readMembershipStatuses(profileLike);
   const accountStatus =
-    statusCandidates.find((status) => ["active", "pending", "inactive"].includes(status)) ||
-    (planKey === COMMITTED_PLAN_KEY ? "inactive" : "free");
+    statusCandidates.find((status) =>
+      ["active", "pending", "inactive"].includes(status)
+    ) || (planKey === COMMITTED_PLAN_KEY ? "inactive" : "free");
   const isCommittedPlan = planKey === COMMITTED_PLAN_KEY;
   const isActiveCommitted = Boolean(
     membershipReady && isCommittedPlan && accountStatus === "active"
@@ -111,7 +99,9 @@ export function resolveMembership({
 
   return {
     planKey,
-    accessLevel: hasCommittedAccess ? COMMITTED_ACCESS_LEVEL : FREE_ACCESS_LEVEL,
+    accessLevel: hasCommittedAccess
+      ? COMMITTED_ACCESS_LEVEL
+      : FREE_ACCESS_LEVEL,
     membershipType: isCommittedPlan ? "committed" : "free",
     membershipStatus,
     accountStatus,
@@ -119,9 +109,6 @@ export function resolveMembership({
     isPendingActivation: membershipStatus === "pending",
     isActiveCommitted,
     hasCommittedAccess,
-    hasRoleBypass: false,
-    isDeveloperPreview: false,
-    developerPreview: null,
     planLabel:
       membershipStatus === "loading"
         ? "Syncing membership…"
@@ -129,7 +116,11 @@ export function resolveMembership({
           ? "Committed"
           : "Free Version",
     priceLabel:
-      membershipStatus === "loading" ? "—" : isCommittedPlan ? "₱249/month" : "₱0",
+      membershipStatus === "loading"
+        ? "—"
+        : isCommittedPlan
+          ? "₱249/month"
+          : "₱0",
     statusLabel:
       membershipStatus === "loading"
         ? "SYNCING"
