@@ -31,7 +31,7 @@ export default function EmergencyFundCardView({
       className="h-full min-h-[inherit]"
       onMouseDownCapture={startClaraAiLongPress}
       onMouseUpCapture={endClaraAiLongPress}
-      onMouseLeaveCapture={endClaraAiLongPress}
+      onMouseLeave={endClaraAiLongPress}
       onTouchStartCapture={startClaraAiLongPress}
       onTouchEndCapture={endClaraAiLongPress}
       onTouchCancelCapture={endClaraAiLongPress}
