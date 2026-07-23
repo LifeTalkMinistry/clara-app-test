@@ -1,30 +1,9 @@
-const SETTINGS_ACTIVE_NAV_SELECTOR =
-  '.theme-page-shell button[aria-label="Settings"][aria-current="page"]';
+const SETTINGS_VIEW_SYNC_EVENT = "clara:settings-view-synced";
 
 let installed = false;
 let lastSettingsViewKey = "";
 let scheduledFrame = null;
-
-function findActiveSettingsView() {
-  if (typeof document === "undefined") return null;
-
-  const activeSettingsNav = document.querySelector(SETTINGS_ACTIVE_NAV_SELECTOR);
-  const shell = activeSettingsNav?.closest(".theme-page-shell");
-  if (!shell) return null;
-
-  const detailRoot = shell.querySelector(".min-h-full.space-y-4.pb-6");
-  const overviewRoot = detailRoot ? null : shell.querySelector(".space-y-5.pb-6");
-  const viewRoot = detailRoot || overviewRoot;
-  if (!viewRoot) return null;
-
-  const scrollOwner = viewRoot.closest(".overflow-y-auto");
-  if (!scrollOwner) return null;
-
-  const detailTitle = detailRoot?.querySelector("h2")?.textContent?.trim() || "detail";
-  const viewKey = detailRoot ? `detail:${detailTitle}` : "overview";
-
-  return { scrollOwner, viewKey };
-}
+let scheduledScrollOwner = null;
 
 function forceScrollTop(scrollOwner) {
   if (!scrollOwner?.isConnected) return;
@@ -40,51 +19,38 @@ function forceScrollTop(scrollOwner) {
   }
 }
 
-function resetSettingsScroll(scrollOwner) {
-  forceScrollTop(scrollOwner);
+function scheduleScrollReset(scrollOwner) {
+  scheduledScrollOwner = scrollOwner;
+  if (scheduledFrame !== null || typeof window === "undefined") return;
 
-  window.requestAnimationFrame(() => {
-    forceScrollTop(scrollOwner);
-    window.requestAnimationFrame(() => forceScrollTop(scrollOwner));
+  scheduledFrame = window.requestAnimationFrame(() => {
+    scheduledFrame = null;
+    const owner = scheduledScrollOwner;
+    scheduledScrollOwner = null;
+    forceScrollTop(owner);
   });
-
-  window.setTimeout(() => forceScrollTop(scrollOwner), 80);
 }
 
-function syncSettingsView() {
-  scheduledFrame = null;
+function handleSettingsViewSync(event) {
+  const viewKey = String(event?.detail?.viewKey || "");
+  const scrollOwner = event?.detail?.scrollOwner || null;
 
-  const activeView = findActiveSettingsView();
-  if (!activeView) {
+  if (!viewKey || !scrollOwner) {
     lastSettingsViewKey = "";
     return;
   }
 
-  if (activeView.viewKey === lastSettingsViewKey) return;
+  if (viewKey === lastSettingsViewKey) return;
 
-  lastSettingsViewKey = activeView.viewKey;
-  resetSettingsScroll(activeView.scrollOwner);
-}
-
-function scheduleSettingsViewSync() {
-  if (scheduledFrame !== null || typeof window === "undefined") return;
-  scheduledFrame = window.requestAnimationFrame(syncSettingsView);
+  lastSettingsViewKey = viewKey;
+  scheduleScrollReset(scrollOwner);
 }
 
 export function installSettingsScrollReset() {
-  if (installed || typeof window === "undefined" || typeof document === "undefined") return;
+  if (installed || typeof window === "undefined") return;
 
   installed = true;
-
-  const observer = new MutationObserver(scheduleSettingsViewSync);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
-
-  window.addEventListener("pageshow", scheduleSettingsViewSync);
-  window.addEventListener("resize", scheduleSettingsViewSync, { passive: true });
-  scheduleSettingsViewSync();
+  window.addEventListener(SETTINGS_VIEW_SYNC_EVENT, handleSettingsViewSync);
 }
 
 installSettingsScrollReset();
