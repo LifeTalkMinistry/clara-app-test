@@ -10,15 +10,11 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
-  LockKeyhole,
   ShieldCheck,
   Sparkles,
   X,
 } from "lucide-react";
-import {
-  openCommittedVersionModal,
-  useCommittedFeatureAccess,
-} from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
+import { useCommittedFeatureAccess } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import { COACHING_FOCUS_OPTIONS as SESSION_FOCUS_OPTIONS } from "@/lib/coaching-focus-options";
 import { buildWelcomeSessionSlots } from "@/lib/welcome-session-schedule";
 
@@ -184,7 +180,7 @@ function SummaryChip({ icon: Icon, label, value }) {
   );
 }
 
-function MonthlyCoachingIntro({ onOpenMockPreview }) {
+function MonthlyCoachingIntro({ onOpenMockPreview, isCommitmentSession }) {
   return (
     <div className="relative grid h-full gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
       <div>
@@ -201,23 +197,29 @@ function MonthlyCoachingIntro({ onOpenMockPreview }) {
 
           <div>
             <h1 className="text-[28px] font-black tracking-tight text-white sm:text-[34px]">
-              Monthly Coaching
+              {isCommitmentSession
+                ? "One-on-One Budgeting Session"
+                : "Monthly Coaching"}
             </h1>
             <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-300/75 sm:text-[13px]">
-              One personal 30-minute coaching session is included with every active membership month.
+              {isCommitmentSession
+                ? "Your first personal session with Max before starting the Committed Version."
+                : "One personal 30-minute coaching session is included with every active membership month."}
             </p>
           </div>
         </div>
 
         <p className="mt-4 max-w-2xl text-[11px] font-semibold leading-relaxed text-slate-300/62 sm:text-[12px]">
-          Choose an available date and time, then complete your private coaching check-in.
+          {isCommitmentSession
+            ? "Choose an available date and time, then complete a short check-in so Max can prepare for you."
+            : "Choose an available date and time, then complete your private coaching check-in."}
         </p>
       </div>
 
       <div>
         <div className="grid grid-cols-3 gap-2.5">
           <SummaryChip icon={Clock3} label="Duration" value="30 min" />
-          <SummaryChip icon={Sparkles} label="Access" value="Monthly" />
+          <SummaryChip icon={Sparkles} label="Access" value={isCommitmentSession ? "First Step" : "Monthly"} />
           <SummaryChip icon={CalendarDays} label="Schedule" value="Mon–Sat" />
         </div>
         <p className="mt-2.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/50">
@@ -235,7 +237,7 @@ function AvailabilityPanel({
   onSelectSlot,
   onReset,
   onContinue,
-  hasCommittedAccess,
+  isCommitmentSession,
 }) {
   const selectedSlot = selectedDateSlots.find((slot) => slot.id === selectedSlotId) || null;
 
@@ -247,7 +249,9 @@ function AvailabilityPanel({
             {selectedDateLabel}
           </h1>
           <p className="mt-1 text-[11px] font-semibold text-slate-300/70 sm:text-[12px]">
-            Choose your preferred 30-minute time for this month’s coaching session.
+            {isCommitmentSession
+              ? "Choose your preferred 30-minute time for your one-on-one budgeting session."
+              : "Choose your preferred 30-minute time for this month’s coaching session."}
           </p>
         </div>
 
@@ -270,7 +274,7 @@ function AvailabilityPanel({
             <button
               key={slot.id}
               type="button"
-              disabled={!isAvailable || !hasCommittedAccess}
+              disabled={!isAvailable}
               onClick={() => onSelectSlot(slot.id)}
               className={`rounded-[18px] border px-3 py-3.5 text-left transition ${
                 isSelected
@@ -305,31 +309,26 @@ function AvailabilityPanel({
         })}
       </div>
 
-      {!hasCommittedAccess ? (
-        <button
-          type="button"
-          onClick={openCommittedVersionModal}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-violet-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.82),rgba(99,102,241,0.92))] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)]"
-        >
-          <LockKeyhole className="h-3.5 w-3.5" />
-          Unlock monthly coaching
-        </button>
-      ) : (
-        <button
-          type="button"
-          disabled={!selectedSlot}
-          onClick={onContinue}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/25 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 text-[9px] font-black uppercase tracking-[0.11em] text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {selectedSlot ? "Continue to coaching check-in" : "Choose a free time"}
-          {selectedSlot ? <ArrowRight className="h-3.5 w-3.5" /> : null}
-        </button>
-      )}
+      <button
+        type="button"
+        disabled={!selectedSlot}
+        onClick={onContinue}
+        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/25 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 text-[9px] font-black uppercase tracking-[0.11em] text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {selectedSlot
+          ? isCommitmentSession
+            ? "Continue to session check-in"
+            : "Continue to coaching check-in"
+          : "Choose an available time"}
+        {selectedSlot ? <ArrowRight className="h-3.5 w-3.5" /> : null}
+      </button>
 
       <div className="mt-2.5 flex items-start gap-2 rounded-[15px] border border-amber-200/[0.08] bg-amber-100/[0.035] px-3 py-2.5">
         <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200/65" />
         <p className="text-[9px] font-semibold leading-relaxed text-slate-300/65">
-          One session is included per active membership month. Booking is first come, first served and confirmed after review.
+          {isCommitmentSession
+            ? "This is your first step toward the Committed Version. Booking is first come, first served and confirmed after review."
+            : "One session is included per active membership month. Booking is first come, first served and confirmed after review."}
         </p>
       </div>
     </div>
@@ -530,20 +529,28 @@ function CoachingCheckInPanel({
   );
 }
 
-function CheckInCompletePanel({ selectedDateLabel, selectedSlot, onReview, onHome }) {
+function CheckInCompletePanel({
+  selectedDateLabel,
+  selectedSlot,
+  onReview,
+  onHome,
+  isCommitmentSession,
+}) {
   return (
     <div className="py-3 text-center sm:py-6">
       <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-emerald-200/20 bg-emerald-300/[0.10] shadow-[0_0_36px_rgba(52,211,153,0.14)]">
         <CheckCircle2 className="h-7 w-7 text-emerald-200" />
       </span>
       <p className="mt-5 text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/65">
-        Monthly Coaching
+        {isCommitmentSession ? "Committed Journey" : "Monthly Coaching"}
       </p>
       <h1 className="mt-1.5 text-[27px] font-black tracking-tight text-white">
-        Check-In Complete
+        {isCommitmentSession ? "Session Request Prepared" : "Check-In Complete"}
       </h1>
       <p className="mx-auto mt-2 max-w-md text-[11px] font-semibold leading-relaxed text-slate-300/68">
-        Your coach now has a clearer picture of your concern, preferred approach, and desired result.
+        {isCommitmentSession
+          ? "Your preferred schedule and check-in are ready for the next step of your Committed journey."
+          : "Your coach now has a clearer picture of your concern, preferred approach, and desired result."}
       </p>
 
       <div className="mx-auto mt-5 max-w-md rounded-[20px] border border-white/[0.08] bg-white/[0.04] px-4 py-4 text-left">
@@ -556,7 +563,9 @@ function CheckInCompletePanel({ selectedDateLabel, selectedSlot, onReview, onHom
 
       <div className="mx-auto mt-4 max-w-md rounded-[18px] border border-amber-200/[0.10] bg-amber-100/[0.04] px-3.5 py-3 text-left">
         <p className="text-[9px] font-semibold leading-relaxed text-slate-300/65">
-          First-draft mode: this check-in is saved on this device. Live submission, slot reservation, and coach assignment will be connected through Supabase.
+          {isCommitmentSession
+            ? "First-draft mode: your request is saved on this device. Live submission and final schedule confirmation are not connected yet."
+            : "First-draft mode: this check-in is saved on this device. Live submission, slot reservation, and coach assignment are not connected yet."}
         </p>
       </div>
 
@@ -597,6 +606,7 @@ export default function WelcomeSession() {
     coachingIconLastTapRef.current = now;
   };
   const hasCommittedAccess = useCommittedFeatureAccess();
+  const isCommitmentSession = !hasCommittedAccess;
   const slots = useMemo(() => buildWelcomeSessionSlots(), []);
 
   const slotsByDate = useMemo(() => {
@@ -690,6 +700,9 @@ export default function WelcomeSession() {
     const payload = {
       version: 2,
       status: "draft_local",
+      sessionType: isCommitmentSession
+        ? "committed_first_session"
+        : "monthly_coaching",
       createdAt: new Date().toISOString(),
       schedule: {
         slotId: selectedSlot.id,
@@ -700,7 +713,12 @@ export default function WelcomeSession() {
     };
 
     try {
-      localStorage.setItem("claraMonthlyCoachingCheckInDraft", JSON.stringify(payload));
+      localStorage.setItem(
+        isCommitmentSession
+          ? "claraCommittedFirstSessionDraft"
+          : "claraMonthlyCoachingCheckInDraft",
+        JSON.stringify(payload)
+      );
     } catch {
       // The completion screen can still be shown when browser storage is unavailable.
     }
@@ -735,7 +753,10 @@ export default function WelcomeSession() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,0.14),transparent_38%),radial-gradient(circle_at_100%_10%,rgba(139,92,246,0.16),transparent_40%)]" />
 
           {view === "calendar" ? (
-            <MonthlyCoachingIntro onOpenMockPreview={handleCoachingIconTap} />
+            <MonthlyCoachingIntro
+              onOpenMockPreview={handleCoachingIconTap}
+              isCommitmentSession={isCommitmentSession}
+            />
           ) : null}
 
           {view === "times" ? (
@@ -746,7 +767,7 @@ export default function WelcomeSession() {
               onSelectSlot={setSelectedSlotId}
               onReset={resetToCalendar}
               onContinue={startCheckIn}
-              hasCommittedAccess={hasCommittedAccess}
+              isCommitmentSession={isCommitmentSession}
             />
           ) : null}
 
@@ -772,6 +793,7 @@ export default function WelcomeSession() {
                 setView("checkin");
               }}
               onHome={() => navigate("/dashboard")}
+              isCommitmentSession={isCommitmentSession}
             />
           ) : null}
         </section>
@@ -781,7 +803,9 @@ export default function WelcomeSession() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/70">
-                  Monthly coaching calendar
+                  {isCommitmentSession
+                    ? "One-on-one session calendar"
+                    : "Monthly coaching calendar"}
                 </p>
                 <h2 className="mt-1 text-[20px] font-black text-white">{monthLabel}</h2>
               </div>
