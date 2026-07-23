@@ -74,6 +74,13 @@ test("Settings helpers use one event-driven sync instead of document-wide observ
   assert.match(settingsCleanupSource, /body\.clara-settings-active/);
 });
 
+test("Settings permanently hides theme customization", () => {
+  assert.match(
+    settingsCleanupSource,
+    /button\.group:has\(svg\.lucide-palette\)[\s\S]*display:\s*none\s*!important/
+  );
+});
+
 test("router exposes the CLARA backend login and protects app routes", () => {
   assert.match(appSource, /pages\/Login/);
   assert.match(appSource, /<Login \/>/);
