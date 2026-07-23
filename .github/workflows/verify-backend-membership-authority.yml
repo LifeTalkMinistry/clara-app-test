@@ -5,7 +5,72 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
+  apply-committed-session-scheduler:
+    if: ${{ github.head_ref == 'feature/committed-session-scheduler' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out scheduler branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/committed-session-scheduler
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply one-time scheduler patch
+        shell: bash
+        run: |
+          if [ ! -f .github/workflows/apply-committed-session-scheduler.yml ]; then
+            echo "Scheduler patch is already applied."
+            exit 0
+          fi
+          awk '
+            /python <<'\''PY'\''/ { capture=1; next }
+            capture && /^          PY$/ { exit }
+            capture { sub(/^          /, ""); print }
+          ' .github/workflows/apply-committed-session-scheduler.yml > /tmp/apply-scheduler.py
+          python /tmp/apply-scheduler.py
+
+      - name: Install dependencies
+        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        run: npm ci
+
+      - name: Run tests
+        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        run: npm test
+
+      - name: Run lint
+        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        run: npm run lint
+
+      - name: Build production app
+        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        run: npm run build
+
+      - name: Commit validated scheduler patch
+        shell: bash
+        run: |
+          if [ ! -f .github/workflows/apply-committed-session-scheduler.yml ]; then
+            echo "No patch files remain to commit."
+            exit 0
+          fi
+          rm .github/workflows/apply-committed-session-scheduler.yml
+          rm -f .github/workflows/trigger-committed-session-scheduler.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx src/pages/WelcomeSession.jsx tests/committed-session-routing.test.mjs .github/workflows/apply-committed-session-scheduler.yml .github/workflows/trigger-committed-session-scheduler.yml
+          git commit -m "[scheduler-patch-applied] Route Free users to one-on-one scheduling"
+          git push origin HEAD:feature/committed-session-scheduler
+
   validate:
     runs-on: ubuntu-latest
     steps:
