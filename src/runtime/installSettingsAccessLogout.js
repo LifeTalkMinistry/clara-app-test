@@ -1,8 +1,4 @@
-import {
-  clearHiddenAdminSession,
-  clearIosAccessSession,
-} from "@/lib/ios-access-client";
-import { supabase } from "@/lib/supabaseClient";
+import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 
 const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
 const COMPACT_OVERVIEW_CLASS = "clara-settings-compact-overview";
@@ -19,19 +15,18 @@ function findAboutClaraRow() {
 
 function compactSettingsOverview(overviewRoot) {
   if (!overviewRoot) return;
-
   overviewRoot.classList.add(COMPACT_OVERVIEW_CLASS);
   overviewRoot.style.marginTop = "-8px";
   overviewRoot.style.paddingBottom = "8px";
-
   [...overviewRoot.querySelectorAll(":scope > section")].forEach((section) => {
     section.style.marginTop = "14px";
   });
-
-  [...overviewRoot.querySelectorAll(":scope > section button")].forEach((button) => {
-    button.style.paddingTop = "13px";
-    button.style.paddingBottom = "13px";
-  });
+  [...overviewRoot.querySelectorAll(":scope > section button")].forEach(
+    (button) => {
+      button.style.paddingTop = "13px";
+      button.style.paddingBottom = "13px";
+    }
+  );
 }
 
 function createLogoutControl() {
@@ -54,29 +49,18 @@ function createLogoutControl() {
   `;
 
   const note = document.createElement("p");
-  note.className = "px-2 text-center text-[10px] font-semibold leading-4 text-white/55";
+  note.className =
+    "px-2 text-center text-[10px] font-semibold leading-4 text-white/55";
   note.textContent =
-    "Your financial records stay on this device. Enter your CLARA access again anytime.";
+    "Your financial records stay on this device. Log in again anytime.";
 
-  button.addEventListener("click", async () => {
+  button.addEventListener("click", () => {
     if (button.disabled) return;
-
     button.disabled = true;
     const label = button.querySelector("span");
     if (label) label.textContent = "Logging out...";
-
-    clearIosAccessSession();
-    clearHiddenAdminSession();
-
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.warn("CLARA Settings logout could not clear the compatibility session:", error);
-    }
-
-    window.setTimeout(() => {
-      window.location.reload();
-    }, 80);
+    signOutFromClaraBackend();
+    window.setTimeout(() => window.location.reload(), 80);
   });
 
   container.append(button, note);
@@ -100,9 +84,7 @@ function syncSettingsLogoutControl() {
 
   const overviewRoot = programSection.parentElement;
   compactSettingsOverview(overviewRoot);
-
   if (existing?.previousElementSibling === programSection) return;
-
   existing?.remove();
   programSection.insertAdjacentElement("afterend", createLogoutControl());
 }
@@ -110,13 +92,11 @@ function syncSettingsLogoutControl() {
 export function installSettingsAccessLogout() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__claraSettingsAccessLogoutInstalled) return;
-
   window.__claraSettingsAccessLogoutInstalled = true;
 
   const start = () => {
     const root = document.getElementById("root");
     if (!root) return;
-
     let syncQueued = false;
     const queueSync = () => {
       if (syncQueued) return;
@@ -128,8 +108,11 @@ export function installSettingsAccessLogout() {
     };
 
     const observer = new MutationObserver(queueSync);
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
-
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
     window.addEventListener("hashchange", queueSync);
     window.addEventListener("popstate", queueSync);
     queueSync();
