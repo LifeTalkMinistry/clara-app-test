@@ -17,6 +17,18 @@ const dashboardPanelRendererSource = readSource(
   "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
 );
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
+const settingsAccessLogoutSource = readSource(
+  "src/runtime/installSettingsAccessLogout.js"
+);
+const settingsScrollResetSource = readSource(
+  "src/runtime/installSettingsScrollReset.js"
+);
+const settingsMemoryEntrySource = readSource("src/clara-settings-memory-entry.js");
+const settingsThemeVisibilitySource = readSource("src/settings-hide-theme-appearance.js");
+const settingsDemoSource = readSource(
+  "src/clara-settings-young-professional-current-state.js"
+);
+const settingsCleanupSource = readSource("src/settings-cleanup.css");
 
 test("active Settings directly exposes Backup & Transfer through /data-export", () => {
   assert.match(activeSettingsSource, /Backup & Transfer/);
@@ -42,6 +54,24 @@ test("dashboard renderer does not append a second logout control", () => {
     dashboardPanelRendererSource,
     /activePanel === "settings"[\s\S]*renderSettings\?\.\(\) \?\? fallback/
   );
+});
+
+test("Settings helpers use one event-driven sync instead of document-wide observers", () => {
+  assert.match(settingsAccessLogoutSource, /clara:settings-view-synced/);
+  assert.match(settingsScrollResetSource, /clara:settings-view-synced/);
+
+  for (const source of [
+    settingsAccessLogoutSource,
+    settingsScrollResetSource,
+    settingsMemoryEntrySource,
+    settingsThemeVisibilitySource,
+    settingsDemoSource,
+  ]) {
+    assert.doesNotMatch(source, /MutationObserver/);
+  }
+
+  assert.doesNotMatch(settingsCleanupSource, /body:has\(/);
+  assert.match(settingsCleanupSource, /body\.clara-settings-active/);
 });
 
 test("router exposes the CLARA backend login and protects app routes", () => {
