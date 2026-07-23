@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import {
+  WELCOME_SESSION_FORM_URL,
   clearUnsentCoachingDraft,
   groupSlotsByDate,
   normalizeAvailability,
@@ -41,6 +42,11 @@ test("invalid or non-authoritative availability never creates fallback slots", (
   assert.deepEqual(normalizeAvailability(null), []);
   assert.deepEqual(normalizeAvailability({ timezone: "UTC", slots: [] }), []);
   assert.doesNotMatch(scheduleModule, /buildWelcomeSessionSlots|DAILY_TIME_SLOTS|locally marks/i);
+});
+
+test("legacy dashboard entry routes into authoritative CLARA scheduling", () => {
+  assert.equal(WELCOME_SESSION_FORM_URL, "/welcome-session");
+  assert.doesNotMatch(scheduleModule, /forms\.gle|VITE_CLARA_WELCOME_SESSION_FORM_URL/);
 });
 
 test("current active appointment takes priority over recent history", () => {
