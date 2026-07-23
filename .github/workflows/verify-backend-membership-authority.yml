@@ -5,7 +5,48 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
+  apply-facebook-access-support:
+    if: ${{ github.head_ref == 'feature/facebook-access-support' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out Facebook support branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/facebook-access-support
+          fetch-depth: 0
+
+      - name: Confirm Facebook access support is applied
+        shell: bash
+        run: |
+          if [ -f scripts/apply-facebook-access-support.mjs ]; then
+            node scripts/apply-facebook-access-support.mjs
+          else
+            echo "Temporary patch script removed; validating committed app changes."
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run complete test suite
+        run: npm test
+
+      - name: Run complete lint suite
+        run: npm run lint
+
+      - name: Build production app
+        run: npm run build
+
   validate:
     runs-on: ubuntu-latest
     steps:
