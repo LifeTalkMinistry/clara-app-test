@@ -2,31 +2,69 @@ import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 
 const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
 const COMPACT_OVERVIEW_CLASS = "clara-settings-compact-overview";
+const SETTINGS_ACTIVE_NAV_SELECTOR =
+  '.theme-page-shell button[aria-label="Settings"][aria-current="page"]';
+const SETTINGS_VIEW_SYNC_EVENT = "clara:settings-view-synced";
+const TOP_NAV_LABELS = new Set(["Home", "Me", "Schedule", "Settings"]);
+
+let scheduledFrame = null;
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function findAboutClaraRow() {
-  return [...document.querySelectorAll("button")].find((button) =>
+function getActiveSettingsContext() {
+  if (typeof document === "undefined") return null;
+
+  const activeSettingsNav = document.querySelector(SETTINGS_ACTIVE_NAV_SELECTOR);
+  const shell = activeSettingsNav?.closest(".theme-page-shell");
+  if (!shell) return null;
+
+  const contentRoot = shell.querySelector(".clara-dashboard-content");
+  const detailRoot = contentRoot?.querySelector(".min-h-full.space-y-4.pb-6") || null;
+  const overviewRoot = detailRoot
+    ? null
+    : contentRoot?.querySelector(".space-y-5.pb-6") || null;
+  const viewRoot = detailRoot || overviewRoot;
+  const scrollOwner = viewRoot?.closest(".overflow-y-auto") || null;
+  const detailTitle = detailRoot?.querySelector("h2")?.textContent?.trim() || "detail";
+  const viewKey = detailRoot ? `detail:${detailTitle}` : overviewRoot ? "overview" : "settings";
+
+  return {
+    activeSettingsNav,
+    shell,
+    contentRoot,
+    detailRoot,
+    overviewRoot,
+    viewRoot,
+    scrollOwner,
+    viewKey,
+  };
+}
+
+function findAboutClaraRow(overviewRoot) {
+  if (!overviewRoot) return null;
+
+  return [...overviewRoot.querySelectorAll("button")].find((button) =>
     normalizeText(button.textContent).includes("About CLARA")
   );
 }
 
 function compactSettingsOverview(overviewRoot) {
-  if (!overviewRoot) return;
+  if (!overviewRoot || overviewRoot.classList.contains(COMPACT_OVERVIEW_CLASS)) return;
+
   overviewRoot.classList.add(COMPACT_OVERVIEW_CLASS);
   overviewRoot.style.marginTop = "-8px";
   overviewRoot.style.paddingBottom = "8px";
+
   [...overviewRoot.querySelectorAll(":scope > section")].forEach((section) => {
     section.style.marginTop = "14px";
   });
-  [...overviewRoot.querySelectorAll(":scope > section button")].forEach(
-    (button) => {
-      button.style.paddingTop = "13px";
-      button.style.paddingBottom = "13px";
-    }
-  );
+
+  [...overviewRoot.querySelectorAll(":scope > section button")].forEach((button) => {
+    button.style.paddingTop = "13px";
+    button.style.paddingBottom = "13px";
+  });
 }
 
 function createLogoutControl() {
@@ -49,27 +87,31 @@ function createLogoutControl() {
   `;
 
   const note = document.createElement("p");
-  note.className =
-    "px-2 text-center text-[10px] font-semibold leading-4 text-white/55";
+  note.className = "px-2 text-center text-[10px] font-semibold leading-4 text-white/55";
   note.textContent =
     "Your financial records stay on this device. Log in again anytime.";
 
   button.addEventListener("click", () => {
     if (button.disabled) return;
+
     button.disabled = true;
     const label = button.querySelector("span");
     if (label) label.textContent = "Logging out...";
+
     signOutFromClaraBackend();
-    window.setTimeout(() => window.location.reload(), 80);
+
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 80);
   });
 
   container.append(button, note);
   return container;
 }
 
-function syncSettingsLogoutControl() {
+function syncLogoutControl(overviewRoot) {
   const existing = document.getElementById(LOGOUT_CONTAINER_ID);
-  const aboutRow = findAboutClaraRow();
+  const aboutRow = findAboutClaraRow(overviewRoot);
 
   if (!aboutRow) {
     existing?.remove();
@@ -82,45 +124,82 @@ function syncSettingsLogoutControl() {
     return;
   }
 
-  const overviewRoot = programSection.parentElement;
-  compactSettingsOverview(overviewRoot);
   if (existing?.previousElementSibling === programSection) return;
+
   existing?.remove();
   programSection.insertAdjacentElement("afterend", createLogoutControl());
+}
+
+function publishSettingsView(context) {
+  window.dispatchEvent(
+    new CustomEvent(SETTINGS_VIEW_SYNC_EVENT, {
+      detail: context || {
+        viewKey: "",
+        viewRoot: null,
+        scrollOwner: null,
+        overviewRoot: null,
+        detailRoot: null,
+      },
+    })
+  );
+}
+
+function syncSettingsExperience() {
+  scheduledFrame = null;
+
+  const context = getActiveSettingsContext();
+  document.body?.classList.toggle("clara-settings-active", Boolean(context));
+
+  if (!context) {
+    document.getElementById(LOGOUT_CONTAINER_ID)?.remove();
+    publishSettingsView(null);
+    return;
+  }
+
+  if (context.overviewRoot) {
+    compactSettingsOverview(context.overviewRoot);
+    syncLogoutControl(context.overviewRoot);
+  }
+
+  publishSettingsView(context);
+}
+
+function scheduleSettingsSync() {
+  if (scheduledFrame !== null || typeof window === "undefined") return;
+
+  scheduledFrame = window.requestAnimationFrame(syncSettingsExperience);
+}
+
+function handleDocumentClick(event) {
+  const button = event.target?.closest?.("button");
+  if (!button) return;
+
+  const navLabel = button.getAttribute("aria-label");
+  const context = getActiveSettingsContext();
+  const isTopNavigationButton = TOP_NAV_LABELS.has(navLabel);
+  const isInsideSettings = Boolean(
+    context?.contentRoot?.contains(button) || context?.viewRoot?.contains(button)
+  );
+
+  if (isTopNavigationButton || isInsideSettings) scheduleSettingsSync();
+}
+
+function handleVisibilityChange() {
+  if (!document.hidden) scheduleSettingsSync();
 }
 
 export function installSettingsAccessLogout() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__claraSettingsAccessLogoutInstalled) return;
+
   window.__claraSettingsAccessLogoutInstalled = true;
 
-  const start = () => {
-    const root = document.getElementById("root");
-    if (!root) return;
-    let syncQueued = false;
-    const queueSync = () => {
-      if (syncQueued) return;
-      syncQueued = true;
-      window.requestAnimationFrame(() => {
-        syncQueued = false;
-        syncSettingsLogoutControl();
-      });
-    };
+  document.addEventListener("click", handleDocumentClick, true);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("hashchange", scheduleSettingsSync);
+  window.addEventListener("popstate", scheduleSettingsSync);
+  window.addEventListener("pageshow", scheduleSettingsSync);
+  window.addEventListener("resize", scheduleSettingsSync, { passive: true });
 
-    const observer = new MutationObserver(queueSync);
-    observer.observe(root, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-    window.addEventListener("hashchange", queueSync);
-    window.addEventListener("popstate", queueSync);
-    queueSync();
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start, { once: true });
-  } else {
-    start();
-  }
+  scheduleSettingsSync();
 }

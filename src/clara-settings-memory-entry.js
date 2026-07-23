@@ -1,5 +1,6 @@
 const ENTRY_ID = "clara-settings-memory-entry";
 const PROFILE_ENTRY_ID = "clara-profile-memory-entry";
+const SETTINGS_VIEW_SYNC_EVENT = "clara:settings-view-synced";
 
 function openEditableMemoryBoard(cabinetName = "Spending Memory") {
   if (typeof window === "undefined") return;
@@ -89,7 +90,14 @@ function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
 function findAccountSection() {
   if (typeof document === "undefined") return null;
 
-  const securityRow = Array.from(document.querySelectorAll("button")).find((button) =>
+  const activeSettingsNav = document.querySelector(
+    '.theme-page-shell button[aria-label="Settings"][aria-current="page"]'
+  );
+  const shell = activeSettingsNav?.closest(".theme-page-shell");
+  const settingsRoot = shell?.querySelector(".clara-dashboard-content .space-y-5.pb-6");
+  if (!settingsRoot) return null;
+
+  const securityRow = Array.from(settingsRoot.querySelectorAll("button")).find((button) =>
     button.textContent?.includes("Security & privacy")
   );
 
@@ -106,7 +114,10 @@ function installSettingsOverviewMemoryEntry() {
   if (typeof document === "undefined") return;
 
   const match = findAccountSection();
-  if (!match) return;
+  if (!match) {
+    document.getElementById(ENTRY_ID)?.remove();
+    return;
+  }
 
   const { section, securityRow } = match;
   if (section.querySelector(`#${ENTRY_ID}`)) return;
@@ -175,12 +186,13 @@ function installMemoryEntryPoints() {
   installProfileMemoryEntry();
 }
 
-if (typeof window !== "undefined") {
-  installMemoryEntryPoints();
+function scheduleMemoryEntrySync() {
+  if (typeof window === "undefined") return;
+  window.requestAnimationFrame(installMemoryEntryPoints);
+}
 
-  const observer = new MutationObserver(installMemoryEntryPoints);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
+if (typeof window !== "undefined") {
+  window.addEventListener(SETTINGS_VIEW_SYNC_EVENT, scheduleMemoryEntrySync);
+  window.addEventListener("pageshow", scheduleMemoryEntrySync);
+  scheduleMemoryEntrySync();
 }

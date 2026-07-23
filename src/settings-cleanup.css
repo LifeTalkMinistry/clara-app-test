@@ -4,7 +4,7 @@
  */
 
 /* Keep the shared top navigation in place, then lower the complete Settings content area. */
-#root .theme-page-shell > div.relative.shrink-0:has(button[aria-label="Settings"][aria-current="page"]) + .clara-dashboard-content {
+body.clara-settings-active #root .theme-page-shell > div.relative.shrink-0 + .clara-dashboard-content {
   margin-top: 24px !important;
   position: relative;
   z-index: 2;
@@ -17,17 +17,17 @@
  * Keep the Settings experience above those materials so labels, breadcrumbs,
  * and detail headers cannot look washed out or visually clipped.
  */
-body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"]) {
+body.clara-settings-active {
   position: relative;
   isolation: isolate;
 }
 
-body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"])::before,
-body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"])::after {
+body.clara-settings-active::before,
+body.clara-settings-active::after {
   display: none !important;
 }
 
-body:has(#root .theme-page-shell button[aria-label="Settings"][aria-current="page"]) #root {
+body.clara-settings-active #root {
   position: relative;
   z-index: 1;
   isolation: isolate;
