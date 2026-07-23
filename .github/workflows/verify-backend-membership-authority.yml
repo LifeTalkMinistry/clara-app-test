@@ -33,11 +33,11 @@ jobs:
       - name: Scan production bundle for forbidden authorities
         run: |
           set -o pipefail
-          if grep -R -n -E 'verifyHiddenAdminPassword|grantDeveloperCommittedAccess|readDeveloperMembershipPreview|OPEN_COMMITTED_ACCESS_CODE_EVENT|clara_hidden_admin_session_v1|clara_ios_access_session_v1|clara_dev_membership_preview|clara_dev_plan_preview|DEVELOPER_ACCESS|ACCESS_CODE' dist > membership-bundle-scan.log 2>&1; then
-            echo 'Forbidden membership authority found in production bundle.' >> membership-bundle-scan.log
+          if grep -R -n -E 'verifyHiddenAdminPassword|grantDeveloperCommittedAccess|readDeveloperMembershipPreview|OPEN_COMMITTED_ACCESS_CODE_EVENT|CommittedAccessCodeModal|IosPwaAccessGate|HiddenAdminRoute|AdminRescueButton|CoachingAdminPage|clara-ios-access' dist > membership-bundle-scan.log 2>&1; then
+            echo 'Forbidden executable membership or admin authority found in production bundle.' >> membership-bundle-scan.log
             exit 1
           fi
-          echo 'No forbidden membership authority found in production bundle.' > membership-bundle-scan.log
+          echo 'No forbidden executable membership or admin authority found in production bundle.' > membership-bundle-scan.log
 
       - name: Upload validation logs
         if: always()
