@@ -1,0 +1,70 @@
+name: Verify Backend Membership Authority
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run complete test suite
+        id: tests
+        continue-on-error: true
+        run: npm test > membership-tests.log 2>&1
+
+      - name: Run complete lint suite
+        id: lint
+        continue-on-error: true
+        run: npm run lint > membership-lint.log 2>&1
+
+      - name: Build production bundle
+        id: build
+        continue-on-error: true
+        run: npx vite build --base=./ > membership-build.log 2>&1
+
+      - name: Scan production bundle for forbidden authorities
+        id: scan
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if grep -R -n -E 'verifyHiddenAdminPassword|grantDeveloperCommittedAccess|readDeveloperMembershipPreview|OPEN_COMMITTED_ACCESS_CODE_EVENT|clara_hidden_admin_session_v1|clara_ios_access_session_v1|clara_dev_membership_preview|clara_dev_plan_preview|DEVELOPER_ACCESS|ACCESS_CODE' dist > membership-bundle-scan.log 2>&1; then
+            echo 'Forbidden membership authority found in production bundle.' >> membership-bundle-scan.log
+            exit 1
+          fi
+          echo 'No forbidden membership authority found in production bundle.' > membership-bundle-scan.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-membership-authority-validation
+          path: |
+            membership-tests.log
+            membership-lint.log
+            membership-build.log
+            membership-bundle-scan.log
+          if-no-files-found: warn
+          retention-days: 3
+
+      - name: Report validation failure
+        if: steps.tests.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.build.outcome == 'failure' || steps.scan.outcome == 'failure'
+        run: |
+          echo 'Tests: ${{ steps.tests.outcome }}'
+          echo 'Lint: ${{ steps.lint.outcome }}'
+          echo 'Build: ${{ steps.build.outcome }}'
+          echo 'Bundle scan: ${{ steps.scan.outcome }}'
+          exit 1
