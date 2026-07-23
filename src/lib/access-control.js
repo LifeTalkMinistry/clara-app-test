@@ -10,46 +10,71 @@ import { hasCompletedLocalSetup } from "@/lib/claraLocalProfile";
 
 export const ENROLLMENT_PENDING_STATUSES = PENDING_MEMBERSHIP_STATUSES;
 export const ENROLLMENT_APPROVED_STATUSES = new Set(["approved", "active"]);
-export const ENROLLMENT_RETRY_STATUSES = new Set(["rejected", "resubmit_required", "none", ""]);
+export const ENROLLMENT_RETRY_STATUSES = new Set([
+  "rejected",
+  "resubmit_required",
+  "none",
+  "",
+]);
 export const PAID_TIERS = [COMMITTED_PLAN_KEY];
-export function normalizeAccessValue(value) { return normalizeMembershipToken(value); }
-export function getEnrollmentStatus(enrollment, profileLike) {
-  return normalizeAccessValue(profileLike?.enrollment_status || profileLike?.status || enrollment?.status || enrollment?.payment_status || "");
+
+export function normalizeAccessValue(value) {
+  return normalizeMembershipToken(value);
 }
+
+export function getEnrollmentStatus(enrollment, profileLike) {
+  return normalizeAccessValue(
+    profileLike?.enrollment_status ||
+      profileLike?.account_status ||
+      profileLike?.status ||
+      enrollment?.status ||
+      enrollment?.payment_status ||
+      ""
+  );
+}
+
 export function hasCompletedOnboarding(profileLike = {}) {
-  const role = normalizeAccessValue(profileLike?.role || "user");
-  if (role === "admin" || role === "advertiser") return true;
   return hasCompletedLocalSetup(profileLike);
 }
-export function hasCompletedProgramOnboarding(_profileLike) {
+
+export function hasCompletedProgramOnboarding() {
   return true;
 }
+
 export function isActivationRequiredPlan(planKey) {
   return normalizePlanKey(planKey) === COMMITTED_PLAN_KEY;
 }
+
 export function hasActivatedPlan(profileLike = {}) {
   return resolveMembership({ profile: profileLike }).isActiveCommitted;
 }
+
 export function hasAnyPaidSignal(profileLike = {}) {
   return resolveMembership({ profile: profileLike }).isActiveCommitted;
 }
+
 export function shouldForceEnrollment(profileLike, enrollment) {
   const membership = resolveMembership({ profile: profileLike });
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
   if (!enrollment) return false;
-  return membership.planKey === FREE_PLAN_KEY && !membership.isActiveCommitted && ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus);
+  return (
+    membership.planKey === FREE_PLAN_KEY &&
+    !membership.isActiveCommitted &&
+    ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus)
+  );
 }
-export function resolveAppFlow(_profileLike, _enrollment) {
-  // Universal onboarding is temporarily bypassed. Existing answers remain stored
-  // so the onboarding experience can be restored later without data loss.
+
+export function resolveAppFlow() {
   return "normal";
 }
+
 export function deriveAccessState(profileLike = {}, enrollment = null) {
   const role = normalizeAccessValue(profileLike?.role || "user");
   const isAdmin = role === "admin";
   const isAdvertiser = role === "advertiser";
-  const membership = resolveMembership({ profile: profileLike, isAdmin, isAdvertiser });
+  const membership = resolveMembership({ profile: profileLike });
   const flow = resolveAppFlow(profileLike, enrollment);
+
   return {
     role,
     plan: membership.planKey,
@@ -66,6 +91,6 @@ export function deriveAccessState(profileLike = {}, enrollment = null) {
     isActivated: membership.isActiveCommitted,
     isPreActivation: membership.isPendingActivation,
     flow,
-    forceEnroll: !isAdmin && !isAdvertiser && shouldForceEnrollment(profileLike, enrollment),
+    forceEnroll: shouldForceEnrollment(profileLike, enrollment),
   };
 }
