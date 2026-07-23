@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, ExternalLink, Lock, MessageCircle, X } from "lucide-react";
+import { CalendarDays, ExternalLink, Lock, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
@@ -267,20 +267,10 @@ function ClaraCommitmentBookletModal({
                   Schedule My Session
                 </button>
 
-                <div className="rounded-[18px] border border-white/[0.09] bg-white/[0.045] px-3.5 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="flex items-start gap-3">
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[13px] border border-cyan-100/14 bg-cyan-100/[0.08] text-cyan-50/78">
-                      <MessageCircle className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-black text-white/82">
-                        Concerned about your access?
-                      </p>
-                      <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/46">
-                        Message us on the CLARA Facebook page.
-                      </p>
-                    </div>
-                  </div>
+                <div className="rounded-[18px] border border-white/[0.09] bg-white/[0.045] px-3.5 py-3.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <p className="text-[11px] font-black text-white/82">
+                    Already Activated?
+                  </p>
                   <a
                     href="https://www.facebook.com/profile.php?id=61590352695488&sk=followers"
                     target="_blank"
