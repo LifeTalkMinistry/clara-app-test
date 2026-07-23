@@ -43,7 +43,7 @@
       "purpose": "any maskable"
     },
     {
-      "src": "../icons/icon-512.webp",
+      "src": "https://raw.githubusercontent.com/LifeTalkMinistry/clara-app-test/main/public/icons/clara-icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
