@@ -1,3 +1,8 @@
+export const WELCOME_SESSION_FORM_URL = (
+  import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL ||
+  "https://forms.gle/58cJ2wJVpC4H5qFS8"
+).trim();
+
 export const COACHING_TIMEZONE = "Asia/Manila";
 export const COACHING_POLL_INTERVAL_MS = 45_000;
 
@@ -83,7 +88,11 @@ export function normalizeBackendSlot(slot) {
 }
 
 export function normalizeAvailability(payload) {
-  if (!payload || payload.timezone !== COACHING_TIMEZONE || !Array.isArray(payload.slots)) {
+  if (
+    !payload ||
+    payload.timezone !== COACHING_TIMEZONE ||
+    !Array.isArray(payload.slots)
+  ) {
     return [];
   }
   return payload.slots.map(normalizeBackendSlot).filter(Boolean);
@@ -101,7 +110,9 @@ export function groupSlotsByDate(slots) {
 }
 
 export function pickRelevantAppointment(appointments, sessionType) {
-  const matching = appointments.filter((item) => item.session_type === sessionType);
+  const matching = appointments.filter(
+    (item) => item.session_type === sessionType
+  );
   const active = matching.find((item) =>
     ["requested", "confirmed", "reschedule_requested"].includes(item.status)
   );
@@ -110,8 +121,13 @@ export function pickRelevantAppointment(appointments, sessionType) {
 
 export function readUnsentCoachingDraft(sessionType) {
   try {
-    const value = JSON.parse(getStorage()?.getItem(DRAFT_KEYS[sessionType]) || "null");
-    return value?.status === "unsent_draft" && value?.sessionType === sessionType ? value : null;
+    const value = JSON.parse(
+      getStorage()?.getItem(DRAFT_KEYS[sessionType]) || "null"
+    );
+    return value?.status === "unsent_draft" &&
+      value?.sessionType === sessionType
+      ? value
+      : null;
   } catch {
     return null;
   }
