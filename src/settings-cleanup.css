@@ -5,7 +5,7 @@
 
 /* Keep the shared top navigation in place, then lower the complete Settings content area. */
 body.clara-settings-active #root .theme-page-shell > div.relative.shrink-0 + .clara-dashboard-content {
-  margin-top: 24px !important;
+  margin-top: 32px !important;
   position: relative;
   z-index: 2;
   isolation: isolate;
