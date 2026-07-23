@@ -1,18 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, X } from "lucide-react";
+import { Lock, RefreshCcw, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabaseClient";
-import {
-  launchGooglePlayPurchase,
-  persistGooglePlayPurchase,
-  queryOwnedGooglePlayPurchases,
-  waitForGooglePlayEntitlement,
-} from "@/lib/google-play-billing";
-import {
-  COMMITTED_PLAN_KEY,
-  COMMITTED_PRODUCT_ID,
-  readDeveloperMembershipPreview,
-} from "@/lib/membership";
 import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardScheduleImpactPortalPanel";
@@ -27,106 +15,15 @@ import {
   readCommitmentBookletIntentFromSession,
 } from "@/lib/clara-commitment-framework";
 
-const CLARA_COMMITMENT_PRODUCT_ID = COMMITTED_PRODUCT_ID;
-const CLARA_COMMITMENT_UNLOCK_PLAN = COMMITTED_PLAN_KEY;
 const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
-const CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT = "clara:guide-schedule-phase-change";
+const CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT =
+  "clara:guide-schedule-phase-change";
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
-const OFFER_LOAD_ERROR_MESSAGE =
-  "CLARA could not load the offer right now. Please check your connection and try again.";
-const PURCHASE_START_ERROR_MESSAGE = "CLARA could not start the purchase right now. Please try again.";
-const GOOGLE_PLAY_ALREADY_SUBSCRIBED_MESSAGE =
-  "Google Play says this account is already subscribed. Tap Restore Purchase to connect it to CLARA.";
-const RESTORE_TOKEN_NOT_FOUND_MESSAGE =
-  "Google Play says this account may already be subscribed, but CLARA could not read the purchase token yet. Please close the app, reopen it, then tap Restore Purchase again.";
-const POST_PURCHASE_CONFIRMING_MESSAGE = "Confirming your CLARA access...";
-const POST_PURCHASE_CONFIRM_ERROR_MESSAGE =
-  "Payment completed. CLARA is still confirming your access. Please tap Restore Purchase if it does not unlock in a few seconds.";
-const PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE = "PURCHASE_LINKED_TO_ANOTHER_CLARA_ACCOUNT";
-const PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_MESSAGE =
-  "This Google Play subscription is already linked to another CLARA account. Please sign in with the original CLARA account that made the purchase.";
-
-function readPlanPreview() {
-  return readDeveloperMembershipPreview();
-}
 
 function normalizeOfferPurchaseIntent(nextPurchaseIntent) {
-  return normalizeCommitmentBookletIntent(nextPurchaseIntent || COMMITTED_MONTHLY_PURCHASE_INTENT);
-}
-
-function normalizeBillingText(value) {
-  return String(value ?? "").trim();
-}
-
-function isUserCancelledPurchaseError(error) {
-  const code = String(error?.responseCode || error?.code || "").toUpperCase();
-  const message = String(error?.message || error?.debugMessage || error?.details || "").toLowerCase();
-  return code === "USER_CANCELED" || message.includes("user canceled") || message.includes("user cancelled") || message.includes("cancelled");
-}
-
-function isGooglePlayAlreadySubscribedError(error) {
-  const code = String(error?.responseCode || error?.code || error?.raw?.responseCode || error?.raw?.code || "").toUpperCase();
-  const message = String(error?.message || error?.debugMessage || error?.details || error?.raw?.message || error || "").toLowerCase();
-
-  return (
-    code === "ITEM_ALREADY_OWNED" ||
-    message.includes("already subscribed") ||
-    message.includes("already own") ||
-    message.includes("already owned") ||
-    message.includes("item already owned") ||
-    message.includes("already purchased") ||
-    message.includes("account is already subscribed")
+  return normalizeCommitmentBookletIntent(
+    nextPurchaseIntent || COMMITTED_MONTHLY_PURCHASE_INTENT
   );
-}
-
-function isLinkedToAnotherClaraAccountError(error) {
-  const code = String(error?.responseCode || error?.code || error?.raw?.code || "").toUpperCase();
-  const message = String(error?.message || error?.debugMessage || error?.details || error?.raw?.error || error || "").toLowerCase();
-
-  return (
-    code === PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_CODE ||
-    message.includes("already linked to another user") ||
-    message.includes("already linked to another clara account") ||
-    message.includes("original clara account")
-  );
-}
-
-function isConfirmedGooglePlayPurchase(purchaseResult) {
-  if (!purchaseResult || purchaseResult.cancelled === true) return false;
-  return Boolean(
-    purchaseResult.ok === true ||
-      purchaseResult.restored === true ||
-      purchaseResult.purchaseToken ||
-      purchaseResult.purchase_token ||
-      purchaseResult.transactionId ||
-      purchaseResult.transaction_id ||
-      purchaseResult.orderId ||
-      purchaseResult.order_id
-  );
-}
-
-function getFriendlyBillingError(error, context = "purchase") {
-  if (isLinkedToAnotherClaraAccountError(error)) return PURCHASE_LINKED_TO_ANOTHER_ACCOUNT_MESSAGE;
-  if (isGooglePlayAlreadySubscribedError(error)) return GOOGLE_PLAY_ALREADY_SUBSCRIBED_MESSAGE;
-  if (context === "post_purchase_confirm") return POST_PURCHASE_CONFIRM_ERROR_MESSAGE;
-
-  const rawMessage = String(error?.message || error?.debugMessage || error?.details || error || "").toLowerCase();
-  if (rawMessage.includes("failed to fetch") || rawMessage.includes("network")) return OFFER_LOAD_ERROR_MESSAGE;
-  if (rawMessage.includes("not ready") || rawMessage.includes("billing unavailable")) {
-    return "Google Play is not ready yet. Please try again in a moment.";
-  }
-
-  return PURCHASE_START_ERROR_MESSAGE;
-}
-
-async function openGooglePlayCommitmentPurchase({ userId, userEmail, purchaseIntent }) {
-  return launchGooglePlayPurchase({
-    productId: CLARA_COMMITMENT_PRODUCT_ID,
-    planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
-    userId,
-    userEmail,
-    purchaseIntent: normalizeOfferPurchaseIntent(purchaseIntent),
-  });
 }
 
 function ClaraCommitmentBookletModal({
@@ -136,30 +33,19 @@ function ClaraCommitmentBookletModal({
   purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT,
 }) {
   const [bookletPage, setBookletPage] = useState(0);
-  const [commitmentOfferOpen, setCommitmentOfferOpen] = useState(false);
-  const [purchaseBusy, setPurchaseBusy] = useState(false);
-  const [postPurchaseConfirming, setPostPurchaseConfirming] = useState(false);
-  const [canRestorePurchase, setCanRestorePurchase] = useState(false);
-  const [purchaseMessage, setPurchaseMessage] = useState("");
-  const [offerPurchaseIntent, setOfferPurchaseIntent] = useState(() => normalizeOfferPurchaseIntent(purchaseIntent));
+  const [membershipInfoOpen, setMembershipInfoOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
   const carouselRef = useRef(null);
-  const { user, refreshUser } = useUserRole();
-  const purchaseButtonLabel = postPurchaseConfirming
-    ? "Confirming access..."
-    : purchaseBusy
-      ? "Opening Google Play..."
-      : "Continue for ₱249/month";
+  const { membership, refreshUser } = useUserRole();
 
   useEffect(() => {
     if (!open) return;
 
     setBookletPage(0);
-    setCommitmentOfferOpen(false);
-    setPurchaseBusy(false);
-    setPostPurchaseConfirming(false);
-    setCanRestorePurchase(false);
-    setPurchaseMessage("");
-    setOfferPurchaseIntent(normalizeOfferPurchaseIntent(purchaseIntent));
+    setMembershipInfoOpen(false);
+    setRefreshing(false);
+    setRefreshMessage("");
 
     window.requestAnimationFrame(() => {
       carouselRef.current?.scrollTo({ left: 0, behavior: "auto" });
@@ -168,263 +54,67 @@ function ClaraCommitmentBookletModal({
 
   if (!open) return null;
 
-  const isCommittedProfileActive = (profile = {}) => {
-    const profilePlanKey =
-      profile?.plan_key ||
-      profile?.plan ||
-      profile?.subscription_plan ||
-      "";
+  const handleRefreshMembership = async () => {
+    if (refreshing) return;
 
-    const profileStatus =
-      profile?.activation_status ||
-      profile?.subscription_status ||
-      profile?.enrollment_status ||
-      profile?.status ||
-      "";
-
-    return (
-      profilePlanKey === CLARA_COMMITMENT_UNLOCK_PLAN &&
-      (profile?.isPro === true ||
-        profile?.is_activated === true ||
-        profile?.program_active === true ||
-        profile?.is_enrolled === true ||
-        ["active", "approved", "committed", "paid"].includes(
-          String(profileStatus || "").toLowerCase()
-        ))
-    );
-  };
-
-  const activateCommitmentAccess = async (purchaseResult, activePurchaseIntent) => {
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    const activeUserId = user?.id || authUser?.id;
-    const purchaseToken =
-      purchaseResult?.purchaseToken ||
-      purchaseResult?.purchase_token ||
-      purchaseResult?.raw?.purchaseToken ||
-      purchaseResult?.raw?.purchase_token ||
-      purchaseResult?.raw?.matchedPurchase?.purchaseToken ||
-      purchaseResult?.raw?.matchedPurchase?.purchase_token ||
-      "";
-    const orderId =
-      purchaseResult?.orderId ||
-      purchaseResult?.order_id ||
-      purchaseResult?.raw?.orderId ||
-      purchaseResult?.raw?.order_id ||
-      purchaseResult?.raw?.matchedPurchase?.orderId ||
-      purchaseResult?.raw?.matchedPurchase?.order_id ||
-      "";
-
-    if (!activeUserId) throw new Error("Please sign in first before starting your CLARA commitment.");
-    if (!purchaseToken) throw new Error("Google Play did not return a purchase token, so CLARA did not activate access.");
-
-    await persistGooglePlayPurchase({
-      supabase,
-      userId: activeUserId,
-      planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
-      productId: CLARA_COMMITMENT_PRODUCT_ID,
-      purchaseToken,
-      orderId,
-      bridgePayload: {
-        ...(purchaseResult?.raw || purchaseResult),
-        purchaseIntent: normalizeOfferPurchaseIntent(activePurchaseIntent),
-      },
-    });
+    setRefreshing(true);
+    setRefreshMessage("Checking your CLARA account...");
 
     try {
-      await supabase.auth.refreshSession();
-    } catch (sessionError) {
-      console.warn("Session refresh after dashboard commitment purchase did not complete cleanly:", sessionError);
-    }
-
-    const profileAfterPersist = await refreshUser?.({
-      preferCache: false,
-      reason: "dashboard_commitment_purchase_verified",
-    });
-
-    if (isCommittedProfileActive(profileAfterPersist)) {
-      console.info("[CLARA Billing] dashboard commitment profile active confirmed", {
-        userId: activeUserId,
-        planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
-        status:
-          profileAfterPersist?.activation_status ||
-          profileAfterPersist?.subscription_status ||
-          profileAfterPersist?.enrollment_status ||
-          profileAfterPersist?.status ||
-          "active",
-      });
-      return;
-    }
-
-    const entitlement = await waitForGooglePlayEntitlement({
-      supabase,
-      userId: activeUserId,
-      expectedPlanKey: CLARA_COMMITMENT_UNLOCK_PLAN,
-    });
-
-    try {
-      await supabase.auth.refreshSession();
-    } catch (sessionError) {
-      console.warn("Session refresh after dashboard commitment entitlement wait did not complete cleanly:", sessionError);
-    }
-
-    const profileAfterWait = await refreshUser?.({
-      preferCache: false,
-      reason: "dashboard_commitment_entitlement_confirmed",
-    });
-
-    if (entitlement.status !== "active" && !isCommittedProfileActive(profileAfterWait)) {
-      throw new Error("Your purchase was verified, but membership activation is still syncing.");
-    }
-
-    console.info("[CLARA Billing] dashboard commitment entitlement active confirmed", {
-      userId: activeUserId,
-      planKey: CLARA_COMMITMENT_UNLOCK_PLAN,
-      status:
-        entitlement.status ||
-        profileAfterWait?.activation_status ||
-        profileAfterWait?.subscription_status ||
-        profileAfterWait?.enrollment_status ||
-        profileAfterWait?.status ||
-        "active",
-    });
-  };
-
-  const confirmCommittedAccessFromPurchase = async (purchaseResult, activePurchaseIntent) => {
-    setCanRestorePurchase(false);
-    setPostPurchaseConfirming(true);
-    setPurchaseMessage(POST_PURCHASE_CONFIRMING_MESSAGE);
-    console.info("[CLARA Billing] Refreshing committed entitlement");
-
-    try {
-      await activateCommitmentAccess(purchaseResult, activePurchaseIntent);
-      console.info("[CLARA Billing] Committed entitlement confirmed");
-      setPurchaseMessage("Commitment active. Unlocking CLARA...");
-      onClose();
-    } catch (confirmError) {
-      console.error("[CLARA Billing] Entitlement refresh failed after successful purchase", confirmError);
-      setCanRestorePurchase(!isLinkedToAnotherClaraAccountError(confirmError));
-      setPurchaseMessage(getFriendlyBillingError(confirmError, "post_purchase_confirm"));
-    } finally {
-      setPostPurchaseConfirming(false);
-    }
-  };
-
-  const handleGooglePlayCommitment = async () => {
-    if (purchaseBusy) return;
-
-    const activePurchaseIntent = normalizeOfferPurchaseIntent(offerPurchaseIntent);
-    setPurchaseBusy(true);
-    setPostPurchaseConfirming(false);
-    setCanRestorePurchase(false);
-    setPurchaseMessage("Opening Google Play...");
-    console.info("[CLARA Billing] Google Play monthly purchase started");
-
-    try {
-      const purchaseResult = await openGooglePlayCommitmentPurchase({
-        userId: user?.id,
-        userEmail: user?.email,
-        purchaseIntent: activePurchaseIntent,
-      });
-
-      if (purchaseResult?.cancelled === true) {
-        setPurchaseMessage("");
-        return;
-      }
-
-      if (!isConfirmedGooglePlayPurchase(purchaseResult)) throw new Error("Google Play did not confirm the purchase.");
-
-      console.info("[CLARA Billing] Google Play purchase success returned", {
-        responseCode: purchaseResult?.responseCode || "OK",
-        restored: purchaseResult?.restored === true,
-      });
-
-      await confirmCommittedAccessFromPurchase(purchaseResult, activePurchaseIntent);
-    } catch (error) {
-      console.error("CLARA Google Play commitment failed:", error);
-
-      if (isUserCancelledPurchaseError(error)) {
-        setPurchaseMessage("");
-      } else if (isGooglePlayAlreadySubscribedError(error)) {
-        setCanRestorePurchase(true);
-        setPurchaseMessage(GOOGLE_PLAY_ALREADY_SUBSCRIBED_MESSAGE);
-      } else {
-        setPurchaseMessage(getFriendlyBillingError(error, "purchase"));
-      }
-    } finally {
-      setPurchaseBusy(false);
-    }
-  };
-
-  const handleRestoreGooglePlayCommitment = async () => {
-    if (purchaseBusy) return;
-
-    setPurchaseBusy(true);
-    setCanRestorePurchase(false);
-    setPostPurchaseConfirming(true);
-    setPurchaseMessage(POST_PURCHASE_CONFIRMING_MESSAGE);
-    console.info("[CLARA Billing] Restore purchase started");
-
-    try {
-      const restoreResult = await queryOwnedGooglePlayPurchases({ productIds: [CLARA_COMMITMENT_PRODUCT_ID] });
-      const restoredPurchase = restoreResult?.purchases?.find((purchase) => purchase.purchaseToken);
-      if (!restoredPurchase) throw new Error(RESTORE_TOKEN_NOT_FOUND_MESSAGE);
-
-      console.info("[CLARA Billing] Restore purchase found owned Google Play purchase", {
-        responseCode: restoreResult?.responseCode || "OK",
-      });
-
-      await confirmCommittedAccessFromPurchase(
-        {
-          ...restoredPurchase,
-          ok: true,
-          restored: true,
-          cancelled: false,
-          responseCode: restoreResult?.responseCode || "OK",
-          raw: restoredPurchase.raw || restoredPurchase,
-        },
-        offerPurchaseIntent
+      await refreshUser?.({ reason: "manual_membership_refresh" });
+      setRefreshMessage(
+        "Membership refreshed. Active Committed access will unlock automatically."
       );
     } catch (error) {
-      console.error("[CLARA Billing] Restore purchase failed:", error);
-      setCanRestorePurchase(!isLinkedToAnotherClaraAccountError(error));
-      setPurchaseMessage(getFriendlyBillingError(error, "post_purchase_confirm"));
+      console.error("[CLARA Membership] manual refresh failed", error);
+      setRefreshMessage(
+        "CLARA could not refresh your account. Check your connection and try again."
+      );
     } finally {
-      setPostPurchaseConfirming(false);
-      setPurchaseBusy(false);
+      setRefreshing(false);
     }
   };
 
   const handleDeclineCommitment = () => {
-    if (purchaseBusy) return;
-
-    setPurchaseMessage("");
-    setCanRestorePurchase(false);
-    setCommitmentOfferOpen(false);
+    if (refreshing) return;
+    setRefreshMessage("");
+    setMembershipInfoOpen(false);
     onDeclineCommitment?.();
   };
 
   const goToPage = (targetPage) => {
-    const nextPage = Math.min(Math.max(targetPage, 0), CLARA_COMMITMENT_BOOKLET_PAGES.length - 1);
+    const nextPage = Math.min(
+      Math.max(targetPage, 0),
+      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
+    );
     const carousel = carouselRef.current;
 
     setBookletPage(nextPage);
-    if (carousel) carousel.scrollTo({ left: carousel.clientWidth * nextPage, behavior: "smooth" });
+    if (carousel) {
+      carousel.scrollTo({
+        left: carousel.clientWidth * nextPage,
+        behavior: "smooth",
+      });
+    }
   };
 
   const handleCarouselScroll = (event) => {
     const carousel = event.currentTarget;
     if (!carousel.clientWidth) return;
 
-    const currentPage = Math.round(carousel.scrollLeft / carousel.clientWidth);
-    const safePage = Math.min(Math.max(currentPage, 0), CLARA_COMMITMENT_BOOKLET_PAGES.length - 1);
+    const currentPage = Math.round(
+      carousel.scrollLeft / carousel.clientWidth
+    );
+    const safePage = Math.min(
+      Math.max(currentPage, 0),
+      CLARA_COMMITMENT_BOOKLET_PAGES.length - 1
+    );
     if (safePage !== bookletPage) setBookletPage(safePage);
   };
 
   const renderBookletPage = (bookletItem, index) => {
-    const isFinalPage = index === CLARA_COMMITMENT_BOOKLET_PAGES.length - 1;
+    const isFinalPage =
+      index === CLARA_COMMITMENT_BOOKLET_PAGES.length - 1;
     const isDensePage =
       (bookletItem.paragraphs?.length || 0) +
         (bookletItem.bullets?.length || 0) +
@@ -442,7 +132,8 @@ function ClaraCommitmentBookletModal({
       >
         <div className={isDensePage ? "" : "-translate-y-[3%]"}>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/48">
-            {index + 1 < 10 ? `0${index + 1}` : index + 1} / {bookletItem.label.toUpperCase()}
+            {index + 1 < 10 ? `0${index + 1}` : index + 1} /{" "}
+            {bookletItem.label.toUpperCase()}
           </p>
 
           <h2 className="mt-3 text-[clamp(1.58rem,6.4vw,2.1rem)] font-black leading-[1.05] tracking-[-0.055em] text-white">
@@ -450,7 +141,9 @@ function ClaraCommitmentBookletModal({
           </h2>
 
           <div className={pageTextClass}>
-            {bookletItem.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            {bookletItem.paragraphs?.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
 
             {bookletItem.bullets ? (
               <ul className="space-y-2">
@@ -474,21 +167,21 @@ function ClaraCommitmentBookletModal({
               </ul>
             ) : null}
 
-            {bookletItem.closingParagraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            {bookletItem.closingParagraphs?.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
 
             {isFinalPage ? (
               <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  setOfferPurchaseIntent(normalizeOfferPurchaseIntent(purchaseIntent));
-                  setPurchaseMessage("");
-                  setCanRestorePurchase(false);
-                  setCommitmentOfferOpen(true);
+                  setRefreshMessage("");
+                  setMembershipInfoOpen(true);
                 }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
               >
-                Start My Commitment
+                View Membership Status
               </button>
             ) : null}
           </div>
@@ -516,7 +209,9 @@ function ClaraCommitmentBookletModal({
         </button>
 
         <div className="relative z-10 shrink-0 pr-12 text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/58">CLARA Commitment Booklet</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/58">
+            CLARA Commitment Booklet
+          </p>
         </div>
 
         <div
@@ -533,75 +228,86 @@ function ClaraCommitmentBookletModal({
               key={bookletItem.label}
               type="button"
               onClick={() => goToPage(index)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${index === bookletPage ? "w-6 bg-cyan-100/64" : "w-1.5 bg-cyan-100/22"}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                index === bookletPage
+                  ? "w-6 bg-cyan-100/64"
+                  : "w-1.5 bg-cyan-100/22"
+              }`}
               aria-label={`Go to ${bookletItem.label}`}
             />
           ))}
         </div>
 
-        {commitmentOfferOpen ? (
+        {membershipInfoOpen ? (
           <div
             className="absolute inset-0 z-40 flex items-center justify-center bg-[#020817]/84 px-5 backdrop-blur-sm"
             onClick={() => {
-              if (!purchaseBusy) setCommitmentOfferOpen(false);
+              if (!refreshing) setMembershipInfoOpen(false);
             }}
           >
             <div
-              className="relative w-full max-w-[340px] rounded-[32px] border border-cyan-100/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_42%),#081122] px-6 py-6 text-center text-white shadow-[0_24px_70px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
+              className="relative w-full max-w-[350px] rounded-[32px] border border-cyan-100/16 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_42%),#081122] px-6 py-6 text-center text-white shadow-[0_24px_70px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.08)]"
               onClick={(event) => event.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => {
-                  if (!purchaseBusy) setCommitmentOfferOpen(false);
+                  if (!refreshing) setMembershipInfoOpen(false);
                 }}
                 className="absolute right-4 top-4 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
-                aria-label="Close commitment price"
-                disabled={purchaseBusy}
+                aria-label="Close membership information"
+                disabled={refreshing}
               >
                 <X className="h-4 w-4" />
               </button>
 
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">Monthly Commitment</p>
-              <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">So? You are ready to commit?</h3>
-              <p className="mx-auto mt-3 max-w-[260px] text-sm font-bold leading-6 text-white/68">
-                Continue CLARA’s guided money decision experience for ₱249/month.
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
+                CLARA Account
+              </p>
+              <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">
+                {membership?.planLabel || "Membership"}
+              </h3>
+              <p className="mx-auto mt-3 max-w-[280px] text-sm font-bold leading-6 text-white/68">
+                Committed access is controlled by your verified CLARA account. It
+                cannot be activated with a password, code, role, or local device
+                setting.
               </p>
 
-              <div className="mt-5 rounded-[26px] border border-white/14 bg-white/[0.08] px-5 py-5">
-                <p className="text-[2.05rem] font-black leading-tight tracking-[-0.065em] text-white">CLARA Commitment</p>
-                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-100/48">₱249/month</p>
+              <div className="mt-5 rounded-[24px] border border-white/12 bg-white/[0.07] px-4 py-4 text-left">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/42">
+                  Current status
+                </p>
+                <p className="mt-2 text-base font-black text-white/90">
+                  {membership?.statusLabel || "SYNCING"}
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-white/52">
+                  {membership?.featureDescription ||
+                    "Refresh after your membership is activated through your CLARA account."}
+                </p>
               </div>
 
-              <p className="mt-4 text-xs font-bold leading-5 text-white/52">₱249/month. Cancel anytime in Google Play before renewal.</p>
-
-              {purchaseMessage ? (
-                <p className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-bold leading-5 text-white/62">{purchaseMessage}</p>
+              {refreshMessage ? (
+                <p className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-bold leading-5 text-white/62">
+                  {refreshMessage}
+                </p>
               ) : null}
 
               <div className="mt-5 grid grid-cols-1 gap-2">
-                {canRestorePurchase ? (
-                  <button
-                    type="button"
-                    onClick={handleRestoreGooglePlayCommitment}
-                    disabled={purchaseBusy}
-                    className="rounded-full border border-cyan-100/20 bg-cyan-100/[0.1] px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-100/[0.14] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Restore Purchase
-                  </button>
-                ) : null}
                 <button
                   type="button"
-                  onClick={handleGooglePlayCommitment}
-                  disabled={purchaseBusy}
-                  className="rounded-full border border-white/18 bg-white/[0.12] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleRefreshMembership}
+                  disabled={refreshing}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-100/20 bg-cyan-100/[0.1] px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-100/[0.14] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {purchaseButtonLabel}
+                  <RefreshCcw
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                  />
+                  {refreshing ? "Refreshing..." : "Refresh Membership"}
                 </button>
                 <button
                   type="button"
                   onClick={handleDeclineCommitment}
-                  disabled={purchaseBusy}
+                  disabled={refreshing}
                   className="rounded-full px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Not now
@@ -627,21 +333,28 @@ function LockedPanelPreview({ children, onOpenCommitmentBooklet }) {
       className="relative min-h-full overflow-hidden rounded-[30px]"
       onClickCapture={handleOpenCommitmentBooklet}
     >
-      <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">{children}</div>
+      <div className="pointer-events-none opacity-45 grayscale-[0.85] saturate-[0.65]">
+        {children}
+      </div>
       <div className="absolute inset-0 z-[220] flex items-center justify-center rounded-[30px] bg-black/[0.18] backdrop-blur-[1px]">
         <div className="mx-7 max-w-[280px] rounded-[28px] border border-white/14 bg-[rgba(9,18,36,0.76)] px-5 py-4 text-center text-white shadow-[0_22px_60px_rgba(0,0,0,0.42)] backdrop-blur-xl">
           <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.08] text-white/78">
             <Lock className="h-4.5 w-4.5" />
           </div>
-          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/52">COMMITTED VERSION</p>
-          <p className="mt-1 text-lg font-black tracking-[-0.03em] text-white/92">Ready to Commit?</p>
-          <p className="mt-1.5 text-xs font-semibold leading-5 text-white/58">Tap to see more.</p>
+          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/52">
+            COMMITTED VERSION
+          </p>
+          <p className="mt-1 text-lg font-black tracking-[-0.03em] text-white/92">
+            Ready to Commit?
+          </p>
+          <p className="mt-1.5 text-xs font-semibold leading-5 text-white/58">
+            Tap to see membership information.
+          </p>
         </div>
       </div>
     </div>
   );
 }
-
 
 export { COMMITMENT_DECLINE_HOME_EVENT };
 
@@ -658,32 +371,46 @@ export default function DashboardPanelRenderer({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const previewPlan = readPlanPreview();
-  const hasCommittedAccess = useCommittedFeatureAccess({ previewPlan });
+  const hasCommittedAccess = useCommittedFeatureAccess();
   const [commitmentBookletOpen, setCommitmentBookletOpen] = useState(false);
-  const [purchaseIntent, setPurchaseIntent] = useState(COMMITTED_MONTHLY_PURCHASE_INTENT);
+  const [purchaseIntent, setPurchaseIntent] = useState(
+    COMMITTED_MONTHLY_PURCHASE_INTENT
+  );
   const [scheduleGuidePhase, setScheduleGuidePhase] = useState("inactive");
   const scheduleGuidePreviewActive =
-    scheduleGuidePhase !== "inactive" && scheduleGuidePhase !== "await-schedule-tab";
+    scheduleGuidePhase !== "inactive" &&
+    scheduleGuidePhase !== "await-schedule-tab";
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
+
     const handleScheduleGuidePhase = (event) => {
       setScheduleGuidePhase(event?.detail?.phase || "inactive");
     };
     const handleGuideExit = () => setScheduleGuidePhase("inactive");
-    window.addEventListener(CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT, handleScheduleGuidePhase);
+
+    window.addEventListener(
+      CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT,
+      handleScheduleGuidePhase
+    );
     window.addEventListener(CLARA_GUIDE_EXIT_EVENT, handleGuideExit);
+
     return () => {
-      window.removeEventListener(CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT, handleScheduleGuidePhase);
+      window.removeEventListener(
+        CLARA_GUIDE_SCHEDULE_PHASE_CHANGE_EVENT,
+        handleScheduleGuidePhase
+      );
       window.removeEventListener(CLARA_GUIDE_EXIT_EVENT, handleGuideExit);
     };
   }, []);
 
-  const openCommitmentBooklet = useCallback((nextPurchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT) => {
-    setPurchaseIntent(normalizeOfferPurchaseIntent(nextPurchaseIntent));
-    setCommitmentBookletOpen(true);
-  }, []);
+  const openCommitmentBooklet = useCallback(
+    (nextPurchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT) => {
+      setPurchaseIntent(normalizeOfferPurchaseIntent(nextPurchaseIntent));
+      setCommitmentBookletOpen(true);
+    },
+    []
+  );
 
   const closeCommitmentBooklet = useCallback(() => {
     setCommitmentBookletOpen(false);
@@ -705,32 +432,62 @@ export default function DashboardPanelRenderer({
 
   const clearConsumedBookletRouteState = useCallback(() => {
     const currentState = location.state || {};
-    const hasBookletState = currentState.openCommitmentBooklet === true || Boolean(currentState.purchaseIntent);
+    const hasBookletState =
+      currentState.openCommitmentBooklet === true ||
+      Boolean(currentState.purchaseIntent);
     if (!hasBookletState) return;
 
-    const { openCommitmentBooklet: _openCommitmentBooklet, purchaseIntent: _purchaseIntent, ...cleanState } = currentState;
+    const {
+      openCommitmentBooklet: _openCommitmentBooklet,
+      purchaseIntent: _purchaseIntent,
+      ...cleanState
+    } = currentState;
 
     navigate(
-      { pathname: location.pathname, search: location.search, hash: location.hash },
-      { replace: true, state: Object.keys(cleanState).length > 0 ? cleanState : null }
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      },
+      {
+        replace: true,
+        state: Object.keys(cleanState).length > 0 ? cleanState : null,
+      }
     );
-  }, [location.hash, location.pathname, location.search, location.state, navigate]);
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
     const handleOpenCommitmentBooklet = (event) => {
-      openCommitmentBooklet(event?.detail?.purchaseIntent || COMMITTED_MONTHLY_PURCHASE_INTENT);
+      openCommitmentBooklet(
+        event?.detail?.purchaseIntent || COMMITTED_MONTHLY_PURCHASE_INTENT
+      );
     };
 
-    window.addEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
-    return () => window.removeEventListener(OPEN_COMMITMENT_BOOKLET_EVENT, handleOpenCommitmentBooklet);
+    window.addEventListener(
+      OPEN_COMMITMENT_BOOKLET_EVENT,
+      handleOpenCommitmentBooklet
+    );
+    return () =>
+      window.removeEventListener(
+        OPEN_COMMITMENT_BOOKLET_EVENT,
+        handleOpenCommitmentBooklet
+      );
   }, [openCommitmentBooklet]);
 
   useEffect(() => {
     const sessionIntent = readCommitmentBookletIntentFromSession();
-    const locationWantsBooklet = location.state?.openCommitmentBooklet === true;
-    const locationIntent = location.state?.purchaseIntent || COMMITTED_MONTHLY_PURCHASE_INTENT;
+    const locationWantsBooklet =
+      location.state?.openCommitmentBooklet === true;
+    const locationIntent =
+      location.state?.purchaseIntent || COMMITTED_MONTHLY_PURCHASE_INTENT;
 
     if (sessionIntent?.intent) {
       clearConsumedBookletRouteState();
@@ -742,7 +499,12 @@ export default function DashboardPanelRenderer({
       clearConsumedBookletRouteState();
       openCommitmentBooklet(locationIntent);
     }
-  }, [location.key, location.state, clearConsumedBookletRouteState, openCommitmentBooklet]);
+  }, [
+    location.key,
+    location.state,
+    clearConsumedBookletRouteState,
+    openCommitmentBooklet,
+  ]);
 
   const booklet = (
     <ClaraCommitmentBookletModal
@@ -758,7 +520,13 @@ export default function DashboardPanelRenderer({
     return (
       <>
         {!hasCommittedAccess ? (
-          <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet(COMMITTED_MONTHLY_PURCHASE_INTENT)}>{content}</LockedPanelPreview>
+          <LockedPanelPreview
+            onOpenCommitmentBooklet={() =>
+              openCommitmentBooklet(COMMITTED_MONTHLY_PURCHASE_INTENT)
+            }
+          >
+            {content}
+          </LockedPanelPreview>
         ) : (
           content
         )}
@@ -777,7 +545,13 @@ export default function DashboardPanelRenderer({
     return (
       <>
         {!hasCommittedAccess && !scheduleGuidePreviewActive ? (
-          <LockedPanelPreview onOpenCommitmentBooklet={() => openCommitmentBooklet(COMMITTED_MONTHLY_PURCHASE_INTENT)}>{content}</LockedPanelPreview>
+          <LockedPanelPreview
+            onOpenCommitmentBooklet={() =>
+              openCommitmentBooklet(COMMITTED_MONTHLY_PURCHASE_INTENT)
+            }
+          >
+            {content}
+          </LockedPanelPreview>
         ) : (
           content
         )}
