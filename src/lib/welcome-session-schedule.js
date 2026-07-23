@@ -1,7 +1,6 @@
-export const WELCOME_SESSION_FORM_URL = (
-  import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL ||
-  "https://forms.gle/58cJ2wJVpC4H5qFS8"
-).trim();
+// Legacy consumers keep this export, but it now routes into the authoritative
+// CLARA scheduling page instead of an external form.
+export const WELCOME_SESSION_FORM_URL = "/welcome-session";
 
 export const COACHING_TIMEZONE = "Asia/Manila";
 export const COACHING_POLL_INTERVAL_MS = 45_000;
