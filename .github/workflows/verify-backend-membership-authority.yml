@@ -18,13 +18,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: feature/committed-session-scheduler
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+          fetch-depth: 1
+          show-progress: false
 
       - name: Apply one-time scheduler patch
         shell: bash
@@ -39,6 +34,12 @@ jobs:
             capture { sub(/^          /, ""); print }
           ' .github/workflows/apply-committed-session-scheduler.yml > /tmp/apply-scheduler.py
           python /tmp/apply-scheduler.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
       - name: Install dependencies
         if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
