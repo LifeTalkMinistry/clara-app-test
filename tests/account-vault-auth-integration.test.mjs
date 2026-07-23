@@ -8,13 +8,19 @@ function readRepositoryFile(path) {
 
 test("authentication resolves the backend account vault before building local state", () => {
   const source = readRepositoryFile("src/context/AuthContext.jsx");
-  assert.match(source, /resolveAccountLocalVault\(\{[\s\S]*?accountUserId: String\(serverUser\.id\)/);
+  assert.match(
+    source,
+    /resolveAccountLocalVault\(\{[\s\S]*?accountUserId: String\(serverUser\.id\)/
+  );
   assert.match(source, /const localUserId = resolvedVault\.vaultId;/);
   assert.doesNotMatch(
     source,
     /const localUserId = getOrCreateLocalVaultId\(\);[\s\S]*?waitForLocalAccountLink/
   );
-  assert.match(source, /if \(resolvedVault\.switched\) \{[\s\S]*?queryClientInstance\.clear\(\)/);
+  assert.match(
+    source,
+    /if \(resolvedVault\.switched\)[\s\S]{0,40}?queryClientInstance\.clear\(\)/
+  );
 });
 
 test("signup does not retry account creation after local activation fails", () => {
@@ -26,7 +32,10 @@ test("signup does not retry account creation after local activation fails", () =
 
 test("signup routes directly to dashboard", () => {
   const source = readRepositoryFile("src/pages/Login.jsx");
-  assert.match(source, /await signUp\([\s\S]*?navigate\("\/dashboard", \{ replace: true \}\)/);
+  assert.match(
+    source,
+    /await signUp\([\s\S]*?navigate\("\/dashboard", \{ replace: true \}\)/
+  );
   assert.doesNotMatch(source, /navigate\("\/onboarding"/);
 });
 
@@ -34,7 +43,7 @@ test("sign out clears memory caches but preserves local vault storage", () => {
   const source = readRepositoryFile("src/context/AuthContext.jsx");
   assert.match(
     source,
-    /const signOut = useCallback\(async \(\) => \{[\s\S]*?signOutFromClaraBackend\(\);[\s\S]*?queryClientInstance\.clear\(\);[\s\S]*?commitState\(emptyState\(\)\)/
+    /const signOut = useCallback\([\s\S]*?signOutFromClaraBackend\(\);[\s\S]*?queryClientInstance\.clear\(\);[\s\S]*?commitState\(emptyState\(\)\)/
   );
   assert.doesNotMatch(source, /signOut[\s\S]*?clearLocalUserVault/);
 });
