@@ -16,12 +16,12 @@ import {
   buildLocalMembershipProfile,
   getLocalAccountProfile,
 } from "@/lib/local-profile-repository";
+import { getLocalGooglePlayEntitlement } from "@/lib/local-google-play-entitlement";
 import {
-  deriveLocalMembershipProfile,
-  getLocalGooglePlayEntitlement,
-  GOOGLE_PLAY_ENTITLEMENT_EVENT,
-  toLocalEnrollment,
-} from "@/lib/local-google-play-entitlement";
+  buildBackendEnrollment,
+  buildBackendMembershipProfile,
+} from "@/lib/backend-membership-authority";
+import { runBackendMembershipAuthorityMigration } from "@/lib/backend-membership-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 import { runLocalAuthMaintenance } from "@/lib/auth-startup-resilience";
 import { queryClientInstance } from "@/lib/query-client";
@@ -62,13 +62,13 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
   });
   const localUserId = resolvedVault.vaultId;
 
-  if (resolvedVault.switched) {
-    queryClientInstance.clear();
-  }
+  if (resolvedVault.switched) queryClientInstance.clear();
 
   const localAccount = getLocalAccountProfile(localUserId);
   const localIdentity = buildLocalAuthUser(localUserId, localAccount);
-  const displayName = String(serverUser.name || localIdentity.display_name || "CLARA User").trim();
+  const displayName = String(
+    serverUser.name || localIdentity.display_name || "CLARA User"
+  ).trim();
   const role = String(serverUser.role || "user").trim().toLowerCase() || "user";
   const user = {
     ...localIdentity,
@@ -80,8 +80,11 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
     display_name: displayName,
     full_name: displayName,
     role,
+    plan: serverUser.plan,
+    status: serverUser.status,
     is_local_user: false,
     created_at: serverUser.created_at || null,
+    updated_at: serverUser.updated_at || null,
     user_metadata: {
       ...localIdentity.user_metadata,
       full_name: displayName,
@@ -92,10 +95,9 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
     },
   };
 
-  const entitlement = getLocalGooglePlayEntitlement(localUserId);
-  const entitlementProfile = deriveLocalMembershipProfile(entitlement);
+  const localBaseProfile = buildLocalMembershipProfile(user, localAccount, {});
   const profile = {
-    ...buildLocalMembershipProfile(user, localAccount, entitlementProfile),
+    ...buildBackendMembershipProfile(serverUser, localBaseProfile),
     id: localUserId,
     account_id: String(serverUser.id),
     email: serverUser.email || null,
@@ -105,7 +107,8 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
     is_local_user: false,
     offline_access: offline,
   };
-  const enrollment = toLocalEnrollment(entitlement);
+  const entitlement = getLocalGooglePlayEntitlement(localUserId);
+  const enrollment = buildBackendEnrollment(serverUser);
   const session = {
     access_token: token,
     refresh_token: null,
@@ -118,7 +121,12 @@ async function buildAuthenticatedState({ serverUser, token, offline = false }) {
     user,
     profile,
     enrollment,
-    accessState: { role, plan: profile.plan || "free" },
+    accessState: {
+      role,
+      plan: profile.plan,
+      accountStatus: profile.account_status,
+      membershipSource: "backend",
+    },
     flow: "normal",
     currentPath: "/dashboard",
   });
@@ -154,71 +162,81 @@ export function AuthProvider({ children }) {
 
   const applyBackendSession = useCallback(
     async ({ token, user, offline = false }) => {
-      const next = await buildAuthenticatedState({ serverUser: user, token, offline });
+      const next = await buildAuthenticatedState({
+        serverUser: user,
+        token,
+        offline,
+      });
       return commitState(next);
     },
     [commitState]
   );
 
-  const refreshProfile = useCallback(async (options = {}) => {
-    if (!stateRef.current.user) return null;
+  const refreshProfile = useCallback(
+    async (options = {}) => {
+      if (!stateRef.current.user) return null;
 
-    const reason = String(options?.reason || "").trim();
-    if (reason === "local_journey_reset") {
-      return stateRef.current.profile;
-    }
-
-    if (refreshPromiseRef.current) return refreshPromiseRef.current;
-
-    const refreshPromise = (async () => {
-      const token = getStoredBackendToken();
-      if (!token) {
-        queryClientInstance.clear();
-        commitState(emptyState());
-        return null;
+      const reason = String(options?.reason || "").trim();
+      if (reason === "local_journey_reset") {
+        return stateRef.current.profile;
       }
 
-      try {
-        const serverUser = await fetchCurrentBackendUser(token);
-        const next = await applyBackendSession({ token, user: serverUser, offline: false });
-        return next.profile;
-      } catch (error) {
-        if (isBackendNetworkError(error)) {
-          const current = stateRef.current;
-          if (!current.user) return null;
-          const alreadyOffline = Boolean(
-            current.offline &&
-              (!current.session || current.session.offline) &&
-              (!current.profile || current.profile.offline_access)
-          );
-          if (!alreadyOffline) {
-            commitState({
-              ...current,
-              offline: true,
-              session: current.session ? { ...current.session, offline: true } : null,
-              profile: current.profile ? { ...current.profile, offline_access: true } : null,
-            });
-          }
-          return current.profile;
-        }
+      if (refreshPromiseRef.current) return refreshPromiseRef.current;
 
-        if (error?.status === 401 || error?.status === 403) {
-          clearBackendSession();
+      const refreshPromise = (async () => {
+        const token = getStoredBackendToken();
+        if (!token) {
           queryClientInstance.clear();
           commitState(emptyState());
           return null;
         }
-        throw error;
-      }
-    })();
 
-    refreshPromiseRef.current = refreshPromise;
-    try {
-      return await refreshPromise;
-    } finally {
-      refreshPromiseRef.current = null;
-    }
-  }, [applyBackendSession, commitState]);
+        try {
+          const serverUser = await fetchCurrentBackendUser(token);
+          const next = await applyBackendSession({
+            token,
+            user: serverUser,
+            offline: false,
+          });
+          return next.profile;
+        } catch (error) {
+          if (isBackendNetworkError(error)) {
+            const current = stateRef.current;
+            if (!current.user) return null;
+            if (!current.offline) {
+              commitState({
+                ...current,
+                offline: true,
+                session: current.session
+                  ? { ...current.session, offline: true }
+                  : null,
+                profile: current.profile
+                  ? { ...current.profile, offline_access: true }
+                  : null,
+              });
+            }
+            return current.profile;
+          }
+
+          if (error?.status === 401 || error?.status === 403) {
+            clearBackendSession();
+            queryClientInstance.clear();
+            commitState(emptyState());
+            return null;
+          }
+          throw error;
+        }
+      })();
+
+      refreshPromiseRef.current = refreshPromise;
+      try {
+        return await refreshPromise;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    },
+    [applyBackendSession, commitState]
+  );
 
   const signIn = useCallback(
     async ({ email, password }) => {
@@ -296,6 +314,7 @@ export function AuthProvider({ children }) {
     };
 
     (async () => {
+      runBackendMembershipAuthorityMigration();
       const fallbackLocalUserId = getOrCreateLocalVaultId();
       const restored = await restoreClaraBackendSession();
       if (!mounted) return;
@@ -335,7 +354,7 @@ export function AuthProvider({ children }) {
     if (typeof window === "undefined") return undefined;
     const refreshOnline = () => {
       if (!stateRef.current.user || navigator.onLine === false) return;
-      refreshProfile().catch((error) => {
+      refreshProfile({ reason: "connectivity_restored" }).catch((error) => {
         console.error("[CLARA Auth] online account refresh failed", error);
       });
     };
@@ -344,7 +363,11 @@ export function AuthProvider({ children }) {
   }, [refreshProfile]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !state.serverUser || !state.session?.access_token) {
+    if (
+      typeof window === "undefined" ||
+      !state.serverUser ||
+      !state.session?.access_token
+    ) {
       return undefined;
     }
 
@@ -369,19 +392,28 @@ export function AuthProvider({ children }) {
     const events = [
       "clara-local-profile-updated",
       "clara-local-setup-profile-updated",
-      GOOGLE_PLAY_ENTITLEMENT_EVENT,
-      "clara-membership-preview-updated",
       "clara-local-journey-reset",
       "clara-data-restored",
     ];
-    events.forEach((eventName) => window.addEventListener(eventName, rebuildLocalProfile));
+    events.forEach((eventName) =>
+      window.addEventListener(eventName, rebuildLocalProfile)
+    );
     return () => {
-      events.forEach((eventName) => window.removeEventListener(eventName, rebuildLocalProfile));
+      events.forEach((eventName) =>
+        window.removeEventListener(eventName, rebuildLocalProfile)
+      );
     };
-  }, [commitState, state.offline, state.serverUser, state.session?.access_token]);
+  }, [
+    commitState,
+    state.offline,
+    state.serverUser,
+    state.session?.access_token,
+  ]);
 
   const unsupportedGoogleLogin = useCallback(() => {
-    throw new Error("Google login is not available yet. Use your CLARA email and password.");
+    throw new Error(
+      "Google login is not available yet. Use your CLARA email and password."
+    );
   }, []);
 
   const value = useMemo(
@@ -420,8 +452,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used inside AuthProvider");
   return context;
 }
