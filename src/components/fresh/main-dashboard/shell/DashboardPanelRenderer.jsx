@@ -210,10 +210,10 @@ function ClaraCommitmentBookletModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
+          className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-[15px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.13),rgba(255,255,255,0.045))] text-white/72 shadow-[0_10px_26px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.15] hover:text-white active:translate-y-0"
           aria-label="Close commitment booklet"
         >
-          <X className="h-4 w-4" />
+          <X className="h-[18px] w-[18px]" />
         </button>
 
         <div className="relative z-10 shrink-0 pr-12 text-center">
@@ -262,11 +262,11 @@ function ClaraCommitmentBookletModal({
                 onClick={() => {
                   if (!refreshing) setMembershipInfoOpen(false);
                 }}
-                className="absolute right-4 top-4 rounded-full border border-white/14 bg-white/[0.06] p-2 text-white/58 transition hover:bg-white/[0.1] hover:text-white/88"
+                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-[15px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white/76 shadow-[0_10px_28px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.17] hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Close membership information"
                 disabled={refreshing}
               >
-                <X className="h-4 w-4" />
+                <X className="h-[18px] w-[18px]" />
               </button>
 
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
@@ -300,34 +300,44 @@ function ClaraCommitmentBookletModal({
                 </p>
               ) : null}
 
-              <div className="mt-5 grid grid-cols-1 gap-2">
+              <div className="mt-5 space-y-3">
                 <button
                   type="button"
                   onClick={handleScheduleSession}
                   disabled={refreshing}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[18px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.92),rgba(99,102,241,0.96))] px-4 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(37,99,235,0.26),inset_0_1px_0_rgba(255,255,255,0.16)] transition hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <CalendarDays className="h-4 w-4" />
                   Schedule My Session
                 </button>
-                <button
-                  type="button"
-                  onClick={handleRefreshMembership}
-                  disabled={refreshing}
-                  className="inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-black text-cyan-50/62 transition hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <RefreshCcw
-                    className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-                  />
-                  {refreshing
-                    ? "Refreshing..."
-                    : "Already enrolled? Refresh your access"}
-                </button>
+
+                <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/[0.09] bg-white/[0.045] px-3.5 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black text-white/78">
+                      Already enrolled?
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/42">
+                      Check your latest access.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRefreshMembership}
+                    disabled={refreshing}
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-cyan-100/14 bg-cyan-100/[0.08] px-3 text-[10px] font-black text-cyan-50/76 transition hover:bg-cyan-100/[0.13] hover:text-cyan-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <RefreshCcw
+                      className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+                    />
+                    {refreshing ? "Checking" : "Refresh"}
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleDeclineCommitment}
                   disabled={refreshing}
-                  className="rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mx-auto block rounded-full px-5 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/38 transition hover:bg-white/[0.045] hover:text-white/62 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Not now
                 </button>
