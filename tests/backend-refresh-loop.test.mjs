@@ -13,7 +13,7 @@ test("backend account refresh stays stable and only runs on a real reconnect", (
   assert.match(authContextSource, /const commitState = useCallback/);
   assert.match(
     authContextSource,
-    /const refreshProfile = useCallback\([\s\S]*?\}, \[applyBackendSession, commitState\]\);/
+    /const refreshProfile = useCallback\([\s\S]*?\},\s*\[\s*applyBackendSession,\s*commitState\s*\]\s*\);/
   );
   assert.doesNotMatch(
     authContextSource,

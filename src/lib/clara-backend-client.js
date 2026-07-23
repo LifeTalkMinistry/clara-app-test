@@ -1,9 +1,13 @@
 const DEFAULT_API_URL = "https://groin-mothproof-sixties.ngrok-free.dev";
 const VERCEL_API_PROXY_PATH = "/clara-api";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+const OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const BACKEND_UNAVAILABLE_STATUS_CODES = new Set([404, 502, 503, 504]);
 const TOKEN_KEY = "clara_backend_access_token_v1";
 const USER_KEY = "clara_backend_user_v1";
+const USER_VERIFIED_AT_KEY = "clara_backend_user_verified_at_v1";
+const VALID_STATUSES = new Set(["active", "pending", "inactive"]);
+const VALID_PLANS = new Set(["free", "committed"]);
 
 function getBuildEnvironment() {
   try {
@@ -69,14 +73,27 @@ function extractUserPayload(payload) {
       candidate = candidate.account;
       continue;
     }
-
     return candidate;
   }
 
   return candidate;
 }
 
-function normalizeUser(payload = {}) {
+function normalizeRole(value) {
+  return String(value || "user").trim().toLowerCase() || "user";
+}
+
+function normalizeStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_STATUSES.has(normalized) ? normalized : "inactive";
+}
+
+function normalizePlan(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_PLANS.has(normalized) ? normalized : "free";
+}
+
+export function normalizeUser(payload = {}) {
   const user = extractUserPayload(payload);
   const id = user?.id ?? user?.user_id ?? user?.userId ?? null;
   if (id === null || id === undefined || String(id).trim() === "") return null;
@@ -87,8 +104,11 @@ function normalizeUser(payload = {}) {
       String(user.name || user.full_name || user.display_name || "CLARA User").trim() ||
       "CLARA User",
     email: String(user.email || "").trim().toLowerCase(),
-    role: String(user.role || user.user_role || "user").trim().toLowerCase() || "user",
+    role: normalizeRole(user.role || user.user_role),
+    status: normalizeStatus(user.status || user.account_status),
+    plan: normalizePlan(user.plan || user.subscription_plan),
     created_at: user.created_at || user.createdAt || null,
+    updated_at: user.updated_at || user.updatedAt || null,
   };
 }
 
@@ -96,14 +116,10 @@ function decodeBase64Url(value) {
   const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
 
-  if (typeof globalThis.atob === "function") {
-    return globalThis.atob(padded);
-  }
-
+  if (typeof globalThis.atob === "function") return globalThis.atob(padded);
   if (typeof Buffer !== "undefined") {
     return Buffer.from(padded, "base64").toString("utf8");
   }
-
   return "";
 }
 
@@ -112,6 +128,41 @@ function createRequestTimeoutError(timeoutMs) {
   error.code = "REQUEST_TIMEOUT";
   error.timeoutMs = timeoutMs;
   return error;
+}
+
+function writeVerifiedUser(user, verifiedAt = new Date().toISOString()) {
+  const normalizedUser = normalizeUser(user);
+  if (!normalizedUser) return null;
+  const storage = getStorage();
+  storage?.setItem(USER_KEY, JSON.stringify(normalizedUser));
+  storage?.setItem(USER_VERIFIED_AT_KEY, verifiedAt);
+  return normalizedUser;
+}
+
+function readVerifiedAt() {
+  return getStorage()?.getItem(USER_VERIFIED_AT_KEY) || null;
+}
+
+export function isStoredBackendUserSnapshotFresh(
+  verifiedAt = readVerifiedAt(),
+  now = Date.now()
+) {
+  const timestamp = Date.parse(verifiedAt || "");
+  return (
+    Number.isFinite(timestamp) &&
+    now >= timestamp &&
+    now - timestamp <= OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS
+  );
+}
+
+function buildFailClosedOfflineUser(user) {
+  const normalized = normalizeUser(user);
+  if (!normalized) return null;
+  return {
+    ...normalized,
+    plan: "free",
+    status: "inactive",
+  };
 }
 
 export function readJwtPayload(token) {
@@ -154,21 +205,19 @@ export function getStoredBackendToken() {
 
 export function getStoredBackendUser() {
   try {
-    const parsed = JSON.parse(getStorage()?.getItem(USER_KEY) || "null");
-    return normalizeUser(parsed);
+    return normalizeUser(JSON.parse(getStorage()?.getItem(USER_KEY) || "null"));
   } catch {
     return null;
   }
 }
 
 function saveBackendSession({ token, user }) {
-  const storage = getStorage();
   const normalizedUser = normalizeUser(user);
   if (!token || !normalizedUser) {
     throw new Error("CLARA returned an incomplete authentication response.");
   }
-  storage?.setItem(TOKEN_KEY, token);
-  storage?.setItem(USER_KEY, JSON.stringify(normalizedUser));
+  getStorage()?.setItem(TOKEN_KEY, token);
+  writeVerifiedUser(normalizedUser);
   return { token, user: normalizedUser };
 }
 
@@ -176,6 +225,7 @@ export function clearBackendSession() {
   const storage = getStorage();
   storage?.removeItem(TOKEN_KEY);
   storage?.removeItem(USER_KEY);
+  storage?.removeItem(USER_VERIFIED_AT_KEY);
 }
 
 async function parseResponse(response) {
@@ -192,7 +242,6 @@ async function parseResponse(response) {
     error.code = `HTTP_${response.status}`;
     throw error;
   }
-
   return payload;
 }
 
@@ -238,7 +287,6 @@ export async function backendRequest(
     if (cause?.code === "REQUEST_TIMEOUT" || timedOut) {
       throw createRequestTimeoutError(effectiveTimeoutMs);
     }
-
     const error = new Error("CLARA could not reach the account server.");
     error.code = "NETWORK_ERROR";
     error.cause = cause;
@@ -267,7 +315,6 @@ export async function createClaraBackendAccount({ name, email, password }) {
       password: String(password || ""),
     },
   });
-
   return signInWithClaraBackend({ email, password });
 }
 
@@ -276,10 +323,7 @@ export async function fetchCurrentBackendUser(
   { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}
 ) {
   if (!token) return null;
-  const payload = await backendRequest("/api/users/me", {
-    token,
-    timeoutMs,
-  });
+  const payload = await backendRequest("/api/users/me", { token, timeoutMs });
   const user = normalizeUser(payload);
 
   if (!user) {
@@ -288,11 +332,13 @@ export async function fetchCurrentBackendUser(
     throw error;
   }
 
-  getStorage()?.setItem(USER_KEY, JSON.stringify(user));
+  writeVerifiedUser(user);
   return user;
 }
 
-export async function restoreClaraBackendSession({ timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS } = {}) {
+export async function restoreClaraBackendSession({
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+} = {}) {
   const token = getStoredBackendToken();
   if (!isStoredTokenLive(token)) {
     clearBackendSession();
@@ -301,7 +347,7 @@ export async function restoreClaraBackendSession({ timeoutMs = DEFAULT_REQUEST_T
 
   try {
     const user = await fetchCurrentBackendUser(token, { timeoutMs });
-    return { token, user, offline: false };
+    return { token, user, offline: false, membershipVerified: true };
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
       clearBackendSession();
@@ -309,19 +355,26 @@ export async function restoreClaraBackendSession({ timeoutMs = DEFAULT_REQUEST_T
     }
 
     const cachedUser = getStoredBackendUser();
-    const canUseCachedUser =
-      cachedUser &&
-      (isBackendNetworkError(error) || error?.code === "INVALID_USER_PROFILE");
+    const canUseCachedIdentity =
+      cachedUser && (isBackendNetworkError(error) || error?.code === "INVALID_USER_PROFILE");
 
-    if (canUseCachedUser) {
-      return { token, user: cachedUser, offline: true };
+    if (canUseCachedIdentity && isStoredBackendUserSnapshotFresh()) {
+      return { token, user: cachedUser, offline: true, membershipVerified: true };
+    }
+
+    if (canUseCachedIdentity) {
+      return {
+        token,
+        user: buildFailClosedOfflineUser(cachedUser),
+        offline: true,
+        membershipVerified: false,
+      };
     }
 
     if (error?.code === "INVALID_USER_PROFILE") {
       clearBackendSession();
       return null;
     }
-
     throw error;
   }
 }
@@ -333,7 +386,9 @@ export function signOutFromClaraBackend() {
 export {
   DEFAULT_API_URL,
   DEFAULT_REQUEST_TIMEOUT_MS,
+  OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS,
   TOKEN_KEY,
   USER_KEY,
+  USER_VERIFIED_AT_KEY,
   VERCEL_API_PROXY_PATH,
 };

@@ -18,7 +18,7 @@ test("universal onboarding is not imported into the live app flow", () => {
 test("the onboarding URL redirects authenticated users to the dashboard", () => {
   assert.match(
     appSource,
-    /<Route path="\/onboarding" element=\{<Navigate to="\/dashboard" replace \/>\} \/>/
+    /path="\/onboarding"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
   );
   assert.doesNotMatch(appSource, /if \(isUniversalOnboardingRoute\)/);
   assert.doesNotMatch(appSource, /return <UniversalOnboarding \/>/);

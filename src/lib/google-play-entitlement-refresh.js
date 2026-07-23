@@ -1,10 +1,9 @@
 const ACCESS_CACHE_PREFIX = "clara_access_snapshot_v2";
 const ACCESS_CACHE_LAST_KEY = `${ACCESS_CACHE_PREFIX}:last`;
-const DEVELOPER_MEMBERSHIP_PREVIEW_KEY = "clara_dev_membership_preview";
-const LEGACY_DEVELOPER_PLAN_PREVIEW_KEY = "clara_dev_plan_preview";
 
 const isBrowser = () =>
-  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  typeof window !== "undefined" &&
+  typeof window.localStorage !== "undefined";
 
 const safeText = (value) => String(value ?? "").trim();
 
@@ -22,8 +21,12 @@ export function clearBillingAccessSnapshots({ userId = "", email = "" } = {}) {
   const normalizedUserId = safeText(userId).toLowerCase();
   const normalizedEmail = safeText(email).toLowerCase();
 
-  if (normalizedUserId) keysToRemove.add(`${ACCESS_CACHE_PREFIX}:${normalizedUserId}`);
-  if (normalizedEmail) keysToRemove.add(`${ACCESS_CACHE_PREFIX}:${normalizedEmail}`);
+  if (normalizedUserId) {
+    keysToRemove.add(`${ACCESS_CACHE_PREFIX}:${normalizedUserId}`);
+  }
+  if (normalizedEmail) {
+    keysToRemove.add(`${ACCESS_CACHE_PREFIX}:${normalizedEmail}`);
+  }
 
   const allKeys = [];
   for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -38,12 +41,7 @@ export function clearBillingAccessSnapshots({ userId = "", email = "" } = {}) {
   keysToRemove.forEach((key) => window.localStorage.removeItem(key));
 }
 
-export function clearBillingDeveloperPreview() {
-  if (!isBrowser()) return;
-  window.localStorage.removeItem(DEVELOPER_MEMBERSHIP_PREVIEW_KEY);
-  window.localStorage.removeItem(LEGACY_DEVELOPER_PLAN_PREVIEW_KEY);
-  window.dispatchEvent(new CustomEvent("clara-membership-preview-updated", { detail: null }));
-}
+export function clearBillingDeveloperPreview() {}
 
 export function markGooglePlayEntitlementVerified({
   userId = "",
@@ -52,7 +50,6 @@ export function markGooglePlayEntitlementVerified({
   status = "active",
   plan = "committed_249",
 } = {}) {
-  clearBillingDeveloperPreview();
   clearBillingAccessSnapshots({ userId, email });
 
   const detail = {
@@ -63,10 +60,14 @@ export function markGooglePlayEntitlementVerified({
   };
 
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("clara-google-play-entitlement-verified", { detail }));
+    window.dispatchEvent(
+      new CustomEvent("clara-google-play-entitlement-verified", { detail })
+    );
   }
 
-  console.info("[CLARA Billing] verified entitlement; cleared stale preview/cache", detail);
-
+  console.info(
+    "[CLARA Billing] purchase verified; backend profile refresh required",
+    detail
+  );
   return detail;
 }

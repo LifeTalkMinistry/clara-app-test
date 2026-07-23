@@ -1,15 +1,7 @@
 import { useLocation } from "react-router-dom";
-import CoachingAdminPage from "@/features/coaching-admin/CoachingAdminPage";
-
-const COACHING_MOCK_PREVIEW_PATH = "/coaching-mock-preview";
 
 export default function PageNotFound() {
   const location = useLocation();
-
-  if (location.pathname === COACHING_MOCK_PREVIEW_PATH) {
-    return <CoachingAdminPage />;
-  }
-
   const pageName = location.pathname.substring(1) || "unknown";
 
   return (

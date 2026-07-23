@@ -154,7 +154,7 @@ test("authenticated routes are no longer wrapped by a mandatory onboarding gate"
   );
   assert.match(
     appSource,
-    /<Route path="\/onboarding" element=\{<Navigate to="\/dashboard" replace \/>\} \/>/
+    /path="\/onboarding"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
   );
 });
 
@@ -163,8 +163,14 @@ test("access flow bypasses onboarding while keeping saved setup data intact", ()
   const profileSource = readRepositoryFile("src/lib/local-profile-repository.js");
   const resetSource = readRepositoryFile("src/lib/reset-local-clara-journey.js");
 
-  assert.match(accessSource, /export function hasCompletedOnboarding[\s\S]*?hasCompletedLocalSetup\(profileLike\)/);
-  assert.match(accessSource, /export function resolveAppFlow\(_profileLike, _enrollment\)[\s\S]*?return "normal";/);
+  assert.match(
+    accessSource,
+    /export function hasCompletedOnboarding[\s\S]*?hasCompletedLocalSetup\(profileLike\)/
+  );
+  assert.match(
+    accessSource,
+    /export function resolveAppFlow\([^)]*\)\s*\{[\s\S]*?return "normal";/
+  );
   assert.doesNotMatch(accessSource, /return "universal_onboarding";/);
   assert.match(profileSource, /getLocalSetupProfile\(\{ id: localUserId \}\)/);
   assert.match(profileSource, /clearLocalSetupProfile\(\{ id \}\)/);

@@ -13,7 +13,6 @@ import {
   isAccessSnapshotUsable,
 } from "./lib/offline-access-cache";
 import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
-import { hasHiddenAdminSession } from "./lib/ios-access-client";
 import Layout from "./components/Layout";
 import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
@@ -44,13 +43,9 @@ const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
 const WelcomeSession = lazy(() => import("./pages/WelcomeSession"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const Activation = lazy(() => import("./pages/Activation"));
-const ProgramOnboarding = lazy(() => import("./pages/onboarding/ProgramOnboarding"));
-const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
-const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
-const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
-const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
-const IosUserAccess = lazy(() => import("./pages/admin/IosUserAccess"));
-const CoachingAdminPage = lazy(() => import("./features/coaching-admin/CoachingAdminPage"));
+const ProgramOnboarding = lazy(() =>
+  import("./pages/onboarding/ProgramOnboarding")
+);
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 function FullScreenLoader({ message = "Loading CLARA..." }) {
@@ -64,7 +59,12 @@ function FullScreenLoader({ message = "Loading CLARA..." }) {
   );
 }
 
-function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }) {
+function getHomeRedirectPath({
+  isAdvertiser,
+  flow,
+  forceEnroll,
+  offlineAccessActive,
+}) {
   if (offlineAccessActive) return "/dashboard";
   if (isAdvertiser) return "/advertiser";
   if (flow === "program_onboarding") return "/program-onboarding";
@@ -90,37 +90,18 @@ function GuardedRoute({
   return children;
 }
 
-function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
-  return isAdmin ? children : <Navigate to={redirectTo} replace />;
-}
-
-function HiddenAdminRoute({ children }) {
-  return hasHiddenAdminSession() ? (
-    children
-  ) : (
-    <Navigate to="/dashboard" replace state={{ hiddenAdminUnauthorized: true }} />
-  );
-}
-
-function AdminRescueButton({ show }) {
-  if (!show) return null;
-  return (
-    <a
-      href="#/admin"
-      className="fixed right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-[9999] rounded-2xl border border-emerald-300/30 bg-emerald-400/15 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-100 shadow-[0_12px_36px_rgba(16,185,129,0.25)] backdrop-blur-2xl transition hover:bg-emerald-400/25"
-      aria-label="Open admin panel"
-    >
-      Admin
-    </a>
-  );
-}
-
 function AppRoutes() {
   const location = useLocation();
   const { user, profile, loading, authReady } = useAuth();
-  const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
+  const {
+    role: normalizedRole,
+    isFeatureAvailable,
+    loading: roleLoading,
+  } = useUserRole();
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
-  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
+  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() =>
+    getAccessSnapshot()
+  );
 
   const profileReady = user ? profile !== null : true;
 
@@ -133,7 +114,9 @@ function AppRoutes() {
 
     const syncNetworkState = () => {
       setIsOffline(isAccessNetworkOffline());
-      setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
+      setCachedAccessSnapshot(
+        getAccessSnapshot(user?.id || user?.email || null)
+      );
     };
 
     window.addEventListener("online", syncNetworkState);
@@ -147,11 +130,16 @@ function AppRoutes() {
   }, [user?.email, user?.id]);
 
   useEffect(() => {
-    setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
+    setCachedAccessSnapshot(
+      getAccessSnapshot(user?.id || user?.email || null)
+    );
   }, [user?.email, user?.id]);
 
   const offlineFallback = useMemo(
-    () => getOfflineFallbackFlow(cachedAccessSnapshot || profile?.offline_access_snapshot || null),
+    () =>
+      getOfflineFallbackFlow(
+        cachedAccessSnapshot || profile?.offline_access_snapshot || null
+      ),
     [cachedAccessSnapshot, profile?.offline_access_snapshot]
   );
 
@@ -166,31 +154,51 @@ function AppRoutes() {
 
   const resolvedAccess = useMemo(() => {
     if (!profile) return deriveAccessState({ role: normalizedRole || "user" });
-    return deriveAccessState({ ...profile, role: profile?.role || normalizedRole || "user" });
+    return deriveAccessState({
+      ...profile,
+      role: profile?.role || normalizedRole || "user",
+    });
   }, [profile, normalizedRole]);
 
-  const isAdmin = resolvedAccess.isAdmin;
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
     if (!user || !profileReady) return "loading";
-    if (offlineAccessActive) return offlineFallback.flow === "limited_offline" ? "normal" : "active";
+    if (offlineAccessActive) {
+      return offlineFallback.flow === "limited_offline" ? "normal" : "active";
+    }
     return resolveAppFlow({
       ...profile,
-      role: isAdmin ? "admin" : profile?.role || normalizedRole || "user",
+      role: profile?.role || normalizedRole || "user",
     });
-  }, [user, profileReady, offlineAccessActive, offlineFallback.flow, profile, normalizedRole, isAdmin]);
+  }, [
+    user,
+    profileReady,
+    offlineAccessActive,
+    offlineFallback.flow,
+    profile,
+    normalizedRole,
+  ]);
 
   const forceEnroll = useMemo(() => {
-    if (offlineAccessActive) return false;
-    if (!user || !profileReady) return false;
-    if (isAdmin) return false;
-    if (!profile) return false;
+    if (offlineAccessActive || !user || !profileReady || !profile) return false;
     return resolvedAccess.forceEnroll;
-  }, [offlineAccessActive, user, profileReady, isAdmin, profile, resolvedAccess.forceEnroll]);
+  }, [
+    offlineAccessActive,
+    user,
+    profileReady,
+    profile,
+    resolvedAccess.forceEnroll,
+  ]);
 
   const homeRedirectPath = useMemo(
-    () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }),
+    () =>
+      getHomeRedirectPath({
+        isAdvertiser,
+        flow,
+        forceEnroll,
+        offlineAccessActive,
+      }),
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
@@ -199,7 +207,12 @@ function AppRoutes() {
     return <FullScreenLoader message="Restoring your CLARA account..." />;
   }
 
-  const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
+  const guard = (
+    children,
+    path,
+    shouldForceEnroll = forceEnroll,
+    featurePath = path
+  ) => (
     <GuardedRoute
       shouldForceEnroll={shouldForceEnroll}
       featureKey={FEATURE_ROUTE_MAP[featurePath]}
@@ -211,14 +224,6 @@ function AppRoutes() {
     </GuardedRoute>
   );
 
-  const admin = (children) => (
-    <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
-      {children}
-    </AdminRoute>
-  );
-
-  const hiddenAdmin = (children) => <HiddenAdminRoute>{children}</HiddenAdminRoute>;
-
   return (
     <Suspense fallback={<FullScreenLoader message="Opening CLARA..." />}>
       <Routes>
@@ -226,7 +231,10 @@ function AppRoutes() {
           path="/login"
           element={user ? <Navigate to={homeRedirectPath} replace /> : <Login />}
         />
-        <Route path="/link-local-vault" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
+        <Route
+          path="/link-local-vault"
+          element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
+        />
         <Route path="/app-preview" element={<AppPreview />} />
         <Route
           path="/*"
@@ -234,47 +242,146 @@ function AppRoutes() {
             user ? (
               <Layout>
                 <Routes>
-                  <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
-                  <Route path="/onboarding" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/program-onboarding" element={<ProgramOnboarding />} />
-                  <Route path="/pending" element={<Navigate to="/dashboard" replace />} />
+                  <Route
+                    path="/"
+                    element={<Navigate to={homeRedirectPath} replace />}
+                  />
+                  <Route
+                    path="/onboarding"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                  <Route
+                    path="/program-onboarding"
+                    element={<ProgramOnboarding />}
+                  />
+                  <Route
+                    path="/pending"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
                   <Route path="/enroll" element={<Enroll />} />
                   <Route path="/tier-select" element={<TierSelect />} />
                   <Route path="/activation" element={<Activation />} />
-                  <Route path="/advertiser" element={<AdvertiserDashboard />} />
-                  <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
-                  <Route path="/welcome-session" element={<WelcomeSession />} />
-                  <Route path="/coaching-mock-preview" element={<CoachingAdminPage />} />
-                  <Route path="/lifeos" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/investment-plan" element={guard(<InvestmentPlan />, "/investment-plan")} />
-                  <Route path="/budget-plan" element={<MonthlyBudgetPlan />} />
-                  <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
-                  <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
-                  <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
-                  <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
-                  <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
-                  <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
-                  <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
-                  <Route path="/modules" element={guard(<Modules />, "/modules")} />
-                  <Route path="/feed" element={guard(<Feed />, "/feed")} />
-                  <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
-                  <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
-                  <Route path="/community" element={guard(<Community />, "/community")} />
-                  <Route path="/messages" element={guard(<Messages />, "/messages")} />
-                  <Route path="/news" element={guard(<News />, "/news")} />
-                  <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
-                  <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
-                  <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/settings/:section" element={<Navigate to="/dashboard" replace />} />
+                  <Route
+                    path="/advertiser"
+                    element={<AdvertiserDashboard />}
+                  />
+                  <Route
+                    path="/dashboard"
+                    element={guard(<Dashboard />, "/dashboard")}
+                  />
+                  <Route
+                    path="/welcome-session"
+                    element={<WelcomeSession />}
+                  />
+                  <Route
+                    path="/coaching-mock-preview"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                  <Route
+                    path="/lifeos"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                  <Route
+                    path="/investment-plan"
+                    element={guard(<InvestmentPlan />, "/investment-plan")}
+                  />
+                  <Route
+                    path="/budget-plan"
+                    element={<MonthlyBudgetPlan />}
+                  />
+                  <Route
+                    path="/expenses"
+                    element={guard(<TransactionHub />, "/expenses")}
+                  />
+                  <Route
+                    path="/transactions"
+                    element={guard(
+                      <TransactionHub />,
+                      "/transactions",
+                      forceEnroll,
+                      "/expenses"
+                    )}
+                  />
+                  <Route
+                    path="/add-funds"
+                    element={guard(<AddFunds />, "/add-funds")}
+                  />
+                  <Route
+                    path="/wallets"
+                    element={guard(<Wallets />, "/wallets")}
+                  />
+                  <Route
+                    path="/budgets"
+                    element={guard(<Budgets />, "/budgets")}
+                  />
+                  <Route
+                    path="/analytics"
+                    element={guard(<Analytics />, "/analytics")}
+                  />
+                  <Route
+                    path="/ai"
+                    element={guard(<AiInsights />, "/ai")}
+                  />
+                  <Route
+                    path="/modules"
+                    element={guard(<Modules />, "/modules")}
+                  />
+                  <Route
+                    path="/feed"
+                    element={guard(<Feed />, "/feed")}
+                  />
+                  <Route
+                    path="/people"
+                    element={guard(
+                      <ClaraPeople />,
+                      "/people",
+                      forceEnroll,
+                      "/community"
+                    )}
+                  />
+                  <Route
+                    path="/users/:userId"
+                    element={guard(
+                      <UserProfile />,
+                      "/users/:userId",
+                      forceEnroll,
+                      "/community"
+                    )}
+                  />
+                  <Route
+                    path="/community"
+                    element={guard(<Community />, "/community")}
+                  />
+                  <Route
+                    path="/messages"
+                    element={guard(<Messages />, "/messages")}
+                  />
+                  <Route
+                    path="/news"
+                    element={guard(<News />, "/news")}
+                  />
+                  <Route
+                    path="/referrals"
+                    element={guard(<Referrals />, "/referrals")}
+                  />
+                  <Route
+                    path="/savings-goals"
+                    element={guard(<SavingsGoals />, "/savings-goals")}
+                  />
+                  <Route
+                    path="/settings"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
+                  <Route
+                    path="/settings/:section"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/data-export" element={<DataExport />} />
-                  <Route path="/admin" element={admin(<AdminPanel />)} />
-                  <Route path="/admin/coaching" element={admin(<CoachingAdminPage />)} />
-                  <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
-                  <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
-                  <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
-                  <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
-                  <Route path="/admin/ios-users" element={hiddenAdmin(<IosUserAccess />)} />
+                  <Route
+                    path="/admin/*"
+                    element={<Navigate to="/dashboard" replace />}
+                  />
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
               </Layout>
@@ -284,7 +391,6 @@ function AppRoutes() {
           }
         />
       </Routes>
-      <AdminRescueButton show={Boolean(user && isAdmin)} />
     </Suspense>
   );
 }

@@ -4,7 +4,6 @@ import { COMMITTED_MONTHLY_PURCHASE_INTENT } from "@/lib/clara-commitment-framew
 
 export const CLARA_COMMITTED_PLAN_KEY = COMMITTED_PLAN_KEY;
 export const OPEN_COMMITMENT_BOOKLET_EVENT = "clara:open-commitment-booklet";
-export const OPEN_COMMITTED_ACCESS_CODE_EVENT = "clara:open-committed-access-code";
 
 export function resolveCommittedMembershipState(options = {}) {
   const membership = resolveMembership({
@@ -16,12 +15,10 @@ export function resolveCommittedMembershipState(options = {}) {
       {},
     user: options.user,
     plan: options.plan,
-    preview: options.preview || options.previewPlan || null,
-    isAdmin: options.isAdmin,
-    isAdvertiser: options.isAdvertiser,
     loading: options.loading,
     ready: options.ready,
   });
+
   return {
     ...membership,
     resolvedPlan: membership.planKey,
@@ -31,7 +28,7 @@ export function resolveCommittedMembershipState(options = {}) {
       options.user?.id || "guest",
       membership.planKey,
       membership.membershipStatus,
-      membership.isDeveloperPreview ? "preview" : "real",
+      "backend",
     ].join(":"),
   };
 }
@@ -40,9 +37,9 @@ export function canAccessCommittedFeatures(options = {}) {
   return resolveCommittedMembershipState(options).hasCommittedAccess;
 }
 
-export function useCommittedMembershipState({ preview = null, previewPlan = "", billingRecord = null } = {}) {
+export function useCommittedMembershipState({ billingRecord = null } = {}) {
   const state = useUserRole();
-  if (state.membership && !preview && !previewPlan) {
+  if (state.membership) {
     return {
       ...state.membership,
       resolvedPlan: state.membership.planKey,
@@ -52,27 +49,28 @@ export function useCommittedMembershipState({ preview = null, previewPlan = "", 
         state.user?.id || "guest",
         state.membership.planKey,
         state.membership.membershipStatus,
-        state.membership.isDeveloperPreview ? "preview" : "real",
+        "backend",
       ].join(":"),
     };
   }
   return resolveCommittedMembershipState({
     ...state,
     accountProfile: state.accountProfile,
-    preview: preview || previewPlan || state.developerMembershipPreview,
     billingRecord,
   });
 }
 
-export function useCommittedFeatureAccess({ preview = null, previewPlan = "" } = {}) {
-  return useCommittedMembershipState({ preview, previewPlan }).hasCommittedAccess;
+export function useCommittedFeatureAccess() {
+  return useCommittedMembershipState().hasCommittedAccess;
 }
 
-export function openCommittedVersionModal(purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT) {
+export function openCommittedVersionModal(
+  purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT
+) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent(OPEN_COMMITTED_ACCESS_CODE_EVENT, {
-      detail: { purchaseIntent },
+    new CustomEvent(OPEN_COMMITMENT_BOOKLET_EVENT, {
+      detail: { purchaseIntent, informationalOnly: true },
     })
   );
 }

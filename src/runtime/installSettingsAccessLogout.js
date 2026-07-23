@@ -1,8 +1,4 @@
-import {
-  clearHiddenAdminSession,
-  clearIosAccessSession,
-} from "@/lib/ios-access-client";
-import { supabase } from "@/lib/supabaseClient";
+import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 
 const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
 const COMPACT_OVERVIEW_CLASS = "clara-settings-compact-overview";
@@ -93,23 +89,16 @@ function createLogoutControl() {
   const note = document.createElement("p");
   note.className = "px-2 text-center text-[10px] font-semibold leading-4 text-white/55";
   note.textContent =
-    "Your financial records stay on this device. Enter your CLARA access again anytime.";
+    "Your financial records stay on this device. Log in again anytime.";
 
-  button.addEventListener("click", async () => {
+  button.addEventListener("click", () => {
     if (button.disabled) return;
 
     button.disabled = true;
     const label = button.querySelector("span");
     if (label) label.textContent = "Logging out...";
 
-    clearIosAccessSession();
-    clearHiddenAdminSession();
-
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.warn("CLARA Settings logout could not clear the compatibility session:", error);
-    }
+    signOutFromClaraBackend();
 
     window.setTimeout(() => {
       window.location.reload();

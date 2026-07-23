@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { CalendarDays, Home, Settings, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
-import { readDeveloperMembershipPreview, resolveMembership } from "@/lib/membership";
+import { resolveMembership } from "@/lib/membership";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 
 export default function useDashboardPanelUiState({
@@ -24,30 +24,36 @@ export default function useDashboardPanelUiState({
     loading: authLoading,
     authReady,
   } = useAuth();
-  const membershipPreview = readDeveloperMembershipPreview();
-  const role = String(authProfile?.role || authUser?.user_metadata?.role || "user")
-    .trim()
-    .toLowerCase();
   const membership = resolveMembership({
     profile: authProfile || {},
     user: authUser,
     plan,
-    preview: membershipPreview,
-    isAdmin: role === "admin",
-    isAdvertiser: role === "advertiser",
     loading: !authReady || authLoading,
     ready: authReady !== false,
   });
-  const isFreePlan = membership.membershipStatus !== "loading" && !membership.hasCommittedAccess;
+  const isFreePlan =
+    membership.membershipStatus !== "loading" &&
+    !membership.hasCommittedAccess;
 
-  const openDashboardPanel = useCallback((panelKey) => {
-    const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
-    const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
-    const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
+  const openDashboardPanel = useCallback(
+    (panelKey) => {
+      const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey)
+        ? panelKey
+        : "home";
+      const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
+      const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
 
-    setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
-    setActiveDashboardPanel(targetPanel);
-  }, [activeDashboardPanel, setActiveDashboardPanel, setDashboardPanelDirection]);
+      setDashboardPanelDirection(
+        nextIndex >= currentIndex ? "forward" : "backward"
+      );
+      setActiveDashboardPanel(targetPanel);
+    },
+    [
+      activeDashboardPanel,
+      setActiveDashboardPanel,
+      setDashboardPanelDirection,
+    ]
+  );
 
   const closeDashboardPanel = useCallback(() => {
     setDashboardPanelDirection("backward");
@@ -55,9 +61,7 @@ export default function useDashboardPanelUiState({
   }, [setActiveDashboardPanel, setDashboardPanelDirection]);
 
   const resetDashboardThemeToDefault = useCallback(async () => {
-    if (typeof setTheme === "function") {
-      await setTheme(DEFAULT_THEME_KEY);
-    }
+    if (typeof setTheme === "function") await setTheme(DEFAULT_THEME_KEY);
   }, [setTheme]);
 
   const dashboardPanelAnimationClass =
@@ -79,7 +83,8 @@ export default function useDashboardPanelUiState({
       ? "overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       : "overflow-y-hidden";
 
-  const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
+  const shouldShowBlockingDashboardLoader =
+    loading && !hasVisibleFinanceData;
   const shouldShowNonBlockingRefresh = Boolean(
     financeDataRefreshing ||
       (financeDataLoading && hasVisibleFinanceData)
@@ -91,26 +96,36 @@ export default function useDashboardPanelUiState({
     className: "border-white/10 bg-white/[0.08] text-white/62",
   };
 
-  const headerQuickActions = useMemo(() => [
-    { key: "home", label: "Home", icon: Home, badge: null },
-    { key: "me", label: "Me", icon: User, badge: isFreePlan ? committedBadge : null, locked: isFreePlan },
-    {
-      key: "schedule",
-      label: "Schedule",
-      icon: CalendarDays,
-      locked: isFreePlan,
-      badge: isFreePlan
-        ? committedBadge
-        : feedHasHighlight
-          ? {
-              type: "dot",
-              value: "",
-              className: "border-emerald-400/25 bg-emerald-400 text-emerald-100",
-            }
-          : null,
-    },
-    { key: "settings", label: "Settings", icon: Settings, badge: null },
-  ], [feedHasHighlight, isFreePlan]);
+  const headerQuickActions = useMemo(
+    () => [
+      { key: "home", label: "Home", icon: Home, badge: null },
+      {
+        key: "me",
+        label: "Me",
+        icon: User,
+        badge: isFreePlan ? committedBadge : null,
+        locked: isFreePlan,
+      },
+      {
+        key: "schedule",
+        label: "Schedule",
+        icon: CalendarDays,
+        locked: isFreePlan,
+        badge: isFreePlan
+          ? committedBadge
+          : feedHasHighlight
+            ? {
+                type: "dot",
+                value: "",
+                className:
+                  "border-emerald-400/25 bg-emerald-400 text-emerald-100",
+              }
+            : null,
+      },
+      { key: "settings", label: "Settings", icon: Settings, badge: null },
+    ],
+    [feedHasHighlight, isFreePlan]
+  );
 
   return {
     openDashboardPanel,
