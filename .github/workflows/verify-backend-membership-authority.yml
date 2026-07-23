@@ -24,18 +24,13 @@ jobs:
       - name: Apply one-time scheduler patch
         shell: bash
         run: |
-          if [ ! -f .github/workflows/apply-committed-session-scheduler.yml ]; then
+          if [ ! -f scripts/apply-committed-session-scheduler.py ]; then
             echo "Scheduler patch is already applied."
             echo 0 > scheduler-patch-status.txt
             exit 0
           fi
-          awk '
-            /python <<'\''PY'\''/ { capture=1; next }
-            capture && /^          PY$/ { exit }
-            capture { sub(/^          /, ""); print }
-          ' .github/workflows/apply-committed-session-scheduler.yml > /tmp/apply-scheduler.py
           set +e
-          python /tmp/apply-scheduler.py > scheduler-patch.log 2>&1
+          python scripts/apply-committed-session-scheduler.py > scheduler-patch.log 2>&1
           patch_status=$?
           set -e
           cat scheduler-patch.log
@@ -66,34 +61,36 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        if: ${{ hashFiles('scripts/apply-committed-session-scheduler.py') != '' }}
         run: npm ci
 
       - name: Run tests
-        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        if: ${{ hashFiles('scripts/apply-committed-session-scheduler.py') != '' }}
         run: npm test
 
       - name: Run lint
-        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        if: ${{ hashFiles('scripts/apply-committed-session-scheduler.py') != '' }}
         run: npm run lint
 
       - name: Build production app
-        if: ${{ hashFiles('.github/workflows/apply-committed-session-scheduler.yml') != '' }}
+        if: ${{ hashFiles('scripts/apply-committed-session-scheduler.py') != '' }}
         run: npm run build
 
       - name: Commit validated scheduler patch
         shell: bash
         run: |
-          if [ ! -f .github/workflows/apply-committed-session-scheduler.yml ]; then
+          if [ ! -f scripts/apply-committed-session-scheduler.py ]; then
             echo "No patch files remain to commit."
             exit 0
           fi
-          rm .github/workflows/apply-committed-session-scheduler.yml
+          rm -f .github/workflows/apply-committed-session-scheduler.yml
           rm -f .github/workflows/trigger-committed-session-scheduler.yml
+          rm -f .github/committed-session-patch-trigger
+          rm -f scripts/apply-committed-session-scheduler.py
           rm -f scheduler-patch.log scheduler-patch-status.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx src/pages/WelcomeSession.jsx tests/committed-session-routing.test.mjs .github/workflows/apply-committed-session-scheduler.yml .github/workflows/trigger-committed-session-scheduler.yml
+          git add -A
           git commit -m "[scheduler-patch-applied] Route Free users to one-on-one scheduling"
           git push origin HEAD:feature/committed-session-scheduler
 
