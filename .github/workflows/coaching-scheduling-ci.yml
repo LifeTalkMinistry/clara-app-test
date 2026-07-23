@@ -1,0 +1,40 @@
+name: Coaching Scheduling CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/pages/WelcomeSession.jsx"
+      - "src/components/coaching/**"
+      - "src/lib/coaching-backend-client.js"
+      - "src/lib/welcome-session-schedule.js"
+      - "tests/coaching-scheduling.test.mjs"
+      - "package.json"
+      - ".github/workflows/coaching-scheduling-ci.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run complete test suite
+        run: npm test
+
+      - name: Run complete lint suite
+        run: npm run lint
+
+      - name: Build production app
+        run: npm run build
