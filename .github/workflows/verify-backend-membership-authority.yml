@@ -26,6 +26,7 @@ jobs:
         run: |
           if [ ! -f .github/workflows/apply-committed-session-scheduler.yml ]; then
             echo "Scheduler patch is already applied."
+            echo 0 > scheduler-patch-status.txt
             exit 0
           fi
           awk '
@@ -33,7 +34,30 @@ jobs:
             capture && /^          PY$/ { exit }
             capture { sub(/^          /, ""); print }
           ' .github/workflows/apply-committed-session-scheduler.yml > /tmp/apply-scheduler.py
-          python /tmp/apply-scheduler.py
+          set +e
+          python /tmp/apply-scheduler.py > scheduler-patch.log 2>&1
+          patch_status=$?
+          set -e
+          cat scheduler-patch.log
+          echo "$patch_status" > scheduler-patch-status.txt
+
+      - name: Upload scheduler patch diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: committed-session-scheduler-patch-diagnostics
+          path: |
+            scheduler-patch.log
+            scheduler-patch-status.txt
+          if-no-files-found: warn
+          retention-days: 3
+
+      - name: Stop when scheduler patch failed
+        shell: bash
+        run: |
+          if [ "$(cat scheduler-patch-status.txt 2>/dev/null || echo 1)" != "0" ]; then
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -66,6 +90,7 @@ jobs:
           fi
           rm .github/workflows/apply-committed-session-scheduler.yml
           rm -f .github/workflows/trigger-committed-session-scheduler.yml
+          rm -f scheduler-patch.log scheduler-patch-status.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx src/pages/WelcomeSession.jsx tests/committed-session-routing.test.mjs .github/workflows/apply-committed-session-scheduler.yml .github/workflows/trigger-committed-session-scheduler.yml
