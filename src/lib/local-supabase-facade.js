@@ -7,12 +7,6 @@ import {
   getLocalAccountProfile,
   saveLocalAccountProfile,
 } from "@/lib/local-profile-repository";
-import {
-  deriveLocalMembershipProfile,
-  getLocalGooglePlayEntitlement,
-  saveLocalGooglePlayEntitlement,
-  toLocalEnrollment,
-} from "@/lib/local-google-play-entitlement";
 import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 
@@ -21,7 +15,8 @@ const LOCAL_PLAN = Object.freeze({
   key: "committed_249",
   plan_key: "committed_249",
   name: "Committed",
-  description: "Complete CLARA financial system and accountability experience.",
+  description:
+    "Complete CLARA financial system and accountability experience.",
   price: 249,
   active: true,
   popular: true,
@@ -39,19 +34,40 @@ const LOCAL_PLAN = Object.freeze({
 const localUserId = getOrCreateLocalVaultId();
 let state = null;
 
+function forceFreeCompatibilityProfile(profile = {}) {
+  return {
+    ...profile,
+    plan: "free",
+    plan_key: "free",
+    subscription_plan: "free",
+    access_level: "free",
+    subscription_status: "free",
+    subscription_label: "Free Version",
+    account_status: "inactive",
+    membership_source: "backend_required",
+    entitlement_status: "free",
+    enrollment_status: "none",
+    activation_status: "not_required",
+    status: "inactive",
+    is_activated: false,
+    is_enrolled: false,
+    program_active: false,
+    has_pro_access: false,
+    has_program_access: false,
+    isPro: false,
+  };
+}
+
 function buildState() {
   const account = getLocalAccountProfile(localUserId);
   const user = buildLocalAuthUser(localUserId, account);
-  const entitlement = getLocalGooglePlayEntitlement(localUserId);
-  const profile = buildLocalMembershipProfile(
-    user,
-    account,
-    deriveLocalMembershipProfile(entitlement)
+  const profile = forceFreeCompatibilityProfile(
+    buildLocalMembershipProfile(user, account, {})
   );
+
   return {
     user,
     profile,
-    entitlement,
     session: {
       access_token: null,
       refresh_token: null,
@@ -68,8 +84,12 @@ function refreshState() {
   saveAccessSnapshot({
     user: state.user,
     profile: state.profile,
-    enrollment: toLocalEnrollment(state.entitlement),
-    accessState: { role: "user", plan: state.profile.plan },
+    enrollment: null,
+    accessState: {
+      role: "user",
+      plan: "free",
+      membershipSource: "backend_required",
+    },
     flow: "normal",
     currentPath: "/dashboard",
   });
@@ -85,9 +105,6 @@ const ready = (async () => {
   if (legacyId && legacyId !== localUserId) {
     const legacyProfile = getLocalAccountProfile(legacyId);
     const currentProfile = getLocalAccountProfile(localUserId);
-    const legacyEntitlement = getLocalGooglePlayEntitlement(legacyId);
-    const currentEntitlement = getLocalGooglePlayEntitlement(localUserId);
-
     const legacyHasProfile =
       legacyProfile?.full_name !== "CLARA User" ||
       Boolean(legacyProfile?.clara_life_setup);
@@ -102,18 +119,9 @@ const ready = (async () => {
         email: null,
       });
     }
-    if (
-      currentEntitlement?.state === "inactive" &&
-      legacyEntitlement?.state !== "inactive"
-    ) {
-      saveLocalGooglePlayEntitlement(localUserId, {
-        ...legacyEntitlement,
-        localUserId,
-      });
-    }
   }
 
-  console.info("[CLARA Runtime] local facade ready", {
+  console.info("[CLARA Runtime] local compatibility facade ready", {
     migrationStatus: migration?.status || "unknown",
   });
   return refreshState();
@@ -126,10 +134,7 @@ function rowsFor(tableName) {
   const current = refreshState();
   if (tableName === "plans") return [{ ...LOCAL_PLAN }];
   if (tableName === "profiles") return [{ ...current.profile }];
-  if (tableName === "enrollments") {
-    const enrollment = toLocalEnrollment(current.entitlement);
-    return enrollment ? [enrollment] : [];
-  }
+  if (tableName === "enrollments") return [];
   return [];
 }
 
@@ -148,8 +153,22 @@ function createQuery(tableName) {
     ) {
       const patch = Array.isArray(payload) ? payload[0] : payload;
       if (patch && typeof patch === "object") {
+        const {
+          plan: _plan,
+          plan_key: _planKey,
+          subscription_plan: _subscriptionPlan,
+          access_level: _accessLevel,
+          subscription_status: _subscriptionStatus,
+          entitlement_status: _entitlementStatus,
+          activation_status: _activationStatus,
+          is_activated: _isActivated,
+          is_enrolled: _isEnrolled,
+          program_active: _programActive,
+          isPro: _isPro,
+          ...safePatch
+        } = patch;
         saveLocalAccountProfile(localUserId, {
-          ...patch,
+          ...safePatch,
           id: localUserId,
           email: null,
         });
@@ -159,9 +178,13 @@ function createQuery(tableName) {
     let rows = rowsFor(tableName);
     for (const filter of filters) {
       if (filter.type === "eq") {
-        rows = rows.filter((row) => row?.[filter.column] === filter.value);
+        rows = rows.filter(
+          (row) => row?.[filter.column] === filter.value
+        );
       } else if (filter.type === "in") {
-        rows = rows.filter((row) => filter.values.includes(row?.[filter.column]));
+        rows = rows.filter((row) =>
+          filter.values.includes(row?.[filter.column])
+        );
       }
     }
     if (Number.isInteger(limit)) rows = rows.slice(0, limit);
@@ -169,9 +192,14 @@ function createQuery(tableName) {
     if (terminal === "single") {
       return rows.length === 1
         ? { data: rows[0], error: null }
-        : { data: rows[0] || null, error: new Error("Local row not found.") };
+        : {
+            data: rows[0] || null,
+            error: new Error("Local row not found."),
+          };
     }
-    if (terminal === "maybeSingle") return { data: rows[0] || null, error: null };
+    if (terminal === "maybeSingle") {
+      return { data: rows[0] || null, error: null };
+    }
     if (terminal === "csv") return { data: "", error: null };
     if (terminal === "geojson") return { data: null, error: null };
     return { data: rows, error: null };
@@ -262,7 +290,7 @@ function createChannel() {
 }
 
 const accountError = () =>
-  new Error("Accounts are not required in the CLARA local Android beta.");
+  new Error("Use your CLARA backend account to sign in.");
 
 export function createLocalSupabaseFacade() {
   return {
@@ -304,7 +332,8 @@ export function createLocalSupabaseFacade() {
         };
       },
     },
-    from: (tableName) => createQuery(String(tableName || "").toLowerCase()),
+    from: (tableName) =>
+      createQuery(String(tableName || "").toLowerCase()),
     channel: () => createChannel(),
     removeChannel: async () => ({ error: null }),
     removeAllChannels: async () => ({ error: null }),
@@ -312,7 +341,9 @@ export function createLocalSupabaseFacade() {
     functions: {
       invoke: async () => ({
         data: null,
-        error: new Error("Online functions are unavailable in local beta mode."),
+        error: new Error(
+          "Online functions are unavailable in local compatibility mode."
+        ),
       }),
     },
   };
