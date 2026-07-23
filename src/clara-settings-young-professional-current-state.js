@@ -5,17 +5,24 @@ const PAGE_ID = "clara-current-state-learning-page";
 const STYLE_ID = "clara-current-state-learning-static-styles";
 const STATUS_ID = "clara-current-state-learning-static-status";
 const OPEN_DEMO_PROFILE_EVENT = "clara:open-developer-demo-profile";
+const SETTINGS_VIEW_SYNC_EVENT = "clara:settings-view-synced";
 const ACCOUNT_TAP_WINDOW_MS = 450;
 
 let lastAccountTapAt = 0;
 
 function findSettingsRoot() {
-  return document.querySelector("#root .space-y-5.pb-6");
+  const activeSettingsNav = document.querySelector(
+    '.theme-page-shell button[aria-label="Settings"][aria-current="page"]'
+  );
+  const shell = activeSettingsNav?.closest(".theme-page-shell");
+  return shell?.querySelector(".clara-dashboard-content .space-y-5.pb-6") || null;
 }
 
 function findProgramSection(settingsRoot) {
   if (!settingsRoot) return null;
-  return Array.from(settingsRoot.querySelectorAll("section")).find((section) => section.textContent?.includes("Program") && section.textContent?.includes("About CLARA"));
+  return Array.from(settingsRoot.querySelectorAll("section")).find((section) =>
+    section.textContent?.includes("Program") && section.textContent?.includes("About CLARA")
+  );
 }
 
 function iconSvg() {
@@ -90,7 +97,7 @@ function showPage(show) {
   if (!root || !page) return;
   root.style.display = show ? "none" : "";
   page.style.display = show ? "block" : "none";
-  if (show) page.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (show) page.scrollIntoView({ behavior: "auto", block: "start" });
 }
 
 function createSection() {
@@ -116,7 +123,16 @@ function createPage() {
 function ensurePage() {
   const settingsRoot = findSettingsRoot();
   if (!settingsRoot) return false;
-  if (!document.getElementById(PAGE_ID)) settingsRoot.insertAdjacentElement("afterend", createPage());
+
+  const programSection = findProgramSection(settingsRoot);
+  if (programSection && !document.getElementById(SECTION_ID)) {
+    programSection.insertAdjacentElement("afterend", createSection());
+  }
+
+  if (!document.getElementById(PAGE_ID)) {
+    settingsRoot.insertAdjacentElement("afterend", createPage());
+  }
+
   return true;
 }
 
@@ -157,11 +173,16 @@ function install() {
   ensurePage();
 }
 
+function scheduleInstall() {
+  if (typeof window === "undefined") return;
+  window.requestAnimationFrame(install);
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener(OPEN_DEMO_PROFILE_EVENT, openDemoProfilePage);
+  window.addEventListener(SETTINGS_VIEW_SYNC_EVENT, scheduleInstall);
+  window.addEventListener("pageshow", scheduleInstall);
   document.addEventListener("click", handleAccountLabelShortcut, true);
 
-  window.requestAnimationFrame(install);
-  const observer = new MutationObserver(install);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  scheduleInstall();
 }
