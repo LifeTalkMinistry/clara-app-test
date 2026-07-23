@@ -53,6 +53,11 @@ body.clara-settings-active #root {
   display: none !important;
 }
 
+/* permanently remove theme customization from Settings */
+#root .space-y-5.pb-6 section button.group:has(svg.lucide-palette) {
+  display: none !important;
+}
+
 /* hide performance mode row inside Settings only */
 #root .space-y-5.pb-6 section button.group:has(svg.lucide-rocket) {
   display: none !important;
