@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, RefreshCcw, X } from "lucide-react";
+import { CalendarDays, Lock, RefreshCcw, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useUserRole from "@/hooks/useUserRole";
 import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
@@ -30,6 +30,7 @@ function ClaraCommitmentBookletModal({
   open,
   onClose,
   onDeclineCommitment,
+  onScheduleSession,
   purchaseIntent = COMMITTED_MONTHLY_PURCHASE_INTENT,
 }) {
   const [bookletPage, setBookletPage] = useState(0);
@@ -37,7 +38,7 @@ function ClaraCommitmentBookletModal({
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const carouselRef = useRef(null);
-  const { membership, refreshUser } = useUserRole();
+  const { refreshUser } = useUserRole();
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +74,13 @@ function ClaraCommitmentBookletModal({
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleScheduleSession = () => {
+    if (refreshing) return;
+    setRefreshMessage("");
+    setMembershipInfoOpen(false);
+    onScheduleSession?.();
   };
 
   const handleDeclineCommitment = () => {
@@ -181,7 +189,7 @@ function ClaraCommitmentBookletModal({
                 }}
                 className="mt-4 w-full rounded-full border border-white/18 bg-white/[0.1] px-4 py-3 text-sm font-black text-white/92 transition hover:bg-white/[0.14] active:scale-[0.99]"
               >
-                View Membership Status
+                Start Your Committed Journey
               </button>
             ) : null}
           </div>
@@ -262,27 +270,27 @@ function ClaraCommitmentBookletModal({
               </button>
 
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/48">
-                CLARA Account
+                CLARA Committed Version
               </p>
               <h3 className="mt-4 text-[1.55rem] font-black leading-tight tracking-[-0.05em] text-white">
-                {membership?.planLabel || "Membership"}
+                Start Your Committed Journey
               </h3>
-              <p className="mx-auto mt-3 max-w-[280px] text-sm font-bold leading-6 text-white/68">
-                Committed access is controlled by your verified CLARA account. It
-                cannot be activated with a password, code, role, or local device
-                setting.
+              <p className="mx-auto mt-3 max-w-[290px] text-sm font-bold leading-6 text-white/68">
+                Schedule a one-on-one budgeting session with Max. Together, you’ll
+                review your current money situation and build a budget that fits
+                your real life.
               </p>
 
               <div className="mt-5 rounded-[24px] border border-white/12 bg-white/[0.07] px-4 py-4 text-left">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/42">
-                  Current status
+                  Your first step
                 </p>
                 <p className="mt-2 text-base font-black text-white/90">
-                  {membership?.statusLabel || "SYNCING"}
+                  One-on-One Budgeting Session
                 </p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-white/52">
-                  {membership?.featureDescription ||
-                    "Refresh after your membership is activated through your CLARA account."}
+                  Choose an available date and time, then complete a short check-in
+                  so Max can prepare for your session.
                 </p>
               </div>
 
@@ -295,20 +303,31 @@ function ClaraCommitmentBookletModal({
               <div className="mt-5 grid grid-cols-1 gap-2">
                 <button
                   type="button"
+                  onClick={handleScheduleSession}
+                  disabled={refreshing}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.88),rgba(99,102,241,0.94))] px-4 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(37,99,235,0.26)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Schedule My Session
+                </button>
+                <button
+                  type="button"
                   onClick={handleRefreshMembership}
                   disabled={refreshing}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-100/20 bg-cyan-100/[0.1] px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-100/[0.14] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-black text-cyan-50/62 transition hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCcw
-                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
                   />
-                  {refreshing ? "Refreshing..." : "Refresh Membership"}
+                  {refreshing
+                    ? "Refreshing..."
+                    : "Already enrolled? Refresh your access"}
                 </button>
                 <button
                   type="button"
                   onClick={handleDeclineCommitment}
                   disabled={refreshing}
-                  className="rounded-full px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/42 transition hover:text-white/64 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Not now
                 </button>
@@ -348,7 +367,7 @@ function LockedPanelPreview({ children, onOpenCommitmentBooklet }) {
             Ready to Commit?
           </p>
           <p className="mt-1.5 text-xs font-semibold leading-5 text-white/58">
-            Tap to see membership information.
+            Tap to schedule your one-on-one session.
           </p>
         </div>
       </div>
@@ -415,6 +434,12 @@ export default function DashboardPanelRenderer({
   const closeCommitmentBooklet = useCallback(() => {
     setCommitmentBookletOpen(false);
   }, []);
+
+  const handleScheduleCommittedSession = useCallback(() => {
+    setCommitmentBookletOpen(false);
+    setPurchaseIntent(COMMITTED_MONTHLY_PURCHASE_INTENT);
+    navigate("/welcome-session");
+  }, [navigate]);
 
   const handleCommitmentDecline = useCallback(() => {
     setCommitmentBookletOpen(false);
@@ -511,6 +536,7 @@ export default function DashboardPanelRenderer({
       open={commitmentBookletOpen}
       onClose={closeCommitmentBooklet}
       onDeclineCommitment={handleCommitmentDecline}
+      onScheduleSession={handleScheduleCommittedSession}
       purchaseIntent={purchaseIntent}
     />
   );
