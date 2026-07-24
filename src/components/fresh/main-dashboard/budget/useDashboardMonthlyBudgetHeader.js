@@ -4,6 +4,7 @@ import {
   isBudgetHeader,
   isInactiveBudgetPlan,
 } from "@/lib/clara-budget-plan-truth";
+import { getCycleWindow, isDerivedBudgetHeader } from "@/lib/clara-derived-budget";
 import {
   firstValidNumber,
   getPHMonthKey,
@@ -13,6 +14,9 @@ import {
 
 function toDateOnly(value) {
   if (!value) return "";
+  const raw = String(value).trim();
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return normalizeString(value).slice(0, 10);
   return parsed.toISOString().slice(0, 10);
@@ -72,6 +76,37 @@ function getBudgetCycleLabel(budget) {
   return "Monthly";
 }
 
+function normalizeDerivedRollingMonthlyHeader(budget = {}) {
+  if (!isDerivedBudgetHeader(budget) || getBudgetCycleType(budget) !== "monthly") return budget;
+
+  const hasExplicitTrackingStart = Boolean(
+    budget?.reset_start_at || budget?.tracking_started_at || budget?.tracking_start_date,
+  );
+  if (hasExplicitTrackingStart) return budget;
+
+  const storedStart = toDateOnly(
+    budget?.cycle_start || budget?.budget_cycle_start || budget?.period_start || budget?.range_start,
+  );
+  const createdStart = toDateOnly(budget?.created_at || budget?.createdAt);
+
+  // Migration for budgets created before Monthly became a rolling period. Those
+  // plans were stored as the first/last day of the calendar month even when the
+  // user created the budget later in the month.
+  if (!storedStart || !createdStart || createdStart <= storedStart) return budget;
+
+  const rolling = getCycleWindow("monthly", createdStart, "");
+  return {
+    ...budget,
+    tracking_started_at: budget?.created_at || budget?.createdAt || `${createdStart}T00:00:00.000Z`,
+    cycle_start: rolling.start,
+    budget_cycle_start: rolling.start,
+    period_start: rolling.start,
+    cycle_end: rolling.end,
+    budget_cycle_end: rolling.end,
+    period_end: rolling.end,
+  };
+}
+
 function getTimestamp(value) {
   const parsed = new Date(value || 0).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
@@ -82,13 +117,19 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [], includeD
     const currentMonthKey = getPHMonthKey();
     const currentDate = todayKey();
     const currentHeaders = (Array.isArray(budgets) ? budgets : [])
+      .map(normalizeDerivedRollingMonthlyHeader)
       .filter((budget) => {
         const month = normalizeString(
           budget?.month || budget?.budget_month || budget?.month_key
         );
         const isCurrentMonth = !month || month === currentMonthKey;
+        const isCurrentRollingCycle = isInsideCycle(budget, currentDate);
 
-        return isCurrentMonth && isBudgetHeader(budget) && !isInactiveBudgetPlan(budget);
+        return (
+          (isCurrentMonth || isCurrentRollingCycle) &&
+          isBudgetHeader(budget) &&
+          !isInactiveBudgetPlan(budget)
+        );
       })
       .sort(
         (a, b) =>
