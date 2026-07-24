@@ -64,6 +64,7 @@ import "../clara-schedule-notification-runtime-bridge";
 
 // Google Play billing restore/activation bridge
 import "../google-play-already-owned-restore-bridge";
+import "../clara-google-play-verify-auth-retry";
 
 // WARNING:
 // These patches relabel/replace assistant tabs through DOM selectors.
@@ -112,7 +113,8 @@ import "../life-stage-trend-snapshot.css";
 import "../life-stage-trend-snapshot-hide-icon.css";
 import "../life-stage-trend-graph-hide.css";
 
-// Settings and demo runtime behavior
+// Settings visual behavior. Theme visibility is owned by the scoped CSS only;
+// do not add a second DOM observer for the same row.
 import "../settings-cleanup.css";
 import "../settings-priority.css";
 import "../settings-support-compose.css";
@@ -137,9 +139,8 @@ import "../savings-goals-modal-polish.css";
 import "../finance-action-modal-copy-polish.css";
 import "../emergency-fund-header-copy-fit.css";
 
-// Settings and demo runtime behavior
-import "../settings-hide-theme-appearance.js";
-import "../clara-settings-young-professional-current-state.js";
+// The former hidden Settings double-tap demo controller is intentionally not
+// loaded in production. Demo data must be entered through an explicit tool.
 
 // Legacy Buy Check CSS can remain for old snapshots without installing runtime
 // ownership or DOM observers.
