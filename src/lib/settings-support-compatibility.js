@@ -1,3 +1,4 @@
+import { fetchCurrentBackendBilling } from "@/lib/billing-backend-client";
 import { sendBackendSupportMessage } from "@/lib/support-backend-client";
 
 const SUPPORT_ADMIN = Object.freeze({
@@ -155,6 +156,57 @@ function createProfilesQuery(localFacade) {
   return query;
 }
 
+function createBillingQuery() {
+  let terminal = "select";
+  const query = {};
+  const chain = () => query;
+
+  const execute = async () => {
+    try {
+      const billing = await fetchCurrentBackendBilling();
+      const normalized = billing
+        ? {
+            ...billing,
+            current_period_start: billing.current_period_start || billing.created_at || null,
+            next_billing_date: billing.next_billing_date || billing.renewal_date || null,
+          }
+        : null;
+      if (terminal === "single") {
+        return normalized
+          ? { data: normalized, error: null }
+          : { data: null, error: new Error("Billing record not found.") };
+      }
+      if (terminal === "maybeSingle") return { data: normalized, error: null };
+      return { data: normalized ? [normalized] : [], error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  };
+
+  Object.assign(query, {
+    select: chain,
+    eq: chain,
+    in: chain,
+    is: chain,
+    or: chain,
+    order: chain,
+    limit: chain,
+    maybeSingle: () => {
+      terminal = "maybeSingle";
+      return execute();
+    },
+    single: () => {
+      terminal = "single";
+      return execute();
+    },
+    then: (resolve, reject) => execute().then(resolve, reject),
+    catch: (reject) => execute().catch(reject),
+    finally: (handler) => execute().finally(handler),
+  });
+
+  return query;
+}
+
 function supportInsertInterceptor(value) {
   const payloads = Array.isArray(value) ? value : [value];
   const first = payloads.find((item) => item && typeof item === "object");
@@ -182,6 +234,7 @@ export function withSettingsSupportCompatibility(localFacade) {
     from(tableName) {
       const table = String(tableName || "").trim().toLowerCase();
       if (table === "profiles") return createProfilesQuery(localFacade);
+      if (table === "enrollments") return createBillingQuery();
       if (table === "direct_messages") {
         return createReplayQuery(localFacade, "direct_messages", {
           interceptInsert: supportInsertInterceptor,
