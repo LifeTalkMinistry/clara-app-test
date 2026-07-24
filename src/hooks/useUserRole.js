@@ -131,7 +131,12 @@ export default function useUserRole() {
       communityPosting: hasFeatureAccess("community", ["full"]),
       messaging: isFeatureAvailable("messages"),
       messagingFull: hasFeatureAccess("messages", ["full"]),
-      messagingAdminOnly: hasFeatureAccess("messages", ["admin_only", "full"]),
+      // Help & support is available to every signed-in CLARA user even when
+      // general private messaging is a Committed feature. The Messages panel
+      // uses this flag to expose only the CLARA Support/admin conversation.
+      messagingAdminOnly:
+        plan === FREE_PLAN_KEY ||
+        hasFeatureAccess("messages", ["admin_only", "full"]),
       emergencyFund: isFeatureAvailable("savings_goals"),
       savingsGoals: isFeatureAvailable("savings_goals"),
       news: isFeatureAvailable("news"),
@@ -142,7 +147,7 @@ export default function useUserRole() {
       aiElite: isFeatureAvailable("ai"),
       customization: isFeatureAvailable("customization"),
     }),
-    [hasFeatureAccess, isFeatureAvailable]
+    [hasFeatureAccess, isFeatureAvailable, plan]
   );
   const refreshUser = useCallback(
     async (options) => refreshProfile?.(options),
