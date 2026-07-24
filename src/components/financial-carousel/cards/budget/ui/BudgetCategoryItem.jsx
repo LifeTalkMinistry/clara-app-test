@@ -239,19 +239,19 @@ function getReserveTone(item, allocated) {
 }
 
 function getHealthState({ allocated, spent, isProtected }) {
-  if (isProtected) {
-    return {
-      state: "protected",
-      progressRgb: null,
-      ratio: allocated > 0 ? 1 : 0,
-    };
-  }
-
   const ratio = allocated > 0
     ? spent / allocated
     : spent > 0
       ? 1
       : 0;
+
+  if (isProtected) {
+    return {
+      state: "protected",
+      progressRgb: null,
+      ratio,
+    };
+  }
 
   if (ratio >= 1) {
     return {
@@ -508,12 +508,12 @@ export default function BudgetCategoryItem({ item }) {
   const progressRgb = health.progressRgb || reserveTone.rgb;
   const displayProgress = Math.min(Math.max(health.ratio * 100, 0), 100);
   const heroAmount = isProtected
-    ? categoryAllocated
+    ? categoryRemaining
     : overAmount > 0
       ? overAmount
       : categoryRemaining;
   const heroLabel = isProtected
-    ? "Protected reserve"
+    ? "To protect"
     : overAmount > 0
       ? "Over budget"
       : "Remaining";
