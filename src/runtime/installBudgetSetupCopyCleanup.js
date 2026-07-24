@@ -2,11 +2,29 @@ const TOP_EXPLANATION =
   "Add each expense or responsibility one at a time. CLARA will calculate your real budget total as you go.";
 const EMPTY_STATE_EXPLANATION =
   "You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.";
+const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
+function restoreReusedElements(root) {
+  if (!root) return;
+
+  root.querySelectorAll(`[${HIDDEN_MARKER}="true"]`).forEach((element) => {
+    const text = normalizeText(element.textContent);
+    const shouldStayHidden = text === TOP_EXPLANATION || text === EMPTY_STATE_EXPLANATION;
+
+    if (shouldStayHidden) return;
+
+    element.hidden = false;
+    element.style.removeProperty("display");
+    element.removeAttribute(HIDDEN_MARKER);
+  });
+}
+
 function hideMatchingCopy(root) {
   if (!root) return;
+
+  restoreReusedElements(root);
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const elementsToHide = new Set();
@@ -29,6 +47,7 @@ function hideMatchingCopy(root) {
   }
 
   elementsToHide.forEach((element) => {
+    element.setAttribute(HIDDEN_MARKER, "true");
     element.hidden = true;
     element.style.display = "none";
   });
