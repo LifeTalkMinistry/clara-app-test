@@ -24,7 +24,9 @@ const notificationRegistrySource = readSource(
 const runtimePatchRegistrySource = readSource(
   "src/runtime/installClaraRuntimePatches.js"
 );
+const settingsCleanupSource = readSource("src/settings-cleanup.css");
 const themeProviderSource = readSource("src/theme/ThemeProvider.jsx");
+const userRoleSource = readSource("src/hooks/useUserRole.js");
 const appSource = readSource("src/App.jsx");
 const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
 const adminClientSource = readSource("src/lib/admin-backend-client.js");
@@ -106,6 +108,13 @@ test("Weekly Money Review visible setting is the authoritative runtime gate", ()
   );
 });
 
+test("the Settings overview no longer claims all notifications are On or Off from one reminder flag", () => {
+  assert.match(
+    settingsCleanupSource,
+    /button\.group:has\(svg\.lucide-bell\) > span[\s\S]*display: none !important/
+  );
+});
+
 test("Settings no longer installs duplicate theme hiding or the hidden double-tap demo", () => {
   assert.doesNotMatch(runtimePatchRegistrySource, /settings-hide-theme-appearance/);
   assert.doesNotMatch(
@@ -124,6 +133,14 @@ test("signed-in theme persistence is scoped to the active CLARA account", () => 
     themeProviderSource,
     /if \(user\?\.id\) \{[\s\S]{0,180}writeAccountStoredThemeKey\(user\.id, nextTheme\.key\)/
   );
+});
+
+test("free users can still enter the CLARA Support admin conversation", () => {
+  assert.match(
+    userRoleSource,
+    /messagingAdminOnly:[\s\S]{0,120}plan === FREE_PLAN_KEY/
+  );
+  assert.match(userRoleSource, /general private messaging is a Committed feature/);
 });
 
 test("Settings Admin Panel route opens a real backend-backed admin surface", () => {
