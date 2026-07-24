@@ -1,3 +1,4 @@
+# One-time cleanup: remove the two highlighted Budget Items explanations.
 name: Remove budget setup copy
 
 on:
