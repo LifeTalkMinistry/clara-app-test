@@ -15,6 +15,7 @@ import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySou
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
+import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
 import { installSettingsAccessLogout } from "./runtime/installSettingsAccessLogout";
 import {
@@ -100,6 +101,12 @@ try {
   installClaraBackgroundRuntimeGuard();
 } catch (error) {
   console.warn("CLARA background runtime guard failed to init:", error);
+}
+
+try {
+  installBudgetSetupCopyCleanup();
+} catch (error) {
+  console.warn("CLARA Budget Setup copy cleanup failed to init:", error);
 }
 
 try {
