@@ -32,6 +32,13 @@ const hasResetBoundary = (activeBudget = {}) => Boolean(
 const isProtectedBudgetCommitment = (item = {}) =>
   item?.isProtectedCommitment === true || item?.is_protected_commitment === true;
 
+const isDerivedBudget = (activeBudget = {}) =>
+  activeBudget?.isDerivedBudget === true ||
+  activeBudget?.is_derived_budget === true ||
+  String(activeBudget?.budget_total_mode || activeBudget?.budgetTotalMode || "")
+    .trim()
+    .toLowerCase() === "derived_from_items";
+
 const readBudgetCategories = (activeBudget = {}) => {
   if (Array.isArray(activeBudget?.budgetDisplayCategories)) return activeBudget.budgetDisplayCategories;
   if (Array.isArray(activeBudget?.budget_display_categories)) return activeBudget.budget_display_categories;
@@ -280,11 +287,14 @@ export default function useBudgetCardLogic({
     activeBudget?.remaining ?? activeBudget?.remaining_amount ?? activeBudget?.amount_left ?? activeBudget?.totalRemaining
   );
   const hasExplicitRemaining = hasValue(activeBudget?.remaining) || hasValue(activeBudget?.remaining_amount) || hasValue(activeBudget?.amount_left) || hasValue(activeBudget?.totalRemaining);
-  const remaining = protectedReserved > 0
-    ? Math.max(declared - spent - protectedReserved, 0)
-    : hasExplicitRemaining
-      ? Math.max(explicitRemaining, 0)
-      : Math.max(declared - spent, 0);
+  const derivedMode = isDerivedBudget(activeBudget);
+  const remaining = derivedMode
+    ? Math.max(declared - spent, 0)
+    : protectedReserved > 0
+      ? Math.max(declared - spent - protectedReserved, 0)
+      : hasExplicitRemaining
+        ? Math.max(explicitRemaining, 0)
+        : Math.max(declared - spent, 0);
   const unallocated = Math.max(
     safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? activeBudget?.unallocated ?? activeBudget?.unallocated_balance ?? activeBudget?.unallocatedBalance ?? declared - allocated),
     0
