@@ -7,6 +7,7 @@ import {
 import { getCycleWindow, isDerivedBudgetHeader } from "@/lib/clara-derived-budget";
 import {
   firstValidNumber,
+  getPHDateKey,
   getPHMonthKey,
   normalizeLower,
   normalizeString,
@@ -16,14 +17,14 @@ function toDateOnly(value) {
   if (!value) return "";
   const raw = String(value).trim();
   const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (match) return match[1];
+  if (match && !raw.includes("T")) return match[1];
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return normalizeString(value).slice(0, 10);
-  return parsed.toISOString().slice(0, 10);
+  if (Number.isNaN(parsed.getTime())) return match?.[1] || normalizeString(value).slice(0, 10);
+  return getPHDateKey(parsed);
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return getPHDateKey();
 }
 
 function getCycleStart(budget) {
