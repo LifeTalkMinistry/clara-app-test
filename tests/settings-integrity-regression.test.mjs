@@ -27,6 +27,7 @@ const supportCompatibilitySource = readSource(
   "src/lib/settings-support-compatibility.js"
 );
 const supportClientSource = readSource("src/lib/support-backend-client.js");
+const billingClientSource = readSource("src/lib/billing-backend-client.js");
 
 test("Schedule reminders never fall back to another account's local schedule", () => {
   assert.doesNotMatch(scheduleSource, /readLatestScheduleEvents/);
@@ -119,4 +120,11 @@ test("legacy Settings support UI delivers into the real CLARA backend support in
   assert.match(supportCompatibilitySource, /sendBackendSupportMessage/);
   assert.match(supportClientSource, /backendRequest\("\/api\/support\/messages"/);
   assert.match(supportClientSource, /method: "POST"/);
+});
+
+test("Plan & Billing reads the authenticated user's real backend subscription", () => {
+  assert.match(supportCompatibilitySource, /table === "enrollments"/);
+  assert.match(supportCompatibilitySource, /fetchCurrentBackendBilling/);
+  assert.match(billingClientSource, /backendRequest\("\/api\/users\/me\/billing"/);
+  assert.doesNotMatch(billingClientSource, /supabase/i);
 });
