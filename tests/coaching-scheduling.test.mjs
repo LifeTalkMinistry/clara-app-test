@@ -18,6 +18,7 @@ const welcomeSession = [
   "src/components/coaching/SessionStatus.jsx",
   "src/components/coaching/SessionShared.jsx",
 ].map((file) => fs.readFileSync(file, "utf8")).join("\n");
+const sessionOptions = fs.readFileSync("src/components/coaching/sessionOptions.js", "utf8");
 const scheduleClient = fs.readFileSync("src/lib/coaching-backend-client.js", "utf8");
 const scheduleModule = fs.readFileSync("src/lib/welcome-session-schedule.js", "utf8");
 const learningHubEntry = fs.readFileSync(
@@ -86,11 +87,12 @@ test("unsent draft recovery is explicitly non-authoritative", () => {
   };
   saveUnsentCoachingDraft("committed_first_session", {
     slotId: "signed-slot",
-    answers: { focus: "budgeting" },
+    answers: { focus: ["budget_cashflow", "savings"] },
   });
   const draft = readUnsentCoachingDraft("committed_first_session");
   assert.equal(draft.status, "unsent_draft");
   assert.equal(draft.slotId, "signed-slot");
+  assert.deepEqual(draft.answers.focus, ["budget_cashflow", "savings"]);
   clearUnsentCoachingDraft("committed_first_session");
   assert.equal(readUnsentCoachingDraft("committed_first_session"), null);
   delete global.window;
@@ -102,6 +104,18 @@ test("user scheduling client derives identity from the authenticated backend ses
   assert.doesNotMatch(scheduleClient, /user_id|userId/);
 });
 
+test("session focus alone supports a bounded multi-select", () => {
+  assert.match(sessionOptions, /key: "focus"[\s\S]{0,240}multiple: true[\s\S]{0,80}maxSelections: 3/);
+  assert.match(sessionOptions, /Choose up to 3 concerns/);
+  assert.equal((sessionOptions.match(/multiple: true/g) || []).length, 1);
+  assert.match(welcomeSession, /currentSelections/);
+  assert.match(welcomeSession, /Selected/);
+  assert.match(welcomeSession, /selectionLimitReached/);
+  assert.match(scheduleClient, /normalizeAnswersForBackend/);
+  assert.match(scheduleClient, /answers\.focus/);
+  assert.match(scheduleClient, /\.join\(","\)/);
+});
+
 test("active appointments allow intake edits without changing scheduling actions", () => {
   assert.match(welcomeSession, /Edit Session Details/);
   assert.match(welcomeSession, /edit-checkin/);
@@ -110,7 +124,7 @@ test("active appointments allow intake edits without changing scheduling actions
   assert.match(welcomeSession, /appointment date, time, and status did not change/i);
   assert.match(scheduleClient, /updateCoachingAppointmentAnswers/);
   assert.match(scheduleClient, /method: "PATCH"/);
-  assert.match(scheduleClient, /body: \{ answers \}/);
+  assert.match(scheduleClient, /answers: normalizeAnswersForBackend\(answers\)/);
   assert.match(welcomeSession, /\["requested", "confirmed", "reschedule_requested"\]/);
 });
 
