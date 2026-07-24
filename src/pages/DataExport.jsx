@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { getBackendAccountId } from "@/lib/clara-account-identity";
 import { fetchCloudVaultStatus } from "@/lib/cloud-vault-client";
 import {
   countCloudSnapshotItems,
@@ -35,8 +36,9 @@ import {
 export default function DataExport() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const accountId = getBackendAccountId(user);
   const fileInputRef = useRef(null);
-  const [mode, setMode] = useState(() => getClaraStorageMode(user?.id));
+  const [mode, setMode] = useState(() => getClaraStorageMode(accountId));
   const [changingMode, setChangingMode] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [cloudStatus, setCloudStatus] = useState(null);
@@ -46,13 +48,13 @@ export default function DataExport() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
-    if (!user?.id) return undefined;
+    if (!accountId) return undefined;
     let active = true;
 
     fetchCloudVaultStatus()
       .then((status) => {
         if (!active) return;
-        const nextMode = saveClaraStorageMode(user.id, status.storageMode);
+        const nextMode = saveClaraStorageMode(accountId, status.storageMode);
         setMode(nextMode);
         setCloudStatus(status);
       })
@@ -61,7 +63,7 @@ export default function DataExport() {
       });
 
     const handleSyncStatus = (event) => {
-      if (String(event?.detail?.accountId || "") !== String(user.id)) return;
+      if (String(event?.detail?.accountId || "") !== accountId) return;
       setCloudStatus((current) => ({ ...current, ...event.detail }));
       setSyncing(event.detail?.state === "syncing");
     };
@@ -71,7 +73,7 @@ export default function DataExport() {
       active = false;
       window.removeEventListener(CLARA_CLOUD_SYNC_STATUS_EVENT, handleSyncStatus);
     };
-  }, [user?.id]);
+  }, [accountId]);
 
   const chooseOnlineSync = async () => {
     try {
