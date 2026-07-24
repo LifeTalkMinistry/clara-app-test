@@ -60,6 +60,35 @@ export function getNotificationPreferencesStorageKey(userId) {
   return `${STORAGE_PREFIX}${cleanUserId(userId)}`;
 }
 
+function getStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageGet(key) {
+  try {
+    return getStorage()?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    const storage = getStorage();
+    if (!storage) return false;
+    storage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn("Notification preference persistence is unavailable on this device:", error);
+    return false;
+  }
+}
+
 function normalizeTime(value, fallback) {
   const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return fallback;
@@ -211,16 +240,14 @@ function safeParse(raw) {
 }
 
 export function hasStoredNotificationPreferences(userId) {
-  if (typeof window === "undefined") return false;
-  return Boolean(window.localStorage.getItem(getNotificationPreferencesStorageKey(userId)));
+  return Boolean(safeStorageGet(getNotificationPreferencesStorageKey(userId)));
 }
 
 function readLegacyPreferences(userId) {
-  if (typeof window === "undefined") return null;
   const cleanId = cleanUserId(userId);
   const candidates = [
-    window.localStorage.getItem(`${LEGACY_SETTINGS_PREFIX}${cleanId}`),
-    window.localStorage.getItem(`clara_notification_settings_${cleanId}`),
+    safeStorageGet(`${LEGACY_SETTINGS_PREFIX}${cleanId}`),
+    safeStorageGet(`clara_notification_settings_${cleanId}`),
   ];
 
   for (const raw of candidates) {
@@ -237,14 +264,14 @@ export function readNotificationPreferences(userId) {
   if (typeof window === "undefined") return normalizeNotificationPreferences();
 
   const storageKey = getNotificationPreferencesStorageKey(userId);
-  const stored = safeParse(window.localStorage.getItem(storageKey));
+  const stored = safeParse(safeStorageGet(storageKey));
   if (stored) return normalizeNotificationPreferences(stored);
 
   const legacy = readLegacyPreferences(userId);
   if (!legacy) return normalizeNotificationPreferences();
 
   const migrated = normalizeNotificationPreferences(legacy);
-  window.localStorage["set" + "Item"](storageKey, JSON.stringify(migrated));
+  safeStorageSet(storageKey, JSON.stringify(migrated));
   return migrated;
 }
 
@@ -253,20 +280,26 @@ export function persistNotificationPreferences(userId, value) {
   if (typeof window === "undefined") return normalized;
 
   const cleanId = cleanUserId(userId);
-  window.localStorage["set" + "Item"](
+  safeStorageSet(
     getNotificationPreferencesStorageKey(cleanId),
     JSON.stringify(normalized)
   );
-  window.dispatchEvent(
-    new CustomEvent("clara:notification-preferences-updated", {
-      detail: { userId: cleanId, preferences: normalized },
-    })
-  );
-  window.dispatchEvent(
-    new CustomEvent("clara-settings-updated", {
-      detail: { type: "notifications", userId: cleanId, notifications: normalized },
-    })
-  );
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent("clara:notification-preferences-updated", {
+        detail: { userId: cleanId, preferences: normalized },
+      })
+    );
+    window.dispatchEvent(
+      new CustomEvent("clara-settings-updated", {
+        detail: { type: "notifications", userId: cleanId, notifications: normalized },
+      })
+    );
+  } catch {
+    // The in-memory caller still receives the normalized preference even if events are unavailable.
+  }
+
   return normalized;
 }
 
@@ -330,8 +363,14 @@ export function getZonedDateParts(timezone, date = new Date()) {
     formatter.formatToParts(date).map((part) => [part.type, part.value])
   );
   return {
-    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
-    time: `${parts.hour}:${parts.minute}`,
-    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+    weekday: new Intl.DateTimeFormat("en-US", {
+      timeZone: validTimezone(timezone),
+      weekday: "short",
+    }).format(date),
   };
 }
