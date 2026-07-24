@@ -1,0 +1,43 @@
+name: Verify Data Retention
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/clara-account-identity.js"
+      - "src/lib/cloud-vault-snapshot.js"
+      - "src/lib/cloud-vault-sync.js"
+      - "src/lib/local-identity-storage-migration.js"
+      - "src/components/CloudVaultSyncBridge.jsx"
+      - "src/pages/DataExport.jsx"
+      - "tests/data-retention-hardening.test.mjs"
+      - "package.json"
+      - ".github/workflows/verify-data-retention.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/clara-account-identity.js"
+      - "src/lib/cloud-vault-snapshot.js"
+      - "src/lib/cloud-vault-sync.js"
+      - "src/lib/local-identity-storage-migration.js"
+      - "src/components/CloudVaultSyncBridge.jsx"
+      - "src/pages/DataExport.jsx"
+      - "tests/data-retention-hardening.test.mjs"
+      - "package.json"
+      - ".github/workflows/verify-data-retention.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run data retention guards
+        run: node --test tests/data-retention-hardening.test.mjs tests/cloud-vault-sync.test.mjs
+      - name: Run full app regression suite
+        run: npm test
+      - name: Verify production build
+        run: npm run build
