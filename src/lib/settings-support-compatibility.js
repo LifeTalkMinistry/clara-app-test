@@ -19,7 +19,7 @@ function parseSupportContent(value) {
   };
 }
 
-function createProfilesQuery(localFacade) {
+function createReplayQuery(localFacade, tableName, { interceptInsert } = {}) {
   const operations = [];
   let terminal = "select";
 
@@ -29,21 +29,8 @@ function createProfilesQuery(localFacade) {
     return query;
   };
 
-  const isAdminLookup = () =>
-    operations.some(
-      ({ method, args }) =>
-        method === "eq" && args[0] === "role" && String(args[1] || "").toLowerCase() === "admin"
-    );
-
-  const execute = async () => {
-    if (isAdminLookup()) {
-      const data = [SUPPORT_ADMIN];
-      return terminal === "maybeSingle" || terminal === "single"
-        ? { data: SUPPORT_ADMIN, error: null }
-        : { data, error: null };
-    }
-
-    let underlying = localFacade.from("profiles");
+  const executeUnderlying = async () => {
+    let underlying = localFacade.from(tableName);
     for (const { method, args } of operations) {
       if (typeof underlying?.[method] === "function") {
         underlying = underlying[method](...args);
@@ -55,11 +42,35 @@ function createProfilesQuery(localFacade) {
     return underlying;
   };
 
+  const execute = async () => {
+    const insertOperation = operations.find(({ method }) => method === "insert");
+    if (insertOperation && typeof interceptInsert === "function") {
+      const intercepted = await interceptInsert(insertOperation.args[0]);
+      if (intercepted) {
+        if (terminal === "single" || terminal === "maybeSingle") {
+          return {
+            data: Array.isArray(intercepted.data)
+              ? intercepted.data[0] || null
+              : intercepted.data,
+            error: intercepted.error || null,
+          };
+        }
+        return intercepted;
+      }
+    }
+    return executeUnderlying();
+  };
+
   Object.assign(query, {
     select: (...args) => chain("select", args),
+    insert: (...args) => chain("insert", args),
+    update: (...args) => chain("update", args),
+    upsert: (...args) => chain("upsert", args),
+    delete: (...args) => chain("delete", args),
     eq: (...args) => chain("eq", args),
     in: (...args) => chain("in", args),
     is: (...args) => chain("is", args),
+    or: (...args) => chain("or", args),
     order: (...args) => chain("order", args),
     limit: (...args) => chain("limit", args),
     maybeSingle: () => {
@@ -78,46 +89,89 @@ function createProfilesQuery(localFacade) {
   return query;
 }
 
-function createDirectMessagesQuery() {
+function createProfilesQuery(localFacade) {
+  const base = createReplayQuery(localFacade, "profiles");
+  const operations = [];
+  let terminal = "select";
   const query = {};
 
-  query.insert = (value) => {
-    const payloads = Array.isArray(value) ? value : [value];
-    const execute = async () => {
-      const first = payloads.find((item) => item && typeof item === "object");
-      if (!first) return { data: null, error: new Error("Support message is empty.") };
-
-      const parsed = parseSupportContent(first.content);
-      try {
-        const saved = await sendBackendSupportMessage({
-          topic: parsed.topic,
-          content: parsed.content,
-          senderName: first.sender_name,
-          senderEmail: first.sender_email,
-        });
-        return { data: saved ? [saved] : [], error: null };
-      } catch (error) {
-        return { data: null, error };
-      }
-    };
-
-    return {
-      select: () => ({
-        single: async () => {
-          const result = await execute();
-          return {
-            data: Array.isArray(result.data) ? result.data[0] || null : result.data,
-            error: result.error,
-          };
-        },
-      }),
-      then: (resolve, reject) => execute().then(resolve, reject),
-      catch: (reject) => execute().catch(reject),
-      finally: (handler) => execute().finally(handler),
-    };
+  const chain = (method, args = []) => {
+    operations.push({ method, args });
+    return query;
   };
 
+  const isAdminLookup = () =>
+    operations.some(
+      ({ method, args }) =>
+        method === "eq" &&
+        args[0] === "role" &&
+        String(args[1] || "").toLowerCase() === "admin"
+    );
+
+  const execute = async () => {
+    if (isAdminLookup()) {
+      return terminal === "maybeSingle" || terminal === "single"
+        ? { data: SUPPORT_ADMIN, error: null }
+        : { data: [SUPPORT_ADMIN], error: null };
+    }
+
+    let delegated = base;
+    for (const { method, args } of operations) {
+      if (typeof delegated?.[method] === "function") {
+        delegated = delegated[method](...args);
+      }
+    }
+    if (terminal !== "select" && typeof delegated?.[terminal] === "function") {
+      return delegated[terminal]();
+    }
+    return delegated;
+  };
+
+  Object.assign(query, {
+    select: (...args) => chain("select", args),
+    insert: (...args) => chain("insert", args),
+    update: (...args) => chain("update", args),
+    upsert: (...args) => chain("upsert", args),
+    delete: (...args) => chain("delete", args),
+    eq: (...args) => chain("eq", args),
+    in: (...args) => chain("in", args),
+    is: (...args) => chain("is", args),
+    or: (...args) => chain("or", args),
+    order: (...args) => chain("order", args),
+    limit: (...args) => chain("limit", args),
+    maybeSingle: () => {
+      terminal = "maybeSingle";
+      return execute();
+    },
+    single: () => {
+      terminal = "single";
+      return execute();
+    },
+    then: (resolve, reject) => execute().then(resolve, reject),
+    catch: (reject) => execute().catch(reject),
+    finally: (handler) => execute().finally(handler),
+  });
+
   return query;
+}
+
+function supportInsertInterceptor(value) {
+  const payloads = Array.isArray(value) ? value : [value];
+  const first = payloads.find((item) => item && typeof item === "object");
+  if (!first) return null;
+
+  const rawContent = String(first.content || "");
+  if (!/^\[CLARA Support\s*•/i.test(rawContent.trim())) return null;
+
+  const parsed = parseSupportContent(rawContent);
+  return sendBackendSupportMessage({
+    topic: parsed.topic,
+    content: parsed.content,
+    senderName: first.sender_name,
+    senderEmail: first.sender_email,
+  })
+    .then((saved) => ({ data: saved ? [saved] : [], error: null }))
+    .catch((error) => ({ data: null, error }));
 }
 
 export function withSettingsSupportCompatibility(localFacade) {
@@ -128,7 +182,11 @@ export function withSettingsSupportCompatibility(localFacade) {
     from(tableName) {
       const table = String(tableName || "").trim().toLowerCase();
       if (table === "profiles") return createProfilesQuery(localFacade);
-      if (table === "direct_messages") return createDirectMessagesQuery();
+      if (table === "direct_messages") {
+        return createReplayQuery(localFacade, "direct_messages", {
+          interceptInsert: supportInsertInterceptor,
+        });
+      }
       return localFacade.from(tableName);
     },
   };
