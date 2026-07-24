@@ -24,6 +24,10 @@ export const fetchAdminUsers = () => adminRequest("/users");
 export const fetchAdminAccessCodes = () => adminRequest("/access-codes");
 export const fetchAdminSubscriptions = () => adminRequest("/subscriptions");
 export const fetchAdminSettings = () => adminRequest("/settings");
+export async function fetchAdminSupportMessages() {
+  const payload = await adminRequest("/support/messages");
+  return Array.isArray(payload?.messages) ? payload.messages : [];
+}
 
 export const updateAdminUser = (userId, patch) =>
   adminRequest(`/users/${Number(userId)}`, {
@@ -41,6 +45,12 @@ export const updateAdminAccessCode = (codeId, patch) =>
   adminRequest(`/access-codes/${Number(codeId)}`, {
     method: "PATCH",
     body: patch,
+  });
+
+export const updateAdminSupportMessage = (messageId, status) =>
+  adminRequest(`/support/messages/${Number(messageId)}`, {
+    method: "PATCH",
+    body: { status },
   });
 
 export const updateAdminSettings = (patch) =>
