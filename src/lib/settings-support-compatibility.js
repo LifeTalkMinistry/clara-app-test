@@ -1,4 +1,8 @@
 import { fetchCurrentBackendBilling } from "@/lib/billing-backend-client";
+import {
+  fetchBackendLegalInformation,
+  updateBackendLegalInformation,
+} from "@/lib/legal-information-backend-client";
 import { sendBackendSupportMessage } from "@/lib/support-backend-client";
 
 const SUPPORT_ADMIN = Object.freeze({
@@ -167,8 +171,10 @@ function createBillingQuery() {
       const normalized = billing
         ? {
             ...billing,
-            current_period_start: billing.current_period_start || billing.created_at || null,
-            next_billing_date: billing.next_billing_date || billing.renewal_date || null,
+            current_period_start:
+              billing.current_period_start || billing.created_at || null,
+            next_billing_date:
+              billing.next_billing_date || billing.renewal_date || null,
           }
         : null;
       if (terminal === "single") {
@@ -191,6 +197,77 @@ function createBillingQuery() {
     or: chain,
     order: chain,
     limit: chain,
+    maybeSingle: () => {
+      terminal = "maybeSingle";
+      return execute();
+    },
+    single: () => {
+      terminal = "single";
+      return execute();
+    },
+    then: (resolve, reject) => execute().then(resolve, reject),
+    catch: (reject) => execute().catch(reject),
+    finally: (handler) => execute().finally(handler),
+  });
+
+  return query;
+}
+
+function normalizeLegalRows(rows = []) {
+  return (Array.isArray(rows) ? rows : []).map((row, index) => ({
+    section_key: String(row?.section_key || row?.sectionKey || "").trim(),
+    title: String(row?.title || "").trim(),
+    subtitle: String(row?.subtitle || "").trim(),
+    body: String(row?.body || "").trim(),
+    sort_order: Number(row?.sort_order ?? row?.sortOrder ?? index + 1),
+    is_active: row?.is_active !== false && row?.isActive !== false,
+    updated_at: row?.updated_at || row?.updatedAt || null,
+  }));
+}
+
+function createLegalInformationQuery() {
+  let operation = "select";
+  let payload = null;
+  let terminal = "select";
+  const query = {};
+  const chain = () => query;
+
+  const execute = async () => {
+    try {
+      const rows = normalizeLegalRows(
+        operation === "upsert"
+          ? await updateBackendLegalInformation(payload)
+          : await fetchBackendLegalInformation()
+      ).sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
+
+      if (terminal === "single") {
+        return rows.length === 1
+          ? { data: rows[0], error: null }
+          : {
+              data: rows[0] || null,
+              error: rows.length ? new Error("Multiple information rows returned.") : new Error("Information row not found."),
+            };
+      }
+      if (terminal === "maybeSingle") return { data: rows[0] || null, error: null };
+      return { data: rows, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  };
+
+  Object.assign(query, {
+    select: chain,
+    eq: chain,
+    in: chain,
+    is: chain,
+    or: chain,
+    order: chain,
+    limit: chain,
+    upsert(value) {
+      operation = "upsert";
+      payload = value;
+      return query;
+    },
     maybeSingle: () => {
       terminal = "maybeSingle";
       return execute();
@@ -235,6 +312,9 @@ export function withSettingsSupportCompatibility(localFacade) {
       const table = String(tableName || "").trim().toLowerCase();
       if (table === "profiles") return createProfilesQuery(localFacade);
       if (table === "enrollments") return createBillingQuery();
+      if (table === "legal_information_content") {
+        return createLegalInformationQuery();
+      }
       if (table === "direct_messages") {
         return createReplayQuery(localFacade, "direct_messages", {
           interceptInsert: supportInsertInterceptor,
