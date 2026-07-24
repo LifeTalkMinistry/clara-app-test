@@ -4,53 +4,38 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  CreditCard,
   Edit3,
   ListChecks,
   Plus,
   ShieldCheck,
   Trash2,
   Wallet,
-  X,
 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
-import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
-import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan";
-import { resetMonthlyBudgetCycle } from "@/lib/clara-budget-cycle-reset";
-import { getPHMonthKey, normalizeString } from "@/utils/dashboard/dashboardHelpers";
-
-const amountValue = (value, fallback = 0) => {
-  if (value === null || value === undefined || value === "") return fallback;
-  const numeric = Number(String(value).replace(/php/gi, "").replace(/[₱,\s]/g, ""));
-  return Number.isFinite(numeric) ? numeric : fallback;
-};
-
-const firstAmount = (...values) => {
-  for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
-    const numeric = amountValue(value, NaN);
-    if (Number.isFinite(numeric)) return numeric;
-  }
-  return 0;
-};
-
-const fmt = (value = 0) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amountValue(value));
-
-const today = () => new Date().toISOString().slice(0, 10);
-const nowIso = () => new Date().toISOString();
-const addDays = (date, days) => {
-  const value = new Date(`${String(date || today()).slice(0, 10)}T00:00:00`);
-  value.setDate(value.getDate() + days);
-  return value.toISOString().slice(0, 10);
-};
+import { getDebtObligations, getDebtTitle } from "@/lib/debtObligationStore";
+import {
+  addDays,
+  amountValue,
+  buildBudgetCategoryPayload,
+  buildDerivedHeaderPayload,
+  clearBudgetSetupDraft,
+  dateOnly,
+  firstAmount,
+  getCycleWindow,
+  isDateInsideCycle,
+  isDerivedBudgetHeader,
+  isValidCycleWindow,
+  makeDraftItemId,
+  normalizeBudgetText,
+  readBudgetSetupDraft,
+  saveProtectionSettings,
+  todayDate,
+  writeBudgetSetupDraft,
+} from "@/lib/clara-derived-budget";
 
 const card =
   "rounded-[28px] border border-cyan-100/12 bg-white/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_18px_44px_rgba(0,0,0,0.18)] backdrop-blur-2xl";
@@ -61,88 +46,41 @@ const primaryButton =
 const secondaryButton =
   "flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.055] px-4 py-3.5 text-sm font-bold text-white/72 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45";
 
-const BUDGET_PROTECTION_STORAGE_KEY = "clara_budget_protection_settings";
-const BUDGET_PROTECTION_UPDATED_EVENT = "clara:budget-protection-settings-updated";
-const DEFAULT_BUDGET_PROTECTION_SETTINGS = {
-  setupCompleted: false,
-  includeEmergencyFund: false,
-  emergencyFundContributionMode: "fixed",
-  emergencyFundMonthlyAmount: 0,
-  includeSavingsGoals: false,
-  savingsGoalMode: "none",
-  selectedSavingsGoalIds: [],
-  savingsContributionMode: "fixed",
-  savingsGoalMonthlyAmounts: {},
-  createdAt: null,
-  updatedAt: null,
-};
+const STEPS = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
+const SUGGESTIONS = ["Food", "Bills", "Rent", "Transport", "Groceries"];
+
+const fmt = (value = 0) =>
+  new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amountValue(value));
 
 function fireBudgetEvents() {
   if (typeof window === "undefined") return;
-  [
-    "clara-budgets-updated",
-    "clara-finance-updated",
-    "clara-local-finance-updated",
-  ].forEach((name) => window.dispatchEvent(new Event(name)));
+  ["clara-budgets-updated", "clara-finance-updated", "clara-local-finance-updated"].forEach(
+    (name) => window.dispatchEvent(new Event(name)),
+  );
 }
 
-function cleanProtectionSettings(settings = {}) {
-  return {
-    ...DEFAULT_BUDGET_PROTECTION_SETTINGS,
-    ...settings,
-    setupCompleted: settings.setupCompleted === true,
-    includeEmergencyFund: settings.includeEmergencyFund === true,
-    emergencyFundContributionMode: "fixed",
-    emergencyFundMonthlyAmount: Math.max(0, amountValue(settings.emergencyFundMonthlyAmount)),
-    includeSavingsGoals: settings.includeSavingsGoals === true,
-    savingsGoalMode: ["none", "selected", "all"].includes(settings.savingsGoalMode)
-      ? settings.savingsGoalMode
-      : "none",
-    selectedSavingsGoalIds: Array.isArray(settings.selectedSavingsGoalIds)
-      ? settings.selectedSavingsGoalIds.map(String).filter(Boolean)
-      : [],
-    savingsContributionMode: "fixed",
-    savingsGoalMonthlyAmounts:
-      settings.savingsGoalMonthlyAmounts && typeof settings.savingsGoalMonthlyAmounts === "object"
-        ? settings.savingsGoalMonthlyAmounts
-        : {},
-  };
+function isBudgetHeader(row = {}) {
+  return Boolean(
+    row?.is_plan_header === true ||
+      row?.plan_type === "monthly_budget" ||
+      normalizeBudgetText(row?.category) === "monthly budget" ||
+      normalizeBudgetText(row?.budget_category) === "monthly budget" ||
+      normalizeBudgetText(row?.type) === "monthly budget",
+  );
 }
 
-function readProtectionSettings() {
-  try {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return cleanProtectionSettings();
-    }
-    const raw = window.localStorage.getItem(BUDGET_PROTECTION_STORAGE_KEY);
-    return raw ? cleanProtectionSettings(JSON.parse(raw)) : cleanProtectionSettings();
-  } catch {
-    return cleanProtectionSettings();
-  }
-}
-
-function saveProtectionSettings(settings = {}) {
-  const current = readProtectionSettings();
-  const timestamp = new Date().toISOString();
-  const next = cleanProtectionSettings({
-    ...current,
-    ...settings,
-    createdAt: current.createdAt || timestamp,
-    updatedAt: timestamp,
-  });
-
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem(BUDGET_PROTECTION_STORAGE_KEY, JSON.stringify(next));
-      window.dispatchEvent(
-        new CustomEvent(BUDGET_PROTECTION_UPDATED_EVENT, { detail: { settings: next } }),
-      );
-    }
-  } catch (error) {
-    console.warn("CLARA budget protection save failed:", error);
-  }
-
-  return next;
+function isInactiveRow(row = {}) {
+  const status = normalizeBudgetText(row?.status);
+  return Boolean(
+    row?.is_active === false ||
+      row?.active === false ||
+      ["inactive", "archived", "deleted", "closed", "reset"].includes(status),
+  );
 }
 
 function goalId(goal = {}, index = 0) {
@@ -173,35 +111,34 @@ function goalSaved(goal = {}) {
   );
 }
 
+function goalMonthly(goal = {}) {
+  return firstAmount(
+    goal.monthly_contribution,
+    goal.monthlyContribution,
+    goal.monthly_amount,
+    goal.monthlyAmount,
+    goal.target_monthly_amount,
+    goal.recommended_monthly_amount,
+  );
+}
+
 function isActiveGoal(goal = {}) {
-  const status = String(goal.status || goal.goal_status || goal.state || "active").toLowerCase();
+  const status = normalizeBudgetText(goal.status || goal.goal_status || goal.state || "active");
   if (["done", "completed", "complete", "archived", "inactive"].includes(status)) return false;
   const target = goalTarget(goal);
   return target <= 0 || goalSaved(goal) < target;
 }
 
-function goalProgressText(goal = {}) {
-  const saved = goalSaved(goal);
-  const target = goalTarget(goal);
-  if (target > 0) return `${fmt(saved)} of ${fmt(target)}`;
-  return saved > 0 ? `${fmt(saved)} saved` : "Target not set yet";
-}
-
 function hasEmergencyFundSetup(emergencyFund) {
   if (!emergencyFund || typeof emergencyFund !== "object") return false;
   if (emergencyFund.resetAt || emergencyFund.reset_at) return false;
-
-  const status = String(
+  const status = normalizeBudgetText(
     emergencyFund.status || emergencyFund.state || emergencyFund.setup_status || "",
-  )
-    .trim()
-    .toLowerCase();
-
-  if (["reset", "inactive", "archived", "deleted", "not_setup", "not set"].includes(status)) {
+  );
+  if (["reset", "inactive", "archived", "deleted", "not setup", "not set"].includes(status)) {
     return false;
   }
-
-  const hasSetupFlag =
+  const setupFlag =
     emergencyFund.is_setup === true ||
     emergencyFund.isSetup === true ||
     emergencyFund.setup_complete === true ||
@@ -209,484 +146,54 @@ function hasEmergencyFundSetup(emergencyFund) {
     emergencyFund.setupCompleted === true ||
     emergencyFund.is_configured === true ||
     emergencyFund.isConfigured === true;
-
-  const hasSetupStatus = ["active", "setup", "configured", "complete", "completed", "ready"].includes(
+  const setupStatus = ["active", "setup", "configured", "complete", "completed", "ready"].includes(
     status,
   );
-
-  const survivalCost = firstAmount(
+  const target = firstAmount(
+    emergencyFund.target_amount,
+    emergencyFund.targetAmount,
+    emergencyFund.target,
+    emergencyFund.goal_amount,
+  );
+  const survival = firstAmount(
     emergencyFund.monthly_survival_cost,
     emergencyFund.monthlySurvivalCost,
     emergencyFund.survival_expense,
     emergencyFund.survivalExpense,
     emergencyFund.monthlyExpense,
     emergencyFund.monthly_expense,
-    emergencyFund.monthly_survival_expense,
   );
-
-  const targetAmount = firstAmount(
-    emergencyFund.target_amount,
-    emergencyFund.targetAmount,
-    emergencyFund.target,
-    emergencyFund.goal_amount,
-  );
-
   const walletId = String(
     emergencyFund.linkedWalletId ||
       emergencyFund.linked_wallet_id ||
       emergencyFund.reserveWalletId ||
       emergencyFund.reserve_wallet_id ||
-      emergencyFund.sourceWalletId ||
-      emergencyFund.source_wallet_id ||
-      emergencyFund.storageWalletId ||
-      emergencyFund.storage_wallet_id ||
       emergencyFund.walletId ||
       emergencyFund.wallet_id ||
       "",
   ).trim();
-
-  return hasSetupFlag || hasSetupStatus || survivalCost > 0 || targetAmount > 0 || Boolean(walletId);
+  return setupFlag || setupStatus || target > 0 || survival > 0 || Boolean(walletId);
 }
 
-function normalizeCycleType(value) {
-  const clean = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "");
-  if (["weekly", "week"].includes(clean)) return "weekly";
-  if (["biweekly", "bi-weekly", "2weeks", "twoweeks"].includes(clean)) return "biweekly";
-  if (clean === "custom") return "custom";
-  return "monthly";
-}
-
-function getCycleWindow(type, start, end) {
-  const safeType = normalizeCycleType(type);
-  const safeStart = start || today();
-  if (safeType === "weekly") {
-    return { start: safeStart, end: addDays(safeStart, 6), label: "Weekly" };
-  }
-  if (safeType === "biweekly") {
-    return { start: safeStart, end: addDays(safeStart, 13), label: "Bi-weekly" };
-  }
-  if (safeType === "custom") {
-    return { start: safeStart, end: end || String(safeStart).slice(0, 10), label: "Custom" };
-  }
-  const month = getPHMonthKey();
-  return { start: `${month}-01`, end: "", label: "Monthly" };
-}
-
-function getResetCycleWindow(type, end) {
-  const resetStart = nowIso();
-  const base = getCycleWindow(type, today(), end);
-  return { ...base, start: resetStart, reset_start_at: resetStart };
-}
-
-function headerPayload({ amount, done, user, cycle }) {
-  const now = new Date().toISOString();
-  const title = `${cycle.label} Spending Plan`;
-  const resetBoundary = cycle.reset_start_at || null;
-  return {
-    month: getPHMonthKey(),
-    month_key: getPHMonthKey(),
-    title,
-    name: title,
-    category: "__monthly_budget__",
-    budget_category: "__monthly_budget__",
-    type: "monthly_budget",
-    plan_type: "monthly_budget",
-    is_plan_header: true,
-    budget_cycle: cycle.label.toLowerCase(),
-    cycle_type: cycle.label.toLowerCase(),
-    cycle_start: cycle.start,
-    cycle_end: cycle.end,
-    period_start: cycle.start,
-    period_end: cycle.end,
-    reset_start_at: resetBoundary,
-    tracking_started_at: resetBoundary,
-    tracking_start_date: resetBoundary,
-    declared_amount: amount,
-    declared_budget: amount,
-    monthly_budget_amount: amount,
-    total_declared_budget: amount,
-    total_budget: amount,
-    amount,
-    is_complete: Boolean(done),
-    status: done ? "active" : "draft",
-    is_active: true,
-    active: true,
-    updated_at: now,
-    created_by: user?.email || null,
-    email: user?.email || null,
-    user_id: user?.id || null,
-  };
-}
-
-function categoryPayload({ title, amount, order, user, cycle }) {
-  const now = new Date().toISOString();
-  const clean = normalizeString(title) || "Budget Category";
-  return {
-    month: getPHMonthKey(),
-    month_key: getPHMonthKey(),
-    title: clean,
-    name: clean,
-    category: clean,
-    budget_category: clean,
-    allocated: amount,
-    allocated_amount: amount,
-    budget_amount: amount,
-    total_budget: amount,
-    amount,
-    sort_order: order,
-    display_order: order,
-    position: order,
-    budget_cycle: cycle.label.toLowerCase(),
-    cycle_type: cycle.label.toLowerCase(),
-    cycle_start: cycle.start,
-    cycle_end: cycle.end,
-    period_start: cycle.start,
-    period_end: cycle.end,
-    reset_start_at: cycle.reset_start_at || null,
-    is_active: true,
-    active: true,
-    status: "active",
-    updated_at: now,
-    created_by: user?.email || null,
-    email: user?.email || null,
-    user_id: user?.id || null,
-  };
-}
-
-function ProtectionSetupModal({
-  open,
-  settings,
-  savingsGoals = [],
-  hasEmergencyFundSetup = false,
-  onClose,
-  onSave,
-}) {
-  const activeGoals = useMemo(
-    () => (Array.isArray(savingsGoals) ? savingsGoals : []).filter(isActiveGoal),
-    [savingsGoals],
+function monthlyDebtPayment(record = {}) {
+  return firstAmount(
+    record.monthlyDebt,
+    record.monthlyPayment,
+    record.monthly_payment,
+    record.payment,
   );
-  const [draft, setDraft] = useState(() => cleanProtectionSettings(settings));
-  const [screen, setScreen] = useState("emergency-choice");
-  const [message, setMessage] = useState("");
+}
 
-  useEffect(() => {
-    if (!open) return;
-    const clean = cleanProtectionSettings(settings);
-    if (!hasEmergencyFundSetup) {
-      clean.includeEmergencyFund = false;
-      clean.emergencyFundMonthlyAmount = 0;
-    }
-    setDraft(clean);
-    setMessage("");
-    setScreen(hasEmergencyFundSetup ? "emergency-choice" : "savings-choice");
-  }, [open, settings, hasEmergencyFundSetup]);
+function debtDueDate(record = {}) {
+  return dateOnly(record.dueDate || record.due_date || "");
+}
 
-  if (!open) return null;
-
-  const selectedGoalIds = Array.isArray(draft.selectedSavingsGoalIds)
-    ? draft.selectedSavingsGoalIds
-    : [];
-
-  const finish = (rawDraft = draft) => {
-    const selectedIds = Array.isArray(rawDraft.selectedSavingsGoalIds)
-      ? rawDraft.selectedSavingsGoalIds.map(String).filter(Boolean)
-      : [];
-    const includeSavingsGoals = rawDraft.includeSavingsGoals === true && selectedIds.length > 0;
-    const includeEmergencyFund = hasEmergencyFundSetup && rawDraft.includeEmergencyFund === true;
-    const amountMap = includeSavingsGoals
-      ? selectedIds.reduce((result, id) => {
-          const amount = amountValue(rawDraft.savingsGoalMonthlyAmounts?.[id]);
-          if (amount > 0) result[id] = amount;
-          return result;
-        }, {})
-      : {};
-
-    const saved = saveProtectionSettings({
-      ...rawDraft,
-      setupCompleted: true,
-      includeEmergencyFund,
-      emergencyFundContributionMode: "fixed",
-      emergencyFundMonthlyAmount: includeEmergencyFund
-        ? amountValue(rawDraft.emergencyFundMonthlyAmount)
-        : 0,
-      includeSavingsGoals,
-      savingsGoalMode: includeSavingsGoals ? "selected" : "none",
-      selectedSavingsGoalIds: includeSavingsGoals ? selectedIds : [],
-      savingsContributionMode: "fixed",
-      savingsGoalMonthlyAmounts: amountMap,
-    });
-    onSave(saved);
-  };
-
-  const continueAfterEmergency = (nextDraft) => {
-    const clean = cleanProtectionSettings({ ...draft, ...nextDraft });
-    setDraft(clean);
-    setMessage("");
-    if (!activeGoals.length) {
-      finish({
-        ...clean,
-        includeSavingsGoals: false,
-        savingsGoalMode: "none",
-        selectedSavingsGoalIds: [],
-        savingsGoalMonthlyAmounts: {},
-      });
-      return;
-    }
-    setScreen("savings-choice");
-  };
-
-  const toggleGoal = (id) => {
-    setMessage("");
-    setDraft((current) => {
-      const selected = new Set(current.selectedSavingsGoalIds || []);
-      if (selected.has(id)) selected.delete(id);
-      else selected.add(id);
-      const amounts = { ...(current.savingsGoalMonthlyAmounts || {}) };
-      if (!selected.has(id)) delete amounts[id];
-      return {
-        ...current,
-        includeSavingsGoals: selected.size > 0,
-        selectedSavingsGoalIds: [...selected],
-        savingsGoalMonthlyAmounts: amounts,
-      };
-    });
-  };
-
-  const copy = {
-    "emergency-choice": {
-      title: "Protect part of this budget for emergencies?",
-      body: "CLARA will reserve this money before calculating what is still available for categories.",
-    },
-    "emergency-amount": {
-      title: "How much should stay protected?",
-      body: "Choose the amount you want reserved for your Emergency Fund this cycle.",
-    },
-    "savings-choice": {
-      title: activeGoals.length === 1 ? "Include your savings goal?" : "Which savings goals should be protected?",
-      body: "Only the goals you select will be reserved inside this budget.",
-    },
-    "savings-amount": {
-      title: "How much should go to savings?",
-      body: "Set the protected amount for each selected goal.",
-    },
-  }[screen];
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-[#020713]/85 backdrop-blur-md sm:items-center sm:p-4"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        onClick={(event) => event.stopPropagation()}
-        className="max-h-[92svh] w-full max-w-[430px] overflow-y-auto rounded-t-[32px] border border-white/15 bg-[#071421] p-5 text-white shadow-[0_30px_90px_rgba(0,0,0,0.6)] sm:rounded-[32px]"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/80">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Budget protection
-            </div>
-            <h2 className="mt-3 text-2xl font-black tracking-[-0.04em]">{copy.title}</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06] text-white/64"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mt-3 text-sm font-semibold leading-6 text-white/58">{copy.body}</p>
-
-        {message ? (
-          <p className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-xs font-bold leading-5 text-amber-100">
-            {message}
-          </p>
-        ) : null}
-
-        {screen === "emergency-choice" ? (
-          <div className="mt-5 space-y-3">
-            <button
-              type="button"
-              onClick={() =>
-                continueAfterEmergency({
-                  includeEmergencyFund: false,
-                  emergencyFundMonthlyAmount: 0,
-                })
-              }
-              className={secondaryButton}
-            >
-              Skip Emergency Fund
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDraft((current) => ({ ...current, includeEmergencyFund: true }));
-                setScreen("emergency-amount");
-              }}
-              className={primaryButton}
-            >
-              Yes, protect money
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
-        {screen === "emergency-amount" ? (
-          <div className="mt-5 space-y-3">
-            <input
-              type="number"
-              min="0"
-              inputMode="decimal"
-              value={draft.emergencyFundMonthlyAmount || ""}
-              onChange={(event) => {
-                setMessage("");
-                setDraft((current) => ({
-                  ...current,
-                  emergencyFundMonthlyAmount: event.target.value,
-                }));
-              }}
-              placeholder="Example: 1,000"
-              className={input}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const amount = amountValue(draft.emergencyFundMonthlyAmount);
-                if (amount <= 0) {
-                  setMessage("Enter an amount above ₱0.");
-                  return;
-                }
-                continueAfterEmergency({
-                  includeEmergencyFund: true,
-                  emergencyFundMonthlyAmount: amount,
-                });
-              }}
-              className={primaryButton}
-            >
-              Continue
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
-        {screen === "savings-choice" ? (
-          <div className="mt-5 space-y-3">
-            <div className="space-y-2">
-              {activeGoals.map((goal, index) => {
-                const id = goalId(goal, index);
-                const selected = selectedGoalIds.includes(id);
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => toggleGoal(id)}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                      selected
-                        ? "border-emerald-300/35 bg-emerald-400/12 text-emerald-50"
-                        : "border-white/10 bg-white/[0.045] text-white/72"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-black">{goalTitle(goal, index)}</span>
-                      {selected ? <CheckCircle2 className="h-4 w-4 text-emerald-200" /> : null}
-                    </span>
-                    <span className="mt-1 block text-xs font-semibold text-white/42">
-                      {goalProgressText(goal)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                finish({
-                  ...draft,
-                  includeSavingsGoals: false,
-                  savingsGoalMode: "none",
-                  selectedSavingsGoalIds: [],
-                  savingsGoalMonthlyAmounts: {},
-                })
-              }
-              className={secondaryButton}
-            >
-              Continue without savings
-            </button>
-            <button
-              type="button"
-              disabled={!selectedGoalIds.length}
-              onClick={() => setScreen("savings-amount")}
-              className={primaryButton}
-            >
-              Set savings amounts
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
-        {screen === "savings-amount" ? (
-          <div className="mt-5 space-y-3">
-            {activeGoals
-              .map((goal, index) => ({ goal, index, id: goalId(goal, index) }))
-              .filter((item) => selectedGoalIds.includes(item.id))
-              .map((item) => (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-sm font-black">{goalTitle(item.goal, item.index)}</p>
-                  <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/35">
-                    Protected amount
-                  </p>
-                  <input
-                    type="number"
-                    min="0"
-                    inputMode="decimal"
-                    value={draft.savingsGoalMonthlyAmounts?.[item.id] || ""}
-                    onChange={(event) => {
-                      setMessage("");
-                      setDraft((current) => ({
-                        ...current,
-                        savingsGoalMonthlyAmounts: {
-                          ...(current.savingsGoalMonthlyAmounts || {}),
-                          [item.id]: event.target.value,
-                        },
-                      }));
-                    }}
-                    placeholder="Example: 500"
-                    className={`${input} mt-2`}
-                  />
-                </div>
-              ))}
-            <button
-              type="button"
-              onClick={() => {
-                const invalid = selectedGoalIds.some(
-                  (id) => amountValue(draft.savingsGoalMonthlyAmounts?.[id]) <= 0,
-                );
-                if (invalid) {
-                  setMessage("Enter an amount for every selected goal.");
-                  return;
-                }
-                finish({ ...draft, includeSavingsGoals: true, savingsGoalMode: "selected" });
-              }}
-              className={primaryButton}
-            >
-              Save protection
-              <CheckCircle2 className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
+function isActiveDebt(record = {}) {
+  const status = normalizeBudgetText(record.status || "active");
+  return !["inactive", "archived", "deleted", "closed", "paid", "completed"].includes(status);
 }
 
 function StepProgress({ step }) {
-  const labels = ["Amount", "Cycle", "Protection", "Categories", "Review"];
   return (
     <section className={`${card} px-4 py-3.5`}>
       <div className="flex items-center justify-between gap-3">
@@ -694,7 +201,7 @@ function StepProgress({ step }) {
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/45">
             Step {step} of 5
           </p>
-          <p className="mt-1 text-sm font-black text-white/88">{labels[step - 1]}</p>
+          <p className="mt-1 text-sm font-black text-white/88">{STEPS[step - 1]}</p>
         </div>
         <p className="text-xs font-bold text-white/38">{Math.round((step / 5) * 100)}%</p>
       </div>
@@ -717,31 +224,63 @@ function QuestionHeader({ icon: Icon, eyebrow, title, body }) {
       <div className="min-w-0">
         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/45">{eyebrow}</p>
         <h2 className="mt-1 text-xl font-black leading-tight tracking-[-0.035em]">{title}</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-white/52">{body}</p>
+        {body ? <p className="mt-2 text-sm font-semibold leading-6 text-white/52">{body}</p> : null}
       </div>
     </div>
   );
 }
 
-function SummaryRow({ icon: Icon, label, value, note, onEdit }) {
+function SummaryStat({ label, value, accent = false }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/12 px-3.5 py-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/8 text-cyan-100/75">
-        <Icon className="h-4 w-4" />
-      </div>
+    <div
+      className={`rounded-2xl border p-3 ${
+        accent ? "border-emerald-300/18 bg-emerald-400/[0.08]" : "border-white/8 bg-black/12"
+      }`}
+    >
+      <p
+        className={`text-[8px] font-black uppercase tracking-[0.13em] ${
+          accent ? "text-emerald-100/50" : "text-white/34"
+        }`}
+      >
+        {label}
+      </p>
+      <p className={`mt-1 text-base font-black ${accent ? "text-emerald-100" : "text-white"}`}>{value}</p>
+    </div>
+  );
+}
+
+function ItemRow({ title, amount, note, tone = "regular", onEdit, onRemove }) {
+  const toneClass =
+    tone === "debt"
+      ? "border-amber-300/14 bg-amber-400/[0.05]"
+      : tone === "protected"
+        ? "border-emerald-300/14 bg-emerald-400/[0.05]"
+        : "border-white/8 bg-black/12";
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${toneClass}`}>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-black text-white/88">{value}</p>
-        {note ? <p className="mt-0.5 truncate text-[11px] font-semibold text-white/38">{note}</p> : null}
+        <p className="truncate text-sm font-black">{title}</p>
+        {note ? <p className="mt-0.5 truncate text-[10px] font-semibold text-white/38">{note}</p> : null}
       </div>
+      <p className="shrink-0 text-sm font-black text-white/84">{fmt(amount)}</p>
       {onEdit ? (
         <button
           type="button"
           onClick={onEdit}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/50"
-          aria-label={`Edit ${label}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/55"
+          aria-label={`Edit ${title}`}
         >
           <Edit3 className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-300/18 bg-rose-500/10 text-rose-100/75"
+          aria-label={`Remove ${title}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
       ) : null}
     </div>
@@ -750,455 +289,424 @@ function SummaryRow({ icon: Icon, label, value, note, onEdit }) {
 
 export default function MonthlyBudgetPlanGuided() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useUserRole();
   const {
     budgets = [],
-    expenses = [],
     savingsGoals = [],
     emergencyFund = null,
     addBudget,
     updateBudget,
-    deleteBudget,
     refreshData,
     loading,
   } = useFinancialData(user);
-  const { monthlyBudgetHeader, declaredMonthlyBudgetAmount } = useDashboardMonthlyBudgetHeader({
-    budgets,
-    includeDraft: true,
-  });
-  const budgetOptions = useDashboardManualExpenseBudgetOptions({ budgets });
-
-  const [step, setStep] = useState(1);
-  const [hydrated, setHydrated] = useState(false);
-  const [cycleConfirmed, setCycleConfirmed] = useState(false);
-  const [protectionConfirmed, setProtectionConfirmed] = useState(false);
-  const [protectionSettings, setProtectionSettings] = useState(() => readProtectionSettings());
-  const [protectionOpen, setProtectionOpen] = useState(false);
-  const [cycleType, setCycleType] = useState(
-    normalizeCycleType(monthlyBudgetHeader?.cycle_type || monthlyBudgetHeader?.budget_cycle || "monthly"),
-  );
-  const [cycleStart, setCycleStart] = useState(monthlyBudgetHeader?.cycle_start || today());
-  const [cycleEnd, setCycleEnd] = useState(monthlyBudgetHeader?.cycle_end || addDays(today(), 6));
-  const [declaredInput, setDeclaredInput] = useState("");
-  const [categoryName, setCategoryName] = useState("");
-  const [categoryAmount, setCategoryAmount] = useState("");
-  const [categoryQuestion, setCategoryQuestion] = useState("name");
+  const { monthlyBudgetHeader } = useDashboardMonthlyBudgetHeader({ budgets, includeDraft: true });
+  const [draft, setDraft] = useState(() => readBudgetSetupDraft());
+  const [itemName, setItemName] = useState("");
+  const [itemAmount, setItemAmount] = useState("");
+  const [editingItemId, setEditingItemId] = useState("");
+  const [debts, setDebts] = useState([]);
+  const [debtLoading, setDebtLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
 
-  const liveDeclaredBudgetAmount = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
-  const hasEmergencyProtectionSetup = useMemo(
-    () => hasEmergencyFundSetup(emergencyFund),
-    [emergencyFund],
-  );
-  const activeSavingsGoals = useMemo(
+  const step = draft.step;
+  const localUserId = String(user?.id || user?.email || "local-user");
+  const activeGoals = useMemo(
     () => (Array.isArray(savingsGoals) ? savingsGoals : []).filter(isActiveGoal),
     [savingsGoals],
   );
-  const hasActiveSavingsGoals = activeSavingsGoals.length > 0;
-  const hasAnyBudgetProtection = hasEmergencyProtectionSetup || hasActiveSavingsGoals;
-  const emergencyFundForProtection = hasEmergencyProtectionSetup ? emergencyFund : null;
-
-  const plan = useDashboardMonthlyBudgetPlan({
-    manualExpenseBudgetOptions: budgetOptions,
-    expenses,
-    declaredMonthlyBudgetAmount: liveDeclaredBudgetAmount,
-    monthlyBudgetHeader,
-    savingsGoals,
-    emergencyFund: emergencyFundForProtection,
-  });
-
-  const editId = String(location.state?.editCategoryId || "");
-  const editing = useMemo(
-    () =>
-      editId
-        ? budgetOptions.find((item) => String(item.id || item.key) === editId) || null
-        : null,
-    [budgetOptions, editId],
-  );
-
-  const cycle = getCycleWindow(cycleType, cycleStart, cycleEnd);
-  const declared = liveDeclaredBudgetAmount;
-  const allocated = firstAmount(plan.allocated);
-  const categoryAllocated = firstAmount(plan.categoryAllocated, plan.category_allocated);
-  const protectedAmount = firstAmount(
-    plan.totalProtectedCommitments,
-    plan.protected_commitments_total,
-  );
-  const reviewDisplayItems = Array.isArray(plan.budgetDisplayCategories)
-    ? plan.budgetDisplayCategories
-    : [];
-  const protectedReviewItems = reviewDisplayItems.filter(
-    (item) => item?.isProtectedCommitment || item?.is_protected_commitment,
-  );
-  const reviewItemCount = budgetOptions.length + protectedReviewItems.length;
-  const left = Math.max(declared - allocated, 0);
-  const canFinish = declared > 0 && budgetOptions.length > 0 && left <= 0;
-  const headerStatus = String(monthlyBudgetHeader?.status || "").trim().toLowerCase();
-  const isActiveBudget = Boolean(
-    monthlyBudgetHeader?.is_complete ||
-      monthlyBudgetHeader?.complete ||
-      headerStatus === "active" ||
-      headerStatus === "activated",
-  );
-  const canActivate = canFinish && !isActiveBudget;
-  const pageBadge = isActiveBudget ? "Active" : canFinish ? "Ready" : "Draft";
-  const busy = saving || loading;
+  const emergencyAvailable = useMemo(() => hasEmergencyFundSetup(emergencyFund), [emergencyFund]);
 
   useEffect(() => {
-    if (firstAmount(declaredMonthlyBudgetAmount) > 0) {
-      setDeclaredInput(String(declaredMonthlyBudgetAmount));
-    }
-  }, [declaredMonthlyBudgetAmount]);
+    const headerDraftId = String(monthlyBudgetHeader?.setup_draft_id || "").trim();
+    if (!headerDraftId || !isDerivedBudgetHeader(monthlyBudgetHeader) || headerDraftId === draft.draftId) return;
+    setDraft((current) =>
+      writeBudgetSetupDraft({
+        ...current,
+        draftId: headerDraftId,
+        cycleType: monthlyBudgetHeader?.cycle_type || current.cycleType,
+        cycleStart: monthlyBudgetHeader?.cycle_start || current.cycleStart,
+        cycleEnd: monthlyBudgetHeader?.cycle_end || current.cycleEnd,
+      }),
+    );
+  }, [draft.draftId, monthlyBudgetHeader]);
 
   useEffect(() => {
-    if (!editing) return;
-    setCategoryName(editing.title || "");
-    setCategoryAmount(String(editing.allocated || ""));
-    setCategoryQuestion("amount");
-    setStep(4);
-  }, [editing]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const sync = () => setProtectionSettings(readProtectionSettings());
-    window.addEventListener("storage", sync);
-    window.addEventListener(BUDGET_PROTECTION_UPDATED_EVENT, sync);
+    let cancelled = false;
+    setDebtLoading(true);
+    getDebtObligations(localUserId)
+      .then((records) => {
+        if (cancelled) return;
+        setDebts((Array.isArray(records) ? records : []).filter(isActiveDebt));
+      })
+      .catch((error) => {
+        console.error("CLARA could not load debt obligations:", error);
+        if (!cancelled) setDebts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDebtLoading(false);
+      });
     return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener(BUDGET_PROTECTION_UPDATED_EVENT, sync);
+      cancelled = true;
     };
-  }, []);
+  }, [localUserId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.__CLARA_BUDGET_PROTECTION_CONTEXT = {
-      savingsGoals,
-      emergencyFund: emergencyFundForProtection,
-    };
-  }, [emergencyFundForProtection, savingsGoals]);
+    window.__CLARA_BUDGET_PROTECTION_CONTEXT = { savingsGoals, emergencyFund };
+  }, [emergencyFund, savingsGoals]);
 
   useEffect(() => {
-    if (hasEmergencyProtectionSetup) return;
-    const clean = cleanProtectionSettings(readProtectionSettings());
-    if (clean.includeEmergencyFund || clean.emergencyFundMonthlyAmount > 0) {
-      const next = saveProtectionSettings({
-        ...clean,
-        includeEmergencyFund: false,
-        emergencyFundMonthlyAmount: 0,
-      });
-      setProtectionSettings(next);
-      fireBudgetEvents();
-    }
-  }, [hasEmergencyProtectionSetup]);
+    writeBudgetSetupDraft(draft);
+  }, [draft]);
 
-  useEffect(() => {
-    if (hydrated || loading) return;
-    const hasSavedAmount = firstAmount(declaredMonthlyBudgetAmount) > 0;
-    const hasSavedCycle = Boolean(
-      monthlyBudgetHeader?.id ||
-        monthlyBudgetHeader?.cycle_type ||
-        monthlyBudgetHeader?.budget_cycle,
-    );
-    const protectionDone = !hasAnyBudgetProtection || protectionSettings.setupCompleted;
+  const regularTotal = useMemo(
+    () => draft.items.reduce((sum, item) => sum + Math.max(0, amountValue(item.amount)), 0),
+    [draft.items],
+  );
+  const savingsTotal = useMemo(
+    () =>
+      draft.selectedSavingsGoalIds.reduce(
+        (sum, id) => sum + Math.max(0, amountValue(draft.savingsGoalAmounts?.[id])),
+        0,
+      ),
+    [draft.savingsGoalAmounts, draft.selectedSavingsGoalIds],
+  );
+  const emergencyTotal = draft.includeEmergencyFund ? Math.max(0, amountValue(draft.emergencyFundAmount)) : 0;
+  const protectedTotal = emergencyTotal + savingsTotal;
+  const selectedDebtRecords = useMemo(() => {
+    const selected = new Set(draft.selectedDebtIds.map(String));
+    return debts.filter((debt) => selected.has(String(debt.id)) && monthlyDebtPayment(debt) > 0);
+  }, [debts, draft.selectedDebtIds]);
+  const debtTotal = useMemo(
+    () => selectedDebtRecords.reduce((sum, debt) => sum + monthlyDebtPayment(debt), 0),
+    [selectedDebtRecords],
+  );
+  const calculatedTotal = regularTotal + protectedTotal + debtTotal;
+  const cycle = useMemo(
+    () => getCycleWindow(draft.cycleType, draft.cycleStart, draft.cycleEnd),
+    [draft.cycleEnd, draft.cycleStart, draft.cycleType],
+  );
 
-    setCycleConfirmed(hasSavedCycle);
-    setProtectionConfirmed(protectionDone);
-
-    if (isActiveBudget || (hasSavedAmount && budgetOptions.length > 0 && canFinish)) {
-      setStep(5);
-    } else if (!hasSavedAmount) {
-      setStep(1);
-    } else if (!hasSavedCycle) {
-      setStep(2);
-    } else if (!protectionDone) {
-      setStep(3);
-    } else {
-      setStep(4);
-    }
-    setHydrated(true);
-  }, [
-    hydrated,
-    loading,
-    declaredMonthlyBudgetAmount,
-    monthlyBudgetHeader,
-    hasAnyBudgetProtection,
-    protectionSettings.setupCompleted,
-    isActiveBudget,
-    budgetOptions.length,
-    canFinish,
-  ]);
-
-  const refresh = async () => {
-    await refreshData?.();
-    fireBudgetEvents();
-  };
-
-  const saveHeader = async (done = false) => {
-    const amount = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
-    if (amount <= 0) throw new Error("Enter the money available for this budget first.");
-    const payload = headerPayload({
-      amount,
-      done: Boolean(done || isActiveBudget),
-      user,
-      cycle,
-    });
-    if (monthlyBudgetHeader?.id && typeof updateBudget === "function") {
-      return updateBudget(monthlyBudgetHeader.id, payload);
-    }
-    return addBudget?.(payload);
-  };
-
-  const continueAmount = async () => {
-    const amount = firstAmount(declaredInput);
-    if (amount <= 0) {
-      setNotice("Enter an amount above ₱0.");
-      return;
-    }
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader(false);
-      await refresh();
-      setStep(2);
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not save this amount yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const continueCycle = async () => {
-    if (cycleType === "custom" && (!cycleStart || !cycleEnd || cycleEnd < cycleStart)) {
-      setNotice("Choose a valid start and end date for the custom cycle.");
-      return;
-    }
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader(false);
-      await refresh();
-      setCycleConfirmed(true);
-      setStep(3);
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not save this cycle yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const skipProtection = () => {
-    const saved = saveProtectionSettings({
-      ...protectionSettings,
-      setupCompleted: true,
-      includeEmergencyFund: false,
-      emergencyFundMonthlyAmount: 0,
-      includeSavingsGoals: false,
-      savingsGoalMode: "none",
-      selectedSavingsGoalIds: [],
-      savingsGoalMonthlyAmounts: {},
-    });
-    setProtectionSettings(saved);
-    setProtectionConfirmed(true);
+  const updateDraft = (updates) => {
+    setDraft((current) => ({
+      ...current,
+      ...(typeof updates === "function" ? updates(current) : updates),
+      updatedAt: new Date().toISOString(),
+    }));
     setNotice("");
-    fireBudgetEvents();
-    setStep(4);
   };
 
-  const continueWithoutAvailableProtection = () => {
-    setProtectionConfirmed(true);
-    setNotice("");
-    setStep(4);
+  const setStep = (nextStep) => updateDraft({ step: Math.min(5, Math.max(1, nextStep)) });
+
+  const resetItemForm = () => {
+    setItemName("");
+    setItemAmount("");
+    setEditingItemId("");
   };
 
-  const addCategory = async () => {
-    const title = normalizeString(categoryName);
-    const amount = firstAmount(categoryAmount);
+  const saveDraftItem = () => {
+    const title = String(itemName || "").trim();
+    const amount = amountValue(itemAmount);
     if (!title) {
-      setNotice("Name the category first.");
-      setCategoryQuestion("name");
+      setNotice("Name the budget item first.");
       return;
     }
-
-    const duplicateCategory = budgetOptions.find((item) => {
-      const sameName = normalizeString(item?.title).toLowerCase() === title.toLowerCase();
-      const sameItem = editing && String(item?.id || item?.key) === String(editing?.id || editing?.key);
-      return sameName && !sameItem;
-    });
-
-    if (duplicateCategory) {
-      setNotice(`${duplicateCategory.title} is already in your budget. Use its edit button to change the total amount.`);
-      setCategoryQuestion("name");
-      setCategoryAmount("");
-      return;
-    }
-
     if (amount <= 0) {
       setNotice("Enter an amount above ₱0.");
       return;
     }
-
-    const current = editing
-      ? Math.max(allocated - firstAmount(editing.allocated), 0)
-      : allocated;
-    if (declared > 0 && current + amount > declared) {
-      setNotice(`This is above the budget. You only have ${fmt(Math.max(declared - current, 0))} left.`);
+    const duplicate = draft.items.find(
+      (item) =>
+        item.id !== editingItemId && normalizeBudgetText(item.title) === normalizeBudgetText(title),
+    );
+    if (duplicate) {
+      setNotice(`${duplicate.title} is already in your budget. Edit the existing item instead.`);
       return;
     }
+    updateDraft((current) => ({
+      items: editingItemId
+        ? current.items.map((item) =>
+            item.id === editingItemId ? { ...item, title, amount } : item,
+          )
+        : [...current.items, { id: makeDraftItemId(), title, amount }],
+    }));
+    resetItemForm();
+  };
 
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader(false);
-      const payload = categoryPayload({
-        title,
-        amount,
-        order: editing?.sortOrder ?? budgetOptions.length,
-        user,
-        cycle,
-      });
-      if (editing?.id && typeof updateBudget === "function") {
-        await updateBudget(editing.id, payload);
+  const editDraftItem = (item) => {
+    setEditingItemId(item.id);
+    setItemName(item.title);
+    setItemAmount(String(item.amount || ""));
+    setNotice("");
+  };
+
+  const removeDraftItem = (item) => {
+    updateDraft((current) => ({ items: current.items.filter((entry) => entry.id !== item.id) }));
+    if (editingItemId === item.id) resetItemForm();
+  };
+
+  const toggleSavingsGoal = (id, goal) => {
+    updateDraft((current) => {
+      const selected = new Set(current.selectedSavingsGoalIds);
+      const amounts = { ...(current.savingsGoalAmounts || {}) };
+      if (selected.has(id)) {
+        selected.delete(id);
+        delete amounts[id];
       } else {
-        await addBudget?.(payload);
+        selected.add(id);
+        amounts[id] = amountValue(amounts[id]) || goalMonthly(goal) || 0;
       }
-      const nextAllocated = current + amount;
-      setCategoryName("");
-      setCategoryAmount("");
-      setCategoryQuestion("name");
-      await refresh();
-      if (editing) {
-        navigate("/budget-plan", { replace: true });
-      }
-      setNotice("");
-      if (declared > 0 && nextAllocated >= declared) setStep(5);
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not save this category yet.");
-    } finally {
-      setSaving(false);
-    }
+      return { selectedSavingsGoalIds: [...selected], savingsGoalAmounts: amounts };
+    });
   };
 
-  const removeCategory = async (item) => {
-    if (!item?.id || typeof deleteBudget !== "function") return;
+  const debtAlreadyRepresented = (debt) => {
+    const id = String(debt?.id || "");
+    const title = normalizeBudgetText(getDebtTitle(debt));
+    return draft.items.some(
+      (item) =>
+        (item.sourceDebtId && String(item.sourceDebtId) === id) ||
+        (title && normalizeBudgetText(item.title) === title),
+    );
+  };
+
+  const toggleDebt = (debt) => {
+    const id = String(debt.id || "");
+    if (!id || monthlyDebtPayment(debt) <= 0) return;
+    if (debtAlreadyRepresented(debt) && !draft.selectedDebtIds.includes(id)) {
+      setNotice(`${getDebtTitle(debt)} already appears as a regular budget item, so CLARA will not count it twice.`);
+      return;
+    }
+    updateDraft((current) => {
+      const selected = new Set(current.selectedDebtIds);
+      const outsideDueConfirmed = { ...(current.outsideDueConfirmed || {}) };
+      if (selected.has(id)) {
+        selected.delete(id);
+        delete outsideDueConfirmed[id];
+      } else {
+        selected.add(id);
+      }
+      return { selectedDebtIds: [...selected], outsideDueConfirmed };
+    });
+  };
+
+  const outsideDueDebts = useMemo(
+    () =>
+      selectedDebtRecords.filter((debt) => {
+        const due = debtDueDate(debt);
+        return due && isValidCycleWindow(cycle) && !isDateInsideCycle(due, cycle);
+      }),
+    [cycle, selectedDebtRecords],
+  );
+  const insideDueDebts = useMemo(
+    () =>
+      selectedDebtRecords.filter((debt) => {
+        const due = debtDueDate(debt);
+        return due && isValidCycleWindow(cycle) && isDateInsideCycle(due, cycle);
+      }),
+    [cycle, selectedDebtRecords],
+  );
+
+  const continueFromTimeframe = () => {
+    if (!isValidCycleWindow(cycle)) {
+      setNotice("Choose a valid start and end date for this budget period.");
+      return;
+    }
+    const unresolved = outsideDueDebts.find(
+      (debt) => draft.outsideDueConfirmed?.[String(debt.id)] !== true,
+    );
+    if (unresolved) {
+      setNotice(`Confirm whether to keep ${getDebtTitle(unresolved)} in this budget period.`);
+      return;
+    }
+    setStep(5);
+  };
+
+  const buildProtectionSettings = () => ({
+    setupCompleted: true,
+    includeEmergencyFund: emergencyAvailable && draft.includeEmergencyFund && emergencyTotal > 0,
+    emergencyFundContributionMode: "fixed",
+    emergencyFundMonthlyAmount: emergencyAvailable && draft.includeEmergencyFund ? emergencyTotal : 0,
+    includeSavingsGoals: draft.selectedSavingsGoalIds.length > 0 && savingsTotal > 0,
+    savingsGoalMode: draft.selectedSavingsGoalIds.length ? "selected" : "none",
+    selectedSavingsGoalIds: draft.selectedSavingsGoalIds,
+    savingsContributionMode: "fixed",
+    savingsGoalMonthlyAmounts: draft.savingsGoalAmounts,
+  });
+
+  const activateBudget = async () => {
+    if (!isValidCycleWindow(cycle)) {
+      setNotice("Choose a valid timeframe before activation.");
+      return;
+    }
+    if (calculatedTotal <= 0) {
+      setNotice("Add at least one budget item, protected amount, or confirmed obligation.");
+      return;
+    }
+    const invalidItem = draft.items.find((item) => !item.title || amountValue(item.amount) <= 0);
+    if (invalidItem) {
+      setNotice("Review your regular budget items before activation.");
+      setStep(1);
+      return;
+    }
+    const duplicateDebtId = selectedDebtRecords.find((debt) => debtAlreadyRepresented(debt));
+    if (duplicateDebtId) {
+      setNotice(`${getDebtTitle(duplicateDebtId)} is already represented by a regular item. Remove one copy first.`);
+      setStep(2);
+      return;
+    }
+
+    const draftHeader = (Array.isArray(budgets) ? budgets : []).find(
+      (row) =>
+        isBudgetHeader(row) &&
+        !isInactiveRow(row) &&
+        isDerivedBudgetHeader(row) &&
+        String(row?.setup_draft_id || "") === draft.draftId,
+    );
+    const existingDraftRows = (Array.isArray(budgets) ? budgets : []).filter(
+      (row) =>
+        !isBudgetHeader(row) &&
+        !isInactiveRow(row) &&
+        String(row?.setup_draft_id || "") === draft.draftId,
+    );
+
+    const desiredRows = [
+      ...draft.items.map((item, index) => ({
+        key: item.id,
+        title: item.title,
+        amount: amountValue(item.amount),
+        order: index,
+        commitment: null,
+      })),
+      ...selectedDebtRecords.map((debt, index) => ({
+        key: `debt-${debt.id}`,
+        title: getDebtTitle(debt),
+        amount: monthlyDebtPayment(debt),
+        order: draft.items.length + index,
+        commitment: {
+          id: String(debt.id),
+          title: getDebtTitle(debt),
+          dueDate: debtDueDate(debt),
+        },
+      })),
+    ];
+
     try {
       setSaving(true);
       setNotice("");
-      await deleteBudget(item.id);
-      await refresh();
-      setNotice("");
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not remove this category yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
+      const draftPayload = buildDerivedHeaderPayload({
+        total: calculatedTotal,
+        cycle,
+        user,
+        done: false,
+        current: draftHeader || {},
+        draftId: draft.draftId,
+      });
+      const savedHeader = draftHeader?.id
+        ? await updateBudget?.(draftHeader.id, draftPayload)
+        : await addBudget?.(draftPayload);
+      const headerId = draftHeader?.id || savedHeader?.id || savedHeader?.data?.id || savedHeader?.record?.id;
 
-  const activate = async () => {
-    if (!canActivate) {
-      setNotice(
-        budgetOptions.length === 0
-          ? "Add at least one category before activating."
-          : `You still need to assign ${fmt(left)}.`,
+      for (const row of desiredRows) {
+        const existing = existingDraftRows.find(
+          (item) => String(item?.setup_item_id || "") === String(row.key),
+        );
+        const payload = buildBudgetCategoryPayload({
+          title: row.title,
+          amount: row.amount,
+          order: row.order,
+          user,
+          cycle,
+          current: existing || {},
+          draftId: draft.draftId,
+          itemId: row.key,
+          commitment: row.commitment,
+        });
+        if (existing?.id) await updateBudget?.(existing.id, payload);
+        else await addBudget?.(payload);
+      }
+
+      const desiredKeys = new Set(desiredRows.map((row) => String(row.key)));
+      for (const stale of existingDraftRows) {
+        if (!stale?.id || desiredKeys.has(String(stale?.setup_item_id || ""))) continue;
+        await updateBudget?.(stale.id, {
+          ...stale,
+          is_active: false,
+          active: false,
+          status: "archived",
+          archived_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      saveProtectionSettings(buildProtectionSettings());
+
+      if (!headerId) {
+        throw new Error("CLARA saved the draft but could not resolve its header ID for activation.");
+      }
+      await updateBudget?.(
+        headerId,
+        buildDerivedHeaderPayload({
+          total: calculatedTotal,
+          cycle,
+          user,
+          done: true,
+          current: { ...(draftHeader || {}), ...(savedHeader || {}), id: headerId },
+          draftId: draft.draftId,
+        }),
       );
-      return;
-    }
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader(true);
-      await refresh();
+      await refreshData?.();
+      fireBudgetEvents();
+      clearBudgetSetupDraft();
       navigate("/dashboard");
     } catch (error) {
-      setNotice(error?.message || "CLARA could not activate this budget yet.");
+      setNotice(error?.message || "CLARA could not activate this budget yet. Your setup draft was kept.");
     } finally {
       setSaving(false);
     }
   };
 
-  const saveActiveChanges = async () => {
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader(false);
-      await refresh();
-      navigate("/dashboard");
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not save these changes yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetCycle = async () => {
-    const amount = firstAmount(declaredInput, declaredMonthlyBudgetAmount);
-    if (amount <= 0) {
-      setNotice("Enter your new budget amount first.");
-      return;
-    }
+  const cancelDraft = async () => {
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(
-        "Reset this budget cycle? Transaction history stays, but the Watch Zone and categories start clean from this moment.",
-      );
+      const confirmed = window.confirm("Discard this unfinished budget setup?");
       if (!confirmed) return;
     }
-
     try {
       setSaving(true);
       setNotice("");
-      const resetWindow = getResetCycleWindow(cycleType, cycleEnd);
-      await resetMonthlyBudgetCycle({
-        budgets,
-        headerPayload: headerPayload({ amount, done: false, user, cycle: resetWindow }),
-        categoryPayloads: [],
-        addBudget,
-        updateBudget,
-      });
-      await refresh();
-      setCycleStart(resetWindow.start);
-      setCycleEnd(resetWindow.end || cycleEnd);
-      setCategoryName("");
-      setCategoryAmount("");
-      setCategoryQuestion("name");
-      setStep(1);
-      navigate("/budget-plan", { replace: true });
-      setNotice("A fresh budget cycle is ready. Your transaction history was kept.");
+      const now = new Date().toISOString();
+      const draftRows = (Array.isArray(budgets) ? budgets : []).filter(
+        (row) =>
+          !isInactiveRow(row) &&
+          String(row?.setup_draft_id || "") === draft.draftId,
+      );
+      for (const row of draftRows) {
+        if (!row?.id) continue;
+        await updateBudget?.(row.id, {
+          ...row,
+          is_active: false,
+          active: false,
+          status: "archived",
+          archived_at: now,
+          updated_at: now,
+        });
+      }
+      clearBudgetSetupDraft();
+      await refreshData?.();
+      fireBudgetEvents();
+      navigate("/dashboard");
     } catch (error) {
-      setNotice(error?.message || "CLARA could not reset this budget cycle yet.");
+      setNotice(error?.message || "CLARA could not discard this setup yet.");
     } finally {
       setSaving(false);
     }
   };
-
-  const budgetProtectionLabel = hasEmergencyProtectionSetup && hasActiveSavingsGoals
-    ? "Emergency Fund and Savings Goals"
-    : hasEmergencyProtectionSetup
-      ? "Emergency Fund"
-      : hasActiveSavingsGoals
-        ? "Savings Goals"
-        : "No protection added";
 
   return (
     <div className="min-h-[100svh] w-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.24),transparent_38%),linear-gradient(135deg,#04171e,#071430_48%,#170d36)] px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(0.7rem+env(safe-area-inset-top))] text-white">
-      <ProtectionSetupModal
-        open={protectionOpen && hasAnyBudgetProtection}
-        settings={protectionSettings}
-        savingsGoals={savingsGoals}
-        hasEmergencyFundSetup={hasEmergencyProtectionSetup}
-        onClose={() => setProtectionOpen(false)}
-        onSave={(saved) => {
-          setProtectionSettings(saved);
-          setProtectionConfirmed(true);
-          setProtectionOpen(false);
-          setNotice("");
-          fireBudgetEvents();
-          setStep(4);
-        }}
-      />
-
       <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
-        <header className="sticky top-0 z-30 -mx-4 border-b border-white/8 bg-[#06101d]/78 px-4 pb-2.5 pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur-2xl">
+        <header className="sticky top-0 z-30 -mx-4 border-b border-white/8 bg-[#06101d]/92 px-4 pb-2.5 pt-[calc(0.7rem+env(safe-area-inset-top))]">
           <div className="mx-auto flex max-w-[430px] items-center gap-3">
             <button
               type="button"
@@ -1209,19 +717,13 @@ export default function MonthlyBudgetPlanGuided() {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="min-w-0 flex-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/50">
-                Budget setup
+              <h1 className="truncate text-lg font-black tracking-[-0.035em]">Budget Setup</h1>
+              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/55">
+                Step {step} of 5 · {STEPS[step - 1]}
               </p>
-              <h1 className="truncate text-lg font-black tracking-[-0.035em]">Monthly Budget Plan</h1>
             </div>
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                isActiveBudget || canFinish
-                  ? "border-emerald-300/25 bg-emerald-400/12 text-emerald-100"
-                  : "border-amber-300/20 bg-amber-400/10 text-amber-100"
-              }`}
-            >
-              {pageBadge}
+            <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold text-amber-100">
+              Draft
             </span>
           </div>
         </header>
@@ -1231,16 +733,51 @@ export default function MonthlyBudgetPlanGuided() {
         {step === 1 ? (
           <section className={`${card} p-4`}>
             <QuestionHeader
-              icon={Wallet}
-              eyebrow="Question 1"
-              title="How much money is available for this budget cycle?"
-              body="Enter the total amount you can realistically plan before we divide it into categories."
+              icon={ListChecks}
+              eyebrow="Step 1"
+              title="What do you need to prepare money for?"
+              body="Add each expense or responsibility one at a time. CLARA will calculate your real budget total as you go."
             />
-            <div className="mt-5">
-              <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/35">
-                Available amount
-              </label>
-              <div className="relative mt-2">
+
+            <div className="mt-5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.07] px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-emerald-100/48">
+                Current planned total
+              </p>
+              <p className="mt-1 text-2xl font-black text-emerald-100">{fmt(regularTotal)}</p>
+              <p className="mt-1 text-xs font-semibold text-emerald-50/45">
+                This total grows from the items you add. There is no preset ceiling.
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3 rounded-2xl border border-white/8 bg-black/12 p-3.5">
+              <input
+                type="text"
+                value={itemName}
+                onChange={(event) => {
+                  setItemName(event.target.value);
+                  setNotice("");
+                }}
+                placeholder="Example: Food"
+                className={input}
+              />
+              <div className="flex flex-wrap gap-2">
+                {SUGGESTIONS.filter(
+                  (suggestion) =>
+                    !draft.items.some(
+                      (item) => normalizeBudgetText(item.title) === normalizeBudgetText(suggestion),
+                    ),
+                ).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => setItemName(suggestion)}
+                    className="rounded-full border border-white/9 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white/55"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-emerald-200/80">
                   ₱
                 </span>
@@ -1248,26 +785,53 @@ export default function MonthlyBudgetPlanGuided() {
                   type="number"
                   min="0"
                   inputMode="decimal"
-                  value={declaredInput}
+                  value={itemAmount}
                   onChange={(event) => {
-                    setDeclaredInput(event.target.value);
+                    setItemAmount(event.target.value);
                     setNotice("");
                   }}
-                  placeholder="25,000"
-                  className={`${input} pl-10 text-lg font-black tracking-[-0.02em]`}
+                  placeholder="Planned amount"
+                  className={`${input} pl-10 text-lg font-black`}
                 />
               </div>
-              {firstAmount(declaredInput) > 0 ? (
-                <div className="mt-3 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.07] px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-emerald-100/48">
-                    You are budgeting
-                  </p>
-                  <p className="mt-1 text-xl font-black text-emerald-100">{fmt(declaredInput)}</p>
-                </div>
-              ) : null}
+              <div className="grid grid-cols-[0.75fr_1.25fr] gap-2">
+                {editingItemId ? (
+                  <button type="button" onClick={resetItemForm} className={secondaryButton}>
+                    Cancel
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <button type="button" onClick={saveDraftItem} className={primaryButton}>
+                  <Plus className="h-4 w-4" />
+                  {editingItemId ? "Update item" : "Add item"}
+                </button>
+              </div>
             </div>
-            <button type="button" onClick={continueAmount} disabled={busy} className={`${primaryButton} mt-4`}>
-              {saving ? "Saving..." : "Continue"}
+
+            {draft.items.length ? (
+              <div className="mt-5 space-y-2 border-t border-white/8 pt-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/38">
+                  Your budget items
+                </p>
+                {draft.items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    title={item.title}
+                    amount={item.amount}
+                    onEdit={() => editDraftItem(item)}
+                    onRemove={() => removeDraftItem(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-white/8 bg-black/12 p-4 text-sm font-semibold leading-6 text-white/45">
+                You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.
+              </div>
+            )}
+
+            <button type="button" onClick={() => setStep(2)} className={`${primaryButton} mt-4`}>
+              Continue to commitments
               <ChevronRight className="h-4 w-4" />
             </button>
           </section>
@@ -1276,82 +840,213 @@ export default function MonthlyBudgetPlanGuided() {
         {step === 2 ? (
           <section className={`${card} p-4`}>
             <QuestionHeader
-              icon={CalendarDays}
-              eyebrow="Question 2"
-              title="How often should this budget reset?"
-              body="Choose the rhythm that matches how you receive and manage your money."
+              icon={ShieldCheck}
+              eyebrow="Step 2"
+              title="Protected & committed"
+              body="Choose which savings, emergency reserves, and debt payments belong in this budget. Nothing is included without your confirmation."
             />
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {[
-                ["weekly", "Weekly", "Every 7 days"],
-                ["biweekly", "Every 2 weeks", "Every 14 days"],
-                ["monthly", "Monthly", "Calendar month"],
-                ["custom", "Custom", "Choose dates"],
-              ].map(([key, label, note]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setCycleType(key);
-                    setNotice("");
-                  }}
-                  className={`rounded-2xl border px-3 py-3 text-left transition ${
-                    cycleType === key
-                      ? "border-emerald-300/35 bg-emerald-400/12"
-                      : "border-white/9 bg-white/[0.035]"
-                  }`}
-                >
-                  <span className={`block text-sm font-black ${cycleType === key ? "text-emerald-100" : "text-white/72"}`}>
-                    {label}
-                  </span>
-                  <span className="mt-1 block text-[11px] font-semibold text-white/35">{note}</span>
-                </button>
-              ))}
-            </div>
 
-            {cycleType !== "monthly" ? (
-              <div className="mt-4 space-y-3 rounded-2xl border border-white/8 bg-black/12 p-3.5">
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">
-                    Starts on
-                  </label>
-                  <input
-                    type="date"
-                    value={String(cycleStart || "").slice(0, 10)}
-                    onChange={(event) => {
-                      setCycleStart(event.target.value);
-                      setNotice("");
-                    }}
-                    className={`${input} mt-2`}
-                  />
-                </div>
-                {cycleType === "custom" ? (
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">
-                      Ends on
-                    </label>
-                    <input
-                      type="date"
-                      value={cycleEnd}
-                      onChange={(event) => {
-                        setCycleEnd(event.target.value);
-                        setNotice("");
-                      }}
-                      className={`${input} mt-2`}
-                    />
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.05] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100/45">
+                  Protected money
+                </p>
+                {emergencyAvailable ? (
+                  <div className="mt-3 rounded-2xl border border-white/8 bg-black/12 p-3.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateDraft((current) => ({
+                          includeEmergencyFund: !current.includeEmergencyFund,
+                          emergencyFundAmount: current.includeEmergencyFund
+                            ? 0
+                            : amountValue(current.emergencyFundAmount),
+                        }))
+                      }
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                    >
+                      <span>
+                        <span className="block text-sm font-black">Emergency Fund</span>
+                        <span className="mt-1 block text-xs font-semibold text-white/42">
+                          Reserve part of this budget for emergencies.
+                        </span>
+                      </span>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-[10px] font-black ${
+                          draft.includeEmergencyFund
+                            ? "border-emerald-300/30 bg-emerald-400/12 text-emerald-100"
+                            : "border-white/10 bg-white/[0.04] text-white/45"
+                        }`}
+                      >
+                        {draft.includeEmergencyFund ? "Included" : "Not included"}
+                      </span>
+                    </button>
+                    {draft.includeEmergencyFund ? (
+                      <div className="relative mt-3">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base font-black text-emerald-200/80">
+                          ₱
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="decimal"
+                          value={draft.emergencyFundAmount || ""}
+                          onChange={(event) => updateDraft({ emergencyFundAmount: event.target.value })}
+                          placeholder="Amount to protect"
+                          className={`${input} pl-10`}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-white/50">This cycle ends on {cycle.end}.</p>
+                  <p className="mt-3 text-xs font-semibold leading-5 text-white/42">
+                    No Emergency Fund setup was detected. CLARA will not invent a reserve amount.
+                  </p>
+                )}
+
+                {activeGoals.length ? (
+                  <div className="mt-3 space-y-2">
+                    {activeGoals.map((goal, index) => {
+                      const id = goalId(goal, index);
+                      const selected = draft.selectedSavingsGoalIds.includes(id);
+                      return (
+                        <div key={id} className="rounded-2xl border border-white/8 bg-black/12 p-3.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleSavingsGoal(id, goal)}
+                            className="flex w-full items-center justify-between gap-3 text-left"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-black">{goalTitle(goal, index)}</span>
+                              <span className="mt-1 block text-xs font-semibold text-white/42">
+                                {goalTarget(goal) > 0
+                                  ? `${fmt(goalSaved(goal))} of ${fmt(goalTarget(goal))}`
+                                  : "Active savings goal"}
+                              </span>
+                            </span>
+                            <span
+                              className={`rounded-full border px-3 py-1 text-[10px] font-black ${
+                                selected
+                                  ? "border-emerald-300/30 bg-emerald-400/12 text-emerald-100"
+                                  : "border-white/10 bg-white/[0.04] text-white/45"
+                              }`}
+                            >
+                              {selected ? "Included" : "Not included"}
+                            </span>
+                          </button>
+                          {selected ? (
+                            <div className="relative mt-3">
+                              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base font-black text-emerald-200/80">
+                                ₱
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                inputMode="decimal"
+                                value={draft.savingsGoalAmounts?.[id] || ""}
+                                onChange={(event) =>
+                                  updateDraft((current) => ({
+                                    savingsGoalAmounts: {
+                                      ...(current.savingsGoalAmounts || {}),
+                                      [id]: event.target.value,
+                                    },
+                                  }))
+                                }
+                                placeholder="Amount to protect"
+                                className={`${input} pl-10`}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs font-semibold leading-5 text-white/42">
+                    No active Savings Goal was detected.
+                  </p>
                 )}
               </div>
-            ) : null}
 
-            <div className="mt-4 grid grid-cols-[0.8fr_1.2fr] gap-2">
+              <div className="rounded-2xl border border-amber-300/14 bg-amber-400/[0.05] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-100/45">
+                  Debt & obligations
+                </p>
+                {debtLoading ? (
+                  <p className="mt-3 text-xs font-semibold text-white/42">Checking your saved obligations…</p>
+                ) : debts.length ? (
+                  <div className="mt-3 space-y-2">
+                    {debts.map((debt) => {
+                      const id = String(debt.id || "");
+                      const payment = monthlyDebtPayment(debt);
+                      const selected = draft.selectedDebtIds.includes(id);
+                      const represented = debtAlreadyRepresented(debt);
+                      const due = debtDueDate(debt);
+                      return (
+                        <div key={id} className="rounded-2xl border border-white/8 bg-black/12 p-3.5">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-100/75">
+                              <CreditCard className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-black">Include your {getDebtTitle(debt)} payment?</p>
+                              {payment > 0 ? (
+                                <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
+                                  We found a monthly obligation of {fmt(payment)}
+                                  {due ? ` due on ${due}` : ""}.
+                                </p>
+                              ) : (
+                                <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
+                                  A debt balance exists, but its monthly payment is not set. CLARA will not invent an amount.
+                                </p>
+                              )}
+                              {represented ? (
+                                <p className="mt-2 text-[11px] font-bold text-amber-100/70">
+                                  Already represented by a regular budget item, so it cannot be counted twice.
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                          {payment > 0 && !represented ? (
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (selected) toggleDebt(debt);
+                                }}
+                                className={`${secondaryButton} ${!selected ? "border-cyan-300/25 bg-cyan-400/8 text-cyan-100" : ""}`}
+                              >
+                                Not in this budget
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!selected) toggleDebt(debt);
+                                }}
+                                className={`${secondaryButton} ${selected ? "border-emerald-300/30 bg-emerald-400/12 text-emerald-100" : ""}`}
+                              >
+                                Include {fmt(payment)}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs font-semibold leading-5 text-white/42">
+                    No active debt obligation was detected.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setStep(1)} className={secondaryButton}>
-                Back
+                Back to items
               </button>
-              <button type="button" onClick={continueCycle} disabled={busy} className={primaryButton}>
-                {saving ? "Saving..." : "Continue"}
+              <button type="button" onClick={() => setStep(3)} className={primaryButton}>
+                Review total
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -1361,249 +1056,288 @@ export default function MonthlyBudgetPlanGuided() {
         {step === 3 ? (
           <section className={`${card} p-4`}>
             <QuestionHeader
-              icon={ShieldCheck}
-              eyebrow="Question 3"
-              title="Should CLARA protect money before category spending?"
-              body="Protected money is reserved first, so it does not look available for ordinary spending."
+              icon={Wallet}
+              eyebrow="Step 3"
+              title="Your budget is taking shape"
+              body={`Based on everything you added, this budget currently requires ${fmt(calculatedTotal)}.`}
             />
 
-            {hasAnyBudgetProtection ? (
-              <div className="mt-5 space-y-3">
-                <div className="rounded-2xl border border-emerald-300/16 bg-emerald-400/[0.06] p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100/45">
-                    Available protection
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <SummaryStat label="Regular items" value={fmt(regularTotal)} />
+              <SummaryStat label="Protected money" value={fmt(protectedTotal)} />
+              <SummaryStat label="Debt & obligations" value={fmt(debtTotal)} />
+              <SummaryStat label="Total budget needed" value={fmt(calculatedTotal)} accent />
+            </div>
+
+            <div className="mt-5 space-y-4 border-t border-white/8 pt-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/38">Regular items</p>
+                  <button type="button" onClick={() => setStep(1)} className="text-xs font-black text-cyan-100/65">
+                    Edit
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {draft.items.length ? (
+                    draft.items.map((item) => <ItemRow key={item.id} title={item.title} amount={item.amount} />)
+                  ) : (
+                    <p className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3 text-xs font-semibold text-white/38">
+                      No regular items added.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/45">
+                    Protected money
                   </p>
-                  <p className="mt-1 text-sm font-black text-emerald-50">{budgetProtectionLabel}</p>
-                  {protectionSettings.setupCompleted ? (
-                    <p className="mt-2 text-xs font-semibold text-emerald-50/55">
-                      Currently protecting {fmt(protectedAmount)}.
+                  <button type="button" onClick={() => setStep(2)} className="text-xs font-black text-cyan-100/65">
+                    Edit
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {emergencyTotal > 0 ? (
+                    <ItemRow title="Emergency Fund" amount={emergencyTotal} tone="protected" />
+                  ) : null}
+                  {activeGoals
+                    .map((goal, index) => ({ goal, index, id: goalId(goal, index) }))
+                    .filter((item) => draft.selectedSavingsGoalIds.includes(item.id))
+                    .map((item) => (
+                      <ItemRow
+                        key={item.id}
+                        title={goalTitle(item.goal, item.index)}
+                        amount={draft.savingsGoalAmounts?.[item.id] || 0}
+                        tone="protected"
+                      />
+                    ))}
+                  {protectedTotal <= 0 ? (
+                    <p className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3 text-xs font-semibold text-white/38">
+                      No protected money selected.
                     </p>
                   ) : null}
                 </div>
-                <button type="button" onClick={skipProtection} className={secondaryButton}>
-                  Continue without protection
-                </button>
-                <button type="button" onClick={() => setProtectionOpen(true)} className={primaryButton}>
-                  {protectionSettings.setupCompleted ? "Review protection" : "Set protection"}
-                  <ChevronRight className="h-4 w-4" />
-                </button>
               </div>
-            ) : (
-              <div className="mt-5 space-y-3">
-                <div className="rounded-2xl border border-white/8 bg-black/12 p-4">
-                  <p className="text-sm font-black text-white/76">No protection tools are set up yet.</p>
-                  <p className="mt-2 text-xs font-semibold leading-5 text-white/42">
-                    You can continue now and add an Emergency Fund or Savings Goal later.
-                  </p>
-                </div>
-                <button type="button" onClick={continueWithoutAvailableProtection} className={primaryButton}>
-                  Continue to categories
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            )}
 
-            <button type="button" onClick={() => setStep(2)} className="mt-3 w-full py-2 text-xs font-bold text-white/42">
-              Back to cycle
-            </button>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/45">
+                    Debt & obligations
+                  </p>
+                  <button type="button" onClick={() => setStep(2)} className="text-xs font-black text-cyan-100/65">
+                    Edit
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {selectedDebtRecords.length ? (
+                    selectedDebtRecords.map((debt) => (
+                      <ItemRow
+                        key={debt.id}
+                        title={getDebtTitle(debt)}
+                        amount={monthlyDebtPayment(debt)}
+                        note={debtDueDate(debt) ? `Due ${debtDueDate(debt)}` : "Monthly obligation"}
+                        tone="debt"
+                      />
+                    ))
+                  ) : (
+                    <p className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3 text-xs font-semibold text-white/38">
+                      No debt payment selected.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setStep(2)} className={secondaryButton}>
+                Back
+              </button>
+              <button type="button" onClick={() => setStep(4)} className={primaryButton}>
+                Set timeframe
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </section>
         ) : null}
 
         {step === 4 ? (
           <section className={`${card} p-4`}>
             <QuestionHeader
-              icon={ListChecks}
-              eyebrow="Question 4"
-              title={
-                categoryQuestion === "name"
-                  ? "Add a budget item"
-                  : `How much should go to ${normalizeString(categoryName) || "this category"}?`
-              }
-              body={
-                categoryQuestion === "name"
-                  ? null
-                  : editing
-                    ? `Set the new total allocation. ${fmt(editing.allocated)} is currently assigned.`
-                    : `You can assign up to ${fmt(Math.max(declared - allocated, 0))}.`
-              }
+              icon={CalendarDays}
+              eyebrow="Step 4"
+              title="How long should this budget cover?"
+              body="The timeframe gives meaning to the total you built. It will not change or prorate your amounts automatically."
             />
 
-            <div className="mt-4 flex items-end justify-between gap-4 border-y border-white/8 py-3">
-              <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/34">Allocated</p>
-                <p className="mt-1 truncate text-sm font-black text-white/82">
-                  {fmt(allocated)}
-                  <span className="ml-2 text-xs font-bold text-white/38">
-                    · {budgetOptions.length} {budgetOptions.length === 1 ? "category" : "categories"}
-                  </span>
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/45">Left to assign</p>
-                <p className="mt-1 text-lg font-black tracking-[-0.03em] text-cyan-100">{fmt(left)}</p>
-              </div>
-            </div>
-
-            {categoryQuestion === "name" ? (
-              <div className="mt-5 space-y-3">
-                <input
-                  type="text"
-                  value={categoryName}
-                  onChange={(event) => {
-                    setCategoryName(event.target.value);
-                    setNotice("");
-                  }}
-                  placeholder="Example: Food"
-                  className={input}
-                />
-                <div className="flex flex-wrap gap-2">
-                  {["Food", "Bills", "Rent", "Transport", "Groceries"]
-                    .filter(
-                      (suggestion) =>
-                        !budgetOptions.some(
-                          (item) =>
-                            normalizeString(item?.title).toLowerCase() === suggestion.toLowerCase(),
-                        ),
-                    )
-                    .map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        onClick={() => {
-                          setCategoryName(suggestion);
-                          setNotice("");
-                        }}
-                        className="rounded-full border border-white/9 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white/55"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              {[
+                ["weekly", "Weekly", "7 days"],
+                ["biweekly", "Every 2 weeks", "14 days"],
+                ["monthly", "Monthly", "Calendar month"],
+                ["custom", "Custom", "Choose dates"],
+              ].map(([key, label, note]) => (
                 <button
+                  key={key}
                   type="button"
                   onClick={() => {
-                    const cleanCategoryName = normalizeString(categoryName);
-                    if (!cleanCategoryName) {
-                      setNotice("Name the category first.");
-                      return;
-                    }
-                    const duplicateCategory = budgetOptions.find((item) => {
-                      const sameName =
-                        normalizeString(item?.title).toLowerCase() === cleanCategoryName.toLowerCase();
-                      const sameItem =
-                        editing &&
-                        String(item?.id || item?.key) === String(editing?.id || editing?.key);
-                      return sameName && !sameItem;
+                    const nextCycle = getCycleWindow(key, todayDate(), addDays(todayDate(), 6));
+                    updateDraft({
+                      cycleType: key,
+                      cycleStart: nextCycle.start,
+                      cycleEnd: nextCycle.end,
+                      outsideDueConfirmed: {},
                     });
-                    if (duplicateCategory) {
-                      setNotice(`${duplicateCategory.title} is already in your budget. Use its edit button to change the total amount.`);
-                      return;
-                    }
-                    setNotice("");
-                    setCategoryQuestion("amount");
                   }}
-                  className={primaryButton}
+                  className={`rounded-2xl border px-3 py-3 text-left transition ${
+                    draft.cycleType === key
+                      ? "border-emerald-300/35 bg-emerald-400/12"
+                      : "border-white/9 bg-white/[0.035]"
+                  }`}
                 >
-                  Continue
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="mt-5 space-y-3">
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/12 px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">
-                      Category
-                    </p>
-                    <p className="mt-0.5 text-sm font-black">{categoryName}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCategoryQuestion("name")}
-                    className="text-xs font-bold text-cyan-100/65"
+                  <span
+                    className={`block text-sm font-black ${
+                      draft.cycleType === key ? "text-emerald-100" : "text-white/72"
+                    }`}
                   >
-                    Change
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-emerald-200/80">
-                    ₱
+                    {label}
                   </span>
+                  <span className="mt-1 block text-[11px] font-semibold text-white/35">{note}</span>
+                </button>
+              ))}
+            </div>
+
+            {draft.cycleType !== "monthly" ? (
+              <div className="mt-4 space-y-3 rounded-2xl border border-white/8 bg-black/12 p-3.5">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">
+                    Starts on
+                  </label>
                   <input
-                    type="number"
-                    min="0"
-                    inputMode="decimal"
-                    value={categoryAmount}
+                    type="date"
+                    value={draft.cycleStart}
                     onChange={(event) => {
-                      setCategoryAmount(event.target.value);
-                      setNotice("");
+                      const next = getCycleWindow(draft.cycleType, event.target.value, draft.cycleEnd);
+                      updateDraft({
+                        cycleStart: next.start,
+                        cycleEnd: next.end,
+                        outsideDueConfirmed: {},
+                      });
                     }}
-                    placeholder="Amount to assign"
-                    className={`${input} pl-10 text-lg font-black`}
+                    className={`${input} mt-2`}
                   />
                 </div>
-                {firstAmount(categoryAmount) > 0 ? (
-                  <p className="rounded-2xl border border-cyan-300/12 bg-cyan-400/[0.05] px-4 py-3 text-xs font-semibold text-cyan-50/65">
-                    {fmt(categoryAmount)} will be reserved for {categoryName}.
-                  </p>
-                ) : null}
-                <button type="button" onClick={addCategory} disabled={busy} className={primaryButton}>
-                  <Plus className="h-4 w-4" />
-                  {saving ? "Saving..." : editing ? "Update category" : "Add category"}
-                </button>
-              </div>
-            )}
-
-            {budgetOptions.length > 0 ? (
-              <div className="mt-5 border-t border-white/8 pt-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/38">
-                  Budget items
-                </p>
-                <div className="mt-3 space-y-2">
-                  {budgetOptions.map((item) => (
-                    <div
-                      key={item.id || item.key}
-                      className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/12 px-3 py-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black">{item.title}</p>
-                      </div>
-                      <p className="shrink-0 text-sm font-black text-white/82">{fmt(item.allocated)}</p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate("/budget-plan", {
-                            replace: true,
-                            state: { editCategoryId: item.id || item.key },
-                          })
-                        }
-                        className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/55"
-                        aria-label={`Edit ${item.title}`}
-                      >
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeCategory(item)}
-                        disabled={busy}
-                        className="flex h-9 w-9 items-center justify-center rounded-2xl border border-rose-300/18 bg-rose-500/10 text-rose-100/75"
-                        aria-label={`Remove ${item.title}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setStep(5)} className={`${secondaryButton} mt-3`}>
-                  Review my plan
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                {draft.cycleType === "custom" ? (
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">
+                      Ends on
+                    </label>
+                    <input
+                      type="date"
+                      value={draft.cycleEnd}
+                      onChange={(event) =>
+                        updateDraft({ cycleEnd: event.target.value, outsideDueConfirmed: {} })
+                      }
+                      className={`${input} mt-2`}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs font-semibold text-white/50">This period ends on {cycle.end}.</p>
+                )}
               </div>
             ) : null}
 
-            <button type="button" onClick={() => setStep(3)} className="mt-3 w-full py-2 text-xs font-bold text-white/42">
-              Back to protection
-            </button>
+            <div className="mt-4 rounded-2xl border border-cyan-300/14 bg-cyan-400/[0.05] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/45">
+                Relationship to your total
+              </p>
+              <p className="mt-1 text-sm font-black text-cyan-50">
+                {fmt(calculatedTotal)} for {cycle.start} to {cycle.end}
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-cyan-50/50">
+                The same amount can mean something very different over seven days versus a full month. CLARA records both together.
+              </p>
+            </div>
+
+            {insideDueDebts.length ? (
+              <div className="mt-4 space-y-2">
+                {insideDueDebts.map((debt) => (
+                  <div
+                    key={debt.id}
+                    className="rounded-2xl border border-emerald-300/16 bg-emerald-400/[0.06] px-4 py-3"
+                  >
+                    <p className="text-sm font-black text-emerald-50">
+                      {getDebtTitle(debt)} falls inside this budget period
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-emerald-50/55">
+                      Its saved due date is {debtDueDate(debt)}, between {cycle.start} and {cycle.end}.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {outsideDueDebts.length ? (
+              <div className="mt-4 space-y-2">
+                {outsideDueDebts.map((debt) => {
+                  const id = String(debt.id);
+                  const confirmed = draft.outsideDueConfirmed?.[id] === true;
+                  return (
+                    <div key={id} className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] p-4">
+                      <p className="text-sm font-black text-amber-50">
+                        {getDebtTitle(debt)} is due outside this period
+                      </p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-amber-50/55">
+                        Its saved due date is {debtDueDate(debt)}, outside {cycle.start} to {cycle.end}. Keep it if you are budgeting early.
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDraft((current) => ({
+                              selectedDebtIds: current.selectedDebtIds.filter((value) => value !== id),
+                              outsideDueConfirmed: {
+                                ...(current.outsideDueConfirmed || {}),
+                                [id]: false,
+                              },
+                            }))
+                          }
+                          className={secondaryButton}
+                        >
+                          Remove payment
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateDraft((current) => ({
+                              outsideDueConfirmed: {
+                                ...(current.outsideDueConfirmed || {}),
+                                [id]: true,
+                              },
+                            }))
+                          }
+                          className={`${secondaryButton} ${
+                            confirmed ? "border-emerald-300/30 bg-emerald-400/12 text-emerald-100" : ""
+                          }`}
+                        >
+                          Keep included
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setStep(3)} className={secondaryButton}>
+                Back
+              </button>
+              <button type="button" onClick={continueFromTimeframe} className={primaryButton}>
+                Final summary
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </section>
         ) : null}
 
@@ -1612,145 +1346,45 @@ export default function MonthlyBudgetPlanGuided() {
             <div className="border-b border-white/8 bg-gradient-to-br from-cyan-400/[0.09] via-transparent to-violet-400/[0.08] p-4">
               <QuestionHeader
                 icon={CheckCircle2}
-                eyebrow="Final review"
-                title={isActiveBudget ? "Review your active budget" : "Review your budget"}
-                body={
-                  isActiveBudget
-                    ? "Check every item before saving your changes."
-                    : canFinish
-                      ? "Everything is assigned. Check each item before activating."
-                      : "Review the exact items below, then finish assigning the remaining amount."
-                }
+                eyebrow="Step 5"
+                title={`You created a ${fmt(calculatedTotal)} ${cycle.label.toLowerCase()} budget`}
+                body={`This budget is intended to cover ${cycle.start} to ${cycle.end}.`}
               />
             </div>
 
             <div className="p-4">
-              <div className="grid grid-cols-3 divide-x divide-white/8 rounded-2xl border border-white/8 bg-black/12 px-2 py-3">
-                <div className="px-2">
-                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/32">Available</p>
-                  <p className="mt-1 text-sm font-black">{fmt(declared)}</p>
-                </div>
-                <div className="px-2">
-                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-emerald-100/40">Allocated</p>
-                  <p className="mt-1 text-sm font-black text-emerald-100">{fmt(allocated)}</p>
-                </div>
-                <div className="px-2">
-                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100/40">Left</p>
-                  <p className="mt-1 text-sm font-black text-cyan-100">{fmt(left)}</p>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <SummaryStat label="Regular items" value={fmt(regularTotal)} />
+                <SummaryStat label="Protected money" value={fmt(protectedTotal)} />
+                <SummaryStat label="Debt & obligations" value={fmt(debtTotal)} />
+                <SummaryStat label="Calculated total" value={fmt(calculatedTotal)} accent />
               </div>
 
-              {left > 0 ? (
-                <div className="mt-3 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-4 py-3">
-                  <p className="text-sm font-black text-amber-50">{fmt(left)} still needs a purpose.</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-amber-50/55">
-                    Add another item or increase an existing allocation before activation.
-                  </p>
-                </div>
-              ) : null}
-
-              <div className="mt-4 border-t border-white/8 pt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/38">Budget items</p>
-                    <p className="mt-1 text-xs font-semibold text-white/38">
-                      {reviewItemCount} {reviewItemCount === 1 ? "item" : "items"} · {fmt(allocated)} total
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setStep(4)} className="text-xs font-black text-cyan-100/65">
-                    Edit items
-                  </button>
-                </div>
-
-                <div className="mt-3 space-y-2">
-                  {protectedReviewItems.map((item) => (
-                    <div key={item.id || item.key || item.title} className="flex items-center gap-3 rounded-2xl border border-emerald-300/12 bg-emerald-400/[0.05] px-3 py-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-100/75">
-                        <ShieldCheck className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black">{item.title}</p>
-                        <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/42">Protected</p>
-                      </div>
-                      <p className="shrink-0 text-sm font-black text-emerald-100">{fmt(item.allocated)}</p>
-                      <button type="button" onClick={() => setStep(3)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/[0.04] text-white/45" aria-label={`Edit ${item.title}`}>
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {budgetOptions.map((item) => (
-                    <div key={item.id || item.key} className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/12 px-3 py-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black">{item.title}</p>
-                      </div>
-                      <p className="shrink-0 text-sm font-black text-white/82">{fmt(item.allocated)}</p>
-                      <button
-                        type="button"
-                        onClick={() => navigate("/budget-plan", { replace: true, state: { editCategoryId: item.id || item.key } })}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/[0.04] text-white/45"
-                        aria-label={`Edit ${item.title}`}
-                      >
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-4 rounded-2xl border border-white/8 bg-black/12 p-4 text-sm font-semibold leading-6 text-white/58">
+                It includes {fmt(regularTotal)} in regular budget items, {fmt(protectedTotal)} in protected money, and {fmt(debtTotal)} in debt or obligation payments.
               </div>
 
-              <div className="mt-4 border-t border-white/8 pt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/38">Budget details</p>
-                    <p className="mt-1 text-sm font-black">{cycle.label}</p>
-                    <p className="mt-0.5 text-xs font-semibold text-white/38">
-                      {cycle.end ? `${String(cycle.start).slice(0, 10)} to ${cycle.end}` : String(cycle.start).slice(0, 10)}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setStep(2)} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/50" aria-label="Edit budget details">
-                    <Edit3 className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-white/46">
-                  <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5">
-                    {budgetOptions.length} {budgetOptions.length === 1 ? "category" : "categories"}
-                  </span>
-                  <span className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5">
-                    {protectedReviewItems.length} protected {protectedReviewItems.length === 1 ? "item" : "items"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {isActiveBudget ? (
-                  <>
-                    {left > 0 ? (
-                      <button type="button" onClick={() => setStep(4)} className={secondaryButton}>
-                        Assign the remaining {fmt(left)}
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                    <button type="button" onClick={saveActiveChanges} disabled={busy} className={primaryButton}>
-                      {saving ? "Saving..." : "Save changes"}
-                      <CheckCircle2 className="h-4 w-4" />
-                    </button>
-                  </>
-                ) : !canFinish ? (
-                  <button type="button" onClick={() => setStep(4)} className={primaryButton}>
-                    Assign the remaining {fmt(left)}
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <button type="button" onClick={activate} disabled={busy || !canActivate} className={primaryButton}>
-                    {saving ? "Activating..." : "Activate budget"}
-                    <CheckCircle2 className="h-4 w-4" />
-                  </button>
-                )}
-
-                <button type="button" onClick={() => navigate("/dashboard")} className={secondaryButton}>
-                  Return to dashboard
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => setStep(1)} className={secondaryButton}>
+                  Items
+                </button>
+                <button type="button" onClick={() => setStep(2)} className={secondaryButton}>
+                  Commitments
+                </button>
+                <button type="button" onClick={() => setStep(4)} className={secondaryButton}>
+                  Timeframe
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={activateBudget}
+                disabled={saving || loading || calculatedTotal <= 0}
+                className={`${primaryButton} mt-4`}
+              >
+                {saving ? "Activating…" : "Activate budget"}
+                <CheckCircle2 className="h-4 w-4" />
+              </button>
             </div>
           </section>
         ) : null}
@@ -1761,24 +1395,14 @@ export default function MonthlyBudgetPlanGuided() {
           </div>
         ) : null}
 
-        {isActiveBudget && step === 5 ? (
-          <section className={`${card} border-amber-300/14 bg-amber-400/[0.05] p-4`}>
-            <p className="text-sm font-black text-amber-50">Start a fresh cycle</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-amber-50/55">
-              Transaction history stays, but your Watch Zone and categories restart from the reset time.
-            </p>
-            <button
-              type="button"
-              onClick={resetCycle}
-              disabled={busy}
-              className="mt-3 rounded-2xl border border-amber-300/22 bg-amber-400/10 px-4 py-3 text-xs font-black text-amber-50"
-            >
-              Reset budget cycle
-            </button>
-          </section>
-        ) : null}
-
-
+        <button
+          type="button"
+          onClick={cancelDraft}
+          disabled={saving}
+          className="w-full py-2 text-xs font-bold text-white/32 disabled:opacity-40"
+        >
+          {saving ? "Working…" : "Discard unfinished setup"}
+        </button>
       </div>
     </div>
   );
