@@ -22,12 +22,15 @@ function installManualExpenseCleanupStyles() {
   style.textContent = `
     .clara-manual-expense-sheet section[data-expense-step="amount"] > p:first-child,
     .clara-manual-expense-sheet section[data-expense-step="amount"] > h3 + p,
+    .clara-manual-expense-sheet section[data-expense-step="budget"] > p:first-child,
+    .clara-manual-expense-sheet section[data-expense-step="budget"] > h3 + p,
     .clara-manual-expense-sheet section[data-expense-step="wallet"] > p:first-child,
     .clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 + p {
       display: none !important;
     }
 
     .clara-manual-expense-sheet section[data-expense-step="amount"] > h3,
+    .clara-manual-expense-sheet section[data-expense-step="budget"] > h3,
     .clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 {
       margin-top: 0 !important;
     }
