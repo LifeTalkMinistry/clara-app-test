@@ -83,14 +83,26 @@ test("legacy compatibility identity reflects backend role without changing vault
   assert.match(localFacadeSource, /account_id: accountId/);
 });
 
-test("CLARA memory is archived per active vault and swapped on account changes", () => {
-  assert.match(scopedMemoryStorageSource, /SCOPED_MEMORY_PREFIX = "CLARA_USER_CONTEXT_STORY_V2:"/);
-  assert.match(scopedMemoryStorageSource, /getActiveLocalVaultId/);
-  assert.match(scopedMemoryStorageSource, /archiveActiveLegacyAlias/);
+test("CLARA story and behavioral memory are isolated by the active vault", () => {
+  assert.match(
+    scopedMemoryStorageSource,
+    /SCOPED_MEMORY_PREFIX = "CLARA_USER_CONTEXT_STORY_V2:"/
+  );
+  assert.match(
+    scopedMemoryStorageSource,
+    /SCOPED_BEHAVIORAL_MEMORY_PREFIX = "clara_behavioral_memory_v2:"/
+  );
+  assert.match(scopedMemoryStorageSource, /ensureActiveLocalVaultId/);
+  assert.match(scopedMemoryStorageSource, /archiveActiveStoryAlias/);
+  assert.match(scopedMemoryStorageSource, /archiveActiveBehavioralAlias/);
   assert.match(scopedMemoryStorageSource, /switchMemoryOwner/);
   assert.match(scopedMemoryStorageSource, /clara:active-local-vault-updated/);
   assert.match(scopedMemoryStorageSource, /clara:account-vault-switched/);
-  assert.match(scopedMemoryStorageSource, /A new account must start with no inherited memory/);
+  assert.match(
+    scopedMemoryStorageSource,
+    /prevents another account's old active_profile/
+  );
+  assert.match(scopedMemoryStorageSource, /clearLiveSessionMemory/);
   assert.match(runtimePatchRegistrySource, /installScopedClaraMemoryStorage/);
   assert.ok(
     runtimePatchRegistrySource.indexOf("installScopedClaraMemoryStorage") <
