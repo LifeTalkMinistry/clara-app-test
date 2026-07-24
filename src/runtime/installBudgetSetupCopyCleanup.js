@@ -5,11 +5,11 @@ const EMPTY_STATE_EXPLANATION =
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
-function removeMatchingCopy(root) {
+function hideMatchingCopy(root) {
   if (!root) return;
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const elementsToRemove = new Set();
+  const elementsToHide = new Set();
   let node = walker.nextNode();
 
   while (node) {
@@ -17,18 +17,21 @@ function removeMatchingCopy(root) {
 
     if (text === TOP_EXPLANATION) {
       const paragraph = node.parentElement?.closest("p");
-      if (paragraph) elementsToRemove.add(paragraph);
+      if (paragraph) elementsToHide.add(paragraph);
     }
 
     if (text === EMPTY_STATE_EXPLANATION) {
       const explanationCard = node.parentElement?.closest("div");
-      if (explanationCard) elementsToRemove.add(explanationCard);
+      if (explanationCard) elementsToHide.add(explanationCard);
     }
 
     node = walker.nextNode();
   }
 
-  elementsToRemove.forEach((element) => element.remove());
+  elementsToHide.forEach((element) => {
+    element.hidden = true;
+    element.style.display = "none";
+  });
 }
 
 export function installBudgetSetupCopyCleanup() {
@@ -39,9 +42,9 @@ export function installBudgetSetupCopyCleanup() {
     const root = document.getElementById("root");
     if (!root) return;
 
-    removeMatchingCopy(root);
+    hideMatchingCopy(root);
 
-    const observer = new MutationObserver(() => removeMatchingCopy(root));
+    const observer = new MutationObserver(() => hideMatchingCopy(root));
     observer.observe(root, { childList: true, subtree: true, characterData: true });
   };
 
