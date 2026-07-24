@@ -192,9 +192,17 @@ test("legacy client grants are removed without touching financial records", () =
   }
 });
 
-test("production app no longer imports or renders in-app administration", () => {
+test("production administration is backend-authorized and legacy hidden admin grants stay removed", () => {
   const appSource = readFileSync(
     new URL("../src/App.jsx", import.meta.url),
+    "utf8"
+  );
+  const adminPanelSource = readFileSync(
+    new URL("../src/pages/AdminPanel.jsx", import.meta.url),
+    "utf8"
+  );
+  const adminClientSource = readFileSync(
+    new URL("../src/lib/admin-backend-client.js", import.meta.url),
     "utf8"
   );
   const budgetCardSource = readFileSync(
@@ -202,9 +210,14 @@ test("production app no longer imports or renders in-app administration", () => 
     "utf8"
   );
 
-  assert.doesNotMatch(appSource, /AdminPanel|AdminRoute|HiddenAdminRoute|AdminRescueButton/);
+  assert.match(appSource, /const AdminPanel = lazy/);
+  assert.match(appSource, /path="\/admin\/\*"\s+element=\{<AdminPanel \/>\}/);
+  assert.match(adminPanelSource, /useUserRole/);
+  assert.match(adminPanelSource, /if \(!isAdmin\)/);
+  assert.match(adminClientSource, /getStoredBackendToken/);
+  assert.match(adminClientSource, /\/api\/admin/);
+  assert.doesNotMatch(appSource, /HiddenAdminRoute|AdminRescueButton/);
   assert.doesNotMatch(appSource, /pages\/admin|features\/coaching-admin/);
-  assert.match(appSource, /path="\/admin\/\*"/);
   assert.doesNotMatch(
     budgetCardSource,
     /verifyHiddenAdminPassword|writeDeveloperMembershipPreview|hiddenAdmin/
