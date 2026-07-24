@@ -24,11 +24,16 @@ const settingsScrollResetSource = readSource(
   "src/runtime/installSettingsScrollReset.js"
 );
 const settingsMemoryEntrySource = readSource("src/clara-settings-memory-entry.js");
-const settingsThemeVisibilitySource = readSource("src/settings-hide-theme-appearance.js");
-const settingsDemoSource = readSource(
-  "src/clara-settings-young-professional-current-state.js"
-);
 const settingsCleanupSource = readSource("src/settings-cleanup.css");
+
+const retiredThemePatchUrl = new URL(
+  "../src/settings-hide-theme-appearance.js",
+  import.meta.url
+);
+const retiredDemoPatchUrl = new URL(
+  "../src/clara-settings-young-professional-current-state.js",
+  import.meta.url
+);
 
 test("active Settings directly exposes Backup & Transfer through /data-export", () => {
   assert.match(activeSettingsSource, /Backup & Transfer/);
@@ -64,21 +69,26 @@ test("Settings helpers use one event-driven sync instead of document-wide observ
     settingsAccessLogoutSource,
     settingsScrollResetSource,
     settingsMemoryEntrySource,
-    settingsThemeVisibilitySource,
-    settingsDemoSource,
   ]) {
     assert.doesNotMatch(source, /MutationObserver/);
   }
 
+  assert.equal(existsSync(retiredThemePatchUrl), false);
+  assert.equal(existsSync(retiredDemoPatchUrl), false);
   assert.doesNotMatch(settingsCleanupSource, /body:has\(/);
   assert.match(settingsCleanupSource, /body\.clara-settings-active/);
 });
 
-test("Settings permanently hides theme customization", () => {
+test("Settings permanently hides theme customization through one scoped CSS owner", () => {
+  assert.equal(existsSync(retiredThemePatchUrl), false);
   assert.match(
     settingsCleanupSource,
     /button\.group:has\(svg\.lucide-palette\)[\s\S]*display:\s*none\s*!important/
   );
+});
+
+test("hidden Settings demo shortcut has been removed from production source", () => {
+  assert.equal(existsSync(retiredDemoPatchUrl), false);
 });
 
 test("router exposes the CLARA backend login and protects app routes", () => {
