@@ -71,12 +71,15 @@ export default function useDashboardPanelUiState({
         ? "animate-[claraDashboardPanelForwardIn_340ms_cubic-bezier(.22,1,.36,1)_both]"
         : "animate-[claraDashboardPanelReverseIn_340ms_cubic-bezier(.22,1,.36,1)_both]";
 
+  // Dynamic viewport units track installed-PWA chrome, orientation changes, and
+  // the on-screen keyboard more faithfully than svh, which is intentionally
+  // pinned to the smallest possible viewport.
   const dashboardPanelViewportClass =
     activeDashboardPanel === "home"
       ? ""
       : activeDashboardPanel === "messages"
-        ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+        ? "h-[calc(100dvh-132px)] max-h-[calc(100dvh-132px)] min-h-0 overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        : "max-h-[calc(100dvh-132px)] min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const dashboardSmartScrollClass =
     activeDashboardPanel === "home"
