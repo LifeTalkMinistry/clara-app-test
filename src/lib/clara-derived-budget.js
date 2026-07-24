@@ -74,6 +74,17 @@ export function addDays(date, days) {
   return parsed.toISOString().slice(0, 10);
 }
 
+export function addMonths(date, months) {
+  const safe = dateOnly(date) || todayDate();
+  const [year, month, day] = safe.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + Number(months || 0), 1));
+  const targetYear = target.getUTCFullYear();
+  const targetMonth = target.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const targetDay = Math.min(day, lastDay);
+  return `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+}
+
 export function monthRange(date = todayDate()) {
   const safe = dateOnly(date) || todayDate();
   const [year, month] = safe.split("-").map(Number);
@@ -103,8 +114,12 @@ export function getCycleWindow(type, start, end) {
   if (safeType === "custom") {
     return { type: safeType, label: "Custom", start: safeStart, end: dateOnly(end) || safeStart };
   }
-  const range = monthRange(safeStart);
-  return { type: "monthly", label: "Monthly", start: range.start, end: range.end };
+  return {
+    type: "monthly",
+    label: "Monthly",
+    start: safeStart,
+    end: addDays(addMonths(safeStart, 1), -1),
+  };
 }
 
 export function isValidCycleWindow(cycle) {
