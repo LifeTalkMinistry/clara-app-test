@@ -5,8 +5,20 @@ import { readFileSync } from "node:fs";
 const vercelConfig = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8")
 );
+const backendClientSource = readFileSync(
+  new URL("../src/lib/clara-backend-client.js", import.meta.url),
+  "utf8"
+);
 const coachingClientSource = readFileSync(
   new URL("../src/lib/coaching-backend-client.js", import.meta.url),
+  "utf8"
+);
+const billingClientSource = readFileSync(
+  new URL("../src/lib/billing-backend-client.js", import.meta.url),
+  "utf8"
+);
+const legalInformationClientSource = readFileSync(
+  new URL("../src/lib/legal-information-backend-client.js", import.meta.url),
   "utf8"
 );
 
@@ -51,6 +63,13 @@ test("Vercel web builds use the same-origin API proxy", async () => {
   assert.equal(client.VERCEL_API_PROXY_PATH, "/clara-api");
 });
 
+test("all shared backend requests bypass the ngrok browser warning", () => {
+  assert.match(
+    backendClientSource,
+    /"ngrok-skip-browser-warning": "true"/
+  );
+});
+
 test("coaching requests are pinned to the working production proxy", () => {
   assert.match(
     coachingClientSource,
@@ -59,6 +78,13 @@ test("coaching requests are pinned to the working production proxy", () => {
   assert.match(coachingClientSource, /"ngrok-skip-browser-warning": "true"/);
   assert.match(coachingClientSource, /Authorization: `Bearer \$\{authorizedToken\}`/);
   assert.doesNotMatch(coachingClientSource, /backendRequest\(/);
+});
+
+test("Settings backend clients coalesce rapid repeated reads", () => {
+  assert.match(billingClientSource, /BILLING_CACHE_TTL_MS/);
+  assert.match(billingClientSource, /inFlightRequest/);
+  assert.match(legalInformationClientSource, /LEGAL_INFORMATION_CACHE_TTL_MS/);
+  assert.match(legalInformationClientSource, /inFlightRequest/);
 });
 
 test("native and non-Vercel runtimes keep using the direct backend URL", async () => {
