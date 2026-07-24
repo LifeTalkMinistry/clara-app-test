@@ -1,0 +1,195 @@
+name: Apply data retention hardening
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-data-retention-hardening.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  harden-data-retention:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply verified retention fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          helper = Path("src/lib/clara-account-identity.js")
+          helper.write_text('''const text = (value) => String(value ?? "").trim();
+
+export function getBackendAccountId(user = {}) {
+  const explicit =
+    text(user?.account_id) ||
+    text(user?.server_user_id) ||
+    text(user?.user_metadata?.account_id);
+  if (explicit) return explicit;
+
+  // Raw backend user objects may expose their server id directly. AuthContext users
+  // always carry local_vault_id, so never reinterpret that local id as account ownership.
+  if (!text(user?.local_vault_id) && !user?.is_local_user) {
+    return text(user?.id);
+  }
+
+  return "";
+}
+''')
+
+          # Cloud snapshots must be owned by the stable backend account, never by the device vault id.
+          replace_once(
+              "src/lib/cloud-vault-snapshot.js",
+              'import { getActiveLocalVaultId } from "./localVaultIdentity";\n',
+              'import { getBackendAccountId } from "./clara-account-identity";\nimport { getActiveLocalVaultId } from "./localVaultIdentity";\n',
+          )
+          replace_once(
+              "src/lib/cloud-vault-snapshot.js",
+              '  const accountId = text(user?.id);\n  const sourceVaultId = text(getActiveLocalVaultId());',
+              '  const accountId = text(getBackendAccountId(user));\n  const sourceVaultId = text(getActiveLocalVaultId());',
+          )
+          replace_once(
+              "src/lib/cloud-vault-snapshot.js",
+              '''  return snapshot;\n}\n\nfunction recordTimestamp(record) {''',
+              '''  return snapshot;\n}\n\nexport function normalizeAuthenticatedCloudSnapshot(snapshot, accountId) {\n  const validated = validateClaraCloudSnapshot(snapshot);\n  const expectedAccountId = text(accountId);\n  if (!expectedAccountId) {\n    throw new Error("A signed-in CLARA account is required to adopt a server snapshot.");\n  }\n\n  const claimedAccountId = text(validated.account_id);\n  if (claimedAccountId === expectedAccountId) return validated;\n\n  // v2 snapshots created before the account/vault identity fix used the local vault id\n  // in account_id. An authenticated server response already proves which backend user\n  // owns the row, so this exact legacy shape can be upgraded without discarding data.\n  const sourceVaultId = text(validated.source_vault_id);\n  if (claimedAccountId && claimedAccountId === sourceVaultId) {\n    return { ...validated, account_id: expectedAccountId };\n  }\n\n  const error = new Error("This backup belongs to a different CLARA account.");\n  error.code = "CLOUD_SNAPSHOT_ACCOUNT_MISMATCH";\n  throw error;\n}\n\nfunction recordTimestamp(record) {''',
+          )
+          replace_once(
+              "src/lib/cloud-vault-snapshot.js",
+              '  const accountId = text(user?.id);\n  const targetVaultId = text(getActiveLocalVaultId());',
+              '  const accountId = text(getBackendAccountId(user));\n  const targetVaultId = text(getActiveLocalVaultId());',
+          )
+
+          # Online Sync and its local mode cache must use the same stable backend account id.
+          replace_once(
+              "src/lib/cloud-vault-sync.js",
+              'import {\n  buildClaraCloudVaultSnapshot,',
+              'import { getBackendAccountId } from "./clara-account-identity";\nimport {\n  buildClaraCloudVaultSnapshot,',
+          )
+          replace_once(
+              "src/lib/cloud-vault-sync.js",
+              '  mergeClaraCloudSnapshots,\n  restoreClaraCloudSnapshot,',
+              '  mergeClaraCloudSnapshots,\n  normalizeAuthenticatedCloudSnapshot,\n  restoreClaraCloudSnapshot,',
+          )
+          replace_once(
+              "src/lib/cloud-vault-sync.js",
+              '''function dispatchSyncStatus(detail) {\n  if (typeof window === "undefined") return;\n  window.dispatchEvent(\n    new CustomEvent(CLARA_CLOUD_SYNC_STATUS_EVENT, { detail })\n  );\n}\n\nfunction normalizeSnapshotForFingerprint(snapshot) {''',
+              '''function dispatchSyncStatus(detail) {\n  if (typeof window === "undefined") return;\n  window.dispatchEvent(\n    new CustomEvent(CLARA_CLOUD_SYNC_STATUS_EVENT, { detail })\n  );\n}\n\nfunction normalizeAuthenticatedRemote(remote, user) {\n  if (!remote?.snapshot) return remote;\n  const accountId = getBackendAccountId(user);\n  return {\n    ...remote,\n    snapshot: normalizeAuthenticatedCloudSnapshot(remote.snapshot, accountId),\n  };\n}\n\nfunction normalizeSnapshotForFingerprint(snapshot) {''',
+          )
+          replace_once(
+              "src/lib/cloud-vault-sync.js",
+              '''    const latestRemote = await fetchCloudVaultStatus({ includeSnapshot: true });\n    if (!latestRemote?.snapshot) throw error;''',
+              '''    const latestRemote = normalizeAuthenticatedRemote(\n      await fetchCloudVaultStatus({ includeSnapshot: true }),\n      user\n    );\n    if (!latestRemote?.snapshot) throw error;''',
+          )
+          replace_once(
+              "src/lib/cloud-vault-sync.js",
+              '''  const accountId = String(user?.id || "").trim();\n  if (!accountId) return { storageMode: CLARA_STORAGE_MODES.LOCAL_ONLY };''',
+              '''  const accountId = getBackendAccountId(user);\n  if (!accountId) return { storageMode: CLARA_STORAGE_MODES.LOCAL_ONLY };''',
+          )
+          replace_once(
+              "src/lib/cloud-vault-sync.js",
+              '''  const remote = await fetchCloudVaultStatus({ includeSnapshot: true });\n  const mode = saveClaraStorageMode(accountId, remote.storageMode);''',
+              '''  const remote = normalizeAuthenticatedRemote(\n    await fetchCloudVaultStatus({ includeSnapshot: true }),\n    user\n  );\n  const mode = saveClaraStorageMode(accountId, remote.storageMode);''',
+          )
+          text = Path("src/lib/cloud-vault-sync.js").read_text()
+          text = text.replace('accountId: String(context.user?.id || ""),', 'accountId: getBackendAccountId(context.user),')
+          text = text.replace('const accountId = String(user?.id || "").trim();', 'const accountId = getBackendAccountId(user);')
+          Path("src/lib/cloud-vault-sync.js").write_text(text)
+          if 'String(user?.id || "").trim()' in text or 'String(context.user?.id || "")' in text:
+              raise SystemExit("Unsafe local user id usage remains in cloud-vault-sync.js")
+
+          # Sync bridge mode/event ownership must also use backend account id.
+          replace_once(
+              "src/components/CloudVaultSyncBridge.jsx",
+              'import { useAuth } from "@/context/AuthContext";\n',
+              'import { useAuth } from "@/context/AuthContext";\nimport { getBackendAccountId } from "@/lib/clara-account-identity";\n',
+          )
+          replace_once(
+              "src/components/CloudVaultSyncBridge.jsx",
+              '''  const { user, profile, authReady } = useAuth();\n  const timerRef = useRef(null);''',
+              '''  const { user, profile, authReady } = useAuth();\n  const accountId = getBackendAccountId(user);\n  const timerRef = useRef(null);''',
+          )
+          replace_once("src/components/CloudVaultSyncBridge.jsx", '    if (!authReady || !user?.id) return undefined;', '    if (!authReady || !accountId) return undefined;')
+          replace_once("src/components/CloudVaultSyncBridge.jsx", '          getClaraStorageMode(context.user?.id) !==', '          getClaraStorageMode(getBackendAccountId(context.user)) !==')
+          replace_once("src/components/CloudVaultSyncBridge.jsx", '        String(event?.detail?.accountId || "") === String(user.id) &&', '        String(event?.detail?.accountId || "") === accountId &&')
+          replace_once("src/components/CloudVaultSyncBridge.jsx", '  }, [authReady, user?.id]);', '  }, [accountId, authReady]);')
+
+          # Storage screen must display/listen to the server-account-scoped mode.
+          replace_once(
+              "src/pages/DataExport.jsx",
+              'import { useAuth } from "@/context/AuthContext";\n',
+              'import { useAuth } from "@/context/AuthContext";\nimport { getBackendAccountId } from "@/lib/clara-account-identity";\n',
+          )
+          replace_once(
+              "src/pages/DataExport.jsx",
+              '''  const { user, profile } = useAuth();\n  const fileInputRef = useRef(null);\n  const [mode, setMode] = useState(() => getClaraStorageMode(user?.id));''',
+              '''  const { user, profile } = useAuth();\n  const accountId = getBackendAccountId(user);\n  const fileInputRef = useRef(null);\n  const [mode, setMode] = useState(() => getClaraStorageMode(accountId));''',
+          )
+          replace_once("src/pages/DataExport.jsx", '    if (!user?.id) return undefined;', '    if (!accountId) return undefined;')
+          replace_once("src/pages/DataExport.jsx", '        const nextMode = saveClaraStorageMode(user.id, status.storageMode);', '        const nextMode = saveClaraStorageMode(accountId, status.storageMode);')
+          replace_once("src/pages/DataExport.jsx", '      if (String(event?.detail?.accountId || "") !== String(user.id)) return;', '      if (String(event?.detail?.accountId || "") !== accountId) return;')
+          replace_once("src/pages/DataExport.jsx", '  }, [user?.id]);', '  }, [accountId]);')
+
+          # Legacy migrations may delete a source only after a verified copy or exact match.
+          replace_once(
+              "src/lib/local-identity-storage-migration.js",
+              '''  if (!store.getItem(destinationKey)) {\n    store.setItem(destinationKey, JSON.stringify(transform(source)));\n  }\n  return true;''',
+              '''  const serialized = JSON.stringify(transform(source));\n  const destination = store.getItem(destinationKey);\n  if (destination !== null) return destination === serialized;\n\n  store.setItem(destinationKey, serialized);\n  return store.getItem(destinationKey) === serialized;''',
+          )
+          replace_once(
+              "src/lib/local-identity-storage-migration.js",
+              '''    const destinationKey = sourceKey.replace(sourceId, destinationId);\n    if (!store.getItem(destinationKey)) {\n      const value = store.getItem(sourceKey);\n      if (value !== null) store.setItem(destinationKey, value);\n    }\n    store.removeItem(sourceKey);\n    migrated += 1;''',
+              '''    const destinationKey = sourceKey.replace(sourceId, destinationId);\n    const sourceValue = store.getItem(sourceKey);\n    if (sourceValue === null) return;\n\n    const destinationValue = store.getItem(destinationKey);\n    if (destinationValue !== null) {\n      if (destinationValue === sourceValue) {\n        store.removeItem(sourceKey);\n        migrated += 1;\n      }\n      return;\n    }\n\n    store.setItem(destinationKey, sourceValue);\n    if (store.getItem(destinationKey) === sourceValue) {\n      store.removeItem(sourceKey);\n      migrated += 1;\n    }''',
+          )
+
+          # Regression coverage. These checks specifically guard the two proven failure classes.
+          Path("tests/data-retention-hardening.test.mjs").write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport fs from "node:fs/promises";\n\nconst { getBackendAccountId } = await import("../src/lib/clara-account-identity.js");\n\ntest("backend account identity never aliases an AuthContext local vault id", () => {\n  const user = {\n    id: "clara_local_device_vault",\n    local_vault_id: "clara_local_device_vault",\n    account_id: "42",\n    server_user_id: "42",\n    is_local_user: false,\n  };\n  assert.equal(getBackendAccountId(user), "42");\n  assert.equal(\n    getBackendAccountId({ id: "42", is_local_user: false }),\n    "42",\n    "raw backend users may use their direct id"\n  );\n  assert.equal(\n    getBackendAccountId({ id: "clara_local_device_vault", local_vault_id: "clara_local_device_vault" }),\n    "",\n    "a local vault id must never become cloud ownership"\n  );\n});\n\ntest("cloud sync and snapshots use stable backend account identity", async () => {\n  const snapshot = await fs.readFile(new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url), "utf8");\n  const sync = await fs.readFile(new URL("../src/lib/cloud-vault-sync.js", import.meta.url), "utf8");\n  const bridge = await fs.readFile(new URL("../src/components/CloudVaultSyncBridge.jsx", import.meta.url), "utf8");\n  const screen = await fs.readFile(new URL("../src/pages/DataExport.jsx", import.meta.url), "utf8");\n\n  for (const source of [snapshot, sync, bridge, screen]) {\n    assert.match(source, /getBackendAccountId/);\n  }\n  assert.doesNotMatch(snapshot, /const accountId = text\\(user\\?\\.id\\)/);\n  assert.doesNotMatch(sync, /String\\(user\\?\\.id \\|\\| ""\\)\\.trim\\(\\)/);\n  assert.match(snapshot, /normalizeAuthenticatedCloudSnapshot/);\n  assert.match(sync, /normalizeAuthenticatedRemote/);\n});\n\ntest("legacy identity migration never deletes a conflicting source value", async () => {\n  const migration = await fs.readFile(new URL("../src/lib/local-identity-storage-migration.js", import.meta.url), "utf8");\n  assert.match(migration, /if \\(destination !== null\\) return destination === serialized/);\n  assert.match(migration, /if \\(destinationValue !== null\\)/);\n  assert.match(migration, /if \\(destinationValue === sourceValue\\)/);\n  assert.match(migration, /if \\(store\\.getItem\\(destinationKey\\) === sourceValue\\)/);\n  assert.doesNotMatch(\n    migration,\n    /if \\(!store\\.getItem\\(destinationKey\\)\\)[\\s\\S]{0,180}store\\.removeItem\\(sourceKey\\);\\s*migrated \\+= 1;/\n  );\n});\n''')
+
+          # Ensure the normal test command permanently runs the new guard.
+          package = Path("package.json")
+          package_text = package.read_text()
+          marker = ' tests/clara-framework-booklet.test.mjs"'
+          if marker not in package_text:
+              raise SystemExit("Unable to locate npm test script terminator")
+          package.write_text(package_text.replace(marker, ' tests/clara-framework-booklet.test.mjs tests/data-retention-hardening.test.mjs"', 1))
+
+          Path(".github/workflows/verify-data-retention.yml").write_text('''name: Verify Data Retention\n\non:\n  pull_request:\n    paths:\n      - "src/lib/clara-account-identity.js"\n      - "src/lib/cloud-vault-snapshot.js"\n      - "src/lib/cloud-vault-sync.js"\n      - "src/lib/local-identity-storage-migration.js"\n      - "src/components/CloudVaultSyncBridge.jsx"\n      - "src/pages/DataExport.jsx"\n      - "tests/data-retention-hardening.test.mjs"\n      - "tests/cloud-vault-sync.test.mjs"\n      - "package.json"\n      - ".github/workflows/verify-data-retention.yml"\n  push:\n    branches: [main]\n    paths:\n      - "src/lib/clara-account-identity.js"\n      - "src/lib/cloud-vault-snapshot.js"\n      - "src/lib/cloud-vault-sync.js"\n      - "src/lib/local-identity-storage-migration.js"\n      - "src/components/CloudVaultSyncBridge.jsx"\n      - "src/pages/DataExport.jsx"\n      - "tests/data-retention-hardening.test.mjs"\n      - "tests/cloud-vault-sync.test.mjs"\n      - "package.json"\n      - ".github/workflows/verify-data-retention.yml"\n\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 20\n          cache: npm\n      - run: npm ci\n      - run: node --test tests/data-retention-hardening.test.mjs tests/cloud-vault-sync.test.mjs\n      - run: npm test\n      - run: npm run build\n''')
+          PY
+
+      - name: Verify retention regression tests
+        run: node --test tests/data-retention-hardening.test.mjs tests/cloud-vault-sync.test.mjs
+
+      - name: Run app test suite
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Commit verified retention hardening
+        run: |
+          git config user.name "LifeTalk Ministry"
+          git config user.email "96472293+LifeTalkMinistry@users.noreply.github.com"
+          git add src/lib/clara-account-identity.js src/lib/cloud-vault-snapshot.js src/lib/cloud-vault-sync.js src/lib/local-identity-storage-migration.js src/components/CloudVaultSyncBridge.jsx src/pages/DataExport.jsx tests/data-retention-hardening.test.mjs package.json .github/workflows/verify-data-retention.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Harden CLARA data retention across updates"
+          git push origin HEAD:main
