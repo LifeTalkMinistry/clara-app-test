@@ -5,22 +5,13 @@ import {
 
 export { readCarouselNumber };
 
-const isDerivedPlan = (plan = {}) =>
-  plan?.isDerivedBudget === true ||
-  plan?.is_derived_budget === true ||
-  String(plan?.budget_total_mode || plan?.budgetTotalMode || "")
-    .trim()
-    .toLowerCase() === "derived_from_items";
-
 export const normalizeCarouselBudgetPlan = (plan = {}, liveExpenseTotal = 0) => {
   const normalized = normalizeCarouselBudgetPlanCore(plan, liveExpenseTotal);
   const activeBudget = normalized?.activeBudget || {};
 
-  if (!isDerivedPlan(plan) && !isDerivedPlan(activeBudget)) return normalized;
-
-  // Allocating money during setup is not a transaction. Protected money,
-  // debt obligations, and regular categories all start untouched. Only actual
-  // logged spending decreases the cycle's available balance.
+  // Budget setup only assigns money to categories. It does not spend, transfer,
+  // or reserve that money automatically. Available balance changes only when
+  // actual spending has been logged into the active budget cycle.
   const declared = readCarouselNumber(
     normalized?.declaredBudget,
     activeBudget?.declared_budget,
