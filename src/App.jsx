@@ -42,6 +42,7 @@ const Referrals = lazy(() => import("./pages/Referrals"));
 const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
 const WelcomeSession = lazy(() => import("./pages/WelcomeSession"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const Activation = lazy(() => import("./pages/Activation"));
 const ProgramOnboarding = lazy(() =>
   import("./pages/onboarding/ProgramOnboarding")
@@ -378,10 +379,7 @@ function AppRoutes() {
                   />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/data-export" element={<DataExport />} />
-                  <Route
-                    path="/admin/*"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
+                  <Route path="/admin/*" element={<AdminPanel />} />
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
               </Layout>
