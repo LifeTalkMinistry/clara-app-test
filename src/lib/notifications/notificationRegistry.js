@@ -80,6 +80,13 @@ export function isNotificationEventAllowed(eventType, preferences = {}) {
   if (!definition) return false;
   if (definition.optional === false) return true;
 
+  // Weekly Money Review has its own visible Settings control. That control must
+  // be authoritative and must not be silently overridden by the broader hidden
+  // goals/reviews preference retained for backwards compatibility.
+  if (eventType === "weekly_review_ready") {
+    return preferences?.weeklyMoneyReview !== false;
+  }
+
   const preferenceKey = CATEGORY_PREFERENCE_KEYS[definition.category];
   return preferenceKey ? preferences?.[preferenceKey] !== false : false;
 }
