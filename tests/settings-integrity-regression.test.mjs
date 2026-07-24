@@ -24,6 +24,9 @@ const notificationRegistrySource = readSource(
 const runtimePatchRegistrySource = readSource(
   "src/runtime/installClaraRuntimePatches.js"
 );
+const scopedMemoryStorageSource = readSource(
+  "src/runtime/installScopedClaraMemoryStorage.js"
+);
 const settingsAccessLogoutSource = readSource(
   "src/runtime/installSettingsAccessLogout.js"
 );
@@ -78,6 +81,21 @@ test("legacy compatibility identity reflects backend role without changing vault
   assert.match(localFacadeSource, /backendUser\?\.role/);
   assert.match(localFacadeSource, /id: localUserId/);
   assert.match(localFacadeSource, /account_id: accountId/);
+});
+
+test("CLARA memory is archived per active vault and swapped on account changes", () => {
+  assert.match(scopedMemoryStorageSource, /SCOPED_MEMORY_PREFIX = "CLARA_USER_CONTEXT_STORY_V2:"/);
+  assert.match(scopedMemoryStorageSource, /getActiveLocalVaultId/);
+  assert.match(scopedMemoryStorageSource, /archiveActiveLegacyAlias/);
+  assert.match(scopedMemoryStorageSource, /switchMemoryOwner/);
+  assert.match(scopedMemoryStorageSource, /clara:active-local-vault-updated/);
+  assert.match(scopedMemoryStorageSource, /clara:account-vault-switched/);
+  assert.match(scopedMemoryStorageSource, /A new account must start with no inherited memory/);
+  assert.match(runtimePatchRegistrySource, /installScopedClaraMemoryStorage/);
+  assert.ok(
+    runtimePatchRegistrySource.indexOf("installScopedClaraMemoryStorage") <
+      runtimePatchRegistrySource.indexOf("clara-memory-bridge")
+  );
 });
 
 test("notification preferences are scoped to the active local vault and react to account switching", () => {
