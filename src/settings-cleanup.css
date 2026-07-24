@@ -63,6 +63,13 @@ body.clara-settings-active #root {
   display: none !important;
 }
 
+/* The overview formerly labeled all Notifications On/Off using only the
+   expense-log reminder flag. Hide that false summary; each notification card
+   now owns and displays its real status inside the detail page. */
+#root .space-y-5.pb-6 section button.group:has(svg.lucide-bell) > span {
+  display: none !important;
+}
+
 /* hide logout section inside Settings only */
 #root .space-y-5.pb-6 > .space-y-2.pt-1 {
   display: none !important;
