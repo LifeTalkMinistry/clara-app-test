@@ -5,6 +5,10 @@ import { readFileSync } from "node:fs";
 const vercelConfig = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8")
 );
+const coachingClientSource = readFileSync(
+  new URL("../src/lib/coaching-backend-client.js", import.meta.url),
+  "utf8"
+);
 
 function createStorage() {
   return {
@@ -45,6 +49,16 @@ test("Vercel web builds use the same-origin API proxy", async () => {
 
   assert.equal(client.getClaraBackendUrl(), "/clara-api");
   assert.equal(client.VERCEL_API_PROXY_PATH, "/clara-api");
+});
+
+test("coaching requests are pinned to the working production proxy", () => {
+  assert.match(
+    coachingClientSource,
+    /return isVercelWebRuntime\(\)[\s\S]*VERCEL_COACHING_PROXY_PATH/
+  );
+  assert.match(coachingClientSource, /"ngrok-skip-browser-warning": "true"/);
+  assert.match(coachingClientSource, /Authorization: `Bearer \$\{authorizedToken\}`/);
+  assert.doesNotMatch(coachingClientSource, /backendRequest\(/);
 });
 
 test("native and non-Vercel runtimes keep using the direct backend URL", async () => {
