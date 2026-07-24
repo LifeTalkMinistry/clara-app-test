@@ -13,10 +13,24 @@ function openEditableMemoryBoard(cabinetName = "Spending Memory") {
 
   if (typeof document === "undefined") return;
 
+  // Prefer the real assistant Memory tab when it is already mounted.
+  const mountedMemoryTab = document.querySelector(
+    'button[data-clara-memory-tab="true"]'
+  );
+  if (mountedMemoryTab) {
+    mountedMemoryTab.click();
+    return;
+  }
+
+  // The assistant Memory controller uses a global click capture so Settings can
+  // still open the memory board even while the assistant dock itself is closed.
+  // Keep this isolated fallback here instead of cloning or mutating another
+  // Settings control.
   const memoryTrigger = document.createElement("button");
   memoryTrigger.type = "button";
   memoryTrigger.textContent = "Memory";
   memoryTrigger.setAttribute("aria-hidden", "true");
+  memoryTrigger.tabIndex = -1;
   memoryTrigger.style.position = "fixed";
   memoryTrigger.style.left = "-9999px";
   memoryTrigger.style.top = "-9999px";
@@ -35,55 +49,39 @@ function memoryIconSvg() {
   `;
 }
 
-function updateMemoryRowContent(button) {
-  const paragraphs = Array.from(button.querySelectorAll("p"));
-  if (paragraphs[0]) paragraphs[0].textContent = "Memory";
-  if (paragraphs[1]) paragraphs[1].textContent = "Saved context, patterns, and AI memory";
-
-  const badge = Array.from(button.querySelectorAll("span")).find((span) =>
-    ["Safe", "Edit", "On", "Off", "Help", "Info", "Free", "Limited", "Active"].includes(
-      span.textContent?.trim()
-    )
-  );
-
-  if (badge) badge.textContent = "Review";
-
-  const iconHost = button.querySelector("div svg")?.parentElement;
-  if (iconHost) iconHost.innerHTML = memoryIconSvg();
-
+function createMemoryButton(id = ENTRY_ID) {
+  const button = document.createElement("button");
+  button.id = id;
+  button.type = "button";
+  button.className =
+    "group flex w-full items-center gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left shadow-[0_12px_30px_rgba(0,0,0,0.13)] transition hover:bg-white/[0.07]";
   button.setAttribute("aria-label", "Open CLARA editable memory board");
+  button.innerHTML = `
+    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8 text-white/65 group-hover:text-white">
+      ${memoryIconSvg()}
+    </div>
+    <div class="min-w-0 flex-1">
+      <p class="truncate text-sm font-bold text-white">Memory</p>
+      <p class="mt-1 truncate text-xs text-white/45">Saved context, patterns, and AI memory</p>
+    </div>
+    <span class="max-w-[96px] shrink-0 truncate rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">Review</span>
+    <svg class="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openEditableMemoryBoard();
+  });
+  return button;
 }
 
 function createStandaloneMemorySection(id = PROFILE_ENTRY_ID) {
   const section = document.createElement("section");
   section.id = id;
   section.className = "space-y-2";
-  section.innerHTML = `
-    <button
-      type="button"
-      class="group flex w-full items-center gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left shadow-[0_12px_30px_rgba(0,0,0,0.13)] transition hover:bg-white/[0.07]"
-      aria-label="Open CLARA editable memory board"
-    >
-      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8 text-white/65 group-hover:text-white">
-        ${memoryIconSvg()}
-      </div>
-      <div class="min-w-0 flex-1">
-        <p class="truncate text-sm font-bold text-white">Memory</p>
-        <p class="mt-1 truncate text-xs text-white/45">Saved context, patterns, and AI memory</p>
-      </div>
-      <span class="max-w-[96px] shrink-0 truncate rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">Review</span>
-      <svg class="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-        <path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-  `;
-
-  section.querySelector("button")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    openEditableMemoryBoard();
-  });
-
+  section.appendChild(createMemoryButton(`${id}-button`));
   return section;
 }
 
@@ -94,11 +92,13 @@ function findAccountSection() {
     '.theme-page-shell button[aria-label="Settings"][aria-current="page"]'
   );
   const shell = activeSettingsNav?.closest(".theme-page-shell");
-  const settingsRoot = shell?.querySelector(".clara-dashboard-content .space-y-5.pb-6");
+  const settingsRoot = shell?.querySelector(
+    ".clara-dashboard-content .space-y-5.pb-6"
+  );
   if (!settingsRoot) return null;
 
-  const securityRow = Array.from(settingsRoot.querySelectorAll("button")).find((button) =>
-    button.textContent?.includes("Security & privacy")
+  const securityRow = Array.from(settingsRoot.querySelectorAll("button")).find(
+    (button) => button.textContent?.includes("Security & privacy")
   );
 
   const section = securityRow?.closest("section");
@@ -119,27 +119,16 @@ function installSettingsOverviewMemoryEntry() {
     return;
   }
 
-  const { section, securityRow } = match;
-  if (section.querySelector(`#${ENTRY_ID}`)) return;
-
-  document.getElementById(ENTRY_ID)?.remove();
+  const { securityRow } = match;
+  if (document.getElementById(ENTRY_ID)) return;
 
   const rowContainer = securityRow.parentElement;
   if (!rowContainer) return;
 
-  const memoryRow = securityRow.cloneNode(true);
-  memoryRow.id = ENTRY_ID;
-  memoryRow.type = "button";
-  memoryRow.style.display = "";
-  updateMemoryRowContent(memoryRow);
-
-  memoryRow.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    openEditableMemoryBoard();
-  });
-
-  rowContainer.appendChild(memoryRow);
+  // Build Memory as its own Settings control. Do not clone Security & privacy;
+  // cloned rows silently inherit structure, classes, and future behavior that do
+  // not belong to Memory.
+  rowContainer.appendChild(createMemoryButton(ENTRY_ID));
 }
 
 function findProfileFormCard() {
@@ -151,7 +140,10 @@ function findProfileFormCard() {
   while (current?.parentElement) {
     current = current.parentElement;
     const className = String(current.className || "");
-    if (className.includes("rounded-[28px]") || className.includes("rounded-[30px]")) {
+    if (
+      className.includes("rounded-[28px]") ||
+      className.includes("rounded-[30px]")
+    ) {
       return current;
     }
   }
@@ -160,8 +152,8 @@ function findProfileFormCard() {
 }
 
 function isProfileInformationPage() {
-  return Array.from(document.querySelectorAll("h2, p, button")).some((node) =>
-    node.textContent?.trim() === "Profile information"
+  return Array.from(document.querySelectorAll("h2, p, button")).some(
+    (node) => node.textContent?.trim() === "Profile information"
   );
 }
 
