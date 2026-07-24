@@ -12,6 +12,12 @@ function requireToken(token = getStoredBackendToken()) {
   return token;
 }
 
+export function fetchBackendSupportMessages({ token } = {}) {
+  return backendRequest("/api/support/messages", {
+    token: requireToken(token),
+  }).then((result) => (Array.isArray(result?.messages) ? result.messages : []));
+}
+
 export function sendBackendSupportMessage({ topic, content, senderName, senderEmail, token } = {}) {
   return backendRequest("/api/support/messages", {
     method: "POST",
