@@ -46,7 +46,7 @@ const primaryButton =
 const secondaryButton =
   "flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.055] px-4 py-3.5 text-sm font-bold text-white/72 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45";
 
-const STEPS = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
+const STEPS = ["Budget Items", "Protected Money", "Review", "Timeframe", "Activate"];
 const SUGGESTIONS = ["Food", "Bills", "Rent", "Transport", "Groceries"];
 
 const fmt = (value = 0) =>
@@ -356,9 +356,16 @@ export default function MonthlyBudgetPlanGuided() {
     const selected = new Set(draft.selectedDebtIds.map(String));
     return debts.filter((debt) => selected.has(String(debt.id)) && monthlyDebtPayment(debt) > 0);
   }, [debts, draft.selectedDebtIds]);
+  const includedDebtRecords = useMemo(
+    () =>
+      selectedDebtRecords.filter(
+        (debt) => draft.outsideDueConfirmed?.[String(debt.id)] !== false,
+      ),
+    [draft.outsideDueConfirmed, selectedDebtRecords],
+  );
   const debtTotal = useMemo(
-    () => selectedDebtRecords.reduce((sum, debt) => sum + monthlyDebtPayment(debt), 0),
-    [selectedDebtRecords],
+    () => includedDebtRecords.reduce((sum, debt) => sum + monthlyDebtPayment(debt), 0),
+    [includedDebtRecords],
   );
   const calculatedTotal = regularTotal + protectedTotal + debtTotal;
   const cycle = useMemo(
@@ -449,6 +456,33 @@ export default function MonthlyBudgetPlanGuided() {
     );
   };
 
+  useEffect(() => {
+    const eligibleIds = debts
+      .filter((debt) => monthlyDebtPayment(debt) > 0 && !debtAlreadyRepresented(debt))
+      .map((debt) => String(debt.id || ""))
+      .filter(Boolean);
+
+    setDraft((current) => {
+      const currentIds = current.selectedDebtIds.map(String);
+      const sameSelection =
+        currentIds.length === eligibleIds.length &&
+        currentIds.every((id, index) => id === eligibleIds[index]);
+      if (sameSelection) return current;
+
+      const eligibleSet = new Set(eligibleIds);
+      const nextOutsideDueConfirmed = Object.fromEntries(
+        Object.entries(current.outsideDueConfirmed || {}).filter(([id]) => eligibleSet.has(String(id))),
+      );
+
+      return {
+        ...current,
+        selectedDebtIds: eligibleIds,
+        outsideDueConfirmed: nextOutsideDueConfirmed,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  }, [debts, draft.items]);
+
   const toggleDebt = (debt) => {
     const id = String(debt.id || "");
     if (!id || monthlyDebtPayment(debt) <= 0) return;
@@ -479,11 +513,11 @@ export default function MonthlyBudgetPlanGuided() {
   );
   const insideDueDebts = useMemo(
     () =>
-      selectedDebtRecords.filter((debt) => {
+      includedDebtRecords.filter((debt) => {
         const due = debtDueDate(debt);
         return due && isValidCycleWindow(cycle) && isDateInsideCycle(due, cycle);
       }),
-    [cycle, selectedDebtRecords],
+    [cycle, includedDebtRecords],
   );
 
   const continueFromTimeframe = () => {
@@ -491,9 +525,10 @@ export default function MonthlyBudgetPlanGuided() {
       setNotice("Choose a valid start and end date for this budget period.");
       return;
     }
-    const unresolved = outsideDueDebts.find(
-      (debt) => draft.outsideDueConfirmed?.[String(debt.id)] !== true,
-    );
+    const unresolved = outsideDueDebts.find((debt) => {
+      const decision = draft.outsideDueConfirmed?.[String(debt.id)];
+      return decision !== true && decision !== false;
+    });
     if (unresolved) {
       setNotice(`Confirm whether to keep ${getDebtTitle(unresolved)} in this budget period.`);
       return;
@@ -528,10 +563,10 @@ export default function MonthlyBudgetPlanGuided() {
       setStep(1);
       return;
     }
-    const duplicateDebtId = selectedDebtRecords.find((debt) => debtAlreadyRepresented(debt));
+    const duplicateDebtId = includedDebtRecords.find((debt) => debtAlreadyRepresented(debt));
     if (duplicateDebtId) {
       setNotice(`${getDebtTitle(duplicateDebtId)} is already represented by a regular item. Remove one copy first.`);
-      setStep(2);
+      setStep(1);
       return;
     }
 
@@ -557,7 +592,7 @@ export default function MonthlyBudgetPlanGuided() {
         order: index,
         commitment: null,
       })),
-      ...selectedDebtRecords.map((debt, index) => ({
+      ...includedDebtRecords.map((debt, index) => ({
         key: `debt-${debt.id}`,
         title: getDebtTitle(debt),
         amount: monthlyDebtPayment(debt),
@@ -802,12 +837,12 @@ export default function MonthlyBudgetPlanGuided() {
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border border-white/8 bg-black/12 p-4 text-sm font-semibold leading-6 text-white/45">
-                You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.
+                You can continue without a regular item if this budget will contain only protected money or a saved obligation.
               </div>
             )}
 
             <button type="button" onClick={() => setStep(2)} className={`${primaryButton} mt-4`}>
-              Continue to commitments
+              Continue to protected money
               <ChevronRight className="h-4 w-4" />
             </button>
           </section>
@@ -818,8 +853,8 @@ export default function MonthlyBudgetPlanGuided() {
             <QuestionHeader
               icon={ShieldCheck}
               eyebrow="Step 2"
-              title="Protected & committed"
-              body="Choose which savings, emergency reserves, and debt payments belong in this budget. Nothing is included without your confirmation."
+              title="Protected money"
+              body="Choose which savings goals and emergency reserves you want to protect in this budget."
             />
 
             <div className="mt-5 space-y-4">
@@ -943,78 +978,6 @@ export default function MonthlyBudgetPlanGuided() {
                   </p>
                 )}
               </div>
-
-              <div className="rounded-2xl border border-amber-300/14 bg-amber-400/[0.05] p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-100/45">
-                  Debt & obligations
-                </p>
-                {debtLoading ? (
-                  <p className="mt-3 text-xs font-semibold text-white/42">Checking your saved obligations…</p>
-                ) : debts.length ? (
-                  <div className="mt-3 space-y-2">
-                    {debts.map((debt) => {
-                      const id = String(debt.id || "");
-                      const payment = monthlyDebtPayment(debt);
-                      const selected = draft.selectedDebtIds.includes(id);
-                      const represented = debtAlreadyRepresented(debt);
-                      const due = debtDueDate(debt);
-                      return (
-                        <div key={id} className="rounded-2xl border border-white/8 bg-black/12 p-3.5">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-100/75">
-                              <CreditCard className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-black">Include your {getDebtTitle(debt)} payment?</p>
-                              {payment > 0 ? (
-                                <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
-                                  We found a monthly obligation of {fmt(payment)}
-                                  {due ? ` due on ${due}` : ""}.
-                                </p>
-                              ) : (
-                                <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
-                                  A debt balance exists, but its monthly payment is not set. CLARA will not invent an amount.
-                                </p>
-                              )}
-                              {represented ? (
-                                <p className="mt-2 text-[11px] font-bold text-amber-100/70">
-                                  Already represented by a regular budget item, so it cannot be counted twice.
-                                </p>
-                              ) : null}
-                            </div>
-                          </div>
-                          {payment > 0 && !represented ? (
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (selected) toggleDebt(debt);
-                                }}
-                                className={`${secondaryButton} ${!selected ? "border-cyan-300/25 bg-cyan-400/8 text-cyan-100" : ""}`}
-                              >
-                                Not in this budget
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!selected) toggleDebt(debt);
-                                }}
-                                className={`${secondaryButton} ${selected ? "border-emerald-300/30 bg-emerald-400/12 text-emerald-100" : ""}`}
-                              >
-                                Include {fmt(payment)}
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-xs font-semibold leading-5 text-white/42">
-                    No active debt obligation was detected.
-                  </p>
-                )}
-              </div>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
@@ -1101,13 +1064,13 @@ export default function MonthlyBudgetPlanGuided() {
                   <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/45">
                     Debt & obligations
                   </p>
-                  <button type="button" onClick={() => setStep(2)} className="text-xs font-black text-cyan-100/65">
-                    Edit
+                  <button type="button" onClick={() => setStep(4)} className="text-xs font-black text-cyan-100/65">
+                    Timeframe
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {selectedDebtRecords.length ? (
-                    selectedDebtRecords.map((debt) => (
+                  {includedDebtRecords.length ? (
+                    includedDebtRecords.map((debt) => (
                       <ItemRow
                         key={debt.id}
                         title={getDebtTitle(debt)}
@@ -1118,7 +1081,7 @@ export default function MonthlyBudgetPlanGuided() {
                     ))
                   ) : (
                     <p className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3 text-xs font-semibold text-white/38">
-                      No debt payment selected.
+                      No saved obligation payment is included.
                     </p>
                   )}
                 </div>
@@ -1258,6 +1221,7 @@ export default function MonthlyBudgetPlanGuided() {
                 {outsideDueDebts.map((debt) => {
                   const id = String(debt.id);
                   const confirmed = draft.outsideDueConfirmed?.[id] === true;
+                  const removed = draft.outsideDueConfirmed?.[id] === false;
                   return (
                     <div key={id} className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] p-4">
                       <p className="text-sm font-black text-amber-50">
@@ -1271,14 +1235,15 @@ export default function MonthlyBudgetPlanGuided() {
                           type="button"
                           onClick={() =>
                             updateDraft((current) => ({
-                              selectedDebtIds: current.selectedDebtIds.filter((value) => value !== id),
                               outsideDueConfirmed: {
                                 ...(current.outsideDueConfirmed || {}),
                                 [id]: false,
                               },
                             }))
                           }
-                          className={secondaryButton}
+                          className={`${secondaryButton} ${
+                            removed ? "border-rose-300/25 bg-rose-400/10 text-rose-100" : ""
+                          }`}
                         >
                           Remove payment
                         </button>
@@ -1345,7 +1310,7 @@ export default function MonthlyBudgetPlanGuided() {
                   Items
                 </button>
                 <button type="button" onClick={() => setStep(2)} className={secondaryButton}>
-                  Commitments
+                  Protected
                 </button>
                 <button type="button" onClick={() => setStep(4)} className={secondaryButton}>
                   Timeframe
