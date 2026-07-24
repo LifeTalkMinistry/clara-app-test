@@ -113,6 +113,14 @@ export async function fetchMyCoachingAppointments(token) {
   return Array.isArray(payload?.appointments) ? payload.appointments : [];
 }
 
+export function updateCoachingAppointmentAnswers({ appointmentId, answers, token }) {
+  return coachingRequest(`/api/coaching/appointments/${appointmentId}`, {
+    method: "PATCH",
+    token,
+    body: { answers },
+  });
+}
+
 export function cancelCoachingAppointment(appointmentId, token) {
   return coachingRequest(`/api/coaching/appointments/${appointmentId}/cancel`, {
     method: "POST",
