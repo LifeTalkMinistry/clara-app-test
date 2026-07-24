@@ -24,6 +24,12 @@ const notificationRegistrySource = readSource(
 const runtimePatchRegistrySource = readSource(
   "src/runtime/installClaraRuntimePatches.js"
 );
+const settingsAccessLogoutSource = readSource(
+  "src/runtime/installSettingsAccessLogout.js"
+);
+const dashboardPanelNavigationSource = readSource(
+  "src/components/fresh/main-dashboard/shell/useDashboardPanelNavigation.js"
+);
 const settingsCleanupSource = readSource("src/settings-cleanup.css");
 const themeProviderSource = readSource("src/theme/ThemeProvider.jsx");
 const userRoleSource = readSource("src/hooks/useUserRole.js");
@@ -113,6 +119,18 @@ test("the Settings overview no longer claims all notifications are On or Off fro
     settingsCleanupSource,
     /button\.group:has\(svg\.lucide-bell\) > span[\s\S]*display: none !important/
   );
+});
+
+test("dashboard panels and Settings detail pages participate in browser Back history", () => {
+  assert.match(dashboardPanelNavigationSource, /PANEL_HISTORY_KEY/);
+  assert.match(dashboardPanelNavigationSource, /SETTINGS_DETAIL_HISTORY_KEY/);
+  assert.match(dashboardPanelNavigationSource, /window\.history\.pushState/);
+  assert.match(dashboardPanelNavigationSource, /window\.history\.replaceState/);
+  assert.match(dashboardPanelNavigationSource, /window\.addEventListener\("popstate"/);
+  assert.match(settingsAccessLogoutSource, /SETTINGS_DETAIL_HISTORY_KEY/);
+  assert.match(settingsAccessLogoutSource, /pushSettingsDetailHistory/);
+  assert.match(settingsAccessLogoutSource, /handleSettingsHistoryPop/);
+  assert.match(settingsAccessLogoutSource, /window\.history\.back\(\)/);
 });
 
 test("Settings no longer installs duplicate theme hiding or the hidden double-tap demo", () => {
