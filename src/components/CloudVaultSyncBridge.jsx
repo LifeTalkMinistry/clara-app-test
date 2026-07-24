@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { getBackendAccountId } from "@/lib/clara-account-identity";
 import {
   CLARA_STORAGE_MODE_EVENT,
   CLARA_STORAGE_MODES,
@@ -21,6 +22,7 @@ const SYNC_EVENTS = [
 
 export default function CloudVaultSyncBridge() {
   const { user, profile, authReady } = useAuth();
+  const accountId = getBackendAccountId(user);
   const timerRef = useRef(null);
   const contextRef = useRef({ user, profile });
 
@@ -29,7 +31,7 @@ export default function CloudVaultSyncBridge() {
   }, [profile, user]);
 
   useEffect(() => {
-    if (!authReady || !user?.id) return undefined;
+    if (!authReady || !accountId) return undefined;
 
     const scheduleSync = ({ immediate = false, force = false } = {}) => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
@@ -38,7 +40,7 @@ export default function CloudVaultSyncBridge() {
         timerRef.current = null;
         const context = contextRef.current;
         if (
-          getClaraStorageMode(context.user?.id) !==
+          getClaraStorageMode(getBackendAccountId(context.user)) !==
             CLARA_STORAGE_MODES.ONLINE_SYNC &&
           !force
         ) {
@@ -53,7 +55,7 @@ export default function CloudVaultSyncBridge() {
     const handleDataChange = () => scheduleSync();
     const handleStorageModeChange = (event) => {
       if (
-        String(event?.detail?.accountId || "") === String(user.id) &&
+        String(event?.detail?.accountId || "") === accountId &&
         event?.detail?.mode === CLARA_STORAGE_MODES.ONLINE_SYNC
       ) {
         scheduleSync({ immediate: true, force: true });
@@ -78,7 +80,7 @@ export default function CloudVaultSyncBridge() {
       window.removeEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageModeChange);
       window.removeEventListener("online", handleOnline);
     };
-  }, [authReady, user?.id]);
+  }, [accountId, authReady]);
 
   return null;
 }
