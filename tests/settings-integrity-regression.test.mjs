@@ -34,6 +34,7 @@ const supportCompatibilitySource = readSource(
 );
 const supportClientSource = readSource("src/lib/support-backend-client.js");
 const billingClientSource = readSource("src/lib/billing-backend-client.js");
+const legalClientSource = readSource("src/lib/legal-information-backend-client.js");
 
 test("Schedule reminders never fall back to another account's local schedule", () => {
   assert.doesNotMatch(scheduleSource, /readLatestScheduleEvents/);
@@ -147,9 +148,26 @@ test("legacy Settings support UI delivers into the real CLARA backend support in
   assert.match(supportClientSource, /method: "POST"/);
 });
 
+test("support history is readable in the legacy Messages surface and support replies stay backend-backed", () => {
+  assert.match(supportClientSource, /fetchBackendSupportMessages/);
+  assert.match(supportCompatibilitySource, /fetchBackendSupportMessages/);
+  assert.match(supportCompatibilitySource, /createSupportMessagesSelectInterceptor/);
+  assert.match(supportCompatibilitySource, /isSupportRecipient/);
+  assert.match(supportCompatibilitySource, /Support follow-up/);
+  assert.match(supportCompatibilitySource, /Direct user-to-user messaging is not connected/);
+});
+
 test("Plan & Billing reads the authenticated user's real backend subscription", () => {
   assert.match(supportCompatibilitySource, /table === "enrollments"/);
   assert.match(supportCompatibilitySource, /fetchCurrentBackendBilling/);
   assert.match(billingClientSource, /backendRequest\("\/api\/users\/me\/billing"/);
   assert.doesNotMatch(billingClientSource, /supabase/i);
+});
+
+test("About CLARA legal information uses backend content instead of the retired Supabase table", () => {
+  assert.match(supportCompatibilitySource, /table === "legal_information_content"/);
+  assert.match(supportCompatibilitySource, /fetchBackendLegalInformation/);
+  assert.match(supportCompatibilitySource, /updateBackendLegalInformation/);
+  assert.match(legalClientSource, /\/api\/content\/legal-information/);
+  assert.match(legalClientSource, /\/api\/admin\/legal-information/);
 });
