@@ -12,6 +12,15 @@ const localFacadeSource = readSource("src/lib/local-supabase-facade.js");
 const notificationHookSource = readSource(
   "src/hooks/useNotificationPreferences.js"
 );
+const notificationPanelSource = readSource(
+  "src/components/notifications/NotificationSettingsPanel.jsx"
+);
+const notificationRegistrySource = readSource(
+  "src/lib/notifications/notificationRegistry.js"
+);
+const appSource = readSource("src/App.jsx");
+const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
+const adminClientSource = readSource("src/lib/admin-backend-client.js");
 
 test("Schedule reminders never fall back to another account's local schedule", () => {
   assert.doesNotMatch(scheduleSource, /readLatestScheduleEvents/);
@@ -37,10 +46,7 @@ test("legacy local facade resolves the active vault at operation time", () => {
 test("task reminder compatibility tables persist per local vault", () => {
   assert.match(localFacadeSource, /user_task_reminder_settings/);
   assert.match(localFacadeSource, /user_task_reminder_states/);
-  assert.match(
-    localFacadeSource,
-    /clara_local_compat_table_v1:/
-  );
+  assert.match(localFacadeSource, /clara_local_compat_table_v1:/);
   assert.match(localFacadeSource, /onConflict/);
 });
 
@@ -56,4 +62,38 @@ test("notification preferences are scoped to the active local vault and react to
   assert.match(notificationHookSource, /ensureActiveLocalVaultId/);
   assert.match(notificationHookSource, /clara:active-local-vault-updated/);
   assert.match(notificationHookSource, /clara:account-vault-switched/);
+});
+
+test("notification Settings no longer queries retired program tables to decide whether task settings exist", () => {
+  assert.doesNotMatch(notificationPanelSource, /from\("user_programs"\)/);
+  assert.doesNotMatch(
+    notificationPanelSource,
+    /from\("user_program_day_assignments"\)/
+  );
+  assert.match(notificationPanelSource, /Advanced task reminder schedule/);
+  assert.match(notificationPanelSource, /tasksAndCoaching/);
+});
+
+test("Weekly Money Review visible setting is the authoritative runtime gate", () => {
+  assert.match(
+    notificationRegistrySource,
+    /eventType === "weekly_review_ready"[\s\S]*weeklyMoneyReview !== false/
+  );
+});
+
+test("Settings Admin Panel route opens a real backend-backed admin surface", () => {
+  assert.match(appSource, /const AdminPanel = lazy/);
+  assert.match(
+    appSource,
+    /path="\/admin\/\*"\s+element=\{<AdminPanel \/>\}/
+  );
+  assert.doesNotMatch(
+    appSource,
+    /path="\/admin\/\*"[\s\S]{0,120}<Navigate to="\/dashboard"/
+  );
+  assert.match(adminPanelSource, /Admin Panel/);
+  assert.match(adminPanelSource, /Users & membership/);
+  assert.match(adminPanelSource, /Access codes/);
+  assert.match(adminPanelSource, /Platform mode/);
+  assert.match(adminClientSource, /\/api\/admin/);
 });
