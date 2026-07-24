@@ -5,9 +5,20 @@ const COMPACT_OVERVIEW_CLASS = "clara-settings-compact-overview";
 const SETTINGS_ACTIVE_NAV_SELECTOR =
   '.theme-page-shell button[aria-label="Settings"][aria-current="page"]';
 const SETTINGS_VIEW_SYNC_EVENT = "clara:settings-view-synced";
+const PANEL_HISTORY_KEY = "__claraDashboardPanel";
+const SETTINGS_DETAIL_HISTORY_KEY = "__claraSettingsDetail";
 const TOP_NAV_LABELS = new Set(["Home", "Me", "Schedule", "Settings"]);
+const SETTINGS_DETAIL_TITLES = new Set([
+  "Profile information",
+  "Security & privacy",
+  "Notifications",
+  "Plan & billing",
+  "Help & support",
+  "About CLARA",
+]);
 
 let scheduledFrame = null;
+let handlingSettingsHistoryPop = false;
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -47,6 +58,42 @@ function findAboutClaraRow(overviewRoot) {
 
   return [...overviewRoot.querySelectorAll("button")].find((button) =>
     normalizeText(button.textContent).includes("About CLARA")
+  );
+}
+
+function getSettingsRowTitle(button) {
+  if (!button) return "";
+  const firstLabel = button.querySelector("p")?.textContent;
+  return normalizeText(firstLabel || button.textContent);
+}
+
+function findSettingsRow(overviewRoot, title) {
+  if (!overviewRoot || !title) return null;
+  return [...overviewRoot.querySelectorAll("button")].find(
+    (button) => getSettingsRowTitle(button) === title
+  );
+}
+
+function findSettingsDetailBackButton(detailRoot) {
+  if (!detailRoot) return null;
+  return [...detailRoot.querySelectorAll("button")].find(
+    (button) => normalizeText(button.textContent) === "Settings"
+  );
+}
+
+function pushSettingsDetailHistory(title) {
+  if (typeof window === "undefined" || !SETTINGS_DETAIL_TITLES.has(title)) return;
+  const currentState = window.history.state || {};
+  if (currentState?.[SETTINGS_DETAIL_HISTORY_KEY] === title) return;
+
+  window.history.pushState(
+    {
+      ...currentState,
+      [PANEL_HISTORY_KEY]: "settings",
+      [SETTINGS_DETAIL_HISTORY_KEY]: title,
+    },
+    "",
+    window.location.href
   );
 }
 
@@ -170,6 +217,34 @@ function scheduleSettingsSync() {
   scheduledFrame = window.requestAnimationFrame(syncSettingsExperience);
 }
 
+function handleSettingsHistoryPop(event) {
+  const targetDetailTitle = normalizeText(
+    event?.state?.[SETTINGS_DETAIL_HISTORY_KEY] || ""
+  );
+
+  scheduleSettingsSync();
+  if (typeof window === "undefined") return;
+
+  window.requestAnimationFrame(() => {
+    const context = getActiveSettingsContext();
+    if (!context) return;
+
+    handlingSettingsHistoryPop = true;
+    try {
+      if (targetDetailTitle && context.overviewRoot) {
+        findSettingsRow(context.overviewRoot, targetDetailTitle)?.click();
+      } else if (!targetDetailTitle && context.detailRoot) {
+        findSettingsDetailBackButton(context.detailRoot)?.click();
+      }
+    } finally {
+      window.requestAnimationFrame(() => {
+        handlingSettingsHistoryPop = false;
+        scheduleSettingsSync();
+      });
+    }
+  });
+}
+
 function handleDocumentClick(event) {
   const button = event.target?.closest?.("button");
   if (!button) return;
@@ -180,6 +255,24 @@ function handleDocumentClick(event) {
   const isInsideSettings = Boolean(
     context?.contentRoot?.contains(button) || context?.viewRoot?.contains(button)
   );
+
+  if (!handlingSettingsHistoryPop && context?.overviewRoot?.contains(button)) {
+    const rowTitle = getSettingsRowTitle(button);
+    if (SETTINGS_DETAIL_TITLES.has(rowTitle)) {
+      pushSettingsDetailHistory(rowTitle);
+    }
+  }
+
+  if (
+    !handlingSettingsHistoryPop &&
+    context?.detailRoot?.contains(button) &&
+    normalizeText(button.textContent) === "Settings" &&
+    window.history.state?.[SETTINGS_DETAIL_HISTORY_KEY]
+  ) {
+    // Let React update the visible detail state immediately, while browser history
+    // removes the matching detail entry so the next Back goes to Dashboard home.
+    window.history.back();
+  }
 
   if (isTopNavigationButton || isInsideSettings) scheduleSettingsSync();
 }
@@ -197,7 +290,7 @@ export function installSettingsAccessLogout() {
   document.addEventListener("click", handleDocumentClick, true);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   window.addEventListener("hashchange", scheduleSettingsSync);
-  window.addEventListener("popstate", scheduleSettingsSync);
+  window.addEventListener("popstate", handleSettingsHistoryPop);
   window.addEventListener("pageshow", scheduleSettingsSync);
   window.addEventListener("resize", scheduleSettingsSync, { passive: true });
 
