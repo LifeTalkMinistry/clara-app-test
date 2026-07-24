@@ -8,8 +8,8 @@ import { buildCalendarDays, MonthCalendar, TimePicker } from "@/components/coach
 import { LoadingPanel, SessionIntro } from "@/components/coaching/SessionShared";
 import { AppointmentStatus, RequestSuccess } from "@/components/coaching/SessionStatus";
 import { getStoredBackendToken } from "@/lib/clara-backend-client";
-import { cancelCoachingAppointment, createCoachingAppointment, fetchCoachingAvailability, fetchMyCoachingAppointments, requestCoachingReschedule } from "@/lib/coaching-backend-client";
-import { COACHING_POLL_INTERVAL_MS, clearUnsentCoachingDraft, formatDateKey, formatMonthKey, groupSlotsByDate, normalizeAvailability, pickRelevantAppointment, readUnsentCoachingDraft, saveUnsentCoachingDraft } from "@/lib/welcome-session-schedule";
+import { cancelCoachingAppointment, createCoachingAppointment, fetchCoachingAvailability, fetchMyCoachingAppointments, requestCoachingReschedule, updateCoachingAppointmentAnswers } from "@/lib/coaching-backend-client";
+import { COACHING_POLL_INTERVAL_MS, clearUnsentCoachingDraft, formatDateKey, formatDateLabel, formatMonthKey, formatTimeLabel, groupSlotsByDate, normalizeAvailability, pickRelevantAppointment, readUnsentCoachingDraft, saveUnsentCoachingDraft } from "@/lib/welcome-session-schedule";
 
 function addDays(dateKey, days) {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -19,6 +19,17 @@ function addDays(dateKey, days) {
 function monthDateFromKey(monthKey) {
   const [year, month] = monthKey.split("-").map(Number);
   return new Date(year, month - 1, 1, 12);
+}
+
+function answersFromAppointment(appointment) {
+  return {
+    focus: appointment?.focus || "",
+    situation: appointment?.situation || "",
+    outcome: appointment?.desired_outcome || "",
+    emotion: appointment?.emotion || "",
+    approach: appointment?.coaching_approach || "calm_honest",
+    dataConsent: appointment?.data_consent || "allow",
+  };
 }
 
 export default function WelcomeSession() {
@@ -46,6 +57,7 @@ export default function WelcomeSession() {
   const [recoveredDraft, setRecoveredDraft] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [allowRebooking, setAllowRebooking] = useState(false);
+  const [detailsUpdated, setDetailsUpdated] = useState(false);
 
   const slotsByDate = useMemo(() => groupSlotsByDate(slots), [slots]);
   const monthOptions = useMemo(() => [...new Set(slots.map((slot) => slot.monthKey))].sort(), [slots]);
@@ -56,6 +68,10 @@ export default function WelcomeSession() {
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) || null;
   const selectedDateLabel = selectedDateSlots[0]?.fullDateLabel || "Choose a date";
   const todayKey = formatDateKey(new Date());
+  const appointmentSlot = useMemo(() => appointment ? {
+    fullDateLabel: formatDateLabel(appointment.starts_at, true),
+    timeLabel: formatTimeLabel(appointment.starts_at),
+  } : null, [appointment]);
 
   const loadAvailability = useCallback(async () => {
     setAvailabilityLoading(true);
@@ -135,6 +151,7 @@ export default function WelcomeSession() {
       setAppointment(created);
       setAllowRebooking(false);
       setJustSubmitted(true);
+      setDetailsUpdated(false);
       setView("success");
     } catch (error) {
       if (error?.status === 409) {
@@ -153,10 +170,36 @@ export default function WelcomeSession() {
     }
   };
 
+  const handleEditDetails = () => {
+    if (!appointment || !["requested", "confirmed", "reschedule_requested"].includes(appointment.status)) return;
+    setAnswers(answersFromAppointment(appointment));
+    setQuestionIndex(0);
+    setSubmitError("");
+    setDetailsUpdated(false);
+    setView("edit-checkin");
+  };
+
+  const handleUpdateDetails = async () => {
+    if (!appointment || isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      const updated = await updateCoachingAppointmentAnswers({ appointmentId: appointment.id, answers, token });
+      setAppointment(updated);
+      setDetailsUpdated(true);
+      setLoadError("");
+      setView("status");
+    } catch (error) {
+      setSubmitError(error.message || "Your session details could not be updated.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCancel = async () => {
     if (!appointment || !window.confirm("Cancel this session request?")) return;
     setIsActioning(true);
-    try { setAppointment(await cancelCoachingAppointment(appointment.id, token)); setAllowRebooking(false); setJustSubmitted(false); await loadAvailability(); }
+    try { setAppointment(await cancelCoachingAppointment(appointment.id, token)); setAllowRebooking(false); setJustSubmitted(false); setDetailsUpdated(false); await loadAvailability(); }
     catch (error) { setLoadError(error.message || "The session could not be cancelled."); }
     finally { setIsActioning(false); }
   };
@@ -164,21 +207,22 @@ export default function WelcomeSession() {
   const handleRequestReschedule = async () => {
     if (!appointment || !window.confirm("Ask Max to review a reschedule request?")) return;
     setIsActioning(true);
-    try { setAppointment(await requestCoachingReschedule(appointment.id, token)); setJustSubmitted(false); }
+    try { setAppointment(await requestCoachingReschedule(appointment.id, token)); setJustSubmitted(false); setDetailsUpdated(false); }
     catch (error) { setLoadError(error.message || "The reschedule request could not be sent."); }
     finally { setIsActioning(false); }
   };
 
-  const handleBookAgain = async () => { setAllowRebooking(true); setJustSubmitted(false); resetToCalendar(); await loadAvailability(); };
+  const handleBookAgain = async () => { setAllowRebooking(true); setJustSubmitted(false); setDetailsUpdated(false); resetToCalendar(); await loadAvailability(); };
   const handleIconTap = () => { const now = Date.now(); if (now - coachingIconLastTapRef.current > 0 && now - coachingIconLastTapRef.current <= 450) { coachingIconLastTapRef.current = 0; navigate("/coaching-mock-preview"); return; } coachingIconLastTapRef.current = now; };
   const showScheduler = !appointment || allowRebooking;
+  const isEditingDetails = view === "edit-checkin" && appointment && appointmentSlot;
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden px-3 pb-3 sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0"><div className="absolute -left-28 top-0 h-72 w-72 rounded-full bg-cyan-400/[0.08] blur-[100px]" /><div className="absolute -right-20 top-16 h-80 w-80 rounded-full bg-violet-500/[0.10] blur-[110px]" /></div>
       <div className="relative mx-auto w-full max-w-6xl">
         <header className="flex items-center justify-between gap-3 py-2.5 sm:py-4"><button type="button" onClick={() => navigate("/dashboard")} className="inline-flex h-10 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.045] px-3.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/72"><ArrowLeft className="h-4 w-4" />Home</button><button type="button" onClick={refreshAll} className="inline-flex h-10 items-center gap-2 rounded-full border border-cyan-200/15 bg-cyan-200/[0.06] px-3 text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/75"><RefreshCw className="h-3.5 w-3.5" />Refresh status</button></header>
-        <section className="relative overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(145deg,rgba(5,28,46,0.94),rgba(8,18,43,0.95)_50%,rgba(35,14,72,0.94))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-7"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,0.14),transparent_38%),radial-gradient(circle_at_100%_10%,rgba(139,92,246,0.16),transparent_40%)]" /><div className="relative">{loading ? <LoadingPanel label="Loading your appointment…" /> : null}{!loading && justSubmitted && appointment && view === "success" ? <RequestSuccess appointment={appointment} onHome={() => navigate("/dashboard")} /> : null}{!loading && !justSubmitted && appointment && !showScheduler ? <AppointmentStatus appointment={appointment} onCancel={handleCancel} onRequestReschedule={handleRequestReschedule} onBookAgain={handleBookAgain} isActioning={isActioning} /> : null}{!loading && showScheduler && view === "calendar" ? <SessionIntro isCommitmentSession={isCommitmentSession} onIconTap={handleIconTap} /> : null}{!loading && showScheduler && view === "times" ? <TimePicker selectedDateLabel={selectedDateLabel} selectedDateSlots={selectedDateSlots} selectedSlotId={selectedSlotId} onSelectSlot={setSelectedSlotId} onReset={resetToCalendar} onContinue={() => { if (selectedSlot) { setQuestionIndex(0); setView("checkin"); } }} /> : null}{!loading && showScheduler && view === "checkin" && selectedSlot ? <SessionCheckIn selectedSlot={selectedSlot} questionIndex={questionIndex} answers={answers} onAnswer={(key, value) => setAnswers((current) => ({ ...current, [key]: value }))} onBack={() => { if (questionIndex > 0) setQuestionIndex((value) => value - 1); else setView("times"); }} onNext={() => setQuestionIndex((value) => Math.min(value + 1, CHECK_IN_STEPS.length))} onSubmit={handleSubmit} isSubmitting={isSubmitting} submitError={submitError} recoveredDraft={recoveredDraft} /> : null}</div></section>
+        <section className="relative overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(145deg,rgba(5,28,46,0.94),rgba(8,18,43,0.95)_50%,rgba(35,14,72,0.94))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.40),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-7"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,0.14),transparent_38%),radial-gradient(circle_at_100%_10%,rgba(139,92,246,0.16),transparent_40%)]" /><div className="relative">{loading ? <LoadingPanel label="Loading your appointment…" /> : null}{!loading && justSubmitted && appointment && view === "success" ? <RequestSuccess appointment={appointment} onHome={() => navigate("/dashboard")} /> : null}{!loading && !justSubmitted && appointment && !showScheduler && !isEditingDetails ? <AppointmentStatus appointment={appointment} onCancel={handleCancel} onRequestReschedule={handleRequestReschedule} onEditDetails={handleEditDetails} onBookAgain={handleBookAgain} isActioning={isActioning} detailsUpdated={detailsUpdated} /> : null}{!loading && isEditingDetails ? <SessionCheckIn selectedSlot={appointmentSlot} questionIndex={questionIndex} answers={answers} onAnswer={(key, value) => setAnswers((current) => ({ ...current, [key]: value }))} onBack={() => { if (questionIndex > 0) setQuestionIndex((value) => value - 1); else { setSubmitError(""); setView("status"); } }} onNext={() => setQuestionIndex((value) => Math.min(value + 1, CHECK_IN_STEPS.length))} onSubmit={handleUpdateDetails} isSubmitting={isSubmitting} submitError={submitError} recoveredDraft={false} mode="edit" /> : null}{!loading && showScheduler && view === "calendar" ? <SessionIntro isCommitmentSession={isCommitmentSession} onIconTap={handleIconTap} /> : null}{!loading && showScheduler && view === "times" ? <TimePicker selectedDateLabel={selectedDateLabel} selectedDateSlots={selectedDateSlots} selectedSlotId={selectedSlotId} onSelectSlot={setSelectedSlotId} onReset={resetToCalendar} onContinue={() => { if (selectedSlot) { setQuestionIndex(0); setView("checkin"); } }} /> : null}{!loading && showScheduler && view === "checkin" && selectedSlot ? <SessionCheckIn selectedSlot={selectedSlot} questionIndex={questionIndex} answers={answers} onAnswer={(key, value) => setAnswers((current) => ({ ...current, [key]: value }))} onBack={() => { if (questionIndex > 0) setQuestionIndex((value) => value - 1); else setView("times"); }} onNext={() => setQuestionIndex((value) => Math.min(value + 1, CHECK_IN_STEPS.length))} onSubmit={handleSubmit} isSubmitting={isSubmitting} submitError={submitError} recoveredDraft={recoveredDraft} /> : null}</div></section>
         {!loading && loadError ? <div className="mt-3 rounded-[20px] border border-rose-200/15 bg-rose-300/[0.06] px-4 py-3 text-[10px] font-semibold text-rose-100/80">{loadError}</div> : null}
         {!loading && showScheduler && view === "calendar" ? <MonthCalendar slots={slots} slotsByDate={slotsByDate} availabilityLoading={availabilityLoading} loadError={loadError} loadAvailability={loadAvailability} monthIndex={monthIndex} setMonthIndex={setMonthIndex} monthOptions={monthOptions} selectedMonthKey={selectedMonthKey} selectedMonth={selectedMonth} calendarDays={calendarDays} todayKey={todayKey} onDateSelect={handleDateSelect} isCommitmentSession={isCommitmentSession} /> : null}
       </div>
