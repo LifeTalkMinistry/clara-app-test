@@ -3,6 +3,7 @@ import {
   Loader2,
   Plus,
   ShieldAlert,
+  Trash2,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -28,6 +29,7 @@ import DebtObligationItem, {
   getObligationMonthly,
 } from "@/components/financial-carousel/cards/debt/ui/DebtObligationItem";
 import {
+  deleteDebtObligation,
   getDebtTitle,
   toDebtNumber,
   upsertDebtObligation,
@@ -152,6 +154,8 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const { state, computed, handlers } = useDebtCardLogic({ item, expanded, onToggleDetails });
   const { isExpanded, debtObligations = [], activeDebtCount, savingDebt } = state;
@@ -167,7 +171,8 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
   const { handleToggleDetails, reloadDebtObligations } = handlers;
 
   const localUserId = String(user?.id || user?.email || "local-user");
-  const actionLoading = saving || savingDebt;
+  const saveLoading = saving || savingDebt;
+  const actionLoading = saveLoading || deleting;
   const hasActiveDebt = totalDebt > 0;
   const totalPositiveDebt = debtObligations.reduce(
     (sum, record) => sum + Math.max(getObligationBalance(record), 0),
@@ -182,17 +187,20 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
 
   const openCreateForm = () => {
     setNotice("");
+    setDeleteConfirmOpen(false);
     setForm(emptyForm());
     setFormOpen(true);
   };
 
   const openEditForm = (record) => {
     setNotice("");
+    setDeleteConfirmOpen(false);
     setForm(formFromRecord(record));
     setFormOpen(true);
   };
 
   const closeForm = () => {
+    setDeleteConfirmOpen(false);
     setFormOpen(false);
     setForm(emptyForm());
   };
@@ -245,6 +253,26 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
       setNotice(error?.message || "Unable to save obligation.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteCurrentObligation = async () => {
+    const obligationId = String(form.id || "").trim();
+    if (!obligationId) return;
+
+    setDeleting(true);
+    setNotice("");
+
+    try {
+      await deleteDebtObligation(localUserId, obligationId);
+      const refreshed = await reloadDebtObligations();
+      notifyDebtChanged(refreshed || []);
+      closeForm();
+    } catch (error) {
+      console.error("Unable to delete obligation:", error);
+      setNotice(error?.message || "Unable to delete obligation.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -320,7 +348,7 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
                         <p className="text-sm font-black text-white/92">{form.id ? "Edit obligation" : "Add obligation"}</p>
                         <p className="text-[11px] font-semibold text-white/45">Name it like Home Credit or Credit Card.</p>
                       </div>
-                      <button type="button" onClick={closeForm} className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.045] text-white/65 transition hover:bg-white/[0.08]" aria-label="Close obligation form">
+                      <button type="button" onClick={closeForm} disabled={actionLoading} className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.045] text-white/65 transition hover:bg-white/[0.08] disabled:opacity-45" aria-label="Close obligation form">
                         <X className="h-4 w-4" />
                       </button>
                     </div>
@@ -360,9 +388,55 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
 
                     {notice ? <p className="mt-3 text-[11px] font-semibold leading-5 text-white/58">{notice}</p> : null}
                     <button type="button" onClick={saveObligation} disabled={actionLoading} className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-3 py-2.5 text-sm font-black text-emerald-200 transition hover:bg-emerald-400/[0.13] disabled:opacity-45">
-                      {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      {actionLoading ? "Saving..." : form.id ? "Update Obligation" : "Save Obligation"}
+                      {saveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      {saveLoading ? "Saving..." : form.id ? "Update Obligation" : "Save Obligation"}
                     </button>
+
+                    {form.id ? (
+                      <div className="mt-2.5">
+                        {!deleteConfirmOpen ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotice("");
+                              setDeleteConfirmOpen(true);
+                            }}
+                            disabled={actionLoading}
+                            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/18 bg-rose-400/[0.07] px-3 py-2.5 text-sm font-black text-rose-200 transition hover:bg-rose-400/[0.12] disabled:opacity-45"
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete Obligation
+                          </button>
+                        ) : (
+                          <div role="alertdialog" aria-labelledby="delete-obligation-title" className="rounded-2xl border border-rose-300/16 bg-rose-500/[0.07] p-3.5">
+                            <p id="delete-obligation-title" className="text-sm font-black text-rose-100">
+                              Delete {String(form.title || "this obligation").trim()}?
+                            </p>
+                            <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/55">
+                              This obligation and its saved balance information will be removed. This cannot be undone.
+                            </p>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmOpen(false)}
+                                disabled={actionLoading}
+                                className="min-h-[40px] rounded-xl border border-white/[0.08] bg-white/[0.045] px-3 py-2 text-xs font-black text-white/72 transition hover:bg-white/[0.08] disabled:opacity-45"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={deleteCurrentObligation}
+                                disabled={actionLoading}
+                                className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-rose-300/20 bg-rose-400/[0.12] px-3 py-2 text-xs font-black text-rose-100 transition hover:bg-rose-400/[0.18] disabled:opacity-45"
+                              >
+                                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                {deleting ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </PremiumFinanceItemSurface>
                 ) : null}
 
