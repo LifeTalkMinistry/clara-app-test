@@ -29,6 +29,13 @@ function requireToken(token = getStoredBackendToken()) {
   return token;
 }
 
+function normalizeAnswersForBackend(answers = {}) {
+  const focus = Array.isArray(answers.focus)
+    ? answers.focus.map((value) => String(value || "").trim()).filter(Boolean).join(",")
+    : String(answers.focus || "").trim();
+  return { ...answers, focus };
+}
+
 async function coachingRequest(
   path,
   { method = "GET", body, token = getStoredBackendToken() } = {}
@@ -101,7 +108,7 @@ export function createCoachingAppointment({ slotId, sessionType, answers, token 
     body: {
       slot_id: slotId,
       session_type: sessionType,
-      answers,
+      answers: normalizeAnswersForBackend(answers),
     },
   });
 }
@@ -117,7 +124,7 @@ export function updateCoachingAppointmentAnswers({ appointmentId, answers, token
   return coachingRequest(`/api/coaching/appointments/${appointmentId}`, {
     method: "PATCH",
     token,
-    body: { answers },
+    body: { answers: normalizeAnswersForBackend(answers) },
   });
 }
 
@@ -142,4 +149,5 @@ export {
   COACHING_REQUEST_TIMEOUT_MS,
   VERCEL_COACHING_PROXY_PATH,
   getCoachingApiBase,
+  normalizeAnswersForBackend,
 };
