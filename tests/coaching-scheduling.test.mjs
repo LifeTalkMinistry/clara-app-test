@@ -102,6 +102,18 @@ test("user scheduling client derives identity from the authenticated backend ses
   assert.doesNotMatch(scheduleClient, /user_id|userId/);
 });
 
+test("active appointments allow intake edits without changing scheduling actions", () => {
+  assert.match(welcomeSession, /Edit Session Details/);
+  assert.match(welcomeSession, /edit-checkin/);
+  assert.match(welcomeSession, /answersFromAppointment/);
+  assert.match(welcomeSession, /Save Session Details/);
+  assert.match(welcomeSession, /appointment date, time, and status did not change/i);
+  assert.match(scheduleClient, /updateCoachingAppointmentAnswers/);
+  assert.match(scheduleClient, /method: "PATCH"/);
+  assert.match(scheduleClient, /body: \{ answers \}/);
+  assert.match(welcomeSession, /\["requested", "confirmed", "reschedule_requested"\]/);
+});
+
 test("session page covers authoritative loading booking collision and status states", () => {
   assert.match(welcomeSession, /Loading real availability/);
   assert.match(welcomeSession, /No appointments are currently available/);
