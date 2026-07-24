@@ -8,6 +8,9 @@ This document records the July 2026 Settings repair pass and the invariants that
 - Legacy compatibility calls must resolve the active local vault at operation time, not module initialization time.
 - Signed-in theme preferences are stored per active CLARA account.
 - Notification preferences remain scoped to the active local vault.
+- CLARA's user-context story and behavioral-memory aliases are archived and restored per active local vault.
+- A newly switched account receives an explicit empty behavioral-memory snapshot rather than hydrating another account's historical global IndexedDB snapshot.
+- Ephemeral Talk to CLARA message history is cleared when account/vault ownership changes.
 
 ## Backend authority
 
@@ -37,4 +40,4 @@ This document records the July 2026 Settings repair pass and the invariants that
 
 ## Regression coverage
 
-`tests/settings-integrity-regression.test.mjs` protects the Settings-specific frontend contracts. Backend Settings contracts are covered in `clara-backend/test/settingsBackendContract.test.js`.
+`tests/settings-integrity-regression.test.mjs` protects the Settings-specific frontend contracts. `tests/settings-local-only-regression.test.mjs` also verifies that retired Settings DOM patches stay deleted. Backend Settings contracts are covered in `clara-backend/test/settingsBackendContract.test.js`.
