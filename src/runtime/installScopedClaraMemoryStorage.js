@@ -7,11 +7,14 @@ const LEGACY_MEMORY_KEY = "CLARA_USER_CONTEXT_STORY_V1";
 const SCOPED_MEMORY_PREFIX = "CLARA_USER_CONTEXT_STORY_V2:";
 const LEGACY_BEHAVIORAL_MEMORY_KEY = "clara_behavioral_memory_v1";
 const SCOPED_BEHAVIORAL_MEMORY_PREFIX = "clara_behavioral_memory_v2:";
+const LEGACY_CABINET_PREFIX = "CLARA_MEMORY_CABINET_V1:";
+const SCOPED_CABINET_PREFIX = "CLARA_MEMORY_CABINET_V2:";
 const LIVE_USER_MESSAGE_HISTORY_KEY = "CLARA_LIVE_USER_MESSAGE_HISTORY";
 const VAULT_UPDATED_EVENT = "clara:active-local-vault-updated";
 const ACCOUNT_SWITCHED_EVENT = "clara:account-vault-switched";
 const MEMORY_UPDATED_EVENT = "clara-user-context-story-updated";
 const BEHAVIORAL_MEMORY_UPDATED_EVENT = "clara-behavioral-memory-updated";
+const CABINET_UPDATED_EVENT = "clara-memory-cabinet-updated";
 
 let activeVaultId = "";
 let installed = false;
@@ -52,6 +55,18 @@ function scopedBehavioralMemoryKey(vaultId) {
   return cleanId ? `${SCOPED_BEHAVIORAL_MEMORY_PREFIX}${cleanId}` : "";
 }
 
+function scopedCabinetPrefix(vaultId) {
+  const cleanId = normalizeId(vaultId);
+  return cleanId ? `${SCOPED_CABINET_PREFIX}${cleanId}:` : "";
+}
+
+function scopedCabinetKey(vaultId, legacyCabinetKey) {
+  const scopedPrefix = scopedCabinetPrefix(vaultId);
+  const legacyKey = String(legacyCabinetKey || "");
+  if (!scopedPrefix || !legacyKey.startsWith(LEGACY_CABINET_PREFIX)) return "";
+  return `${scopedPrefix}${legacyKey.slice(LEGACY_CABINET_PREFIX.length)}`;
+}
+
 function safeGet(key) {
   if (!key) return null;
   try {
@@ -82,6 +97,21 @@ function safeRemove(key) {
   }
 }
 
+function keysWithPrefix(prefix) {
+  const target = storage();
+  if (!target || !prefix) return [];
+  const keys = [];
+  try {
+    for (let index = 0; index < target.length; index += 1) {
+      const key = target.key(index);
+      if (key?.startsWith(prefix)) keys.push(key);
+    }
+  } catch {
+    return [];
+  }
+  return keys;
+}
+
 function clearLiveSessionMemory() {
   try {
     sessionStorageSafe()?.removeItem(LIVE_USER_MESSAGE_HISTORY_KEY);
@@ -109,6 +139,41 @@ function archiveActiveBehavioralAlias(vaultId = activeVaultId) {
   const raw = safeGet(LEGACY_BEHAVIORAL_MEMORY_KEY);
   if (raw === null) return;
   safeSet(scopedBehavioralMemoryKey(cleanId), raw);
+}
+
+function archiveActiveCabinetAliases(vaultId = activeVaultId) {
+  const cleanId = normalizeId(vaultId);
+  if (!cleanId) return;
+
+  keysWithPrefix(LEGACY_CABINET_PREFIX).forEach((legacyKey) => {
+    const raw = safeGet(legacyKey);
+    const nextKey = scopedCabinetKey(cleanId, legacyKey);
+    if (raw !== null && nextKey) safeSet(nextKey, raw);
+  });
+}
+
+function clearLegacyCabinetAliases() {
+  keysWithPrefix(LEGACY_CABINET_PREFIX).forEach((key) => safeRemove(key));
+}
+
+function loadCabinetsForVault(
+  nextId,
+  { allowLegacyMigration = false, previousId = "" } = {}
+) {
+  if (allowLegacyMigration && !previousId) {
+    // The account that owns the pre-scoping aliases receives the one-time migration.
+    archiveActiveCabinetAliases(nextId);
+  }
+
+  clearLegacyCabinetAliases();
+  const nextScopedPrefix = scopedCabinetPrefix(nextId);
+  keysWithPrefix(nextScopedPrefix).forEach((scopedKey) => {
+    const raw = safeGet(scopedKey);
+    if (raw === null) return;
+    const cabinetSuffix = scopedKey.slice(nextScopedPrefix.length);
+    if (!cabinetSuffix) return;
+    safeSet(`${LEGACY_CABINET_PREFIX}${cabinetSuffix}`, raw);
+  });
 }
 
 function parseObject(raw) {
@@ -145,6 +210,15 @@ function broadcastLoadedBehavioralMemory(snapshot) {
   window.dispatchEvent(
     new CustomEvent(BEHAVIORAL_MEMORY_UPDATED_EVENT, {
       detail: { ...normalized, reason: "account_memory_switch" },
+    })
+  );
+}
+
+function broadcastCabinetsReloaded(vaultId) {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(CABINET_UPDATED_EVENT, {
+      detail: { vaultId, reason: "account_memory_switch" },
     })
   );
 }
@@ -211,6 +285,7 @@ function switchMemoryOwner(nextVaultId, { allowLegacyMigration = false } = {}) {
   if (previousId && previousId !== nextId) {
     archiveActiveStoryAlias(previousId);
     archiveActiveBehavioralAlias(previousId);
+    archiveActiveCabinetAliases(previousId);
     clearLiveSessionMemory();
   }
 
@@ -222,12 +297,15 @@ function switchMemoryOwner(nextVaultId, { allowLegacyMigration = false } = {}) {
       LEGACY_BEHAVIORAL_MEMORY_KEY,
       JSON.stringify(emptyBehavioralSnapshot())
     );
+    clearLegacyCabinetAliases();
     clearLiveSessionMemory();
     return;
   }
 
   loadStoryForVault(nextId, { allowLegacyMigration, previousId });
   loadBehavioralMemoryForVault(nextId, { allowLegacyMigration, previousId });
+  loadCabinetsForVault(nextId, { allowLegacyMigration, previousId });
+  broadcastCabinetsReloaded(nextId);
 }
 
 function syncFromCanonicalVault() {
@@ -252,11 +330,20 @@ function persistBehavioralMemoryUpdate() {
   archiveActiveBehavioralAlias();
 }
 
+function persistCabinetMemoryUpdate() {
+  const canonicalId = canonicalVaultId();
+  if (canonicalId && canonicalId !== activeVaultId) {
+    switchMemoryOwner(canonicalId);
+  }
+  archiveActiveCabinetAliases();
+}
+
 function handleStorageEvent(event) {
   const canonicalId = canonicalVaultId();
   const ownerId = canonicalId || activeVaultId;
   const activeStoryKey = scopedMemoryKey(ownerId);
   const activeBehavioralKey = scopedBehavioralMemoryKey(ownerId);
+  const activeCabinetPrefix = scopedCabinetPrefix(ownerId);
 
   if (event?.key === LEGACY_MEMORY_KEY) {
     persistStoryMemoryUpdate();
@@ -264,6 +351,10 @@ function handleStorageEvent(event) {
   }
   if (event?.key === LEGACY_BEHAVIORAL_MEMORY_KEY) {
     persistBehavioralMemoryUpdate();
+    return;
+  }
+  if (event?.key?.startsWith(LEGACY_CABINET_PREFIX)) {
+    persistCabinetMemoryUpdate();
     return;
   }
 
@@ -279,12 +370,23 @@ function handleStorageEvent(event) {
     const parsed = parseObject(event.newValue) || emptyBehavioralSnapshot();
     safeSet(LEGACY_BEHAVIORAL_MEMORY_KEY, JSON.stringify(parsed));
     broadcastLoadedBehavioralMemory(parsed);
+    return;
+  }
+
+  if (activeCabinetPrefix && event?.key?.startsWith(activeCabinetPrefix)) {
+    const cabinetSuffix = event.key.slice(activeCabinetPrefix.length);
+    const legacyKey = cabinetSuffix ? `${LEGACY_CABINET_PREFIX}${cabinetSuffix}` : "";
+    if (!legacyKey) return;
+    if (event.newValue === null) safeRemove(legacyKey);
+    else safeSet(legacyKey, event.newValue);
+    broadcastCabinetsReloaded(ownerId);
   }
 }
 
 function archiveAllActiveMemory() {
   archiveActiveStoryAlias();
   archiveActiveBehavioralAlias();
+  archiveActiveCabinetAliases();
 }
 
 function handleVisibilityChange() {
@@ -306,6 +408,7 @@ export function installScopedClaraMemoryStorage() {
     BEHAVIORAL_MEMORY_UPDATED_EVENT,
     persistBehavioralMemoryUpdate
   );
+  window.addEventListener(CABINET_UPDATED_EVENT, persistCabinetMemoryUpdate);
   window.addEventListener("storage", handleStorageEvent);
   window.addEventListener("pagehide", archiveAllActiveMemory);
   document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -318,6 +421,9 @@ export {
   SCOPED_MEMORY_PREFIX,
   LEGACY_BEHAVIORAL_MEMORY_KEY,
   SCOPED_BEHAVIORAL_MEMORY_PREFIX,
+  LEGACY_CABINET_PREFIX,
+  SCOPED_CABINET_PREFIX,
   scopedMemoryKey,
   scopedBehavioralMemoryKey,
+  scopedCabinetKey,
 };
