@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, Clock3, ExternalLink } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, ExternalLink, Pencil } from "lucide-react";
 import { formatDateLabel, formatTimeLabel } from "@/lib/welcome-session-schedule";
 import { SummaryChip } from "./SessionShared";
 
@@ -12,10 +12,11 @@ const STATUS_CONTENT = {
   no_show: ["Session Missed", "Please Message CLARA for support so Max can help with the next step."],
 };
 
-export function AppointmentStatus({ appointment, onCancel, onRequestReschedule, onBookAgain, isActioning }) {
+export function AppointmentStatus({ appointment, onCancel, onRequestReschedule, onEditDetails, onBookAgain, isActioning, detailsUpdated }) {
   const [title, message] = STATUS_CONTENT[appointment.status] || STATUS_CONTENT.requested;
   const canCancel = ["requested", "confirmed", "reschedule_requested"].includes(appointment.status);
   const canReschedule = ["requested", "confirmed"].includes(appointment.status);
+  const canEdit = ["requested", "confirmed", "reschedule_requested"].includes(appointment.status);
   const canBookAgain = ["declined", "cancelled"].includes(appointment.status);
   return (
     <div className="py-2 text-center sm:py-5">
@@ -23,8 +24,9 @@ export function AppointmentStatus({ appointment, onCancel, onRequestReschedule, 
       <p className="mt-5 text-[9px] font-black uppercase tracking-[0.20em] text-cyan-200/65">Authoritative appointment status</p><h1 className="mt-1.5 text-[27px] font-black text-white">{title}</h1><p className="mx-auto mt-2 max-w-lg text-[11px] font-semibold text-slate-300/68">{message}</p>
       <div className="mx-auto mt-5 grid max-w-xl gap-2.5 sm:grid-cols-2"><SummaryChip icon={CalendarDays} label="Date" value={formatDateLabel(appointment.starts_at, true)} /><SummaryChip icon={Clock3} label="Manila time" value={formatTimeLabel(appointment.starts_at)} /></div>
       <div className="mx-auto mt-4 max-w-xl rounded-[18px] border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-left"><p className="text-[8px] font-black uppercase tracking-[0.15em] text-cyan-100/55">Status</p><p className="mt-1.5 text-[13px] font-black capitalize text-white">{appointment.status.replaceAll("_", " ")}</p>{appointment.requested_at ? <p className="mt-1 text-[9px] font-semibold text-slate-400/65">Requested {formatDateLabel(appointment.requested_at, true)} at {formatTimeLabel(appointment.requested_at)}</p> : null}</div>
+      {detailsUpdated ? <div className="mx-auto mt-3 max-w-xl rounded-[16px] border border-emerald-200/20 bg-emerald-300/[0.08] px-4 py-3 text-[10px] font-semibold text-emerald-100/85">Session details updated. Your appointment date, time, and status did not change.</div> : null}
       {appointment.status === "confirmed" && appointment.meeting_link ? <a href={appointment.meeting_link} target="_blank" rel="noreferrer" className="mx-auto mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-emerald-200/20 bg-emerald-300/[0.10] px-5 text-[9px] font-black uppercase text-emerald-100">Open meeting link <ExternalLink className="h-3.5 w-3.5" /></a> : null}
-      <div className="mx-auto mt-5 flex max-w-xl flex-wrap justify-center gap-2.5">{canReschedule ? <button type="button" disabled={isActioning} onClick={onRequestReschedule} className="h-11 rounded-[16px] border border-orange-200/20 bg-orange-300/[0.08] px-4 text-[9px] font-black uppercase text-orange-100 disabled:opacity-50">Request Reschedule</button> : null}{canCancel ? <button type="button" disabled={isActioning} onClick={onCancel} className="h-11 rounded-[16px] border border-rose-200/20 bg-rose-300/[0.08] px-4 text-[9px] font-black uppercase text-rose-100 disabled:opacity-50">Cancel Session</button> : null}{canBookAgain ? <button type="button" onClick={onBookAgain} className="h-11 rounded-[16px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.84),rgba(99,102,241,0.92))] px-5 text-[9px] font-black uppercase text-white">Choose Another Schedule</button> : null}</div>
+      <div className="mx-auto mt-5 flex max-w-xl flex-wrap justify-center gap-2.5">{canEdit ? <button type="button" disabled={isActioning} onClick={onEditDetails} className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] border border-cyan-100/25 bg-cyan-200/[0.10] px-4 text-[9px] font-black uppercase text-cyan-50 disabled:opacity-50"><Pencil className="h-3.5 w-3.5" />Edit Session Details</button> : null}{canReschedule ? <button type="button" disabled={isActioning} onClick={onRequestReschedule} className="h-11 rounded-[16px] border border-orange-200/20 bg-orange-300/[0.08] px-4 text-[9px] font-black uppercase text-orange-100 disabled:opacity-50">Request Reschedule</button> : null}{canCancel ? <button type="button" disabled={isActioning} onClick={onCancel} className="h-11 rounded-[16px] border border-rose-200/20 bg-rose-300/[0.08] px-4 text-[9px] font-black uppercase text-rose-100 disabled:opacity-50">Cancel Session</button> : null}{canBookAgain ? <button type="button" onClick={onBookAgain} className="h-11 rounded-[16px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.84),rgba(99,102,241,0.92))] px-5 text-[9px] font-black uppercase text-white">Choose Another Schedule</button> : null}</div>
     </div>
   );
 }
