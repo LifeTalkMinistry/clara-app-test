@@ -193,28 +193,6 @@ function isActiveDebt(record = {}) {
   return !["inactive", "archived", "deleted", "closed", "paid", "completed"].includes(status);
 }
 
-function StepProgress({ step }) {
-  return (
-    <section className={`${card} px-4 py-3.5`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/45">
-            Step {step} of 5
-          </p>
-          <p className="mt-1 text-sm font-black text-white/88">{STEPS[step - 1]}</p>
-        </div>
-        <p className="text-xs font-bold text-white/38">{Math.round((step / 5) * 100)}%</p>
-      </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/8">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-300 transition-all duration-500"
-          style={{ width: `${(step / 5) * 100}%` }}
-        />
-      </div>
-    </section>
-  );
-}
-
 function QuestionHeader({ icon: Icon, eyebrow, title, body }) {
   return (
     <div className="flex items-start gap-3">
@@ -727,8 +705,6 @@ export default function MonthlyBudgetPlanGuided() {
             </span>
           </div>
         </header>
-
-        <StepProgress step={step} />
 
         {step === 1 ? (
           <section className={`${card} p-4`}>
