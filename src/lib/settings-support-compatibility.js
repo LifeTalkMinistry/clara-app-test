@@ -3,7 +3,10 @@ import {
   fetchBackendLegalInformation,
   updateBackendLegalInformation,
 } from "@/lib/legal-information-backend-client";
-import { sendBackendSupportMessage } from "@/lib/support-backend-client";
+import {
+  fetchBackendSupportMessages,
+  sendBackendSupportMessage,
+} from "@/lib/support-backend-client";
 
 const SUPPORT_ADMIN = Object.freeze({
   id: "clara-support",
@@ -24,7 +27,11 @@ function parseSupportContent(value) {
   };
 }
 
-function createReplayQuery(localFacade, tableName, { interceptInsert } = {}) {
+function createReplayQuery(
+  localFacade,
+  tableName,
+  { interceptSelect, interceptInsert } = {}
+) {
   const operations = [];
   let terminal = "select";
 
@@ -47,22 +54,36 @@ function createReplayQuery(localFacade, tableName, { interceptInsert } = {}) {
     return underlying;
   };
 
+  const normalizeIntercepted = (intercepted) => {
+    if (!intercepted) return null;
+    if (terminal === "single" || terminal === "maybeSingle") {
+      return {
+        data: Array.isArray(intercepted.data)
+          ? intercepted.data[0] || null
+          : intercepted.data,
+        error: intercepted.error || null,
+      };
+    }
+    return intercepted;
+  };
+
   const execute = async () => {
     const insertOperation = operations.find(({ method }) => method === "insert");
     if (insertOperation && typeof interceptInsert === "function") {
       const intercepted = await interceptInsert(insertOperation.args[0]);
-      if (intercepted) {
-        if (terminal === "single" || terminal === "maybeSingle") {
-          return {
-            data: Array.isArray(intercepted.data)
-              ? intercepted.data[0] || null
-              : intercepted.data,
-            error: intercepted.error || null,
-          };
-        }
-        return intercepted;
-      }
+      const normalized = normalizeIntercepted(intercepted);
+      if (normalized) return normalized;
     }
+
+    const hasMutation = operations.some(({ method }) =>
+      ["insert", "update", "upsert", "delete"].includes(method)
+    );
+    if (!hasMutation && typeof interceptSelect === "function") {
+      const intercepted = await interceptSelect({ operations, terminal });
+      const normalized = normalizeIntercepted(intercepted);
+      if (normalized) return normalized;
+    }
+
     return executeUnderlying();
   };
 
@@ -113,6 +134,12 @@ function createProfilesQuery(localFacade) {
         String(args[1] || "").toLowerCase() === "admin"
     );
 
+  const isPlainProfileList = () =>
+    terminal === "select" &&
+    !operations.some(({ method }) =>
+      ["insert", "update", "upsert", "delete"].includes(method)
+    );
+
   const execute = async () => {
     if (isAdminLookup()) {
       return terminal === "maybeSingle" || terminal === "single"
@@ -126,10 +153,23 @@ function createProfilesQuery(localFacade) {
         delegated = delegated[method](...args);
       }
     }
-    if (terminal !== "select" && typeof delegated?.[terminal] === "function") {
-      return delegated[terminal]();
+
+    const result =
+      terminal !== "select" && typeof delegated?.[terminal] === "function"
+        ? await delegated[terminal]()
+        : await delegated;
+
+    if (!isPlainProfileList() || result?.error || !Array.isArray(result?.data)) {
+      return result;
     }
-    return delegated;
+
+    const hasSupport = result.data.some(
+      (profile) => String(profile?.id || "") === SUPPORT_ADMIN.id
+    );
+    return {
+      ...result,
+      data: hasSupport ? result.data : [...result.data, SUPPORT_ADMIN],
+    };
   };
 
   Object.assign(query, {
@@ -284,23 +324,103 @@ function createLegalInformationQuery() {
   return query;
 }
 
-function supportInsertInterceptor(value) {
-  const payloads = Array.isArray(value) ? value : [value];
-  const first = payloads.find((item) => item && typeof item === "object");
-  if (!first) return null;
+function toSupportDirectMessage(message = {}, identity = {}) {
+  const senderId = String(identity.id || message.sender_id || "guest");
+  const topic = String(message.topic || "Other concern").trim() || "Other concern";
+  const content = String(message.content || "").trim();
+  return {
+    id: `support-${message.id}`,
+    conversation_id: [senderId, SUPPORT_ADMIN.id].sort().join("_"),
+    sender_id: senderId,
+    sender_email: message.sender_email || identity.email || "",
+    sender_name:
+      message.sender_name || identity.full_name || identity.display_name || "CLARA User",
+    recipient_id: SUPPORT_ADMIN.id,
+    recipient_email: SUPPORT_ADMIN.email,
+    recipient_name: SUPPORT_ADMIN.full_name,
+    content: topic === "Other concern" ? content : `[${topic}] ${content}`,
+    is_read: true,
+    created_at: message.created_at || new Date().toISOString(),
+    updated_at: message.updated_at || message.created_at || null,
+    support_status: message.status || "open",
+    support_topic: topic,
+  };
+}
 
-  const rawContent = String(first.content || "");
-  if (!/^\[CLARA Support\s*•/i.test(rawContent.trim())) return null;
+async function getLocalIdentity(localFacade) {
+  try {
+    const { data } = await localFacade.auth.getUser();
+    return data?.user || {};
+  } catch {
+    return {};
+  }
+}
 
-  const parsed = parseSupportContent(rawContent);
-  return sendBackendSupportMessage({
-    topic: parsed.topic,
-    content: parsed.content,
-    senderName: first.sender_name,
-    senderEmail: first.sender_email,
-  })
-    .then((saved) => ({ data: saved ? [saved] : [], error: null }))
-    .catch((error) => ({ data: null, error }));
+function createSupportMessagesSelectInterceptor(localFacade) {
+  return async () => {
+    try {
+      const [messages, identity] = await Promise.all([
+        fetchBackendSupportMessages(),
+        getLocalIdentity(localFacade),
+      ]);
+      return {
+        data: messages.map((message) => toSupportDirectMessage(message, identity)),
+        error: null,
+      };
+    } catch (error) {
+      return { data: null, error };
+    }
+  };
+}
+
+function createSupportInsertInterceptor(localFacade) {
+  return async (value) => {
+    const payloads = Array.isArray(value) ? value : [value];
+    const first = payloads.find((item) => item && typeof item === "object");
+    if (!first) return null;
+
+    const rawContent = String(first.content || "").trim();
+    const isSettingsSupportMessage = /^\[CLARA Support\s*•/i.test(rawContent);
+    const isSupportRecipient = String(first.recipient_id || "") === SUPPORT_ADMIN.id;
+
+    if (!isSettingsSupportMessage && !isSupportRecipient) {
+      return {
+        data: null,
+        error: new Error(
+          "Direct user-to-user messaging is not connected to the CLARA backend yet."
+        ),
+      };
+    }
+
+    const parsed = isSettingsSupportMessage
+      ? parseSupportContent(rawContent)
+      : { topic: "Support follow-up", content: rawContent };
+
+    try {
+      const saved = await sendBackendSupportMessage({
+        topic: parsed.topic,
+        content: parsed.content,
+        senderName: first.sender_name,
+        senderEmail: first.sender_email,
+      });
+      const identity = await getLocalIdentity(localFacade);
+      return {
+        data: saved
+          ? [
+              toSupportDirectMessage(saved, {
+                ...identity,
+                id: first.sender_id || identity.id,
+                email: first.sender_email || identity.email,
+                full_name: first.sender_name || identity.full_name,
+              }),
+            ]
+          : [],
+        error: null,
+      };
+    } catch (error) {
+      return { data: null, error };
+    }
+  };
 }
 
 export function withSettingsSupportCompatibility(localFacade) {
@@ -317,7 +437,8 @@ export function withSettingsSupportCompatibility(localFacade) {
       }
       if (table === "direct_messages") {
         return createReplayQuery(localFacade, "direct_messages", {
-          interceptInsert: supportInsertInterceptor,
+          interceptSelect: createSupportMessagesSelectInterceptor(localFacade),
+          interceptInsert: createSupportInsertInterceptor(localFacade),
         });
       }
       return localFacade.from(tableName);
