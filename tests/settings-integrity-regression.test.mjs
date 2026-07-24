@@ -22,6 +22,11 @@ const appSource = readSource("src/App.jsx");
 const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
 const adminClientSource = readSource("src/lib/admin-backend-client.js");
 const profileClientSource = readSource("src/lib/profile-backend-client.js");
+const supabaseClientSource = readSource("src/lib/supabaseClient.js");
+const supportCompatibilitySource = readSource(
+  "src/lib/settings-support-compatibility.js"
+);
+const supportClientSource = readSource("src/lib/support-backend-client.js");
 
 test("Schedule reminders never fall back to another account's local schedule", () => {
   assert.doesNotMatch(scheduleSource, /readLatestScheduleEvents/);
@@ -95,8 +100,10 @@ test("Settings Admin Panel route opens a real backend-backed admin surface", () 
   assert.match(adminPanelSource, /Admin Panel/);
   assert.match(adminPanelSource, /Users & membership/);
   assert.match(adminPanelSource, /Access codes/);
+  assert.match(adminPanelSource, /Support inbox/);
   assert.match(adminPanelSource, /Platform mode/);
   assert.match(adminClientSource, /\/api\/admin/);
+  assert.match(adminClientSource, /\/support\/messages/);
 });
 
 test("profile Settings writes the display name through the CLARA backend account", () => {
@@ -104,4 +111,12 @@ test("profile Settings writes the display name through the CLARA backend account
   assert.match(localFacadeSource, /updateCurrentBackendProfile/);
   assert.match(profileClientSource, /backendRequest\("\/api\/users\/me"/);
   assert.match(profileClientSource, /method: "PATCH"/);
+});
+
+test("legacy Settings support UI delivers into the real CLARA backend support inbox", () => {
+  assert.match(supabaseClientSource, /withSettingsSupportCompatibility/);
+  assert.match(supportCompatibilitySource, /direct_messages/);
+  assert.match(supportCompatibilitySource, /sendBackendSupportMessage/);
+  assert.match(supportClientSource, /backendRequest\("\/api\/support\/messages"/);
+  assert.match(supportClientSource, /method: "POST"/);
 });
