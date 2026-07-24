@@ -79,6 +79,13 @@ test("Settings helpers use one event-driven sync instead of document-wide observ
   assert.match(settingsCleanupSource, /body\.clara-settings-active/);
 });
 
+test("Settings Memory is its own control instead of a clone of Security & privacy", () => {
+  assert.match(settingsMemoryEntrySource, /createMemoryButton/);
+  assert.match(settingsMemoryEntrySource, /Saved context, patterns, and AI memory/);
+  assert.doesNotMatch(settingsMemoryEntrySource, /cloneNode/);
+  assert.match(settingsMemoryEntrySource, /mountedMemoryTab/);
+});
+
 test("Settings permanently hides theme customization through one scoped CSS owner", () => {
   assert.equal(existsSync(retiredThemePatchUrl), false);
   assert.match(
