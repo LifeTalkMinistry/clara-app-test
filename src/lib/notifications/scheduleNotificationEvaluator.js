@@ -32,35 +32,11 @@ function safeJsonArray(raw) {
   }
 }
 
-function readLatestScheduleEvents(exactKey) {
-  if (typeof window === "undefined" || !window.localStorage) return [];
-
-  try {
-    let fallback = [];
-
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
-      if (!key || key === exactKey || !key.startsWith(`${SCHEDULE_STORAGE_PREFIX}_`)) continue;
-
-      const parsed = safeJsonArray(window.localStorage.getItem(key));
-      if (parsed.length) fallback = parsed;
-    }
-
-    return fallback;
-  } catch {
-    return [];
-  }
-}
-
 function readScheduleEvents(userId) {
   if (typeof window === "undefined" || !window.localStorage) return [];
 
-  const exactKey = scheduleStorageKey(userId);
-
   try {
-    const exact = safeJsonArray(window.localStorage.getItem(exactKey));
-    if (exact.length) return exact;
-    return readLatestScheduleEvents(exactKey);
+    return safeJsonArray(window.localStorage.getItem(scheduleStorageKey(userId)));
   } catch {
     return [];
   }
