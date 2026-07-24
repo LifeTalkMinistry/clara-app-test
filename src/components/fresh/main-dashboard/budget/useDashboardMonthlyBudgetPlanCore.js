@@ -9,21 +9,12 @@ const toAmount = (...values) => {
   return 0;
 };
 
-const isDerivedPlan = (plan = {}) =>
-  plan?.isDerivedBudget === true ||
-  plan?.is_derived_budget === true ||
-  String(plan?.budget_total_mode || plan?.budgetTotalMode || "")
-    .trim()
-    .toLowerCase() === "derived_from_items";
-
 export default function useDashboardMonthlyBudgetPlanCore(options = {}) {
   const plan = useDashboardMonthlyBudgetPlanEngine(options);
 
-  if (!isDerivedPlan(plan)) return plan;
-
-  // Budget setup only assigns money to envelopes. It does not spend or reserve
-  // the money automatically. The cycle balance moves only when a real expense
-  // is logged against the budget after activation.
+  // A budget is a plan, not a transaction. Creating categories, protecting
+  // savings, or including an obligation must not reduce Available Balance.
+  // Only actual logged spending reduces the cycle balance.
   const declared = toAmount(
     plan?.declared_budget,
     plan?.declaredBudget,
