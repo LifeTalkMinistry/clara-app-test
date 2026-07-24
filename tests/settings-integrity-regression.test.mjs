@@ -21,6 +21,7 @@ const notificationRegistrySource = readSource(
 const appSource = readSource("src/App.jsx");
 const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
 const adminClientSource = readSource("src/lib/admin-backend-client.js");
+const profileClientSource = readSource("src/lib/profile-backend-client.js");
 
 test("Schedule reminders never fall back to another account's local schedule", () => {
   assert.doesNotMatch(scheduleSource, /readLatestScheduleEvents/);
@@ -96,4 +97,11 @@ test("Settings Admin Panel route opens a real backend-backed admin surface", () 
   assert.match(adminPanelSource, /Access codes/);
   assert.match(adminPanelSource, /Platform mode/);
   assert.match(adminClientSource, /\/api\/admin/);
+});
+
+test("profile Settings writes the display name through the CLARA backend account", () => {
+  assert.match(localFacadeSource, /async updateUser\(\{ data \} = \{\}\)/);
+  assert.match(localFacadeSource, /updateCurrentBackendProfile/);
+  assert.match(profileClientSource, /backendRequest\("\/api\/users\/me"/);
+  assert.match(profileClientSource, /method: "PATCH"/);
 });
