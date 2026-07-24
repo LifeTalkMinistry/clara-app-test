@@ -1,12 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   persistNotificationPreferences,
   readNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
 import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
-export default function useNotificationPreferences() {
-  const userId = ensureActiveLocalVaultId();
+function resolveNotificationOwnerId(requestedUserId) {
+  const requested = String(requestedUserId || "").trim();
+  const activeVaultId = String(ensureActiveLocalVaultId() || "").trim();
+
+  // AuthContext uses the local vault ID as user.id. Prefer an explicit matching ID,
+  // but never let a stale component instance write another account's preferences.
+  if (requested && requested === activeVaultId) return requested;
+  return activeVaultId || requested || "guest";
+}
+
+export default function useNotificationPreferences(requestedUserId = null) {
+  const userId = useMemo(
+    () => resolveNotificationOwnerId(requestedUserId),
+    [requestedUserId]
+  );
   const [preferences, setPreferencesState] = useState(() =>
     readNotificationPreferences(userId)
   );
@@ -26,10 +39,14 @@ export default function useNotificationPreferences() {
 
     window.addEventListener("storage", sync);
     window.addEventListener("clara:notification-preferences-updated", sync);
+    window.addEventListener("clara:active-local-vault-updated", sync);
+    window.addEventListener("clara:account-vault-switched", sync);
 
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("clara:notification-preferences-updated", sync);
+      window.removeEventListener("clara:active-local-vault-updated", sync);
+      window.removeEventListener("clara:account-vault-switched", sync);
     };
   }, [userId]);
 
@@ -56,6 +73,7 @@ export default function useNotificationPreferences() {
   );
 
   return {
+    userId,
     preferences,
     setPreferences: savePreferences,
     updatePreference,
