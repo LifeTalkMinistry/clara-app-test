@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   KeyRound,
+  MessageCircle,
   RefreshCw,
   Settings2,
   ShieldCheck,
@@ -15,15 +16,18 @@ import {
   fetchAdminAccessCodes,
   fetchAdminOverview,
   fetchAdminSettings,
+  fetchAdminSupportMessages,
   fetchAdminUsers,
   updateAdminAccessCode,
   updateAdminSettings,
+  updateAdminSupportMessage,
   updateAdminUser,
 } from "@/lib/admin-backend-client";
 
 const USER_STATUSES = ["active", "pending", "inactive"];
 const USER_PLANS = ["free", "committed"];
 const CODE_STATUSES = ["available", "assigned", "revoked", "expired"];
+const SUPPORT_STATUSES = ["open", "read", "resolved"];
 
 function StatCard({ label, value }) {
   return (
@@ -59,6 +63,7 @@ export default function AdminPanel() {
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
   const [codes, setCodes] = useState([]);
+  const [supportMessages, setSupportMessages] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState("");
@@ -70,15 +75,18 @@ export default function AdminPanel() {
     setLoading(true);
     setError("");
     try {
-      const [nextOverview, nextUsers, nextCodes, nextSettings] = await Promise.all([
-        fetchAdminOverview(),
-        fetchAdminUsers(),
-        fetchAdminAccessCodes(),
-        fetchAdminSettings(),
-      ]);
+      const [nextOverview, nextUsers, nextCodes, nextSupport, nextSettings] =
+        await Promise.all([
+          fetchAdminOverview(),
+          fetchAdminUsers(),
+          fetchAdminAccessCodes(),
+          fetchAdminSupportMessages(),
+          fetchAdminSettings(),
+        ]);
       setOverview(nextOverview || null);
       setUsers(Array.isArray(nextUsers) ? nextUsers : []);
       setCodes(Array.isArray(nextCodes) ? nextCodes : []);
+      setSupportMessages(Array.isArray(nextSupport) ? nextSupport : []);
       setSettings(nextSettings || null);
     } catch (loadError) {
       setError(loadError?.message || "Unable to load CLARA admin controls.");
@@ -104,6 +112,11 @@ export default function AdminPanel() {
       maximumFractionDigits: 0,
     }).format(Math.max(cents, 0) / 100);
   }, [overview?.subscription_value_cents]);
+
+  const openSupportCount = useMemo(
+    () => supportMessages.filter((message) => message.status !== "resolved").length,
+    [supportMessages]
+  );
 
   const patchUserLocal = (id, patch) => {
     setUsers((current) =>
@@ -172,6 +185,26 @@ export default function AdminPanel() {
       setOverview(nextOverview || null);
     } catch (createError) {
       setError(createError?.message || "Unable to create an access code.");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const updateSupportStatus = async (message, status) => {
+    const key = `support:${message.id}`;
+    setBusyKey(key);
+    setNotice("");
+    setError("");
+    try {
+      const saved = await updateAdminSupportMessage(message.id, status);
+      setSupportMessages((current) =>
+        current.map((item) =>
+          item.id === message.id ? { ...item, ...(saved || {}), status } : item
+        )
+      );
+      setNotice("Support message updated.");
+    } catch (saveError) {
+      setError(saveError?.message || "Unable to update this support message.");
     } finally {
       setBusyKey("");
     }
@@ -253,7 +286,81 @@ export default function AdminPanel() {
           <StatCard label="Users" value={overview?.total_users} />
           <StatCard label="Active users" value={overview?.active_users} />
           <StatCard label="Available codes" value={overview?.available_codes} />
+          <StatCard label="Open support" value={openSupportCount} />
           <StatCard label="Subscription value" value={subscriptionValue} />
+        </section>
+
+        <section className="mt-5 rounded-[28px] border border-emerald-300/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_38%),rgba(255,255,255,0.035)] p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/10 text-emerald-100">
+              <MessageCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black">Support inbox</h2>
+              <p className="mt-1 text-[11px] text-white/42">
+                Messages sent from CLARA Settings appear here.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {supportMessages.length ? (
+              supportMessages.map((message) => (
+                <article
+                  key={message.id}
+                  className="rounded-2xl border border-white/10 bg-black/15 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-white">
+                        {message.sender_name || "CLARA User"}
+                      </p>
+                      <p className="mt-1 truncate text-[11px] text-white/40">
+                        {message.sender_email}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/55">
+                      {message.status}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-xs font-black text-emerald-100/85">
+                    {message.topic}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-white/62">
+                    {message.content}
+                  </p>
+                  <p className="mt-3 text-[10px] text-white/30">
+                    {message.created_at
+                      ? new Date(message.created_at).toLocaleString()
+                      : ""}
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {SUPPORT_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        disabled={busyKey === `support:${message.id}`}
+                        onClick={() => updateSupportStatus(message, status)}
+                        className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase transition disabled:opacity-45 ${
+                          message.status === status
+                            ? "border-emerald-300/25 bg-emerald-400/15 text-emerald-100"
+                            : "border-white/10 bg-white/[0.04] text-white/45"
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-black/15 px-4 py-5 text-center text-xs text-white/40">
+                No support messages yet.
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="mt-5 rounded-[28px] border border-white/12 bg-white/[0.035] p-4">
