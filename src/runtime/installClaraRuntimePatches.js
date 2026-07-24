@@ -18,7 +18,9 @@ import "./installSoundTouchFeedbackBridge";
 import "./installUniversalOnboardingScrollIsolation";
 import "./installSettingsScrollReset";
 
-// Core memory runtime
+// Core memory runtime. The scoped compatibility layer must install before any
+// legacy memory reader/writer touches the historical unscoped storage key.
+import "./installScopedClaraMemoryStorage";
 import "../clara-memory-bridge";
 
 // Buy Check ownership note:
