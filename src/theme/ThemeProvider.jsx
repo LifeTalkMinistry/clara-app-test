@@ -25,6 +25,7 @@ import {
 const ThemeContext = createContext(null);
 const THEME_PROFILE_FIELD = "theme_key";
 const THEME_PROFILE_SYNC_DISABLED_KEY = "clara_theme_profile_sync_disabled";
+const ACCOUNT_THEME_STORAGE_PREFIX = "clara_theme_v2:";
 
 function applyThemeToDocument(theme) {
   if (typeof document === "undefined") return;
@@ -69,13 +70,35 @@ function safeReadLocalFlag(key) {
 }
 
 function safeWriteLocalFlag(key, value) {
-  if (typeof localStorage === "undefined") return;
+  if (typeof localStorage === "undefined") return false;
 
   try {
     localStorage.setItem(key, value);
+    return true;
   } catch {
     // Local persistence can fail in private mode, but the active session still updates.
+    return false;
   }
+}
+
+function accountThemeStorageKey(userId) {
+  const cleanId = String(userId || "").trim();
+  return cleanId ? `${ACCOUNT_THEME_STORAGE_PREFIX}${cleanId}` : "";
+}
+
+function readAccountStoredThemeKey(userId) {
+  const storageKey = accountThemeStorageKey(userId);
+  if (!storageKey) return null;
+  const raw = String(safeReadLocalFlag(storageKey) || "").trim();
+  if (!raw) return null;
+  return getThemeByKey(raw)?.key === raw ? raw : null;
+}
+
+function writeAccountStoredThemeKey(userId, themeKey) {
+  const storageKey = accountThemeStorageKey(userId);
+  if (!storageKey) return false;
+  const normalized = getThemeByKey(themeKey)?.key || DEFAULT_THEME_KEY;
+  return safeWriteLocalFlag(storageKey, normalized);
 }
 
 function isThemeProfileSyncDisabled() {
@@ -86,7 +109,7 @@ function disableThemeProfileSync() {
   safeWriteLocalFlag(THEME_PROFILE_SYNC_DISABLED_KEY, "true");
 }
 
-function getReliableStoredThemeKey() {
+function getReliableDeviceThemeKey() {
   const stored = readStoredThemeKey();
   return getThemeByKey(stored)?.key || DEFAULT_THEME_KEY;
 }
@@ -122,11 +145,12 @@ async function persistThemeToProfile(userId, themeKey) {
 
 export function ThemeProvider({ children }) {
   const { user, profile, authReady } = useAuth();
-  const [themeKey, setThemeKeyState] = useState(() => getReliableStoredThemeKey());
+  const [themeKey, setThemeKeyState] = useState(() => getReliableDeviceThemeKey());
   const [pickerOpen, setPickerOpen] = useState(false);
   const hydratedProfileRef = useRef(false);
   const userSelectedThemeRef = useRef(false);
   const pendingRemoteSyncRef = useRef(null);
+  const lastThemeOwnerRef = useRef(null);
 
   const selectedTheme = useMemo(() => getThemeByKey(themeKey), [themeKey]);
   const themeGroups = useMemo(() => buildThemeGroups(), []);
@@ -153,13 +177,19 @@ export function ThemeProvider({ children }) {
     (nextThemeKey, { markUserSelected = false } = {}) => {
       const nextTheme = getThemeByKey(nextThemeKey);
       if (markUserSelected) userSelectedThemeRef.current = true;
-      writeStoredThemeKey(nextTheme.key);
+
+      if (user?.id) {
+        writeAccountStoredThemeKey(user.id, nextTheme.key);
+      } else {
+        writeStoredThemeKey(nextTheme.key);
+      }
+
       setThemeKeyState(nextTheme.key);
       applyThemeToDocument(nextTheme);
       broadcastTheme(nextTheme.key);
       return nextTheme.key;
     },
-    [broadcastTheme]
+    [broadcastTheme, user?.id]
   );
 
   const setTheme = useCallback(
@@ -188,17 +218,24 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     if (!authReady) return;
 
-    const storedThemeKey = getReliableStoredThemeKey();
-    const hasUserStoredTheme = Boolean(storedThemeKey && storedThemeKey !== DEFAULT_THEME_KEY);
+    const ownerId = user?.id ? String(user.id) : null;
+    if (lastThemeOwnerRef.current !== ownerId) {
+      lastThemeOwnerRef.current = ownerId;
+      hydratedProfileRef.current = false;
+      userSelectedThemeRef.current = false;
+      pendingRemoteSyncRef.current = null;
+    }
 
-    if (user?.id) {
+    if (ownerId) {
+      const accountStoredThemeKey = readAccountStoredThemeKey(ownerId);
+      const hasAccountStoredTheme = Boolean(accountStoredThemeKey);
       const shouldPreferLocal =
         userSelectedThemeRef.current ||
-        hasUserStoredTheme ||
+        hasAccountStoredTheme ||
         !profileThemeKey ||
         profileThemeKey === DEFAULT_THEME_KEY;
       const nextThemeKey = shouldPreferLocal
-        ? storedThemeKey || DEFAULT_THEME_KEY
+        ? accountStoredThemeKey || DEFAULT_THEME_KEY
         : profileThemeKey;
 
       if (!hydratedProfileRef.current || nextThemeKey !== themeKey) {
@@ -212,7 +249,7 @@ export function ThemeProvider({ children }) {
         (!profileThemeKey || profileThemeKey !== nextThemeKey)
       ) {
         pendingRemoteSyncRef.current = nextThemeKey;
-        persistThemeToProfile(user.id, nextThemeKey).finally(() => {
+        persistThemeToProfile(ownerId, nextThemeKey).finally(() => {
           pendingRemoteSyncRef.current = null;
         });
       }
@@ -221,7 +258,8 @@ export function ThemeProvider({ children }) {
 
     hydratedProfileRef.current = false;
     userSelectedThemeRef.current = false;
-    if (storedThemeKey !== themeKey) commitTheme(storedThemeKey);
+    const deviceThemeKey = getReliableDeviceThemeKey();
+    if (deviceThemeKey !== themeKey) commitTheme(deviceThemeKey);
   }, [authReady, commitTheme, profileThemeKey, themeKey, user?.id]);
 
   const value = useMemo(
