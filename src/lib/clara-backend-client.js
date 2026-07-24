@@ -264,6 +264,7 @@ export async function backendRequest(
       cache: "no-store",
       headers: {
         Accept: "application/json",
+        "ngrok-skip-browser-warning": "true",
         ...(body ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
