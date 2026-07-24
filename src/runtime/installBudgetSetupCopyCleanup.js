@@ -8,10 +8,36 @@ const REVIEW_INTRO_TITLE = "Your budget is taking shape";
 const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
 const PROGRESS_HIDDEN_MARKER = "data-clara-budget-progress-hidden";
 const STEP_NAMES = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
+const MANUAL_EXPENSE_CLEANUP_STYLE_ID = "clara-manual-expense-copy-cleanup";
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const shouldHideCopy = (text) =>
   text === TOP_EXPLANATION || text === TOTAL_EXPLANATION || text === EMPTY_STATE_EXPLANATION;
+
+function installManualExpenseCleanupStyles() {
+  if (typeof document === "undefined" || document.getElementById(MANUAL_EXPENSE_CLEANUP_STYLE_ID)) return;
+
+  const style = document.createElement("style");
+  style.id = MANUAL_EXPENSE_CLEANUP_STYLE_ID;
+  style.textContent = `
+    .clara-manual-expense-sheet section[data-expense-step="amount"] > p:first-child,
+    .clara-manual-expense-sheet section[data-expense-step="amount"] > h3 + p,
+    .clara-manual-expense-sheet section[data-expense-step="wallet"] > p:first-child,
+    .clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 + p {
+      display: none !important;
+    }
+
+    .clara-manual-expense-sheet section[data-expense-step="amount"] > h3,
+    .clara-manual-expense-sheet section[data-expense-step="wallet"] > h3 {
+      margin-top: 0 !important;
+    }
+
+    .clara-manual-expense-sheet div:has(+ div > section[data-expense-step="wallet"]) {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 function isReviewIntroBlock(element) {
   if (!element) return false;
@@ -107,6 +133,8 @@ function hideMatchingCopy(root) {
 export function installBudgetSetupCopyCleanup() {
   if (typeof window === "undefined" || window.__claraBudgetSetupCopyCleanupInstalled) return;
   window.__claraBudgetSetupCopyCleanupInstalled = true;
+
+  installManualExpenseCleanupStyles();
 
   const start = () => {
     const root = document.getElementById("root");
