@@ -31,10 +31,16 @@ function copyJsonKey(sourceKey, destinationKey, transform = (value) => value) {
   if (!store || !sourceKey || !destinationKey || sourceKey === destinationKey) return false;
   const source = parse(store.getItem(sourceKey));
   if (source === null || source === undefined) return false;
-  if (!store.getItem(destinationKey)) {
-    store.setItem(destinationKey, JSON.stringify(transform(source)));
-  }
-  return true;
+
+  const serialized = JSON.stringify(transform(source));
+  const destination = store.getItem(destinationKey);
+
+  // Never destroy a legacy source when the destination already contains different
+  // data. Keeping both is safer than silently replacing either side during an update.
+  if (destination !== null) return destination === serialized;
+
+  store.setItem(destinationKey, serialized);
+  return store.getItem(destinationKey) === serialized;
 }
 
 function mergeMemories(sourceId, destinationId) {
@@ -77,7 +83,15 @@ function migrateEntitlement(sourceId, destinationId) {
       ...source,
       localUserId: destinationId,
     });
+
+    const copied = getLocalGooglePlayEntitlement(destinationId);
+    if (copied?.state !== source.state) return false;
+  } else if (destinationHasSignal && sourceHasSignal && destination.state !== source.state) {
+    // A conflicting entitlement is not migration-safe. Preserve the legacy source
+    // so a later reconciliation can inspect it instead of losing information.
+    return false;
   }
+
   store.removeItem(sourceKey);
   return true;
 }
@@ -103,12 +117,23 @@ function migrateIdentityKeyedStorage(sourceId, destinationId) {
     }
 
     const destinationKey = sourceKey.replace(sourceId, destinationId);
-    if (!store.getItem(destinationKey)) {
-      const value = store.getItem(sourceKey);
-      if (value !== null) store.setItem(destinationKey, value);
+    const sourceValue = store.getItem(sourceKey);
+    if (sourceValue === null) return;
+
+    const destinationValue = store.getItem(destinationKey);
+    if (destinationValue !== null) {
+      if (destinationValue === sourceValue) {
+        store.removeItem(sourceKey);
+        migrated += 1;
+      }
+      return;
     }
-    store.removeItem(sourceKey);
-    migrated += 1;
+
+    store.setItem(destinationKey, sourceValue);
+    if (store.getItem(destinationKey) === sourceValue) {
+      store.removeItem(sourceKey);
+      migrated += 1;
+    }
   });
   return migrated;
 }
