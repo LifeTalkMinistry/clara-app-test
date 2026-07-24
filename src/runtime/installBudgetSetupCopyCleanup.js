@@ -1,5 +1,7 @@
 const TOP_EXPLANATION =
   "Add each expense or responsibility one at a time. CLARA will calculate your real budget total as you go.";
+const TOTAL_EXPLANATION =
+  "This total grows from the items you add. There is no preset ceiling.";
 const EMPTY_STATE_EXPLANATION =
   "You can continue without a regular item if this budget will contain only protected money or a confirmed obligation.";
 const HIDDEN_MARKER = "data-clara-budget-copy-hidden";
@@ -7,6 +9,8 @@ const PROGRESS_HIDDEN_MARKER = "data-clara-budget-progress-hidden";
 const STEP_NAMES = ["Budget Items", "Commitments", "Review", "Timeframe", "Activate"];
 
 const normalizeText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+const shouldHideCopy = (text) =>
+  text === TOP_EXPLANATION || text === TOTAL_EXPLANATION || text === EMPTY_STATE_EXPLANATION;
 
 function isRedundantProgressCard(element) {
   if (!element || element.tagName !== "SECTION") return false;
@@ -26,9 +30,7 @@ function restoreReusedElements(root) {
 
   root.querySelectorAll(`[${HIDDEN_MARKER}="true"]`).forEach((element) => {
     const text = normalizeText(element.textContent);
-    const shouldStayHidden = text === TOP_EXPLANATION || text === EMPTY_STATE_EXPLANATION;
-
-    if (shouldStayHidden) return;
+    if (shouldHideCopy(text)) return;
 
     element.hidden = false;
     element.style.removeProperty("display");
@@ -68,7 +70,7 @@ function hideMatchingCopy(root) {
   while (node) {
     const text = normalizeText(node.nodeValue);
 
-    if (text === TOP_EXPLANATION) {
+    if (text === TOP_EXPLANATION || text === TOTAL_EXPLANATION) {
       const paragraph = node.parentElement?.closest("p");
       if (paragraph) elementsToHide.add(paragraph);
     }
