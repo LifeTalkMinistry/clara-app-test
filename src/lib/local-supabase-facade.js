@@ -9,6 +9,7 @@ import {
 } from "@/lib/local-profile-repository";
 import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
+import { getStoredBackendUser } from "@/lib/clara-backend-client";
 
 const LOCAL_PLAN = Object.freeze({
   id: "local-committed-249",
@@ -31,8 +32,58 @@ const LOCAL_PLAN = Object.freeze({
   ],
 });
 
-const localUserId = getOrCreateLocalVaultId();
+const LOCAL_COMPAT_TABLES = new Set([
+  "user_task_reminder_settings",
+  "user_task_reminder_states",
+]);
+const LOCAL_COMPAT_TABLE_PREFIX = "clara_local_compat_table_v1:";
+
 let state = null;
+
+function currentLocalUserId() {
+  return getOrCreateLocalVaultId();
+}
+
+function getStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+
+function compatTableStorageKey(tableName, localUserId = currentLocalUserId()) {
+  return `${LOCAL_COMPAT_TABLE_PREFIX}${localUserId}:${tableName}`;
+}
+
+function readCompatRows(tableName, localUserId = currentLocalUserId()) {
+  if (!LOCAL_COMPAT_TABLES.has(tableName)) return [];
+  try {
+    const raw = getStorage()?.getItem(compatTableStorageKey(tableName, localUserId));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCompatRows(tableName, rows, localUserId = currentLocalUserId()) {
+  if (!LOCAL_COMPAT_TABLES.has(tableName)) return;
+  try {
+    getStorage()?.setItem(
+      compatTableStorageKey(tableName, localUserId),
+      JSON.stringify(Array.isArray(rows) ? rows : [])
+    );
+  } catch {
+    // Compatibility persistence must never prevent the main local app from opening.
+  }
+}
+
+function createCompatRowId() {
+  if (globalThis?.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function forceFreeCompatibilityProfile(profile = {}) {
   return {
@@ -59,11 +110,51 @@ function forceFreeCompatibilityProfile(profile = {}) {
 }
 
 function buildState() {
+  const localUserId = currentLocalUserId();
   const account = getLocalAccountProfile(localUserId);
-  const user = buildLocalAuthUser(localUserId, account);
-  const profile = forceFreeCompatibilityProfile(
-    buildLocalMembershipProfile(user, account, {})
-  );
+  const localIdentity = buildLocalAuthUser(localUserId, account);
+  const backendUser = getStoredBackendUser();
+  const displayName = String(
+    backendUser?.name || localIdentity.display_name || "CLARA User"
+  ).trim() || "CLARA User";
+  const role = String(backendUser?.role || localIdentity.role || "user")
+    .trim()
+    .toLowerCase() || "user";
+  const email = backendUser?.email || null;
+  const accountId = backendUser?.id != null ? String(backendUser.id) : null;
+
+  const user = {
+    ...localIdentity,
+    email,
+    role,
+    display_name: displayName,
+    full_name: displayName,
+    account_id: accountId,
+    server_user_id: accountId,
+    local_vault_id: localUserId,
+    is_local_user: !backendUser,
+    user_metadata: {
+      ...localIdentity.user_metadata,
+      full_name: displayName,
+      name: displayName,
+      display_name: displayName,
+      role,
+      ...(accountId ? { account_id: accountId } : {}),
+    },
+  };
+
+  const profile = {
+    ...forceFreeCompatibilityProfile(
+      buildLocalMembershipProfile(user, account, {})
+    ),
+    id: localUserId,
+    email,
+    role,
+    display_name: displayName,
+    full_name: displayName,
+    account_id: accountId,
+    local_vault_id: localUserId,
+  };
 
   return {
     user,
@@ -86,7 +177,7 @@ function refreshState() {
     profile: state.profile,
     enrollment: null,
     accessState: {
-      role: "user",
+      role: state.profile.role || "user",
       plan: "free",
       membershipSource: "backend_required",
     },
@@ -99,12 +190,13 @@ function refreshState() {
 refreshState();
 
 const ready = (async () => {
-  const migration = await migrateLocalVaultOwnership(localUserId);
+  const startupLocalUserId = currentLocalUserId();
+  const migration = await migrateLocalVaultOwnership(startupLocalUserId);
   const legacyId = String(migration?.fromUserId || "").trim();
 
-  if (legacyId && legacyId !== localUserId) {
+  if (legacyId && legacyId !== startupLocalUserId) {
     const legacyProfile = getLocalAccountProfile(legacyId);
-    const currentProfile = getLocalAccountProfile(localUserId);
+    const currentProfile = getLocalAccountProfile(startupLocalUserId);
     const legacyHasProfile =
       legacyProfile?.full_name !== "CLARA User" ||
       Boolean(legacyProfile?.clara_life_setup);
@@ -113,9 +205,9 @@ const ready = (async () => {
       Boolean(currentProfile?.clara_life_setup);
 
     if (legacyHasProfile && !currentHasProfile) {
-      saveLocalAccountProfile(localUserId, {
+      saveLocalAccountProfile(startupLocalUserId, {
         ...legacyProfile,
-        id: localUserId,
+        id: startupLocalUserId,
         email: null,
       });
     }
@@ -130,23 +222,46 @@ const ready = (async () => {
   return refreshState();
 });
 
-function rowsFor(tableName) {
+function rowsFor(tableName, localUserId = currentLocalUserId()) {
   const current = refreshState();
   if (tableName === "plans") return [{ ...LOCAL_PLAN }];
   if (tableName === "profiles") return [{ ...current.profile }];
   if (tableName === "enrollments") return [];
+  if (LOCAL_COMPAT_TABLES.has(tableName)) {
+    return readCompatRows(tableName, localUserId);
+  }
   return [];
+}
+
+function matchesFilter(row, filter) {
+  if (filter.type === "eq") return row?.[filter.column] === filter.value;
+  if (filter.type === "in") return filter.values.includes(row?.[filter.column]);
+  if (filter.type === "is") return row?.[filter.column] === filter.value;
+  return true;
+}
+
+function applyFilters(rows, filters) {
+  return rows.filter((row) => filters.every((filter) => matchesFilter(row, filter)));
+}
+
+function normalizeMutationRows(value) {
+  if (Array.isArray(value)) return value.filter((row) => row && typeof row === "object");
+  return value && typeof value === "object" ? [value] : [];
 }
 
 function createQuery(tableName) {
   let operation = "select";
   let payload = null;
   let limit = null;
+  let conflictColumns = [];
   const filters = [];
   const query = {};
 
   const execute = async (terminal = "select") => {
     await ready;
+    const localUserId = currentLocalUserId();
+    let mutationRows = null;
+
     if (
       tableName === "profiles" &&
       ["insert", "update", "upsert"].includes(operation)
@@ -165,28 +280,76 @@ function createQuery(tableName) {
           is_enrolled: _isEnrolled,
           program_active: _programActive,
           isPro: _isPro,
+          role: _role,
+          account_id: _accountId,
+          server_user_id: _serverUserId,
+          local_vault_id: _localVaultId,
+          email: _email,
           ...safePatch
         } = patch;
-        saveLocalAccountProfile(localUserId, {
+        const saved = saveLocalAccountProfile(localUserId, {
           ...safePatch,
           id: localUserId,
           email: null,
         });
+        mutationRows = [{ ...refreshState().profile, ...saved }];
       }
     }
 
-    let rows = rowsFor(tableName);
-    for (const filter of filters) {
-      if (filter.type === "eq") {
-        rows = rows.filter(
-          (row) => row?.[filter.column] === filter.value
+    if (LOCAL_COMPAT_TABLES.has(tableName)) {
+      let storedRows = readCompatRows(tableName, localUserId);
+      const incomingRows = normalizeMutationRows(payload);
+
+      if (operation === "insert") {
+        mutationRows = incomingRows.map((row) => ({
+          id: row.id || createCompatRowId(),
+          created_at: row.created_at || new Date().toISOString(),
+          ...row,
+        }));
+        storedRows = [...storedRows, ...mutationRows];
+        writeCompatRows(tableName, storedRows, localUserId);
+      } else if (operation === "upsert") {
+        const keys = conflictColumns.length ? conflictColumns : ["id"];
+        mutationRows = incomingRows.map((row) => {
+          const existingIndex = storedRows.findIndex((candidate) =>
+            keys.every((key) => candidate?.[key] === row?.[key])
+          );
+          const nextRow = {
+            ...(existingIndex >= 0 ? storedRows[existingIndex] : {}),
+            id:
+              row.id ||
+              (existingIndex >= 0 ? storedRows[existingIndex]?.id : null) ||
+              createCompatRowId(),
+            created_at:
+              row.created_at ||
+              (existingIndex >= 0 ? storedRows[existingIndex]?.created_at : null) ||
+              new Date().toISOString(),
+            ...row,
+          };
+          if (existingIndex >= 0) storedRows[existingIndex] = nextRow;
+          else storedRows.push(nextRow);
+          return nextRow;
+        });
+        writeCompatRows(tableName, storedRows, localUserId);
+      } else if (operation === "update") {
+        const targetRows = applyFilters(storedRows, filters);
+        const targetIds = new Set(targetRows.map((row) => row.id));
+        storedRows = storedRows.map((row) =>
+          targetIds.has(row.id) ? { ...row, ...(payload || {}) } : row
         );
-      } else if (filter.type === "in") {
-        rows = rows.filter((row) =>
-          filter.values.includes(row?.[filter.column])
-        );
+        mutationRows = storedRows.filter((row) => targetIds.has(row.id));
+        writeCompatRows(tableName, storedRows, localUserId);
+      } else if (operation === "delete") {
+        const targetRows = applyFilters(storedRows, filters);
+        const targetIds = new Set(targetRows.map((row) => row.id));
+        storedRows = storedRows.filter((row) => !targetIds.has(row.id));
+        mutationRows = targetRows;
+        writeCompatRows(tableName, storedRows, localUserId);
       }
     }
+
+    let rows = mutationRows || rowsFor(tableName, localUserId);
+    if (!mutationRows) rows = applyFilters(rows, filters);
     if (Number.isInteger(limit)) rows = rows.slice(0, limit);
 
     if (terminal === "single") {
@@ -218,9 +381,13 @@ function createQuery(tableName) {
       payload = value;
       return query;
     },
-    upsert(value) {
+    upsert(value, options = {}) {
       operation = "upsert";
       payload = value;
+      conflictColumns = String(options?.onConflict || "")
+        .split(",")
+        .map((column) => column.trim())
+        .filter(Boolean);
       return query;
     },
     delete() {
@@ -235,6 +402,10 @@ function createQuery(tableName) {
       filters.push({ type: "in", column, values: values || [] });
       return query;
     },
+    is(column, value) {
+      filters.push({ type: "is", column, value });
+      return query;
+    },
     limit(value) {
       limit = Number(value);
       return query;
@@ -244,7 +415,6 @@ function createQuery(tableName) {
     gte: chain,
     lt: chain,
     lte: chain,
-    is: chain,
     contains: chain,
     containedBy: chain,
     overlaps: chain,
@@ -297,11 +467,11 @@ export function createLocalSupabaseFacade() {
     auth: {
       async getSession() {
         const current = await ready;
-        return { data: { session: current.session }, error: null };
+        return { data: { session: refreshState().session || current.session }, error: null };
       },
       async getUser() {
-        const current = await ready;
-        return { data: { user: current.user }, error: null };
+        await ready;
+        return { data: { user: refreshState().user }, error: null };
       },
       async refreshSession() {
         const current = refreshState();
@@ -316,9 +486,9 @@ export function createLocalSupabaseFacade() {
       signInWithOAuth: async () => ({ data: null, error: accountError() }),
       onAuthStateChange(callback) {
         let active = true;
-        ready.then((current) => {
+        ready.then(() => {
           if (active && typeof callback === "function") {
-            callback("INITIAL_SESSION", current.session);
+            callback("INITIAL_SESSION", refreshState().session);
           }
         });
         return {
@@ -338,13 +508,5 @@ export function createLocalSupabaseFacade() {
     removeChannel: async () => ({ error: null }),
     removeAllChannels: async () => ({ error: null }),
     getChannels: () => [],
-    functions: {
-      invoke: async () => ({
-        data: null,
-        error: new Error(
-          "Online functions are unavailable in local compatibility mode."
-        ),
-      }),
-    },
   };
 }
