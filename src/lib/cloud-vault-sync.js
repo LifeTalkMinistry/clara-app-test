@@ -4,10 +4,12 @@ import {
   setCloudVaultStorageMode,
   uploadCloudVaultSnapshot,
 } from "./cloud-vault-client";
+import { getBackendAccountId } from "./clara-account-identity";
 import {
   buildClaraCloudVaultSnapshot,
   getClaraSyncDeviceId,
   mergeClaraCloudSnapshots,
+  normalizeAuthenticatedCloudSnapshot,
   restoreClaraCloudSnapshot,
 } from "./cloud-vault-snapshot";
 import {
@@ -26,6 +28,15 @@ function dispatchSyncStatus(detail) {
   window.dispatchEvent(
     new CustomEvent(CLARA_CLOUD_SYNC_STATUS_EVENT, { detail })
   );
+}
+
+function normalizeAuthenticatedRemote(remote, user) {
+  if (!remote?.snapshot) return remote;
+  const accountId = getBackendAccountId(user);
+  return {
+    ...remote,
+    snapshot: normalizeAuthenticatedCloudSnapshot(remote.snapshot, accountId),
+  };
 }
 
 function normalizeSnapshotForFingerprint(snapshot) {
@@ -93,7 +104,10 @@ async function uploadWithConflictRecovery({ user, profile, snapshot, baseRevisio
   } catch (error) {
     if (error?.code !== "CLOUD_VAULT_REVISION_CONFLICT") throw error;
 
-    const latestRemote = await fetchCloudVaultStatus({ includeSnapshot: true });
+    const latestRemote = normalizeAuthenticatedRemote(
+      await fetchCloudVaultStatus({ includeSnapshot: true }),
+      user
+    );
     if (!latestRemote?.snapshot) throw error;
     const latestLocal = await buildClaraCloudVaultSnapshot({ user, profile });
     const latestRemoteForLocal = rebaseSnapshotVault(
@@ -114,14 +128,17 @@ async function uploadWithConflictRecovery({ user, profile, snapshot, baseRevisio
 }
 
 async function performSync({ user, profile, preferRemote = false } = {}) {
-  const accountId = String(user?.id || "").trim();
+  const accountId = getBackendAccountId(user);
   if (!accountId) return { storageMode: CLARA_STORAGE_MODES.LOCAL_ONLY };
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return { storageMode: getClaraStorageMode(accountId), offline: true };
   }
 
   dispatchSyncStatus({ accountId, state: "syncing" });
-  const remote = await fetchCloudVaultStatus({ includeSnapshot: true });
+  const remote = normalizeAuthenticatedRemote(
+    await fetchCloudVaultStatus({ includeSnapshot: true }),
+    user
+  );
   const mode = saveClaraStorageMode(accountId, remote.storageMode);
 
   if (mode !== CLARA_STORAGE_MODES.ONLINE_SYNC) {
@@ -181,7 +198,7 @@ export function syncClaraCloudVault(context = {}) {
   activeSyncPromise = performSync(context)
     .catch((error) => {
       dispatchSyncStatus({
-        accountId: String(context.user?.id || ""),
+        accountId: getBackendAccountId(context.user),
         state: "error",
         error: error?.message || "Online Sync failed.",
         code: error?.code || null,
@@ -196,7 +213,7 @@ export function syncClaraCloudVault(context = {}) {
 }
 
 export async function enableClaraOnlineSync({ user, profile } = {}) {
-  const accountId = String(user?.id || "").trim();
+  const accountId = getBackendAccountId(user);
   if (!accountId) throw new Error("Sign in before enabling Online Sync.");
   await setCloudVaultStorageMode(CLARA_STORAGE_MODES.ONLINE_SYNC);
   saveClaraStorageMode(accountId, CLARA_STORAGE_MODES.ONLINE_SYNC);
@@ -204,7 +221,7 @@ export async function enableClaraOnlineSync({ user, profile } = {}) {
 }
 
 export async function enableClaraLocalOnly({ user } = {}) {
-  const accountId = String(user?.id || "").trim();
+  const accountId = getBackendAccountId(user);
   if (!accountId) throw new Error("Sign in before changing CLARA storage mode.");
   const result = await deleteCloudVaultSnapshot();
   saveClaraStorageMode(accountId, CLARA_STORAGE_MODES.LOCAL_ONLY);
@@ -213,7 +230,7 @@ export async function enableClaraLocalOnly({ user } = {}) {
 }
 
 export async function refreshClaraStorageMode(user) {
-  const accountId = String(user?.id || "").trim();
+  const accountId = getBackendAccountId(user);
   if (!accountId) return CLARA_STORAGE_MODES.LOCAL_ONLY;
   const status = await fetchCloudVaultStatus();
   return saveClaraStorageMode(accountId, status.storageMode);
