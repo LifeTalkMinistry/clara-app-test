@@ -69,8 +69,10 @@ export function todayDate() {
 }
 
 export function addDays(date, days) {
-  const parsed = new Date(`${dateOnly(date) || todayDate()}T00:00:00`);
-  parsed.setDate(parsed.getDate() + Number(days || 0));
+  const safe = dateOnly(date) || todayDate();
+  const [year, month, day] = safe.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  parsed.setUTCDate(parsed.getUTCDate() + Number(days || 0));
   return parsed.toISOString().slice(0, 10);
 }
 
