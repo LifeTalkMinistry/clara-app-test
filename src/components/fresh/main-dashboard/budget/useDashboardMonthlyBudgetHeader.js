@@ -77,28 +77,44 @@ function getBudgetCycleLabel(budget) {
   return "Monthly";
 }
 
-function normalizeDerivedRollingMonthlyHeader(budget = {}) {
-  if (!isDerivedBudgetHeader(budget) || getBudgetCycleType(budget) !== "monthly") return budget;
+function normalizeDerivedBudgetHeader(budget = {}) {
+  if (!isDerivedBudgetHeader(budget)) return budget;
 
   const hasExplicitTrackingStart = Boolean(
     budget?.reset_start_at || budget?.tracking_started_at || budget?.tracking_start_date,
   );
-  if (hasExplicitTrackingStart) return budget;
+
+  const createdAt = budget?.created_at || budget?.createdAt || "";
+  const createdStart = toDateOnly(createdAt);
+
+  // A derived budget must never judge transactions that happened before the
+  // budget itself existed. Use the exact header creation timestamp as the
+  // tracking boundary whenever older records do not already have one.
+  let normalized =
+    !hasExplicitTrackingStart && createdAt
+      ? {
+          ...budget,
+          tracking_started_at: createdAt,
+        }
+      : budget;
+
+  if (getBudgetCycleType(normalized) !== "monthly") return normalized;
 
   const storedStart = toDateOnly(
-    budget?.cycle_start || budget?.budget_cycle_start || budget?.period_start || budget?.range_start,
+    normalized?.cycle_start ||
+      normalized?.budget_cycle_start ||
+      normalized?.period_start ||
+      normalized?.range_start,
   );
-  const createdStart = toDateOnly(budget?.created_at || budget?.createdAt);
 
-  // Migration for budgets created before Monthly became a rolling period. Those
-  // plans were stored as the first/last day of the calendar month even when the
-  // user created the budget later in the month.
-  if (!storedStart || !createdStart || createdStart <= storedStart) return budget;
+  // Migration for monthly budgets created before Monthly became a rolling
+  // period. Those plans were stored as the first/last day of the calendar
+  // month even when the user created the budget later in the month.
+  if (!storedStart || !createdStart || createdStart <= storedStart) return normalized;
 
   const rolling = getCycleWindow("monthly", createdStart, "");
-  return {
-    ...budget,
-    tracking_started_at: budget?.created_at || budget?.createdAt || `${createdStart}T00:00:00.000Z`,
+  normalized = {
+    ...normalized,
     cycle_start: rolling.start,
     budget_cycle_start: rolling.start,
     period_start: rolling.start,
@@ -106,6 +122,8 @@ function normalizeDerivedRollingMonthlyHeader(budget = {}) {
     budget_cycle_end: rolling.end,
     period_end: rolling.end,
   };
+
+  return normalized;
 }
 
 function getTimestamp(value) {
@@ -118,7 +136,7 @@ export default function useDashboardMonthlyBudgetHeader({ budgets = [], includeD
     const currentMonthKey = getPHMonthKey();
     const currentDate = todayKey();
     const currentHeaders = (Array.isArray(budgets) ? budgets : [])
-      .map(normalizeDerivedRollingMonthlyHeader)
+      .map(normalizeDerivedBudgetHeader)
       .filter((budget) => {
         const month = normalizeString(
           budget?.month || budget?.budget_month || budget?.month_key
