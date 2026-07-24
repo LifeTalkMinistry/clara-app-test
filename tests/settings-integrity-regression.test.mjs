@@ -12,11 +12,17 @@ const localFacadeSource = readSource("src/lib/local-supabase-facade.js");
 const notificationHookSource = readSource(
   "src/hooks/useNotificationPreferences.js"
 );
+const notificationPreferencesSource = readSource(
+  "src/lib/notifications/notificationPreferences.js"
+);
 const notificationPanelSource = readSource(
   "src/components/notifications/NotificationSettingsPanel.jsx"
 );
 const notificationRegistrySource = readSource(
   "src/lib/notifications/notificationRegistry.js"
+);
+const runtimePatchRegistrySource = readSource(
+  "src/runtime/installClaraRuntimePatches.js"
 );
 const appSource = readSource("src/App.jsx");
 const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
@@ -71,6 +77,16 @@ test("notification preferences are scoped to the active local vault and react to
   assert.match(notificationHookSource, /clara:account-vault-switched/);
 });
 
+test("notification preference storage failures cannot crash Settings", () => {
+  assert.match(notificationPreferencesSource, /function safeStorageGet\(/);
+  assert.match(notificationPreferencesSource, /function safeStorageSet\(/);
+  assert.match(notificationPreferencesSource, /getStorage\(\)\?\.getItem/);
+  assert.doesNotMatch(
+    notificationPreferencesSource,
+    /window\.localStorage\["set" \+ "Item"\]/
+  );
+});
+
 test("notification Settings no longer queries retired program tables to decide whether task settings exist", () => {
   assert.doesNotMatch(notificationPanelSource, /from\("user_programs"\)/);
   assert.doesNotMatch(
@@ -86,6 +102,15 @@ test("Weekly Money Review visible setting is the authoritative runtime gate", ()
     notificationRegistrySource,
     /eventType === "weekly_review_ready"[\s\S]*weeklyMoneyReview !== false/
   );
+});
+
+test("Settings no longer installs duplicate theme hiding or the hidden double-tap demo", () => {
+  assert.doesNotMatch(runtimePatchRegistrySource, /settings-hide-theme-appearance/);
+  assert.doesNotMatch(
+    runtimePatchRegistrySource,
+    /clara-settings-young-professional-current-state/
+  );
+  assert.match(runtimePatchRegistrySource, /clara-google-play-verify-auth-retry/);
 });
 
 test("Settings Admin Panel route opens a real backend-backed admin surface", () => {
