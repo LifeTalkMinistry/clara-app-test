@@ -31,6 +31,20 @@
       body.clara-route-soft-settle .theme-page-shell main { animation: clara-route-settle 220ms cubic-bezier(.2,.8,.2,1) both; backface-visibility: hidden; will-change: transform, opacity, filter; }
       body.clara-route-soft-settle .theme-page-shell:has(.animate-spin) { animation-delay: 560ms; }
       .theme-page-shell:has(.animate-spin) > div { transform: translateZ(0); }
+
+      /* Keep the manual-expense close control pinned to the sheet's true top-right corner. */
+      .clara-manual-expense-sheet header > button[aria-label="Close log expense"],
+      .clara-manual-expense-sheet header > button[aria-label="Close guide log expense preview"] {
+        position: absolute !important;
+        top: 16px !important;
+        right: 16px !important;
+        margin: 0 !important;
+        z-index: 30 !important;
+      }
+      .clara-manual-expense-sheet header {
+        padding-right: 64px !important;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .theme-page-shell:has(.animate-spin), body.clara-route-soft-settle .theme-page-shell main { animation-delay: 0ms; animation-duration: 1ms; }
       }
