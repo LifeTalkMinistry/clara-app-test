@@ -24,6 +24,7 @@ const notificationRegistrySource = readSource(
 const runtimePatchRegistrySource = readSource(
   "src/runtime/installClaraRuntimePatches.js"
 );
+const themeProviderSource = readSource("src/theme/ThemeProvider.jsx");
 const appSource = readSource("src/App.jsx");
 const adminPanelSource = readSource("src/pages/AdminPanel.jsx");
 const adminClientSource = readSource("src/lib/admin-backend-client.js");
@@ -112,6 +113,17 @@ test("Settings no longer installs duplicate theme hiding or the hidden double-ta
     /clara-settings-young-professional-current-state/
   );
   assert.match(runtimePatchRegistrySource, /clara-google-play-verify-auth-retry/);
+});
+
+test("signed-in theme persistence is scoped to the active CLARA account", () => {
+  assert.match(themeProviderSource, /ACCOUNT_THEME_STORAGE_PREFIX = "clara_theme_v2:"/);
+  assert.match(themeProviderSource, /readAccountStoredThemeKey/);
+  assert.match(themeProviderSource, /writeAccountStoredThemeKey/);
+  assert.match(themeProviderSource, /lastThemeOwnerRef/);
+  assert.match(
+    themeProviderSource,
+    /if \(user\?\.id\) \{[\s\S]{0,180}writeAccountStoredThemeKey\(user\.id, nextTheme\.key\)/
+  );
 });
 
 test("Settings Admin Panel route opens a real backend-backed admin surface", () => {
