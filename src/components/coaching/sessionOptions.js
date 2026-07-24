@@ -36,7 +36,7 @@ export const DATA_CONSENT_OPTIONS = [
 ];
 
 export const CHECK_IN_STEPS = [
-  { key: "focus", eyebrow: "Session focus", title: "What would you like to focus on?", helper: "Choose the concern that matters most for this session.", type: "choice", options: SESSION_FOCUS_OPTIONS },
+  { key: "focus", eyebrow: "Session focus", title: "What would you like to focus on?", helper: "Choose up to 3 concerns that matter most for this session.", type: "choice", multiple: true, maxSelections: 3, options: SESSION_FOCUS_OPTIONS },
   { key: "situation", eyebrow: "Current situation", title: "What is happening right now?", helper: "Briefly explain what made you choose this topic today.", type: "textarea" },
   { key: "outcome", eyebrow: "Desired result", title: "What would make this session successful?", helper: "Choose the result you most want by the end of the call.", type: "choice", options: DESIRED_OUTCOME_OPTIONS },
   { key: "emotion", eyebrow: "Money state", title: "How are you feeling about money right now?", helper: "This helps Max understand how much pressure you are carrying.", type: "choice", options: EMOTION_OPTIONS },
@@ -45,7 +45,7 @@ export const CHECK_IN_STEPS = [
 ];
 
 export const INITIAL_ANSWERS = {
-  focus: "",
+  focus: [],
   situation: "",
   outcome: "",
   emotion: "",
