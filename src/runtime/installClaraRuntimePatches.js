@@ -17,6 +17,7 @@ import "./installSoundTouchFeedbackBridge";
 // Route-level scroll ownership
 import "./installUniversalOnboardingScrollIsolation";
 import "./installSettingsScrollReset";
+import "./installSettingsModalBehavior";
 
 // Core memory runtime. The scoped compatibility layer must install before any
 // legacy memory reader/writer touches the historical unscoped storage key.
