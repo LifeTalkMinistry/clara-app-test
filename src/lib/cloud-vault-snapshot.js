@@ -1,4 +1,5 @@
 import { ACCOUNT_VAULT_DIRECTORY_KEY } from "./account-vault-directory";
+import { getBackendAccountId } from "./clara-account-identity";
 import {
   buildClaraLocalDataExport,
   restoreClaraLocalDataFromFile,
@@ -134,7 +135,7 @@ export function sanitizeCloudIndexedDb(indexedDbExport = {}, context = {}) {
 }
 
 export async function buildClaraCloudVaultSnapshot({ user, profile } = {}) {
-  const accountId = text(user?.id);
+  const accountId = text(getBackendAccountId(user));
   const sourceVaultId = text(getActiveLocalVaultId());
   if (!accountId) throw new Error("A signed-in CLARA account is required.");
   if (!sourceVaultId) throw new Error("The active CLARA local vault is unavailable.");
@@ -179,6 +180,29 @@ export function validateClaraCloudSnapshot(snapshot, accountId = "") {
     throw error;
   }
   return snapshot;
+}
+
+export function normalizeAuthenticatedCloudSnapshot(snapshot, accountId) {
+  const validated = validateClaraCloudSnapshot(snapshot);
+  const expectedAccountId = text(accountId);
+  if (!expectedAccountId) {
+    throw new Error("A signed-in CLARA account is required to adopt a server snapshot.");
+  }
+
+  const claimedAccountId = text(validated.account_id);
+  if (claimedAccountId === expectedAccountId) return validated;
+
+  // Legacy v2 snapshots incorrectly used the device-local vault id as account_id.
+  // An authenticated server response already proves which backend account owns the
+  // row, so this exact historical shape can be upgraded without dropping its data.
+  const sourceVaultId = text(validated.source_vault_id);
+  if (claimedAccountId && claimedAccountId === sourceVaultId) {
+    return { ...validated, account_id: expectedAccountId };
+  }
+
+  const error = new Error("This backup belongs to a different CLARA account.");
+  error.code = "CLOUD_SNAPSHOT_ACCOUNT_MISMATCH";
+  throw error;
 }
 
 function recordTimestamp(record) {
@@ -331,7 +355,7 @@ export function prepareCloudSnapshotForRestore(snapshot, { accountId, targetVaul
 }
 
 export async function restoreClaraCloudSnapshot(snapshot, { user } = {}) {
-  const accountId = text(user?.id);
+  const accountId = text(getBackendAccountId(user));
   const targetVaultId = text(getActiveLocalVaultId());
   const prepared = prepareCloudSnapshotForRestore(snapshot, {
     accountId,
