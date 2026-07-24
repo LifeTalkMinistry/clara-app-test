@@ -10,6 +10,7 @@ import {
 import { migrateLocalVaultOwnership } from "@/lib/local-vault-migration";
 import { saveAccessSnapshot } from "@/lib/offline-access-cache";
 import { getStoredBackendUser } from "@/lib/clara-backend-client";
+import { updateCurrentBackendProfile } from "@/lib/profile-backend-client";
 
 const LOCAL_PLAN = Object.freeze({
   id: "local-committed-249",
@@ -477,6 +478,34 @@ export function createLocalSupabaseFacade() {
         const current = refreshState();
         return {
           data: { session: current.session, user: current.user },
+          error: null,
+        };
+      },
+      async updateUser({ data } = {}) {
+        const name = String(
+          data?.full_name || data?.name || data?.display_name || ""
+        ).trim();
+        const updated = await updateCurrentBackendProfile({ name });
+        const localUserId = currentLocalUserId();
+        saveLocalAccountProfile(localUserId, {
+          full_name: updated.name,
+          display_name: updated.name,
+        });
+        const current = refreshState();
+        return {
+          data: {
+            user: {
+              ...current.user,
+              full_name: updated.name,
+              display_name: updated.name,
+              user_metadata: {
+                ...current.user.user_metadata,
+                full_name: updated.name,
+                name: updated.name,
+                display_name: updated.name,
+              },
+            },
+          },
           error: null,
         };
       },
