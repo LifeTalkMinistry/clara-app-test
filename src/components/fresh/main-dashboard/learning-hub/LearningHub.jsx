@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Capacitor } from "@capacitor/core";
-import { CalendarClock, ScrollText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { CalendarDays, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import ClaraGuideLearningHubInlineBubble from "../guide/ClaraGuideLearningHubInlineBubble";
 import ClaraGuideLearningHubOverlay from "../guide/ClaraGuideLearningHubOverlay";
@@ -16,8 +16,6 @@ import {
   openCommittedVersionModal,
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
-import { WELCOME_SESSION_FORM_URL } from "@/lib/welcome-session-schedule";
-import GuidedOnboardingIntroDialog from "./ui/GuidedOnboardingIntroDialog";
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
 
 const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
@@ -51,35 +49,6 @@ function restoreDashboardScrollPosition(scroller, scrollTop) {
   });
 }
 
-function openWelcomeSessionForm(url) {
-  const safeUrl = String(url || "").trim();
-  if (!safeUrl || typeof window === "undefined") return false;
-
-  if (Capacitor.isNativePlatform()) {
-    // Capacitor Android hands external top-level navigations to ACTION_VIEW,
-    // which opens the device browser instead of relying on unsupported popups.
-    window.location.assign(safeUrl);
-    return true;
-  }
-
-  try {
-    const popup = window.open(safeUrl, "_blank");
-    if (popup) {
-      try {
-        popup.opener = null;
-      } catch {
-        // The new tab is already isolated by the browser when opener is unavailable.
-      }
-      return true;
-    }
-  } catch {
-    // Fall through to a same-tab navigation when the browser blocks popups.
-  }
-
-  window.location.assign(safeUrl);
-  return true;
-}
-
 function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   return (
     <button
@@ -100,21 +69,18 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function GuidedOnboardingButton({ onClick, buttonRef, isOpen = false }) {
+function CoachingCalendarButton({ onClick }) {
   return (
     <button
-      ref={buttonRef}
       type="button"
       onClick={onClick}
-      data-clara-guided-onboarding-button="true"
+      data-clara-coaching-calendar-button="true"
       className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
-      aria-label="Learn about CLARA Guided Onboarding"
-      aria-expanded={isOpen}
-      aria-controls="clara-guided-onboarding-title"
-      title="CLARA Guided Onboarding"
+      aria-label="Open CLARA Coaching Calendar"
+      title="CLARA Coaching Calendar"
     >
       <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.24),transparent_52%)]" />
-      <CalendarClock className="relative z-10 h-4 w-4 text-cyan-100/85" />
+      <CalendarDays className="relative z-10 h-4 w-4 text-cyan-100/85" />
       <span className="absolute -right-2 -top-2 z-20 rounded-full border border-emerald-100/25 bg-emerald-300 px-1.5 py-0.5 text-[7px] font-black leading-none text-emerald-950 shadow-[0_8px_18px_rgba(52,211,153,0.28)]">
         30m
       </span>
@@ -156,12 +122,10 @@ export default function LearningHub({
   onOpenGuideIntro,
   onGuideDailyTipTap,
 }) {
+  const navigate = useNavigate();
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
   const [learningHubGuidePhase, setLearningHubGuidePhase] = useState("inactive");
-  const [isGuidedOnboardingIntroOpen, setIsGuidedOnboardingIntroOpen] =
-    useState(false);
   const learningHubGuideEntryScrollRef = useRef(null);
-  const guidedOnboardingButtonRef = useRef(null);
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
   const isLocked = !hasCommittedAccess;
@@ -174,31 +138,10 @@ export default function LearningHub({
   const isLearningHubGuidePreview =
     isLearningHubGuideActive && learningHubGuidePhase === "preview";
 
-  const closeGuidedOnboardingIntro = useCallback(
-    ({ restoreFocus = true } = {}) => {
-      setIsGuidedOnboardingIntroOpen(false);
-
-      if (!restoreFocus || typeof window === "undefined") return;
-
-      window.requestAnimationFrame(() => {
-        try {
-          guidedOnboardingButtonRef.current?.focus({ preventScroll: true });
-        } catch {
-          guidedOnboardingButtonRef.current?.focus();
-        }
-      });
-    },
-    [],
-  );
-
   const handleCloseHub = useCallback(() => {
     setShouldLoadHub(false);
   }, []);
 
-  useEffect(() => {
-    if (!isGuideMode && !shouldLoadHub) return;
-    setIsGuidedOnboardingIntroOpen(false);
-  }, [isGuideMode, shouldLoadHub]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -251,13 +194,8 @@ export default function LearningHub({
     };
   }, []);
 
-  const handleGuidedOnboardingClick = () => {
-    setIsGuidedOnboardingIntroOpen(true);
-  };
-
-  const handleOpenGuidedOnboardingForm = () => {
-    if (!openWelcomeSessionForm(WELCOME_SESSION_FORM_URL)) return;
-    closeGuidedOnboardingIntro({ restoreFocus: false });
+  const handleOpenCoachingCalendar = () => {
+    navigate("/welcome-session");
   };
 
   const handleOpenHub = () => {
@@ -349,11 +287,7 @@ export default function LearningHub({
                 className="clara-guide-float mr-1.5 justify-self-end"
                 style={{ animationDelay: "-0.5s" }}
               >
-                <GuidedOnboardingButton
-                  buttonRef={guidedOnboardingButtonRef}
-                  isOpen={isGuidedOnboardingIntroOpen}
-                  onClick={handleGuidedOnboardingClick}
-                />
+                <CoachingCalendarButton onClick={handleOpenCoachingCalendar} />
               </div>
             ) : (
               <span aria-hidden="true" />
@@ -402,12 +336,6 @@ export default function LearningHub({
           <ClaraGuideLearningHubOverlay phase="await-open" />
         ) : null}
       </div>
-
-      <GuidedOnboardingIntroDialog
-        open={isGuidedOnboardingIntroOpen && !isGuideMode && !shouldLoadHub}
-        onClose={closeGuidedOnboardingIntro}
-        onContinue={handleOpenGuidedOnboardingForm}
-      />
     </section>
   );
 }

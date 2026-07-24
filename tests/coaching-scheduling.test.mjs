@@ -20,6 +20,10 @@ const welcomeSession = [
 ].map((file) => fs.readFileSync(file, "utf8")).join("\n");
 const scheduleClient = fs.readFileSync("src/lib/coaching-backend-client.js", "utf8");
 const scheduleModule = fs.readFileSync("src/lib/welcome-session-schedule.js", "utf8");
+const learningHubEntry = fs.readFileSync(
+  "src/components/fresh/main-dashboard/learning-hub/LearningHub.jsx",
+  "utf8"
+);
 
 test("real backend availability is normalized and grouped in Asia Manila", () => {
   const slots = normalizeAvailability({
@@ -47,6 +51,17 @@ test("invalid or non-authoritative availability never creates fallback slots", (
 test("legacy dashboard entry routes into authoritative CLARA scheduling", () => {
   assert.equal(WELCOME_SESSION_FORM_URL, "/welcome-session");
   assert.doesNotMatch(scheduleModule, /forms\.gle|VITE_CLARA_WELCOME_SESSION_FORM_URL/);
+});
+
+test("dashboard coaching shortcut opens the authoritative coaching calendar directly", () => {
+  assert.match(learningHubEntry, /useNavigate/);
+  assert.match(learningHubEntry, /navigate\("\/welcome-session"\)/);
+  assert.match(learningHubEntry, /Open CLARA Coaching Calendar/);
+  assert.match(learningHubEntry, /data-clara-coaching-calendar-button/);
+  assert.doesNotMatch(
+    learningHubEntry,
+    /GuidedOnboardingIntroDialog|openWelcomeSessionForm|window\.open/
+  );
 });
 
 test("current active appointment takes priority over recent history", () => {
