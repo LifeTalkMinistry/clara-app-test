@@ -1,0 +1,50 @@
+import {
+  backendRequest,
+  getStoredBackendToken,
+} from "@/lib/clara-backend-client";
+
+function requireAdminToken(token = getStoredBackendToken()) {
+  if (!token) {
+    const error = new Error("Your CLARA admin session is not available. Log in again.");
+    error.code = "ADMIN_SESSION_REQUIRED";
+    throw error;
+  }
+  return token;
+}
+
+function adminRequest(path, options = {}) {
+  return backendRequest(`/api/admin${path}`, {
+    ...options,
+    token: requireAdminToken(options.token),
+  });
+}
+
+export const fetchAdminOverview = () => adminRequest("/overview");
+export const fetchAdminUsers = () => adminRequest("/users");
+export const fetchAdminAccessCodes = () => adminRequest("/access-codes");
+export const fetchAdminSubscriptions = () => adminRequest("/subscriptions");
+export const fetchAdminSettings = () => adminRequest("/settings");
+
+export const updateAdminUser = (userId, patch) =>
+  adminRequest(`/users/${Number(userId)}`, {
+    method: "PATCH",
+    body: patch,
+  });
+
+export const createAdminAccessCode = (payload = {}) =>
+  adminRequest("/access-codes", {
+    method: "POST",
+    body: payload,
+  });
+
+export const updateAdminAccessCode = (codeId, patch) =>
+  adminRequest(`/access-codes/${Number(codeId)}`, {
+    method: "PATCH",
+    body: patch,
+  });
+
+export const updateAdminSettings = (patch) =>
+  adminRequest("/settings", {
+    method: "PATCH",
+    body: patch,
+  });
