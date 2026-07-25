@@ -1,8 +1,7 @@
-# trigger protected Manual Log repair
 name: Fix protected manual expense submit
 
 on:
-  push:
+  pull_request:
     branches:
       - main
 
@@ -16,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.head_ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -168,4 +167,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Fix protected Manual Log submit validation"
-          git push origin HEAD:main
+          git push origin HEAD:${{ github.head_ref }}
