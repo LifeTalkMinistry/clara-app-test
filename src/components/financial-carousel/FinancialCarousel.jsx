@@ -153,7 +153,13 @@ export default function FinancialCarousel(props) {
 
   return (
     <div className={`relative z-20 ${productionGuideMatchedClass} ${bottomSpacingClass} transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]`} style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}>
-      <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
+      <style>{`${FINANCIAL_CAROUSEL_FOCUS_STYLES}
+html:not(.clara-guide-finance-carousel-active) #root .clara-production-guide-matched-carousel {
+  /* A zero-value transform still traps position:fixed descendants inside the carousel.
+     Keep the production carousel visually identical without turning it into a fixed-position containing block. */
+  transform: none !important;
+}
+`}</style>
       <CarouselViewport
         carouselRef={carouselRef}
         onScroll={handleScroll}
