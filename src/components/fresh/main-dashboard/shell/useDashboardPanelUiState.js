@@ -73,18 +73,25 @@ export default function useDashboardPanelUiState({
 
   // Dynamic viewport units track installed-PWA chrome, orientation changes, and
   // the on-screen keyboard more faithfully than svh, which is intentionally
-  // pinned to the smallest possible viewport.
+  // pinned to the smallest possible viewport. Settings intentionally uses the
+  // Layout <main> scroller instead of creating a second nested scroll viewport;
+  // this prevents the Settings header/cards from being clipped by an invisible
+  // max-height boundary while keeping the other dashboard panels unchanged.
   const dashboardPanelViewportClass =
     activeDashboardPanel === "home"
       ? ""
       : activeDashboardPanel === "messages"
         ? "h-[calc(100dvh-132px)] max-h-[calc(100dvh-132px)] min-h-0 overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        : "max-h-[calc(100dvh-132px)] min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+        : activeDashboardPanel === "settings"
+          ? "min-h-0 overflow-visible pb-[calc(env(safe-area-inset-bottom)+14px)]"
+          : "max-h-[calc(100dvh-132px)] min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const dashboardSmartScrollClass =
     activeDashboardPanel === "home"
       ? "overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      : "overflow-y-hidden";
+      : activeDashboardPanel === "settings"
+        ? "overflow-y-visible"
+        : "overflow-y-hidden";
 
   const shouldShowBlockingDashboardLoader =
     loading && !hasVisibleFinanceData;
