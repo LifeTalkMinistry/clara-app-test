@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Edit3, X } from "lucide-react";
 import BudgetHeader from "@/components/financial-carousel/cards/budget/ui/BudgetHeader";
 import BudgetSummaryStats from "@/components/financial-carousel/cards/budget/ui/BudgetSummaryStats";
@@ -199,7 +200,9 @@ function BudgetDriftDetailsModal({
     ["Outside plan", fmt(outsidePlanSpent)],
   ];
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-start justify-center bg-black/64 px-4 pb-6 pt-[128px] backdrop-blur-md">
       <div className="relative flex h-[calc(100vh-245px)] w-full max-w-[352px] flex-col overflow-hidden rounded-[28px] border border-emerald-100/[0.12] bg-[linear-gradient(135deg,rgba(6,42,52,0.97),rgba(14,24,61,0.985)_48%,rgba(50,30,91,0.97))] shadow-[0_24px_80px_rgba(0,0,0,0.58),0_0_42px_rgba(45,212,191,0.09)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(45,212,191,0.12),transparent_34%),radial-gradient(circle_at_90%_100%,rgba(168,85,247,0.18),transparent_44%)]" />
@@ -286,7 +289,8 @@ function BudgetDriftDetailsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
