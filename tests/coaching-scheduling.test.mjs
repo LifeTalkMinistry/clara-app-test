@@ -129,6 +129,14 @@ test("active appointments allow intake edits without changing scheduling actions
   assert.match(welcomeSession, /\["requested", "confirmed", "reschedule_requested"\]/);
 });
 
+test("completed sessions invite the user to schedule the next monthly session", () => {
+  assert.match(welcomeSession, /Plan your next session/);
+  assert.match(welcomeSession, /Feel free to schedule your next monthly coaching appointment now\./);
+  assert.match(welcomeSession, /better chance to secure your preferred available date and time/i);
+  assert.match(welcomeSession, /Schedule Next Session/);
+  assert.match(welcomeSession, /\["declined", "cancelled", "completed"\]/);
+});
+
 test("session page covers authoritative loading booking collision and status states", () => {
   assert.match(welcomeSession, /Loading real availability/);
   assert.match(welcomeSession, /No appointments are currently available/);
