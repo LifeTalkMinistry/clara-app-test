@@ -305,6 +305,51 @@ function CurrentBudgetManager({
     ? protectedCommitments.includedSavingsGoals
     : [];
   const protectedEmergencyIncluded = protectedCommitments?.includedEmergencyFund === true;
+  const protectedDisplayRows = Array.isArray(plan?.budgetDisplayCategories)
+    ? plan.budgetDisplayCategories
+    : Array.isArray(plan?.budget_display_categories)
+      ? plan.budget_display_categories
+      : [];
+  const protectedRowForKey = (key) =>
+    protectedDisplayRows.find(
+      (row) =>
+        (row?.isProtectedCommitment === true || row?.is_protected_commitment === true) &&
+        String(row?.key || row?.id || "") === String(key || ""),
+    ) || null;
+  const emergencyProtectedPlanned = firstAmount(protectedCommitments?.emergencyFundAmount);
+  const emergencyProtectedRow = protectedRowForKey("protected-emergency-fund");
+  const emergencyProtectedFunded = Math.min(
+    emergencyProtectedPlanned,
+    firstAmount(emergencyProtectedRow?.spent, emergencyProtectedRow?.used),
+  );
+  const emergencyProtectedRemaining = Math.max(
+    emergencyProtectedPlanned - emergencyProtectedFunded,
+    0,
+  );
+  const savingsProtectedProgress = Object.fromEntries(
+    protectedSavingsGoals.map((goal) => {
+      const id = String(goal?.id || "");
+      const planned = firstAmount(goal?.amount);
+      const row = protectedRowForKey(`protected-savings-${id}`);
+      const funded = Math.min(planned, firstAmount(row?.spent, row?.used));
+      return [
+        id,
+        {
+          planned,
+          funded,
+          remaining: Math.max(planned - funded, 0),
+        },
+      ];
+    }),
+  );
+  const protectedRemainingAmount =
+    (protectedEmergencyIncluded ? emergencyProtectedRemaining : 0) +
+    protectedSavingsGoals.reduce(
+      (sum, goal) =>
+        sum + (savingsProtectedProgress[String(goal?.id || "")]?.remaining || 0),
+      0,
+    );
+  const protectedFundedAmount = Math.max(protectedAmount - protectedRemainingAmount, 0);
   const showProtectedSection =
     protectedAmount > 0 || protectedEmergencyIncluded || protectedSavingsGoals.length > 0;
   const draftProtectedTotal =
@@ -607,15 +652,13 @@ function CurrentBudgetManager({
   };
 
   const startProtectedEdit = () => {
-    setEmergencyProtectedInput(
-      String(firstAmount(protectedCommitments?.emergencyFundAmount) || ""),
-    );
+    setEmergencyProtectedInput(String(emergencyProtectedRemaining || ""));
     setSavingsProtectedInputs(
       Object.fromEntries(
-        protectedSavingsGoals.map((goal) => [
-          String(goal?.id || ""),
-          String(firstAmount(goal?.amount) || ""),
-        ]),
+        protectedSavingsGoals.map((goal) => {
+          const id = String(goal?.id || "");
+          return [id, String(savingsProtectedProgress[id]?.remaining || "")];
+        }),
       ),
     );
     setEditingProtected(true);
@@ -623,17 +666,20 @@ function CurrentBudgetManager({
   };
 
   const saveProtectedEdits = async () => {
-    const emergencyAmount = Math.max(0, amountValue(emergencyProtectedInput));
+    // Inputs represent what is still left to protect. Storage stays as the full
+    // cycle commitment so fulfilled Manual Log entries are never deducted twice.
+    const emergencyAmount = protectedEmergencyIncluded
+      ? emergencyProtectedFunded + Math.max(0, amountValue(emergencyProtectedInput))
+      : 0;
     const nextSavingsGoalAmounts = {
       ...(protectedSettings?.savingsGoalMonthlyAmounts || {}),
     };
     protectedSavingsGoals.forEach((goal) => {
       const id = String(goal?.id || "");
       if (!id) return;
-      nextSavingsGoalAmounts[id] = Math.max(
-        0,
-        amountValue(savingsProtectedInputs[id]),
-      );
+      const alreadyFunded = savingsProtectedProgress[id]?.funded || 0;
+      const desiredRemaining = Math.max(0, amountValue(savingsProtectedInputs[id]));
+      nextSavingsGoalAmounts[id] = alreadyFunded + desiredRemaining;
     });
     const selectedSavingsGoalIds =
       Array.isArray(protectedSettings?.selectedSavingsGoalIds) &&
@@ -940,7 +986,7 @@ function CurrentBudgetManager({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black">Protected money</p>
                   <p className="mt-0.5 text-[11px] font-semibold text-white/38">
-                    Emergency Fund and selected Savings Goals: {fmt(protectedAmount)}
+                    {fmt(protectedRemainingAmount)} still to protect · {fmt(protectedAmount)} planned
                   </p>
                 </div>
               </div>
@@ -965,8 +1011,16 @@ function CurrentBudgetManager({
             {editingProtected ? (
               <div className="mt-4 space-y-3 rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.05] p-3">
                 <p className="text-[10px] font-bold leading-4 text-white/45">
-                  Edit only how much you want to protect for this budget cycle. Your actual Emergency Fund and Savings Goal targets stay unchanged.
+                  Edit how much is still left to protect this cycle. Money already logged stays fulfilled, and your actual Emergency Fund and Savings Goal targets stay unchanged.
                 </p>
+                {protectedFundedAmount > 0 ? (
+                  <div className="flex items-center justify-between rounded-2xl border border-cyan-300/10 bg-cyan-400/[0.04] px-3.5 py-2.5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/38">
+                      Already fulfilled
+                    </span>
+                    <span className="text-sm font-black text-cyan-100">{fmt(protectedFundedAmount)}</span>
+                  </div>
+                ) : null}
 
                 {protectedEmergencyIncluded ? (
                   <label className="block">
@@ -983,7 +1037,7 @@ function CurrentBudgetManager({
                         setNotice("");
                       }}
                       className={input}
-                      placeholder="Protected amount"
+                      placeholder="Amount left to protect"
                     />
                   </label>
                 ) : null}
@@ -1009,7 +1063,7 @@ function CurrentBudgetManager({
                           setNotice("");
                         }}
                         className={input}
-                        placeholder="Protected amount"
+                        placeholder="Amount left to protect"
                       />
                     </label>
                   );
@@ -1017,7 +1071,7 @@ function CurrentBudgetManager({
 
                 <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/15 px-3.5 py-3">
                   <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/38">
-                    New protected total
+                    New amount left to protect
                   </span>
                   <span className="text-sm font-black text-emerald-100">{fmt(draftProtectedTotal)}</span>
                 </div>
