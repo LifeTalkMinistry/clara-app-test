@@ -1,13 +1,14 @@
 import {
-  DEBT_OBLIGATION_RECORD_KIND,
-  DEBT_OBLIGATION_STORE,
-  getDebtObligations,
-  toDebtNumber,
-} from "@/lib/debtObligationStore";
-import { upsertLocalRecord } from "@/lib/localFinanceStore";
+  LOCAL_FINANCE_STORES,
+  getLocalRecords,
+  upsertLocalRecord,
+} from "./localFinanceStore.js";
 
 const EMERGENCY_BUDGET_KEY = "protected-emergency-fund";
 const SAVINGS_BUDGET_PREFIX = "protected-savings-";
+const DEBT_OBLIGATION_RECORD_KIND = "debt_obligation";
+const DEBT_OBLIGATION_STORE =
+  LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 
 const toAmount = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -175,11 +176,14 @@ async function applyEmergencyDelta({ localUserId, delta, repository }) {
 async function applyDebtDelta({ localUserId, targetId, delta }) {
   if (!targetId) throw new Error("Debt / Obligation link is missing its target.");
 
-  const obligations = activeRows(await getDebtObligations(localUserId));
+  const rows = await getLocalRecords(DEBT_OBLIGATION_STORE, localUserId);
+  const obligations = activeRows(rows).filter(
+    (item) => item?.recordKind === DEBT_OBLIGATION_RECORD_KIND
+  );
   const debt = obligations.find((item) => text(item?.id) === text(targetId));
   if (!debt) throw new Error("The linked Debt / Obligation could not be found.");
 
-  const current = toDebtNumber(
+  const current = toAmount(
     debt?.totalDebt ?? debt?.balance ?? debt?.amount ?? debt?.debt_balance ?? 0
   );
   const next = Math.max(current - delta, 0);
@@ -235,8 +239,8 @@ export async function syncManualExpenseLinkedTargetChange({
   after = null,
   repository,
 } = {}) {
-  const beforeTarget = await resolveManualExpenseTarget({ before, expense: before, localUserId, repository });
-  const afterTarget = await resolveManualExpenseTarget({ after, expense: after, localUserId, repository });
+  const beforeTarget = await resolveManualExpenseTarget({ expense: before, localUserId, repository });
+  const afterTarget = await resolveManualExpenseTarget({ expense: after, localUserId, repository });
   const beforeAmount = before ? Math.abs(toAmount(before.amount)) : 0;
   const afterAmount = after ? Math.abs(toAmount(after.amount)) : 0;
 
