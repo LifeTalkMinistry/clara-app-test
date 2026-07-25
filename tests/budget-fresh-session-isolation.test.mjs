@@ -1,70 +1,67 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {
-  buildBudgetExpenseBaselineKeys,
-  isExpenseFreshForBudget,
-  seedFreshBudgetExpenseScope,
-} from "../src/lib/budgetExpenseIsolation.js";
 
-const activeHeader = {
-  id: "budget-1",
-  is_plan_header: true,
-  budget_total_mode: "derived_from_items",
-  status: "active",
-  is_complete: true,
-  setup_draft_id: "budget-session-1",
-};
+const planWrapper = readFileSync(
+  new URL(
+    "../src/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const planEngine = readFileSync(
+  new URL(
+    "../src/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlanEngine.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const financeRepository = readFileSync(
+  new URL("../src/lib/financeRepository.js", import.meta.url),
+  "utf8",
+);
+const financeActions = readFileSync(
+  new URL(
+    "../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
-test("a fresh budget isolates every expense that already existed when the budget started", () => {
-  const priorExpense = {
-    id: "expense-before-budget",
-    amount: 200,
-    planning_status: "unplanned",
-    created_at: "2026-07-24T01:00:00.000Z",
-  };
-  const laterExpense = {
-    id: "expense-after-budget",
-    amount: 200,
-    planning_status: "unplanned",
-    created_at: "2026-07-24T01:00:00.000Z",
-  };
-
-  const seededHeader = seedFreshBudgetExpenseScope(activeHeader, [priorExpense]);
-
-  assert.equal(seededHeader.budget_expense_scope_initialized, true);
-  assert.deepEqual(
-    seededHeader.budget_baseline_expense_keys,
-    buildBudgetExpenseBaselineKeys([priorExpense]),
-  );
-  assert.equal(isExpenseFreshForBudget(priorExpense, seededHeader), false);
-  assert.equal(isExpenseFreshForBudget(laterExpense, seededHeader), true);
+test("budget runtime keeps the full expense list and lets the cycle boundary decide eligibility", () => {
+  assert.doesNotMatch(planWrapper, /budgetExpenseIsolationKey/);
+  assert.doesNotMatch(planWrapper, /readBudgetExpenseBaselineKeys/);
+  assert.doesNotMatch(planWrapper, /freshSessionExpenses/);
+  assert.match(planWrapper, /useDashboardMonthlyBudgetPlanCore\(options\)/);
 });
 
-test("expense isolation is based on baseline membership, not matching calendar date or clock time", () => {
-  const before = { id: "old", amount: 50, date: "2026-07-24" };
-  const after = { id: "new", amount: 50, date: "2026-07-24" };
-  const seededHeader = seedFreshBudgetExpenseScope(activeHeader, [before]);
-
-  assert.equal(isExpenseFreshForBudget(before, seededHeader), false);
-  assert.equal(isExpenseFreshForBudget(after, seededHeader), true);
+test("budget repository reads and edits do not create a new expense baseline", () => {
+  assert.doesNotMatch(financeRepository, /seedFreshBudgetExpenseScope/);
+  assert.doesNotMatch(financeRepository, /seedExpenseScope/);
+  assert.doesNotMatch(financeRepository, /budget_baseline_expense_keys/);
+  assert.match(financeRepository, /decorateFinanceRepository/);
 });
 
-test("budget runtime filters the baseline before legacy cycle classification", () => {
-  const planWrapper = readFileSync(
-    new URL(
-      "../src/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan.js",
-      import.meta.url,
-    ),
-    "utf8",
+test("the budget engine counts planned, unplanned, and undocumented spending from the active cycle", () => {
+  assert.match(
+    planEngine,
+    /source\?\.reset_start_at\s*\|\|\s*source\?\.tracking_started_at\s*\|\|\s*source\?\.tracking_start_date/,
   );
-  const repositoryWrapper = readFileSync(
-    new URL("../src/lib/financeRepository.js", import.meta.url),
-    "utf8",
+  assert.match(
+    planEngine,
+    /const activeExpenses = allExpenses\.filter\(\(expense\) => inCycle\(expense, monthRange\)\)/,
   );
+  assert.match(planEngine, /expenseStatus\(expense\) === "unplanned"/);
+  assert.match(planEngine, /expenseStatus\(expense\) === "undocumented"/);
+});
 
-  assert.match(planWrapper, /budgetExpenseIsolationKey/);
-  assert.match(planWrapper, /freshSessionExpenses/);
-  assert.match(repositoryWrapper, /seedExpenseScope/);
-  assert.match(repositoryWrapper, /One-time migration for an already-active budget/);
+test("editing a budget preserves its original tracking boundary while a brand-new budget starts now", () => {
+  assert.match(
+    financeActions,
+    /if \(monthlyBudgetHeader\?\.id\) \{\s*await updateBudgetData\?\.\(String\(monthlyBudgetHeader\.id\), headerPayload\);/s,
+  );
+  assert.match(
+    financeActions,
+    /else \{\s*await addBudgetData\?\.\(\{\s*\.\.\.headerPayload,\s*tracking_start_date: nowIso,/s,
+  );
 });
