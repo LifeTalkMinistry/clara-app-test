@@ -1,3 +1,4 @@
+# synchronize protected Manual Log repair
 name: Fix protected manual expense submit
 
 on:
