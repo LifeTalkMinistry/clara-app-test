@@ -85,6 +85,27 @@ const getGoalActivity = (goal) => {
   const source = goal?.savingsActivityLog || goal?.savings_activity_log || goal?.activityLog || goal?.activity_log || [];
   return Array.isArray(source) ? source.filter(Boolean) : [];
 };
+const getWalletSyncHandledWalletId = (goal = {}) => {
+  const explicit = walletId(
+    goal?.wallet_sync_prompt_wallet_id ||
+      goal?.walletSyncPromptWalletId ||
+      goal?.wallet_sync_handled_wallet_id ||
+      goal?.walletSyncHandledWalletId ||
+      "",
+  );
+  if (explicit) return explicit;
+
+  const priorSync = getGoalActivity(goal).find((entry) => {
+    const type = String(entry?.type || "").trim().toLowerCase();
+    const linkedWalletId = walletId(entry?.storageWalletId || entry?.storage_wallet_id || "");
+    return type === "wallet_sync" && linkedWalletId;
+  });
+  return priorSync ? walletId(priorSync?.storageWalletId || priorSync?.storage_wallet_id || "") : "";
+};
+const walletSyncHandledForAssignedWallet = (goal = {}) => {
+  const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+  return Boolean(assignedWalletId && getWalletSyncHandledWalletId(goal) === assignedWalletId);
+};
 const getGoalSavedAmount = (goal) => firstNumber(goal?.saved_amount, goal?.savedAmount, goal?.current_amount, goal?.currentAmount, goal?.saved, goal?.amount_saved, goal?.amountSaved);
 const getGoalTargetAmount = (goal) => firstNumber(goal?.target_amount, goal?.targetAmount, goal?.target, goal?.amount_target, goal?.amountTarget);
 const normalizeGoal = (goal = {}) => {
@@ -285,6 +306,8 @@ export default function SavingsGoalsIntegrated() {
       setSaving(true);
       const now = new Date().toISOString();
       const existing = editId ? goals.find((goal) => String(goal.id) === String(editId)) : null;
+      const previousWalletId = walletId(existing?.wallet_id || existing?.walletId || "");
+      const nextWalletId = walletId(form.wallet_id && form.wallet_id !== "__no_wallets__" ? form.wallet_id : "");
       const payload = normalizeGoal({
         ...(existing || {}),
         id: editId || generateId(),
@@ -302,7 +325,7 @@ export default function SavingsGoalsIntegrated() {
         flexibility: form.flexibility || "flexible",
         priority: form.priority || "medium",
         notes: form.notes || "",
-        wallet_id: form.wallet_id && form.wallet_id !== "__no_wallets__" ? form.wallet_id : "",
+        wallet_id: nextWalletId,
         created_by: user?.email || null,
         user_email: user?.email || null,
         user_id: user?.id || null,
@@ -316,7 +339,15 @@ export default function SavingsGoalsIntegrated() {
       if (editId) await updateSavingsGoal(payload.id, payload);
       else await addSavingsGoal(payload);
       await refreshData?.();
-      const suggestion = getWalletBalanceSyncSuggestion(payload);
+
+      const assignedWalletChanged = Boolean(existing && previousWalletId !== nextWalletId);
+      const alreadyHandledThisWallet = walletSyncHandledForAssignedWallet(payload);
+      const shouldAskWalletSync = Boolean(
+        nextWalletId &&
+          (!existing || assignedWalletChanged || !alreadyHandledThisWallet),
+      );
+      const suggestion = shouldAskWalletSync ? getWalletBalanceSyncSuggestion(payload) : null;
+
       setDetailGoal(payload);
       closeFormModal();
       if (suggestion) {
@@ -349,11 +380,56 @@ export default function SavingsGoalsIntegrated() {
 
   const buildActivity = (goal, entry) => [entry, ...getGoalActivity(goal)].slice(0, 80);
 
+  const handleDismissWalletBalanceSync = async () => {
+    if (!walletSyncPrompt || walletSyncSaving) return;
+    const promptGoal = normalizeGoal(walletSyncPrompt.goal);
+    const goal = goals.find((item) => String(item.id) === String(promptGoal.id)) || promptGoal;
+    const handledWalletId = walletId(walletSyncPrompt.wallet || goal.wallet_id || goal.walletId || "");
+    if (!handledWalletId) {
+      setWalletSyncPrompt(null);
+      return;
+    }
+
+    try {
+      setWalletSyncSaving(true);
+      const now = new Date().toISOString();
+      const updatedGoal = normalizeGoal({
+        ...goal,
+        wallet_sync_prompt_wallet_id: handledWalletId,
+        walletSyncPromptWalletId: handledWalletId,
+        wallet_sync_prompt_decision: "dismissed",
+        walletSyncPromptDecision: "dismissed",
+        wallet_sync_prompt_updated_at: now,
+        walletSyncPromptUpdatedAt: now,
+        updated_date: now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
+      });
+      await updateSavingsGoal(goal.id, updatedGoal);
+      await refreshData?.();
+      setDetailGoal(updatedGoal);
+    } catch (error) {
+      console.error("Failed to remember wallet savings prompt decision:", error);
+    } finally {
+      setWalletSyncPrompt(null);
+      setWalletSyncSaving(false);
+    }
+  };
+
   const handleConfirmWalletBalanceSync = async () => {
     if (!walletSyncPrompt || walletSyncSaving) return;
 
     const promptGoal = normalizeGoal(walletSyncPrompt.goal);
     const goal = goals.find((item) => String(item.id) === String(promptGoal.id)) || promptGoal;
+    const promptWalletId = walletId(walletSyncPrompt.wallet || goal.wallet_id || goal.walletId || "");
+
+    // Protect against a stale or duplicated prompt adding the same wallet balance twice.
+    if (promptWalletId && getWalletSyncHandledWalletId(goal) === promptWalletId) {
+      setWalletSyncPrompt(null);
+      return;
+    }
+
     const suggestion = getWalletBalanceSyncSuggestion(goal);
     if (!suggestion) {
       setWalletSyncPrompt(null);
@@ -373,19 +449,26 @@ export default function SavingsGoalsIntegrated() {
       const target = toNumber(goal.target_amount);
       const nextSaved = Math.min(currentSaved + amount, target);
       const wallet = suggestion.wallet;
+      const handledWalletId = walletId(wallet);
       const updatedGoal = normalizeGoal({
         ...goal,
         saved_amount: nextSaved,
         current_amount: nextSaved,
         savedAmount: nextSaved,
         currentAmount: nextSaved,
+        wallet_sync_prompt_wallet_id: handledWalletId,
+        walletSyncPromptWalletId: handledWalletId,
+        wallet_sync_prompt_decision: "accepted",
+        walletSyncPromptDecision: "accepted",
+        wallet_sync_prompt_updated_at: now,
+        walletSyncPromptUpdatedAt: now,
         savingsActivityLog: buildActivity(goal, {
           id: `savings_wallet_sync_${Date.now()}`,
           type: "wallet_sync",
           title: "Wallet balance marked as savings",
           amount,
-          storageWalletId: walletId(wallet),
-          storage_wallet_id: walletId(wallet),
+          storageWalletId: handledWalletId,
+          storage_wallet_id: handledWalletId,
           storageWalletName: walletName(wallet),
           storage_wallet_name: walletName(wallet),
           note: `Marked existing ${walletName(wallet)} balance as protected savings`,
@@ -529,7 +612,7 @@ export default function SavingsGoalsIntegrated() {
     {goals.length === 0 ? <EmptyState icon={Target} title="No savings goals yet" description="Create your first goal — a dream fund, emergency reserve, or any planned expense." /> : <div className="space-y-3">{goals.map((goal) => <GoalCard key={goal.id} goal={goal} wallets={activeWallets} walletBalances={walletBalances} fmt={fmt} onOpen={setDetailGoal} />)}</div>}
     <GoalFormDialog open={open} editId={editId} form={form} setForm={setForm} saving={saving} onClose={closeFormModal} onSave={handleSave} wallets={activeWallets} walletBalances={walletBalances} subcats={form.category ? CATEGORIES[form.category] || [] : []} fmt={fmt} />
     {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={handleDelete} onAddSavings={handleAddSavings} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}
-    <WalletBalanceSyncPrompt prompt={walletSyncPrompt} fmt={fmt} saving={walletSyncSaving} onCancel={() => setWalletSyncPrompt(null)} onConfirm={handleConfirmWalletBalanceSync} />
+    <WalletBalanceSyncPrompt prompt={walletSyncPrompt} fmt={fmt} saving={walletSyncSaving} onCancel={handleDismissWalletBalanceSync} onConfirm={handleConfirmWalletBalanceSync} />
   </div>;
 }
 
@@ -557,7 +640,7 @@ function WalletBalanceSyncPrompt({ prompt, fmt, saving, onCancel, onConfirm }) {
   const amount = toNumber(prompt?.amount);
   const balance = toNumber(prompt?.walletBalance ?? wallet?.balance);
 
-  return <Dialog open={Boolean(prompt)} onOpenChange={(value) => { if (!value && !saving) onCancel?.(); }}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Mark wallet money as saved?</DialogTitle></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-green-300/15 bg-green-400/[0.07] p-4"><p className="text-sm leading-6 text-white/75">This goal is saved in <span className="font-bold text-white">{walletName(wallet)}</span>. That wallet already has <span className="font-bold text-green-100">{fmt(balance)}</span>.</p><p className="mt-3 text-lg font-heading font-bold leading-7 text-white">Mark {fmt(amount)} as saved for {goal?.title || "this goal"}?</p></div><p className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-white/55">This will not move money or create a transaction. It only protects the existing wallet balance for this goal.</p></div></div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={onCancel} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Not now</Button><Button type="button" onClick={onConfirm} disabled={saving || amount <= 0} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{saving ? "Marking..." : "Mark as Saved"}</Button></div></div></div></DialogContent></Dialog>;
+  return <Dialog open={Boolean(prompt)} onOpenChange={(value) => { if (!value && !saving) onCancel?.(); }}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Mark wallet money as saved?</DialogTitle></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-green-300/15 bg-green-400/[0.07] p-4"><p className="text-sm leading-6 text-white/75">This goal is saved in <span className="font-bold text-white">{walletName(wallet)}</span>. That wallet already has <span className="font-bold text-green-100">{fmt(balance)}</span>.</p><p className="mt-3 text-lg font-heading font-bold leading-7 text-white">Mark {fmt(amount)} as saved for {goal?.title || "this goal"}?</p></div><p className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-white/55">This will not move money or create a transaction. It only protects the existing wallet balance for this goal. CLARA will only ask again if you change the saved-in wallet.</p></div></div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={onCancel} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Not now</Button><Button type="button" onClick={onConfirm} disabled={saving || amount <= 0} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{saving ? "Marking..." : "Mark as Saved"}</Button></div></div></div></DialogContent></Dialog>;
 }
 
 function FormInput({ label, children }) {
