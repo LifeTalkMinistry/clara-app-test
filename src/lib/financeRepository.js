@@ -1,5 +1,6 @@
 import { createFinanceRepository as createCoreFinanceRepository } from "./financeRepositoryCore.js";
 import { syncManualExpenseLinkedTargetChange } from "./manualExpenseLinkedTargetSync.js";
+import { reconcileSavingsGoalsWithLinkedExpenses } from "./savingsGoalLinkedExpenseRepair.js";
 
 export * from "./financeRepositoryCore.js";
 
@@ -100,4 +101,13 @@ export async function updateBudget(localUserId, budgetId, patch, options) {
 
 export async function upsertBudget(localUserId, budget, options) {
   return financeRepository.upsertBudget(localUserId, budget, options);
+}
+
+export async function getSavingsGoals(localUserId, options) {
+  const [goals, expenses] = await Promise.all([
+    financeRepository.getSavingsGoals(localUserId, options),
+    financeRepository.getExpenses(localUserId),
+  ]);
+
+  return reconcileSavingsGoalsWithLinkedExpenses(goals, expenses);
 }
