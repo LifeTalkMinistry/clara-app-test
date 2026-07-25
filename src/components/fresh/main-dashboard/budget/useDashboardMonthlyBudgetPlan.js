@@ -1,23 +1,9 @@
-import { useMemo } from "react";
-import {
-  budgetExpenseIsolationKey,
-  readBudgetExpenseBaselineKeys,
-} from "@/lib/budgetExpenseIsolation";
 import useDashboardMonthlyBudgetPlanCore from "./useDashboardMonthlyBudgetPlanCore";
 
 export default function useDashboardMonthlyBudgetPlan(options = {}) {
-  const expenses = Array.isArray(options?.expenses) ? options.expenses : [];
-  const baselineSignature = readBudgetExpenseBaselineKeys(options?.monthlyBudgetHeader).join("\u001f");
-
-  const freshSessionExpenses = useMemo(() => {
-    if (!baselineSignature) return expenses;
-
-    const baseline = new Set(baselineSignature.split("\u001f").filter(Boolean));
-    return expenses.filter((expense) => !baseline.has(budgetExpenseIsolationKey(expense)));
-  }, [baselineSignature, expenses]);
-
-  return useDashboardMonthlyBudgetPlanCore({
-    ...options,
-    expenses: freshSessionExpenses,
-  });
+  // The budget engine already owns the real cycle boundary through
+  // tracking_started_at / reset_start_at and cycle_end. Do not remove expenses
+  // by a saved id baseline here: doing so makes valid spending disappear after
+  // a later budget edit or migration even though it is still inside the cycle.
+  return useDashboardMonthlyBudgetPlanCore(options);
 }
