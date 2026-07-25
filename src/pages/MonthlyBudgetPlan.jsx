@@ -188,9 +188,17 @@ function Stat({ label, value, accent = false }) {
   );
 }
 
+function isFulfilledDebtRow(row = {}) {
+  if (!isDebtCommitment(row)) return false;
+  const allocated = firstAmount(row?.allocated, row?.allocated_amount, row?.amount);
+  const spent = firstAmount(row?.spent, row?.used, row?.spent_amount);
+  return allocated > 0 && spent >= allocated - 0.01;
+}
+
 function BudgetRow({ row, editing, draftName, draftAmount, onStartEdit, onCancelEdit, onSave, onRemove, busy }) {
   const debt = isDebtCommitment(row);
-  if (editing) {
+  const fulfilledDebt = isFulfilledDebtRow(row);
+  if (editing && !fulfilledDebt) {
     return (
       <div className="rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.06] p-3">
         <input
@@ -226,38 +234,67 @@ function BudgetRow({ row, editing, draftName, draftAmount, onStartEdit, onCancel
   return (
     <div
       className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
-        debt ? "border-amber-300/14 bg-amber-400/[0.05]" : "border-white/8 bg-black/12"
+        fulfilledDebt
+          ? "border-white/8 bg-white/[0.025] opacity-55"
+          : debt
+            ? "border-amber-300/14 bg-amber-400/[0.05]"
+            : "border-white/8 bg-black/12"
       }`}
     >
       {debt ? (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-100/75">
-          <CreditCard className="h-4 w-4" />
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${
+            fulfilledDebt ? "bg-white/[0.06] text-white/60" : "bg-amber-400/10 text-amber-100/75"
+          }`}
+        >
+          {fulfilledDebt ? <CheckCircle2 className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
         </div>
       ) : null}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black">{row.title}</p>
+        <p className={`truncate text-sm font-black ${fulfilledDebt ? "line-through decoration-white/30" : ""}`}>
+          {row.title}
+        </p>
         <p className="mt-0.5 text-[10px] font-semibold text-white/38">
-          {debt ? "Committed debt payment" : `${fmt(row.remaining)} remaining`}
+          {fulfilledDebt
+            ? `${fmt(row.spent)} paid · already expensed this cycle`
+            : debt
+              ? `${fmt(row.remaining)} remaining to pay`
+              : `${fmt(row.remaining)} remaining`}
         </p>
       </div>
-      <p className="shrink-0 text-sm font-black text-white/82">{fmt(row.allocated)}</p>
-      <button
-        type="button"
-        onClick={onStartEdit}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/55"
-        aria-label={`Edit ${row.title}`}
-      >
-        <Edit3 className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={busy}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-300/18 bg-rose-500/10 text-rose-100/75 disabled:opacity-45"
-        aria-label={`Remove ${row.title}`}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      {fulfilledDebt ? (
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-black text-white/70">{fmt(0)}</p>
+          <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/30">remaining</p>
+        </div>
+      ) : (
+        <p className="shrink-0 text-sm font-black text-white/82">{fmt(row.allocated)}</p>
+      )}
+      {fulfilledDebt ? (
+        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-white/50">
+          Paid
+        </span>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={onStartEdit}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/55"
+            aria-label={`Edit ${row.title}`}
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={busy}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-300/18 bg-rose-500/10 text-rose-100/75 disabled:opacity-45"
+            aria-label={`Remove ${row.title}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -406,6 +443,11 @@ function CurrentBudgetManager({
     if (!requestedEditId || !rows.length) return;
     const row = rows.find((item) => String(item.id) === String(requestedEditId));
     if (!row) return;
+    if (isFulfilledDebtRow(row)) {
+      setEditingId("");
+      setNotice(`${row.title} is already paid in full and expensed for this cycle.`);
+      return;
+    }
     setEditingId(String(row.id));
     setDraftName(row.title);
     setDraftAmount(String(row.allocated || ""));
@@ -499,6 +541,11 @@ function CurrentBudgetManager({
   };
 
   const startEdit = (row) => {
+    if (isFulfilledDebtRow(row)) {
+      setEditingId("");
+      setNotice(`${row.title} is already paid in full and expensed for this cycle.`);
+      return;
+    }
     setEditingId(String(row.id));
     setDraftName(row.title);
     setDraftAmount(String(row.allocated || ""));
@@ -506,6 +553,11 @@ function CurrentBudgetManager({
   };
 
   const saveItem = async (row) => {
+    if (isFulfilledDebtRow(row)) {
+      setEditingId("");
+      setNotice(`${row.title} is already paid in full and cannot be edited in this cycle.`);
+      return;
+    }
     const title = String(draftName || "").trim();
     const amount = amountValue(draftAmount);
     if (!title) {
@@ -626,6 +678,10 @@ function CurrentBudgetManager({
   };
 
   const removeItem = async (row) => {
+    if (isFulfilledDebtRow(row)) {
+      setNotice(`${row.title} is already paid and stays in this cycle as completed history.`);
+      return;
+    }
     if (!row?.id || typeof deleteBudget !== "function") return;
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(`Remove ${row.title} from this budget plan?`);
