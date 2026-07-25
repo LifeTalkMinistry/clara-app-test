@@ -111,7 +111,49 @@ export default function useDashboardManualExpenseBudgetListItems({
       };
     });
 
+    const plannedKeys = new Set(plannedItems.map((item) => String(item?.key || "")));
+    const plannedTitles = new Set(plannedItems.map((item) => normalizeLower(item?.title)));
+    const displayRows = Array.isArray(safeMonthlyBudgetPlan.budgetDisplayCategories)
+      ? safeMonthlyBudgetPlan.budgetDisplayCategories
+      : Array.isArray(safeMonthlyBudgetPlan.budget_display_categories)
+        ? safeMonthlyBudgetPlan.budget_display_categories
+        : [];
+
+    const protectedItems = displayRows
+      .filter(
+        (row) =>
+          row?.isProtectedCommitment === true ||
+          row?.is_protected_commitment === true
+      )
+      .filter((row) => {
+        const key = String(row?.key || row?.id || "");
+        const title = normalizeLower(row?.title || row?.name || row?.category);
+        return !(key && plannedKeys.has(key)) && !(title && plannedTitles.has(title));
+      })
+      .map((row) => {
+        const allocated = firstValidNumber(row?.allocated, row?.allocated_amount);
+        const spent = firstValidNumber(row?.spent, row?.spent_amount, row?.used);
+        const remaining = Math.max(firstValidNumber(row?.remaining, allocated - spent), 0);
+        const protectionType = normalizeLower(row?.protectionType || row?.protection_type);
+
+        return {
+          key: String(row?.key || row?.id || row?.title),
+          id: row?.id || null,
+          title: row?.title || row?.name || "Protected money",
+          subtitle: `${safeFmt(remaining)} left • protected`,
+          tone: protectionType === "savings" ? "violet" : "cyan",
+          allocated,
+          spent,
+          remaining,
+          disabled: !hasCompletedBudgetPlan,
+          isProtectedCommitment: true,
+          protectionType,
+          budget: row,
+        };
+      });
+
     return [
+      ...protectedItems,
       ...plannedItems,
       {
         key: "__unplanned__",

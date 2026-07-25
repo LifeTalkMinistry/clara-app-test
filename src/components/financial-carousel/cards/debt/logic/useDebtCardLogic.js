@@ -92,6 +92,22 @@ export default function useDebtCardLogic({
     loadDebtObligations();
   }, [loadDebtObligations]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const refreshDebtCard = () => {
+      loadDebtObligations();
+    };
+
+    window.addEventListener("clara:debt-obligations-updated", refreshDebtCard);
+    window.addEventListener("clara-local-finance-updated", refreshDebtCard);
+
+    return () => {
+      window.removeEventListener("clara:debt-obligations-updated", refreshDebtCard);
+      window.removeEventListener("clara-local-finance-updated", refreshDebtCard);
+    };
+  }, [loadDebtObligations]);
+
   const income = toDebtNumber(totalIncome);
   const expenses = toDebtNumber(totalExpenses);
   const walletBalance = toDebtNumber(totalWalletBalance);
