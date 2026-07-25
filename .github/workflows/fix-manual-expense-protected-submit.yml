@@ -1,0 +1,170 @@
+name: Fix protected manual expense submit
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Patch protected Manual Log submit behavior
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js")
+          text = path.read_text(encoding="utf-8")
+
+          old_selected = '''    const selectedBudget = manualExpenseBudgetOptions.find(
+      (item) => String(item.key) === String(financeForm.budgetListKey)
+    );'''
+          new_selected = '''    const protectedBudgetRows = Array.isArray(monthlyBudgetPlan?.budgetDisplayCategories)
+      ? monthlyBudgetPlan.budgetDisplayCategories
+      : Array.isArray(monthlyBudgetPlan?.budget_display_categories)
+        ? monthlyBudgetPlan.budget_display_categories
+        : [];
+    const protectedBudget = protectedBudgetRows.find((item) => {
+      const isProtected =
+        item?.isProtectedCommitment === true || item?.is_protected_commitment === true;
+      const itemKey = String(item?.key || item?.id || "");
+      return isProtected && itemKey === String(financeForm.budgetListKey);
+    });
+    const selectedBudget =
+      manualExpenseBudgetOptions.find(
+        (item) => String(item.key) === String(financeForm.budgetListKey)
+      ) ||
+      (protectedBudget
+        ? {
+            key: String(
+              protectedBudget?.key || protectedBudget?.id || financeForm.budgetListKey
+            ),
+            id: protectedBudget?.id || protectedBudget?.key || financeForm.budgetListKey,
+            title:
+              protectedBudget?.title ||
+              protectedBudget?.name ||
+              protectedBudget?.category ||
+              "Protected money",
+            needType: "other",
+            isProtectedCommitment: true,
+            protectionType: normalizeLower(
+              protectedBudget?.protectionType || protectedBudget?.protection_type
+            ),
+            budget: protectedBudget,
+          }
+        : null);'''
+          if old_selected not in text:
+              raise SystemExit("selectedBudget block not found; refusing unsafe patch")
+          text = text.replace(old_selected, new_selected, 1)
+
+          old_notes = '''    const undocumentedFallbackNote = normalizeString(
+      [undocumentedReason, undocumentedNote].filter(Boolean).join(" — ")
+    );'''
+          new_notes = '''    const undocumentedFallbackNote = normalizeString(
+      [undocumentedReason, undocumentedNote].filter(Boolean).join(" — ")
+    );
+    const selectedBudgetRecord = selectedBudget?.budget || selectedBudget || {};
+    const selectedBudgetKey = normalizeString(
+      selectedBudget?.key || selectedBudget?.id || financeForm.budgetListKey
+    );
+    const protectionType = normalizeLower(
+      selectedBudget?.protectionType ||
+        selectedBudgetRecord?.protectionType ||
+        selectedBudgetRecord?.protection_type
+    );
+    const savingsGoalId = selectedBudgetKey.startsWith("protected-savings-")
+      ? selectedBudgetKey.slice("protected-savings-".length)
+      : normalizeString(
+          selectedBudgetRecord?.source_savings_goal_id ||
+            selectedBudgetRecord?.sourceSavingsGoalId ||
+            selectedBudgetRecord?.linked_target_id ||
+            selectedBudgetRecord?.linkedTargetId
+        );
+    const debtId = normalizeString(
+      selectedBudgetRecord?.source_debt_id || selectedBudgetRecord?.sourceDebtId
+    );
+    const linkedTargetType = protectionType || (debtId ? "debt" : "");
+    const linkedTargetId =
+      linkedTargetType === "savings"
+        ? savingsGoalId
+        : linkedTargetType === "debt"
+          ? debtId
+          : "";'''
+          if old_notes not in text:
+              raise SystemExit("manual expense note block not found; refusing unsafe patch")
+          text = text.replace(old_notes, new_notes, 1)
+
+          old_need = '''    const needType = isUnplanned || isUndocumented ? "other" : selectedBudget.needType || "need";'''
+          new_need = '''    const needType =
+      isUnplanned || isUndocumented
+        ? "other"
+        : selectedBudget.needType || (selectedBudget.isProtectedCommitment ? "other" : "need");'''
+          if old_need not in text:
+              raise SystemExit("need type block not found; refusing unsafe patch")
+          text = text.replace(old_need, new_need, 1)
+
+          old_payload = '''      const expensePayload = {
+        amount,
+        wallet_id: wallet.id,'''
+          new_payload = '''      const expensePayload = {
+        amount,
+        wallet_id: wallet.id,
+        budgetListKey: isUnplanned || isUndocumented ? financeForm.budgetListKey : selectedBudgetKey,
+        budget_list_key: isUnplanned || isUndocumented ? financeForm.budgetListKey : selectedBudgetKey,
+        budget_category_id:
+          isUnplanned || isUndocumented ? null : selectedBudget?.id || selectedBudgetKey || null,
+        budgetCategoryId:
+          isUnplanned || isUndocumented ? null : selectedBudget?.id || selectedBudgetKey || null,
+        linked_target_type: linkedTargetType || null,
+        linkedTargetType: linkedTargetType || null,
+        linked_target_id: linkedTargetId || null,
+        linkedTargetId: linkedTargetId || null,
+        source_savings_goal_id: savingsGoalId || null,
+        sourceSavingsGoalId: savingsGoalId || null,
+        source_debt_id: debtId || null,
+        sourceDebtId: debtId || null,'''
+          if old_payload not in text:
+              raise SystemExit("expense payload block not found; refusing unsafe patch")
+          text = text.replace(old_payload, new_payload, 1)
+
+          path.write_text(text, encoding="utf-8")
+
+          test_path = Path("tests/manual-expense-protected-submit.test.mjs")
+          test_path.write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport { readFileSync } from "node:fs";\n\nconst source = readFileSync(new URL("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js", import.meta.url), "utf8");\n\ntest("protected Manual Log choices are valid submit targets", () => {\n  assert.match(source, /protectedBudgetRows/);\n  assert.match(source, /budgetDisplayCategories/);\n  assert.match(source, /selectedBudgetKey/);\n  assert.match(source, /linked_target_type/);\n  assert.match(source, /source_savings_goal_id/);\n  assert.match(source, /source_debt_id/);\n});\n''', encoding="utf-8")
+
+          Path(".github/workflows/fix-manual-expense-protected-submit.yml").unlink()
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused regression
+        run: node --test tests/manual-expense-protected-submit.test.mjs
+
+      - name: Build web app
+        run: npm run build:web
+        env:
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix protected Manual Log submit validation"
+          git push origin HEAD:main
