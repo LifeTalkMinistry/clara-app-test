@@ -53,27 +53,21 @@ function installProtectedFindBridge(options, protectedOptions) {
   if (!Array.isArray(options) || !Array.isArray(protectedOptions)) return;
 
   const nativeFind = Array.prototype.find;
-  const currentFind = options.find;
-  const currentProtectedOptions = Array.isArray(currentFind?.__claraProtectedOptions)
-    ? currentFind.__claraProtectedOptions
-    : [];
-  const mergedProtectedOptions = [...currentProtectedOptions];
-
-  protectedOptions.forEach((option) => {
-    const key = String(option?.key || "");
-    const existingIndex = mergedProtectedOptions.findIndex(
-      (item) => String(item?.key || "") === key
-    );
-    if (existingIndex >= 0) mergedProtectedOptions[existingIndex] = option;
-    else mergedProtectedOptions.push(option);
-  });
+  let protectedLookupAvailable = true;
 
   const bridgedFind = function bridgedFind(predicate, thisArg) {
     const direct = nativeFind.call(this, predicate, thisArg);
-    if (direct !== undefined) return direct;
-    return nativeFind.call(bridgedFind.__claraProtectedOptions, predicate, thisArg);
+    if (direct !== undefined || !protectedLookupAvailable) return direct;
+
+    const protectedMatch = nativeFind.call(protectedOptions, predicate, thisArg);
+    if (protectedMatch !== undefined) {
+      // The protected fallback exists only to bridge the legacy Manual Log submit
+      // validation. Consume it after one successful protected lookup so later
+      // budget-engine classification uses the real budget array only.
+      protectedLookupAvailable = false;
+    }
+    return protectedMatch;
   };
-  bridgedFind.__claraProtectedOptions = mergedProtectedOptions;
 
   try {
     Object.defineProperty(options, "find", {
@@ -200,8 +194,9 @@ export default function useDashboardManualExpenseBudgetListItems({
 
     // Compatibility bridge for the legacy Manual Log save handler: it still resolves
     // selections through manualExpenseBudgetOptions.find(). Extend only `find`, rather
-    // than adding synthetic rows to the array, so the budget engine's map/reduce logic
-    // never double-counts protected money.
+    // than adding synthetic rows to the array, so map/reduce calculations never gain
+    // extra protected rows. The protected fallback is consumed after one successful
+    // protected selection lookup.
     installProtectedFindBridge(safeBudgetOptions, protectedItems);
 
     return [
