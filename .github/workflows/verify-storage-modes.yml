@@ -40,5 +40,3 @@ jobs:
         run: npm test
       - name: Production web build
         run: npm run build:web
-
-# Temporary PR validation trigger; remove before merge.
