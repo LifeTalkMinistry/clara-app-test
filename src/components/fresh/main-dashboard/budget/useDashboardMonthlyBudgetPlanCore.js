@@ -9,8 +9,19 @@ const toAmount = (...values) => {
   return 0;
 };
 
+const normalizeLabel = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const getProtectedKey = (row = {}) =>
   String(row?.key || row?.id || "").trim();
+
+const getProtectedTitle = (row = {}) =>
+  normalizeLabel(row?.title || row?.name || row?.category || row?.budget_category);
 
 const getExpenseBudgetKey = (expense = {}) =>
   String(
@@ -20,6 +31,16 @@ const getExpenseBudgetKey = (expense = {}) =>
       expense?.budgetCategoryId ||
       ""
   ).trim();
+
+const getExpenseCategory = (expense = {}) =>
+  normalizeLabel(
+    expense?.budget_category ||
+      expense?.budgetCategory ||
+      expense?.expense_category ||
+      expense?.category ||
+      expense?.title ||
+      expense?.name
+  );
 
 const getExpenseDate = (expense = {}) =>
   String(
@@ -59,8 +80,15 @@ function syncProtectedDisplayRows(plan = {}, expenses = []) {
     const key = getProtectedKey(row);
     if (!protectedRow || !key) return row;
 
+    const titleKey = getProtectedTitle(row);
     const spent = activeExpenses.reduce((sum, expense) => {
-      return getExpenseBudgetKey(expense) === key
+      const matchesProtectedKey = getExpenseBudgetKey(expense) === key;
+      const matchesLegacyCategoryTitle =
+        !getExpenseBudgetKey(expense) &&
+        Boolean(titleKey) &&
+        getExpenseCategory(expense) === titleKey;
+
+      return matchesProtectedKey || matchesLegacyCategoryTitle
         ? sum + Math.abs(toAmount(expense?.amount, expense?.spent, expense?.value, expense?.total))
         : sum;
     }, 0);
