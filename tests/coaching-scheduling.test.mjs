@@ -129,6 +129,13 @@ test("active appointments allow intake edits without changing scheduling actions
   assert.match(welcomeSession, /\["requested", "confirmed", "reschedule_requested"\]/);
 });
 
+test("user-facing appointment messages are shown without exposing private admin notes", () => {
+  assert.match(welcomeSession, /appointment\.user_message/);
+  assert.match(welcomeSession, /Message from Max/);
+  assert.match(welcomeSession, /whitespace-pre-wrap/);
+  assert.doesNotMatch(welcomeSession, /admin_notes|Private admin notes/);
+});
+
 test("completed sessions invite the user to schedule the next monthly session", () => {
   assert.match(welcomeSession, /Plan your next session/);
   assert.match(welcomeSession, /Feel free to schedule your next monthly coaching appointment now\./);
