@@ -289,12 +289,31 @@ function CurrentBudgetManager({
   const [totalInput, setTotalInput] = useState(String(declaredAmount || ""));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [editingProtected, setEditingProtected] = useState(false);
+  const [emergencyProtectedInput, setEmergencyProtectedInput] = useState("");
+  const [savingsProtectedInputs, setSavingsProtectedInputs] = useState({});
   const syncingHeaderRef = useRef(false);
 
   const protectedAmount = firstAmount(
     plan?.totalProtectedCommitments,
     plan?.protected_commitments_total,
   );
+  const protectedCommitments =
+    plan?.protectedBudgetCommitments || plan?.protected_budget_commitments || {};
+  const protectedSettings = protectedCommitments?.settings || {};
+  const protectedSavingsGoals = Array.isArray(protectedCommitments?.includedSavingsGoals)
+    ? protectedCommitments.includedSavingsGoals
+    : [];
+  const protectedEmergencyIncluded = protectedCommitments?.includedEmergencyFund === true;
+  const showProtectedSection =
+    protectedAmount > 0 || protectedEmergencyIncluded || protectedSavingsGoals.length > 0;
+  const draftProtectedTotal =
+    Math.max(0, amountValue(emergencyProtectedInput)) +
+    protectedSavingsGoals.reduce(
+      (sum, goal) =>
+        sum + Math.max(0, amountValue(savingsProtectedInputs[String(goal?.id || "")])),
+      0,
+    );
 
   const rows = useMemo(() => {
     const trackedRows = Array.isArray(plan?.categories) ? plan.categories : [];
@@ -587,6 +606,68 @@ function CurrentBudgetManager({
     }
   };
 
+  const startProtectedEdit = () => {
+    setEmergencyProtectedInput(
+      String(firstAmount(protectedCommitments?.emergencyFundAmount) || ""),
+    );
+    setSavingsProtectedInputs(
+      Object.fromEntries(
+        protectedSavingsGoals.map((goal) => [
+          String(goal?.id || ""),
+          String(firstAmount(goal?.amount) || ""),
+        ]),
+      ),
+    );
+    setEditingProtected(true);
+    setNotice("");
+  };
+
+  const saveProtectedEdits = async () => {
+    const emergencyAmount = Math.max(0, amountValue(emergencyProtectedInput));
+    const nextSavingsGoalAmounts = {
+      ...(protectedSettings?.savingsGoalMonthlyAmounts || {}),
+    };
+    protectedSavingsGoals.forEach((goal) => {
+      const id = String(goal?.id || "");
+      if (!id) return;
+      nextSavingsGoalAmounts[id] = Math.max(
+        0,
+        amountValue(savingsProtectedInputs[id]),
+      );
+    });
+    const selectedSavingsGoalIds =
+      Array.isArray(protectedSettings?.selectedSavingsGoalIds) &&
+      protectedSettings.selectedSavingsGoalIds.length
+        ? protectedSettings.selectedSavingsGoalIds.map(String)
+        : protectedSavingsGoals.map((goal) => String(goal?.id || "")).filter(Boolean);
+
+    try {
+      setBusy(true);
+      setNotice("");
+      saveProtectionSettings({
+        setupCompleted: true,
+        includeEmergencyFund: protectedEmergencyIncluded,
+        emergencyFundContributionMode: "fixed",
+        emergencyFundMonthlyAmount: emergencyAmount,
+        includeSavingsGoals:
+          protectedSettings?.includeSavingsGoals === true || protectedSavingsGoals.length > 0,
+        savingsGoalMode:
+          protectedSettings?.savingsGoalMode ||
+          (selectedSavingsGoalIds.length ? "selected" : "none"),
+        selectedSavingsGoalIds,
+        savingsContributionMode: "fixed",
+        savingsGoalMonthlyAmounts: nextSavingsGoalAmounts,
+      });
+      await refresh();
+      setEditingProtected(false);
+      setNotice("Protected money updated.");
+    } catch (error) {
+      setNotice(error?.message || "CLARA could not update protected money yet.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resetPlan = async () => {
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
@@ -849,19 +930,109 @@ function CurrentBudgetManager({
           </section>
         ) : null}
 
-        {protectedAmount > 0 ? (
+        {showProtectedSection ? (
           <section className={`${card} p-4`}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-300/16 bg-emerald-400/10 text-emerald-100/75">
-                <ShieldCheck className="h-4 w-4" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/16 bg-emerald-400/10 text-emerald-100/75">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black">Protected money</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-white/38">
+                    Emergency Fund and selected Savings Goals: {fmt(protectedAmount)}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-black">Protected money</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-white/38">
-                  Emergency Fund and selected Savings Goals: {fmt(protectedAmount)}
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (editingProtected) {
+                    setEditingProtected(false);
+                    setNotice("");
+                  } else {
+                    startProtectedEdit();
+                  }
+                }}
+                disabled={busy || loading}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/55 disabled:opacity-45"
+                aria-label={editingProtected ? "Cancel protected money edit" : "Edit protected money"}
+              >
+                {editingProtected ? <X className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
+              </button>
             </div>
+
+            {editingProtected ? (
+              <div className="mt-4 space-y-3 rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.05] p-3">
+                <p className="text-[10px] font-bold leading-4 text-white/45">
+                  Edit only how much you want to protect for this budget cycle. Your actual Emergency Fund and Savings Goal targets stay unchanged.
+                </p>
+
+                {protectedEmergencyIncluded ? (
+                  <label className="block">
+                    <span className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100/55">
+                      Emergency Fund
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      value={emergencyProtectedInput}
+                      onChange={(event) => {
+                        setEmergencyProtectedInput(event.target.value);
+                        setNotice("");
+                      }}
+                      className={input}
+                      placeholder="Protected amount"
+                    />
+                  </label>
+                ) : null}
+
+                {protectedSavingsGoals.map((goal) => {
+                  const id = String(goal?.id || "");
+                  const title = String(goal?.title || "Savings Goal");
+                  return (
+                    <label key={id || title} className="block">
+                      <span className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100/55">
+                        {title}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="decimal"
+                        value={savingsProtectedInputs[id] ?? ""}
+                        onChange={(event) => {
+                          setSavingsProtectedInputs((current) => ({
+                            ...current,
+                            [id]: event.target.value,
+                          }));
+                          setNotice("");
+                        }}
+                        className={input}
+                        placeholder="Protected amount"
+                      />
+                    </label>
+                  );
+                })}
+
+                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/15 px-3.5 py-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/38">
+                    New protected total
+                  </span>
+                  <span className="text-sm font-black text-emerald-100">{fmt(draftProtectedTotal)}</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={saveProtectedEdits}
+                  disabled={busy || loading}
+                  className={`${primaryButton} w-full`}
+                >
+                  <Save className="h-4 w-4" />
+                  Save protected money
+                </button>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
