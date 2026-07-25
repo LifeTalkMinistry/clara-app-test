@@ -49,6 +49,38 @@ function recurringBillSubtitle(item, matchingCategory) {
   return `${estimated ? "Estimated" : "Bill"}${dueDate ? ` · Due ${formatDueDate(dueDate)}` : ""} · Auto-added`;
 }
 
+function installProtectedFindBridge(options, protectedOptions) {
+  if (!Array.isArray(options) || !Array.isArray(protectedOptions)) return;
+
+  const nativeFind = Array.prototype.find;
+  let protectedLookupAvailable = true;
+
+  const bridgedFind = function bridgedFind(predicate, thisArg) {
+    const direct = nativeFind.call(this, predicate, thisArg);
+    if (direct !== undefined || !protectedLookupAvailable) return direct;
+
+    const protectedMatch = nativeFind.call(protectedOptions, predicate, thisArg);
+    if (protectedMatch !== undefined) {
+      // The protected fallback exists only to bridge the legacy Manual Log submit
+      // validation. Consume it after one successful protected lookup so later
+      // budget-engine classification uses the real budget array only.
+      protectedLookupAvailable = false;
+    }
+    return protectedMatch;
+  };
+
+  try {
+    Object.defineProperty(options, "find", {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: bridgedFind,
+    });
+  } catch {
+    // Manual Log can still display protected rows even if the compatibility bridge cannot be installed.
+  }
+}
+
 export default function useDashboardManualExpenseBudgetListItems({
   manualExpenseBudgetOptions = [],
   monthlyBudgetPlan = null,
@@ -106,6 +138,7 @@ export default function useDashboardManualExpenseBudgetListItems({
         allocated,
         spent,
         remaining,
+        needType: item.needType || item.need_type || item?.budget?.need_type || "need",
         disabled: !hasCompletedBudgetPlan,
         budget: item.budget || item,
       };
@@ -135,22 +168,36 @@ export default function useDashboardManualExpenseBudgetListItems({
         const spent = firstValidNumber(row?.spent, row?.spent_amount, row?.used);
         const remaining = Math.max(firstValidNumber(row?.remaining, allocated - spent), 0);
         const protectionType = normalizeLower(row?.protectionType || row?.protection_type);
+        const key = String(row?.key || row?.id || row?.title);
 
         return {
-          key: String(row?.key || row?.id || row?.title),
-          id: row?.id || null,
+          key,
+          id: row?.id || key,
           title: row?.title || row?.name || "Protected money",
           subtitle: `${safeFmt(remaining)} left • protected`,
           tone: protectionType === "savings" ? "violet" : "cyan",
           allocated,
           spent,
           remaining,
+          needType: "other",
           disabled: !hasCompletedBudgetPlan,
           isProtectedCommitment: true,
           protectionType,
-          budget: row,
+          budget: {
+            ...row,
+            key,
+            linked_target_type: protectionType || row?.linked_target_type || null,
+            linkedTargetType: protectionType || row?.linkedTargetType || null,
+          },
         };
       });
+
+    // Compatibility bridge for the legacy Manual Log save handler: it still resolves
+    // selections through manualExpenseBudgetOptions.find(). Extend only `find`, rather
+    // than adding synthetic rows to the array, so map/reduce calculations never gain
+    // extra protected rows. The protected fallback is consumed after one successful
+    // protected selection lookup.
+    installProtectedFindBridge(safeBudgetOptions, protectedItems);
 
     return [
       ...protectedItems,
