@@ -18,6 +18,11 @@ const toAmount = (value) => {
 
 const text = (value) => String(value ?? "").trim();
 const lower = (value) => text(value).toLowerCase();
+const normalizedLabel = (value) =>
+  lower(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 const activeRows = (rows = []) =>
   (Array.isArray(rows) ? rows : []).filter((row) => !row?.deletedAt && !row?.deleted_at);
 
@@ -35,6 +40,28 @@ const getExpenseBudgetKey = (expense = {}) =>
       expense?.budget_list_key ||
       expense?.budget_category_id ||
       expense?.budgetCategoryId
+  );
+
+const getExpenseCategory = (expense = {}) =>
+  text(
+    expense?.budget_category ||
+      expense?.budgetCategory ||
+      expense?.expense_category ||
+      expense?.category ||
+      expense?.title ||
+      expense?.name
+  );
+
+const getRecordTitle = (record = {}) =>
+  text(
+    record?.title ||
+      record?.name ||
+      record?.category ||
+      record?.budget_category ||
+      record?.goal_name ||
+      record?.lender ||
+      record?.creditor ||
+      record?.label
   );
 
 const getExplicitTarget = (expense = {}) => {
@@ -57,6 +84,58 @@ const getExplicitTarget = (expense = {}) => {
   return null;
 };
 
+async function findSavingsTargetByTitle({ category, localUserId, repository }) {
+  if (!category || typeof repository?.getSavingsGoals !== "function") return null;
+
+  const categoryKey = normalizedLabel(category);
+  if (!categoryKey) return null;
+
+  const goals = activeRows(await repository.getSavingsGoals(localUserId));
+  const goal = goals.find(
+    (item) => normalizedLabel(getRecordTitle(item)) === categoryKey
+  );
+  const goalId = text(goal?.id || goal?.goal_id || goal?.key);
+  return goalId ? { type: "savings", id: goalId } : null;
+}
+
+async function findDebtTarget({ budgetId, category, localUserId, repository }) {
+  const categoryKey = normalizedLabel(category);
+
+  if (typeof repository?.getBudgets === "function") {
+    const budgets = activeRows(await repository.getBudgets(localUserId));
+    const linkedBudget = budgets.find((row) => {
+      const id = text(row?.id || row?.key);
+      const titleKey = normalizedLabel(getRecordTitle(row));
+      return Boolean(
+        (budgetId && id && id === budgetId) ||
+          (categoryKey && titleKey && titleKey === categoryKey)
+      );
+    });
+
+    if (linkedBudget) {
+      const debtId = text(linkedBudget?.source_debt_id || linkedBudget?.sourceDebtId);
+      const isDebt =
+        linkedBudget?.is_commitment === true ||
+        linkedBudget?.isCommitment === true ||
+        normalizedLabel(linkedBudget?.commitment_type || linkedBudget?.commitmentType) === "debt" ||
+        Boolean(debtId);
+
+      if (isDebt && debtId) return { type: "debt", id: debtId };
+    }
+  }
+
+  if (!categoryKey) return null;
+
+  const rows = await getLocalRecords(DEBT_OBLIGATION_STORE, localUserId);
+  const obligations = activeRows(rows).filter(
+    (item) => item?.recordKind === DEBT_OBLIGATION_RECORD_KIND
+  );
+  const debt = obligations.find(
+    (item) => normalizedLabel(getRecordTitle(item)) === categoryKey
+  );
+  return debt?.id ? { type: "debt", id: text(debt.id) } : null;
+}
+
 async function resolveManualExpenseTarget({ expense, localUserId, repository }) {
   if (!expense) return null;
 
@@ -75,24 +154,21 @@ async function resolveManualExpenseTarget({ expense, localUserId, repository }) 
   const directDebtId = text(expense?.source_debt_id || expense?.sourceDebtId);
   if (directDebtId) return { type: "debt", id: directDebtId };
 
-  const budgetId = text(expense?.budget_category_id || expense?.budgetCategoryId || budgetKey);
-  if (!budgetId || typeof repository?.getBudgets !== "function") return null;
+  // The legacy Manual Log save path stores the selected display title but not the
+  // synthetic protected key. Resolve that title back to the real protected target.
+  const category = getExpenseCategory(expense);
+  const categoryKey = normalizedLabel(category);
+  if (categoryKey === "emergency fund") return { type: "emergency", id: "" };
 
-  const budgets = activeRows(await repository.getBudgets(localUserId));
-  const linkedBudget = budgets.find((row) => {
-    const id = text(row?.id || row?.key);
-    return id && id === budgetId;
+  const savingsTarget = await findSavingsTargetByTitle({
+    category,
+    localUserId,
+    repository,
   });
-  if (!linkedBudget) return null;
+  if (savingsTarget) return savingsTarget;
 
-  const debtId = text(linkedBudget?.source_debt_id || linkedBudget?.sourceDebtId);
-  const isDebt =
-    linkedBudget?.is_commitment === true ||
-    linkedBudget?.isCommitment === true ||
-    lower(linkedBudget?.commitment_type || linkedBudget?.commitmentType) === "debt" ||
-    Boolean(debtId);
-
-  return isDebt && debtId ? { type: "debt", id: debtId } : null;
+  const budgetId = text(expense?.budget_category_id || expense?.budgetCategoryId || budgetKey);
+  return findDebtTarget({ budgetId, category, localUserId, repository });
 }
 
 const sameTarget = (left, right) =>
