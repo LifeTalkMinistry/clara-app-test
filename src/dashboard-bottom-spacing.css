@@ -39,6 +39,60 @@
   }
 }
 
+/* Compact-height Android / installed-PWA compatibility.
+   Some Android 3-button navigation environments report a zero safe-area inset,
+   so env(safe-area-inset-bottom) alone cannot reserve the system navigation
+   strip. Keep the existing layout on larger phones, but give narrow/short
+   viewports enough real card height and enough scroll runway to reveal the
+   complete Money Left card above the OS navigation controls. */
+@media (max-width: 390px) and (max-height: 820px) {
+  .theme-page-shell .clara-finance-slide-shell[data-expanded="false"] {
+    height: clamp(360px, 50dvh, 390px) !important;
+    min-height: clamp(360px, 50dvh, 390px) !important;
+  }
+
+  .theme-page-shell
+    .clara-finance-slide-shell[data-expanded="false"]
+    > .clara-finance-slide-surface {
+    height: 100% !important;
+    min-height: 100% !important;
+  }
+
+  /* Override the older short-screen rule that reduced finance cards to
+     298/280/268px. That optimization could hide the card action row. */
+  .theme-page-shell
+    .clara-finance-slide-shell[data-expanded="false"]
+    .clara-finance-bubble-card {
+    height: 100% !important;
+    min-height: 100% !important;
+  }
+
+  .theme-page-shell .clara-dashboard-content {
+    padding-bottom: max(
+      48px,
+      calc(env(safe-area-inset-bottom, 0px) + 32px)
+    ) !important;
+    scroll-padding-bottom: max(
+      104px,
+      calc(env(safe-area-inset-bottom, 0px) + 76px)
+    ) !important;
+  }
+
+  .theme-page-shell .clara-dashboard-bottom-finance-rail {
+    padding-bottom: max(
+      48px,
+      calc(env(safe-area-inset-bottom, 0px) + 34px)
+    ) !important;
+  }
+
+  .theme-page-shell [data-clara-dashboard-section="money-summary"] {
+    margin-bottom: max(
+      20px,
+      calc(env(safe-area-inset-bottom, 0px) + 8px)
+    ) !important;
+  }
+}
+
 /* CLARA Investment Fund expanded polish
    Keeps the expanded planning panel from stretching into a large empty box.
    Savings Goals is not targeted by this override. */
