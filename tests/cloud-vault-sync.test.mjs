@@ -33,7 +33,7 @@ test("storage mode defaults safely to Local Only and persists per account", () =
   assert.equal(getClaraStorageModeKey("7"), "clara_storage_mode_v1:7");
 });
 
-test("cloud snapshot implementation excludes auth and device mapping secrets", async () => {
+test("cloud snapshot implementation excludes auth, vault mapping, and device identity secrets", async () => {
   const source = await fs.readFile(
     new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
     "utf8"
@@ -41,13 +41,15 @@ test("cloud snapshot implementation excludes auth and device mapping secrets", a
 
   assert.match(source, /clara_backend_access_token_v1/);
   assert.match(source, /clara_backend_user_v1/);
+  assert.match(source, /clara_backend_user_verified_at_v1/);
+  assert.match(source, /clara_sync_device_id_v1/);
   assert.match(source, /clara_account_vault_directory_v1|ACCOUNT_VAULT_DIRECTORY_KEY/);
   assert.match(source, /storageKeyBelongsToAnotherAccount/);
   assert.match(source, /record\.localUserId/);
   assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
-test("cloud sync implementation has revision recovery and cross-device vault rewriting", async () => {
+test("cloud sync supports source-device authority and exact destination recovery", async () => {
   const syncSource = await fs.readFile(
     new URL("../src/lib/cloud-vault-sync.js", import.meta.url),
     "utf8"
@@ -56,16 +58,38 @@ test("cloud sync implementation has revision recovery and cross-device vault rew
     new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
     "utf8"
   );
+  const financeStoreSource = await fs.readFile(
+    new URL("../src/lib/localFinanceStore.js", import.meta.url),
+    "utf8"
+  );
 
-  assert.match(syncSource, /CLOUD_VAULT_REVISION_CONFLICT/);
-  assert.match(syncSource, /export function rebaseSnapshotVault/);
-  assert.match(syncSource, /key\.split\(sourceVaultId\)\.join\(target\)/);
-  assert.match(syncSource, /remoteSnapshotForLocal/);
-  assert.match(syncSource, /latestRemoteForLocal/);
-  assert.match(syncSource, /mergeClaraCloudSnapshots/);
-  assert.match(snapshotSource, /prepareCloudSnapshotForRestore/);
-  assert.match(snapshotSource, /localUserId: target/);
-  assert.match(snapshotSource, /restoreClaraLocalDataFromFile/);
+  assert.match(syncSource, /authoritativeLocal/);
+  assert.match(syncSource, /uploadAuthoritativeWithConflictRecovery/);
+  assert.match(syncSource, /direction: "uploaded_authoritative"/);
+  assert.match(syncSource, /restoreRemoteAsSource/);
+  assert.match(syncSource, /direction: "downloaded"/);
+  assert.match(syncSource, /export async function restoreClaraCloudVaultFromServer/);
+  assert.match(snapshotSource, /replaceExisting = true/);
+  assert.match(snapshotSource, /clearCloudRestoreStorage/);
+  assert.match(snapshotSource, /clearLocalUserPrivateData/);
+  assert.match(financeStoreSource, /export async function clearLocalUserPrivateData/);
+});
+
+test("fresh account vaults are marked for cloud-first recovery", async () => {
+  const resolverSource = await fs.readFile(
+    new URL("../src/lib/accountLinking/resolveAccountLocalVault.js", import.meta.url),
+    "utf8"
+  );
+  const bridgeSource = await fs.readFile(
+    new URL("../src/components/CloudVaultSyncBridge.jsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(resolverSource, /clara_cloud_recovery_pending_v1/);
+  assert.match(resolverSource, /result\?\.created \|\| result\?\.adoptedUnlinkedVault/);
+  assert.match(bridgeSource, /isClaraCloudRecoveryPending/);
+  assert.match(bridgeSource, /preferRemote: recoveryPending\(\)/);
+  assert.match(bridgeSource, /clearClaraCloudRecoveryPending/);
 });
 
 test("cloud vault requests bypass the ngrok browser interstitial", async () => {
