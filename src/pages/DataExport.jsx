@@ -25,6 +25,7 @@ import {
   CLARA_CLOUD_SYNC_STATUS_EVENT,
   enableClaraLocalOnly,
   enableClaraOnlineSync,
+  restoreClaraCloudVaultFromServer,
   syncClaraCloudVault,
 } from "@/lib/cloud-vault-sync";
 import {
@@ -111,14 +112,50 @@ export default function DataExport() {
   };
 
   const handleSyncNow = async () => {
+    const confirmed = window.confirm(
+      "Use THIS device as the Online Sync source? CLARA will replace the protected online copy with the data currently on this device. Other devices will recover from this copy."
+    );
+    if (!confirmed) return;
+
     try {
       setSyncing(true);
       setError("");
-      const status = await syncClaraCloudVault({ user, profile, force: true });
+      const status = await syncClaraCloudVault({
+        user,
+        profile,
+        force: true,
+        authoritativeLocal: true,
+      });
       setCloudStatus(status);
-      setResult({ type: "success", message: "CLARA finished syncing this device." });
+      setResult({
+        type: "success",
+        message: "This device is now the protected source. Other devices can use this exact CLARA copy.",
+      });
     } catch (syncError) {
       setError(syncError?.message || "Unable to sync CLARA right now.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleUseOnlineCopy = async () => {
+    const confirmed = window.confirm(
+      "Replace this device's CLARA financial data with the protected Online Sync copy? Existing CLARA financial data on this device will be replaced, not merged."
+    );
+    if (!confirmed) return;
+
+    try {
+      setSyncing(true);
+      setError("");
+      const status = await restoreClaraCloudVaultFromServer({ user, profile });
+      setCloudStatus(status);
+      setResult({
+        type: "success",
+        message: "The protected Online Sync copy replaced this device's CLARA data. Reload CLARA to finish.",
+        reload: true,
+      });
+    } catch (restoreError) {
+      setError(restoreError?.message || "Unable to restore the protected Online Sync copy.");
     } finally {
       setSyncing(false);
     }
@@ -249,15 +286,29 @@ export default function DataExport() {
           </button>
 
           {isOnline ? (
-            <button
-              type="button"
-              onClick={handleSyncNow}
-              disabled={syncing || changingMode}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
-            >
-              <RefreshCw size={17} className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Syncing CLARA..." : "Sync now"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleSyncNow}
+                disabled={syncing || changingMode}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
+              >
+                <RefreshCw size={17} className={syncing ? "animate-spin" : ""} />
+                {syncing ? "Syncing CLARA..." : "Sync now — use this device as source"}
+              </button>
+
+              {cloudStatus?.hasSnapshot ? (
+                <button
+                  type="button"
+                  onClick={handleUseOnlineCopy}
+                  disabled={syncing || changingMode}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.045] px-4 py-3 text-sm font-black text-white/80 disabled:opacity-55"
+                >
+                  <Download size={17} />
+                  Use protected online copy on this device
+                </button>
+              ) : null}
+            </>
           ) : null}
 
           {cloudStatus?.updatedAt && isOnline ? (
@@ -313,7 +364,7 @@ export default function DataExport() {
 
         <div className="mt-5 space-y-3">
           <div className="info-card"><ShieldCheck size={18} /><div><p className="font-semibold text-white">Account isolation</p><p className="mt-1 text-sm leading-6 text-slate-400">Only the signed-in account’s active vault is included in sync and private backups.</p></div></div>
-          <div className="info-card"><Info size={18} /><div><p className="font-semibold text-white">Changing modes</p><p className="mt-1 text-sm leading-6 text-slate-400">Switching to Local Only deletes the online snapshot but does not erase this device.</p></div></div>
+          <div className="info-card"><Info size={18} /><div><p className="font-semibold text-white">Source-device rule</p><p className="mt-1 text-sm leading-6 text-slate-400">Sync now makes this device the protected source. Restoring on another device replaces its CLARA financial copy instead of merging stale records.</p></div></div>
         </div>
       </div>
 
