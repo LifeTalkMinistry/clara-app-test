@@ -9,12 +9,16 @@ import {
   runLocalFinanceTransaction,
 } from "./localFinanceStore";
 import { getBackendAccountId } from "./clara-account-identity";
-import { getClaraSyncDeviceId } from "./cloud-vault-snapshot";
+import {
+  buildClaraCloudVaultSnapshot,
+  getClaraSyncDeviceId,
+} from "./cloud-vault-snapshot";
 
 export const CLARA_SERVER_FINANCE_SYNC_EVENT = "clara:server-finance-sync-status";
 
 const SYNC_STATE_PREFIX = "clara_server_finance_sync_v1:";
 const SHADOW_PREFIX = "clara_server_finance_shadow_v1:";
+const LOCAL_STATE_ENTITY = "local_state";
 const MAX_SYNC_RECORDS = 5000;
 let activeSyncPromise = null;
 let applyingServerState = false;
@@ -33,6 +37,11 @@ function stateKey(accountId) {
 
 function shadowKey(accountId) {
   return `${SHADOW_PREFIX}${String(accountId || "").trim()}`;
+}
+
+function isServerSyncMetadataKey(key) {
+  const value = String(key || "");
+  return value.startsWith(SYNC_STATE_PREFIX) || value.startsWith(SHADOW_PREFIX);
 }
 
 function dispatchStatus(detail) {
@@ -86,9 +95,14 @@ function fingerprint(value) {
   return JSON.stringify(stableValue(value));
 }
 
-function sanitizePayload(record = {}) {
+function sanitizePayload(entityType, record = {}) {
+  if (entityType === LOCAL_STATE_ENTITY) {
+    return { value: record.value };
+  }
+
   const payload = { ...record };
   [
+    "id",
     "localUserId",
     "syncStatus",
     "serverVersion",
@@ -99,29 +113,56 @@ function sanitizePayload(record = {}) {
   return payload;
 }
 
-function shadowRecord(record) {
+function recordFingerprint(entityType, record) {
   return fingerprint({
-    payload: sanitizePayload(record),
+    payload: sanitizePayload(entityType, record),
     deletedAt: record?.deletedAt || null,
   });
 }
 
-function wireRecord(entityType, record = {}) {
+function shadowFingerprint(entry) {
+  return typeof entry === "string" ? entry : entry?.fingerprint || "";
+}
+
+function shadowVersion(entry) {
+  const version = Number(entry?.serverVersion || 0);
+  return Number.isInteger(version) && version > 0 ? version : null;
+}
+
+function wireRecord(entityType, record = {}, baseVersionOverride = undefined) {
+  const recordVersion = Number(record.serverVersion || 0);
+  const baseVersion =
+    baseVersionOverride !== undefined
+      ? baseVersionOverride
+      : Number.isInteger(recordVersion) && recordVersion > 0
+        ? recordVersion
+        : null;
+
   return {
     entityType,
     id: String(record.id || "").trim(),
-    payload: sanitizePayload(record),
+    payload: sanitizePayload(entityType, record),
     deletedAt: record.deletedAt || null,
     clientUpdatedAt:
-      record.updatedAt || record.updated_at || record.deletedAt || record.createdAt || null,
-    baseVersion:
-      Number.isInteger(Number(record.serverVersion)) && Number(record.serverVersion) > 0
-        ? Number(record.serverVersion)
-        : null,
+      entityType === LOCAL_STATE_ENTITY
+        ? new Date().toISOString()
+        : record.updatedAt || record.updated_at || record.deletedAt || record.createdAt || null,
+    baseVersion,
   };
 }
 
-async function readAllLocalRecords(localUserId) {
+async function readSafeLocalState(user) {
+  const snapshot = await buildClaraCloudVaultSnapshot({ user });
+  const state = snapshot?.data?.localStorage || {};
+  return Object.entries(state)
+    .filter(([key]) => !isServerSyncMetadataKey(key))
+    .map(([key, value]) => ({
+      entityType: LOCAL_STATE_ENTITY,
+      record: { id: key, value, deletedAt: null },
+    }));
+}
+
+async function readAllLocalRecords(localUserId, user) {
   const records = [];
   for (const entityType of LOCAL_FINANCE_PRIVATE_STORES) {
     const storeRecords = await getLocalRecordsByUser(entityType, {
@@ -132,9 +173,15 @@ async function readAllLocalRecords(localUserId) {
       if (!record?.id) continue;
       records.push({ entityType, record });
       if (records.length > MAX_SYNC_RECORDS) {
-        throw new Error("CLARA has too many local finance records to sync in one pass.");
+        throw new Error("CLARA has too many local records to sync in one pass.");
       }
     }
+  }
+
+  const localState = await readSafeLocalState(user);
+  records.push(...localState);
+  if (records.length > MAX_SYNC_RECORDS) {
+    throw new Error("CLARA has too many local records to sync in one pass.");
   }
   return records;
 }
@@ -171,9 +218,37 @@ function toLocalRecord(serverRecord, localUserId) {
   };
 }
 
-async function replaceLocalCacheFromServer(serverRecords, localUserId) {
+function toStorageValue(value) {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+async function replaceLocalStateFromServer(serverRecords, user) {
+  const targetStorage = storage();
+  if (!targetStorage) return;
+
+  const currentState = await readSafeLocalState(user);
+  currentState.forEach(({ record }) => {
+    if (record?.id && !isServerSyncMetadataKey(record.id)) {
+      targetStorage.removeItem(record.id);
+    }
+  });
+
+  (serverRecords || [])
+    .filter(
+      (record) =>
+        record?.entityType === LOCAL_STATE_ENTITY &&
+        record?.id &&
+        !record.deletedAt &&
+        !isServerSyncMetadataKey(record.id)
+    )
+    .forEach((record) => {
+      targetStorage.setItem(record.id, toStorageValue(record.payload?.value));
+    });
+}
+
+async function replaceLocalCacheFromServer(serverRecords, localUserId, user) {
   const allowedStores = new Set(LOCAL_FINANCE_PRIVATE_STORES);
-  const normalized = (serverRecords || []).filter(
+  const financeRecords = (serverRecords || []).filter(
     (record) => allowedStores.has(record?.entityType) && record?.id
   );
 
@@ -186,11 +261,12 @@ async function replaceLocalCacheFromServer(serverRecords, localUserId) {
         for (const storeName of LOCAL_FINANCE_PRIVATE_STORES) {
           await clearStoreForUser(store(storeName), localUserId);
         }
-        for (const record of normalized) {
+        for (const record of financeRecords) {
           await putRaw(record.entityType, toLocalRecord(record, localUserId));
         }
       }
     );
+    await replaceLocalStateFromServer(serverRecords, user);
   } finally {
     applyingServerState = false;
   }
@@ -200,23 +276,38 @@ async function replaceLocalCacheFromServer(serverRecords, localUserId) {
       "clara-finance-updated",
       "clara:finance-data-updated",
       "clara-local-finance-updated",
+      "clara-local-profile-updated",
     ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
   }
+}
+
+function serverRecordFingerprint(serverRecord, localUserId) {
+  if (serverRecord.entityType === LOCAL_STATE_ENTITY) {
+    return recordFingerprint(LOCAL_STATE_ENTITY, {
+      id: serverRecord.id,
+      value: serverRecord.payload?.value,
+      deletedAt: serverRecord.deletedAt || null,
+    });
+  }
+  return recordFingerprint(serverRecord.entityType, toLocalRecord(serverRecord, localUserId));
 }
 
 function buildShadowFromServer(serverRecords, localUserId) {
   const shadow = {};
   (serverRecords || []).forEach((serverRecord) => {
     if (!serverRecord?.entityType || !serverRecord?.id) return;
-    const localRecord = toLocalRecord(serverRecord, localUserId);
-    shadow[`${serverRecord.entityType}:${serverRecord.id}`] = shadowRecord(localRecord);
+    shadow[`${serverRecord.entityType}:${serverRecord.id}`] = {
+      fingerprint: serverRecordFingerprint(serverRecord, localUserId),
+      serverVersion: Number(serverRecord.serverVersion || 0) || null,
+      deletedAt: serverRecord.deletedAt || null,
+    };
   });
   return shadow;
 }
 
-async function applyServerResponse(accountId, localUserId, response) {
+async function applyServerResponse(accountId, localUserId, user, response) {
   const records = Array.isArray(response?.records) ? response.records : [];
-  await replaceLocalCacheFromServer(records, localUserId);
+  await replaceLocalCacheFromServer(records, localUserId, user);
   writeJson(shadowKey(accountId), buildShadowFromServer(records, localUserId));
   saveSyncState(accountId, {
     initializedLocally: Boolean(response?.initialized),
@@ -242,9 +333,9 @@ export async function fetchServerFinanceStatus(user) {
 
 export async function bootstrapServerFinanceFromThisDevice({ user } = {}) {
   const { accountId, localUserId, token } = requireAccount(user);
-  const localRecords = await readAllLocalRecords(localUserId);
+  const localRecords = await readAllLocalRecords(localUserId, user);
   const records = localRecords.map(({ entityType, record }) => {
-    const wire = wireRecord(entityType, record);
+    const wire = wireRecord(entityType, record, null);
     delete wire.baseVersion;
     return wire;
   });
@@ -260,7 +351,7 @@ export async function bootstrapServerFinanceFromThisDevice({ user } = {}) {
         records,
       },
     });
-    await applyServerResponse(accountId, localUserId, response);
+    await applyServerResponse(accountId, localUserId, user, response);
     const result = { ...response, state: "synced", direction: "device_to_server" };
     dispatchStatus({ accountId, ...result });
     return result;
@@ -274,6 +365,15 @@ export async function bootstrapServerFinanceFromThisDevice({ user } = {}) {
   }
 }
 
+function parseShadowKey(key) {
+  const separator = String(key || "").indexOf(":");
+  if (separator < 1) return null;
+  return {
+    entityType: key.slice(0, separator),
+    id: key.slice(separator + 1),
+  };
+}
+
 async function performServerFinanceSync({ user, forcePull = false } = {}) {
   const { accountId, localUserId, token } = requireAccount(user);
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -282,16 +382,37 @@ async function performServerFinanceSync({ user, forcePull = false } = {}) {
 
   const localState = readSyncState(accountId);
   const shadow = readShadow(accountId);
-  const localRecords = await readAllLocalRecords(localUserId);
+  const localRecords = await readAllLocalRecords(localUserId, user);
   const firstServerPull = !localState.initializedLocally;
   const changes = [];
 
   if (!firstServerPull && !forcePull) {
+    const currentKeys = new Set();
     for (const { entityType, record } of localRecords) {
       const key = `${entityType}:${record.id}`;
-      if (shadow[key] !== shadowRecord(record)) {
-        changes.push(wireRecord(entityType, record));
+      currentKeys.add(key);
+      const shadowEntry = shadow[key];
+      if (shadowFingerprint(shadowEntry) !== recordFingerprint(entityType, record)) {
+        const baseVersion =
+          Number(record.serverVersion || 0) > 0
+            ? Number(record.serverVersion)
+            : shadowVersion(shadowEntry);
+        changes.push(wireRecord(entityType, record, baseVersion));
       }
+    }
+
+    for (const [key, shadowEntry] of Object.entries(shadow)) {
+      if (currentKeys.has(key) || shadowEntry?.deletedAt) continue;
+      const parsed = parseShadowKey(key);
+      if (!parsed?.entityType || !parsed.id) continue;
+      changes.push({
+        entityType: parsed.entityType,
+        id: parsed.id,
+        payload: {},
+        deletedAt: new Date().toISOString(),
+        clientUpdatedAt: new Date().toISOString(),
+        baseVersion: shadowVersion(shadowEntry),
+      });
     }
   }
 
@@ -319,7 +440,7 @@ async function performServerFinanceSync({ user, forcePull = false } = {}) {
       return result;
     }
 
-    await applyServerResponse(accountId, localUserId, response);
+    await applyServerResponse(accountId, localUserId, user, response);
     const result = {
       ...response,
       accountId,
