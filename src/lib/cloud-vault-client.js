@@ -24,6 +24,7 @@ async function cloudVaultRequest(path, options = {}) {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true",
         ...(options.body ? { "Content-Type": "application/json" } : {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
