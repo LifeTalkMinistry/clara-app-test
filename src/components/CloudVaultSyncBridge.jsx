@@ -2,6 +2,10 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getBackendAccountId } from "@/lib/clara-account-identity";
 import {
+  clearClaraCloudRecoveryPending,
+  isClaraCloudRecoveryPending,
+} from "@/lib/accountLinking/resolveAccountLocalVault";
+import {
   CLARA_STORAGE_MODE_EVENT,
   CLARA_STORAGE_MODES,
   getClaraStorageMode,
@@ -33,35 +37,55 @@ export default function CloudVaultSyncBridge() {
   useEffect(() => {
     if (!authReady || !accountId) return undefined;
 
-    const scheduleSync = ({ immediate = false, force = false } = {}) => {
+    const scheduleSync = ({
+      immediate = false,
+      force = false,
+      preferRemote = false,
+    } = {}) => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
       const delay = immediate ? 0 : 2_500;
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
         const context = contextRef.current;
+        const activeAccountId = getBackendAccountId(context.user);
         if (
-          getClaraStorageMode(getBackendAccountId(context.user)) !==
-            CLARA_STORAGE_MODES.ONLINE_SYNC &&
+          getClaraStorageMode(activeAccountId) !== CLARA_STORAGE_MODES.ONLINE_SYNC &&
           !force
         ) {
           return;
         }
-        syncClaraCloudVault({ ...context, force }).catch(() => {
-          // The Settings screen receives the detailed sync error event.
-        });
+        syncClaraCloudVault({ ...context, force, preferRemote })
+          .then((result) => {
+            if (preferRemote && result && !result.suppressed) {
+              clearClaraCloudRecoveryPending(activeAccountId);
+            }
+          })
+          .catch(() => {
+            // The Settings screen receives the detailed sync error event.
+          });
       }, delay);
     };
 
+    const recoveryPending = () => isClaraCloudRecoveryPending(accountId);
     const handleDataChange = () => scheduleSync();
     const handleStorageModeChange = (event) => {
       if (
         String(event?.detail?.accountId || "") === accountId &&
         event?.detail?.mode === CLARA_STORAGE_MODES.ONLINE_SYNC
       ) {
-        scheduleSync({ immediate: true, force: true });
+        scheduleSync({
+          immediate: true,
+          force: true,
+          preferRemote: recoveryPending(),
+        });
       }
     };
-    const handleOnline = () => scheduleSync({ immediate: true, force: true });
+    const handleOnline = () =>
+      scheduleSync({
+        immediate: true,
+        force: true,
+        preferRemote: recoveryPending(),
+      });
 
     SYNC_EVENTS.forEach((eventName) =>
       window.addEventListener(eventName, handleDataChange)
@@ -69,7 +93,11 @@ export default function CloudVaultSyncBridge() {
     window.addEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageModeChange);
     window.addEventListener("online", handleOnline);
 
-    scheduleSync({ immediate: true, force: true });
+    scheduleSync({
+      immediate: true,
+      force: true,
+      preferRemote: recoveryPending(),
+    });
 
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
