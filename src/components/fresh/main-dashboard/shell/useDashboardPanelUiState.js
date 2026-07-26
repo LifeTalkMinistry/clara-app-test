@@ -14,8 +14,6 @@ export default function useDashboardPanelUiState({
   feedHasHighlight,
   loading,
   hasVisibleFinanceData,
-  financeDataLoading,
-  financeDataRefreshing,
   plan = null,
 }) {
   const {
@@ -95,10 +93,11 @@ export default function useDashboardPanelUiState({
 
   const shouldShowBlockingDashboardLoader =
     loading && !hasVisibleFinanceData;
-  const shouldShowNonBlockingRefresh = Boolean(
-    financeDataRefreshing ||
-      (financeDataLoading && hasVisibleFinanceData)
-  );
+
+  // Once CLARA already has usable data on screen, server refreshes/syncs should
+  // stay invisible. The existing UI remains mounted while the background refresh
+  // quietly updates it. Only the true first-load/no-data state may block the UI.
+  const shouldShowNonBlockingRefresh = false;
 
   const committedBadge = {
     type: "pill",
