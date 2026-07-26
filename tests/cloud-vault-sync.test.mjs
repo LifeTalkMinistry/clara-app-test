@@ -66,7 +66,7 @@ test("server finance sync uses the backend database as authority and local data 
   assert.match(syncSource, /\/api\/finance\/bootstrap/);
   assert.match(syncSource, /\/api\/finance\/sync/);
   assert.match(syncSource, /firstServerPull/);
-  assert.match(syncSource, /changes: \[\]/);
+  assert.match(syncSource, /const changes = \[\]/);
   assert.match(syncSource, /replaceLocalCacheFromServer/);
   assert.match(syncSource, /initializedLocally/);
   assert.match(bridgeSource, /syncServerFinance/);
