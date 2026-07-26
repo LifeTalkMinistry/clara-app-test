@@ -6,22 +6,72 @@
   line-height: 1.15 !important;
 }
 
-/* Narrow Android/PWA viewports have enough vertical room after the compact
-   carousel fix, so prefer readable two-line copy instead of cutting words. */
+/* Compact Android/PWA layout.
+   Keep the status badge on the title row, but let the subtitle use the full
+   content width underneath it instead of being squeezed by the badge. */
 @media (max-width: 390px) and (max-height: 820px) {
-  [data-finance-card="emergencyFund"] [class*="flex items-start justify-between"] p[class*="text-[11px]"] {
-    max-width: 10.5rem !important;
-    overflow: visible !important;
-    white-space: normal !important;
-    text-overflow: clip !important;
-    line-height: 1.2 !important;
+  [data-finance-card="emergencyFund"]
+    [class~="flex"][class~="items-start"][class~="justify-between"][class~="gap-2"]:has(> div[class~="min-w-0"] > p[class~="text-base"]) {
+    position: relative !important;
+    display: block !important;
+    min-width: 0 !important;
   }
 
+  [data-finance-card="emergencyFund"]
+    [class~="flex"][class~="items-start"][class~="justify-between"][class~="gap-2"]:has(> div[class~="min-w-0"] > p[class~="text-base"])
+    > div[class~="min-w-0"] {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-finance-card="emergencyFund"]
+    [class~="flex"][class~="items-start"][class~="justify-between"][class~="gap-2"]:has(> div[class~="min-w-0"] > p[class~="text-base"])
+    > div[class~="min-w-0"]
+    > p[class~="text-base"] {
+    padding-right: 7.4rem !important;
+  }
+
+  [data-finance-card="emergencyFund"]
+    [class~="flex"][class~="items-start"][class~="justify-between"][class~="gap-2"]:has(> div[class~="min-w-0"] > p[class~="text-base"])
+    > div[class~="min-w-0"]
+    > p[class*="text-[11px]"] {
+    max-width: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+    font-size: 10px !important;
+    line-height: 1.15 !important;
+  }
+
+  [data-finance-card="emergencyFund"]
+    [class~="flex"][class~="items-start"][class~="justify-between"][class~="gap-2"]:has(> div[class~="min-w-0"] > p[class~="text-base"])
+    > span {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    max-width: 7rem !important;
+    padding-left: 0.55rem !important;
+    padding-right: 0.55rem !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+  }
+
+  /* The third metric is the only value that can be phrase-length. Keep it
+     readable without forcing the whole metric strip taller than necessary. */
   [data-finance-card="emergencyFund"] .grid.grid-cols-3 > div:nth-child(3) > p:first-child {
     overflow: visible !important;
     white-space: normal !important;
     text-overflow: clip !important;
-    font-size: 11px !important;
+    font-size: 10px !important;
     line-height: 1.05 !important;
+    min-height: 2.1em !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  [data-finance-card="emergencyFund"] p[class*="text-[32px]"] {
+    font-size: 30px !important;
   }
 }
