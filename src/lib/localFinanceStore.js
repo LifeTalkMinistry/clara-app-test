@@ -569,6 +569,22 @@ export async function hardDeleteLocalRecord(storeName, id, localUserId) {
   return true;
 }
 
+export async function clearLocalUserPrivateData(localUserId) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(LOCAL_FINANCE_PRIVATE_STORES, "readwrite");
+
+  await Promise.all(
+    LOCAL_FINANCE_PRIVATE_STORES.map((storeName) => {
+      const store = transaction.objectStore(storeName);
+      return deleteRecordsForLocalUser(store, safeLocalUserId);
+    })
+  );
+
+  await transactionToPromise(transaction);
+  return true;
+}
+
 export async function clearLocalUserVault(localUserId) {
   const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
