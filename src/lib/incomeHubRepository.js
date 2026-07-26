@@ -2,7 +2,7 @@ import {
   LOCAL_FINANCE_STORES,
   getLocalRecords,
   upsertLocalRecord,
-  hardDeleteLocalRecord,
+  softDeleteLocalRecord,
 } from "./localFinanceStore.js";
 import {
   ACTIVE_CURRENT_STATE_KEY,
@@ -245,7 +245,7 @@ export async function deleteIncomeSource(localUserId, id) {
     return archiveIncomeSource(localUserId, id);
   }
 
-  const deletedSource = await hardDeleteLocalRecord(STORE_NAME, id, localUserId);
+  const deletedSource = await softDeleteLocalRecord(STORE_NAME, id, localUserId);
   emitIncomeHubUpdated();
   return deletedSource;
 }
