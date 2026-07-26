@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+const OFFLINE_NOTICE_MESSAGE = "You’re offline. CLARA is using saved data.";
+
 export default function useDashboardOnlineStatusNotice({
   setFinanceNotice,
   loadDashboardData,
@@ -9,16 +11,18 @@ export default function useDashboardOnlineStatusNotice({
 
     const handleOffline = () => {
       setFinanceNotice({
-        message: "You’re offline. CLARA is using saved data.",
+        message: OFFLINE_NOTICE_MESSAGE,
         type: "success",
       });
     };
 
     const handleOnline = () => {
-      setFinanceNotice({
-        message: "You’re back online. CLARA is syncing saved data.",
-        type: "success",
-      });
+      // Reconnection sync is intentionally silent. Clear only the notice that
+      // this hook created while offline, then let the dashboard refresh in the
+      // background without exposing a syncing/loading state to the user.
+      setFinanceNotice((currentNotice) =>
+        currentNotice?.message === OFFLINE_NOTICE_MESSAGE ? null : currentNotice
+      );
       loadDashboardData({ background: true });
     };
 
