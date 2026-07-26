@@ -67,3 +67,13 @@ test("cloud sync implementation has revision recovery and cross-device vault rew
   assert.match(snapshotSource, /localUserId: target/);
   assert.match(snapshotSource, /restoreClaraLocalDataFromFile/);
 });
+
+test("cloud vault requests bypass the ngrok browser interstitial", async () => {
+  const clientSource = await fs.readFile(
+    new URL("../src/lib/cloud-vault-client.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(clientSource, /ngrok-skip-browser-warning/);
+  assert.match(clientSource, /Authorization: `Bearer \$\{token\}`/);
+});
