@@ -117,7 +117,7 @@ async function uploadWithConflictRecovery({ user, profile, snapshot, baseRevisio
     const merged = mergeClaraCloudSnapshots(latestLocal, latestRemoteForLocal);
 
     suppressSyncEventsUntil = Date.now() + 3_000;
-    await restoreClaraCloudSnapshot(merged, { user });
+    await restoreClaraCloudSnapshot(merged, { user, replaceExisting: true });
 
     return uploadCloudVaultSnapshot({
       snapshot: merged,
@@ -127,7 +127,61 @@ async function uploadWithConflictRecovery({ user, profile, snapshot, baseRevisio
   }
 }
 
-async function performSync({ user, profile, preferRemote = false } = {}) {
+async function uploadAuthoritativeWithConflictRecovery({ user, snapshot, baseRevision }) {
+  try {
+    return await uploadCloudVaultSnapshot({
+      snapshot,
+      baseRevision,
+      deviceId: getClaraSyncDeviceId(),
+    });
+  } catch (error) {
+    if (error?.code !== "CLOUD_VAULT_REVISION_CONFLICT") throw error;
+
+    const latestRemote = normalizeAuthenticatedRemote(
+      await fetchCloudVaultStatus({ includeSnapshot: true }),
+      user
+    );
+
+    return uploadCloudVaultSnapshot({
+      snapshot,
+      baseRevision: Number(latestRemote?.revision || 0),
+      deviceId: getClaraSyncDeviceId(),
+    });
+  }
+}
+
+async function restoreRemoteAsSource({ remote, localSnapshot, user, accountId }) {
+  if (!remote?.snapshot) {
+    throw new Error("There is no protected Online Sync copy to restore.");
+  }
+
+  const remoteSnapshotForLocal = rebaseSnapshotVault(
+    remote.snapshot,
+    localSnapshot.source_vault_id
+  );
+
+  suppressSyncEventsUntil = Date.now() + 3_000;
+  await restoreClaraCloudSnapshot(remoteSnapshotForLocal, {
+    user,
+    replaceExisting: true,
+  });
+
+  const result = {
+    ...remote,
+    state: "synced",
+    direction: "downloaded",
+    sourceDeviceId: remote.sourceDeviceId || remote.snapshot?.source_device_id || null,
+  };
+  dispatchSyncStatus({ accountId, ...result });
+  return result;
+}
+
+async function performSync({
+  user,
+  profile,
+  preferRemote = false,
+  authoritativeLocal = false,
+} = {}) {
   const accountId = getBackendAccountId(user);
   if (!accountId) return { storageMode: CLARA_STORAGE_MODES.LOCAL_ONLY };
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -150,15 +204,44 @@ async function performSync({ user, profile, preferRemote = false } = {}) {
   const localSnapshot = await buildClaraCloudVaultSnapshot({ user, profile });
 
   if (!remote.snapshot) {
-    const uploaded = await uploadWithConflictRecovery({
+    const uploaded = authoritativeLocal
+      ? await uploadAuthoritativeWithConflictRecovery({
+          user,
+          snapshot: localSnapshot,
+          baseRevision: Number(remote.revision || 0),
+        })
+      : await uploadWithConflictRecovery({
+          user,
+          profile,
+          snapshot: localSnapshot,
+          baseRevision: Number(remote.revision || 0),
+        });
+    const result = {
+      ...uploaded,
+      state: "synced",
+      direction: authoritativeLocal ? "uploaded_authoritative" : "uploaded",
+    };
+    dispatchSyncStatus({ accountId, ...result });
+    return result;
+  }
+
+  if (authoritativeLocal) {
+    const uploaded = await uploadAuthoritativeWithConflictRecovery({
       user,
-      profile,
       snapshot: localSnapshot,
       baseRevision: Number(remote.revision || 0),
     });
-    const result = { ...uploaded, state: "synced", direction: "uploaded" };
+    const result = {
+      ...uploaded,
+      state: "synced",
+      direction: "uploaded_authoritative",
+    };
     dispatchSyncStatus({ accountId, ...result });
     return result;
+  }
+
+  if (preferRemote) {
+    return restoreRemoteAsSource({ remote, localSnapshot, user, accountId });
   }
 
   const remoteSnapshotForLocal = rebaseSnapshotVault(
@@ -166,18 +249,16 @@ async function performSync({ user, profile, preferRemote = false } = {}) {
     localSnapshot.source_vault_id
   );
 
-  if (cloudSnapshotsMatch(localSnapshot, remoteSnapshotForLocal) && !preferRemote) {
+  if (cloudSnapshotsMatch(localSnapshot, remoteSnapshotForLocal)) {
     const result = { ...remote, state: "synced", direction: "unchanged" };
     dispatchSyncStatus({ accountId, ...result });
     return result;
   }
 
-  const merged = preferRemote
-    ? mergeClaraCloudSnapshots(localSnapshot, remoteSnapshotForLocal)
-    : mergeClaraCloudSnapshots(remoteSnapshotForLocal, localSnapshot);
+  const merged = mergeClaraCloudSnapshots(remoteSnapshotForLocal, localSnapshot);
 
   suppressSyncEventsUntil = Date.now() + 3_000;
-  await restoreClaraCloudSnapshot(merged, { user });
+  await restoreClaraCloudSnapshot(merged, { user, replaceExisting: true });
   const uploaded = await uploadWithConflictRecovery({
     user,
     profile,
@@ -210,6 +291,15 @@ export function syncClaraCloudVault(context = {}) {
     });
 
   return activeSyncPromise;
+}
+
+export async function restoreClaraCloudVaultFromServer({ user, profile } = {}) {
+  return syncClaraCloudVault({
+    user,
+    profile,
+    force: true,
+    preferRemote: true,
+  });
 }
 
 export async function enableClaraOnlineSync({ user, profile } = {}) {
