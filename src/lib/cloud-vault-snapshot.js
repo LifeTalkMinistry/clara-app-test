@@ -4,6 +4,7 @@ import {
   buildClaraLocalDataExport,
   restoreClaraLocalDataFromFile,
 } from "./local-data-export";
+import { clearLocalUserPrivateData } from "./localFinanceStore";
 import { getActiveLocalVaultId } from "./localVaultIdentity";
 
 export const CLOUD_VAULT_SNAPSHOT_VERSION = 2;
@@ -13,11 +14,14 @@ const DEVICE_ID_KEY = "clara_sync_device_id_v1";
 const FORBIDDEN_STORAGE_KEYS = new Set([
   "clara_backend_access_token_v1",
   "clara_backend_user_v1",
+  "clara_backend_user_verified_at_v1",
   "clara_local_vault_id_v1",
   "clara_active_local_vault_v1",
+  DEVICE_ID_KEY,
   ACCOUNT_VAULT_DIRECTORY_KEY,
 ]);
 const SECRET_KEY_PATTERN = /(access[_-]?token|refresh[_-]?token|password|jwt|auth[_-]?session|admin[_-]?session)/i;
+const CLOUD_RESTORE_CLEAR_PATTERN = /^(clara_(?!backend_|local_vault_id_v1$|active_local_vault_v1$|account_vault_directory_v1$|sync_device_id_v1$)|life_profile|ai_financial_memory|money|wallet|budget|expense|transaction|savings|emergency|finance|daily_tip|guide|onboarding|learning_hub|game_progress)/i;
 
 const text = (value) => String(value ?? "").trim();
 
@@ -42,6 +46,16 @@ function getDirectoryMappings(localStorageData = {}) {
   const directory = localStorageData?.[ACCOUNT_VAULT_DIRECTORY_KEY];
   if (!directory || typeof directory !== "object") return [];
   return Object.values(directory.accounts || {}).filter(Boolean);
+}
+
+function readDirectoryMappingsFromStorage(storage = globalThis?.localStorage) {
+  try {
+    const raw = storage?.getItem(ACCOUNT_VAULT_DIRECTORY_KEY);
+    if (!raw) return [];
+    return getDirectoryMappings({ [ACCOUNT_VAULT_DIRECTORY_KEY]: JSON.parse(raw) });
+  } catch {
+    return [];
+  }
 }
 
 function storageKeyBelongsToAnotherAccount(key, mappings, accountId, sourceVaultId) {
@@ -354,13 +368,44 @@ export function prepareCloudSnapshotForRestore(snapshot, { accountId, targetVaul
   };
 }
 
-export async function restoreClaraCloudSnapshot(snapshot, { user } = {}) {
+function clearCloudRestoreStorage(storage, { accountId, targetVaultId } = {}) {
+  if (!storage) return;
+  const mappings = readDirectoryMappingsFromStorage(globalThis?.localStorage);
+  const keys = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key) keys.push(key);
+  }
+
+  keys.forEach((key) => {
+    if (
+      FORBIDDEN_STORAGE_KEYS.has(key) ||
+      SECRET_KEY_PATTERN.test(key) ||
+      !CLOUD_RESTORE_CLEAR_PATTERN.test(key)
+    ) {
+      return;
+    }
+    if (storageKeyBelongsToAnotherAccount(key, mappings, accountId, targetVaultId)) {
+      return;
+    }
+    storage.removeItem(key);
+  });
+}
+
+export async function restoreClaraCloudSnapshot(snapshot, { user, replaceExisting = true } = {}) {
   const accountId = text(getBackendAccountId(user));
   const targetVaultId = text(getActiveLocalVaultId());
   const prepared = prepareCloudSnapshotForRestore(snapshot, {
     accountId,
     targetVaultId,
   });
+
+  if (replaceExisting) {
+    clearCloudRestoreStorage(globalThis?.localStorage, { accountId, targetVaultId });
+    clearCloudRestoreStorage(globalThis?.sessionStorage, { accountId, targetVaultId });
+    await clearLocalUserPrivateData(targetVaultId);
+  }
+
   const fileLike = { text: async () => JSON.stringify(prepared) };
   return restoreClaraLocalDataFromFile(fileLike);
 }
@@ -410,5 +455,5 @@ export async function restoreClaraPrivateBackupFile(file, { user } = {}) {
   } catch {
     throw new Error("This CLARA backup file is not valid JSON.");
   }
-  return restoreClaraCloudSnapshot(snapshot, { user });
+  return restoreClaraCloudSnapshot(snapshot, { user, replaceExisting: true });
 }
