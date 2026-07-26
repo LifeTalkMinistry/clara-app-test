@@ -119,15 +119,18 @@ test("login and AuthContext use the custom backend instead of Supabase auth", ()
   assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
-test("storage page exposes Online Sync, Local Only, private download, restore, confirmation, and reload", () => {
-  assert.match(dataExportSource, /Online Sync/);
-  assert.match(dataExportSource, /Local Only/);
-  assert.match(dataExportSource, /Download private backup/);
-  assert.match(dataExportSource, /Restore private backup/);
-  assert.match(dataExportSource, /accept="application\/json,\.json"/);
-  assert.match(dataExportSource, /Switch to Local Only\?/);
+test("storage page exposes server-authoritative account data, offline cache behavior, and emergency backup", () => {
+  assert.match(dataExportSource, /CLARA Account Database/);
+  assert.match(dataExportSource, /PostgreSQL account data is the permanent source of truth/);
+  assert.match(dataExportSource, /Use this device to initialize account data/);
+  assert.match(dataExportSource, /Sync pending offline changes now/);
+  assert.match(dataExportSource, /Refresh this device from account database/);
+  assert.match(dataExportSource, /Offline changes remain local until connection returns/);
+  assert.match(dataExportSource, /Download emergency backup/);
   assert.match(dataExportSource, /restoreClaraPrivateBackupFile/);
+  assert.match(dataExportSource, /accept="application\/json,\.json"/);
   assert.match(dataExportSource, /window\.location\.reload\(\)/);
+  assert.doesNotMatch(dataExportSource, /Switch to Local Only\?/);
 });
 
 test("router preserves /data-export and retires the legacy account-based Settings surface", () => {
