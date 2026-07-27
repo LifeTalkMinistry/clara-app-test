@@ -80,6 +80,19 @@
     min-height: 100% !important;
   }
 
+  /* Budget's collapsed summary is a little shorter than the shared slide.
+     Use that spare space above the CTA instead of letting the CTA sit against
+     the card's lower edge / Money Left rail. This changes only the compact
+     collapsed Budget slide and preserves the one-screen dashboard fit. */
+  .theme-page-shell
+    .clara-finance-slide-shell[data-card-key="budget"][data-expanded="false"]
+    [data-finance-card="budget"][data-expanded="false"]
+    > div.relative.z-10
+    > div.relative.flex
+    > div:last-child {
+    transform: translateY(-10px) !important;
+  }
+
   .theme-page-shell .clara-dashboard-content {
     padding-bottom: max(
       6px,
