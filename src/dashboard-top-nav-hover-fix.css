@@ -1,0 +1,22 @@
+/* CLARA top-nav hover state
+   Only the selected/guide-target tab may use the large active tile treatment.
+   Inactive desktop hover keeps feedback on the icon instead of painting a
+   second full-size tab that can be mistaken for another selected page.
+*/
+
+@media (hover: hover) and (pointer: fine) {
+  #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) > .pointer-events-none.absolute.inset-0 {
+    opacity: 0 !important;
+  }
+
+  #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) > span {
+    color: rgba(255, 255, 255, 0.88) !important;
+  }
+}
