@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/clara-api/:path*",
-      "destination": "https://trek-interview-wool-videos.trycloudflare.com/:path*"
+      "destination": "https://silver-calendar-decision-monica.trycloudflare.com/:path*"
     }
   ]
 }
