@@ -43,14 +43,16 @@ async function clearIndexedDatabaseContents(name) {
         if (!openedExistingDatabase || storeNames.length === 0) return;
 
         const transaction = db.transaction(storeNames, "readwrite");
-        await Promise.all(
-          storeNames.map((storeName) => requestToPromise(transaction.objectStore(storeName).clear()))
-        );
-        await new Promise((done) => {
+        const transactionDone = new Promise((done) => {
           transaction.oncomplete = () => done();
           transaction.onerror = () => done();
           transaction.onabort = () => done();
         });
+
+        await Promise.all(
+          storeNames.map((storeName) => requestToPromise(transaction.objectStore(storeName).clear()))
+        );
+        await transactionDone;
       } catch (error) {
         console.warn(`[CLARA Device Reset] Could not clear IndexedDB database ${name}.`, error);
       } finally {
