@@ -1,5 +1,5 @@
 const CLARA_VISUAL_PERFORMANCE_STYLE_ID = "clara-visual-performance-mode-style";
-const CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED = true;
+const CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED = false;
 const dashboardRuntimePerformanceMode = new Map();
 
 const dispatchClaraVisualPerformanceEvent = (eventName, detail = {}) => {
@@ -251,35 +251,64 @@ export const ensureClaraVisualPerformanceStyles = () => {
   document.head.appendChild(style);
 };
 
-export const applyVisualPerformanceMode = () => {
-  if (typeof document === "undefined") return;
+const parseStoredPerformanceMode = (value) =>
+  value === "1" || String(value || "").toLowerCase() === "true";
+
+export const applyVisualPerformanceMode = (enabled = CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED) => {
+  if (typeof document === "undefined") return Boolean(enabled);
 
   ensureClaraVisualPerformanceStyles();
 
-  document.documentElement.classList.add("clara-performance-mode");
-  document.documentElement.classList.remove("clara-premium-mode");
-  document.body?.classList?.add("clara-performance-mode");
-  document.body?.classList?.remove("clara-premium-mode");
-  document.documentElement.dataset.claraVisualMode = "performance";
-  if (document.body) {
-    document.body.dataset.claraVisualMode = "performance";
-  }
+  const performanceEnabled = enabled === true;
+  const visualMode = performanceEnabled ? "performance" : "premium";
+  const roots = [document.documentElement, document.body].filter(Boolean);
+
+  roots.forEach((root) => {
+    root.classList.toggle("clara-performance-mode", performanceEnabled);
+    root.classList.toggle("clara-premium-mode", !performanceEnabled);
+    root.dataset.claraVisualMode = visualMode;
+  });
+
+  return performanceEnabled;
 };
 
 export const readStoredPerformanceMode = (userId) => {
   const storageKey = getVisualPerformanceStorageKey(userId);
-  dashboardRuntimePerformanceMode.set(storageKey, CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED);
-  return CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED;
+
+  if (typeof window !== "undefined") {
+    try {
+      const storedValue = window.localStorage?.getItem(storageKey);
+      if (storedValue !== null && storedValue !== undefined) {
+        const enabled = parseStoredPerformanceMode(storedValue);
+        dashboardRuntimePerformanceMode.set(storageKey, enabled);
+        return enabled;
+      }
+    } catch {
+      // Fall back to the in-memory value below.
+    }
+  }
+
+  return dashboardRuntimePerformanceMode.get(storageKey) === true;
 };
 
-export const saveVisualPerformanceMode = (userId) => {
+export const saveVisualPerformanceMode = (userId, enabled = false) => {
   const storageKey = getVisualPerformanceStorageKey(userId);
-  dashboardRuntimePerformanceMode.set(storageKey, CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED);
-  applyVisualPerformanceMode();
+  const nextEnabled = enabled === true;
+  dashboardRuntimePerformanceMode.set(storageKey, nextEnabled);
+
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage?.setItem(storageKey, nextEnabled ? "1" : "0");
+    } catch {
+      // The in-memory preference still keeps the current session consistent.
+    }
+  }
+
+  applyVisualPerformanceMode(nextEnabled);
   dispatchClaraVisualPerformanceEvent("clara:visual-performance-mode-updated", {
-    enabled: CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED,
-    visualMode: "performance",
+    enabled: nextEnabled,
+    visualMode: nextEnabled ? "performance" : "premium",
     userId: userId || null,
   });
-  return CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED;
+  return nextEnabled;
 };
