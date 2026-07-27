@@ -119,53 +119,25 @@ test("login and AuthContext use the custom backend instead of Supabase auth", ()
   assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
-test("Backup & Transfer owns one account-sync action plus emergency backup", () => {
-  assert.match(dataExportSource, /Backup & Transfer/);
-  assert.match(dataExportSource, /Online account data/);
-  assert.match(dataExportSource, /Use this device to initialize account data/);
-  assert.match(dataExportSource, /Sync online data/);
+test("Move & Restore Data owns one simple manual action plus backup", () => {
+  assert.match(dataExportSource, /Move & Restore Data/);
+  assert.match(dataExportSource, /Your saved CLARA data/);
+  assert.match(dataExportSource, /Save this device's data/);
+  assert.match(dataExportSource, /Bring saved data to this device/);
   assert.match(dataExportSource, /Sync now/);
-  assert.doesNotMatch(dataExportSource, /Sync pending offline changes now/);
-  assert.doesNotMatch(dataExportSource, /Refresh this device from account database/);
-  assert.match(dataExportSource, /Offline changes stay on this device until connection returns/);
-  assert.match(dataExportSource, /Download emergency backup/);
+  assert.match(dataExportSource, /Download backup/);
+  assert.match(dataExportSource, /Restore from backup/);
   assert.match(dataExportSource, /restoreClaraPrivateBackupFile/);
   assert.match(dataExportSource, /accept="application\/json,\.json"/);
   assert.match(dataExportSource, /window\.location\.reload\(\)/);
-  assert.doesNotMatch(dataExportSource, /Switch to Local Only\?/);
+  assert.doesNotMatch(dataExportSource, /Revision \{/);
+  assert.doesNotMatch(dataExportSource, /One account database across devices/);
+  assert.doesNotMatch(dataExportSource, /source of truth/i);
+  assert.doesNotMatch(dataExportSource, /database initialization/i);
 });
 
 test("router preserves /data-export and retires the legacy account-based Settings surface", () => {
   assert.match(appSource, /path="\/data-export"\s+element=\{<DataExport \/>\}/);
-  assert.match(
-    appSource,
-    /path="\/settings"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
-  );
-  assert.match(
-    appSource,
-    /path="\/settings\/:section"\s+element=\{<Navigate to="\/dashboard" replace \/>\}/
-  );
-  assert.doesNotMatch(appSource, /<Settings \/>/);
-});
-
-test("obsolete DOM Settings patch is no longer initialized", () => {
-  assert.doesNotMatch(localVaultIdentityStartup, /installLocalVaultSettingsExperience/);
-  assert.equal(
-    existsSync(
-      new URL(
-        "../src/runtime/installLocalVaultSettingsExperience.js",
-        import.meta.url
-      )
-    ),
-    false
-  );
-});
-
-test("data export page does not expose the global top padding accent", () => {
-  assert.match(layoutSource, /isDataExportPage = location\.pathname === "\/data-export"/);
-  assert.match(layoutSource, /clara-data-export-layout/);
-  assert.match(
-    layoutSource,
-    /\.clara-data-export-layout main \{ padding-top: 0 !important; \}/
-  );
+  assert.doesNotMatch(layoutSource, /Account & data/);
+  assert.doesNotMatch(localVaultIdentityStartup, /Protect & link my data/);
 });
