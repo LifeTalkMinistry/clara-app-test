@@ -17,6 +17,51 @@
       })();
     </script>
 
+    <!-- Hotfix for the legacy bundle: opening Settings must not force global Performance Mode. -->
+    <script>
+      (() => {
+        if (window.__claraPremiumVisualGuardInstalled) return;
+        window.__claraPremiumVisualGuardInstalled = true;
+
+        const enforcePremiumVisuals = () => {
+          const roots = [document.documentElement, document.body].filter(Boolean);
+          for (const root of roots) {
+            if (root.classList.contains("clara-performance-mode")) {
+              root.classList.remove("clara-performance-mode");
+            }
+            if (!root.classList.contains("clara-premium-mode")) {
+              root.classList.add("clara-premium-mode");
+            }
+            if (root.dataset.claraVisualMode !== "premium") {
+              root.dataset.claraVisualMode = "premium";
+            }
+          }
+        };
+
+        const observer = new MutationObserver(enforcePremiumVisuals);
+        const startGuard = () => {
+          enforcePremiumVisuals();
+          observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class", "data-clara-visual-mode"],
+          });
+          if (document.body) {
+            observer.observe(document.body, {
+              attributes: true,
+              attributeFilter: ["class", "data-clara-visual-mode"],
+            });
+          }
+        };
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", startGuard, { once: true });
+        } else {
+          startGuard();
+        }
+        window.addEventListener("clara:visual-performance-mode-updated", enforcePremiumVisuals);
+      })();
+    </script>
+
     <style>
       html, body, #root { min-height: 100%; margin: 0; background: #020617; }
       #root { isolation: isolate; background: #020617; }
