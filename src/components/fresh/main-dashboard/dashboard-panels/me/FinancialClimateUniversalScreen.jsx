@@ -1,29 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, Heart, ImageIcon, MoreHorizontal, RotateCcw, Sparkles, Upload, X } from "lucide-react";
+import { Check, Heart, ImageIcon, MoreHorizontal, RotateCcw, Sparkles, Upload, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { getLifeStageHero } from "../../../../../life-stage-hero";
 import { getLifeStageGuidance } from "../../../../../life-stage-guidance";
 import { getLifeStageSnapshot } from "../../../../../life-stage-snapshot";
 import {
-  DEFAULT_LIFE_STAGE_SELECTION,
-  LIFE_STAGE_KEY,
-  getLifeStageOptions,
-  getLifeStageQuestions,
-  getLifeStageSelectionList,
-  getLifeStageStageContext,
-  normalizeLifeStageKey,
-  readSelectedLifeStageProfile,
-  saveSelectedLifeStageProfile,
-} from "../../../../../life-stage-flow";
+  isLifeStageProfileConfigured,
+  normalizeLifeStageImageVariant,
+  readLifeStageProfile,
+  saveLifeStageProfile,
+} from "../../../../../life-stage-profile";
 
 const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
-const QUESTION_META = {
-  setup: "Current setup",
-  rhythm: "Money rhythm",
-  workload: "Weekly load",
-  pressure: "Pressure right now",
-  coping: "Pressure response",
-  goal: "Protection goal",
-};
 const HERO_VISUALS = {
   "Working Student": "from-sky-400/10 via-indigo-500/6 to-emerald-500/8",
   "Young Professional": "from-cyan-400/10 via-blue-500/6 to-violet-500/10",
@@ -36,88 +24,19 @@ const HERO_VISUALS = {
   "Business Builder": "from-amber-400/8 via-cyan-500/5 to-violet-500/8",
 };
 
-function normalizeImageVariant(value = "default") {
-  const key = String(value || "").toLowerCase().trim();
-  if (["male", "men", "man", "boy"].includes(key)) return "male";
-  if (["female", "girl", "woman"].includes(key)) return "female";
-  return "default";
-}
-
-function readRawStageProfile() {
-  if (typeof window === "undefined") return null;
+function readStageImages() {
+  if (typeof window === "undefined") return {};
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "null");
-    return parsed && typeof parsed === "object" ? parsed : null;
+    return JSON.parse(localStorage.getItem(STAGE_IMAGE_KEY) || "{}") || {};
   } catch {
-    return null;
+    return {};
   }
 }
 
-function isLifeStageProfileConfigured(profile = readRawStageProfile()) {
-  if (!profile || typeof profile !== "object") return false;
-  if (!String(profile.stage || "").trim()) return false;
-  if (profile.lifeStageConfigured !== true) return false;
-  return Boolean(String(profile.lifeStageSetupCompletedAt || "").trim());
-}
-
-function readStageProfile() {
-  const raw = readRawStageProfile();
-  const saved = isLifeStageProfileConfigured(raw) ? readSelectedLifeStageProfile() : null;
-  const stage = normalizeLifeStageKey(saved?.stage || DEFAULT_LIFE_STAGE_SELECTION);
-  return { ...(saved || {}), stage, imageVariant: normalizeImageVariant(saved?.imageVariant || "default") };
-}
-
-function saveStageProfile(profile) {
-  return saveSelectedLifeStageProfile({
-    ...(profile || {}),
-    stage: normalizeLifeStageKey(profile?.stage),
-    imageVariant: normalizeImageVariant(profile?.imageVariant || "default"),
-    lifeStageConfigured: true,
-    lifeStageSetupCompletedAt: profile?.lifeStageSetupCompletedAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-function readStageImages() {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(STAGE_IMAGE_KEY) || "{}") || {}; } catch { return {}; }
-}
-
 function saveStageImages(images) {
-  if (typeof window !== "undefined") localStorage.setItem(STAGE_IMAGE_KEY, JSON.stringify(images || {}));
-}
-
-function getQuestionKeys(stage, draft = {}) {
-  const questions = getLifeStageQuestions(stage);
-  return (questions.order || ["setup", "rhythm", "workload", "pressure", "coping", "goal"]).filter((key) => (getLifeStageOptions({ ...draft, stage }, key) || []).length > 0);
-}
-
-function buildStageDraft(stageName, previous = {}) {
-  const stage = normalizeLifeStageKey(stageName);
-  const next = { stage, imageVariant: normalizeImageVariant(previous.imageVariant || "default") };
-  getQuestionKeys(stage, previous).forEach((key) => {
-    const options = getLifeStageOptions({ ...previous, stage }, key) || [];
-    next[key] = options.includes(previous[key]) ? previous[key] : options[0];
-  });
-  return next;
-}
-
-function displayOption(option) {
-  return String(option || "");
-}
-
-function getStageDisplayLabel(stage, option) {
-  const value = displayOption(option);
-  const questions = getLifeStageQuestions(stage);
-  return questions.displayLabels?.[value] || value;
-}
-
-function getAnswerContext(questionKey, value, draft = {}) {
-  const questions = getLifeStageQuestions(draft.stage);
-  const label = getStageDisplayLabel(draft.stage, value);
-  const context = questions.getQuestionContext?.(questionKey, value, draft);
-  if (context) return { title: context.title || label, summary: context.summary || context.body || getLifeStageStageContext(draft.stage) };
-  return { title: label, summary: `Choosing “${label}” helps CLARA connect this answer with your ${draft.stage} money reality.` };
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STAGE_IMAGE_KEY, JSON.stringify(images || {}));
+  }
 }
 
 function TrendSnapshotCard({ item, onClick }) {
@@ -154,6 +73,7 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
     reader.onload = () => setPreview(String(reader.result || ""));
     reader.readAsDataURL(file);
   };
+
   return (
     <div className="absolute inset-0 z-30 flex min-h-0 flex-col rounded-[28px] border border-white/[0.075] bg-[#050b1f]/92 p-4 shadow-[0_24px_80px_rgba(0,0,0,.42)] backdrop-blur-2xl">
       <div className="relative z-10 flex shrink-0 items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Stage image</p><h4 className="mt-2 text-xl font-black leading-tight text-white">Customize {stage}</h4><p className="mt-1 text-xs font-semibold leading-5 text-white/44">Use the default visual or upload your own image for this life stage.</p></div><button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close image setup"><X className="h-4 w-4" /></button></div>
@@ -163,14 +83,6 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
   );
 }
 
-function StageCard({ stage, active, onClick }) {
-  return <button type="button" onClick={onClick} className={`relative min-h-[78px] overflow-hidden rounded-[24px] border px-3.5 py-3 text-left transition duration-200 active:scale-[0.985] ${active ? "border-cyan-200/55 bg-[linear-gradient(135deg,rgba(45,212,191,.18),rgba(59,130,246,.14)_45%,rgba(91,63,209,.18))] shadow-[0_0_36px_rgba(34,211,238,.22),0_18px_44px_rgba(2,8,23,.36),inset_0_1px_0_rgba(255,255,255,.10)]" : "border-white/[0.075] bg-[#071226]/54 shadow-[0_14px_34px_rgba(0,0,0,.18),inset_0_1px_0_rgba(255,255,255,.035)]"}`}><div className="relative z-10 flex items-center gap-3.5"><span className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-[18px] border backdrop-blur-xl ${active ? "border-cyan-100/28 bg-cyan-200/12 text-cyan-100" : "border-white/[0.075] bg-white/[0.035] text-white/46"}`}><Sparkles className="h-6 w-6" /></span><p className="min-w-0 flex-1 text-[15px] font-black leading-tight tracking-[-0.01em] text-white/90 drop-shadow-sm">{stage}</p><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition ${active ? "border-cyan-100/42 bg-cyan-200/16 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>{active ? <Check className="h-5 w-5" /> : null}</span></div></button>;
-}
-
-function OptionGroup({ eyebrow, value, options, onSelect, displayValue = displayOption }) {
-  return <section className="space-y-4 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">{eyebrow}</p><div className="space-y-3">{options.map((option) => { const active = option === value; return <button key={option} type="button" onClick={() => onSelect(option)} className={`relative flex min-h-[66px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.985] ${active ? "border-cyan-200/38 bg-[linear-gradient(135deg,rgba(45,212,191,.16),rgba(59,130,246,.12)_48%,rgba(91,63,209,.16))] text-cyan-50" : "border-white/[0.075] bg-[#071226]/54 text-white/58"}`}><span className="text-[13px] font-black leading-tight">{displayValue(option)}</span><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>{active ? <Check className="h-4 w-4" /> : null}</span></button>; })}</div></section>;
-}
-
 function LifeStageSetupGate({ onSetup }) {
   return (
     <div
@@ -178,14 +90,8 @@ function LifeStageSetupGate({ onSetup }) {
       className="relative isolate flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#071226] px-4 pb-4 pt-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,.055)]"
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(45,212,191,.22),transparent_32%),radial-gradient(circle_at_86%_12%,rgba(59,130,246,.20),transparent_34%),linear-gradient(180deg,rgba(8,47,73,.38),rgba(2,8,23,.96))]" />
-      <div
-        data-clara-life-stage-setup-layout="true"
-        className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-1 py-4"
-      >
-        <section
-          data-clara-life-stage-setup-card="true"
-          className="w-full max-w-[332px] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(8,47,73,.96),rgba(15,23,42,.98)_56%,rgba(24,12,68,.96))] p-5 text-center shadow-[0_26px_84px_rgba(0,0,0,.36),0_0_54px_rgba(125,211,252,.14),inset_0_1px_0_rgba(255,255,255,.09)]"
-        >
+      <div data-clara-life-stage-setup-layout="true" className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-1 py-4">
+        <section data-clara-life-stage-setup-card="true" className="w-full max-w-[332px] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(8,47,73,.96),rgba(15,23,42,.98)_56%,rgba(24,12,68,.96))] p-5 text-center shadow-[0_26px_84px_rgba(0,0,0,.36),0_0_54px_rgba(125,211,252,.14),inset_0_1px_0_rgba(255,255,255,.09)]">
           <div className="mx-auto inline-flex rounded-full border border-cyan-100/50 bg-cyan-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-950 shadow-[0_0_20px_rgba(207,250,254,.22)]">Personalization needed</div>
           <div className="mx-auto mt-5 grid h-16 w-16 place-items-center rounded-[22px] bg-cyan-50 text-cyan-900 shadow-[0_16px_36px_rgba(34,211,238,.20)]"><Sparkles className="h-7 w-7" /></div>
           <h2 className="mt-5 text-[28px] font-black leading-[1.02] tracking-[-0.04em] text-white">Personalize your Money Profile</h2>
@@ -198,108 +104,54 @@ function LifeStageSetupGate({ onSetup }) {
   );
 }
 
-function LifeStageSetupScreen({ profile, onClose, onSave }) {
-  const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || DEFAULT_LIFE_STAGE_SELECTION, profile));
-  const [step, setStep] = useState("stage");
-  const stageList = getLifeStageSelectionList();
-  const questionKeys = getQuestionKeys(draft.stage, draft);
-  const stepOrder = ["stage", ...questionKeys];
-  const stepIndex = Math.max(0, stepOrder.indexOf(step));
-  const activeQuestionKey = step === "stage" ? null : step;
-  const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
-  const selectedValue = activeQuestionKey ? draft[activeQuestionKey] : null;
-  const insight = activeQuestionKey ? getAnswerContext(activeQuestionKey, selectedValue, draft) : null;
-  const stageHero = getLifeStageHero(draft.stage, draft.imageVariant || "default");
-  const boardTitle = activeQuestionKey ? insight.title : stageHero.title;
-  const boardSummary = activeQuestionKey ? insight.summary : stageHero.contextText || getLifeStageStageContext(draft.stage);
-
-  useEffect(() => { if (typeof document === "undefined") return undefined; const previousOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = previousOverflow; }; }, []);
-
-  const goBack = () => { if (stepIndex <= 0) onClose(); else setStep(stepOrder[stepIndex - 1]); };
-  const goNext = () => {
-    if (stepIndex < stepOrder.length - 1) { setStep(stepOrder[stepIndex + 1]); return; }
-    const questions = getLifeStageQuestions(draft.stage);
-    const completedDraft = questions.completeDraft?.(draft) || draft;
-    const savedDraft = {
-      ...completedDraft,
-      stage: normalizeLifeStageKey(draft.stage),
-      imageVariant: normalizeImageVariant(draft.imageVariant || completedDraft.imageVariant || "default"),
-      lifeStageConfigured: true,
-      lifeStageSetupCompletedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    saveStageProfile(savedDraft);
-    onSave(savedDraft);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_2%,rgba(45,212,191,.18),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(124,58,237,.28),transparent_34%),linear-gradient(180deg,rgba(7,18,38,.88),rgba(2,8,23,.98))]" />
-      <header className="relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
-        <div className="relative z-10 flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p><h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardTitle}</h3>{boardSummary ? <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardSummary}</p> : null}</div>
-          <button type="button" onClick={onClose} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95" aria-label="Close life stage setup"><X className="h-6 w-6" /></button>
-        </div>
-        <div className="relative z-10 mt-6 flex justify-center gap-3">{Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}</div>
-      </header>
-      <main className="relative z-10 mt-5 min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {step === "stage" ? <div className="space-y-3.5 pb-4">{stageList.map((stage) => <StageCard key={stage.key} stage={stage.key} active={draft.stage === stage.key} onClick={() => setDraft((current) => buildStageDraft(stage.key, current))} />)}</div> : null}
-        {activeQuestionKey ? <div className="space-y-3.5 pb-4"><OptionGroup eyebrow={QUESTION_META[activeQuestionKey] || "Choose one"} value={draft[activeQuestionKey]} options={getLifeStageOptions(draft, activeQuestionKey) || []} displayValue={(option) => getStageDisplayLabel(draft.stage, option)} onSelect={(value) => setDraft((current) => buildStageDraft(current.stage, { ...current, [activeQuestionKey]: value }))} /></div> : null}
-      </main>
-      <footer className="relative z-10 mt-4 flex shrink-0 gap-4"><button type="button" onClick={goBack} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-cyan-200/20 bg-[#061327]/78 px-5 py-4 text-sm font-black text-white/86 shadow-[0_16px_38px_rgba(0,0,0,.28),inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl active:scale-95">{stepIndex <= 0 ? "Cancel" : <><ChevronLeft className="h-4 w-4" /> Back</>}</button><button type="button" onClick={goNext} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-white/20 bg-[linear-gradient(135deg,#67f8ff,#8bdcff_46%,#72a9ff)] px-5 py-4 text-sm font-black text-slate-950 shadow-[0_18px_42px_rgba(103,248,255,.24),0_0_34px_rgba(125,211,252,.22)] active:scale-95">{stepIndex === stepOrder.length - 1 ? <><Check className="h-4 w-4" /> Apply stage</> : "Continue"}</button></footer>
-    </div>
-  );
-}
-
 export default function FinancialClimateUniversalScreen() {
-  const [showStageSetup, setShowStageSetup] = useState(false);
+  const navigate = useNavigate();
   const [showImageSetup, setShowImageSetup] = useState(false);
   const [selectedTrend, setSelectedTrend] = useState(null);
   const [showHeroActions, setShowHeroActions] = useState(false);
-  const [stageProfile, setStageProfile] = useState(() => readStageProfile());
+  const [stageProfile, setStageProfile] = useState(() => readLifeStageProfile());
   const [stageImages, setStageImages] = useState(() => readStageImages());
-  const [lifeStageConfigured, setLifeStageConfigured] = useState(() => isLifeStageProfileConfigured());
+  const [lifeStageConfigured] = useState(() => isLifeStageProfileConfigured());
   const hero = useMemo(
     () => getLifeStageHero(stageProfile.stage, stageProfile.imageVariant || "default"),
     [stageProfile.stage, stageProfile.imageVariant]
   );
-  const supportCopy = useMemo(() => getLifeStageGuidance(stageProfile.stage, { profile: stageProfile, mode: "awareness" }), [stageProfile]);
-  const snapshot = useMemo(() => getLifeStageSnapshot(stageProfile.stage, stageProfile), [stageProfile]);
+  const supportCopy = useMemo(
+    () => getLifeStageGuidance(stageProfile.stage, { profile: stageProfile, mode: "awareness" }),
+    [stageProfile]
+  );
+  const snapshot = useMemo(
+    () => getLifeStageSnapshot(stageProfile.stage, stageProfile),
+    [stageProfile]
+  );
   const customImage = stageImages[stageProfile.stage] || "";
-  const hasExplicitGenderVariant = ["male", "female"].includes(normalizeImageVariant(stageProfile.imageVariant || "default"));
+  const hasExplicitGenderVariant = ["male", "female"].includes(
+    normalizeLifeStageImageVariant(stageProfile.imageVariant || "default")
+  );
   const activeImage = hasExplicitGenderVariant ? hero.heroImage : customImage || hero.heroImage;
   const heroGlow = HERO_VISUALS[stageProfile.stage] || HERO_VISUALS["Young Professional"];
   const snapshotCards = snapshot.cards || [];
 
-  useEffect(() => { if (lifeStageConfigured) saveStageProfile(stageProfile); }, [lifeStageConfigured, stageProfile]);
-  useEffect(() => { saveStageImages(stageImages); }, [stageImages]);
+  useEffect(() => {
+    if (lifeStageConfigured) saveLifeStageProfile(stageProfile);
+  }, [lifeStageConfigured, stageProfile]);
+
+  useEffect(() => {
+    saveStageImages(stageImages);
+  }, [stageImages]);
 
   const openLifeStageSetup = () => {
     setShowHeroActions(false);
-    setShowStageSetup(true);
-  };
-
-  const handleLifeStageSave = (profile) => {
-    const configuredProfile = {
-      ...(profile || {}),
-      stage: normalizeLifeStageKey(profile?.stage),
-      imageVariant: normalizeImageVariant(profile?.imageVariant || "default"),
-      lifeStageConfigured: true,
-      lifeStageSetupCompletedAt: profile?.lifeStageSetupCompletedAt || new Date().toISOString(),
-    };
-    setStageProfile(configuredProfile);
-    setLifeStageConfigured(true);
+    navigate("/life-stage/setup");
   };
 
   const handleGenderVariantChange = (variant) => {
     setStageProfile((current) => ({
       ...current,
-      imageVariant: normalizeImageVariant(variant),
+      imageVariant: normalizeLifeStageImageVariant(variant),
     }));
   };
 
-  if (showStageSetup) return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={handleLifeStageSave} />;
   if (!lifeStageConfigured) return <LifeStageSetupGate onSetup={openLifeStageSetup} />;
 
   return (
@@ -312,62 +164,12 @@ export default function FinancialClimateUniversalScreen() {
         <div className="absolute left-4 top-4 z-20">
           <button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>
           {showHeroActions ? (
-            <div
-              data-clara-life-stage-actions-menu="true"
-              className="absolute left-0 top-11 z-[80] flex w-[168px] flex-col overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/90 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"
-            >
-              <button
-                type="button"
-                onClick={openLifeStageSetup}
-                className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]"
-              >
-                Set stage
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeroActions(false);
-                  setShowImageSetup(true);
-                }}
-                className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]"
-              >
-                Image
-              </button>
-
+            <div data-clara-life-stage-actions-menu="true" className="absolute left-0 top-11 z-[80] flex w-[168px] flex-col overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/90 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl">
+              <button type="button" onClick={openLifeStageSetup} className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button>
+              <button type="button" onClick={() => { setShowHeroActions(false); setShowImageSetup(true); }} className="flex w-full items-center justify-start rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button>
               <div className="my-1 h-px w-full bg-white/[0.07]" />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeroActions(false);
-                  handleGenderVariantChange("male");
-                }}
-                className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${
-                  normalizeImageVariant(stageProfile.imageVariant || "default") === "male"
-                    ? "text-cyan-100"
-                    : "text-white/72"
-                }`}
-              >
-                <span className="text-[14px] leading-none">♂</span>
-                <span>Male image</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHeroActions(false);
-                  handleGenderVariantChange("female");
-                }}
-                className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${
-                  normalizeImageVariant(stageProfile.imageVariant || "default") === "female"
-                    ? "text-cyan-100"
-                    : "text-white/72"
-                }`}
-              >
-                <span className="text-[14px] leading-none">♀</span>
-                <span>Female image</span>
-              </button>
+              <button type="button" onClick={() => { setShowHeroActions(false); handleGenderVariantChange("male"); }} className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${normalizeLifeStageImageVariant(stageProfile.imageVariant || "default") === "male" ? "text-cyan-100" : "text-white/72"}`}><span className="text-[14px] leading-none">♂</span><span>Male image</span></button>
+              <button type="button" onClick={() => { setShowHeroActions(false); handleGenderVariantChange("female"); }} className={`flex w-full items-center justify-start gap-2 rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] transition hover:bg-white/[0.055] active:scale-[0.99] ${normalizeLifeStageImageVariant(stageProfile.imageVariant || "default") === "female" ? "text-cyan-100" : "text-white/72"}`}><span className="text-[14px] leading-none">♀</span><span>Female image</span></button>
             </div>
           ) : null}
         </div>
