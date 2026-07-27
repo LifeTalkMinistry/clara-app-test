@@ -5,11 +5,6 @@ const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
 const RESET_CONTAINER_ID = "clara-settings-device-reset";
 const RESET_MODAL_ID = "clara-settings-device-reset-modal";
 
-function removeResetUi() {
-  document.getElementById(RESET_CONTAINER_ID)?.remove();
-  document.getElementById(RESET_MODAL_ID)?.remove();
-}
-
 function createResetModal() {
   const existing = document.getElementById(RESET_MODAL_ID);
   if (existing) return existing;
@@ -114,7 +109,6 @@ function createResetModal() {
 
   cancelButton.addEventListener("click", close);
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay && !clearButton.disabled) return;
     if (event.target === overlay) close();
   });
   panel.addEventListener("click", (event) => event.stopPropagation());
