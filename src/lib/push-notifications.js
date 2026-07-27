@@ -1,15 +1,40 @@
-import { supabase } from "@/lib/supabaseClient";
+import {
+  backendRequest,
+  getStoredBackendToken,
+} from "@/lib/clara-backend-client";
+import { readNotificationPreferences } from "@/lib/notifications/notificationPreferences";
 
 const REMINDER_SERVICE_WORKER_PATH = `${
   import.meta.env.BASE_URL || "/"
 }clara-task-reminder-sw.js`;
 
-function getPublicKey() {
+function getConfiguredPublicKey() {
   return (
     import.meta.env.VITE_VAPID_PUBLIC_KEY ||
     import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY ||
     ""
   );
+}
+
+function requireBackendToken() {
+  const token = getStoredBackendToken();
+  if (!token) {
+    throw new Error("Sign in to your CLARA account before enabling device notifications.");
+  }
+  return token;
+}
+
+async function getPublicKey() {
+  const configured = getConfiguredPublicKey();
+  if (configured) return configured;
+
+  const token = requireBackendToken();
+  const response = await backendRequest("/api/push/public-key", { token });
+  const publicKey = String(response?.publicKey || "").trim();
+  if (!publicKey) {
+    throw new Error("CLARA notification server did not return a Web Push public key.");
+  }
+  return publicKey;
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -23,6 +48,23 @@ function urlBase64ToUint8Array(base64String) {
   }
 
   return outputArray;
+}
+
+function byteArraysEqual(left, right) {
+  if (!left || !right) return false;
+  const first = new Uint8Array(left);
+  const second = new Uint8Array(right);
+  if (first.length !== second.length) return false;
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) return false;
+  }
+  return true;
+}
+
+function subscriptionUsesPublicKey(subscription, publicKey) {
+  const existingKey = subscription?.options?.applicationServerKey;
+  if (!existingKey) return true;
+  return byteArraysEqual(existingKey, urlBase64ToUint8Array(publicKey));
 }
 
 export function supportsPushNotifications() {
@@ -56,51 +98,35 @@ export async function requestBrowserNotificationPermission() {
   return Notification.requestPermission();
 }
 
-async function mirrorWebPushToUniversalDeviceTable({ userId, subscription, serializedSubscription }) {
-  try {
-    const { error } = await supabase.from("user_notification_devices").upsert(
-      {
-        user_id: userId,
-        channel: "web_push",
-        platform: "web",
-        token: null,
-        endpoint: subscription.endpoint,
-        subscription: serializedSubscription,
-        device_label: "CLARA web push",
-        user_agent: navigator.userAgent,
-        is_active: true,
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: "endpoint" }
-    );
+export async function syncNotificationPreferencesToBackend(preferences) {
+  const token = getStoredBackendToken();
+  if (!token || !preferences) return { synced: false, reason: "no_backend_session" };
 
-    if (error) throw error;
-  } catch (error) {
-    console.warn("Web push universal device mirror failed; legacy web push remains active:", error);
-  }
+  await backendRequest("/api/push/preferences", {
+    method: "POST",
+    token,
+    body: { preferences },
+  });
+  return { synced: true };
 }
 
-export async function enableTaskReminderPush({ userId }) {
-  if (!userId) {
-    throw new Error("Missing user context for push notifications.");
-  }
-
+export async function enableTaskReminderPush({ userId } = {}) {
+  const token = requireBackendToken();
   const permission = await requestBrowserNotificationPermission();
   if (permission !== "granted") {
     return { permission, configured: false, subscription: null };
   }
 
   const registration = await registerReminderServiceWorker();
-  const existingSubscription = await registration.pushManager.getSubscription();
-  const publicKey = getPublicKey();
+  const publicKey = await getPublicKey();
+  let subscription = await registration.pushManager.getSubscription();
 
-  let subscription = existingSubscription;
+  if (subscription && !subscriptionUsesPublicKey(subscription, publicKey)) {
+    await subscription.unsubscribe().catch(() => false);
+    subscription = null;
+  }
 
   if (!subscription) {
-    if (!publicKey) {
-      return { permission, configured: false, subscription: null };
-    }
-
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -108,40 +134,66 @@ export async function enableTaskReminderPush({ userId }) {
   }
 
   const serializedSubscription = subscription.toJSON();
-  const keys = serializedSubscription.keys || {};
-
-  const { error } = await supabase.from("user_push_subscriptions").upsert(
-    {
-      user_id: userId,
-      endpoint: subscription.endpoint,
+  await backendRequest("/api/push/subscriptions", {
+    method: "POST",
+    token,
+    body: {
       subscription: serializedSubscription,
-      p256dh_key: keys.p256dh || null,
-      auth_key: keys.auth || null,
-      is_active: true,
-      user_agent: navigator.userAgent,
-      last_seen_at: new Date().toISOString(),
+      deviceLabel: "CLARA PWA",
+      userAgent: navigator.userAgent,
     },
-    { onConflict: "endpoint" }
-  );
+  });
 
-  if (error) throw error;
-
-  await mirrorWebPushToUniversalDeviceTable({ userId, subscription, serializedSubscription });
+  try {
+    await syncNotificationPreferencesToBackend(readNotificationPreferences(userId));
+  } catch (error) {
+    console.warn("CLARA Web Push preference sync will retry later:", error);
+  }
 
   return {
     permission,
     configured: true,
     subscription: serializedSubscription,
+    channel: "web_push",
   };
+}
+
+export async function disableTaskReminderPush() {
+  if (!supportsPushNotifications()) return { disabled: false, reason: "unsupported" };
+
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
+  const subscription = await registration?.pushManager?.getSubscription?.();
+  if (!subscription) return { disabled: false, reason: "not_subscribed" };
+
+  const endpoint = subscription.endpoint;
+  const token = getStoredBackendToken();
+  if (token) {
+    await backendRequest("/api/push/subscriptions", {
+      method: "DELETE",
+      token,
+      body: { endpoint },
+    }).catch((error) => {
+      console.warn("Unable to deactivate CLARA Web Push endpoint on the server:", error);
+    });
+  }
+
+  const disabled = await subscription.unsubscribe();
+  return { disabled };
 }
 
 export async function getExistingPushSubscription() {
   if (!supportsPushNotifications()) return null;
-  const registration = await navigator.serviceWorker.getRegistration(
-    import.meta.env.BASE_URL || "/"
-  );
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
   if (!registration) return null;
   return registration.pushManager.getSubscription();
+}
+
+export async function sendServerPushTestNotification() {
+  const token = requireBackendToken();
+  return backendRequest("/api/push/test", {
+    method: "POST",
+    token,
+  });
 }
 
 export async function showDeviceNotification({
