@@ -20,28 +20,51 @@ const QUESTION_META = {
   setup: {
     eyebrow: "Current setup",
     prompt: "Which setup feels closest to your real life right now?",
+    boardSummary: "This helps CLARA understand the real-life setup shaping your money decisions.",
   },
   rhythm: {
     eyebrow: "Money rhythm",
     prompt: "How does money usually come into your week or month?",
+    boardSummary: "This helps CLARA read how your income rhythm affects planning, spending, and stability.",
   },
   workload: {
     eyebrow: "Weekly load",
     prompt: "How stretched does your normal week feel?",
+    boardSummary: "This shows how your weekly load can affect your energy and everyday money decisions.",
   },
   pressure: {
     eyebrow: "Pressure right now",
     prompt: "What is putting the most pressure on your money right now?",
+    boardSummary: "This tells CLARA which part of your money life needs the most protection right now.",
   },
   coping: {
     eyebrow: "When pressure hits",
     prompt: "What do you usually do when money pressure gets heavy?",
+    boardSummary: "This shows how you tend to respond when money pressure becomes heavy.",
   },
   goal: {
     eyebrow: "What to protect",
     prompt: "What are you trying to protect most right now?",
+    boardSummary: "This tells CLARA what your money system should protect first.",
   },
 };
+
+const MAX_BOARD_SUMMARY_LENGTH = 180;
+
+function compactBoardSummary(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= MAX_BOARD_SUMMARY_LENGTH) return text;
+
+  const firstSentence = text.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
+  if (firstSentence && firstSentence.length <= MAX_BOARD_SUMMARY_LENGTH) {
+    return firstSentence;
+  }
+
+  const clipped = text.slice(0, MAX_BOARD_SUMMARY_LENGTH - 1);
+  const lastSpace = clipped.lastIndexOf(" ");
+  const safeEnd = lastSpace > 120 ? lastSpace : clipped.length;
+  return `${clipped.slice(0, safeEnd).trim()}…`;
+}
 
 function getQuestionKeys(stage, draft = {}) {
   const questions = getLifeStageQuestions(stage);
@@ -75,18 +98,15 @@ function getAnswerContext(questionKey, value, draft = {}) {
   const questions = getLifeStageQuestions(draft.stage);
   const label = getStageDisplayLabel(draft.stage, value);
   const context = questions.getQuestionContext?.(questionKey, value, draft);
-
-  if (context) {
-    return {
-      title: context.title || label,
-      summary:
-        context.summary || context.body || getLifeStageStageContext(draft.stage),
-    };
-  }
+  const explicitShortSummary = context?.shortSummary || context?.boardSummary;
 
   return {
     title: label,
-    summary: `Choosing “${label}” helps CLARA connect this answer with your ${draft.stage} money reality.`,
+    summary: compactBoardSummary(
+      explicitShortSummary ||
+        QUESTION_META[questionKey]?.boardSummary ||
+        `This helps CLARA connect “${label}” with your ${draft.stage} money reality.`
+    ),
   };
 }
 
@@ -149,9 +169,7 @@ function OptionGroup({ eyebrow, prompt, value, options, onSelect, displayValue }
                   : "border-white/[0.075] bg-[#071226]/54 text-white/58"
               }`}
             >
-              <span className="text-[13px] font-black leading-tight">
-                {displayValue(option)}
-              </span>
+              <span className="text-[13px] font-black leading-tight">{displayValue(option)}</span>
               <span
                 className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${
                   active
@@ -183,14 +201,14 @@ export default function LifeStageSetup() {
   const stepIndex = Math.max(0, stepOrder.indexOf(step));
   const activeQuestionKey = step === "stage" ? null : step;
   const selectedValue = activeQuestionKey ? draft[activeQuestionKey] : null;
-  const insight = activeQuestionKey
-    ? getAnswerContext(activeQuestionKey, selectedValue, draft)
-    : null;
+  const insight = activeQuestionKey ? getAnswerContext(activeQuestionKey, selectedValue, draft) : null;
   const stageHero = getLifeStageHero(draft.stage, draft.imageVariant || "default");
   const boardTitle = activeQuestionKey ? insight?.title : stageHero.title;
-  const boardSummary = activeQuestionKey
-    ? insight?.summary
-    : stageHero.contextText || getLifeStageStageContext(draft.stage);
+  const boardSummary = compactBoardSummary(
+    activeQuestionKey
+      ? insight?.summary
+      : stageHero.contextText || getLifeStageStageContext(draft.stage)
+  );
   const activeQuestionIndex = activeQuestionKey
     ? Math.max(0, questionKeys.indexOf(activeQuestionKey))
     : -1;
@@ -294,9 +312,7 @@ export default function LifeStageSetup() {
                   key={stage.key}
                   stage={stage.key}
                   active={draft.stage === stage.key}
-                  onClick={() =>
-                    setDraft((current) => buildStageDraft(stage.key, current))
-                  }
+                  onClick={() => setDraft((current) => buildStageDraft(stage.key, current))}
                 />
               ))}
             </div>
