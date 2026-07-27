@@ -70,6 +70,7 @@ function subscriptionUsesPublicKey(subscription, publicKey) {
 export function supportsPushNotifications() {
   return (
     typeof window !== "undefined" &&
+    window.isSecureContext === true &&
     "Notification" in window &&
     "serviceWorker" in navigator &&
     "PushManager" in window
@@ -83,12 +84,21 @@ export function getNotificationPermissionState() {
 
 export async function registerReminderServiceWorker() {
   if (!supportsPushNotifications()) {
-    throw new Error("Push notifications are not supported on this device.");
+    throw new Error(
+      "Web Push is unavailable in this browser/PWA. CLARA must be opened from its secure HTTPS installation."
+    );
   }
 
-  const registration = await navigator.serviceWorker.register(REMINDER_SERVICE_WORKER_PATH);
-  await navigator.serviceWorker.ready;
-  return registration;
+  const registration = await navigator.serviceWorker.register(
+    REMINDER_SERVICE_WORKER_PATH,
+    { updateViaCache: "none" }
+  );
+
+  // `ready` guarantees that showNotification()/PushManager are backed by an
+  // active worker. This matters on the first notification attempt after a PWA
+  // install or after Clear This Device removes the previous registration.
+  const readyRegistration = await navigator.serviceWorker.ready;
+  return readyRegistration || registration;
 }
 
 export async function requestBrowserNotificationPermission() {
@@ -114,7 +124,15 @@ export async function enableTaskReminderPush({ userId } = {}) {
   const token = requireBackendToken();
   const permission = await requestBrowserNotificationPermission();
   if (permission !== "granted") {
-    return { permission, configured: false, subscription: null };
+    return {
+      permission,
+      configured: false,
+      subscription: null,
+      reason:
+        permission === "denied"
+          ? "Notifications are blocked for CLARA. On Android, open Settings → Apps → CLARA (or Chrome) → Notifications and allow notifications, then return to CLARA."
+          : "CLARA needs notification permission before it can show phone notifications.",
+    };
   }
 
   const registration = await registerReminderServiceWorker();
@@ -204,27 +222,45 @@ export async function showDeviceNotification({
   eventType = "",
 } = {}) {
   if (!supportsPushNotifications()) {
-    throw new Error("Device notifications are not supported on this browser.");
+    throw new Error(
+      "Device notifications are not supported in this browser/PWA environment."
+    );
   }
-  if (Notification.permission !== "granted") {
-    throw new Error("Device notification permission has not been granted.");
+
+  // A local test is itself a direct user gesture. Ask for permission here as
+  // well, rather than silently failing when the user skipped the separate
+  // Enable phone notifications button.
+  const permission = await requestBrowserNotificationPermission();
+  if (permission !== "granted") {
+    throw new Error(
+      permission === "denied"
+        ? "CLARA notification permission is blocked. On Android, open Settings → Apps → CLARA (or Chrome) → Notifications and allow notifications."
+        : "Allow CLARA notifications when Android asks, then run the test again."
+    );
   }
 
   const registration = await registerReminderServiceWorker();
   await registration.showNotification(title || "CLARA", {
     body: body || "CLARA has an update for you.",
-    icon: `${import.meta.env.BASE_URL || "/"}favicon.svg`,
-    badge: `${import.meta.env.BASE_URL || "/"}favicon.svg`,
+    icon: `${import.meta.env.BASE_URL || "/"}icons/icon-192.png`,
+    badge: `${import.meta.env.BASE_URL || "/"}icons/maskable-icon-192.png`,
     tag: tag || undefined,
     renotify: false,
+    silent: false,
     data: { url, eventType, tag },
   });
+
+  return {
+    delivered: true,
+    permission,
+    scope: registration.scope,
+  };
 }
 
 export function showTestNotification() {
   return showDeviceNotification({
     title: "CLARA notifications are ready",
-    body: "You’ll receive important reminders based on your preferences.",
+    body: "This is a local CLARA notification test from this phone.",
     url: "/dashboard",
     tag: `clara-test-${Date.now()}`,
     eventType: "test_notification",
