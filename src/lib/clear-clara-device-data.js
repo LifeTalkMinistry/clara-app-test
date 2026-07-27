@@ -1,4 +1,5 @@
 import { pauseOnlineSyncAfterDeviceReset } from "./cloud-sync-policy";
+import { createLocalVaultId, setLocalVaultId } from "./local-user-identity";
 import { closeLocalFinanceDb, LOCAL_FINANCE_DB_NAME } from "./localFinanceStore";
 
 const FALLBACK_INDEXED_DB_NAMES = [
@@ -213,8 +214,13 @@ export async function clearClaraDeviceData() {
     clearPushRegistration(),
   ]);
 
-  // This tiny device-control marker is intentionally written only after every
-  // local data layer has been cleared. It prevents a later login from silently
-  // restoring or uploading finance data until the user explicitly opts in.
-  pauseOnlineSyncAfterDeviceReset();
+  // A reset must also sever the account from any old local vault that might
+  // survive because of a browser/WebView storage edge case. Establish a brand-
+  // new local vault identity now, before login is allowed again. While Online
+  // Sync is paused, account login is forced to use this exact empty vault.
+  const freshVaultId = createLocalVaultId();
+  setLocalVaultId(freshVaultId);
+  pauseOnlineSyncAfterDeviceReset({ freshVaultId });
+
+  return { freshVaultId };
 }
