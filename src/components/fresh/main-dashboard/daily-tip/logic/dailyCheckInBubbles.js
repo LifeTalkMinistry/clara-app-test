@@ -41,5 +41,11 @@ export function higherPriorityBubble(currentValue, candidateValue) {
   const candidate = normalizeBubble(candidateValue);
   if (!current) return candidate;
   if (!candidate) return current;
+  if (
+    current.type === "daily_check_in_completed" &&
+    candidate.type === "daily_check_in_completed"
+  ) {
+    return candidate;
+  }
   return PRIORITY[candidate.type] > PRIORITY[current.type] ? candidate : current;
 }
