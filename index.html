@@ -181,5 +181,95 @@ CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK:
       })();
     </script>
 
+    <script>
+      (() => {
+        if (window.__claraDailyCheckInSuccessBridgeInstalled) return;
+        window.__claraDailyCheckInSuccessBridgeInstalled = true;
+
+        const UPDATE_EVENT = "clara:daily-check-in-updated";
+        const MILESTONE_TYPES = new Set([
+          "streak_reset",
+          "streak_7_day",
+          "streak_14_day",
+          "streak_30_completed",
+          "new_longest_streak",
+        ]);
+        let activeBanner = null;
+
+        const removeBanner = () => {
+          activeBanner?.remove?.();
+          activeBanner = null;
+        };
+
+        const showBanner = (streakCount) => {
+          removeBanner();
+          const streak = Math.max(1, Number(streakCount) || 1);
+          const firstDay = streak === 1;
+          const wrapper = document.createElement("div");
+          wrapper.setAttribute("role", "dialog");
+          wrapper.setAttribute("aria-live", "polite");
+          wrapper.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:220;display:flex;justify-content:center;padding:0 12px max(18px,env(safe-area-inset-bottom));pointer-events:none;font-family:inherit;";
+
+          const card = document.createElement("div");
+          card.style.cssText = "position:relative;width:100%;max-width:404px;overflow:hidden;border-radius:28px;border:1px solid rgba(207,250,254,.16);padding:20px;color:white;background:linear-gradient(145deg,rgba(5,19,41,.97),rgba(8,24,55,.96) 52%,rgba(18,13,52,.96));box-shadow:0 26px 90px rgba(0,0,0,.62),0 0 55px rgba(34,211,238,.14);backdrop-filter:blur(24px);pointer-events:auto;box-sizing:border-box;";
+
+          const close = document.createElement("button");
+          close.type = "button";
+          close.setAttribute("aria-label", "Close streak message");
+          close.textContent = "×";
+          close.style.cssText = "position:absolute;right:16px;top:16px;z-index:2;width:32px;height:32px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.06);color:rgba(255,255,255,.72);font-size:22px;line-height:1;cursor:pointer;";
+          close.addEventListener("click", removeBanner);
+
+          const glowA = document.createElement("div");
+          glowA.style.cssText = "position:absolute;left:-64px;top:-64px;width:160px;height:160px;border-radius:999px;background:rgba(103,232,249,.14);filter:blur(48px);pointer-events:none;";
+          const glowB = document.createElement("div");
+          glowB.style.cssText = "position:absolute;right:-40px;bottom:-80px;width:192px;height:192px;border-radius:999px;background:rgba(129,140,248,.16);filter:blur(48px);pointer-events:none;";
+
+          const content = document.createElement("div");
+          content.style.cssText = "position:relative;z-index:1;padding-right:32px;";
+          const icon = document.createElement("div");
+          icon.textContent = "🔥";
+          icon.style.cssText = "display:flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:16px;border:1px solid rgba(207,250,254,.15);background:rgba(103,232,249,.10);font-size:21px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10);";
+          const eyebrow = document.createElement("p");
+          eyebrow.textContent = firstDay ? "YOUR STREAK STARTS HERE" : "YOUR STREAK CONTINUES";
+          eyebrow.style.cssText = "margin:16px 0 0;font-size:9px;font-weight:900;letter-spacing:.24em;color:rgba(207,250,254,.58);";
+          const title = document.createElement("h2");
+          title.textContent = firstDay ? "You showed up today! 🔥" : `You showed up for ${streak} days straight! 🔥`;
+          title.style.cssText = "margin:8px 0 0;font-size:21px;font-weight:900;line-height:1.2;letter-spacing:-.035em;color:#fff;";
+          const body = document.createElement("p");
+          body.textContent = firstDay
+            ? "Day 1 is complete. You checked in, protected your money discipline, and started building the habit."
+            : "Another day protected. Another promise to yourself kept. Keep building the discipline.";
+          body.style.cssText = "margin:12px 0 0;font-size:12.5px;font-weight:600;line-height:1.65;color:rgba(236,254,255,.76);";
+          const action = document.createElement("button");
+          action.type = "button";
+          action.textContent = firstDay ? "KEEP BUILDING" : "KEEP GOING";
+          action.style.cssText = "margin-top:20px;width:100%;border:0;border-radius:16px;padding:12px 16px;background:#a5f3fc;color:#020617;font-size:11px;font-weight:900;letter-spacing:.15em;cursor:pointer;box-shadow:0 14px 34px rgba(0,0,0,.24);";
+          action.addEventListener("click", removeBanner);
+
+          content.append(icon, eyebrow, title, body, action);
+          card.append(glowA, glowB, close, content);
+          wrapper.append(card);
+          document.body.append(wrapper);
+          activeBanner = wrapper;
+          window.setTimeout(() => action.focus?.({ preventScroll: true }), 80);
+        };
+
+        window.addEventListener(UPDATE_EVENT, (event) => {
+          const detail = event?.detail || {};
+          if (detail.reason !== "check_in") return;
+          const state = detail.state || {};
+          const pendingType = state.pendingBubble?.type || "";
+
+          // A source build that already supports the new bubble should own the UI.
+          if (pendingType === "daily_check_in_completed") return;
+          // Existing milestone/reset bubbles remain higher priority and should not be duplicated.
+          if (MILESTONE_TYPES.has(pendingType)) return;
+
+          showBanner(state.currentStreak);
+        });
+      })();
+    </script>
+
   </body>
 </html>
