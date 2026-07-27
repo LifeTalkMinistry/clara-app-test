@@ -15,6 +15,7 @@ import {
 } from "./cloud-vault-snapshot";
 
 export const CLARA_SERVER_FINANCE_SYNC_EVENT = "clara:server-finance-sync-status";
+export const CLARA_SERVER_FINANCE_EVENT_SOURCE = "server_authority";
 
 const SYNC_STATE_PREFIX = "clara_server_finance_sync_v1:";
 const SHADOW_PREFIX = "clara_server_finance_shadow_v1:";
@@ -47,6 +48,17 @@ function isServerSyncMetadataKey(key) {
 function dispatchStatus(detail) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(CLARA_SERVER_FINANCE_SYNC_EVENT, { detail }));
+}
+
+function dispatchServerAppliedEvents() {
+  if (typeof window === "undefined") return;
+  const detail = { source: CLARA_SERVER_FINANCE_EVENT_SOURCE };
+  [
+    "clara-finance-updated",
+    "clara:finance-data-updated",
+    "clara-local-finance-updated",
+    "clara-local-profile-updated",
+  ].forEach((eventName) => window.dispatchEvent(new CustomEvent(eventName, { detail })));
 }
 
 function readJson(key, fallback) {
@@ -267,17 +279,13 @@ async function replaceLocalCacheFromServer(serverRecords, localUserId, user) {
       }
     );
     await replaceLocalStateFromServer(serverRecords, user);
+
+    // Notify UI readers while the server-application guard is still active.
+    // The sync bridge can refresh cards from IndexedDB without mistaking this
+    // authoritative download for a new local mutation that needs uploading.
+    dispatchServerAppliedEvents();
   } finally {
     applyingServerState = false;
-  }
-
-  if (typeof window !== "undefined") {
-    [
-      "clara-finance-updated",
-      "clara:finance-data-updated",
-      "clara-local-finance-updated",
-      "clara-local-profile-updated",
-    ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
   }
 }
 
@@ -440,13 +448,36 @@ async function performServerFinanceSync({ user, forcePull = false } = {}) {
       return result;
     }
 
-    await applyServerResponse(accountId, localUserId, user, response);
+    const localRevision = Number(localState.revision || 0);
+    const serverRevision = Number(response?.revision || 0);
+    const conflicts = Array.isArray(response?.conflicts) ? response.conflicts : [];
+    const shouldApplyServerState = Boolean(
+      firstServerPull ||
+        forcePull ||
+        changes.length > 0 ||
+        conflicts.length > 0 ||
+        serverRevision !== localRevision
+    );
+
+    if (shouldApplyServerState) {
+      await applyServerResponse(accountId, localUserId, user, response);
+    } else {
+      // The device already has the exact authoritative revision and submitted no
+      // mutations. Do not clear/rewrite IndexedDB or re-render every money card.
+      saveSyncState(accountId, {
+        initializedLocally: true,
+        revision: serverRevision,
+        lastSyncedAt: new Date().toISOString(),
+      });
+    }
+
     const result = {
       ...response,
       accountId,
       state: "synced",
       direction: firstServerPull || forcePull ? "server_to_device" : "two_way",
       pendingChanges: changes.length,
+      cacheApplied: shouldApplyServerState,
     };
     dispatchStatus(result);
     return result;
