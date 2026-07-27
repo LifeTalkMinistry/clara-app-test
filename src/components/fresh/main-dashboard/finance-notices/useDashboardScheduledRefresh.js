@@ -7,16 +7,28 @@ export default function useDashboardScheduledRefresh({
 }) {
   const refreshTimeoutRef = useRef(null);
 
-  const scheduleRefresh = useCallback(() => {
+  const scheduleRefresh = useCallback(({ financeOnly = false } = {}) => {
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
     }
 
     refreshTimeoutRef.current = setTimeout(async () => {
-      try {
+      refreshTimeoutRef.current = null;
+
+      if (financeOnly) {
+        // useFinancialData is the single reader for live money records. Its state
+        // then flows into the dashboard through useDashboardFinanceStateSync.
         await refreshFinancialData?.();
-      } finally {
+        return;
+      }
+
+      // For broader dashboard/profile refreshes, let any existing dashboard
+      // snapshot render first and make the authoritative finance reread the final
+      // money-state writer. This prevents an older closure/cache from winning.
+      try {
         await loadDashboardData({ background: true });
+      } finally {
+        await refreshFinancialData?.();
       }
     }, delayMs);
   }, [delayMs, loadDashboardData, refreshFinancialData]);
