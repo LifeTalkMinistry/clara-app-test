@@ -117,7 +117,9 @@ import "../life-stage-trend-snapshot-hide-icon.css";
 import "../life-stage-trend-graph-hide.css";
 
 // Settings behavior and visual polish. Theme visibility is owned by scoped CSS;
-// the device reset listens to the existing event-driven Settings sync.
+// device reset and online-sync controls listen to the existing event-driven
+// Settings sync.
+import "./installSettingsOnlineSync";
 import "./installSettingsDeviceReset";
 import "../settings-cleanup.css";
 import "../settings-priority.css";

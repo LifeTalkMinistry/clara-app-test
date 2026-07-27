@@ -49,9 +49,9 @@ function createResetModal() {
   safeBox.className =
     "mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3";
   safeBox.innerHTML = `
-    <p class="text-xs font-black text-emerald-100">Synced account data stays safe.</p>
+    <p class="text-xs font-black text-emerald-100">Synced account data stays safe online.</p>
     <p class="mt-1 text-[11px] font-semibold leading-5 text-emerald-50/65">
-      This reset does not send any delete request to the CLARA server or PostgreSQL database.
+      This reset sends no delete request to the CLARA server or PostgreSQL. Logging in again will not automatically restore your finance data. Use Sync online data in Settings when you are ready.
     </p>
   `;
 
@@ -61,7 +61,7 @@ function createResetModal() {
   warningBox.innerHTML = `
     <p class="text-xs font-black text-amber-100">Unsynced changes will be lost.</p>
     <p class="mt-1 text-[11px] font-semibold leading-5 text-amber-50/65">
-      Only data that already reached your CLARA account database can be restored after you log in again.
+      Only data that already reached your CLARA account database can be restored later through Online Sync.
     </p>
   `;
 
@@ -171,7 +171,7 @@ function createResetControl() {
   const note = document.createElement("p");
   note.className = "px-3 text-center text-[10px] font-semibold leading-4 text-white/48";
   note.textContent =
-    "Removes local CLARA data from this phone. Synced account data is not deleted.";
+    "Removes local CLARA data from this phone. Online data stays safe and will not restore until you choose Sync online data.";
 
   button.addEventListener("click", () => createResetModal());
   container.append(button, note);

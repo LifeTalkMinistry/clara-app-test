@@ -1,3 +1,5 @@
+import { pauseOnlineSyncAfterDeviceReset } from "./cloud-sync-policy";
+
 const FALLBACK_INDEXED_DB_NAMES = [
   "clara",
   "clara-db",
@@ -129,6 +131,8 @@ async function clearPushRegistration() {
  * This function intentionally performs no API mutation and no server-side
  * delete. PostgreSQL/account data that has already synchronized remains intact.
  * Unsynced local changes are intentionally discarded by this reset.
+ * Online finance sync remains paused after the reset until the user explicitly
+ * chooses Sync online data from Settings.
  */
 export async function clearClaraDeviceData() {
   if (typeof window === "undefined") return;
@@ -144,4 +148,9 @@ export async function clearClaraDeviceData() {
     clearLocalNotifications(),
     clearPushRegistration(),
   ]);
+
+  // This tiny device-control marker is intentionally written only after every
+  // local data layer has been cleared. It prevents a later login from silently
+  // restoring or uploading finance data until the user explicitly opts in.
+  pauseOnlineSyncAfterDeviceReset();
 }
