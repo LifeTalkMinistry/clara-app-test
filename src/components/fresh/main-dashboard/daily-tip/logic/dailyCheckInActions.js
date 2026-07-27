@@ -40,9 +40,15 @@ export function prepareDailyCheckIn(value, userId, todayKey) {
     completedThirtyDays: baseState.completedThirtyDays,
     hasResetHistory: Boolean(baseState.lastResetAt),
   });
+  const dailyCheckInBubble = createBubble(
+    "daily_check_in_completed",
+    derivedState.currentStreak,
+    todayKey,
+  );
   const milestoneBubble = milestoneType
     ? createBubble(milestoneType, derivedState.currentStreak, todayKey)
     : null;
+  const checkInBubble = milestoneBubble || dailyCheckInBubble;
   const nextState = normalizeState(
     {
       ...derivedState,
@@ -54,14 +60,14 @@ export function prepareDailyCheckIn(value, userId, todayKey) {
           : baseState.completedThirtyDaysAt,
       pendingBubble: higherPriorityBubble(
         baseState.pendingBubble,
-        milestoneBubble,
+        checkInBubble,
       ),
     },
     userId,
     todayKey,
   );
 
-  return buildResult("prepared", nextState, milestoneType, milestoneBubble, baseState, nextEvent);
+  return buildResult("prepared", nextState, milestoneType, checkInBubble, baseState, nextEvent);
 }
 
 export function performDailyCheckIn({ value, userId, todayKey, persist }) {
