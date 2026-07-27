@@ -22,6 +22,22 @@ function getBubbleCopy(event) {
   const dayLabel = previousStreak === 1 ? "day" : "days";
 
   switch (event?.type) {
+    case "daily_check_in_completed":
+      return streakCount <= 1
+        ? {
+            eyebrow: "Your streak starts here",
+            title: "You showed up today! 🔥",
+            body: "Day 1 is complete. You checked in, protected your money discipline, and started building the habit.",
+            action: "Keep building",
+            icon: Flame,
+          }
+        : {
+            eyebrow: "Your streak continues",
+            title: `You showed up for ${streakCount} days straight! 🔥`,
+            body: "Another day protected. Another promise to yourself kept. Keep building the discipline.",
+            action: "Keep going",
+            icon: Flame,
+          };
     case "streak_reset":
       return {
         eyebrow: "Your progress remains",
