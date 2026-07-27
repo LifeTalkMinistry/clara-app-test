@@ -108,6 +108,7 @@ import "../mobile-performance.css";
 import "../dashboard-bottom-spacing.css";
 import "../clara-ai-overlay-soft-anchor.css";
 import "../life-context-polish.css";
+import "../dashboard-top-nav-hover-fix.css";
 
 // Life Stage visual patches
 import "../life-stage-hero-polish.css";
