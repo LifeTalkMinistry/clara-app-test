@@ -77,7 +77,7 @@ export default function DashboardEmbeddedStyles() {
 
           100% {
             opacity: 1;
-            transform: translate3d(0, 0, 0);
+            transform: none;
           }
         }
 
@@ -89,7 +89,7 @@ export default function DashboardEmbeddedStyles() {
 
           100% {
             opacity: 1;
-            transform: translate3d(0, 0, 0);
+            transform: none;
           }
         }
       `}</style>
