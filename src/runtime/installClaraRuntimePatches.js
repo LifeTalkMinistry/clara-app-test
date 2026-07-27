@@ -85,10 +85,9 @@ import "../clara-settings-memory-entry";
 import "../clara-me-panel";
 import "../clara-talk-pause-bridge";
 
-// WARNING:
-// These patches stabilize Life Stage UI through DOM mutation observers.
-// Later they should move into the real Life Stage components.
-// Life Stage runtime controllers
+// Life Stage runtime controllers for normal profile/support/diagnosis behavior.
+// Life Stage Setup itself is route-owned React and intentionally has no DOM
+// observer or dashboard-escape runtime controller.
 import "../life-stage-support-card";
 import "../life-stage-default-support-card-guard";
 import "../life-stage-heart-solution-hint";
@@ -96,7 +95,6 @@ import "../life-stage-living-with-partner-signals";
 import "../life-stage-working-student-heart-default-guard";
 import "../life-stage-living-with-partner-reveal";
 import "../life-stage-trend-snapshot";
-import "../life-stage-setup-flow-polish";
 import "../life-stage-working-student-identity-context";
 import "../life-stage-apply-diagnosis";
 import "../life-stage-working-student-signal-fit";
@@ -110,7 +108,7 @@ import "../clara-ai-overlay-soft-anchor.css";
 import "../life-context-polish.css";
 import "../dashboard-top-nav-hover-fix.css";
 
-// Life Stage visual patches
+// Life Stage visual patches for normal Me/profile/diagnosis UI
 import "../life-stage-hero-polish.css";
 import "../life-stage-support-card.css";
 import "../life-stage-trend-snapshot.css";
@@ -126,12 +124,9 @@ import "../settings-priority.css";
 import "../settings-tile-consistency.css";
 import "../settings-support-compose.css";
 
-// Life Stage visual patches
+// Life Stage normal profile/diagnosis visual patches
 import "../life-stage-collision.css";
 import "../life-stage-action-position.css";
-import "../life-stage-setup-scale.css";
-import "../life-stage-setup-flow-polish.css";
-import "../life-stage-question-compact-mobile.css";
 import "../life-stage-progress-indicator-fix.css";
 import "../life-stage-story-canonical-working-student.css";
 import "../life-stage-story-canonical-young-professional.css";
