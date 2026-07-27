@@ -212,9 +212,132 @@ function cleanSnapshotDetailCards() {
   });
 }
 
+let lifeStageSetupViewportState = null;
+
+function findLifeStageSetupScreen() {
+  const closeButton = document.querySelector('button[aria-label="Close life stage setup"]');
+  if (!closeButton) return null;
+
+  let node = closeButton;
+  while (node && node !== document.body) {
+    if (node.tagName === "DIV" && node.classList.contains("fixed")) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function rememberInlineStyle(state, element) {
+  if (!element || state.styles.has(element)) return;
+  state.styles.set(element, element.getAttribute("style"));
+}
+
+function forceInlineStyle(state, element, property, value) {
+  if (!element) return;
+  rememberInlineStyle(state, element);
+  element.style.setProperty(property, value, "important");
+}
+
+function restoreLifeStageSetupViewport() {
+  const state = lifeStageSetupViewportState;
+  if (!state) return;
+
+  state.styles.forEach((styleText, element) => {
+    if (!element) return;
+    if (styleText == null) element.removeAttribute("style");
+    else element.setAttribute("style", styleText);
+  });
+
+  document.documentElement.classList.remove("clara-life-stage-setup-dedicated");
+  lifeStageSetupViewportState = null;
+}
+
+function enforceLifeStageSetupViewport() {
+  const screen = findLifeStageSetupScreen();
+  if (!screen) {
+    restoreLifeStageSetupViewport();
+    return;
+  }
+
+  if (lifeStageSetupViewportState?.screen !== screen) {
+    restoreLifeStageSetupViewport();
+    lifeStageSetupViewportState = { screen, styles: new Map() };
+  }
+
+  const state = lifeStageSetupViewportState;
+  const root = document.getElementById("root");
+  document.documentElement.classList.add("clara-life-stage-setup-dedicated");
+
+  forceInlineStyle(state, document.documentElement, "overflow", "hidden");
+  forceInlineStyle(state, document.body, "overflow", "hidden");
+  forceInlineStyle(state, document.body, "overscroll-behavior", "none");
+
+  let branch = screen;
+  let parent = screen.parentElement;
+
+  while (parent && parent !== document.body) {
+    Array.from(parent.children).forEach((sibling) => {
+      if (sibling !== branch) forceInlineStyle(state, sibling, "display", "none");
+    });
+
+    forceInlineStyle(state, parent, "overflow", "visible");
+    forceInlineStyle(state, parent, "overflow-x", "visible");
+    forceInlineStyle(state, parent, "overflow-y", "visible");
+    forceInlineStyle(state, parent, "transform", "none");
+    forceInlineStyle(state, parent, "filter", "none");
+    forceInlineStyle(state, parent, "perspective", "none");
+    forceInlineStyle(state, parent, "contain", "none");
+    forceInlineStyle(state, parent, "clip-path", "none");
+    forceInlineStyle(state, parent, "backdrop-filter", "none");
+    forceInlineStyle(state, parent, "-webkit-backdrop-filter", "none");
+    forceInlineStyle(state, parent, "will-change", "auto");
+    forceInlineStyle(state, parent, "z-index", "2147482000");
+
+    branch = parent;
+    parent = parent.parentElement;
+  }
+
+  if (root) {
+    forceInlineStyle(state, root, "overflow", "visible");
+    forceInlineStyle(state, root, "min-height", "100dvh");
+  }
+
+  forceInlineStyle(state, screen, "position", "fixed");
+  forceInlineStyle(state, screen, "top", "0");
+  forceInlineStyle(state, screen, "right", "auto");
+  forceInlineStyle(state, screen, "bottom", "0");
+  forceInlineStyle(state, screen, "left", "50%");
+  forceInlineStyle(state, screen, "width", "min(100vw, 430px)");
+  forceInlineStyle(state, screen, "max-width", "430px");
+  forceInlineStyle(state, screen, "height", "100dvh");
+  forceInlineStyle(state, screen, "min-height", "100dvh");
+  forceInlineStyle(state, screen, "max-height", "100dvh");
+  forceInlineStyle(state, screen, "transform", "translateX(-50%)");
+  forceInlineStyle(state, screen, "overflow", "hidden");
+  forceInlineStyle(state, screen, "z-index", "2147483000");
+
+  const main = Array.from(screen.children).find((child) => child.tagName === "MAIN");
+  const footer = Array.from(screen.children).find((child) => child.tagName === "FOOTER");
+  if (main) {
+    forceInlineStyle(state, main, "min-height", "0");
+    forceInlineStyle(state, main, "flex", "1 1 0%");
+    forceInlineStyle(state, main, "overflow-y", "auto");
+    forceInlineStyle(state, main, "overscroll-behavior", "contain");
+    forceInlineStyle(state, main, "-webkit-overflow-scrolling", "touch");
+  }
+  if (footer) {
+    forceInlineStyle(state, footer, "display", "flex");
+    forceInlineStyle(state, footer, "flex", "0 0 auto");
+    forceInlineStyle(state, footer, "visibility", "visible");
+    forceInlineStyle(state, footer, "opacity", "1");
+    forceInlineStyle(state, footer, "position", "relative");
+    forceInlineStyle(state, footer, "z-index", "2147483001");
+  }
+}
+
 function applyAllRefinements() {
   applyOpeningRefine();
   cleanSnapshotDetailCards();
+  enforceLifeStageSetupViewport();
 }
 
 function installOpeningPageRefine() {
