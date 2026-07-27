@@ -21,6 +21,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const DataExport = lazy(() => import("./pages/DataExport"));
 const AppPreview = lazy(() => import("./pages/AppPreview"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const LifeStageSetup = lazy(() => import("./pages/LifeStageSetup"));
 const InvestmentPlan = lazy(() => import("./pages/InvestmentPlan"));
 const MonthlyBudgetPlan = lazy(() => import("./pages/MonthlyBudgetPlan"));
 const TransactionHub = lazy(() => import("./pages/TransactionHub"));
@@ -237,6 +238,16 @@ function AppRoutes() {
           element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
         />
         <Route path="/app-preview" element={<AppPreview />} />
+        <Route
+          path="/life-stage/setup"
+          element={
+            user ? (
+              guard(<LifeStageSetup />, "/life-stage/setup")
+            ) : (
+              <Navigate to="/login" replace state={{ from: location }} />
+            )
+          }
+        />
         <Route
           path="/*"
           element={
