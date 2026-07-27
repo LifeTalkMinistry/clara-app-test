@@ -147,6 +147,7 @@
   height: 100dvh !important;
   min-height: 100dvh !important;
   max-height: 100dvh !important;
+  padding-top: 0 !important;
   z-index: 9999 !important;
 }
 
@@ -167,14 +168,15 @@
   padding-bottom: env(safe-area-inset-bottom) !important;
 }
 
-/* Dedicated setup should begin at the real top of the app. The React screen
-   already owns its own header, so the old 18px shell padding only looked like
-   a leftover navigation bar on desktop/PWA layouts. Preserve only the device
-   safe-area when one actually exists. */
+/* No shell strip above the context board. Safe areas are already handled by the
+   browser viewport; this setup screen should visually begin at y=0. */
 html.clara-life-stage-setup-dedicated #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] {
-  padding-top: max(4px, env(safe-area-inset-top)) !important;
+  padding-top: 0 !important;
 }
 
 html.clara-life-stage-setup-dedicated #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header {
   margin-top: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-top-width: 0 !important;
 }
