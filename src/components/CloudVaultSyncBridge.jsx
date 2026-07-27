@@ -8,6 +8,7 @@ import {
   resumeOnlineSync,
 } from "@/lib/cloud-sync-policy";
 import {
+  CLARA_SERVER_FINANCE_EVENT_SOURCE,
   isApplyingServerFinanceState,
   syncServerFinance,
 } from "@/lib/server-finance-sync";
@@ -83,7 +84,12 @@ export default function CloudVaultSyncBridge() {
       }, delay);
     };
 
-    const handleDataChange = () => scheduleSync();
+    const handleDataChange = (event) => {
+      // Server-authoritative cache refreshes are for UI readers only. They must
+      // never be interpreted as a new local mutation and uploaded back again.
+      if (event?.detail?.source === CLARA_SERVER_FINANCE_EVENT_SOURCE) return;
+      scheduleSync();
+    };
     const handleOnline = () => scheduleSync({ immediate: true });
 
     SYNC_EVENTS.forEach((eventName) =>
