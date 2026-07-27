@@ -7,6 +7,7 @@ import {
   enableTaskReminderPush,
   getExistingPushSubscription,
   getNotificationPermissionState as getWebPermissionState,
+  sendServerPushTestNotification,
   showDeviceNotification as showWebDeviceNotification,
   showTestNotification,
 } from "@/lib/push-notifications";
@@ -539,8 +540,29 @@ export async function sendRealPushTestNotification() {
   const environment = getNotificationEnvironment();
 
   try {
+    if (environment.preferredChannel === "web_push") {
+      const enableResult = await enableTaskReminderPush();
+      if (enableResult.permission === "denied") {
+        throw new Error("Notification permission is blocked. Enable CLARA notifications in your browser or phone settings, then try again.");
+      }
+      if (!enableResult.configured) {
+        throw new Error("CLARA could not finish the Web Push subscription for this device.");
+      }
+
+      const data = await sendServerPushTestNotification();
+      if (!Number(data?.sent || 0)) {
+        throw new Error("CLARA backend did not report a successful Web Push delivery.");
+      }
+
+      return {
+        ...data,
+        nativeSent: 0,
+        environment,
+      };
+    }
+
     if (!environment.supportsNativePush || environment.platform !== "android") {
-      throw new Error("Real native FCM test requires the Android installed app. Web/local notification tests do not prove outside-app push works.");
+      throw new Error("Real push is unavailable in this environment.");
     }
     if (!isCloudSupabaseConfigured) {
       throw new Error("Supabase cloud is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before testing real push.");
