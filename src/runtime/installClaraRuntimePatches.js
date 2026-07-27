@@ -122,6 +122,7 @@ import "../life-stage-trend-graph-hide.css";
 import "./installSettingsDeviceReset";
 import "../settings-cleanup.css";
 import "../settings-priority.css";
+import "../settings-tile-consistency.css";
 import "../settings-support-compose.css";
 
 // Life Stage visual patches
