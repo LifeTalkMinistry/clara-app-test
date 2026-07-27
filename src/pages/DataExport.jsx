@@ -16,6 +16,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { getBackendAccountId } from "@/lib/clara-account-identity";
 import {
+  CLARA_ONLINE_SYNC_POLICY_EVENT,
+  isOnlineSyncPaused,
+  resumeOnlineSync,
+} from "@/lib/cloud-sync-policy";
+import {
   countCloudSnapshotItems,
   downloadClaraPrivateBackup,
   restoreClaraPrivateBackupFile,
@@ -24,7 +29,6 @@ import {
   CLARA_SERVER_FINANCE_SYNC_EVENT,
   bootstrapServerFinanceFromThisDevice,
   fetchServerFinanceStatus,
-  pullServerFinanceToThisDevice,
   syncServerFinance,
 } from "@/lib/server-finance-sync";
 
@@ -34,6 +38,7 @@ export default function DataExport() {
   const accountId = getBackendAccountId(user);
   const fileInputRef = useRef(null);
   const [serverStatus, setServerStatus] = useState(null);
+  const [syncPaused, setSyncPaused] = useState(() => isOnlineSyncPaused());
   const [syncing, setSyncing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -62,11 +67,17 @@ export default function DataExport() {
         setServerStatus((current) => ({ ...current, ...event.detail }));
       }
     };
+    const handlePolicyChange = (event) => {
+      setSyncPaused(Boolean(event?.detail?.paused ?? isOnlineSyncPaused()));
+    };
+
     window.addEventListener(CLARA_SERVER_FINANCE_SYNC_EVENT, handleSyncStatus);
+    window.addEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
 
     return () => {
       active = false;
       window.removeEventListener(CLARA_SERVER_FINANCE_SYNC_EVENT, handleSyncStatus);
+      window.removeEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
     };
   }, [accountId]);
 
@@ -83,7 +94,7 @@ export default function DataExport() {
       setServerStatus(status);
       setResult({
         type: "success",
-        message: "Your CLARA account database is now the source of truth. Other devices will download this same data.",
+        message: "Your CLARA account database is now the source of truth. Other devices can use this same saved account data.",
       });
     } catch (syncError) {
       if (syncError?.status === 409) {
@@ -95,12 +106,25 @@ export default function DataExport() {
     }
   };
 
-  const handleSyncPending = async () => {
+  const handleSyncOnlineData = async () => {
+    const currentlyPaused = isOnlineSyncPaused();
+    if (
+      currentlyPaused &&
+      !window.confirm(
+        "Sync your saved online CLARA data to this device? The saved account copy will replace the current local finance data on this phone."
+      )
+    ) {
+      return;
+    }
+
     try {
       setSyncing(true);
       setError("");
-      const status = await syncServerFinance({ user });
+      setResult(null);
+
+      const status = await syncServerFinance({ user, forcePull: currentlyPaused });
       setServerStatus((current) => ({ ...current, ...status }));
+
       if (status?.needsBootstrap) {
         setResult({
           type: "info",
@@ -109,39 +133,24 @@ export default function DataExport() {
       } else if (status?.offline) {
         setResult({
           type: "info",
-          message: "You are offline. CLARA kept your changes on this device and will send them when internet returns.",
+          message: "You are offline. CLARA kept this device unchanged. Reconnect and try again.",
+        });
+      } else if (currentlyPaused) {
+        resumeOnlineSync();
+        setSyncPaused(false);
+        setResult({
+          type: "success",
+          message: "Your saved online CLARA data is now on this device. Online sync is active again.",
+          reload: true,
         });
       } else {
         setResult({
           type: "success",
-          message: `Account data is current. ${status?.accepted || 0} pending change${status?.accepted === 1 ? " was" : "s were"} accepted by the server.`,
+          message: "Your CLARA account data is up to date.",
         });
       }
     } catch (syncError) {
       setError(syncError?.message || "Unable to sync account data right now.");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleRefreshThisDevice = async () => {
-    const confirmed = window.confirm(
-      "Refresh this device from your CLARA account database? The server copy will replace this device's finance cache."
-    );
-    if (!confirmed) return;
-
-    try {
-      setSyncing(true);
-      setError("");
-      const status = await pullServerFinanceToThisDevice({ user });
-      setServerStatus((current) => ({ ...current, ...status }));
-      setResult({
-        type: "success",
-        message: "This device now matches your CLARA account database. Reload CLARA to refresh every screen.",
-        reload: true,
-      });
-    } catch (restoreError) {
-      setError(restoreError?.message || "Unable to refresh this device from the account database.");
     } finally {
       setSyncing(false);
     }
@@ -208,8 +217,8 @@ export default function DataExport() {
             <ArrowLeft size={18} />
           </button>
           <div className="text-center">
-            <p className="text-xs tracking-[0.28em] text-emerald-300/70">ACCOUNT DATA</p>
-            <h1 className="text-lg font-black">Cloud & Offline</h1>
+            <p className="text-xs tracking-[0.28em] text-emerald-300/70">SECURITY & PRIVACY</p>
+            <h1 className="text-lg font-black">Backup & Transfer</h1>
           </div>
           <div className="h-11 w-11" />
         </div>
@@ -221,21 +230,28 @@ export default function DataExport() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black">CLARA Account Database</h2>
-                {initialized ? <CheckCircle2 size={18} className="text-emerald-200" /> : null}
+                <h2 className="text-lg font-black">Online account data</h2>
+                {initialized && !syncPaused ? <CheckCircle2 size={18} className="text-emerald-200" /> : null}
               </div>
               <p className="mt-1 text-xs leading-5 text-white/55">
-                Your PostgreSQL account data is the permanent source of truth. This device keeps an offline working copy only.
+                This is the one place to control how this device connects to your saved CLARA account data.
               </p>
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-white/65">
             {initialized ? (
-              <>
-                <p className="font-black text-emerald-100">Database active</p>
-                <p className="mt-1">Revision {serverStatus?.revision || 0}. Any phone signed into this account reads the same financial records.</p>
-              </>
+              syncPaused ? (
+                <>
+                  <p className="font-black text-amber-100">Online sync paused</p>
+                  <p className="mt-1">This phone stays local until you choose Sync online data below.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-black text-emerald-100">Online sync active</p>
+                  <p className="mt-1">Revision {serverStatus?.revision || 0}. This device is connected to your saved CLARA account data.</p>
+                </>
+              )
             ) : (
               <>
                 <p className="font-black text-amber-100">One-time initialization required</p>
@@ -255,33 +271,21 @@ export default function DataExport() {
               {syncing ? "Initializing account data..." : "Use this device to initialize account data"}
             </button>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleSyncPending}
-                disabled={syncing}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
-              >
-                <RefreshCw size={17} className={syncing ? "animate-spin" : ""} />
-                {syncing ? "Updating account data..." : "Sync pending offline changes now"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRefreshThisDevice}
-                disabled={syncing}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.045] px-4 py-3 text-sm font-black text-white/80 disabled:opacity-55"
-              >
-                <Download size={17} />
-                Refresh this device from account database
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handleSyncOnlineData}
+              disabled={syncing}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
+            >
+              <RefreshCw size={17} className={syncing ? "animate-spin" : ""} />
+              {syncing ? "Syncing..." : syncPaused ? "Sync online data" : "Sync now"}
+            </button>
           )}
 
           <div className="mt-4 space-y-2 text-[11px] font-semibold text-white/65">
             <p className="flex items-center gap-2"><Check size={13} className="text-emerald-200" />One account database across devices</p>
-            <p className="flex items-center gap-2"><WifiOff size={13} className="text-cyan-200" />Offline changes remain local until connection returns</p>
-            <p className="flex items-center gap-2"><Check size={13} className="text-emerald-200" />Reconnect sends record changes, not whole-device totals</p>
+            <p className="flex items-center gap-2"><WifiOff size={13} className="text-cyan-200" />Offline changes stay on this device until connection returns</p>
+            <p className="flex items-center gap-2"><Check size={13} className="text-emerald-200" />Clear This Device keeps online data untouched until you sync here</p>
           </div>
         </section>
 
@@ -292,7 +296,7 @@ export default function DataExport() {
             </div>
             <div>
               <h2 className="font-black">Emergency private backup</h2>
-              <p className="mt-1 text-xs text-white/48">A manual recovery file. It is no longer the live synchronization system.</p>
+              <p className="mt-1 text-xs text-white/48">A manual recovery file. It is separate from online sync.</p>
             </div>
           </div>
 
@@ -332,8 +336,8 @@ export default function DataExport() {
         <div className="mt-5 info-card">
           <Info size={18} />
           <div>
-            <p className="font-semibold text-white">No more device-vs-device merging</p>
-            <p className="mt-1 text-sm leading-6 text-slate-400">When internet is available, the backend database decides the account state. Local storage exists so CLARA can continue working temporarily while offline.</p>
+            <p className="font-semibold text-white">One sync control, one source of truth</p>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Online account sync is managed only here under Security & privacy. Emergency backup remains a separate manual recovery tool.</p>
           </div>
         </div>
       </div>
