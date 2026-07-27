@@ -1,4 +1,5 @@
 import { clearClaraDeviceData } from "@/lib/clear-clara-device-data";
+import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 
 const SETTINGS_VIEW_SYNC_EVENT = "clara:settings-view-synced";
 const LOGOUT_CONTAINER_ID = "clara-settings-access-logout";
@@ -125,9 +126,14 @@ function createResetModal() {
     try {
       await clearClaraDeviceData();
 
-      const baseUrl = window.location.href.split("#")[0];
-      window.location.replace(`${baseUrl}#/login`);
-      window.setTimeout(() => window.location.reload(), 80);
+      // Belt-and-suspenders session teardown: clear the backend token again after
+      // every asynchronous reset task, then replace the URL without notifying the
+      // still-mounted React tree. The immediate hard reload recreates AuthContext,
+      // query caches, and all finance state from an actually empty device.
+      signOutFromClaraBackend();
+      overlay.remove();
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/login`);
+      window.location.reload();
     } catch (error) {
       console.error("[CLARA Device Reset] Device reset failed.", error);
       errorText.textContent =

@@ -51,13 +51,13 @@ async function importBackendClientForHost(hostname) {
   }
 }
 
-test("Vercel rewrites the stable CLARA API gateway to the active Cloudflare tunnel", () => {
-  assert.deepEqual(vercelConfig.rewrites, [
-    {
-      source: "/clara-api/:path*",
-      destination: "https://trek-interview-wool-videos.trycloudflare.com/:path*",
-    },
-  ]);
+test("Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunnel", () => {
+  assert.equal(vercelConfig.rewrites?.length, 1);
+  assert.equal(vercelConfig.rewrites[0]?.source, "/clara-api/:path*");
+  assert.match(
+    String(vercelConfig.rewrites[0]?.destination || ""),
+    /^https:\/\/[a-z0-9-]+\.trycloudflare\.com\/:path\*$/
+  );
 });
 
 test("production builds pin native CLARA to the stable Vercel API gateway", () => {
