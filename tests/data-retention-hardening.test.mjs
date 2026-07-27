@@ -50,6 +50,45 @@ test("cloud snapshots and automatic sync use stable backend account ownership", 
   assert.doesNotMatch(bridge, /getClaraStorageMode\(context\.user\?\.id\)/);
 });
 
+test("server finance refresh cannot feed back into another sync or let stale dashboard cache win", async () => {
+  const serverSync = await fs.readFile(
+    new URL("../src/lib/server-finance-sync.js", import.meta.url),
+    "utf8"
+  );
+  const bridge = await fs.readFile(
+    new URL("../src/components/CloudVaultSyncBridge.jsx", import.meta.url),
+    "utf8"
+  );
+  const financeRefreshEvents = await fs.readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const scheduledRefresh = await fs.readFile(
+    new URL(
+      "../src/components/fresh/main-dashboard/finance-notices/useDashboardScheduledRefresh.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(serverSync, /CLARA_SERVER_FINANCE_EVENT_SOURCE = "server_authority"/);
+  assert.match(serverSync, /dispatchServerAppliedEvents\(\);[\s\S]*finally \{[\s\S]*applyingServerState = false/);
+  assert.match(serverSync, /serverRevision !== localRevision/);
+  assert.match(serverSync, /cacheApplied: shouldApplyServerState/);
+  assert.match(bridge, /event\?\.detail\?\.source === CLARA_SERVER_FINANCE_EVENT_SOURCE/);
+
+  assert.doesNotMatch(financeRefreshEvents, /"clara-finance-updated"/);
+  assert.match(financeRefreshEvents, /scheduleRefresh\(\{ financeOnly: true \}\)/);
+  assert.match(scheduledRefresh, /if \(financeOnly\)/);
+  assert.match(
+    scheduledRefresh,
+    /await loadDashboardData\(\{ background: true \}\);[\s\S]*await refreshFinancialData\?\.\(\)/
+  );
+});
+
 test("legacy identity migration only removes source data after verified preservation", async () => {
   const migration = await fs.readFile(
     new URL("../src/lib/local-identity-storage-migration.js", import.meta.url),
