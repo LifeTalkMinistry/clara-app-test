@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/clara-api/:path*",
-      "destination": "https://groin-mothproof-sixties.ngrok-free.dev/:path*"
+      "destination": "https://trek-interview-wool-videos.trycloudflare.com/:path*"
     }
   ]
 }

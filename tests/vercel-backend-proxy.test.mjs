@@ -5,6 +5,10 @@ import { readFileSync } from "node:fs";
 const vercelConfig = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8")
 );
+const productionEnvironment = readFileSync(
+  new URL("../.env.production", import.meta.url),
+  "utf8"
+);
 const backendClientSource = readFileSync(
   new URL("../src/lib/clara-backend-client.js", import.meta.url),
   "utf8"
@@ -47,23 +51,30 @@ async function importBackendClientForHost(hostname) {
   }
 }
 
-test("Vercel rewrites the same-origin CLARA API path to the ngrok backend", () => {
+test("Vercel rewrites the stable CLARA API gateway to the active Cloudflare tunnel", () => {
   assert.deepEqual(vercelConfig.rewrites, [
     {
       source: "/clara-api/:path*",
-      destination: "https://groin-mothproof-sixties.ngrok-free.dev/:path*",
+      destination: "https://trek-interview-wool-videos.trycloudflare.com/:path*",
     },
   ]);
 });
 
-test("Vercel web builds use the same-origin API proxy", async () => {
+test("production builds pin native CLARA to the stable Vercel API gateway", () => {
+  assert.match(
+    productionEnvironment,
+    /^VITE_CLARA_API_URL=https:\/\/clara-app-test\.vercel\.app\/clara-api\s*$/m
+  );
+});
+
+test("Vercel web builds use the same-origin API proxy when no build override is present", async () => {
   const client = await importBackendClientForHost("clara-app-test.vercel.app");
 
   assert.equal(client.getClaraBackendUrl(), "/clara-api");
   assert.equal(client.VERCEL_API_PROXY_PATH, "/clara-api");
 });
 
-test("all shared backend requests bypass the ngrok browser warning", () => {
+test("shared backend requests remain compatible with tunnel providers", () => {
   assert.match(
     backendClientSource,
     /"ngrok-skip-browser-warning": "true"/
@@ -75,7 +86,6 @@ test("coaching requests are pinned to the working production proxy", () => {
     coachingClientSource,
     /return isVercelWebRuntime\(\)[\s\S]*VERCEL_COACHING_PROXY_PATH/
   );
-  assert.match(coachingClientSource, /"ngrok-skip-browser-warning": "true"/);
   assert.match(coachingClientSource, /Authorization: `Bearer \$\{authorizedToken\}`/);
   assert.doesNotMatch(coachingClientSource, /backendRequest\(/);
 });
@@ -87,7 +97,7 @@ test("Settings backend clients coalesce rapid repeated reads", () => {
   assert.match(legalInformationClientSource, /inFlightRequest/);
 });
 
-test("native and non-Vercel runtimes keep using the direct backend URL", async () => {
+test("development fallback remains available when no production build override is loaded", async () => {
   const client = await importBackendClientForHost("localhost");
 
   assert.equal(client.getClaraBackendUrl(), client.DEFAULT_API_URL);
