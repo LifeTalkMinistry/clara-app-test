@@ -49,7 +49,7 @@ test("private backup implementation excludes auth, vault mapping, and device ide
   assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
-test("server finance sync uses the backend database as authority and local data as an offline cache", async () => {
+test("server finance sync uses the backend database as authority and Privacy owns the manual sync surface", async () => {
   const syncSource = await fs.readFile(
     new URL("../src/lib/server-finance-sync.js", import.meta.url),
     "utf8"
@@ -71,9 +71,12 @@ test("server finance sync uses the backend database as authority and local data 
   assert.match(syncSource, /initializedLocally/);
   assert.match(bridgeSource, /syncServerFinance/);
   assert.doesNotMatch(bridgeSource, /syncClaraCloudVault/);
-  assert.match(storageScreen, /PostgreSQL account data is the permanent source of truth/);
+  assert.match(storageScreen, /SECURITY & PRIVACY/);
+  assert.match(storageScreen, /Backup & Transfer/);
   assert.match(storageScreen, /Use this device to initialize account data/);
-  assert.match(storageScreen, /Offline changes remain local until connection returns/);
+  assert.match(storageScreen, /Offline changes stay on this device until connection returns/);
+  assert.match(storageScreen, /Sync online data/);
+  assert.doesNotMatch(storageScreen, /Refresh this device from account database/);
 });
 
 test("legacy cloud vault remains available only as backup/recovery plumbing", async () => {

@@ -9,7 +9,7 @@ const resetSource = readSource("src/lib/clear-clara-device-data.js");
 const policySource = readSource("src/lib/cloud-sync-policy.js");
 const resolverSource = readSource("src/lib/accountLinking/resolveAccountLocalVault.js");
 const bridgeSource = readSource("src/components/CloudVaultSyncBridge.jsx");
-const settingsSyncSource = readSource("src/runtime/installSettingsOnlineSync.js");
+const dataExportSource = readSource("src/pages/DataExport.jsx");
 const runtimeRegistrySource = readSource("src/runtime/installClaraRuntimePatches.js");
 
 test("device reset leaves a local marker that pauses online sync", () => {
@@ -50,11 +50,14 @@ test("automatic finance sync is suppressed while a reset device is paused", () =
   assert.match(bridgeSource, /resumeOnlineSync\(\)/);
 });
 
-test("Settings exposes explicit online restore and sync controls", () => {
-  assert.match(settingsSyncSource, /Online sync paused/);
-  assert.match(settingsSyncSource, /Sync online data/);
-  assert.match(settingsSyncSource, /Logging in does not restore cloud finance data/);
-  assert.match(settingsSyncSource, /requestManualOnlineSync/);
-  assert.match(settingsSyncSource, /forcePull: currentlyPaused/);
-  assert.match(runtimeRegistrySource, /installSettingsOnlineSync/);
+test("Security and privacy Backup & Transfer owns the single manual sync control", () => {
+  assert.match(dataExportSource, /SECURITY & PRIVACY/);
+  assert.match(dataExportSource, /Backup & Transfer/);
+  assert.match(dataExportSource, /Online sync paused/);
+  assert.match(dataExportSource, /Sync online data/);
+  assert.match(dataExportSource, /syncServerFinance\(\{ user, forcePull: currentlyPaused \}\)/);
+  assert.match(dataExportSource, /resumeOnlineSync\(\)/);
+  assert.doesNotMatch(dataExportSource, /Sync pending offline changes now/);
+  assert.doesNotMatch(dataExportSource, /Refresh this device from account database/);
+  assert.doesNotMatch(runtimeRegistrySource, /import "\.\/installSettingsOnlineSync"/);
 });
