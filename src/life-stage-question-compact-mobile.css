@@ -122,3 +122,47 @@
     font-size: 8.5px !important;
   }
 }
+
+/*
+ * Life Stage setup is a dedicated full-screen experience, even though its React
+ * owner lives inside the Me panel. Dashboard panels use clipping/visual
+ * containment for their normal cards; those rules must not become the
+ * containing block for this fixed setup screen.
+ */
+#root *:has(div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"]) {
+  overflow: visible !important;
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
+  contain: none !important;
+  will-change: auto !important;
+  clip-path: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] {
+  top: 0 !important;
+  bottom: 0 !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+  z-index: 9999 !important;
+}
+
+/* The option list owns scrolling; navigation actions must always stay visible. */
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 10002 !important;
+  padding-bottom: env(safe-area-inset-bottom) !important;
+}
