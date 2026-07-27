@@ -1,0 +1,73 @@
+/* CLARA Settings tile consistency
+   Keep Settings tiles in the same teal / navy / violet visual family as the
+   Home, Me, and Schedule surfaces. This file loads after settings-priority.css
+   so older hierarchy rules cannot darken individual rows again.
+*/
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group {
+  border-color: rgba(165, 243, 252, 0.22) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.24), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.20), transparent 44%),
+    linear-gradient(
+      135deg,
+      rgba(8, 78, 86, 0.84) 0%,
+      rgba(11, 34, 72, 0.84) 50%,
+      rgba(52, 27, 101, 0.84) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 14px 32px rgba(0, 0, 0, 0.14),
+    0 0 24px rgba(34, 211, 238, 0.055),
+    0 0 30px rgba(124, 58, 237, 0.045) !important;
+  backdrop-filter: blur(16px) saturate(1.12) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.12) !important;
+}
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group:hover {
+  border-color: rgba(165, 243, 252, 0.28) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.28), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.24), transparent 44%),
+    linear-gradient(
+      135deg,
+      rgba(9, 88, 96, 0.88) 0%,
+      rgba(13, 39, 80, 0.88) 50%,
+      rgba(60, 31, 113, 0.88) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 16px 36px rgba(0, 0, 0, 0.15),
+    0 0 28px rgba(34, 211, 238, 0.07),
+    0 0 34px rgba(124, 58, 237, 0.055) !important;
+}
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group > div:first-child {
+  border-color: rgba(207, 250, 254, 0.23) !important;
+  background:
+    radial-gradient(circle at 22% 0%, rgba(103, 232, 249, 0.26), transparent 58%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.065)) !important;
+  color: rgba(236, 254, 255, 0.92) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 20px rgba(34, 211, 238, 0.09) !important;
+}
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group > span {
+  border-color: rgba(207, 250, 254, 0.16) !important;
+  background-color: rgba(255, 255, 255, 0.085) !important;
+  color: rgba(248, 253, 255, 0.74) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group p:first-child {
+  color: rgba(255, 255, 255, 0.98) !important;
+}
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group p[class*="truncate"][class*="text-xs"] {
+  color: rgba(236, 253, 255, 0.60) !important;
+}
+
+body.clara-settings-active #root .space-y-5.pb-6 section button.group svg.lucide-chevron-right {
+  color: rgba(236, 253, 255, 0.42) !important;
+}
