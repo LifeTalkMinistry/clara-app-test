@@ -34,10 +34,11 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "CLARA";
   const options = {
     body: payload.body || "CLARA has an update for you.",
-    icon: payload.icon || new URL("favicon.svg", self.registration.scope).href,
-    badge: payload.badge || new URL("favicon.svg", self.registration.scope).href,
+    icon: payload.icon || new URL("icons/icon-192.png", self.registration.scope).href,
+    badge: payload.badge || new URL("icons/maskable-icon-192.png", self.registration.scope).href,
     tag: payload.dedupeKey || payload.tag || undefined,
     renotify: false,
+    silent: false,
     data: {
       url: resolveTargetUrl(payload.url || "#/dashboard"),
       eventType: payload.eventType || "",
