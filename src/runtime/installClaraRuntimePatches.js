@@ -116,10 +116,9 @@ import "../life-stage-trend-snapshot.css";
 import "../life-stage-trend-snapshot-hide-icon.css";
 import "../life-stage-trend-graph-hide.css";
 
-// Settings behavior and visual polish. Theme visibility is owned by scoped CSS;
-// device reset and online-sync controls listen to the existing event-driven
-// Settings sync.
-import "./installSettingsOnlineSync";
+// Settings behavior and visual polish. Online sync is intentionally NOT injected
+// into the Settings overview. Security & privacy -> Backup & Transfer owns the
+// single user-facing sync control. Device reset remains available here.
 import "./installSettingsDeviceReset";
 import "../settings-cleanup.css";
 import "../settings-priority.css";
