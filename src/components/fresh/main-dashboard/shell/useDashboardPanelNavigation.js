@@ -18,11 +18,8 @@ function resolveInitialPanel(defaultPanel) {
   const fallback = normalizePanel(defaultPanel);
   if (typeof window === "undefined") return fallback;
 
-  const historyState = window.history.state || {};
-  const routeState = historyState.usr || {};
-  return normalizePanel(
-    routeState?.[ROUTE_RETURN_PANEL_KEY] || historyState?.[PANEL_HISTORY_KEY] || fallback
-  );
+  const routeState = window.history.state?.usr || {};
+  return normalizePanel(routeState?.[ROUTE_RETURN_PANEL_KEY] || fallback);
 }
 
 export default function useDashboardPanelNavigation(defaultPanel = "home") {
