@@ -4,6 +4,7 @@ import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboa
 const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
 const PANEL_HISTORY_KEY = "__claraDashboardPanel";
 const SETTINGS_DETAIL_HISTORY_KEY = "__claraSettingsDetail";
+const ROUTE_RETURN_PANEL_KEY = "dashboardPanel";
 
 const resolvePanelIndex = (panelKey) => {
   const index = DASHBOARD_PANEL_ORDER.indexOf(panelKey);
@@ -13,8 +14,19 @@ const resolvePanelIndex = (panelKey) => {
 const normalizePanel = (panelKey) =>
   DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
 
+function resolveInitialPanel(defaultPanel) {
+  const fallback = normalizePanel(defaultPanel);
+  if (typeof window === "undefined") return fallback;
+
+  const historyState = window.history.state || {};
+  const routeState = historyState.usr || {};
+  return normalizePanel(
+    routeState?.[ROUTE_RETURN_PANEL_KEY] || historyState?.[PANEL_HISTORY_KEY] || fallback
+  );
+}
+
 export default function useDashboardPanelNavigation(defaultPanel = "home") {
-  const initialPanel = normalizePanel(defaultPanel);
+  const initialPanel = resolveInitialPanel(defaultPanel);
   const [activeDashboardPanel, setActiveDashboardPanelState] = useState(initialPanel);
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const activePanelRef = useRef(initialPanel);
@@ -66,23 +78,13 @@ export default function useDashboardPanelNavigation(defaultPanel = "home") {
         }
 
         if (currentPanel !== "home" && nextPanel === "home" && currentHasPanelEntry) {
-          // Home used to wait for the asynchronous popstate before changing the
-          // active panel. That left the old Settings tile active while the pointer
-          // was already on Home, producing a visible two-active-tabs glitch.
-          // Commit Home immediately, then unwind the browser history underneath.
-          // The later popstate safely no-ops because activePanelRef is already home.
           commitPanelState("home", "backward");
-
-          // A Settings detail view adds one extra history entry above the panel.
-          // Going Home should unwind both levels in one user action.
           window.history.go(currentHasSettingsDetail ? -2 : -1);
           return "home";
         }
 
         if (currentPanel !== "home" && nextPanel !== "home" && currentHasPanelEntry) {
           if (currentHasSettingsDetail) {
-            // Reuse the underlying panel entry rather than leaving a dead Settings
-            // detail entry behind when the top navigation switches panels.
             pendingPanelAfterBackRef.current = nextPanel;
             window.history.back();
             return currentPanel;
