@@ -92,7 +92,7 @@ body.clara-settings-active #root {
 }
 
 /* section labels should feel atmospheric, not dead */
-#root .space-y-5.pb-6 section.space-y-2 > p {
+body.clara-settings-active #root .space-y-5.pb-6 section.space-y-2 > p {
   color: rgba(207, 250, 254, 0.58) !important;
   letter-spacing: 0.21em !important;
   text-shadow: 0 0 14px rgba(34, 211, 238, 0.12);
@@ -100,7 +100,7 @@ body.clara-settings-active #root {
 
 /* Base Settings cards now use the same teal -> navy -> violet visual volume as
    the rest of the dashboard instead of sitting on near-black translucent fill. */
-#root .space-y-5.pb-6 section button.group {
+body.clara-settings-active #root .space-y-5.pb-6 section button.group {
   min-height: 4.2rem;
   border-color: rgba(165, 243, 252, 0.18) !important;
   background:
@@ -116,7 +116,7 @@ body.clara-settings-active #root {
   -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
-#root .space-y-5.pb-6 section button.group:hover {
+body.clara-settings-active #root .space-y-5.pb-6 section button.group:hover {
   border-color: rgba(165, 243, 252, 0.24) !important;
   background:
     radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.20), transparent 38%),
@@ -129,7 +129,7 @@ body.clara-settings-active #root {
     0 0 38px rgba(124, 58, 237, 0.05) !important;
 }
 
-#root .space-y-5.pb-6 section button.group > div:first-child {
+body.clara-settings-active #root .space-y-5.pb-6 section button.group > div:first-child {
   border-color: rgba(165, 243, 252, 0.18) !important;
   background:
     radial-gradient(circle at 25% 0%, rgba(103, 232, 249, 0.18), transparent 58%),
@@ -140,10 +140,10 @@ body.clara-settings-active #root {
     0 0 18px rgba(34, 211, 238, 0.07) !important;
 }
 
-#root .space-y-5.pb-6 section button.group p:first-child {
+body.clara-settings-active #root .space-y-5.pb-6 section button.group p:first-child {
   color: rgba(255, 255, 255, 0.95) !important;
 }
 
-#root .space-y-5.pb-6 section button.group p[class*="truncate"][class*="text-xs"] {
+body.clara-settings-active #root .space-y-5.pb-6 section button.group p[class*="truncate"][class*="text-xs"] {
   color: rgba(236, 253, 255, 0.52) !important;
 }
