@@ -148,6 +148,22 @@
         color: rgba(236,253,255,.42) !important;
       }
     </style>
+    <style id="clara-top-nav-hover-fix">
+      @media (hover: hover) and (pointer: fine) {
+        #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) {
+          border-color: transparent !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          transform: none !important;
+        }
+        #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) > .pointer-events-none.absolute.inset-0 {
+          opacity: 0 !important;
+        }
+        #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) > span {
+          color: rgba(255,255,255,.88) !important;
+        }
+      }
+    </style>
   </head>
 
   <body>
