@@ -1,6 +1,10 @@
 import { pauseOnlineSyncAfterDeviceReset } from "./cloud-sync-policy";
+import { closeLocalFinanceDb, LOCAL_FINANCE_DB_NAME } from "./localFinanceStore";
 
 const FALLBACK_INDEXED_DB_NAMES = [
+  LOCAL_FINANCE_DB_NAME,
+  "clara_behavioral_memory_db",
+  "clara_local_notifications",
   "clara",
   "clara-db",
   "clara_db",
@@ -11,34 +15,86 @@ const FALLBACK_INDEXED_DB_NAMES = [
   "clara_settings_db",
 ];
 
+function requestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("IndexedDB request failed."));
+  });
+}
+
+async function clearIndexedDatabaseContents(name) {
+  if (!name || typeof indexedDB === "undefined") return;
+
+  await new Promise((resolve) => {
+    let openedExistingDatabase = true;
+    const request = indexedDB.open(name);
+
+    request.onupgradeneeded = () => {
+      // This fallback name did not exist before the reset. Do not create data in it.
+      openedExistingDatabase = false;
+    };
+
+    request.onerror = () => resolve();
+    request.onblocked = () => resolve();
+    request.onsuccess = async () => {
+      const db = request.result;
+      try {
+        const storeNames = Array.from(db.objectStoreNames || []);
+        if (!openedExistingDatabase || storeNames.length === 0) return;
+
+        const transaction = db.transaction(storeNames, "readwrite");
+        await Promise.all(
+          storeNames.map((storeName) => requestToPromise(transaction.objectStore(storeName).clear()))
+        );
+        await new Promise((done) => {
+          transaction.oncomplete = () => done();
+          transaction.onerror = () => done();
+          transaction.onabort = () => done();
+        });
+      } catch (error) {
+        console.warn(`[CLARA Device Reset] Could not clear IndexedDB database ${name}.`, error);
+      } finally {
+        db.close?.();
+        resolve();
+      }
+    };
+  });
+}
+
 function deleteIndexedDatabase(name) {
   return new Promise((resolve) => {
     if (!name || typeof indexedDB === "undefined") {
-      resolve();
+      resolve(false);
       return;
     }
 
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      resolve();
-    };
-
     try {
       const request = indexedDB.deleteDatabase(name);
-      request.onsuccess = finish;
-      request.onerror = finish;
-      request.onblocked = finish;
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => resolve(false);
+      request.onblocked = () => {
+        // The records have already been cleared above. A blocked schema deletion
+        // is therefore not allowed to make the reset appear as though data remains.
+        console.warn(`[CLARA Device Reset] IndexedDB deletion is blocked for ${name}; contents were cleared instead.`);
+        resolve(false);
+      };
     } catch (error) {
       console.warn(`[CLARA Device Reset] Could not delete IndexedDB database ${name}.`, error);
-      finish();
+      resolve(false);
     }
   });
 }
 
 async function clearIndexedDatabases() {
   if (typeof indexedDB === "undefined") return;
+
+  // CLARA keeps the finance database connection cached for normal runtime use.
+  // Close it first so deletion is not blocked by CLARA itself.
+  try {
+    await closeLocalFinanceDb();
+  } catch (error) {
+    console.warn("[CLARA Device Reset] Finance database connection could not be closed cleanly.", error);
+  }
 
   const names = new Set(FALLBACK_INDEXED_DB_NAMES);
 
@@ -51,6 +107,12 @@ async function clearIndexedDatabases() {
     } catch (error) {
       console.warn("[CLARA Device Reset] IndexedDB enumeration was unavailable.", error);
     }
+  }
+
+  // Clear records first. This still succeeds when another connection prevents
+  // deleteDatabase() from removing the database schema immediately.
+  for (const name of names) {
+    await clearIndexedDatabaseContents(name);
   }
 
   await Promise.all([...names].map(deleteIndexedDatabase));
