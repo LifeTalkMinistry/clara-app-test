@@ -3,6 +3,7 @@ import {
   persistNotificationPreferences,
   readNotificationPreferences,
 } from "@/lib/notifications/notificationPreferences";
+import { syncNotificationPreferencesToBackend } from "@/lib/push-notifications";
 import { ensureActiveLocalVaultId } from "@/lib/localVaultIdentity";
 
 function resolveNotificationOwnerId(requestedUserId) {
@@ -49,6 +50,20 @@ export default function useNotificationPreferences(requestedUserId = null) {
       window.removeEventListener("clara:account-vault-switched", sync);
     };
   }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.resolve(syncNotificationPreferencesToBackend(preferences)).catch((error) => {
+      if (!cancelled) {
+        console.warn("CLARA notification preference cloud sync deferred:", error);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [preferences]);
 
   const savePreferences = useCallback(
     (nextValue) => {
