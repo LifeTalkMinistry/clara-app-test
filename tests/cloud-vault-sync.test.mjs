@@ -49,7 +49,7 @@ test("private backup implementation excludes auth, vault mapping, and device ide
   assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
-test("server finance sync uses the backend database as authority and Privacy owns the manual sync surface", async () => {
+test("server finance sync keeps the manual control under simple user-facing Privacy copy", async () => {
   const syncSource = await fs.readFile(
     new URL("../src/lib/server-finance-sync.js", import.meta.url),
     "utf8"
@@ -72,11 +72,13 @@ test("server finance sync uses the backend database as authority and Privacy own
   assert.match(bridgeSource, /syncServerFinance/);
   assert.doesNotMatch(bridgeSource, /syncClaraCloudVault/);
   assert.match(storageScreen, /SECURITY & PRIVACY/);
-  assert.match(storageScreen, /Backup & Transfer/);
-  assert.match(storageScreen, /Use this device to initialize account data/);
-  assert.match(storageScreen, /Offline changes stay on this device until connection returns/);
-  assert.match(storageScreen, /Sync online data/);
-  assert.doesNotMatch(storageScreen, /Refresh this device from account database/);
+  assert.match(storageScreen, /Move & Restore Data/);
+  assert.match(storageScreen, /Save this device's data/);
+  assert.match(storageScreen, /Bring saved data to this device/);
+  assert.match(storageScreen, /Your CLARA data will not appear automatically/);
+  assert.doesNotMatch(storageScreen, /Revision \{/);
+  assert.doesNotMatch(storageScreen, /One account database across devices/);
+  assert.doesNotMatch(storageScreen, /source of truth/i);
 });
 
 test("legacy cloud vault remains available only as backup/recovery plumbing", async () => {
