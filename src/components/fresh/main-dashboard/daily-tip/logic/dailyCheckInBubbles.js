@@ -1,9 +1,10 @@
 const PRIORITY = {
-  streak_30_completed: 5,
-  streak_reset: 4,
-  streak_14_day: 3,
-  streak_7_day: 2,
-  new_longest_streak: 1,
+  streak_30_completed: 6,
+  streak_reset: 5,
+  streak_14_day: 4,
+  streak_7_day: 3,
+  new_longest_streak: 2,
+  daily_check_in_completed: 1,
 };
 
 export function selectMilestone({ nextStreak, previousLongest, completedThirtyDays, hasResetHistory }) {
