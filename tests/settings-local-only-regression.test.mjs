@@ -119,13 +119,15 @@ test("login and AuthContext use the custom backend instead of Supabase auth", ()
   assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
-test("storage page exposes server-authoritative account data, offline cache behavior, and emergency backup", () => {
-  assert.match(dataExportSource, /CLARA Account Database/);
-  assert.match(dataExportSource, /PostgreSQL account data is the permanent source of truth/);
+test("Backup & Transfer owns one account-sync action plus emergency backup", () => {
+  assert.match(dataExportSource, /Backup & Transfer/);
+  assert.match(dataExportSource, /Online account data/);
   assert.match(dataExportSource, /Use this device to initialize account data/);
-  assert.match(dataExportSource, /Sync pending offline changes now/);
-  assert.match(dataExportSource, /Refresh this device from account database/);
-  assert.match(dataExportSource, /Offline changes remain local until connection returns/);
+  assert.match(dataExportSource, /Sync online data/);
+  assert.match(dataExportSource, /Sync now/);
+  assert.doesNotMatch(dataExportSource, /Sync pending offline changes now/);
+  assert.doesNotMatch(dataExportSource, /Refresh this device from account database/);
+  assert.match(dataExportSource, /Offline changes stay on this device until connection returns/);
   assert.match(dataExportSource, /Download emergency backup/);
   assert.match(dataExportSource, /restoreClaraPrivateBackupFile/);
   assert.match(dataExportSource, /accept="application\/json,\.json"/);
