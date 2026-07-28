@@ -497,9 +497,16 @@ export default function useDashboardFinanceActionHandlers({
       0
     );
     const balance = getWalletDisplayBalance(wallet);
+    const hasLinkedFunds = Boolean(
+      wallet?.isEmergencyFundStorageWallet ||
+        wallet?.is_emergency_fund_storage_wallet ||
+        wallet?.hasSavingsGoalAllocation ||
+        wallet?.has_savings_goal_allocation ||
+        Number(wallet?.savingsGoalCount || wallet?.savings_goal_count || 0) > 0
+    );
 
-    if (protectedAmount > 0) {
-      showFinanceNotice("Move the Emergency Fund or Savings Goal allocation before removing this wallet.");
+    if (protectedAmount > 0 || hasLinkedFunds) {
+      showFinanceNotice("Reassign the linked Emergency Fund or Savings Goal before removing this wallet.");
       return;
     }
     if (Math.abs(balance) > 0.000001) {

@@ -177,10 +177,9 @@ export function syncProtectedAllocations({ rows = [], allWallets = [], emergency
     const walletName = getWalletName(wallet);
     const walletBalance = getWalletBalance(wallet);
     const isEmergencyStorageWallet =
-      emergencyAmount > 0 &&
       Boolean(emergencyWallet) &&
       (walletId === emergencyWalletId || (!walletId && emergencyWalletName && walletName === emergencyWalletName));
-    const emergencyProtectedAmount = isEmergencyStorageWallet
+    const emergencyProtectedAmount = emergencyAmount > 0 && isEmergencyStorageWallet
       ? Math.min(emergencyAmount, Math.max(walletBalance, 0))
       : 0;
     const savingsGoalStats = getSavingsGoalStatsForWallet(wallet, savingsGoals);
@@ -211,10 +210,12 @@ export function syncProtectedAllocations({ rows = [], allWallets = [], emergency
       wallet_spendable_balance: spendableBalance,
       hasEmergencyFundAllocation: emergencyProtectedAmount > 0,
       has_emergency_fund_allocation: emergencyProtectedAmount > 0,
+      isEmergencyFundStorageWallet: isEmergencyStorageWallet,
+      is_emergency_fund_storage_wallet: isEmergencyStorageWallet,
       hasSavingsGoalAllocation: savingsGoalStats.count > 0,
       has_savings_goal_allocation: savingsGoalStats.count > 0,
-      emergencyFundLinkedWalletId: emergencyProtectedAmount > 0 ? emergencyWalletId : null,
-      emergency_fund_linked_wallet_id: emergencyProtectedAmount > 0 ? emergencyWalletId : null,
+      emergencyFundLinkedWalletId: isEmergencyStorageWallet ? emergencyWalletId : null,
+      emergency_fund_linked_wallet_id: isEmergencyStorageWallet ? emergencyWalletId : null,
       emergencyFundLabel: emergencyProtectedAmount > 0 ? "Includes Emergency Fund" : "",
       emergency_fund_label: emergencyProtectedAmount > 0 ? "Includes Emergency Fund" : "",
       savingsGoalLabel: savingsGoalStats.count > 0 ? "Includes Savings Goals" : "",

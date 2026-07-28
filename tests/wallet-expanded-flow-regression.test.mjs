@@ -45,6 +45,9 @@ test("wallet removal blocks money loss and preserves transaction history", () =>
   assert.equal(handlers.includes("Transfer or clear the wallet balance before removing it"), true);
   assert.equal(handlers.includes("is_archived: true"), true);
   assert.equal(renderer.includes("submitDisabled={deleteWalletBlocked}"), true);
+  assert.equal(renderer.includes("deleteWalletHasLinkedFunds"), true);
+  assert.equal(handlers.includes("hasLinkedFunds"), true);
+  assert.equal(syncedContent.includes("isEmergencyFundStorageWallet"), true);
   assert.equal(walletListItem.includes("onDeleteWallet?.(wallet)"), true);
   assert.equal(stateSync.includes("!wallet?.is_archived"), true);
 });
