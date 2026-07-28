@@ -17,12 +17,10 @@ import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftO
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
-import { installSettingsAccessLogout } from "./runtime/installSettingsAccessLogout";
 import {
   clearClaraGuideFeatureClasses,
   installClaraGuideCarouselStep,
 } from "./runtime/installClaraGuideCarouselStep";
-import { installClaraGuideSchedulePhaseRedirect } from "./runtime/claraGuideSchedulePhaseRedirect";
 import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import "./index.css";
@@ -109,12 +107,6 @@ try {
   console.warn("CLARA Budget Setup copy cleanup failed to init:", error);
 }
 
-try {
-  installSettingsAccessLogout();
-} catch (error) {
-  console.warn("CLARA Settings access logout failed to init:", error);
-}
-
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
 (async () => {
@@ -194,7 +186,6 @@ try {
 }
 
 try {
-  installClaraGuideSchedulePhaseRedirect();
   installClaraGuideScheduleRuntime();
 } catch (error) {
   console.warn("CLARA Schedule Guide runtime failed to init:", error);

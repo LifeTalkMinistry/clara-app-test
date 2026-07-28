@@ -16,7 +16,6 @@ import "./installSoundTouchFeedbackBridge";
 
 // Route-level scroll ownership
 import "./installUniversalOnboardingScrollIsolation";
-import "./installSettingsScrollReset";
 import "./installSettingsModalBehavior";
 
 // Core memory runtime. The scoped compatibility layer must install before any
@@ -81,7 +80,6 @@ import "../clara-assistant-memory-tab";
 // Core memory runtime
 import "../clara-onboarding-memory-review-bridge";
 import "../clara-memory-cabinet-autosave";
-import "../clara-settings-memory-entry";
 import "../clara-me-panel";
 import "../clara-talk-pause-bridge";
 

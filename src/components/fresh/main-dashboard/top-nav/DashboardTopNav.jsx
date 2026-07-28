@@ -68,6 +68,11 @@ export default function DashboardTopNav({
                   key={item.key}
                   type="button"
                   data-dashboard-nav-key={item.key}
+                  data-clara-guide-exit={item.dataGuideExit ? "true" : undefined}
+                  data-clara-guide-me-target={item.dataGuideMeTarget ? "true" : undefined}
+                  data-clara-guide-schedule-target={
+                    item.dataGuideScheduleTarget ? "true" : undefined
+                  }
                   onClick={() => onSelect?.(item.selectKey || item.key)}
                   className={`group relative flex min-w-0 ${
                     isDisabled ? "pointer-events-none opacity-35 saturate-50" : ""
