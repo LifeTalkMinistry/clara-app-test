@@ -34,11 +34,13 @@ jobs:
 
           path = Path('.github/scripts/apply-settings-react-ownership.mjs')
           source = path.read_text()
-          source = source.replace(
-              '  `          onClick={() => {\n             setSettingsNotice(null);\n             setActiveSetting("support");\n           }}`',
-              '  `        onClick={() => {\n          setSettingsNotice(null);\n          setActiveSetting("support");\n        }}`',
-          )
-          path.write_text(source)
+          label = '"Plan to support navigation"'
+          label_index = source.index(label)
+          block_start = source.rfind('\nreplaceOnce(', 0, label_index)
+          block_end = source.index('\n);', label_index) + len('\n);')
+          if block_start < 0:
+              raise RuntimeError('Plan support replacement block was not found')
+          path.write_text(source[:block_start] + source[block_end:])
           PY
 
       - name: Apply top nav surgery
@@ -58,7 +60,29 @@ jobs:
             node .github/scripts/apply-settings-react-ownership.mjs
             second_status=$?
             echo "settings_script_status=$second_status"
-            exit "$second_status"
+            if [ "$second_status" -ne 0 ]; then
+              exit "$second_status"
+            fi
+            echo "=== Plan support navigation ==="
+            python - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx')
+          source = path.read_text()
+          source, count = re.subn(
+              r'onClick=\{\(\) => \{\s*setSettingsNotice\(null\);\s*setActiveSetting\("support"\);\s*\}\}',
+              'onClick={() => openSetting("support")}',
+              source,
+              count=1,
+          )
+          if count != 1:
+              raise RuntimeError(f'Expected one Plan support navigation block, found {count}')
+          path.write_text(source)
+          PY
+            third_status=$?
+            echo "plan_support_status=$third_status"
+            exit "$third_status"
           } > .github/diagnostics/top-nav-surgery.log 2>&1
           status=$?
           cat .github/diagnostics/top-nav-surgery.log
