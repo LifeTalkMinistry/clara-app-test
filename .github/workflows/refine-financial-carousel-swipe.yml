@@ -7,6 +7,12 @@ on:
     paths:
       - ".github/scripts/refine-financial-carousel-swipe.mjs"
       - ".github/workflows/refine-financial-carousel-swipe.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/refine-financial-carousel-swipe.mjs"
+      - ".github/workflows/refine-financial-carousel-swipe.yml"
   workflow_dispatch:
 
 permissions:
