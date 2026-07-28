@@ -80,6 +80,19 @@ const getExpenseIdentityText = (expense = {}) =>
       expense?.name,
   );
 
+const isSavingsUsageExpense = (expense = {}) => {
+  const identity = normalized([
+    expense?.source_type,
+    expense?.sourceType,
+    expense?.type,
+    expense?.category,
+    expense?.title,
+    expense?.notes,
+  ].filter(Boolean).join(" "));
+
+  return identity.includes("savings goal usage") || identity.includes("savings goal used");
+};
+
 const hasSavingsUseActivity = (goal = {}) => {
   const logs = [
     goal?.savingsActivityLog,
@@ -95,6 +108,7 @@ const hasSavingsUseActivity = (goal = {}) => {
 };
 
 const expenseLinksToGoal = (expense = {}, goal = {}) => {
+  if (isSavingsUsageExpense(expense)) return false;
   const goalId = getGoalId(goal);
   if (!goalId) return false;
 
