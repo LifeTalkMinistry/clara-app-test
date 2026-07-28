@@ -6,6 +6,7 @@ on:
       - fix/budget-card-truth
     paths:
       - ".github/scripts/refactor-budget-card-truth.mjs"
+      - ".github/scripts/fix-budget-refactor-script.mjs"
       - ".github/workflows/refactor-budget-card-truth.yml"
   pull_request:
     branches:
@@ -25,6 +26,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: fix/budget-card-truth
           fetch-depth: 0
+
+      - name: Repair Budget refactor generator
+        run: node .github/scripts/fix-budget-refactor-script.mjs
 
       - name: Apply Budget card refactor
         run: node .github/scripts/refactor-budget-card-truth.mjs
