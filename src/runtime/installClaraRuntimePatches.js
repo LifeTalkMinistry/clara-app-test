@@ -2,14 +2,13 @@
  * CLARA runtime patch registry.
  *
  * These imports intentionally run for side effects.
- * Do not delete entries from this file without tracing:
- * - imports
- * - window events
- * - localStorage/sessionStorage keys
- * - DOM selectors
- * - CSS selectors
- * - manual dashboard/billing/supabase smoke tests
+ * Keep global startup work limited to true app-wide behavior. Feature-specific
+ * DOM compatibility bridges must be lazy-loaded by their owning surface.
  */
+
+// Installed phone builds default to the existing static Performance Mode unless
+// the user already chose a visual mode in Settings.
+import "./installMobilePwaPerformanceDefault";
 
 // Media playback runtime
 import "./installSoundTouchFeedbackBridge";
@@ -24,39 +23,19 @@ import "./installSettingsModalBehavior";
 import "./installScopedClaraMemoryStorage";
 import "../clara-memory-bridge";
 
+// Feature-specific DOM bridges are loaded only when their actual React surface
+// appears. This replaces many always-on document-wide MutationObservers.
+import "./installAssistantLegacyPatchLoader";
+import "./installLifeStageLegacyPatchLoader";
+
 // Buy Check ownership note:
-// The active Pause Buy Check flow is now owned by React through
-// ClaraAiEnvironmentOverlay + useClaraBuyCheckFlow. The former global
-// controllers are intentionally not imported here because they installed
-// overlapping submit/click/keydown handlers, independent session stores,
+// The active Pause Buy Check flow is owned by React through
+// ClaraAiEnvironmentOverlay + useClaraBuyCheckFlow. The former global active
+// controllers stay retired because they installed overlapping input handlers,
 // DOM replacement, and duplicate opening-message observers.
-// Retired active controllers:
-// - clara-buy-check-budget-aware-prefilter
-// - clara-buy-check-report-router
-// - clara-assistant-buy-check-tab
-// - clara-buy-check-effective-context-guard
-// - clara-buy-check-price-question-copy
-// - clara-buy-check-message-hierarchy
-// - clara-buy-check-not-buy-completion-flow
-// Their reusable budget, context, confirmation, and report behavior now lives
-// in the React-owned flow rather than side-effect patches.
 
-// Forecast runtime controllers
-import "../clara-forecast-report-router";
-
-// Analytics runtime controllers
-import "../clara-analytics-report-router";
-
-// Forecast report visual patches
-import "../clara-forecast-slide5-final";
-import "../clara-forecast-report-final-affirmation";
-
-// Buy Check report-only visual polish. These are inert unless a legacy static
-// report exists, and they do not own input or session state.
-import "../clara-buy-check-report-content-polish";
-import "../clara-buy-check-report-focus-mode";
-
-// Forecast report visual patches
+// Forecast and Buy Check report CSS can remain globally available without
+// installing feature-specific JavaScript observers.
 import "../clara-forecast-report-focus-mode.css";
 import "../clara-forecast-report-stat-row-nowrap.css";
 import "../clara-forecast-report-explanation-container.css";
@@ -69,35 +48,11 @@ import "../clara-schedule-notification-runtime-bridge";
 import "../google-play-already-owned-restore-bridge";
 import "../clara-google-play-verify-auth-retry";
 
-// WARNING:
-// These patches relabel/replace assistant tabs through DOM selectors.
-// Later they should become real React tab configuration.
-// Assistant tab runtime controllers
-import "../clara-assistant-forecast-tab";
-import "../clara-assistant-analytic-tab";
-import "../clara-assistant-feature-dock-polish";
-import "../clara-assistant-memory-tab";
-
-// Core memory runtime
+// Core memory runtime. The cabinet autosave watches only the assistant-active
+// body class; heavier assistant DOM bridges are lazy-loaded above.
 import "../clara-onboarding-memory-review-bridge";
 import "../clara-memory-cabinet-autosave";
 import "../clara-settings-memory-entry";
-import "../clara-me-panel";
-import "../clara-talk-pause-bridge";
-
-// Life Stage runtime controllers for normal profile/support/diagnosis behavior.
-// Life Stage Setup itself is route-owned React and intentionally has no DOM
-// observer or dashboard-escape runtime controller.
-import "../life-stage-support-card";
-import "../life-stage-default-support-card-guard";
-import "../life-stage-heart-solution-hint";
-import "../life-stage-living-with-partner-signals";
-import "../life-stage-working-student-heart-default-guard";
-import "../life-stage-living-with-partner-reveal";
-import "../life-stage-trend-snapshot";
-import "../life-stage-working-student-identity-context";
-import "../life-stage-apply-diagnosis";
-import "../life-stage-working-student-signal-fit";
 
 // Global/mobile CSS patches
 import "../clara-fab-theme.css";
@@ -108,7 +63,9 @@ import "../clara-ai-overlay-soft-anchor.css";
 import "../life-context-polish.css";
 import "../dashboard-top-nav-hover-fix.css";
 
-// Life Stage visual patches for normal Me/profile/diagnosis UI
+// Life Stage visual patches for normal Me/profile UI. The current React Me
+// screen renders its hero, support copy, and trend snapshot directly; only the
+// pressure-signal bridge is loaded on demand.
 import "../life-stage-hero-polish.css";
 import "../life-stage-support-card.css";
 import "../life-stage-trend-snapshot.css";
@@ -124,7 +81,7 @@ import "../settings-priority.css";
 import "../settings-tile-consistency.css";
 import "../settings-support-compose.css";
 
-// Life Stage normal profile/diagnosis visual patches
+// Life Stage normal profile visual patches
 import "../life-stage-collision.css";
 import "../life-stage-action-position.css";
 import "../life-stage-progress-indicator-fix.css";
