@@ -27,6 +27,20 @@ jobs:
           ref: fix-top-nav-ownership
           fetch-depth: 0
 
+      - name: Normalize Settings surgery anchors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/scripts/apply-settings-react-ownership.mjs')
+          source = path.read_text()
+          source = source.replace(
+              '  `          onClick={() => {\n             setSettingsNotice(null);\n             setActiveSetting("support");\n           }}`',
+              '  `        onClick={() => {\n          setSettingsNotice(null);\n          setActiveSetting("support");\n        }}`',
+          )
+          path.write_text(source)
+          PY
+
       - name: Apply top nav surgery
         id: apply-surgery
         run: |
