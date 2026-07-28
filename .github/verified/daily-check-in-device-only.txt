@@ -1,117 +1,158 @@
 install=0
 focused=1
-full=1
-build=1
---- focused tail ---
-  duration_ms: 2.37386
+--- focused output ---
+TAP version 13
+# node:internal/modules/esm/resolve:275
+#     throw new ERR_MODULE_NOT_FOUND(
+#           ^
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/work/clara-app-test/clara-app-test/src/lib/account-vault-directory' imported from /home/runner/work/clara-app-test/clara-app-test/src/lib/cloud-vault-snapshot.js
+#     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+#     at moduleResolve (node:internal/modules/esm/resolve:861:10)
+#     at defaultResolve (node:internal/modules/esm/resolve:985:11)
+#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+#     at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+#     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {
+#   code: 'ERR_MODULE_NOT_FOUND',
+#   url: 'file:///home/runner/work/clara-app-test/clara-app-test/src/lib/account-vault-directory'
+# }
+# Node.js v22.23.1
+# Subtest: tests/cloud-vault-sync.test.mjs
+not ok 1 - tests/cloud-vault-sync.test.mjs
+  ---
+  duration_ms: 51.585192
+  type: 'test'
+  location: '/home/runner/work/clara-app-test/clara-app-test/tests/cloud-vault-sync.test.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: eligible day uses Manila 6 AM boundary
+ok 2 - eligible day uses Manila 6 AM boundary
+  ---
+  duration_ms: 16.885699
+  type: 'test'
+  ...
+# Subtest: real date validation rejects impossible calendar dates
+ok 3 - real date validation rejects impossible calendar dates
+  ---
+  duration_ms: 0.234742
+  type: 'test'
+  ...
+# Subtest: first confirmed check-in starts day 1 and creates one event
+ok 4 - first confirmed check-in starts day 1 and creates one event
+  ---
+  duration_ms: 2.910395
   type: 'test'
   ...
 # Subtest: same eligible day check-in remains idempotent
 ok 5 - same eligible day check-in remains idempotent
   ---
-  duration_ms: 0.252816
+  duration_ms: 0.278375
   type: 'test'
   ...
 # Subtest: stale stored currentStreak cannot override event history
 ok 6 - stale stored currentStreak cannot override event history
   ---
-  duration_ms: 0.357781
+  duration_ms: 0.40529
   type: 'test'
   ...
 # Subtest: the next eligible day shows day 2 before the second check-in
 ok 7 - the next eligible day shows day 2 before the second check-in
   ---
-  duration_ms: 0.397361
+  duration_ms: 0.439421
   type: 'test'
   ...
 # Subtest: missed day starts a new challenge cycle on the next check-in
 ok 8 - missed day starts a new challenge cycle on the next check-in
   ---
-  duration_ms: 1.159454
+  duration_ms: 1.684608
   type: 'test'
   ...
 # Subtest: genuine missed day records reset once and preserves history
 ok 9 - genuine missed day records reset once and preserves history
   ---
-  duration_ms: 1.09583
+  duration_ms: 1.404739
   type: 'test'
   ...
 # Subtest: stale Day 8 persisted state self-heals to Day 1 without deleting history
 ok 10 - stale Day 8 persisted state self-heals to Day 1 without deleting history
   ---
-  duration_ms: 0.551239
+  duration_ms: 0.760944
   type: 'test'
   ...
 # Subtest: day 30 completes only after the thirtieth consecutive check-in
 ok 11 - day 30 completes only after the thirtieth consecutive check-in
   ---
-  duration_ms: 11.59607
+  duration_ms: 11.316977
   type: 'test'
   ...
 # Subtest: successful v3 persistence restores the same state after reload
 ok 12 - successful v3 persistence restores the same state after reload
   ---
-  duration_ms: 2.022186
+  duration_ms: 1.691945
   type: 'test'
   ...
 # Subtest: successful writes emit the normalized state to local consumers
 ok 13 - successful writes emit the normalized state to local consumers
   ---
-  duration_ms: 0.385533
+  duration_ms: 0.332091
   type: 'test'
   ...
 # Subtest: persistence failure returns storage_error and does not show success
 ok 14 - persistence failure returns storage_error and does not show success
   ---
-  duration_ms: 0.704307
+  duration_ms: 0.666477
   type: 'test'
   ...
 # Subtest: reset clears v3, v2, legacy, and memory state
 ok 15 - reset clears v3, v2, legacy, and memory state
   ---
-  duration_ms: 0.361166
+  duration_ms: 0.577397
   type: 'test'
   ...
 # Subtest: v2 migration preserves valid dates as unique v3 events
 ok 16 - v2 migration preserves valid dates as unique v3 events
   ---
-  duration_ms: 0.671799
+  duration_ms: 1.109905
   type: 'test'
   ...
 # Subtest: guest-to-user session migration merges once and removes source
 ok 17 - guest-to-user session migration merges once and removes source
   ---
-  duration_ms: 0.71328
+  duration_ms: 1.037347
   type: 'test'
   ...
 # Subtest: challenge completion remains after later streak reset
 ok 18 - challenge completion remains after later streak reset
   ---
-  duration_ms: 0.185406
+  duration_ms: 0.310432
   type: 'test'
   ...
 # Subtest: production import resolves through one authoritative engine
 ok 19 - production import resolves through one authoritative engine
   ---
-  duration_ms: 8.121194
+  duration_ms: 11.625573
   type: 'test'
   ...
 # Subtest: restore imports localStorage, sessionStorage, finance IndexedDB, and notifications
 ok 20 - restore imports localStorage, sessionStorage, finance IndexedDB, and notifications
   ---
-  duration_ms: 18.320398
+  duration_ms: 18.557063
   type: 'test'
   ...
 # Subtest: known IndexedDB databases export even when indexedDB.databases is unavailable
 ok 21 - known IndexedDB databases export even when indexedDB.databases is unavailable
   ---
-  duration_ms: 13.567531
+  duration_ms: 13.774055
   type: 'test'
   ...
 # Subtest: version 1 backup without IndexedDB remains accepted
 ok 22 - version 1 backup without IndexedDB remains accepted
   ---
-  duration_ms: 1.685756
+  duration_ms: 2.526601
   type: 'test'
   ...
 1..22
@@ -122,246 +163,4 @@ ok 22 - version 1 backup without IndexedDB remains accepted
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 108.090632
---- full tail ---
-  duration_ms: 0.253427
-  type: 'test'
-  ...
-# Subtest: hidden Settings demo shortcut has been removed from production source
-ok 185 - hidden Settings demo shortcut has been removed from production source
-  ---
-  duration_ms: 0.144996
-  type: 'test'
-  ...
-# Subtest: router exposes the CLARA backend login and protects app routes
-ok 186 - router exposes the CLARA backend login and protects app routes
-  ---
-  duration_ms: 0.272605
-  type: 'test'
-  ...
-# Subtest: login and AuthContext use the custom backend instead of Supabase auth
-ok 187 - login and AuthContext use the custom backend instead of Supabase auth
-  ---
-  duration_ms: 0.198906
-  type: 'test'
-  ...
-# Subtest: Move & Restore Data owns one simple manual action plus backup
-ok 188 - Move & Restore Data owns one simple manual action plus backup
-  ---
-  duration_ms: 0.427716
-  type: 'test'
-  ...
-# Subtest: router preserves /data-export and retires the legacy account-based Settings surface
-ok 189 - router preserves /data-export and retires the legacy account-based Settings surface
-  ---
-  duration_ms: 0.328529
-  type: 'test'
-  ...
-# Subtest: mobile Universal Onboarding has exactly one vertical scroll owner
-ok 190 - mobile Universal Onboarding has exactly one vertical scroll owner
-  ---
-  duration_ms: 1.293794
-  type: 'test'
-  ...
-# Subtest: vertical panning is allowed from every onboarding option descendant
-ok 191 - vertical panning is allowed from every onboarding option descendant
-  ---
-  duration_ms: 0.405663
-  type: 'test'
-  ...
-# Subtest: Universal Onboarding isolates the dashboard document lock while mounted
-ok 192 - Universal Onboarding isolates the dashboard document lock while mounted
-  ---
-  duration_ms: 0.227989
-  type: 'test'
-  ...
-# Subtest: Android viewport fallback is CSS-only and cannot block React bootstrap
-ok 193 - Android viewport fallback is CSS-only and cannot block React bootstrap
-  ---
-  duration_ms: 0.250473
-  type: 'test'
-  ...
-# Subtest: the scroll isolation scheduler has an older-WebView fallback
-ok 194 - the scroll isolation scheduler has an older-WebView fallback
-  ---
-  duration_ms: 0.237493
-  type: 'test'
-  ...
-# Subtest: screen changes reset the active shell scroll container
-ok 195 - screen changes reset the active shell scroll container
-  ---
-  duration_ms: 0.215301
-  type: 'test'
-  ...
-# Subtest: Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunnel
-ok 196 - Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunnel
-  ---
-  duration_ms: 0.728293
-  type: 'test'
-  ...
-# Subtest: production builds pin native CLARA to the stable Vercel API gateway
-ok 197 - production builds pin native CLARA to the stable Vercel API gateway
-  ---
-  duration_ms: 0.230462
-  type: 'test'
-  ...
-# Subtest: Vercel web builds use the same-origin API proxy when no build override is present
-ok 198 - Vercel web builds use the same-origin API proxy when no build override is present
-  ---
-  duration_ms: 1.954296
-  type: 'test'
-  ...
-# Subtest: shared backend requests remain compatible with tunnel providers
-ok 199 - shared backend requests remain compatible with tunnel providers
-  ---
-  duration_ms: 0.111736
-  type: 'test'
-  ...
-# Subtest: coaching requests are pinned to the working production proxy
-ok 200 - coaching requests are pinned to the working production proxy
-  ---
-  duration_ms: 0.218234
-  type: 'test'
-  ...
-# Subtest: Settings backend clients coalesce rapid repeated reads
-ok 201 - Settings backend clients coalesce rapid repeated reads
-  ---
-  duration_ms: 0.138937
-  type: 'test'
-  ...
-# Subtest: development fallback remains available when no production build override is loaded
-ok 202 - development fallback remains available when no production build override is loaded
-  ---
-  duration_ms: 0.855442
-  type: 'test'
-  ...
-1..202
-# tests 202
-# suites 0
-# pass 201
-# fail 1
-# cancelled 0
-# skipped 0
-# todo 0
-# duration_ms 699.754365
---- build tail ---
-  duration_ms: 0.20861
-  type: 'test'
-  ...
-# Subtest: hidden Settings demo shortcut has been removed from production source
-ok 185 - hidden Settings demo shortcut has been removed from production source
-  ---
-  duration_ms: 0.122652
-  type: 'test'
-  ...
-# Subtest: router exposes the CLARA backend login and protects app routes
-ok 186 - router exposes the CLARA backend login and protects app routes
-  ---
-  duration_ms: 0.28873
-  type: 'test'
-  ...
-# Subtest: login and AuthContext use the custom backend instead of Supabase auth
-ok 187 - login and AuthContext use the custom backend instead of Supabase auth
-  ---
-  duration_ms: 0.204934
-  type: 'test'
-  ...
-# Subtest: Move & Restore Data owns one simple manual action plus backup
-ok 188 - Move & Restore Data owns one simple manual action plus backup
-  ---
-  duration_ms: 0.559863
-  type: 'test'
-  ...
-# Subtest: router preserves /data-export and retires the legacy account-based Settings surface
-ok 189 - router preserves /data-export and retires the legacy account-based Settings surface
-  ---
-  duration_ms: 0.523618
-  type: 'test'
-  ...
-# Subtest: mobile Universal Onboarding has exactly one vertical scroll owner
-ok 190 - mobile Universal Onboarding has exactly one vertical scroll owner
-  ---
-  duration_ms: 0.942852
-  type: 'test'
-  ...
-# Subtest: vertical panning is allowed from every onboarding option descendant
-ok 191 - vertical panning is allowed from every onboarding option descendant
-  ---
-  duration_ms: 0.28253
-  type: 'test'
-  ...
-# Subtest: Universal Onboarding isolates the dashboard document lock while mounted
-ok 192 - Universal Onboarding isolates the dashboard document lock while mounted
-  ---
-  duration_ms: 0.166047
-  type: 'test'
-  ...
-# Subtest: Android viewport fallback is CSS-only and cannot block React bootstrap
-ok 193 - Android viewport fallback is CSS-only and cannot block React bootstrap
-  ---
-  duration_ms: 0.293847
-  type: 'test'
-  ...
-# Subtest: the scroll isolation scheduler has an older-WebView fallback
-ok 194 - the scroll isolation scheduler has an older-WebView fallback
-  ---
-  duration_ms: 0.204023
-  type: 'test'
-  ...
-# Subtest: screen changes reset the active shell scroll container
-ok 195 - screen changes reset the active shell scroll container
-  ---
-  duration_ms: 0.127329
-  type: 'test'
-  ...
-# Subtest: Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunnel
-ok 196 - Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunnel
-  ---
-  duration_ms: 0.713771
-  type: 'test'
-  ...
-# Subtest: production builds pin native CLARA to the stable Vercel API gateway
-ok 197 - production builds pin native CLARA to the stable Vercel API gateway
-  ---
-  duration_ms: 0.212546
-  type: 'test'
-  ...
-# Subtest: Vercel web builds use the same-origin API proxy when no build override is present
-ok 198 - Vercel web builds use the same-origin API proxy when no build override is present
-  ---
-  duration_ms: 1.691425
-  type: 'test'
-  ...
-# Subtest: shared backend requests remain compatible with tunnel providers
-ok 199 - shared backend requests remain compatible with tunnel providers
-  ---
-  duration_ms: 0.106498
-  type: 'test'
-  ...
-# Subtest: coaching requests are pinned to the working production proxy
-ok 200 - coaching requests are pinned to the working production proxy
-  ---
-  duration_ms: 0.214629
-  type: 'test'
-  ...
-# Subtest: Settings backend clients coalesce rapid repeated reads
-ok 201 - Settings backend clients coalesce rapid repeated reads
-  ---
-  duration_ms: 0.140198
-  type: 'test'
-  ...
-# Subtest: development fallback remains available when no production build override is loaded
-ok 202 - development fallback remains available when no production build override is loaded
-  ---
-  duration_ms: 0.833479
-  type: 'test'
-  ...
-1..202
-# tests 202
-# suites 0
-# pass 201
-# fail 1
-# cancelled 0
-# skipped 0
-# todo 0
-# duration_ms 695.76233
+# duration_ms 119.353363
