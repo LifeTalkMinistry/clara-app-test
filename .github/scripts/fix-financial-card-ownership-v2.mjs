@@ -6,6 +6,13 @@ const sourcePath = path.join(process.cwd(), ".github/scripts/fix-financial-card-
 const generatedPath = path.join(process.cwd(), ".github/scripts/.generated-fix-financial-card-ownership.mjs");
 let source = fs.readFileSync(sourcePath, "utf8");
 
+function harden(exact, flexible, label) {
+  if (!source.includes(exact)) {
+    throw new Error(`Unable to harden the ${label} migration anchor.`);
+  }
+  source = source.replace(exact, flexible);
+}
+
 const exactHomeInvocation = `replaceRequired(
   homePanelPath,
   \`                   profileData={isGuideMode ? { plan: "pro" } : profileData}\\n                   firstPositiveNumber={firstPositiveNumber}\\n                   readStoredSurvivalExpense={isGuideMode ? undefined : readStoredSurvivalExpense}\\n                   monthlyBudgetPlan={effectiveMonthlyBudgetPlan}\`,
@@ -20,11 +27,22 @@ const flexibleHomeInvocation = `replaceRequired(
   "home panel finance carousel controller"
 );`;
 
-if (!source.includes(exactHomeInvocation)) {
-  throw new Error("Unable to harden the Home Panel migration anchor.");
-}
+const exactCarouselData = `replaceRequired(
+  carouselPath,
+  \`       survivalExpense,\\n       user: userId || userPlan ? { id: userId, plan: userPlan } : null,\`,
+  \`       survivalExpense,\\n       financeEmergencyFund,\\n       financeTotalIncome,\\n       financeTotalExpenses,\\n       financeTotalWalletBalance,\\n       user: userId || userPlan ? { id: userId, plan: userPlan } : null,\`,
+  "carousel card data totals"
+);`;
 
-source = source.replace(exactHomeInvocation, flexibleHomeInvocation);
+const flexibleCarouselData = `replaceRequired(
+  carouselPath,
+  /survivalExpense,\\s+user: userId \\|\\| userPlan \\? \\{ id: userId, plan: userPlan \\} : null,/,
+  \`survivalExpense,\\n      financeEmergencyFund,\\n      financeTotalIncome,\\n      financeTotalExpenses,\\n      financeTotalWalletBalance,\\n      user: userId || userPlan ? { id: userId, plan: userPlan } : null,\`,
+  "carousel card data totals"
+);`;
+
+harden(exactHomeInvocation, flexibleHomeInvocation, "Home Panel");
+harden(exactCarouselData, flexibleCarouselData, "carousel card data");
 fs.writeFileSync(generatedPath, source, "utf8");
 
 try {
