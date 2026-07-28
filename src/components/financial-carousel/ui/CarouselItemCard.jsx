@@ -185,6 +185,7 @@ function CarouselItemCard(props) {
         isActive={data.isActiveSlide}
         isNearby={data.isNearbySlide}
         performanceMode={resolvedPerformanceMode}
+        financeCardController={financeCardController}
       />
     );
   } else if (item.type === "debtObligations") {

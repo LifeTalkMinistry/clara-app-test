@@ -13,7 +13,6 @@ import { getFinanceItemHierarchyTone } from "@/components/financial-carousel/sha
 import IncomeSourceAddMoneyModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceAddMoneyModal";
 import IncomeSourceCreateModal from "@/components/financial-carousel/cards/investment/ui/IncomeSourceCreateModal";
 import {
-  dispatchIncomeSourceRefresh,
   EmptyIncomeSourcesPreview,
   getSourceIn,
   getSourceNet,
@@ -73,6 +72,13 @@ export default function InvestmentCardView({
   selectedDashboardTheme,
   expandedFinanceCard,
   toggleFinanceDetails,
+  incomeSources: incomeSourcesProp,
+  incomeData,
+  refreshData,
+  isActive = true,
+  isNearby = true,
+  performanceMode = "full",
+  financeCardController = null,
 }) {
   const { user } = useAuth();
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
@@ -82,15 +88,14 @@ export default function InvestmentCardView({
   const [sourceFormModal, setSourceFormModal] = useState({ open: false, source: null });
   const [removalSource, setRemovalSource] = useState(null);
   const [removalSaving, setRemovalSaving] = useState(false);
+  const [removalError, setRemovalError] = useState("");
   const incomeActionMenuRef = useRef(null);
-  const suppressRootClickUntilRef = useRef(0);
 
   const closeIncomeActionMenu = useCallback(() => {
     setIncomeActionMenu({ source: null, anchorElement: null });
   }, []);
 
   const toggleIncomeActionMenu = useCallback((source, anchorElement) => {
-    suppressRootClickUntilRef.current = 0;
     setIncomeActionMenu((current) => (
       current.source?.id === source?.id
         ? { source: null, anchorElement: null }
@@ -99,6 +104,7 @@ export default function InvestmentCardView({
   }, []);
 
   const handleInvestmentToggle = () => {
+    closeIncomeActionMenu();
     toggleExpandedFinanceCard({
       detailKey: DETAIL_KEY,
       isExpanded,
@@ -110,6 +116,12 @@ export default function InvestmentCardView({
     item,
     expanded: isExpanded,
     onToggleDetails: handleInvestmentToggle,
+    incomeSources: incomeSourcesProp,
+    incomeData,
+    refreshData,
+    isActive,
+    isNearby,
+    performanceMode,
   });
 
   const {
@@ -154,7 +166,6 @@ export default function InvestmentCardView({
 
     const closeMenuFromOutside = (event) => {
       if (anchorElement.contains(event.target) || incomeActionMenuRef.current?.contains(event.target)) return;
-      suppressRootClickUntilRef.current = Date.now() + 500;
       closeIncomeActionMenu();
     };
 
@@ -206,11 +217,15 @@ export default function InvestmentCardView({
       setSourceFormModal({ open: true, source });
       return;
     }
-    if (action === "delete_income_source") setRemovalSource(source);
+    if (action === "delete_income_source") {
+      setRemovalError("");
+      setRemovalSource(source);
+    }
   };
 
   const closeRemovalModal = () => {
     if (removalSaving) return;
+    setRemovalError("");
     setRemovalSource(null);
   };
 
@@ -218,30 +233,27 @@ export default function InvestmentCardView({
     if (!removalSource?.id) return;
     try {
       setRemovalSaving(true);
+      setRemovalError("");
       await deleteIncomeSource(localUserId, removalSource.id);
       setRemovalSource(null);
-      dispatchIncomeSourceRefresh();
     } catch (error) {
       console.error("CLARA income source removal error:", error);
+      setRemovalError(error?.message || "Unable to remove this income source. Please try again.");
     } finally {
       setRemovalSaving(false);
     }
   };
 
   const handleRootClickCapture = (event) => {
-    if (isIncomeSourceInteractiveTarget(event.target)) {
-      suppressRootClickUntilRef.current = 0;
+    const isExpandToggle = Boolean(event.target?.closest?.('[data-clara-finance-expand-toggle="true"]'));
+    if (isExpandToggle) {
+      closeIncomeActionMenu();
       return;
     }
-    if (suppressRootClickUntilRef.current > Date.now()) {
-      suppressRootClickUntilRef.current = 0;
-      event.stopPropagation();
-      return;
-    }
+    if (isIncomeSourceInteractiveTarget(event.target)) return;
     if (incomeActionMenu.source) {
       event.stopPropagation();
       closeIncomeActionMenu();
-      return;
     }
   };
 
@@ -361,26 +373,34 @@ export default function InvestmentCardView({
         )
         : null}
 
-      <IncomeSourceAddMoneyModal
-        open={incomeSourceModal.type === "add_money" || incomeSourceModal.type === "transfer_money"}
-        mode={incomeSourceModal.type}
-        source={incomeSourceModal.source}
-        onClose={() => setIncomeSourceModal({ type: null, source: null })}
-      />
+      {incomeSourceModal.type ? (
+        <IncomeSourceAddMoneyModal
+          open
+          mode={incomeSourceModal.type}
+          source={incomeSourceModal.source}
+          financeController={financeCardController}
+          onClose={() => setIncomeSourceModal({ type: null, source: null })}
+        />
+      ) : null}
 
-      <IncomeSourceCreateModal
-        open={sourceFormModal.open}
-        source={sourceFormModal.source}
-        onClose={closeSourceFormModal}
-      />
+      {sourceFormModal.open ? (
+        <IncomeSourceCreateModal
+          open
+          source={sourceFormModal.source}
+          onClose={closeSourceFormModal}
+        />
+      ) : null}
 
-      <IncomeSourceRemovalModal
-        open={Boolean(removalSource)}
-        source={removalSource}
-        saving={removalSaving}
-        onClose={closeRemovalModal}
-        onConfirm={confirmRemoveIncomeSource}
-      />
+      {removalSource ? (
+        <IncomeSourceRemovalModal
+          open
+          source={removalSource}
+          saving={removalSaving}
+          error={removalError}
+          onClose={closeRemovalModal}
+          onConfirm={confirmRemoveIncomeSource}
+        />
+      ) : null}
     </>
   );
 }
