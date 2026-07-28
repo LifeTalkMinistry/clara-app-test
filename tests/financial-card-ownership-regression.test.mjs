@@ -14,7 +14,7 @@ const emergencyCard = readSource("src/components/fresh/main-dashboard/carousel/E
 const debtLogic = readSource("src/components/financial-carousel/cards/debt/logic/useDebtCardLogic.js");
 
 test("Dashboard owns one finance card controller", () => {
-  assert.equal(dashboard.includes("const financeCardController = {"), true);
+  assert.equal(dashboard.includes("const financeCardController = useMemo("), true);
   assert.match(dashboard, /correctEmergencyFundBalance: correctEmergencyFundBalanceData/);
   assert.match(dashboard, /thisMonthSpent, fmt, financeCardController/);
   assert.equal(homePanel.includes("financeCardController={isGuideMode ? null : financeCardController}"), true);
@@ -46,6 +46,13 @@ test("finance expand buttons have one explicit click owner", () => {
   ]) {
     assert.doesNotMatch(readSource(file), /stopCapturedDetailsToggle|financeCardInteraction/);
   }
+});
+
+test("successful Wallet edits close the local edit modal without a second finance refresh", () => {
+  assert.match(walletLogic, /await onUpdateWallet/);
+  assert.match(walletLogic, /setEditingWallet\(null\)/);
+  assert.match(walletLogic, /setEditForm\(\{ name: "", type: "cash" \}\)/);
+  assert.doesNotMatch(walletLogic, /await refreshData/);
 });
 
 test("Emergency Fund and Debt consume parent-owned data and actions", () => {

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardFeedPanel from "@/components/fresh/dashboard-panels/feed/DashboardFeedPanel";
 import DashboardMessagesPanel from "@/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel";
@@ -727,23 +727,42 @@ export default function Dashboard() {
     onCacheUpdate: updateDashboardFinanceCache,
   });
 
-  const financeCardController = {
-    user,
-    wallets,
-    expenses,
-    transfers,
-    emergencyFund,
-    totalIncome: financeTotalIncome,
-    totalExpenses: financeTotalExpenses,
-    totalWalletBalance: financeTotalWalletBalance,
-    refreshData: refreshFinancialData,
-    deleteExpense: deleteExpenseData,
-    updateWallet: updateWalletData,
-    addExpense: addExpenseData,
-    transferBetweenWallets: transferBetweenWalletsData,
-    updateEmergencyFund: updateEmergencyFundData,
-    correctEmergencyFundBalance: correctEmergencyFundBalanceData,
-  };
+  const financeCardController = useMemo(
+    () => ({
+      user,
+      wallets,
+      expenses,
+      transfers,
+      emergencyFund,
+      totalIncome: financeTotalIncome,
+      totalExpenses: financeTotalExpenses,
+      totalWalletBalance: financeTotalWalletBalance,
+      refreshData: refreshFinancialData,
+      deleteExpense: deleteExpenseData,
+      updateWallet: updateWalletData,
+      addExpense: addExpenseData,
+      transferBetweenWallets: transferBetweenWalletsData,
+      updateEmergencyFund: updateEmergencyFundData,
+      correctEmergencyFundBalance: correctEmergencyFundBalanceData,
+    }),
+    [
+      user,
+      wallets,
+      expenses,
+      transfers,
+      emergencyFund,
+      financeTotalIncome,
+      financeTotalExpenses,
+      financeTotalWalletBalance,
+      refreshFinancialData,
+      deleteExpenseData,
+      updateWalletData,
+      addExpenseData,
+      transferBetweenWalletsData,
+      updateEmergencyFundData,
+      correctEmergencyFundBalanceData,
+    ]
+  );
 
   const {
     resetDashboardThemeToDefault,

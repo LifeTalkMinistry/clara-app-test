@@ -213,7 +213,8 @@ export default function useWalletCardLogic({
         icon: getWalletIcon(nextType, editingWallet?.icon || "💰"),
         updated_at: new Date().toISOString(),
       });
-      closeEditWallet();
+      setEditingWallet(null);
+      setEditForm({ name: "", type: "cash" });
     } catch (error) {
       alert(error?.message || "Failed to update wallet.");
     } finally {
