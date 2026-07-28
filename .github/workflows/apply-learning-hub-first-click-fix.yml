@@ -7,6 +7,12 @@ on:
     paths:
       - ".github/scripts/apply-learning-hub-first-click-fix.mjs"
       - ".github/workflows/apply-learning-hub-first-click-fix.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/apply-learning-hub-first-click-fix.mjs"
+      - ".github/workflows/apply-learning-hub-first-click-fix.yml"
   workflow_dispatch:
 
 permissions:
