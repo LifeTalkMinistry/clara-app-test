@@ -4,6 +4,10 @@ import {
   normalizeDashboardPanel,
   resolveDashboardPanelDirection,
 } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
+import {
+  DASHBOARD_NAVIGATION_ACTIONS,
+  planDashboardNavigation,
+} from "@/components/fresh/main-dashboard/shell/dashboardNavigationModel";
 
 export const DASHBOARD_NAVIGATE_EVENT = "clara:dashboard-navigate";
 const COMMITMENT_DECLINE_HOME_EVENT = "clara:commitment-decline-home";
@@ -44,62 +48,61 @@ export default function useDashboardPanelNavigation(defaultPanel = "home") {
     (requestedPanel) => {
       const currentPanel = activePanelRef.current;
       if (!isDashboardPanelKey(requestedPanel)) {
-        console.warn(`[CLARA Navigation] Ignored unknown dashboard panel: ${String(requestedPanel)}`);
+        console.warn(
+          `[CLARA Navigation] Ignored unknown dashboard panel: ${String(requestedPanel)}`
+        );
         return currentPanel;
       }
 
-      const nextPanel = requestedPanel;
-      if (nextPanel === currentPanel) return currentPanel;
+      if (typeof window === "undefined" || handlingPopStateRef.current) {
+        return commitPanelState(requestedPanel);
+      }
 
-      if (typeof window !== "undefined" && !handlingPopStateRef.current) {
-        const currentHistoryState = window.history.state || {};
-        const currentHasPanelEntry = isDashboardPanelKey(
+      const currentHistoryState = window.history.state || {};
+      const action = planDashboardNavigation({
+        currentPanel,
+        nextPanel: requestedPanel,
+        hasPanelEntry: isDashboardPanelKey(
           currentHistoryState?.[PANEL_HISTORY_KEY]
-        );
-        const currentHasSettingsDetail = Boolean(
+        ),
+        hasSettingsDetail: Boolean(
           currentHistoryState?.[SETTINGS_DETAIL_HISTORY_KEY]
-        );
+        ),
+      });
 
-        if (currentPanel === "home" && nextPanel !== "home") {
-          window.history.pushState(
-            {
-              ...currentHistoryState,
-              [PANEL_HISTORY_KEY]: nextPanel,
-              [SETTINGS_DETAIL_HISTORY_KEY]: undefined,
-            },
-            "",
-            window.location.href
-          );
-          return commitPanelState(nextPanel);
-        }
+      if (action.type === DASHBOARD_NAVIGATION_ACTIONS.IGNORE) {
+        return currentPanel;
+      }
 
-        if (currentPanel !== "home" && nextPanel === "home" && currentHasPanelEntry) {
-          window.history.go(currentHasSettingsDetail ? -2 : -1);
-          return currentPanel;
-        }
+      if (action.type === DASHBOARD_NAVIGATION_ACTIONS.GO_BACK) {
+        window.history.go(action.delta);
+        return currentPanel;
+      }
 
-        if (currentPanel !== "home" && nextPanel !== "home") {
-          if (currentHasSettingsDetail) {
-            pendingPanelAfterBackRef.current = nextPanel;
-            window.history.back();
-            return currentPanel;
-          }
+      if (action.type === DASHBOARD_NAVIGATION_ACTIONS.UNWIND_DETAIL) {
+        pendingPanelAfterBackRef.current = action.panel;
+        window.history.back();
+        return currentPanel;
+      }
 
-          const nextHistoryState = {
-            ...currentHistoryState,
-            [PANEL_HISTORY_KEY]: nextPanel,
-            [SETTINGS_DETAIL_HISTORY_KEY]: undefined,
-          };
+      if (
+        action.type === DASHBOARD_NAVIGATION_ACTIONS.PUSH ||
+        action.type === DASHBOARD_NAVIGATION_ACTIONS.REPLACE
+      ) {
+        const nextHistoryState = {
+          ...currentHistoryState,
+          [PANEL_HISTORY_KEY]: action.panel,
+          [SETTINGS_DETAIL_HISTORY_KEY]: undefined,
+        };
 
-          if (currentHasPanelEntry) {
-            window.history.replaceState(nextHistoryState, "", window.location.href);
-          } else {
-            window.history.pushState(nextHistoryState, "", window.location.href);
-          }
+        if (action.type === DASHBOARD_NAVIGATION_ACTIONS.PUSH) {
+          window.history.pushState(nextHistoryState, "", window.location.href);
+        } else {
+          window.history.replaceState(nextHistoryState, "", window.location.href);
         }
       }
 
-      return commitPanelState(nextPanel);
+      return commitPanelState(action.panel || requestedPanel);
     },
     [commitPanelState]
   );
