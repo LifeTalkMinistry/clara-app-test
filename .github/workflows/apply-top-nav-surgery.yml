@@ -8,6 +8,9 @@ on:
       - ".github/workflows/apply-top-nav-surgery.yml"
       - ".github/scripts/apply-dashboard-top-nav-surgery.mjs"
       - ".github/scripts/apply-settings-react-ownership.mjs"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -21,6 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: fix-top-nav-ownership
           fetch-depth: 0
 
       - name: Apply top nav surgery
@@ -48,4 +52,4 @@ jobs:
             exit 0
           fi
           git commit -m "Refactor dashboard top nav ownership"
-          git push origin fix-top-nav-ownership
+          git push origin HEAD:fix-top-nav-ownership
