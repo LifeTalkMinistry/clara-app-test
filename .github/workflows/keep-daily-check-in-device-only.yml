@@ -7,6 +7,12 @@ on:
     paths:
       - ".github/scripts/keep-daily-check-in-device-only.mjs"
       - ".github/workflows/keep-daily-check-in-device-only.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/keep-daily-check-in-device-only.mjs"
+      - ".github/workflows/keep-daily-check-in-device-only.yml"
   workflow_dispatch:
 
 permissions:
