@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/scripts/refactor-wallet-expanded-flow.mjs"
       - ".github/workflows/refactor-wallet-expanded-flow.yml"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
