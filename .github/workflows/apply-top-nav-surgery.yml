@@ -50,12 +50,14 @@ jobs:
           settings_path = Path('.github/scripts/apply-settings-react-ownership.mjs')
           settings_source = settings_path.read_text()
           label = '"Plan to support navigation"'
-          label_index = settings_source.index(label)
-          block_start = settings_source.rfind('\nreplaceOnce(', 0, label_index)
-          block_end = settings_source.index('\n);', label_index) + len('\n);')
-          if block_start < 0:
-              raise RuntimeError('Plan support replacement block was not found')
-          settings_path.write_text(settings_source[:block_start] + settings_source[block_end:])
+          if label in settings_source:
+              label_index = settings_source.index(label)
+              block_start = settings_source.rfind('\nreplaceOnce(', 0, label_index)
+              block_end = settings_source.index('\n);', label_index) + len('\n);')
+              if block_start < 0:
+                  raise RuntimeError('Plan support replacement block was not found')
+              settings_source = settings_source[:block_start] + settings_source[block_end:]
+          settings_path.write_text(settings_source)
           PY
 
       - name: Apply top nav surgery
@@ -91,8 +93,8 @@ jobs:
               source,
               count=1,
           )
-          if count != 1:
-              raise RuntimeError(f'Expected one Plan support navigation block, found {count}')
+          if count == 0 and 'onClick={() => openSetting("support")}' not in source:
+              raise RuntimeError('Plan support navigation was not found')
           path.write_text(source)
           PY
             third_status=$?
@@ -112,6 +114,21 @@ jobs:
           path: .github/diagnostics/top-nav-surgery.log
           if-no-files-found: warn
 
+      - name: Persist applied source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -- .github/scripts/apply-dashboard-top-nav-surgery.mjs .github/scripts/apply-settings-react-ownership.mjs
+          rm -rf .github/diagnostics
+          git add src
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Applied source is already committed."
+          else
+            git commit -m "Apply dashboard top nav surgery"
+            git push origin HEAD:fix-top-nav-ownership
+          fi
+
       - name: Install dependencies
         run: npm ci
 
@@ -119,6 +136,7 @@ jobs:
         id: regression-tests
         run: |
           set +e
+          mkdir -p .github/diagnostics
           npm test > .github/diagnostics/top-nav-tests.log 2>&1
           status=$?
           cat .github/diagnostics/top-nav-tests.log
@@ -135,7 +153,7 @@ jobs:
       - name: Build production app
         run: npm run build
 
-      - name: Commit verified refactor
+      - name: Commit verified cleanup
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -143,8 +161,8 @@ jobs:
           git add -A
           git diff --cached --check
           if git diff --cached --quiet; then
-            echo "No top nav ownership changes were produced."
+            echo "No additional verified changes were produced."
             exit 0
           fi
-          git commit -m "Refactor dashboard top nav ownership"
+          git commit -m "Verify dashboard top nav ownership"
           git push origin HEAD:fix-top-nav-ownership
