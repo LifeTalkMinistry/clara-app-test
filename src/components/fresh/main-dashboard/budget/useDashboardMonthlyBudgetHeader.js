@@ -29,7 +29,9 @@ function todayKey() {
 
 function getCycleStart(budget) {
   return toDateOnly(
-    budget?.reset_start_at ||
+    budget?.reset_at ||
+      budget?.resetAt ||
+      budget?.reset_start_at ||
       budget?.tracking_started_at ||
       budget?.tracking_start_date ||
       budget?.cycle_start ||
@@ -80,18 +82,28 @@ function getBudgetCycleLabel(budget) {
 function normalizeDerivedBudgetHeader(budget = {}) {
   if (!isDerivedBudgetHeader(budget)) return budget;
 
-  const hasExplicitTrackingStart = Boolean(
-    budget?.reset_start_at || budget?.tracking_started_at || budget?.tracking_start_date,
+  const explicitTrackingStart =
+    budget?.reset_start_at || budget?.tracking_started_at || budget?.tracking_start_date || "";
+  const hasExplicitTrackingStart = Boolean(explicitTrackingStart);
+  const resetAt = budget?.reset_at || budget?.resetAt || "";
+  const shouldRepairResetBoundary = Boolean(
+    resetAt && (!hasExplicitTrackingStart || !String(explicitTrackingStart).includes("T")),
   );
 
   const createdAt = budget?.created_at || budget?.createdAt || "";
   const createdStart = toDateOnly(createdAt);
 
-  // A derived budget must never judge transactions that happened before the
-  // budget itself existed. Use the exact header creation timestamp as the
-  // tracking boundary whenever older records do not already have one.
-  let normalized =
-    !hasExplicitTrackingStart && createdAt
+  // Reset headers created before the boundary fix stored the calendar-cycle
+  // start instead of the exact reset moment. reset_at preserves that moment,
+  // so use it to keep pre-reset planned, unplanned, and undocumented spending out.
+  let normalized = shouldRepairResetBoundary
+    ? {
+        ...budget,
+        reset_start_at: resetAt,
+        tracking_started_at: resetAt,
+        tracking_start_date: resetAt,
+      }
+    : !hasExplicitTrackingStart && createdAt
       ? {
           ...budget,
           tracking_started_at: createdAt,
