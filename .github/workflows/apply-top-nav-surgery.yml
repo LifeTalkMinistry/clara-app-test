@@ -29,8 +29,32 @@ jobs:
 
       - name: Apply top nav surgery
         run: |
-          node .github/scripts/apply-dashboard-top-nav-surgery.mjs
-          node .github/scripts/apply-settings-react-ownership.mjs
+          set +e
+          mkdir -p .github/diagnostics
+          {
+            echo "=== Dashboard and top nav surgery ==="
+            node .github/scripts/apply-dashboard-top-nav-surgery.mjs
+            first_status=$?
+            echo "dashboard_script_status=$first_status"
+            if [ "$first_status" -ne 0 ]; then
+              exit "$first_status"
+            fi
+            echo "=== Settings React ownership ==="
+            node .github/scripts/apply-settings-react-ownership.mjs
+            second_status=$?
+            echo "settings_script_status=$second_status"
+            exit "$second_status"
+          } > .github/diagnostics/top-nav-surgery.log 2>&1
+          status=$?
+          cat .github/diagnostics/top-nav-surgery.log
+          if [ "$status" -ne 0 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/diagnostics/top-nav-surgery.log
+            git commit -m "Capture top nav surgery failure" || true
+            git push origin HEAD:fix-top-nav-ownership || true
+            exit "$status"
+          fi
 
       - name: Install dependencies
         run: npm ci
