@@ -50,14 +50,15 @@ test("automatic finance sync is suppressed while a reset device is paused", () =
   assert.match(bridgeSource, /resumeOnlineSync\(\)/);
 });
 
-test("Security and privacy Backup & Transfer owns the single manual sync control", () => {
+test("Security and privacy Move & Restore Data owns the single manual sync control", () => {
   assert.match(dataExportSource, /SECURITY & PRIVACY/);
-  assert.match(dataExportSource, /Backup & Transfer/);
-  assert.match(dataExportSource, /Online sync paused/);
-  assert.match(dataExportSource, /Sync online data/);
+  assert.match(dataExportSource, /Move & Restore Data/);
+  assert.match(dataExportSource, /Ready when you are/);
+  assert.match(dataExportSource, /Bring saved data to this device/);
   assert.match(dataExportSource, /syncServerFinance\(\{ user, forcePull: currentlyPaused \}\)/);
   assert.match(dataExportSource, /resumeOnlineSync\(\)/);
-  assert.doesNotMatch(dataExportSource, /Sync pending offline changes now/);
-  assert.doesNotMatch(dataExportSource, /Refresh this device from account database/);
+  assert.doesNotMatch(dataExportSource, /Revision \{/);
+  assert.doesNotMatch(dataExportSource, /One account database across devices/);
+  assert.doesNotMatch(dataExportSource, /source of truth/i);
   assert.doesNotMatch(runtimeRegistrySource, /import "\.\/installSettingsOnlineSync"/);
 });
