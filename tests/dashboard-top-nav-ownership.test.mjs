@@ -15,6 +15,7 @@ import {
 const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
+const dashboardSource = readSource("src/pages/Dashboard.jsx");
 const topNavSource = readSource(
   "src/components/fresh/main-dashboard/top-nav/DashboardTopNav.jsx"
 );
@@ -114,6 +115,8 @@ test("DashboardTopNav is a pure renderer with no hidden global ownership", () =>
   assert.match(topNavSource, /onSelect\?\.\(item\.selectKey \|\| item\.key\)/);
   assert.match(topNavSource, /data-dashboard-nav-key/);
   assert.doesNotMatch(topNavSource, /clara-theme-nav-pill-active/);
+  assert.match(dashboardSource, /DashboardTopNavController/);
+  assert.doesNotMatch(dashboardSource, /<DashboardTopNav\s/);
 });
 
 test("guide phases are owned by a separate top nav controller", () => {
@@ -158,6 +161,6 @@ test("schedule guide runtime cannot click or block the top navigation", () => {
   assert.match(scheduleRuntimeSource, /stopObserver/);
   assert.doesNotMatch(
     scheduleRuntimeSource,
-    /observer\.observe\(document\.body[\s\S]*installClaraGuideScheduleRuntime/
+    /export function installClaraGuideScheduleRuntime[\s\S]*observer\.observe\(document\.body/
   );
 });
