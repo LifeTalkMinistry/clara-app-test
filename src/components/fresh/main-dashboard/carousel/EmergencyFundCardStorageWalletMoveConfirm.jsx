@@ -180,6 +180,7 @@ export default function EmergencyFundCard({
   wallets = [],
   updateEmergencyFund,
   addExpense,
+  deleteExpense,
   transferBetweenWallets,
   refreshData,
   correctEmergencyFundBalance,
@@ -226,10 +227,13 @@ export default function EmergencyFundCard({
   const [movingFund, setMovingFund] = useState(false);
   const [showSetupFlow, setShowSetupFlow] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetError, setResetError] = useState("");
   const pendingStorageWallet = safeWallets.find((wallet) => getWalletId(wallet) === pendingStorageWalletId) || null;
 
   const persistEmergencyFund = async (patch) => {
-    if (typeof updateEmergencyFund !== "function") return;
+    if (typeof updateEmergencyFund !== "function") {
+      throw new Error("Emergency Fund saving is not available yet.");
+    }
     const now = new Date().toISOString();
     await updateEmergencyFund({ ...(emergencyFund || {}), ...patch, updatedAt: now, updated_at: now });
   };
@@ -256,29 +260,71 @@ export default function EmergencyFundCard({
   const addEmergencyMoney = async () => {
     const amount = toNumber(addAmount);
     const sourceWallet = safeWallets.find((wallet) => getWalletId(wallet) === sourceWalletId);
-    const finalStorageWallet = activeStorageWallet || sourceWallet;
+    const finalStorageWallet = activeStorageWallet;
     if (isEmergencyFundUnconfigured) return setAddError("Set up your Emergency Fund first.");
     if (!sourceWallet) return setAddError("Choose a valid source wallet.");
     if (amount <= 0) return setAddError("Enter a valid amount.");
     if (getWalletSpendable(sourceWallet) < amount) return setAddError("This wallet does not have enough spendable balance.");
-    if (!finalStorageWallet) return setAddError("Choose a storage wallet first.");
+    if (!finalStorageWallet) return setAddError("Choose an available storage wallet before adding money.");
+
     const now = new Date().toISOString();
     const sourceName = getWalletName(sourceWallet);
     const finalStorageId = getWalletId(finalStorageWallet);
     const finalStorageName = getWalletName(finalStorageWallet);
     const nextSaved = savedAmount + amount;
     const activityId = `emergency_allocation_${Date.now()}`;
-    const nextActivity = [{ id: activityId, type: "allocation", amount, title: "Emergency Fund Allocation", reason: "Emergency Fund Allocation", note: `From ${sourceName}; stored in ${finalStorageName}`, sourceWalletId, source_wallet_id: sourceWalletId, sourceWalletName: sourceName, source_wallet_name: sourceName, storageWalletId: finalStorageId, storage_wallet_id: finalStorageId, storageWalletName: finalStorageName, storage_wallet_name: finalStorageName, balanceBefore: savedAmount, balanceAfter: nextSaved, createdAt: now, created_at: now }, ...activity].slice(0, 60);
+    const shouldMoveWalletMoney = sourceWalletId !== finalStorageId;
+    const nextActivity = [{ id: activityId, type: "allocation", amount, title: "Emergency Fund Allocation", reason: "Emergency Fund Allocation", note: shouldMoveWalletMoney ? `From ${sourceName}; stored in ${finalStorageName}` : `Protected inside ${finalStorageName}`, sourceWalletId, source_wallet_id: sourceWalletId, sourceWalletName: sourceName, source_wallet_name: sourceName, storageWalletId: finalStorageId, storage_wallet_id: finalStorageId, storageWalletName: finalStorageName, storage_wallet_name: finalStorageName, balanceBefore: savedAmount, balanceAfter: nextSaved, createdAt: now, created_at: now }, ...activity].slice(0, 60);
+    let movedWalletMoney = false;
+
     setSaving(true);
     setAddError("");
     try {
-      await addExpense?.({ wallet_id: sourceWalletId, amount, category: "Emergency Fund Allocation", need_type: "other", planning_status: "planned", notes: `Moved to Emergency Fund. Stored in ${finalStorageName}.`, date: now, created_at: now, updated_at: now, emergency_fund_transaction_id: activityId, emergencyFundTransactionId: activityId, user_id: user?.id || null, user_email: user?.email || null, created_by: user?.email || null });
+      if (shouldMoveWalletMoney) {
+        if (typeof transferBetweenWallets !== "function") throw new Error("Wallet transfer is not available yet.");
+        await transferBetweenWallets({
+          id: activityId,
+          transfer_group_id: activityId,
+          from_wallet_id: sourceWalletId,
+          to_wallet_id: finalStorageId,
+          amount,
+          notes: `Emergency Fund Allocation. From ${sourceName}; stored in ${finalStorageName}.`,
+          date: now,
+          created_at: now,
+          emergency_fund_transaction_id: activityId,
+          emergencyFundTransactionId: activityId,
+          source_type: "emergency_fund_allocation",
+          category: "Emergency Fund Allocation",
+          planning_status: "planned",
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        });
+        movedWalletMoney = true;
+      }
+
       await persistEmergencyFund({ savedAmount: nextSaved, saved_amount: nextSaved, currentAmount: nextSaved, current_amount: nextSaved, amount: nextSaved, balance: nextSaved, moneyLeft: nextSaved, protectedBalance: nextSaved, protected_balance: nextSaved, reserveBalance: nextSaved, reserve_balance: nextSaved, targetAmount: target, target_amount: target, target, linkedWalletId: finalStorageId, linked_wallet_id: finalStorageId, reserveWalletId: finalStorageId, reserve_wallet_id: finalStorageId, storageWalletId: finalStorageId, storage_wallet_id: finalStorageId, linkedWalletName: finalStorageName, linked_wallet_name: finalStorageName, reserveWalletName: finalStorageName, reserve_wallet_name: finalStorageName, storageWalletName: finalStorageName, storage_wallet_name: finalStorageName, emergencyActivityLog: nextActivity, emergency_activity_log: nextActivity, activityLog: nextActivity, activity_log: nextActivity, lastTopUpAmount: amount, last_top_up_amount: amount, lastReserveAllocationAt: now, last_reserve_allocation_at: now });
       setShowAddModal(false);
       setAddAmount("");
     } catch (error) {
+      if (movedWalletMoney && typeof transferBetweenWallets === "function") {
+        try {
+          await transferBetweenWallets({
+            from_wallet_id: finalStorageId,
+            to_wallet_id: sourceWalletId,
+            amount,
+            notes: "Emergency Fund allocation rollback after the reserve record could not be saved.",
+            source_type: "emergency_fund_allocation_rollback",
+            user_id: user?.id || null,
+            user_email: user?.email || null,
+            created_by: user?.email || null,
+          });
+        } catch (rollbackError) {
+          console.error("Unable to roll back Emergency Fund wallet movement:", rollbackError);
+        }
+      }
       console.error("Unable to add Emergency Fund money:", error);
-      setAddError("CLARA could not add this Emergency Fund amount yet. Try again.");
+      setAddError("CLARA could not add this Emergency Fund amount yet. No reserve change was kept.");
     } finally {
       setSaving(false);
     }
@@ -290,12 +336,41 @@ export default function EmergencyFundCard({
     if (amount <= 0) return setUseError("Enter a valid amount.");
     if (amount > savedAmount) return setUseError("This is higher than your current reserve.");
     if (!reason) return setUseError("Add a short emergency reason.");
+    if (!activeStorageWallet) return setUseError("Choose an available storage wallet before using this fund.");
+    if (getWalletBalance(activeStorageWallet) < amount) return setUseError("The storage wallet does not contain enough money for this emergency expense.");
+    if (typeof addExpense !== "function" || typeof deleteExpense !== "function") return setUseError("Emergency expense logging is not available yet.");
+
     const now = new Date().toISOString();
+    const activityId = `emergency_use_${Date.now()}`;
+    const expenseId = `emergency_use_expense_${Date.now()}`;
     const nextSaved = Math.max(savedAmount - amount, 0);
-    const nextActivity = [{ id: `emergency_use_${Date.now()}`, type: "use", amount, title: "Emergency Fund Used", reason, note: storageWalletName ? `Stored in ${storageWalletName}` : "", balanceBefore: savedAmount, balanceAfter: nextSaved, createdAt: now, created_at: now }, ...activity].slice(0, 60);
+    const nextActivity = [{ id: activityId, type: "use", amount, title: "Emergency Fund Used", reason, note: `Paid from ${storageWalletName}`, storageWalletId, storage_wallet_id: storageWalletId, balanceBefore: savedAmount, balanceAfter: nextSaved, createdAt: now, created_at: now }, ...activity].slice(0, 60);
+    let expenseCreated = false;
+
     setSaving(true);
     setUseError("");
     try {
+      await addExpense({
+        id: expenseId,
+        wallet_id: storageWalletId,
+        amount,
+        category: "Emergency Fund Used",
+        need_type: "need",
+        planning_status: "unplanned",
+        unplanned_reason: reason,
+        notes: `Emergency Fund expense: ${reason}`,
+        date: now,
+        created_at: now,
+        updated_at: now,
+        emergency_fund_transaction_id: activityId,
+        emergencyFundTransactionId: activityId,
+        source_type: "emergency_fund_usage",
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
+      expenseCreated = true;
+
       await persistEmergencyFund({ savedAmount: nextSaved, saved_amount: nextSaved, currentAmount: nextSaved, current_amount: nextSaved, amount: nextSaved, balance: nextSaved, moneyLeft: nextSaved, protectedBalance: nextSaved, protected_balance: nextSaved, reserveBalance: nextSaved, reserve_balance: nextSaved, emergencyActivityLog: nextActivity, emergency_activity_log: nextActivity, activityLog: nextActivity, activity_log: nextActivity, usageLog: nextActivity, usage_log: nextActivity, lastEmergencySpendAmount: amount, last_emergency_spend_amount: amount, lastEmergencySpendReason: reason, last_emergency_spend_reason: reason, lastEmergencySpendAt: now, last_emergency_spend_at: now });
       setShowUseModal(false);
       setUseAmount("");
@@ -303,8 +378,15 @@ export default function EmergencyFundCard({
       setEmergencyActionType("expense");
       setCorrectionOrphanId("");
     } catch (error) {
+      if (expenseCreated) {
+        try {
+          await deleteExpense(expenseId);
+        } catch (rollbackError) {
+          console.error("Unable to roll back Emergency Fund expense:", rollbackError);
+        }
+      }
       console.error("Unable to use Emergency Fund money:", error);
-      setUseError("CLARA could not log this emergency usage yet. Try again.");
+      setUseError("CLARA could not log this emergency usage yet. No reserve change was kept.");
     } finally {
       setSaving(false);
     }
@@ -361,20 +443,31 @@ export default function EmergencyFundCard({
     const shouldTransfer = savedAmount > 0 && Boolean(activeStorageWallet);
     if (shouldTransfer && getWalletBalance(activeStorageWallet) < savedAmount) return setMoveError("The current storage wallet does not have enough balance to move this protected amount.");
     const now = new Date().toISOString();
+    const previousWalletId = activeStorageWallet ? getWalletId(activeStorageWallet) : "";
     const previousWalletName = activeStorageWallet ? getWalletName(activeStorageWallet) : "Previous wallet";
-    const nextActivity = savedAmount > 0 ? [{ id: `emergency_storage_move_${Date.now()}`, type: shouldTransfer ? "storage_wallet_transfer" : "storage_wallet_changed", amount: savedAmount, title: shouldTransfer ? "Emergency Fund moved" : "Storage wallet changed", reason: "Emergency Fund Storage Wallet", note: shouldTransfer ? `Moved from ${previousWalletName} to ${nextWalletName}` : `Stored in ${nextWalletName}`, sourceWalletId: activeStorageWallet ? getWalletId(activeStorageWallet) : null, source_wallet_id: activeStorageWallet ? getWalletId(activeStorageWallet) : null, storageWalletId: nextWalletId, storage_wallet_id: nextWalletId, storageWalletName: nextWalletName, storage_wallet_name: nextWalletName, createdAt: now, created_at: now }, ...activity].slice(0, 60) : activity;
+    const nextActivity = savedAmount > 0 ? [{ id: `emergency_storage_move_${Date.now()}`, type: shouldTransfer ? "storage_wallet_transfer" : "storage_wallet_changed", amount: savedAmount, title: shouldTransfer ? "Emergency Fund moved" : "Storage wallet changed", reason: "Emergency Fund Storage Wallet", note: shouldTransfer ? `Moved from ${previousWalletName} to ${nextWalletName}` : `Stored in ${nextWalletName}`, sourceWalletId: previousWalletId || null, source_wallet_id: previousWalletId || null, storageWalletId: nextWalletId, storage_wallet_id: nextWalletId, storageWalletName: nextWalletName, storage_wallet_name: nextWalletName, createdAt: now, created_at: now }, ...activity].slice(0, 60) : activity;
+    let movedWalletMoney = false;
+
     setMovingFund(true);
     setMoveError("");
     try {
       if (shouldTransfer) {
         if (typeof transferBetweenWallets !== "function") throw new Error("Wallet transfer is not available yet.");
-        await transferBetweenWallets({ from_wallet_id: getWalletId(activeStorageWallet), to_wallet_id: nextWalletId, amount: savedAmount, user_id: user?.id || null, user_email: user?.email || null, created_by: user?.email || null });
+        await transferBetweenWallets({ from_wallet_id: previousWalletId, to_wallet_id: nextWalletId, amount: savedAmount, notes: `Emergency Fund moved from ${previousWalletName} to ${nextWalletName}.`, source_type: "emergency_fund_storage_move", user_id: user?.id || null, user_email: user?.email || null, created_by: user?.email || null });
+        movedWalletMoney = true;
       }
       await persistEmergencyFund({ linkedWalletId: nextWalletId, linked_wallet_id: nextWalletId, reserveWalletId: nextWalletId, reserve_wallet_id: nextWalletId, storageWalletId: nextWalletId, storage_wallet_id: nextWalletId, linkedWalletName: nextWalletName, linked_wallet_name: nextWalletName, reserveWalletName: nextWalletName, reserve_wallet_name: nextWalletName, storageWalletName: nextWalletName, storage_wallet_name: nextWalletName, emergencyActivityLog: nextActivity, emergency_activity_log: nextActivity, activityLog: nextActivity, activity_log: nextActivity, lastStorageWalletChangedAt: now, last_storage_wallet_changed_at: now, lastReserveTransferAt: shouldTransfer ? now : emergencyFund?.lastReserveTransferAt ?? emergencyFund?.last_reserve_transfer_at ?? null, last_reserve_transfer_at: shouldTransfer ? now : emergencyFund?.last_reserve_transfer_at ?? emergencyFund?.lastReserveTransferAt ?? null });
       setPendingStorageWalletId("");
     } catch (error) {
+      if (movedWalletMoney && previousWalletId && typeof transferBetweenWallets === "function") {
+        try {
+          await transferBetweenWallets({ from_wallet_id: nextWalletId, to_wallet_id: previousWalletId, amount: savedAmount, notes: "Emergency Fund storage move rollback after the reserve record could not be saved.", source_type: "emergency_fund_storage_move_rollback", user_id: user?.id || null, user_email: user?.email || null, created_by: user?.email || null });
+        } catch (rollbackError) {
+          console.error("Unable to roll back Emergency Fund storage move:", rollbackError);
+        }
+      }
       console.error("Unable to move Emergency Fund storage wallet:", error);
-      setMoveError(error?.message || "CLARA could not move this Emergency Fund yet. Try again.");
+      setMoveError(error?.message || "CLARA could not move this Emergency Fund yet. No storage change was kept.");
     } finally {
       setMovingFund(false);
     }
@@ -383,9 +476,15 @@ export default function EmergencyFundCard({
   const resetEmergencyFund = async () => {
     const now = new Date().toISOString();
     setSaving(true);
+    setResetError("");
     try {
       await persistEmergencyFund({ savedAmount: 0, saved_amount: 0, currentAmount: 0, current_amount: 0, amount: 0, balance: 0, moneyLeft: 0, protectedBalance: 0, protected_balance: 0, reserveBalance: 0, reserve_balance: 0, survivalExpense: 0, survival_expense: 0, monthlyExpense: 0, monthly_expense: 0, monthly_survival_expense: 0, targetAmount: 0, target_amount: 0, target: 0, targetMonths: 3, target_months: 3, months_target: 3, linkedWalletId: null, linked_wallet_id: null, reserveWalletId: null, reserve_wallet_id: null, sourceWalletId: null, source_wallet_id: null, storageWalletId: null, storage_wallet_id: null, linkedWalletName: null, linked_wallet_name: null, reserveWalletName: null, reserve_wallet_name: null, sourceWalletName: null, source_wallet_name: null, storageWalletName: null, storage_wallet_name: null, emergencyActivityLog: [], emergency_activity_log: [], activityLog: [], activity_log: [], usageLog: [], usage_log: [], resetAt: now, reset_at: now });
       onSurvivalSaved?.(0);
+      return true;
+    } catch (error) {
+      console.error("Unable to reset Emergency Fund:", error);
+      setResetError("CLARA could not reset this Emergency Fund yet. Your current setup was kept.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -430,9 +529,9 @@ export default function EmergencyFundCard({
       <SurvivalExpenseModal open={!isEmergencyFundUnconfigured && editing} initialValue={monthlyExpense > 0 ? monthlyExpense : ""} userId={user?.id} onSaved={handleSurvivalSaved} onOpenChange={(open) => !open && setEditing(false)} />
       <EmergencyFundSetupFlow open={showSetupFlow} onClose={() => setShowSetupFlow(false)} safeWallets={setupWallets} targetMonths={targetMonths} validTargetMonths={TARGET_MONTHS} onComplete={handleSetupComplete} fmt={fmt} saving={saving} />
       <EmergencyMoveModal open={!isEmergencyFundUnconfigured && Boolean(pendingStorageWallet)} onClose={() => { if (!movingFund) { setPendingStorageWalletId(""); setMoveError(""); } }} onConfirm={confirmStorageWalletMove} currentWallet={activeStorageWallet} nextWallet={pendingStorageWallet} amount={savedAmount} error={moveError} moving={movingFund} fmt={fmt} getWalletName={getWalletName} />
-      <EmergencyAddModal open={!isEmergencyFundUnconfigured && showAddModal} onClose={() => { setShowAddModal(false); setAddError(""); }} wallets={safeWallets} sourceWalletId={sourceWalletId} setSourceWalletId={(value) => { setSourceWalletId(value); setAddError(""); }} amount={addAmount} setAmount={(value) => { setAddAmount(value); setAddError(""); }} error={addError} saving={saving} onSave={addEmergencyMoney} fmt={fmt} getWalletId={getWalletId} getWalletName={getWalletName} getWalletSpendable={getWalletSpendable} />
+      <EmergencyAddModal open={!isEmergencyFundUnconfigured && showAddModal} onClose={() => { if (!saving) { setShowAddModal(false); setAddError(""); } }} wallets={safeWallets} sourceWalletId={sourceWalletId} setSourceWalletId={(value) => { setSourceWalletId(value); setAddError(""); }} amount={addAmount} setAmount={(value) => { setAddAmount(value); setAddError(""); }} error={addError} saving={saving} onSave={addEmergencyMoney} fmt={fmt} getWalletId={getWalletId} getWalletName={getWalletName} getWalletSpendable={getWalletSpendable} />
       <EmergencyUseModal open={!isEmergencyFundUnconfigured && showUseModal} onClose={closeUseModal} amount={useAmount} setAmount={(value) => { setUseAmount(value); setUseError(""); }} reason={useReason} setReason={(value) => { setUseReason(value); setUseError(""); }} error={useError} saving={saving} onSave={emergencyActionType === "correction" ? applyEmergencyCorrection : useEmergencyMoney} currentReserve={savedAmount} actionType={emergencyActionType} setActionType={handleEmergencyActionTypeChange} orphanAllocation={orphanAllocation} onReverseOrphanAllocation={reverseOrphanAllocation} fmt={fmt} toNumber={toNumber} />
-      <EmergencyResetConfirmModal open={!isEmergencyFundUnconfigured && showResetConfirm} onClose={() => { if (!saving) setShowResetConfirm(false); }} onConfirm={async () => { await resetEmergencyFund(); setShowResetConfirm(false); }} saving={saving} />
+      <EmergencyResetConfirmModal open={!isEmergencyFundUnconfigured && showResetConfirm} onClose={() => { if (!saving) { setShowResetConfirm(false); setResetError(""); } }} onConfirm={async () => { const resetCompleted = await resetEmergencyFund(); if (resetCompleted) setShowResetConfirm(false); }} saving={saving} error={resetError} />
 
       <FinanceCardShell cardKey="emergencyFund" expanded={expanded} ringClass={status.ring || ""} roundedClass="rounded-3xl" glowLayerClassNames={EMERGENCY_GLOW_LAYERS} surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]" shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]">
         {!expanded ? (
@@ -480,10 +579,12 @@ export default function EmergencyFundCard({
                   </div>
                   <ActivityList activity={activity} fmt={fmt} toNumber={toNumber} />
 
+                  {!activeStorageWallet ? <div className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-4 py-3 text-xs font-semibold leading-5 text-amber-50/82">The linked storage wallet is unavailable. Choose a new storage wallet above before adding or using this reserve.</div> : null}
+
                   <div className="grid grid-cols-2 gap-2 pt-1.5">
                     <button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-[12px] font-semibold transition ${premiumActionClass}`}><Edit2 className="h-4 w-4" />Edit setup</button>
-                    <button type="button" onClick={openAddEmergencyModal} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"><Plus className="h-4 w-4" />Add</button>
-                    <button type="button" onClick={openUseModal} disabled={savedAmount <= 0} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button>
+                    <button type="button" onClick={openAddEmergencyModal} disabled={!activeStorageWallet || saving || movingFund} className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-2 py-3.5 text-[12px] font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><Plus className="h-4 w-4" />Add</button>
+                    <button type="button" onClick={openUseModal} disabled={savedAmount <= 0 || !activeStorageWallet || saving || movingFund} className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"><MinusCircle className="h-4 w-4" />Use</button>
                     <button type="button" onClick={() => setShowResetConfirm(true)} disabled={saving} className="flex items-center justify-center gap-1.5 rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-2 py-3.5 text-[12px] font-black text-rose-100/90 shadow-[0_0_18px_rgba(244,63,94,0.06)] transition hover:bg-rose-400/[0.13] disabled:opacity-60"><RotateCcw className="h-4 w-4" />Reset</button>
                   </div>
                   <div aria-hidden="true" className="h-5 shrink-0" />

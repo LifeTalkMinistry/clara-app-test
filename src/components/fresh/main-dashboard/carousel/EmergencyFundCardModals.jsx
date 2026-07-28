@@ -157,13 +157,14 @@ export function EmergencyMoveModal({
   );
 }
 
-export function EmergencyResetConfirmModal({ open, onClose, onConfirm, saving }) {
+export function EmergencyResetConfirmModal({ open, onClose, onConfirm, saving, error }) {
   if (!open) return null;
 
   return (
     <ModalFrame title="Reset Emergency Fund?" subtitle="Please confirm before CLARA clears this setup." onClose={onClose}>
-      <div className="rounded-2xl border border-rose-300/16 bg-rose-400/[0.08] px-4 py-3 text-xs font-semibold leading-6 text-rose-50/86">This will reset your Emergency Fund setup, including your monthly survival cost, protection target, storage wallet, saved emergency amount, and activity log.</div>
+      <div className="rounded-2xl border border-rose-300/16 bg-rose-400/[0.08] px-4 py-3 text-xs font-semibold leading-6 text-rose-50/86">This will reset the Emergency Fund setup and activity log. The actual money will remain in its wallet and become spendable again.</div>
       <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-100/72">This cannot be undone.</p>
+      {error ? <div className="rounded-2xl border border-rose-300/16 bg-rose-400/[0.075] px-4 py-3 text-xs font-semibold text-rose-200">{error}</div> : null}
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={onClose} disabled={saving} className="rounded-2xl border border-white/[0.06] bg-black/[0.12] px-4 py-3 text-sm font-semibold text-white/78 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-60">Cancel</button>
         <button type="button" onClick={onConfirm} disabled={saving} className="rounded-2xl border border-rose-300/22 bg-rose-400/[0.10] px-4 py-3 text-sm font-black text-rose-100 transition hover:bg-rose-400/[0.15] disabled:opacity-60">{saving ? "Resetting..." : "Continue reset"}</button>
