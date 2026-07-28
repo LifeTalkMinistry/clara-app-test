@@ -67,8 +67,8 @@ updateFile(cloudSnapshotPath, (input) => {
 
   source = replaceOnce(
     source,
-    '        accountId,\n        sourceVaultId,\n      }),',
-    '        accountId,\n        sourceVaultId,\n        includeDeviceOnly,\n      }),',
+    '      localStorage: sanitizeCloudLocalStorage(fullExport?.data?.localStorage || {}, {\n        accountId,\n        sourceVaultId,\n      }),',
+    '      localStorage: sanitizeCloudLocalStorage(fullExport?.data?.localStorage || {}, {\n        accountId,\n        sourceVaultId,\n        includeDeviceOnly,\n      }),',
     "snapshot sanitizer option forwarding",
   );
 
