@@ -1,0 +1,49 @@
+name: Update Security privacy device copy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/update-security-privacy-device-copy.yml"
+      - ".github/scripts/update-security-privacy-device-copy.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-device-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Apply Security and privacy device wording
+        run: node .github/scripts/update-security-privacy-device-copy.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Security and privacy regression tests
+        run: node --test tests/settings-local-only-regression.test.mjs tests/manual-online-sync-after-reset.test.mjs tests/cloud-vault-sync.test.mjs
+
+      - name: Build check
+        run: npm run build
+
+      - name: Commit verified wording update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx src/pages/DataExport.jsx tests/settings-local-only-regression.test.mjs tests/manual-online-sync-after-reset.test.mjs tests/cloud-vault-sync.test.mjs
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No Security and privacy wording changes were produced."
+            exit 0
+          fi
+          git commit -m "Update Security privacy device wording"
+          git pull --rebase origin main
+          git push origin main
