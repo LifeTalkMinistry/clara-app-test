@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "https://groin-mothproof-sixties.ngrok-free.dev";
+const DEFAULT_API_URL = "https://addressing-congress-older-edition.trycloudflare.com";
 const VERCEL_API_PROXY_PATH = "/clara-api";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
@@ -156,10 +156,10 @@ export function isStoredBackendUserSnapshotFresh(
 }
 
 function buildFailClosedOfflineUser(user) {
-  const normalized = normalizeUser(user);
-  if (!normalized) return null;
+  const normalizedUser = normalizeUser(user);
+  if (!normalizedUser) return null;
   return {
-    ...normalized,
+    ...normalizedUser,
     plan: "free",
     status: "inactive",
   };
