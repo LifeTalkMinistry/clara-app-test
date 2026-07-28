@@ -6,12 +6,14 @@ on:
       - fix/income-hub-expanded-flow
     paths:
       - ".github/scripts/refactor-income-hub-expanded-flow.mjs"
+      - ".github/scripts/fix-income-hub-regression-test.mjs"
       - ".github/workflows/refactor-income-hub-expanded-flow.yml"
   pull_request:
     branches:
       - main
     paths:
       - ".github/scripts/refactor-income-hub-expanded-flow.mjs"
+      - ".github/scripts/fix-income-hub-regression-test.mjs"
       - ".github/workflows/refactor-income-hub-expanded-flow.yml"
   workflow_dispatch:
 
@@ -30,7 +32,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Income Hub refactor
-        run: node .github/scripts/refactor-income-hub-expanded-flow.mjs
+        run: |
+          node .github/scripts/refactor-income-hub-expanded-flow.mjs
+          node .github/scripts/fix-income-hub-regression-test.mjs
 
       - name: Install dependencies
         run: npm ci
