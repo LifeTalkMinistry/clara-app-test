@@ -12,6 +12,7 @@ import { getBackendAccountId } from "./clara-account-identity";
 import {
   buildClaraCloudVaultSnapshot,
   getClaraSyncDeviceId,
+  isDeviceOnlyStorageKey,
 } from "./cloud-vault-snapshot";
 
 export const CLARA_SERVER_FINANCE_SYNC_EVENT = "clara:server-finance-sync-status";
@@ -251,7 +252,8 @@ async function replaceLocalStateFromServer(serverRecords, user) {
         record?.entityType === LOCAL_STATE_ENTITY &&
         record?.id &&
         !record.deletedAt &&
-        !isServerSyncMetadataKey(record.id)
+        !isServerSyncMetadataKey(record.id) &&
+        !isDeviceOnlyStorageKey(record.id)
     )
     .forEach((record) => {
       targetStorage.setItem(record.id, toStorageValue(record.payload?.value));

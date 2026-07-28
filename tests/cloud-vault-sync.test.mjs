@@ -49,6 +49,50 @@ test("private backup implementation excludes auth, vault mapping, and device ide
   assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
+test("Daily Check-In remains device-only during server sync", async () => {
+  const syncSource = await fs.readFile(
+    new URL("../src/lib/server-finance-sync.js", import.meta.url),
+    "utf8",
+  );
+  const snapshotSource = await fs.readFile(
+    new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
+    "utf8",
+  );
+  const localExportSource = await fs.readFile(
+    new URL("../src/lib/local-data-export.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(snapshotSource, /DEVICE_ONLY_STORAGE_KEY_PATTERN\s*=\s*\/\^clara_daily_check_in_\/i/);
+  assert.match(snapshotSource, /export function isDeviceOnlyStorageKey\(key\)/);
+  assert.match(
+    snapshotSource,
+    /sanitizeCloudLocalStorage\([\s\S]*includeDeviceOnly = false[\s\S]*!includeDeviceOnly && isDeviceOnlyStorageKey\(key\)/,
+  );
+  assert.match(
+    snapshotSource,
+    /prepareCloudSnapshotForRestore\([\s\S]*includeDeviceOnly = false[\s\S]*!includeDeviceOnly && isDeviceOnlyStorageKey\(rewrittenKey\)/,
+  );
+  assert.match(
+    snapshotSource,
+    /clearCloudRestoreStorage\([\s\S]*includeDeviceOnly = false[\s\S]*!includeDeviceOnly && isDeviceOnlyStorageKey\(key\)/,
+  );
+  assert.match(syncSource, /!isDeviceOnlyStorageKey\(record\.id\)/);
+
+  assert.match(
+    snapshotSource,
+    /downloadClaraPrivateBackup[\s\S]*includeDeviceOnly:\s*true/,
+  );
+  assert.match(
+    snapshotSource,
+    /restoreClaraPrivateBackupFile[\s\S]*includeDeviceOnly:\s*true/,
+  );
+
+  assert.match(localExportSource, /clara_daily_check_in_v1/);
+  assert.match(localExportSource, /clara_daily_check_in_v2:/);
+  assert.match(localExportSource, /clara_daily_check_in_v3:/);
+});
+
 test("server finance sync keeps the manual control under simple user-facing Privacy copy", async () => {
   const syncSource = await fs.readFile(
     new URL("../src/lib/server-finance-sync.js", import.meta.url),

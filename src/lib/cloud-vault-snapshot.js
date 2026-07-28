@@ -21,9 +21,14 @@ const FORBIDDEN_STORAGE_KEYS = new Set([
   ACCOUNT_VAULT_DIRECTORY_KEY,
 ]);
 const SECRET_KEY_PATTERN = /(access[_-]?token|refresh[_-]?token|password|jwt|auth[_-]?session|admin[_-]?session)/i;
+const DEVICE_ONLY_STORAGE_KEY_PATTERN = /^clara_daily_check_in_/i;
 const CLOUD_RESTORE_CLEAR_PATTERN = /^(clara_(?!backend_|local_vault_id_v1$|active_local_vault_v1$|account_vault_directory_v1$|sync_device_id_v1$)|life_profile|ai_financial_memory|money|wallet|budget|expense|transaction|savings|emergency|finance|daily_tip|guide|onboarding|learning_hub|game_progress)/i;
 
 const text = (value) => String(value ?? "").trim();
+
+export function isDeviceOnlyStorageKey(key) {
+  return DEVICE_ONLY_STORAGE_KEY_PATTERN.test(text(key));
+}
 
 function randomId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -72,7 +77,7 @@ function storageKeyBelongsToAnotherAccount(key, mappings, accountId, sourceVault
 
 export function sanitizeCloudLocalStorage(
   localStorageData = {},
-  { accountId, sourceVaultId } = {}
+  { accountId, sourceVaultId, includeDeviceOnly = false } = {}
 ) {
   const normalizedAccountId = text(accountId);
   const normalizedVaultId = text(sourceVaultId);
@@ -80,7 +85,12 @@ export function sanitizeCloudLocalStorage(
   const safe = {};
 
   Object.entries(localStorageData || {}).forEach(([key, value]) => {
-    if (!key || FORBIDDEN_STORAGE_KEYS.has(key) || SECRET_KEY_PATTERN.test(key)) return;
+    if (
+      !key ||
+      FORBIDDEN_STORAGE_KEYS.has(key) ||
+      SECRET_KEY_PATTERN.test(key) ||
+      (!includeDeviceOnly && isDeviceOnlyStorageKey(key))
+    ) return;
     if (
       storageKeyBelongsToAnotherAccount(
         key,
@@ -148,7 +158,11 @@ export function sanitizeCloudIndexedDb(indexedDbExport = {}, context = {}) {
   return { supported: true, databases, errors: [] };
 }
 
-export async function buildClaraCloudVaultSnapshot({ user, profile } = {}) {
+export async function buildClaraCloudVaultSnapshot({
+  user,
+  profile,
+  includeDeviceOnly = false,
+} = {}) {
   const accountId = text(getBackendAccountId(user));
   const sourceVaultId = text(getActiveLocalVaultId());
   if (!accountId) throw new Error("A signed-in CLARA account is required.");
@@ -167,6 +181,7 @@ export async function buildClaraCloudVaultSnapshot({ user, profile } = {}) {
       localStorage: sanitizeCloudLocalStorage(fullExport?.data?.localStorage || {}, {
         accountId,
         sourceVaultId,
+        includeDeviceOnly,
       }),
       indexedDB: sanitizeCloudIndexedDb(fullExport?.data?.indexedDB || {}, {
         accountId,
@@ -300,10 +315,16 @@ export function mergeClaraCloudSnapshots(localSnapshot, remoteSnapshot) {
     source_vault_id: local.source_vault_id,
     source_device_id: getClaraSyncDeviceId(),
     data: {
-      localStorage: {
-        ...(older.data?.localStorage || {}),
-        ...(newer.data?.localStorage || {}),
-      },
+      localStorage: sanitizeCloudLocalStorage(
+        {
+          ...(older.data?.localStorage || {}),
+          ...(newer.data?.localStorage || {}),
+        },
+        {
+          accountId: newer.account_id,
+          sourceVaultId: local.source_vault_id,
+        },
+      ),
       indexedDB: { supported: true, databases, errors: [] },
     },
   };
@@ -326,7 +347,10 @@ function replaceVaultText(value, sourceVaultId, targetVaultId) {
   return value;
 }
 
-export function prepareCloudSnapshotForRestore(snapshot, { accountId, targetVaultId }) {
+export function prepareCloudSnapshotForRestore(
+  snapshot,
+  { accountId, targetVaultId, includeDeviceOnly = false },
+) {
   const validated = validateClaraCloudSnapshot(snapshot, accountId);
   const sourceVaultId = text(validated.source_vault_id);
   const target = text(targetVaultId);
@@ -337,7 +361,11 @@ export function prepareCloudSnapshotForRestore(snapshot, { accountId, targetVaul
     const rewrittenKey = sourceVaultId
       ? key.split(sourceVaultId).join(target)
       : key;
-    if (FORBIDDEN_STORAGE_KEYS.has(rewrittenKey) || SECRET_KEY_PATTERN.test(rewrittenKey)) return;
+    if (
+      FORBIDDEN_STORAGE_KEYS.has(rewrittenKey) ||
+      SECRET_KEY_PATTERN.test(rewrittenKey) ||
+      (!includeDeviceOnly && isDeviceOnlyStorageKey(rewrittenKey))
+    ) return;
     localStorageEntries[rewrittenKey] = replaceVaultText(value, sourceVaultId, target);
   });
 
@@ -368,7 +396,10 @@ export function prepareCloudSnapshotForRestore(snapshot, { accountId, targetVaul
   };
 }
 
-function clearCloudRestoreStorage(storage, { accountId, targetVaultId } = {}) {
+function clearCloudRestoreStorage(
+  storage,
+  { accountId, targetVaultId, includeDeviceOnly = false } = {},
+) {
   if (!storage) return;
   const mappings = readDirectoryMappingsFromStorage(globalThis?.localStorage);
   const keys = [];
@@ -381,6 +412,7 @@ function clearCloudRestoreStorage(storage, { accountId, targetVaultId } = {}) {
     if (
       FORBIDDEN_STORAGE_KEYS.has(key) ||
       SECRET_KEY_PATTERN.test(key) ||
+      (!includeDeviceOnly && isDeviceOnlyStorageKey(key)) ||
       !CLOUD_RESTORE_CLEAR_PATTERN.test(key)
     ) {
       return;
@@ -392,17 +424,29 @@ function clearCloudRestoreStorage(storage, { accountId, targetVaultId } = {}) {
   });
 }
 
-export async function restoreClaraCloudSnapshot(snapshot, { user, replaceExisting = true } = {}) {
+export async function restoreClaraCloudSnapshot(
+  snapshot,
+  { user, replaceExisting = true, includeDeviceOnly = false } = {},
+) {
   const accountId = text(getBackendAccountId(user));
   const targetVaultId = text(getActiveLocalVaultId());
   const prepared = prepareCloudSnapshotForRestore(snapshot, {
     accountId,
     targetVaultId,
+    includeDeviceOnly,
   });
 
   if (replaceExisting) {
-    clearCloudRestoreStorage(globalThis?.localStorage, { accountId, targetVaultId });
-    clearCloudRestoreStorage(globalThis?.sessionStorage, { accountId, targetVaultId });
+    clearCloudRestoreStorage(globalThis?.localStorage, {
+      accountId,
+      targetVaultId,
+      includeDeviceOnly,
+    });
+    clearCloudRestoreStorage(globalThis?.sessionStorage, {
+      accountId,
+      targetVaultId,
+      includeDeviceOnly,
+    });
     await clearLocalUserPrivateData(targetVaultId);
   }
 
@@ -429,7 +473,10 @@ export function countCloudSnapshotItems(snapshot) {
 }
 
 export async function downloadClaraPrivateBackup(context = {}) {
-  const snapshot = await buildClaraCloudVaultSnapshot(context);
+  const snapshot = await buildClaraCloudVaultSnapshot({
+    ...context,
+    includeDeviceOnly: true,
+  });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `clara-private-backup-${timestamp}.json`;
   const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
@@ -455,5 +502,9 @@ export async function restoreClaraPrivateBackupFile(file, { user } = {}) {
   } catch {
     throw new Error("This CLARA backup file is not valid JSON.");
   }
-  return restoreClaraCloudSnapshot(snapshot, { user, replaceExisting: true });
+  return restoreClaraCloudSnapshot(snapshot, {
+    user,
+    replaceExisting: true,
+    includeDeviceOnly: true,
+  });
 }

@@ -228,6 +228,10 @@ test("restore imports localStorage, sessionStorage, finance IndexedDB, and notif
 
   assert.equal(browser.localStorage.getItem("clara_local_vault_id_v1"), "vault-a");
   assert.equal(browser.localStorage.getItem("clara_active_local_vault_v1"), "vault-a");
+  assert.equal(
+    browser.localStorage.getItem("clara_daily_check_in_v3:vault-a"),
+    JSON.stringify({ streak: 7 }),
+  );
   assert.equal(browser.sessionStorage.getItem("clara_settings_session_test"), JSON.stringify({ open: true }));
   assert.equal(result.shouldReload, true);
   assert.equal(result.summary.restoredIndexedDBDatabases, 2);
