@@ -1,0 +1,1 @@
+import{r as a}from"./react-vendor-DTXHlMoD.js";import{u as t}from"./router-vendor-F17VCFmH.js";function n(){const r=t();return a.useEffect(()=>{r("/dashboard",{replace:!0})},[r]),null}export{n as default};

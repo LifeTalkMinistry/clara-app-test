@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./assets/favicon-HV1kWBx1.svg" />
+    <link rel="icon" type="image/svg+xml" href="/clara-app-test/assets/favicon-HV1kWBx1.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>CLARA</title>
 
@@ -14,51 +15,6 @@
           document.documentElement.dataset.theme = key;
           document.documentElement.classList.add("dark");
         } catch {}
-      })();
-    </script>
-
-    <!-- Hotfix for the legacy bundle: opening Settings must not force global Performance Mode. -->
-    <script>
-      (() => {
-        if (window.__claraPremiumVisualGuardInstalled) return;
-        window.__claraPremiumVisualGuardInstalled = true;
-
-        const enforcePremiumVisuals = () => {
-          const roots = [document.documentElement, document.body].filter(Boolean);
-          for (const root of roots) {
-            if (root.classList.contains("clara-performance-mode")) {
-              root.classList.remove("clara-performance-mode");
-            }
-            if (!root.classList.contains("clara-premium-mode")) {
-              root.classList.add("clara-premium-mode");
-            }
-            if (root.dataset.claraVisualMode !== "premium") {
-              root.dataset.claraVisualMode = "premium";
-            }
-          }
-        };
-
-        const observer = new MutationObserver(enforcePremiumVisuals);
-        const startGuard = () => {
-          enforcePremiumVisuals();
-          observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ["class", "data-clara-visual-mode"],
-          });
-          if (document.body) {
-            observer.observe(document.body, {
-              attributes: true,
-              attributeFilter: ["class", "data-clara-visual-mode"],
-            });
-          }
-        };
-
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", startGuard, { once: true });
-        } else {
-          startGuard();
-        }
-        window.addEventListener("clara:visual-performance-mode-updated", enforcePremiumVisuals);
       })();
     </script>
 
@@ -75,165 +31,29 @@
       body.clara-route-soft-settle .theme-page-shell main { animation: clara-route-settle 220ms cubic-bezier(.2,.8,.2,1) both; backface-visibility: hidden; will-change: transform, opacity, filter; }
       body.clara-route-soft-settle .theme-page-shell:has(.animate-spin) { animation-delay: 560ms; }
       .theme-page-shell:has(.animate-spin) > div { transform: translateZ(0); }
+
+      /* Keep the manual-expense close control pinned to the sheet's true top-right corner. */
+      .clara-manual-expense-sheet header > button[aria-label="Close log expense"],
+      .clara-manual-expense-sheet header > button[aria-label="Close guide log expense preview"] {
+        position: absolute !important;
+        top: 16px !important;
+        right: 16px !important;
+        margin: 0 !important;
+        z-index: 30 !important;
+      }
+      .clara-manual-expense-sheet header {
+        padding-right: 64px !important;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .theme-page-shell:has(.animate-spin), body.clara-route-soft-settle .theme-page-shell main { animation-delay: 0ms; animation-duration: 1ms; }
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-qTq0nEkE.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/react-vendor-DVG3ZxCM.js">
-    <link rel="modulepreload" crossorigin href="./assets/router-vendor-F_TATGrn.js">
-    <link rel="modulepreload" crossorigin href="./assets/query-vendor-Dwh_T3ys.js">
-    <link rel="modulepreload" crossorigin href="./assets/supabase-vendor-B8iMMjPO.js">
-    <link rel="modulepreload" crossorigin href="./assets/shared-vendor-mEfF7xMc.js">
-    <link rel="modulepreload" crossorigin href="./assets/ui-vendor-BNiy6XjK.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-B7zsor5a.css">
-    <style id="clara-settings-volume-hotfix">
-      body.clara-settings-active::before,
-      body.clara-settings-active::after {
-        display: block !important;
-        z-index: 0 !important;
-        pointer-events: none !important;
-      }
-      body.clara-settings-active #root {
-        position: relative !important;
-        z-index: 1 !important;
-        isolation: isolate !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section.space-y-2 > p {
-        color: rgba(207,250,254,.60) !important;
-        text-shadow: 0 0 14px rgba(34,211,238,.12) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group {
-        border-color: rgba(165,243,252,.22) !important;
-        background:
-          radial-gradient(circle at 0% 0%, rgba(45,212,191,.24), transparent 40%),
-          radial-gradient(circle at 100% 100%, rgba(124,58,237,.20), transparent 44%),
-          linear-gradient(135deg, rgba(8,78,86,.84) 0%, rgba(11,34,72,.84) 50%, rgba(52,27,101,.84) 100%) !important;
-        box-shadow:
-          inset 0 1px 0 rgba(255,255,255,.10),
-          0 14px 32px rgba(0,0,0,.14),
-          0 0 24px rgba(34,211,238,.055),
-          0 0 30px rgba(124,58,237,.045) !important;
-        backdrop-filter: blur(16px) saturate(1.12) !important;
-        -webkit-backdrop-filter: blur(16px) saturate(1.12) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group:hover {
-        border-color: rgba(165,243,252,.28) !important;
-        background:
-          radial-gradient(circle at 0% 0%, rgba(45,212,191,.28), transparent 40%),
-          radial-gradient(circle at 100% 100%, rgba(124,58,237,.24), transparent 44%),
-          linear-gradient(135deg, rgba(9,88,96,.88) 0%, rgba(13,39,80,.88) 50%, rgba(60,31,113,.88) 100%) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group > div:first-child {
-        border-color: rgba(207,250,254,.23) !important;
-        background:
-          radial-gradient(circle at 22% 0%, rgba(103,232,249,.26), transparent 58%),
-          linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.065)) !important;
-        color: rgba(236,254,255,.92) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 20px rgba(34,211,238,.09) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group > span {
-        border-color: rgba(207,250,254,.16) !important;
-        background-color: rgba(255,255,255,.085) !important;
-        color: rgba(248,253,255,.74) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.07) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group p:first-child {
-        color: rgba(255,255,255,.98) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group p[class*="truncate"][class*="text-xs"] {
-        color: rgba(236,253,255,.60) !important;
-      }
-      body.clara-settings-active #root .space-y-5.pb-6 section button.group svg.lucide-chevron-right {
-        color: rgba(236,253,255,.42) !important;
-      }
-    </style>
-    <style id="clara-top-nav-hover-fix">
-      @media (hover: hover) and (pointer: fine) {
-        #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) {
-          border-color: transparent !important;
-          background: transparent !important;
-          box-shadow: none !important;
-          transform: none !important;
-        }
-        #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) > .pointer-events-none.absolute.inset-0 {
-          opacity: 0 !important;
-        }
-        #root .max-w-\[430px\] .grid.grid-cols-4 > button.group:hover > div:not(.clara-theme-nav-pill-active) > span {
-          color: rgba(255,255,255,.88) !important;
-        }
-      }
-    </style>
-    <style id="clara-settings-home-transition-fix">
-      #root.clara-settings-home-transition button[aria-label="Settings"] > div.clara-theme-nav-pill-active {
-        border-color: transparent !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        color: rgba(255,255,255,.76) !important;
-      }
-      #root.clara-settings-home-transition button[aria-label="Settings"] > div.clara-theme-nav-pill-active > .pointer-events-none.absolute.inset-0,
-      #root.clara-settings-home-transition button[aria-label="Settings"] > div.clara-theme-nav-pill-active > .pointer-events-none.absolute.inset-x-4 {
-        opacity: 0 !important;
-      }
-      #root.clara-settings-home-transition button[aria-label="Settings"] > div.clara-theme-nav-pill-active > div.relative.flex {
-        border-color: rgba(255,255,255,.15) !important;
-        background: linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03)) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.08),0 0 18px rgba(255,255,255,.04) !important;
-      }
-      #root.clara-settings-home-transition button[aria-label="Settings"] > div.clara-theme-nav-pill-active > span {
-        font-weight: 600 !important;
-        color: rgba(255,255,255,.82) !important;
-      }
-      #root.clara-settings-home-transition button[aria-label="Home"] > div {
-        border-color: rgba(209,250,229,.24) !important;
-        background: linear-gradient(135deg,rgba(10,126,128,.50) 0%,rgba(17,44,85,.62) 46%,rgba(82,45,147,.66) 100%) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.12),0 0 34px rgba(45,212,191,.16),0 16px 32px rgba(0,0,0,.26) !important;
-        color: white !important;
-      }
-      #root.clara-settings-home-transition button[aria-label="Home"] > div > div.relative.flex {
-        border-color: rgba(209,250,229,.45) !important;
-        background: rgba(52,211,153,.18) !important;
-        color: rgb(236,253,245) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.14),0 0 26px rgba(94,234,212,.28) !important;
-      }
-      #root.clara-settings-home-transition button[aria-label="Home"] > div > span {
-        font-weight: 900 !important;
-        color: white !important;
-      }
-    </style>
-    <script>
-      (() => {
-        if (window.__claraSettingsHomeTransitionFixInstalled) return;
-        window.__claraSettingsHomeTransitionFixInstalled = true;
-        let clearTimer = null;
-
-        const clearTransition = () => {
-          window.clearTimeout(clearTimer);
-          clearTimer = null;
-          document.getElementById("root")?.classList.remove("clara-settings-home-transition");
-        };
-
-        const beginTransition = (event) => {
-          const target = event?.target;
-          if (!(target instanceof Element)) return;
-          const homeButton = target.closest('button[aria-label="Home"]');
-          if (!homeButton) return;
-          const settingsButton = document.querySelector('button[aria-label="Settings"][aria-current="page"]');
-          if (!settingsButton) return;
-
-          const root = document.getElementById("root");
-          if (!root) return;
-          root.classList.add("clara-settings-home-transition");
-          window.clearTimeout(clearTimer);
-          clearTimer = window.setTimeout(clearTransition, 900);
-        };
-
-        document.addEventListener("pointerdown", beginTransition, true);
-        window.addEventListener("popstate", () => {
-          window.setTimeout(clearTransition, 120);
-        });
-      })();
-    </script>
+    <script type="module" crossorigin src="/clara-app-test/assets/index-CkHrfsiZ.js"></script>
+    <link rel="modulepreload" crossorigin href="/clara-app-test/assets/react-vendor-DTXHlMoD.js">
+    <link rel="modulepreload" crossorigin href="/clara-app-test/assets/router-vendor-F17VCFmH.js">
+    <link rel="modulepreload" crossorigin href="/clara-app-test/assets/query-vendor-Br3dshnu.js">
+    <link rel="stylesheet" crossorigin href="/clara-app-test/assets/index-BxNzs1nT.css">
   </head>
 
   <body>
@@ -375,93 +195,114 @@ CLARA BEHAVIORAL INTELLIGENCE FRAMEWORK:
 
     <script>
       (() => {
-        if (window.__claraDailyCheckInSuccessBridgeInstalled) return;
-        window.__claraDailyCheckInSuccessBridgeInstalled = true;
+        if (window.__claraCommitmentCoachingChoiceInstalled) return;
+        window.__claraCommitmentCoachingChoiceInstalled = true;
 
-        const UPDATE_EVENT = "clara:daily-check-in-updated";
-        const MILESTONE_TYPES = new Set([
-          "streak_reset",
-          "streak_7_day",
-          "streak_14_day",
-          "streak_30_completed",
-          "new_longest_streak",
-        ]);
-        let activeBanner = null;
-
-        const removeBanner = () => {
-          activeBanner?.remove?.();
-          activeBanner = null;
+        const welcomeSessionUrl = "https://forms.gle/58cJ2wJVpC4H5qFS8";
+        const normalize = (value) => String(value || "").replace(/\s+/g, " ").trim();
+        const openWelcomeSessionForm = () => {
+          try {
+            const popup = window.open(welcomeSessionUrl, "_blank", "noopener,noreferrer");
+            if (popup) return;
+          } catch {}
+          window.location.assign(welcomeSessionUrl);
         };
-
-        const showBanner = (streakCount) => {
-          removeBanner();
-          const streak = Math.max(1, Number(streakCount) || 1);
-          const firstDay = streak === 1;
-          const wrapper = document.createElement("div");
-          wrapper.setAttribute("role", "dialog");
-          wrapper.setAttribute("aria-live", "polite");
-          wrapper.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:220;display:flex;justify-content:center;padding:0 12px max(18px,env(safe-area-inset-bottom));pointer-events:none;font-family:inherit;";
-
-          const card = document.createElement("div");
-          card.style.cssText = "position:relative;width:100%;max-width:404px;overflow:hidden;border-radius:28px;border:1px solid rgba(207,250,254,.16);padding:20px;color:white;background:linear-gradient(145deg,rgba(5,19,41,.97),rgba(8,24,55,.96) 52%,rgba(18,13,52,.96));box-shadow:0 26px 90px rgba(0,0,0,.62),0 0 55px rgba(34,211,238,.14);backdrop-filter:blur(24px);pointer-events:auto;box-sizing:border-box;";
-
-          const close = document.createElement("button");
-          close.type = "button";
-          close.setAttribute("aria-label", "Close streak message");
-          close.textContent = "×";
-          close.style.cssText = "position:absolute;right:16px;top:16px;z-index:2;width:32px;height:32px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.06);color:rgba(255,255,255,.72);font-size:22px;line-height:1;cursor:pointer;";
-          close.addEventListener("click", removeBanner);
-
-          const glowA = document.createElement("div");
-          glowA.style.cssText = "position:absolute;left:-64px;top:-64px;width:160px;height:160px;border-radius:999px;background:rgba(103,232,249,.14);filter:blur(48px);pointer-events:none;";
-          const glowB = document.createElement("div");
-          glowB.style.cssText = "position:absolute;right:-40px;bottom:-80px;width:192px;height:192px;border-radius:999px;background:rgba(129,140,248,.16);filter:blur(48px);pointer-events:none;";
-
-          const content = document.createElement("div");
-          content.style.cssText = "position:relative;z-index:1;padding-right:32px;";
-          const icon = document.createElement("div");
-          icon.textContent = "🔥";
-          icon.style.cssText = "display:flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:16px;border:1px solid rgba(207,250,254,.15);background:rgba(103,232,249,.10);font-size:21px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10);";
-          const eyebrow = document.createElement("p");
-          eyebrow.textContent = firstDay ? "YOUR STREAK STARTS HERE" : "YOUR STREAK CONTINUES";
-          eyebrow.style.cssText = "margin:16px 0 0;font-size:9px;font-weight:900;letter-spacing:.24em;color:rgba(207,250,254,.58);";
-          const title = document.createElement("h2");
-          title.textContent = firstDay ? "You showed up today! 🔥" : `You showed up for ${streak} days straight! 🔥`;
-          title.style.cssText = "margin:8px 0 0;font-size:21px;font-weight:900;line-height:1.2;letter-spacing:-.035em;color:#fff;";
-          const body = document.createElement("p");
-          body.textContent = firstDay
-            ? "Day 1 is complete. You checked in, protected your money discipline, and started building the habit."
-            : "Another day protected. Another promise to yourself kept. Keep building the discipline.";
-          body.style.cssText = "margin:12px 0 0;font-size:12.5px;font-weight:600;line-height:1.65;color:rgba(236,254,255,.76);";
-          const action = document.createElement("button");
-          action.type = "button";
-          action.textContent = firstDay ? "KEEP BUILDING" : "KEEP GOING";
-          action.style.cssText = "margin-top:20px;width:100%;border:0;border-radius:16px;padding:12px 16px;background:#a5f3fc;color:#020617;font-size:11px;font-weight:900;letter-spacing:.15em;cursor:pointer;box-shadow:0 14px 34px rgba(0,0,0,.24);";
-          action.addEventListener("click", removeBanner);
-
-          content.append(icon, eyebrow, title, body, action);
-          card.append(glowA, glowB, close, content);
-          wrapper.append(card);
-          document.body.append(wrapper);
-          activeBanner = wrapper;
-          window.setTimeout(() => action.focus?.({ preventScroll: true }), 80);
+        const closeWalkthroughIntro = () => document.querySelector("[data-clara-walkthrough-intro='true']")?.remove();
+        const openWalkthroughIntro = () => {
+          closeWalkthroughIntro();
+          const overlay = document.createElement("div");
+          overlay.dataset.claraWalkthroughIntro = "true";
+          overlay.className = "fixed inset-0 z-[100000] flex items-center justify-center overflow-y-auto bg-[#020817] px-[clamp(16px,5vw,30px)] pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(16px,env(safe-area-inset-top))] text-white";
+          overlay.innerHTML = `
+            <div class="pointer-events-none fixed inset-0 overflow-hidden">
+              <div class="absolute -left-28 -top-32 h-80 w-80 rounded-full bg-cyan-400/[0.08] blur-3xl"></div>
+              <div class="absolute -bottom-32 -right-24 h-96 w-96 rounded-full bg-violet-600/[0.11] blur-3xl"></div>
+            </div>
+            <section role="dialog" aria-modal="true" class="relative flex h-[calc(100dvh-32px)] max-h-[820px] w-full max-w-[430px] items-center justify-center text-white">
+              <article class="relative flex h-[calc(100%_-_100px)] min-h-[520px] max-h-[716px] w-[calc(100%_-_32px)] max-w-[398px] flex-col overflow-y-auto rounded-[32px] border border-cyan-100/16 bg-[linear-gradient(150deg,rgba(7,54,71,0.96),rgba(8,20,54,0.97)_48%,rgba(34,14,79,0.97))] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_46px_rgba(0,0,0,0.28)] sm:px-6 sm:py-7">
+                <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]"><div class="absolute -left-20 -top-24 h-56 w-56 rounded-full bg-cyan-300/[0.09] blur-3xl"></div><div class="absolute -bottom-24 -right-16 h-60 w-60 rounded-full bg-violet-500/[0.14] blur-3xl"></div></div>
+                <button type="button" data-clara-walkthrough-close="true" class="absolute right-5 top-5 z-20 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/18 bg-slate-950/24 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition hover:bg-white/[0.11] hover:text-white">×</button>
+                <div class="relative z-10 flex min-h-full flex-col">
+                  <div class="pr-12"><span class="inline-flex w-fit items-center rounded-full border border-cyan-100/20 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-100">Free 30-minute 1-on-1 session</span></div>
+                  <h1 class="mt-5 max-w-[19rem] text-[clamp(2rem,8.5vw,2.45rem)] font-black leading-[0.98] tracking-[-0.05em] text-white">Book Your Free CLARA Walkthrough</h1>
+                  <div class="mt-6 flex flex-1 flex-col justify-center gap-5">
+                    <div class="rounded-[22px] bg-white/[0.045] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"><div class="flex items-start gap-3.5"><div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-cyan-300/[0.1] text-cyan-100/90">⌾</div><p class="min-w-0 text-[15px] font-medium leading-[1.65] text-slate-100/86">Get a free one-on-one session with a CLARA guide who can answer your questions, help you understand the app, and show you the features most relevant to you.</p></div></div>
+                    <div class="rounded-[22px] bg-white/[0.055] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"><div class="flex items-start gap-3.5"><div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-cyan-300/[0.1] text-cyan-100/90">✓</div><div class="min-w-0"><h2 class="text-[22px] font-black leading-[1.05] tracking-[-0.035em] text-white">What happens next</h2><p class="mt-3 text-[14px] font-medium leading-[1.65] text-white/82">Complete a short form, tell us what you need help with, and choose your preferred schedule.</p></div></div></div>
+                  </div>
+                  <div class="pt-6"><div class="border-t border-white/[0.08] pt-5"><p class="text-[13px] font-medium leading-[1.6] text-slate-300/68">No payment required. You do not need to finish setting up CLARA before booking.</p><button type="button" data-clara-walkthrough-reserve="true" class="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[17px] border border-cyan-100/20 bg-[linear-gradient(100deg,rgba(14,165,233,0.96),rgba(99,102,241,0.98))] px-4 text-[12px] font-extrabold tracking-[0.02em] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)] transition hover:brightness-110 active:scale-[0.99]">Reserve My Free Session ↗</button></div></div>
+                </div>
+              </article>
+            </section>`;
+          overlay.addEventListener("click", (event) => { if (event.target === overlay) closeWalkthroughIntro(); });
+          overlay.querySelector("[data-clara-walkthrough-close='true']")?.addEventListener("click", closeWalkthroughIntro);
+          overlay.querySelector("[data-clara-walkthrough-reserve='true']")?.addEventListener("click", () => {
+            closeWalkthroughIntro();
+            openWelcomeSessionForm();
+          });
+          document.body.appendChild(overlay);
         };
-
-        window.addEventListener(UPDATE_EVENT, (event) => {
-          const detail = event?.detail || {};
-          if (detail.reason !== "check_in") return;
-          const state = detail.state || {};
-          const pendingType = state.pendingBubble?.type || "";
-
-          // A source build that already supports the new bubble should own the UI.
-          if (pendingType === "daily_check_in_completed") return;
-          // Existing milestone/reset bubbles remain higher priority and should not be duplicated.
-          if (MILESTONE_TYPES.has(pendingType)) return;
-
-          showBanner(state.currentStreak);
+        const makeGuideButton = (extraClass = "") => {
+          const guideButton = document.createElement("button");
+          guideButton.type = "button";
+          guideButton.dataset.claraGuideFirstButton = "true";
+          guideButton.className = `${extraClass} rounded-full border border-cyan-100/20 bg-cyan-100/[0.1] px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-100/[0.14] active:scale-[0.99]`;
+          guideButton.textContent = "Talk to a CLARA Guide First";
+          guideButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openWalkthroughIntro();
+          });
+          return guideButton;
+        };
+        const findCommitmentOffer = () => [...document.querySelectorAll("div")].find((node) => {
+          const text = normalize(node.innerText);
+          return text.includes("Monthly Commitment") && text.includes("CLARA Commitment") && text.includes("₱249/month");
+        });
+        const patchFinalBookletPage = () => {
+          const startButton = [...document.querySelectorAll("button")].find((button) => {
+            const text = normalize(button.innerText);
+            const articleText = normalize(button.closest("article")?.innerText || "");
+            return text === "Start My Commitment" && articleText.includes("Ready to Commit?") && articleText.includes("07 / FINAL PAGE");
+          });
+          if (!startButton || startButton.parentElement?.querySelector("[data-clara-guide-first-button='true']")) return;
+          const guideButton = makeGuideButton("mt-2 w-full bg-white/[0.055] text-white/84");
+          const reassurance = document.createElement("p");
+          reassurance.dataset.claraCommitmentReassurance = "true";
+          reassurance.className = "mt-2 text-[11px] font-bold leading-5 text-cyan-50/58";
+          reassurance.textContent = "Not sure yet? Book a free 30-minute walkthrough before deciding. No payment required.";
+          startButton.after(guideButton, reassurance);
+        };
+        const patchCommitmentOffer = () => {
+          const offer = findCommitmentOffer();
+          if (!offer) return;
+          const headings = [...offer.querySelectorAll("h1,h2,h3")];
+          const headline = headings.find((node) => /ready to commit/i.test(normalize(node.innerText)) || /ready to commit/i.test(normalize(node.textContent)) || /so\? you are ready/i.test(normalize(node.innerText)));
+          if (headline) headline.textContent = "Ready to Commit?";
+          const bodyCopy = [...offer.querySelectorAll("p")].find((node) => normalize(node.innerText).includes("Continue CLARA"));
+          if (bodyCopy) bodyCopy.textContent = "Start CLARA Commitment now, or talk to a CLARA guide first if you want help deciding.";
+          const purchaseButton = [...offer.querySelectorAll("button")].find((button) => /Continue for ₱249\/month|Start My Commitment/i.test(normalize(button.innerText)));
+          if (!purchaseButton) return;
+          if (/Continue for ₱249\/month/i.test(normalize(purchaseButton.innerText))) purchaseButton.textContent = "Start My Commitment — ₱249/month";
+          const actionGroup = purchaseButton.parentElement;
+          if (!actionGroup || actionGroup.querySelector("[data-clara-guide-first-button='true']")) return;
+          if (!offer.querySelector("[data-clara-commitment-reassurance='true']")) {
+            const reassurance = document.createElement("p");
+            reassurance.dataset.claraCommitmentReassurance = "true";
+            reassurance.className = "mt-3 rounded-[18px] border border-cyan-100/12 bg-cyan-100/[0.06] px-3 py-2 text-xs font-bold leading-5 text-cyan-50/70";
+            reassurance.textContent = "Not sure yet? Book a free 30-minute walkthrough before deciding. No payment required.";
+            actionGroup.before(reassurance);
+          }
+          purchaseButton.after(makeGuideButton(""));
+        };
+        const patchCommitmentChoices = () => { patchFinalBookletPage(); patchCommitmentOffer(); };
+        const observer = new MutationObserver(patchCommitmentChoices);
+        document.addEventListener("DOMContentLoaded", () => {
+          const root = document.getElementById("root");
+          if (root) observer.observe(root, { childList: true, subtree: true, characterData: true });
+          patchCommitmentChoices();
         });
       })();
     </script>
-
+
   </body>
 </html>
