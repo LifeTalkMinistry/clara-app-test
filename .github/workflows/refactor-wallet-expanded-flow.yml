@@ -6,6 +6,7 @@ on:
       - fix/wallet-expanded-flow
     paths:
       - ".github/scripts/refactor-wallet-expanded-flow.mjs"
+      - ".github/scripts/fix-wallet-refactor-script.mjs"
       - ".github/workflows/refactor-wallet-expanded-flow.yml"
   pull_request:
     branches:
@@ -25,6 +26,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: fix/wallet-expanded-flow
           fetch-depth: 0
+
+      - name: Repair Wallet refactor generator
+        run: node .github/scripts/fix-wallet-refactor-script.mjs
 
       - name: Apply Wallet refactor
         run: node .github/scripts/refactor-wallet-expanded-flow.mjs
