@@ -27,8 +27,6 @@ let requestHandler = null;
 
 function startObserver() {
   if (observer || !ACTIVE_PHASES.has(phase)) return;
-  observer = new MutationObserver(() => refresh());
-  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 function stopObserver() {
