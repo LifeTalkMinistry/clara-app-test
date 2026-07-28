@@ -26,6 +26,19 @@ jobs:
       - name: Harden Savings Goal card flow
         run: python3 .github/scripts/harden-savings-goal-card.py
 
+      - name: Align focused regression copy
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("tests/savings-goal-card-flow-regression.test.mjs")
+          content = path.read_text(encoding="utf-8")
+          old = r'assert.match(page, /Reduce Already Saved to \$0 before changing wallets/);'
+          new = 'assert.match(page, /Reduce Already Saved to ₱0 before changing wallets/);'
+          if old not in content:
+              raise SystemExit("Missing old Savings Goal currency assertion")
+          path.write_text(content.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Install dependencies
         run: npm ci || npm ci
 
