@@ -4,8 +4,7 @@ import { triggerClaraHaptic } from "@/lib/claraHaptics";
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
 const LEARNING_HUB_TOGGLE_SELECTOR = [
-  'button[aria-label="Open Learning Hub."]',
-  'button[aria-label="Collapse Learning Hub."]',
+  'button[data-clara-learning-hub-toggle="true"]',
   "button[data-clara-pressure-signal]",
   'button[aria-label="Open CLARA Guide Mode"]',
   'button[data-clara-guided-onboarding-button="true"]',

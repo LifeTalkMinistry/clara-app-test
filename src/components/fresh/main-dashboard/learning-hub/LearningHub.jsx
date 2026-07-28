@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, ScrollText } from "lucide-react";
+import { CalendarDays, LoaderCircle, ScrollText } from "lucide-react";
 import DailyTipCard from "../daily-tip";
 import ClaraGuideLearningHubInlineBubble from "../guide/ClaraGuideLearningHubInlineBubble";
 import ClaraGuideLearningHubOverlay from "../guide/ClaraGuideLearningHubOverlay";
@@ -18,7 +18,27 @@ import {
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 import LearningHubToggleButton from "./ui/LearningHubToggleButton";
 
-const LearningHubLoaded = lazy(() => import("./LearningHubLoaded"));
+let learningHubModulePromise = null;
+
+function loadLearningHubModule() {
+  if (!learningHubModulePromise) {
+    learningHubModulePromise = import("./LearningHubLoaded").catch((error) => {
+      learningHubModulePromise = null;
+      throw error;
+    });
+  }
+
+  return learningHubModulePromise;
+}
+
+function preloadLearningHub() {
+  return loadLearningHubModule().catch((error) => {
+    console.warn("Learning Hub preload failed:", error?.message || error);
+    return null;
+  });
+}
+
+const LearningHubLoaded = lazy(loadLearningHubModule);
 
 const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
@@ -100,6 +120,20 @@ function DailyTipGuideBubble() {
           CLARA gives you one quick money reminder before you spend.
         </p>
       </div>
+    </div>
+  );
+}
+
+function LearningHubOpeningPlaceholder() {
+  return (
+    <div
+      data-clara-learning-hub-opening="true"
+      role="status"
+      aria-live="polite"
+      className="mx-auto flex min-h-10 w-fit items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-[rgba(6,18,38,0.68)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50/72 shadow-[0_10px_26px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]"
+    >
+      <LoaderCircle className="h-4 w-4 animate-spin text-cyan-100/80" />
+      <span>Opening Learning Hub</span>
     </div>
   );
 }
@@ -194,6 +228,36 @@ export default function LearningHub({
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      isGuideMode ||
+      isLocked ||
+      shouldLoadHub ||
+      typeof window === "undefined"
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const warmLearningHub = () => {
+      if (!cancelled) void preloadLearningHub();
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(warmLearningHub, { timeout: 1200 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(warmLearningHub, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [isGuideMode, isLocked, shouldLoadHub]);
+
   const handleOpenCoachingCalendar = () => {
     navigate("/welcome-session");
   };
@@ -218,6 +282,7 @@ export default function LearningHub({
       return;
     }
 
+    void preloadLearningHub();
     setShouldLoadHub(true);
   };
 
@@ -323,7 +388,7 @@ export default function LearningHub({
             />
           </div>
         ) : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<LearningHubOpeningPlaceholder />}>
             <LearningHubLoaded
               initialExpanded
               flushSpacing={true}

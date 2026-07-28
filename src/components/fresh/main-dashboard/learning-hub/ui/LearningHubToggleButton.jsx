@@ -73,6 +73,7 @@ export default function LearningHubToggleButton({
   return (
     <button
       type="button"
+      data-clara-learning-hub-toggle="true"
       data-clara-guide-learning-hub-toggle={guideTarget ? "true" : undefined}
       aria-expanded={isLocked ? false : isExpanded}
       aria-label={
