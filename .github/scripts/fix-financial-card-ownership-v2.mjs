@@ -50,14 +50,22 @@ const exactCarouselHelpers = `replaceRequired(
 
 const flexibleCarouselHelpers = `replaceRequired(
   carouselPath,
-  /\\n\\s+firstPositiveNumber,\\n\\s+readStoredSurvivalExpense,/,
+  /\\n\\s+firstPositiveNumber,\\n\\s+readStoredSurvivalExpense,/g,
   \`\`,
   "carousel removes obsolete emergency helpers"
+);`;
+
+const redundantCarouselPropCleanup = `replaceRequired(
+  carouselPath,
+  \`    firstPositiveNumber,\\n    readStoredSurvivalExpense,\\n    financeCardController = null,\`,
+  \`    financeCardController = null,\`,
+  "carousel prop cleanup"
 );`;
 
 harden(exactHomeInvocation, flexibleHomeInvocation, "Home Panel");
 harden(exactCarouselData, flexibleCarouselData, "carousel card data");
 harden(exactCarouselHelpers, flexibleCarouselHelpers, "carousel helper cleanup");
+harden(redundantCarouselPropCleanup, "", "redundant carousel prop cleanup");
 fs.writeFileSync(generatedPath, source, "utf8");
 
 try {
