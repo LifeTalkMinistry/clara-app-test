@@ -23,6 +23,17 @@ const normalizedLabel = (value) =>
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+const isSavingsUsageExpense = (expense = {}) => {
+  const identity = normalizedLabel([
+    expense?.source_type,
+    expense?.sourceType,
+    expense?.type,
+    expense?.category,
+    expense?.title,
+    expense?.notes,
+  ].filter(Boolean).join(" "));
+  return identity.includes("savings goal usage") || identity.includes("savings goal used");
+};
 const activeRows = (rows = []) =>
   (Array.isArray(rows) ? rows : []).filter((row) => !row?.deletedAt && !row?.deleted_at);
 
@@ -138,6 +149,7 @@ async function findDebtTarget({ budgetId, category, localUserId, repository }) {
 
 async function resolveManualExpenseTarget({ expense, localUserId, repository }) {
   if (!expense) return null;
+  if (isSavingsUsageExpense(expense)) return null;
 
   const explicit = getExplicitTarget(expense);
   if (explicit) return explicit;

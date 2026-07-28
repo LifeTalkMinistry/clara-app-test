@@ -6,6 +6,7 @@ const read = (path) => readFileSync(path, "utf8");
 const page = read("src/pages/SavingsGoalsIntegrated.jsx");
 const card = read("src/components/SavingsCardRefined.jsx");
 const repair = read("src/lib/savingsGoalLinkedExpenseRepair.js");
+const manualSync = read("src/lib/manualExpenseLinkedTargetSync.js");
 const packageJson = read("package.json");
 
 test("Savings Goal uses one protected-wallet truth", () => {
@@ -19,7 +20,7 @@ test("goal create and edit cannot relabel money without validation", () => {
   assert.match(page, /Already Saved cannot be higher than the goal target/);
   assert.match(page, /savings_goal_wallet_move_/);
   assert.match(page, /savings_goal_storage_move_rollback/);
-  assert.match(page, /Reduce Already Saved to \$0 before changing wallets/);
+  assert.match(page, /Reduce Already Saved to ₱0 before changing wallets/);
 });
 
 test("Add Savings moves wallet money and rolls it back if the goal save fails", () => {
@@ -39,6 +40,8 @@ test("Use Savings records a real wallet expense and compensates failures", () =>
 test("savings usage cannot be mistaken for a historical contribution", () => {
   assert.match(repair, /isSavingsUsageExpense/);
   assert.match(repair, /if \(isSavingsUsageExpense\(expense\)\) return false/);
+  assert.match(manualSync, /isSavingsUsageExpense/);
+  assert.match(manualSync, /if \(isSavingsUsageExpense\(expense\)\) return null/);
 });
 
 test("Savings Goal dialogs expose errors and guard close while saving", () => {
@@ -51,8 +54,17 @@ test("Savings Goal dialogs expose errors and guard close while saving", () => {
 
 test("starter ideas prefill the goal and card totals preserve explicit zero", () => {
   assert.match(page, /openAdd\(routeState\?\.starterTitle \|\| ""\)/);
+  assert.match(page, /onClick=\{\(\) => openAdd\(\)\}/);
+  assert.doesNotMatch(page, /onClick=\{openAdd\}/);
   assert.match(card, /const hasExplicitSaved/);
   assert.match(card, /const activePrimaryGoal/);
+});
+
+test("wallet sync failures stay visible instead of using alerts", () => {
+  assert.match(page, /const \[walletSyncError, setWalletSyncError\]/);
+  assert.match(page, /CLARA could not mark this wallet money as saved yet/);
+  assert.doesNotMatch(page, /alert\(/);
+  assert.match(page, /Available to Save/);
 });
 
 test("Savings Goal flow regression runs in npm test", () => {
