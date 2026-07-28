@@ -1,0 +1,56 @@
+name: Refactor Income Hub expanded flow
+
+on:
+  push:
+    branches:
+      - fix/income-hub-expanded-flow
+    paths:
+      - ".github/scripts/refactor-income-hub-expanded-flow.mjs"
+      - ".github/workflows/refactor-income-hub-expanded-flow.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/refactor-income-hub-expanded-flow.mjs"
+      - ".github/workflows/refactor-income-hub-expanded-flow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: fix/income-hub-expanded-flow
+          fetch-depth: 0
+
+      - name: Apply Income Hub refactor
+        run: node .github/scripts/refactor-income-hub-expanded-flow.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused Income Hub regression
+        run: node --test tests/income-hub-expanded-flow-regression.test.mjs
+
+      - name: Run full regression and production build
+        run: npm run build
+
+      - name: Commit verified Income Hub refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No Income Hub changes were produced."
+            exit 0
+          fi
+          git commit -m "Refactor Income Hub expanded flow"
+          git pull --rebase origin fix/income-hub-expanded-flow
+          git push origin HEAD:fix/income-hub-expanded-flow
