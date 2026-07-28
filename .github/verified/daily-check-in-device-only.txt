@@ -1,166 +1,175 @@
 install=0
-focused=1
+focused=0
 --- focused output ---
 TAP version 13
-# node:internal/modules/esm/resolve:275
-#     throw new ERR_MODULE_NOT_FOUND(
-#           ^
-# Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/work/clara-app-test/clara-app-test/src/lib/account-vault-directory' imported from /home/runner/work/clara-app-test/clara-app-test/src/lib/cloud-vault-snapshot.js
-#     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
-#     at moduleResolve (node:internal/modules/esm/resolve:861:10)
-#     at defaultResolve (node:internal/modules/esm/resolve:985:11)
-#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
-#     at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
-#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
-#     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {
-#   code: 'ERR_MODULE_NOT_FOUND',
-#   url: 'file:///home/runner/work/clara-app-test/clara-app-test/src/lib/account-vault-directory'
-# }
-# Node.js v22.23.1
-# Subtest: tests/cloud-vault-sync.test.mjs
-not ok 1 - tests/cloud-vault-sync.test.mjs
+# Subtest: legacy storage mode helpers remain readable for existing installs
+ok 1 - legacy storage mode helpers remain readable for existing installs
   ---
-  duration_ms: 51.585192
+  duration_ms: 1.309501
   type: 'test'
-  location: '/home/runner/work/clara-app-test/clara-app-test/tests/cloud-vault-sync.test.mjs:1:1'
-  failureType: 'testCodeFailure'
-  exitCode: 1
-  signal: ~
-  error: 'test failed'
-  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: private backup implementation excludes auth, vault mapping, and device identity secrets
+ok 2 - private backup implementation excludes auth, vault mapping, and device identity secrets
+  ---
+  duration_ms: 9.475843
+  type: 'test'
+  ...
+# Subtest: Daily Check-In remains device-only during server sync
+ok 3 - Daily Check-In remains device-only during server sync
+  ---
+  duration_ms: 3.863124
+  type: 'test'
+  ...
+# Subtest: server finance sync keeps the manual control under simple user-facing Privacy copy
+ok 4 - server finance sync keeps the manual control under simple user-facing Privacy copy
+  ---
+  duration_ms: 2.235409
+  type: 'test'
+  ...
+# Subtest: legacy cloud vault remains available only as backup/recovery plumbing
+ok 5 - legacy cloud vault remains available only as backup/recovery plumbing
+  ---
+  duration_ms: 2.306605
+  type: 'test'
+  ...
+# Subtest: backend requests bypass the ngrok browser interstitial
+ok 6 - backend requests bypass the ngrok browser interstitial
+  ---
+  duration_ms: 1.21838
+  type: 'test'
   ...
 # Subtest: eligible day uses Manila 6 AM boundary
-ok 2 - eligible day uses Manila 6 AM boundary
+ok 7 - eligible day uses Manila 6 AM boundary
   ---
-  duration_ms: 16.885699
+  duration_ms: 21.458538
   type: 'test'
   ...
 # Subtest: real date validation rejects impossible calendar dates
-ok 3 - real date validation rejects impossible calendar dates
+ok 8 - real date validation rejects impossible calendar dates
   ---
-  duration_ms: 0.234742
+  duration_ms: 0.326441
   type: 'test'
   ...
 # Subtest: first confirmed check-in starts day 1 and creates one event
-ok 4 - first confirmed check-in starts day 1 and creates one event
+ok 9 - first confirmed check-in starts day 1 and creates one event
   ---
-  duration_ms: 2.910395
+  duration_ms: 4.295734
   type: 'test'
   ...
 # Subtest: same eligible day check-in remains idempotent
-ok 5 - same eligible day check-in remains idempotent
+ok 10 - same eligible day check-in remains idempotent
   ---
-  duration_ms: 0.278375
+  duration_ms: 0.583466
   type: 'test'
   ...
 # Subtest: stale stored currentStreak cannot override event history
-ok 6 - stale stored currentStreak cannot override event history
+ok 11 - stale stored currentStreak cannot override event history
   ---
-  duration_ms: 0.40529
+  duration_ms: 0.700202
   type: 'test'
   ...
 # Subtest: the next eligible day shows day 2 before the second check-in
-ok 7 - the next eligible day shows day 2 before the second check-in
+ok 12 - the next eligible day shows day 2 before the second check-in
   ---
-  duration_ms: 0.439421
+  duration_ms: 0.813362
   type: 'test'
   ...
 # Subtest: missed day starts a new challenge cycle on the next check-in
-ok 8 - missed day starts a new challenge cycle on the next check-in
+ok 13 - missed day starts a new challenge cycle on the next check-in
   ---
-  duration_ms: 1.684608
+  duration_ms: 2.19628
   type: 'test'
   ...
 # Subtest: genuine missed day records reset once and preserves history
-ok 9 - genuine missed day records reset once and preserves history
+ok 14 - genuine missed day records reset once and preserves history
   ---
-  duration_ms: 1.404739
+  duration_ms: 1.921437
   type: 'test'
   ...
 # Subtest: stale Day 8 persisted state self-heals to Day 1 without deleting history
-ok 10 - stale Day 8 persisted state self-heals to Day 1 without deleting history
+ok 15 - stale Day 8 persisted state self-heals to Day 1 without deleting history
   ---
-  duration_ms: 0.760944
+  duration_ms: 0.910158
   type: 'test'
   ...
 # Subtest: day 30 completes only after the thirtieth consecutive check-in
-ok 11 - day 30 completes only after the thirtieth consecutive check-in
+ok 16 - day 30 completes only after the thirtieth consecutive check-in
   ---
-  duration_ms: 11.316977
+  duration_ms: 10.557141
   type: 'test'
   ...
 # Subtest: successful v3 persistence restores the same state after reload
-ok 12 - successful v3 persistence restores the same state after reload
+ok 17 - successful v3 persistence restores the same state after reload
   ---
-  duration_ms: 1.691945
+  duration_ms: 1.385962
   type: 'test'
   ...
 # Subtest: successful writes emit the normalized state to local consumers
-ok 13 - successful writes emit the normalized state to local consumers
+ok 18 - successful writes emit the normalized state to local consumers
   ---
-  duration_ms: 0.332091
+  duration_ms: 0.316015
   type: 'test'
   ...
 # Subtest: persistence failure returns storage_error and does not show success
-ok 14 - persistence failure returns storage_error and does not show success
+ok 19 - persistence failure returns storage_error and does not show success
   ---
-  duration_ms: 0.666477
+  duration_ms: 0.66548
   type: 'test'
   ...
 # Subtest: reset clears v3, v2, legacy, and memory state
-ok 15 - reset clears v3, v2, legacy, and memory state
+ok 20 - reset clears v3, v2, legacy, and memory state
   ---
-  duration_ms: 0.577397
+  duration_ms: 0.496536
   type: 'test'
   ...
 # Subtest: v2 migration preserves valid dates as unique v3 events
-ok 16 - v2 migration preserves valid dates as unique v3 events
+ok 21 - v2 migration preserves valid dates as unique v3 events
   ---
-  duration_ms: 1.109905
+  duration_ms: 0.85157
   type: 'test'
   ...
 # Subtest: guest-to-user session migration merges once and removes source
-ok 17 - guest-to-user session migration merges once and removes source
+ok 22 - guest-to-user session migration merges once and removes source
   ---
-  duration_ms: 1.037347
+  duration_ms: 0.956287
   type: 'test'
   ...
 # Subtest: challenge completion remains after later streak reset
-ok 18 - challenge completion remains after later streak reset
+ok 23 - challenge completion remains after later streak reset
   ---
-  duration_ms: 0.310432
+  duration_ms: 0.234322
   type: 'test'
   ...
 # Subtest: production import resolves through one authoritative engine
-ok 19 - production import resolves through one authoritative engine
+ok 24 - production import resolves through one authoritative engine
   ---
-  duration_ms: 11.625573
+  duration_ms: 10.853365
   type: 'test'
   ...
 # Subtest: restore imports localStorage, sessionStorage, finance IndexedDB, and notifications
-ok 20 - restore imports localStorage, sessionStorage, finance IndexedDB, and notifications
+ok 25 - restore imports localStorage, sessionStorage, finance IndexedDB, and notifications
   ---
-  duration_ms: 18.557063
+  duration_ms: 29.554045
   type: 'test'
   ...
 # Subtest: known IndexedDB databases export even when indexedDB.databases is unavailable
-ok 21 - known IndexedDB databases export even when indexedDB.databases is unavailable
+ok 26 - known IndexedDB databases export even when indexedDB.databases is unavailable
   ---
-  duration_ms: 13.774055
+  duration_ms: 14.681537
   type: 'test'
   ...
 # Subtest: version 1 backup without IndexedDB remains accepted
-ok 22 - version 1 backup without IndexedDB remains accepted
+ok 27 - version 1 backup without IndexedDB remains accepted
   ---
-  duration_ms: 2.526601
+  duration_ms: 2.140145
   type: 'test'
   ...
-1..22
-# tests 22
+1..27
+# tests 27
 # suites 0
-# pass 21
-# fail 1
+# pass 27
+# fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 119.353363
+# duration_ms 155.323603
