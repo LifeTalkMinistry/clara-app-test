@@ -1,4 +1,4 @@
-import { isDashboardPanelKey } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
+import { isDashboardPanelKey } from "../dashboard-panels/dashboardPanelConstants.js";
 
 export const DASHBOARD_NAVIGATION_ACTIONS = {
   IGNORE: "ignore",
