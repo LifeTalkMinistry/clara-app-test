@@ -28,6 +28,10 @@ export const getCarouselData = ({
   walletMoney = 0,
   walletPreviewTransactions = [],
   survivalExpense = 0,
+  financeEmergencyFund = null,
+  financeTotalIncome = 0,
+  financeTotalExpenses = 0,
+  financeTotalWalletBalance = 0,
   user = null,
   plan = null,
   guardChecked = false,
@@ -35,28 +39,7 @@ export const getCarouselData = ({
   profileData = null,
   featureFlags = null,
   includeLocked = true,
-  firstPositiveNumber,
-  readStoredSurvivalExpense,
 } = {}) => {
-  const hasSurvivalSetup =
-    Boolean(profileData?.survival_setup_done) ||
-    (typeof firstPositiveNumber === "function"
-      ? firstPositiveNumber(
-          profileData?.monthly_survival_expense,
-          profileData?.survival_expense,
-          profileData?.clara_survival_expense,
-          survivalExpense,
-          typeof readStoredSurvivalExpense === "function"
-            ? readStoredSurvivalExpense(user?.id)
-            : 0
-        ) > 0
-      : readCarouselNumber(
-          profileData?.monthly_survival_expense,
-          profileData?.survival_expense,
-          profileData?.clara_survival_expense,
-          survivalExpense
-        ) > 0);
-
   const budgetData = normalizeCarouselBudgetPlan(monthlyBudgetPlan || {});
 
   const safeSavingsGoals = Array.isArray(savingsGoals)
@@ -83,11 +66,8 @@ export const getCarouselData = ({
     },
 
     emergencyFund: {
-      moneyLeft: walletMoney,
       survivalExpense,
-      retentionRate: 0,
-      canAutoPrompt: Boolean(user?.id) && guardChecked && !loading,
-      hasSurvivalSetup,
+      emergencyFund: financeEmergencyFund,
     },
 
     savingsGoals: {
@@ -105,6 +85,9 @@ export const getCarouselData = ({
     },
 
     debtObligations: {
+      totalIncome: financeTotalIncome,
+      totalExpenses: financeTotalExpenses,
+      totalWalletBalance: financeTotalWalletBalance,
       title: "Debt / Obligations",
       amount: 0,
       subtitle: "Track and manage what you owe.",

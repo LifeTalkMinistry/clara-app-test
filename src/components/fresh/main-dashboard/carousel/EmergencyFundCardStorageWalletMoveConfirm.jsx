@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { Edit2, MinusCircle, Plus, RotateCcw, Shield } from "lucide-react";
 
-import { useAuth } from "@/context/AuthContext";
-import useFinancialData from "@/hooks/useFinancialData";
 import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
@@ -176,9 +174,20 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   return <div className="shrink-0 border-t border-white/[0.035] pt-3"><FinanceCardExpandButton detailKey="emergency" expanded={expanded} onToggleDetails={onToggleDetails} collapsedLabel="View emergency details" expandedLabel="Hide emergency details" className={expandButtonClass} /></div>;
 }
 
-export default function EmergencyFundCard({ survivalExpense = 0, onSurvivalSaved, expanded = false, onToggleDetails }) {
-  const { user } = useAuth();
-  const { emergencyFund, wallets = [], updateEmergencyFund, addExpense, transferBetweenWallets, refreshData, correctEmergencyFundBalance } = useFinancialData(user);
+export default function EmergencyFundCard({
+  user = null,
+  emergencyFund = null,
+  wallets = [],
+  updateEmergencyFund,
+  addExpense,
+  transferBetweenWallets,
+  refreshData,
+  correctEmergencyFundBalance,
+  survivalExpense = 0,
+  onSurvivalSaved,
+  expanded = false,
+  onToggleDetails,
+}) {
   const safeWallets = useMemo(() => (Array.isArray(wallets) ? wallets.filter(isActiveWallet) : []), [wallets]);
   const setupWallets = useMemo(() => safeWallets.map((wallet) => ({ ...wallet, id: getWalletId(wallet), name: getWalletName(wallet), balance: getWalletSpendable(wallet), spendableBalance: getWalletSpendable(wallet), spendable_balance: getWalletSpendable(wallet) })), [safeWallets]);
 
@@ -223,7 +232,6 @@ export default function EmergencyFundCard({ survivalExpense = 0, onSurvivalSaved
     if (typeof updateEmergencyFund !== "function") return;
     const now = new Date().toISOString();
     await updateEmergencyFund({ ...(emergencyFund || {}), ...patch, updatedAt: now, updated_at: now });
-    await refreshData?.();
   };
 
   const handleSetupComplete = async ({ monthlySurvivalCost, walletId, walletName, targetMonths: nextTargetMonths } = {}) => {
@@ -328,7 +336,6 @@ export default function EmergencyFundCard({ survivalExpense = 0, onSurvivalSaved
       setUseReason("");
       setEmergencyActionType("expense");
       setCorrectionOrphanId("");
-      await refreshData?.();
     } catch (error) {
       console.error("Unable to correct Emergency Fund balance:", error);
       setUseError("CLARA could not apply this correction yet. Try again.");

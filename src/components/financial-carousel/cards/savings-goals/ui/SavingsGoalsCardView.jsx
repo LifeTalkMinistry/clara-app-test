@@ -1,6 +1,5 @@
 import SavingsCardRefined from "@/components/SavingsCardRefined";
 import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
-import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 const DETAIL_KEY = "savings";
 
@@ -21,14 +20,7 @@ export default function SavingsGoalsCardView({
   };
 
   return (
-    <div
-      className="h-full min-h-[inherit] flex flex-col"
-      onClickCapture={(event) => {
-        if (stopCapturedDetailsToggle(event)) {
-          handleSavingsToggle();
-        }
-      }}
-    >
+    <div className="h-full min-h-[inherit] flex flex-col">
       <SavingsCardRefined
         savingsGoals={data.savingsGoals}
         totalSavingsSaved={data.totalSavingsSaved}

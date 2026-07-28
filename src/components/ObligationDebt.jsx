@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useAuth } from "@/context/AuthContext";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
 import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
@@ -148,8 +147,7 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
-export default function ObligationDebt({ item = null, expanded = false, onToggleDetails }) {
-  const { user } = useAuth();
+export default function ObligationDebt({ item = null, user = null, expanded = false, onToggleDetails }) {
   const [notice, setNotice] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -157,7 +155,7 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const { state, computed, handlers } = useDebtCardLogic({ item, expanded, onToggleDetails });
+  const { state, computed, handlers } = useDebtCardLogic({ item, user, expanded, onToggleDetails });
   const { isExpanded, debtObligations = [], activeDebtCount, savingDebt } = state;
   const {
     tone,

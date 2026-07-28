@@ -1,6 +1,5 @@
 import ObligationDebt from "@/components/ObligationDebt";
 import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
-import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 const DETAIL_KEY = "debtObligations";
 
@@ -9,6 +8,7 @@ export default function DebtCardView({
   selectedDashboardTheme,
   expandedFinanceCard,
   toggleFinanceDetails,
+  financeCardController,
 }) {
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
@@ -21,16 +21,10 @@ export default function DebtCardView({
   };
 
   return (
-    <div
-      className="h-full min-h-[inherit] flex flex-col"
-      onClickCapture={(event) => {
-        if (stopCapturedDetailsToggle(event)) {
-          handleToggle();
-        }
-      }}
-    >
+    <div className="h-full min-h-[inherit] flex flex-col">
       <ObligationDebt
         item={item}
+        user={financeCardController?.user || null}
         theme={selectedDashboardTheme}
         expanded={isExpanded}
         onToggleDetails={handleToggle}

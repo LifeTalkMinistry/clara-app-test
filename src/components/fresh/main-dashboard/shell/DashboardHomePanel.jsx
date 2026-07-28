@@ -435,8 +435,6 @@ export default function DashboardHomePanel({
   guardChecked,
   loading,
   profileData,
-  firstPositiveNumber,
-  readStoredSurvivalExpense,
   monthlyBudgetPlan,
   savingsGoals,
   totalSavingsSaved,
@@ -473,6 +471,7 @@ export default function DashboardHomePanel({
   endMoneyLeftOrbLongPress,
   stopMoneyLeftOrbEvent,
   thisMonthSpent,
+  financeCardController,
   fmt,
 }) {
   const [moneySummaryResetKey, setMoneySummaryResetKey] = useState(0);
@@ -1181,9 +1180,8 @@ export default function DashboardHomePanel({
                   guardChecked={isGuideMode ? false : guardChecked}
                   loading={isGuideMode ? false : loading}
                   profileData={isGuideMode ? { plan: "pro" } : profileData}
-                  firstPositiveNumber={firstPositiveNumber}
-                  readStoredSurvivalExpense={isGuideMode ? undefined : readStoredSurvivalExpense}
-                  monthlyBudgetPlan={effectiveMonthlyBudgetPlan}
+                   financeCardController={isGuideMode ? null : financeCardController}
+                   monthlyBudgetPlan={effectiveMonthlyBudgetPlan}
                   thisMonthSpent={effectiveThisMonthSpent}
                   savingsGoals={effectiveSavingsGoals}
                   totalSavingsSaved={effectiveTotalSavingsSaved}

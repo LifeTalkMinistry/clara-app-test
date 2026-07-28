@@ -86,6 +86,9 @@ export default function Dashboard() {
     budgets: financeBudgets = [],
     savingsGoals: financeSavingsGoals = [],
     emergencyFund: financeEmergencyFund = null,
+    totalExpenses: financeTotalExpenses = 0,
+    totalIncome: financeTotalIncome = 0,
+    totalWalletBalance: financeTotalWalletBalance = 0,
     refreshData: refreshFinancialData,
     loading: financeDataLoading = false,
     refreshing: financeDataRefreshing = false,
@@ -105,6 +108,7 @@ export default function Dashboard() {
     updateSavingsGoal: updateSavingsGoalData,
     deleteSavingsGoal: deleteSavingsGoalData,
     updateEmergencyFund: updateEmergencyFundData,
+    correctEmergencyFundBalance: correctEmergencyFundBalanceData,
   } = useFinancialData(user);
 
   const userId = user?.id || null;
@@ -723,6 +727,23 @@ export default function Dashboard() {
     onCacheUpdate: updateDashboardFinanceCache,
   });
 
+  const financeCardController = {
+    user,
+    wallets,
+    expenses,
+    transfers,
+    emergencyFund,
+    totalIncome: financeTotalIncome,
+    totalExpenses: financeTotalExpenses,
+    totalWalletBalance: financeTotalWalletBalance,
+    refreshData: refreshFinancialData,
+    deleteExpense: deleteExpenseData,
+    updateWallet: updateWalletData,
+    addExpense: addExpenseData,
+    transferBetweenWallets: transferBetweenWalletsData,
+    updateEmergencyFund: updateEmergencyFundData,
+    correctEmergencyFundBalance: correctEmergencyFundBalanceData,
+  };
 
   const {
     resetDashboardThemeToDefault,
@@ -805,7 +826,7 @@ export default function Dashboard() {
             themeIsLight, themeSoftTextClass, themePrimaryTextClass, moneySummaryVisible,
             toggleMoneySummaryVisibility, moneyLeftSummaryHandlers, handleMoneyLeftOrbClick,
             startMoneyLeftOrbLongPress, endMoneyLeftOrbLongPress, stopMoneyLeftOrbEvent,
-            thisMonthSpent, fmt,
+            thisMonthSpent, fmt, financeCardController,
           }}
         />
 
