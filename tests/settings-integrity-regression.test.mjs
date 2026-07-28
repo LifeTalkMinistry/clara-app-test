@@ -27,11 +27,11 @@ const runtimePatchRegistrySource = readSource(
 const scopedMemoryStorageSource = readSource(
   "src/runtime/installScopedClaraMemoryStorage.js"
 );
-const settingsAccessLogoutSource = readSource(
-  "src/runtime/installSettingsAccessLogout.js"
-);
 const dashboardPanelNavigationSource = readSource(
   "src/components/fresh/main-dashboard/shell/useDashboardPanelNavigation.js"
+);
+const activeSettingsSource = readSource(
+  "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
 );
 const settingsCleanupSource = readSource("src/settings-cleanup.css");
 const themeProviderSource = readSource("src/theme/ThemeProvider.jsx");
@@ -157,10 +157,12 @@ test("dashboard panels and Settings detail pages participate in browser Back his
   assert.match(dashboardPanelNavigationSource, /window\.history\.pushState/);
   assert.match(dashboardPanelNavigationSource, /window\.history\.replaceState/);
   assert.match(dashboardPanelNavigationSource, /window\.addEventListener\("popstate"/);
-  assert.match(settingsAccessLogoutSource, /SETTINGS_DETAIL_HISTORY_KEY/);
-  assert.match(settingsAccessLogoutSource, /pushSettingsDetailHistory/);
-  assert.match(settingsAccessLogoutSource, /handleSettingsHistoryPop/);
-  assert.match(settingsAccessLogoutSource, /window\.history\.back\(\)/);
+  assert.match(activeSettingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);
+  assert.match(activeSettingsSource, /openSetting/);
+  assert.match(activeSettingsSource, /closeActiveSetting/);
+  assert.match(activeSettingsSource, /window\.history\.pushState/);
+  assert.match(activeSettingsSource, /window\.history\.back\(\)/);
+  assert.match(activeSettingsSource, /window\.addEventListener\("popstate"/);
 });
 
 test("Settings no longer installs duplicate theme hiding or the hidden double-tap demo", () => {
