@@ -45,12 +45,13 @@ function archivePatch(now) {
 }
 
 function resetBoundaryFrom(payload = {}) {
+  // A reset boundary must represent the exact moment the new plan started.
+  // Do not fall back to cycle_start/period_start because those usually point to
+  // the beginning of the month and would keep pre-reset spending in the new plan.
   return normalizeString(
     payload.reset_start_at ||
       payload.tracking_started_at ||
-      payload.tracking_start_date ||
-      payload.cycle_start ||
-      payload.period_start
+      payload.tracking_start_date
   );
 }
 
