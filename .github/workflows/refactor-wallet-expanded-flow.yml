@@ -1,0 +1,50 @@
+name: Refactor Wallet expanded flow
+
+on:
+  push:
+    branches:
+      - fix/wallet-expanded-flow
+    paths:
+      - ".github/scripts/refactor-wallet-expanded-flow.mjs"
+      - ".github/workflows/refactor-wallet-expanded-flow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: fix/wallet-expanded-flow
+          fetch-depth: 0
+
+      - name: Apply Wallet refactor
+        run: node .github/scripts/refactor-wallet-expanded-flow.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused Wallet regression
+        run: node --test tests/wallet-expanded-flow-regression.test.mjs
+
+      - name: Run full regression and production build
+        run: npm run build
+
+      - name: Commit verified Wallet refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No Wallet changes were produced."
+            exit 0
+          fi
+          git commit -m "Refactor Wallet expanded flow"
+          git pull --rebase origin fix/wallet-expanded-flow
+          git push origin HEAD:fix/wallet-expanded-flow
