@@ -62,10 +62,14 @@ const redundantCarouselPropCleanup = `replaceRequired(
   "carousel prop cleanup"
 );`;
 
+const invalidBudgetAssertion = `  assert.match(budgetLogic, /export \\{ default \\} from "\\.\\/useBudgetCardLogicCore"/);`;
+const safeBudgetAssertion = `  assert.equal(budgetLogic.includes('export { default } from "./useBudgetCardLogicCore";'), true);`;
+
 harden(exactHomeInvocation, flexibleHomeInvocation, "Home Panel");
 harden(exactCarouselData, flexibleCarouselData, "carousel card data");
 harden(exactCarouselHelpers, flexibleCarouselHelpers, "carousel helper cleanup");
 harden(redundantCarouselPropCleanup, "", "redundant carousel prop cleanup");
+harden(invalidBudgetAssertion, safeBudgetAssertion, "Budget regression assertion");
 fs.writeFileSync(generatedPath, source, "utf8");
 
 try {
