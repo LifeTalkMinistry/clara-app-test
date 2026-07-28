@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const SCROLL_SETTLE_DEBOUNCE_MS = 110;
+const SCROLL_SETTLE_FALLBACK_MS = 220;
 const PROGRAMMATIC_SCROLL_GUARD_MS = 520;
 const INSTANT_SCROLL_GUARD_MS = 90;
 const GUIDE_DRAG_LOCK_THRESHOLD_PX = 7;
@@ -52,6 +52,7 @@ export default function useAutoMovingHorizontalCarousel({
   const hasInitializedRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
+  const supportsScrollEndRef = useRef(false);
   const guideAllowedSwipeDirectionRef = useRef(normalizeGuideSwipeDirection(guideAllowedSwipeDirection));
   const guideSwipeBoundaryIndexRef = useRef(clampIndex(defaultIndex, itemCount));
   const guideMaxStepPerInteractionRef = useRef(normalizeGuideMaxStep(guideMaxStepPerInteraction));
@@ -258,13 +259,14 @@ export default function useAutoMovingHorizontalCarousel({
   }, []);
 
   const handleControlledGuidePointerDown = useCallback((event) => {
-    if (!guideMaxStepPerInteractionRef.current) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    beginGuideInteraction(true);
+
+    if (!guideMaxStepPerInteractionRef.current) return;
 
     const container = carouselRef.current;
     if (!container) return;
-
-    beginGuideInteraction(true);
     clearScrollSettleTimer();
 
     const startIndex = activeIndexRef.current;
@@ -468,14 +470,14 @@ export default function useAutoMovingHorizontalCarousel({
 
       enforceGuideScrollRestrictions();
 
-      if (guidePointerGestureRef.current.active) {
+      if (guidePointerGestureRef.current.active || supportsScrollEndRef.current) {
         return;
       }
 
       scrollSettleTimerRef.current = window.setTimeout(() => {
         scrollSettleTimerRef.current = null;
         commitSettledScrollIndex();
-      }, SCROLL_SETTLE_DEBOUNCE_MS);
+      }, SCROLL_SETTLE_FALLBACK_MS);
     });
   }, [clearScrollSettleTimer, commitSettledScrollIndex, enforceGuideScrollRestrictions]);
 
@@ -553,6 +555,7 @@ export default function useAutoMovingHorizontalCarousel({
     }
 
     let resizeFrame = null;
+    let observedWidth = container.clientWidth || 0;
 
     const realignCurrentSlide = () => {
       if (resizeFrame) {
@@ -561,6 +564,10 @@ export default function useAutoMovingHorizontalCarousel({
 
       resizeFrame = window.requestAnimationFrame(() => {
         resizeFrame = null;
+
+        const nextWidth = container.clientWidth || 0;
+        if (Math.abs(nextWidth - observedWidth) <= 0.5) return;
+        observedWidth = nextWidth;
 
         const safeIndex = clampIndex(activeIndexRef.current, itemCount);
         const targetLeft = getSlideWidth() * safeIndex;
@@ -595,6 +602,17 @@ export default function useAutoMovingHorizontalCarousel({
       return undefined;
     }
 
+    const supportsScrollEnd =
+      "onscrollend" in container ||
+      (typeof window !== "undefined" && "onscrollend" in window);
+    supportsScrollEndRef.current = supportsScrollEnd;
+
+    if (!supportsScrollEnd) {
+      return () => {
+        supportsScrollEndRef.current = false;
+      };
+    }
+
     const handleScrollEnd = () => {
       clearScrollSettleTimer();
       enforceGuideScrollRestrictions();
@@ -609,6 +627,7 @@ export default function useAutoMovingHorizontalCarousel({
     container.addEventListener("scrollend", handleScrollEnd);
 
     return () => {
+      supportsScrollEndRef.current = false;
       container.removeEventListener("scrollend", handleScrollEnd);
     };
   }, [clearScrollSettleTimer, commitSettledScrollIndex, enforceGuideScrollRestrictions]);
