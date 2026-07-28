@@ -362,8 +362,6 @@ export default function EmergencyFundCard({
         date: now,
         created_at: now,
         updated_at: now,
-        emergency_fund_transaction_id: activityId,
-        emergencyFundTransactionId: activityId,
         source_type: "emergency_fund_usage",
         user_id: user?.id || null,
         user_email: user?.email || null,

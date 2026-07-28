@@ -8,6 +8,7 @@ const readSource = (relativePath) =>
 const view = readSource("src/components/financial-carousel/cards/emergency-fund/ui/EmergencyFundCardView.jsx");
 const card = readSource("src/components/fresh/main-dashboard/carousel/EmergencyFundCardStorageWalletMoveConfirm.jsx");
 const modals = readSource("src/components/fresh/main-dashboard/carousel/EmergencyFundCardModals.jsx");
+const allocationSync = readSource("src/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync.js");
 
  test("Emergency Fund receives rollback ownership from the Dashboard controller", () => {
   assert.match(view, /deleteExpense=\{financeCardController\?\.deleteExpense\}/);
@@ -28,6 +29,14 @@ test("using the reserve creates a real wallet expense and rolls it back if prote
   assert.match(card, /planning_status: "unplanned"/);
   assert.match(card, /await deleteExpense\(expenseId\)/);
   assert.match(card, /storage wallet does not contain enough money/);
+});
+
+test("Emergency Fund usage cannot be mistaken for a legacy allocation", () => {
+  const usageBlock = card.match(/category: "Emergency Fund Used"[\s\S]*?source_type: "emergency_fund_usage"/)?.[0] || "";
+  assert.ok(usageBlock);
+  assert.doesNotMatch(usageBlock, /emergency_fund_transaction_id|emergencyFundTransactionId/);
+  assert.match(allocationSync, /if \(usageLike\) return false/);
+  assert.match(allocationSync, /body\.includes\("emergency fund used"\)/);
 });
 
 test("storage changes and reset failures preserve the prior financial state", () => {
