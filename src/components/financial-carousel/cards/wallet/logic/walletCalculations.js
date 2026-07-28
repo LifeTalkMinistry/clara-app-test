@@ -44,5 +44,6 @@ export function getWalletMessage(walletCount) {
 export function getExpandedWalletMessage(topWallet, walletCount) {
   if (!walletCount) return "Create a wallet to start tracking money movement.";
   if (!topWallet) return "Your wallets are ready for tracking and movement.";
-  return `${topWallet.name || "Primary wallet"} is your primary wallet and currently holds ${fmt(topWallet.balance || 0)}.`;
+  const balance = topWallet.walletBalance ?? topWallet.balance ?? topWallet.derived_balance ?? topWallet.current_balance ?? topWallet.wallet_balance ?? 0;
+  return `${topWallet.name || "Primary wallet"} is your primary wallet and currently holds ${fmt(balance)}.`;
 }

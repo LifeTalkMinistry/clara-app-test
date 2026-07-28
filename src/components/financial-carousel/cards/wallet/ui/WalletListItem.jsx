@@ -82,6 +82,7 @@ function ProtectedRow({ title, amount, cyan = false }) {
 export default function WalletListItem({
   wallet,
   index,
+  walletCount = 0,
   financeActionLoading = false,
   openEditWallet,
   onAddMoney,
@@ -221,14 +222,14 @@ export default function WalletListItem({
             <Repeat2 className='h-3.5 w-3.5 text-sky-200' /> Transfer
           </button>
           <div className='my-1 h-px bg-white/12' />
-          <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, -1))} className={actionButton} role='menuitem'>
+          <button type='button' disabled={!walletId || index <= 0} onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, -1))} className={actionButton} role='menuitem'>
             <ArrowUp className='h-3.5 w-3.5 text-amber-200' /> Move Up
           </button>
-          <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, 1))} className={actionButton} role='menuitem'>
+          <button type='button' disabled={!walletId || index >= walletCount - 1} onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, 1))} className={actionButton} role='menuitem'>
             <ArrowDown className='h-3.5 w-3.5 text-amber-200' /> Move Down
           </button>
           <div className='my-1 h-px bg-white/12' />
-          <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onDeleteWallet?.(walletId))} className='flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-rose-100 transition hover:bg-rose-500/14 disabled:opacity-50' role='menuitem'>
+          <button type='button' disabled={!walletId} onClick={(event) => handleAction(event, () => onDeleteWallet?.(wallet))} className='flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-rose-100 transition hover:bg-rose-500/14 disabled:opacity-50' role='menuitem'>
             <Trash2 className='h-3.5 w-3.5 text-rose-200' /> Delete Wallet
           </button>
         </div>,

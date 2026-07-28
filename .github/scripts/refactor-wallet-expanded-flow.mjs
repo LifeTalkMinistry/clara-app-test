@@ -427,7 +427,7 @@ export default function useWalletCardLogic({
     if (isSavingWalletEdit) return;
     setEditingWallet(null);
     setEditError("");
-    setEditForm({ name: "", providerKey: "cash" });
+    setEditForm({ name: "", type: "cash" });
   };
 
   const handleSaveWalletEdit = async () => {
@@ -455,7 +455,7 @@ export default function useWalletCardLogic({
         updated_at: new Date().toISOString(),
       });
       setEditingWallet(null);
-      setEditForm({ name: "", providerKey: "cash" });
+      setEditForm({ name: "", type: "cash" });
     } catch (error) {
       setEditError(error?.message || "Failed to update wallet.");
     } finally {
@@ -536,7 +536,7 @@ export default function EditWalletModal({
           <div className="space-y-5">
             <div
               className="relative overflow-hidden rounded-[28px] border border-cyan-100/[0.14] bg-[linear-gradient(135deg,rgba(34,211,238,0.12),rgba(255,255,255,0.055)_42%,rgba(16,185,129,0.10))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_38px_rgba(0,0,0,0.22)]"
-              style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 38px rgba(0,0,0,0.22), 0 0 34px ${currentProvider.accent}2b` }}
+              style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 38px rgba(0,0,0,0.22), 0 0 34px " + currentProvider.accent + "2b" }}
             >
               <div className="relative flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-3.5">
@@ -690,8 +690,8 @@ replaceRequired(
 
 replaceRequired(
   "src/components/financial-carousel/cards/wallet/ui/WalletCardContent.jsx",
-  `                       index={index}\n                       financeActionLoading={financeActionLoading}`,
-  `                       index={index}\n                       walletCount={visibleWallets.length}\n                       financeActionLoading={financeActionLoading}`,
+  `                      index={index}\n                      financeActionLoading={financeActionLoading}`,
+  `                      index={index}\n                      walletCount={visibleWallets.length}\n                      financeActionLoading={financeActionLoading}`,
   "wallet list boundary count"
 );
 

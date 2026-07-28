@@ -11,11 +11,16 @@ import {
   getSavingsTarget,
   getTransactionDate,
   getWalletDisplayBalance,
+  getWalletSpendableBalance,
   getWalletSortOrder,
   isInPHRange,
   normalizeLower,
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
+import {
+  buildWalletProviderPayload,
+  getWalletProvider,
+} from "@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry";
 
 export default function useDashboardFinanceActionHandlers({
   activeBudget,
@@ -108,10 +113,17 @@ export default function useDashboardFinanceActionHandlers({
     setFinanceModal({ type: "create_wallet", payload: null });
   }, []);
 
-  const openDeleteWalletModal = useCallback((walletId) => {
-    const wallet = wallets.find((item) => String(item.id) === String(walletId)) || null;
+  const openDeleteWalletModal = useCallback((walletOrId) => {
+    const wallet =
+      walletOrId && typeof walletOrId === "object"
+        ? walletOrId
+        : wallets.find((item) => String(item.id) === String(walletOrId)) || null;
+    if (!wallet) {
+      showFinanceNotice("Wallet not found.");
+      return;
+    }
     setFinanceModal({ type: "delete_wallet", payload: wallet });
-  }, [wallets]);
+  }, [showFinanceNotice, wallets]);
 
   const openAddMoneyModal = useCallback((wallet) => {
     setFinanceForm((prev) => ({
@@ -394,19 +406,18 @@ export default function useDashboardFinanceActionHandlers({
       const toIndex = fromIndex + direction;
       if (toIndex < 0 || toIndex >= orderedWallets.length) return;
 
-      [orderedWallets[fromIndex], orderedWallets[toIndex]] = [
-        orderedWallets[toIndex],
-        orderedWallets[fromIndex],
-      ];
+      const fromWallet = orderedWallets[fromIndex];
+      const toWallet = orderedWallets[toIndex];
+      const fromOrder = getWalletSortOrder(fromWallet, fromIndex);
+      const toOrder = getWalletSortOrder(toWallet, toIndex);
 
       try {
         setFinanceActionLoading(true);
-
-        await Promise.all(
-          orderedWallets.map((wallet, index) =>
-            updateWalletData?.(String(wallet.id), { sort_order: index })
-          )
-        );
+        const updatedAt = new Date().toISOString();
+        await Promise.all([
+          updateWalletData?.(String(fromWallet.id), { sort_order: toOrder, updated_at: updatedAt }),
+          updateWalletData?.(String(toWallet.id), { sort_order: fromOrder, updated_at: updatedAt }),
+        ]);
 
         await refreshFinanceSection();
       } catch (error) {
@@ -419,20 +430,16 @@ export default function useDashboardFinanceActionHandlers({
   );
 
   const createWalletInline = useCallback(async () => {
-    const name = normalizeString(financeForm.name);
     const selectedWalletType = normalizeString(financeForm.type) || "cash";
-    const customWalletType = normalizeString(financeForm.customWalletType);
-    const type =
-      selectedWalletType === "custom" ? customWalletType || "other" : selectedWalletType;
+    const provider = getWalletProvider(selectedWalletType, selectedWalletType);
+    const name =
+      normalizeString(financeForm.name) ||
+      (provider.key !== "custom" ? provider.defaultWalletName || provider.label : "");
+    const type = provider.walletType || "custom";
     const startingBalance = Number(financeForm.startingBalance);
 
     if (!name) {
       showFinanceNotice("Please enter a wallet name.");
-      return;
-    }
-
-    if (!type) {
-      showFinanceNotice("Please enter a wallet type.");
       return;
     }
 
@@ -446,6 +453,8 @@ export default function useDashboardFinanceActionHandlers({
       await addWalletData?.({
         name,
         type,
+        ...buildWalletProviderPayload(provider.key),
+        icon: provider.iconText || null,
         balance: startingBalance,
         starting_balance: startingBalance,
         sort_order: wallets.length,
@@ -478,22 +487,59 @@ export default function useDashboardFinanceActionHandlers({
   ]);
 
   const deleteWalletInline = useCallback(async () => {
-    const walletId = financeModal?.payload?.id;
+    const wallet = financeModal?.payload;
+    const walletId = wallet?.id;
     if (!walletId) return;
+
+    const protectedAmount = firstValidNumber(
+      wallet?.totalProtectedAmount,
+      wallet?.total_protected_amount,
+      0
+    );
+    const balance = getWalletDisplayBalance(wallet);
+
+    if (protectedAmount > 0) {
+      showFinanceNotice("Move the Emergency Fund or Savings Goal allocation before removing this wallet.");
+      return;
+    }
+    if (Math.abs(balance) > 0.000001) {
+      showFinanceNotice("Transfer or clear the wallet balance before removing it.");
+      return;
+    }
+
+    const hasHistory = walletTransactions.some(
+      (transaction) => String(transaction?.wallet_id || transaction?.walletId || "") === String(walletId)
+    );
 
     try {
       setFinanceActionLoading(true);
-      await deleteWalletData?.(walletId);
+      if (hasHistory) {
+        await updateWalletData?.(walletId, {
+          is_archived: true,
+          isArchived: true,
+          archived_at: new Date().toISOString(),
+        });
+      } else {
+        await deleteWalletData?.(walletId);
+      }
 
       await refreshFinanceSection();
       closeFinanceModal();
-      showFinanceNotice("Wallet deleted.", "success");
+      showFinanceNotice(hasHistory ? "Wallet archived. Its transaction history was preserved." : "Wallet deleted.", "success");
     } catch (error) {
-      showFinanceNotice(error?.message || "Failed to delete wallet.");
+      showFinanceNotice(error?.message || "Failed to remove wallet.");
     } finally {
       setFinanceActionLoading(false);
     }
-  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice, deleteWalletData]);
+  }, [
+    closeFinanceModal,
+    deleteWalletData,
+    financeModal?.payload,
+    refreshFinanceSection,
+    showFinanceNotice,
+    updateWalletData,
+    walletTransactions,
+  ]);
 
   const saveManualExpenseInline = useCallback(async () => {
     const amount = Number(financeForm.amount);
@@ -702,8 +748,8 @@ export default function useDashboardFinanceActionHandlers({
       return;
     }
 
-    if (getWalletDisplayBalance(fromWallet) < amount) {
-      showFinanceNotice("Insufficient balance in the source wallet.");
+    if (getWalletSpendableBalance(fromWallet) < amount) {
+      showFinanceNotice("This transfer is higher than the wallet’s spendable balance after protected funds.");
       return;
     }
 

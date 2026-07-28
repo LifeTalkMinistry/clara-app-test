@@ -445,11 +445,33 @@ export const getWalletDisplayBalance = (
   wallet = {}
 ) =>
   safeNumber(
-    wallet?.balance ??
-      wallet?.amount ??
+    wallet?.walletBalance ??
+      wallet?.balance ??
+      wallet?.derived_balance ??
+      wallet?.current_balance ??
       wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.amount ??
+      wallet?.starting_balance ??
       0
   );
+
+export const getWalletSpendableBalance = (wallet = {}) => {
+  const protectedAmount = firstValidNumber(
+    wallet?.totalProtectedAmount,
+    wallet?.total_protected_amount,
+    0
+  );
+  const explicitSpendable = [
+    wallet?.spendableBalance,
+    wallet?.spendable_balance,
+    wallet?.walletSpendableBalance,
+    wallet?.wallet_spendable_balance,
+  ].find((value) => value !== undefined && value !== null && value !== "");
+
+  if (explicitSpendable !== undefined) return Math.max(safeNumber(explicitSpendable), 0);
+  return Math.max(getWalletDisplayBalance(wallet) - Math.max(protectedAmount, 0), 0);
+};
 
 export const getBudgetTotal = (
   budget = {}

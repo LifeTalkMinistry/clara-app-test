@@ -118,6 +118,7 @@ function CarouselItemCard(props) {
         onTransferMoney={onTransferMoney}
         onEditWallet={onEditWallet}
         onUpdateWallet={financeCardController?.updateWallet}
+        financeCardController={financeCardController}
       />
     );
   } else if (item.type === "emergencyFund") {
