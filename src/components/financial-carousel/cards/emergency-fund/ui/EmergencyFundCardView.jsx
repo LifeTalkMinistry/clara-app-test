@@ -1,6 +1,5 @@
 import EmergencyFundCard from "@/components/EmergencyFundCard";
 import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
-import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 const DETAIL_KEY = "emergency";
 
@@ -15,6 +14,7 @@ export default function EmergencyFundCardView({
   startClaraAiLongPress,
   endClaraAiLongPress,
   handleClaraAiOrbClickCapture,
+  financeCardController,
 }) {
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
@@ -36,27 +36,22 @@ export default function EmergencyFundCardView({
       onTouchEndCapture={endClaraAiLongPress}
       onTouchCancelCapture={endClaraAiLongPress}
       onClickCapture={(event) => {
-        if (
-          typeof handleClaraAiOrbClickCapture === "function" &&
-          handleClaraAiOrbClickCapture(event)
-        ) {
-          return;
-        }
-
-        if (stopCapturedDetailsToggle(event)) {
-          handleEmergencyToggle();
-        }
+        handleClaraAiOrbClickCapture?.(event);
       }}
     >
       <EmergencyFundCard
-        moneyLeft={data.moneyLeft}
+        user={financeCardController?.user || null}
+        emergencyFund={financeCardController?.emergencyFund ?? data.emergencyFund ?? null}
+        wallets={financeCardController?.wallets || []}
+        updateEmergencyFund={financeCardController?.updateEmergencyFund}
+        addExpense={financeCardController?.addExpense}
+        transferBetweenWallets={financeCardController?.transferBetweenWallets}
+        refreshData={financeCardController?.refreshData}
+        correctEmergencyFundBalance={financeCardController?.correctEmergencyFundBalance}
         survivalExpense={data.survivalExpense}
-        retentionRate={data.retentionRate}
         theme={selectedDashboardTheme}
         expanded={isExpanded}
         onToggleDetails={handleEmergencyToggle}
-        canAutoPrompt={data.canAutoPrompt}
-        hasSurvivalSetup={data.hasSurvivalSetup}
         onQuickExpense={onQuickExpense}
         onSurvivalSaved={onSurvivalSaved}
         onCreateWallet={onCreateWallet}

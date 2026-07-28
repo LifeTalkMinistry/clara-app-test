@@ -29,7 +29,6 @@ import {
   getIncomeHubLocalUserId,
 } from "@/lib/incomeHubRepository";
 import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
-import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 const DETAIL_KEY = "investmentFund";
 
@@ -244,7 +243,6 @@ export default function InvestmentCardView({
       closeIncomeActionMenu();
       return;
     }
-    if (stopCapturedDetailsToggle(event)) handleInvestmentToggle();
   };
 
   return (

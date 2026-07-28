@@ -26,6 +26,7 @@ export default function WalletCard({
   onAddMoney,
   onTransferMoney,
   onEditWallet,
+  onUpdateWallet,
 }) {
   const {
     editingWallet,
@@ -48,6 +49,7 @@ export default function WalletCard({
     walletPreviewTransactions,
     expanded,
     onEditWallet,
+    onUpdateWallet,
   });
 
   return (

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useAuth } from "@/context/AuthContext";
-import useFinancialData from "@/hooks/useFinancialData";
 import {
   DEFAULT_DEBT_OBLIGATION_ID,
   getDebtObligations,
@@ -50,16 +48,10 @@ export const debtTone = {
 
 export default function useDebtCardLogic({
   item = null,
+  user = null,
   expanded = false,
   onToggleDetails,
 } = {}) {
-  const { user: authUser } = useAuth();
-  const {
-    totalIncome = 0,
-    totalExpenses = 0,
-    totalWalletBalance = 0,
-  } = useFinancialData(authUser);
-
   const [localExpanded, setLocalExpanded] = useState(false);
   const [debtType, setDebtType] = useState("installment");
   const [totalDebtInput, setTotalDebtInput] = useState("");
@@ -73,7 +65,7 @@ export default function useDebtCardLogic({
   const isExpanded = isControlled ? expanded : localExpanded;
 
   const data = item?.data || {};
-  const localUserId = String(authUser?.id || authUser?.email || "local-user");
+  const localUserId = String(user?.id || user?.email || "local-user");
 
   const loadDebtObligations = useCallback(async () => {
     try {
@@ -108,9 +100,9 @@ export default function useDebtCardLogic({
     };
   }, [loadDebtObligations]);
 
-  const income = toDebtNumber(totalIncome);
-  const expenses = toDebtNumber(totalExpenses);
-  const walletBalance = toDebtNumber(totalWalletBalance);
+  const income = toDebtNumber(data.totalIncome || 0);
+  const expenses = toDebtNumber(data.totalExpenses || 0);
+  const walletBalance = toDebtNumber(data.totalWalletBalance || 0);
 
   const debtSummary = useMemo(
     () => summarizeDebtObligations(debtObligations, { income }),

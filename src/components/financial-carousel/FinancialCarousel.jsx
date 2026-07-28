@@ -13,7 +13,6 @@ import {
   getExpandedCarouselCardIndex,
 } from "./shared/financialCarouselFocus";
 import "./shared/financialCarouselGuideMatchedVisual.css";
-import useFinancialData from "@/hooks/useFinancialData";
 import useEmergencyFundAllocationSync from "@/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync";
 
 export default function FinancialCarousel(props) {
@@ -42,8 +41,7 @@ export default function FinancialCarousel(props) {
     profileData,
     featureFlags,
     includeLocked,
-    firstPositiveNumber,
-    readStoredSurvivalExpense,
+    financeCardController = null,
     isGuideMode = false,
     onGuideCarouselIndexChange,
     guideAllowedSwipeDirection = null,
@@ -54,17 +52,26 @@ export default function FinancialCarousel(props) {
   const effectiveUser = isGuideMode ? null : user;
   const userId = effectiveUser?.id;
   const userPlan = effectiveUser?.plan || plan;
-  const emergencyFundSyncController = useFinancialData(effectiveUser);
-  const removeExpense = emergencyFundSyncController.deleteExpense;
+  const {
+    expenses: financeExpenses = [],
+    transfers: financeTransfers = [],
+    emergencyFund: financeEmergencyFund = null,
+    totalIncome: financeTotalIncome = 0,
+    totalExpenses: financeTotalExpenses = 0,
+    totalWalletBalance: financeTotalWalletBalance = 0,
+    refreshData: refreshFinanceData,
+    deleteExpense: deleteFinanceExpense,
+    transferBetweenWallets: transferFinanceWallets,
+  } = financeCardController || {};
 
   useEmergencyFundAllocationSync({
     user: effectiveUser,
-    expenses: emergencyFundSyncController.expenses,
-    transfers: emergencyFundSyncController.transfers,
-    emergencyFund: emergencyFundSyncController.emergencyFund,
-    transferBetweenWallets: emergencyFundSyncController.transferBetweenWallets,
-    deleteExpense: removeExpense,
-    refreshData: emergencyFundSyncController.refreshData,
+    expenses: financeExpenses,
+    transfers: financeTransfers,
+    emergencyFund: financeEmergencyFund,
+    transferBetweenWallets: transferFinanceWallets,
+    deleteExpense: deleteFinanceExpense,
+    refreshData: refreshFinanceData,
     enabled: !isGuideMode && Boolean(effectiveUser && guardChecked && !loading),
   });
 
@@ -79,6 +86,10 @@ export default function FinancialCarousel(props) {
       walletMoney,
       walletPreviewTransactions,
       survivalExpense,
+      financeEmergencyFund,
+      financeTotalIncome,
+      financeTotalExpenses,
+      financeTotalWalletBalance,
       user: userId || userPlan ? { id: userId, plan: userPlan } : null,
       plan,
       guardChecked: isGuideMode ? false : guardChecked,
@@ -86,10 +97,8 @@ export default function FinancialCarousel(props) {
       profileData,
       featureFlags,
       includeLocked,
-      firstPositiveNumber,
-      readStoredSurvivalExpense,
     }),
-    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, firstPositiveNumber, readStoredSurvivalExpense, isGuideMode]
+    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, financeEmergencyFund, financeTotalIncome, financeTotalExpenses, financeTotalWalletBalance, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, isGuideMode]
   );
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
   const isActiveGuideCarousel = isGuideMode && typeof onGuideCarouselIndexChange === "function";

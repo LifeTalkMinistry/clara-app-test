@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import useUserRole from "@/hooks/useUserRole";
-import useFinancialData from "@/hooks/useFinancialData";
 import { fmt, formatHistoryDate } from "./walletFormatting";
 import {
   getHistoryAmountPrefix,
@@ -142,9 +140,8 @@ export default function useWalletCardLogic({
   walletPreviewTransactions = [],
   expanded = false,
   onEditWallet,
+  onUpdateWallet,
 } = {}) {
-  const { user } = useUserRole();
-  const { updateWallet, refreshData } = useFinancialData(user);
   const [editingWallet, setEditingWallet] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", type: "cash" });
   const [isSavingWalletEdit, setIsSavingWalletEdit] = useState(false);
@@ -200,7 +197,7 @@ export default function useWalletCardLogic({
       return;
     }
 
-    if (typeof updateWallet !== "function") {
+    if (typeof onUpdateWallet !== "function") {
       alert("Wallet editing is not available yet.");
       return;
     }
@@ -209,15 +206,15 @@ export default function useWalletCardLogic({
       setIsSavingWalletEdit(true);
       const nextType = normalizeWalletType(editForm.type || editingWallet?.type || "custom");
 
-      await updateWallet(editingWallet.id, {
+      await onUpdateWallet(editingWallet.id, {
         name: nextName,
         wallet_name: nextName,
         type: nextType,
         icon: getWalletIcon(nextType, editingWallet?.icon || "💰"),
         updated_at: new Date().toISOString(),
       });
-      await refreshData?.();
-      closeEditWallet();
+      setEditingWallet(null);
+      setEditForm({ name: "", type: "cash" });
     } catch (error) {
       alert(error?.message || "Failed to update wallet.");
     } finally {

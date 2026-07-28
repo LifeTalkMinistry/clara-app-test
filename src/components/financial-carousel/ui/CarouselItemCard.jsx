@@ -86,6 +86,7 @@ function CarouselItemCard(props) {
     startClaraAiLongPress,
     endClaraAiLongPress,
     handleClaraAiOrbClickCapture,
+    financeCardController,
   } = props;
 
   if (!item) return null;
@@ -116,6 +117,7 @@ function CarouselItemCard(props) {
         onAddMoney={onAddMoney}
         onTransferMoney={onTransferMoney}
         onEditWallet={onEditWallet}
+        onUpdateWallet={financeCardController?.updateWallet}
       />
     );
   } else if (item.type === "emergencyFund") {
@@ -134,6 +136,7 @@ function CarouselItemCard(props) {
         startClaraAiLongPress={startClaraAiLongPress}
         endClaraAiLongPress={endClaraAiLongPress}
         handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
+        financeCardController={financeCardController}
       />
     );
   } else if (item.type === "budget") {
@@ -194,6 +197,7 @@ function CarouselItemCard(props) {
         performanceMode={resolvedPerformanceMode}
         isActiveSlide={isActiveSlide}
         isNearbySlide={isNearbySlide}
+        financeCardController={financeCardController}
       />
     );
   } else {
