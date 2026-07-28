@@ -26,6 +26,9 @@ jobs:
       - name: Apply Emergency Fund card refactor
         run: python3 .github/scripts/refactor-emergency-fund-card.py
 
+      - name: Separate usage from legacy allocation migration
+        run: python3 .github/scripts/fix-emergency-fund-usage-classification.py
+
       - name: Install dependencies
         run: npm ci || npm ci
 
