@@ -58,7 +58,7 @@ test("Settings directly owns detail history, logout, and Memory", () => {
   assert.match(activeSettingsSource, /window\.history\.pushState/);
   assert.match(activeSettingsSource, /window\.addEventListener\("popstate"/);
   assert.match(activeSettingsSource, /signOutFromClaraBackend/);
-  assert.match(activeSettingsSource, />Log out</);
+  assert.match(activeSettingsSource, /"Log out"/);
   assert.match(activeSettingsSource, /title: "Memory"/);
   assert.match(activeSettingsSource, /clara:open-assistant-memory-board/);
   assert.match(assistantMemorySource, /clara:open-assistant-memory-board/);
