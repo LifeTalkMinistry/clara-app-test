@@ -27,20 +27,35 @@ jobs:
           ref: fix-top-nav-ownership
           fetch-depth: 0
 
-      - name: Normalize Settings surgery anchors
+      - name: Normalize surgery helpers and anchors
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('.github/scripts/apply-settings-react-ownership.mjs')
-          source = path.read_text()
+          dashboard_path = Path('.github/scripts/apply-dashboard-top-nav-surgery.mjs')
+          dashboard_source = dashboard_path.read_text()
+          dashboard_source = dashboard_source.replace(
+              'const removeOnce = (source, before, label) =>\n  replaceOnce(source, before, "", label);',
+              '''const removeOnce = (source, before, label) => {
+  const first = source.indexOf(before);
+  if (first === -1) return source;
+  if (source.indexOf(before, first + before.length) !== -1) {
+    throw new Error(`Removal anchor is not unique: ${label}`);
+  }
+  return source.slice(0, first) + source.slice(first + before.length);
+};''',
+          )
+          dashboard_path.write_text(dashboard_source)
+
+          settings_path = Path('.github/scripts/apply-settings-react-ownership.mjs')
+          settings_source = settings_path.read_text()
           label = '"Plan to support navigation"'
-          label_index = source.index(label)
-          block_start = source.rfind('\nreplaceOnce(', 0, label_index)
-          block_end = source.index('\n);', label_index) + len('\n);')
+          label_index = settings_source.index(label)
+          block_start = settings_source.rfind('\nreplaceOnce(', 0, label_index)
+          block_end = settings_source.index('\n);', label_index) + len('\n);')
           if block_start < 0:
               raise RuntimeError('Plan support replacement block was not found')
-          path.write_text(source[:block_start] + source[block_end:])
+          settings_path.write_text(settings_source[:block_start] + settings_source[block_end:])
           PY
 
       - name: Apply top nav surgery
