@@ -62,6 +62,12 @@ const redundantCarouselPropCleanup = `replaceRequired(
   "carousel prop cleanup"
 );`;
 
+const invalidDashboardControllerAssertion = `  assert.match(dashboard, /const financeCardController = \\{/);`;
+const safeDashboardControllerAssertion = `  assert.equal(dashboard.includes("const financeCardController = {"), true);`;
+const invalidHomeControllerAssertion = `  assert.match(homePanel, /financeCardController=\\{isGuideMode \\? null : financeCardController\\}/);`;
+const safeHomeControllerAssertion = `  assert.equal(homePanel.includes("financeCardController={isGuideMode ? null : financeCardController}"), true);`;
+const invalidCarouselControllerAssertion = `  assert.match(carousel, /financeCardController \\|\\| \\{\\}/);`;
+const safeCarouselControllerAssertion = `  assert.equal(carousel.includes("financeCardController || {}"), true);`;
 const invalidBudgetAssertion = `  assert.match(budgetLogic, /export \\{ default \\} from "\\.\\/useBudgetCardLogicCore"/);`;
 const safeBudgetAssertion = `  assert.equal(budgetLogic.includes('export { default } from "./useBudgetCardLogicCore";'), true);`;
 
@@ -69,11 +75,28 @@ harden(exactHomeInvocation, flexibleHomeInvocation, "Home Panel");
 harden(exactCarouselData, flexibleCarouselData, "carousel card data");
 harden(exactCarouselHelpers, flexibleCarouselHelpers, "carousel helper cleanup");
 harden(redundantCarouselPropCleanup, "", "redundant carousel prop cleanup");
+harden(invalidDashboardControllerAssertion, safeDashboardControllerAssertion, "Dashboard controller assertion");
+harden(invalidHomeControllerAssertion, safeHomeControllerAssertion, "Home controller assertion");
+harden(invalidCarouselControllerAssertion, safeCarouselControllerAssertion, "carousel controller assertion");
 harden(invalidBudgetAssertion, safeBudgetAssertion, "Budget regression assertion");
 fs.writeFileSync(generatedPath, source, "utf8");
 
 try {
   await import(pathToFileURL(generatedPath).href);
+
+  const packagePath = path.join(process.cwd(), "package.json");
+  let packageSource = fs.readFileSync(packagePath, "utf8");
+  if (!packageSource.includes("tests/financial-card-ownership-regression.test.mjs")) {
+    const anchor = 'tests/learning-hub-first-click.test.mjs"';
+    if (!packageSource.includes(anchor)) {
+      throw new Error("Unable to add the financial card regression to npm test.");
+    }
+    packageSource = packageSource.replace(
+      anchor,
+      'tests/learning-hub-first-click.test.mjs tests/financial-card-ownership-regression.test.mjs"'
+    );
+    fs.writeFileSync(packagePath, packageSource, "utf8");
+  }
 } finally {
   if (fs.existsSync(generatedPath)) fs.rmSync(generatedPath);
 }
