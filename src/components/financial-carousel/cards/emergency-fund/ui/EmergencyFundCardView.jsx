@@ -45,6 +45,7 @@ export default function EmergencyFundCardView({
         wallets={financeCardController?.wallets || []}
         updateEmergencyFund={financeCardController?.updateEmergencyFund}
         addExpense={financeCardController?.addExpense}
+        deleteExpense={financeCardController?.deleteExpense}
         transferBetweenWallets={financeCardController?.transferBetweenWallets}
         refreshData={financeCardController?.refreshData}
         correctEmergencyFundBalance={financeCardController?.correctEmergencyFundBalance}

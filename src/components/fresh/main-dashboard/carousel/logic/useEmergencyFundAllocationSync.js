@@ -54,6 +54,17 @@ const getRecordText = (record = {}) =>
 const isEmergencyAllocationExpense = (expense = {}) => {
   if (expense?.deletedAt || expense?.deleted_at) return false;
   const body = getRecordText(expense);
+  const sourceType = cleanText(expense?.source_type || expense?.sourceType);
+  const type = cleanText(expense?.type);
+  const usageLike =
+    body.includes("emergency fund used") ||
+    body.includes("emergency fund usage") ||
+    sourceType.includes("emergency fund usage") ||
+    sourceType.includes("emergency_fund_usage") ||
+    type.includes("emergency fund usage") ||
+    type.includes("emergency fund used");
+
+  if (usageLike) return false;
 
   return Boolean(
     firstText(expense, [
@@ -64,8 +75,8 @@ const isEmergencyAllocationExpense = (expense = {}) => {
     ]) ||
       body.includes("emergency fund allocation") ||
       body.includes("moved to emergency fund") ||
-      cleanText(expense?.source_type || expense?.sourceType).includes("emergency fund allocation") ||
-      cleanText(expense?.type).includes("emergency fund allocation")
+      sourceType.includes("emergency fund allocation") ||
+      type.includes("emergency fund allocation")
   );
 };
 
