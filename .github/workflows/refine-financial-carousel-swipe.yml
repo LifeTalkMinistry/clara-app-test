@@ -30,7 +30,12 @@ jobs:
           fetch-depth: 0
 
       - name: Apply carousel swipe refinement
-        run: node .github/scripts/refine-financial-carousel-swipe.mjs
+        run: |
+          if [ -f tests/financial-carousel-swipe-regression.test.mjs ]; then
+            echo "Carousel refinement is already applied."
+          else
+            node .github/scripts/refine-financial-carousel-swipe.mjs
+          fi
 
       - name: Install dependencies
         run: npm ci
