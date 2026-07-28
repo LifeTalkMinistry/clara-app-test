@@ -34,18 +34,9 @@ jobs:
 
           dashboard_path = Path('.github/scripts/apply-dashboard-top-nav-surgery.mjs')
           dashboard_source = dashboard_path.read_text()
-          dashboard_source = dashboard_source.replace(
-              'const removeOnce = (source, before, label) =>\n  replaceOnce(source, before, "", label);',
-              '''const removeOnce = (source, before, label) => {
-  const first = source.indexOf(before);
-  if (first === -1) return source;
-  if (source.indexOf(before, first + before.length) !== -1) {
-    throw new Error(`Removal anchor is not unique: ${label}`);
-  }
-  return source.slice(0, first) + source.slice(first + before.length);
-};''',
-          )
-          dashboard_path.write_text(dashboard_source)
+          old_remove = 'const removeOnce = (source, before, label) =>\n  replaceOnce(source, before, "", label);'
+          new_remove = 'const removeOnce = (source, before, label) => {\n  const first = source.indexOf(before);\n  if (first === -1) return source;\n  if (source.indexOf(before, first + before.length) !== -1) {\n    throw new Error(`Removal anchor is not unique: ${label}`);\n  }\n  return source.slice(0, first) + source.slice(first + before.length);\n};'
+          dashboard_path.write_text(dashboard_source.replace(old_remove, new_remove))
 
           settings_path = Path('.github/scripts/apply-settings-react-ownership.mjs')
           settings_source = settings_path.read_text()
