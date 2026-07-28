@@ -671,7 +671,7 @@ export default function useDashboardMonthlyBudgetPlan({
         ? Math.max(rawDeclared - allocated, 0)
         : 0;
     const remaining = hasActiveBudgetPlan
-      ? Math.max(declared - spent - protectedCommitmentsTotal, 0)
+      ? Math.max(declared - spent, 0)
       : 0;
     const complete = derivedMode
       ? hasActiveBudgetPlan && declared > 0 && (categories.length > 0 || protectedCommitmentsTotal > 0)

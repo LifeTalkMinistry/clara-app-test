@@ -38,19 +38,14 @@ export default function useDashboardBudgetFormProgress({
     );
     const budgetProjectedAllocated = savedAllocated + formCategoryAmount;
     const budgetProjectedCovered = budgetProjectedAllocated + protectedCommitments;
-    const budgetProjectedUnallocated = Math.max(
-      budgetFormDeclaredAmount - budgetProjectedCovered,
-      0
-    );
-    const budgetProjectedOverAllocated = Math.max(
-      budgetProjectedCovered - budgetFormDeclaredAmount,
-      0
-    );
+    const declaredUnits = Math.round(budgetFormDeclaredAmount * 100);
+    const coveredUnits = Math.round(budgetProjectedCovered * 100);
+    const budgetProjectedUnallocated = Math.max((declaredUnits - coveredUnits) / 100, 0);
+    const budgetProjectedOverAllocated = Math.max((coveredUnits - declaredUnits) / 100, 0);
     const budgetCanFinish =
-      budgetFormDeclaredAmount > 0 &&
+      declaredUnits > 0 &&
       safeCategories.length > 0 &&
-      budgetProjectedUnallocated === 0 &&
-      budgetProjectedOverAllocated === 0;
+      coveredUnits === declaredUnits;
 
     let budgetFinishHelper = "";
     if (budgetFormDeclaredAmount <= 0) {
