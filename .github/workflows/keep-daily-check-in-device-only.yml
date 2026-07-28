@@ -5,18 +5,17 @@ on:
     branches:
       - fix/device-only-daily-check-in
     paths:
-      - ".github/scripts/keep-daily-check-in-device-only.mjs"
       - ".github/workflows/keep-daily-check-in-device-only.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/scripts/keep-daily-check-in-device-only.mjs"
-      - ".github/workflows/keep-daily-check-in-device-only.yml"
+      - "src/lib/cloud-vault-snapshot.js"
+      - "src/lib/server-finance-sync.js"
+      - "tests/cloud-vault-sync.test.mjs"
+      - "tests/local-data-export.test.mjs"
+      - "tests/daily-check-in.test.mjs"
+      - "package.json"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   protect-device-streak:
@@ -25,25 +24,7 @@ jobs:
       - name: Checkout feature branch
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           ref: fix/device-only-daily-check-in
-          fetch-depth: 0
-
-      - name: Apply device-only Daily Check-In boundary
-        run: node .github/scripts/keep-daily-check-in-device-only.mjs
-
-      - name: Persist implementation on feature branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/cloud-vault-snapshot.js src/lib/server-finance-sync.js tests/cloud-vault-sync.test.mjs tests/local-data-export.test.mjs package.json
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo "Implementation is already present."
-          else
-            git commit -m "Keep Daily Check-In device-only"
-            git push origin HEAD:fix/device-only-daily-check-in
-          fi
 
       - name: Install dependencies
         run: npm ci
