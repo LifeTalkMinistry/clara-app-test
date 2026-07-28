@@ -16,7 +16,7 @@ export default function BudgetCard({
   activeBudget = null,
   budgetCategories = [],
   declaredBudget = 0,
-  unallocatedAmount = 0,
+  unallocatedAmount = undefined,
   isComplete = false,
   unplannedSpent = 0,
   undocumentedSpent = 0,

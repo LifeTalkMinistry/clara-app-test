@@ -176,12 +176,6 @@ replaceRegexRequired(
   "\n  const remainingAmount = Math.max(declaredBudget - spentAmount, 0);",
   "carousel remaining truth",
 );
-replaceRegexRequired(
-  "src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js",
-  /\n    const protectedAmount = firstValidNumber\([\s\S]*?\n    \);\n\n    const headerRemaining = Math\.max\(declared - protectedAmount, 0\);/,
-  "\n    const headerRemaining = Math.max(declared, 0);",
-  "reset remaining truth",
-);
 
 replaceRegexRequired(
   "src/components/fresh/main-dashboard/budget/useDashboardBudgetFormProgress.js",
@@ -199,23 +193,6 @@ replaceRegexRequired(
   "currency-safe form progress",
 );
 
-replaceRegexRequired(
-  "src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js",
-  /    const currentAllocated = firstValidNumber\(monthlyBudgetPlan\?\.allocated_amount, monthlyBudgetPlan\?\.allocated_total\);\n    const existingAllocation = existingCategory\?\.id \? getBudgetTotal\(existingCategory\) : 0;\n    const projectedAllocated = shouldSaveCategory\n      \? currentAllocated - existingAllocation \+ categoryAmount\n      : currentAllocated;\n    const remainingToAllocate = Math\.max\(declaredAmount - \(currentAllocated - existingAllocation\), 0\);\n    const projectedUnallocated = Math\.max\(declaredAmount - projectedAllocated, 0\);\n\n    if \(projectedAllocated > declaredAmount\) \{/,
-  `    const currentAllocated = firstValidNumber(monthlyBudgetPlan?.allocated_amount, monthlyBudgetPlan?.allocated_total);
-    const existingAllocation = existingCategory?.id ? getBudgetTotal(existingCategory) : 0;
-    const projectedAllocated = shouldSaveCategory
-      ? currentAllocated - existingAllocation + categoryAmount
-      : currentAllocated;
-    const declaredUnits = Math.round(declaredAmount * 100);
-    const projectedAllocatedUnits = Math.round(projectedAllocated * 100);
-    const allocatedBeforeEditUnits = Math.round((currentAllocated - existingAllocation) * 100);
-    const remainingToAllocate = Math.max((declaredUnits - allocatedBeforeEditUnits) / 100, 0);
-    const projectedUnallocated = Math.max((declaredUnits - projectedAllocatedUnits) / 100, 0);
-
-    if (projectedAllocatedUnits > declaredUnits) {`,
-  "currency-safe budget allocation",
-);
 replaceRequired(
   "src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js",
   "    if (finish && projectedAllocated !== declaredAmount) {",

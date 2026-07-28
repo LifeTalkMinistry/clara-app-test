@@ -42,6 +42,7 @@ export default function useDashboardFinanceActionHandlers({
   financeModal,
   fmt,
   manualExpenseBudgetOptions,
+  selectedManualExpenseBudget,
   monthlyBudgetHeader,
   monthlyBudgetPlan,
   navigate,
@@ -555,8 +556,32 @@ export default function useDashboardFinanceActionHandlers({
     );
     const isUnplanned = financeForm.budgetListKey === "__unplanned__";
     const isUndocumented = financeForm.budgetListKey === "__undocumented__";
-    const selectedBudget = manualExpenseBudgetOptions.find(
-      (item) => String(item.key) === String(financeForm.budgetListKey)
+    const selectedBudget =
+      isUnplanned || isUndocumented ? null : selectedManualExpenseBudget;
+    const selectedBudgetRecord = selectedBudget?.budget || selectedBudget || null;
+    const selectedBudgetKey = normalizeString(
+      selectedBudget?.key || financeForm.budgetListKey
+    );
+    const selectedBudgetId = normalizeString(
+      selectedBudget?.id || selectedBudgetRecord?.id || selectedBudgetKey
+    );
+    const selectedProtectionType = normalizeLower(
+      selectedBudget?.protectionType ||
+        selectedBudgetRecord?.protectionType ||
+        selectedBudgetRecord?.protection_type ||
+        selectedBudgetRecord?.linkedTargetType ||
+        selectedBudgetRecord?.linked_target_type
+    );
+    const selectedLinkedTargetId = normalizeString(
+      selectedBudgetRecord?.linkedTargetId ||
+        selectedBudgetRecord?.linked_target_id ||
+        selectedBudgetRecord?.sourceSavingsGoalId ||
+        selectedBudgetRecord?.source_savings_goal_id
+    );
+    const selectedIsProtected = Boolean(
+      selectedBudget?.isProtectedCommitment === true ||
+        selectedBudgetRecord?.isProtectedCommitment === true ||
+        selectedBudgetRecord?.is_protected_commitment === true
     );
     const reason = normalizeString(financeForm.unplannedReason || financeForm.notes);
     const undocumentedReason = normalizeString(financeForm.undocumentedReason);
@@ -622,6 +647,14 @@ export default function useDashboardFinanceActionHandlers({
         amount,
         wallet_id: wallet.id,
         category: budgetCategory,
+        budget_category: budgetCategory,
+        budget_category_id: selectedBudgetId || null,
+        budget_list_key: selectedBudgetKey || null,
+        budgetListKey: selectedBudgetKey || null,
+        is_protected_commitment: selectedIsProtected,
+        protection_type: selectedProtectionType || null,
+        linked_target_type: selectedProtectionType || null,
+        linked_target_id: selectedLinkedTargetId || null,
         need_type: needType,
         planning_status: planningStatus,
         unplanned_reason: isUnplanned
@@ -683,6 +716,7 @@ export default function useDashboardFinanceActionHandlers({
     financeForm.unplannedReason,
     cacheKey,
     manualExpenseBudgetOptions,
+    selectedManualExpenseBudget,
     pendingExpenses,
     refreshFinanceSection,
     showFinanceNotice,
@@ -863,10 +897,13 @@ export default function useDashboardFinanceActionHandlers({
     const projectedAllocated = shouldSaveCategory
       ? currentAllocated - existingAllocation + categoryAmount
       : currentAllocated;
-    const remainingToAllocate = Math.max(declaredAmount - (currentAllocated - existingAllocation), 0);
-    const projectedUnallocated = Math.max(declaredAmount - projectedAllocated, 0);
+    const declaredUnits = Math.round(declaredAmount * 100);
+    const projectedAllocatedUnits = Math.round(projectedAllocated * 100);
+    const allocatedBeforeEditUnits = Math.round((currentAllocated - existingAllocation) * 100);
+    const remainingToAllocate = Math.max((declaredUnits - allocatedBeforeEditUnits) / 100, 0);
+    const projectedUnallocated = Math.max((declaredUnits - projectedAllocatedUnits) / 100, 0);
 
-    if (projectedAllocated > declaredAmount) {
+    if (projectedAllocatedUnits > declaredUnits) {
       showFinanceNotice(
         `This exceeds your declared monthly budget. You only have ${fmt(remainingToAllocate)} left to allocate.`
       );
@@ -878,7 +915,7 @@ export default function useDashboardFinanceActionHandlers({
       return false;
     }
 
-    if (finish && projectedAllocated !== declaredAmount) {
+    if (finish && projectedAllocatedUnits !== declaredUnits) {
       showFinanceNotice("Finish Budget is only available when your unallocated balance is exactly ₱0.");
       return false;
     }
@@ -886,7 +923,7 @@ export default function useDashboardFinanceActionHandlers({
     try {
       setFinanceActionLoading(true);
       const nowIso = new Date().toISOString();
-      const complete = finish && projectedAllocated === declaredAmount && projectedUnallocated === 0;
+      const complete = finish && projectedAllocatedUnits === declaredUnits;
       const nextStatus = complete ? "active" : "draft";
 
       const headerPayload = {
@@ -1136,15 +1173,7 @@ export default function useDashboardFinanceActionHandlers({
       activeBudget?.monthly_budget_amount
     );
 
-    const protectedAmount = firstValidNumber(
-      monthlyBudgetPlan?.totalProtectedCommitments,
-      monthlyBudgetPlan?.protected_commitments_total,
-      monthlyBudgetPlan?.protectedBudgetCommitments?.totalProtectedCommitments,
-      monthlyBudgetPlan?.protected_budget_commitments?.totalProtectedCommitments,
-      monthlyBudgetPlan?.protected_budget_commitments?.total_protected_commitments
-    );
-
-    const headerRemaining = Math.max(declared - protectedAmount, 0);
+    const headerRemaining = Math.max(declared, 0);
 
     const headerResetPatch = {
       reset_start_at: nowIso,

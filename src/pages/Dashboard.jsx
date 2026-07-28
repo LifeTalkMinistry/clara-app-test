@@ -677,6 +677,7 @@ export default function Dashboard() {
     financeModal,
     fmt,
     manualExpenseBudgetOptions,
+    selectedManualExpenseBudget,
     monthlyBudgetHeader,
     monthlyBudgetPlan,
     navigate,
