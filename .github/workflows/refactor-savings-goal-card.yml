@@ -30,7 +30,13 @@ jobs:
         run: npm ci || npm ci
 
       - name: Run focused Savings Goal regression
-        run: node --test tests/savings-goal-card-flow-regression.test.mjs
+        shell: bash
+        run: |
+          set +e
+          node --test tests/savings-goal-card-flow-regression.test.mjs > /tmp/savings-test.log 2>&1
+          status=$?
+          tail -n 140 /tmp/savings-test.log
+          exit $status
 
       - name: Run full regression and production build
         run: npm run build
