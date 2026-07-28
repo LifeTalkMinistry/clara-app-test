@@ -17,4 +17,9 @@ content = content.replace(
   '`                      index={index}\\n                      walletCount={visibleWallets.length}\\n                      financeActionLoading={financeActionLoading}`'
 );
 
+content = content.replaceAll(
+  'setEditForm({ name: "", providerKey: "cash" });',
+  'setEditForm({ name: "", type: "cash" });'
+);
+
 fs.writeFileSync(file, content);
