@@ -5,15 +5,13 @@ on:
     branches:
       - fix/financial-card-ownership
     paths:
-      - ".github/scripts/fix-financial-card-ownership.mjs"
-      - ".github/scripts/fix-financial-card-ownership-v2.mjs"
+      - ".github/scripts/finalize-financial-card-ownership.mjs"
       - ".github/workflows/fix-financial-card-ownership.yml"
   pull_request:
     branches:
       - main
     paths:
-      - ".github/scripts/fix-financial-card-ownership.mjs"
-      - ".github/scripts/fix-financial-card-ownership-v2.mjs"
+      - ".github/scripts/finalize-financial-card-ownership.mjs"
       - ".github/workflows/fix-financial-card-ownership.yml"
   workflow_dispatch:
 
@@ -31,8 +29,8 @@ jobs:
           ref: fix/financial-card-ownership
           fetch-depth: 0
 
-      - name: Apply financial card ownership surgery
-        run: node .github/scripts/fix-financial-card-ownership-v2.mjs
+      - name: Finalize financial card ownership
+        run: node .github/scripts/finalize-financial-card-ownership.mjs
 
       - name: Install dependencies
         run: npm ci
@@ -43,15 +41,15 @@ jobs:
       - name: Run full regression and production build
         run: npm run build
 
-      - name: Commit verified financial card refactor
+      - name: Commit verified financial card finalization
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
           if git diff --cached --quiet; then
-            echo "No financial card changes were produced."
+            echo "No financial card finalization changes were produced."
             exit 0
           fi
-          git commit -m "Refactor financial card data ownership"
+          git commit -m "Finalize financial card ownership"
           git push origin HEAD:fix/financial-card-ownership
