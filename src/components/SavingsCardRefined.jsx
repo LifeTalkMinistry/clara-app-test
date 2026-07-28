@@ -328,11 +328,17 @@ export default function SavingsCardRefined({
   const computedSaved = goals.reduce((sum, goal) => sum + getSaved(goal), 0);
   const computedTarget = goals.reduce((sum, goal) => sum + getTarget(goal), 0);
   const totalPositiveSavings = goals.reduce((sum, goal) => sum + Math.max(getSaved(goal), 0), 0);
-  const saved = safeNumber(totalSavingsSaved) || computedSaved;
-  const target = safeNumber(totalSavingsTarget) || computedTarget;
+  const hasExplicitSaved = totalSavingsSaved !== undefined && totalSavingsSaved !== null && totalSavingsSaved !== "";
+  const hasExplicitTarget = totalSavingsTarget !== undefined && totalSavingsTarget !== null && totalSavingsTarget !== "";
+  const saved = hasExplicitSaved ? safeNumber(totalSavingsSaved) : computedSaved;
+  const target = hasExplicitTarget ? safeNumber(totalSavingsTarget) : computedTarget;
   const progress = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
   const status = getGoalStatus(progress, goals.length);
-  const mainGoal = primarySavingsGoal || goals[0] || null;
+  const primaryGoalId = primarySavingsGoal?.id || primarySavingsGoal?.goal_id || "";
+  const activePrimaryGoal = primaryGoalId
+    ? goals.find((goal) => String(goal?.id || goal?.goal_id || "") === String(primaryGoalId)) || null
+    : null;
+  const mainGoal = activePrimaryGoal || goals[0] || null;
   const savingsStage = getSavingsStage({ goalCount: goals.length, progress });
   const remainingTotal = Math.max(target - saved, 0);
   const nextStep = buildNextStepCopy({ goals, mainGoal, saved, target });

@@ -108,6 +108,14 @@ const walletSyncHandledForAssignedWallet = (goal = {}) => {
 };
 const getGoalSavedAmount = (goal) => firstNumber(goal?.saved_amount, goal?.savedAmount, goal?.current_amount, goal?.currentAmount, goal?.saved, goal?.amount_saved, goal?.amountSaved);
 const getGoalTargetAmount = (goal) => firstNumber(goal?.target_amount, goal?.targetAmount, goal?.target, goal?.amount_target, goal?.amountTarget);
+const getWalletEmergencyProtectedAmount = (wallet = {}) => firstNumber(
+  wallet?.emergencyProtectedAmount,
+  wallet?.emergency_protected_amount,
+  wallet?.protectedEmergencyAmount,
+  wallet?.protected_emergency_amount,
+);
+const toMinorUnits = (value) => Math.round(toNumber(value) * 100);
+const hasEnoughMoney = (available, requested) => toMinorUnits(available) >= toMinorUnits(requested);
 const normalizeGoal = (goal = {}) => {
   const savedAmount = getGoalSavedAmount(goal);
   const targetAmount = getGoalTargetAmount(goal);
@@ -149,8 +157,9 @@ export default function SavingsGoalsIntegrated() {
     addSavingsGoal,
     updateSavingsGoal,
     deleteSavingsGoal,
+    addExpense,
+    deleteExpense,
     transferBetweenWallets,
-    refreshData,
   } = data || {};
 
   const [saving, setSaving] = useState(false);
@@ -160,6 +169,10 @@ export default function SavingsGoalsIntegrated() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [walletSyncPrompt, setWalletSyncPrompt] = useState(null);
   const [walletSyncSaving, setWalletSyncSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [deletePrompt, setDeletePrompt] = useState(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const loading = Boolean(data?.loading || data?.isLoading || data?.financialDataLoading);
   const activeWallets = useMemo(() => (Array.isArray(wallets) ? wallets.filter(isActiveWallet) : []), [wallets]);
@@ -179,6 +192,31 @@ export default function SavingsGoalsIntegrated() {
     });
     return map;
   }, [activeWallets, transfers, walletTransactions]);
+
+  const protectedSavingsByWallet = useMemo(() => {
+    const map = {};
+    goals.forEach((goal) => {
+      const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+      if (!assignedWalletId) return;
+      map[assignedWalletId] = (map[assignedWalletId] || 0) + Math.max(getGoalSavedAmount(goal), 0);
+    });
+    return map;
+  }, [goals]);
+
+  const walletAvailableBalances = useMemo(() => {
+    const map = {};
+    activeWallets.forEach((wallet) => {
+      const id = walletId(wallet);
+      const rawBalance = Math.max(toNumber(walletBalances[id] ?? wallet?.balance), 0);
+      const emergencyProtected = Math.min(getWalletEmergencyProtectedAmount(wallet), rawBalance);
+      const savingsProtected = Math.min(
+        Math.max(protectedSavingsByWallet[id] || 0, 0),
+        Math.max(rawBalance - emergencyProtected, 0),
+      );
+      map[id] = Math.max(rawBalance - emergencyProtected - savingsProtected, 0);
+    });
+    return map;
+  }, [activeWallets, protectedSavingsByWallet, walletBalances]);
 
   useEffect(() => {
     if (!detailGoal?.id) return;
@@ -208,11 +246,10 @@ export default function SavingsGoalsIntegrated() {
     if (targetAmount <= 0 || remainingGoalAmount <= 0) return null;
 
     const walletBalance = toNumber(walletBalances[goalWalletId] ?? getWalletBalance(wallet, Array.isArray(walletTransactions) ? walletTransactions : [], Array.isArray(transfers) ? transfers : []));
-    const otherGoalProtectedInSameWallet = goals
-      .filter((item) => String(item.id) !== String(goal.id))
-      .filter((item) => walletId(item.wallet_id) === goalWalletId)
-      .reduce((sum, item) => sum + toNumber(item.saved_amount), 0);
-    const availableWalletBalanceForThisGoal = Math.max(walletBalance - otherGoalProtectedInSameWallet, 0);
+    const availableWalletBalanceForThisGoal = Math.max(
+      toNumber(walletAvailableBalances[goalWalletId]),
+      0,
+    );
     const suggestedAmount = Math.min(remainingGoalAmount, availableWalletBalanceForThisGoal);
 
     if (suggestedAmount <= 0) return null;
@@ -238,18 +275,21 @@ export default function SavingsGoalsIntegrated() {
     });
   };
 
-  const openAdd = () => {
+  const openAdd = (starterTitle = "") => {
     setDetailGoal(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, title: String(starterTitle || "") });
     setEditId(null);
+    setFormError("");
     setOpen(true);
   };
   const closeFormModal = () => {
     setOpen(false);
     setEditId(null);
     setForm(EMPTY_FORM);
+    setFormError("");
   };
   const openEdit = (goal) => {
+    setFormError("");
     setForm({
       title: goal.title || "",
       category: goal.category || "",
@@ -273,7 +313,7 @@ export default function SavingsGoalsIntegrated() {
     const routeState = location.state || {};
     if (routeState?.openCreateSavingsGoal) {
       routeActionHandledRef.current = true;
-      openAdd();
+      openAdd(routeState?.starterTitle || "");
       navigate(location.pathname, { replace: true, state: null });
       return;
     }
@@ -298,27 +338,75 @@ export default function SavingsGoalsIntegrated() {
 
   const handleSave = async () => {
     if (saving) return;
-    if (!user?.id && !user?.email) return alert("No user found. Please log in again.");
-    if (!form.title?.trim()) return alert("Please enter a goal title.");
-    if (!form.target_amount || toNumber(form.target_amount) <= 0) return alert("Please enter a valid target amount.");
-    if (form.wallet_id === "__no_wallets__") return alert("Please select a valid wallet.");
+    setFormError("");
+
+    if (!user?.id && !user?.email) return setFormError("No user was found. Please log in again.");
+    if (!form.title?.trim()) return setFormError("Enter a goal title.");
+
+    const nextTargetAmount = toNumber(form.target_amount);
+    const nextSavedAmount = Math.max(0, toNumber(form.saved_amount));
+    if (nextTargetAmount <= 0) return setFormError("Enter a valid target amount.");
+    if (nextSavedAmount > nextTargetAmount) return setFormError("Already Saved cannot be higher than the goal target.");
+    if (form.wallet_id === "__no_wallets__") return setFormError("Choose a valid wallet.");
+
+    const existing = editId ? goals.find((goal) => String(goal.id) === String(editId)) : null;
+    const currentSavedAmount = existing ? getGoalSavedAmount(existing) : 0;
+    const previousWalletId = walletId(existing?.wallet_id || existing?.walletId || "");
+    const nextWalletId = walletId(form.wallet_id && form.wallet_id !== "__no_wallets__" ? form.wallet_id : "");
+    const previousWallet = activeWallets.find((wallet) => walletId(wallet) === previousWalletId) || null;
+    const nextWallet = activeWallets.find((wallet) => walletId(wallet) === nextWalletId) || null;
+    const walletChanged = Boolean(existing && previousWalletId !== nextWalletId);
+
+    if (nextSavedAmount > 0 && !nextWallet) {
+      return setFormError("Choose an available wallet before marking money as saved.");
+    }
+
+    const nextWalletAvailable = nextWallet ? toNumber(walletAvailableBalances[nextWalletId]) : 0;
+    let transferAmount = 0;
+
+    if (!existing && nextSavedAmount > 0 && !hasEnoughMoney(nextWalletAvailable, nextSavedAmount)) {
+      return setFormError("This wallet does not have enough unprotected money for the Already Saved amount.");
+    }
+
+    if (existing && !walletChanged) {
+      const increase = Math.max(nextSavedAmount - currentSavedAmount, 0);
+      if (increase > 0 && !hasEnoughMoney(nextWalletAvailable, increase)) {
+        return setFormError("This wallet does not have enough unprotected money for that savings increase.");
+      }
+    }
+
+    if (walletChanged) {
+      transferAmount = Math.min(currentSavedAmount, nextSavedAmount);
+      const extraProtectionNeeded = Math.max(nextSavedAmount - currentSavedAmount, 0);
+
+      if (transferAmount > 0 && !previousWallet) {
+        return setFormError("The current saved-in wallet is unavailable. Reduce Already Saved to $0 before changing wallets.");
+      }
+      if (transferAmount > 0 && !hasEnoughMoney(walletBalances[previousWalletId] || 0, transferAmount)) {
+        return setFormError("The current saved-in wallet no longer contains enough money to move this goal.");
+      }
+      if (extraProtectionNeeded > 0 && !hasEnoughMoney(nextWalletAvailable, extraProtectionNeeded)) {
+        return setFormError("The new wallet does not have enough unprotected money for the increased saved amount.");
+      }
+    }
+
+    let movedSavedMoney = false;
+    const moveId = `savings_goal_wallet_move_${Date.now()}`;
+
     try {
       setSaving(true);
       const now = new Date().toISOString();
-      const existing = editId ? goals.find((goal) => String(goal.id) === String(editId)) : null;
-      const previousWalletId = walletId(existing?.wallet_id || existing?.walletId || "");
-      const nextWalletId = walletId(form.wallet_id && form.wallet_id !== "__no_wallets__" ? form.wallet_id : "");
       const payload = normalizeGoal({
         ...(existing || {}),
         id: editId || generateId(),
         title: form.title.trim(),
         category: form.category || "",
         subcategory: form.subcategory || "",
-        target_amount: toNumber(form.target_amount),
-        saved_amount: Math.max(0, toNumber(form.saved_amount)),
-        current_amount: Math.max(0, toNumber(form.saved_amount)),
-        savedAmount: Math.max(0, toNumber(form.saved_amount)),
-        currentAmount: Math.max(0, toNumber(form.saved_amount)),
+        target_amount: nextTargetAmount,
+        saved_amount: nextSavedAmount,
+        current_amount: nextSavedAmount,
+        savedAmount: nextSavedAmount,
+        currentAmount: nextSavedAmount,
         planned_use_date: form.planned_use_date || "",
         reasons: form.reasons,
         emotional_value: form.emotional_value || "joy",
@@ -336,9 +424,26 @@ export default function SavingsGoalsIntegrated() {
         syncStatus: "local_only",
         source: "local",
       });
+
+      if (transferAmount > 0) {
+        if (typeof transferBetweenWallets !== "function") throw new Error("Wallet transfer is not available yet.");
+        await transferBetweenWallets({
+          id: moveId,
+          transfer_group_id: moveId,
+          from_wallet_id: previousWalletId,
+          to_wallet_id: nextWalletId,
+          amount: transferAmount,
+          notes: `Savings goal moved from ${walletName(previousWallet)} to ${walletName(nextWallet)}: ${payload.title}.`,
+          source_type: "savings_goal_storage_move",
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        });
+        movedSavedMoney = true;
+      }
+
       if (editId) await updateSavingsGoal(payload.id, payload);
       else await addSavingsGoal(payload);
-      await refreshData?.();
 
       const assignedWalletChanged = Boolean(existing && previousWalletId !== nextWalletId);
       const alreadyHandledThisWallet = walletSyncHandledForAssignedWallet(payload);
@@ -360,21 +465,47 @@ export default function SavingsGoalsIntegrated() {
         });
       }
     } catch (error) {
+      if (movedSavedMoney && typeof transferBetweenWallets === "function") {
+        try {
+          await transferBetweenWallets({
+            from_wallet_id: nextWalletId,
+            to_wallet_id: previousWalletId,
+            amount: transferAmount,
+            notes: "Savings goal wallet move rollback after the goal could not be saved.",
+            source_type: "savings_goal_storage_move_rollback",
+            user_id: user?.id || null,
+            user_email: user?.email || null,
+            created_by: user?.email || null,
+          });
+        } catch (rollbackError) {
+          console.error("Failed to roll back savings goal wallet move:", rollbackError);
+        }
+      }
       console.error("Failed to save savings goal:", error);
-      alert(error?.message || "Failed to save goal.");
+      setFormError(error?.message || "CLARA could not save this goal yet. Try again.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id) => {
+  const requestDelete = (goal) => {
+    setDeletePrompt(normalizeGoal(goal));
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deletePrompt?.id || deleteSaving) return;
     try {
-      await deleteSavingsGoal(id);
-      setDetailGoal((prev) => (String(prev?.id) === String(id) ? null : prev));
-      await refreshData?.();
+      setDeleteSaving(true);
+      setDeleteError("");
+      await deleteSavingsGoal(deletePrompt.id);
+      setDetailGoal((previous) => (String(previous?.id) === String(deletePrompt.id) ? null : previous));
+      setDeletePrompt(null);
     } catch (error) {
       console.error("Failed to delete savings goal:", error);
-      alert(error?.message || "Failed to delete goal.");
+      setDeleteError(error?.message || "CLARA could not delete this goal yet. Try again.");
+    } finally {
+      setDeleteSaving(false);
     }
   };
 
@@ -407,7 +538,6 @@ export default function SavingsGoalsIntegrated() {
         source: "local",
       });
       await updateSavingsGoal(goal.id, updatedGoal);
-      await refreshData?.();
       setDetailGoal(updatedGoal);
     } catch (error) {
       console.error("Failed to remember wallet savings prompt decision:", error);
@@ -485,7 +615,6 @@ export default function SavingsGoalsIntegrated() {
       updatedGoal.activity_log = updatedGoal.savingsActivityLog;
 
       await updateSavingsGoal(goal.id, updatedGoal);
-      await refreshData?.();
       setDetailGoal(updatedGoal);
       setWalletSyncPrompt(null);
     } catch (error) {
@@ -499,106 +628,190 @@ export default function SavingsGoalsIntegrated() {
   const handleAddSavings = async (goal, inputAmount, sourceWalletId, forcedAmount = null) => {
     const requestedAmount = toNumber(inputAmount);
     const safeAmount = forcedAmount != null ? toNumber(forcedAmount) : requestedAmount;
-    if (!safeAmount || safeAmount <= 0) return alert("Please enter a valid amount.");
+    if (!safeAmount || safeAmount <= 0) throw new Error("Enter a valid amount.");
+
     const sourceWallet = activeWallets.find((wallet) => walletId(wallet) === String(sourceWalletId));
-    if (!sourceWallet) return alert("Please choose a valid source wallet.");
+    if (!sourceWallet) throw new Error("Choose a valid source wallet.");
+
     const currentSaved = toNumber(goal.saved_amount);
     const targetAmount = toNumber(goal.target_amount);
     const remaining = Math.max(targetAmount - currentSaved, 0);
-    if (remaining <= 0) return alert("This goal is already fully funded.");
+    if (remaining <= 0) throw new Error("This goal is already fully funded.");
+
     const finalAmount = Math.min(safeAmount, remaining);
-    const sourceBalance = walletBalances[walletId(sourceWallet)] ?? toNumber(sourceWallet.balance);
-    if (finalAmount > sourceBalance) return alert("Not enough balance in the selected wallet.");
-    const savedInWalletId = goal.wallet_id || walletId(sourceWallet);
-    const savedInWallet = activeWallets.find((wallet) => walletId(wallet) === savedInWalletId) || sourceWallet;
-    if (walletId(sourceWallet) !== walletId(savedInWallet)) {
-      if (typeof transferBetweenWallets !== "function") throw new Error("Wallet transfer is not available yet.");
-      await transferBetweenWallets({
-        from_wallet_id: walletId(sourceWallet),
-        to_wallet_id: walletId(savedInWallet),
-        amount: finalAmount,
-        note: `Savings goal funding: ${goal.title}`,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-      });
+    const sourceAvailable = toNumber(walletAvailableBalances[walletId(sourceWallet)]);
+    if (!hasEnoughMoney(sourceAvailable, finalAmount)) {
+      throw new Error("The selected wallet does not have enough unprotected money.");
     }
+
+    const assignedWalletId = walletId(goal.wallet_id || goal.walletId || "");
+    const savedInWallet = assignedWalletId
+      ? activeWallets.find((wallet) => walletId(wallet) === assignedWalletId) || null
+      : sourceWallet;
+    if (!savedInWallet) throw new Error("The saved-in wallet is unavailable. Edit this goal and choose a valid wallet first.");
+
     const now = new Date().toISOString();
-    const nextSaved = Math.min(currentSaved + finalAmount, targetAmount);
-    const updatedGoal = normalizeGoal({
-      ...goal,
-      wallet_id: walletId(savedInWallet),
-      saved_amount: nextSaved,
-      current_amount: nextSaved,
-      savedAmount: nextSaved,
-      currentAmount: nextSaved,
-      savingsActivityLog: buildActivity(goal, {
-        id: `savings_add_${Date.now()}`,
-        type: "add",
-        title: "Savings added",
-        amount: finalAmount,
-        sourceWalletId: walletId(sourceWallet),
-        source_wallet_id: walletId(sourceWallet),
-        sourceWalletName: walletName(sourceWallet),
-        source_wallet_name: walletName(sourceWallet),
-        storageWalletId: walletId(savedInWallet),
-        storage_wallet_id: walletId(savedInWallet),
-        storageWalletName: walletName(savedInWallet),
-        storage_wallet_name: walletName(savedInWallet),
-        note: walletId(sourceWallet) === walletId(savedInWallet) ? `Protected in ${walletName(savedInWallet)}` : `Moved from ${walletName(sourceWallet)} to ${walletName(savedInWallet)}`,
-        createdAt: now,
-        created_at: now,
-      }),
-      updated_date: now,
-      updatedAt: now,
-      syncStatus: "local_only",
-      source: "local",
-    });
-    updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
-    updatedGoal.activityLog = updatedGoal.savingsActivityLog;
-    updatedGoal.activity_log = updatedGoal.savingsActivityLog;
-    await updateSavingsGoal(goal.id, updatedGoal);
-    await refreshData?.();
-    setDetailGoal(updatedGoal);
-    return updatedGoal;
+    const activityId = `savings_add_${Date.now()}`;
+    const shouldMoveMoney = walletId(sourceWallet) !== walletId(savedInWallet);
+    let movedWalletMoney = false;
+
+    try {
+      if (shouldMoveMoney) {
+        if (typeof transferBetweenWallets !== "function") throw new Error("Wallet transfer is not available yet.");
+        await transferBetweenWallets({
+          id: activityId,
+          transfer_group_id: activityId,
+          from_wallet_id: walletId(sourceWallet),
+          to_wallet_id: walletId(savedInWallet),
+          amount: finalAmount,
+          notes: `Savings goal funding: ${goal.title}.`,
+          source_type: "savings_goal_funding",
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        });
+        movedWalletMoney = true;
+      }
+
+      const nextSaved = Math.min(currentSaved + finalAmount, targetAmount);
+      const updatedGoal = normalizeGoal({
+        ...goal,
+        wallet_id: walletId(savedInWallet),
+        saved_amount: nextSaved,
+        current_amount: nextSaved,
+        savedAmount: nextSaved,
+        currentAmount: nextSaved,
+        savingsActivityLog: buildActivity(goal, {
+          id: activityId,
+          type: "add",
+          title: "Savings added",
+          amount: finalAmount,
+          sourceWalletId: walletId(sourceWallet),
+          source_wallet_id: walletId(sourceWallet),
+          sourceWalletName: walletName(sourceWallet),
+          source_wallet_name: walletName(sourceWallet),
+          storageWalletId: walletId(savedInWallet),
+          storage_wallet_id: walletId(savedInWallet),
+          storageWalletName: walletName(savedInWallet),
+          storage_wallet_name: walletName(savedInWallet),
+          note: shouldMoveMoney ? `Moved from ${walletName(sourceWallet)} to ${walletName(savedInWallet)}` : `Protected in ${walletName(savedInWallet)}`,
+          createdAt: now,
+          created_at: now,
+        }),
+        updated_date: now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
+      });
+      updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
+      updatedGoal.activityLog = updatedGoal.savingsActivityLog;
+      updatedGoal.activity_log = updatedGoal.savingsActivityLog;
+      await updateSavingsGoal(goal.id, updatedGoal);
+      setDetailGoal(updatedGoal);
+      return updatedGoal;
+    } catch (error) {
+      if (movedWalletMoney && typeof transferBetweenWallets === "function") {
+        try {
+          await transferBetweenWallets({
+            from_wallet_id: walletId(savedInWallet),
+            to_wallet_id: walletId(sourceWallet),
+            amount: finalAmount,
+            notes: "Savings funding rollback after the goal could not be updated.",
+            source_type: "savings_goal_funding_rollback",
+            user_id: user?.id || null,
+            user_email: user?.email || null,
+            created_by: user?.email || null,
+          });
+        } catch (rollbackError) {
+          console.error("Failed to roll back savings funding:", rollbackError);
+        }
+      }
+      throw error;
+    }
   };
 
   const handleUseSavings = async (goal, amount, reason) => {
     const safeAmount = toNumber(amount);
     const cleanReason = String(reason || "").trim();
-    if (!safeAmount || safeAmount <= 0) return alert("Please enter a valid amount.");
-    if (safeAmount > toNumber(goal.saved_amount)) return alert("Amount cannot exceed current saved amount.");
-    if (!cleanReason) return alert("Please enter a reason or purpose.");
+    if (!safeAmount || safeAmount <= 0) throw new Error("Enter a valid amount.");
+    if (safeAmount > toNumber(goal.saved_amount)) throw new Error("Amount cannot exceed the current saved amount.");
+    if (!cleanReason) throw new Error("Enter a reason or purpose.");
+
+    const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+    const assignedWallet = activeWallets.find((wallet) => walletId(wallet) === assignedWalletId) || null;
+    if (!assignedWallet) throw new Error("The saved-in wallet is unavailable. Choose a valid wallet before using this goal.");
+    if (!hasEnoughMoney(walletBalances[assignedWalletId] || 0, safeAmount)) {
+      throw new Error("The saved-in wallet does not contain enough money for this use.");
+    }
+    if (typeof addExpense !== "function" || typeof deleteExpense !== "function") {
+      throw new Error("Savings usage logging is not available yet.");
+    }
+
     const now = new Date().toISOString();
+    const activityId = `savings_use_${Date.now()}`;
+    const expenseId = `savings_use_expense_${Date.now()}`;
     const nextSaved = Math.max(toNumber(goal.saved_amount) - safeAmount, 0);
-    const updatedGoal = normalizeGoal({
-      ...goal,
-      saved_amount: nextSaved,
-      current_amount: nextSaved,
-      savedAmount: nextSaved,
-      currentAmount: nextSaved,
-      savingsActivityLog: buildActivity(goal, {
-        id: `savings_use_${Date.now()}`,
-        type: "use",
-        title: "Savings used",
+    let expenseCreated = false;
+
+    try {
+      await addExpense({
+        id: expenseId,
+        wallet_id: assignedWalletId,
         amount: safeAmount,
-        reason: cleanReason,
-        note: cleanReason,
-        createdAt: now,
+        category: "Savings Goal Used",
+        need_type: "other",
+        planning_status: "planned",
+        notes: `Used savings for ${goal.title}: ${cleanReason}`,
+        date: now,
         created_at: now,
-      }),
-      updated_date: now,
-      updatedAt: now,
-      syncStatus: "local_only",
-      source: "local",
-    });
-    updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
-    updatedGoal.activityLog = updatedGoal.savingsActivityLog;
-    updatedGoal.activity_log = updatedGoal.savingsActivityLog;
-    await updateSavingsGoal(goal.id, updatedGoal);
-    await refreshData?.();
-    setDetailGoal(updatedGoal);
-    return updatedGoal;
+        updated_at: now,
+        source_type: "savings_goal_usage",
+        usage_goal_id: goal.id,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
+      expenseCreated = true;
+
+      const updatedGoal = normalizeGoal({
+        ...goal,
+        saved_amount: nextSaved,
+        current_amount: nextSaved,
+        savedAmount: nextSaved,
+        currentAmount: nextSaved,
+        savingsActivityLog: buildActivity(goal, {
+          id: activityId,
+          type: "use",
+          title: "Savings used",
+          amount: safeAmount,
+          reason: cleanReason,
+          note: `Paid from ${walletName(assignedWallet)}`,
+          storageWalletId: assignedWalletId,
+          storage_wallet_id: assignedWalletId,
+          createdAt: now,
+          created_at: now,
+        }),
+        updated_date: now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
+      });
+      updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
+      updatedGoal.activityLog = updatedGoal.savingsActivityLog;
+      updatedGoal.activity_log = updatedGoal.savingsActivityLog;
+      await updateSavingsGoal(goal.id, updatedGoal);
+      setDetailGoal(updatedGoal);
+      return updatedGoal;
+    } catch (error) {
+      if (expenseCreated) {
+        try {
+          await deleteExpense(expenseId);
+        } catch (rollbackError) {
+          console.error("Failed to roll back savings usage expense:", rollbackError);
+        }
+      }
+      throw error;
+    }
   };
 
   if (accessLoading) return <FeaturePageLoader label="Preparing savings goals..." />;
@@ -610,8 +823,9 @@ export default function SavingsGoalsIntegrated() {
     {goals.length > 0 && <div className="grid grid-cols-3 gap-3 mb-4"><StatCard label="Saved" value={fmt(totalSaved)} tone="green" /><StatCard label="Target" value={fmt(totalTarget)} tone="yellow" /><StatCard label="Goals" value={goals.length} /></div>}
     {data?.totalIncome > 0 && retentionNum < 15 && totalTarget > 0 && <div className="flex items-start gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200 mb-4 text-sm"><AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" /><p className="text-orange-700">Your leftover rate is below 15%. Save when your rate improves — your goals are aspirational for now.</p></div>}
     {goals.length === 0 ? <EmptyState icon={Target} title="No savings goals yet" description="Create your first goal — a dream fund, emergency reserve, or any planned expense." /> : <div className="space-y-3">{goals.map((goal) => <GoalCard key={goal.id} goal={goal} wallets={activeWallets} walletBalances={walletBalances} fmt={fmt} onOpen={setDetailGoal} />)}</div>}
-    <GoalFormDialog open={open} editId={editId} form={form} setForm={setForm} saving={saving} onClose={closeFormModal} onSave={handleSave} wallets={activeWallets} walletBalances={walletBalances} subcats={form.category ? CATEGORIES[form.category] || [] : []} fmt={fmt} />
-    {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={handleDelete} onAddSavings={handleAddSavings} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}
+    <GoalFormDialog open={open} editId={editId} form={form} setForm={setForm} saving={saving} error={formError} onClose={closeFormModal} onSave={handleSave} wallets={activeWallets} walletBalances={walletBalances} subcats={form.category ? CATEGORIES[form.category] || [] : []} fmt={fmt} />
+    {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletAvailableBalances={walletAvailableBalances} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={requestDelete} onAddSavings={handleAddSavings} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}
+    <SavingsDeleteConfirmDialog goal={deletePrompt} wallets={activeWallets} saving={deleteSaving} error={deleteError} fmt={fmt} onClose={() => { if (!deleteSaving) { setDeletePrompt(null); setDeleteError(""); } }} onConfirm={confirmDelete} />
     <WalletBalanceSyncPrompt prompt={walletSyncPrompt} fmt={fmt} saving={walletSyncSaving} onCancel={handleDismissWalletBalanceSync} onConfirm={handleConfirmWalletBalanceSync} />
   </div>;
 }
@@ -630,8 +844,8 @@ function GoalCard({ goal, wallets, walletBalances, fmt, onOpen }) {
   return <div onClick={() => onOpen(goal)} className="bg-card rounded-2xl border border-border p-4 cursor-pointer hover:border-primary/30 transition-all"><div className="flex items-start justify-between mb-2 gap-3"><div className="min-w-0"><div className="flex items-center gap-2 flex-wrap"><p className="font-semibold text-sm">{goal.title}</p>{goal.priority === "urgent" && <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-bold">URGENT</span>}</div><p className="text-xs text-muted-foreground">{goal.category}{goal.subcategory ? ` • ${goal.subcategory}` : ""}</p>{assignedWallet ? <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><Wallet className="w-3 h-3" />Saved in {walletName(assignedWallet)} • {fmt(walletBalances[walletId(assignedWallet)] || 0)}</p> : null}</div><div className="text-right shrink-0"><p className="font-heading font-bold text-sm text-primary">{fmt(saved)}</p><p className="text-xs text-muted-foreground">of {fmt(target)}</p></div></div><div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2"><div className={`h-full rounded-full progress-bar ${pct >= 100 ? "bg-primary" : "bg-accent"}`} style={{ width: `${pct}%` }} /></div><div className="flex justify-between text-xs text-muted-foreground gap-3"><span>{pct.toFixed(0)}% funded</span>{goal.planned_use_date ? <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{goal.planned_use_date}</span> : <span>No date</span>}<span>{fmt(remaining)} left</span></div></div>;
 }
 
-function GoalFormDialog({ open, editId, form, setForm, saving, onClose, onSave, wallets, walletBalances, subcats, fmt }) {
-  return <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{editId ? "Edit Savings Goal" : "New Savings Goal"}</DialogTitle></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><FormInput label="Goal Title"><Input placeholder="e.g., Emergency Fund, Dream Vacation" className={inputDarkClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></FormInput><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Category"><Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v, subcategory: "" })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{Object.keys(CATEGORIES).map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Subcategory"><Select value={form.subcategory} onValueChange={(v) => setForm({ ...form, subcategory: v })} disabled={!form.category}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{subcats.map((subcat) => <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>)}</SelectContent></Select></FormInput></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Target Amount"><Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(e) => setForm({ ...form, target_amount: e.target.value })} /></FormInput><FormInput label="Already Saved"><Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(e) => setForm({ ...form, saved_amount: e.target.value })} /></FormInput></div><FormInput label="Saved in"><Select value={form.wallet_id} onValueChange={(v) => setForm({ ...form, wallet_id: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select wallet..." /></SelectTrigger><SelectContent>{wallets.length === 0 ? <SelectItem value="__no_wallets__" disabled>No wallets available</SelectItem> : wallets.map((wallet) => <SelectItem key={walletId(wallet)} value={walletId(wallet)}>{wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Planned Use Date"><input type="date" value={form.planned_use_date} onChange={(e) => setForm({ ...form, planned_use_date: e.target.value })} className="w-full h-10 px-3 rounded-xl bg-[#0b1a2f] border border-white/10 text-white cursor-pointer outline-none focus:ring-1 focus:ring-green-500/60" /></FormInput><FormInput label="3 Reasons / Motivations"><div className="space-y-2">{form.reasons.map((reason, index) => <Input key={index} placeholder={`Reason ${index + 1}`} className={inputDarkClass} value={reason} onChange={(e) => { const next = [...form.reasons]; next[index] = e.target.value; setForm({ ...form, reasons: next }); }} />)}</div></FormInput><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Emotional Value"><Select value={form.emotional_value} onValueChange={(v) => setForm({ ...form, emotional_value: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger><SelectContent>{EMOTIONAL_VALUES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Priority"><Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger><SelectContent>{PRIORITIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></FormInput></div><FormInput label="Notes"><Textarea className={`${inputDarkClass} min-h-[92px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormInput></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={onClose} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white">Cancel</Button><Button type="button" onClick={onSave} disabled={saving} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}</Button></div></div></div></DialogContent></Dialog>;
+function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, onSave, wallets, walletBalances, subcats, fmt }) {
+  return <Dialog open={open} onOpenChange={(value) => { if (!value && !saving) onClose(); }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{editId ? "Edit Savings Goal" : "New Savings Goal"}</DialogTitle></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><FormInput label="Goal Title"><Input placeholder="e.g., Emergency Fund, Dream Vacation" className={inputDarkClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></FormInput><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Category"><Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v, subcategory: "" })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{Object.keys(CATEGORIES).map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Subcategory"><Select value={form.subcategory} onValueChange={(v) => setForm({ ...form, subcategory: v })} disabled={!form.category}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{subcats.map((subcat) => <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>)}</SelectContent></Select></FormInput></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Target Amount"><Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(e) => setForm({ ...form, target_amount: e.target.value })} /></FormInput><FormInput label="Already Saved"><Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(e) => setForm({ ...form, saved_amount: e.target.value })} /></FormInput></div><FormInput label="Saved in"><Select value={form.wallet_id} onValueChange={(v) => setForm({ ...form, wallet_id: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select wallet..." /></SelectTrigger><SelectContent>{wallets.length === 0 ? <SelectItem value="__no_wallets__" disabled>No wallets available</SelectItem> : wallets.map((wallet) => <SelectItem key={walletId(wallet)} value={walletId(wallet)}>{wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Planned Use Date"><input type="date" value={form.planned_use_date} onChange={(e) => setForm({ ...form, planned_use_date: e.target.value })} className="w-full h-10 px-3 rounded-xl bg-[#0b1a2f] border border-white/10 text-white cursor-pointer outline-none focus:ring-1 focus:ring-green-500/60" /></FormInput><FormInput label="3 Reasons / Motivations"><div className="space-y-2">{form.reasons.map((reason, index) => <Input key={index} placeholder={`Reason ${index + 1}`} className={inputDarkClass} value={reason} onChange={(e) => { const next = [...form.reasons]; next[index] = e.target.value; setForm({ ...form, reasons: next }); }} />)}</div></FormInput><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Emotional Value"><Select value={form.emotional_value} onValueChange={(v) => setForm({ ...form, emotional_value: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger><SelectContent>{EMOTIONAL_VALUES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Priority"><Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger><SelectContent>{PRIORITIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></FormInput></div><FormInput label="Notes"><Textarea className={`${inputDarkClass} min-h-[92px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormInput>{error ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{error}</div> : null}</div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={onSave} disabled={saving} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}</Button></div></div></div></DialogContent></Dialog>;
 }
 
 function WalletBalanceSyncPrompt({ prompt, fmt, saving, onCancel, onConfirm }) {
@@ -647,7 +861,7 @@ function FormInput({ label, children }) {
   return <div><Label className={labelDarkClass}>{label}</Label>{children}</div>;
 }
 
-function GoalDetail({ goal, wallets, walletBalances, walletSyncSuggestion, onOpenWalletSyncPrompt, onClose, onEdit, onDelete, onAddSavings, onUseSavings, totalIncome, fmt }) {
+function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, walletSyncSuggestion, onOpenWalletSyncPrompt, onClose, onEdit, onDelete, onAddSavings, onUseSavings, totalIncome, fmt }) {
   const [addSavingsOpen, setAddSavingsOpen] = useState(false);
   const [useSavingsOpen, setUseSavingsOpen] = useState(false);
   const [overAmountOpen, setOverAmountOpen] = useState(false);
@@ -656,6 +870,8 @@ function GoalDetail({ goal, wallets, walletBalances, walletSyncSuggestion, onOpe
   const [useAmount, setUseAmount] = useState("");
   const [useReason, setUseReason] = useState("");
   const [savingAmount, setSavingAmount] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [useError, setUseError] = useState("");
   const saved = toNumber(goal?.saved_amount);
   const target = toNumber(goal?.target_amount);
   const remaining = Math.max(target - saved, 0);
@@ -663,7 +879,7 @@ function GoalDetail({ goal, wallets, walletBalances, walletSyncSuggestion, onOpe
   const assignedWallet = wallets.find((wallet) => walletId(wallet) === String(goal?.wallet_id));
   const sourceWallet = wallets.find((wallet) => walletId(wallet) === String(sourceWalletId));
   const assignedWalletBalance = assignedWallet ? walletBalances[walletId(assignedWallet)] ?? toNumber(assignedWallet.balance) : 0;
-  const sourceWalletBalance = sourceWallet ? walletBalances[walletId(sourceWallet)] ?? toNumber(sourceWallet.balance) : 0;
+  const sourceWalletBalance = sourceWallet ? walletAvailableBalances[walletId(sourceWallet)] ?? 0 : 0;
   const cleanReasons = Array.isArray(goal?.reasons) ? goal.reasons.filter((reason) => String(reason || "").trim()) : [];
   const activity = getGoalActivity(goal);
   const requestedAddAmount = toNumber(amount);
@@ -679,10 +895,14 @@ function GoalDetail({ goal, wallets, walletBalances, walletSyncSuggestion, onOpe
     if (savingAmount) return;
     try {
       setSavingAmount(true);
+      setAddError("");
       await onAddSavings(goal, amount, sourceWalletId, forcedAmount);
       setAmount("");
       setOverAmountOpen(false);
       setAddSavingsOpen(false);
+    } catch (error) {
+      console.error("Failed to add savings:", error);
+      setAddError(error?.message || "CLARA could not add this savings amount yet. Try again.");
     } finally {
       setSavingAmount(false);
     }
@@ -698,21 +918,34 @@ function GoalDetail({ goal, wallets, walletBalances, walletSyncSuggestion, onOpe
     if (savingAmount) return;
     try {
       setSavingAmount(true);
+      setUseError("");
       await onUseSavings(goal, useAmount, useReason);
       setUseAmount("");
       setUseReason("");
       setUseSavingsOpen(false);
+    } catch (error) {
+      console.error("Failed to use savings:", error);
+      setUseError(error?.message || "CLARA could not use this savings amount yet. Try again.");
     } finally {
       setSavingAmount(false);
     }
   };
 
   return <>
-    <Dialog open={Boolean(goal)} onOpenChange={(value) => !value && onClose()}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{goal?.title || "Savings Goal"}</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.category || "Uncategorized"}{goal?.subcategory ? ` • ${goal.subcategory}` : ""}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex items-start justify-between gap-3 mb-3"><div><p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold">Progress</p><p className="text-2xl font-heading font-bold text-white">{pct.toFixed(0)}%</p></div><div className="text-right"><p className="text-[11px] text-white/50">Saved</p><p className="text-lg font-bold text-green-300">{fmt(saved)}</p></div></div><div className="h-3 rounded-full bg-white/10 overflow-hidden mb-3"><div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} /></div><div className="grid grid-cols-2 gap-3 text-sm"><InfoMini label="Target" value={fmt(target)} /><InfoMini label="Remaining" value={fmt(remaining)} /></div></div><InfoBlock title="Saved in">{assignedWallet ? <div className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0"><Wallet className="w-4 h-4 text-green-300" /></div><div className="min-w-0"><p className="text-sm font-semibold text-white truncate">{assignedWallet.icon ? `${assignedWallet.icon} ` : ""}{walletName(assignedWallet)}</p><p className="text-xs text-white/45">Money lives here</p></div></div><p className="text-sm font-bold text-white shrink-0">{fmt(assignedWalletBalance)}</p></div>{walletSyncSuggestion?.suggestedAmount > 0 ? <Button type="button" onClick={() => onOpenWalletSyncPrompt?.(goal)} className="h-9 w-full rounded-xl bg-green-500/14 text-green-100 border border-green-300/20 hover:bg-green-500/20 hover:text-white text-xs font-bold">Mark {fmt(walletSyncSuggestion.suggestedAmount)} as saved</Button> : null}</div> : <p className="text-sm text-white/55">No saved-in wallet assigned. Edit this goal to assign one.</p>}</InfoBlock>{goal?.planned_use_date && <InfoBlock title="Planned Use Date"><p className="text-sm text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-green-300" />{goal.planned_use_date}</p></InfoBlock>}{cleanReasons.length > 0 && <InfoBlock title="Reasons / Motivations"><div className="space-y-2">{cleanReasons.map((reason, index) => <div key={`${reason}_${index}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80">{reason}</div>)}</div></InfoBlock>}{activity.length > 0 && <InfoBlock title="Goal Activity"><div className="space-y-2">{activity.slice(0, 4).map((entry) => <div key={entry.id || `${entry.type}-${entry.createdAt}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80"><div className="flex justify-between gap-3"><span>{entry.title || "Savings activity"}</span><span className={entry.type === "use" ? "text-amber-200" : "text-green-200"}>{entry.type === "use" ? "-" : "+"}{fmt(entry.amount)}</span></div>{entry.reason || entry.note ? <p className="mt-1 text-xs text-white/45">{entry.reason || entry.note}</p> : null}</div>)}</div></InfoBlock>}{goal?.notes && <InfoBlock title="Notes"><p className="text-sm text-white/75 whitespace-pre-wrap">{goal.notes}</p></InfoBlock>}{toNumber(totalIncome) > 0 && <div className="rounded-2xl border border-green-400/15 bg-green-400/[0.06] p-4"><p className="text-[11px] uppercase tracking-[0.08em] text-green-200/80 font-semibold mb-1">CLARA Note</p><p className="text-sm text-white/70">Add only what your wallet can safely support. Small, consistent top-ups are better than forcing a big amount.</p></div>}</div></div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => onEdit(goal)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white"><Edit className="w-4 h-4 mr-2" />Edit</Button><Button type="button" onClick={() => { setAmount(""); setSourceWalletId(goal?.wallet_id || walletId(wallets?.[0])); setAddSavingsOpen(true); }} disabled={remaining <= 0} className="h-10 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 disabled:opacity-50"><Plus className="w-4 h-4 mr-2" />Add Savings</Button><Button type="button" onClick={() => { setUseAmount(""); setUseReason(""); setUseSavingsOpen(true); }} disabled={saved <= 0} className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"><MinusCircle className="w-4 h-4 mr-2" />Use Savings</Button><Button type="button" onClick={() => onDelete(goal.id)} variant="ghost" className="h-10 rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/15 hover:text-red-100"><Trash2 className="w-4 h-4 mr-2" />Delete</Button><Button type="button" onClick={onClose} variant="ghost" className="col-span-2 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white">Close</Button></div></div></div></DialogContent></Dialog>
-    <Dialog open={addSavingsOpen} onOpenChange={(value) => { setAddSavingsOpen(value); if (!value) setOverAmountOpen(false); }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Add Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex justify-between gap-3 text-sm"><div><p className="text-white/45 text-[11px] uppercase font-semibold">Remaining</p><p className="font-bold text-white">{fmt(remaining)}</p></div><div className="text-right"><p className="text-white/45 text-[11px] uppercase font-semibold">Wallet Balance</p><p className="font-bold text-white">{fmt(sourceWalletBalance)}</p></div></div></div><FormInput label="Take from wallet"><Select value={sourceWalletId} onValueChange={setSourceWalletId}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Choose wallet..." /></SelectTrigger><SelectContent>{wallets.map((wallet) => <SelectItem key={walletId(wallet)} value={walletId(wallet)}>{wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Amount to Add"><Input type="number" placeholder="Enter amount" className={inputDarkClass} value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus /></FormInput><p className="text-xs text-white/50">This will use money from {sourceWallet ? walletName(sourceWallet) : "the selected wallet"}. The saved amount lives in {assignedWallet ? walletName(assignedWallet) : "the saved-in wallet"}.</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setAddSavingsOpen(false)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white">Cancel</Button><Button type="button" onClick={handleSubmitAddSavings} disabled={savingAmount || !sourceWallet || remaining <= 0} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{savingAmount ? "Adding..." : "Add Savings"}</Button></div></div></div></DialogContent></Dialog>
-    <Dialog open={overAmountOpen} onOpenChange={setOverAmountOpen}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Too much savings amount</DialogTitle></DialogHeader><div className="px-4 sm:px-5 py-4"><div className="rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] p-4 text-sm font-semibold leading-6 text-amber-50/90"><p>You entered <span className="font-black text-white">{fmt(requestedAddAmount)}</span>, but this goal only needs <span className="font-black text-white">{fmt(cappedAddAmount)}</span> more.</p><p className="mt-2">Please enter <span className="font-black text-white">{fmt(cappedAddAmount)}</span> or less to complete this goal.</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setOverAmountOpen(false)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white">Cancel</Button><Button type="button" onClick={() => runAddSavings(cappedAddAmount)} disabled={savingAmount} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{savingAmount ? "Adding..." : `Use ${fmt(cappedAddAmount)} only`}</Button></div></div></div></DialogContent></Dialog>
-    <Dialog open={useSavingsOpen} onOpenChange={setUseSavingsOpen}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Use Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.07] p-4 text-sm text-white/75">This will reduce your saved amount for this goal. Current saved: <span className="font-bold text-amber-100">{fmt(saved)}</span></div><FormInput label="Amount to use"><Input type="number" className={inputDarkClass} value={useAmount} onChange={(e) => setUseAmount(e.target.value)} autoFocus /></FormInput><FormInput label="Reason / purpose"><Input placeholder="What will you use it for?" className={inputDarkClass} value={useReason} onChange={(e) => setUseReason(e.target.value)} /></FormInput></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setUseSavingsOpen(false)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white">Cancel</Button><Button type="button" onClick={handleSubmitUseSavings} disabled={savingAmount || saved <= 0} className="h-10 rounded-xl bg-amber-500 px-4 text-white font-semibold hover:bg-amber-600 disabled:opacity-50">{savingAmount ? "Saving..." : "Use Savings"}</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={Boolean(goal)} onOpenChange={(value) => !value && !savingAmount && onClose()}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{goal?.title || "Savings Goal"}</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.category || "Uncategorized"}{goal?.subcategory ? ` • ${goal.subcategory}` : ""}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex items-start justify-between gap-3 mb-3"><div><p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold">Progress</p><p className="text-2xl font-heading font-bold text-white">{pct.toFixed(0)}%</p></div><div className="text-right"><p className="text-[11px] text-white/50">Saved</p><p className="text-lg font-bold text-green-300">{fmt(saved)}</p></div></div><div className="h-3 rounded-full bg-white/10 overflow-hidden mb-3"><div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} /></div><div className="grid grid-cols-2 gap-3 text-sm"><InfoMini label="Target" value={fmt(target)} /><InfoMini label="Remaining" value={fmt(remaining)} /></div></div><InfoBlock title="Saved in">{assignedWallet ? <div className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0"><Wallet className="w-4 h-4 text-green-300" /></div><div className="min-w-0"><p className="text-sm font-semibold text-white truncate">{assignedWallet.icon ? `${assignedWallet.icon} ` : ""}{walletName(assignedWallet)}</p><p className="text-xs text-white/45">Money lives here</p></div></div><p className="text-sm font-bold text-white shrink-0">{fmt(assignedWalletBalance)}</p></div>{walletSyncSuggestion?.suggestedAmount > 0 ? <Button type="button" onClick={() => onOpenWalletSyncPrompt?.(goal)} className="h-9 w-full rounded-xl bg-green-500/14 text-green-100 border border-green-300/20 hover:bg-green-500/20 hover:text-white text-xs font-bold">Mark {fmt(walletSyncSuggestion.suggestedAmount)} as saved</Button> : null}</div> : <p className="text-sm text-white/55">No saved-in wallet assigned. Edit this goal to assign one.</p>}</InfoBlock>{goal?.planned_use_date && <InfoBlock title="Planned Use Date"><p className="text-sm text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-green-300" />{goal.planned_use_date}</p></InfoBlock>}{cleanReasons.length > 0 && <InfoBlock title="Reasons / Motivations"><div className="space-y-2">{cleanReasons.map((reason, index) => <div key={`${reason}_${index}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80">{reason}</div>)}</div></InfoBlock>}{activity.length > 0 && <InfoBlock title="Goal Activity"><div className="space-y-2">{activity.slice(0, 4).map((entry) => <div key={entry.id || `${entry.type}-${entry.createdAt}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80"><div className="flex justify-between gap-3"><span>{entry.title || "Savings activity"}</span><span className={entry.type === "use" ? "text-amber-200" : "text-green-200"}>{entry.type === "use" ? "-" : "+"}{fmt(entry.amount)}</span></div>{entry.reason || entry.note ? <p className="mt-1 text-xs text-white/45">{entry.reason || entry.note}</p> : null}</div>)}</div></InfoBlock>}{goal?.notes && <InfoBlock title="Notes"><p className="text-sm text-white/75 whitespace-pre-wrap">{goal.notes}</p></InfoBlock>}{toNumber(totalIncome) > 0 && <div className="rounded-2xl border border-green-400/15 bg-green-400/[0.06] p-4"><p className="text-[11px] uppercase tracking-[0.08em] text-green-200/80 font-semibold mb-1">CLARA Note</p><p className="text-sm text-white/70">Add only what your wallet can safely support. Small, consistent top-ups are better than forcing a big amount.</p></div>}</div></div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => onEdit(goal)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white"><Edit className="w-4 h-4 mr-2" />Edit</Button><Button type="button" onClick={() => { setAmount(""); setAddError(""); setSourceWalletId(goal?.wallet_id || walletId(wallets?.[0])); setAddSavingsOpen(true); }} disabled={remaining <= 0} className="h-10 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 disabled:opacity-50"><Plus className="w-4 h-4 mr-2" />Add Savings</Button><Button type="button" onClick={() => { setUseAmount(""); setUseReason(""); setUseError(""); setUseSavingsOpen(true); }} disabled={saved <= 0 || !assignedWallet} className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"><MinusCircle className="w-4 h-4 mr-2" />Use Savings</Button><Button type="button" onClick={() => onDelete(goal)} variant="ghost" className="h-10 rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/15 hover:text-red-100"><Trash2 className="w-4 h-4 mr-2" />Delete</Button><Button type="button" onClick={onClose} variant="ghost" className="col-span-2 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white">Close</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={addSavingsOpen} onOpenChange={(value) => { if (savingAmount) return; setAddSavingsOpen(value); if (!value) { setOverAmountOpen(false); setAddError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Add Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex justify-between gap-3 text-sm"><div><p className="text-white/45 text-[11px] uppercase font-semibold">Remaining</p><p className="font-bold text-white">{fmt(remaining)}</p></div><div className="text-right"><p className="text-white/45 text-[11px] uppercase font-semibold">Wallet Balance</p><p className="font-bold text-white">{fmt(sourceWalletBalance)}</p></div></div></div><FormInput label="Take from wallet"><Select value={sourceWalletId} onValueChange={setSourceWalletId}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Choose wallet..." /></SelectTrigger><SelectContent>{wallets.map((wallet) => <SelectItem key={walletId(wallet)} value={walletId(wallet)}>{wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Amount to Add"><Input type="number" placeholder="Enter amount" className={inputDarkClass} value={amount} onChange={(e) => { setAmount(e.target.value); setAddError(""); }} autoFocus /></FormInput>{addError ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{addError}</div> : null}<p className="text-xs text-white/50">This will use money from {sourceWallet ? walletName(sourceWallet) : "the selected wallet"}. The saved amount lives in {assignedWallet ? walletName(assignedWallet) : "the saved-in wallet"}.</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setAddSavingsOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={handleSubmitAddSavings} disabled={savingAmount || !sourceWallet || remaining <= 0 || requestedAddAmount <= 0} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{savingAmount ? "Adding..." : "Add Savings"}</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={overAmountOpen} onOpenChange={(value) => { if (!savingAmount) setOverAmountOpen(value); }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Too much savings amount</DialogTitle></DialogHeader><div className="px-4 sm:px-5 py-4"><div className="rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] p-4 text-sm font-semibold leading-6 text-amber-50/90"><p>You entered <span className="font-black text-white">{fmt(requestedAddAmount)}</span>, but this goal only needs <span className="font-black text-white">{fmt(cappedAddAmount)}</span> more.</p><p className="mt-2">Please enter <span className="font-black text-white">{fmt(cappedAddAmount)}</span> or less to complete this goal.</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setOverAmountOpen(false)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white">Cancel</Button><Button type="button" onClick={() => runAddSavings(cappedAddAmount)} disabled={savingAmount} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{savingAmount ? "Adding..." : `Use ${fmt(cappedAddAmount)} only`}</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={useSavingsOpen} onOpenChange={(value) => { if (!savingAmount) { setUseSavingsOpen(value); if (!value) setUseError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Use Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.07] p-4 text-sm text-white/75">This records a real expense from {assignedWallet ? walletName(assignedWallet) : "the saved-in wallet"} and reduces this goal. Current saved: <span className="font-bold text-amber-100">{fmt(saved)}</span></div><FormInput label="Amount to use"><Input type="number" className={inputDarkClass} value={useAmount} onChange={(e) => { setUseAmount(e.target.value); setUseError(""); }} autoFocus /></FormInput><FormInput label="Reason / purpose"><Input placeholder="What will you use it for?" className={inputDarkClass} value={useReason} onChange={(e) => { setUseReason(e.target.value); setUseError(""); }} /></FormInput>{useError ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{useError}</div> : null}</div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setUseSavingsOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={handleSubmitUseSavings} disabled={savingAmount || saved <= 0 || !assignedWallet} className="h-10 rounded-xl bg-amber-500 px-4 text-white font-semibold hover:bg-amber-600 disabled:opacity-50">{savingAmount ? "Saving..." : "Use Savings"}</Button></div></div></div></DialogContent></Dialog>
   </>;
+}
+
+
+function SavingsDeleteConfirmDialog({ goal, wallets, saving, error, fmt, onClose, onConfirm }) {
+  if (!goal) return null;
+  const saved = getGoalSavedAmount(goal);
+  const assignedWallet = wallets.find((wallet) => walletId(wallet) === walletId(goal?.wallet_id || goal?.walletId || ""));
+
+  return <Dialog open={Boolean(goal)} onOpenChange={(value) => { if (!value && !saving) onClose?.(); }}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Delete Savings Goal?</DialogTitle></DialogHeader><div className="space-y-4 px-4 sm:px-5 py-4"><div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm font-semibold leading-6 text-rose-50/90">This removes <span className="font-black text-white">{goal.title || "this goal"}</span> and its private activity log.</div><p className="text-sm font-semibold leading-6 text-white/65">{saved > 0 ? `${fmt(saved)} will remain in ${assignedWallet ? walletName(assignedWallet) : "its wallet"} and become normally spendable again.` : "No wallet money will be removed."}</p>{error ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{error}</div> : null}</div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="grid grid-cols-2 gap-2"><Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={onConfirm} disabled={saving} className="h-10 rounded-xl border border-rose-300/20 bg-rose-500/15 text-rose-100 hover:bg-rose-500/20 disabled:opacity-50">{saving ? "Deleting..." : "Delete Goal"}</Button></div></div></div></DialogContent></Dialog>;
 }
 
 function InfoMini({ label, value }) {
