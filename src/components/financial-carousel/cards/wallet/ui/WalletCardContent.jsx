@@ -278,6 +278,7 @@ export default function WalletCardContent({
                       key={wallet.id || `${wallet.name}-${index}`}
                       wallet={wallet}
                       index={index}
+                      walletCount={visibleWallets.length}
                       financeActionLoading={financeActionLoading}
                       openEditWallet={openEditWallet}
                       onAddMoney={onAddMoney}

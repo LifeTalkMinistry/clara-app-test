@@ -27,11 +27,15 @@ export default function WalletCard({
   onTransferMoney,
   onEditWallet,
   onUpdateWallet,
+  emergencyFund = null,
+  savingsGoals = [],
 }) {
   const {
     editingWallet,
     editForm,
     setEditForm,
+    editError,
+    setEditError,
     isSavingWalletEdit,
     activeWallets,
     topWallet,
@@ -81,12 +85,16 @@ export default function WalletCard({
         visibleWallets={visibleWallets}
         visibleTransactions={visibleTransactions}
         openEditWallet={openEditWallet}
+        emergencyFund={emergencyFund}
+        savingsGoals={savingsGoals}
       />
 
       <EditWalletModal
         editingWallet={editingWallet}
         editForm={editForm}
         setEditForm={setEditForm}
+        editError={editError}
+        setEditError={setEditError}
         isSavingWalletEdit={isSavingWalletEdit}
         closeEditWallet={closeEditWallet}
         handleSaveWalletEdit={handleSaveWalletEdit}

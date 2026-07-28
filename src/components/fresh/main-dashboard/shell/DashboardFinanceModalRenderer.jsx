@@ -12,6 +12,7 @@ import {
 import {
   getWalletDisplayName,
   getWalletDisplayBalance,
+  getWalletSpendableBalance,
   getBudgetListTitle,
   getSavingsGoalTitle,
   getSavingsTarget,
@@ -105,6 +106,30 @@ export default function DashboardFinanceModalRenderer({
     () => readProtectedBudgetAmount(monthlyBudgetPlan),
     [monthlyBudgetPlan]
   );
+
+  const walletActionAmount = Number(financeForm.amount);
+  const validWalletActionAmount = Number.isFinite(walletActionAmount) && walletActionAmount > 0;
+  const transferSpendableBalance = getWalletSpendableBalance(financeModal.payload);
+  const transferDestinationValid = Boolean(financeForm.destinationWalletId);
+  const transferAmountValid =
+    validWalletActionAmount && walletActionAmount <= transferSpendableBalance;
+  const deleteWalletProtectedAmount = readBudgetMoney(
+    financeModal.payload?.totalProtectedAmount ??
+      financeModal.payload?.total_protected_amount ??
+      0
+  );
+  const deleteWalletBalance = getWalletDisplayBalance(financeModal.payload);
+  const deleteWalletHasLinkedFunds = Boolean(
+    financeModal.payload?.isEmergencyFundStorageWallet ||
+      financeModal.payload?.is_emergency_fund_storage_wallet ||
+      financeModal.payload?.hasSavingsGoalAllocation ||
+      financeModal.payload?.has_savings_goal_allocation ||
+      Number(financeModal.payload?.savingsGoalCount || financeModal.payload?.savings_goal_count || 0) > 0
+  );
+  const deleteWalletBlocked =
+    deleteWalletProtectedAmount > 0 ||
+    deleteWalletHasLinkedFunds ||
+    Math.abs(deleteWalletBalance) > 0.000001;
 
   useEffect(() => {
     if (financeModal.type !== "save_budget" || !showActiveBudgetOverview) {
@@ -211,12 +236,18 @@ export default function DashboardFinanceModalRenderer({
           event.preventDefault();
           deleteWalletInline();
         }}
-        submitLabel="Delete wallet"
+        submitLabel="Remove wallet"
+        submitDisabled={deleteWalletBlocked}
+        submitDisabledLabel={deleteWalletProtectedAmount > 0 || deleteWalletHasLinkedFunds ? "Linked Funds" : "Clear Balance First"}
         loading={financeActionLoading}
         danger
       >
-        <div className="rounded-2xl border border-rose-400/15 bg-rose-500/10 p-4 text-sm leading-6 text-rose-100">
-          This will remove the selected wallet from the dashboard. Use this only when you are sure.
+        <div className={`rounded-2xl border p-4 text-sm leading-6 ${deleteWalletBlocked ? "border-amber-300/15 bg-amber-500/10 text-amber-100" : "border-rose-400/15 bg-rose-500/10 text-rose-100"}`}>
+          {deleteWalletProtectedAmount > 0 || deleteWalletHasLinkedFunds
+            ? "This wallet is linked to an Emergency Fund or Savings Goal. Reassign that link before removing it."
+            : Math.abs(deleteWalletBalance) > 0.000001
+              ? `Transfer or clear the remaining ${fmt(deleteWalletBalance)} before removing this wallet.`
+              : "A wallet with transaction history will be archived so past records remain accurate."}
         </div>
       </FinanceActionModal>
 
@@ -230,6 +261,8 @@ export default function DashboardFinanceModalRenderer({
           addMoneyInline();
         }}
         submitLabel="Add money"
+        submitDisabled={!validWalletActionAmount}
+        submitDisabledLabel="Enter Amount"
         loading={financeActionLoading}
       >
         <FinanceField
@@ -260,6 +293,14 @@ export default function DashboardFinanceModalRenderer({
           transferMoneyInline();
         }}
         submitLabel="Transfer"
+        submitDisabled={!transferDestinationValid || !transferAmountValid}
+        submitDisabledLabel={
+          !transferDestinationValid
+            ? "Choose Wallet"
+            : validWalletActionAmount && walletActionAmount > transferSpendableBalance
+              ? "Protected Funds"
+              : "Enter Amount"
+        }
         loading={financeActionLoading}
       >
         <FinanceField label="Destination wallet">
@@ -288,7 +329,7 @@ export default function DashboardFinanceModalRenderer({
 
         <FinanceField
           label="Amount"
-          helper={`Available: ${fmt(getWalletDisplayBalance(financeModal.payload))}`}
+          helper={`Spendable after protected funds: ${fmt(transferSpendableBalance)}`}
         >
           <input
             type="number"

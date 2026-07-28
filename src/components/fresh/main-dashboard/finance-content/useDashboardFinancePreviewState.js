@@ -14,7 +14,7 @@ export default function useDashboardFinancePreviewState({
   const topWallet = useMemo(() => safeWallets[0] || null, [safeWallets]);
 
   const walletPreviewTransactions = useMemo(
-    () => safeWalletTransactions.slice(0, 2),
+    () => safeWalletTransactions.slice(0, 8),
     [safeWalletTransactions]
   );
 

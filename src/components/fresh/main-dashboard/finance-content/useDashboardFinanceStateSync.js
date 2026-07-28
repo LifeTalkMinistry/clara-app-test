@@ -34,7 +34,11 @@ export default function useDashboardFinanceStateSync({
             wallet?.id !== CLARA_EMERGENCY_RESERVE_WALLET_ID &&
             wallet?.wallet_id !== CLARA_EMERGENCY_RESERVE_WALLET_ID &&
             !wallet?.isEmergencyReserveWallet &&
-            !wallet?.protected_reserve
+            !wallet?.protected_reserve &&
+            !wallet?.is_archived &&
+            !wallet?.isArchived &&
+            !wallet?.deletedAt &&
+            !wallet?.deleted_at
         )
       : [];
 

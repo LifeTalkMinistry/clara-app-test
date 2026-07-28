@@ -16,6 +16,7 @@ export default function WalletCardView({
   onTransferMoney,
   onEditWallet,
   onUpdateWallet,
+  financeCardController = null,
 }) {
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
@@ -47,6 +48,8 @@ export default function WalletCardView({
         onTransferMoney={onTransferMoney}
         onEditWallet={onEditWallet}
         onUpdateWallet={onUpdateWallet}
+        emergencyFund={financeCardController?.emergencyFund || null}
+        savingsGoals={financeCardController?.savingsGoals || []}
       />
     </div>
   );
