@@ -25,6 +25,15 @@ let storageGuard = null;
 let clickHandler = null;
 let requestHandler = null;
 
+function startObserver() {
+  if (observer || !ACTIVE_PHASES.has(phase)) return;
+}
+
+function stopObserver() {
+  observer?.disconnect();
+  observer = null;
+}
+
 const isScheduleKey = (key) => String(key || "").startsWith(STORAGE_PREFIX) || key === LEGACY_STORAGE_KEY;
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const buttons = (root = document) => Array.from(root.querySelectorAll?.("button") || []);
@@ -231,8 +240,16 @@ function isAllowedClick(event) {
   return false;
 }
 
+function isGuideScopedTarget(target) {
+  return Boolean(
+    target?.closest?.(
+      '[data-clara-guide-schedule-preview="true"], [data-clara-schedule-sheet="true"], [data-clara-schedule-event-detail="true"], [data-clara-guide-schedule-overlay-host="true"]'
+    )
+  );
+}
+
 function handleClick(event) {
-  if (!ACTIVE_PHASES.has(phase)) return;
+  if (!ACTIVE_PHASES.has(phase) || !isGuideScopedTarget(event.target)) return;
   const targetDate = event.target.closest?.('[data-clara-guide-schedule-target-date="true"]');
   const save = event.target.closest?.('[data-clara-schedule-save-direct="true"]');
   const agenda = event.target.closest?.('[data-clara-schedule-agenda-card="true"]');
@@ -258,12 +275,9 @@ function cleanup() {
   pendingPhase = "";
   guideDateKey = "";
   singleTapAt = 0;
+  stopObserver();
   restoreStorage();
   overlayRoot?.render(null);
-  setTimeout(() => {
-    const home = document.querySelector('button[aria-label="Home"]');
-    if (home && !home.disabled) home.click();
-  }, 120);
 }
 
 function renderOverlay() {
@@ -298,10 +312,14 @@ export function installClaraGuideScheduleRuntime() {
   window.addEventListener(PHASE_CHANGE, (event) => {
     phase = event?.detail?.phase || "inactive";
     pendingPhase = "";
-    if (ACTIVE_PHASES.has(phase)) installStorageGuard();
-    else if (phase === "inactive") cleanup();
-    renderOverlay();
-    requestAnimationFrame(() => requestAnimationFrame(refresh));
+    if (ACTIVE_PHASES.has(phase)) {
+      installStorageGuard();
+      startObserver();
+      renderOverlay();
+      requestAnimationFrame(() => requestAnimationFrame(refresh));
+    } else if (phase === "inactive") {
+      cleanup();
+    }
   });
 
   window.addEventListener(GUIDE_EXIT, () => {
@@ -309,6 +327,4 @@ export function installClaraGuideScheduleRuntime() {
     cleanup();
   });
 
-  observer = new MutationObserver(() => refresh());
-  observer.observe(document.body, { childList: true, subtree: true });
 }

@@ -3,13 +3,10 @@ import { CalendarDays, Home, Settings, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { resolveMembership } from "@/lib/membership";
-import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 
 export default function useDashboardPanelUiState({
   activeDashboardPanel,
   dashboardPanelDirection,
-  setActiveDashboardPanel,
-  setDashboardPanelDirection,
   setTheme,
   feedHasHighlight,
   loading,
@@ -33,31 +30,6 @@ export default function useDashboardPanelUiState({
     membership.membershipStatus !== "loading" &&
     !membership.hasCommittedAccess;
 
-  const openDashboardPanel = useCallback(
-    (panelKey) => {
-      const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey)
-        ? panelKey
-        : "home";
-      const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
-      const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
-
-      setDashboardPanelDirection(
-        nextIndex >= currentIndex ? "forward" : "backward"
-      );
-      setActiveDashboardPanel(targetPanel);
-    },
-    [
-      activeDashboardPanel,
-      setActiveDashboardPanel,
-      setDashboardPanelDirection,
-    ]
-  );
-
-  const closeDashboardPanel = useCallback(() => {
-    setDashboardPanelDirection("backward");
-    setActiveDashboardPanel("home");
-  }, [setActiveDashboardPanel, setDashboardPanelDirection]);
-
   const resetDashboardThemeToDefault = useCallback(async () => {
     if (typeof setTheme === "function") await setTheme(DEFAULT_THEME_KEY);
   }, [setTheme]);
@@ -69,12 +41,6 @@ export default function useDashboardPanelUiState({
         ? "animate-[claraDashboardPanelForwardIn_340ms_cubic-bezier(.22,1,.36,1)_both]"
         : "animate-[claraDashboardPanelReverseIn_340ms_cubic-bezier(.22,1,.36,1)_both]";
 
-  // Dynamic viewport units track installed-PWA chrome, orientation changes, and
-  // the on-screen keyboard more faithfully than svh, which is intentionally
-  // pinned to the smallest possible viewport. Settings intentionally uses the
-  // Layout <main> scroller instead of creating a second nested scroll viewport;
-  // this prevents the Settings header/cards from being clipped by an invisible
-  // max-height boundary while keeping the other dashboard panels unchanged.
   const dashboardPanelViewportClass =
     activeDashboardPanel === "home"
       ? ""
@@ -91,12 +57,7 @@ export default function useDashboardPanelUiState({
         ? "overflow-y-visible"
         : "overflow-y-hidden";
 
-  const shouldShowBlockingDashboardLoader =
-    loading && !hasVisibleFinanceData;
-
-  // Once CLARA already has usable data on screen, server refreshes/syncs should
-  // stay invisible. The existing UI remains mounted while the background refresh
-  // quietly updates it. Only the true first-load/no-data state may block the UI.
+  const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
   const shouldShowNonBlockingRefresh = false;
 
   const committedBadge = {
@@ -113,13 +74,11 @@ export default function useDashboardPanelUiState({
         label: "Me",
         icon: User,
         badge: isFreePlan ? committedBadge : null,
-        locked: isFreePlan,
       },
       {
         key: "schedule",
         label: "Schedule",
         icon: CalendarDays,
-        locked: isFreePlan,
         badge: isFreePlan
           ? committedBadge
           : feedHasHighlight
@@ -137,8 +96,6 @@ export default function useDashboardPanelUiState({
   );
 
   return {
-    openDashboardPanel,
-    closeDashboardPanel,
     resetDashboardThemeToDefault,
     dashboardPanelAnimationClass,
     dashboardPanelViewportClass,

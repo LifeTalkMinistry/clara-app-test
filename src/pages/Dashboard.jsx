@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardFeedPanel from "@/components/fresh/dashboard-panels/feed/DashboardFeedPanel";
 import DashboardMessagesPanel from "@/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel";
 import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
-import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
+import DashboardTopNavController from "@/components/fresh/main-dashboard/top-nav/DashboardTopNavController";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import DashboardEmbeddedStyles from "@/components/fresh/main-dashboard/shell/DashboardEmbeddedStyles";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -201,9 +201,9 @@ export default function Dashboard() {
   } = useDashboardInteractionState();
   const {
     activeDashboardPanel,
-    setActiveDashboardPanel,
     dashboardPanelDirection,
-    setDashboardPanelDirection,
+    openDashboardPanel,
+    closeDashboardPanel,
   } = useDashboardPanelNavigation();
   const dashboardShellReady = useDashboardShellReady();
   const {
@@ -725,8 +725,6 @@ export default function Dashboard() {
 
 
   const {
-    openDashboardPanel,
-    closeDashboardPanel,
     resetDashboardThemeToDefault,
     dashboardPanelAnimationClass,
     dashboardPanelViewportClass,
@@ -738,14 +736,11 @@ export default function Dashboard() {
   } = useDashboardPanelUiState({
     activeDashboardPanel,
     dashboardPanelDirection,
-    setActiveDashboardPanel,
-    setDashboardPanelDirection,
     setTheme,
     feedHasHighlight,
     loading,
     hasVisibleFinanceData,
-    financeDataLoading,
-    financeDataRefreshing,
+    plan,
   });
 
 
@@ -770,7 +765,7 @@ export default function Dashboard() {
     >
       <DashboardEmbeddedStyles />
       <ClaraAiEnvironmentBridge />
-      <DashboardTopNav
+      <DashboardTopNavController
         {...{
           dashboardScale, headerQuickActions, activeDashboardPanel, openDashboardPanel,
           themeQuickActionPanelStyle, themeQuickActionGlowStyle, themeQuickActionBaseClass,

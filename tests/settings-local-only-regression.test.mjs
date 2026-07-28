@@ -10,6 +10,7 @@ const activeSettingsSource = readSource(
 );
 const dataExportSource = readSource("src/pages/DataExport.jsx");
 const appSource = readSource("src/App.jsx");
+const mainSource = readSource("src/main.jsx");
 const loginSource = readSource("src/pages/Login.jsx");
 const authContextSource = readSource("src/context/AuthContext.jsx");
 const layoutSource = readSource("src/components/Layout.jsx");
@@ -17,13 +18,8 @@ const dashboardPanelRendererSource = readSource(
   "src/components/fresh/main-dashboard/shell/DashboardPanelRenderer.jsx"
 );
 const localVaultIdentityStartup = readSource("src/lib/start-local-vault-identity.js");
-const settingsAccessLogoutSource = readSource(
-  "src/runtime/installSettingsAccessLogout.js"
-);
-const settingsScrollResetSource = readSource(
-  "src/runtime/installSettingsScrollReset.js"
-);
-const settingsMemoryEntrySource = readSource("src/clara-settings-memory-entry.js");
+const assistantMemorySource = readSource("src/clara-assistant-memory-tab.js");
+const runtimeRegistrySource = readSource("src/runtime/installClaraRuntimePatches.js");
 const settingsCleanupSource = readSource("src/settings-cleanup.css");
 
 const retiredThemePatchUrl = new URL(
@@ -34,20 +30,46 @@ const retiredDemoPatchUrl = new URL(
   "../src/clara-settings-young-professional-current-state.js",
   import.meta.url
 );
+const retiredSettingsRuntimeUrls = [
+  new URL("../src/runtime/installSettingsAccessLogout.js", import.meta.url),
+  new URL("../src/runtime/installSettingsScrollReset.js", import.meta.url),
+  new URL("../src/clara-settings-memory-entry.js", import.meta.url),
+];
 
-test("active Settings directly exposes Backup & Transfer through /data-export", () => {
-  assert.match(activeSettingsSource, /Backup & Transfer/);
-  assert.match(activeSettingsSource, /Download or upload your CLARA device backup\./);
+test("active Settings explains device ownership and exposes Move & Restore Data", () => {
+  assert.match(activeSettingsSource, /Your CLARA data stays private/);
+  assert.match(
+    activeSettingsSource,
+    /Signing in on another device will not automatically bring your financial records with it/
+  );
+  assert.match(activeSettingsSource, /Each device starts with its own data/);
+  assert.match(activeSettingsSource, /No automatic device-to-device sync/);
+  assert.match(activeSettingsSource, /You choose when to transfer your data/);
+  assert.match(activeSettingsSource, /Move & Restore Data/);
+  assert.match(
+    activeSettingsSource,
+    /Move your CLARA data to another device or restore a previous backup\./
+  );
   assert.match(activeSettingsSource, /navigate\("\/data-export"\)/);
-  assert.match(activeSettingsSource, />Open</);
 });
 
-test("active Settings keeps authentication controls out of the financial settings panel", () => {
-  assert.doesNotMatch(activeSettingsSource, /Log out/);
-  assert.doesNotMatch(activeSettingsSource, /Signing out/);
-  assert.doesNotMatch(activeSettingsSource, /handleSignOut/);
-  assert.doesNotMatch(activeSettingsSource, /auth\.signOut/);
-  assert.doesNotMatch(activeSettingsSource, /Protect & link my data/);
+test("Settings directly owns detail history, logout, and Memory", () => {
+  assert.match(activeSettingsSource, /SETTINGS_DETAIL_HISTORY_KEY/);
+  assert.match(activeSettingsSource, /window\.history\.pushState/);
+  assert.match(activeSettingsSource, /window\.addEventListener\("popstate"/);
+  assert.match(activeSettingsSource, /signOutFromClaraBackend/);
+  assert.match(activeSettingsSource, /"Log out"/);
+  assert.match(activeSettingsSource, /title: "Memory"/);
+  assert.match(activeSettingsSource, /clara:open-assistant-memory-board/);
+  assert.match(assistantMemorySource, /clara:open-assistant-memory-board/);
+  assert.doesNotMatch(activeSettingsSource, /MutationObserver/);
+});
+
+test("retired Settings DOM injectors are removed from production", () => {
+  retiredSettingsRuntimeUrls.forEach((url) => assert.equal(existsSync(url), false));
+  assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);
+  assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);
+  assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);
 });
 
 test("dashboard renderer does not append a second logout control", () => {
@@ -59,31 +81,6 @@ test("dashboard renderer does not append a second logout control", () => {
     dashboardPanelRendererSource,
     /activePanel === "settings"[\s\S]*renderSettings\?\.\(\) \?\? fallback/
   );
-});
-
-test("Settings helpers use one event-driven sync instead of document-wide observers", () => {
-  assert.match(settingsAccessLogoutSource, /clara:settings-view-synced/);
-  assert.match(settingsScrollResetSource, /clara:settings-view-synced/);
-
-  for (const source of [
-    settingsAccessLogoutSource,
-    settingsScrollResetSource,
-    settingsMemoryEntrySource,
-  ]) {
-    assert.doesNotMatch(source, /MutationObserver/);
-  }
-
-  assert.equal(existsSync(retiredThemePatchUrl), false);
-  assert.equal(existsSync(retiredDemoPatchUrl), false);
-  assert.doesNotMatch(settingsCleanupSource, /body:has\(/);
-  assert.match(settingsCleanupSource, /body\.clara-settings-active/);
-});
-
-test("Settings Memory is its own control instead of a clone of Security & privacy", () => {
-  assert.match(settingsMemoryEntrySource, /createMemoryButton/);
-  assert.match(settingsMemoryEntrySource, /Saved context, patterns, and AI memory/);
-  assert.doesNotMatch(settingsMemoryEntrySource, /cloneNode/);
-  assert.match(settingsMemoryEntrySource, /mountedMemoryTab/);
 });
 
 test("Settings permanently hides theme customization through one scoped CSS owner", () => {

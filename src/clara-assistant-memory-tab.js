@@ -1047,6 +1047,12 @@ function installStoryRefresh() {
   });
 }
 
+function installExternalMemoryOpen() {
+  window.addEventListener("clara:open-assistant-memory-board", () => {
+    showMemoryPanel();
+  });
+}
+
 function installClaraAssistantMemoryTab() {
   if (typeof window === "undefined" || window.__CLARA_ASSISTANT_MEMORY_TAB_INSTALLED__) return;
   window.__CLARA_ASSISTANT_MEMORY_TAB_INSTALLED__ = true;
@@ -1055,6 +1061,7 @@ function installClaraAssistantMemoryTab() {
   installSubmitCapture();
   installObserver();
   installStoryRefresh();
+  installExternalMemoryOpen();
 }
 
 installClaraAssistantMemoryTab();

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
   Bell,
+  BrainCircuit,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   Flag,
   Home,
   ListChecks,
+  LogOut,
   MessageCircle,
   Palette,
   Plus,
@@ -28,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 import { Button } from "@/components/ui/button";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
 import useNotificationPreferences from "@/hooks/useNotificationPreferences";
@@ -60,6 +63,17 @@ const dashboardRuntimePerformanceMode = { clear: () => {} };
 const dashboardRuntimeProgramPrompts = { clear: () => {} };
 const dashboardRuntimeThemes = { clear: () => {} };
 const dashboardRuntimeSurvivalExpenses = { clear: () => {} };
+const PANEL_HISTORY_KEY = "__claraDashboardPanel";
+const SETTINGS_DETAIL_HISTORY_KEY = "__claraSettingsDetail";
+const SETTINGS_DETAIL_KEYS = new Set([
+  "profile",
+  "security",
+  "performance",
+  "notifications",
+  "plan",
+  "support",
+  "about",
+]);
 
 const firstValidNumber = (...values) => {
   for (const value of values) {
@@ -97,6 +111,7 @@ export default function DashboardSettingsPanel({
   onOpenMessages,
 }) {
   const navigate = useNavigate();
+  const settingsRootRef = useRef(null);
 
   const initialDisplayName =
     user?.full_name ||
@@ -113,7 +128,11 @@ export default function DashboardSettingsPanel({
     readStoredPerformanceMode(user?.id || "guest")
   );
 
-  const [activeSetting, setActiveSetting] = useState(null);
+  const [activeSetting, setActiveSetting] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const detailKey = window.history.state?.[SETTINGS_DETAIL_HISTORY_KEY];
+    return SETTINGS_DETAIL_KEYS.has(detailKey) ? detailKey : null;
+  });
   const [activeAboutInfo, setActiveAboutInfo] = useState(null);
   const [legalInfoRows, setLegalInfoRows] = useState([]);
   const [legalInfoDraftRows, setLegalInfoDraftRows] = useState([]);
@@ -132,6 +151,7 @@ export default function DashboardSettingsPanel({
   const [billingLoading, setBillingLoading] = useState(false);
   const [isAiPrivacyModalOpen, setIsAiPrivacyModalOpen] = useState(false);
   const [isDataDetailsOpen, setIsDataDetailsOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const membershipState = useCommittedMembershipState({ billingRecord });
 
   useEffect(() => {
@@ -251,6 +271,91 @@ const currentPlan =
     ? "Syncing"
     : membershipState.planLabel;
 const supportEmail = "claraprogram2026@gmail.com";
+
+  const openSetting = useCallback((settingKey) => {
+    if (!SETTINGS_DETAIL_KEYS.has(settingKey)) return;
+
+    setSettingsNotice(null);
+    setActiveAboutInfo(null);
+    setIsAiPrivacyModalOpen(false);
+    setIsDataDetailsOpen(false);
+
+    if (typeof window !== "undefined") {
+      const currentState = window.history.state || {};
+      if (currentState?.[SETTINGS_DETAIL_HISTORY_KEY] !== settingKey) {
+        window.history.pushState(
+          {
+            ...currentState,
+            [PANEL_HISTORY_KEY]: "settings",
+            [SETTINGS_DETAIL_HISTORY_KEY]: settingKey,
+          },
+          "",
+          window.location.href
+        );
+      }
+    }
+
+    setActiveSetting(settingKey);
+  }, []);
+
+  const closeActiveSetting = useCallback(() => {
+    setSettingsNotice(null);
+    setActiveAboutInfo(null);
+    setIsAiPrivacyModalOpen(false);
+    setIsDataDetailsOpen(false);
+
+    if (
+      typeof window !== "undefined" &&
+      window.history.state?.[SETTINGS_DETAIL_HISTORY_KEY]
+    ) {
+      window.history.back();
+      return;
+    }
+
+    setActiveSetting(null);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleSettingsPopState = (event) => {
+      const statePanel = event?.state?.[PANEL_HISTORY_KEY];
+      if (statePanel && statePanel !== "settings") return;
+
+      const detailKey = event?.state?.[SETTINGS_DETAIL_HISTORY_KEY];
+      setActiveSetting(SETTINGS_DETAIL_KEYS.has(detailKey) ? detailKey : null);
+      setActiveAboutInfo(null);
+      setSettingsNotice(null);
+      setIsAiPrivacyModalOpen(false);
+      setIsDataDetailsOpen(false);
+    };
+
+    window.addEventListener("popstate", handleSettingsPopState);
+    return () => window.removeEventListener("popstate", handleSettingsPopState);
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const scrollOwner = settingsRootRef.current?.closest?.(".overflow-y-auto");
+      scrollOwner?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSetting]);
+
+  const openMemoryBoard = useCallback(() => {
+    dispatchClaraEvent("clara:open-assistant-memory-board", {
+      cabinetName: "Spending Memory",
+      source: "settings",
+    });
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    if (signingOut) return;
+    setSigningOut(true);
+    signOutFromClaraBackend();
+    window.setTimeout(() => window.location.reload(), 80);
+  }, [signingOut]);
 
   const persistPerformanceToggle = useCallback(() => {
     setLocalPerformanceMode((current) => {
@@ -465,7 +570,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           description: "Name, email, and account identity",
           icon: Home,
           badge: "Edit",
-          action: () => setActiveSetting("profile"),
+          action: () => openSetting("profile"),
         },
         {
           key: "security",
@@ -473,7 +578,15 @@ const supportEmail = "claraprogram2026@gmail.com";
           description: "Local records, AI privacy, and safe reset",
           icon: ShieldCheck,
           badge: "Safe",
-          action: () => setActiveSetting("security"),
+          action: () => openSetting("security"),
+        },
+        {
+          key: "memory",
+          title: "Memory",
+          description: "Saved context, patterns, and AI memory",
+          icon: BrainCircuit,
+          badge: "Review",
+          action: openMemoryBoard,
         },
       ],
     },
@@ -496,7 +609,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           icon: Rocket,
           badge: localPerformanceMode ? "On" : "Off",
           featured: localPerformanceMode,
-          action: () => setActiveSetting("performance"),
+          action: () => openSetting("performance"),
         },
         {
           key: "notifications",
@@ -504,7 +617,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           description: "Reminders, alerts, and program updates",
           icon: Bell,
           badge: notificationPreferences.dailyCheckIn ? "On" : "Off",
-          action: () => setActiveSetting("notifications"),
+          action: () => openSetting("notifications"),
         },
       ],
     },
@@ -517,7 +630,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           description: "Enrollment, payment, and access level",
           icon: WalletCards,
           badge: currentPlan,
-          action: () => setActiveSetting("plan"),
+          action: () => openSetting("plan"),
         },
         {
           key: "support",
@@ -525,7 +638,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           description: "Message support or report an issue",
           icon: MessageCircle,
           badge: "Help",
-          action: () => setActiveSetting("support"),
+          action: () => openSetting("support"),
         },
         {
           key: "about",
@@ -533,7 +646,7 @@ const supportEmail = "claraprogram2026@gmail.com";
           description: "Mission, vision, app info, and legal links",
           icon: FileText,
           badge: "Info",
-          action: () => setActiveSetting("about"),
+          action: () => openSetting("about"),
         },
         ...(isAdmin
           ? [
@@ -660,11 +773,7 @@ const billingDetailsMessage =
     <div className="mb-4 space-y-4">
       <button
         type="button"
-        onClick={() => {
-          setActiveSetting(null);
-          setActiveAboutInfo(null);
-          setSettingsNotice(null);
-        }}
+        onClick={closeActiveSetting}
         className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
       >
         <ArrowDown className="h-3.5 w-3.5 rotate-90" />
@@ -828,10 +937,7 @@ const renderPlanPage = () => (
 
       <button
         type="button"
-        onClick={() => {
-          setSettingsNotice(null);
-          setActiveSetting("support");
-        }}
+        onClick={() => openSetting("support")}
         className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/15"
       >
         Contact CLARA Support
@@ -868,10 +974,7 @@ const renderPlanPage = () => (
             type="button"
             onClick={() => {
               closeSecurityOverlays();
-              setIsDataDetailsOpen(false);
-              setActiveSetting(null);
-              setActiveAboutInfo(null);
-              setSettingsNotice(null);
+              closeActiveSetting();
             }}
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
           >
@@ -893,16 +996,16 @@ const renderPlanPage = () => (
             </div>
 
             <div className="min-w-0 flex-1">
-              <h3 className="text-base font-black text-white">Your CLARA data is private</h3>
+              <h3 className="text-base font-black text-white">Your CLARA data stays private</h3>
 
               <p className="mt-3 text-sm font-semibold leading-6 text-white/68">
-                This device is your private CLARA environment.
+                This device has its own CLARA data. Signing in on another device will not automatically bring your financial records with it.
               </p>
             </div>
           </div>
 
           <div className="mt-5 space-y-2.5">
-            {["Financial records protected", "Device-first data", "Not publicly visible"].map((item) => (
+            {["Financial records protected", "Each device starts with its own data", "No automatic device-to-device sync", "You choose when to transfer your data"].map((item) => (
               <div key={item} className="flex items-center gap-2.5 text-sm font-semibold text-white/72">
                 <Check className="h-4 w-4 shrink-0 text-emerald-200" />
                 <span>{item}</span>
@@ -911,7 +1014,7 @@ const renderPlanPage = () => (
           </div>
 
           <p className="mt-4 text-xs leading-5 text-white/48">
-            Your wallets, expenses, budgets, savings, transfers, transaction history, and AI context remain protected.
+            Your wallets, expenses, budgets, savings, transfers, transaction history, and AI context remain on this device unless you choose to back up or transfer them.
           </p>
 
           <button
@@ -949,9 +1052,9 @@ const renderPlanPage = () => (
             <Database className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-white">Backup & Transfer</p>
+            <p className="text-sm font-black text-white">Move & Restore Data</p>
             <p className="mt-1 text-xs leading-5 text-white/46">
-              Download or upload your CLARA device backup.
+              Move your CLARA data to another device or restore a previous backup.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-white/45">
@@ -1433,11 +1536,7 @@ const renderPlanPage = () => (
       <div className="space-y-4">
         <button
           type="button"
-          onClick={() => {
-            setActiveSetting(null);
-            setActiveAboutInfo(null);
-            setSettingsNotice(null);
-          }}
+          onClick={closeActiveSetting}
           className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
         >
           <ArrowDown className="h-3.5 w-3.5 rotate-90" />
@@ -1551,14 +1650,14 @@ const renderPlanPage = () => (
 
   if (activeSetting) {
     return (
-      <div className="min-h-full space-y-4 pb-6">
+      <div ref={settingsRootRef} className="min-h-full space-y-4 pb-6">
         {renderActiveSetting()}
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 pb-6">
+    <div ref={settingsRootRef} className="space-y-5 pb-6">
       {renderNotice()}
 
       <div className="rounded-[30px] border border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
@@ -1600,6 +1699,20 @@ const renderPlanPage = () => (
         </section>
       ))}
 
+      <section className="space-y-2">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={signingOut}
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/25 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.18),transparent_34%),rgba(244,63,94,0.10)] px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.10)] transition hover:bg-rose-500/18 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55"
+        >
+          <LogOut className="h-4 w-4" />
+          {signingOut ? "Logging out..." : "Log out"}
+        </button>
+        <p className="px-2 text-center text-[10px] font-semibold leading-4 text-white/55">
+          Your financial records stay on this device. Log in again anytime.
+        </p>
+      </section>
     </div>
   );
 }
