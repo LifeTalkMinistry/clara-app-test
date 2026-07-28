@@ -209,10 +209,8 @@ export default function useInvestmentCardLogic({
       if (canRunLocalFallback) loadIncomeHubSources();
     };
     window.addEventListener("clara-income-hub-updated", handleIncomeUpdated);
-    window.addEventListener("clara-finance-updated", handleIncomeUpdated);
     return () => {
       window.removeEventListener("clara-income-hub-updated", handleIncomeUpdated);
-      window.removeEventListener("clara-finance-updated", handleIncomeUpdated);
     };
   }, [
     shouldListenForIncomeEvents,

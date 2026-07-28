@@ -40,10 +40,6 @@ export function getSourceNet(source) {
   );
 }
 
-function getSourceActivityDate(source) {
-  return source?.lastActivityAt || source?.last_activity_at || source?.updatedAt || source?.updated_at || source?.createdAt || source?.created_at || null;
-}
-
 function formatIncomeActivityDate(value) {
   if (!value) return "Just now";
   const date = new Date(value);
@@ -71,12 +67,6 @@ export function stopIncomeSourceAction(event) {
 
 export function isIncomeSourceInteractiveTarget(target) {
   return Boolean(target?.closest?.('[data-income-source-interactive="true"]'));
-}
-
-export function dispatchIncomeSourceRefresh() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event("clara-income-hub-updated"));
-  window.dispatchEvent(new Event("clara-finance-updated"));
 }
 
 export function IncomeSourcePreviewRow({ source, tone, menuOpen, onToggleMenu }) {
@@ -232,25 +222,69 @@ export function IncomeSourceActionMenu({ source, anchorElement, menuRef, onActio
   );
 }
 
+function getActivityLog(source = {}) {
+  const log = source?.incomeActivityLog ?? source?.income_activity_log ?? [];
+  return Array.isArray(log) ? log.filter(Boolean) : [];
+}
+
+function getActivityPresentation(activity = {}) {
+  const type = String(activity?.type || "").toLowerCase();
+  if (type === "transfer_money") {
+    return {
+      title: `Transfer to ${activity?.destinationWalletName || activity?.destination_wallet_name || "Wallet"}`,
+      prefix: "-",
+      tone: { key: "transfer", rgb: "96 165 250" },
+      amountClassName: "text-sky-100",
+    };
+  }
+  if (type === "add_money") {
+    return {
+      title: "Added Money",
+      prefix: "+",
+      tone: { key: "added", rgb: "52 211 153" },
+      amountClassName: "text-emerald-100",
+    };
+  }
+  if (type === "source_updated") {
+    return { title: "Updated Source", prefix: "", tone: FINANCE_ITEM_HIERARCHY_TONES.neutral, amountClassName: "text-white/70" };
+  }
+  return { title: "Created Source", prefix: "", tone: FINANCE_ITEM_HIERARCHY_TONES.neutral, amountClassName: "text-white/70" };
+}
+
 function buildIncomeActivityItems(sources = []) {
   return (Array.isArray(sources) ? sources : [])
-    .map((source) => {
-      const moneyIn = getSourceIn(source);
-      const moneyOut = getSourceOut(source);
-      const date = getSourceActivityDate(source);
-      const wasUpdated = source?.updatedAt || source?.updated_at;
+    .flatMap((source) => {
+      const log = getActivityLog(source);
+      if (log.length) {
+        return log.map((activity) => {
+          const presentation = getActivityPresentation(activity);
+          const rawAmount = activity?.amount;
+          return {
+            id: activity?.id || `${source.id}-${activity?.createdAt || activity?.created_at || "activity"}`,
+            title: presentation.title,
+            date: activity?.createdAt || activity?.created_at || null,
+            amount: rawAmount === null || rawAmount === undefined ? null : Math.abs(toIncomeNumber(rawAmount)),
+            prefix: presentation.prefix,
+            tone: presentation.tone,
+            amountClassName: presentation.amountClassName,
+          };
+        });
+      }
 
-      if (moneyOut > 0) {
-        return { id: `${source.id}-out`, title: "Transfer to Wallet", date, amount: moneyOut, prefix: "-", tone: { key: "transfer", rgb: "96 165 250" }, amountClassName: "text-sky-100" };
-      }
-      if (moneyIn > 0) {
-        return { id: `${source.id}-in`, title: "Added Money", date, amount: moneyIn, prefix: "+", tone: { key: "added", rgb: "52 211 153" }, amountClassName: "text-emerald-100" };
-      }
-      return { id: `${source.id}-source`, title: wasUpdated ? "Updated Source" : "Created Source", date, amount: null, prefix: "", tone: FINANCE_ITEM_HIERARCHY_TONES.neutral, amountClassName: "text-white/70" };
+      const createdAt = source?.createdAt || source?.created_at;
+      if (!createdAt) return [];
+      return [{
+        id: `${source.id}-created`,
+        title: "Created Source",
+        date: createdAt,
+        amount: null,
+        prefix: "",
+        tone: FINANCE_ITEM_HIERARCHY_TONES.neutral,
+        amountClassName: "text-white/70",
+      }];
     })
-    .filter(Boolean)
     .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
-    .slice(0, 3);
+    .slice(0, 5);
 }
 
 export function IncomeRecentActivityPreview({ sources = [] }) {
@@ -325,7 +359,7 @@ export function EmptyIncomeSourcesPreview({ onCreateIncomeSource }) {
   );
 }
 
-export function IncomeSourceRemovalModal({ source, open, saving, onClose, onConfirm }) {
+export function IncomeSourceRemovalModal({ source, open, saving, error = "", onClose, onConfirm }) {
   if (!open || !source) return null;
   const removalPlan = getIncomeSourceRemovalPlan(source);
   const isBlocked = removalPlan.type === "blocked_balance";
@@ -348,6 +382,7 @@ export function IncomeSourceRemovalModal({ source, open, saving, onClose, onConf
           <p className="mt-1 text-xs font-semibold text-white/55">Current balance: {fmt(getSourceNet(source))}</p>
         </div>
         <p className="mt-4 text-[13px] font-semibold leading-6 text-white/68">{removalPlan.message}</p>
+        {error ? <p className="mt-3 rounded-2xl border border-rose-300/15 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100">{error}</p> : null}
         <div className="mt-5 grid grid-cols-[0.84fr_1.16fr] gap-2.5">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/76 transition hover:bg-white/[0.10] hover:text-white disabled:opacity-55">{removalPlan.secondaryLabel}</button>
           <button type="button" onClick={isBlocked ? onClose : onConfirm} disabled={saving} className={`rounded-2xl px-4 py-3 text-sm font-black text-white transition disabled:opacity-55 ${removalPlan.danger && !isBlocked ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]" : "bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 shadow-[0_10px_30px_rgba(34,211,238,0.18)]"}`}>

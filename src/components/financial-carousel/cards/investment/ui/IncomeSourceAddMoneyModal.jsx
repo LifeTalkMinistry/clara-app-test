@@ -2,162 +2,113 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useAuth } from "@/context/AuthContext";
-import useFinancialData from "@/hooks/useFinancialData";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";
 import { financeInputClassName } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import { fmt } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 import {
+  addMoneyToIncomeSource,
   getIncomeHubLocalUserId,
-  upsertIncomeSource,
+  transferIncomeSourceToWallet,
 } from "@/lib/incomeHubRepository";
+import { toLocalDateKey } from "@/lib/recurringCashFlowRepository";
 
 const emptyForm = { amount: "", destinationWalletId: "" };
-
 const toIncomeNumber = (value) => {
   const number = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
   return Number.isFinite(number) ? number : 0;
 };
-
 const getSourceIn = (source) => toIncomeNumber(source?.totalMoneyIn ?? source?.total_money_in);
 const getSourceOut = (source) => toIncomeNumber(source?.totalMoneyOut ?? source?.total_money_out);
 const getSourceNet = (source) =>
   toIncomeNumber(source?.currentBalance ?? source?.current_balance ?? getSourceIn(source) - getSourceOut(source));
-
 const getWalletName = (wallet) => wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet";
 const getWalletBalance = (wallet) =>
-  toIncomeNumber(
-    wallet?.derived_balance ??
-      wallet?.balance ??
-      wallet?.current_balance ??
-      wallet?.wallet_balance ??
-      wallet?.starting_balance ??
-      wallet?.initial_balance ??
-      0
-  );
+  toIncomeNumber(wallet?.derived_balance ?? wallet?.balance ?? wallet?.current_balance ?? wallet?.wallet_balance ?? wallet?.starting_balance ?? wallet?.initial_balance ?? 0);
 
-export default function IncomeSourceAddMoneyModal({ source = null, open = false, mode = "add_money", onClose }) {
+export default function IncomeSourceAddMoneyModal({
+  source = null,
+  open = false,
+  mode = "add_money",
+  onClose,
+  financeController = null,
+}) {
   const { user } = useAuth();
-  const financial = useFinancialData(user);
   const localUserId = useMemo(() => getIncomeHubLocalUserId(user), [user]);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-
-  const wallets = useMemo(() => (Array.isArray(financial.wallets) ? financial.wallets : []), [financial.wallets]);
+  const [error, setError] = useState("");
+  const wallets = useMemo(
+    () => (Array.isArray(financeController?.wallets) ? financeController.wallets : []),
+    [financeController?.wallets]
+  );
   const isTransfer = mode === "transfer_money";
   const amount = toIncomeNumber(form.amount);
   const currentBalance = getSourceNet(source);
   const amountExceedsBalance = isTransfer && amount > currentBalance;
+  const noWallets = isTransfer && wallets.length === 0;
+  const missingWallet = isTransfer && !form.destinationWalletId;
+  const invalidAmount = amount <= 0;
+  const submitDisabled = invalidAmount || noWallets || missingWallet || amountExceedsBalance;
+  const submitDisabledLabel = amountExceedsBalance
+    ? "Insufficient Funds"
+    : noWallets
+      ? "No Wallet Available"
+      : missingWallet
+        ? "Choose Wallet"
+        : "Enter Amount";
 
   useEffect(() => {
-    if (!open || !isTransfer) return;
-
-    setForm((prev) => ({
-      ...prev,
-      destinationWalletId: prev.destinationWalletId || String(wallets[0]?.id || ""),
-    }));
-  }, [isTransfer, open, wallets]);
+    if (!open) return;
+    setError("");
+    setForm({
+      amount: "",
+      destinationWalletId: isTransfer ? String(wallets[0]?.id || "") : "",
+    });
+  }, [isTransfer, open, source?.id, wallets]);
 
   const closeModal = () => {
     if (saving) return;
     setForm(emptyForm);
+    setError("");
     onClose?.();
   };
 
-  const refreshFinanceEvents = async () => {
-    if (typeof financial.refreshData === "function") {
-      await financial.refreshData();
+  const submit = async () => {
+    if (submitDisabled || !source?.id) {
+      setError(
+        amountExceedsBalance
+          ? "The transfer is higher than the available balance."
+          : noWallets
+            ? "Create a wallet before transferring money."
+            : missingWallet
+              ? "Choose a destination wallet."
+              : "Enter an amount greater than zero."
+      );
+      return;
     }
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("clara-income-hub-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
-      window.dispatchEvent(new Event("clara-wallets-updated"));
-      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
-    }
-  };
-
-  const saveMoney = async () => {
-    if (!source?.id || amount <= 0) return;
-
-    const currentIn = getSourceIn(source);
-    const currentOut = getSourceOut(source);
-    const nextIn = currentIn + amount;
-    const nextBalance = nextIn - currentOut;
-    const timestamp = new Date().toISOString();
 
     try {
       setSaving(true);
+      setError("");
 
-      await upsertIncomeSource(localUserId, {
-        ...source,
-        totalMoneyIn: nextIn,
-        total_money_in: nextIn,
-        totalMoneyOut: currentOut,
-        total_money_out: currentOut,
-        currentBalance: nextBalance,
-        current_balance: nextBalance,
-        lastActivityAt: timestamp,
-        last_activity_at: timestamp,
-      });
+      if (isTransfer) {
+        await transferIncomeSourceToWallet(localUserId, {
+          sourceId: source.id,
+          destinationWalletId: form.destinationWalletId,
+          amount,
+          date: toLocalDateKey(new Date()),
+          notes: `Transfer from ${source?.name || "Income Source"}`,
+        });
+      } else {
+        await addMoneyToIncomeSource(localUserId, source.id, amount);
+      }
 
-      await refreshFinanceEvents();
-      closeModal();
-    } catch (error) {
-      console.error("CLARA income source add money error:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const transferMoney = async () => {
-    if (!source?.id || amount <= 0 || !form.destinationWalletId || amount > currentBalance) return;
-
-    const addToWallet = typeof financial.addIncome === "function" ? financial.addIncome : financial.addMoney;
-    if (typeof addToWallet !== "function") return;
-
-    const currentIn = getSourceIn(source);
-    const currentOut = getSourceOut(source);
-    const nextOut = currentOut + amount;
-    const nextBalance = currentIn - nextOut;
-    const timestamp = new Date().toISOString();
-    const today = new Date().toISOString().split("T")[0];
-
-    try {
-      setSaving(true);
-
-      await addToWallet({
-        amount,
-        wallet_id: form.destinationWalletId,
-        walletId: form.destinationWalletId,
-        source: source?.name || "Income Source",
-        source_type: source?.name || "Income Source",
-        notes: `Transfer from ${source?.name || "Income Source"}`,
-        type: "income",
-        income_source_id: source.id,
-        incomeSourceId: source.id,
-        income_flow_type: "income_source_transfer",
-        incomeFlowType: "income_source_transfer",
-        date: today,
-        transaction_date: today,
-      });
-
-      await upsertIncomeSource(localUserId, {
-        ...source,
-        totalMoneyIn: currentIn,
-        total_money_in: currentIn,
-        totalMoneyOut: nextOut,
-        total_money_out: nextOut,
-        currentBalance: nextBalance,
-        current_balance: nextBalance,
-        lastActivityAt: timestamp,
-        last_activity_at: timestamp,
-      });
-
-      await refreshFinanceEvents();
-      closeModal();
-    } catch (error) {
-      console.error("CLARA income source transfer money error:", error);
+      setForm(emptyForm);
+      onClose?.();
+    } catch (saveError) {
+      console.error(isTransfer ? "CLARA income source transfer error:" : "CLARA income source add money error:", saveError);
+      setError(saveError?.message || (isTransfer ? "Unable to transfer money. Please try again." : "Unable to add money. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -175,23 +126,25 @@ export default function IncomeSourceAddMoneyModal({ source = null, open = false,
       onClose={closeModal}
       onSubmit={(event) => {
         event.preventDefault();
-        if (isTransfer) {
-          transferMoney();
-          return;
-        }
-        saveMoney();
+        submit();
       }}
       submitLabel={isTransfer ? "Transfer" : "Add money"}
-      submitDisabled={amountExceedsBalance}
+      submitDisabled={submitDisabled}
+      submitDisabledLabel={submitDisabledLabel}
       loading={saving}
     >
       {isTransfer ? (
-        <FinanceField label="Destination wallet">
+        <FinanceField label="Destination wallet" helper={noWallets ? "Create a wallet before transferring money." : ""}>
           <select
             value={form.destinationWalletId}
-            onChange={(event) => setForm((prev) => ({ ...prev, destinationWalletId: event.target.value }))}
+            onChange={(event) => {
+              setForm((prev) => ({ ...prev, destinationWalletId: event.target.value }));
+              if (error) setError("");
+            }}
             className={financeInputClassName}
+            disabled={noWallets || saving}
           >
+            {noWallets ? <option value="">No wallets available</option> : null}
             {wallets.map((wallet) => (
               <option key={wallet.id} value={String(wallet.id)}>
                 {getWalletName(wallet)} • {fmt(getWalletBalance(wallet))}
@@ -203,14 +156,17 @@ export default function IncomeSourceAddMoneyModal({ source = null, open = false,
 
       <FinanceField
         label="Amount"
-        helper={isTransfer ? `Available: ${fmt(currentBalance)}` : `Current balance: ${fmt(currentBalance)}`}
+        helper={error || (isTransfer ? `Available: ${fmt(currentBalance)}` : `Current balance: ${fmt(currentBalance)}`)}
       >
         <input
           type="number"
           min="0"
           step="0.01"
           value={form.amount}
-          onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+          onChange={(event) => {
+            setForm((prev) => ({ ...prev, amount: event.target.value }));
+            if (error) setError("");
+          }}
           placeholder="0"
           className={financeInputClassName}
         />
@@ -219,6 +175,5 @@ export default function IncomeSourceAddMoneyModal({ source = null, open = false,
   );
 
   if (typeof document === "undefined") return modal;
-
   return createPortal(modal, document.body);
 }

@@ -263,6 +263,7 @@ export default function FinanceActionModal({
   onSubmit,
   submitLabel = "Save",
   submitDisabled = false,
+  submitDisabledLabel = "Unavailable",
   loading = false,
   danger = false,
 }) {
@@ -544,7 +545,7 @@ export default function FinanceActionModal({
               disabled={submitDisabled || loading}
               className={submitButtonClassName}
             >
-              {loading ? "Saving..." : submitDisabled ? "Insufficient Funds" : submitLabel}
+              {loading ? "Saving..." : submitDisabled ? submitDisabledLabel : submitLabel}
             </button>
           </div>
         </form>

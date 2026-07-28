@@ -3,6 +3,7 @@ import {
   getLocalRecords,
   upsertLocalRecord,
   softDeleteLocalRecord,
+  runLocalFinanceTransaction,
 } from "./localFinanceStore.js";
 import {
   ACTIVE_CURRENT_STATE_KEY,
@@ -10,7 +11,10 @@ import {
 } from "./clara-young-professional-current-state.js";
 
 const STORE_NAME = LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
+const WALLET_STORE = LOCAL_FINANCE_STORES?.wallets || "wallets";
+const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
 const RECORD_KIND = "income_source";
+const INCOME_ACTIVITY_LIMIT = 60;
 
 export const INCOME_SOURCE_CATEGORIES = [
   "Salary",
@@ -36,6 +40,50 @@ export const toIncomeHubNumber = (value) => {
 };
 
 const nowIso = () => new Date().toISOString();
+
+const createIncomeActivityId = (type = "activity") => {
+  const safeType = String(type || "activity").replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (globalThis?.crypto?.randomUUID) return `income_${safeType}_${globalThis.crypto.randomUUID()}`;
+  return `income_${safeType}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
+export function getIncomeSourceActivityLog(source = {}) {
+  const log = source?.incomeActivityLog ?? source?.income_activity_log ?? [];
+  return Array.isArray(log) ? log.filter(Boolean) : [];
+}
+
+export function appendIncomeSourceActivity(source = {}, activity = {}) {
+  const timestamp = activity.createdAt || activity.created_at || nowIso();
+  const nextActivity = {
+    ...activity,
+    id: activity.id || createIncomeActivityId(activity.type),
+    sourceId: activity.sourceId || activity.source_id || source?.id || null,
+    source_id: activity.source_id || activity.sourceId || source?.id || null,
+    sourceName: activity.sourceName || activity.source_name || source?.name || "Income Source",
+    source_name: activity.source_name || activity.sourceName || source?.name || "Income Source",
+    createdAt: timestamp,
+    created_at: timestamp,
+  };
+
+  return [nextActivity, ...getIncomeSourceActivityLog(source)]
+    .filter((item, index, items) => items.findIndex((candidate) => candidate?.id === item?.id) === index)
+    .slice(0, INCOME_ACTIVITY_LIMIT);
+}
+
+const emitFinanceUpdated = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("clara-finance-updated"));
+};
+
+const getWalletStoredBalance = (wallet = {}) =>
+  toIncomeHubNumber(
+    wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.starting_balance ??
+      0
+  );
 
 const emitIncomeHubUpdated = () => {
   if (typeof window === "undefined") return;
@@ -196,6 +244,174 @@ export async function updateIncomeSource(localUserId, id, patch = {}) {
   const existingSource = sources.find((source) => String(source.id) === String(id));
   if (!existingSource) throw new Error("Income source not found for this local user.");
   return upsertIncomeSource(localUserId, { ...existingSource, ...patch, id: existingSource.id, createdAt: existingSource.createdAt, created_at: existingSource.created_at });
+}
+
+export async function addMoneyToIncomeSource(localUserId, id, rawAmount) {
+  if (!id) throw new Error("Income source id is required.");
+  const amount = toIncomeHubNumber(rawAmount);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter an amount greater than zero.");
+
+  const updatedSource = await runLocalFinanceTransaction(
+    [STORE_NAME],
+    localUserId,
+    async (tx) => {
+      const source = await tx.get(STORE_NAME, id);
+      if (!source || (source.kind !== RECORD_KIND && source.recordType !== RECORD_KIND)) {
+        throw new Error("Income source was not found on this device.");
+      }
+
+      const timestamp = tx.nowIso();
+      const currentIn = getSourceMoneyIn(source);
+      const currentOut = getSourceMoneyOut(source);
+      const nextIn = currentIn + amount;
+      const nextBalance = nextIn - currentOut;
+      const activityLog = appendIncomeSourceActivity(source, {
+        type: "add_money",
+        amount,
+        balanceAfter: nextBalance,
+        balance_after: nextBalance,
+        createdAt: timestamp,
+      });
+
+      return tx.put(
+        STORE_NAME,
+        normalizeIncomeSource({
+          ...source,
+          totalMoneyIn: nextIn,
+          total_money_in: nextIn,
+          totalMoneyOut: currentOut,
+          total_money_out: currentOut,
+          currentBalance: nextBalance,
+          current_balance: nextBalance,
+          lastActivityAt: timestamp,
+          last_activity_at: timestamp,
+          incomeActivityLog: activityLog,
+          income_activity_log: activityLog,
+        }),
+        source
+      );
+    }
+  );
+
+  emitIncomeHubUpdated();
+  return updatedSource;
+}
+
+export async function transferIncomeSourceToWallet(
+  localUserId,
+  { sourceId, destinationWalletId, amount: rawAmount, date, notes = "" } = {}
+) {
+  if (!sourceId) throw new Error("Income source id is required.");
+  if (!destinationWalletId) throw new Error("Choose a destination wallet.");
+
+  const amount = toIncomeHubNumber(rawAmount);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter an amount greater than zero.");
+
+  const result = await runLocalFinanceTransaction(
+    [STORE_NAME, WALLET_STORE, WALLET_TRANSACTION_STORE],
+    localUserId,
+    async (tx) => {
+      const source = await tx.get(STORE_NAME, sourceId);
+      if (!source || (source.kind !== RECORD_KIND && source.recordType !== RECORD_KIND)) {
+        throw new Error("Income source was not found on this device.");
+      }
+
+      const wallet = await tx.get(WALLET_STORE, destinationWalletId);
+      if (!wallet) throw new Error("Destination wallet was not found on this device.");
+
+      const currentIn = getSourceMoneyIn(source);
+      const currentOut = getSourceMoneyOut(source);
+      const currentBalance = getSourceBalance(source);
+      if (amount > currentBalance) {
+        const error = new Error("The transfer is higher than the available income-source balance.");
+        error.code = "INCOME_SOURCE_INSUFFICIENT_BALANCE";
+        throw error;
+      }
+
+      const timestamp = tx.nowIso();
+      const localDate = String(date || "").trim() || timestamp;
+      const nextOut = currentOut + amount;
+      const nextSourceBalance = currentIn - nextOut;
+      const nextWalletBalance = getWalletStoredBalance(wallet) + amount;
+      const walletTransactionId = tx.createId(WALLET_TRANSACTION_STORE);
+      const activityLog = appendIncomeSourceActivity(source, {
+        type: "transfer_money",
+        amount,
+        destinationWalletId,
+        destination_wallet_id: destinationWalletId,
+        destinationWalletName: wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet",
+        destination_wallet_name: wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet",
+        walletTransactionId,
+        wallet_transaction_id: walletTransactionId,
+        balanceAfter: nextSourceBalance,
+        balance_after: nextSourceBalance,
+        createdAt: timestamp,
+      });
+
+      const walletUpdate = await tx.put(
+        WALLET_STORE,
+        {
+          ...wallet,
+          balance: nextWalletBalance,
+          current_balance: nextWalletBalance,
+          wallet_balance: nextWalletBalance,
+          available_balance: nextWalletBalance,
+          updatedAt: timestamp,
+          updated_at: timestamp,
+          syncStatus: "local_only",
+          source: "local",
+        },
+        wallet
+      );
+
+      const walletTransaction = await tx.put(WALLET_TRANSACTION_STORE, {
+        id: walletTransactionId,
+        wallet_id: destinationWalletId,
+        walletId: destinationWalletId,
+        amount,
+        type: "income",
+        category: "Income Source Transfer",
+        source_type: source?.name || "Income Source",
+        sourceType: source?.name || "Income Source",
+        notes: String(notes || "").trim() || `Transfer from ${source?.name || "Income Source"}`,
+        date: localDate,
+        transaction_date: localDate,
+        created_at: localDate,
+        updated_at: timestamp,
+        income_source_id: source.id,
+        incomeSourceId: source.id,
+        income_flow_type: "income_source_transfer",
+        incomeFlowType: "income_source_transfer",
+        deletedAt: null,
+        syncStatus: "local_only",
+        source: "local",
+      });
+
+      const sourceUpdate = await tx.put(
+        STORE_NAME,
+        normalizeIncomeSource({
+          ...source,
+          totalMoneyIn: currentIn,
+          total_money_in: currentIn,
+          totalMoneyOut: nextOut,
+          total_money_out: nextOut,
+          currentBalance: nextSourceBalance,
+          current_balance: nextSourceBalance,
+          lastActivityAt: timestamp,
+          last_activity_at: timestamp,
+          incomeActivityLog: activityLog,
+          income_activity_log: activityLog,
+        }),
+        source
+      );
+
+      return { source: sourceUpdate, wallet: walletUpdate, walletTransaction };
+    }
+  );
+
+  emitIncomeHubUpdated();
+  emitFinanceUpdated();
+  return result;
 }
 
 export async function archiveIncomeSource(localUserId, id) {
