@@ -1,57 +1,38 @@
-name: Refactor Budget card truth
+name: Verify Budget card truth
 
 on:
   push:
     branches:
       - fix/budget-card-truth
-    paths:
-      - ".github/scripts/refactor-budget-card-truth.mjs"
-      - ".github/scripts/fix-budget-refactor-script.mjs"
-      - ".github/workflows/refactor-budget-card-truth.yml"
   pull_request:
     branches:
       - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-and-verify:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           ref: fix/budget-card-truth
           fetch-depth: 0
 
-      - name: Repair Budget refactor generator
-        run: node .github/scripts/fix-budget-refactor-script.mjs
-
-      - name: Apply Budget card refactor
-        run: node .github/scripts/refactor-budget-card-truth.mjs
-
       - name: Install dependencies
-        run: npm ci
+        run: |
+          for attempt in 1 2 3; do
+            npm ci && exit 0
+            echo "npm ci attempt ${attempt} failed; retrying..."
+            sleep 10
+          done
+          exit 1
 
       - name: Run focused Budget regression
         run: node --test tests/budget-card-truth-regression.test.mjs
 
       - name: Run full regression and production build
         run: npm run build
-
-      - name: Commit verified Budget refactor
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo "No Budget changes were produced."
-            exit 0
-          fi
-          git commit -m "Refactor Budget card truth"
-          git pull --rebase origin fix/budget-card-truth
-          git push origin HEAD:fix/budget-card-truth
