@@ -10,6 +10,12 @@ const {
   saveClaraStorageMode,
 } = await import("../src/lib/clara-storage-mode.js");
 
+const {
+  isDeviceOnlyStorageKey,
+  prepareCloudSnapshotForRestore,
+  sanitizeCloudLocalStorage,
+} = await import("../src/lib/cloud-vault-snapshot.js");
+
 class MemoryStorage {
   constructor() {
     this.values = new Map();
@@ -91,6 +97,80 @@ test("Daily Check-In remains device-only during server sync", async () => {
   assert.match(localExportSource, /clara_daily_check_in_v1/);
   assert.match(localExportSource, /clara_daily_check_in_v2:/);
   assert.match(localExportSource, /clara_daily_check_in_v3:/);
+});
+
+test("Daily Check-In is excluded from server sync but included in explicit backup transfer", async () => {
+  const dailyCheckInKeys = [
+    "clara_daily_check_in_v1",
+    "clara_daily_check_in_v1_migrated_to",
+    "clara_daily_check_in_v2:user-1",
+    "clara_daily_check_in_v3:user-1",
+    "clara_daily_check_in_v3_migrated:user-1",
+  ];
+  const sourceStorage = Object.fromEntries(
+    dailyCheckInKeys.map((key, index) => [key, JSON.stringify({ streak: index + 1 })]),
+  );
+  sourceStorage.clara_settings_theme = "dark";
+
+  dailyCheckInKeys.forEach((key) => assert.equal(isDeviceOnlyStorageKey(key), true));
+
+  const serverSafe = sanitizeCloudLocalStorage(sourceStorage, {
+    accountId: "user-1",
+    sourceVaultId: "vault-a",
+  });
+  dailyCheckInKeys.forEach((key) => assert.equal(serverSafe[key], undefined));
+  assert.equal(serverSafe.clara_settings_theme, "dark");
+
+  const explicitBackup = sanitizeCloudLocalStorage(sourceStorage, {
+    accountId: "user-1",
+    sourceVaultId: "vault-a",
+    includeDeviceOnly: true,
+  });
+  dailyCheckInKeys.forEach((key) => assert.equal(explicitBackup[key], sourceStorage[key]));
+
+  const legacyServerSnapshot = {
+    app: "CLARA",
+    type: "account-cloud-vault-snapshot",
+    version: 2,
+    account_id: "user-1",
+    created_at: "2026-07-28T00:00:00.000Z",
+    source_vault_id: "vault-a",
+    data: {
+      localStorage: {
+        "clara_daily_check_in_v3:user-1": JSON.stringify({ streak: 12 }),
+        clara_settings_theme: "dark",
+      },
+      indexedDB: { databases: [] },
+    },
+  };
+
+  const serverRestore = prepareCloudSnapshotForRestore(legacyServerSnapshot, {
+    accountId: "user-1",
+    targetVaultId: "vault-b",
+  });
+  assert.equal(serverRestore.data.localStorage["clara_daily_check_in_v3:user-1"], undefined);
+  assert.equal(serverRestore.data.localStorage.clara_settings_theme, "dark");
+
+  const explicitRestore = prepareCloudSnapshotForRestore(legacyServerSnapshot, {
+    accountId: "user-1",
+    targetVaultId: "vault-b",
+    includeDeviceOnly: true,
+  });
+  assert.equal(
+    explicitRestore.data.localStorage["clara_daily_check_in_v3:user-1"],
+    JSON.stringify({ streak: 12 }),
+  );
+
+  const syncSource = await fs.readFile(
+    new URL("../src/lib/server-finance-sync.js", import.meta.url),
+    "utf8",
+  );
+  const snapshotSource = await fs.readFile(
+    new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(syncSource, /!isDeviceOnlyStorageKey\(record\.id\)/);
+  assert.match(snapshotSource, /includeDeviceOnly: true/);
 });
 
 test("server finance sync keeps the manual control under simple user-facing Privacy copy", async () => {
