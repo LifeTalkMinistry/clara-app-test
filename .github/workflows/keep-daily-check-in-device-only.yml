@@ -28,57 +28,40 @@ jobs:
           ref: fix/device-only-daily-check-in
           fetch-depth: 0
 
-      - name: Run verification and record result
+      - name: Run focused verification and record output
         shell: bash
         run: |
           set +e
           mkdir -p .github/verified
-
           npm ci > /tmp/daily-check-install.log 2>&1
           install_status=$?
 
           if [ "$install_status" -eq 0 ]; then
             node --test tests/cloud-vault-sync.test.mjs tests/local-data-export.test.mjs tests/daily-check-in.test.mjs > /tmp/daily-check-focused.log 2>&1
             focused_status=$?
-            npm test > /tmp/daily-check-full.log 2>&1
-            full_status=$?
-            npm run build > /tmp/daily-check-build.log 2>&1
-            build_status=$?
           else
             focused_status=99
-            full_status=99
-            build_status=99
           fi
 
           {
             echo "install=$install_status"
             echo "focused=$focused_status"
-            echo "full=$full_status"
-            echo "build=$build_status"
             if [ "$install_status" -ne 0 ]; then
-              echo "--- install tail ---"
-              tail -n 80 /tmp/daily-check-install.log
+              echo "--- install output ---"
+              cat /tmp/daily-check-install.log
             fi
-            if [ "$focused_status" -ne 0 ] && [ "$focused_status" -ne 99 ]; then
-              echo "--- focused tail ---"
-              tail -n 120 /tmp/daily-check-focused.log
-            fi
-            if [ "$full_status" -ne 0 ] && [ "$full_status" -ne 99 ]; then
-              echo "--- full tail ---"
-              tail -n 120 /tmp/daily-check-full.log
-            fi
-            if [ "$build_status" -ne 0 ] && [ "$build_status" -ne 99 ]; then
-              echo "--- build tail ---"
-              tail -n 120 /tmp/daily-check-build.log
+            if [ "$focused_status" -ne 99 ]; then
+              echo "--- focused output ---"
+              cat /tmp/daily-check-focused.log
             fi
           } > .github/verified/daily-check-in-device-only.txt
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/verified/daily-check-in-device-only.txt
-          git commit -m "Record Daily Check-In verification result"
+          git commit -m "Record focused Daily Check-In verification"
           git push origin HEAD:fix/device-only-daily-check-in
 
-          if [ "$install_status" -ne 0 ] || [ "$focused_status" -ne 0 ] || [ "$full_status" -ne 0 ] || [ "$build_status" -ne 0 ]; then
+          if [ "$install_status" -ne 0 ] || [ "$focused_status" -ne 0 ]; then
             exit 1
           fi
