@@ -1,4 +1,4 @@
-name: Apply top nav ownership surgery
+name: Verify top nav ownership surgery
 
 on:
   push:
@@ -6,154 +6,33 @@ on:
       - fix-top-nav-ownership
     paths:
       - ".github/workflows/apply-top-nav-surgery.yml"
-      - ".github/scripts/apply-dashboard-top-nav-surgery.mjs"
-      - ".github/scripts/apply-settings-react-ownership.mjs"
+      - "package.json"
+      - "src/**"
+      - "tests/dashboard-top-nav-ownership.test.mjs"
+      - "tests/settings-local-only-regression.test.mjs"
+      - "tests/settings-integrity-regression.test.mjs"
   pull_request:
     branches:
       - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  refactor-and-verify:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout working branch
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           ref: fix-top-nav-ownership
-          fetch-depth: 0
-
-      - name: Normalize surgery helpers and anchors
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          dashboard_path = Path('.github/scripts/apply-dashboard-top-nav-surgery.mjs')
-          dashboard_source = dashboard_path.read_text()
-          old_remove = 'const removeOnce = (source, before, label) =>\n  replaceOnce(source, before, "", label);'
-          new_remove = 'const removeOnce = (source, before, label) => {\n  const index = source.lastIndexOf(before);\n  if (index === -1) return source;\n  return source.slice(0, index) + source.slice(index + before.length);\n};'
-          dashboard_path.write_text(dashboard_source.replace(old_remove, new_remove))
-
-          settings_path = Path('.github/scripts/apply-settings-react-ownership.mjs')
-          settings_source = settings_path.read_text()
-          label = '"Plan to support navigation"'
-          if label in settings_source:
-              label_index = settings_source.index(label)
-              block_start = settings_source.rfind('\nreplaceOnce(', 0, label_index)
-              block_end = settings_source.index('\n);', label_index) + len('\n);')
-              if block_start < 0:
-                  raise RuntimeError('Plan support replacement block was not found')
-              settings_source = settings_source[:block_start] + settings_source[block_end:]
-          settings_path.write_text(settings_source)
-          PY
-
-      - name: Apply top nav surgery
-        id: apply-surgery
-        run: |
-          set +e
-          mkdir -p .github/diagnostics
-          {
-            echo "=== Dashboard and top nav surgery ==="
-            node .github/scripts/apply-dashboard-top-nav-surgery.mjs
-            first_status=$?
-            echo "dashboard_script_status=$first_status"
-            if [ "$first_status" -ne 0 ]; then
-              exit "$first_status"
-            fi
-            echo "=== Settings React ownership ==="
-            node .github/scripts/apply-settings-react-ownership.mjs
-            second_status=$?
-            echo "settings_script_status=$second_status"
-            if [ "$second_status" -ne 0 ]; then
-              exit "$second_status"
-            fi
-            echo "=== Plan support navigation ==="
-            python - <<'PY'
-          import re
-          from pathlib import Path
-
-          path = Path('src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx')
-          source = path.read_text()
-          source, count = re.subn(
-              r'onClick=\{\(\) => \{\s*setSettingsNotice\(null\);\s*setActiveSetting\("support"\);\s*\}\}',
-              'onClick={() => openSetting("support")}',
-              source,
-              count=1,
-          )
-          if count == 0 and 'onClick={() => openSetting("support")}' not in source:
-              raise RuntimeError('Plan support navigation was not found')
-          path.write_text(source)
-          PY
-            third_status=$?
-            echo "plan_support_status=$third_status"
-            exit "$third_status"
-          } > .github/diagnostics/top-nav-surgery.log 2>&1
-          status=$?
-          cat .github/diagnostics/top-nav-surgery.log
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload surgery diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: top-nav-surgery-diagnostics
-          path: .github/diagnostics/top-nav-surgery.log
-          if-no-files-found: warn
-
-      - name: Persist applied source changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -- .github/scripts/apply-dashboard-top-nav-surgery.mjs .github/scripts/apply-settings-react-ownership.mjs
-          rm -rf .github/diagnostics
-          git add src
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo "Applied source is already committed."
-          else
-            git commit -m "Apply dashboard top nav surgery"
-            git push origin HEAD:fix-top-nav-ownership
-          fi
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run regression tests
-        id: regression-tests
-        run: |
-          set +e
-          mkdir -p .github/diagnostics
-          npm test > .github/diagnostics/top-nav-tests.log 2>&1
-          status=$?
-          cat .github/diagnostics/top-nav-tests.log
-          exit "$status"
-
-      - name: Upload regression diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: top-nav-test-diagnostics
-          path: .github/diagnostics/top-nav-tests.log
-          if-no-files-found: warn
+      - name: Run full regression suite
+        run: npm test
 
       - name: Build production app
         run: npm run build
-
-      - name: Commit verified cleanup
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -rf .github/diagnostics
-          git add -A
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo "No additional verified changes were produced."
-            exit 0
-          fi
-          git commit -m "Verify dashboard top nav ownership"
-          git push origin HEAD:fix-top-nav-ownership
