@@ -73,6 +73,82 @@ test("reset uses the exact reset time instead of the cycle start date", async ()
   assert.equal(result.newHeader.reset_start_at, header.reset_start_at);
 });
 
+test("reset archives every live header and category so no legacy total survives", async () => {
+  const updatedRows = [];
+  const createdRows = [];
+  const budgets = [
+    {
+      id: "newer-draft",
+      is_plan_header: true,
+      status: "draft",
+      is_active: true,
+      month: "2026-07",
+      setup_draft_id: "draft-new",
+    },
+    {
+      id: "legacy-active",
+      is_plan_header: true,
+      status: "active",
+      is_active: true,
+      month: "2026-07",
+      declared_budget: 3002,
+    },
+    {
+      id: "food-category",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      month: "2026-07",
+      allocated_amount: 3002,
+    },
+    {
+      id: "legacy-orphan-category",
+      plan_type: "budget_category",
+      status: "active",
+      is_active: true,
+      allocated_amount: 500,
+    },
+    {
+      id: "already-archived",
+      is_plan_header: true,
+      status: "archived",
+      is_active: false,
+      month: "2026-07",
+    },
+  ];
+
+  const result = await resetMonthlyBudgetCycle({
+    budgets,
+    headerPayload: {
+      is_plan_header: true,
+      plan_type: "monthly_budget",
+      month: "2026-07",
+      cycle_start: "2026-07-29",
+      cycle_end: "2026-08-28",
+      declared_budget: 0,
+      status: "draft",
+    },
+    addBudget: async (payload) => {
+      createdRows.push(payload);
+      return { id: "fresh-header", ...payload };
+    },
+    updateBudget: async (id, patch) => {
+      updatedRows.push({ id, patch });
+      return { id, ...patch };
+    },
+  });
+
+  assert.deepEqual(
+    updatedRows.map((entry) => entry.id).sort(),
+    ["food-category", "legacy-active", "legacy-orphan-category", "newer-draft"].sort(),
+  );
+  assert.ok(updatedRows.every((entry) => entry.patch.status === "archived"));
+  assert.deepEqual(result.archivedHeaderIds.sort(), ["legacy-active", "newer-draft"].sort());
+  assert.deepEqual(result.archivedCategoryIds.sort(), ["food-category", "legacy-orphan-category"].sort());
+  assert.equal(createdRows[0].declared_budget, 0);
+  assert.deepEqual(createdRows[0].reset_from_budget_ids.sort(), ["legacy-active", "newer-draft"].sort());
+});
+
 test("an inactive reset plan cannot leak old watch-zone totals into the budget card", () => {
   const normalized = normalizeCarouselBudgetPlan({
     hasActiveBudgetPlan: false,
