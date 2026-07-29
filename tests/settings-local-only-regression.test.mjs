@@ -65,6 +65,20 @@ test("Settings directly owns detail history, logout, and Memory", () => {
   assert.doesNotMatch(activeSettingsSource, /MutationObserver/);
 });
 
+test("Settings keeps the signed-in account identity and Profile entry visible", () => {
+  assert.match(activeSettingsSource, /title: "Profile information"/);
+  assert.match(activeSettingsSource, /description: "Name, email, and account identity"/);
+  assert.match(activeSettingsSource, /user\?\.email \|\| "CLARA user"/);
+  assert.match(activeSettingsSource, /activeSetting === "profile"/);
+  assert.match(
+    settingsCleanupSource,
+    /Keep the account identity card and Profile information row visible/
+  );
+  assert.doesNotMatch(settingsCleanupSource, /remove large profile hero card/);
+  assert.doesNotMatch(settingsCleanupSource, /remove redundant profile information row/);
+  assert.doesNotMatch(settingsCleanupSource, /section:first-of-type/);
+});
+
 test("retired Settings DOM injectors are removed from production", () => {
   retiredSettingsRuntimeUrls.forEach((url) => assert.equal(existsSync(url), false));
   assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);
