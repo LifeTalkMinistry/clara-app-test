@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resetMonthlyBudgetCycle } from "../src/lib/clara-budget-cycle-reset.js";
+import { normalizeCarouselBudgetPlan } from "../src/components/financial-carousel/logic/financeCarouselDataHelpersCore.js";
 
 test("reset uses the exact reset time instead of the cycle start date", async () => {
   const createdRows = [];
@@ -53,4 +54,28 @@ test("an explicit tracking boundary is preserved", async () => {
   assert.equal(result.newHeader.reset_start_at, boundary);
   assert.equal(result.newHeader.tracking_started_at, boundary);
   assert.equal(result.newHeader.tracking_start_date, boundary);
+});
+
+test("an inactive reset plan cannot leak old watch-zone totals into the budget card", () => {
+  const normalized = normalizeCarouselBudgetPlan({
+    hasActiveBudgetPlan: false,
+    status: "no_plan",
+    declared_budget: 0,
+    spent: 4202,
+    unplanned_spent: 4202,
+    undocumented_spent: 800,
+    unplanned_items: [{ id: "old-unplanned", amount: 4202 }],
+    undocumented_items: [{ id: "old-undocumented", amount: 800 }],
+    outside_plan_items: [{ id: "old-outside", amount: 5002 }],
+    categories: [{ id: "old-category", title: "Old plan", allocated: 3000, spent: 3000 }],
+  });
+
+  assert.equal(normalized.declaredBudget, 0);
+  assert.equal(normalized.spentAmount, 0);
+  assert.equal(normalized.unplannedSpent, 0);
+  assert.equal(normalized.undocumentedSpent, 0);
+  assert.deepEqual(normalized.unplannedItems, []);
+  assert.deepEqual(normalized.undocumentedItems, []);
+  assert.deepEqual(normalized.outsidePlanItems, []);
+  assert.deepEqual(normalized.budgetCategories, []);
 });
