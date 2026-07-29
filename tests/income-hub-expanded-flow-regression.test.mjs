@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const readSource = (relativePath) =>
-  readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8").replace(/\r\n?/g, "\n");
 
 const repository = readSource("src/lib/incomeHubRepository.js");
 const card = readSource("src/components/financial-carousel/cards/investment/ui/InvestmentCardView.jsx");
