@@ -18,19 +18,38 @@ function isBudgetHeader(row = {}) {
 
 function isInactive(row = {}) {
   const status = normalizeLower(row?.status);
-  return row?.is_active === false || row?.active === false || ["inactive", "archived", "deleted", "closed"].includes(status);
+  return (
+    row?.is_active === false ||
+    row?.active === false ||
+    ["inactive", "archived", "deleted", "closed", "reset"].includes(status)
+  );
 }
 
 function sameCycle(row = {}, header = {}) {
   if (!header) return false;
   const headerMonth = normalizeString(header.month || header.month_key || header.budget_month);
   const rowMonth = normalizeString(row.month || row.month_key || row.budget_month);
-  const headerCycleStart = normalizeString(header.cycle_start || header.period_start || header.budget_cycle_start);
-  const rowCycleStart = normalizeString(row.cycle_start || row.period_start || row.budget_cycle_start);
+  const headerCycleStart = normalizeString(
+    header.cycle_start || header.period_start || header.budget_cycle_start
+  );
+  const rowCycleStart = normalizeString(
+    row.cycle_start || row.period_start || row.budget_cycle_start
+  );
+  const headerDraftId = normalizeString(header.setup_draft_id || header.draft_id);
+  const rowDraftId = normalizeString(row.setup_draft_id || row.draft_id);
 
+  if (headerDraftId && rowDraftId && headerDraftId === rowDraftId) return true;
   if (headerCycleStart && rowCycleStart && headerCycleStart === rowCycleStart) return true;
   if (headerMonth && rowMonth && headerMonth === rowMonth) return true;
   return false;
+}
+
+function hasCycleIdentity(row = {}) {
+  return Boolean(
+    normalizeString(row.month || row.month_key || row.budget_month) ||
+      normalizeString(row.cycle_start || row.period_start || row.budget_cycle_start) ||
+      normalizeString(row.setup_draft_id || row.draft_id)
+  );
 }
 
 function archivePatch(now) {
@@ -76,22 +95,39 @@ export async function resetMonthlyBudgetCycle({
 
   const now = new Date().toISOString();
   const resetBoundary = resetBoundaryFrom(headerPayload) || now;
-  const activeHeader = (Array.isArray(budgets) ? budgets : []).find(
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+
+  // A user can have an old active header plus a newer unfinished draft. Picking
+  // only the first header leaves the other one alive, which makes the old total
+  // reappear after reset. Reset therefore closes every non-archived header.
+  const activeHeaders = safeBudgets.filter(
     (budget) => isBudgetHeader(budget) && !isInactive(budget)
   );
+  const primaryHeader = activeHeaders[0] || null;
 
-  const activeCategories = (Array.isArray(budgets) ? budgets : []).filter(
-    (budget) => !isBudgetHeader(budget) && !isInactive(budget) && (!activeHeader || sameCycle(budget, activeHeader))
-  );
+  const activeCategories = safeBudgets.filter((budget) => {
+    if (isBudgetHeader(budget) || isInactive(budget)) return false;
 
-  if (activeHeader?.id) {
-    await updateBudget(activeHeader.id, archivePatch(now));
+    // Legacy budget rows sometimes have no cycle metadata. They still belong to
+    // the active budgeting ecosystem and must be cleared by a full reset.
+    if (!hasCycleIdentity(budget)) return true;
+
+    if (activeHeaders.some((header) => sameCycle(budget, header))) return true;
+    return sameCycle(budget, headerPayload);
+  });
+
+  const archivedHeaderIds = [];
+  for (const header of activeHeaders) {
+    if (!header?.id) continue;
+    await updateBudget(header.id, archivePatch(now));
+    archivedHeaderIds.push(header.id);
   }
 
+  const archivedCategoryIds = [];
   for (const category of activeCategories) {
-    if (category?.id) {
-      await updateBudget(category.id, archivePatch(now));
-    }
+    if (!category?.id) continue;
+    await updateBudget(category.id, archivePatch(now));
+    archivedCategoryIds.push(category.id);
   }
 
   const newHeader = await addBudget({
@@ -104,7 +140,8 @@ export async function resetMonthlyBudgetCycle({
     is_active: true,
     active: true,
     status: headerPayload.status || "draft",
-    reset_from_budget_id: activeHeader?.id || null,
+    reset_from_budget_id: primaryHeader?.id || null,
+    reset_from_budget_ids: archivedHeaderIds,
     reset_at: now,
     created_at: headerPayload.created_at || now,
     updated_at: now,
@@ -122,7 +159,8 @@ export async function resetMonthlyBudgetCycle({
         is_active: true,
         active: true,
         status: payload.status || "active",
-        reset_from_budget_id: activeHeader?.id || null,
+        reset_from_budget_id: primaryHeader?.id || null,
+        reset_from_budget_ids: archivedHeaderIds,
         reset_at: now,
         created_at: payload.created_at || now,
         updated_at: now,
@@ -131,8 +169,9 @@ export async function resetMonthlyBudgetCycle({
   }
 
   return {
-    archivedHeaderId: activeHeader?.id || null,
-    archivedCategoryIds: activeCategories.map((category) => category.id).filter(Boolean),
+    archivedHeaderId: primaryHeader?.id || null,
+    archivedHeaderIds,
+    archivedCategoryIds,
     newHeader,
     newCategories,
   };
