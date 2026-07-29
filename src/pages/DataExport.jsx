@@ -1,33 +1,45 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Check,
   CheckCircle2,
   Cloud,
+  CloudOff,
   Download,
+  HardDrive,
   Info,
   RefreshCw,
   ShieldCheck,
   Upload,
+  Wifi,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { getBackendAccountId } from "@/lib/clara-account-identity";
+import { resumeOnlineSync } from "@/lib/cloud-sync-policy";
 import {
-  CLARA_ONLINE_SYNC_POLICY_EVENT,
-  isOnlineSyncPaused,
-  resumeOnlineSync,
-} from "@/lib/cloud-sync-policy";
+  CLARA_STORAGE_MODE_EVENT,
+  CLARA_STORAGE_MODES,
+  getClaraStorageMode,
+} from "@/lib/clara-storage-mode";
+import { clearClaraDeviceData } from "@/lib/clear-clara-device-data";
 import {
   countCloudSnapshotItems,
   downloadClaraPrivateBackup,
   restoreClaraPrivateBackupFile,
 } from "@/lib/cloud-vault-snapshot";
+import { fetchServerFinanceStatus } from "@/lib/server-finance-sync";
 import {
-  CLARA_SERVER_FINANCE_SYNC_EVENT,
-  bootstrapServerFinanceFromThisDevice,
-  fetchServerFinanceStatus,
-  syncServerFinance,
-} from "@/lib/server-finance-sync";
+  bootstrapFinanceForOnlineMode,
+  enableStrictDeviceOnlyMode,
+  enableStrictOnlineSyncMode,
+  refreshClaraStorageModeFromServer,
+  syncFinanceForActiveMode,
+} from "@/lib/strict-storage-mode-policy";
+
+function isOffline() {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
 
 export default function DataExport() {
   const navigate = useNavigate();
@@ -35,119 +47,165 @@ export default function DataExport() {
   const accountId = getBackendAccountId(user);
   const fileInputRef = useRef(null);
   const [serverStatus, setServerStatus] = useState(null);
-  const [syncPaused, setSyncPaused] = useState(() => isOnlineSyncPaused());
+  const [storageMode, setStorageMode] = useState(() =>
+    accountId
+      ? getClaraStorageMode(accountId)
+      : CLARA_STORAGE_MODES.LOCAL_ONLY
+  );
+  const [networkOffline, setNetworkOffline] = useState(() => isOffline());
   const [syncing, setSyncing] = useState(false);
+  const [changingMode, setChangingMode] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
 
   const refreshStatus = async () => {
-    if (!accountId) return null;
+    if (!accountId || isOffline()) return null;
     const status = await fetchServerFinanceStatus(user);
     setServerStatus(status);
     return status;
   };
 
   useEffect(() => {
+    setStorageMode(
+      accountId
+        ? getClaraStorageMode(accountId)
+        : CLARA_STORAGE_MODES.LOCAL_ONLY
+    );
+  }, [accountId]);
+
+  useEffect(() => {
     if (!accountId) return undefined;
     let active = true;
 
-    refreshStatus().catch((statusError) => {
-      if (active) setError(statusError?.message || "Unable to check your saved CLARA data.");
-    });
+    const loadModeAndStatus = async () => {
+      if (isOffline()) return;
+      try {
+        const mode = await refreshClaraStorageModeFromServer(user);
+        if (active) setStorageMode(mode);
+      } catch {
+        // Keep the last account-scoped choice when the server cannot be reached.
+      }
 
-    const handleSyncStatus = (event) => {
-      if (String(event?.detail?.accountId || "") !== String(accountId)) return;
-      setSyncing(event.detail?.state === "syncing");
-      if (event.detail?.initialized !== undefined) {
-        setServerStatus((current) => ({ ...current, ...event.detail }));
+      try {
+        const status = await fetchServerFinanceStatus(user);
+        if (active) setServerStatus(status);
+      } catch (statusError) {
+        if (active && storageMode === CLARA_STORAGE_MODES.ONLINE_SYNC) {
+          setError(statusError?.message || "Unable to check your saved CLARA data.");
+        }
       }
     };
-    const handlePolicyChange = (event) => {
-      setSyncPaused(Boolean(event?.detail?.paused ?? isOnlineSyncPaused()));
-    };
 
-    window.addEventListener(CLARA_SERVER_FINANCE_SYNC_EVENT, handleSyncStatus);
-    window.addEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
+    loadModeAndStatus();
+
+    const handleStorageMode = (event) => {
+      const eventAccountId = String(event?.detail?.accountId || "");
+      if (eventAccountId && eventAccountId !== String(accountId)) return;
+      setStorageMode(event?.detail?.mode || getClaraStorageMode(accountId));
+    };
+    const handleOnline = () => {
+      setNetworkOffline(false);
+      loadModeAndStatus();
+    };
+    const handleOffline = () => setNetworkOffline(true);
+
+    window.addEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageMode);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
       active = false;
-      window.removeEventListener(CLARA_SERVER_FINANCE_SYNC_EVENT, handleSyncStatus);
-      window.removeEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
+      window.removeEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageMode);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
-  }, [accountId]);
+  }, [accountId, storageMode, user]);
 
-  const handleInitializeDatabase = async () => {
+  const handleEnableOnlineSync = async () => {
+    if (networkOffline) {
+      setError("Reconnect before enabling Online Sync.");
+      return;
+    }
+
+    const initialized = Boolean(serverStatus?.initialized);
+    const confirmation = initialized
+      ? "Enable Online Sync and bring saved data to this device? Current financial data on this device will be replaced by the protected online copy. CLARA will require internet access after this."
+      : "Enable Online Sync using this device's current CLARA data? This will save this device's data to your account. CLARA will require internet access after this.";
+
+    if (!window.confirm(confirmation)) return;
+
+    try {
+      setChangingMode(true);
+      setError("");
+      setResult(null);
+
+      await enableStrictOnlineSyncMode(user);
+      setStorageMode(CLARA_STORAGE_MODES.ONLINE_SYNC);
+
+      let status;
+      if (initialized) {
+        status = await syncFinanceForActiveMode({ user, forcePull: true });
+      } else {
+        try {
+          status = await bootstrapFinanceForOnlineMode({ user });
+        } catch (bootstrapError) {
+          if (bootstrapError?.status !== 409) throw bootstrapError;
+          await refreshStatus();
+          status = await syncFinanceForActiveMode({ user, forcePull: true });
+        }
+      }
+
+      setServerStatus((current) => ({ ...current, ...status, initialized: true }));
+      resumeOnlineSync();
+      setResult({
+        type: "success",
+        message: initialized
+          ? "Online Sync is active. Your saved online data is now on this device."
+          : "Online Sync is active. This device's CLARA data is now protected in your account.",
+        reload: true,
+      });
+    } catch (modeError) {
+      setError(modeError?.message || "Unable to enable Online Sync right now.");
+    } finally {
+      setChangingMode(false);
+    }
+  };
+
+  const handleSwitchToDeviceOnly = async () => {
+    if (networkOffline) {
+      setError("Reconnect before switching this account to Device-Only Mode.");
+      return;
+    }
+
     const confirmed = window.confirm(
-      "Save the CLARA data currently on this device? Choose this only on the device with the data you want to keep."
+      "Switch to Device-Only Mode? Your protected online data will remain saved in your account, but this phone will be cleared and start a new empty local workspace. You will be logged out, and the two workspaces will never merge automatically."
     );
     if (!confirmed) return;
 
     try {
-      setSyncing(true);
+      setChangingMode(true);
       setError("");
-      const status = await bootstrapServerFinanceFromThisDevice({ user });
-      setServerStatus(status);
-      setResult({
-        type: "success",
-        message: "Your CLARA data is saved and ready to use on another device when you choose.",
-      });
-    } catch (syncError) {
-      if (syncError?.status === 409) {
-        await refreshStatus().catch(() => {});
-      }
-      setError(syncError?.message || "Unable to save your CLARA data right now.");
-    } finally {
-      setSyncing(false);
+      await enableStrictDeviceOnlyMode(user);
+      await clearClaraDeviceData();
+      window.location.reload();
+    } catch (modeError) {
+      setError(modeError?.message || "Unable to switch to Device-Only Mode.");
+      setChangingMode(false);
     }
   };
 
-  const handleSyncOnlineData = async () => {
-    const currentlyPaused = isOnlineSyncPaused();
-    if (
-      currentlyPaused &&
-      !window.confirm(
-        "Bring your saved CLARA data to this device? Your saved copy will replace the financial data currently on this device."
-      )
-    ) {
-      return;
-    }
-
+  const handleSyncNow = async () => {
     try {
       setSyncing(true);
       setError("");
       setResult(null);
-
-      const status = await syncServerFinance({ user, forcePull: currentlyPaused });
+      const status = await syncFinanceForActiveMode({ user, forcePull: true });
       setServerStatus((current) => ({ ...current, ...status }));
-
-      if (status?.needsBootstrap) {
-        setResult({
-          type: "info",
-          message: "No saved CLARA data is available yet. Open the device with your correct data and save it first.",
-        });
-      } else if (status?.offline) {
-        setResult({
-          type: "info",
-          message: "You are offline. This device was left unchanged. Reconnect and try again.",
-        });
-      } else if (currentlyPaused) {
-        resumeOnlineSync();
-        setSyncPaused(false);
-        setResult({
-          type: "success",
-          message: "Your saved CLARA data is now on this device.",
-          reload: true,
-        });
-      } else {
-        setResult({
-          type: "success",
-          message: "Your CLARA data is up to date.",
-        });
-      }
+      setResult({ type: "success", message: "Your online CLARA data is up to date." });
     } catch (syncError) {
-      setError(syncError?.message || "Unable to update your CLARA data right now.");
+      setError(syncError?.message || "Unable to sync your CLARA data right now.");
     } finally {
       setSyncing(false);
     }
@@ -176,13 +234,12 @@ export default function DataExport() {
     event.target.value = "";
     if (!file) return;
 
-    if (serverStatus?.initialized) {
-      setError("Restore is unavailable while this device is connected to saved CLARA data.");
+    if (storageMode === CLARA_STORAGE_MODES.ONLINE_SYNC) {
+      setError("Restore from backup is available only in Device-Only Mode.");
       return;
     }
 
-    const confirmed = window.confirm("Restore this backup to this device?");
-    if (!confirmed) return;
+    if (!window.confirm("Restore this backup to this device-only workspace?")) return;
 
     try {
       setImporting(true);
@@ -200,6 +257,7 @@ export default function DataExport() {
     }
   };
 
+  const onlineSyncActive = storageMode === CLARA_STORAGE_MODES.ONLINE_SYNC;
   const initialized = Boolean(serverStatus?.initialized);
 
   return (
@@ -217,70 +275,76 @@ export default function DataExport() {
         </div>
 
         <div className="mb-5 px-1 text-center">
-          <p className="text-sm font-bold text-white/80">Using a new device?</p>
+          <p className="text-sm font-bold text-white/80">Choose where your CLARA data belongs</p>
           <p className="mt-1 text-xs leading-5 text-white/50">
-            Your CLARA data will not appear automatically. You choose when to bring your saved data here.
+            Device-Only data belongs to this phone. Online Sync data belongs to your account. CLARA never merges the two automatically.
           </p>
         </div>
 
-        <section className="rounded-[30px] border border-white/12 bg-white/[0.045] p-4 shadow-[0_22px_70px_rgba(0,0,0,.28)]">
+        <section className={`rounded-[30px] border p-4 shadow-[0_22px_70px_rgba(0,0,0,.28)] ${!onlineSyncActive ? "border-emerald-300/25 bg-emerald-400/[0.07]" : "border-white/12 bg-white/[0.035]"}`}>
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/12 text-emerald-100">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
+              <HardDrive size={21} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black">Device-Only Mode</h2>
+                {!onlineSyncActive ? <CheckCircle2 size={18} className="text-emerald-200" /> : null}
+              </div>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/58">
+                Use CLARA with or without internet. Financial data stays exclusively on this device and never uploads automatically.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2 text-xs font-semibold text-white/60">
+            {["Works online and offline", "Every device has separate data", "Backup and restore remain manual"].map((item) => (
+              <div key={item} className="flex items-center gap-2"><Check size={14} className="text-emerald-200" />{item}</div>
+            ))}
+          </div>
+          {onlineSyncActive ? (
+            <button type="button" onClick={handleSwitchToDeviceOnly} disabled={changingMode} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 disabled:opacity-55">
+              <CloudOff size={17} />
+              {changingMode ? "Switching..." : "Switch to Device-Only"}
+            </button>
+          ) : null}
+        </section>
+
+        <section className={`mt-4 rounded-[30px] border p-4 shadow-[0_22px_70px_rgba(0,0,0,.28)] ${onlineSyncActive ? "border-cyan-300/25 bg-cyan-400/[0.07]" : "border-white/12 bg-white/[0.035]"}`}>
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
               <Cloud size={21} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black">Your saved CLARA data</h2>
-                {initialized && !syncPaused ? <CheckCircle2 size={18} className="text-emerald-200" /> : null}
+                <h2 className="text-lg font-black">Online Sync Mode</h2>
+                {onlineSyncActive ? <CheckCircle2 size={18} className="text-cyan-200" /> : null}
               </div>
-              {initialized ? (
-                syncPaused ? (
-                  <>
-                    <p className="mt-2 text-sm font-black text-amber-100">Ready when you are</p>
-                    <p className="mt-1 text-xs leading-5 text-white/55">
-                      Saved CLARA data is available. This device stays as it is until you choose to bring that data here.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mt-2 text-sm font-black text-emerald-100">Connected</p>
-                    <p className="mt-1 text-xs leading-5 text-white/55">
-                      This device is connected to your saved CLARA data.
-                    </p>
-                  </>
-                )
-              ) : (
-                <>
-                  <p className="mt-2 text-sm font-black text-white/80">Not saved yet</p>
-                  <p className="mt-1 text-xs leading-5 text-white/55">
-                    Save the CLARA data on this device so you can bring it to another device later.
-                  </p>
-                </>
-              )}
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/58">
+                Your saved CLARA data belongs to your account and can be used on authorized devices. Internet is required to open or change financial data.
+              </p>
             </div>
           </div>
+          <div className="mt-4 space-y-2 text-xs font-semibold text-white/60">
+            {["Same protected data on authorized devices", "No offline financial changes", "Disconnected workspace is fully blocked"].map((item) => (
+              <div key={item} className="flex items-center gap-2"><Check size={14} className="text-cyan-200" />{item}</div>
+            ))}
+          </div>
 
-          {!initialized ? (
-            <button
-              type="button"
-              onClick={handleInitializeDatabase}
-              disabled={syncing}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
-            >
-              <Cloud size={17} />
-              {syncing ? "Saving..." : "Save this device's data"}
+          {!onlineSyncActive ? (
+            <button type="button" onClick={handleEnableOnlineSync} disabled={changingMode || networkOffline} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55">
+              <Wifi size={17} />
+              {changingMode ? "Enabling..." : initialized ? "Bring saved data to this device" : "Save this device's data online"}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleSyncOnlineData}
-              disabled={syncing}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
-            >
+            <button type="button" onClick={handleSyncNow} disabled={syncing || networkOffline} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55">
               <RefreshCw size={17} className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Updating..." : syncPaused ? "Bring saved data to this device" : "Sync now"}
+              {syncing ? "Syncing..." : "Sync now"}
             </button>
           )}
+
+          {networkOffline ? (
+            <p className="mt-3 text-center text-xs font-bold text-amber-200">Ready when you are—reconnect to change or use Online Sync.</p>
+          ) : null}
         </section>
 
         <section className="mt-5 rounded-[28px] border border-white/12 bg-white/[0.035] p-4">
@@ -294,35 +358,25 @@ export default function DataExport() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={exporting || importing}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-5 py-3.5 text-sm font-black text-emerald-100 disabled:opacity-55"
-          >
+          <button type="button" onClick={handleDownload} disabled={exporting || importing} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-5 py-3.5 text-sm font-black text-emerald-100 disabled:opacity-55">
             <Download size={17} />
             {exporting ? "Preparing backup..." : "Download backup"}
           </button>
 
-          {!initialized ? (
+          {!onlineSyncActive ? (
             <>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={exporting || importing}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.045] px-5 py-3.5 text-sm font-black text-white/80 disabled:opacity-40"
-              >
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={exporting || importing} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.045] px-5 py-3.5 text-sm font-black text-white/80 disabled:opacity-40">
                 <Upload size={17} />
                 {importing ? "Restoring..." : "Restore from backup"}
               </button>
               <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFileSelected} />
             </>
-          ) : null}
+          ) : (
+            <p className="mt-3 text-center text-[11px] leading-5 text-white/40">Restore is disabled while Online Sync owns this workspace.</p>
+          )}
         </section>
 
-        {error ? (
-          <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-200">{error}</div>
-        ) : null}
+        {error ? <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-200">{error}</div> : null}
 
         {result ? (
           <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm leading-6 ${result.type === "info" ? "border-cyan-500/20 bg-cyan-500/10 text-cyan-100" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-100"}`}>
