@@ -48,6 +48,7 @@ export default function CloudVaultSyncBridge() {
   const [networkOffline, setNetworkOffline] = useState(() => networkIsOffline());
   const [serverUnavailable, setServerUnavailable] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
 
   useEffect(() => {
     userRef.current = user;
@@ -94,8 +95,12 @@ export default function CloudVaultSyncBridge() {
     const handleOnline = () => {
       setNetworkOffline(false);
       setServerUnavailable(false);
+      setConnectionError("");
     };
-    const handleOffline = () => setNetworkOffline(true);
+    const handleOffline = () => {
+      setNetworkOffline(true);
+      setConnectionError("This device is still offline. Turn on Wi-Fi or mobile data, then try again.");
+    };
 
     window.addEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
     window.addEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageModeChange);
@@ -118,9 +123,14 @@ export default function CloudVaultSyncBridge() {
         .then((result) => {
           if (result?.state === "synced") {
             setServerUnavailable(false);
+            setNetworkOffline(false);
+            setConnectionError("");
             if (forcePull) resumeOnlineSync();
           } else if (result?.offline) {
             setServerUnavailable(true);
+            setConnectionError(
+              "Your internet is on, but CLARA could not reach the sync server. Please try again."
+            );
           }
           return result;
         })
@@ -130,8 +140,15 @@ export default function CloudVaultSyncBridge() {
             networkIsOffline()
           ) {
             setNetworkOffline(true);
+            setConnectionError(
+              "This device is still offline. Turn on Wi-Fi or mobile data, then try again."
+            );
           } else {
             setServerUnavailable(true);
+            setConnectionError(
+              error?.message ||
+                "CLARA could not reach the sync server. Please try again."
+            );
           }
           throw error;
         });
@@ -208,26 +225,77 @@ export default function CloudVaultSyncBridge() {
   const retryConnection = async () => {
     if (retrying) return;
     setRetrying(true);
-    setNetworkOffline(networkIsOffline());
+    setConnectionError("");
+
+    const stillOffline = networkIsOffline();
+    setNetworkOffline(stillOffline);
 
     try {
-      if (networkIsOffline()) return;
-      await refreshClaraStorageModeFromServer(userRef.current);
+      if (stillOffline) {
+        setConnectionError(
+          "This device is still offline. Turn on Wi-Fi or mobile data, then try again."
+        );
+        return;
+      }
+
+      // Reconnect directly through the active finance-sync service. Do not make
+      // this button depend on the legacy cloud-vault status endpoint; that endpoint
+      // can fail even when the real finance sync service is reachable.
       const result = await syncFinanceForActiveMode({
         user: userRef.current,
         forcePull: true,
       });
+
       if (result?.state === "synced") {
         setServerUnavailable(false);
         setNetworkOffline(false);
+        setConnectionError("");
         resumeOnlineSync();
+        return;
       }
-    } catch {
+
+      if (result?.needsBootstrap) {
+        setServerUnavailable(true);
+        setConnectionError(
+          "Your Online Sync workspace has not been initialized yet. Open Settings, then Move & Restore Data to choose which data should be saved online."
+        );
+        return;
+      }
+
+      if (result?.offline) {
+        setServerUnavailable(true);
+        setConnectionError(
+          "Your internet is on, but CLARA could not reach the sync server. Please try again."
+        );
+        return;
+      }
+
       setServerUnavailable(true);
+      setConnectionError("CLARA could not verify your online workspace. Please try again.");
+    } catch (error) {
+      if (
+        error?.code === "ONLINE_SYNC_REQUIRES_INTERNET" ||
+        networkIsOffline()
+      ) {
+        setNetworkOffline(true);
+        setConnectionError(
+          "This device is still offline. Turn on Wi-Fi or mobile data, then try again."
+        );
+      } else {
+        setServerUnavailable(true);
+        setConnectionError(
+          error?.message ||
+            "CLARA could not reach the sync server. Please try again."
+        );
+      }
     } finally {
       setRetrying(false);
     }
   };
+
+  const gateTitle = networkOffline
+    ? "Internet connection required"
+    : "CLARA sync server unavailable";
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#020817] px-5 text-white">
@@ -238,7 +306,7 @@ export default function CloudVaultSyncBridge() {
         <p className="mt-5 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
           Online Sync Mode
         </p>
-        <h1 className="mt-2 text-2xl font-black">Internet connection required</h1>
+        <h1 className="mt-2 text-2xl font-black">{gateTitle}</h1>
         <p className="mt-3 text-sm font-semibold leading-6 text-white/60">
           This CLARA workspace belongs to your online account. Reconnect before
           viewing or changing financial data so every update stays protected and
@@ -248,6 +316,11 @@ export default function CloudVaultSyncBridge() {
           No offline financial changes are allowed in Online Sync Mode. Your saved
           online data remains untouched while CLARA is disconnected.
         </div>
+        {connectionError ? (
+          <p className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-left text-xs font-semibold leading-5 text-amber-100">
+            {connectionError}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={retryConnection}
