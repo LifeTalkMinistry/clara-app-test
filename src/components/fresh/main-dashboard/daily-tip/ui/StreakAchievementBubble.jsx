@@ -164,7 +164,7 @@ export default function StreakAchievementBubble() {
           <X className="h-4 w-4" />
         </button>
 
-        <div className="relative z-10 pr-8">
+        <div className="relative z-10 w-full">
           <div
             className={`flex h-12 w-12 items-center justify-center rounded-2xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] ${
               isThirtyDayAchievement
