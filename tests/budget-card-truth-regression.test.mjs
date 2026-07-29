@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { resetMonthlyBudgetCycle } from "../src/lib/clara-budget-cycle-reset.js";
+import { normalizeCarouselBudgetPlan } from "../src/components/financial-carousel/logic/financeCarouselDataHelpersCore.js";
 
 const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
@@ -42,4 +44,55 @@ test("Budget completion compares currency units instead of floating point amount
 test("Budget unallocated fallback does not force a missing value to zero", () => {
   assert.match(budgetLogic, /unallocatedAmount = undefined/);
   assert.match(budgetLogic, /const unallocatedSource = hasValue\(unallocatedAmount\)/);
+});
+
+test("reset uses the exact reset time instead of the cycle start date", async () => {
+  const createdRows = [];
+
+  const result = await resetMonthlyBudgetCycle({
+    budgets: [],
+    headerPayload: {
+      cycle_start: "2026-07-01",
+      period_start: "2026-07-01",
+      cycle_end: "2026-07-31",
+      status: "draft",
+    },
+    categoryPayloads: [{ title: "Food", cycle_start: "2026-07-01" }],
+    addBudget: async (payload) => {
+      createdRows.push(payload);
+      return payload;
+    },
+    updateBudget: async () => {},
+  });
+
+  const [header, category] = createdRows;
+  assert.match(header.reset_start_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.notEqual(header.reset_start_at, header.cycle_start);
+  assert.equal(header.tracking_started_at, header.reset_start_at);
+  assert.equal(category.reset_start_at, header.reset_start_at);
+  assert.equal(result.newHeader.reset_start_at, header.reset_start_at);
+});
+
+test("an inactive reset plan cannot leak old watch-zone totals into the budget card", () => {
+  const normalized = normalizeCarouselBudgetPlan({
+    hasActiveBudgetPlan: false,
+    status: "no_plan",
+    declared_budget: 0,
+    spent: 4202,
+    unplanned_spent: 4202,
+    undocumented_spent: 800,
+    unplanned_items: [{ id: "old-unplanned", amount: 4202 }],
+    undocumented_items: [{ id: "old-undocumented", amount: 800 }],
+    outside_plan_items: [{ id: "old-outside", amount: 5002 }],
+    categories: [{ id: "old-category", title: "Old plan", allocated: 3000, spent: 3000 }],
+  });
+
+  assert.equal(normalized.declaredBudget, 0);
+  assert.equal(normalized.spentAmount, 0);
+  assert.equal(normalized.unplannedSpent, 0);
+  assert.equal(normalized.undocumentedSpent, 0);
+  assert.deepEqual(normalized.unplannedItems, []);
+  assert.deepEqual(normalized.undocumentedItems, []);
+  assert.deepEqual(normalized.outsidePlanItems, []);
+  assert.deepEqual(normalized.budgetCategories, []);
 });
