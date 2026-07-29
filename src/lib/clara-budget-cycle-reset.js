@@ -45,12 +45,13 @@ function archivePatch(now) {
 }
 
 function resetBoundaryFrom(payload = {}) {
+  // The cycle window describes when the plan is scheduled to run. It must not
+  // be reused as the fresh-session cutoff, or transactions from earlier in the
+  // same cycle will immediately reappear after a reset.
   return normalizeString(
     payload.reset_start_at ||
       payload.tracking_started_at ||
-      payload.tracking_start_date ||
-      payload.cycle_start ||
-      payload.period_start
+      payload.tracking_start_date
   );
 }
 
@@ -115,6 +116,9 @@ export async function resetMonthlyBudgetCycle({
     newCategories.push(
       await addBudget({
         ...payload,
+        reset_start_at: payload.reset_start_at || resetBoundary,
+        tracking_started_at: payload.tracking_started_at || resetBoundary,
+        tracking_start_date: payload.tracking_start_date || resetBoundary,
         is_active: true,
         active: true,
         status: payload.status || "active",
