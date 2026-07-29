@@ -127,6 +127,15 @@ test("strict storage policy prevents Device-Only uploads and requires internet f
   assert.match(bridgeSource, /Internet connection required/);
   assert.match(bridgeSource, /No offline financial changes are allowed/);
 
+  const retryBlock = bridgeSource.match(
+    /const retryConnection = async \(\) => \{[\s\S]*?\n  \};/
+  )?.[0] || "";
+  assert.match(retryBlock, /syncFinanceForActiveMode/);
+  assert.doesNotMatch(retryBlock, /refreshClaraStorageModeFromServer/);
+  assert.match(bridgeSource, /legacy cloud-vault status endpoint/);
+  assert.match(bridgeSource, /CLARA sync server unavailable/);
+  assert.match(bridgeSource, /connectionError/);
+
   assert.match(storageScreen, /Device-Only Mode/);
   assert.match(storageScreen, /Online Sync Mode/);
   assert.match(storageScreen, /Works online and offline/);
