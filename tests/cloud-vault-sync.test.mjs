@@ -6,6 +6,9 @@ const {
   CLARA_STORAGE_MODES,
   getClaraStorageMode,
   getClaraStorageModeKey,
+  hasClaraStorageModeChoice,
+  isClaraDeviceOnlyMode,
+  isClaraOnlineSyncMode,
   normalizeClaraStorageMode,
   saveClaraStorageMode,
 } = await import("../src/lib/clara-storage-mode.js");
@@ -22,13 +25,18 @@ class MemoryStorage {
   }
 }
 
-test("legacy storage mode helpers remain readable for existing installs", () => {
+test("storage mode defaults safely to Device-Only and stays account scoped", () => {
   const storage = new MemoryStorage();
   assert.equal(getClaraStorageMode("7", storage), CLARA_STORAGE_MODES.LOCAL_ONLY);
+  assert.equal(hasClaraStorageModeChoice("7", storage), false);
+  assert.equal(isClaraDeviceOnlyMode("7", storage), true);
+  assert.equal(isClaraOnlineSyncMode("7", storage), false);
   assert.equal(normalizeClaraStorageMode("unexpected"), CLARA_STORAGE_MODES.LOCAL_ONLY);
 
   saveClaraStorageMode("7", CLARA_STORAGE_MODES.ONLINE_SYNC, storage);
+  assert.equal(hasClaraStorageModeChoice("7", storage), true);
   assert.equal(getClaraStorageMode("7", storage), CLARA_STORAGE_MODES.ONLINE_SYNC);
+  assert.equal(isClaraOnlineSyncMode("7", storage), true);
   assert.equal(getClaraStorageMode("8", storage), CLARA_STORAGE_MODES.LOCAL_ONLY);
   assert.equal(getClaraStorageModeKey("7"), "clara_storage_mode_v1:7");
 });
@@ -93,9 +101,9 @@ test("Daily Check-In remains device-only during server sync", async () => {
   assert.match(localExportSource, /clara_daily_check_in_v3:/);
 });
 
-test("server finance sync keeps the manual control under simple user-facing Privacy copy", async () => {
-  const syncSource = await fs.readFile(
-    new URL("../src/lib/server-finance-sync.js", import.meta.url),
+test("strict storage policy prevents Device-Only uploads and requires internet for Online Sync", async () => {
+  const policySource = await fs.readFile(
+    new URL("../src/lib/strict-storage-mode-policy.js", import.meta.url),
     "utf8"
   );
   const bridgeSource = await fs.readFile(
@@ -107,19 +115,27 @@ test("server finance sync keeps the manual control under simple user-facing Priv
     "utf8"
   );
 
-  assert.match(syncSource, /\/api\/finance\/bootstrap/);
-  assert.match(syncSource, /\/api\/finance\/sync/);
-  assert.match(syncSource, /firstServerPull/);
-  assert.match(syncSource, /const changes = \[\]/);
-  assert.match(syncSource, /replaceLocalCacheFromServer/);
-  assert.match(syncSource, /initializedLocally/);
-  assert.match(bridgeSource, /syncServerFinance/);
-  assert.doesNotMatch(bridgeSource, /syncClaraCloudVault/);
-  assert.match(storageScreen, /SECURITY & PRIVACY/);
-  assert.match(storageScreen, /Move & Restore Data/);
-  assert.match(storageScreen, /Save this device's data/);
+  assert.match(policySource, /storageMode !== CLARA_STORAGE_MODES\.ONLINE_SYNC/);
+  assert.match(policySource, /state: "local_only"/);
+  assert.match(policySource, /ONLINE_SYNC_REQUIRES_INTERNET/);
+  assert.match(policySource, /setCloudVaultStorageMode\(CLARA_STORAGE_MODES\.ONLINE_SYNC\)/);
+  assert.match(policySource, /setCloudVaultStorageMode\(CLARA_STORAGE_MODES\.LOCAL_ONLY\)/);
+
+  assert.match(bridgeSource, /storageMode !== CLARA_STORAGE_MODES\.ONLINE_SYNC/);
+  assert.match(bridgeSource, /Device-Only mode never installs upload listeners/);
+  assert.match(bridgeSource, /onlineWorkspaceBlocked/);
+  assert.match(bridgeSource, /Internet connection required/);
+  assert.match(bridgeSource, /No offline financial changes are allowed/);
+
+  assert.match(storageScreen, /Device-Only Mode/);
+  assert.match(storageScreen, /Online Sync Mode/);
+  assert.match(storageScreen, /Works online and offline/);
+  assert.match(storageScreen, /Internet is required to open or change financial data/);
+  assert.match(storageScreen, /never merges the two automatically/);
+  assert.match(storageScreen, /clearClaraDeviceData/);
+  assert.match(storageScreen, /Save this device's data online/);
   assert.match(storageScreen, /Bring saved data to this device/);
-  assert.match(storageScreen, /Your CLARA data will not appear automatically/);
+  assert.match(storageScreen, /Sync now/);
   assert.doesNotMatch(storageScreen, /Revision \{/);
   assert.doesNotMatch(storageScreen, /One account database across devices/);
   assert.doesNotMatch(storageScreen, /source of truth/i);
