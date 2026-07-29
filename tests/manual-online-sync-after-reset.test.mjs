@@ -7,6 +7,8 @@ const readSource = (relativePath) =>
 
 const resetSource = readSource("src/lib/clear-clara-device-data.js");
 const policySource = readSource("src/lib/cloud-sync-policy.js");
+const storageModeSource = readSource("src/lib/clara-storage-mode.js");
+const strictPolicySource = readSource("src/lib/strict-storage-mode-policy.js");
 const resolverSource = readSource("src/lib/accountLinking/resolveAccountLocalVault.js");
 const bridgeSource = readSource("src/components/CloudVaultSyncBridge.jsx");
 const dataExportSource = readSource("src/pages/DataExport.jsx");
@@ -41,21 +43,30 @@ test("login cannot reconnect a reset device to a surviving old local vault", () 
   );
 });
 
-test("automatic finance sync is suppressed while a reset device is paused", () => {
+test("Device-Only mode suppresses automatic finance sync", () => {
+  assert.match(storageModeSource, /LOCAL_ONLY: "local_only"/);
+  assert.match(storageModeSource, /ONLINE_SYNC: "online_sync"/);
+  assert.match(strictPolicySource, /storageMode !== CLARA_STORAGE_MODES\.ONLINE_SYNC/);
+  assert.match(strictPolicySource, /state: "local_only"/);
   assert.match(bridgeSource, /const \[syncPaused, setSyncPaused\]/);
-  assert.match(bridgeSource, /if \(syncPaused\)/);
-  assert.match(bridgeSource, /No automatic pull or upload is allowed/);
+  assert.match(bridgeSource, /storageMode !== CLARA_STORAGE_MODES\.ONLINE_SYNC/);
+  assert.match(bridgeSource, /Device-Only mode never installs upload listeners/);
   assert.match(bridgeSource, /CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT/);
-  assert.match(bridgeSource, /syncServerFinance\(\{ user: userRef\.current, forcePull \}\)/);
+  assert.match(bridgeSource, /syncFinanceForActiveMode/);
   assert.match(bridgeSource, /resumeOnlineSync\(\)/);
 });
 
-test("Security and privacy Move & Restore Data owns the single manual sync control", () => {
+test("Security and privacy owns explicit strict mode controls", () => {
   assert.match(dataExportSource, /SECURITY & PRIVACY/);
   assert.match(dataExportSource, /Move & Restore Data/);
+  assert.match(dataExportSource, /Device-Only Mode/);
+  assert.match(dataExportSource, /Online Sync Mode/);
   assert.match(dataExportSource, /Ready when you are/);
   assert.match(dataExportSource, /Bring saved data to this device/);
-  assert.match(dataExportSource, /syncServerFinance\(\{ user, forcePull: currentlyPaused \}\)/);
+  assert.match(dataExportSource, /Save this device's data online/);
+  assert.match(dataExportSource, /syncFinanceForActiveMode\(\{ user, forcePull: true \}\)/);
+  assert.match(dataExportSource, /enableStrictDeviceOnlyMode/);
+  assert.match(dataExportSource, /clearClaraDeviceData/);
   assert.match(dataExportSource, /resumeOnlineSync\(\)/);
   assert.doesNotMatch(dataExportSource, /Revision \{/);
   assert.doesNotMatch(dataExportSource, /One account database across devices/);
