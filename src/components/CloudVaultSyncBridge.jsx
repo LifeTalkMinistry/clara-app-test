@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CloudOff, RefreshCw, Wifi } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getBackendAccountId } from "@/lib/clara-account-identity";
 import {
@@ -8,9 +9,18 @@ import {
   resumeOnlineSync,
 } from "@/lib/cloud-sync-policy";
 import {
+  CLARA_STORAGE_MODE_EVENT,
+  CLARA_STORAGE_MODES,
+  getClaraStorageMode,
+} from "@/lib/clara-storage-mode";
+import {
+  getActiveClaraStorageMode,
+  refreshClaraStorageModeFromServer,
+  syncFinanceForActiveMode,
+} from "@/lib/strict-storage-mode-policy";
+import {
   CLARA_SERVER_FINANCE_EVENT_SOURCE,
   isApplyingServerFinanceState,
-  syncServerFinance,
 } from "@/lib/server-finance-sync";
 
 const SYNC_EVENTS = [
@@ -22,53 +32,132 @@ const SYNC_EVENTS = [
   "clara-local-setup-profile-updated",
 ];
 
+function networkIsOffline() {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 export default function CloudVaultSyncBridge() {
   const { user, authReady } = useAuth();
   const accountId = getBackendAccountId(user);
   const timerRef = useRef(null);
   const userRef = useRef(user);
   const [syncPaused, setSyncPaused] = useState(() => isOnlineSyncPaused());
+  const [storageMode, setStorageMode] = useState(() =>
+    getActiveClaraStorageMode(user)
+  );
+  const [networkOffline, setNetworkOffline] = useState(() => networkIsOffline());
+  const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     userRef.current = user;
   }, [user]);
 
   useEffect(() => {
+    setStorageMode(
+      accountId
+        ? getClaraStorageMode(accountId)
+        : CLARA_STORAGE_MODES.LOCAL_ONLY
+    );
+  }, [accountId]);
+
+  useEffect(() => {
+    if (!authReady || !accountId || networkIsOffline()) return undefined;
+    let active = true;
+
+    refreshClaraStorageModeFromServer(user)
+      .then((mode) => {
+        if (active) setStorageMode(mode);
+      })
+      .catch(() => {
+        // Keep the last account-scoped mode. A temporary server failure must not
+        // silently downgrade an Online Sync account to Device-Only.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [accountId, authReady, user]);
+
+  useEffect(() => {
     const handlePolicyChange = () => setSyncPaused(isOnlineSyncPaused());
+    const handleStorageModeChange = (event) => {
+      const eventAccountId = String(event?.detail?.accountId || "");
+      if (eventAccountId && eventAccountId !== String(accountId || "")) return;
+      setStorageMode(
+        event?.detail?.mode ||
+          (accountId
+            ? getClaraStorageMode(accountId)
+            : CLARA_STORAGE_MODES.LOCAL_ONLY)
+      );
+    };
+    const handleOnline = () => {
+      setNetworkOffline(false);
+      setServerUnavailable(false);
+    };
+    const handleOffline = () => setNetworkOffline(true);
+
     window.addEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
+    window.addEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageModeChange);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
       window.removeEventListener(CLARA_ONLINE_SYNC_POLICY_EVENT, handlePolicyChange);
+      window.removeEventListener(CLARA_STORAGE_MODE_EVENT, handleStorageModeChange);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [accountId]);
 
   useEffect(() => {
     if (!authReady || !accountId) return undefined;
 
-    const handleManualSync = (event) => {
-      if (isApplyingServerFinanceState()) return;
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-
-      const forcePull = Boolean(event?.detail?.forcePull);
-      syncServerFinance({ user: userRef.current, forcePull })
+    const runSync = ({ forcePull = false } = {}) =>
+      syncFinanceForActiveMode({ user: userRef.current, forcePull })
         .then((result) => {
           if (result?.state === "synced") {
-            resumeOnlineSync();
+            setServerUnavailable(false);
+            if (forcePull) resumeOnlineSync();
+          } else if (result?.offline) {
+            setServerUnavailable(true);
           }
+          return result;
         })
-        .catch(() => {
-          // The Settings control listens for the detailed sync status event.
+        .catch((error) => {
+          if (
+            error?.code === "ONLINE_SYNC_REQUIRES_INTERNET" ||
+            networkIsOffline()
+          ) {
+            setNetworkOffline(true);
+          } else {
+            setServerUnavailable(true);
+          }
+          throw error;
         });
+
+    const handleManualSync = (event) => {
+      if (isApplyingServerFinanceState()) return;
+      if (storageMode !== CLARA_STORAGE_MODES.ONLINE_SYNC) return;
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+      runSync({ forcePull: Boolean(event?.detail?.forcePull) }).catch(() => {});
     };
 
     window.addEventListener(CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT, handleManualSync);
 
-    if (syncPaused) {
-      // A device reset intentionally leaves authentication usable while finance
-      // sync is fully paused. No automatic pull or upload is allowed until the
-      // user explicitly chooses Sync online data in Settings.
+    if (
+      storageMode !== CLARA_STORAGE_MODES.ONLINE_SYNC ||
+      syncPaused ||
+      networkOffline
+    ) {
+      // Device-Only mode never installs upload listeners. A freshly reset device
+      // also remains isolated until the user explicitly chooses Online Sync.
       return () => {
-        window.removeEventListener(CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT, handleManualSync);
+        window.removeEventListener(
+          CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT,
+          handleManualSync
+        );
       };
     }
 
@@ -78,15 +167,11 @@ export default function CloudVaultSyncBridge() {
       const delay = immediate ? 0 : 1_500;
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
-        syncServerFinance({ user: userRef.current, forcePull }).catch(() => {
-          // The storage screen listens for the detailed status event.
-        });
+        runSync({ forcePull }).catch(() => {});
       }, delay);
     };
 
     const handleDataChange = (event) => {
-      // Server-authoritative cache refreshes are for UI readers only. They must
-      // never be interpreted as a new local mutation and uploaded back again.
       if (event?.detail?.source === CLARA_SERVER_FINANCE_EVENT_SOURCE) return;
       scheduleSync();
     };
@@ -96,21 +181,83 @@ export default function CloudVaultSyncBridge() {
       window.addEventListener(eventName, handleDataChange)
     );
     window.addEventListener("online", handleOnline);
-
-    // Normal devices keep the existing automatic behavior. A freshly reset
-    // device reaches this line only after the explicit manual restore succeeds.
     scheduleSync({ immediate: true });
 
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
       timerRef.current = null;
-      window.removeEventListener(CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT, handleManualSync);
+      window.removeEventListener(
+        CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT,
+        handleManualSync
+      );
       SYNC_EVENTS.forEach((eventName) =>
         window.removeEventListener(eventName, handleDataChange)
       );
       window.removeEventListener("online", handleOnline);
     };
-  }, [accountId, authReady, syncPaused]);
+  }, [accountId, authReady, networkOffline, storageMode, syncPaused]);
 
-  return null;
+  const onlineWorkspaceBlocked = Boolean(
+    accountId &&
+      storageMode === CLARA_STORAGE_MODES.ONLINE_SYNC &&
+      (networkOffline || serverUnavailable)
+  );
+
+  if (!onlineWorkspaceBlocked) return null;
+
+  const retryConnection = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    setNetworkOffline(networkIsOffline());
+
+    try {
+      if (networkIsOffline()) return;
+      await refreshClaraStorageModeFromServer(userRef.current);
+      const result = await syncFinanceForActiveMode({
+        user: userRef.current,
+        forcePull: true,
+      });
+      if (result?.state === "synced") {
+        setServerUnavailable(false);
+        setNetworkOffline(false);
+        resumeOnlineSync();
+      }
+    } catch {
+      setServerUnavailable(true);
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#020817] px-5 text-white">
+      <div className="w-full max-w-md rounded-[30px] border border-cyan-300/15 bg-white/[0.055] p-6 text-center shadow-[0_30px_90px_rgba(0,0,0,.55)] backdrop-blur-2xl">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
+          {networkOffline ? <CloudOff size={28} /> : <Wifi size={28} />}
+        </div>
+        <p className="mt-5 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200/70">
+          Online Sync Mode
+        </p>
+        <h1 className="mt-2 text-2xl font-black">Internet connection required</h1>
+        <p className="mt-3 text-sm font-semibold leading-6 text-white/60">
+          This CLARA workspace belongs to your online account. Reconnect before
+          viewing or changing financial data so every update stays protected and
+          consistent across your authorized devices.
+        </p>
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-left text-xs font-semibold leading-5 text-white/52">
+          No offline financial changes are allowed in Online Sync Mode. Your saved
+          online data remains untouched while CLARA is disconnected.
+        </div>
+        <button
+          type="button"
+          onClick={retryConnection}
+          disabled={retrying}
+          className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-55"
+        >
+          <RefreshCw size={17} className={retrying ? "animate-spin" : ""} />
+          {retrying ? "Checking connection..." : "Reconnect and open CLARA"}
+        </button>
+      </div>
+    </div>
+  );
 }
