@@ -257,6 +257,7 @@ export default function SavingsGoalsIntegrated() {
     deleteExpense,
     transferBetweenWallets,
     addMoney,
+    insertWalletTransaction,
     updateWallet,
     deleteWalletTransaction,
   } = data || {};
@@ -971,6 +972,8 @@ export default function SavingsGoalsIntegrated() {
     const mode = String(input?.mode || "").trim();
     const selectedWalletId = walletId(input?.walletId || "");
     const cleanReason = String(input?.reason || "").trim();
+    const rawActualWalletBalance = String(input?.actualWalletBalance ?? "").trim();
+    const rawActualSavedBalance = String(input?.actualSavedBalance ?? "").trim();
     const currentSaved = Math.max(getGoalSavedAmount(goal), 0);
     const target = Math.max(getGoalTargetAmount(goal), 0);
     const previousWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
@@ -990,8 +993,11 @@ export default function SavingsGoalsIntegrated() {
     } else if (mode === "savings_correct") {
       nextWalletBalance = Math.max(currentWalletBalance, protectionBase + currentSaved);
     } else {
-      nextWalletBalance = toNumber(input?.actualWalletBalance);
-      nextSaved = toNumber(input?.actualSavedBalance);
+      if (!rawActualWalletBalance || !rawActualSavedBalance) {
+        throw new Error("Enter both the actual wallet balance and the actual saved amount.");
+      }
+      nextWalletBalance = toNumber(rawActualWalletBalance);
+      nextSaved = toNumber(rawActualSavedBalance);
       if (nextWalletBalance < 0) throw new Error("Actual wallet balance cannot be negative.");
       if (nextSaved < 0) throw new Error("Actual saved amount cannot be negative.");
     }
@@ -1008,6 +1014,7 @@ export default function SavingsGoalsIntegrated() {
     const reconciliationId = "savings_wallet_reconciliation_" + Date.now();
     const walletDelta = nextWalletBalance - currentWalletBalance;
     let walletCorrectionTransactionId = "";
+    let walletCorrectionActivityId = "";
     let walletAdjustedDirectly = false;
 
     try {
@@ -1028,7 +1035,9 @@ export default function SavingsGoalsIntegrated() {
         });
         walletCorrectionTransactionId = String(correctionResult?.walletTransaction?.id || reconciliationId);
       } else if (walletDelta < 0) {
-        if (typeof updateWallet !== "function") throw new Error("Wallet balance correction is not available yet.");
+        if (typeof updateWallet !== "function" || typeof insertWalletTransaction !== "function") {
+          throw new Error("Wallet balance correction activity is not available yet.");
+        }
         await updateWallet(selectedWalletId, {
           balance: nextWalletBalance,
           last_balance_correction_reason: cleanReason,
@@ -1041,6 +1050,28 @@ export default function SavingsGoalsIntegrated() {
           source: "local",
         });
         walletAdjustedDirectly = true;
+        const walletActivityResult = await insertWalletTransaction({
+          id: reconciliationId + "_wallet_activity",
+          wallet_id: selectedWalletId,
+          amount: Math.abs(walletDelta),
+          type: "balance_correction",
+          category: "Balance Correction",
+          source_type: "savings_wallet_reconciliation",
+          tag: "historical_wallet_correction",
+          notes: 'Wallet balance corrected for savings goal "' + (goal?.title || "Savings Goal") + '": ' + cleanReason,
+          details: JSON.stringify({
+            reconciliation_id: reconciliationId,
+            savings_goal_id: goal?.id || null,
+            previous_balance: currentWalletBalance,
+            next_balance: nextWalletBalance,
+            adjustment: walletDelta,
+          }),
+          created_at: now,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        });
+        walletCorrectionActivityId = String(walletActivityResult?.walletTransaction?.id || walletActivityResult?.id || reconciliationId + "_wallet_activity");
       }
 
       const updatedGoal = normalizeGoal({
@@ -1076,8 +1107,8 @@ export default function SavingsGoalsIntegrated() {
           saved_balance_before: currentSaved,
           savedBalanceAfter: nextSaved,
           saved_balance_after: nextSaved,
-          linkedWalletTransactionId: walletCorrectionTransactionId || null,
-          linked_wallet_transaction_id: walletCorrectionTransactionId || null,
+          linkedWalletTransactionId: walletCorrectionTransactionId || walletCorrectionActivityId || null,
+          linked_wallet_transaction_id: walletCorrectionTransactionId || walletCorrectionActivityId || null,
           note: mode === "savings_correct"
             ? "Historical wallet money added and protected savings preserved"
             : mode === "wallet_correct"
@@ -1099,10 +1130,22 @@ export default function SavingsGoalsIntegrated() {
       setDetailGoal(updatedGoal);
       return updatedGoal;
     } catch (error) {
+      const rollbackFailures = [];
       if (walletCorrectionTransactionId && typeof deleteWalletTransaction === "function") {
         try { await deleteWalletTransaction(walletCorrectionTransactionId); }
-        catch (rollbackError) { console.error("Failed to roll back historical wallet correction:", rollbackError); }
-      } else if (walletAdjustedDirectly && typeof updateWallet === "function") {
+        catch (rollbackError) {
+          rollbackFailures.push("historical wallet correction");
+          console.error("Failed to roll back historical wallet correction:", rollbackError);
+        }
+      }
+      if (walletCorrectionActivityId && typeof deleteWalletTransaction === "function") {
+        try { await deleteWalletTransaction(walletCorrectionActivityId); }
+        catch (rollbackError) {
+          rollbackFailures.push("wallet correction activity");
+          console.error("Failed to remove wallet correction activity:", rollbackError);
+        }
+      }
+      if (walletAdjustedDirectly && typeof updateWallet === "function") {
         try {
           await updateWallet(selectedWalletId, {
             balance: currentWalletBalance,
@@ -1112,8 +1155,16 @@ export default function SavingsGoalsIntegrated() {
             source: "local",
           });
         } catch (rollbackError) {
+          rollbackFailures.push("wallet balance");
           console.error("Failed to roll back wallet balance correction:", rollbackError);
         }
+      }
+      if (rollbackFailures.length > 0) {
+        const repairError = new Error("Reconciliation stopped, but automatic rollback did not fully finish. Check this wallet and Savings Goal before making another change.");
+        repairError.repairRequired = true;
+        repairError.rollbackFailures = rollbackFailures;
+        repairError.originalError = error;
+        throw repairError;
       }
       throw error;
     }
@@ -1521,6 +1572,7 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
   const [reconciliationActualSavedBalance, setReconciliationActualSavedBalance] = useState("");
   const [reconciliationReason, setReconciliationReason] = useState("");
   const [reconciliationError, setReconciliationError] = useState("");
+  const [reconciliationRepairRequired, setReconciliationRepairRequired] = useState(false);
   const saved = toNumber(goal?.saved_amount);
   const target = toNumber(goal?.target_amount);
   const remaining = Math.max(target - saved, 0);
@@ -1552,6 +1604,13 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
     reconciliationPreview.walletAfter - reconciliationProtectionBase - reconciliationPreview.savedAfter,
     0,
   );
+  const reconciliationBothValuesMissing = reconciliationMode === "both" && (
+    !String(reconciliationActualWalletBalance ?? "").trim() ||
+    !String(reconciliationActualSavedBalance ?? "").trim()
+  );
+  const reconciliationReducesMoney =
+    toMinorUnits(reconciliationPreview.walletAfter) < toMinorUnits(reconciliationWalletBalance) ||
+    toMinorUnits(reconciliationPreview.savedAfter) < toMinorUnits(saved);
 
   const openReconciliation = (mode = hasBalanceMismatch ? "wallet_correct" : "both") => {
     const fallbackWalletId = assignedWalletIdValue || walletId(wallets[0]) || "";
@@ -1565,6 +1624,7 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
     setReconciliationActualSavedBalance(String(saved));
     setReconciliationReason("");
     setReconciliationError("");
+    setReconciliationRepairRequired(false);
     setReconciliationOpen(true);
   };
   const sourceWalletBalance = sourceWallet ? walletAvailableBalances[walletId(sourceWallet)] ?? 0 : 0;
@@ -1658,6 +1718,7 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
     try {
       setSavingAmount(true);
       setReconciliationError("");
+      setReconciliationRepairRequired(false);
       await onReconcileSavingsWallet(goal, {
         mode: reconciliationMode,
         walletId: reconciliationWalletId,
@@ -1668,6 +1729,7 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
       setReconciliationOpen(false);
     } catch (error) {
       console.error("Failed to reconcile savings and wallet:", error);
+      setReconciliationRepairRequired(Boolean(error?.repairRequired));
       setReconciliationError(error?.message || "CLARA could not reconcile these balances yet. Try again.");
     } finally {
       setSavingAmount(false);
@@ -1708,17 +1770,19 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
                 <Button type="button" onClick={() => { setReconciliationMode("savings_correct"); setReconciliationError(""); }} className={"h-auto w-full justify-start rounded-2xl border px-4 py-3 text-left " + (reconciliationMode === "savings_correct" ? "border-green-300/35 bg-green-400/15 text-green-50" : "border-white/10 bg-white/[0.04] text-white/75")}><span><span className="block text-sm font-bold">The savings amount is correct</span><span className="mt-1 block text-xs font-normal opacity-70">Add the missing historical wallet amount and keep the savings.</span></span></Button>
                 <Button type="button" onClick={() => { setReconciliationMode("both"); setReconciliationActualWalletBalance(String(reconciliationWalletBalance)); setReconciliationActualSavedBalance(String(saved)); setReconciliationError(""); }} className={"h-auto w-full justify-start rounded-2xl border px-4 py-3 text-left " + (reconciliationMode === "both" ? "border-violet-300/35 bg-violet-400/15 text-violet-50" : "border-white/10 bg-white/[0.04] text-white/75")}><span><span className="block text-sm font-bold">Both records need correction</span><span className="mt-1 block text-xs font-normal opacity-70">Enter the real wallet and savings balances yourself.</span></span></Button>
               </div>
-              {reconciliationMode === "both" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><FormInput label="Actual wallet balance"><Input type="number" className={inputDarkClass} value={reconciliationActualWalletBalance} onChange={(event) => { setReconciliationActualWalletBalance(event.target.value); setReconciliationError(""); }} /></FormInput><FormInput label="Actual saved amount"><Input type="number" className={inputDarkClass} value={reconciliationActualSavedBalance} onChange={(event) => { setReconciliationActualSavedBalance(event.target.value); setReconciliationError(""); }} /></FormInput></div> : null}
+              {reconciliationMode === "both" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><FormInput label="Actual wallet balance"><Input type="number" min="0" step="0.01" className={inputDarkClass} value={reconciliationActualWalletBalance} onChange={(event) => { setReconciliationActualWalletBalance(event.target.value); setReconciliationError(""); setReconciliationRepairRequired(false); }} /></FormInput><FormInput label="Actual saved amount"><Input type="number" min="0" step="0.01" className={inputDarkClass} value={reconciliationActualSavedBalance} onChange={(event) => { setReconciliationActualSavedBalance(event.target.value); setReconciliationError(""); setReconciliationRepairRequired(false); }} /></FormInput></div> : null}
               <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/45">Correction preview</p>
                 <div className="mt-3 grid grid-cols-2 gap-3"><InfoMini label="Wallet" value={fmt(reconciliationWalletBalance) + " → " + fmt(reconciliationPreview.walletAfter)} /><InfoMini label="Protected savings" value={fmt(saved) + " → " + fmt(reconciliationPreview.savedAfter)} /><InfoMini label="Spendable after" value={fmt(reconciliationSpendableAfter)} /><InfoMini label="Other protection" value={fmt(reconciliationProtectionBase)} /></div>
               </div>
+              {reconciliationReducesMoney ? <div className="rounded-2xl border border-amber-300/20 bg-amber-400/[0.09] p-3 text-xs font-semibold leading-5 text-amber-50">This correction reduces a recorded wallet or savings balance. Review the before-and-after amounts carefully before confirming.</div> : null}
               <FormInput label="Reason"><Textarea className="min-h-[84px] rounded-xl border-white/10 bg-[#0b1a2f] text-white placeholder:text-white/35" placeholder="Example: This money existed in Maya but the previous app bug did not record it." value={reconciliationReason} onChange={(event) => { setReconciliationReason(event.target.value); setReconciliationError(""); }} /></FormInput>
+              {reconciliationRepairRequired ? <div role="alert" className="rounded-2xl border border-red-300/30 bg-red-500/[0.13] px-4 py-3 text-sm font-bold leading-6 text-red-50">Automatic rollback did not fully finish. Do not repeat the correction yet. Compare the real wallet balance with CLARA and reopen this reconciliation after the record is reviewed.</div> : null}
               {reconciliationError ? <div role="alert" className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{reconciliationError}</div> : null}
               <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.07] p-3 text-xs leading-5 text-amber-50/75">Only choose “The savings amount is correct” when that money truly exists in the real wallet. CLARA will create a historical wallet correction for the missing amount.</div>
             </div>
           </div>
-          <div className="border-t border-white/10 bg-[#061224]/96 px-4 py-3 sm:px-5"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setReconciliationOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80">Cancel</Button><Button type="button" onClick={handleSubmitReconciliation} disabled={savingAmount || !reconciliationWalletId} className="h-10 rounded-xl bg-cyan-500 px-4 font-semibold text-[#041226] hover:bg-cyan-400 disabled:opacity-50">{savingAmount ? "Reconciling..." : "Confirm Reconciliation"}</Button></div></div>
+          <div className="border-t border-white/10 bg-[#061224]/96 px-4 py-3 sm:px-5"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setReconciliationOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80">Cancel</Button><Button type="button" onClick={handleSubmitReconciliation} disabled={savingAmount || !reconciliationWalletId || !String(reconciliationReason || "").trim() || reconciliationBothValuesMissing} className="h-10 rounded-xl bg-cyan-500 px-4 font-semibold text-[#041226] hover:bg-cyan-400 disabled:opacity-50">{savingAmount ? "Reconciling..." : "Confirm Reconciliation"}</Button></div></div>
         </div>
       </DialogContent>
     </Dialog>
