@@ -1,0 +1,27 @@
+/*
+ * Memory Review layout integrity.
+ *
+ * The premium review list is a vertical flex scroller. Its direct children must
+ * keep their natural content height; otherwise populated cards shrink to thin
+ * pills while minimum-height empty cards remain visible.
+ */
+
+#clara-assistant-memory-panel .clara-memory-review-list {
+  overflow-y: auto;
+  align-items: stretch;
+}
+
+#clara-assistant-memory-panel .clara-memory-review-list > .clara-memory-context-intro,
+#clara-assistant-memory-panel .clara-memory-review-list > .clara-memory-context-disclaimer,
+#clara-assistant-memory-panel .clara-memory-review-list > .clara-memory-section,
+#clara-assistant-memory-panel .clara-memory-review-list > .clara-memory-empty {
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+}
+
+#clara-assistant-memory-edit-panel .clara-memory-edit-note {
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+}
