@@ -1,19 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calculator, Delete, Eye, EyeOff, Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Eye, EyeOff, Plus } from "lucide-react";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const PRIVACY_KEY = "clara_money_summary_visible";
 const PRIVACY_EVENT = "clara:money-summary-privacy-updated";
-
-const CALCULATOR_KEYS = [
-  ["7", "8", "9", "÷"],
-  ["4", "5", "6", "×"],
-  ["1", "2", "3", "-"],
-  ["0", ".", "(", ")"],
-  ["C", "⌫", "=", "+"],
-];
 
 const normalizeLabel = (label) =>
   String(label || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -72,118 +63,6 @@ const savePrivacy = (visible) => {
 
 const hiddenValueFor = (label) => (isMoneyLeftLabel(label) ? "₱••••••" : "₱•••••");
 
-const evaluateCalculatorExpression = (expression) => {
-  const raw = String(expression ?? "").trim();
-  if (!raw) return "";
-
-  const sanitized = raw.replace(/×/g, "*").replace(/÷/g, "/");
-  if (!/^[\d+\-*/().\s]+$/.test(sanitized)) throw new Error("Invalid expression");
-
-  const result = Function(`"use strict"; return (${sanitized})`)();
-  if (!Number.isFinite(result)) throw new Error("Invalid result");
-
-  return String(Number(result.toFixed(8)));
-};
-
-function MoneyCalculatorDialog({ open, onOpenChange }) {
-  const [expression, setExpression] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) {
-      setExpression("");
-      setError("");
-    }
-  }, [open]);
-
-  const previewResult = useMemo(() => {
-    if (!expression.trim()) return "";
-    try {
-      return evaluateCalculatorExpression(expression);
-    } catch {
-      return "";
-    }
-  }, [expression]);
-
-  const handlePress = (key) => {
-    setError("");
-
-    if (key === "C") {
-      setExpression("");
-      return;
-    }
-
-    if (key === "⌫") {
-      setExpression((current) => current.slice(0, -1));
-      return;
-    }
-
-    if (key === "=") {
-      try {
-        setExpression(evaluateCalculatorExpression(expression));
-      } catch {
-        setError("Check the calculation and try again.");
-      }
-      return;
-    }
-
-    setExpression((current) => `${current}${key}`);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-32px)] max-w-[320px] gap-3 rounded-[24px] border border-cyan-400/25 bg-[#06142f] p-4 text-white shadow-[0_24px_80px_rgba(0,0,0,0.55),0_0_30px_rgba(34,211,238,0.12)]">
-        <DialogHeader>
-          <DialogTitle className="text-left text-base font-bold text-white">Calculator</DialogTitle>
-        </DialogHeader>
-
-        <div className="min-h-[72px] rounded-2xl border border-white/10 bg-[#031027] px-4 py-3 shadow-inner">
-          <div className="min-h-5 truncate text-right text-sm text-white/55">{expression || "0"}</div>
-          <div className="mt-1 min-h-7 truncate text-right text-2xl font-black text-cyan-300">
-            {previewResult || " "}
-          </div>
-        </div>
-
-        {error ? <p className="text-xs text-rose-300">{error}</p> : null}
-
-        <div className="grid gap-2">
-          {CALCULATOR_KEYS.map((row, rowIndex) => (
-            <div key={`calculator-row-${rowIndex}`} className="grid grid-cols-4 gap-2">
-              {row.map((key) => {
-                const isEquals = key === "=";
-                const isClear = key === "C";
-                const isDelete = key === "⌫";
-                const isOperator = ["÷", "×", "-", "+"].includes(key);
-
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => handlePress(key)}
-                    className={[
-                      "flex h-11 items-center justify-center rounded-xl border text-sm font-bold transition active:scale-95",
-                      isEquals
-                        ? "border-cyan-300/40 bg-cyan-400 text-[#031027] shadow-[0_0_18px_rgba(34,211,238,0.24)]"
-                        : isClear
-                          ? "border-rose-400/20 bg-rose-500/10 text-rose-300"
-                          : isOperator
-                            ? "border-violet-400/20 bg-violet-500/10 text-violet-200"
-                            : "border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.10]",
-                    ].join(" ")}
-                    aria-label={isDelete ? "Delete last character" : key}
-                  >
-                    {isDelete ? <Delete className="h-4 w-4" /> : key}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 const getThemeGlow = (theme) => {
   const raw = String(theme?.accent || theme?.accentColor || theme?.primary || theme?.colors?.accent || theme?.colors?.primary || "").toLowerCase();
   if (raw.includes("rose") || raw.includes("pink") || raw.includes("red")) return "rgba(244,63,94,0.16)";
@@ -212,7 +91,6 @@ export default function StatCard({
   const isMoneySummary = isMoneySummaryLabel(label);
   const showPrivacyToggle = isMoneyLeft;
   const [moneyVisible, setMoneyVisible] = useState(() => readPrivacy());
-  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const isClickable = !isMoneySummary && Boolean(to || onClick);
 
   useEffect(() => {
@@ -232,7 +110,6 @@ export default function StatCard({
   const stopMoneySummaryEvent = useCallback((event) => {
     if (!isMoneySummary) return;
     if (event.target?.closest?.("[data-money-privacy-toggle='true']")) return;
-    if (event.target?.closest?.("[data-money-calculator-toggle='true']")) return;
     event.preventDefault?.();
     event.stopPropagation?.();
     event.nativeEvent?.stopImmediatePropagation?.();
@@ -243,13 +120,6 @@ export default function StatCard({
     event.stopPropagation?.();
     event.nativeEvent?.stopImmediatePropagation?.();
     setMoneyVisible((current) => savePrivacy(!current));
-  }, []);
-
-  const openCalculator = useCallback((event) => {
-    event.preventDefault?.();
-    event.stopPropagation?.();
-    event.nativeEvent?.stopImmediatePropagation?.();
-    setCalculatorOpen(true);
   }, []);
 
   const handleClick = useCallback(() => {
@@ -296,19 +166,6 @@ export default function StatCard({
               <DisplayIcon className="h-3.5 w-3.5" />
             </button>
           ) : null}
-          <button
-            type="button"
-            data-money-calculator-toggle="true"
-            onClick={openCalculator}
-            onMouseDown={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.07] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white/80 active:scale-95"
-            aria-label="Open calculator"
-            title="Calculator"
-          >
-            <Calculator className="h-3.5 w-3.5" />
-          </button>
         </div>
         <p className={`relative mt-3 truncate text-[30px] font-black leading-none tracking-[-0.05em] ${v.value}`}>{displayValue}</p>
         <button
@@ -344,12 +201,7 @@ export default function StatCard({
       onTouchStartCapture: stopMoneySummaryEvent,
     };
 
-    return (
-      <>
-        <div className={moneyCardClassName} {...displayOnlyProps}>{moneyContent}</div>
-        <MoneyCalculatorDialog open={calculatorOpen} onOpenChange={setCalculatorOpen} />
-      </>
-    );
+    return <div className={moneyCardClassName} {...displayOnlyProps}>{moneyContent}</div>;
   }
 
   const cardClassName = `relative flex h-full flex-col overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${interaction} ${highlight ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : ""} ${v.wrapper} ${className}`;
