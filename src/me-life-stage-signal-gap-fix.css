@@ -1,14 +1,19 @@
-/* CLARA Me page — React-owned container and protected content rows.
-   The Dashboard provides the available panel height. This file only distributes
-   that inherited height across the hero, support card, signal dock, and Snapshot. */
+/* CLARA Me page — canonical React-owned visual composition.
+   Dashboard owns the available height. The configured Me screen only lays out
+   its existing React children: hero, support card, pressure dock, and Snapshot.
 
-#root div[data-clara-me-life-stage-root="true"]:has(> section[data-clara-trend-snapshot="true"]) {
-  --clara-life-support-overlap: 10px;
-  --clara-life-support-signal-gap: 8px;
+   The hero spans the support-card row, so the card overlaps the image through
+   CSS Grid instead of negative margins, transforms, viewport-height math, or
+   post-render DOM movement. */
+
+#root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+  --clara-life-hero-min: 236px;
+  --clara-life-hero-max: 284px;
+  --clara-life-support-min: 102px;
   --clara-life-pressure-dock-height: 46px;
   --clara-life-signal-snapshot-gap: 12px;
-  --clara-life-snapshot-height: 218px;
-  --clara-life-bottom-safety: 10px;
+  --clara-life-snapshot-height: 236px;
+  --clara-life-snapshot-carousel-height: 152px;
 
   display: grid !important;
   width: 100% !important;
@@ -16,38 +21,52 @@
   min-height: 0 !important;
   max-height: 100% !important;
   grid-template-rows:
-    minmax(226px, 1fr)
-    auto
+    minmax(var(--clara-life-hero-min), var(--clara-life-hero-max))
+    minmax(var(--clara-life-support-min), auto)
     var(--clara-life-pressure-dock-height)
     var(--clara-life-signal-snapshot-gap)
-    var(--clara-life-snapshot-height)
-    var(--clara-life-bottom-safety) !important;
+    var(--clara-life-snapshot-height) !important;
   gap: 0 !important;
-  align-content: stretch !important;
+  align-content: start !important;
+  justify-content: stretch !important;
   overflow: hidden !important;
   padding: 8px 8px 10px !important;
   box-sizing: border-box !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section:first-of-type {
-  grid-row: 1 !important;
+/* The hero owns rows 1 and 2. Row 2 is shared with the support card, producing
+   the previous floating-card look without removing either element from flow. */
+#root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type {
+  grid-row: 1 / 3 !important;
+  grid-column: 1 !important;
   align-self: stretch !important;
+  justify-self: stretch !important;
   min-height: 0 !important;
   height: 100% !important;
+  max-height: none !important;
   margin: 0 !important;
+}
+
+/* Keep the original cinematic hero treatment while making its geometry local
+   to the inherited Me panel rather than the viewport. */
+#root div[data-clara-me-life-stage-root="true"] > section:first-of-type > div:last-child {
+  padding-bottom: clamp(18px, 2.6vh, 28px) !important;
+  transform: none !important;
 }
 
 #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] {
   grid-row: 2 !important;
+  grid-column: 1 !important;
   position: relative !important;
-  z-index: 12 !important;
+  z-index: 30 !important;
   width: calc(100% - 4px) !important;
   height: auto !important;
-  min-height: 88px !important;
+  min-height: var(--clara-life-support-min) !important;
   max-height: none !important;
-  margin: calc(var(--clara-life-support-overlap) * -1) auto var(--clara-life-support-signal-gap) !important;
-  padding: 11px 14px 12px !important;
-  align-self: start !important;
+  margin: 0 auto !important;
+  padding: 13px 15px 14px !important;
+  align-self: end !important;
+  justify-self: center !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
@@ -59,7 +78,7 @@
   justify-content: stretch !important;
   width: 100% !important;
   height: auto !important;
-  min-height: 64px !important;
+  min-height: 72px !important;
   gap: 14px !important;
 }
 
@@ -93,9 +112,11 @@
 
 #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] [data-clara-solution-hint="true"] {
   position: static !important;
+  display: inline-flex !important;
   width: fit-content !important;
   max-width: 100% !important;
   min-height: 0 !important;
+  margin-top: 6px !important;
   pointer-events: none !important;
 }
 
@@ -113,11 +134,15 @@
 
 #root div[data-clara-me-life-stage-root="true"] > [data-clara-pressure-signals="true"] {
   grid-row: 3 !important;
+  grid-column: 1 !important;
   height: var(--clara-life-pressure-dock-height) !important;
   min-height: var(--clara-life-pressure-dock-height) !important;
   max-height: var(--clara-life-pressure-dock-height) !important;
   margin: 0 auto !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
   align-self: center !important;
+  justify-self: center !important;
   box-sizing: border-box !important;
   position: relative !important;
   z-index: 13 !important;
@@ -125,38 +150,67 @@
 
 #root div[data-clara-me-life-stage-root="true"] > section[data-clara-trend-snapshot="true"] {
   grid-row: 5 !important;
+  grid-column: 1 !important;
+  position: relative !important;
+  z-index: 18 !important;
   height: var(--clara-life-snapshot-height) !important;
   min-height: var(--clara-life-snapshot-height) !important;
   max-height: var(--clara-life-snapshot-height) !important;
   margin: 0 !important;
+  padding: 14px 12px 12px !important;
   align-self: start !important;
+  justify-self: stretch !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
-@media (max-height: 760px) {
-  #root div[data-clara-me-life-stage-root="true"]:has(> section[data-clara-trend-snapshot="true"]) {
-    --clara-life-support-overlap: 8px;
-    --clara-life-support-signal-gap: 7px;
-    --clara-life-pressure-dock-height: 42px;
-    --clara-life-signal-snapshot-gap: 11px;
-    --clara-life-snapshot-height: 204px;
-    --clara-life-bottom-safety: 8px;
+#root div[data-clara-me-life-stage-root="true"] > section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
+  flex: 0 0 auto !important;
+  height: var(--clara-life-snapshot-carousel-height) !important;
+  min-height: var(--clara-life-snapshot-carousel-height) !important;
+  max-height: var(--clara-life-snapshot-carousel-height) !important;
+  margin-top: 10px !important;
+  padding: 1px 28px 2px 1px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  align-items: stretch !important;
+  box-sizing: border-box !important;
+}
 
-    grid-template-rows:
-      minmax(204px, 1fr)
-      auto
-      var(--clara-life-pressure-dock-height)
-      var(--clara-life-signal-snapshot-gap)
-      var(--clara-life-snapshot-height)
-      var(--clara-life-bottom-safety) !important;
+#root div[data-clara-me-life-stage-root="true"] > section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+  flex: 0 0 118px !important;
+  width: 118px !important;
+  min-width: 118px !important;
+  max-width: 118px !important;
+  height: var(--clara-life-snapshot-carousel-height) !important;
+  min-height: var(--clara-life-snapshot-carousel-height) !important;
+  max-height: var(--clara-life-snapshot-carousel-height) !important;
+  align-self: stretch !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Medium-height phones and installed PWAs. The root still inherits its height;
+   these rules only select compact internal design tokens. */
+@media (max-height: 760px) {
+  #root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    --clara-life-hero-min: 214px;
+    --clara-life-hero-max: 252px;
+    --clara-life-support-min: 92px;
+    --clara-life-pressure-dock-height: 42px;
+    --clara-life-signal-snapshot-gap: 10px;
+    --clara-life-snapshot-height: 214px;
+    --clara-life-snapshot-carousel-height: 140px;
+
+    padding: 7px 8px 9px !important;
   }
 
   #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] {
-    min-height: 82px !important;
-    padding: 10px 12px 11px !important;
+    padding: 11px 13px 12px !important;
   }
 
   #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] > div {
-    min-height: 60px !important;
+    min-height: 66px !important;
     gap: 12px !important;
   }
 
@@ -172,28 +226,27 @@
     font-size: clamp(9.35px, 2.52vw, 10px) !important;
     line-height: 1.28 !important;
   }
+
+  #root div[data-clara-me-life-stage-root="true"] > [data-clara-pressure-signals="true"] {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
 }
 
 @media (max-height: 680px) {
-  #root div[data-clara-me-life-stage-root="true"]:has(> section[data-clara-trend-snapshot="true"]) {
-    --clara-life-support-overlap: 4px;
-    --clara-life-support-signal-gap: 6px;
+  #root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    --clara-life-hero-min: 180px;
+    --clara-life-hero-max: 208px;
+    --clara-life-support-min: 78px;
     --clara-life-pressure-dock-height: 40px;
-    --clara-life-signal-snapshot-gap: 10px;
+    --clara-life-signal-snapshot-gap: 8px;
     --clara-life-snapshot-height: 192px;
-    --clara-life-bottom-safety: 8px;
+    --clara-life-snapshot-carousel-height: 118px;
 
-    grid-template-rows:
-      minmax(176px, 1fr)
-      auto
-      var(--clara-life-pressure-dock-height)
-      var(--clara-life-signal-snapshot-gap)
-      var(--clara-life-snapshot-height)
-      var(--clara-life-bottom-safety) !important;
+    padding: 6px 7px 8px !important;
   }
 
   #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] {
-    min-height: 76px !important;
     padding: 8px 11px 9px !important;
   }
 
@@ -221,5 +274,10 @@
     height: 38px !important;
     min-width: 38px !important;
     min-height: 38px !important;
+  }
+
+  #root div[data-clara-me-life-stage-root="true"] > [data-clara-pressure-signals="true"] {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
   }
 }
