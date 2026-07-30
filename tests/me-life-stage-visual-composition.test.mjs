@@ -6,6 +6,14 @@ const css = readFileSync(
   new URL("../src/me-life-stage-signal-gap-fix.css", import.meta.url),
   "utf8"
 );
+const pressureSpacingCss = readFileSync(
+  new URL("../src/me-life-stage-pressure-dock-spacing.css", import.meta.url),
+  "utf8"
+);
+const runtimeRegistry = readFileSync(
+  new URL("../src/runtime/installClaraRuntimePatches.js", import.meta.url),
+  "utf8"
+);
 
 test("Me visual composition uses bounded inherited rows instead of a flexible spacer", () => {
   assert.match(
@@ -28,15 +36,32 @@ test("hero and support card overlap through explicit CSS Grid ownership", () => 
     /> section\[data-clara-support-card="true"\]\s*\{[^}]*grid-row:\s*2/s
   );
   assert.match(
-    css,
+    pressureSpacingCss,
     /> \[data-clara-pressure-signals="true"\]\s*\{[^}]*grid-row:\s*3/s
   );
   assert.match(
-    css,
-    /> section\[data-clara-trend-snapshot="true"\]\s*\{[^}]*grid-row:\s*5/s
+    pressureSpacingCss,
+    /> section\[data-clara-trend-snapshot="true"\]\s*\{[^}]*grid-row:\s*4/s
   );
   assert.doesNotMatch(css, /margin-top:\s*-\d/);
   assert.doesNotMatch(css, /margin:\s*calc\([^)]*\*\s*-1/);
+});
+
+test("pressure dock is centered inside one slot with equal space above and below", () => {
+  assert.match(
+    pressureSpacingCss,
+    /calc\(\s*var\(--clara-life-pressure-dock-height\)\s*\+\s*var\(--clara-life-signal-snapshot-gap\)\s*\+\s*var\(--clara-life-signal-snapshot-gap\)\s*\)/s
+  );
+  assert.match(
+    pressureSpacingCss,
+    /> \[data-clara-pressure-signals="true"\]\s*\{[^}]*align-self:\s*center\s*!important/s
+  );
+  assert.doesNotMatch(pressureSpacingCss, /transform:|top:\s*-?\d|margin-(?:top|bottom):\s*-/);
+
+  const canonicalIndex = runtimeRegistry.indexOf('import "../me-life-stage-signal-gap-fix.css";');
+  const spacingIndex = runtimeRegistry.indexOf('import "../me-life-stage-pressure-dock-spacing.css";');
+  assert.ok(canonicalIndex >= 0);
+  assert.ok(spacingIndex > canonicalIndex);
 });
 
 test("canonical data-scoped layout outranks legacy class-fragment patches", () => {
