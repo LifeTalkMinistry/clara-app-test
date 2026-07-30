@@ -14,3 +14,19 @@
 #clara-life-stage-diagnosis-reveal .story-card .story-body {
   margin-top: 0 !important;
 }
+
+/* The React-owned summary must keep its navigation controls visible. A legacy
+   high-z modal selector in index.css hides generic footer buttons, so this
+   component contract restores only the summary's own controls. */
+#root [data-clara-life-stage-summary="true"] > section > footer {
+  display: flex !important;
+  min-height: 48px;
+}
+
+#root [data-clara-life-stage-summary="true"] > section > footer > button:first-child[type="button"] {
+  display: grid !important;
+}
+
+#root [data-clara-life-stage-summary="true"] > section > footer > button:last-child[type="button"] {
+  display: flex !important;
+}
