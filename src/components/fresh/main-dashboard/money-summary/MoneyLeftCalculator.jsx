@@ -154,8 +154,8 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
 
   const canUseExpense = Number.isFinite(result) && result > 0;
   const expenseActionLabel = canUseExpense
-    ? `Use ${formatPeso(result)} as Expense`
-    : "Use as Expense";
+    ? `Use ${formatPeso(result)} As Expense`
+    : "Use As Expense";
 
   return createPortal(
     <div
@@ -232,8 +232,8 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
           disabled={!canUseExpense}
           onClick={() => canUseExpense && onUseExpense?.(result)}
           aria-label={expenseActionLabel}
-          className="mt-3 block h-[52px] w-full rounded-[15px] border border-cyan-200/25 bg-[linear-gradient(135deg,rgba(13,35,75,0.98),rgba(49,30,111,0.98))] px-4 text-center text-[13px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_28px_rgba(3,8,28,0.34)] transition enabled:active:scale-[0.985] disabled:cursor-default disabled:opacity-55"
-          style={{ width: "100%" }}
+          title={expenseActionLabel}
+          className="mt-3 flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-[15px] border border-cyan-200/55 bg-[linear-gradient(135deg,rgba(103,232,249,0.96),rgba(129,140,248,0.96))] px-5 text-center text-[14px] font-extrabold tracking-[-0.01em] text-slate-950 shadow-[0_12px_30px_rgba(34,211,238,0.20),inset_0_1px_0_rgba(255,255,255,0.55)] transition enabled:hover:brightness-105 enabled:active:scale-[0.985] disabled:cursor-default disabled:border-white/10 disabled:bg-[linear-gradient(135deg,rgba(30,41,59,0.82),rgba(49,46,129,0.55))] disabled:text-white/55 disabled:shadow-none"
         >
           {expenseActionLabel}
         </button>
