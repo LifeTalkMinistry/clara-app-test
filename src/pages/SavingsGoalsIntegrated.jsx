@@ -14,12 +14,81 @@ import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { getWalletBalance } from "@/utils/financialEngine";
 
+const OTHER_OPTION = "__other__";
+
 const CATEGORIES = {
-  "Celebrations & Gifts": ["Birthday", "Wedding", "Anniversary", "Holiday", "Family Event"],
-  "Personal Purchases": ["Gadget", "Clothing", "Furniture", "Vehicle"],
-  Experiences: ["Travel", "Vacation", "Concert", "Retreat"],
-  "Financial / Protection": ["Emergency Fund", "Insurance", "Investment", "Debt Payment"],
-  "Health & Wellness": ["Medical", "Self-Care", "Gym", "Mental Health"],
+  "Celebrations & Gifts": [
+    "Birthday",
+    "Wedding",
+    "Anniversary",
+    "Holiday",
+    "Family Event",
+    "Special Occasion",
+  ],
+  "Personal Purchases": [
+    "Gadget / Electronics",
+    "Clothing / Accessories",
+    "Furniture / Appliances",
+    "Vehicle / Transport",
+    "Hobby / Collection",
+    "Personal Upgrade",
+  ],
+  Experiences: [
+    "Travel",
+    "Vacation",
+    "Concert / Event",
+    "Retreat",
+    "Recreation / Adventure",
+    "Staycation",
+  ],
+  "Financial / Protection": [
+    "Emergency Fund",
+    "Insurance",
+    "Investment",
+    "Debt Payment",
+    "Retirement",
+    "Tax / Legal",
+  ],
+  "Health & Wellness": [
+    "Medical",
+    "Dental / Vision",
+    "Medicine / Treatment",
+    "Self-Care",
+    "Fitness / Gym",
+    "Mental Health",
+  ],
+  "Education & Growth": [
+    "Tuition / School Fees",
+    "Course / Certification",
+    "Books / Learning Materials",
+    "Training / Workshop",
+    "Study Equipment",
+    "Skill Development",
+  ],
+  "Home & Family": [
+    "Home Improvement",
+    "Rent / Moving",
+    "Household Appliance",
+    "Child / Family Needs",
+    "Family Support",
+    "Pet Care",
+  ],
+  "Career & Business": [
+    "Business Capital",
+    "Equipment / Tools",
+    "Professional Fees",
+    "Job Transition",
+    "Side Hustle",
+    "Marketing / Expansion",
+  ],
+  "Faith & Community": [
+    "Church Project",
+    "Ministry / Mission",
+    "Donation / Outreach",
+    "Community Event",
+    "Retreat / Conference",
+    "Volunteer Activity",
+  ],
 };
 
 const EMOTIONAL_VALUES = [
@@ -40,6 +109,8 @@ const EMPTY_FORM = {
   title: "",
   category: "",
   subcategory: "",
+  custom_category: "",
+  custom_subcategory: "",
   target_amount: "",
   saved_amount: "0",
   planned_use_date: "",
@@ -81,6 +152,31 @@ const walletId = (wallet) => {
   return String(wallet?.id || wallet?.wallet_id || wallet?.walletId || "").trim();
 };
 const walletName = (wallet) => String(wallet?.name || wallet?.wallet_name || wallet?.title || wallet?.label || "Wallet").trim();
+const getCategoryFormValues = (goal = {}) => {
+  const storedCategory = String(goal?.category || "").trim();
+  const categoryIsPreset = Boolean(
+    storedCategory && Object.prototype.hasOwnProperty.call(CATEGORIES, storedCategory),
+  );
+  const category = categoryIsPreset ? storedCategory : storedCategory ? OTHER_OPTION : "";
+  const storedSubcategory = String(goal?.subcategory || "").trim();
+  const presetSubcategories = categoryIsPreset ? CATEGORIES[storedCategory] || [] : [];
+  const subcategoryIsPreset = Boolean(
+    storedSubcategory && presetSubcategories.includes(storedSubcategory),
+  );
+
+  return {
+    category,
+    custom_category: category === OTHER_OPTION ? storedCategory : "",
+    subcategory: categoryIsPreset
+      ? subcategoryIsPreset
+        ? storedSubcategory
+        : storedSubcategory
+? OTHER_OPTION
+: ""
+      : "",
+    custom_subcategory: storedSubcategory && !subcategoryIsPreset ? storedSubcategory : "",
+  };
+};
 const getGoalActivity = (goal) => {
   const source = goal?.savingsActivityLog || goal?.savings_activity_log || goal?.activityLog || goal?.activity_log || [];
   return Array.isArray(source) ? source.filter(Boolean) : [];
@@ -292,10 +388,10 @@ export default function SavingsGoalsIntegrated() {
   };
   const openEdit = (goal) => {
     setFormError("");
+    const categoryFormValues = getCategoryFormValues(goal);
     setForm({
       title: goal.title || "",
-      category: goal.category || "",
-      subcategory: goal.subcategory || "",
+      ...categoryFormValues,
       target_amount: String(goal.target_amount ?? ""),
       saved_amount: String(goal.saved_amount ?? 0),
       planned_use_date: goal.planned_use_date || "",
@@ -344,6 +440,20 @@ export default function SavingsGoalsIntegrated() {
 
     if (!user?.id && !user?.email) return setFormError("No user was found. Please log in again.");
     if (!form.title?.trim()) return setFormError("Enter a goal title.");
+
+    const resolvedCategory = form.category === OTHER_OPTION
+      ? String(form.custom_category || "").trim()
+      : String(form.category || "").trim();
+    const resolvedSubcategory = form.category === OTHER_OPTION || form.subcategory === OTHER_OPTION
+      ? String(form.custom_subcategory || "").trim()
+      : String(form.subcategory || "").trim();
+
+    if (form.category === OTHER_OPTION && !resolvedCategory) {
+      return setFormError("Type your specific category.");
+    }
+    if (form.subcategory === OTHER_OPTION && !resolvedSubcategory) {
+      return setFormError("Type your specific subcategory.");
+    }
 
     const nextTargetAmount = toNumber(form.target_amount);
     const nextSavedAmount = Math.max(0, toNumber(form.saved_amount));
@@ -402,8 +512,8 @@ export default function SavingsGoalsIntegrated() {
         ...(existing || {}),
         id: editId || generateId(),
         title: form.title.trim(),
-        category: form.category || "",
-        subcategory: form.subcategory || "",
+        category: resolvedCategory,
+        subcategory: resolvedSubcategory,
         target_amount: nextTargetAmount,
         saved_amount: nextSavedAmount,
         current_amount: nextSavedAmount,
@@ -854,7 +964,216 @@ function GoalCard({ goal, wallets, walletBalances, fmt, onOpen }) {
 }
 
 function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, onSave, wallets, walletBalances, subcats, fmt }) {
-  return <Dialog open={open} onOpenChange={(value) => { if (!value && !saving) onClose(); }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{editId ? "Edit Savings Goal" : "New Savings Goal"}</DialogTitle></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><FormInput label="Goal Title"><Input placeholder="e.g., Emergency Fund, Dream Vacation" className={inputDarkClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></FormInput><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Category"><Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v, subcategory: "" })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{Object.keys(CATEGORIES).map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Subcategory"><Select value={form.subcategory} onValueChange={(v) => setForm({ ...form, subcategory: v })} disabled={!form.category}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{subcats.map((subcat) => <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>)}</SelectContent></Select></FormInput></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Target Amount"><Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(e) => setForm({ ...form, target_amount: e.target.value })} /></FormInput><FormInput label="Already Saved"><Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(e) => setForm({ ...form, saved_amount: e.target.value })} /></FormInput></div><FormInput label="Saved in"><Select value={form.wallet_id} onValueChange={(v) => setForm({ ...form, wallet_id: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Select wallet..." /></SelectTrigger><SelectContent>{wallets.length === 0 ? <SelectItem value="__no_wallets__" disabled>No wallets available</SelectItem> : wallets.map((wallet) => <SelectItem key={walletId(wallet)} value={walletId(wallet)}>{wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Planned Use Date"><input type="date" value={form.planned_use_date} onChange={(e) => setForm({ ...form, planned_use_date: e.target.value })} className="w-full h-10 px-3 rounded-xl bg-[#0b1a2f] border border-white/10 text-white cursor-pointer outline-none focus:ring-1 focus:ring-green-500/60" /></FormInput><FormInput label="3 Reasons / Motivations"><div className="space-y-2">{form.reasons.map((reason, index) => <Input key={index} placeholder={`Reason ${index + 1}`} className={inputDarkClass} value={reason} onChange={(e) => { const next = [...form.reasons]; next[index] = e.target.value; setForm({ ...form, reasons: next }); }} />)}</div></FormInput><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><FormInput label="Emotional Value"><Select value={form.emotional_value} onValueChange={(v) => setForm({ ...form, emotional_value: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger><SelectContent>{EMOTIONAL_VALUES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Priority"><Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}><SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger><SelectContent>{PRIORITIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></FormInput></div><FormInput label="Notes"><Textarea className={`${inputDarkClass} min-h-[92px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormInput>{error ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{error}</div> : null}</div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={onSave} disabled={saving} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}</Button></div></div></div></DialogContent></Dialog>;
+  const isCustomCategory = form.category === OTHER_OPTION;
+  const hasPresetCategory = Boolean(form.category && !isCustomCategory);
+  const isCustomSubcategory = form.subcategory === OTHER_OPTION;
+
+  const updateCategory = (value) => {
+    setForm({
+      ...form,
+      category: value,
+      subcategory: "",
+      custom_category: value === OTHER_OPTION ? form.custom_category || "" : "",
+      custom_subcategory: "",
+    });
+  };
+
+  const updateSubcategory = (value) => {
+    setForm({
+      ...form,
+      subcategory: value,
+      custom_subcategory: value === OTHER_OPTION ? form.custom_subcategory || "" : "",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => { if (!value && !saving) onClose(); }}>
+      <DialogContent className={formDialogClass}>
+        <div className="flex max-h-[inherit] flex-col">
+<DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12">
+  <DialogTitle className="text-white text-xl sm:text-2xl leading-tight">
+    {editId ? "Edit Savings Goal" : "New Savings Goal"}
+  </DialogTitle>
+</DialogHeader>
+
+<div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+  <div className="space-y-4">
+    <FormInput label="Goal Title">
+      <Input
+        placeholder="e.g., Emergency Fund, Dream Vacation"
+        className={inputDarkClass}
+        value={form.title}
+        onChange={(event) => setForm({ ...form, title: event.target.value })}
+      />
+    </FormInput>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FormInput label="Category">
+        <div className="space-y-2">
+          <Select value={form.category} onValueChange={updateCategory}>
+            <SelectTrigger className={selectDarkTriggerClass}>
+              <SelectValue placeholder="Select category..." />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(CATEGORIES).map((category) => (
+                <SelectItem key={category} value={category}>{category}</SelectItem>
+              ))}
+              <SelectItem value={OTHER_OPTION}>Other — type your own</SelectItem>
+            </SelectContent>
+          </Select>
+          {isCustomCategory ? (
+            <Input
+              autoFocus
+              placeholder="Type your specific category"
+              className={inputDarkClass}
+              value={form.custom_category || ""}
+              onChange={(event) => setForm({ ...form, custom_category: event.target.value })}
+            />
+          ) : null}
+        </div>
+      </FormInput>
+
+      {isCustomCategory ? (
+        <FormInput label="Specific Detail">
+          <Input
+            placeholder="Optional: describe it more specifically"
+            className={inputDarkClass}
+            value={form.custom_subcategory || ""}
+            onChange={(event) => setForm({ ...form, custom_subcategory: event.target.value })}
+          />
+        </FormInput>
+      ) : (
+        <FormInput label="Subcategory">
+          <div className="space-y-2">
+            <Select
+              value={form.subcategory}
+              onValueChange={updateSubcategory}
+              disabled={!hasPresetCategory}
+            >
+              <SelectTrigger className={selectDarkTriggerClass}>
+                <SelectValue placeholder="Select subcategory..." />
+              </SelectTrigger>
+              <SelectContent>
+                {subcats.map((subcat) => (
+                  <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
+                ))}
+                {hasPresetCategory ? (
+                  <SelectItem value={OTHER_OPTION}>Other — type your own</SelectItem>
+                ) : null}
+              </SelectContent>
+            </Select>
+            {isCustomSubcategory ? (
+              <Input
+                autoFocus
+                placeholder="Type your specific subcategory"
+                className={inputDarkClass}
+                value={form.custom_subcategory || ""}
+                onChange={(event) => setForm({ ...form, custom_subcategory: event.target.value })}
+              />
+            ) : null}
+          </div>
+        </FormInput>
+      )}
+    </div>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FormInput label="Target Amount">
+        <Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(event) => setForm({ ...form, target_amount: event.target.value })} />
+      </FormInput>
+      <FormInput label="Already Saved">
+        <Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(event) => setForm({ ...form, saved_amount: event.target.value })} />
+      </FormInput>
+    </div>
+
+    <FormInput label="Saved in">
+      <Select value={form.wallet_id} onValueChange={(value) => setForm({ ...form, wallet_id: value })}>
+        <SelectTrigger className={selectDarkTriggerClass}>
+          <SelectValue placeholder="Select wallet..." />
+        </SelectTrigger>
+        <SelectContent>
+          {wallets.length === 0 ? (
+            <SelectItem value="__no_wallets__" disabled>No wallets available</SelectItem>
+          ) : wallets.map((wallet) => (
+            <SelectItem key={walletId(wallet)} value={walletId(wallet)}>
+              {wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormInput>
+
+    <FormInput label="Planned Use Date">
+      <input
+        type="date"
+        value={form.planned_use_date}
+        onChange={(event) => setForm({ ...form, planned_use_date: event.target.value })}
+        className="w-full h-10 px-3 rounded-xl bg-[#0b1a2f] border border-white/10 text-white cursor-pointer outline-none focus:ring-1 focus:ring-green-500/60"
+      />
+    </FormInput>
+
+    <FormInput label="3 Reasons / Motivations">
+      <div className="space-y-2">
+        {form.reasons.map((reason, index) => (
+          <Input
+            key={index}
+            placeholder={`Reason ${index + 1}`}
+            className={inputDarkClass}
+            value={reason}
+            onChange={(event) => {
+              const next = [...form.reasons];
+              next[index] = event.target.value;
+              setForm({ ...form, reasons: next });
+            }}
+          />
+        ))}
+      </div>
+    </FormInput>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FormInput label="Emotional Value">
+        <Select value={form.emotional_value} onValueChange={(value) => setForm({ ...form, emotional_value: value })}>
+          <SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {EMOTIONAL_VALUES.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormInput>
+      <FormInput label="Priority">
+        <Select value={form.priority} onValueChange={(value) => setForm({ ...form, priority: value })}>
+          <SelectTrigger className={selectDarkTriggerClass}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {PRIORITIES.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormInput>
+    </div>
+
+    <FormInput label="Notes">
+      <Textarea className={`${inputDarkClass} min-h-[92px]`} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
+    </FormInput>
+
+    {error ? (
+      <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{error}</div>
+    ) : null}
+  </div>
+</div>
+
+<div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl">
+  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+    <Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button>
+    <Button type="button" onClick={onSave} disabled={saving} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">
+      {saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}
+    </Button>
+  </div>
+</div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function WalletBalanceSyncPrompt({ prompt, fmt, saving, error, onCancel, onConfirm }) {
