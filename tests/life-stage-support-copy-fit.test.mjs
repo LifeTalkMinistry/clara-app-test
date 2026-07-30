@@ -42,6 +42,21 @@ test("idle Life Stage cards show real concise copy instead of legacy generated p
   assert.match(idleCss, /h3 \+ p[\s\S]*overflow:\s*visible\s*!important/);
 });
 
+test("selected signal guidance hint is structurally placed above the heart action", () => {
+  assert.match(idleCss, /data-clara-signal-card-active="true"/);
+  assert.match(idleCss, /> div\s*> div:first-child\s*\{[\s\S]*display:\s*contents\s*!important/);
+  assert.match(
+    idleCss,
+    /\[data-clara-solution-hint="true"\][\s\S]*grid-column:\s*2\s*!important[\s\S]*grid-row:\s*1\s*!important/,
+  );
+  assert.match(
+    idleCss,
+    /\[data-clara-heart-cta="true"\][\s\S]*grid-column:\s*2\s*!important[\s\S]*grid-row:\s*2\s*!important/,
+  );
+  assert.match(idleCss, /\[data-clara-solution-hint="true"\]::after/);
+  assert.doesNotMatch(idleCss, /data-clara-solution-hint[^}]*margin-(?:top|left|right):\s*-/s);
+});
+
 test("idle copy authority loads after every legacy Life Stage copy layer", () => {
   const idleIndex = runtimeRegistry.indexOf('import "../life-stage-idle-support-copy.css";');
   const workingStudentIndex = runtimeRegistry.indexOf('import "../life-stage-story-canonical-working-student.css";');
