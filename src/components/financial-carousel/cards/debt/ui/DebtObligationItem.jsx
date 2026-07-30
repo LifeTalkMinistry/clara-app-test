@@ -7,52 +7,94 @@ import {
   PremiumFinanceInfoRow,
   PremiumFinanceItemSurface,
 } from "@/components/financial-carousel/shared/PremiumFinanceItemSurface";
-import { getDebtTitle, toDebtNumber } from "@/lib/debtObligationStore";
+import { getDebtTitle } from "@/lib/debtObligationStore";
+import {
+  estimateDebtPayoffMonths,
+  getDebtBalance,
+  getDebtDueDay,
+  getDebtInterestRate,
+  getDebtObligationMode,
+  getDebtStatus,
+  getMonthlyDebtPayment,
+  getNextDebtDueDate,
+} from "@/lib/debtObligationMath";
 
-export const getObligationBalance = (record) =>
-  toDebtNumber(record?.totalDebt ?? record?.balance ?? record?.amount ?? 0);
+export const getObligationBalance = (record) => getDebtBalance(record);
+export const getObligationMonthly = (record) => getMonthlyDebtPayment(record);
+export const getObligationInterest = (record) => getDebtInterestRate(record);
 
-export const getObligationMonthly = (record) =>
-  toDebtNumber(record?.monthlyDebt ?? record?.monthlyPayment ?? record?.monthly_payment ?? 0);
-
-export const getObligationInterest = (record) =>
-  toDebtNumber(record?.interestRate ?? record?.interest_rate ?? record?.interest ?? 0);
+const ordinal = (day) => {
+  const value = Number(day) || 0;
+  const remainder100 = value % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) return `${value}th`;
+  if (value % 10 === 1) return `${value}st`;
+  if (value % 10 === 2) return `${value}nd`;
+  if (value % 10 === 3) return `${value}rd`;
+  return `${value}th`;
+};
 
 function getSafeDueMeta(record) {
-  const raw = record?.dueDate || record?.due_date || "";
-  if (!raw) return { label: "", state: "none" };
-
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(raw))
-    ? new Date(`${raw}T23:59:59`)
-    : new Date(raw);
-  if (Number.isNaN(date.getTime())) return { label: String(raw), state: "invalid" };
+  const dueDay = getDebtDueDay(record);
+  if (!dueDay) return { label: "", state: "none" };
+  const next = getNextDebtDueDate(record);
+  if (!next) return { label: `Every ${ordinal(dueDay)}`, state: "invalid" };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dueDay = new Date(date);
-  dueDay.setHours(0, 0, 0, 0);
-  const days = Math.ceil((dueDay.getTime() - today.getTime()) / 86400000);
-
-  if (days < 0) return { label: String(raw), state: "overdue" };
-  if (days <= 14) return { label: String(raw), state: "due_soon" };
-  return { label: String(raw), state: "scheduled" };
+  const due = new Date(next);
+  due.setHours(0, 0, 0, 0);
+  const days = Math.ceil((due.getTime() - today.getTime()) / 86400000);
+  const nextLabel = due.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  return {
+    label: `Every ${ordinal(dueDay)} · Next ${nextLabel}`,
+    state: days <= 14 ? "due_soon" : "scheduled",
+  };
 }
 
-function getDebtAmountMeta({ balance, interest, dueState }) {
-  if (balance <= 0) return { className: "text-emerald-200", label: "Paid" };
-  if (dueState === "overdue") return { className: "text-rose-200", label: "Overdue balance" };
-  if (dueState === "due_soon" || interest >= 15) return { className: "text-amber-200", label: "Outstanding balance" };
-  return { className: "text-white/94", label: "Outstanding balance" };
+function getDebtAmountMeta({ mode, balance, monthly, interest, dueState, status }) {
+  if (["paid", "completed", "closed"].includes(status)) {
+    return { className: "text-emerald-200", label: "Paid", amount: 0 };
+  }
+  if (mode === "recurring") {
+    return {
+      className: dueState === "due_soon" ? "text-amber-200" : "text-cyan-100",
+      label: "Recurring monthly obligation",
+      amount: monthly,
+    };
+  }
+  if (dueState === "due_soon" || interest >= 15) {
+    return { className: "text-amber-200", label: "Outstanding balance", amount: balance };
+  }
+  return { className: "text-white/94", label: "Outstanding balance", amount: balance };
 }
 
 export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }) {
   const balance = getObligationBalance(record);
   const monthly = getObligationMonthly(record);
   const interest = getObligationInterest(record);
-  const months = monthly > 0 && balance > 0 ? Math.ceil(balance / monthly) : 0;
-  const tone = getFinanceItemHierarchyTone(balance, totalPositiveDebt);
+  const mode = getDebtObligationMode(record);
+  const status = getDebtStatus(record);
+  const payoffMonths =
+    mode === "balance"
+      ? estimateDebtPayoffMonths({
+          balance,
+          monthlyPayment: monthly,
+          annualInterestRate: interest,
+        })
+      : 0;
+  const tone = getFinanceItemHierarchyTone(
+    mode === "balance" ? balance : monthly,
+    totalPositiveDebt
+  );
   const dueMeta = getSafeDueMeta(record);
-  const amountMeta = getDebtAmountMeta({ balance, interest, dueState: dueMeta.state });
+  const amountMeta = getDebtAmountMeta({
+    mode,
+    balance,
+    monthly,
+    interest,
+    dueState: dueMeta.state,
+    status,
+  });
 
   return (
     <PremiumFinanceItemSurface tone={tone} className="p-3.5">
@@ -66,9 +108,9 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
             {getDebtTitle(record)}
           </p>
           <p className={`mt-1.5 truncate text-[20px] font-black leading-none tracking-[-0.04em] ${amountMeta.className}`}>
-            {fmt(balance)}
+            {fmt(amountMeta.amount)}
           </p>
-          <p className={`mt-1.5 text-[9px] font-black uppercase tracking-[0.16em] ${dueMeta.state === "overdue" ? "text-rose-200/78" : "text-white/38"}`}>
+          <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/38">
             {amountMeta.label}
           </p>
         </div>
@@ -85,20 +127,19 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
 
       <div className="mt-3 border-t border-white/[0.06] pt-1">
         <PremiumFinanceInfoRow
+          label="Setup"
+          value={mode === "recurring" ? "Recurring monthly" : "Balance payoff"}
+        />
+        <PremiumFinanceInfoRow
           label="Debt type"
           value={getDebtTypeLabel(record.debtType || record.type)}
+          className="border-t border-white/[0.055]"
         />
         {dueMeta.label ? (
           <PremiumFinanceInfoRow
-            label="Due date"
+            label="Due schedule"
             value={dueMeta.label}
-            valueClassName={
-              dueMeta.state === "overdue"
-                ? "text-rose-200"
-                : dueMeta.state === "due_soon"
-                  ? "text-amber-200"
-                  : "text-white/78"
-            }
+            valueClassName={dueMeta.state === "due_soon" ? "text-amber-200" : "text-white/78"}
             className="border-t border-white/[0.055]"
           />
         ) : null}
@@ -108,7 +149,7 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
           valueClassName={monthly > 0 ? "text-cyan-100" : "text-white/42"}
           className="border-t border-white/[0.055]"
         />
-        {interest > 0 ? (
+        {mode === "balance" && interest > 0 ? (
           <PremiumFinanceInfoRow
             label="Interest"
             value={`${interest}%`}
@@ -116,10 +157,17 @@ export default function DebtObligationItem({ record, totalPositiveDebt, onEdit }
             className="border-t border-white/[0.055]"
           />
         ) : null}
-        {months > 0 ? (
+        {mode === "balance" && payoffMonths === Number.POSITIVE_INFINITY ? (
           <PremiumFinanceInfoRow
             label="Estimated payoff"
-            value={`Around ${months} month${months === 1 ? "" : "s"}`}
+            value="Payment does not cover interest"
+            valueClassName="text-rose-200"
+            className="border-t border-white/[0.055]"
+          />
+        ) : mode === "balance" && payoffMonths > 0 ? (
+          <PremiumFinanceInfoRow
+            label="Estimated payoff"
+            value={`Around ${payoffMonths} month${payoffMonths === 1 ? "" : "s"}`}
             className="border-t border-white/[0.055]"
           />
         ) : null}
