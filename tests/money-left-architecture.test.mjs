@@ -34,6 +34,10 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
   assert.match(calculatorSource, /data-clara-money-calculator-modal="true"/);
   assert.match(calculatorSource, /data-clara-calculator-manual-log-action="true"/);
   assert.match(calculatorSource, /createPortal/);
+  assert.match(calculatorSource, /const onCloseRef = useRef\(onClose\)/);
+  assert.match(calculatorSource, /onCloseRef\.current = onClose/);
+  assert.match(calculatorSource, /\}, \[isOpen\]\);/);
+  assert.doesNotMatch(calculatorSource, /\}, \[isOpen, onClose\]\);/);
   assert.doesNotMatch(calculatorSource, /Function\s*\(/);
   assert.doesNotMatch(calculatorSource, /MutationObserver/);
 
