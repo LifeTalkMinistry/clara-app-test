@@ -1,0 +1,367 @@
+name: Apply Savings managed balance controls
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'fix/savings-goal-managed-balance' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/savings-goal-managed-balance
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply Savings Goal balance management upgrade
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/pages/SavingsGoalsIntegrated.jsx')
+          source = path.read_text()
+
+          def replace_once(old, new, label):
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
+              source = source.replace(old, new, 1)
+
+          replace_once(
+              'import { ArrowLeft, Plus, Target, AlertTriangle, Calendar, Edit, Trash2, Wallet, MinusCircle } from "lucide-react";',
+              'import { ArrowLeft, Plus, Target, AlertTriangle, Calendar, Edit, Trash2, Wallet, MinusCircle, Unlock, Wrench } from "lucide-react";',
+              'icon import',
+          )
+
+          replace_once(
+              '''    const nextTargetAmount = toNumber(form.target_amount);
+    const nextSavedAmount = Math.max(0, toNumber(form.saved_amount));
+    if (nextTargetAmount <= 0) return setFormError("Enter a valid target amount.");
+    if (nextSavedAmount > nextTargetAmount) return setFormError("Already Saved cannot be higher than the goal target.");
+    if (form.wallet_id === "__no_wallets__") return setFormError("Choose a valid wallet.");
+
+    const existing = editId ? goals.find((goal) => String(goal.id) === String(editId)) : null;
+    const currentSavedAmount = existing ? getGoalSavedAmount(existing) : 0;''',
+              '''    const existing = editId ? goals.find((goal) => String(goal.id) === String(editId)) : null;
+    const currentSavedAmount = existing ? getGoalSavedAmount(existing) : 0;
+    const nextTargetAmount = toNumber(form.target_amount);
+    const nextSavedAmount = existing ? currentSavedAmount : Math.max(0, toNumber(form.saved_amount));
+    if (nextTargetAmount <= 0) return setFormError("Enter a valid target amount.");
+    if (nextSavedAmount > nextTargetAmount) return setFormError("Target Amount cannot be lower than the current saved balance.");
+    if (form.wallet_id === "__no_wallets__") return setFormError("Choose a valid wallet.");''',
+              'metadata-only saved amount',
+          )
+
+          marker = '''  const handleUseSavings = async (goal, amount, reason) => {'''
+          index = source.find(marker)
+          if index < 0:
+              raise SystemExit('handleUseSavings marker missing')
+
+          handler_insert = '''  const getGoalWalletCapacity = (rawGoal) => {
+    const goal = normalizeGoal(rawGoal);
+    const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+    if (!assignedWalletId) return 0;
+    const wallet = activeWallets.find((item) => walletId(item) === assignedWalletId);
+    if (!wallet) return 0;
+    const rawBalance = Math.max(toNumber(walletBalances[assignedWalletId] ?? wallet?.balance), 0);
+    const emergencyProtected = Math.min(getWalletEmergencyProtectedAmount(wallet), rawBalance);
+    const currentSaved = Math.max(getGoalSavedAmount(goal), 0);
+    const allSavingsProtected = Math.max(toNumber(protectedSavingsByWallet[assignedWalletId]), 0);
+    const otherGoalProtection = Math.max(allSavingsProtected - currentSaved, 0);
+    return Math.max(rawBalance - emergencyProtected - otherGoalProtection, 0);
+  };
+
+  const handleReleaseSavings = async (goal, amount, reason) => {
+    const safeAmount = toNumber(amount);
+    const cleanReason = String(reason || "").trim();
+    const currentSaved = getGoalSavedAmount(goal);
+    if (!safeAmount || safeAmount <= 0) throw new Error("Enter a valid amount to release.");
+    if (safeAmount > currentSaved) throw new Error("Release amount cannot exceed the current saved balance.");
+    if (!cleanReason) throw new Error("Explain why this money is being released.");
+
+    const now = new Date().toISOString();
+    const nextSaved = Math.max(currentSaved - safeAmount, 0);
+    const updatedGoal = normalizeGoal({
+      ...goal,
+      saved_amount: nextSaved,
+      current_amount: nextSaved,
+      savedAmount: nextSaved,
+      currentAmount: nextSaved,
+      savingsActivityLog: buildActivity(goal, {
+        id: `savings_release_${Date.now()}`,
+        type: "release",
+        title: "Savings released",
+        amount: safeAmount,
+        reason: cleanReason,
+        note: "Protection removed; wallet balance was not changed",
+        createdAt: now,
+        created_at: now,
+      }),
+      updated_date: now,
+      updatedAt: now,
+      syncStatus: "local_only",
+      source: "local",
+    });
+    updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
+    updatedGoal.activityLog = updatedGoal.savingsActivityLog;
+    updatedGoal.activity_log = updatedGoal.savingsActivityLog;
+    await updateSavingsGoal(goal.id, updatedGoal);
+    setDetailGoal(updatedGoal);
+    return updatedGoal;
+  };
+
+  const handleCorrectSavingsBalance = async (goal, correctedAmount, reason) => {
+    const nextSaved = Math.max(0, toNumber(correctedAmount));
+    const cleanReason = String(reason || "").trim();
+    const currentSaved = getGoalSavedAmount(goal);
+    const target = getGoalTargetAmount(goal);
+    const walletCapacity = getGoalWalletCapacity(goal);
+    const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+
+    if (!cleanReason) throw new Error("Explain why this balance correction is needed.");
+    if (nextSaved > target) throw new Error("Corrected savings cannot exceed the goal target.");
+    if (nextSaved > 0 && !assignedWalletId) throw new Error("Assign a saved-in wallet before keeping a saved balance.");
+    if (nextSaved > walletCapacity) {
+      throw new Error(`This wallet can safely support only ${fmt(walletCapacity)} for this goal.`);
+    }
+    if (toMinorUnits(nextSaved) == toMinorUnits(currentSaved)) throw new Error("Enter a different corrected balance.");
+
+    const now = new Date().toISOString();
+    const updatedGoal = normalizeGoal({
+      ...goal,
+      saved_amount: nextSaved,
+      current_amount: nextSaved,
+      savedAmount: nextSaved,
+      currentAmount: nextSaved,
+      savingsActivityLog: buildActivity(goal, {
+        id: `savings_correction_${Date.now()}`,
+        type: "correction",
+        title: "Saved balance corrected",
+        amount: Math.abs(nextSaved - currentSaved),
+        previousAmount: currentSaved,
+        previous_amount: currentSaved,
+        correctedAmount: nextSaved,
+        corrected_amount: nextSaved,
+        reason: cleanReason,
+        note: "Record correction only; no wallet transaction was created",
+        createdAt: now,
+        created_at: now,
+      }),
+      updated_date: now,
+      updatedAt: now,
+      syncStatus: "local_only",
+      source: "local",
+    });
+    updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
+    updatedGoal.activityLog = updatedGoal.savingsActivityLog;
+    updatedGoal.activity_log = updatedGoal.savingsActivityLog;
+    await updateSavingsGoal(goal.id, updatedGoal);
+    setDetailGoal(updatedGoal);
+    return updatedGoal;
+  };
+
+'''
+          source = source[:index] + handler_insert + source[index:]
+
+          old_form_call = '''    <GoalFormDialog open={open} editId={editId} form={form} setForm={setForm} saving={saving} error={formError} onClose={closeFormModal} onSave={handleSave} wallets={activeWallets} walletBalances={walletBalances} subcats={form.category ? CATEGORIES[form.category] || [] : []} fmt={fmt} />'''
+          new_form_call = '''    <GoalFormDialog
+      open={open}
+      editId={editId}
+      form={form}
+      setForm={setForm}
+      saving={saving}
+      error={formError}
+      onClose={closeFormModal}
+      onSave={handleSave}
+      onManageBalance={() => {
+        const goal = goals.find((item) => String(item.id) === String(editId));
+        closeFormModal();
+        if (goal) setDetailGoal(goal);
+      }}
+      wallets={activeWallets}
+      walletBalances={walletBalances}
+      subcats={form.category ? CATEGORIES[form.category] || [] : []}
+      fmt={fmt}
+    />'''
+          replace_once(old_form_call, new_form_call, 'GoalFormDialog call')
+
+          old_detail_call = '''    {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletAvailableBalances={walletAvailableBalances} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={requestDelete} onAddSavings={handleAddSavings} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}'''
+          new_detail_call = '''    {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletAvailableBalances={walletAvailableBalances} walletCapacity={getGoalWalletCapacity(detailGoal)} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={requestDelete} onAddSavings={handleAddSavings} onReleaseSavings={handleReleaseSavings} onCorrectSavingsBalance={handleCorrectSavingsBalance} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}'''
+          replace_once(old_detail_call, new_detail_call, 'GoalDetail call')
+
+          replace_once(
+              'function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, onSave, wallets, walletBalances, subcats, fmt }) {',
+              'function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, onSave, onManageBalance, wallets, walletBalances, subcats, fmt }) {',
+              'GoalFormDialog signature',
+          )
+
+          replace_once(
+              '''    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FormInput label="Target Amount">
+        <Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(event) => setForm({ ...form, target_amount: event.target.value })} />
+      </FormInput>
+      <FormInput label="Already Saved">
+        <Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(event) => setForm({ ...form, saved_amount: event.target.value })} />
+      </FormInput>
+    </div>''',
+              '''    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FormInput label="Target Amount">
+        <Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(event) => setForm({ ...form, target_amount: event.target.value })} />
+      </FormInput>
+      {editId ? (
+        <FormInput label="Protected Savings">
+          <div className="rounded-xl border border-green-300/15 bg-green-400/[0.07] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-bold text-green-100">{fmt(form.saved_amount)}</p>
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white/55">Managed</span>
+            </div>
+            <p className="mt-1 text-[11px] leading-4 text-white/50">Change this through Add, Release, Use, or Correct so CLARA can update protection and history safely.</p>
+            <Button type="button" onClick={onManageBalance} className="mt-2 h-8 w-full rounded-lg border border-green-300/20 bg-green-500/12 text-xs font-bold text-green-100 hover:bg-green-500/20">Manage Saved Amount</Button>
+          </div>
+        </FormInput>
+      ) : (
+        <FormInput label="Already Saved">
+          <Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(event) => setForm({ ...form, saved_amount: event.target.value })} />
+        </FormInput>
+      )}
+    </div>''',
+              'Already Saved editor',
+          )
+
+          replace_once(
+              'function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, walletSyncSuggestion, onOpenWalletSyncPrompt, onClose, onEdit, onDelete, onAddSavings, onUseSavings, totalIncome, fmt }) {',
+              'function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, walletCapacity, walletSyncSuggestion, onOpenWalletSyncPrompt, onClose, onEdit, onDelete, onAddSavings, onReleaseSavings, onCorrectSavingsBalance, onUseSavings, totalIncome, fmt }) {',
+              'GoalDetail signature',
+          )
+
+          goal_start = source.find('function GoalDetail(')
+          goal_end = source.find('\n\n\nfunction SavingsDeleteConfirmDialog', goal_start)
+          if goal_start < 0 or goal_end < 0:
+              raise SystemExit('GoalDetail boundaries missing')
+          segment = source[goal_start:goal_end]
+
+          segment = segment.replace(
+              '''  const [useError, setUseError] = useState("");''',
+              '''  const [useError, setUseError] = useState("");
+  const [releaseSavingsOpen, setReleaseSavingsOpen] = useState(false);
+  const [releaseAmount, setReleaseAmount] = useState("");
+  const [releaseReason, setReleaseReason] = useState("");
+  const [releaseError, setReleaseError] = useState("");
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctedAmount, setCorrectedAmount] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionError, setCorrectionError] = useState("");''',
+              1,
+          )
+
+          segment = segment.replace(
+              '''  const assignedWalletBalance = assignedWallet ? walletBalances[walletId(assignedWallet)] ?? toNumber(assignedWallet.balance) : 0;''',
+              '''  const assignedWalletBalance = assignedWallet ? walletBalances[walletId(assignedWallet)] ?? toNumber(assignedWallet.balance) : 0;
+  const safeWalletCapacity = Math.max(toNumber(walletCapacity), 0);
+  const hasBalanceMismatch = Boolean(assignedWallet && toMinorUnits(saved) > toMinorUnits(safeWalletCapacity));''',
+              1,
+          )
+
+          use_handler = re.search(r'''  const handleSubmitUseSavings = async \(\) => \{.*?\n  \};''', segment, re.S)
+          if not use_handler:
+              raise SystemExit('use savings handler missing')
+          extra_handlers = '''
+  const handleSubmitReleaseSavings = async () => {
+    if (savingAmount) return;
+    try {
+      setSavingAmount(true);
+      setReleaseError("");
+      await onReleaseSavings(goal, releaseAmount, releaseReason);
+      setReleaseAmount("");
+      setReleaseReason("");
+      setReleaseSavingsOpen(false);
+    } catch (error) {
+      console.error("Failed to release savings:", error);
+      setReleaseError(error?.message || "CLARA could not release this savings amount yet. Try again.");
+    } finally {
+      setSavingAmount(false);
+    }
+  };
+
+  const handleSubmitCorrection = async () => {
+    if (savingAmount) return;
+    try {
+      setSavingAmount(true);
+      setCorrectionError("");
+      await onCorrectSavingsBalance(goal, correctedAmount, correctionReason);
+      setCorrectedAmount("");
+      setCorrectionReason("");
+      setCorrectionOpen(false);
+    } catch (error) {
+      console.error("Failed to correct savings balance:", error);
+      setCorrectionError(error?.message || "CLARA could not correct this savings balance yet. Try again.");
+    } finally {
+      setSavingAmount(false);
+    }
+  };'''
+          segment = segment[:use_handler.end()] + extra_handlers + segment[use_handler.end():]
+
+          mismatch_anchor = '''</div></div><InfoBlock title="Saved in">'''
+          mismatch_ui = '''</div></div>{hasBalanceMismatch ? <div className="rounded-2xl border border-rose-300/25 bg-rose-400/[0.1] p-4"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-200" /><div><p className="text-sm font-bold text-rose-50">Savings balance needs correction</p><p className="mt-1 text-xs leading-5 text-rose-100/70">This goal records {fmt(saved)}, but this wallet can safely support only {fmt(safeWalletCapacity)} after other protected money.</p></div></div><Button type="button" onClick={() => { setCorrectedAmount(String(Math.min(saved, safeWalletCapacity))); setCorrectionReason(""); setCorrectionError(""); setCorrectionOpen(true); }} className="mt-3 h-9 w-full rounded-xl border border-rose-200/20 bg-rose-400/15 text-xs font-bold text-rose-50 hover:bg-rose-400/20">Correct Balance</Button></div> : null}<InfoBlock title="Saved in">'''
+          if mismatch_anchor not in segment:
+              raise SystemExit('mismatch anchor missing')
+          segment = segment.replace(mismatch_anchor, mismatch_ui, 1)
+
+          activity_old = '''<span className={entry.type === "use" ? "text-amber-200" : "text-green-200"}>{entry.type === "use" ? "-" : "+"}{fmt(entry.amount)}</span>'''
+          activity_new = '''<span className={entry.type === "use" || entry.type === "release" ? "text-amber-200" : entry.type === "correction" ? "text-sky-200" : "text-green-200"}>{entry.type === "correction" ? `${fmt(entry.previousAmount ?? entry.previous_amount)} → ${fmt(entry.correctedAmount ?? entry.corrected_amount)}` : `${entry.type === "use" || entry.type === "release" ? "-" : "+"}${fmt(entry.amount)}`}</span>'''
+          if activity_old not in segment:
+              raise SystemExit('activity amount marker missing')
+          segment = segment.replace(activity_old, activity_new, 1)
+
+          use_button = '''<Button type="button" onClick={() => { setUseAmount(""); setUseReason(""); setUseError(""); setUseSavingsOpen(true); }} disabled={saved <= 0 || !assignedWallet} className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"><MinusCircle className="w-4 h-4 mr-2" />Use Savings</Button>'''
+          managed_buttons = use_button + '''<Button type="button" onClick={() => { setReleaseAmount(""); setReleaseReason(""); setReleaseError(""); setReleaseSavingsOpen(true); }} disabled={saved <= 0} className="h-10 rounded-xl border border-sky-400/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15 disabled:opacity-50"><Unlock className="w-4 h-4 mr-2" />Release</Button><Button type="button" onClick={() => { setCorrectedAmount(String(saved)); setCorrectionReason(""); setCorrectionError(""); setCorrectionOpen(true); }} className="h-10 rounded-xl border border-violet-400/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/15"><Wrench className="w-4 h-4 mr-2" />Correct</Button>'''
+          if use_button not in segment:
+              raise SystemExit('Use Savings button missing')
+          segment = segment.replace(use_button, managed_buttons, 1)
+
+          close_marker = '''    <Dialog open={useSavingsOpen}'''
+          use_dialog_start = segment.find(close_marker)
+          close_pos = segment.find('\n  </>;', use_dialog_start)
+          if use_dialog_start < 0 or close_pos < 0:
+              raise SystemExit('GoalDetail dialog close marker missing')
+
+          extra_dialogs = '''
+    <Dialog open={releaseSavingsOpen} onOpenChange={(value) => { if (!savingAmount) { setReleaseSavingsOpen(value); if (!value) setReleaseError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Release Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-sky-400/15 bg-sky-400/[0.07] p-4 text-sm leading-6 text-white/75">This removes protection from part of the saved amount. It does not spend or move wallet money. The released amount becomes available for normal spending again.</div><FormInput label="Amount to release"><Input type="number" className={inputDarkClass} value={releaseAmount} onChange={(event) => { setReleaseAmount(event.target.value); setReleaseError(""); }} autoFocus /></FormInput><FormInput label="Reason"><Input placeholder="Why are you releasing this money?" className={inputDarkClass} value={releaseReason} onChange={(event) => { setReleaseReason(event.target.value); setReleaseError(""); }} /></FormInput>{releaseError ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{releaseError}</div> : null}<p className="text-xs text-white/45">Current protected savings: {fmt(saved)}</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setReleaseSavingsOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80">Cancel</Button><Button type="button" onClick={handleSubmitReleaseSavings} disabled={savingAmount || saved <= 0} className="h-10 rounded-xl bg-sky-500 px-4 font-semibold text-white hover:bg-sky-600 disabled:opacity-50">{savingAmount ? "Releasing..." : "Release Savings"}</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={correctionOpen} onOpenChange={(value) => { if (!savingAmount) { setCorrectionOpen(value); if (!value) setCorrectionError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Correct Saved Balance</DialogTitle><p className="text-xs text-white/50 mt-1">Record repair only</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.07] p-4 text-sm leading-6 text-white/75">Use this only when CLARA's recorded saved amount is wrong. This does not add money, move money, or create an expense.</div><div className="grid grid-cols-2 gap-3"><InfoMini label="Recorded" value={fmt(saved)} /><InfoMini label="Wallet can support" value={fmt(safeWalletCapacity)} /></div><FormInput label="Correct saved balance"><Input type="number" className={inputDarkClass} value={correctedAmount} onChange={(event) => { setCorrectedAmount(event.target.value); setCorrectionError(""); }} autoFocus /></FormInput><FormInput label="Correction reason"><Input placeholder="What caused the mismatch?" className={inputDarkClass} value={correctionReason} onChange={(event) => { setCorrectionReason(event.target.value); setCorrectionError(""); }} /></FormInput>{correctionError ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{correctionError}</div> : null}</div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setCorrectionOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80">Cancel</Button><Button type="button" onClick={handleSubmitCorrection} disabled={savingAmount} className="h-10 rounded-xl bg-violet-500 px-4 font-semibold text-white hover:bg-violet-600 disabled:opacity-50">{savingAmount ? "Correcting..." : "Apply Correction"}</Button></div></div></div></DialogContent></Dialog>'''
+          segment = segment[:close_pos] + extra_dialogs + segment[close_pos:]
+
+          source = source[:goal_start] + segment + source[goal_end:]
+          path.write_text(source)
+
+          test = Path('tests/savings-goal-managed-balance-regression.test.mjs')
+          test.write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport fs from "node:fs";\n\nconst source = fs.readFileSync("src/pages/SavingsGoalsIntegrated.jsx", "utf8");\n\ntest("existing Savings Goals use managed balance actions instead of direct saved amount editing", () => {\n  assert.match(source, /existing \? currentSavedAmount/);\n  assert.match(source, /Manage Saved Amount/);\n  assert.match(source, /handleReleaseSavings/);\n  assert.match(source, /handleCorrectSavingsBalance/);\n  assert.match(source, /Release Savings/);\n  assert.match(source, /Correct Saved Balance/);\n  assert.match(source, /Savings balance needs correction/);\n  assert.match(source, /Record correction only; no wallet transaction was created/);\n});\n''')
+
+          trigger = Path('.github/savings-goal-managed-balance-trigger')
+          if trigger.exists():
+              trigger.unlink()
+          PY
+
+      - run: npm ci
+      - run: node --test tests/savings-goal-managed-balance-regression.test.mjs
+      - run: npm test -- --runInBand
+      - run: npm run build
+
+      - name: Commit verified app changes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/pages/SavingsGoalsIntegrated.jsx tests/savings-goal-managed-balance-regression.test.mjs .github/savings-goal-managed-balance-trigger
+          git commit -m "feat: manage Savings Goal balances with explicit actions"
+          git push origin HEAD:fix/savings-goal-managed-balance
