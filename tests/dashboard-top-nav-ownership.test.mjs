@@ -227,7 +227,7 @@ test("Me viewing is read-only while explicit mutations save and schedule cloud s
   assert.match(financialClimateSource, /const savedDraft = saveStageProfile/);
   assert.match(financialClimateSource, /persistProfilePatch/);
   assert.match(lifeStageFlowSource, /CLARA_LIFE_STAGE_UPDATED_EVENT/);
-  assert.match(lifeStageFlowSource, /notifyLifeStageUpdated\(\{ kind: "profile" \}\)/);
+  assert.match(lifeStageFlowSource, /notifyLifeStageUpdated\(\{[\s\S]*kind: "profile"/);
   assert.match(cloudVaultSyncSource, /CLARA_LIFE_STAGE_UPDATED_EVENT/);
   assert.match(financialClimateSource, /notifyLifeStageUpdated\(\{ kind: "images" \}\)/);
 });
