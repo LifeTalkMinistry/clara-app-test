@@ -38,7 +38,7 @@ export default function useDashboardFinanceModalHandlers({
     (message, type = "error") => {
       safeSetFinanceNotice({ message, type });
     },
-    [safeSetFinanceNotice]
+    [safeSetFinanceNotice],
   );
 
   const closeFinanceNotice = useCallback(() => {
@@ -86,24 +86,21 @@ export default function useDashboardFinanceModalHandlers({
         safeWallets.find((item) => String(item.id) === String(walletId)) || null;
       safeSetFinanceModal({ type: "delete_wallet", payload: wallet });
     },
-    [safeSetFinanceModal, safeWallets]
+    [safeSetFinanceModal, safeWallets],
   );
 
   const openAddMoneyModal = useCallback(
     (wallet) => {
-      safeSetFinanceForm((prev) => ({
-        ...prev,
-        amount: "",
-      }));
+      safeSetFinanceForm((prev) => ({ ...prev, amount: "" }));
       safeSetFinanceModal({ type: "add_money", payload: wallet });
     },
-    [safeSetFinanceForm, safeSetFinanceModal]
+    [safeSetFinanceForm, safeSetFinanceModal],
   );
 
   const openTransferMoneyModal = useCallback(
     (fromWallet) => {
       const destinationOptions = safeWallets.filter(
-        (wallet) => String(wallet.id) !== String(fromWallet?.id)
+        (wallet) => String(wallet.id) !== String(fromWallet?.id),
       );
 
       if (destinationOptions.length < 1) {
@@ -118,34 +115,43 @@ export default function useDashboardFinanceModalHandlers({
       }));
       safeSetFinanceModal({ type: "transfer_money", payload: fromWallet });
     },
-    [safeSetFinanceForm, safeSetFinanceModal, safeWallets, showFinanceNotice]
+    [safeSetFinanceForm, safeSetFinanceModal, safeWallets, showFinanceNotice],
   );
 
-  const openManualExpenseModal = useCallback(() => {
-    if (!safeWallets.length) {
-      showFinanceNotice("Create or fund a wallet first before logging an expense.");
-      return;
-    }
+  const openManualExpenseModal = useCallback(
+    (options = {}) => {
+      if (!safeWallets.length) {
+        showFinanceNotice("Create or fund a wallet first before logging an expense.");
+        return;
+      }
 
-    safeSetFinanceForm((prev) => ({
-      ...prev,
-      amount: "",
-      budgetListKey: "",
-      expenseWalletId: String(safeWallets[0]?.id || ""),
-      unplannedReason: "",
-      undocumentedReason: "",
-      undocumentedNote: "",
-      notes: "",
-    }));
-    safeSetBudgetListOpen(false);
-    safeSetFinanceModal({ type: "manual_expense", payload: null });
-  }, [
-    safeSetBudgetListOpen,
-    safeSetFinanceForm,
-    safeSetFinanceModal,
-    safeWallets,
-    showFinanceNotice,
-  ]);
+      const requestedAmount = Number(options?.initialAmount);
+      const initialAmount =
+        Number.isFinite(requestedAmount) && requestedAmount > 0
+          ? String(Number(requestedAmount.toFixed(2)))
+          : "";
+
+      safeSetFinanceForm((prev) => ({
+        ...prev,
+        amount: initialAmount,
+        budgetListKey: "",
+        expenseWalletId: String(safeWallets[0]?.id || ""),
+        unplannedReason: "",
+        undocumentedReason: "",
+        undocumentedNote: "",
+        notes: "",
+      }));
+      safeSetBudgetListOpen(false);
+      safeSetFinanceModal({ type: "manual_expense", payload: null });
+    },
+    [
+      safeSetBudgetListOpen,
+      safeSetFinanceForm,
+      safeSetFinanceModal,
+      safeWallets,
+      showFinanceNotice,
+    ],
+  );
 
   const openBudgetModal = useCallback(
     (budgetCategory = null) => {
@@ -153,7 +159,7 @@ export default function useDashboardFinanceModalHandlers({
       const declaredAmount = firstValidNumber(
         monthlyBudgetPlan?.declared_budget,
         monthlyBudgetPlan?.declared_amount,
-        declaredMonthlyBudgetAmount
+        declaredMonthlyBudgetAmount,
       );
 
       safeSetBudgetExitConfirm(false);
@@ -176,7 +182,7 @@ export default function useDashboardFinanceModalHandlers({
       safeSetBudgetExitConfirm,
       safeSetFinanceForm,
       safeSetFinanceModal,
-    ]
+    ],
   );
 
   const openDeleteBudgetCategoryModal = useCallback(
@@ -185,7 +191,7 @@ export default function useDashboardFinanceModalHandlers({
       if (!item?.id) return;
       safeSetFinanceModal({ type: "delete_budget_category", payload: item });
     },
-    [safeSetFinanceModal]
+    [safeSetFinanceModal],
   );
 
   const openResetBudgetModal = useCallback(() => {
@@ -206,12 +212,10 @@ export default function useDashboardFinanceModalHandlers({
       }
 
       safeNavigate("/savings-goals", {
-        state: {
-          openCreateSavingsGoal: true,
-        },
+        state: { openCreateSavingsGoal: true },
       });
     },
-    [safeNavigate]
+    [safeNavigate],
   );
 
   const openDeleteSavingsGoalModal = useCallback(
@@ -220,13 +224,13 @@ export default function useDashboardFinanceModalHandlers({
         safeSavingsGoals.find((item) => String(item.id) === String(goalId)) || null;
       safeSetFinanceModal({ type: "delete_savings_goal", payload: goal });
     },
-    [safeSavingsGoals, safeSetFinanceModal]
+    [safeSavingsGoals, safeSetFinanceModal],
   );
 
   const openAddSavingsModal = useCallback(
     (goal) => {
       const compatibleWallets = safeWallets.filter(
-        (wallet) => getWalletDisplayBalance(wallet) > 0
+        (wallet) => getWalletDisplayBalance(wallet) > 0,
       );
 
       if (!compatibleWallets.length) {
@@ -241,7 +245,7 @@ export default function useDashboardFinanceModalHandlers({
       }));
       safeSetFinanceModal({ type: "add_savings", payload: goal });
     },
-    [safeSetFinanceForm, safeSetFinanceModal, safeWallets, showFinanceNotice]
+    [safeSetFinanceForm, safeSetFinanceModal, safeWallets, showFinanceNotice],
   );
 
   return {

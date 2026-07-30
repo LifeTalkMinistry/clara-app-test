@@ -23,10 +23,8 @@ export default function useDashboardOrbInteractionHandlers({
 
   const safeOpenManualExpenseModal =
     typeof openManualExpenseModal === "function" ? openManualExpenseModal : () => {};
-
   const safeSetShowAiAssistant =
     typeof setShowAiAssistant === "function" ? setShowAiAssistant : () => {};
-
   const safeOpenTransactionHub =
     typeof openTransactionHub === "function" ? openTransactionHub : () => {};
 
@@ -67,7 +65,7 @@ export default function useDashboardOrbInteractionHandlers({
 
   const isClaraAiOrbEvent = useCallback(
     (event) => Boolean(getClaraAiOrbButtonFromEvent(event)),
-    [getClaraAiOrbButtonFromEvent]
+    [getClaraAiOrbButtonFromEvent],
   );
 
   const clearLongPressTimer = useCallback(() => {
@@ -97,7 +95,6 @@ export default function useDashboardOrbInteractionHandlers({
       event?.nativeEvent?.stopImmediatePropagation?.();
 
       const point = event?.touches?.[0] || event;
-
       orbPointerStateRef.current = {
         ...orbPointerStateRef.current,
         startX: Number(point?.clientX || 0),
@@ -107,7 +104,6 @@ export default function useDashboardOrbInteractionHandlers({
 
       longPressTriggeredRef.current = false;
       clearLongPressTimer();
-
       longPressTimerRef.current = setTimeout(() => {
         longPressTriggeredRef.current = true;
         clearSingleTapTimer();
@@ -119,22 +115,24 @@ export default function useDashboardOrbInteractionHandlers({
       clearSingleTapTimer,
       isClaraAiOrbEvent,
       openClaraAiFromLongPress,
-    ]
+    ],
   );
 
-  const moveClaraAiLongPress = useCallback((event) => {
-    const point = event?.touches?.[0] || event;
-    const startX = orbPointerStateRef.current.startX || 0;
-    const startY = orbPointerStateRef.current.startY || 0;
+  const moveClaraAiLongPress = useCallback(
+    (event) => {
+      const point = event?.touches?.[0] || event;
+      const startX = orbPointerStateRef.current.startX || 0;
+      const startY = orbPointerStateRef.current.startY || 0;
+      const dx = Math.abs(Number(point?.clientX || 0) - startX);
+      const dy = Math.abs(Number(point?.clientY || 0) - startY);
 
-    const dx = Math.abs(Number(point?.clientX || 0) - startX);
-    const dy = Math.abs(Number(point?.clientY || 0) - startY);
-
-    if (dx > ORB_MOVE_CANCEL_DISTANCE || dy > ORB_MOVE_CANCEL_DISTANCE) {
-      orbPointerStateRef.current.moved = true;
-      clearLongPressTimer();
-    }
-  }, [clearLongPressTimer]);
+      if (dx > ORB_MOVE_CANCEL_DISTANCE || dy > ORB_MOVE_CANCEL_DISTANCE) {
+        orbPointerStateRef.current.moved = true;
+        clearLongPressTimer();
+      }
+    },
+    [clearLongPressTimer],
+  );
 
   const endClaraAiLongPress = useCallback(() => {
     clearLongPressTimer();
@@ -169,13 +167,9 @@ export default function useDashboardOrbInteractionHandlers({
       }
 
       orbPointerStateRef.current.lastTapAt = now;
-
       clearSingleTapTimer();
-
       singleTapTimerRef.current = setTimeout(() => {
-        if (!longPressTriggeredRef.current) {
-          safeOpenManualExpenseModal();
-        }
+        if (!longPressTriggeredRef.current) safeOpenManualExpenseModal();
       }, ORB_SINGLE_TAP_DELAY);
 
       return true;
@@ -185,7 +179,7 @@ export default function useDashboardOrbInteractionHandlers({
       isClaraAiOrbEvent,
       safeOpenManualExpenseModal,
       safeOpenTransactionHub,
-    ]
+    ],
   );
 
   const stopMoneyLeftOrbEvent = useCallback((event) => {
@@ -199,7 +193,7 @@ export default function useDashboardOrbInteractionHandlers({
       stopMoneyLeftOrbEvent(event);
       startClaraAiLongPress(event);
     },
-    [startClaraAiLongPress, stopMoneyLeftOrbEvent]
+    [startClaraAiLongPress, stopMoneyLeftOrbEvent],
   );
 
   const moveMoneyLeftOrbLongPress = useCallback(
@@ -207,7 +201,7 @@ export default function useDashboardOrbInteractionHandlers({
       stopMoneyLeftOrbEvent(event);
       moveClaraAiLongPress(event);
     },
-    [moveClaraAiLongPress, stopMoneyLeftOrbEvent]
+    [moveClaraAiLongPress, stopMoneyLeftOrbEvent],
   );
 
   const endMoneyLeftOrbLongPress = useCallback(
@@ -215,15 +209,32 @@ export default function useDashboardOrbInteractionHandlers({
       stopMoneyLeftOrbEvent(event);
       endClaraAiLongPress();
     },
-    [endClaraAiLongPress, stopMoneyLeftOrbEvent]
+    [endClaraAiLongPress, stopMoneyLeftOrbEvent],
   );
 
   const handleMoneyLeftOrbClick = useCallback(
-    (event) => {
+    (event, options = {}) => {
       stopMoneyLeftOrbEvent(event);
-      handleClaraAiOrbClickCapture(event);
+
+      if (options?.resolvedGesture) {
+        clearLongPressTimer();
+        clearSingleTapTimer();
+        longPressTriggeredRef.current = false;
+        orbPointerStateRef.current.lastTapAt = 0;
+        orbPointerStateRef.current.moved = false;
+        safeOpenManualExpenseModal({ initialAmount: options.initialAmount });
+        return true;
+      }
+
+      return handleClaraAiOrbClickCapture(event);
     },
-    [handleClaraAiOrbClickCapture, stopMoneyLeftOrbEvent]
+    [
+      clearLongPressTimer,
+      clearSingleTapTimer,
+      handleClaraAiOrbClickCapture,
+      safeOpenManualExpenseModal,
+      stopMoneyLeftOrbEvent,
+    ],
   );
 
   useEffect(() => {
@@ -241,7 +252,6 @@ export default function useDashboardOrbInteractionHandlers({
     };
 
     window.addEventListener("clara:open-assistant", handleOpenAssistant, true);
-
     return () => {
       window.removeEventListener("clara:open-assistant", handleOpenAssistant, true);
     };
