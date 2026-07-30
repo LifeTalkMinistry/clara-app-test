@@ -129,6 +129,7 @@ import "../me-adaptive-viewport.css";
 import "../me-hero-support-bond.css";
 import "../life-stage-young-professional-overlap-fix.css";
 import "../me-life-stage-signal-gap-fix.css";
+import "../life-stage-idle-support-copy.css";
 
 // Finance/modal polish CSS patches
 import "../savings-goals-modal-polish.css";
