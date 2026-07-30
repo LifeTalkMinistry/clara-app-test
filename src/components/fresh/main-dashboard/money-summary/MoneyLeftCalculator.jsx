@@ -107,6 +107,7 @@ function formatPeso(value) {
 export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
   const [expression, setExpression] = useState("");
   const closeButtonRef = useRef(null);
+  const onCloseRef = useRef(onClose);
 
   const result = useMemo(() => {
     try {
@@ -117,6 +118,10 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
   }, [expression]);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     if (!isOpen || typeof document === "undefined") return undefined;
 
     setExpression("");
@@ -124,7 +129,7 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
     document.body.style.overflow = "hidden";
     const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     const handleEscape = (event) => {
-      if (event.key === "Escape") onClose?.();
+      if (event.key === "Escape") onCloseRef.current?.();
     };
 
     window.addEventListener("keydown", handleEscape);
@@ -133,7 +138,7 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
       window.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen || typeof document === "undefined") return null;
 
@@ -155,7 +160,7 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
       className="fixed inset-0 z-[9999] flex min-h-[100dvh] items-center justify-center bg-slate-950/80 px-4 py-6 text-white backdrop-blur-lg"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
+        if (event.target === event.currentTarget) onCloseRef.current?.();
       }}
     >
       <section
@@ -170,7 +175,7 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
           <button
             ref={closeButtonRef}
             type="button"
-            onClick={onClose}
+            onClick={() => onCloseRef.current?.()}
             aria-label="Close calculator"
             className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/75 transition hover:bg-white/10 active:scale-95"
           >
