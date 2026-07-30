@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -22,6 +22,147 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch live Money Left calculator
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          target = Path("src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx")
+          text = target.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one {label} anchor, found {count}")
+              text = text.replace(old, new, 1)
+
+          if 'import { Calculator, Eye, EyeOff } from "lucide-react";' not in text:
+              replace_once(
+                  'import { Eye, EyeOff } from "lucide-react";',
+                  'import { Calculator, Eye, EyeOff } from "lucide-react";',
+                  "Lucide import",
+              )
+
+          pause_import = 'import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";'
+          calculator_import = 'import MoneyLeftCalculatorDialog from "./MoneyLeftCalculatorDialog";'
+          if calculator_import not in text:
+              replace_once(
+                  pause_import,
+                  f"{pause_import}\n{calculator_import}",
+                  "calculator import",
+              )
+
+          holding_state = '  const [isGuideOrbHolding, setIsGuideOrbHolding] = useState(false);'
+          calculator_state = '  const [calculatorOpen, setCalculatorOpen] = useState(false);'
+          if calculator_state not in text:
+              replace_once(
+                  holding_state,
+                  f"{holding_state}\n{calculator_state}",
+                  "calculator state",
+              )
+
+          calculator_handler = '''  const handleCalculatorOpen = useCallback(
+            (event) => {
+              event?.preventDefault?.();
+              event?.stopPropagation?.();
+              event?.nativeEvent?.stopImmediatePropagation?.();
+              if (isGuideMode) return;
+              setCalculatorOpen(true);
+            },
+            [isGuideMode]
+          );
+
+'''
+          if 'const handleCalculatorOpen = useCallback' not in text:
+              replace_once(
+                  '  const bubbleSurface = {',
+                  f"{calculator_handler}  const bubbleSurface = {{",
+                  "calculator handler",
+              )
+
+          old_controls = '''      <button
+        type="button"
+        data-clara-summary-privacy-toggle="true"
+        onClick={handlePrivacyToggle}
+        disabled={isGuideOrbStepActive}
+        aria-disabled={isGuideOrbStepActive}
+        className="absolute left-[39%] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 max-[380px]:left-[42%] max-[380px]:top-7"
+        aria-label={
+          effectiveMoneySummaryVisible
+            ? "Hide financial summary amounts"
+            : "Show financial summary amounts"
+        }
+      >
+        {effectiveMoneySummaryVisible ? (
+          <Eye className="h-3.5 w-3.5" />
+        ) : (
+          <EyeOff className="h-3.5 w-3.5" />
+        )}
+      </button>
+'''
+
+          new_controls = '''      <div className="absolute left-[39%] top-8 z-50 flex -translate-x-1/2 items-center gap-1.5 max-[380px]:left-[42%] max-[380px]:top-7">
+        <button
+          type="button"
+          data-clara-summary-privacy-toggle="true"
+          onClick={handlePrivacyToggle}
+          disabled={isGuideOrbStepActive}
+          aria-disabled={isGuideOrbStepActive}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
+          aria-label={
+            effectiveMoneySummaryVisible
+              ? "Hide financial summary amounts"
+              : "Show financial summary amounts"
+          }
+        >
+          {effectiveMoneySummaryVisible ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          data-clara-money-calculator-toggle="true"
+          onClick={handleCalculatorOpen}
+          disabled={isGuideMode}
+          aria-disabled={isGuideMode}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
+          aria-label="Open calculator"
+          title="Calculator"
+        >
+          <Calculator className="h-3.5 w-3.5" />
+        </button>
+      </div>
+'''
+
+          if 'data-clara-money-calculator-toggle="true"' not in text:
+              replace_once(old_controls, new_controls, "Money Left controls")
+
+          if '<MoneyLeftCalculatorDialog' not in text:
+              closing = '\n    </section>\n  );\n}\n'
+              index = text.rfind(closing)
+              if index < 0:
+                  raise SystemExit("Could not find component closing anchor")
+              dialog = '''
+
+      <MoneyLeftCalculatorDialog
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+      />'''
+              text = text[:index] + dialog + text[index:]
+
+          target.write_text(text, encoding="utf-8", newline="\n")
+          PY
+
+          git show 6f949cc^:src/components/StatCard.jsx > src/components/StatCard.jsx
+          git show HEAD^:.github/workflows/deploy.yml > .github/workflows/deploy.yml
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -35,10 +176,31 @@ jobs:
       - name: Run regression tests
         run: npm test
 
+      - name: Validate GitHub Pages build
+        run: npm run build:web
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GEMINI_MODEL: gemini-2.5-flash
+          VITE_CLARA_RUNTIME_MODE: local_only
+          VITE_CLARA_AUTH_ENABLED: "false"
+          VITE_CLARA_LOCAL_MODE_ENABLED: "true"
+
+      - name: Commit surgical calculator fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/deploy.yml \
+            src/components/StatCard.jsx \
+            src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx
+          git commit -m "Wire calculator into live Money Left summary"
+          git push origin HEAD:main
+
       - name: Stamp web build
         run: |
           printf '{"commit":"%s","builtAt":"%s"}\n' \
-            "$GITHUB_SHA" \
+            "$(git rev-parse HEAD)" \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             > public/build-info.json
 
