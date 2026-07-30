@@ -66,15 +66,20 @@
   letter-spacing: -0.022em !important;
 }
 
+/* Never truncate stage-specific support copy. The auto-sized grid row lets the
+   card grow while the hero absorbs the small height difference. */
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] h3 + p {
-  display: -webkit-box !important;
+  display: block !important;
   width: 100% !important;
   max-width: none !important;
+  max-height: none !important;
   margin: 0 !important;
-  -webkit-line-clamp: 3 !important;
-  line-clamp: 3 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: initial !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
   color: rgba(248, 253, 255, 0.68) !important;
   font-size: clamp(9.9px, 2.72vw, 10.7px) !important;
   font-weight: 650 !important;
@@ -149,8 +154,6 @@
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] h3 + p {
-    -webkit-line-clamp: 3 !important;
-    line-clamp: 3 !important;
     font-size: clamp(9.35px, 2.52vw, 10px) !important;
     line-height: 1.28 !important;
   }
@@ -191,8 +194,6 @@
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] h3 + p {
-    -webkit-line-clamp: 2 !important;
-    line-clamp: 2 !important;
     font-size: 9.1px !important;
     line-height: 1.22 !important;
   }
