@@ -1,18 +1,16 @@
 name: Apply Savings managed balance upgrade
 
-# Triggered through a merged PR so GitHub Actions receives a trusted push event.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/refactor-transaction-hub.yml"
+  issues:
+    types:
+      - opened
 
 permissions:
   contents: write
 
 jobs:
   apply-savings-managed-balance:
+    if: contains(github.event.issue.title, '[run-savings-managed-balance]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Savings feature branch
