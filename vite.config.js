@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { savingsGoalManagedBalancePlugin } from "./src/build/savingsGoalManagedBalanceTransform.js";
 
 function getManualChunk(id) {
   if (!id.includes("node_modules")) return undefined;
@@ -74,7 +75,7 @@ function getManualChunk(id) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [savingsGoalManagedBalancePlugin(), react()],
 
   define: {
     "import.meta.env.VITE_CLARA_WELCOME_SESSION_FORM_URL": JSON.stringify(
