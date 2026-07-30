@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 const read = (path) => readFileSync(path, "utf8");
 const page = read("src/pages/SavingsGoalsIntegrated.jsx");
 const card = read("src/components/SavingsCardRefined.jsx");
+const dashboardPreview = read(
+  "src/components/fresh/main-dashboard/finance-content/useDashboardSavingsPreviewState.js"
+);
 const repair = read("src/lib/savingsGoalLinkedExpenseRepair.js");
 const manualSync = read("src/lib/manualExpenseLinkedTargetSync.js");
 const packageJson = read("package.json");
@@ -58,6 +61,16 @@ test("starter ideas prefill the goal and card totals preserve explicit zero", ()
   assert.doesNotMatch(page, /onClick=\{openAdd\}/);
   assert.match(card, /const hasExplicitSaved/);
   assert.match(card, /const activePrimaryGoal/);
+});
+
+test("dashboard Savings totals read canonical fields and ignore deleted goals", () => {
+  assert.match(dashboardPreview, /goal\?\.saved_amount/);
+  assert.match(dashboardPreview, /goal\?\.savedAmount/);
+  assert.match(dashboardPreview, /goal\?\.current_amount/);
+  assert.match(dashboardPreview, /goal\?\.target_amount/);
+  assert.match(dashboardPreview, /goal\?\.targetAmount/);
+  assert.match(dashboardPreview, /!goal\?\.deletedAt && !goal\?\.deleted_at/);
+  assert.match(dashboardPreview, /activeSavingsGoals\.reduce/);
 });
 
 test("wallet sync failures stay visible instead of using alerts", () => {
