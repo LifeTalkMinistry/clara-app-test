@@ -40,7 +40,7 @@ test("income timing is React-owned and saved with the source", () => {
 test("one Hide tap is not swallowed by an open source menu", () => {
   assert.equal(card.includes("data-clara-finance-expand-toggle"), true);
   assert.equal(card.includes("suppressRootClickUntilRef"), false);
-  assert.equal(card.includes("closeIncomeActionMenu();\n      return;"), true);
+  assert.match(card, /closeIncomeActionMenu\(\);\s*return;/);
 });
 
 test("Income Hub validation and local date are visible and deterministic", () => {
