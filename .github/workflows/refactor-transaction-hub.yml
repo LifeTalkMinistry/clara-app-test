@@ -1,5 +1,6 @@
 name: Apply Savings managed balance upgrade
 
+# Triggered through a merged PR so GitHub Actions receives a trusted push event.
 on:
   push:
     branches:
