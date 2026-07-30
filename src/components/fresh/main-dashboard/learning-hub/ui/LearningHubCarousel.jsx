@@ -210,7 +210,6 @@ export default function LearningHubCarousel({
 
     if (didSwipe) {
       headerSwipeHandledRef.current = true;
-      event.preventDefault();
       event.stopPropagation();
 
       setIsExpanded(diff > 0);
@@ -253,7 +252,8 @@ export default function LearningHubCarousel({
 
     if (dragAxisRef.current !== "x") return;
 
-    event.preventDefault();
+    // The stage's touch-action: pan-y reserves horizontal swipes for the carousel.
+    // React may register touchmove passively, so preventDefault must not be called here.
     setIsDragging(true);
     applyDragOffset(deltaX / getCardDragRange());
   };
@@ -267,7 +267,6 @@ export default function LearningHubCarousel({
     const didSwipe = didHorizontalDrag && Math.abs(diff) > CARD_SWIPE_THRESHOLD;
 
     if (didHorizontalDrag) {
-      event.preventDefault();
       event.stopPropagation();
       temporarilySuppressCardClick();
     }
