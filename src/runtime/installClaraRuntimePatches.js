@@ -87,6 +87,10 @@ import "../clara-talk-pause-bridge";
 // owns only the visual hierarchy for Review and Edit Mode.
 import "../clara-memory-review-premium.css";
 
+// The review list owns scrolling. Its cards retain their natural content height
+// so populated sections cannot collapse into thin pills.
+import "../clara-memory-review-layout-integrity.css";
+
 // Life Stage ownership note:
 // FinancialClimateUniversalScreen now owns the Me-page pressure dock, support
 // state, heart interaction, Snapshot rendering, and mutation events through
