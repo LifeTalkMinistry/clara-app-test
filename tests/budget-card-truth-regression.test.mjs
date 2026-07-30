@@ -9,7 +9,7 @@ const readSource = (relativePath) =>
 
 const listItems = readSource("src/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetListItems.js");
 const dashboard = readSource("src/pages/Dashboard.jsx");
-const actions = readSource("src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js");
+const actions = readSource("src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlersCore.js");
 const budgetLogic = readSource("src/components/financial-carousel/cards/budget/logic/useBudgetCardLogicCore.js");
 const budgetEngine = readSource("src/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlanEngine.js");
 const carouselCore = readSource("src/components/financial-carousel/logic/financeCarouselDataHelpersCore.js");
