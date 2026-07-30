@@ -99,14 +99,14 @@ const createArrowIcon = () => {
   iconShell.setAttribute("aria-hidden", "true");
   Object.assign(iconShell.style, {
     display: "grid",
-    width: "26px",
-    height: "26px",
-    flex: "0 0 26px",
+    width: "28px",
+    height: "28px",
+    flex: "0 0 28px",
     placeItems: "center",
     borderRadius: "999px",
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(255,255,255,0.075)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.08)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09)",
   });
 
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -136,24 +136,32 @@ const createManualLogButton = () => {
   const label = document.createElement("span");
   label.setAttribute("data-clara-calculator-manual-log-label", "true");
   Object.assign(label.style, {
+    display: "block",
+    flex: "1 1 auto",
     minWidth: "0",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    color: "inherit",
+    textAlign: "left",
   });
 
   const arrow = createArrowIcon();
   button.append(label, arrow);
 
   Object.assign(button.style, {
+    boxSizing: "border-box",
     width: "100%",
-    height: "50px",
+    maxWidth: "100%",
+    minWidth: "0",
+    height: "52px",
     marginTop: "12px",
     padding: "0 12px 0 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "10px",
+    gap: "12px",
+    overflow: "hidden",
     borderRadius: "15px",
     border: "1px solid rgba(103,232,249,0.28)",
     background:
@@ -171,9 +179,16 @@ const createManualLogButton = () => {
     WebkitTapHighlightColor: "transparent",
   });
 
+  // Protect the full-width CTA from generic button rules in the dashboard.
+  button.style.setProperty("display", "flex", "important");
+  button.style.setProperty("width", "100%", "important");
+  button.style.setProperty("min-width", "0", "important");
+
   button.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
-    if (!button.disabled) button.style.transform = "scale(0.985)";
+    if (button.getAttribute("aria-disabled") !== "true") {
+      button.style.transform = "scale(0.985)";
+    }
   });
   button.addEventListener("pointerup", () => {
     button.style.transform = "scale(1)";
@@ -185,15 +200,19 @@ const createManualLogButton = () => {
     button.style.transform = "scale(1)";
   });
   button.addEventListener("mouseenter", () => {
-    if (button.disabled) return;
+    if (button.getAttribute("aria-disabled") === "true") return;
     button.style.borderColor = "rgba(103,232,249,0.42)";
     button.style.background =
       "linear-gradient(135deg, rgba(16,43,91,0.99), rgba(59,35,128,0.99))";
   });
   button.addEventListener("mouseleave", () => {
-    button.style.borderColor = "rgba(103,232,249,0.28)";
-    button.style.background =
-      "linear-gradient(135deg, rgba(13,35,75,0.98), rgba(49,30,111,0.98))";
+    const disabled = button.getAttribute("aria-disabled") === "true";
+    button.style.borderColor = disabled
+      ? "rgba(255,255,255,0.12)"
+      : "rgba(103,232,249,0.28)";
+    button.style.background = disabled
+      ? "linear-gradient(135deg, rgba(18,29,59,0.92), rgba(35,28,75,0.92))"
+      : "linear-gradient(135deg, rgba(13,35,75,0.98), rgba(49,30,111,0.98))";
   });
 
   return button;
@@ -260,18 +279,27 @@ export function installMoneyLeftCalculatorManualLogBridge() {
       const amount = readResult();
       const enabled = Number.isFinite(amount) && amount > 0;
 
-      actionButton.disabled = !enabled;
-      actionButton.style.opacity = enabled ? "1" : "0.44";
-      actionButton.style.cursor = enabled ? "pointer" : "not-allowed";
+      // Keep the real button enabled so global disabled-button CSS cannot
+      // collapse the CTA into an icon-only control.
+      actionButton.disabled = false;
+      actionButton.setAttribute("aria-disabled", enabled ? "false" : "true");
+      actionButton.style.opacity = enabled ? "1" : "0.64";
+      actionButton.style.cursor = enabled ? "pointer" : "default";
+      actionButton.style.borderColor = enabled
+        ? "rgba(103,232,249,0.28)"
+        : "rgba(255,255,255,0.12)";
+      actionButton.style.background = enabled
+        ? "linear-gradient(135deg, rgba(13,35,75,0.98), rgba(49,30,111,0.98))"
+        : "linear-gradient(135deg, rgba(18,29,59,0.92), rgba(35,28,75,0.92))";
       actionButton.setAttribute(
         "aria-label",
         enabled
-          ? `Log ${formatPeso(amount)} as an expense`
-          : "Calculate an amount first"
+          ? `Use ${formatPeso(amount)} as an expense`
+          : "Use calculator result as an expense"
       );
       actionLabel.textContent = enabled
-        ? `Log ${formatPeso(amount)} as Expense`
-        : "Calculate an amount first";
+        ? `Use ${formatPeso(amount)} as Expense`
+        : "Use as Expense";
     };
 
     actionButton.addEventListener("click", (event) => {
@@ -282,9 +310,10 @@ export function installMoneyLeftCalculatorManualLogBridge() {
       if (!Number.isFinite(amount) || amount <= 0) return;
 
       pendingAmount = amount;
-      actionButton.disabled = true;
+      actionButton.setAttribute("aria-disabled", "true");
+      actionButton.setAttribute("aria-busy", "true");
       actionButton.style.opacity = "0.72";
-      actionLabel.textContent = "Opening Manual Log…";
+      actionLabel.textContent = "Opening Expense Log…";
 
       resultObservers.get(overlay)?.disconnect?.();
       overlay.remove();
