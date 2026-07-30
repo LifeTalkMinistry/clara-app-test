@@ -223,3 +223,26 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
   transform: translate(-50%, -50%) !important;
   margin: 0 !important;
 }
+
+/* Calculator expense CTA: keep the label premium, centered, and on one line. */
+[data-clara-money-calculator-modal="true"] [data-clara-calculator-manual-log-action="true"] {
+  position: static !important;
+  inset: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  height: 52px !important;
+  margin: 12px 0 0 !important;
+  padding: 0 20px !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-align: center !important;
+  line-height: 1 !important;
+}
