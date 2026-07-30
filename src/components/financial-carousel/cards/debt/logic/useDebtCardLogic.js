@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  firstValidNumber,
+  getPHMonthKey,
+  getTransactionDate,
+  normalizeLower,
+  INCOME_TRANSACTION_TYPES,
+} from "@/utils/dashboard/dashboardHelpers";
+import { financeRepository } from "@/lib/financeRepository";
+import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
+import {
   DEFAULT_DEBT_OBLIGATION_ID,
   getDebtObligations,
+  isDebtLinkedExpense,
   summarizeDebtObligations,
   toDebtNumber,
   upsertDebtObligation,
@@ -16,7 +26,6 @@ export const fmt = (value) =>
   }).format(Number(value) || 0);
 
 export const toNumber = toDebtNumber;
-
 export const clampProgress = (value) =>
   Math.max(0, Math.min(Number(value) || 0, 100));
 
@@ -58,19 +67,28 @@ export default function useDebtCardLogic({
   const [monthlyDebtInput, setMonthlyDebtInput] = useState("");
   const [interestInput, setInterestInput] = useState("");
   const [debtObligations, setDebtObligations] = useState([]);
+  const [localExpenseRecords, setLocalExpenseRecords] = useState([]);
+  const [localWalletTransactions, setLocalWalletTransactions] = useState([]);
   const [savingDebt, setSavingDebt] = useState(false);
   const [debtLoadError, setDebtLoadError] = useState(null);
 
   const isControlled = typeof onToggleDetails === "function";
   const isExpanded = isControlled ? expanded : localExpanded;
-
   const data = item?.data || {};
-  const localUserId = String(user?.id || user?.email || "local-user");
+  const localUserId = getEffectiveDemoFinanceLocalUserId(
+    String(user?.id || user?.email || "local-user")
+  );
 
   const loadDebtObligations = useCallback(async () => {
     try {
-      const records = await getDebtObligations(localUserId);
+      const [records, storedExpenses, storedTransactions] = await Promise.all([
+        getDebtObligations(localUserId),
+        financeRepository.getExpenses(localUserId),
+        financeRepository.getWalletTransactions(localUserId),
+      ]);
       setDebtObligations(records || []);
+      setLocalExpenseRecords(storedExpenses || []);
+      setLocalWalletTransactions(storedTransactions || []);
       setDebtLoadError(null);
       return records || [];
     } catch (error) {
@@ -86,22 +104,60 @@ export default function useDebtCardLogic({
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-
-    const refreshDebtCard = () => {
-      loadDebtObligations();
-    };
-
+    const refreshDebtCard = () => loadDebtObligations();
     window.addEventListener("clara:debt-obligations-updated", refreshDebtCard);
     window.addEventListener("clara-local-finance-updated", refreshDebtCard);
-
     return () => {
       window.removeEventListener("clara:debt-obligations-updated", refreshDebtCard);
       window.removeEventListener("clara-local-finance-updated", refreshDebtCard);
     };
   }, [loadDebtObligations]);
 
-  const income = toDebtNumber(data.totalIncome || 0);
-  const expenses = toDebtNumber(data.totalExpenses || 0);
+  const walletTransactions = Array.isArray(data.walletTransactions) && data.walletTransactions.length
+    ? data.walletTransactions
+    : localWalletTransactions;
+  const expenseRecords = Array.isArray(data.expenses)
+    ? data.expenses
+    : localExpenseRecords;
+  const currentMonthKey = getPHMonthKey();
+
+  const income = useMemo(
+    () =>
+      walletTransactions.reduce((sum, transaction) => {
+        const type = normalizeLower(transaction?.type || transaction?.transaction_type);
+        if (!INCOME_TRANSACTION_TYPES.has(type)) return sum;
+        const date = getTransactionDate(transaction);
+        if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
+        return sum + firstValidNumber(transaction?.amount);
+      }, 0),
+    [currentMonthKey, walletTransactions]
+  );
+
+  const expenses = useMemo(
+    () =>
+      expenseRecords.reduce((sum, expense) => {
+        const date = getTransactionDate(expense);
+        if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
+        return sum + Math.abs(firstValidNumber(expense?.amount));
+      }, 0),
+    [currentMonthKey, expenseRecords]
+  );
+
+  const paidDebtThisMonth = useMemo(
+    () =>
+      expenseRecords.reduce((sum, expense) => {
+        const date = getTransactionDate(expense);
+        if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
+        if (!isDebtLinkedExpense(expense, debtObligations)) return sum;
+        return sum + Math.abs(firstValidNumber(expense?.amount));
+      }, 0),
+    [currentMonthKey, debtObligations, expenseRecords]
+  );
+
+  // Keep parent-owned lifetime values available for the AI prompt only; debt pressure
+  // itself is intentionally based on this month's income and spending.
+  const lifetimeIncome = toDebtNumber(data.totalIncome || 0);
+  const lifetimeExpenses = toDebtNumber(data.totalExpenses || 0);
   const walletBalance = toDebtNumber(data.totalWalletBalance || 0);
 
   const debtSummary = useMemo(
@@ -109,47 +165,33 @@ export default function useDebtCardLogic({
     [debtObligations, income]
   );
 
-  const totalDebt = toDebtNumber(debtSummary.totalDebt || data.totalDebt || 0);
-  const monthlyDebt = toDebtNumber(debtSummary.monthlyDebt || data.monthlyDebt || 0);
-  const activeDebtCount = debtSummary.activeCount || 0;
-
-  const debtRatio = useMemo(() => {
-    if (income <= 0) return monthlyDebt > 0 ? 100 : 0;
-    return (monthlyDebt / income) * 100;
-  }, [income, monthlyDebt]);
-
-  const riskLevel =
-    totalDebt <= 0
-      ? "Debt free"
-      : debtRatio < 20
-        ? "Healthy"
-        : debtRatio <= 40
-          ? "Moderate"
-          : "Risk";
-
-  const statusLabel =
-    totalDebt <= 0 ? "No debt" : debtRatio > 40 ? "At risk" : "Active";
-
-  const smartFeedback =
-    totalDebt <= 0
-      ? "Debt free"
-      : debtRatio > 40
-        ? "High pressure"
-        : debtRatio >= 20
-          ? "Controlled, but needs attention"
-          : "Controlled";
-
-  const pressureProgress = clampProgress(totalDebt <= 0 ? 0 : debtRatio);
-  const monthlyLeftover = Math.max(0, income - expenses - monthlyDebt);
-  const payoffMonths =
-    monthlyDebt > 0 && totalDebt > 0 ? Math.ceil(totalDebt / monthlyDebt) : 0;
-
-  const description =
-    totalDebt <= 0
-      ? "No active debt recorded. Keep your cash flow protected."
-      : debtRatio > 40
-        ? "Debt pressure is high. Build a payoff plan before adding new spending."
-        : "Your obligations are trackable. Keep payments aligned with income.";
+  const totalDebt = toDebtNumber(debtSummary.totalDebt);
+  const monthlyDebt = toDebtNumber(debtSummary.monthlyDebt);
+  const remainingMonthlyDebt = Math.max(monthlyDebt - paidDebtThisMonth, 0);
+  const activeDebtCount = Number(debtSummary.activeCount || 0);
+  const debtRatio = toDebtNumber(debtSummary.debtRatio);
+  const riskLevel = debtSummary.riskLevel || "Debt free";
+  const hasActiveObligation = activeDebtCount > 0;
+  const statusLabel = !hasActiveObligation
+    ? "No debt"
+    : riskLevel === "Risk"
+      ? "At risk"
+      : "Active";
+  const smartFeedback = !hasActiveObligation
+    ? "Debt free"
+    : riskLevel === "Risk"
+      ? "High pressure"
+      : riskLevel === "Moderate"
+        ? "Controlled, but needs attention"
+        : "Controlled";
+  const pressureProgress = clampProgress(hasActiveObligation ? debtRatio : 0);
+  const monthlyLeftover = Math.max(0, income - expenses - remainingMonthlyDebt);
+  const payoffMonths = debtSummary.payoffMonths || 0;
+  const description = !hasActiveObligation
+    ? "No active debt recorded. Keep your cash flow protected."
+    : riskLevel === "Risk"
+      ? "Debt pressure is high. Build a payoff plan before adding new spending."
+      : "Your obligations are trackable. Keep payments aligned with income.";
 
   return {
     state: {
@@ -167,6 +209,8 @@ export default function useDebtCardLogic({
       tone: debtTone,
       totalDebt,
       monthlyDebt,
+      remainingMonthlyDebt,
+      paidDebtThisMonth,
       debtRatio,
       riskLevel,
       statusLabel,
@@ -190,12 +234,11 @@ export default function useDebtCardLogic({
       },
       handleAskClara: () => {
         if (typeof window === "undefined") return;
-
         window.dispatchEvent(
           new CustomEvent("clara:open-ai-chat", {
             detail: {
               source: "obligation-debt-card",
-              prompt: `Review my debt situation. I owe ${fmt(totalDebt)} with a monthly obligation of ${fmt(monthlyDebt)}. My income is ${fmt(income)}, expenses are ${fmt(expenses)}, and wallet balance is ${fmt(walletBalance)}. Tell me if this is safe.`,
+              prompt: `Review my debt situation. I owe ${fmt(totalDebt)} with a scheduled monthly obligation of ${fmt(monthlyDebt)} and ${fmt(remainingMonthlyDebt)} still unpaid this month. My current-month income is ${fmt(income)}, current-month spending is ${fmt(expenses)}, wallet balance is ${fmt(walletBalance)}, and lifetime recorded totals are ${fmt(lifetimeIncome)} income and ${fmt(lifetimeExpenses)} expenses. Tell me if this is safe.`,
             },
           })
         );
@@ -203,7 +246,6 @@ export default function useDebtCardLogic({
       reloadDebtObligations: loadDebtObligations,
       handleSaveDebtObligation: async () => {
         setSavingDebt(true);
-
         try {
           await upsertDebtObligation(localUserId, {
             id: DEFAULT_DEBT_OBLIGATION_ID,
@@ -212,13 +254,8 @@ export default function useDebtCardLogic({
             monthlyDebt: toDebtNumber(monthlyDebtInput),
             interestRate: toDebtNumber(interestInput),
           });
-
           await loadDebtObligations();
-
-          return {
-            success: true,
-            message: "Obligation saved successfully.",
-          };
+          return { success: true, message: "Obligation saved successfully." };
         } catch (error) {
           return {
             success: false,
