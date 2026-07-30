@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(path, "utf8");
 const page = read("src/pages/SavingsGoalsIntegrated.jsx");
+const wrapper = read("src/pages/SavingsGoals.jsx");
+const topShell = read("src/pages/SavingsGoalsTopShell.css");
 const card = read("src/components/SavingsCardRefined.jsx");
 const dashboardPreview = read(
   "src/components/fresh/main-dashboard/finance-content/useDashboardSavingsPreviewState.js"
@@ -79,6 +81,15 @@ test("wallet sync failures stay visible instead of using alerts", () => {
   assert.match(page, /CLARA could not mark this wallet money as saved yet/);
   assert.doesNotMatch(page, /alert\(/);
   assert.match(page, /Available to Save/);
+});
+
+test("Savings Goals owns the top shell without exposing shared layout padding", () => {
+  assert.match(wrapper, /useLayoutEffect/);
+  assert.match(wrapper, /closest\("main"\)/);
+  assert.match(wrapper, /classList\.add\("clara-savings-goals-main"\)/);
+  assert.match(wrapper, /classList\.remove\("clara-savings-goals-main"\)/);
+  assert.match(topShell, /main\.clara-savings-goals-main/);
+  assert.match(topShell, /padding-top: 0 !important/);
 });
 
 test("Savings Goal flow regression runs in npm test", () => {
