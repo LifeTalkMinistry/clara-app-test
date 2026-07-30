@@ -1,0 +1,53 @@
+name: Run Savings managed balance upgrade from main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/savings-goal-managed-balance
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Extract and run prepared upgrade
+        run: |
+          git fetch origin main
+          git show origin/main:.github/workflows/apply-savings-managed-balance.yml > /tmp/prepared.yml
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/prepared.yml').read_text()
+          start = text.index("          python - <<'PY'\n") + len("          python - <<'PY'\n")
+          end = text.index("\n          PY\n", start)
+          lines = text[start:end].splitlines()
+          Path('/tmp/apply_savings_balance.py').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
+          PY
+          python /tmp/apply_savings_balance.py
+
+      - run: npm ci
+      - run: node --test tests/savings-goal-managed-balance-regression.test.mjs
+      - run: npm test -- --runInBand
+      - run: npm run build
+
+      - name: Commit verified app changes to PR branch
+        run: |
+          rm -f .github/workflows/run-savings-managed-balance.yml
+          rm -f .github/savings-goal-managed-balance-trigger
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat: manage Savings Goal balances with explicit actions"
+          git push origin HEAD:fix/savings-goal-managed-balance
