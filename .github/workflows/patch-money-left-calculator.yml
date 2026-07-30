@@ -1,0 +1,181 @@
+name: Patch Money Left calculator
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/patch-money-left-calculator.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch the live Money Left component
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          target = Path("src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx")
+          text = target.read_text(encoding="utf-8")
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one {label} anchor, found {count}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'import { Eye, EyeOff } from "lucide-react";',
+              'import { Calculator, Eye, EyeOff } from "lucide-react";',
+              "Lucide import",
+          )
+
+          pause_import = 'import { CLARA_PAUSE_OPEN_REQUEST_EVENT } from "@/lib/clara-pause-events";'
+          calculator_import = 'import MoneyLeftCalculatorDialog from "./MoneyLeftCalculatorDialog";'
+          if calculator_import not in text:
+              replace_once(
+                  pause_import,
+                  f"{pause_import}\n{calculator_import}",
+                  "calculator import",
+              )
+
+          state_anchor = '  const [isGuideOrbHolding, setIsGuideOrbHolding] = useState(false);'
+          calculator_state = '  const [calculatorOpen, setCalculatorOpen] = useState(false);'
+          if calculator_state not in text:
+              replace_once(
+                  state_anchor,
+                  f"{state_anchor}\n{calculator_state}",
+                  "calculator state",
+              )
+
+          handler_anchor = '  const bubbleSurface = {'
+          calculator_handler = '''  const handleCalculatorOpen = useCallback(
+            (event) => {
+              event?.preventDefault?.();
+              event?.stopPropagation?.();
+              event?.nativeEvent?.stopImmediatePropagation?.();
+              if (isGuideMode) return;
+              setCalculatorOpen(true);
+            },
+            [isGuideMode]
+          );
+
+'''
+          if 'const handleCalculatorOpen = useCallback' not in text:
+              replace_once(
+                  handler_anchor,
+                  f"{calculator_handler}{handler_anchor}",
+                  "calculator handler",
+              )
+
+          old_controls = '''      <button
+        type="button"
+        data-clara-summary-privacy-toggle="true"
+        onClick={handlePrivacyToggle}
+        disabled={isGuideOrbStepActive}
+        aria-disabled={isGuideOrbStepActive}
+        className="absolute left-[39%] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 max-[380px]:left-[42%] max-[380px]:top-7"
+        aria-label={
+          effectiveMoneySummaryVisible
+            ? "Hide financial summary amounts"
+            : "Show financial summary amounts"
+        }
+      >
+        {effectiveMoneySummaryVisible ? (
+          <Eye className="h-3.5 w-3.5" />
+        ) : (
+          <EyeOff className="h-3.5 w-3.5" />
+        )}
+      </button>
+'''
+
+          new_controls = '''      <div className="absolute left-[39%] top-8 z-50 flex -translate-x-1/2 items-center gap-1.5 max-[380px]:left-[42%] max-[380px]:top-7">
+        <button
+          type="button"
+          data-clara-summary-privacy-toggle="true"
+          onClick={handlePrivacyToggle}
+          disabled={isGuideOrbStepActive}
+          aria-disabled={isGuideOrbStepActive}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
+          aria-label={
+            effectiveMoneySummaryVisible
+              ? "Hide financial summary amounts"
+              : "Show financial summary amounts"
+          }
+        >
+          {effectiveMoneySummaryVisible ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          data-clara-money-calculator-toggle="true"
+          onClick={handleCalculatorOpen}
+          disabled={isGuideMode}
+          aria-disabled={isGuideMode}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
+          aria-label="Open calculator"
+          title="Calculator"
+        >
+          <Calculator className="h-3.5 w-3.5" />
+        </button>
+      </div>
+'''
+
+          if 'data-clara-money-calculator-toggle="true"' not in text:
+              replace_once(old_controls, new_controls, "Money Left controls")
+
+          closing_anchor = '''      </div>
+    </section>
+  );
+}'''
+          closing_replacement = '''      </div>
+
+      <MoneyLeftCalculatorDialog
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+      />
+    </section>
+  );
+}'''
+          if '<MoneyLeftCalculatorDialog' not in text:
+              if not text.endswith(closing_anchor):
+                  raise SystemExit("Could not find component closing anchor")
+              text = text[: -len(closing_anchor)] + closing_replacement
+
+          target.write_text(text, encoding="utf-8", newline="\n")
+          PY
+
+          # Remove the earlier calculator implementation from the unused generic StatCard.
+          git show 6f949cc^:src/components/StatCard.jsx > src/components/StatCard.jsx
+
+      - name: Run regression tests
+        run: |
+          npm ci
+          npm test
+
+      - name: Commit the surgical fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/components/StatCard.jsx \
+            src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx
+          git commit -m "Wire calculator into live Money Left summary"
+          git push origin HEAD:main
