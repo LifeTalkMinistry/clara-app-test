@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { memo, useState } from "react";
+
+const BASE_CARD_WIDTH = 184;
+const BASE_CARD_HEIGHT = 224;
 
 const resolveAssetSrc = (assetPath) => {
   if (typeof assetPath !== "string" || assetPath.trim().length === 0) return "";
@@ -36,10 +39,11 @@ const resolveBetweenStops = (value, center, near, far) => {
   return interpolate(near, far, safeValue - 1);
 };
 
-export default function LearningMaterialCard({
+function LearningMaterialCard({
   item,
   isActive,
   isDragging = false,
+  interactive = true,
   offset = 0,
   visible = true,
   position,
@@ -68,8 +72,10 @@ export default function LearningMaterialCard({
   const opacity = visible ? resolveBetweenStops(clampedOffset, 1, 0.23, 0.07) : 0;
   const zIndex = Math.round(resolveBetweenStops(clampedOffset, 70, 42, 24));
 
-  const width = resolveBetweenStops(clampedOffset, 184, 124, 100);
-  const height = resolveBetweenStops(clampedOffset, 224, 188, 160);
+  const resolvedWidth = resolveBetweenStops(clampedOffset, BASE_CARD_WIDTH, 124, 100);
+  const resolvedHeight = resolveBetweenStops(clampedOffset, BASE_CARD_HEIGHT, 188, 160);
+  const scaleX = (resolvedWidth / BASE_CARD_WIDTH) * scale;
+  const scaleY = (resolvedHeight / BASE_CARD_HEIGHT) * scale;
   const pageEdgeWidth = resolveBetweenStops(clampedOffset, 4, 5, 5);
   const depthOffset = resolveBetweenStops(clampedOffset, 3, 2, 2);
   const contentLeftPadding = resolveBetweenStops(clampedOffset, 18, 12, 12);
@@ -116,19 +122,22 @@ export default function LearningMaterialCard({
 
   return (
     <div
-      onClick={onClick}
-      className="clara-learning-hub-card clara-learning-motion absolute left-1/2 top-1/2 cursor-pointer transition-[transform,opacity] duration-500 ease-out"
+      onClick={interactive ? onClick : undefined}
+      className={`clara-learning-hub-card clara-learning-motion absolute left-1/2 top-1/2 transition-[transform,opacity] duration-500 ease-out ${
+        interactive ? "cursor-pointer" : "cursor-default"
+      }`}
       style={{
-        width,
-        height,
+        width: BASE_CARD_WIDTH,
+        height: BASE_CARD_HEIGHT,
         opacity,
         zIndex,
-        transform: `translate(${translateX}, -50%) scale(${scale}) rotateY(${rotate}deg) translateZ(${depth}px)`,
+        transform: `translate(${translateX}, -50%) scale3d(${scaleX}, ${scaleY}, 1) rotateY(${rotate}deg) translateZ(${depth}px)`,
         transformOrigin: origin,
         transformStyle: "preserve-3d",
-        pointerEvents: visible ? "auto" : "none",
+        pointerEvents: visible && interactive ? "auto" : "none",
         transitionDuration: isDragging ? "0ms" : undefined,
-        willChange: "transform, opacity",
+        willChange: isDragging ? "transform, opacity" : undefined,
+        contain: "layout paint style",
       }}
     >
       <div className="relative h-full w-full overflow-visible" style={{ transformStyle: "preserve-3d" }}>
@@ -316,3 +325,5 @@ export default function LearningMaterialCard({
     </div>
   );
 }
+
+export default memo(LearningMaterialCard);

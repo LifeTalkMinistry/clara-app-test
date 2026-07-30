@@ -1,6 +1,6 @@
 import { Suspense, lazy } from "react";
 import { createPortal } from "react-dom";
-import { PlayCircle, Sparkles, X } from "lucide-react";
+import { LoaderCircle, PlayCircle, Sparkles, X } from "lucide-react";
 import useLearningHub from "./logic/useLearningHub";
 import LearningHubCarousel from "./ui/LearningHubCarousel";
 import { LearningHubCollapseProvider } from "./ui/LearningHubToggleButton";
@@ -9,11 +9,59 @@ import {
   useCommittedFeatureAccess,
 } from "@/components/fresh/main-dashboard/program-access/committedFeatureAccess";
 
-const LearningMaterialModal = lazy(() => import("./modal/LearningMaterialModal"));
-const LearningVideoWatchModal = lazy(() => import("./modal/LearningVideoWatchModal"));
-const FourPicsOneMoneyWordModal = lazy(() => import("./modal/FourPicsOneMoneyWordModal"));
-const MoneyRushModal = lazy(() => import("./modal/MoneyRushModal"));
-const MoneyPulseModal = lazy(() => import("./modal/MoneyPulseModal"));
+const loadLearningMaterialModal = () => import("./modal/LearningMaterialModal");
+const loadLearningVideoWatchModal = () => import("./modal/LearningVideoWatchModal");
+const loadFourPicsOneMoneyWordModal = () => import("./modal/FourPicsOneMoneyWordModal");
+const loadMoneyRushModal = () => import("./modal/MoneyRushModal");
+const loadMoneyPulseModal = () => import("./modal/MoneyPulseModal");
+
+const LearningMaterialModal = lazy(loadLearningMaterialModal);
+const LearningVideoWatchModal = lazy(loadLearningVideoWatchModal);
+const FourPicsOneMoneyWordModal = lazy(loadFourPicsOneMoneyWordModal);
+const MoneyRushModal = lazy(loadMoneyRushModal);
+const MoneyPulseModal = lazy(loadMoneyPulseModal);
+
+function preloadMaterialExperience(item) {
+  if (!item || item.status !== "available") return;
+
+  if (item.type === "book") {
+    void loadLearningMaterialModal();
+    return;
+  }
+
+  if (item.type === "video" && (item.embedUrl || item.youtubeId)) {
+    void loadLearningVideoWatchModal();
+    return;
+  }
+
+  if (item.type !== "game") return;
+
+  if (item.id === "money-rush") {
+    void loadMoneyRushModal();
+  } else if (item.id === "money-pulse") {
+    void loadMoneyPulseModal();
+  } else if (item.id === "four-pics-one-money-word") {
+    void loadFourPicsOneMoneyWordModal();
+  }
+}
+
+function LearningExperienceOpeningFallback({ label = "Opening lesson" }) {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-[9998] flex min-h-[100dvh] items-center justify-center bg-black/54 px-5 text-white backdrop-blur-sm"
+    >
+      <div className="flex items-center gap-3 rounded-full border border-cyan-100/16 bg-[rgba(5,18,36,0.94)] px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-50 shadow-[0_24px_70px_rgba(0,0,0,0.52)]">
+        <LoaderCircle className="h-4 w-4 animate-spin text-cyan-100/86" />
+        <span>{label}</span>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 export default function LearningHubLoaded({
   initialExpanded = false,
@@ -58,6 +106,7 @@ export default function LearningHubLoaded({
       return;
     }
 
+    preloadMaterialExperience(item);
     openMaterial(item);
   };
 
@@ -78,7 +127,7 @@ export default function LearningHubLoaded({
       </LearningHubCollapseProvider>
 
       {hasCommittedAccess && isOpen && selectedMaterial ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LearningExperienceOpeningFallback label="Opening book" />}>
           <LearningMaterialModal
             isOpen={isOpen}
             material={selectedMaterial}
@@ -88,7 +137,7 @@ export default function LearningHubLoaded({
       ) : null}
 
       {hasCommittedAccess && isVideoOpen && selectedVideo ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LearningExperienceOpeningFallback label="Opening video" />}>
           <LearningVideoWatchModal
             isOpen={isVideoOpen}
             material={selectedVideo}
@@ -98,7 +147,7 @@ export default function LearningHubLoaded({
       ) : null}
 
       {hasCommittedAccess && isGameOpen && selectedGame ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<LearningExperienceOpeningFallback label="Opening game" />}>
           {selectedGame.id === "money-rush" ? (
             <MoneyRushModal
               isOpen={isGameOpen}

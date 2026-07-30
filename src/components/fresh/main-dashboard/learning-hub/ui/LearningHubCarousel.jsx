@@ -22,6 +22,8 @@ export default function LearningHubCarousel({
   hasCommittedAccess = true,
   initialExpanded = false,
   flushSpacing = false,
+  disableAutoScroll = false,
+  disableInteractions = false,
   onBackToCategories,
   onOpenCommitmentBooklet,
   onOpenItem,
@@ -34,7 +36,10 @@ export default function LearningHubCarousel({
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [headerTouchStartY, setHeaderTouchStartY] = useState(null);
+  const [isStageVisible, setIsStageVisible] = useState(true);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() =>
+    typeof document === "undefined" ? true : document.visibilityState !== "hidden",
+  );
 
   const stageRef = useRef(null);
   const resumeTimerRef = useRef(null);
@@ -44,8 +49,11 @@ export default function LearningHubCarousel({
   const touchStartRef = useRef(null);
   const dragAxisRef = useRef(null);
   const dragOffsetRef = useRef(0);
+  const cardDragRangeRef = useRef(MIN_CARD_DRAG_RANGE_PX);
+  const isDraggingRef = useRef(false);
   const suppressCardClickRef = useRef(false);
   const headerSwipeHandledRef = useRef(false);
+  const headerTouchStartYRef = useRef(null);
   const hasAppliedInitialExpandedRef = useRef(false);
 
   const sourceItems = Array.isArray(items) ? items : materials;
@@ -62,9 +70,13 @@ export default function LearningHubCarousel({
     : "Learning Hub";
   const openItemHandler = onOpenItem || onOpenMaterial;
 
-  const getCardDragRange = () => {
+  const measureCardDragRange = () => {
     const stageWidth = stageRef.current?.clientWidth || 0;
-    return clamp(stageWidth * 0.48 || MIN_CARD_DRAG_RANGE_PX, MIN_CARD_DRAG_RANGE_PX, MAX_CARD_DRAG_RANGE_PX);
+    return clamp(
+      stageWidth * 0.48 || MIN_CARD_DRAG_RANGE_PX,
+      MIN_CARD_DRAG_RANGE_PX,
+      MAX_CARD_DRAG_RANGE_PX,
+    );
   };
 
   const applyDragOffset = (nextOffset) => {
@@ -84,6 +96,12 @@ export default function LearningHubCarousel({
     });
   };
 
+  const setDragging = (nextDragging) => {
+    if (isDraggingRef.current === nextDragging) return;
+    isDraggingRef.current = nextDragging;
+    setIsDragging(nextDragging);
+  };
+
   const resetDragMotion = () => {
     dragOffsetRef.current = 0;
 
@@ -93,7 +111,7 @@ export default function LearningHubCarousel({
 
     dragFrameRef.current = null;
     setDragOffset(0);
-    setIsDragging(false);
+    setDragging(false);
   };
 
   const temporarilySuppressCardClick = () => {
@@ -115,6 +133,8 @@ export default function LearningHubCarousel({
   };
 
   const toggleExpanded = () => {
+    if (disableInteractions) return;
+
     if (isLocked) {
       onOpenCommitmentBooklet?.();
       return;
@@ -132,7 +152,7 @@ export default function LearningHubCarousel({
   };
 
   const pauseCarousel = () => {
-    if (isLocked) return;
+    if (isLocked || disableInteractions) return;
 
     setIsPaused(true);
 
@@ -142,7 +162,7 @@ export default function LearningHubCarousel({
   };
 
   const resumeCarouselSoon = () => {
-    if (isLocked) return;
+    if (isLocked || disableInteractions) return;
 
     if (resumeTimerRef.current) {
       clearTimeout(resumeTimerRef.current);
@@ -166,7 +186,7 @@ export default function LearningHubCarousel({
   }, [isLocked, total]);
 
   const moveToIndex = (index) => {
-    if (isLocked || !total) return;
+    if (isLocked || !total || disableInteractions) return;
 
     resetDragMotion();
     pauseCarousel();
@@ -175,6 +195,8 @@ export default function LearningHubCarousel({
   };
 
   const handleHeaderClick = () => {
+    if (disableInteractions) return;
+
     if (isLocked) {
       onOpenCommitmentBooklet?.();
       return;
@@ -196,16 +218,22 @@ export default function LearningHubCarousel({
   };
 
   const handleHeaderTouchStart = (event) => {
-    if (isLocked) return;
+    if (isLocked || disableInteractions) return;
 
     headerSwipeHandledRef.current = false;
-    setHeaderTouchStartY(event.touches[0].clientY);
+    headerTouchStartYRef.current = event.touches?.[0]?.clientY ?? null;
   };
 
   const handleHeaderTouchEnd = (event) => {
-    if (isLocked || headerTouchStartY === null) return;
+    const startY = headerTouchStartYRef.current;
+    headerTouchStartYRef.current = null;
 
-    const diff = event.changedTouches[0].clientY - headerTouchStartY;
+    if (isLocked || disableInteractions || startY === null) return;
+
+    const endY = event.changedTouches?.[0]?.clientY;
+    if (!Number.isFinite(endY)) return;
+
+    const diff = endY - startY;
     const didSwipe = Math.abs(diff) > SWIPE_THRESHOLD;
 
     if (didSwipe) {
@@ -218,24 +246,23 @@ export default function LearningHubCarousel({
         setIsPaused(false);
       }
     }
-
-    setHeaderTouchStartY(null);
   };
 
   const handleTouchStart = (event) => {
-    if (isLocked) return;
+    if (isLocked || disableInteractions) return;
 
     const touch = event.touches?.[0];
     if (!touch) return;
 
     pauseCarousel();
     resetDragMotion();
+    cardDragRangeRef.current = measureCardDragRange();
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     dragAxisRef.current = null;
   };
 
   const handleTouchMove = (event) => {
-    if (isLocked || !touchStartRef.current) return;
+    if (isLocked || disableInteractions || !touchStartRef.current) return;
 
     const touch = event.touches?.[0];
     if (!touch) return;
@@ -248,18 +275,21 @@ export default function LearningHubCarousel({
     if (!dragAxisRef.current) {
       if (absDeltaX < DRAG_AXIS_LOCK_THRESHOLD && absDeltaY < DRAG_AXIS_LOCK_THRESHOLD) return;
       dragAxisRef.current = absDeltaX > absDeltaY ? "x" : "y";
+
+      if (dragAxisRef.current === "x") {
+        setDragging(true);
+      }
     }
 
     if (dragAxisRef.current !== "x") return;
 
-    // The stage's touch-action: pan-y reserves horizontal swipes for the carousel.
-    // React may register touchmove passively, so preventDefault must not be called here.
-    setIsDragging(true);
-    applyDragOffset(deltaX / getCardDragRange());
+    // touch-action: pan-y reserves horizontal swipes for the carousel.
+    // The width is measured once at touchstart to avoid layout reads every frame.
+    applyDragOffset(deltaX / cardDragRangeRef.current);
   };
 
   const handleTouchEnd = (event) => {
-    if (isLocked || !touchStartRef.current) return;
+    if (isLocked || disableInteractions || !touchStartRef.current) return;
 
     const touch = event.changedTouches?.[0];
     const diff = touch ? touchStartRef.current.x - touch.clientX : 0;
@@ -286,7 +316,7 @@ export default function LearningHubCarousel({
   };
 
   const handleTouchCancel = () => {
-    if (isLocked) return;
+    if (isLocked || disableInteractions) return;
 
     touchStartRef.current = null;
     dragAxisRef.current = null;
@@ -322,8 +352,36 @@ export default function LearningHubCarousel({
   }, []);
 
   useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const handleVisibilityChange = () => {
+      setIsDocumentVisible(document.visibilityState !== "hidden");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isExpanded || typeof IntersectionObserver === "undefined" || !stageRef.current) {
+      setIsStageVisible(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsStageVisible(Boolean(entry?.isIntersecting));
+      },
+      { threshold: 0.01 },
+    );
+
+    observer.observe(stageRef.current);
+    return () => observer.disconnect();
+  }, [isExpanded]);
+
+  useEffect(() => {
     setActiveIndex(0);
-    setHeaderTouchStartY(null);
+    headerTouchStartYRef.current = null;
     setIsPaused(false);
     touchStartRef.current = null;
     dragAxisRef.current = null;
@@ -342,7 +400,7 @@ export default function LearningHubCarousel({
 
     setAutoScrollReady(false);
 
-    if (!isExpanded || isLocked) {
+    if (!isExpanded || isLocked || disableAutoScroll) {
       return undefined;
     }
 
@@ -356,15 +414,18 @@ export default function LearningHubCarousel({
         openSettleTimerRef.current = null;
       }
     };
-  }, [isExpanded, isLocked]);
+  }, [disableAutoScroll, isExpanded, isLocked]);
 
   useEffect(() => {
     if (
+      disableAutoScroll ||
       isLocked ||
       !isExpanded ||
       !autoScrollReady ||
       isMobileViewport ||
       isPaused ||
+      !isStageVisible ||
+      !isDocumentVisible ||
       total <= 1
     ) {
       return undefined;
@@ -373,7 +434,18 @@ export default function LearningHubCarousel({
     const interval = setInterval(moveToNext, AUTO_SCROLL_DELAY);
 
     return () => clearInterval(interval);
-  }, [autoScrollReady, isExpanded, isLocked, isMobileViewport, isPaused, moveToNext, total]);
+  }, [
+    autoScrollReady,
+    disableAutoScroll,
+    isDocumentVisible,
+    isExpanded,
+    isLocked,
+    isMobileViewport,
+    isPaused,
+    isStageVisible,
+    moveToNext,
+    total,
+  ]);
 
   useEffect(() => {
     if (!isLocked) return;
@@ -381,7 +453,7 @@ export default function LearningHubCarousel({
     setIsExpanded(false);
     setIsPaused(false);
     setAutoScrollReady(false);
-    setHeaderTouchStartY(null);
+    headerTouchStartYRef.current = null;
     touchStartRef.current = null;
     dragAxisRef.current = null;
     resetDragMotion();
@@ -409,6 +481,13 @@ export default function LearningHubCarousel({
 
   if (!total) return null;
 
+  const headerTouchProps = disableInteractions
+    ? {}
+    : {
+        onTouchStart: handleHeaderTouchStart,
+        onTouchEnd: handleHeaderTouchEnd,
+      };
+
   return (
     <section
       className={`relative w-full overflow-visible px-1 py-0 ${
@@ -425,9 +504,8 @@ export default function LearningHubCarousel({
             isLocked={isLocked}
             isInsideCategory={isInsideCategory}
             headerLabel={headerLabel}
-            onClick={handleHeaderClick}
-            onTouchStart={handleHeaderTouchStart}
-            onTouchEnd={handleHeaderTouchEnd}
+            onClick={disableInteractions ? undefined : handleHeaderClick}
+            {...headerTouchProps}
             flushSpacing={flushSpacing}
           />
         </div>
@@ -437,9 +515,8 @@ export default function LearningHubCarousel({
           isLocked={isLocked}
           isInsideCategory={isInsideCategory}
           headerLabel={headerLabel}
-          onClick={handleHeaderClick}
-          onTouchStart={handleHeaderTouchStart}
-          onTouchEnd={handleHeaderTouchEnd}
+          onClick={disableInteractions ? undefined : handleHeaderClick}
+          {...headerTouchProps}
           flushSpacing={flushSpacing}
         />
       )}
@@ -469,12 +546,12 @@ export default function LearningHubCarousel({
                 transformStyle: "preserve-3d",
                 touchAction: "pan-y",
               }}
-              onMouseEnter={pauseCarousel}
-              onMouseLeave={resumeCarouselSoon}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onTouchCancel={handleTouchCancel}
+              onMouseEnter={disableInteractions ? undefined : pauseCarousel}
+              onMouseLeave={disableInteractions ? undefined : resumeCarouselSoon}
+              onTouchStart={disableInteractions ? undefined : handleTouchStart}
+              onTouchMove={disableInteractions ? undefined : handleTouchMove}
+              onTouchEnd={disableInteractions ? undefined : handleTouchEnd}
+              onTouchCancel={disableInteractions ? undefined : handleTouchCancel}
             >
               <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
               <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
@@ -509,12 +586,13 @@ export default function LearningHubCarousel({
                     item={item}
                     isActive={isActive}
                     isDragging={isDragging}
+                    interactive={!disableInteractions}
                     offset={displayOffset}
                     visible={shouldRender}
                     position={index + 1}
                     total={total}
                     onClick={() => {
-                      if (suppressCardClickRef.current) return;
+                      if (disableInteractions || suppressCardClickRef.current) return;
 
                       if (isActive) {
                         openItemHandler?.(item);

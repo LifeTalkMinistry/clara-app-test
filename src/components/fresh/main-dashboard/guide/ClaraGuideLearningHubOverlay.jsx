@@ -19,8 +19,22 @@ function getSafeTop() {
 
 export default function ClaraGuideLearningHubOverlay({ phase = "await-open" }) {
   const bubbleRef = useRef(null);
+  const positionFrameRef = useRef(null);
   const [top, setTop] = useState(null);
   const [arrowPlacement, setArrowPlacement] = useState("top");
+
+  const commitPosition = useCallback((nextTop, nextArrowPlacement) => {
+    setTop((currentTop) =>
+      currentTop !== null && Math.abs(currentTop - nextTop) < 0.5
+        ? currentTop
+        : nextTop,
+    );
+    setArrowPlacement((currentPlacement) =>
+      currentPlacement === nextArrowPlacement
+        ? currentPlacement
+        : nextArrowPlacement,
+    );
+  }, []);
 
   const updatePosition = useCallback(() => {
     if (phase !== "await-open") return;
@@ -39,55 +53,73 @@ export default function ClaraGuideLearningHubOverlay({ phase = "await-open" }) {
     const aboveTarget = targetRect.top - bubbleRect.height - gap;
 
     if (belowTarget + bubbleRect.height <= safeBottom) {
-      setArrowPlacement("top");
-      setTop(belowTarget);
+      commitPosition(belowTarget, "top");
       return;
     }
 
     if (aboveTarget >= safeTop) {
-      setArrowPlacement("bottom");
-      setTop(aboveTarget);
+      commitPosition(aboveTarget, "bottom");
       return;
     }
 
     const targetCenter = targetRect.top + targetRect.height / 2;
     const viewportCenter = window.innerHeight / 2;
     const fallbackTop = targetCenter <= viewportCenter ? maxTop : safeTop;
-    setArrowPlacement(fallbackTop === maxTop ? "top" : "bottom");
-    setTop(Math.max(safeTop, Math.min(maxTop, fallbackTop)));
-  }, [phase]);
+    const boundedTop = Math.max(safeTop, Math.min(maxTop, fallbackTop));
+    commitPosition(boundedTop, fallbackTop === maxTop ? "top" : "bottom");
+  }, [commitPosition, phase]);
+
+  const schedulePositionUpdate = useCallback(() => {
+    if (phase !== "await-open" || typeof window === "undefined") return;
+    if (positionFrameRef.current) return;
+
+    positionFrameRef.current = window.requestAnimationFrame(() => {
+      positionFrameRef.current = null;
+      updatePosition();
+    });
+  }, [phase, updatePosition]);
 
   useLayoutEffect(() => {
     if (phase !== "await-open") return undefined;
 
     updatePosition();
-    const frame = window.requestAnimationFrame(updatePosition);
-    return () => window.cancelAnimationFrame(frame);
-  }, [phase, updatePosition]);
+    schedulePositionUpdate();
+
+    return () => {
+      if (positionFrameRef.current) {
+        window.cancelAnimationFrame(positionFrameRef.current);
+        positionFrameRef.current = null;
+      }
+    };
+  }, [phase, schedulePositionUpdate, updatePosition]);
 
   useEffect(() => {
     if (phase !== "await-open") return undefined;
 
-    const handleChange = () => updatePosition();
-    window.addEventListener("resize", handleChange);
-    window.addEventListener("orientationchange", handleChange);
-    window.addEventListener("scroll", handleChange, true);
+    window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("orientationchange", schedulePositionUpdate);
+    window.addEventListener("scroll", schedulePositionUpdate, true);
 
     const target = document.querySelector(TARGET_SELECTOR);
     const observer =
       typeof ResizeObserver !== "undefined" && target
-        ? new ResizeObserver(handleChange)
+        ? new ResizeObserver(schedulePositionUpdate)
         : null;
     if (target) observer?.observe(target);
     if (bubbleRef.current) observer?.observe(bubbleRef.current);
 
     return () => {
-      window.removeEventListener("resize", handleChange);
-      window.removeEventListener("orientationchange", handleChange);
-      window.removeEventListener("scroll", handleChange, true);
+      window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("orientationchange", schedulePositionUpdate);
+      window.removeEventListener("scroll", schedulePositionUpdate, true);
       observer?.disconnect();
+
+      if (positionFrameRef.current) {
+        window.cancelAnimationFrame(positionFrameRef.current);
+        positionFrameRef.current = null;
+      }
     };
-  }, [phase, updatePosition]);
+  }, [phase, schedulePositionUpdate]);
 
   if (phase !== "await-open" || typeof document === "undefined") return null;
 
