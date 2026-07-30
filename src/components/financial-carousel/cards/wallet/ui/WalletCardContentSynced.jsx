@@ -1,6 +1,15 @@
 import { useMemo } from "react";
 import WalletCardContent from "@/components/financial-carousel/cards/wallet/ui/WalletCardContent";
 
+function isTransferTransaction(transaction) {
+  const type = String(transaction?.type || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  return type === "transfer_in" || type === "transfer_out";
+}
+
 function toNumber(...values) {
   for (const value of values) {
     if (value === undefined || value === null || value === "") continue;
@@ -236,5 +245,29 @@ export default function WalletCardContentSynced({ emergencyFund = null, savingsG
     [props.visibleWallets, props.wallets, emergencyFund, savingsGoals]
   );
 
-  return <WalletCardContent {...props} visibleWallets={syncedVisibleWallets} />;
+  const syncedVisibleTransactions = useMemo(
+    () =>
+      (Array.isArray(props.visibleTransactions) ? props.visibleTransactions : []).filter(
+        isTransferTransaction
+      ),
+    [props.visibleTransactions]
+  );
+
+  const syncedWalletPreviewTransactions = useMemo(
+    () =>
+      (Array.isArray(props.walletPreviewTransactions)
+        ? props.walletPreviewTransactions
+        : []
+      ).filter(isTransferTransaction),
+    [props.walletPreviewTransactions]
+  );
+
+  return (
+    <WalletCardContent
+      {...props}
+      walletPreviewTransactions={syncedWalletPreviewTransactions}
+      visibleWallets={syncedVisibleWallets}
+      visibleTransactions={syncedVisibleTransactions}
+    />
+  );
 }
