@@ -32,6 +32,41 @@ export const LIFE_STAGE_GUIDANCE = {
   },
 };
 
+export const LIFE_STAGE_IDLE_GUIDANCE = {
+  "Working Student": {
+    title: "Your effort has direction.",
+    body: "School costs, commute, food, and data need structure. Choose a signal, then tap the heart.",
+  },
+  "Young Professional": {
+    title: "Your independence is forming.",
+    body: "Salary, bills, commute, and lifestyle share one paycheck. Choose a signal, then tap the heart.",
+  },
+  "Living with Partner": {
+    title: "Shared life needs shared clarity.",
+    body: "Rent, food, fairness, and future plans share one budget. Choose a signal, then tap the heart.",
+  },
+  "Family Household": {
+    title: "Home support needs structure.",
+    body: "Bills, requests, and shared needs pull on household income. Choose a signal, then tap the heart.",
+  },
+  "Single Parent": {
+    title: "Your priority is protection.",
+    body: "Child needs and essentials need protection first. Choose a signal, then tap the heart.",
+  },
+  "Full-Time Earner": {
+    title: "Your salary needs direction.",
+    body: "Bills, fatigue, and lifestyle pressure shape each payday. Choose a signal, then tap the heart.",
+  },
+  "Freelance Season": {
+    title: "Flexible income needs a buffer.",
+    body: "Client timing and dry weeks make income uneven. Choose a signal, then tap the heart.",
+  },
+  "Business Builder": {
+    title: "Growth needs boundaries.",
+    body: "Cash flow, reinvestment, and owner pay need clear lines. Choose a signal, then tap the heart.",
+  },
+};
+
 export function getWorkingStudentSupportCopy(profile = {}) {
   const setup = clean(profile.setup);
   const rhythm = clean(profile.rhythm);
@@ -139,6 +174,10 @@ export function getLifeStageGuidance(stageKey = getSelectedLifeStageKey(), optio
   const { signalId = null, mode = "awareness", profile = null } = options;
   const normalized = normalizeLifeStageKey(stageKey);
   const stage = LIFE_STAGE_GUIDANCE[normalized] || getGenericStageGuidance(normalized, profile || {});
+
+  if (!signalId && (mode === "idle" || mode === "awareness")) {
+    return LIFE_STAGE_IDLE_GUIDANCE[normalized] || stage.defaultAwareness;
+  }
 
   if (signalId) {
     const rotatingCopy = getRotatingSignalCopy(normalized, signalId, mode);
