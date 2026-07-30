@@ -39,9 +39,11 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
   assert.match(calculatorSource, /\}, \[isOpen\]\);/);
   assert.doesNotMatch(calculatorSource, /\}, \[isOpen, onClose\]\);/);
   assert.match(calculatorSource, /const expenseActionLabel = canUseExpense/);
-  assert.match(calculatorSource, /Use \$\{formatPeso\(result\)\} as Expense/);
-  assert.match(calculatorSource, /: "Use as Expense";/);
+  assert.match(calculatorSource, /Use \$\{formatPeso\(result\)\} As Expense/);
+  assert.match(calculatorSource, /: "Use As Expense";/);
   assert.match(calculatorSource, /aria-label=\{expenseActionLabel\}/);
+  assert.match(calculatorSource, /title=\{expenseActionLabel\}/);
+  assert.match(calculatorSource, /whitespace-nowrap/);
   assert.match(calculatorSource, /\{expenseActionLabel\}\s*<\/button>/);
   assert.doesNotMatch(calculatorSource, /ArrowRight/);
   assert.doesNotMatch(calculatorSource, /Function\s*\(/);
@@ -76,4 +78,11 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
     themeSource,
     /left:\s*calc\(clamp\(112px, 33vw, 132px\) \+ 38px\) !important;/,
   );
+  assert.match(
+    themeSource,
+    /\[data-clara-money-calculator-modal="true"\] \[data-clara-calculator-manual-log-action="true"\]/,
+  );
+  assert.match(themeSource, /width:\s*100% !important;/);
+  assert.match(themeSource, /min-width:\s*100% !important;/);
+  assert.match(themeSource, /white-space:\s*nowrap !important;/);
 });
