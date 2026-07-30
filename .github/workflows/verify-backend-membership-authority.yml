@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -51,3 +54,42 @@ jobs:
             membership-bundle-scan.log
           if-no-files-found: warn
           retention-days: 3
+
+  materialize_savings_goal_manage_actions:
+    if: github.head_ref == 'fix/savings-goal-manage-actions' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out action cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/savings-goal-manage-actions
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Materialize Savings goal action cleanup
+        run: node scripts/materialize-savings-goal-manage-actions.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run complete test suite
+        run: npm test
+
+      - name: Run complete lint suite
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Commit validated source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src/pages/SavingsGoalsIntegrated.jsx tests scripts .savings-goal-manage-actions-request
+          git commit -m "Simplify Savings goal actions"
+          git push origin HEAD:fix/savings-goal-manage-actions
