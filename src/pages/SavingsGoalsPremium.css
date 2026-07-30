@@ -1,0 +1,630 @@
+.savings-goals-premium {
+  --sg-cyan: #20e7d6;
+  --sg-cyan-soft: rgba(32, 231, 214, 0.18);
+  --sg-blue: #4ba7ff;
+  --sg-violet: #9a63ff;
+  --sg-surface: rgba(7, 18, 43, 0.84);
+  --sg-surface-strong: rgba(6, 15, 37, 0.96);
+  --sg-line: rgba(160, 196, 255, 0.13);
+  --sg-muted: rgba(218, 229, 255, 0.61);
+  min-height: 100%;
+  color: #f7fbff;
+  background:
+    radial-gradient(circle at 5% 8%, rgba(25, 219, 206, 0.18), transparent 25rem),
+    radial-gradient(circle at 96% 13%, rgba(126, 72, 255, 0.2), transparent 27rem),
+    linear-gradient(180deg, #061426 0%, #071127 50%, #110b2a 100%);
+  isolation: isolate;
+  overflow: clip;
+}
+
+.savings-goals-premium::before,
+.savings-goals-premium::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(10px);
+}
+
+.savings-goals-premium::before {
+  top: 7rem;
+  left: -10rem;
+  width: 24rem;
+  height: 24rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(17, 226, 210, 0.12), transparent 68%);
+}
+
+.savings-goals-premium::after {
+  right: -12rem;
+  bottom: 2rem;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(133, 72, 255, 0.13), transparent 68%);
+}
+
+.savings-goals-premium > div {
+  position: relative;
+  min-height: 100dvh;
+  padding-top: max(0.9rem, env(safe-area-inset-top));
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+/* Back action */
+.savings-goals-premium > div > div:first-child {
+  margin-bottom: 0.85rem;
+}
+
+.savings-goals-premium > div > div:first-child > button {
+  height: 2.7rem;
+  padding: 0 0.95rem 0 0.55rem;
+  border: 1px solid rgba(180, 210, 255, 0.1);
+  border-radius: 999px;
+  color: rgba(234, 242, 255, 0.74);
+  background: rgba(7, 18, 42, 0.46);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.savings-goals-premium > div > div:first-child > button:hover {
+  color: #ffffff;
+  border-color: rgba(70, 224, 214, 0.24);
+  background: rgba(15, 34, 65, 0.75);
+}
+
+.savings-goals-premium > div > div:first-child > button svg {
+  width: 1.85rem;
+  height: 1.85rem;
+  margin-right: 0.55rem;
+  padding: 0.38rem;
+  border: 1px solid rgba(175, 207, 255, 0.11);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Premium hero */
+.savings-goals-premium > div > header {
+  position: relative;
+  min-height: 10.7rem;
+  margin-bottom: 0.85rem;
+  padding: 1.45rem 1.35rem 1.6rem;
+  overflow: hidden;
+  border: 1px solid rgba(123, 112, 255, 0.42);
+  border-left-color: rgba(31, 228, 213, 0.72);
+  border-radius: 1.75rem;
+  background:
+    linear-gradient(135deg, rgba(5, 37, 58, 0.94), rgba(12, 28, 66, 0.91) 56%, rgba(56, 24, 108, 0.86)),
+    rgba(7, 18, 43, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(107, 79, 255, 0.1),
+    0 1.4rem 4.2rem rgba(0, 0, 0, 0.34),
+    -0.6rem 0 2rem rgba(22, 222, 208, 0.07),
+    0.8rem 0 2.4rem rgba(124, 63, 255, 0.08);
+  backdrop-filter: blur(22px);
+}
+
+.savings-goals-premium > div > header::before {
+  content: "";
+  position: absolute;
+  right: -3.2rem;
+  bottom: -4.7rem;
+  width: 18rem;
+  height: 9.8rem;
+  border-top: 2px solid rgba(120, 90, 255, 0.7);
+  border-radius: 50%;
+  transform: rotate(-13deg);
+  background: radial-gradient(ellipse at 50% 0%, rgba(55, 201, 255, 0.11), transparent 56%);
+  box-shadow:
+    0 -2px 8px rgba(62, 218, 255, 0.38),
+    0 -4px 24px rgba(138, 68, 255, 0.28);
+  pointer-events: none;
+}
+
+.savings-goals-premium > div > header::after {
+  content: "✦";
+  position: absolute;
+  top: 1.45rem;
+  left: min(48%, 20rem);
+  color: #d9ffff;
+  font-size: 1.05rem;
+  text-shadow:
+    0 0 0.45rem rgba(112, 247, 240, 0.95),
+    0 0 1.25rem rgba(79, 170, 255, 0.75);
+  animation: savings-goals-premium-pulse 3.4s ease-in-out infinite;
+}
+
+.savings-goals-premium > div > header > div {
+  position: relative;
+  z-index: 1;
+  align-items: flex-start;
+}
+
+.savings-goals-premium > div > header h1 {
+  max-width: 14rem;
+  color: #ffffff;
+  font-size: clamp(1.65rem, 7vw, 2.45rem);
+  font-weight: 850;
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+  text-shadow: 0 0.4rem 1.5rem rgba(0, 0, 0, 0.25);
+}
+
+.savings-goals-premium > div > header p {
+  max-width: 16rem;
+  margin-top: 0.65rem;
+  color: var(--sg-muted);
+  font-size: 0.8rem;
+  font-weight: 560;
+  line-height: 1.55;
+}
+
+.savings-goals-premium > div > header button {
+  min-width: 7.6rem;
+  height: 2.75rem;
+  border: 1px solid rgba(198, 222, 255, 0.48);
+  border-radius: 1rem;
+  color: #ffffff;
+  background:
+    linear-gradient(110deg, rgba(24, 186, 212, 0.28), rgba(105, 65, 244, 0.38)),
+    rgba(8, 20, 48, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(51, 225, 229, 0.08),
+    0 0.65rem 1.8rem rgba(54, 32, 160, 0.28),
+    0 0 1.25rem rgba(47, 218, 226, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.savings-goals-premium > div > header button:hover {
+  border-color: rgba(120, 239, 239, 0.72);
+  background:
+    linear-gradient(110deg, rgba(22, 211, 219, 0.38), rgba(132, 70, 255, 0.48)),
+    rgba(9, 21, 50, 0.78);
+  transform: translateY(-1px);
+}
+
+/* Summary control center */
+.savings-goals-premium > div > .grid.grid-cols-3 {
+  position: relative;
+  grid-template-columns: 1.1fr 1fr 0.72fr;
+  gap: 0.55rem;
+  margin-bottom: 1.15rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(139, 168, 228, 0.13);
+  border-radius: 1.55rem;
+  background: linear-gradient(135deg, rgba(7, 27, 51, 0.92), rgba(12, 20, 52, 0.93) 58%, rgba(31, 20, 70, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1rem 2.8rem rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(18px);
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div {
+  position: relative;
+  min-width: 0;
+  min-height: 6.2rem;
+  padding: 0.85rem 0.65rem 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgba(164, 194, 245, 0.08);
+  border-radius: 1.1rem;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div::before {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0 auto 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: 0 0 1.1rem currentColor;
+  opacity: 0.9;
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div:nth-child(1) {
+  color: var(--sg-cyan);
+  background: linear-gradient(145deg, rgba(16, 182, 176, 0.12), rgba(255, 255, 255, 0.018));
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div:nth-child(1)::before {
+  content: "₱";
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div:nth-child(2) {
+  color: var(--sg-blue);
+  background: linear-gradient(145deg, rgba(66, 137, 255, 0.12), rgba(255, 255, 255, 0.018));
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div:nth-child(2)::before {
+  content: "◎";
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div:nth-child(3) {
+  color: var(--sg-violet);
+  background: linear-gradient(145deg, rgba(141, 79, 255, 0.14), rgba(255, 255, 255, 0.018));
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div:nth-child(3)::before {
+  content: "✦";
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div p:first-of-type {
+  margin-bottom: 0.18rem;
+  color: currentColor;
+  font-size: 0.58rem;
+  font-weight: 820;
+  letter-spacing: 0.11em;
+  opacity: 0.92;
+}
+
+.savings-goals-premium > div > .grid.grid-cols-3 > div p:last-of-type {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: clamp(0.84rem, 3.65vw, 1.16rem);
+  font-weight: 850;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Low-retention guidance */
+.savings-goals-premium > div > div[class*="bg-orange-50"] {
+  border-color: rgba(251, 191, 36, 0.18);
+  border-radius: 1.15rem;
+  color: rgba(255, 242, 202, 0.86);
+  background: linear-gradient(135deg, rgba(146, 88, 12, 0.18), rgba(68, 39, 8, 0.16));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.savings-goals-premium > div > div[class*="bg-orange-50"] p {
+  color: inherit;
+}
+
+/* Goal list */
+.savings-goals-premium > div > .space-y-3 {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.savings-goals-premium > div > .space-y-3 > div {
+  position: relative;
+  padding: 1.15rem;
+  overflow: hidden;
+  border: 1px solid rgba(116, 156, 215, 0.18);
+  border-radius: 1.5rem;
+  color: #f7fbff;
+  background:
+    radial-gradient(circle at 7% 12%, rgba(25, 219, 206, 0.09), transparent 11rem),
+    linear-gradient(145deg, rgba(7, 25, 48, 0.96), rgba(8, 17, 42, 0.94) 62%, rgba(25, 16, 58, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 1.05rem 2.9rem rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(18px);
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.savings-goals-premium > div > .space-y-3 > div::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent 5%, var(--sg-cyan), rgba(72, 171, 255, 0.55), transparent 94%);
+  box-shadow: 0 0 1.25rem rgba(31, 231, 215, 0.52);
+}
+
+.savings-goals-premium > div > .space-y-3 > div::after {
+  content: "";
+  position: absolute;
+  top: -4rem;
+  right: -3rem;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(126, 72, 255, 0.11), transparent 69%);
+  pointer-events: none;
+}
+
+.savings-goals-premium > div > .space-y-3 > div:nth-child(even) {
+  border-color: rgba(142, 96, 224, 0.2);
+  background:
+    radial-gradient(circle at 92% 12%, rgba(140, 75, 255, 0.1), transparent 12rem),
+    linear-gradient(145deg, rgba(11, 21, 48, 0.96), rgba(12, 16, 42, 0.95) 62%, rgba(31, 15, 60, 0.9));
+}
+
+.savings-goals-premium > div > .space-y-3 > div:nth-child(even)::before {
+  background: linear-gradient(180deg, transparent 5%, var(--sg-violet), rgba(76, 145, 255, 0.5), transparent 94%);
+  box-shadow: 0 0 1.25rem rgba(151, 88, 255, 0.48);
+}
+
+.savings-goals-premium > div > .space-y-3 > div:hover {
+  border-color: rgba(55, 226, 215, 0.38);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 1.25rem 3.4rem rgba(0, 0, 0, 0.32),
+    0 0 2.2rem rgba(36, 215, 207, 0.055);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0.95rem;
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child {
+  position: relative;
+  min-width: 0;
+  padding-left: 3.05rem;
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child::before {
+  content: "✦";
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgba(45, 231, 219, 0.28);
+  border-radius: 999px;
+  color: var(--sg-cyan);
+  font-size: 0.88rem;
+  background: radial-gradient(circle, rgba(30, 224, 211, 0.14), rgba(7, 25, 47, 0.75));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 1.4rem rgba(27, 224, 211, 0.1);
+}
+
+.savings-goals-premium > div > .space-y-3 > div:nth-child(even) > div:first-child > div:first-child::before {
+  border-color: rgba(158, 101, 255, 0.29);
+  color: var(--sg-violet);
+  background: radial-gradient(circle, rgba(146, 82, 255, 0.15), rgba(19, 19, 54, 0.78));
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child p:first-child {
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 820;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child p:nth-child(2) {
+  margin-top: 0.18rem;
+  color: rgba(205, 219, 247, 0.58);
+  font-size: 0.72rem;
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child p:last-child:not(:nth-child(2)) {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 0.48rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(138, 181, 226, 0.1);
+  border-radius: 999px;
+  color: rgba(211, 225, 249, 0.61);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:last-child {
+  position: relative;
+  z-index: 1;
+  padding-top: 0.1rem;
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:last-child p:first-child {
+  color: var(--sg-cyan);
+  font-size: 0.95rem;
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0 1.1rem rgba(31, 231, 215, 0.14);
+}
+
+.savings-goals-premium > div > .space-y-3 > div:nth-child(even) > div:first-child > div:last-child p:first-child {
+  color: var(--sg-violet);
+  text-shadow: 0 0 1.1rem rgba(154, 99, 255, 0.16);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:first-child > div:last-child p:last-child {
+  margin-top: 0.18rem;
+  color: rgba(206, 220, 245, 0.57);
+  font-size: 0.68rem;
+}
+
+/* Premium progress rail */
+.savings-goals-premium > div > .space-y-3 > div > div:nth-child(2) {
+  position: relative;
+  z-index: 1;
+  height: 0.68rem;
+  margin-bottom: 0.85rem;
+  overflow: hidden;
+  border: 1px solid rgba(140, 175, 229, 0.1);
+  border-radius: 999px;
+  background: rgba(1, 7, 23, 0.78);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.58),
+    0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:nth-child(2) > div {
+  position: relative;
+  min-width: 0;
+  background: linear-gradient(90deg, #16d8cc 0%, #36f0df 58%, #68dfff 100%);
+  box-shadow:
+    0 0 0.9rem rgba(41, 235, 218, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.savings-goals-premium > div > .space-y-3 > div:nth-child(even) > div:nth-child(2) > div {
+  background: linear-gradient(90deg, #7752f6 0%, #a469ff 58%, #bd80ff 100%);
+  box-shadow:
+    0 0 0.9rem rgba(157, 91, 255, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:nth-child(3) {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  padding-top: 0.05rem;
+  color: rgba(210, 223, 247, 0.58);
+  font-size: 0.69rem;
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:nth-child(3) > span:first-child {
+  color: var(--sg-cyan);
+  font-weight: 780;
+}
+
+.savings-goals-premium > div > .space-y-3 > div:nth-child(even) > div:nth-child(3) > span:first-child {
+  color: var(--sg-violet);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:nth-child(3) > span:nth-child(2) {
+  justify-self: center;
+  padding: 0 0.65rem;
+  border-right: 1px solid rgba(170, 196, 238, 0.1);
+  border-left: 1px solid rgba(170, 196, 238, 0.1);
+}
+
+.savings-goals-premium > div > .space-y-3 > div > div:nth-child(3) > span:last-child {
+  justify-self: end;
+  text-align: right;
+}
+
+@keyframes savings-goals-premium-pulse {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(0.9) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08) rotate(8deg);
+  }
+}
+
+@media (min-width: 640px) {
+  .savings-goals-premium > div {
+    padding-top: 1.4rem;
+  }
+
+  .savings-goals-premium > div > header {
+    min-height: 12rem;
+    padding: 2rem 2rem 2.15rem;
+  }
+
+  .savings-goals-premium > div > header h1 {
+    max-width: 24rem;
+  }
+
+  .savings-goals-premium > div > header p {
+    max-width: 23rem;
+    font-size: 0.9rem;
+  }
+
+  .savings-goals-premium > div > .grid.grid-cols-3 {
+    gap: 0.75rem;
+    padding: 0.7rem;
+  }
+
+  .savings-goals-premium > div > .grid.grid-cols-3 > div {
+    min-height: 7rem;
+    padding: 1rem 0.9rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div {
+    padding: 1.35rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child p:first-child,
+  .savings-goals-premium > div > .space-y-3 > div > div:first-child > div:last-child p:first-child {
+    font-size: 1.05rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .savings-goals-premium > div {
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+
+  .savings-goals-premium > div > header {
+    min-height: 9.9rem;
+    padding: 1.25rem 1rem 1.4rem;
+  }
+
+  .savings-goals-premium > div > header h1 {
+    max-width: 10.5rem;
+    font-size: 1.55rem;
+  }
+
+  .savings-goals-premium > div > header button {
+    min-width: auto;
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+
+  .savings-goals-premium > div > .grid.grid-cols-3 {
+    gap: 0.38rem;
+    padding: 0.42rem;
+  }
+
+  .savings-goals-premium > div > .grid.grid-cols-3 > div {
+    min-height: 5.75rem;
+    padding-right: 0.35rem;
+    padding-left: 0.35rem;
+  }
+
+  .savings-goals-premium > div > .grid.grid-cols-3 > div p:last-of-type {
+    font-size: 0.78rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div {
+    padding: 1rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child {
+    padding-left: 2.7rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div > div:first-child > div:first-child::before {
+    width: 2.05rem;
+    height: 2.05rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div > div:nth-child(3) {
+    gap: 0.35rem;
+    font-size: 0.61rem;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div > div:nth-child(3) > span:nth-child(2) {
+    padding: 0 0.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .savings-goals-premium > div > header::after {
+    animation: none;
+  }
+
+  .savings-goals-premium > div > .space-y-3 > div,
+  .savings-goals-premium > div > header button {
+    transition: none;
+  }
+}
