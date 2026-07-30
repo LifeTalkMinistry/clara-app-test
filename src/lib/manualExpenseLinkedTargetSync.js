@@ -3,10 +3,14 @@ import {
   getLocalRecords,
   upsertLocalRecord,
 } from "./localFinanceStore.js";
+import {
+  DEBT_OBLIGATION_RECORD_KIND,
+  getDebtBalance,
+  getDebtObligationMode,
+} from "./debtObligationMath.js";
 
 const EMERGENCY_BUDGET_KEY = "protected-emergency-fund";
 const SAVINGS_BUDGET_PREFIX = "protected-savings-";
-const DEBT_OBLIGATION_RECORD_KIND = "debt_obligation";
 const DEBT_OBLIGATION_STORE =
   LOCAL_FINANCE_STORES?.privatePreferences || "private_preferences";
 
@@ -166,8 +170,6 @@ async function resolveManualExpenseTarget({ expense, localUserId, repository }) 
   const directDebtId = text(expense?.source_debt_id || expense?.sourceDebtId);
   if (directDebtId) return { type: "debt", id: directDebtId };
 
-  // The legacy Manual Log save path stores the selected display title but not the
-  // synthetic protected key. Resolve that title back to the real protected target.
   const category = getExpenseCategory(expense);
   const categoryKey = normalizedLabel(category);
   if (categoryKey === "emergency fund") return { type: "emergency", id: "" };
@@ -271,20 +273,29 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
   const debt = obligations.find((item) => text(item?.id) === text(targetId));
   if (!debt) throw new Error("The linked Debt / Obligation could not be found.");
 
-  const current = toAmount(
-    debt?.totalDebt ?? debt?.balance ?? debt?.amount ?? debt?.debt_balance ?? 0
-  );
-  const next = Math.max(current - delta, 0);
+  const current = getDebtBalance(debt);
+  const mode = getDebtObligationMode(debt);
+  const next = mode === "recurring" ? current : Math.max(current - delta, 0);
   const now = new Date().toISOString();
+  const completed = mode === "balance" && next <= 0;
   const record = {
     ...debt,
     id: debt.id,
     recordKind: DEBT_OBLIGATION_RECORD_KIND,
     localUserId: text(debt.localUserId || localUserId),
+    obligationMode: mode,
+    obligation_mode: mode,
     totalDebt: next,
     balance: next,
     amount: next,
     debt_balance: next,
+    status: completed ? "completed" : "active",
+    paidAt: completed ? now : null,
+    paid_at: completed ? now : null,
+    lastPaymentAmount: delta > 0 ? delta : debt.lastPaymentAmount || null,
+    last_payment_amount: delta > 0 ? delta : debt.last_payment_amount || null,
+    lastPaidAt: delta > 0 ? now : debt.lastPaidAt || null,
+    last_paid_at: delta > 0 ? now : debt.last_paid_at || null,
     updatedAt: now,
     updated_at: now,
     deletedAt: null,
@@ -298,7 +309,13 @@ async function applyDebtDelta({ localUserId, targetId, delta }) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent("clara:debt-obligations-updated", {
-        detail: { localUserId, debtId: debt.id, balance: next },
+        detail: {
+          localUserId,
+          debtId: debt.id,
+          balance: next,
+          status: record.status,
+          obligationMode: mode,
+        },
       })
     );
   }
@@ -363,8 +380,3 @@ export async function syncManualExpenseLinkedTargetChange({
 
   return null;
 }
-
-export const MANUAL_EXPENSE_LINK_KEYS = {
-  emergency: EMERGENCY_BUDGET_KEY,
-  savingsPrefix: SAVINGS_BUDGET_PREFIX,
-};
