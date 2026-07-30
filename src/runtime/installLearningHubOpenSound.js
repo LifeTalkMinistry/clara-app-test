@@ -54,7 +54,6 @@ function getLearningHubAudio() {
     learningHubAudio.src = learningHubSoundUrl;
     learningHubAudio.muted = false;
     learningHubAudio.volume = getSoundVolume();
-    learningHubAudio.load();
   }
 
   return learningHubAudio;
@@ -75,6 +74,8 @@ export function playLearningHubToggleSound(button) {
   triggerClaraHaptic("light");
   if (!isSoundEnabled()) return;
 
+  // Create and load the sound only after a real user interaction.
+  // This removes audio setup and network work from dashboard startup.
   const audio = getLearningHubAudio();
   if (!audio) return;
 
@@ -98,8 +99,6 @@ export function playLearningHubToggleSound(button) {
 export function installLearningHubOpenSound() {
   if (installed || typeof document === "undefined") return () => {};
   installed = true;
-
-  getLearningHubAudio();
 
   const handlePointerDown = (event) => {
     if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
