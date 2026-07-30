@@ -4,16 +4,23 @@ on:
   push:
     branches:
       - agent/remove-savings-build-transform
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
 
 jobs:
   materialize:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.event_name == 'push' || github.head_ref == 'agent/remove-savings-build-transform')
     runs-on: ubuntu-latest
     steps:
-      - name: Check out branch
+      - name: Check out migration branch
         uses: actions/checkout@v4
         with:
           ref: agent/remove-savings-build-transform
@@ -124,20 +131,8 @@ jobs:
 
           test("completed balances are excluded from current debt pressure", () => {
             const summary = summarizeDebtObligationsPure([
-              {
-                recordKind: DEBT_OBLIGATION_RECORD_KIND,
-                status: "active",
-                obligationMode: "balance",
-                totalDebt: 50000,
-                monthlyDebt: 6000,
-              },
-              {
-                recordKind: DEBT_OBLIGATION_RECORD_KIND,
-                status: "completed",
-                obligationMode: "balance",
-                totalDebt: 0,
-                monthlyDebt: 4000,
-              },
+              { recordKind: DEBT_OBLIGATION_RECORD_KIND, status: "active", obligationMode: "balance", totalDebt: 50000, monthlyDebt: 6000 },
+              { recordKind: DEBT_OBLIGATION_RECORD_KIND, status: "completed", obligationMode: "balance", totalDebt: 0, monthlyDebt: 4000 },
             ], { income: 30000 });
             assert.equal(summary.activeCount, 1);
             assert.equal(summary.monthlyDebt, 6000);
@@ -167,6 +162,7 @@ jobs:
           rm -f src/build/savingsGoalManagedBalanceTransform.js
           rm -f tests/savings-goal-managed-balance-transform.test.mjs
           rm -f .github/workflows/materialize-savings-goal-source.yml
+          rm -f .github/materialize-trigger.txt
 
       - name: Install dependencies
         run: npm ci
@@ -181,6 +177,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json vite.config.js src/pages/SavingsGoalsIntegrated.jsx src/build tests .github/workflows/materialize-savings-goal-source.yml
+          git add package.json vite.config.js src/pages/SavingsGoalsIntegrated.jsx src/build tests .github
           git commit -m "Materialize Savings Goal balance logic"
           git push origin HEAD:agent/remove-savings-build-transform
