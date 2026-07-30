@@ -64,6 +64,6 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
   assert.match(themeSource, /height:\s*24px !important;/);
   assert.match(
     themeSource,
-    /left:\s*calc\(clamp\(112px, 33vw, 132px\) \+ 36px\) !important;/,
+    /left:\s*calc\(clamp\(112px, 33vw, 132px\) \+ 34px\) !important;/,
   );
 });
