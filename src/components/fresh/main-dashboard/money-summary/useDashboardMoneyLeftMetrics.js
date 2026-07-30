@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import {
   firstValidNumber,
   getPHMonthKey,
@@ -6,21 +7,46 @@ import {
   normalizeLower,
   INCOME_TRANSACTION_TYPES,
 } from "@/utils/dashboard/dashboardHelpers";
+import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 import {
   getDebtObligations,
+  isDebtLinkedExpense,
   summarizeDebtObligations,
   toDebtNumber,
 } from "@/lib/debtObligationStore";
 
-const getLocalUserId = (user) =>
-  String(user?.id || user?.email || "local-user").trim() || "local-user";
+const firstOwnerIdentity = (...collections) => {
+  for (const collection of collections) {
+    for (const record of Array.isArray(collection) ? collection : []) {
+      const identity =
+        record?.user_id || record?.userId || record?.user_email || record?.userEmail;
+      if (identity) return String(identity).trim();
+    }
+  }
+  return "";
+};
+
+const getLocalUserId = (user, expenses, walletTransactions) => {
+  const identity = String(
+    user?.id ||
+      user?.email ||
+      firstOwnerIdentity(walletTransactions, expenses) ||
+      "local-user"
+  ).trim() || "local-user";
+  return getEffectiveDemoFinanceLocalUserId(identity);
+};
 
 export default function useDashboardMoneyLeftMetrics({
   expenses = [],
   walletTransactions = [],
   user = null,
 } = {}) {
-  const localUserId = useMemo(() => getLocalUserId(user), [user]);
+  const { user: authUser } = useAuth();
+  const effectiveUser = user || authUser || null;
+  const localUserId = useMemo(
+    () => getLocalUserId(effectiveUser, expenses, walletTransactions),
+    [effectiveUser, expenses, walletTransactions]
+  );
   const [debtObligations, setDebtObligations] = useState([]);
 
   useEffect(() => {
@@ -50,42 +76,56 @@ export default function useDashboardMoneyLeftMetrics({
     };
   }, [localUserId]);
 
-  const thisMonthSpent = useMemo(() => {
-    const currentMonthKey = getPHMonthKey();
+  const currentMonthKey = getPHMonthKey();
 
-    return (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
-      const expenseDate = getTransactionDate(expense);
-      if (!expenseDate) return sum;
+  const thisMonthSpent = useMemo(
+    () =>
+      (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
+        const expenseDate = getTransactionDate(expense);
+        if (!expenseDate || getPHMonthKey(expenseDate) !== currentMonthKey) return sum;
+        return sum + Math.abs(Number(expense.amount || 0));
+      }, 0),
+    [currentMonthKey, expenses]
+  );
 
-      return getPHMonthKey(expenseDate) === currentMonthKey
-        ? sum + Number(expense.amount || 0)
-        : sum;
-    }, 0);
-  }, [expenses]);
+  const thisMonthDebtPayments = useMemo(
+    () =>
+      (Array.isArray(expenses) ? expenses : []).reduce((sum, expense) => {
+        const expenseDate = getTransactionDate(expense);
+        if (!expenseDate || getPHMonthKey(expenseDate) !== currentMonthKey) return sum;
+        if (!isDebtLinkedExpense(expense, debtObligations)) return sum;
+        return sum + Math.abs(firstValidNumber(expense?.amount));
+      }, 0),
+    [currentMonthKey, debtObligations, expenses]
+  );
 
-  const thisMonthIncome = useMemo(() => {
-    const currentMonthKey = getPHMonthKey();
+  const thisMonthIncome = useMemo(
+    () =>
+      (Array.isArray(walletTransactions) ? walletTransactions : []).reduce(
+        (sum, transaction) => {
+          const type = normalizeLower(transaction?.type || transaction?.transaction_type);
+          if (!INCOME_TRANSACTION_TYPES.has(type)) return sum;
 
-    return (Array.isArray(walletTransactions) ? walletTransactions : []).reduce(
-      (sum, transaction) => {
-        const type = normalizeLower(transaction?.type || transaction?.transaction_type);
-        if (!INCOME_TRANSACTION_TYPES.has(type)) return sum;
+          const date = getTransactionDate(transaction);
+          if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
 
-        const date = getTransactionDate(transaction);
-        if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
-
-        return sum + firstValidNumber(transaction?.amount);
-      },
-      0
-    );
-  }, [walletTransactions]);
+          return sum + firstValidNumber(transaction?.amount);
+        },
+        0
+      ),
+    [currentMonthKey, walletTransactions]
+  );
 
   const debtPressureSummary = useMemo(
     () => summarizeDebtObligations(debtObligations, { income: thisMonthIncome }),
     [debtObligations, thisMonthIncome]
   );
 
-  const monthlyObligationPressure = toDebtNumber(debtPressureSummary.monthlyDebt);
+  const scheduledMonthlyObligation = toDebtNumber(debtPressureSummary.monthlyDebt);
+  const monthlyObligationPressure = Math.max(
+    scheduledMonthlyObligation - thisMonthDebtPayments,
+    0
+  );
   const totalDebtObligationBalance = toDebtNumber(debtPressureSummary.totalDebt);
   const activeDebtObligationCount = Number(debtPressureSummary.activeCount || 0);
   const debtPressureRatio = toDebtNumber(debtPressureSummary.debtRatio);
@@ -96,9 +136,11 @@ export default function useDashboardMoneyLeftMetrics({
   return {
     thisMonthSpent,
     thisMonthIncome,
+    thisMonthDebtPayments,
     grossMoneyLeftThisMonth,
     moneyLeftThisMonth,
     safeMoneyLeftThisMonth,
+    scheduledMonthlyObligation,
     monthlyObligationPressure,
     totalDebtObligationBalance,
     activeDebtObligationCount,
