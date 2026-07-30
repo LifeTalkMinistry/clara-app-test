@@ -37,13 +37,13 @@ import {
 import MonthlyBudgetPlanGuided from "./monthly-budget-plan/MonthlyBudgetPlanGuided";
 
 const card =
-  "rounded-[26px] border border-cyan-100/12 bg-white/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_18px_44px_rgba(0,0,0,0.18)] backdrop-blur-2xl";
+  "relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(16,43,67,0.78),rgba(18,20,58,0.88)_52%,rgba(45,20,79,0.82))] shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_22px_58px_rgba(0,0,0,0.28),0_0_34px_rgba(45,212,191,0.05)] backdrop-blur-2xl";
 const input =
   "w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-[15px] font-semibold text-white outline-none placeholder:text-white/30 focus:border-emerald-300/45";
 const primaryButton =
-  "flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400 px-4 py-3 text-sm font-black text-[#03171a] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45";
+  "flex items-center justify-center gap-2 rounded-2xl border border-cyan-200/25 bg-gradient-to-r from-cyan-400 via-teal-300 to-violet-400 px-4 py-3 text-sm font-black text-[#04121f] shadow-[0_12px_30px_rgba(34,211,238,0.18),inset_0_1px_0_rgba(255,255,255,0.35)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45";
 const secondaryButton =
-  "flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/72 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45";
+  "flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3 text-sm font-bold text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45";
 
 const fmt = (value = 0) =>
   new Intl.NumberFormat("en-PH", {
@@ -172,18 +172,19 @@ function useLockedBudgetViewport(pageRef) {
 function Stat({ label, value, accent = false }) {
   return (
     <div
-      className={`rounded-2xl border p-3 ${
-        accent ? "border-emerald-300/16 bg-emerald-400/[0.07]" : "border-white/8 bg-black/12"
+      className={`relative min-w-0 overflow-hidden rounded-[22px] border px-3 py-3.5 text-center ${
+        accent
+          ? "border-cyan-200/22 bg-[linear-gradient(145deg,rgba(34,211,238,0.15),rgba(99,102,241,0.14))] shadow-[0_12px_28px_rgba(34,211,238,0.08)]"
+          : "border-white/9 bg-[linear-gradient(145deg,rgba(15,47,65,0.68),rgba(28,28,70,0.62))]"
       }`}
     >
-      <p
-        className={`text-[9px] font-black uppercase tracking-[0.13em] ${
-          accent ? "text-emerald-100/45" : "text-white/34"
-        }`}
-      >
+      <div className={`absolute inset-x-5 top-0 h-px ${accent ? "bg-cyan-200/45" : "bg-white/12"}`} />
+      <p className={`truncate text-[8px] font-black uppercase tracking-[0.14em] ${accent ? "text-cyan-100/65" : "text-white/38"}`}>
         {label}
       </p>
-      <p className={`mt-1 text-lg font-black ${accent ? "text-emerald-100" : "text-white"}`}>{value}</p>
+      <p className={`mt-1.5 truncate text-[17px] font-black tracking-[-0.035em] ${accent ? "text-cyan-50" : "text-white"}`}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -198,9 +199,14 @@ function isFulfilledDebtRow(row = {}) {
 function BudgetRow({ row, editing, draftName, draftAmount, onStartEdit, onCancelEdit, onSave, onRemove, busy }) {
   const debt = isDebtCommitment(row);
   const fulfilledDebt = isFulfilledDebtRow(row);
+  const allocated = Math.max(0, firstAmount(row?.allocated, row?.allocated_amount, row?.amount));
+  const spent = Math.max(0, firstAmount(row?.spent, row?.used, row?.spent_amount));
+  const progress = allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0;
+  const remaining = Math.max(allocated - spent, 0);
+
   if (editing && !fulfilledDebt) {
     return (
-      <div className="rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.06] p-3">
+      <div className="rounded-[24px] border border-cyan-200/20 bg-[linear-gradient(145deg,rgba(8,48,66,0.82),rgba(25,25,69,0.82))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
         <input
           type="text"
           value={draftName.value}
@@ -217,7 +223,7 @@ function BudgetRow({ row, editing, draftName, draftAmount, onStartEdit, onCancel
           className={`${input} mt-2`}
           placeholder="Amount"
         />
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <button type="button" onClick={onCancelEdit} className={secondaryButton}>
             <X className="h-4 w-4" />
             Cancel
@@ -233,68 +239,91 @@ function BudgetRow({ row, editing, draftName, draftAmount, onStartEdit, onCancel
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
+      className={`relative overflow-hidden rounded-[24px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_14px_32px_rgba(0,0,0,0.16)] ${
         fulfilledDebt
-          ? "border-white/8 bg-white/[0.025] opacity-55"
+          ? "border-white/8 bg-white/[0.025] opacity-60"
           : debt
-            ? "border-amber-300/14 bg-amber-400/[0.05]"
-            : "border-white/8 bg-black/12"
+            ? "border-amber-200/15 bg-[linear-gradient(145deg,rgba(80,52,17,0.24),rgba(30,24,57,0.76))]"
+            : "border-cyan-100/10 bg-[linear-gradient(145deg,rgba(10,49,65,0.72),rgba(28,27,72,0.72))]"
       }`}
     >
-      {debt ? (
+      <div className={`absolute inset-y-4 left-0 w-[3px] rounded-r-full ${debt ? "bg-amber-300/70" : "bg-gradient-to-b from-cyan-300 to-violet-400"}`} />
+      <div className="flex items-start gap-3">
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${
-            fulfilledDebt ? "bg-white/[0.06] text-white/60" : "bg-amber-400/10 text-amber-100/75"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${
+            debt
+              ? "border-amber-200/18 bg-amber-300/10 text-amber-100"
+              : "border-cyan-200/18 bg-cyan-300/10 text-cyan-100"
           }`}
         >
-          {fulfilledDebt ? <CheckCircle2 className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+          {fulfilledDebt ? <CheckCircle2 className="h-4 w-4" /> : debt ? <CreditCard className="h-4 w-4" /> : <ListChecks className="h-4 w-4" />}
         </div>
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm font-black ${fulfilledDebt ? "line-through decoration-white/30" : ""}`}>
-          {row.title}
-        </p>
-        <p className="mt-0.5 text-[10px] font-semibold text-white/38">
-          {fulfilledDebt
-            ? `${fmt(row.spent)} paid · already expensed this cycle`
-            : debt
-              ? `${fmt(row.remaining)} remaining to pay`
-              : `${fmt(row.remaining)} remaining`}
-        </p>
-      </div>
-      {fulfilledDebt ? (
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={`truncate text-[15px] font-black tracking-[-0.02em] ${fulfilledDebt ? "line-through decoration-white/30" : ""}`}>
+              {row.title}
+            </p>
+            {debt ? (
+              <span className="rounded-full border border-amber-200/15 bg-amber-300/8 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-amber-100/70">
+                Obligation
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[10px] font-semibold text-white/42">
+            {fulfilledDebt
+              ? `${fmt(spent)} paid · completed this cycle`
+              : spent > 0
+                ? `${fmt(spent)} used of ${fmt(allocated)}`
+                : `${fmt(allocated)} planned for this cycle`}
+          </p>
+        </div>
         <div className="shrink-0 text-right">
-          <p className="text-sm font-black text-white/70">{fmt(0)}</p>
-          <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/30">remaining</p>
+          <p className={`text-[15px] font-black ${debt ? "text-amber-100" : "text-cyan-100"}`}>
+            {fulfilledDebt ? fmt(0) : fmt(remaining)}
+          </p>
+          <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-white/30">
+            {fulfilledDebt ? "remaining" : "left"}
+          </p>
         </div>
-      ) : (
-        <p className="shrink-0 text-sm font-black text-white/82">{fmt(row.allocated)}</p>
-      )}
-      {fulfilledDebt ? (
-        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-white/50">
-          Paid
+      </div>
+
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#040818]/90 shadow-[inset_0_1px_3px_rgba(0,0,0,0.65)]">
+        <div
+          className={`h-full rounded-full transition-[width] duration-500 ${debt ? "bg-gradient-to-r from-amber-400 to-orange-300" : "bg-gradient-to-r from-cyan-400 via-teal-300 to-violet-400"}`}
+          style={{ width: `${fulfilledDebt ? 100 : progress}%` }}
+        />
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <span className={`text-[9px] font-black ${debt ? "text-amber-100/65" : "text-cyan-100/65"}`}>
+          {fulfilledDebt ? "Paid in full" : `${progress.toFixed(0)}% used`}
         </span>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={onStartEdit}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white/55"
-            aria-label={`Edit ${row.title}`}
-          >
-            <Edit3 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={busy}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-rose-300/18 bg-rose-500/10 text-rose-100/75 disabled:opacity-45"
-            aria-label={`Remove ${row.title}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </>
-      )}
+        {fulfilledDebt ? (
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-white/50">
+            Paid
+          </span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onStartEdit}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-white/60"
+              aria-label={`Edit ${row.title}`}
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={busy}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/16 bg-rose-400/8 text-rose-100/70 disabled:opacity-45"
+              aria-label={`Remove ${row.title}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -815,25 +844,32 @@ function CurrentBudgetManager({
   };
 
   return (
-    <div className="min-h-[100svh] w-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.24),transparent_38%),linear-gradient(135deg,#04171e,#071430_48%,#170d36)] px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(0.7rem+env(safe-area-inset-top))] text-white">
-      <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
-        <header className="sticky top-0 z-30 -mx-4 border-b border-white/8 bg-[#06101d]/92 px-4 pb-2.5 pt-[calc(0.7rem+env(safe-area-inset-top))]">
-          <div className="mx-auto flex max-w-[430px] items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/80"
-              aria-label="Back to dashboard"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+    <div data-clara-budget-premium="true" className="min-h-[100svh] w-full bg-[radial-gradient(circle_at_10%_5%,rgba(13,148,136,0.40),transparent_34%),radial-gradient(circle_at_92%_7%,rgba(109,40,217,0.44),transparent_36%),linear-gradient(180deg,#06182b_0%,#0a1230_45%,#13072f_100%)] px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(0.7rem+env(safe-area-inset-top))] text-white">
+      <div className="mx-auto flex w-full max-w-[430px] flex-col gap-4">
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="flex w-fit items-center gap-2 rounded-full border border-white/8 bg-black/10 px-3.5 py-2 text-sm font-bold text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          aria-label="Back to dashboard"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/8 bg-white/[0.05]">
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </span>
+          Back
+        </button>
+
+        <header className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(11,102,112,0.76),rgba(27,52,117,0.78)_54%,rgba(89,47,160,0.74))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_18px_44px_rgba(0,0,0,0.22)]">
+          <div className="absolute -left-8 bottom-0 h-20 w-36 rounded-full bg-cyan-300/12 blur-2xl" />
+          <div className="absolute -right-6 top-0 h-24 w-32 rounded-full bg-violet-300/16 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-black tracking-[-0.035em]">Current Budget Plan</h1>
-              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-100/55">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-50/55">
                 {derived ? "Bottom-up calculated plan" : "Legacy declared-total plan"}
               </p>
+              <h1 className="mt-1 truncate text-[24px] font-black tracking-[-0.045em]">Current Budget Plan</h1>
+              <p className="mt-1 text-[11px] font-semibold text-white/55">Plan every peso with purpose.</p>
             </div>
-            <span className="rounded-full border border-emerald-300/25 bg-emerald-400/12 px-2.5 py-1 text-[10px] font-bold text-emerald-100">
+            <span className="rounded-full border border-emerald-200/25 bg-emerald-300/12 px-3 py-1.5 text-[10px] font-black text-emerald-50 shadow-[0_0_22px_rgba(52,211,153,0.10)]">
               Active
             </span>
           </div>
@@ -892,22 +928,20 @@ function CurrentBudgetManager({
           </div>
 
           {derived ? (
-            <div className="grid grid-cols-2 gap-2 p-4">
-              <Stat label="Regular items" value={fmt(summary.regularTotal)} />
+            <div className="grid grid-cols-3 gap-2.5 p-4">
+              <Stat label="Regular" value={fmt(summary.regularTotal)} />
               <Stat label="Protected" value={fmt(protectedAmount)} />
-              <Stat label="Obligations" value={fmt(summary.debtTotal)} />
-              <Stat label="Calculated total" value={fmt(calculatedTotal)} accent />
+              <Stat label="Obligations" value={fmt(summary.debtTotal)} accent />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 p-4">
+            <div className="grid grid-cols-3 gap-2.5 p-4">
               <Stat label="Assigned" value={fmt(categoryTotal)} />
-              <Stat label="Unallocated" value={fmt(legacyUnallocated)} accent />
-              <Stat label="Protected" value={fmt(protectedAmount)} />
+              <Stat label="Available" value={fmt(legacyUnallocated)} accent />
               <Stat label="Items" value={rows.length} />
             </div>
           )}
 
-          <div className="mx-4 mb-4 flex items-center gap-3 rounded-2xl border border-white/8 bg-black/12 px-3.5 py-3">
+          <div className="mx-4 mb-4 flex items-center gap-3 rounded-[20px] border border-white/9 bg-black/15 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <CalendarDays className="h-4 w-4 shrink-0 text-cyan-100/65" />
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/34">Timeframe</p>
@@ -926,9 +960,9 @@ function CurrentBudgetManager({
                 <ListChecks className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-sm font-black">Regular budget items</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-white/38">
-                  {derived ? "Changing an item recalculates the total." : "Legacy items remain limited by the declared total."}
+                <p className="text-[15px] font-black tracking-[-0.02em]">Budget categories</p>
+                <p className="mt-0.5 text-[11px] font-semibold text-white/42">
+                  See where each peso is assigned this cycle.
                 </p>
               </div>
             </div>
@@ -938,10 +972,11 @@ function CurrentBudgetManager({
                 setAdding((current) => !current);
                 setNotice("");
               }}
-              className="flex h-9 w-9 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-100"
+              className="flex h-9 items-center justify-center gap-1.5 rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3.5 text-[10px] font-black text-cyan-50 shadow-[0_0_22px_rgba(34,211,238,0.08)]"
               aria-label="Add budget item"
             >
-              {adding ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {adding ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              <span>{adding ? "Close" : "Add item"}</span>
             </button>
           </div>
 
@@ -1152,11 +1187,11 @@ function CurrentBudgetManager({
           </div>
         ) : null}
 
-        <section className={`${card} border-amber-300/14 bg-amber-400/[0.05] p-4`}>
+        <section className="rounded-[24px] border border-amber-200/12 bg-black/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
           <div className="flex items-start gap-3">
             <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-amber-100/70" />
             <div>
-              <p className="text-sm font-black text-amber-50">Start a fresh bottom-up budget</p>
+              <p className="text-sm font-black text-amber-50">Start a new budget cycle</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-amber-50/55">
                 Transaction history stays. Current categories and selected commitments are archived, then the new setup starts with no declared total.
               </p>
@@ -1172,7 +1207,7 @@ function CurrentBudgetManager({
           </button>
         </section>
 
-        <button type="button" onClick={() => navigate("/dashboard")} className={`${secondaryButton} w-full`}>
+        <button type="button" onClick={() => navigate("/dashboard")} className={`${primaryButton} w-full`}>
           <CheckCircle2 className="h-4 w-4" />
           Done managing plan
         </button>
