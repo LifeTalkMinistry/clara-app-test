@@ -10,6 +10,7 @@ export const DEFAULT_LIFE_STAGE_SELECTION = DEFAULT_STAGE.stage;
 export const LIFE_STAGE_SELECTION_ORDER = [WORKING_STUDENT_STAGE_KEY, YOUNG_PROFESSIONAL_STAGE_KEY, LIVING_WITH_PARTNER_STAGE_KEY, "Family Household", "Single Parent", "Full-Time Earner", "Freelance Season", "Business Builder"];
 
 const STANDARD_RESET_AFTER = { setup: ["rhythm", "workload", "pressure", "coping", "goal"], rhythm: ["workload", "pressure", "coping", "goal"], workload: ["pressure", "coping", "goal"], pressure: ["coping", "goal"], coping: ["goal"], goal: [] };
+const LIFE_STAGE_SUMMARY_ANSWER_KEYS = ["stage", "setup", "rhythm", "workload", "pressure", "coping", "goal"];
 
 export const STAGE_ALIASES = { youngprofessional: YOUNG_PROFESSIONAL_STAGE_KEY, youngprofessionals: YOUNG_PROFESSIONAL_STAGE_KEY, youngpro: YOUNG_PROFESSIONAL_STAGE_KEY, workingstudent: WORKING_STUDENT_STAGE_KEY, livingwithpartner: LIVING_WITH_PARTNER_STAGE_KEY, familyhousehold: "Family Household", singleparent: "Single Parent", fulltimeearner: "Full-Time Earner", fulltime: "Full-Time Earner", freelanceseason: "Freelance Season", freelancerseason: "Freelance Season", freelancegigworker: "Freelance Season", businessbuilder: "Business Builder" };
 
@@ -18,6 +19,7 @@ export const LIFE_STAGE_ICONS = { [YOUNG_PROFESSIONAL_STAGE_KEY]: "briefcase", [
 export const LIFE_STAGE_CONTEXT_BOARD = { [YOUNG_PROFESSIONAL_STAGE_KEY]: "People in this stage are building independence while balancing salary rhythm, career pressure, lifestyle upgrades, and future stability.", [WORKING_STUDENT_STAGE_KEY]: "People in this stage are balancing classes, work hours, assignments, commute, and limited money while trying to build their future.", [LIVING_WITH_PARTNER_STAGE_KEY]: "People in this stage are learning how shared life, shared costs, boundaries, and emotional responsibility affect money decisions.", "Family Household": "People in this stage are balancing home contribution, family requests, shared bills, and personal boundaries.", "Single Parent": "People in this stage are protecting children, essentials, time, energy, and emergency stability with limited room for mistakes.", "Full-Time Earner": "People in this stage are managing salary rhythm, routine fatigue, lifestyle pressure, and responsibility while trying to build consistency.", "Freelance Season": "People in this stage are balancing flexible income, client timing, dry months, and the need for stronger buffers.", "Business Builder": "People in this stage are balancing reinvestment, operating costs, personal income, and decision pressure while building something sustainable." };
 
 function compact(value) { return String(value || "").replace(/[\s_-]+/g, "").toLowerCase(); }
+function comparable(value) { return String(value ?? "").replace(/\s+/g, " ").trim(); }
 
 export function normalizeLifeStageKey(stageKey) {
   const raw = String(stageKey || "").trim();
@@ -36,12 +38,41 @@ export function notifyLifeStageUpdated(detail = {}) {
   window.dispatchEvent(new CustomEvent(CLARA_LIFE_STAGE_UPDATED_EVENT, { detail }));
 }
 
+export function getLifeStageSummaryChangedKeys(previousProfile = {}, nextProfile = {}) {
+  return LIFE_STAGE_SUMMARY_ANSWER_KEYS.filter(
+    (key) => comparable(previousProfile?.[key]) !== comparable(nextProfile?.[key])
+  );
+}
+
+export function isLifeStageSummaryReady(profile = {}) {
+  if (!profile || typeof profile !== "object") return false;
+  if (profile.lifeStageConfigured !== true) return false;
+  if (!comparable(profile.lifeStageSetupCompletedAt)) return false;
+  if (!comparable(profile.stage)) return false;
+
+  const questions = getLifeStageQuestions(profile.stage);
+  const requiredKeys = (questions.order || LIFE_STAGE_SUMMARY_ANSWER_KEYS.slice(1)).filter(
+    (key) => (getLifeStageOptions(profile, key) || []).length > 0
+  );
+
+  return requiredKeys.every((key) => comparable(profile[key]));
+}
+
 export function saveSelectedLifeStageProfile(profile = {}) {
   if (typeof window === "undefined") return profile;
+  const previous = readSelectedLifeStageProfile() || {};
   const next = { ...profile, stage: normalizeLifeStageKey(profile.stage) };
+  const changedKeys = getLifeStageSummaryChangedKeys(previous, next);
+  const summaryReady = changedKeys.length > 0 && isLifeStageSummaryReady(next);
+
   try {
     window.localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify(next));
-    notifyLifeStageUpdated({ kind: "profile" });
+    notifyLifeStageUpdated({
+      kind: "profile",
+      changedKeys,
+      summaryReady,
+      profile: next,
+    });
   } catch {}
   return next;
 }
