@@ -1,0 +1,166 @@
+name: Apply calculator expense prefill fix
+
+on:
+  push:
+    branches:
+      - fix/calculator-expense-prefill
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repair branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/calculator-expense-prefill
+
+      - name: Patch active dashboard expense flow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js")
+          source = source_path.read_text()
+
+          old_open = '''  const openManualExpenseModal = useCallback(() => {
+            if (!wallets.length) {
+              showFinanceNotice("Create or fund a wallet first before logging an expense.");
+              return;
+            }
+
+            setFinanceForm((prev) => ({
+              ...prev,
+              amount: "",
+              budgetListKey: "",
+              expenseWalletId: String(wallets[0]?.id || ""),
+              unplannedReason: "",
+              undocumentedReason: "",
+              undocumentedNote: "",
+              notes: "",
+            }));
+            setBudgetListOpen(false);
+            setFinanceModal({ type: "manual_expense", payload: null });
+          }, [showFinanceNotice, wallets]);'''
+
+          new_open = '''  const openManualExpenseModal = useCallback((options = {}) => {
+            if (!wallets.length) {
+              showFinanceNotice("Create or fund a wallet first before logging an expense.");
+              return;
+            }
+
+            const requestedAmount = Number(
+              options?.initialAmount ?? options?.detail?.initialAmount
+            );
+            const initialAmount =
+              Number.isFinite(requestedAmount) && requestedAmount > 0
+                ? String(Number(requestedAmount.toFixed(2)))
+                : "";
+
+            setFinanceForm((prev) => ({
+              ...prev,
+              amount: initialAmount,
+              budgetListKey: "",
+              expenseWalletId: String(wallets[0]?.id || ""),
+              unplannedReason: "",
+              undocumentedReason: "",
+              undocumentedNote: "",
+              notes: "",
+            }));
+            setBudgetListOpen(false);
+            setFinanceModal({ type: "manual_expense", payload: null });
+          }, [showFinanceNotice, wallets]);'''
+
+          old_click = '''  const handleMoneyLeftOrbClick = useCallback((event) => {
+            stopMoneyLeftOrbEvent(event);
+
+            if (longPressTriggeredRef.current) {
+              longPressTriggeredRef.current = false;
+              return;
+            }
+
+            openManualExpenseModal();
+          }, [openManualExpenseModal, stopMoneyLeftOrbEvent]);'''
+
+          new_click = '''  const handleMoneyLeftOrbClick = useCallback((event, options = {}) => {
+            stopMoneyLeftOrbEvent(event);
+
+            if (longPressTriggeredRef.current) {
+              longPressTriggeredRef.current = false;
+              return;
+            }
+
+            openManualExpenseModal(options);
+          }, [openManualExpenseModal, stopMoneyLeftOrbEvent]);'''
+
+          if old_open not in source:
+              raise SystemExit("Active openManualExpenseModal block was not found")
+          if old_click not in source:
+              raise SystemExit("Active handleMoneyLeftOrbClick block was not found")
+
+          source = source.replace(old_open, new_open, 1).replace(old_click, new_click, 1)
+          source_path.write_text(source)
+
+          test_path = Path("tests/money-left-architecture.test.mjs")
+          test_source = test_path.read_text()
+
+          old_destructure = '''    soundSource,
+            themeSource,
+          ] = await Promise.all(['''
+          new_destructure = '''    soundSource,
+            themeSource,
+            activeFinanceHandlersSource,
+          ] = await Promise.all(['''
+          if old_destructure not in test_source:
+              raise SystemExit("Test source destructure anchor was not found")
+          test_source = test_source.replace(old_destructure, new_destructure, 1)
+
+          old_reads = '''    read("../src/runtime/installMoneyLeftOrbInteractionSound.js"),
+            read("../src/clara-fab-theme.css"),
+          ]);'''
+          new_reads = '''    read("../src/runtime/installMoneyLeftOrbInteractionSound.js"),
+            read("../src/clara-fab-theme.css"),
+            read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js"),
+          ]);'''
+          if old_reads not in test_source:
+              raise SystemExit("Test source read-list anchor was not found")
+          test_source = test_source.replace(old_reads, new_reads, 1)
+
+          assertion_anchor = '''  assert.doesNotMatch(calculatorSource, /MutationObserver/);
+
+          assert.match(gestureSource, /resolvedGesture:\\s*true/);'''
+          assertion_block = '''  assert.doesNotMatch(calculatorSource, /MutationObserver/);
+
+          assert.match(
+            activeFinanceHandlersSource,
+            /const openManualExpenseModal = useCallback\\(\\(options = \\{\\}\\) =>/,
+          );
+          assert.match(
+            activeFinanceHandlersSource,
+            /options\\?\\.initialAmount \\?\\? options\\?\\.detail\\?\\.initialAmount/,
+          );
+          assert.match(activeFinanceHandlersSource, /amount:\\s*initialAmount/);
+          assert.match(
+            activeFinanceHandlersSource,
+            /const handleMoneyLeftOrbClick = useCallback\\(\\(event, options = \\{\\}\\) =>/,
+          );
+          assert.match(activeFinanceHandlersSource, /openManualExpenseModal\\(options\\);/);
+
+          assert.match(gestureSource, /resolvedGesture:\\s*true/);'''
+          if assertion_anchor not in test_source:
+              raise SystemExit("Test assertion anchor was not found")
+          test_source = test_source.replace(assertion_anchor, assertion_block, 1)
+          test_path.write_text(test_source)
+          PY
+
+      - name: Commit repaired source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers.js tests/money-left-architecture.test.mjs
+          git rm .github/workflows/apply-calculator-expense-prefill-fix.yml
+          git commit -m "Fix calculator amount prefill in active expense flow"
+          git push origin HEAD:fix/calculator-expense-prefill
