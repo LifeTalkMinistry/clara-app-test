@@ -46,9 +46,11 @@ export default function useDashboardPanelUiState({
       ? ""
       : activeDashboardPanel === "messages"
         ? "h-[calc(100dvh-132px)] max-h-[calc(100dvh-132px)] min-h-0 overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        : activeDashboardPanel === "settings"
-          ? "min-h-0 overflow-visible pb-[calc(env(safe-area-inset-bottom)+14px)]"
-          : "max-h-[calc(100dvh-132px)] min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+        : activeDashboardPanel === "me"
+          ? "h-[calc(100dvh-132px)] max-h-[calc(100dvh-132px)] min-h-0 overflow-hidden pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          : activeDashboardPanel === "settings"
+            ? "min-h-0 overflow-visible pb-[calc(env(safe-area-inset-bottom)+14px)]"
+            : "max-h-[calc(100dvh-132px)] min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const dashboardSmartScrollClass =
     activeDashboardPanel === "home"

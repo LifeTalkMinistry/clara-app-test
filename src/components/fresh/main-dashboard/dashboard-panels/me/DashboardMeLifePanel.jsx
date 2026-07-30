@@ -173,7 +173,7 @@ export default function DashboardMeLifePanel() {
   return (
     <div
       data-clara-guide-me-preview={guidePreviewMode ? "true" : undefined}
-      className={`relative h-[calc(100svh-126px)] min-h-0 rounded-[30px] bg-[#020817] shadow-[0_18px_52px_rgba(0,0,0,.24)] ${
+      className={`relative h-full min-h-0 rounded-[30px] bg-[#020817] shadow-[0_18px_52px_rgba(0,0,0,.24)] ${
         guidePreviewMode
           ? "z-[80] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_button]:cursor-default [&_a]:cursor-default"
           : "overflow-hidden"

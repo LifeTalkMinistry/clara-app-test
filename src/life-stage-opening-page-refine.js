@@ -120,6 +120,7 @@ function applyOpeningRefine() {
 
   if (title && clean(title.textContent) !== copy.title) title.textContent = copy.title;
   if (body && clean(body.textContent) !== copy.body) body.textContent = copy.body;
+
   if (support) {
     if (copy.support) {
       support.hidden = false;
@@ -129,92 +130,11 @@ function applyOpeningRefine() {
       support.hidden = true;
     }
   }
-  if (next && card && clean(next.textContent) !== copy.button) {
+
+  if (next && clean(next.textContent) !== copy.button) {
     next.textContent = copy.button;
     next.setAttribute("aria-label", copy.button);
   }
-}
-
-function stripInternalSnapshotText(value) {
-  return clean(value)
-    .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => !/(also present|grouped it under|snapshot clean|non-repetitive)/i.test(sentence))
-    .join(" ")
-    .trim();
-}
-
-function riskLabelFromValue(value) {
-  const number = Number(String(value || "").replace(/[^0-9.]/g, "")) || 0;
-  if (number >= 30) return "High Risk";
-  if (number >= 22) return "High Risk";
-  if (number >= 14) return "Moderate Risk";
-  if (number >= 8) return "Low Risk";
-  return "Low Risk";
-}
-
-function convertRiskStatusText(value) {
-  const text = clean(value);
-  if (/^(dominant|heavy presence|growing pressure|emerging pattern|minor presence)$/i.test(text)) return null;
-  return text;
-}
-
-function updateVisibleRiskStatuses(root = document) {
-  Array.from(root.querySelectorAll("p")).forEach((node) => {
-    const text = clean(node.textContent);
-    if (!/^(dominant|heavy presence|growing pressure|emerging pattern|minor presence)$/i.test(text)) return;
-
-    const parent = node.closest("button,[data-clara-modal-insight='true'],.absolute,section,div") || node.parentElement;
-    const percentNode = Array.from(parent?.querySelectorAll?.("p") || []).find((item) => /^\d+(\.\d+)?%$/.test(clean(item.textContent)));
-    node.textContent = riskLabelFromValue(percentNode?.textContent);
-  });
-}
-
-function cleanSnapshotDetailCards() {
-  updateVisibleRiskStatuses(document);
-
-  const modal = Array.from(document.querySelectorAll(".absolute")).find((node) => {
-    const text = clean(node.textContent);
-    return text.includes("Behavioral distribution share") || text.includes("100% Pressure Split") || text.includes("DATA STATUS");
-  });
-  if (!modal) return;
-
-  const title = modal.querySelector("h4");
-  const subtitle = title?.nextElementSibling;
-  if (subtitle?.tagName === "P") {
-    subtitle.textContent = "";
-    subtitle.hidden = true;
-    subtitle.style.setProperty("display", "none", "important");
-  }
-
-  Array.from(modal.querySelectorAll("p")).forEach((node) => {
-    const text = clean(node.textContent);
-    if (!text) return;
-
-    const converted = convertRiskStatusText(text);
-    if (converted === null) {
-      const parent = node.closest("div") || modal;
-      const percentNode = Array.from(parent.querySelectorAll("p") || []).find((item) => /^\d+(\.\d+)?%$/.test(clean(item.textContent))) || Array.from(modal.querySelectorAll("p") || []).find((item) => /^\d+(\.\d+)?%$/.test(clean(item.textContent)));
-      node.textContent = riskLabelFromValue(percentNode?.textContent);
-      return;
-    }
-
-    const cleaned = stripInternalSnapshotText(text);
-    if (cleaned !== text) {
-      if (cleaned) node.textContent = cleaned;
-      else {
-        const row = node.closest("div");
-        if (row) {
-          row.hidden = true;
-          row.style.setProperty("display", "none", "important");
-        }
-      }
-    }
-  });
-}
-
-function applyAllRefinements() {
-  applyOpeningRefine();
-  cleanSnapshotDetailCards();
 }
 
 function installOpeningPageRefine() {
@@ -222,10 +142,38 @@ function installOpeningPageRefine() {
   if (window.__CLARA_OPENING_PAGE_REFINE__) return;
   window.__CLARA_OPENING_PAGE_REFINE__ = true;
 
-  const observer = new MutationObserver(applyAllRefinements);
-  observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  window.requestAnimationFrame(applyAllRefinements);
-  document.addEventListener("click", () => window.setTimeout(applyAllRefinements, 80), true);
+  let observedRoot = null;
+  let observer = null;
+
+  const attach = () => {
+    const nextRoot = document.getElementById(DIAGNOSIS_ID);
+    if (nextRoot === observedRoot) {
+      applyOpeningRefine();
+      return;
+    }
+
+    observer?.disconnect();
+    observer = null;
+    observedRoot = nextRoot;
+
+    if (observedRoot) {
+      observer = new MutationObserver(applyOpeningRefine);
+      observer.observe(observedRoot, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+
+    applyOpeningRefine();
+  };
+
+  const rootObserver = new MutationObserver(attach);
+  rootObserver.observe(document.getElementById("root") || document.body, {
+    childList: true,
+    subtree: true,
+  });
+  window.requestAnimationFrame(attach);
 }
 
 try {

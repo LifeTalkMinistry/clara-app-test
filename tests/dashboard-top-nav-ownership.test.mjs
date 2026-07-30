@@ -31,6 +31,18 @@ const panelNavigationSource = readSource(
 const settingsSource = readSource(
   "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
 );
+const dashboardMeSource = readSource(
+  "src/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel.jsx"
+);
+const financialClimateSource = readSource(
+  "src/components/fresh/main-dashboard/dashboard-panels/me/FinancialClimateUniversalScreen.jsx"
+);
+const lifeStageFlowSource = readSource("src/life-stage-flow.js");
+const openingRefineSource = readSource("src/life-stage-opening-page-refine.js");
+const meLayoutCss = readSource("src/me-life-stage-signal-gap-fix.css");
+const cloudVaultSyncSource = readSource(
+  "src/components/fresh/main-dashboard/CloudVaultSyncBridge.jsx"
+);
 const mainSource = readSource("src/main.jsx");
 const scheduleRuntimeSource = readSource(
   "src/runtime/claraGuideScheduleRuntime.js"
@@ -45,6 +57,19 @@ const retiredRuntimePaths = [
   "src/clara-settings-memory-entry.js",
   "src/runtime/claraGuideSchedulePhaseRedirect.js",
   "src/components/fresh/main-dashboard/hooks/useDashboardPanelController.js",
+];
+
+const retiredMeRuntimeImports = [
+  "life-stage-support-card",
+  "life-stage-default-support-card-guard",
+  "life-stage-heart-solution-hint",
+  "life-stage-living-with-partner-signals",
+  "life-stage-working-student-heart-default-guard",
+  "life-stage-living-with-partner-reveal",
+  "life-stage-trend-snapshot\"",
+  "life-stage-working-student-identity-context",
+  "life-stage-apply-diagnosis",
+  "life-stage-working-student-signal-fit",
 ];
 
 test("one dashboard registry includes primary and auxiliary panels", () => {
@@ -163,4 +188,55 @@ test("schedule guide runtime cannot click or block the top navigation", () => {
     scheduleRuntimeSource,
     /export function installClaraGuideScheduleRuntime[\s\S]*observer\.observe\(document\.body/
   );
+});
+
+test("Me panel has one viewport owner and inherits that height through the component tree", () => {
+  assert.match(
+    panelUiStateSource,
+    /activeDashboardPanel === "me"[\s\S]*h-\[calc\(100dvh-132px\)\][\s\S]*overflow-hidden/
+  );
+  assert.match(dashboardMeSource, /className=\{`relative h-full min-h-0/);
+  assert.doesNotMatch(dashboardMeSource, /100svh-126px/);
+  assert.match(meLayoutCss, /data-clara-me-life-stage-root/);
+  assert.match(meLayoutCss, /height: 100% !important/);
+  assert.match(meLayoutCss, /min-height: 0 !important/);
+  assert.doesNotMatch(meLayoutCss, /100svh\s*-/);
+});
+
+test("configured Me Life Stage structure and interactions are React-owned", () => {
+  assert.match(financialClimateSource, /function PressureSignalDock/);
+  assert.match(financialClimateSource, /<PressureSignalDock/);
+  assert.match(financialClimateSource, /data-clara-support-card="true"/);
+  assert.match(financialClimateSource, /data-clara-trend-snapshot="true"/);
+  assert.match(financialClimateSource, /onClick=\{handleHeartClick\}/);
+  assert.doesNotMatch(financialClimateSource, /MutationObserver/);
+
+  retiredMeRuntimeImports.forEach((runtimeName) => {
+    assert.doesNotMatch(runtimeRegistrySource, new RegExp(`import [^;]*${runtimeName}`));
+  });
+});
+
+test("Me viewing is read-only while explicit mutations save and schedule cloud sync", () => {
+  assert.doesNotMatch(
+    financialClimateSource,
+    /useEffect\(\(\) => \{\s*if \(lifeStageConfigured\) saveStageProfile/
+  );
+  assert.match(financialClimateSource, /const savedDraft = saveStageProfile/);
+  assert.match(financialClimateSource, /persistProfilePatch/);
+  assert.match(lifeStageFlowSource, /CLARA_LIFE_STAGE_UPDATED_EVENT/);
+  assert.match(lifeStageFlowSource, /notifyLifeStageUpdated\(\{ kind: "profile" \}\)/);
+  assert.match(cloudVaultSyncSource, /CLARA_LIFE_STAGE_UPDATED_EVENT/);
+  assert.match(financialClimateSource, /notifyLifeStageUpdated\(\{ kind: "images" \}\)/);
+});
+
+test("Snapshot keeps canonical distribution statuses instead of post-render risk relabeling", () => {
+  assert.match(financialClimateSource, /\{item\.status \|\| "Active"\}/);
+  assert.doesNotMatch(openingRefineSource, /High Risk|Moderate Risk|Low Risk/);
+  assert.doesNotMatch(openingRefineSource, /riskLabelFromValue|updateVisibleRiskStatuses/);
+});
+
+test("custom stage image selection is explicit and protected from oversized storage writes", () => {
+  assert.match(financialClimateSource, /file\.size > 3 \* 1024 \* 1024/);
+  assert.match(financialClimateSource, /persistProfilePatch\(\{ imageVariant: "default" \}\)/);
+  assert.match(financialClimateSource, /const activeImage = hasExplicitGenderVariant/);
 });
