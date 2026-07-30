@@ -1,0 +1,26 @@
+/* CLARA Me page — pressure dock inter-feature spacing.
+   The pressure dock sits inside one explicit grid slot whose height includes
+   equal breathing room above and below the dock. This keeps the dock centered
+   between the support card and the Life Stage Trend Snapshot without offsets,
+   negative margins, transforms, or post-render DOM movement. */
+
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout):has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+  grid-template-rows:
+    minmax(var(--clara-life-hero-min), var(--clara-life-hero-max))
+    minmax(var(--clara-life-support-min), auto)
+    calc(
+      var(--clara-life-pressure-dock-height) +
+      var(--clara-life-signal-snapshot-gap) +
+      var(--clara-life-signal-snapshot-gap)
+    )
+    var(--clara-life-snapshot-height) !important;
+}
+
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > [data-clara-pressure-signals="true"] {
+  grid-row: 3 !important;
+  align-self: center !important;
+}
+
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-trend-snapshot="true"] {
+  grid-row: 4 !important;
+}
