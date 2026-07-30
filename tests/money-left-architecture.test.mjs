@@ -38,6 +38,12 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
   assert.match(calculatorSource, /onCloseRef\.current = onClose/);
   assert.match(calculatorSource, /\}, \[isOpen\]\);/);
   assert.doesNotMatch(calculatorSource, /\}, \[isOpen, onClose\]\);/);
+  assert.match(calculatorSource, /const expenseActionLabel = canUseExpense/);
+  assert.match(calculatorSource, /Use \$\{formatPeso\(result\)\} as Expense/);
+  assert.match(calculatorSource, /: "Use as Expense";/);
+  assert.match(calculatorSource, /aria-label=\{expenseActionLabel\}/);
+  assert.match(calculatorSource, /\{expenseActionLabel\}\s*<\/button>/);
+  assert.doesNotMatch(calculatorSource, /ArrowRight/);
   assert.doesNotMatch(calculatorSource, /Function\s*\(/);
   assert.doesNotMatch(calculatorSource, /MutationObserver/);
 

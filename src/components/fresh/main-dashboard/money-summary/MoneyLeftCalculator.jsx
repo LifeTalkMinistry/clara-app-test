@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, X } from "lucide-react";
+import { X } from "lucide-react";
 
 const CALCULATOR_KEYS = [
   ["7", "8", "9", "÷"],
@@ -153,6 +153,9 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
   };
 
   const canUseExpense = Number.isFinite(result) && result > 0;
+  const expenseActionLabel = canUseExpense
+    ? `Use ${formatPeso(result)} as Expense`
+    : "Use as Expense";
 
   return createPortal(
     <div
@@ -228,14 +231,11 @@ export default function MoneyLeftCalculator({ isOpen, onClose, onUseExpense }) {
           data-clara-calculator-manual-log-action="true"
           disabled={!canUseExpense}
           onClick={() => canUseExpense && onUseExpense?.(result)}
-          className="mt-3 flex h-[52px] w-full items-center justify-between rounded-[15px] border border-cyan-200/25 bg-[linear-gradient(135deg,rgba(13,35,75,0.98),rgba(49,30,111,0.98))] px-4 text-[13px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_28px_rgba(3,8,28,0.34)] transition enabled:active:scale-[0.985] disabled:cursor-default disabled:opacity-55"
+          aria-label={expenseActionLabel}
+          className="mt-3 block h-[52px] w-full rounded-[15px] border border-cyan-200/25 bg-[linear-gradient(135deg,rgba(13,35,75,0.98),rgba(49,30,111,0.98))] px-4 text-center text-[13px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_12px_28px_rgba(3,8,28,0.34)] transition enabled:active:scale-[0.985] disabled:cursor-default disabled:opacity-55"
+          style={{ width: "100%" }}
         >
-          <span className="min-w-0 truncate text-left">
-            {canUseExpense ? `Use ${formatPeso(result)} as Expense` : "Use as Expense"}
-          </span>
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.08]">
-            <ArrowRight className="h-3.5 w-3.5" />
-          </span>
+          {expenseActionLabel}
         </button>
       </section>
     </div>,
