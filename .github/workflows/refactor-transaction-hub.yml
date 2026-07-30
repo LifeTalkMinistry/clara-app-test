@@ -1,55 +1,49 @@
-name: Apply Savings managed balance upgrade
+name: Refactor Transaction Hub
 
 on:
-  issues:
-    types:
-      - opened
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/refactor-transaction-hub.yml"
+      - ".github/scripts/extract-transaction-hub-utils.mjs"
+      - ".github/scripts/extract-transaction-hub-primitives.mjs"
+      - ".github/scripts/extract-transaction-card.mjs"
+      - "src/components/fresh/transaction-hub/logic/transactionHubUtils.js"
+      - "src/components/fresh/transaction-hub/ui/TransactionHubPrimitives.jsx"
+      - "src/components/fresh/transaction-hub/ui/TransactionCard.jsx"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  apply-savings-managed-balance:
-    if: contains(github.event.issue.title, '[run-savings-managed-balance]')
+  refactor-transaction-hub:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Savings feature branch
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: fix/savings-goal-managed-balance
-          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+      - name: Patch TransactionHub.jsx
+        run: node .github/scripts/extract-transaction-card.mjs
 
-      - name: Extract and run prepared upgrade
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build check
+        run: npm run build
+
+      - name: Commit Transaction Hub refactor
         run: |
-          git fetch origin main
-          git show origin/main:.github/workflows/apply-savings-managed-balance.yml > /tmp/prepared.yml
-          python - <<'PY'
-          from pathlib import Path
-          text = Path('/tmp/prepared.yml').read_text()
-          start = text.index("          python - <<'PY'\n") + len("          python - <<'PY'\n")
-          end = text.index("\n          PY\n", start)
-          lines = text[start:end].splitlines()
-          Path('/tmp/apply_savings_balance.py').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
-          PY
-          python /tmp/apply_savings_balance.py
+          if git diff --quiet; then
+            echo "No TransactionCard extraction changes needed."
+            exit 0
+          fi
 
-      - run: npm ci
-      - run: node --test tests/savings-goal-managed-balance-regression.test.mjs
-      - run: npm test -- --runInBand
-      - run: npm run build
-
-      - name: Commit verified Savings changes
-        run: |
-          rm -f .github/workflows/run-savings-managed-balance.yml
-          rm -f .github/savings-goal-managed-balance-trigger
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "feat: manage Savings Goal balances with explicit actions"
-          git push origin HEAD:fix/savings-goal-managed-balance
+          git add src/pages/TransactionHub.jsx
+          git commit -m "Extract Transaction Hub transaction card"
+          git push
