@@ -15,6 +15,7 @@ const modelSource = readSource(
   "src/components/fresh/main-dashboard/dashboard-panels/me/lifeStageDiagnosisModel.js"
 );
 const flowSource = readSource("src/life-stage-flow.js");
+const summaryCleanupCss = readSource("src/life-stage-diagnosis-cleanup.css");
 const runtimeRegistrySource = readSource(
   "src/runtime/installClaraRuntimePatches.js"
 );
@@ -32,6 +33,21 @@ test("Life Stage summary is owned by React and connected through a semantic prof
   assert.doesNotMatch(
     runtimeRegistrySource,
     /import\s+["'][^"']*life-stage-apply-diagnosis["']/
+  );
+});
+
+test("Life Stage summary footer keeps Back and Next controls visible", () => {
+  assert.match(
+    summaryCleanupCss,
+    /data-clara-life-stage-summary="true"[^}]*footer[^}]*display:\s*flex\s*!important/s
+  );
+  assert.match(
+    summaryCleanupCss,
+    /button:first-child\[type="button"\][^}]*display:\s*grid\s*!important/s
+  );
+  assert.match(
+    summaryCleanupCss,
+    /button:last-child\[type="button"\][^}]*display:\s*flex\s*!important/s
   );
 });
 
