@@ -5,8 +5,12 @@
 }
 
 .savings-goals-premium > div > header p {
+  max-width: none;
   margin-top: 0.45rem;
+  font-size: clamp(0.68rem, 2.9vw, 0.8rem);
   line-height: 1.4;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
 }
 
 .savings-goals-premium > div > header::before {
@@ -20,6 +24,10 @@
     padding-top: 1.4rem;
     padding-bottom: 1.35rem;
   }
+
+  .savings-goals-premium > div > header p {
+    font-size: 0.9rem;
+  }
 }
 
 @media (max-width: 390px) {
@@ -31,5 +39,6 @@
 
   .savings-goals-premium > div > header p {
     margin-top: 0.35rem;
+    font-size: 0.66rem;
   }
 }
