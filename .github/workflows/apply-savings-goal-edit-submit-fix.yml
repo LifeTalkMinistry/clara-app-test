@@ -1,0 +1,98 @@
+name: Apply Savings Goal edit submit fix
+
+on:
+  push:
+    branches:
+      - fix/savings-goal-edit-submit
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/savings-goal-edit-submit
+          fetch-depth: 0
+
+      - name: Apply edit submit fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/pages/SavingsGoalsIntegrated.jsx')
+          text = path.read_text(encoding='utf-8')
+
+          function_start = text.index('function GoalFormDialog(')
+          function_end = text.index('\nfunction WalletBalanceSyncPrompt', function_start)
+          before = text[:function_start]
+          block = text[function_start:function_end]
+          after = text[function_end:]
+
+          block = block.replace(
+              '  const isCustomSubcategory = form.subcategory === OTHER_OPTION;\n',
+              '  const isCustomSubcategory = form.subcategory === OTHER_OPTION;\n'
+              '  const saveTapLockRef = useRef(0);\n\n'
+              '  const submitGoal = () => {\n'
+              '    const now = Date.now();\n'
+              '    if (saving || now - saveTapLockRef.current < 600) return;\n'
+              '    saveTapLockRef.current = now;\n'
+              '    onSave();\n'
+              '  };\n'
+          )
+
+          block = block.replace(
+              '<div className="flex max-h-[inherit] flex-col">',
+              '<form\n          noValidate\n          onSubmit={(event) => {\n            event.preventDefault();\n            submitGoal();\n          }}\n          className="flex max-h-[inherit] min-h-0 flex-col"\n        >',
+              1,
+          )
+
+          block = block.replace(
+              '<div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">',
+              '<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 pb-6">',
+              1,
+          )
+
+          error_block = '''    {error ? (\n      <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{error}</div>\n    ) : null}\n'''
+          if error_block not in block:
+              raise RuntimeError('Expected body error block was not found.')
+          block = block.replace(error_block, '', 1)
+
+          old_footer = '''<div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl">\n  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">\n    <Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button>\n    <Button type="button" onClick={onSave} disabled={saving} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">\n      {saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}\n    </Button>\n  </div>\n</div>'''
+
+          new_footer = '''<div className="relative z-[80] shrink-0 border-t border-white/10 bg-[#061224] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 pointer-events-auto touch-manipulation [transform:translateZ(0)]">\n  {error ? (\n    <div role="alert" aria-live="assertive" className="mb-2 rounded-xl border border-rose-300/25 bg-rose-400/[0.12] px-3 py-2.5 text-sm font-semibold text-rose-100">\n      {error}\n    </div>\n  ) : null}\n  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">\n    <Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="relative z-[1] h-11 touch-manipulation rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50 pointer-events-auto">Cancel</Button>\n    <Button\n      type="submit"\n      data-savings-goal-submit\n      onPointerUp={(event) => {\n        if (event.pointerType === "touch") {\n          event.preventDefault();\n          submitGoal();\n        }\n      }}\n      disabled={saving}\n      className="relative z-[1] h-11 touch-manipulation rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50 pointer-events-auto"\n    >\n      {saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}\n    </Button>\n  </div>\n</div>'''
+
+          if old_footer not in block:
+              raise RuntimeError('Expected action footer was not found.')
+          block = block.replace(old_footer, new_footer, 1)
+
+          closing = '''</div>\n        </div>\n      </DialogContent>'''
+          replacement = '''</div>\n        </form>\n      </DialogContent>'''
+          if closing not in block:
+              raise RuntimeError('Expected form root closing sequence was not found.')
+          block = block.replace(closing, replacement, 1)
+
+          path.write_text(before + block + after, encoding='utf-8')
+
+          test_path = Path('tests/savings-goal-edit-submit-regression.test.mjs')
+          test_path.write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport fs from "node:fs";\n\nconst source = fs.readFileSync("src/pages/SavingsGoalsIntegrated.jsx", "utf8");\n\ntest("Savings Goal edit uses a real form submit with a mobile touch fallback", () => {\n  assert.match(source, /function GoalFormDialog/);\n  assert.match(source, /<form[\\s\\S]*onSubmit=/);\n  assert.match(source, /data-savings-goal-submit/);\n  assert.match(source, /onPointerUp=/);\n  assert.match(source, /type="submit"/);\n  assert.match(source, /role="alert"/);\n  assert.match(source, /pointer-events-auto touch-manipulation/);\n});\n''', encoding='utf-8')
+          PY
+
+      - name: Validate tests and build
+        run: |
+          npm ci
+          node --test tests/savings-goal-edit-submit-regression.test.mjs
+          npm test
+          npm run build
+
+      - name: Commit verified fix
+        run: |
+          rm -f .github/workflows/apply-savings-goal-edit-submit-fix.yml .savings-goal-edit-submit-trigger
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: make Savings Goal edits submit reliably on mobile"
+          git push origin HEAD:fix/savings-goal-edit-submit
