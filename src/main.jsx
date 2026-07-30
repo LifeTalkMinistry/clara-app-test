@@ -15,6 +15,7 @@ import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySou
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
 import { installMoneyLeftCalculator } from "./runtime/installMoneyLeftCalculator";
+import { installMoneyLeftCalculatorAlignment } from "./runtime/installMoneyLeftCalculatorAlignment";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
@@ -169,6 +170,7 @@ try {
 
 try {
   installMoneyLeftCalculator();
+  installMoneyLeftCalculatorAlignment();
 } catch (error) {
   console.warn("Money Left calculator failed to init:", error);
 }
