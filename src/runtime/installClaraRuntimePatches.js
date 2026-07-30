@@ -83,6 +83,10 @@ import "../clara-memory-cabinet-autosave";
 import "../clara-me-panel";
 import "../clara-talk-pause-bridge";
 
+// Memory Review presentation. The legacy runtime owns behavior; this scoped CSS
+// owns only the visual hierarchy for Review and Edit Mode.
+import "../clara-memory-review-premium.css";
+
 // Life Stage ownership note:
 // FinancialClimateUniversalScreen now owns the Me-page pressure dock, support
 // state, heart interaction, Snapshot rendering, and mutation events through
