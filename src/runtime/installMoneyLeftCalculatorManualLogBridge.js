@@ -43,12 +43,13 @@ const setNativeInputValue = (input, value) => {
 
 const findManualExpenseAmountInput = () => {
   const closeButton = document.querySelector(MANUAL_EXPENSE_CLOSE_SELECTOR);
-  const sheet = closeButton?.closest?.("div.fixed.inset-0") || closeButton?.parentElement?.parentElement;
+  const sheet =
+    closeButton?.closest?.("div.fixed.inset-0") ||
+    closeButton?.parentElement?.parentElement;
 
   return (
-    sheet?.querySelector?.(
-      'input[type="number"][inputmode="decimal"]'
-    ) || null
+    sheet?.querySelector?.('input[type="number"][inputmode="decimal"]') ||
+    null
   );
 };
 
@@ -93,18 +94,37 @@ const simulateManualExpenseOrbTap = () => {
   return true;
 };
 
-const createHelperText = () => {
-  const helper = document.createElement("p");
-  helper.textContent =
-    "The result will be placed in Amount. You still choose the wallet, category, and save.";
-  Object.assign(helper.style, {
-    margin: "8px 4px 0",
-    color: "rgba(255,255,255,0.48)",
-    fontSize: "11px",
-    lineHeight: "1.5",
-    textAlign: "center",
+const createArrowIcon = () => {
+  const iconShell = document.createElement("span");
+  iconShell.setAttribute("aria-hidden", "true");
+  Object.assign(iconShell.style, {
+    display: "grid",
+    width: "26px",
+    height: "26px",
+    flex: "0 0 26px",
+    placeItems: "center",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(255,255,255,0.075)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
   });
-  return helper;
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.innerHTML = [
+    '<path d="M5 12h14" />',
+    '<path d="m13 6 6 6-6 6" />',
+  ].join("");
+
+  iconShell.appendChild(svg);
+  return iconShell;
 };
 
 const createManualLogButton = () => {
@@ -113,27 +133,67 @@ const createManualLogButton = () => {
   button.setAttribute(MANUAL_LOG_ACTION_ATTR, "true");
   button.setAttribute("data-clara-no-sound", "true");
 
+  const label = document.createElement("span");
+  label.setAttribute("data-clara-calculator-manual-log-label", "true");
+  Object.assign(label.style, {
+    minWidth: "0",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  });
+
+  const arrow = createArrowIcon();
+  button.append(label, arrow);
+
   Object.assign(button.style, {
     width: "100%",
-    minHeight: "48px",
+    height: "50px",
     marginTop: "12px",
-    borderRadius: "14px",
-    border: "1px solid rgba(110, 231, 183, 0.34)",
+    padding: "0 12px 0 16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    borderRadius: "15px",
+    border: "1px solid rgba(103,232,249,0.28)",
     background:
-      "linear-gradient(135deg, rgb(52, 211, 153), rgb(34, 211, 238))",
-    color: "rgb(3, 19, 38)",
+      "linear-gradient(135deg, rgba(13,35,75,0.98), rgba(49,30,111,0.98))",
+    color: "rgba(255,255,255,0.96)",
     fontFamily: "inherit",
     fontSize: "13px",
     fontWeight: "800",
     letterSpacing: "-0.01em",
     cursor: "pointer",
     boxShadow:
-      "0 12px 26px rgba(16,185,129,0.20), 0 0 18px rgba(34,211,238,0.12)",
-    transition: "transform 140ms ease, opacity 140ms ease",
+      "inset 0 1px 0 rgba(255,255,255,0.10), 0 12px 28px rgba(3,8,28,0.34), 0 0 20px rgba(34,211,238,0.08)",
+    transition:
+      "transform 140ms ease, opacity 140ms ease, border-color 140ms ease, background 140ms ease",
+    WebkitTapHighlightColor: "transparent",
   });
 
   button.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
+    if (!button.disabled) button.style.transform = "scale(0.985)";
+  });
+  button.addEventListener("pointerup", () => {
+    button.style.transform = "scale(1)";
+  });
+  button.addEventListener("pointercancel", () => {
+    button.style.transform = "scale(1)";
+  });
+  button.addEventListener("pointerleave", () => {
+    button.style.transform = "scale(1)";
+  });
+  button.addEventListener("mouseenter", () => {
+    if (button.disabled) return;
+    button.style.borderColor = "rgba(103,232,249,0.42)";
+    button.style.background =
+      "linear-gradient(135deg, rgba(16,43,91,0.99), rgba(59,35,128,0.99))";
+  });
+  button.addEventListener("mouseleave", () => {
+    button.style.borderColor = "rgba(103,232,249,0.28)";
+    button.style.background =
+      "linear-gradient(135deg, rgba(13,35,75,0.98), rgba(49,30,111,0.98))";
   });
 
   return button;
@@ -189,9 +249,10 @@ export function installMoneyLeftCalculatorManualLogBridge() {
     enhancedModals.add(overlay);
 
     const actionButton = createManualLogButton();
-    const helperText = createHelperText();
+    const actionLabel = actionButton.querySelector(
+      '[data-clara-calculator-manual-log-label="true"]'
+    );
     keypad.insertAdjacentElement("afterend", actionButton);
-    actionButton.insertAdjacentElement("afterend", helperText);
 
     const readResult = () => normalizeAmount(resultLine.textContent);
 
@@ -200,11 +261,17 @@ export function installMoneyLeftCalculatorManualLogBridge() {
       const enabled = Number.isFinite(amount) && amount > 0;
 
       actionButton.disabled = !enabled;
-      actionButton.style.opacity = enabled ? "1" : "0.46";
+      actionButton.style.opacity = enabled ? "1" : "0.44";
       actionButton.style.cursor = enabled ? "pointer" : "not-allowed";
-      actionButton.textContent = enabled
-        ? `Use ${formatPeso(amount)} in Manual Log`
-        : "Enter a valid amount first";
+      actionButton.setAttribute(
+        "aria-label",
+        enabled
+          ? `Log ${formatPeso(amount)} as an expense`
+          : "Calculate an amount first"
+      );
+      actionLabel.textContent = enabled
+        ? `Log ${formatPeso(amount)} as Expense`
+        : "Calculate an amount first";
     };
 
     actionButton.addEventListener("click", (event) => {
@@ -217,7 +284,7 @@ export function installMoneyLeftCalculatorManualLogBridge() {
       pendingAmount = amount;
       actionButton.disabled = true;
       actionButton.style.opacity = "0.72";
-      actionButton.textContent = "Opening Manual Log…";
+      actionLabel.textContent = "Opening Manual Log…";
 
       resultObservers.get(overlay)?.disconnect?.();
       overlay.remove();
