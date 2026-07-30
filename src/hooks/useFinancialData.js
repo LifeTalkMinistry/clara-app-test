@@ -10,6 +10,7 @@ import {
   updateWallet as repoUpdateWallet,
   deleteWallet as repoDeleteWallet,
   getWalletTransactions,
+  insertWalletTransaction as repoInsertWalletTransaction,
   addIncome as repoAddIncome,
   addMoney as repoAddMoney,
   transferBetweenWallets as repoTransferBetweenWallets,
@@ -37,6 +38,15 @@ import {
 import { getEffectiveDemoFinanceLocalUserId } from "@/lib/demo/activeDemoProfile";
 
 const FINANCE_INCOME_TYPES = new Set(["income", "add", "cash_in", "deposit", "opening_balance", "credit"]);
+const NON_EARNED_INCOME_SOURCE_TYPES = new Set(["savings_wallet_reconciliation", "balance_correction"]);
+const NON_EARNED_INCOME_TAGS = new Set(["historical_wallet_correction"]);
+const isEarnedIncomeTransaction = (transaction = {}) => {
+  const type = String(transaction?.type || "").trim().toLowerCase();
+  if (!FINANCE_INCOME_TYPES.has(type)) return false;
+  const sourceType = String(transaction?.source_type || transaction?.sourceType || "").trim().toLowerCase();
+  const tag = String(transaction?.tag || "").trim().toLowerCase();
+  return !NON_EARNED_INCOME_SOURCE_TYPES.has(sourceType) && !NON_EARNED_INCOME_TAGS.has(tag);
+};
 const EXPENSE_STORE = LOCAL_FINANCE_STORES?.expenses || "expenses";
 const WALLET_TRANSACTION_STORE = LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
 const FINANCE_UPDATE_EVENTS = [
@@ -504,7 +514,7 @@ function useFinancialData(user) {
       };
     });
 
-    const safeIncomes = safeWalletTransactions.filter((transaction) => FINANCE_INCOME_TYPES.has(String(transaction?.type || "").trim().toLowerCase()));
+    const safeIncomes = safeWalletTransactions.filter(isEarnedIncomeTransaction);
     return { key: cacheKey, loaded: true, hydrated: true, error: null, expenses: safeExpenses, incomes: safeIncomes, wallets: normalizedWallets, budgets: safeBudgets, walletTransactions: safeWalletTransactions, transfers: safeTransfers, savingsGoals: safeSavingsGoals, emergencyFund: rawEmergencyFund || null };
   }, [cacheKey]);
 
@@ -597,6 +607,7 @@ function useFinancialData(user) {
   const deleteWallet = useCallback(async (id) => { const result = await repoDeleteWallet(localUserId, id); await refreshData(); return result; }, [localUserId, refreshData]);
   const addIncome = useCallback(async (income) => { const result = await repoAddIncome(localUserId, income); await refreshData(); return result; }, [localUserId, refreshData]);
   const addMoney = useCallback(async (income) => { const result = typeof repoAddMoney === "function" ? await repoAddMoney(localUserId, income) : await repoAddIncome(localUserId, income); await refreshData(); return result; }, [localUserId, refreshData]);
+  const insertWalletTransaction = useCallback(async (transaction) => { const result = await repoInsertWalletTransaction(localUserId, transaction); await refreshData(); return result; }, [localUserId, refreshData]);
 
   const updateWalletTransaction = useCallback(async (id, updates = {}) => {
     if (!id) throw new Error("Wallet transaction id is required.");
@@ -906,7 +917,7 @@ function useFinancialData(user) {
   const safeEmergencyFund = emergencyFund || null;
 
   const totalExpenses = useMemo(() => safeExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0), [safeExpenses]);
-  const totalIncome = useMemo(() => safeWalletTransactions.filter((transaction) => FINANCE_INCOME_TYPES.has(String(transaction?.type || "").trim().toLowerCase())).reduce((sum, transaction) => sum + toNumber(transaction.amount), 0), [safeWalletTransactions]);
+  const totalIncome = useMemo(() => safeIncomes.reduce((sum, transaction) => sum + toNumber(transaction.amount), 0), [safeIncomes]);
   const totalWalletBalance = useMemo(() => safeWallets.reduce((sum, wallet) => sum + toNumber(wallet.derived_balance ?? wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? wallet.starting_balance ?? 0), 0), [safeWallets]);
   const totalEmergencyProtected = useMemo(() => safeWallets.reduce((sum, wallet) => sum + toNumber(wallet.emergencyProtectedAmount ?? wallet.emergency_protected_amount), 0), [safeWallets]);
   const totalSpendableWalletBalance = useMemo(() => safeWallets.reduce((sum, wallet) => sum + toNumber(wallet.spendableBalance ?? wallet.spendable_balance ?? wallet.walletSpendableBalance ?? wallet.wallet_spendable_balance ?? wallet.derived_balance ?? wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? wallet.starting_balance ?? 0), 0), [safeWallets]);
@@ -919,7 +930,7 @@ function useFinancialData(user) {
     refreshData,
     addExpense, updateExpense, deleteExpense,
     addWallet, updateWallet, deleteWallet,
-    addIncome, addMoney, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets, updateTransfer, deleteTransfer,
+    addIncome, addMoney, insertWalletTransaction, updateWalletTransaction, deleteWalletTransaction, deleteIncome, transferBetweenWallets, updateTransfer, deleteTransfer,
     addBudget, updateBudget, deleteBudget, upsertBudget,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
     updateEmergencyFund, deleteEmergencyFundAllocation, correctEmergencyFundBalance, repairEmergencyFundAllocationBalance,
