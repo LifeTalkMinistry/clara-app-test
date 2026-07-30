@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { CLARA_LIFE_STAGE_UPDATED_EVENT } from "../../../../../life-stage-flow";
 import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
 import ClaraGuideMePageOverlay from "../../guide/ClaraGuideMePageOverlay";
 import FinancialClimateScreen from "./FinancialClimateUniversalScreen";
+import LifeStageDiagnosisSummary from "./LifeStageDiagnosisSummary";
 
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
 const CLARA_GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
@@ -65,6 +67,7 @@ function readMeGuidePhase() {
 export default function DashboardMeLifePanel() {
   const [signals, setSignals] = useState(() => readEnvironmentSignals());
   const [meGuidePhase, setMeGuidePhase] = useState(() => readMeGuidePhase());
+  const [diagnosisProfile, setDiagnosisProfile] = useState(null);
 
   const signalCount = useMemo(() => countEnvironmentSignals(signals), [signals]);
   const signalTotal = Math.max(signalCount, 1);
@@ -118,6 +121,31 @@ export default function DashboardMeLifePanel() {
       window.removeEventListener(CLARA_ENVIRONMENT_UPDATED, handler);
     };
   }, []);
+
+  useEffect(() => {
+    const handleLifeStageUpdated = (event) => {
+      const detail = event?.detail || {};
+      if (guidePreviewMode) return;
+      if (detail.kind !== "profile" || detail.summaryReady !== true) return;
+      if (!detail.profile || typeof detail.profile !== "object") return;
+      setDiagnosisProfile(detail.profile);
+    };
+
+    window.addEventListener(
+      CLARA_LIFE_STAGE_UPDATED_EVENT,
+      handleLifeStageUpdated
+    );
+    return () => {
+      window.removeEventListener(
+        CLARA_LIFE_STAGE_UPDATED_EVENT,
+        handleLifeStageUpdated
+      );
+    };
+  }, [guidePreviewMode]);
+
+  useEffect(() => {
+    if (guidePreviewMode) setDiagnosisProfile(null);
+  }, [guidePreviewMode]);
 
   useEffect(() => {
     const syncPhaseFromRoot = () => setMeGuidePhase(readMeGuidePhase());
@@ -189,6 +217,13 @@ export default function DashboardMeLifePanel() {
       </div>
 
       {guidePreviewMode ? <ClaraGuideMePageOverlay phase={meGuidePhase} /> : null}
+
+      {diagnosisProfile ? (
+        <LifeStageDiagnosisSummary
+          profile={diagnosisProfile}
+          onClose={() => setDiagnosisProfile(null)}
+        />
+      ) : null}
     </div>
   );
 }
