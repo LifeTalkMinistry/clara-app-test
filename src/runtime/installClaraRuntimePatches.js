@@ -91,6 +91,10 @@ import "../clara-memory-review-premium.css";
 // so populated sections cannot collapse into thin pills.
 import "../clara-memory-review-layout-integrity.css";
 
+// Header controls stay pinned to the true top-right corner while the title and
+// timestamp reserve their footprint on narrow screens.
+import "../clara-memory-review-header-actions-position.css";
+
 // Life Stage ownership note:
 // FinancialClimateUniversalScreen now owns the Me-page pressure dock, support
 // state, heart interaction, Snapshot rendering, and mutation events through

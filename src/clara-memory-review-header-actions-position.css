@@ -1,0 +1,36 @@
+/*
+ * Memory Review header action positioning.
+ *
+ * The edit and close controls are anchored to the true top-right corner of the
+ * premium header. Header text reserves their footprint so labels and dates can
+ * never slide underneath the controls on narrow devices.
+ */
+
+:is(#clara-assistant-memory-panel, #clara-assistant-memory-edit-panel) .clara-memory-review-header {
+  position: relative;
+  padding-right: 118px;
+}
+
+:is(#clara-assistant-memory-panel, #clara-assistant-memory-edit-panel) .clara-memory-header-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  margin: 0;
+}
+
+@media (max-width: 360px) {
+  :is(#clara-assistant-memory-panel, #clara-assistant-memory-edit-panel) .clara-memory-review-header {
+    padding-right: 108px;
+  }
+
+  :is(#clara-assistant-memory-panel, #clara-assistant-memory-edit-panel) .clara-memory-header-actions {
+    top: 14px;
+    right: 14px;
+    gap: 7px;
+  }
+}
