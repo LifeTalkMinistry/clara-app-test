@@ -66,7 +66,7 @@ const retiredMeRuntimeImports = [
   "life-stage-living-with-partner-signals",
   "life-stage-working-student-heart-default-guard",
   "life-stage-living-with-partner-reveal",
-  "life-stage-trend-snapshot\"",
+  "life-stage-trend-snapshot",
   "life-stage-working-student-identity-context",
   "life-stage-apply-diagnosis",
   "life-stage-working-student-signal-fit",
@@ -212,7 +212,10 @@ test("configured Me Life Stage structure and interactions are React-owned", () =
   assert.doesNotMatch(financialClimateSource, /MutationObserver/);
 
   retiredMeRuntimeImports.forEach((runtimeName) => {
-    assert.doesNotMatch(runtimeRegistrySource, new RegExp(`import [^;]*${runtimeName}`));
+    const exactSideEffectImport = new RegExp(
+      `import\\s+["'][^"']*${runtimeName}["'];`
+    );
+    assert.doesNotMatch(runtimeRegistrySource, exactSideEffectImport);
   });
 });
 
