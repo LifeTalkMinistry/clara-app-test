@@ -967,6 +967,14 @@ function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, o
   const isCustomCategory = form.category === OTHER_OPTION;
   const hasPresetCategory = Boolean(form.category && !isCustomCategory);
   const isCustomSubcategory = form.subcategory === OTHER_OPTION;
+  const saveTapLockRef = useRef(0);
+
+  const submitGoal = () => {
+    const now = Date.now();
+    if (saving || now - saveTapLockRef.current < 600) return;
+    saveTapLockRef.current = now;
+    onSave();
+  };
 
   const updateCategory = (value) => {
     setForm({
@@ -989,14 +997,21 @@ function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, o
   return (
     <Dialog open={open} onOpenChange={(value) => { if (!value && !saving) onClose(); }}>
       <DialogContent className={formDialogClass}>
-        <div className="flex max-h-[inherit] flex-col">
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitGoal();
+          }}
+          className="flex max-h-[inherit] min-h-0 flex-col"
+        >
 <DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12">
   <DialogTitle className="text-white text-xl sm:text-2xl leading-tight">
     {editId ? "Edit Savings Goal" : "New Savings Goal"}
   </DialogTitle>
 </DialogHeader>
 
-<div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 pb-6">
   <div className="space-y-4">
     <FormInput label="Goal Title">
       <Input
@@ -1156,21 +1171,34 @@ function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, o
       <Textarea className={`${inputDarkClass} min-h-[92px]`} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
     </FormInput>
 
-    {error ? (
-      <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{error}</div>
-    ) : null}
   </div>
 </div>
 
-<div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl">
+<div className="relative z-[80] shrink-0 border-t border-white/10 bg-[#061224] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 pointer-events-auto touch-manipulation [transform:translateZ(0)]">
+  {error ? (
+    <div role="alert" aria-live="assertive" className="mb-2 rounded-xl border border-rose-300/25 bg-rose-400/[0.12] px-3 py-2.5 text-sm font-semibold text-rose-100">
+      {error}
+    </div>
+  ) : null}
   <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-    <Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button>
-    <Button type="button" onClick={onSave} disabled={saving} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">
+    <Button type="button" onClick={onClose} disabled={saving} variant="ghost" className="relative z-[1] h-11 touch-manipulation rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50 pointer-events-auto">Cancel</Button>
+    <Button
+      type="submit"
+      data-savings-goal-submit
+      onPointerUp={(event) => {
+        if (event.pointerType === "touch") {
+          event.preventDefault();
+          submitGoal();
+        }
+      }}
+      disabled={saving}
+      className="relative z-[1] h-11 touch-manipulation rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50 pointer-events-auto"
+    >
       {saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}
     </Button>
   </div>
 </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
