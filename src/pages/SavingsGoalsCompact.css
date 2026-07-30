@@ -1,0 +1,35 @@
+.savings-goals-premium > div > header {
+  min-height: auto;
+  padding-top: 1.15rem;
+  padding-bottom: 1.05rem;
+}
+
+.savings-goals-premium > div > header p {
+  margin-top: 0.45rem;
+  line-height: 1.4;
+}
+
+.savings-goals-premium > div > header::before {
+  bottom: -6.4rem;
+  height: 8.4rem;
+}
+
+@media (min-width: 640px) {
+  .savings-goals-premium > div > header {
+    min-height: auto;
+    padding-top: 1.4rem;
+    padding-bottom: 1.35rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .savings-goals-premium > div > header {
+    min-height: auto;
+    padding-top: 1rem;
+    padding-bottom: 0.95rem;
+  }
+
+  .savings-goals-premium > div > header p {
+    margin-top: 0.35rem;
+  }
+}
