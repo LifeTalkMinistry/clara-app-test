@@ -14,8 +14,10 @@ test("Savings Goals can reconcile the protected amount with the assigned wallet"
   assert.match(transformed, /The wallet balance is correct/);
   assert.match(transformed, /The savings amount is correct/);
   assert.match(transformed, /Both records need correction/);
+  assert.match(transformed, /\["wallet_correct", "savings_correct", "both"\]/);
   assert.match(transformed, /handleReconcileSavingsWallet/);
   assert.match(transformed, /source_type: "savings_wallet_reconciliation"/);
+  assert.match(transformed, /tag: "historical_wallet_correction"/);
   assert.match(transformed, /Historical wallet money added and protected savings preserved/);
   assert.match(transformed, /wallet_sync_prompt_decision: "reconciled"/);
   assert.match(transformed, /deleteWalletTransaction\(walletCorrectionTransactionId\)/);
