@@ -13,6 +13,7 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
     modalHandlersSource,
     orbHandlersSource,
     soundSource,
+    themeSource,
   ] = await Promise.all([
     read("../src/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable.jsx"),
     read("../src/components/fresh/main-dashboard/money-summary/MoneyLeftCalculator.jsx"),
@@ -21,6 +22,7 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
     read("../src/components/fresh/main-dashboard/finance-actions/useDashboardFinanceModalHandlers.js"),
     read("../src/components/fresh/main-dashboard/finance-actions/useDashboardOrbInteractionHandlers.js"),
     read("../src/runtime/installMoneyLeftOrbInteractionSound.js"),
+    read("../src/clara-fab-theme.css"),
   ]);
 
   assert.match(summarySource, /import MoneyLeftCalculator/);
@@ -56,4 +58,12 @@ test("Money Left owns its calculator and orb gestures inside React", async () =>
   assert.match(soundSource, /playMoneyLeftOrbInteractionSound/);
   assert.doesNotMatch(soundSource, /document\.addEventListener/);
   assert.doesNotMatch(soundSource, /pointerStates/);
+
+  assert.match(themeSource, /\[data-clara-summary-privacy-toggle="true"\],\s*\n\.theme-page-shell main \[data-clara-money-calculator-toggle="true"\]/);
+  assert.match(themeSource, /width:\s*24px !important;/);
+  assert.match(themeSource, /height:\s*24px !important;/);
+  assert.match(
+    themeSource,
+    /left:\s*calc\(clamp\(112px, 33vw, 132px\) \+ 30px\) !important;/,
+  );
 });

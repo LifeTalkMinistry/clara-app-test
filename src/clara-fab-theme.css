@@ -54,6 +54,7 @@
 .ai-fab svg,
 .bottom-nav-fab svg,
 .floating-ai-button svg,
+.floating-quick-button svg,
 .floating-action-button svg,
 .clara-draggable-fab svg {
   width: 28px !important;
@@ -162,12 +163,26 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
   line-height: 0.92 !important;
 }
 
-.theme-page-shell main [data-clara-summary-privacy-toggle="true"] {
-  left: clamp(112px, 33vw, 132px) !important;
+/* Keep the two Money Left utility controls identical and in one visual row. */
+.theme-page-shell main [data-clara-summary-privacy-toggle="true"],
+.theme-page-shell main [data-clara-money-calculator-toggle="true"] {
   right: auto !important;
   top: clamp(14px, 3.8vw, 18px) !important;
   width: 24px !important;
   height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.theme-page-shell main [data-clara-summary-privacy-toggle="true"] {
+  left: clamp(112px, 33vw, 132px) !important;
+}
+
+.theme-page-shell main [data-clara-money-calculator-toggle="true"] {
+  left: calc(clamp(112px, 33vw, 132px) + 30px) !important;
+  transform: translateX(-50%) !important;
 }
 
 .theme-page-shell main [data-clara-summary-card="money-left"]::after {
