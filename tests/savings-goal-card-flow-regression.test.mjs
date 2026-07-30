@@ -19,8 +19,9 @@ test("Savings Goal uses one protected-wallet truth", () => {
   assert.match(page, /The selected wallet does not have enough unprotected money/);
 });
 
-test("goal create and edit cannot relabel money without validation", () => {
-  assert.match(page, /Already Saved cannot be higher than the goal target/);
+test("goal creation and managed edits cannot relabel saved money", () => {
+  assert.match(page, /existing \? currentSavedAmount/);
+  assert.match(page, /Target Amount cannot be lower than the current saved balance/);
   assert.match(page, /savings_goal_wallet_move_/);
   assert.match(page, /savings_goal_storage_move_rollback/);
   assert.match(page, /Reduce Already Saved to ₱0 before changing wallets/);

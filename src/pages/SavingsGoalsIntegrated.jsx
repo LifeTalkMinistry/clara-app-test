@@ -455,14 +455,13 @@ export default function SavingsGoalsIntegrated() {
       return setFormError("Type your specific subcategory.");
     }
 
-    const nextTargetAmount = toNumber(form.target_amount);
-    const nextSavedAmount = Math.max(0, toNumber(form.saved_amount));
-    if (nextTargetAmount <= 0) return setFormError("Enter a valid target amount.");
-    if (nextSavedAmount > nextTargetAmount) return setFormError("Already Saved cannot be higher than the goal target.");
-    if (form.wallet_id === "__no_wallets__") return setFormError("Choose a valid wallet.");
-
     const existing = editId ? goals.find((goal) => String(goal.id) === String(editId)) : null;
     const currentSavedAmount = existing ? getGoalSavedAmount(existing) : 0;
+    const nextTargetAmount = toNumber(form.target_amount);
+    const nextSavedAmount = existing ? currentSavedAmount : Math.max(0, toNumber(form.saved_amount));
+    if (nextTargetAmount <= 0) return setFormError("Enter a valid target amount.");
+    if (nextSavedAmount > nextTargetAmount) return setFormError("Target Amount cannot be lower than the current saved balance.");
+    if (form.wallet_id === "__no_wallets__") return setFormError("Choose a valid wallet.");
     const previousWalletId = walletId(existing?.wallet_id || existing?.walletId || "");
     const nextWalletId = walletId(form.wallet_id && form.wallet_id !== "__no_wallets__" ? form.wallet_id : "");
     const previousWallet = activeWallets.find((wallet) => walletId(wallet) === previousWalletId) || null;
@@ -849,6 +848,107 @@ export default function SavingsGoalsIntegrated() {
     }
   };
 
+  const getGoalWalletCapacity = (rawGoal) => {
+    const goal = normalizeGoal(rawGoal);
+    const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+    if (!assignedWalletId) return 0;
+    const wallet = activeWallets.find((item) => walletId(item) === assignedWalletId);
+    if (!wallet) return 0;
+    const rawBalance = Math.max(toNumber(walletBalances[assignedWalletId] ?? wallet?.balance), 0);
+    const emergencyProtected = Math.min(getWalletEmergencyProtectedAmount(wallet), rawBalance);
+    const currentSaved = Math.max(getGoalSavedAmount(goal), 0);
+    const allSavingsProtected = Math.max(toNumber(protectedSavingsByWallet[assignedWalletId]), 0);
+    const otherGoalProtection = Math.max(allSavingsProtected - currentSaved, 0);
+    return Math.max(rawBalance - emergencyProtected - otherGoalProtection, 0);
+  };
+
+  const handleReleaseSavings = async (goal, amount, reason) => {
+    const safeAmount = toNumber(amount);
+    const cleanReason = String(reason || "").trim();
+    const currentSaved = getGoalSavedAmount(goal);
+    if (!safeAmount || safeAmount <= 0) throw new Error("Enter a valid amount to release.");
+    if (safeAmount > currentSaved) throw new Error("Release amount cannot exceed the current saved balance.");
+    if (!cleanReason) throw new Error("Explain why this money is being released.");
+
+    const now = new Date().toISOString();
+    const nextSaved = Math.max(currentSaved - safeAmount, 0);
+    const updatedGoal = normalizeGoal({
+      ...goal,
+      saved_amount: nextSaved,
+      current_amount: nextSaved,
+      savedAmount: nextSaved,
+      currentAmount: nextSaved,
+      savingsActivityLog: buildActivity(goal, {
+        id: `savings_release_${Date.now()}`,
+        type: "release",
+        title: "Savings released",
+        amount: safeAmount,
+        reason: cleanReason,
+        note: "Protection removed; wallet balance was not changed",
+        createdAt: now,
+        created_at: now,
+      }),
+      updated_date: now,
+      updatedAt: now,
+      syncStatus: "local_only",
+      source: "local",
+    });
+    updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
+    updatedGoal.activityLog = updatedGoal.savingsActivityLog;
+    updatedGoal.activity_log = updatedGoal.savingsActivityLog;
+    await updateSavingsGoal(goal.id, updatedGoal);
+    setDetailGoal(updatedGoal);
+    return updatedGoal;
+  };
+
+  const handleCorrectSavingsBalance = async (goal, correctedAmount, reason) => {
+    const nextSaved = Math.max(0, toNumber(correctedAmount));
+    const cleanReason = String(reason || "").trim();
+    const currentSaved = getGoalSavedAmount(goal);
+    const target = getGoalTargetAmount(goal);
+    const walletCapacity = getGoalWalletCapacity(goal);
+    const assignedWalletId = walletId(goal?.wallet_id || goal?.walletId || "");
+
+    if (!cleanReason) throw new Error("Explain why this balance correction is needed.");
+    if (nextSaved > target) throw new Error("Corrected savings cannot exceed the goal target.");
+    if (nextSaved > 0 && !assignedWalletId) throw new Error("Assign a saved-in wallet before keeping a saved balance.");
+    if (nextSaved > walletCapacity) throw new Error(`This wallet can safely support only ${fmt(walletCapacity)} for this goal.`);
+    if (toMinorUnits(nextSaved) === toMinorUnits(currentSaved)) throw new Error("Enter a different corrected balance.");
+
+    const now = new Date().toISOString();
+    const updatedGoal = normalizeGoal({
+      ...goal,
+      saved_amount: nextSaved,
+      current_amount: nextSaved,
+      savedAmount: nextSaved,
+      currentAmount: nextSaved,
+      savingsActivityLog: buildActivity(goal, {
+        id: `savings_correction_${Date.now()}`,
+        type: "correction",
+        title: "Saved balance corrected",
+        amount: Math.abs(nextSaved - currentSaved),
+        previousAmount: currentSaved,
+        previous_amount: currentSaved,
+        correctedAmount: nextSaved,
+        corrected_amount: nextSaved,
+        reason: cleanReason,
+        note: "Record correction only; no wallet transaction was created",
+        createdAt: now,
+        created_at: now,
+      }),
+      updated_date: now,
+      updatedAt: now,
+      syncStatus: "local_only",
+      source: "local",
+    });
+    updatedGoal.savings_activity_log = updatedGoal.savingsActivityLog;
+    updatedGoal.activityLog = updatedGoal.savingsActivityLog;
+    updatedGoal.activity_log = updatedGoal.savingsActivityLog;
+    await updateSavingsGoal(goal.id, updatedGoal);
+    setDetailGoal(updatedGoal);
+    return updatedGoal;
+  };
+
   const handleUseSavings = async (goal, amount, reason) => {
     const safeAmount = toNumber(amount);
     const cleanReason = String(reason || "").trim();
@@ -942,8 +1042,8 @@ export default function SavingsGoalsIntegrated() {
     {goals.length > 0 && <div className="grid grid-cols-3 gap-3 mb-4"><StatCard label="Saved" value={fmt(totalSaved)} tone="green" /><StatCard label="Target" value={fmt(totalTarget)} tone="yellow" /><StatCard label="Goals" value={goals.length} /></div>}
     {data?.totalIncome > 0 && retentionNum < 15 && totalTarget > 0 && <div className="flex items-start gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200 mb-4 text-sm"><AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" /><p className="text-orange-700">Your leftover rate is below 15%. Save when your rate improves — your goals are aspirational for now.</p></div>}
     {goals.length === 0 ? <EmptyState icon={Target} title="No savings goals yet" description="Create your first goal — a dream fund, emergency reserve, or any planned expense." /> : <div className="space-y-3">{goals.map((goal) => <GoalCard key={goal.id} goal={goal} wallets={activeWallets} walletBalances={walletBalances} fmt={fmt} onOpen={setDetailGoal} />)}</div>}
-    <GoalFormDialog open={open} editId={editId} form={form} setForm={setForm} saving={saving} error={formError} onClose={closeFormModal} onSave={handleSave} wallets={activeWallets} walletBalances={walletBalances} subcats={form.category ? CATEGORIES[form.category] || [] : []} fmt={fmt} />
-    {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletAvailableBalances={walletAvailableBalances} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={requestDelete} onAddSavings={handleAddSavings} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}
+    <GoalFormDialog open={open} editId={editId} form={form} setForm={setForm} saving={saving} error={formError} onClose={closeFormModal} onSave={handleSave} onManageBalance={() => { const goal = goals.find((item) => String(item.id) === String(editId)); closeFormModal(); if (goal) setDetailGoal(goal); }} wallets={activeWallets} walletBalances={walletBalances} subcats={form.category ? CATEGORIES[form.category] || [] : []} fmt={fmt} />
+    {detailGoal && <GoalDetail goal={detailGoal} wallets={activeWallets} walletBalances={walletBalances} walletAvailableBalances={walletAvailableBalances} walletCapacity={getGoalWalletCapacity(detailGoal)} walletSyncSuggestion={getWalletBalanceSyncSuggestion(detailGoal)} onOpenWalletSyncPrompt={openWalletSyncPromptForGoal} onClose={() => setDetailGoal(null)} onEdit={openEdit} onDelete={requestDelete} onAddSavings={handleAddSavings} onReleaseSavings={handleReleaseSavings} onCorrectSavingsBalance={handleCorrectSavingsBalance} onUseSavings={handleUseSavings} totalIncome={data?.totalIncome || 0} fmt={fmt} />}
     <SavingsDeleteConfirmDialog goal={deletePrompt} wallets={activeWallets} saving={deleteSaving} error={deleteError} fmt={fmt} onClose={() => { if (!deleteSaving) { setDeletePrompt(null); setDeleteError(""); } }} onConfirm={confirmDelete} />
     <WalletBalanceSyncPrompt prompt={walletSyncPrompt} fmt={fmt} saving={walletSyncSaving} error={walletSyncError} onCancel={handleDismissWalletBalanceSync} onConfirm={handleConfirmWalletBalanceSync} />
   </div>;
@@ -963,7 +1063,7 @@ function GoalCard({ goal, wallets, walletBalances, fmt, onOpen }) {
   return <div onClick={() => onOpen(goal)} className="bg-card rounded-2xl border border-border p-4 cursor-pointer hover:border-primary/30 transition-all"><div className="flex items-start justify-between mb-2 gap-3"><div className="min-w-0"><div className="flex items-center gap-2 flex-wrap"><p className="font-semibold text-sm">{goal.title}</p>{goal.priority === "urgent" && <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-bold">URGENT</span>}</div><p className="text-xs text-muted-foreground">{goal.category}{goal.subcategory ? ` • ${goal.subcategory}` : ""}</p>{assignedWallet ? <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><Wallet className="w-3 h-3" />Saved in {walletName(assignedWallet)} • {fmt(walletBalances[walletId(assignedWallet)] || 0)}</p> : null}</div><div className="text-right shrink-0"><p className="font-heading font-bold text-sm text-primary">{fmt(saved)}</p><p className="text-xs text-muted-foreground">of {fmt(target)}</p></div></div><div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2"><div className={`h-full rounded-full progress-bar ${pct >= 100 ? "bg-primary" : "bg-accent"}`} style={{ width: `${pct}%` }} /></div><div className="flex justify-between text-xs text-muted-foreground gap-3"><span>{pct.toFixed(0)}% funded</span>{goal.planned_use_date ? <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{goal.planned_use_date}</span> : <span>No date</span>}<span>{fmt(remaining)} left</span></div></div>;
 }
 
-function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, onSave, wallets, walletBalances, subcats, fmt }) {
+function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, onSave, onManageBalance, wallets, walletBalances, subcats, fmt }) {
   const isCustomCategory = form.category === OTHER_OPTION;
   const hasPresetCategory = Boolean(form.category && !isCustomCategory);
   const isCustomSubcategory = form.subcategory === OTHER_OPTION;
@@ -1095,9 +1195,17 @@ function GoalFormDialog({ open, editId, form, setForm, saving, error, onClose, o
       <FormInput label="Target Amount">
         <Input type="number" className={inputDarkClass} value={form.target_amount} onChange={(event) => setForm({ ...form, target_amount: event.target.value })} />
       </FormInput>
-      <FormInput label="Already Saved">
-        <Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(event) => setForm({ ...form, saved_amount: event.target.value })} />
-      </FormInput>
+      {editId ? (
+        <FormInput label="Protected Savings">
+          <div className="rounded-xl border border-green-300/15 bg-green-400/[0.07] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3"><p className="font-bold text-green-100">{fmt(form.saved_amount)}</p><span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white/55">Managed</span></div>
+            <p className="mt-1 text-[11px] leading-4 text-white/50">Use Add, Release, Use, or Correct so CLARA can update protection and history safely.</p>
+            <Button type="button" onClick={onManageBalance} className="mt-2 h-8 w-full rounded-lg border border-green-300/20 bg-green-500/12 text-xs font-bold text-green-100 hover:bg-green-500/20">Manage Saved Amount</Button>
+          </div>
+        </FormInput>
+      ) : (
+        <FormInput label="Already Saved"><Input type="number" className={inputDarkClass} value={form.saved_amount} onChange={(event) => setForm({ ...form, saved_amount: event.target.value })} /></FormInput>
+      )}
     </div>
 
     <FormInput label="Saved in">
@@ -1217,7 +1325,7 @@ function FormInput({ label, children }) {
   return <div><Label className={labelDarkClass}>{label}</Label>{children}</div>;
 }
 
-function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, walletSyncSuggestion, onOpenWalletSyncPrompt, onClose, onEdit, onDelete, onAddSavings, onUseSavings, totalIncome, fmt }) {
+function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, walletCapacity, walletSyncSuggestion, onOpenWalletSyncPrompt, onClose, onEdit, onDelete, onAddSavings, onReleaseSavings, onCorrectSavingsBalance, onUseSavings, totalIncome, fmt }) {
   const [addSavingsOpen, setAddSavingsOpen] = useState(false);
   const [useSavingsOpen, setUseSavingsOpen] = useState(false);
   const [overAmountOpen, setOverAmountOpen] = useState(false);
@@ -1228,6 +1336,14 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
   const [savingAmount, setSavingAmount] = useState(false);
   const [addError, setAddError] = useState("");
   const [useError, setUseError] = useState("");
+  const [releaseSavingsOpen, setReleaseSavingsOpen] = useState(false);
+  const [releaseAmount, setReleaseAmount] = useState("");
+  const [releaseReason, setReleaseReason] = useState("");
+  const [releaseError, setReleaseError] = useState("");
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctedAmount, setCorrectedAmount] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionError, setCorrectionError] = useState("");
   const saved = toNumber(goal?.saved_amount);
   const target = toNumber(goal?.target_amount);
   const remaining = Math.max(target - saved, 0);
@@ -1235,6 +1351,10 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
   const assignedWallet = wallets.find((wallet) => walletId(wallet) === String(goal?.wallet_id));
   const sourceWallet = wallets.find((wallet) => walletId(wallet) === String(sourceWalletId));
   const assignedWalletBalance = assignedWallet ? walletBalances[walletId(assignedWallet)] ?? toNumber(assignedWallet.balance) : 0;
+  const safeWalletCapacity = Math.max(toNumber(walletCapacity), 0);
+  const hasBalanceMismatch = Boolean(
+    assignedWallet && toMinorUnits(saved) > toMinorUnits(safeWalletCapacity),
+  );
   const sourceWalletBalance = sourceWallet ? walletAvailableBalances[walletId(sourceWallet)] ?? 0 : 0;
   const cleanReasons = Array.isArray(goal?.reasons) ? goal.reasons.filter((reason) => String(reason || "").trim()) : [];
   const activity = getGoalActivity(goal);
@@ -1287,11 +1407,47 @@ function GoalDetail({ goal, wallets, walletBalances, walletAvailableBalances, wa
     }
   };
 
+  const handleSubmitReleaseSavings = async () => {
+    if (savingAmount) return;
+    try {
+      setSavingAmount(true);
+      setReleaseError("");
+      await onReleaseSavings(goal, releaseAmount, releaseReason);
+      setReleaseAmount("");
+      setReleaseReason("");
+      setReleaseSavingsOpen(false);
+    } catch (error) {
+      console.error("Failed to release savings:", error);
+      setReleaseError(error?.message || "CLARA could not release this savings amount yet. Try again.");
+    } finally {
+      setSavingAmount(false);
+    }
+  };
+
+  const handleSubmitCorrection = async () => {
+    if (savingAmount) return;
+    try {
+      setSavingAmount(true);
+      setCorrectionError("");
+      await onCorrectSavingsBalance(goal, correctedAmount, correctionReason);
+      setCorrectedAmount("");
+      setCorrectionReason("");
+      setCorrectionOpen(false);
+    } catch (error) {
+      console.error("Failed to correct savings balance:", error);
+      setCorrectionError(error?.message || "CLARA could not correct this savings balance yet. Try again.");
+    } finally {
+      setSavingAmount(false);
+    }
+  };
+
   return <>
-    <Dialog open={Boolean(goal)} onOpenChange={(value) => !value && !savingAmount && onClose()}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{goal?.title || "Savings Goal"}</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.category || "Uncategorized"}{goal?.subcategory ? ` • ${goal.subcategory}` : ""}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex items-start justify-between gap-3 mb-3"><div><p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold">Progress</p><p className="text-2xl font-heading font-bold text-white">{pct.toFixed(0)}%</p></div><div className="text-right"><p className="text-[11px] text-white/50">Saved</p><p className="text-lg font-bold text-green-300">{fmt(saved)}</p></div></div><div className="h-3 rounded-full bg-white/10 overflow-hidden mb-3"><div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} /></div><div className="grid grid-cols-2 gap-3 text-sm"><InfoMini label="Target" value={fmt(target)} /><InfoMini label="Remaining" value={fmt(remaining)} /></div></div><InfoBlock title="Saved in">{assignedWallet ? <div className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0"><Wallet className="w-4 h-4 text-green-300" /></div><div className="min-w-0"><p className="text-sm font-semibold text-white truncate">{assignedWallet.icon ? `${assignedWallet.icon} ` : ""}{walletName(assignedWallet)}</p><p className="text-xs text-white/45">Money lives here</p></div></div><p className="text-sm font-bold text-white shrink-0">{fmt(assignedWalletBalance)}</p></div>{walletSyncSuggestion?.suggestedAmount > 0 ? <Button type="button" onClick={() => onOpenWalletSyncPrompt?.(goal)} className="h-9 w-full rounded-xl bg-green-500/14 text-green-100 border border-green-300/20 hover:bg-green-500/20 hover:text-white text-xs font-bold">Mark {fmt(walletSyncSuggestion.suggestedAmount)} as saved</Button> : null}</div> : <p className="text-sm text-white/55">No saved-in wallet assigned. Edit this goal to assign one.</p>}</InfoBlock>{goal?.planned_use_date && <InfoBlock title="Planned Use Date"><p className="text-sm text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-green-300" />{goal.planned_use_date}</p></InfoBlock>}{cleanReasons.length > 0 && <InfoBlock title="Reasons / Motivations"><div className="space-y-2">{cleanReasons.map((reason, index) => <div key={`${reason}_${index}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80">{reason}</div>)}</div></InfoBlock>}{activity.length > 0 && <InfoBlock title="Goal Activity"><div className="space-y-2">{activity.slice(0, 4).map((entry) => <div key={entry.id || `${entry.type}-${entry.createdAt}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80"><div className="flex justify-between gap-3"><span>{entry.title || "Savings activity"}</span><span className={entry.type === "use" ? "text-amber-200" : "text-green-200"}>{entry.type === "use" ? "-" : "+"}{fmt(entry.amount)}</span></div>{entry.reason || entry.note ? <p className="mt-1 text-xs text-white/45">{entry.reason || entry.note}</p> : null}</div>)}</div></InfoBlock>}{goal?.notes && <InfoBlock title="Notes"><p className="text-sm text-white/75 whitespace-pre-wrap">{goal.notes}</p></InfoBlock>}{toNumber(totalIncome) > 0 && <div className="rounded-2xl border border-green-400/15 bg-green-400/[0.06] p-4"><p className="text-[11px] uppercase tracking-[0.08em] text-green-200/80 font-semibold mb-1">CLARA Note</p><p className="text-sm text-white/70">Add only what your wallet can safely support. Small, consistent top-ups are better than forcing a big amount.</p></div>}</div></div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => onEdit(goal)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white"><Edit className="w-4 h-4 mr-2" />Edit</Button><Button type="button" onClick={() => { setAmount(""); setAddError(""); setSourceWalletId(goal?.wallet_id || walletId(wallets?.[0])); setAddSavingsOpen(true); }} disabled={remaining <= 0} className="h-10 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 disabled:opacity-50"><Plus className="w-4 h-4 mr-2" />Add Savings</Button><Button type="button" onClick={() => { setUseAmount(""); setUseReason(""); setUseError(""); setUseSavingsOpen(true); }} disabled={saved <= 0 || !assignedWallet} className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"><MinusCircle className="w-4 h-4 mr-2" />Use Savings</Button><Button type="button" onClick={() => onDelete(goal)} variant="ghost" className="h-10 rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/15 hover:text-red-100"><Trash2 className="w-4 h-4 mr-2" />Delete</Button><Button type="button" onClick={onClose} variant="ghost" className="col-span-2 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white">Close</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={Boolean(goal)} onOpenChange={(value) => !value && !savingAmount && onClose()}><DialogContent className={detailDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">{goal?.title || "Savings Goal"}</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.category || "Uncategorized"}{goal?.subcategory ? ` • ${goal.subcategory}` : ""}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex items-start justify-between gap-3 mb-3"><div><p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold">Progress</p><p className="text-2xl font-heading font-bold text-white">{pct.toFixed(0)}%</p></div><div className="text-right"><p className="text-[11px] text-white/50">Saved</p><p className="text-lg font-bold text-green-300">{fmt(saved)}</p></div></div><div className="h-3 rounded-full bg-white/10 overflow-hidden mb-3"><div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} /></div><div className="grid grid-cols-2 gap-3 text-sm"><InfoMini label="Target" value={fmt(target)} /><InfoMini label="Remaining" value={fmt(remaining)} /></div></div>{hasBalanceMismatch ? <div className="rounded-2xl border border-rose-300/25 bg-rose-400/[0.1] p-4"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-200" /><div><p className="text-sm font-bold text-rose-50">Savings balance needs correction</p><p className="mt-1 text-xs leading-5 text-rose-100/70">This goal records {fmt(saved)}, but this wallet can safely support only {fmt(safeWalletCapacity)} after other protected money.</p></div></div><Button type="button" onClick={() => { setCorrectedAmount(String(Math.min(saved, safeWalletCapacity))); setCorrectionReason(""); setCorrectionError(""); setCorrectionOpen(true); }} className="mt-3 h-9 w-full rounded-xl border border-rose-200/20 bg-rose-400/15 text-xs font-bold text-rose-50 hover:bg-rose-400/20">Correct Balance</Button></div> : null}<InfoBlock title="Saved in">{assignedWallet ? <div className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0"><Wallet className="w-4 h-4 text-green-300" /></div><div className="min-w-0"><p className="text-sm font-semibold text-white truncate">{assignedWallet.icon ? `${assignedWallet.icon} ` : ""}{walletName(assignedWallet)}</p><p className="text-xs text-white/45">Money lives here</p></div></div><p className="text-sm font-bold text-white shrink-0">{fmt(assignedWalletBalance)}</p></div>{walletSyncSuggestion?.suggestedAmount > 0 ? <Button type="button" onClick={() => onOpenWalletSyncPrompt?.(goal)} className="h-9 w-full rounded-xl bg-green-500/14 text-green-100 border border-green-300/20 hover:bg-green-500/20 hover:text-white text-xs font-bold">Mark {fmt(walletSyncSuggestion.suggestedAmount)} as saved</Button> : null}</div> : <p className="text-sm text-white/55">No saved-in wallet assigned. Edit this goal to assign one.</p>}</InfoBlock>{goal?.planned_use_date && <InfoBlock title="Planned Use Date"><p className="text-sm text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-green-300" />{goal.planned_use_date}</p></InfoBlock>}{cleanReasons.length > 0 && <InfoBlock title="Reasons / Motivations"><div className="space-y-2">{cleanReasons.map((reason, index) => <div key={`${reason}_${index}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80">{reason}</div>)}</div></InfoBlock>}{activity.length > 0 && <InfoBlock title="Goal Activity"><div className="space-y-2">{activity.slice(0, 4).map((entry) => <div key={entry.id || `${entry.type}-${entry.createdAt}`} className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80"><div className="flex justify-between gap-3"><span>{entry.title || "Savings activity"}</span><span className={entry.type === "use" || entry.type === "release" ? "text-amber-200" : entry.type === "correction" ? "text-sky-200" : "text-green-200"}>{entry.type === "correction" ? `${fmt(entry.previousAmount ?? entry.previous_amount)} → ${fmt(entry.correctedAmount ?? entry.corrected_amount)}` : `${entry.type === "use" || entry.type === "release" ? "-" : "+"}${fmt(entry.amount)}`}</span></div>{entry.reason || entry.note ? <p className="mt-1 text-xs text-white/45">{entry.reason || entry.note}</p> : null}</div>)}</div></InfoBlock>}{goal?.notes && <InfoBlock title="Notes"><p className="text-sm text-white/75 whitespace-pre-wrap">{goal.notes}</p></InfoBlock>}{toNumber(totalIncome) > 0 && <div className="rounded-2xl border border-green-400/15 bg-green-400/[0.06] p-4"><p className="text-[11px] uppercase tracking-[0.08em] text-green-200/80 font-semibold mb-1">CLARA Note</p><p className="text-sm text-white/70">Add only what your wallet can safely support. Small, consistent top-ups are better than forcing a big amount.</p></div>}</div></div><div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => onEdit(goal)} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white"><Edit className="w-4 h-4 mr-2" />Edit</Button><Button type="button" onClick={() => { setAmount(""); setAddError(""); setSourceWalletId(goal?.wallet_id || walletId(wallets?.[0])); setAddSavingsOpen(true); }} disabled={remaining <= 0} className="h-10 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 disabled:opacity-50"><Plus className="w-4 h-4 mr-2" />Add Savings</Button><Button type="button" onClick={() => { setUseAmount(""); setUseReason(""); setUseError(""); setUseSavingsOpen(true); }} disabled={saved <= 0 || !assignedWallet} className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"><MinusCircle className="w-4 h-4 mr-2" />Use Savings</Button><Button type="button" onClick={() => { setReleaseAmount(""); setReleaseReason(""); setReleaseError(""); setReleaseSavingsOpen(true); }} disabled={saved <= 0} className="h-10 rounded-xl border border-sky-400/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15 disabled:opacity-50">Release Savings</Button><Button type="button" onClick={() => { setCorrectedAmount(String(saved)); setCorrectionReason(""); setCorrectionError(""); setCorrectionOpen(true); }} className="h-10 rounded-xl border border-violet-400/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/15">Correct Balance</Button><Button type="button" onClick={() => onDelete(goal)} variant="ghost" className="h-10 rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/15 hover:text-red-100"><Trash2 className="w-4 h-4 mr-2" />Delete</Button><Button type="button" onClick={onClose} variant="ghost" className="col-span-2 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white">Close</Button></div></div></div></DialogContent></Dialog>
     <Dialog open={addSavingsOpen} onOpenChange={(value) => { if (savingAmount) return; setAddSavingsOpen(value); if (!value) { setOverAmountOpen(false); setAddError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Add Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="flex justify-between gap-3 text-sm"><div><p className="text-white/45 text-[11px] uppercase font-semibold">Remaining</p><p className="font-bold text-white">{fmt(remaining)}</p></div><div className="text-right"><p className="text-white/45 text-[11px] uppercase font-semibold">Available to Save</p><p className="font-bold text-white">{fmt(sourceWalletBalance)}</p></div></div></div><FormInput label="Take from wallet"><Select value={sourceWalletId} onValueChange={setSourceWalletId}><SelectTrigger className={selectDarkTriggerClass}><SelectValue placeholder="Choose wallet..." /></SelectTrigger><SelectContent>{wallets.map((wallet) => <SelectItem key={walletId(wallet)} value={walletId(wallet)}>{wallet.icon ? `${wallet.icon} ` : ""}{walletName(wallet)} • {fmt(walletBalances[walletId(wallet)] || 0)}</SelectItem>)}</SelectContent></Select></FormInput><FormInput label="Amount to Add"><Input type="number" placeholder="Enter amount" className={inputDarkClass} value={amount} onChange={(e) => { setAmount(e.target.value); setAddError(""); }} autoFocus /></FormInput>{addError ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{addError}</div> : null}<p className="text-xs text-white/50">This will use money from {sourceWallet ? walletName(sourceWallet) : "the selected wallet"}. The saved amount lives in {assignedWallet ? walletName(assignedWallet) : "the saved-in wallet"}.</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setAddSavingsOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={handleSubmitAddSavings} disabled={savingAmount || !sourceWallet || remaining <= 0 || requestedAddAmount <= 0} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{savingAmount ? "Adding..." : "Add Savings"}</Button></div></div></div></DialogContent></Dialog>
     <Dialog open={overAmountOpen} onOpenChange={(value) => { if (!savingAmount) setOverAmountOpen(value); }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Too much savings amount</DialogTitle></DialogHeader><div className="px-4 sm:px-5 py-4"><div className="rounded-2xl border border-amber-300/20 bg-amber-400/[0.08] p-4 text-sm font-semibold leading-6 text-amber-50/90"><p>You entered <span className="font-black text-white">{fmt(requestedAddAmount)}</span>, but this goal only needs <span className="font-black text-white">{fmt(cappedAddAmount)}</span> more.</p><p className="mt-2">Please enter <span className="font-black text-white">{fmt(cappedAddAmount)}</span> or less to complete this goal.</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setOverAmountOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={() => runAddSavings(cappedAddAmount)} disabled={savingAmount} className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50">{savingAmount ? "Adding..." : `Use ${fmt(cappedAddAmount)} only`}</Button></div></div></div></DialogContent></Dialog>
     <Dialog open={useSavingsOpen} onOpenChange={(value) => { if (!savingAmount) { setUseSavingsOpen(value); if (!value) setUseError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Use Savings</DialogTitle><p className="text-xs text-white/50 mt-1">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4"><div className="space-y-4"><div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.07] p-4 text-sm text-white/75">This records a real expense from {assignedWallet ? walletName(assignedWallet) : "the saved-in wallet"} and reduces this goal. Current saved: <span className="font-bold text-amber-100">{fmt(saved)}</span></div><FormInput label="Amount to use"><Input type="number" className={inputDarkClass} value={useAmount} onChange={(e) => { setUseAmount(e.target.value); setUseError(""); }} autoFocus /></FormInput><FormInput label="Reason / purpose"><Input placeholder="What will you use it for?" className={inputDarkClass} value={useReason} onChange={(e) => { setUseReason(e.target.value); setUseError(""); }} /></FormInput>{useError ? <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{useError}</div> : null}</div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setUseSavingsOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white disabled:opacity-50">Cancel</Button><Button type="button" onClick={handleSubmitUseSavings} disabled={savingAmount || saved <= 0 || !assignedWallet} className="h-10 rounded-xl bg-amber-500 px-4 text-white font-semibold hover:bg-amber-600 disabled:opacity-50">{savingAmount ? "Saving..." : "Use Savings"}</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={releaseSavingsOpen} onOpenChange={(value) => { if (!savingAmount) { setReleaseSavingsOpen(value); if (!value) setReleaseError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Release Savings</DialogTitle><p className="mt-1 text-xs text-white/50">{goal?.title}</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5"><div className="space-y-4"><div className="rounded-2xl border border-sky-400/15 bg-sky-400/[0.07] p-4 text-sm leading-6 text-white/75">This removes protection from part of the saved amount. It does not spend or move wallet money. The released amount becomes normally spendable again.</div><FormInput label="Amount to release"><Input type="number" className={inputDarkClass} value={releaseAmount} onChange={(event) => { setReleaseAmount(event.target.value); setReleaseError(""); }} autoFocus /></FormInput><FormInput label="Reason"><Input placeholder="Why are you releasing this money?" className={inputDarkClass} value={releaseReason} onChange={(event) => { setReleaseReason(event.target.value); setReleaseError(""); }} /></FormInput>{releaseError ? <div role="alert" className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{releaseError}</div> : null}<p className="text-xs text-white/45">Current protected savings: {fmt(saved)}</p></div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 py-3 sm:px-5"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setReleaseSavingsOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80">Cancel</Button><Button type="button" onClick={handleSubmitReleaseSavings} disabled={savingAmount || saved <= 0} className="h-10 rounded-xl bg-sky-500 px-4 font-semibold text-white hover:bg-sky-600 disabled:opacity-50">{savingAmount ? "Releasing..." : "Release Savings"}</Button></div></div></div></DialogContent></Dialog>
+    <Dialog open={correctionOpen} onOpenChange={(value) => { if (!savingAmount) { setCorrectionOpen(value); if (!value) setCorrectionError(""); } }}><DialogContent className={formDialogClass}><div className="flex max-h-[inherit] flex-col"><DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12"><DialogTitle className="text-white text-xl sm:text-2xl leading-tight">Correct Saved Balance</DialogTitle><p className="mt-1 text-xs text-white/50">Record repair only</p></DialogHeader><div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5"><div className="space-y-4"><div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.07] p-4 text-sm leading-6 text-white/75">Use this only when CLARA's recorded saved amount is incorrect. This does not add money, move money, or create an expense.</div><div className="grid grid-cols-2 gap-3"><InfoMini label="Recorded" value={fmt(saved)} /><InfoMini label="Wallet can support" value={fmt(safeWalletCapacity)} /></div><FormInput label="Correct saved balance"><Input type="number" className={inputDarkClass} value={correctedAmount} onChange={(event) => { setCorrectedAmount(event.target.value); setCorrectionError(""); }} autoFocus /></FormInput><FormInput label="Correction reason"><Input placeholder="What caused the mismatch?" className={inputDarkClass} value={correctionReason} onChange={(event) => { setCorrectionReason(event.target.value); setCorrectionError(""); }} /></FormInput>{correctionError ? <div role="alert" className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] px-4 py-3 text-sm font-semibold text-rose-100">{correctionError}</div> : null}</div></div><div className="border-t border-white/10 bg-[#061224]/96 px-4 py-3 sm:px-5"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" onClick={() => setCorrectionOpen(false)} disabled={savingAmount} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80">Cancel</Button><Button type="button" onClick={handleSubmitCorrection} disabled={savingAmount} className="h-10 rounded-xl bg-violet-500 px-4 font-semibold text-white hover:bg-violet-600 disabled:opacity-50">{savingAmount ? "Correcting..." : "Apply Correction"}</Button></div></div></div></DialogContent></Dialog>
   </>;
 }
 
