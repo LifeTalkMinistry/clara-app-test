@@ -1,31 +1,27 @@
-import useLearningHub from "../learning-hub/logic/useLearningHub";
-import LearningHubCarousel from "../learning-hub/ui/LearningHubCarousel";
+import { Suspense, lazy } from "react";
+import { LoaderCircle } from "lucide-react";
 
-export default function ClaraGuideLearningHubPreview({ flushSpacing = true }) {
-  const { carouselItems } = useLearningHub();
+const ClaraGuideLearningHubPreviewLoaded = lazy(() =>
+  import("./ClaraGuideLearningHubPreviewLoaded"),
+);
 
-  const blockPreviewActivation = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
+function PreviewLoadingState() {
   return (
     <div
-      data-clara-guide-learning-hub-preview="true"
-      aria-label="Learning Hub Guide preview"
-      onClickCapture={blockPreviewActivation}
-      onKeyDownCapture={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          blockPreviewActivation(event);
-        }
-      }}
+      role="status"
+      aria-live="polite"
+      className="mx-auto flex h-[244px] w-full items-center justify-center gap-2 rounded-[30px] border border-cyan-100/10 bg-[rgba(6,18,38,0.68)] text-[10px] font-black uppercase tracking-[0.18em] text-cyan-50/72"
     >
-      <LearningHubCarousel
-        items={carouselItems}
-        hasCommittedAccess
-        initialExpanded
-        flushSpacing={flushSpacing}
-      />
+      <LoaderCircle className="h-4 w-4 animate-spin text-cyan-100/80" />
+      <span>Opening Learning Hub preview</span>
     </div>
+  );
+}
+
+export default function ClaraGuideLearningHubPreview({ flushSpacing = true }) {
+  return (
+    <Suspense fallback={<PreviewLoadingState />}>
+      <ClaraGuideLearningHubPreviewLoaded flushSpacing={flushSpacing} />
+    </Suspense>
   );
 }
