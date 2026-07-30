@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -51,3 +54,42 @@ jobs:
             membership-bundle-scan.log
           if-no-files-found: warn
           retention-days: 3
+
+  materialize_savings_manage_sheet_layout:
+    if: github.head_ref == 'fix/savings-manage-sheet-layout' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out layout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/savings-manage-sheet-layout
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Materialize Savings manage sheet layout
+        run: node scripts/materialize-savings-manage-sheet-layout.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run complete test suite
+        run: npm test
+
+      - name: Run complete lint suite
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Commit validated source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src/pages/SavingsGoalsIntegrated.jsx tests scripts .savings-manage-sheet-layout-request
+          git commit -m "Fix Savings manage sheet placement"
+          git push origin HEAD:fix/savings-manage-sheet-layout
