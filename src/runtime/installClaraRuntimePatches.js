@@ -83,21 +83,14 @@ import "../clara-memory-cabinet-autosave";
 import "../clara-me-panel";
 import "../clara-talk-pause-bridge";
 
-// WARNING:
-// These patches stabilize Life Stage UI through DOM mutation observers.
-// Later they should move into the real Life Stage components.
-// Life Stage runtime controllers
-import "../life-stage-support-card";
-import "../life-stage-default-support-card-guard";
-import "../life-stage-heart-solution-hint";
-import "../life-stage-living-with-partner-signals";
-import "../life-stage-working-student-heart-default-guard";
-import "../life-stage-living-with-partner-reveal";
-import "../life-stage-trend-snapshot";
+// Life Stage ownership note:
+// FinancialClimateUniversalScreen now owns the Me-page pressure dock, support
+// state, heart interaction, Snapshot rendering, and mutation events through
+// React. The former body-wide MutationObserver controllers are intentionally
+// not installed because they rewrote the same DOM after React rendered it.
+// The setup-flow polish remains until the setup screen itself is separated into
+// a route; it does not own the configured Me-page container or profile data.
 import "../life-stage-setup-flow-polish";
-import "../life-stage-working-student-identity-context";
-import "../life-stage-apply-diagnosis";
-import "../life-stage-working-student-signal-fit";
 
 // Global/mobile CSS patches
 import "../clara-fab-theme.css";

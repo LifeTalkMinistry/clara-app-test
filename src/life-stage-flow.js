@@ -4,6 +4,7 @@ import livingWithPartnerSource, { LIVING_WITH_PARTNER_STAGE_KEY, LIVING_WITH_PAR
 import youngProfessionalSource, { YOUNG_PROFESSIONAL_STAGE_KEY, YOUNG_PROFESSIONAL_QUESTION_ORDER, YOUNG_PROFESSIONAL_ROOTS, YOUNG_PROFESSIONAL_BRANCHES, YOUNG_PROFESSIONAL_RESET_AFTER, YOUNG_PROFESSIONAL_DISPLAY_LABELS, getYoungProfessionalOptions, resetYoungProfessionalAfter, completeYoungProfessionalDraft, getYoungProfessionalQuestionContext } from "./components/fresh/main-dashboard/dashboard-panels/me/youngProfessionalLifeStageSource";
 
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
+export const CLARA_LIFE_STAGE_UPDATED_EVENT = "clara:life-stage-profile-updated";
 export const DEFAULT_LIFE_STAGE_SELECTION = DEFAULT_STAGE.stage;
 
 export const LIFE_STAGE_SELECTION_ORDER = [WORKING_STUDENT_STAGE_KEY, YOUNG_PROFESSIONAL_STAGE_KEY, LIVING_WITH_PARTNER_STAGE_KEY, "Family Household", "Single Parent", "Full-Time Earner", "Freelance Season", "Business Builder"];
@@ -30,10 +31,18 @@ export function readSelectedLifeStageProfile() {
   try { const parsed = JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "null"); if (!parsed || typeof parsed !== "object") return null; return { ...parsed, stage: normalizeLifeStageKey(parsed.stage) }; } catch { return null; }
 }
 
+export function notifyLifeStageUpdated(detail = {}) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CLARA_LIFE_STAGE_UPDATED_EVENT, { detail }));
+}
+
 export function saveSelectedLifeStageProfile(profile = {}) {
   if (typeof window === "undefined") return profile;
   const next = { ...profile, stage: normalizeLifeStageKey(profile.stage) };
-  try { window.localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify(next)); window.dispatchEvent(new Event("clara:life-stage-profile-updated")); } catch {}
+  try {
+    window.localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify(next));
+    notifyLifeStageUpdated({ kind: "profile" });
+  } catch {}
   return next;
 }
 
