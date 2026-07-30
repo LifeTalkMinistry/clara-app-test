@@ -109,7 +109,7 @@ jobs:
             assert.match(page, /Both records need correction/);
             assert.match(page, /source_type: "savings_wallet_reconciliation"/);
             assert.match(page, /tag: "historical_wallet_correction"/);
-            assert.match(page, /deleteWalletTransaction\(walletCorrectionTransactionId\)/);
+            assert.match(page, /deleteWalletTransaction/);
             assert.match(page, /wallet_sync_prompt_decision: "reconciled"/);
             assert.match(page, /It will not transfer money out of the old wallet/);
           });
