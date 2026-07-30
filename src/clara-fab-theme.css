@@ -163,7 +163,7 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
   line-height: 0.92 !important;
 }
 
-/* Keep the two Money Left utility controls identical with a protected 12px visual gap. */
+/* Keep the two Money Left utility controls identical with a balanced 10px visual gap. */
 .theme-page-shell main [data-clara-summary-privacy-toggle="true"],
 .theme-page-shell main [data-clara-money-calculator-toggle="true"] {
   right: auto !important;
@@ -181,7 +181,7 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
 }
 
 .theme-page-shell main [data-clara-money-calculator-toggle="true"] {
-  left: calc(clamp(112px, 33vw, 132px) + 36px) !important;
+  left: calc(clamp(112px, 33vw, 132px) + 34px) !important;
   transform: translateX(-50%) !important;
 }
 
