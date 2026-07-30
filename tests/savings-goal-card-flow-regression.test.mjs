@@ -83,13 +83,16 @@ test("wallet sync failures stay visible instead of using alerts", () => {
   assert.match(page, /Available to Save/);
 });
 
-test("Savings Goals owns the top shell without exposing shared layout padding", () => {
-  assert.match(wrapper, /useLayoutEffect/);
-  assert.match(wrapper, /closest\("main"\)/);
-  assert.match(wrapper, /classList\.add\("clara-savings-goals-main"\)/);
-  assert.match(wrapper, /classList\.remove\("clara-savings-goals-main"\)/);
-  assert.match(topShell, /main\.clara-savings-goals-main/);
+test("Savings Goals owns the complete top shell without a mount-time class", () => {
+  assert.doesNotMatch(wrapper, /useLayoutEffect/);
+  assert.doesNotMatch(wrapper, /closest\("main"\)/);
+  assert.match(topShell, /body:has\(\.savings-goals-premium\)/);
+  assert.match(topShell, /#root:has\(\.savings-goals-premium\)/);
+  assert.match(topShell, /\.theme-page-shell:has\(\.savings-goals-premium\)/);
+  assert.match(topShell, /main:has\(\.savings-goals-premium\)/);
+  assert.match(topShell, /background: #061426 !important/);
   assert.match(topShell, /padding-top: 0 !important/);
+  assert.match(topShell, /min-height: 100dvh/);
 });
 
 test("Savings Goal flow regression runs in npm test", () => {
