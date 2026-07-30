@@ -152,7 +152,6 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
     backface-visibility: hidden !important;
     -webkit-backface-visibility: hidden !important;
     transform-style: flat !important;
-    will-change: transform, opacity !important;
   }
 
   .theme-page-shell main .clara-learning-hub-card > div {
