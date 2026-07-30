@@ -14,6 +14,7 @@ import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSou
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installMoneyLeftOrbInteractionSound } from "./runtime/installMoneyLeftOrbInteractionSound";
+import { installMoneyLeftCalculator } from "./runtime/installMoneyLeftCalculator";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
@@ -164,6 +165,12 @@ try {
   installMoneyLeftOrbInteractionSound();
 } catch (error) {
   console.warn("Money Left orb interaction sound failed to init:", error);
+}
+
+try {
+  installMoneyLeftCalculator();
+} catch (error) {
+  console.warn("Money Left calculator failed to init:", error);
 }
 
 try {
