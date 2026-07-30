@@ -77,14 +77,14 @@
 }
 
 #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 + p {
-  display: -webkit-box !important;
+  display: block !important;
   width: 100% !important;
   max-width: none !important;
   margin: 0 !important;
-  -webkit-line-clamp: 3 !important;
-  line-clamp: 3 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  overflow: visible !important;
   color: rgba(248, 253, 255, 0.68) !important;
   font-size: clamp(9.9px, 2.72vw, 10.7px) !important;
   font-weight: 650 !important;
@@ -165,8 +165,10 @@
   }
 
   #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 + p {
-    -webkit-line-clamp: 3 !important;
-    line-clamp: 3 !important;
+    display: block !important;
+    -webkit-line-clamp: unset !important;
+    line-clamp: unset !important;
+    overflow: visible !important;
     font-size: clamp(9.35px, 2.52vw, 10px) !important;
     line-height: 1.28 !important;
   }
@@ -206,8 +208,10 @@
   }
 
   #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 + p {
-    -webkit-line-clamp: 2 !important;
-    line-clamp: 2 !important;
+    display: block !important;
+    -webkit-line-clamp: unset !important;
+    line-clamp: unset !important;
+    overflow: visible !important;
     font-size: 9.1px !important;
     line-height: 1.22 !important;
   }
