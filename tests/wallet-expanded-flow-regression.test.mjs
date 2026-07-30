@@ -61,5 +61,6 @@ test("wallet reorder touches only the two adjacent wallets", () => {
 });
 
 test("expanded Wallet activity can show more than the collapsed two-row preview", () => {
-  assert.equal(previewState.includes("safeWalletTransactions.slice(0, 8)"), true);
+  assert.equal(previewState.includes(".slice(0, 8)"), true);
+  assert.equal(previewState.includes(".slice(0, 2)"), false);
 });
