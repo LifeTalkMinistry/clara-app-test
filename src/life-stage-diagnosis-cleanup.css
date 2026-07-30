@@ -14,3 +14,18 @@
 #clara-life-stage-diagnosis-reveal .story-card .story-body {
   margin-top: 0 !important;
 }
+
+/* Keep the React-owned summary controls visible even when generic high-z modal
+   cleanup rules are present elsewhere in the global stylesheet. */
+#root [data-clara-life-stage-summary="true"] > section > footer {
+  display: flex !important;
+  min-height: 48px;
+}
+
+#root [data-clara-life-stage-summary="true"] > section > footer > button:first-child[type="button"] {
+  display: grid !important;
+}
+
+#root [data-clara-life-stage-summary="true"] > section > footer > button:last-child[type="button"] {
+  display: flex !important;
+}
