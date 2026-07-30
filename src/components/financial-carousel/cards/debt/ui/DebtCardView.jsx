@@ -20,10 +20,18 @@ export default function DebtCardView({
     });
   };
 
+  const debtItem = {
+    ...item,
+    data: {
+      ...(item?.data || {}),
+      expenses: financeCardController?.expenses || [],
+    },
+  };
+
   return (
     <div className="h-full min-h-[inherit] flex flex-col">
       <ObligationDebt
-        item={item}
+        item={debtItem}
         user={financeCardController?.user || null}
         theme={selectedDashboardTheme}
         expanded={isExpanded}
