@@ -1,4 +1,26 @@
-main.clara-savings-goals-main {
+html:has(.savings-goals-premium),
+body:has(.savings-goals-premium),
+#root:has(.savings-goals-premium),
+.theme-page-shell:has(.savings-goals-premium),
+.theme-page-shell:has(.savings-goals-premium) > div,
+.theme-page-shell:has(.savings-goals-premium) main,
+main:has(.savings-goals-premium) {
+  background: #061426 !important;
+}
+
+body:has(.savings-goals-premium)::before,
+body:has(.savings-goals-premium)::after {
+  display: none !important;
+}
+
+main:has(.savings-goals-premium) {
   padding-top: 0 !important;
-  background: #061426;
+}
+
+main:has(.savings-goals-premium) > .savings-goals-premium,
+.savings-goals-premium {
+  display: block;
+  width: 100%;
+  min-height: 100dvh;
+  margin: 0;
 }
