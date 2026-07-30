@@ -6,7 +6,10 @@
    CSS Grid instead of negative margins, transforms, viewport-height math, or
    post-render DOM movement. */
 
-#root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+/* The :not() ID is a specificity fence. It keeps this canonical data-scoped
+   layout above the older class-fragment visual patches until those files are
+   fully retired, without changing the rendered DOM or adding runtime logic. */
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout):has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
   --clara-life-hero-min: 236px;
   --clara-life-hero-max: 284px;
   --clara-life-support-min: 102px;
@@ -36,7 +39,7 @@
 
 /* The hero owns rows 1 and 2. Row 2 is shared with the support card, producing
    the previous floating-card look without removing either element from flow. */
-#root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section:first-of-type {
   grid-row: 1 / 3 !important;
   grid-column: 1 !important;
   align-self: stretch !important;
@@ -49,12 +52,12 @@
 
 /* Keep the original cinematic hero treatment while making its geometry local
    to the inherited Me panel rather than the viewport. */
-#root div[data-clara-me-life-stage-root="true"] > section:first-of-type > div:last-child {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section:first-of-type > div:last-child {
   padding-bottom: clamp(18px, 2.6vh, 28px) !important;
   transform: none !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] {
   grid-row: 2 !important;
   grid-column: 1 !important;
   position: relative !important;
@@ -71,7 +74,7 @@
   box-sizing: border-box !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] > div {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] > div {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) auto !important;
   align-items: center !important;
@@ -82,12 +85,12 @@
   gap: 14px !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] > div > div:first-child {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] > div > div:first-child {
   min-width: 0 !important;
   width: 100% !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] h3 {
   max-width: none !important;
   margin: 0 0 5px !important;
   font-size: clamp(13px, 3.45vw, 14px) !important;
@@ -95,7 +98,7 @@
   letter-spacing: -0.022em !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 + p {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] h3 + p {
   display: block !important;
   width: 100% !important;
   max-width: none !important;
@@ -110,7 +113,7 @@
   line-height: 1.34 !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] [data-clara-solution-hint="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] [data-clara-solution-hint="true"] {
   position: static !important;
   display: inline-flex !important;
   width: fit-content !important;
@@ -120,7 +123,7 @@
   pointer-events: none !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] [data-clara-heart-cta="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] [data-clara-heart-cta="true"] {
   grid-column: 2 !important;
   flex: none !important;
   width: clamp(46px, 12.2vw, 50px) !important;
@@ -132,7 +135,7 @@
   justify-self: end !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > [data-clara-pressure-signals="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > [data-clara-pressure-signals="true"] {
   grid-row: 3 !important;
   grid-column: 1 !important;
   height: var(--clara-life-pressure-dock-height) !important;
@@ -148,7 +151,7 @@
   z-index: 13 !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-trend-snapshot="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-trend-snapshot="true"] {
   grid-row: 5 !important;
   grid-column: 1 !important;
   position: relative !important;
@@ -164,7 +167,7 @@
   box-sizing: border-box !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
   flex: 0 0 auto !important;
   height: var(--clara-life-snapshot-carousel-height) !important;
   min-height: var(--clara-life-snapshot-carousel-height) !important;
@@ -177,7 +180,7 @@
   box-sizing: border-box !important;
 }
 
-#root div[data-clara-me-life-stage-root="true"] > section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+#root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
   flex: 0 0 118px !important;
   width: 118px !important;
   min-width: 118px !important;
@@ -193,7 +196,7 @@
 /* Medium-height phones and installed PWAs. The root still inherits its height;
    these rules only select compact internal design tokens. */
 @media (max-height: 760px) {
-  #root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout):has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-life-hero-min: 214px;
     --clara-life-hero-max: 252px;
     --clara-life-support-min: 92px;
@@ -205,20 +208,20 @@
     padding: 7px 8px 9px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] {
     padding: 11px 13px 12px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] > div {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] > div {
     min-height: 66px !important;
     gap: 12px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] h3 {
     font-size: clamp(12.4px, 3.2vw, 13.2px) !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 + p {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] h3 + p {
     display: block !important;
     -webkit-line-clamp: unset !important;
     line-clamp: unset !important;
@@ -227,14 +230,14 @@
     line-height: 1.28 !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > [data-clara-pressure-signals="true"] {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > [data-clara-pressure-signals="true"] {
     padding-top: 5px !important;
     padding-bottom: 5px !important;
   }
 }
 
 @media (max-height: 680px) {
-  #root div[data-clara-me-life-stage-root="true"][class*="h-full"][class*="min-h-0"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout):has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-life-hero-min: 180px;
     --clara-life-hero-max: 208px;
     --clara-life-support-min: 78px;
@@ -246,21 +249,21 @@
     padding: 6px 7px 8px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] {
     padding: 8px 11px 9px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] > div {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] > div {
     min-height: 56px !important;
     gap: 10px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] h3 {
     margin-bottom: 4px !important;
     font-size: 11.8px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] h3 + p {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] h3 + p {
     display: block !important;
     -webkit-line-clamp: unset !important;
     line-clamp: unset !important;
@@ -269,14 +272,14 @@
     line-height: 1.22 !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > section[data-clara-support-card="true"] [data-clara-heart-cta="true"] {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] [data-clara-heart-cta="true"] {
     width: 38px !important;
     height: 38px !important;
     min-width: 38px !important;
     min-height: 38px !important;
   }
 
-  #root div[data-clara-me-life-stage-root="true"] > [data-clara-pressure-signals="true"] {
+  #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > [data-clara-pressure-signals="true"] {
     padding-top: 4px !important;
     padding-bottom: 4px !important;
   }
