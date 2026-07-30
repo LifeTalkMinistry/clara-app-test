@@ -15,6 +15,7 @@ test("Learning Hub first click and swipe paths stay lazy, visible, and passive-s
     previewSource,
     previewLoadedSource,
     overlaySource,
+    mobilePerformanceSource,
   ] = await Promise.all([
     read("../src/components/fresh/main-dashboard/learning-hub/LearningHub.jsx"),
     read("../src/components/fresh/main-dashboard/learning-hub/ui/LearningHubToggleButton.jsx"),
@@ -25,6 +26,7 @@ test("Learning Hub first click and swipe paths stay lazy, visible, and passive-s
     read("../src/components/fresh/main-dashboard/guide/ClaraGuideLearningHubPreview.jsx"),
     read("../src/components/fresh/main-dashboard/guide/ClaraGuideLearningHubPreviewLoaded.jsx"),
     read("../src/components/fresh/main-dashboard/guide/ClaraGuideLearningHubOverlay.jsx"),
+    read("../src/mobile-performance.css"),
   ]);
 
   assert.match(hubSource, /const \[shouldLoadHub, setShouldLoadHub\] = useState\(false\)/);
@@ -56,6 +58,10 @@ test("Learning Hub first click and swipe paths stay lazy, visible, and passive-s
   assert.match(cardSource, /scale3d\(/);
   assert.match(cardSource, /willChange: isDragging \? "transform, opacity" : undefined/);
   assert.match(cardSource, /contain: "layout paint style"/);
+  assert.doesNotMatch(
+    mobilePerformanceSource,
+    /\.clara-learning-hub-card\s*\{[^}]*will-change:\s*transform,\s*opacity/is,
+  );
 
   assert.match(previewSource, /lazy\(\(\) =>\s*import\("\.\/ClaraGuideLearningHubPreviewLoaded"\)/);
   assert.doesNotMatch(previewSource, /useLearningHub/);
