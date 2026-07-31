@@ -739,32 +739,34 @@ function PressureSignalDock({ signals, selectedSignalId, onSelect }) {
   return (
     <div
       data-clara-pressure-signals="true"
-      className="relative z-[13] mx-auto block max-w-[calc(100%_-_18px)] overflow-hidden rounded-full border border-white/[0.075] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,.075),transparent_36%),radial-gradient(circle_at_96%_45%,rgba(167,139,250,.12),transparent_42%),rgba(7,18,38,.34)] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,.055),0_10px_24px_rgba(0,0,0,.14),0_0_18px_rgba(45,212,191,.018)] backdrop-blur-2xl"
+      className="relative z-[13] mx-auto block w-full max-w-[calc(100%_-_18px)] overflow-hidden rounded-full border border-white/[0.075] bg-[radial-gradient(circle_at_12%_0%,rgba(45,212,191,.075),transparent_36%),radial-gradient(circle_at_96%_45%,rgba(167,139,250,.12),transparent_42%),rgba(7,18,38,.34)] px-1.5 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,.055),0_10px_24px_rgba(0,0,0,.14),0_0_18px_rgba(45,212,191,.018)] backdrop-blur-2xl"
       aria-label="Today pressure signals"
     >
-      <div className="clara-pressure-track relative z-[2] flex h-full items-center justify-center gap-2 overflow-x-auto overflow-y-hidden px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {signals.map((signal) => {
-          const active = signal.id === selectedSignalId;
-          return (
-            <button
-              key={signal.id}
-              type="button"
-              data-clara-pressure-signal={signal.id}
-              data-active={active ? "true" : "false"}
-              aria-label={signal.ariaLabel || signal.label}
-              title={signal.label}
-              aria-pressed={active}
-              onClick={() => onSelect(signal.id)}
-              className={`clara-pressure-chip grid h-8 w-8 min-w-[32px] shrink-0 place-items-center rounded-full border p-0 text-[15px] font-black leading-none shadow-[inset_0_1px_0_rgba(255,255,255,.055),0_7px_18px_rgba(0,0,0,.12)] backdrop-blur-xl transition active:scale-90 ${
-                active
-                  ? "border-cyan-100/36 bg-[radial-gradient(circle_at_50%_0%,rgba(125,211,252,.20),rgba(255,255,255,.06))] shadow-[inset_0_1px_0_rgba(255,255,255,.10),0_0_18px_rgba(34,211,238,.16)]"
-                  : "border-white/10 bg-white/[0.045] text-white/86"
-              }`}
-            >
-              <span aria-hidden="true">{signal.icon}</span>
-            </button>
-          );
-        })}
+      <div className="clara-pressure-track relative z-[2] h-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mx-auto flex min-w-max items-center gap-2 px-0.5">
+          {signals.map((signal) => {
+            const active = signal.id === selectedSignalId;
+            return (
+              <button
+                key={signal.id}
+                type="button"
+                data-clara-pressure-signal={signal.id}
+                data-active={active ? "true" : "false"}
+                aria-label={signal.ariaLabel || signal.label}
+                title={signal.label}
+                aria-pressed={active}
+                onClick={() => onSelect(signal.id)}
+                className={`clara-pressure-chip grid h-11 w-11 min-w-[44px] shrink-0 touch-manipulation place-items-center rounded-full border p-0 text-[16px] font-black leading-none shadow-[inset_0_1px_0_rgba(255,255,255,.055),0_7px_18px_rgba(0,0,0,.12)] backdrop-blur-xl transition active:scale-90 ${
+                  active
+                    ? "border-cyan-100/36 bg-[radial-gradient(circle_at_50%_0%,rgba(125,211,252,.20),rgba(255,255,255,.06))] shadow-[inset_0_1px_0_rgba(255,255,255,.10),0_0_18px_rgba(34,211,238,.16)]"
+                    : "border-white/10 bg-white/[0.045] text-white/86"
+                }`}
+              >
+                <span aria-hidden="true">{signal.icon}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -896,15 +898,7 @@ export default function FinancialClimateUniversalScreen() {
   };
 
   const handleHeartClick = () => {
-    const nextSignalId = selectedSignalId || pressureSignals[0]?.id || null;
-    if (!nextSignalId) return;
-
-    if (!selectedSignalId) {
-      setSelectedSignalId(nextSignalId);
-      setSupportMode("guidance");
-      return;
-    }
-
+    if (!selectedSignalId) return;
     setSupportMode((current) =>
       current === "guidance" ? "awareness" : "guidance"
     );
@@ -1061,9 +1055,18 @@ export default function FinancialClimateUniversalScreen() {
             type="button"
             data-clara-heart-cta="true"
             onClick={handleHeartClick}
-            aria-label="Show guidance for selected signal"
-            aria-pressed={supportMode === "guidance"}
-            className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-violet-200/14 bg-violet-300/8 shadow-[0_0_30px_rgba(167,139,250,.18)] active:scale-95"
+            disabled={!selectedSignalId}
+            aria-label={
+              selectedSignalId
+                ? "Toggle guidance for selected signal"
+                : "Select a pressure signal before opening guidance"
+            }
+            aria-pressed={Boolean(selectedSignalId) && supportMode === "guidance"}
+            className={`grid h-16 w-16 shrink-0 place-items-center rounded-full border transition ${
+              selectedSignalId
+                ? "touch-manipulation border-violet-200/14 bg-violet-300/8 shadow-[0_0_30px_rgba(167,139,250,.18)] active:scale-95"
+                : "cursor-not-allowed border-white/[0.06] bg-white/[0.025] opacity-40 shadow-none"
+            }`}
           >
             <Heart className="h-7 w-7 fill-violet-100 text-violet-100" />
           </button>

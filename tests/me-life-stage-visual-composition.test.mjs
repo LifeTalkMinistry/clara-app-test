@@ -64,6 +64,22 @@ test("pressure dock is centered inside one slot with equal space above and below
   assert.ok(spacingIndex > canonicalIndex);
 });
 
+test("pressure and heart controls retain mobile-safe touch target space", () => {
+  assert.match(css, /--clara-life-pressure-dock-height:\s*56px/);
+  assert.match(
+    css,
+    /@media \(max-height:\s*760px\)[\s\S]*--clara-life-pressure-dock-height:\s*54px/
+  );
+  assert.match(
+    css,
+    /@media \(max-height:\s*680px\)[\s\S]*--clara-life-pressure-dock-height:\s*52px/
+  );
+  assert.match(
+    css,
+    /@media \(max-height:\s*680px\)[\s\S]*data-clara-heart-cta="true"[\s\S]*min-width:\s*44px\s*!important[\s\S]*min-height:\s*44px\s*!important/
+  );
+});
+
 test("canonical data-scoped layout outranks legacy class-fragment patches", () => {
   assert.match(css, /data-clara-me-life-stage-root="true"/);
   assert.match(css, /:not\(#clara-me-legacy-layout\)/);
