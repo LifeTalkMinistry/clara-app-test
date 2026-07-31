@@ -417,8 +417,8 @@ export default function DailyTipCard({
                     })}
                   </div>
                 ) : (
-                  <div className="flex min-h-[42px] items-center justify-center px-3 text-center">
-                    <p className="max-w-[16rem] text-[10.5px] font-bold leading-[1.35] text-cyan-50/78">
+                  <div className="flex min-h-[48px] items-center justify-center px-4 text-center">
+                    <p className="max-w-[19rem] text-[clamp(12px,3.15vw,13.5px)] font-extrabold leading-[1.4] tracking-[-0.015em] text-cyan-50/88">
                       {checkInPrompt}
                     </p>
                   </div>
