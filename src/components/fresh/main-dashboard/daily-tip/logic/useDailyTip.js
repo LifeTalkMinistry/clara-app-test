@@ -1,115 +1,147 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { getEligibleDayKey } from "../../../../../lib/challenge-schedule.js";
+import {
+  commitDailyTipAssignment,
+  dailyTipCycleStorageKey,
+  resolveDailyTipAssignment,
+} from "./dailyTipCycle.js";
+import { millisecondsUntilNextEligibleDay } from "./dailyCheckInValidation.js";
 import { DAILY_TIPS } from "../data/tipsData";
 
-const CYCLE_STORAGE_KEY = "clara_daily_tip_cycle_v2";
-const SEEN_STORAGE_KEY = "clara_daily_tip_seen_date";
+const LEGACY_SEEN_STORAGE_KEY = "clara_daily_tip_seen_date";
 const SIMULATION_DAILY_MONEY_TIP = "Before spending today, ask: Is this planned, needed, or just a reaction?";
 
-export default function useDailyTip({ simulationMode = false } = {}) {
-  const todayKey = useMemo(() => getTodayKey(), []);
-  const [tip, setTip] = useState(simulationMode ? SIMULATION_DAILY_MONEY_TIP : "");
-  const [index, setIndex] = useState(0);
+export default function useDailyTip({ simulationMode = false, userId: providedUserId } = {}) {
+  const { user } = useAuth();
+  const userId = providedUserId || user?.id || "guest";
+  const [todayKey, setTodayKey] = useState(() => getEligibleDayKey());
+  const [assignment, setAssignment] = useState(() =>
+    simulationMode ? createSimulationAssignment() : createEmptyAssignment(todayKey)
+  );
   const [hasSeenToday, setHasSeenToday] = useState(false);
 
   useEffect(() => {
+    if (simulationMode || typeof window === "undefined") return undefined;
+
+    let eligibleDayTimer = null;
+    const refreshEligibleDay = () => setTodayKey(getEligibleDayKey());
+    const scheduleEligibleDayRefresh = () => {
+      if (eligibleDayTimer) window.clearTimeout(eligibleDayTimer);
+      eligibleDayTimer = window.setTimeout(() => {
+        refreshEligibleDay();
+        scheduleEligibleDayRefresh();
+      }, millisecondsUntilNextEligibleDay());
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshEligibleDay();
+    };
+
+    scheduleEligibleDayRefresh();
+    window.addEventListener("focus", refreshEligibleDay);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (eligibleDayTimer) window.clearTimeout(eligibleDayTimer);
+      window.removeEventListener("focus", refreshEligibleDay);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [simulationMode]);
+
+  useEffect(() => {
     if (simulationMode) {
+      setAssignment(createSimulationAssignment());
       setHasSeenToday(false);
-      setIndex(0);
-      setTip(SIMULATION_DAILY_MONEY_TIP);
-      return;
+      return undefined;
     }
 
-    const seenDate = safeGet(SEEN_STORAGE_KEY);
-    setHasSeenToday(seenDate === todayKey);
+    const storage = getStorage();
+    const storageKey = dailyTipCycleStorageKey(userId);
+    const refreshAssignment = () => {
+      const nextAssignment = resolveDailyTipAssignment({
+        storage,
+        userId,
+        dayKey: todayKey,
+        tips: DAILY_TIPS,
+      });
+      setAssignment(nextAssignment);
+      setHasSeenToday(nextAssignment.committed);
+      safeRemove(storage, LEGACY_SEEN_STORAGE_KEY);
+    };
+    const handleStorage = (event) => {
+      if (event.key && event.key !== storageKey) return;
+      refreshAssignment();
+    };
 
-    const stored = safeGet(CYCLE_STORAGE_KEY);
-    let cycle = safeParse(stored) || createFreshCycle();
+    refreshAssignment();
+    if (typeof window === "undefined") return undefined;
 
-    if (!cycle.date || cycle.date !== todayKey) {
-      if (!Array.isArray(cycle.order) || cycle.order.length !== DAILY_TIPS.length) {
-        cycle = createFreshCycle();
-      }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [simulationMode, todayKey, userId]);
 
-      if (cycle.pointer >= cycle.order.length) {
-        cycle = createFreshCycle();
-      }
-
-      cycle = {
-        ...cycle,
-        date: todayKey,
-        currentIndex: cycle.order[cycle.pointer],
-        pointer: cycle.pointer + 1,
-      };
-
-      if (cycle.pointer >= cycle.order.length) {
-        cycle.nextOrder = shuffle([...Array(DAILY_TIPS.length).keys()]);
-      }
-
-      safeSet(CYCLE_STORAGE_KEY, JSON.stringify(cycle));
-    }
-
-    const currentIndex = Number.isInteger(cycle.currentIndex) ? cycle.currentIndex : 0;
-    setIndex(currentIndex);
-    setTip(DAILY_TIPS[currentIndex] || DAILY_TIPS[0]);
-  }, [simulationMode, todayKey]);
-
-  const markSeenToday = () => {
+  const markSeenToday = useCallback(() => {
     if (simulationMode) {
       setHasSeenToday(true);
       return;
     }
 
-    safeSet(SEEN_STORAGE_KEY, todayKey);
-    setHasSeenToday(true);
-  };
+    const nextAssignment = commitDailyTipAssignment({
+      storage: getStorage(),
+      userId,
+      dayKey: todayKey,
+      tips: DAILY_TIPS,
+    });
+    setAssignment(nextAssignment);
+    setHasSeenToday(nextAssignment.committed);
+  }, [simulationMode, todayKey, userId]);
 
-  return { tip, index, hasSeenToday, markSeenToday };
-}
-
-function createFreshCycle() {
   return {
-    date: null,
-    order: shuffle([...Array(DAILY_TIPS.length).keys()]),
-    pointer: 0,
-    currentIndex: 0,
+    tip: assignment.text,
+    index: assignment.index,
+    tipId: assignment.tipId,
+    cycleNumber: assignment.cycleNumber,
+    cycleDay: assignment.cycleDay,
+    hasSeenToday,
+    markSeenToday,
   };
 }
 
-function shuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
+function createSimulationAssignment() {
+  return {
+    tipId: "daily-money-tip-simulation",
+    text: SIMULATION_DAILY_MONEY_TIP,
+    index: 0,
+    cycleNumber: 0,
+    cycleDay: 1,
+    committed: false,
+  };
 }
 
-function getTodayKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate()
-  ).padStart(2, "0")}`;
+function createEmptyAssignment(dayKey) {
+  return {
+    tipId: null,
+    text: "",
+    index: 0,
+    dayKey,
+    cycleNumber: 0,
+    cycleDay: 0,
+    committed: false,
+  };
 }
 
-function safeGet(key) {
+function getStorage() {
   try {
-    return localStorage.getItem(key);
+    return typeof window !== "undefined" ? window.localStorage : null;
   } catch {
     return null;
   }
 }
 
-function safeSet(key, value) {
+function safeRemove(storage, key) {
   try {
-    localStorage.setItem(key, value);
+    storage?.removeItem?.(key);
   } catch {
-    // Keep the card working even if storage is blocked.
-  }
-}
-
-function safeParse(value) {
-  try {
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
+    // Ignore legacy cleanup failures.
   }
 }
