@@ -111,9 +111,57 @@
     0 0 13px rgba(34, 211, 238, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.82);
   opacity: 1;
+  animation: clara-checkin-count-wave 4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
-.clara-checkin-dot--today {
+.clara-checkin-dot--done:nth-child(1) { animation-delay: 0ms; }
+.clara-checkin-dot--done:nth-child(2) { animation-delay: 100ms; }
+.clara-checkin-dot--done:nth-child(3) { animation-delay: 200ms; }
+.clara-checkin-dot--done:nth-child(4) { animation-delay: 300ms; }
+.clara-checkin-dot--done:nth-child(5) { animation-delay: 400ms; }
+.clara-checkin-dot--done:nth-child(6) { animation-delay: 500ms; }
+.clara-checkin-dot--done:nth-child(7) { animation-delay: 600ms; }
+.clara-checkin-dot--done:nth-child(8) { animation-delay: 700ms; }
+.clara-checkin-dot--done:nth-child(9) { animation-delay: 800ms; }
+.clara-checkin-dot--done:nth-child(10) { animation-delay: 900ms; }
+.clara-checkin-dot--done:nth-child(11) { animation-delay: 1000ms; }
+.clara-checkin-dot--done:nth-child(12) { animation-delay: 1100ms; }
+.clara-checkin-dot--done:nth-child(13) { animation-delay: 1200ms; }
+.clara-checkin-dot--done:nth-child(14) { animation-delay: 1300ms; }
+.clara-checkin-dot--done:nth-child(15) { animation-delay: 1400ms; }
+.clara-checkin-dot--done:nth-child(16) { animation-delay: 1500ms; }
+.clara-checkin-dot--done:nth-child(17) { animation-delay: 1600ms; }
+.clara-checkin-dot--done:nth-child(18) { animation-delay: 1700ms; }
+.clara-checkin-dot--done:nth-child(19) { animation-delay: 1800ms; }
+.clara-checkin-dot--done:nth-child(20) { animation-delay: 1900ms; }
+.clara-checkin-dot--done:nth-child(21) { animation-delay: 2000ms; }
+.clara-checkin-dot--done:nth-child(22) { animation-delay: 2100ms; }
+.clara-checkin-dot--done:nth-child(23) { animation-delay: 2200ms; }
+.clara-checkin-dot--done:nth-child(24) { animation-delay: 2300ms; }
+.clara-checkin-dot--done:nth-child(25) { animation-delay: 2400ms; }
+.clara-checkin-dot--done:nth-child(26) { animation-delay: 2500ms; }
+.clara-checkin-dot--done:nth-child(27) { animation-delay: 2600ms; }
+.clara-checkin-dot--done:nth-child(28) { animation-delay: 2700ms; }
+.clara-checkin-dot--done:nth-child(29) { animation-delay: 2800ms; }
+.clara-checkin-dot--done:nth-child(30) { animation-delay: 2900ms; }
+
+.clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done))::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(103, 232, 249, 0.5);
+  border-radius: 999px;
+  opacity: 0.3;
+  transform: scale(0.76);
+  animation: clara-checkin-latest-breathe 2.3s ease-in-out infinite;
+}
+
+.clara-daily-tip-flipper--flipped .clara-checkin-dot--done,
+.clara-daily-tip-flipper--flipped .clara-checkin-dot--done::before {
+  animation-play-state: paused;
+}
+
+.clara-checkin-dot--today:not(.clara-checkin-dot--done) {
   border-color: rgba(103, 232, 249, 0.82);
   background: rgba(8, 145, 178, 0.18);
   box-shadow:
@@ -278,6 +326,40 @@
 .clara-checkin-spark--17 { --spark-x: -18px; --spark-y: 38px; --spark-rotate: 28deg; animation-delay: 66ms; }
 .clara-checkin-spark--18 { --spark-x: 18px; --spark-y: -38px; --spark-rotate: 142deg; animation-delay: 70ms; }
 
+@keyframes clara-checkin-count-wave {
+  0%,
+  10%,
+  100% {
+    transform: translateZ(0) scale(1);
+    box-shadow:
+      0 0 7px rgba(103, 232, 249, 0.52),
+      0 0 13px rgba(34, 211, 238, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  }
+
+  4% {
+    transform: translateZ(0) scale(1.28);
+    box-shadow:
+      0 0 0 3px rgba(207, 250, 254, 0.12),
+      0 0 12px rgba(103, 232, 249, 0.84),
+      0 0 20px rgba(34, 211, 238, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  }
+}
+
+@keyframes clara-checkin-latest-breathe {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: scale(0.74);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
 @keyframes clara-checkin-today-pulse {
   0%,
   100% {
@@ -349,7 +431,13 @@
     transition-duration: 1ms;
   }
 
-  .clara-checkin-dot--today {
+  .clara-checkin-dot--done,
+  .clara-checkin-dot--today:not(.clara-checkin-dot--done) {
+    animation: none;
+  }
+
+  .clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done))::before {
+    display: none;
     animation: none;
   }
 
