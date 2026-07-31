@@ -71,50 +71,141 @@
 .clara-checkin-grid {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 5px 6px;
-  width: min(100%, 190px);
+  gap: 4px 7px;
+  width: min(100%, 224px);
+  padding: 1px 0;
 }
 
 .clara-checkin-dot {
   position: relative;
   display: block;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   margin: 0 auto;
-  border-radius: 2px;
-  background: rgba(148, 163, 184, 0.34);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  opacity: 0.76;
-  transform: rotate(45deg) translateZ(0);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  opacity: 0.82;
+  transform: translateZ(0);
 }
 
 .clara-checkin-dot--done {
-  background: rgba(236, 254, 255, 0.94);
+  border-color: rgba(207, 250, 254, 0.7);
+  background: rgba(207, 250, 254, 0.96);
   box-shadow:
-    0 0 8px rgba(103, 232, 249, 0.54),
-    0 0 16px rgba(34, 211, 238, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.64);
+    0 0 7px rgba(103, 232, 249, 0.52),
+    0 0 13px rgba(34, 211, 238, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
   opacity: 1;
 }
 
 .clara-checkin-dot--today {
-  background: rgba(148, 163, 184, 0.42);
+  border-color: rgba(103, 232, 249, 0.82);
+  background: rgba(8, 145, 178, 0.18);
   box-shadow:
-    0 0 0 1px rgba(103, 232, 249, 0.44),
-    0 0 10px rgba(103, 232, 249, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    0 0 0 2px rgba(103, 232, 249, 0.1),
+    0 0 10px rgba(103, 232, 249, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  opacity: 1;
   animation: clara-checkin-today-pulse 1.9s ease-in-out infinite;
 }
 
-.clara-checkin-pill {
+.clara-checkin-dot--missed {
+  border-color: rgba(251, 113, 133, 0.48);
+  background: rgba(244, 63, 94, 0.16);
+  box-shadow: 0 0 7px rgba(244, 63, 94, 0.14);
+}
+
+.clara-checkin-dot--missed::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 2px;
+  height: 1px;
+  border-radius: 999px;
+  background: rgba(254, 205, 211, 0.78);
+  transform: rotate(-45deg);
+  transform-origin: center;
+}
+
+.clara-checkin-pill,
+.clara-checkin-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(103, 232, 249, 0.24);
   border-radius: 999px;
-  background: rgba(8, 145, 178, 0.1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.clara-checkin-pill {
+  border: 1px solid rgba(103, 232, 249, 0.24);
+  background: rgba(8, 145, 178, 0.1);
   color: rgba(207, 250, 254, 0.86);
+}
+
+.clara-checkin-pill--complete {
+  border-color: rgba(110, 231, 183, 0.28);
+  background: rgba(16, 185, 129, 0.1);
+  color: rgba(209, 250, 229, 0.9);
+}
+
+.clara-checkin-action {
+  min-width: 66px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.075);
+  color: rgba(255, 255, 255, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 22px rgba(2, 8, 23, 0.16);
+}
+
+[data-check-in-state="completed-local"] .clara-checkin-action {
+  border-color: rgba(103, 232, 249, 0.2);
+  background: rgba(8, 145, 178, 0.1);
+  color: rgba(207, 250, 254, 0.86);
+}
+
+.clara-checkin-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  width: 100%;
+}
+
+.clara-checkin-metrics > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(2, 8, 23, 0.12);
+  padding: 4px 7px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.clara-checkin-metrics small {
+  overflow: hidden;
+  color: rgba(207, 250, 254, 0.52);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.clara-checkin-metrics strong {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
 
 .clara-checkin-celebration {
@@ -178,16 +269,16 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 1px rgba(103, 232, 249, 0.34),
-      0 0 8px rgba(103, 232, 249, 0.18),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      0 0 0 1px rgba(103, 232, 249, 0.12),
+      0 0 7px rgba(103, 232, 249, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   50% {
     box-shadow:
-      0 0 0 3px rgba(103, 232, 249, 0.13),
-      0 0 14px rgba(103, 232, 249, 0.34),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+      0 0 0 3px rgba(103, 232, 249, 0.11),
+      0 0 12px rgba(103, 232, 249, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
 }
 
@@ -223,6 +314,20 @@
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(1.4);
+  }
+}
+
+@media (max-width: 360px) {
+  .clara-checkin-grid {
+    gap-inline: 5px;
+  }
+
+  .clara-checkin-metrics small {
+    font-size: 6.5px;
+  }
+
+  .clara-checkin-metrics strong {
+    font-size: 8px;
   }
 }
 
