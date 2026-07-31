@@ -123,6 +123,7 @@ import "../life-stage-trend-graph-hide.css";
 // into the Settings overview. Security & privacy -> Backup & Transfer owns the
 // single user-facing sync control. Device reset remains available here.
 import "./installSettingsDeviceReset";
+import "./installSettingsLogoutRow";
 import "../settings-cleanup.css";
 import "../settings-priority.css";
 import "../settings-support-compose.css";
