@@ -23,6 +23,10 @@ function readActiveCurrentState() {
   }
 }
 
+function pluralizeDay(value) {
+  return `${value} ${value === 1 ? "day" : "days"}`;
+}
+
 export default function DailyTipCard({
   userId: providedUserId,
   hasCommittedAccess = true,
@@ -42,6 +46,7 @@ export default function DailyTipCard({
     todayKey,
     checkedInToday,
     completedCheckInDays,
+    challengeDay,
     challengeDotStates,
     challengeStatus,
     currentStreak,
@@ -51,32 +56,53 @@ export default function DailyTipCard({
   const [isFlipping, setIsFlipping] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationLevel, setCelebrationLevel] = useState("normal");
+  const [checkInFeedback, setCheckInFeedback] = useState("");
   const isFlippingRef = useRef(false);
   const flipUnlockTimerRef = useRef(null);
   const celebrationTimerRef = useRef(null);
   const [exiting, setExiting] = useState(false);
   const spacingClass = flushSpacing ? "px-3" : "px-3 mt-1.5";
   const isGuideStepActive = isGuideMode && isDailyTipGuideActive && guideStep === 0;
-  const cardEyebrow = isGuideMode ? "Daily Money Tip" : "Daily Check-In";
   const completedDayCount = Math.min(
     CHECK_IN_DAYS,
-    Math.max(0, completedCheckInDays || 0),
+    Math.max(0, Number(completedCheckInDays) || 0),
   );
+  const displayedChallengeDay = challengeStatus === "completed"
+    ? CHECK_IN_DAYS
+    : Math.min(CHECK_IN_DAYS, Math.max(1, Number(challengeDay) || 1));
+  const personalStreak = Math.max(0, Number(currentStreak) || 0);
   const cardHeadline = isGuideMode
-    ? "Today's money reminder"
+    ? "Today’s money reminder"
     : challengeStatus === "completed"
       ? "30-Day Challenge Complete"
-      : completedDayCount === 0
-        ? "Start Your 30-Day Challenge"
-        : `Day ${completedDayCount} of ${CHECK_IN_DAYS}`;
-  const cardSubtitle = isGuideMode
-    ? "Tap this card to learn what CLARA gives you each day."
-    : "Tap today to protect your money discipline.";
+      : `Day ${displayedChallengeDay} of ${CHECK_IN_DAYS}`;
   const cardStatus = isGuideMode
-    ? "Available"
+    ? "Guide demo"
+    : challengeStatus === "completed"
+      ? "30/30 complete"
+      : checkedInToday
+        ? "Checked in ✓"
+        : completedDayCount > 0
+          ? "Still competing"
+          : "Ready to start";
+  const cardSubtitle = checkInFeedback
+    ? checkInFeedback
+    : isGuideMode
+      ? "Tap to see how CLARA gives you one practical money reminder each day."
+      : challengeStatus === "completed"
+        ? "You completed all 30 local Daily Money Tip check-ins."
+        : checkedInToday
+          ? "Completed on this device. Tap to view today’s money tip."
+          : completedDayCount > 0
+            ? "Complete today’s check-in to continue your 30-day progress."
+            : "Complete today’s check-in to begin your 30-day progress.";
+  const actionLabel = isGuideMode
+    ? "Preview"
     : checkedInToday
-      ? "Checked in today"
-      : "Tap to check in";
+      ? "View tip"
+      : isFlipping
+        ? "Saving…"
+        : "Check in";
 
   const releaseFlipLock = () => {
     if (flipUnlockTimerRef.current) {
@@ -104,12 +130,14 @@ export default function DailyTipCard({
   useEffect(() => {
     if (!isGuideMode) return;
     setFlipped(false);
+    setCheckInFeedback("");
     releaseFlipLock();
   }, [isGuideMode, guideStep]);
 
   useEffect(() => {
     setFlipped(false);
     setShowCelebration(false);
+    setCheckInFeedback("");
     releaseFlipLock();
   }, [todayKey]);
 
@@ -151,7 +179,6 @@ export default function DailyTipCard({
 
     const startCelebration = () => {
       setShowCelebration(true);
-
       celebrationTimerRef.current = window.setTimeout(() => {
         setShowCelebration(false);
         celebrationTimerRef.current = null;
@@ -168,9 +195,7 @@ export default function DailyTipCard({
 
   const handleFlip = () => {
     if (isGuideMode) {
-      if (isGuideStepActive) {
-        onGuideDailyTipTap?.();
-      }
+      if (isGuideStepActive) onGuideDailyTipTap?.();
       return;
     }
 
@@ -182,7 +207,6 @@ export default function DailyTipCard({
     if (isFlippingRef.current) return;
 
     const willRevealTip = !flipped;
-
     isFlippingRef.current = true;
     setIsFlipping(true);
 
@@ -198,9 +222,18 @@ export default function DailyTipCard({
       checkInResult?.status === "already_checked_in";
 
     if (!mayRevealTip) {
+      if (checkInResult?.status === "identity_unavailable") {
+        setCheckInFeedback("Sign in with your CLARA account to save today’s check-in.");
+      } else if (checkInResult?.status === "busy") {
+        setCheckInFeedback("Today’s check-in is still being saved. Please tap again.");
+      } else {
+        setCheckInFeedback("We couldn’t save today’s check-in. Tap to retry.");
+      }
       releaseFlipLock();
       return;
     }
+
+    setCheckInFeedback("");
 
     if (checkInResult?.status === "completed") {
       triggerCheckInCelebration(checkInResult.milestoneType);
@@ -218,7 +251,6 @@ export default function DailyTipCard({
   const handleFlipTransitionEnd = (event) => {
     if (event.target !== event.currentTarget) return;
     if (event.propertyName !== "transform") return;
-
     releaseFlipLock();
   };
 
@@ -291,6 +323,7 @@ export default function DailyTipCard({
       <div
         role="button"
         tabIndex={0}
+        data-check-in-state={checkedInToday ? "completed-local" : "available"}
         onClick={handleFlip}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -303,13 +336,13 @@ export default function DailyTipCard({
             ? "Open the simulated Daily Money Tip guide step"
             : hasCommittedAccess
               ? checkedInToday
-                ? "Show today's Daily Money Tip"
+                ? "Show today’s Daily Money Tip"
                 : "Check in for today and reveal Daily Money Tip"
               : "Open the Committed Version to unlock Daily Check-In"
         }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
-        className={`group relative h-[clamp(132px,18dvh,150px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none transition-[box-shadow,filter,transform] duration-300 ${
+        className={`group relative h-[clamp(160px,21dvh,176px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none transition-[box-shadow,filter,transform] duration-300 ${
           isGuideStepActive
             ? "ring-2 ring-cyan-200/80 shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_0_42px_rgba(34,211,238,0.34)]"
             : ""
@@ -330,49 +363,68 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
-              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-4 py-3 text-white">
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto_auto] gap-y-1.5 px-4 py-3 text-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
-                    {cardEyebrow}
+                    Daily Money Tip
                   </div>
 
-                  <span className="clara-checkin-pill shrink-0 px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[0.08em]">
-                    {isGuideMode ? "Guide Demo" : `${currentStreak}-day streak`}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 py-1.5">
-                  <div className="min-w-0">
-                    <div className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white">
-                      {cardHeadline}
-                    </div>
-
-                    <p className="mt-1 max-w-[13rem] text-[10.5px] font-semibold leading-snug text-cyan-50/72">
-                      {cardSubtitle}
-                    </p>
-                  </div>
-
-                  <span className="shrink-0 rounded-full border border-white/12 bg-white/[0.07] px-2.5 py-1.5 text-right text-[8.5px] font-black uppercase leading-tight tracking-[0.12em] text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <span className={`clara-checkin-pill shrink-0 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.08em] ${
+                    checkedInToday ? "clara-checkin-pill--complete" : ""
+                  }`}>
                     {cardStatus}
                   </span>
                 </div>
 
-                <div className="pt-1">
-                  <div className="clara-checkin-grid" aria-hidden="true">
-                    {(challengeDotStates?.length ? challengeDotStates : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
-                      const isDone = Boolean(dot?.completed);
-                      const isToday = Boolean(dot?.today);
+                <div className="flex min-h-0 items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[clamp(18px,4.8vw,21px)] font-black leading-none tracking-[-0.035em] text-white">
+                      {cardHeadline}
+                    </div>
 
-                      return (
-                        <span
-                          key={dot?.dateKey || dotIndex}
-                          className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
-                            isToday ? "clara-checkin-dot--today" : ""
-                          }`}
-                        />
-                      );
-                    })}
+                    <p className={`mt-1 max-w-[14.5rem] text-[10px] font-semibold leading-[1.25] ${
+                      checkInFeedback ? "text-rose-200/90" : "text-cyan-50/72"
+                    }`}>
+                      {cardSubtitle}
+                    </p>
                   </div>
+
+                  <span className="clara-checkin-action shrink-0 px-3 py-2 text-[8px] font-black uppercase tracking-[0.12em]">
+                    {actionLabel}
+                  </span>
+                </div>
+
+                <div
+                  className="clara-checkin-grid"
+                  role="img"
+                  aria-label={`30-day progress: ${completedDayCount} of ${CHECK_IN_DAYS} completed`}
+                >
+                  {(challengeDotStates?.length ? challengeDotStates : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
+                    const isDone = Boolean(dot?.completed);
+                    const isToday = Boolean(dot?.today);
+                    const isMissed = Boolean(dot?.pastMissed);
+
+                    return (
+                      <span
+                        key={dot?.dateKey || dotIndex}
+                        aria-hidden="true"
+                        className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
+                          isToday ? "clara-checkin-dot--today" : ""
+                        } ${isMissed ? "clara-checkin-dot--missed" : ""}`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="clara-checkin-metrics" aria-label="Daily check-in summary">
+                  <span>
+                    <small>Personal streak</small>
+                    <strong>{pluralizeDay(personalStreak)}</strong>
+                  </span>
+                  <span>
+                    <small>30-day progress</small>
+                    <strong>{completedDayCount}/{CHECK_IN_DAYS}</strong>
+                  </span>
                 </div>
               </div>
             </div>
@@ -381,9 +433,12 @@ export default function DailyTipCard({
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
               <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-5 py-4 text-center text-white">
-                <div className="pt-1">
-                  <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
-                    Today&apos;s Money Tip
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
+                    Today’s Money Tip
+                  </span>
+                  <span className="rounded-full border border-cyan-200/15 bg-cyan-300/[0.06] px-2 py-1 text-[7.5px] font-black uppercase tracking-[0.1em] text-cyan-50/62">
+                    Saved locally
                   </span>
                 </div>
 
@@ -393,7 +448,12 @@ export default function DailyTipCard({
                   </p>
                 </div>
 
-                <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
+                <div>
+                  <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-cyan-100/25 to-transparent" />
+                  <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/42">
+                    Tap to return to progress
+                  </p>
+                </div>
               </div>
             </div>
           </div>
