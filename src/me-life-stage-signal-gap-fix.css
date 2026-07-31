@@ -13,7 +13,7 @@
   --clara-life-hero-min: 236px;
   --clara-life-hero-max: 284px;
   --clara-life-support-min: 102px;
-  --clara-life-pressure-dock-height: 46px;
+  --clara-life-pressure-dock-height: 56px;
   --clara-life-signal-snapshot-gap: 12px;
   --clara-life-snapshot-height: 236px;
   --clara-life-snapshot-carousel-height: 152px;
@@ -200,7 +200,7 @@
     --clara-life-hero-min: 214px;
     --clara-life-hero-max: 252px;
     --clara-life-support-min: 92px;
-    --clara-life-pressure-dock-height: 42px;
+    --clara-life-pressure-dock-height: 54px;
     --clara-life-signal-snapshot-gap: 10px;
     --clara-life-snapshot-height: 214px;
     --clara-life-snapshot-carousel-height: 140px;
@@ -241,7 +241,7 @@
     --clara-life-hero-min: 180px;
     --clara-life-hero-max: 208px;
     --clara-life-support-min: 78px;
-    --clara-life-pressure-dock-height: 40px;
+    --clara-life-pressure-dock-height: 52px;
     --clara-life-signal-snapshot-gap: 8px;
     --clara-life-snapshot-height: 192px;
     --clara-life-snapshot-carousel-height: 118px;
@@ -273,10 +273,10 @@
   }
 
   #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-support-card="true"] [data-clara-heart-cta="true"] {
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
-    min-height: 38px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 
   #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > [data-clara-pressure-signals="true"] {
