@@ -426,12 +426,9 @@ export default function DailyTipCard({
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
               <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-5 py-4 text-center text-white">
-                <div className="flex items-center justify-between gap-3 pt-1">
+                <div className="pt-1 text-center">
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
                     Today’s Money Tip
-                  </span>
-                  <span className="rounded-full border border-cyan-200/15 bg-cyan-300/[0.06] px-2 py-1 text-[7.5px] font-black uppercase tracking-[0.1em] text-cyan-50/62">
-                    Saved locally
                   </span>
                 </div>
 
