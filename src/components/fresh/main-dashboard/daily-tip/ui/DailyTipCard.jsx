@@ -142,6 +142,14 @@ export default function DailyTipCard({
   }, [todayKey]);
 
   useEffect(() => {
+    setCheckInFeedback("");
+  }, [userId]);
+
+  useEffect(() => {
+    if (checkedInToday) setCheckInFeedback("");
+  }, [checkedInToday]);
+
+  useEffect(() => {
     return () => {
       if (typeof window === "undefined") return;
 
