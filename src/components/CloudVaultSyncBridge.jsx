@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getBackendAccountId } from "@/lib/clara-account-identity";
+import { CLARA_LIFE_STAGE_UPDATED_EVENT } from "@/life-stage-flow";
 import {
   CLARA_MANUAL_ONLINE_SYNC_REQUEST_EVENT,
   CLARA_ONLINE_SYNC_POLICY_EVENT,
@@ -20,6 +21,7 @@ const SYNC_EVENTS = [
   "clara-income-hub-updated",
   "clara-local-profile-updated",
   "clara-local-setup-profile-updated",
+  CLARA_LIFE_STAGE_UPDATED_EVENT,
 ];
 
 export default function CloudVaultSyncBridge() {
@@ -79,7 +81,7 @@ export default function CloudVaultSyncBridge() {
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
         syncServerFinance({ user: userRef.current, forcePull }).catch(() => {
-          // The storage screen listens for the detailed status event.
+          // The storage screen listens for the detailed sync status event.
         });
       }, delay);
     };
