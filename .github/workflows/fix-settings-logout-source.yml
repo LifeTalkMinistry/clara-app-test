@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - ".github/workflows/fix-settings-logout-source.yml"
+  pull_request:
+    types: [opened]
+  workflow_dispatch:
 
 permissions:
   contents: write
