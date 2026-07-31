@@ -68,19 +68,32 @@
   transform: translate3d(0, 0, 1px) rotateY(180deg);
 }
 
+.clara-daily-tip-face--front > .relative.grid {
+  row-gap: 4px;
+  padding-top: 9px;
+}
+
+.clara-daily-tip-face--front > .relative.grid > :nth-child(2) {
+  align-items: flex-start;
+}
+
+.clara-daily-tip-face--front > .relative.grid > :nth-child(2) .clara-checkin-action {
+  margin-top: -1px;
+}
+
 .clara-checkin-grid {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 6px 8px;
-  width: min(100%, 236px);
+  gap: 5px 8px;
+  width: min(100%, 248px);
   padding: 1px 0;
 }
 
 .clara-checkin-dot {
   position: relative;
   display: block;
-  width: 9px;
-  height: 9px;
+  width: 11px;
+  height: 11px;
   margin: 0 auto;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 999px;
@@ -122,7 +135,7 @@
   position: absolute;
   left: 1px;
   right: 1px;
-  top: 3px;
+  top: 4px;
   height: 1px;
   border-radius: 999px;
   background: rgba(254, 205, 211, 0.78);
@@ -319,7 +332,7 @@
 
 @media (max-width: 360px) {
   .clara-checkin-grid {
-    gap-inline: 5px;
+    gap-inline: 6px;
   }
 
   .clara-checkin-metrics small {
