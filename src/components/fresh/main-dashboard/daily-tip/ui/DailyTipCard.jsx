@@ -82,11 +82,18 @@ export default function DailyTipCard({
       ? "Tap to see how CLARA gives you one practical money reminder each day."
       : challengeStatus === "completed"
         ? "You completed all 30 local Daily Money Tip check-ins."
-        : checkedInToday
-          ? ""
-          : completedDayCount > 0
-            ? "Complete today’s check-in to continue your 30-day progress."
-            : "Complete today’s check-in to begin your 30-day progress.";
+        : "";
+  const checkInPrompt = personalStreak > 0
+    ? `Keep your ${personalStreak}-day streak going. Check in today.`
+    : completedDayCount > 0
+      ? "Continue your 30-day progress. Check in today."
+      : "Start your 30-day streak. Check in today.";
+  const showProgressDots = Boolean(
+    isGuideMode ||
+      checkedInToday ||
+      challengeStatus === "completed" ||
+      checkInFeedback,
+  );
   const actionLabel = isGuideMode
     ? "Preview"
     : checkedInToday
@@ -387,27 +394,35 @@ export default function DailyTipCard({
                   </span>
                 </div>
 
-                <div
-                  className="clara-checkin-grid"
-                  role="img"
-                  aria-label={`30-day progress: ${completedDayCount} of ${CHECK_IN_DAYS} completed`}
-                >
-                  {(challengeDotStates?.length ? challengeDotStates : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
-                    const isDone = Boolean(dot?.completed);
-                    const isToday = Boolean(dot?.today);
-                    const isMissed = Boolean(dot?.pastMissed);
+                {showProgressDots ? (
+                  <div
+                    className="clara-checkin-grid"
+                    role="img"
+                    aria-label={`30-day progress: ${completedDayCount} of ${CHECK_IN_DAYS} completed`}
+                  >
+                    {(challengeDotStates?.length ? challengeDotStates : Array.from({ length: CHECK_IN_DAYS })).map((dot, dotIndex) => {
+                      const isDone = Boolean(dot?.completed);
+                      const isToday = Boolean(dot?.today);
+                      const isMissed = Boolean(dot?.pastMissed);
 
-                    return (
-                      <span
-                        key={dot?.dateKey || dotIndex}
-                        aria-hidden="true"
-                        className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
-                          isToday ? "clara-checkin-dot--today" : ""
-                        } ${isMissed ? "clara-checkin-dot--missed" : ""}`}
-                      />
-                    );
-                  })}
-                </div>
+                      return (
+                        <span
+                          key={dot?.dateKey || dotIndex}
+                          aria-hidden="true"
+                          className={`clara-checkin-dot ${isDone ? "clara-checkin-dot--done" : ""} ${
+                            isToday ? "clara-checkin-dot--today" : ""
+                          } ${isMissed ? "clara-checkin-dot--missed" : ""}`}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex min-h-[42px] items-center justify-center px-3 text-center">
+                    <p className="max-w-[16rem] text-[10.5px] font-bold leading-[1.35] text-cyan-50/78">
+                      {checkInPrompt}
+                    </p>
+                  </div>
+                )}
 
                 <div className="clara-checkin-metrics" aria-label="Daily check-in summary">
                   <span>
