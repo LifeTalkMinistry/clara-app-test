@@ -216,19 +216,69 @@
 }
 
 .clara-checkin-action {
+  position: relative;
+  isolation: isolate;
   min-width: 66px;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.13);
   background: rgba(255, 255, 255, 0.075);
   color: rgba(255, 255, 255, 0.76);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 8px 22px rgba(2, 8, 23, 0.16);
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+[data-check-in-state="available"] .clara-checkin-action {
+  border-color: rgba(165, 243, 252, 0.82);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.84), rgba(37, 99, 235, 0.72) 56%, rgba(79, 70, 229, 0.68));
+  color: rgba(240, 253, 255, 1);
+  text-shadow: 0 1px 8px rgba(207, 250, 254, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 0 1px rgba(103, 232, 249, 0.2),
+    0 0 14px rgba(34, 211, 238, 0.55),
+    0 0 28px rgba(59, 130, 246, 0.24),
+    0 8px 22px rgba(2, 8, 23, 0.2);
+  transform: translateZ(0) scale(1.02);
+  animation: clara-checkin-action-breathe 2.25s ease-in-out infinite;
+  will-change: transform, filter, box-shadow;
+}
+
+[data-check-in-state="available"] .clara-checkin-action::after {
+  content: "";
+  position: absolute;
+  inset: -55% -70%;
+  z-index: -1;
+  background: linear-gradient(
+    110deg,
+    transparent 36%,
+    rgba(255, 255, 255, 0.08) 43%,
+    rgba(255, 255, 255, 0.58) 50%,
+    rgba(207, 250, 254, 0.14) 57%,
+    transparent 64%
+  );
+  transform: translateX(-42%) rotate(8deg);
+  animation: clara-checkin-action-shimmer 3.25s ease-in-out infinite;
 }
 
 [data-check-in-state="completed-local"] .clara-checkin-action {
   border-color: rgba(103, 232, 249, 0.2);
   background: rgba(8, 145, 178, 0.1);
   color: rgba(207, 250, 254, 0.86);
+  text-shadow: none;
+  animation: none;
+  transform: none;
+}
+
+[data-check-in-state="completed-local"] .clara-checkin-action::after {
+  display: none;
 }
 
 .clara-checkin-metrics {
@@ -328,6 +378,53 @@
 .clara-checkin-spark--16 { --spark-x: 54px; --spark-y: -8px; --spark-rotate: 116deg; animation-delay: 62ms; }
 .clara-checkin-spark--17 { --spark-x: -18px; --spark-y: 38px; --spark-rotate: 28deg; animation-delay: 66ms; }
 .clara-checkin-spark--18 { --spark-x: 18px; --spark-y: -38px; --spark-rotate: 142deg; animation-delay: 70ms; }
+
+@keyframes clara-checkin-action-breathe {
+  0%,
+  100% {
+    filter: brightness(1);
+    transform: translateZ(0) scale(1.02);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 0 0 1px rgba(103, 232, 249, 0.18),
+      0 0 12px rgba(34, 211, 238, 0.46),
+      0 0 24px rgba(59, 130, 246, 0.2),
+      0 8px 22px rgba(2, 8, 23, 0.2);
+  }
+
+  50% {
+    filter: brightness(1.18);
+    transform: translateZ(0) scale(1.07);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.48),
+      0 0 0 3px rgba(103, 232, 249, 0.11),
+      0 0 20px rgba(34, 211, 238, 0.82),
+      0 0 34px rgba(59, 130, 246, 0.34),
+      0 10px 26px rgba(2, 8, 23, 0.24);
+  }
+}
+
+@keyframes clara-checkin-action-shimmer {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateX(-48%) rotate(8deg);
+  }
+
+  35% {
+    opacity: 0.9;
+  }
+
+  52% {
+    opacity: 0;
+    transform: translateX(48%) rotate(8deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(48%) rotate(8deg);
+  }
+}
 
 @keyframes clara-checkin-count-wave {
   0%,
@@ -449,6 +546,17 @@
 @media (prefers-reduced-motion: reduce) {
   .clara-daily-tip-flipper {
     transition-duration: 1ms;
+  }
+
+  [data-check-in-state="available"] .clara-checkin-action {
+    animation: none;
+    filter: none;
+    transform: none;
+  }
+
+  [data-check-in-state="available"] .clara-checkin-action::after {
+    display: none;
+    animation: none;
   }
 
   .clara-checkin-dot--done,
