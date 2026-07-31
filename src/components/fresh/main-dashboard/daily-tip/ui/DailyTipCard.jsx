@@ -76,15 +76,6 @@ export default function DailyTipCard({
     : challengeStatus === "completed"
       ? "30-Day Challenge Complete"
       : `Day ${displayedChallengeDay} of ${CHECK_IN_DAYS}`;
-  const cardStatus = isGuideMode
-    ? "Guide demo"
-    : challengeStatus === "completed"
-      ? "30/30 complete"
-      : checkedInToday
-        ? "Checked in ✓"
-        : completedDayCount > 0
-          ? "Still competing"
-          : "Ready to start";
   const cardSubtitle = checkInFeedback
     ? checkInFeedback
     : isGuideMode
@@ -99,10 +90,10 @@ export default function DailyTipCard({
   const actionLabel = isGuideMode
     ? "Preview"
     : checkedInToday
-      ? "View tip"
+      ? "Checked in ✓"
       : isFlipping
-        ? "Saving…"
-        : "Check in";
+        ? "Checking…"
+        : "Tap to check in";
 
   const releaseFlipLock = () => {
     if (flipUnlockTimerRef.current) {
@@ -372,16 +363,8 @@ export default function DailyTipCard({
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
               <div className="relative grid h-full grid-rows-[auto_1fr_auto_auto] gap-y-1.5 px-4 py-3 text-white">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
-                    Daily Money Tip
-                  </div>
-
-                  <span className={`clara-checkin-pill shrink-0 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.08em] ${
-                    checkedInToday ? "clara-checkin-pill--complete" : ""
-                  }`}>
-                    {cardStatus}
-                  </span>
+                <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
+                  Daily Money Tip
                 </div>
 
                 <div className="flex min-h-0 items-center justify-between gap-3">
