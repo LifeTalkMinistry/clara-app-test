@@ -23,6 +23,7 @@ import {
 import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import "./index.css";
+import "./settings-preferences-compact.css";
 import "./manual-expense-wallet-step.css";
 import "./guide-mode-stacking.css";
 import "./guide-mode-finance-spotlight.css";
