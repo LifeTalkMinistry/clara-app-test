@@ -83,11 +83,11 @@ export default function DailyTipCard({
       : challengeStatus === "completed"
         ? "You completed all 30 local Daily Money Tip check-ins."
         : "";
-  const checkInPrompt = personalStreak > 0
-    ? `Keep your ${personalStreak}-day streak going. Check in today.`
+  const checkInPromptLead = personalStreak > 0
+    ? `Keep your ${personalStreak}-day streak going.`
     : completedDayCount > 0
-      ? "Continue your 30-day progress. Check in today."
-      : "Start your 30-day streak. Check in today.";
+      ? "Continue your 30-day progress."
+      : "Start your 30-day streak.";
   const showProgressDots = Boolean(
     isGuideMode ||
       checkedInToday ||
@@ -419,7 +419,8 @@ export default function DailyTipCard({
                 ) : (
                   <div className="flex min-h-[48px] items-center justify-center px-4 text-center">
                     <p className="max-w-[19rem] text-[clamp(12px,3.15vw,13.5px)] font-extrabold leading-[1.4] tracking-[-0.015em] text-cyan-50/88">
-                      {checkInPrompt}
+                      <span className="block">{checkInPromptLead}</span>
+                      <span className="mt-0.5 block">Check in today.</span>
                     </p>
                   </div>
                 )}
