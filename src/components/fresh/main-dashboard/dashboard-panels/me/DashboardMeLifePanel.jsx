@@ -64,6 +64,13 @@ function readMeGuidePhase() {
   return "inactive";
 }
 
+function isUnselectedLifeStageHeart(event) {
+  const heart = event.target?.closest?.("[data-clara-heart-cta='true']");
+  if (!heart) return false;
+  const supportCard = heart.closest?.("[data-clara-support-card='true']");
+  return supportCard?.dataset?.claraSignalCardActive !== "true";
+}
+
 export default function DashboardMeLifePanel() {
   const [signals, setSignals] = useState(() => readEnvironmentSignals());
   const [meGuidePhase, setMeGuidePhase] = useState(() => readMeGuidePhase());
@@ -73,6 +80,12 @@ export default function DashboardMeLifePanel() {
   const signalTotal = Math.max(signalCount, 1);
   const guidePreviewMode = meGuidePhase === "me-page-preview" || meGuidePhase === "complete";
   const refresh = () => setSignals(readEnvironmentSignals());
+
+  const handleLifeStageInteractionCapture = (event) => {
+    if (!isUnselectedLifeStageHeart(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   useLayoutEffect(() => {
     if (!guidePreviewMode) return undefined;
@@ -201,6 +214,7 @@ export default function DashboardMeLifePanel() {
   return (
     <div
       data-clara-guide-me-preview={guidePreviewMode ? "true" : undefined}
+      onClickCapture={handleLifeStageInteractionCapture}
       className={`relative h-full min-h-0 rounded-[30px] bg-[#020817] shadow-[0_18px_52px_rgba(0,0,0,.24)] ${
         guidePreviewMode
           ? "z-[80] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_button]:cursor-default [&_a]:cursor-default"
