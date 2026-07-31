@@ -212,10 +212,18 @@ test("configured Me Life Stage structure and interactions are React-owned", () =
   assert.match(financialClimateSource, /data-clara-support-card="true"/);
   assert.match(financialClimateSource, /data-clara-trend-snapshot="true"/);
   assert.match(financialClimateSource, /onClick=\{handleHeartClick\}/);
+  assert.match(
+    financialClimateSource,
+    /const handleHeartClick = \(\) => \{\s*if \(!selectedSignalId\) return;/
+  );
+  assert.doesNotMatch(financialClimateSource, /selectedSignalId \|\| pressureSignals\[0\]/);
+  assert.match(financialClimateSource, /disabled=\{!selectedSignalId\}/);
+  assert.match(financialClimateSource, /h-11 w-11 min-w-\[44px\]/);
+  assert.match(financialClimateSource, /mx-auto flex min-w-max/);
   assert.doesNotMatch(financialClimateSource, /MutationObserver/);
-  assert.match(dashboardMeSource, /function isUnselectedLifeStageHeart/);
-  assert.match(dashboardMeSource, /onClickCapture=\{handleLifeStageInteractionCapture\}/);
-  assert.match(dashboardMeSource, /claraSignalCardActive !== "true"/);
+  assert.doesNotMatch(dashboardMeSource, /function isUnselectedLifeStageHeart/);
+  assert.doesNotMatch(dashboardMeSource, /handleLifeStageInteractionCapture/);
+  assert.doesNotMatch(dashboardMeSource, /onClickCapture=/);
 
   retiredMeRuntimeImports.forEach((runtimeName) => {
     const exactSideEffectImport = new RegExp(
