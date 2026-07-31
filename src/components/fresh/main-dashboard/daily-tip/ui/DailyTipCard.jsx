@@ -92,7 +92,7 @@ export default function DailyTipCard({
       : challengeStatus === "completed"
         ? "You completed all 30 local Daily Money Tip check-ins."
         : checkedInToday
-          ? "Completed on this device. Tap to view today’s money tip."
+          ? ""
           : completedDayCount > 0
             ? "Complete today’s check-in to continue your 30-day progress."
             : "Complete today’s check-in to begin your 30-day progress.";
@@ -390,11 +390,13 @@ export default function DailyTipCard({
                       {cardHeadline}
                     </div>
 
-                    <p className={`mt-1 max-w-[14.5rem] text-[10px] font-semibold leading-[1.25] ${
-                      checkInFeedback ? "text-rose-200/90" : "text-cyan-50/72"
-                    }`}>
-                      {cardSubtitle}
-                    </p>
+                    {cardSubtitle ? (
+                      <p className={`mt-1 max-w-[14.5rem] text-[10px] font-semibold leading-[1.25] ${
+                        checkInFeedback ? "text-rose-200/90" : "text-cyan-50/72"
+                      }`}>
+                        {cardSubtitle}
+                      </p>
+                    ) : null}
                   </div>
 
                   <span className="clara-checkin-action shrink-0 px-3 py-2 text-[8px] font-black uppercase tracking-[0.12em]">
