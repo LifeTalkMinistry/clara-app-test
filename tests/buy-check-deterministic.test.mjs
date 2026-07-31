@@ -21,8 +21,8 @@ const budget = (overrides = {}) => ({
   id: `budget-${Math.random()}`,
   title: "Food",
   amount: 5000,
-  start_date: "2026-06-01",
-  end_date: "2026-07-31",
+  start_date: "2000-01-01",
+  end_date: "2099-12-31",
   ...overrides,
 });
 const expense = (overrides = {}) => ({ amount: 1000, category: "food", date: "2026-06-30", ...overrides });
