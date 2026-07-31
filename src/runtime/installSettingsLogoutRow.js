@@ -1,6 +1,7 @@
 import { signOutFromClaraBackend } from "@/lib/clara-backend-client";
 
 const LOGOUT_ROW_ATTRIBUTE = "data-clara-settings-logout-row";
+const LOGOUT_SOURCE_ATTRIBUTE = "data-clara-settings-logout-source";
 const STYLE_ID = "clara-settings-logout-row-style";
 
 const logoutIcon = `
@@ -21,6 +22,10 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
+    body.clara-settings-active [${LOGOUT_SOURCE_ATTRIBUTE}] {
+      display: none !important;
+    }
+
     body.clara-settings-active [${LOGOUT_ROW_ATTRIBUTE}] {
       min-height: 4.55rem;
       width: 100%;
@@ -72,6 +77,7 @@ function installStyles() {
     }
 
     body.clara-settings-active [${LOGOUT_ROW_ATTRIBUTE}] .clara-settings-logout-title {
+      display: block;
       margin: 0;
       color: rgba(255,255,255,0.93);
       font-size: 0.875rem;
@@ -80,6 +86,7 @@ function installStyles() {
     }
 
     body.clara-settings-active [${LOGOUT_ROW_ATTRIBUTE}] .clara-settings-logout-description {
+      display: block;
       margin: 0.25rem 0 0;
       overflow: hidden;
       color: rgba(203,213,225,0.48);
@@ -94,6 +101,11 @@ function installStyles() {
       height: 1rem;
       flex: 0 0 auto;
       color: rgba(226,232,240,0.27);
+    }
+
+    body.clara-settings-active [${LOGOUT_ROW_ATTRIBUTE}] .clara-settings-logout-chevron svg {
+      width: 100%;
+      height: 100%;
     }
   `;
   document.head.appendChild(style);
@@ -120,6 +132,22 @@ function findOriginalLogoutButton(settingsRoot) {
     const text = button.textContent?.trim()?.toLowerCase() || "";
     return text === "log out" || text === "logging out...";
   });
+}
+
+function hideStandaloneLogoutSource(settingsRoot, programSection) {
+  const originalButton = findOriginalLogoutButton(settingsRoot);
+  const originalSection = originalButton?.closest("section");
+
+  if (
+    originalSection &&
+    originalSection !== programSection &&
+    originalSection.parentElement === settingsRoot
+  ) {
+    originalSection.setAttribute(LOGOUT_SOURCE_ATTRIBUTE, "true");
+    originalSection.style.setProperty("display", "none", "important");
+  }
+
+  return originalButton;
 }
 
 function buildLogoutRow(settingsRoot) {
@@ -171,6 +199,8 @@ function ensureLogoutRow() {
   );
   const programRows = programSection?.querySelector(":scope > .space-y-2\\.5");
   if (!programRows) return;
+
+  hideStandaloneLogoutSource(settingsRoot, programSection);
 
   if (programRows.querySelector(`[${LOGOUT_ROW_ATTRIBUTE}]`)) return;
 
