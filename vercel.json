@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/clara-api/:path*",
-      "destination": "https://cooper-beverages-infrared-neo.trycloudflare.com/:path*"
+      "destination": "https://myself-infinite-road-bookmark.trycloudflare.com/:path*"
     }
   ]
 }
