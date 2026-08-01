@@ -229,3 +229,5 @@ jobs:
           fi
           git commit -m "Keep manual expense fields above mobile keyboard"
           git push origin HEAD:main
+
+# One-time trigger after the workflow was registered on main.
