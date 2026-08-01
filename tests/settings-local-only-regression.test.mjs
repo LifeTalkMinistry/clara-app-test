@@ -9,6 +9,9 @@ const activeSettingsSource = readSource(
   "src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx"
 );
 const dataExportSource = readSource("src/pages/DataExport.jsx");
+const deviceTransferSource = readSource(
+  "src/components/device-transfer/DeviceTransferPanel.jsx"
+);
 const appSource = readSource("src/App.jsx");
 const mainSource = readSource("src/main.jsx");
 const loginSource = readSource("src/pages/Login.jsx");
@@ -130,21 +133,22 @@ test("login and AuthContext use the custom backend instead of Supabase auth", ()
   assert.doesNotMatch(authContextSource, /device-local and does not use user accounts/);
 });
 
-test("Move & Restore Data owns one simple manual action plus backup", () => {
-  assert.match(dataExportSource, /Move & Restore Data/);
-  assert.match(dataExportSource, /Your saved CLARA data/);
-  assert.match(dataExportSource, /Save this device's data/);
-  assert.match(dataExportSource, /Bring saved data to this device/);
-  assert.match(dataExportSource, /Sync now/);
+test("Backup & Transfer owns explicit device roles plus separate backup files", () => {
+  assert.match(dataExportSource, /Backup & Transfer/);
+  assert.match(dataExportSource, /No automatic replacement/);
+  assert.match(dataExportSource, /DeviceTransferPanel/);
+  assert.match(deviceTransferSource, /Send data to another device/);
+  assert.match(deviceTransferSource, /Receive data on this device/);
+  assert.match(deviceTransferSource, /Approve this device/);
+  assert.match(deviceTransferSource, /Migrate to this device now/);
   assert.match(dataExportSource, /Download backup/);
-  assert.match(dataExportSource, /Restore from backup/);
+  assert.match(dataExportSource, /Restore from backup file/);
   assert.match(dataExportSource, /restoreClaraPrivateBackupFile/);
   assert.match(dataExportSource, /accept="application\/json,\.json"/);
   assert.match(dataExportSource, /window\.location\.reload\(\)/);
-  assert.doesNotMatch(dataExportSource, /Revision \{/);
+  assert.doesNotMatch(dataExportSource, /syncServerFinance/);
   assert.doesNotMatch(dataExportSource, /One account database across devices/);
   assert.doesNotMatch(dataExportSource, /source of truth/i);
-  assert.doesNotMatch(dataExportSource, /database initialization/i);
 });
 
 test("router preserves /data-export and retires the legacy account-based Settings surface", () => {
