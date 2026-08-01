@@ -19,7 +19,11 @@ test("budget reset refreshes authoritative server versions before local mutation
   assert.match(financeRepositorySource, /function isBudgetResetPatch\(patch = \{\}\)/);
   assert.match(
     financeRepositorySource,
-    /await syncServerFinance\(\{ user, forcePull: true \}\);/,
+    /await syncServerFinance\(\{ user \}\);/,
+  );
+  assert.doesNotMatch(
+    financeRepositorySource,
+    /syncServerFinance\(\{ user, forcePull: true \}\)/,
   );
   assert.match(
     financeRepositorySource,
