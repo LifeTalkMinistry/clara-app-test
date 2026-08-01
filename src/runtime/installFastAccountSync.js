@@ -18,6 +18,7 @@ const INSTALL_FLAG = "__claraFastAccountSyncInstalled";
 const VISIBLE_STATUS_INTERVAL_MS = 15_000;
 const RATE_LIMIT_BACKOFF_MS = 15 * 60 * 1000;
 const SYNC_STATE_PREFIX = "clara_server_finance_sync_v1:";
+const ACTIVE_VAULT_REPAIR_PREFIX = "clara_active_vault_sync_repair_v1:";
 let syncInFlight = false;
 let pausedDataCheckPromise = null;
 let rateLimitedUntil = 0;
@@ -29,8 +30,12 @@ function canReachAccount() {
   return true;
 }
 
+function accountIdFor(user) {
+  return String(getBackendAccountId(user) || "").trim();
+}
+
 function readLocalRevision(user) {
-  const accountId = String(getBackendAccountId(user) || "").trim();
+  const accountId = accountIdFor(user);
   if (!accountId) return 0;
 
   try {
@@ -40,6 +45,31 @@ function readLocalRevision(user) {
     return Number.isFinite(revision) ? revision : 0;
   } catch {
     return 0;
+  }
+}
+
+function activeVaultRepairKey(user) {
+  return `${ACTIVE_VAULT_REPAIR_PREFIX}${accountIdFor(user)}`;
+}
+
+function hasRepairedActiveVault(user) {
+  const key = activeVaultRepairKey(user);
+  if (!key || key === ACTIVE_VAULT_REPAIR_PREFIX) return true;
+  try {
+    return window.localStorage.getItem(key) === String(user?.id || "").trim();
+  } catch {
+    return false;
+  }
+}
+
+function markActiveVaultRepaired(user) {
+  const key = activeVaultRepairKey(user);
+  const localVaultId = String(user?.id || "").trim();
+  if (!localVaultId || !key || key === ACTIVE_VAULT_REPAIR_PREFIX) return;
+  try {
+    window.localStorage.setItem(key, localVaultId);
+  } catch {
+    // A later foreground refresh can repeat the safe recovery pull.
   }
 }
 
@@ -132,6 +162,21 @@ async function synchronizePausedDevice(user, localUserId, pausedSnapshot) {
   }
 }
 
+async function repairActiveVaultIfNeeded(user) {
+  if (hasRepairedActiveVault(user) || Date.now() < rateLimitedUntil) return false;
+
+  try {
+    const result = await syncServerFinance({ user, forcePull: true });
+    if (result && result.state !== "offline") {
+      markActiveVaultRepaired(user);
+    }
+    return result?.state === "synced";
+  } catch (error) {
+    noteRateLimit(error);
+    throw error;
+  }
+}
+
 async function refreshAccountState() {
   if (!canReachAccount() || syncInFlight) return;
 
@@ -148,6 +193,11 @@ async function refreshAccountState() {
       await synchronizePausedDevice(user, localUserId, pausedSnapshot);
       return;
     }
+
+    // Earlier builds downloaded server records into the raw backend account ID
+    // instead of the active local vault ID. One forced pull repairs devices whose
+    // saved revision already matches the server but whose visible vault is empty.
+    if (await repairActiveVaultIfNeeded(user)) return;
 
     // Poll the read-only status endpoint instead of POSTing /finance/sync every
     // few seconds. A write sync is performed only when another device has moved
