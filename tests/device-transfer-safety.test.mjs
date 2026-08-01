@@ -34,16 +34,26 @@ test("device transfer is deliberate and never installed as a startup sync runtim
   assert.match(panelSource, /Migrate to this device now/);
 });
 
-test("receiving data stages a new vault and verifies it before switching", () => {
+test("receiving data stages an isolated vault and verifies it before switching", () => {
   assert.match(vaultSource, /const newVaultId = createLocalVaultId\(\)/);
   assert.match(vaultSource, /await saveRecoveryRecord\([\s\S]*status: "staging"/);
+  assert.match(vaultSource, /namespaceTransferredFinanceRecordIds/);
+  assert.match(vaultSource, /`transfer:\$\{targetVaultId\}:\$\{oldId\}`/);
   assert.match(
     vaultSource,
-    /restoreClaraLocalDataFromFile\([\s\S]*actualFinanceRecordCount\(newVaultId\)[\s\S]*actualRecords !== expectedRecords/
+    /restoreClaraLocalDataFromFile\([\s\S]*indexedDbOnly\(transferPrepared\)/
+  );
+  assert.match(
+    vaultSource,
+    /actualFinanceRecordCount\(newVaultId\)[\s\S]*actualRecords !== expectedRecords/
   );
   assert.match(
     vaultSource,
     /actualRecords !== expectedRecords[\s\S]*switchAccountVault\(/
+  );
+  assert.match(
+    vaultSource,
+    /switchAccountVault\([\s\S]*storageOnly\(transferPrepared\)/
   );
   assert.match(vaultSource, /clearLocalUserPrivateData\(newVaultId\)/);
   assert.match(vaultSource, /rollbackLastDeviceTransfer/);
@@ -57,4 +67,10 @@ test("transfer API requires authenticated one-time sender and receiver capabilit
   assert.match(clientSource, /\/complete/);
   assert.match(panelSource, /fetchDeviceTransferPackage/);
   assert.match(panelSource, /completeDeviceTransfer/);
+});
+
+test("a lost cleanup acknowledgement cannot turn a verified local import into a failure", () => {
+  assert.match(clientSource, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
+  assert.match(clientSource, /status: "consumed"/);
+  assert.match(clientSource, /completionPending: true/);
 });
