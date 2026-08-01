@@ -3,7 +3,6 @@ import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
-import CloudVaultSyncBridge from "@/components/CloudVaultSyncBridge";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
@@ -23,9 +22,6 @@ import {
 import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRuntime";
 import "./runtime/installClaraRuntimePatches";
 import "./runtime/installManualExpenseKeyboardGuard";
-import "./runtime/installLocalFinanceSyncGuard";
-import "./runtime/installFastAccountSync";
-import "./runtime/installAccountStreakSyncBridge";
 import "./index.css";
 import "./manual-expense-wallet-step.css";
 import "./guide-mode-stacking.css";
@@ -200,7 +196,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <QueryClientProvider client={queryClientInstance}>
         <AuthProvider>
           <ThemeProvider>
-            <CloudVaultSyncBridge />
             <HashRouter>
               <RootApplication />
             </HashRouter>
