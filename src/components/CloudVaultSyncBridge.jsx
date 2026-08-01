@@ -33,6 +33,7 @@ const SYNC_EVENTS = [
 const MUTATION_PREFLIGHT_HOOK = "__claraPrepareServerFinanceMutation";
 const FOREGROUND_SYNC_INTERVAL_MS = 60_000;
 const PREFLIGHT_FRESH_MS = 2_500;
+const RATE_LIMIT_BACKOFF_MS = 15 * 60 * 1000;
 const DEVICE_ONLY_STORAGE_KEY_PATTERN = /^clara_daily_check_in_/i;
 const SERVER_SYNC_METADATA_PREFIXES = [
   "clara_server_finance_sync_v1:",
@@ -132,6 +133,7 @@ export default function CloudVaultSyncBridge() {
   const userRef = useRef(user);
   const preflightPromiseRef = useRef(null);
   const lastPreflightAtRef = useRef(0);
+  const rateLimitedUntilRef = useRef(0);
   const [syncPaused, setSyncPaused] = useState(() => isOnlineSyncPaused());
 
   useEffect(() => {
@@ -149,14 +151,36 @@ export default function CloudVaultSyncBridge() {
   useEffect(() => {
     if (!authReady || !accountId) return undefined;
 
-    const runSync = ({ forcePull = false, resumeAfter = false } = {}) =>
-      syncServerFinance({ user: userRef.current, forcePull }).then((result) => {
-        if (result?.state === "synced") {
-          lastPreflightAtRef.current = Date.now();
-          if (resumeAfter) resumeOnlineSync();
-        }
-        return result;
-      });
+    const isRateLimited = () => Date.now() < rateLimitedUntilRef.current;
+
+    const runSync = ({ forcePull = false, resumeAfter = false } = {}) => {
+      if (isRateLimited()) {
+        return Promise.resolve({
+          state: "rate_limited",
+          rateLimited: true,
+          retryAt: new Date(rateLimitedUntilRef.current).toISOString(),
+        });
+      }
+
+      return syncServerFinance({ user: userRef.current, forcePull })
+        .then((result) => {
+          if (result?.state === "synced") {
+            rateLimitedUntilRef.current = 0;
+            lastPreflightAtRef.current = Date.now();
+            if (resumeAfter) resumeOnlineSync();
+          }
+          return result;
+        })
+        .catch((error) => {
+          if (Number(error?.status || 0) === 429) {
+            rateLimitedUntilRef.current = Math.max(
+              rateLimitedUntilRef.current,
+              Date.now() + RATE_LIMIT_BACKOFF_MS
+            );
+          }
+          throw error;
+        });
+    };
 
     const handleManualSync = (event) => {
       if (isApplyingServerFinanceState()) return;
@@ -186,7 +210,7 @@ export default function CloudVaultSyncBridge() {
     }
 
     const scheduleSync = ({ immediate = false, forcePull = false } = {}) => {
-      if (isApplyingServerFinanceState()) return;
+      if (isApplyingServerFinanceState() || isRateLimited()) return;
       if (timerRef.current) window.clearTimeout(timerRef.current);
       const delay = immediate ? 0 : 1_500;
       timerRef.current = window.setTimeout(() => {
@@ -200,6 +224,14 @@ export default function CloudVaultSyncBridge() {
     const prepareMutation = async ({ localUserId } = {}) => {
       if (isApplyingServerFinanceState() || isOnlineSyncPaused()) {
         return { skipped: true };
+      }
+
+      if (isRateLimited()) {
+        return {
+          skipped: true,
+          rateLimited: true,
+          retryAt: new Date(rateLimitedUntilRef.current).toISOString(),
+        };
       }
 
       const activeUser = userRef.current;
