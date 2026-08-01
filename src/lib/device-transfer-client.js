@@ -17,9 +17,15 @@ function encode(value) {
   return encodeURIComponent(String(value || ""));
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export function getCurrentDeviceLabel() {
   if (typeof navigator === "undefined") return "CLARA device";
-  const platform = String(navigator.userAgentData?.platform || navigator.platform || "").trim();
+  const platform = String(
+    navigator.userAgentData?.platform || navigator.platform || ""
+  ).trim();
   const agent = String(navigator.userAgent || "");
   let browser = "Browser";
   if (/edg/i.test(agent)) browser = "Edge";
@@ -55,7 +61,9 @@ export async function claimDeviceTransfer(code) {
 
 export async function getDeviceTransferStatus({ transferId, token, role }) {
   return backendRequest(
-    `/api/device-transfers/${encode(transferId)}/status?role=${encode(role)}&token=${encode(token)}`,
+    `/api/device-transfers/${encode(transferId)}/status?role=${encode(
+      role
+    )}&token=${encode(token)}`,
     { token: requireToken() }
   );
 }
@@ -70,17 +78,40 @@ export async function approveDeviceTransfer({ transferId, senderToken }) {
 
 export async function fetchDeviceTransferPackage({ transferId, receiverToken }) {
   return backendRequest(
-    `/api/device-transfers/${encode(transferId)}/package?receiverToken=${encode(receiverToken)}`,
+    `/api/device-transfers/${encode(
+      transferId
+    )}/package?receiverToken=${encode(receiverToken)}`,
     { token: requireToken(), timeoutMs: 30_000 }
   );
 }
 
 export async function completeDeviceTransfer({ transferId, receiverToken }) {
-  return backendRequest(`/api/device-transfers/${encode(transferId)}/complete`, {
-    method: "POST",
-    token: requireToken(),
-    body: { receiverToken },
-  });
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await backendRequest(
+        `/api/device-transfers/${encode(transferId)}/complete`,
+        {
+          method: "POST",
+          token: requireToken(),
+          body: { receiverToken },
+        }
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await wait(700 * (attempt + 1));
+    }
+  }
+
+  // The protected local import has already completed and must never be reported
+  // as failed only because the final server cleanup acknowledgement was lost.
+  // The encrypted package still expires automatically after ten minutes.
+  return {
+    status: "consumed",
+    completionPending: true,
+    completionWarning:
+      lastError?.message || "Server cleanup will finish when the transfer expires.",
+  };
 }
 
 export async function cancelDeviceTransfer({ transferId, token }) {
