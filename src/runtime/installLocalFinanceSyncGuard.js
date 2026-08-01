@@ -2,6 +2,8 @@ const INSTALL_FLAG = "__claraLocalFinanceSyncGuardInstalled";
 const FINANCE_DB_NAME = "clara_local_finance";
 const FINANCE_UPDATED_EVENT = "clara-local-finance-updated";
 const WRITE_METHODS = ["add", "put", "delete", "clear"];
+const trackedTransactions = new WeakSet();
+const transactionChanges = new WeakMap();
 
 function dispatchFinanceUpdated(detail = {}) {
   if (typeof window === "undefined") return;
@@ -15,19 +17,29 @@ function dispatchFinanceUpdated(detail = {}) {
   );
 }
 
-function installTransactionCompletionNotice(transaction, detail) {
-  if (!transaction || transaction.__claraSyncNoticeInstalled) return;
-  transaction.__claraSyncNoticeInstalled = true;
-  const changes = [];
-  transaction.__claraSyncChanges = changes;
+function getTransactionChanges(transaction) {
+  if (!transaction) return null;
 
-  transaction.addEventListener(
-    "complete",
-    () => {
-      dispatchFinanceUpdated({ changes: [...changes] });
-    },
-    { once: true }
-  );
+  if (!trackedTransactions.has(transaction)) {
+    trackedTransactions.add(transaction);
+    transactionChanges.set(transaction, []);
+    transaction.addEventListener(
+      "complete",
+      () => {
+        const changes = transactionChanges.get(transaction) || [];
+        dispatchFinanceUpdated({ changes: [...changes] });
+        transactionChanges.delete(transaction);
+      },
+      { once: true }
+    );
+    transaction.addEventListener(
+      "abort",
+      () => transactionChanges.delete(transaction),
+      { once: true }
+    );
+  }
+
+  return transactionChanges.get(transaction) || null;
 }
 
 export function installLocalFinanceSyncGuard() {
@@ -51,8 +63,7 @@ export function installLocalFinanceSyncGuard() {
       const databaseName = transaction?.db?.name || "";
 
       if (databaseName === FINANCE_DB_NAME) {
-        installTransactionCompletionNotice(transaction);
-        transaction.__claraSyncChanges?.push({
+        getTransactionChanges(transaction)?.push({
           storeName: this?.name || null,
           operation: methodName,
         });
@@ -63,7 +74,13 @@ export function installLocalFinanceSyncGuard() {
 
     wrapped.__claraSyncWrapped = true;
     wrapped.__claraSyncOriginal = original;
-    prototype[methodName] = wrapped;
+
+    try {
+      prototype[methodName] = wrapped;
+    } catch {
+      // Some embedded WebViews may expose a non-writable prototype. CLARA keeps
+      // running and falls back to the explicit feature events and foreground sync.
+    }
   });
 }
 
