@@ -33,7 +33,7 @@ test("legacy storage mode helpers remain readable for existing installs", () => 
   assert.equal(getClaraStorageModeKey("7"), "clara_storage_mode_v1:7");
 });
 
-test("private backup implementation excludes auth, vault mapping, and device identity secrets", async () => {
+test("private backup excludes auth, vault mapping, and device identity secrets", async () => {
   const source = await fs.readFile(
     new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
     "utf8"
@@ -49,43 +49,28 @@ test("private backup implementation excludes auth, vault mapping, and device ide
   assert.match(source, /CLOUD_SNAPSHOT_ACCOUNT_MISMATCH/);
 });
 
-test("Daily Check-In remains device-only during server sync", async () => {
-  const syncSource = await fs.readFile(
-    new URL("../src/lib/server-finance-sync.js", import.meta.url),
-    "utf8",
-  );
+test("personal backup preserves Daily Check-In data", async () => {
   const snapshotSource = await fs.readFile(
     new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
-    "utf8",
+    "utf8"
   );
   const localExportSource = await fs.readFile(
     new URL("../src/lib/local-data-export.js", import.meta.url),
-    "utf8",
+    "utf8"
   );
 
-  assert.match(snapshotSource, /DEVICE_ONLY_STORAGE_KEY_PATTERN\s*=\s*\/\^clara_daily_check_in_\/i/);
+  assert.match(
+    snapshotSource,
+    /DEVICE_ONLY_STORAGE_KEY_PATTERN\s*=\s*\/\^clara_daily_check_in_\/i/
+  );
   assert.match(snapshotSource, /export function isDeviceOnlyStorageKey\(key\)/);
   assert.match(
     snapshotSource,
-    /sanitizeCloudLocalStorage\([\s\S]*includeDeviceOnly = false[\s\S]*!includeDeviceOnly && isDeviceOnlyStorageKey\(key\)/,
+    /downloadClaraPrivateBackup[\s\S]*includeDeviceOnly:\s*true/
   );
   assert.match(
     snapshotSource,
-    /prepareCloudSnapshotForRestore\([\s\S]*includeDeviceOnly = false[\s\S]*!includeDeviceOnly && isDeviceOnlyStorageKey\(rewrittenKey\)/,
-  );
-  assert.match(
-    snapshotSource,
-    /clearCloudRestoreStorage\([\s\S]*includeDeviceOnly = false[\s\S]*!includeDeviceOnly && isDeviceOnlyStorageKey\(key\)/,
-  );
-  assert.match(syncSource, /!isDeviceOnlyStorageKey\(record\.id\)/);
-
-  assert.match(
-    snapshotSource,
-    /downloadClaraPrivateBackup[\s\S]*includeDeviceOnly:\s*true/,
-  );
-  assert.match(
-    snapshotSource,
-    /restoreClaraPrivateBackupFile[\s\S]*includeDeviceOnly:\s*true/,
+    /restoreClaraPrivateBackupFile[\s\S]*includeDeviceOnly:\s*true/
   );
 
   assert.match(localExportSource, /clara_daily_check_in_v1/);
@@ -93,13 +78,13 @@ test("Daily Check-In remains device-only during server sync", async () => {
   assert.match(localExportSource, /clara_daily_check_in_v3:/);
 });
 
-test("server finance sync keeps the manual control under simple user-facing Privacy copy", async () => {
-  const syncSource = await fs.readFile(
-    new URL("../src/lib/server-finance-sync.js", import.meta.url),
+test("the production app has no automatic or manual server finance sync path", async () => {
+  const mainSource = await fs.readFile(
+    new URL("../src/main.jsx", import.meta.url),
     "utf8"
   );
-  const bridgeSource = await fs.readFile(
-    new URL("../src/components/CloudVaultSyncBridge.jsx", import.meta.url),
+  const repositorySource = await fs.readFile(
+    new URL("../src/lib/financeRepository.js", import.meta.url),
     "utf8"
   );
   const storageScreen = await fs.readFile(
@@ -107,25 +92,24 @@ test("server finance sync keeps the manual control under simple user-facing Priv
     "utf8"
   );
 
-  assert.match(syncSource, /\/api\/finance\/bootstrap/);
-  assert.match(syncSource, /\/api\/finance\/sync/);
-  assert.match(syncSource, /firstServerPull/);
-  assert.match(syncSource, /const changes = \[\]/);
-  assert.match(syncSource, /replaceLocalCacheFromServer/);
-  assert.match(syncSource, /initializedLocally/);
-  assert.match(bridgeSource, /syncServerFinance/);
-  assert.doesNotMatch(bridgeSource, /syncClaraCloudVault/);
-  assert.match(storageScreen, /SECURITY & PRIVACY/);
-  assert.match(storageScreen, /Move & Restore Data/);
-  assert.match(storageScreen, /Save this device's data/);
-  assert.match(storageScreen, /Bring saved data to this device/);
-  assert.match(storageScreen, /Your CLARA data will not appear automatically/);
-  assert.doesNotMatch(storageScreen, /Revision \{/);
-  assert.doesNotMatch(storageScreen, /One account database across devices/);
-  assert.doesNotMatch(storageScreen, /source of truth/i);
+  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
+  assert.doesNotMatch(mainSource, /installFastAccountSync/);
+  assert.doesNotMatch(mainSource, /installAccountStreakSyncBridge/);
+  assert.doesNotMatch(mainSource, /installEmergencyLocalFinanceRecovery/);
+  assert.doesNotMatch(mainSource, /installLocalFinanceSyncGuard/);
+
+  assert.doesNotMatch(repositorySource, /server-finance-sync/);
+  assert.doesNotMatch(repositorySource, /prepareServerVersionBeforeMutation/);
+  assert.doesNotMatch(repositorySource, /__claraPrepareServerFinanceMutation/);
+
+  assert.match(storageScreen, /Backup & Restore/);
+  assert.match(storageScreen, /Automatic online sync and cross-device replacement are disabled/);
+  assert.doesNotMatch(storageScreen, /syncServerFinance/);
+  assert.doesNotMatch(storageScreen, /\/api\/finance\/sync/);
+  assert.doesNotMatch(storageScreen, /Bring saved data to this device/);
 });
 
-test("legacy cloud vault remains available only as backup/recovery plumbing", async () => {
+test("legacy cloud vault remains available only as backup and recovery plumbing", async () => {
   const syncSource = await fs.readFile(
     new URL("../src/lib/cloud-vault-sync.js", import.meta.url),
     "utf8"
