@@ -24,41 +24,18 @@ test("backend account identity never aliases an AuthContext local vault id", () 
   );
 });
 
-test("cloud snapshots and automatic sync use stable backend account ownership", async () => {
+test("private snapshots use stable account ownership without treating a local vault as an account", async () => {
   const snapshot = await fs.readFile(
     new URL("../src/lib/cloud-vault-snapshot.js", import.meta.url),
-    "utf8"
-  );
-  const sync = await fs.readFile(
-    new URL("../src/lib/cloud-vault-sync.js", import.meta.url),
-    "utf8"
-  );
-  const bridge = await fs.readFile(
-    new URL("../src/components/CloudVaultSyncBridge.jsx", import.meta.url),
     "utf8"
   );
 
   assert.match(snapshot, /getBackendAccountId/);
   assert.match(snapshot, /normalizeAuthenticatedCloudSnapshot/);
   assert.doesNotMatch(snapshot, /const accountId = text\(user\?\.id\)/);
-
-  assert.match(sync, /getBackendAccountId/);
-  assert.match(sync, /normalizeAuthenticatedRemote/);
-  assert.doesNotMatch(sync, /String\(user\?\.id \|\| ""\)\.trim\(\)/);
-
-  assert.match(bridge, /getBackendAccountId/);
-  assert.doesNotMatch(bridge, /getClaraStorageMode\(context\.user\?\.id\)/);
 });
 
-test("server finance refresh cannot feed back into another sync or let stale dashboard cache win", async () => {
-  const serverSync = await fs.readFile(
-    new URL("../src/lib/server-finance-sync.js", import.meta.url),
-    "utf8"
-  );
-  const bridge = await fs.readFile(
-    new URL("../src/components/CloudVaultSyncBridge.jsx", import.meta.url),
-    "utf8"
-  );
+test("dashboard refreshes local finance data without allowing stale cached values to win", async () => {
   const financeRefreshEvents = await fs.readFile(
     new URL(
       "../src/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents.js",
@@ -74,12 +51,6 @@ test("server finance refresh cannot feed back into another sync or let stale das
     "utf8"
   );
 
-  assert.match(serverSync, /CLARA_SERVER_FINANCE_EVENT_SOURCE = "server_authority"/);
-  assert.match(serverSync, /dispatchServerAppliedEvents\(\);[\s\S]*finally \{[\s\S]*applyingServerState = false/);
-  assert.match(serverSync, /serverRevision !== localRevision/);
-  assert.match(serverSync, /cacheApplied: shouldApplyServerState/);
-  assert.match(bridge, /event\?\.detail\?\.source === CLARA_SERVER_FINANCE_EVENT_SOURCE/);
-
   assert.doesNotMatch(financeRefreshEvents, /"clara-finance-updated"/);
   assert.match(financeRefreshEvents, /scheduleRefresh\(\{ financeOnly: true \}\)/);
   assert.match(scheduledRefresh, /if \(financeOnly\)/);
@@ -87,6 +58,19 @@ test("server finance refresh cannot feed back into another sync or let stale das
     scheduledRefresh,
     /await loadDashboardData\(\{ background: true \}\);[\s\S]*await refreshFinancialData\?\.\(\)/
   );
+});
+
+test("production startup contains no automatic sync, repair, or recovery runtime", async () => {
+  const mainSource = await fs.readFile(
+    new URL("../src/main.jsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
+  assert.doesNotMatch(mainSource, /installFastAccountSync/);
+  assert.doesNotMatch(mainSource, /installAccountStreakSyncBridge/);
+  assert.doesNotMatch(mainSource, /installEmergencyLocalFinanceRecovery/);
+  assert.doesNotMatch(mainSource, /installLocalFinanceSyncGuard/);
 });
 
 test("legacy identity migration only removes source data after verified preservation", async () => {
