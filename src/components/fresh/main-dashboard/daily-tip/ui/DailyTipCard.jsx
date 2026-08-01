@@ -348,7 +348,7 @@ export default function DailyTipCard({
         }
         aria-pressed={flipped}
         aria-disabled={isFlipping && hasCommittedAccess}
-        className={`group relative h-[clamp(160px,21dvh,176px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none transition-[box-shadow,filter,transform] duration-300 ${
+        className={`group relative h-[clamp(150px,18.5dvh,160px)] w-full cursor-pointer overflow-hidden rounded-2xl bg-transparent text-left outline-none transition-[box-shadow,filter,transform] duration-300 ${
           isGuideStepActive
             ? "ring-2 ring-cyan-200/80 shadow-[0_0_0_1px_rgba(255,255,255,0.10),0_0_42px_rgba(34,211,238,0.34)]"
             : ""
@@ -369,7 +369,7 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--front rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
-              <div className="relative grid h-full grid-rows-[auto_1fr_auto_auto] gap-y-1.5 px-4 py-3 text-white">
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto_auto] gap-y-1 px-4 py-2.5 text-white">
                 <div className="text-[8.5px] font-black uppercase leading-none tracking-[0.24em] text-cyan-200/70">
                   Daily Money Tip
                 </div>
@@ -389,7 +389,7 @@ export default function DailyTipCard({
                     ) : null}
                   </div>
 
-                  <span className="clara-checkin-action shrink-0 px-3 py-2 text-[8px] font-black uppercase tracking-[0.12em]">
+                  <span className="clara-checkin-action shrink-0 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em]">
                     {actionLabel}
                   </span>
                 </div>
@@ -417,7 +417,7 @@ export default function DailyTipCard({
                     })}
                   </div>
                 ) : (
-                  <div className="flex min-h-[48px] items-center justify-center px-4 text-center">
+                  <div className="flex min-h-[42px] items-center justify-center px-4 text-center">
                     <p className="max-w-[19rem] text-[clamp(12px,3.15vw,13.5px)] font-extrabold leading-[1.4] tracking-[-0.015em] text-cyan-50/88">
                       <span className="block">{checkInPromptLead}</span>
                       <span className="mt-0.5 block">Check in today.</span>
@@ -441,8 +441,8 @@ export default function DailyTipCard({
             <div className="clara-preserve-flip-face clara-daily-tip-face clara-daily-tip-face--back rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10">
               <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
-              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-5 py-4 text-center text-white">
-                <div className="pt-1 text-center">
+              <div className="relative grid h-full grid-rows-[auto_1fr_auto] px-5 py-3 text-center text-white">
+                <div className="pt-0.5 text-center">
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/66">
                     Today’s Money Tip
                   </span>
