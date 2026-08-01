@@ -69,8 +69,9 @@ async function saveRecoveryRecord(record) {
   const db = await openRecoveryDb();
   try {
     const tx = db.transaction(RECOVERY_STORE, "readwrite");
+    const completed = transactionToPromise(tx);
     tx.objectStore(RECOVERY_STORE).put(record);
-    await transactionToPromise(tx);
+    await completed;
   } finally {
     db.close();
   }
@@ -81,8 +82,9 @@ async function getRecoveryRecord(id) {
   const db = await openRecoveryDb();
   try {
     const tx = db.transaction(RECOVERY_STORE, "readonly");
+    const completed = transactionToPromise(tx);
     const value = await requestToPromise(tx.objectStore(RECOVERY_STORE).get(id));
-    await transactionToPromise(tx);
+    await completed;
     return value || null;
   } finally {
     db.close();
@@ -283,7 +285,8 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     const restoreResult = await restoreClaraLocalDataFromFile(
       restoreFileLike(transferPrepared)
     );
-    const restoreErrors = restoreResult?.indexedDB?.errors || [];
+    const restoreErrors =
+      restoreResult?.errors || restoreResult?.summary?.restoreErrors || [];
     if (restoreErrors.length > 0) {
       throw new Error(`Transfer validation failed: ${restoreErrors[0]}`);
     }
