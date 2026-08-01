@@ -118,6 +118,21 @@ function decorateFinanceRepository(repository) {
       return repository.insertWalletTransaction(localUserId, transaction, ...args);
     },
 
+    async updateWalletTransaction(localUserId, transactionId, patch, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.updateWalletTransaction(
+        localUserId,
+        transactionId,
+        patch,
+        ...args
+      );
+    },
+
+    async deleteWalletTransaction(localUserId, transactionId, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.deleteWalletTransaction(localUserId, transactionId, ...args);
+    },
+
     async addIncome(localUserId, income, ...args) {
       await prepareServerVersionBeforeMutation(localUserId);
       return repository.addIncome(localUserId, income, ...args);
@@ -125,7 +140,7 @@ function decorateFinanceRepository(repository) {
 
     async addMoney(localUserId, payload, ...args) {
       await prepareServerVersionBeforeMutation(localUserId);
-      return repository.addMoney(localUserId, payload, ...args);
+      return repository.addIncome(localUserId, payload, ...args);
     },
 
     async transferBetweenWallets(localUserId, payload, ...args) {
@@ -209,6 +224,28 @@ export async function getWalletTransactions(localUserId, options) {
 
 export async function insertWalletTransaction(localUserId, transaction, options) {
   return financeRepository.insertWalletTransaction(localUserId, transaction, options);
+}
+
+export async function updateWalletTransaction(
+  localUserId,
+  transactionId,
+  patch,
+  options
+) {
+  return financeRepository.updateWalletTransaction(
+    localUserId,
+    transactionId,
+    patch,
+    options
+  );
+}
+
+export async function deleteWalletTransaction(localUserId, transactionId, options) {
+  return financeRepository.deleteWalletTransaction(localUserId, transactionId, options);
+}
+
+export async function deleteIncome(localUserId, transactionId, options) {
+  return financeRepository.deleteWalletTransaction(localUserId, transactionId, options);
 }
 
 export async function addIncome(localUserId, income, options) {
