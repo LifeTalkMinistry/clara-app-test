@@ -260,6 +260,15 @@ async function hydrateFromAccountRecord() {
   if (!identity) return;
   const { user, userId } = identity;
 
+  // A new or reset device may not have a local server revision yet. Pull the
+  // authoritative account state before creating the mirrored streak record so
+  // the first server response cannot clear the newly written streak.
+  try {
+    await syncServerFinance({ user });
+  } catch {
+    // Continue offline. The merged record remains local and is retried later.
+  }
+
   const existing = await readAccountRecord(userId);
   const remoteState = safeParse(existing?.state);
   const localState = readLocalState(userId);
