@@ -60,12 +60,11 @@ export async function claimDeviceTransfer(code) {
 }
 
 export async function getDeviceTransferStatus({ transferId, token, role }) {
-  return backendRequest(
-    `/api/device-transfers/${encode(transferId)}/status?role=${encode(
-      role
-    )}&token=${encode(token)}`,
-    { token: requireToken() }
-  );
+  return backendRequest(`/api/device-transfers/${encode(transferId)}/status`, {
+    method: "POST",
+    token: requireToken(),
+    body: { token, role },
+  });
 }
 
 export async function approveDeviceTransfer({ transferId, senderToken }) {
@@ -77,12 +76,12 @@ export async function approveDeviceTransfer({ transferId, senderToken }) {
 }
 
 export async function fetchDeviceTransferPackage({ transferId, receiverToken }) {
-  return backendRequest(
-    `/api/device-transfers/${encode(
-      transferId
-    )}/package?receiverToken=${encode(receiverToken)}`,
-    { token: requireToken(), timeoutMs: 30_000 }
-  );
+  return backendRequest(`/api/device-transfers/${encode(transferId)}/package`, {
+    method: "POST",
+    token: requireToken(),
+    timeoutMs: 30_000,
+    body: { receiverToken },
+  });
 }
 
 export async function completeDeviceTransfer({ transferId, receiverToken }) {
@@ -105,12 +104,11 @@ export async function completeDeviceTransfer({ transferId, receiverToken }) {
 
   // The protected local import has already completed and must never be reported
   // as failed only because the final server cleanup acknowledgement was lost.
-  // The encrypted package still expires automatically after ten minutes.
   return {
     status: "consumed",
     completionPending: true,
     completionWarning:
-      lastError?.message || "Server cleanup will finish when the transfer expires.",
+      lastError?.message || "Server cleanup will finish after the transfer expires.",
   };
 }
 
