@@ -68,6 +68,10 @@ import "../clara-schedule-notification-runtime-bridge";
 import "../google-play-already-owned-restore-bridge";
 import "../clara-google-play-verify-auth-retry";
 
+// Beta tester invitations are verified by the CLARA backend before the account
+// is refreshed into the Committed Version. No plan is granted locally.
+import "./installBetaTesterActivation";
+
 // WARNING:
 // These patches relabel/replace assistant tabs through DOM selectors.
 // Later they should become real React tab configuration.
