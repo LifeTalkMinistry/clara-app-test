@@ -30,10 +30,10 @@ async function refreshServerVersionBeforeBudgetReset(localUserId) {
   if (!user || !storedUserId || storedUserId !== targetUserId) return;
 
   try {
-    // A reset is an explicit user action. Pull the newest server versions first
-    // so a second device does not submit stale baseVersion values and have the
-    // authoritative server restore the old budget immediately afterward.
-    await syncServerFinance({ user, forcePull: true });
+    // A reset is an explicit user action. Complete a normal two-way sync first
+    // so this device receives the newest serverVersion values without dropping
+    // other unsynced local finance changes.
+    await syncServerFinance({ user });
   } catch {
     // Keep the repository offline-first. The reset still applies locally and
     // the normal sync bridge can upload it when connectivity returns.
