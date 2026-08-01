@@ -1,0 +1,231 @@
+name: Fix manual expense keyboard visibility
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-manual-expense-keyboard.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply keyboard-aware scrolling fix
+        shell: bash
+        run: |
+          git pull --ff-only origin main
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet.jsx")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  '''import {
+            Children,
+            isValidElement,
+            useEffect,''',
+                  '''import {
+            Children,
+            isValidElement,
+            useCallback,
+            useEffect,''',
+              ),
+              (
+                  '''  const effectiveClose = isGuideSimulation ? guideSimulation.onClose : onClose;
+            const dialogRef = useRef(null);
+            const openedCycleRef = useRef(false);''',
+                  '''  const effectiveClose = isGuideSimulation ? guideSimulation.onClose : onClose;
+            const dialogRef = useRef(null);
+            const scrollAreaRef = useRef(null);
+            const openedCycleRef = useRef(false);''',
+              ),
+              (
+                  '''  const legacyShapeReady = Boolean(amountInput && budgetDropdown && walletDropdown);
+
+            useEffect(() => {''',
+                  '''  const legacyShapeReady = Boolean(amountInput && budgetDropdown && walletDropdown);
+
+            const keepControlVisible = useCallback((element, behavior = "smooth") => {
+              if (
+                !element ||
+                typeof window === "undefined" ||
+                !dialogRef.current?.contains(element) ||
+                !scrollAreaRef.current?.contains(element)
+              ) {
+                return;
+              }
+
+              const scroller = scrollAreaRef.current;
+              const viewport = window.visualViewport;
+              const viewportTop = viewport?.offsetTop || 0;
+              const viewportBottom =
+                viewportTop + (viewport?.height || window.innerHeight);
+              const scrollerRect = scroller.getBoundingClientRect();
+              const controlRect = element.getBoundingClientRect();
+              const visibleTop = Math.max(scrollerRect.top, viewportTop) + 14;
+              const visibleBottom = Math.min(scrollerRect.bottom, viewportBottom) - 16;
+
+              if (visibleBottom <= visibleTop) return;
+
+              let scrollDelta = 0;
+              if (controlRect.bottom > visibleBottom) {
+                scrollDelta = controlRect.bottom - visibleBottom;
+              } else if (controlRect.top < visibleTop) {
+                scrollDelta = controlRect.top - visibleTop;
+              }
+
+              if (Math.abs(scrollDelta) > 1) {
+                scroller.scrollBy({ top: scrollDelta, behavior });
+              }
+            }, []);
+
+            useEffect(() => {''',
+              ),
+              (
+                  '''  useEffect(() => {
+            if (!open || isGuideSimulation || typeof window === "undefined") return undefined;
+
+            const focusFrame = window.requestAnimationFrame(() => {
+              const scope = dialogRef.current?.querySelector(
+                `[data-expense-step="${step}"]`
+              );
+              scope?.querySelector(FOCUSABLE)?.focus?.({ preventScroll: true });
+            });
+
+            return () => window.cancelAnimationFrame(focusFrame);
+          }, [isGuideSimulation, open, step]);''',
+                  '''  useEffect(() => {
+            if (!open || isGuideSimulation || typeof window === "undefined") return undefined;
+
+            let revealTimer;
+            const focusFrame = window.requestAnimationFrame(() => {
+              const scope = dialogRef.current?.querySelector(
+                `[data-expense-step="${step}"]`
+              );
+              const target = scope?.querySelector(FOCUSABLE);
+              if (!target) return;
+
+              target.focus?.();
+              keepControlVisible(target, "auto");
+              revealTimer = window.setTimeout(
+                () => keepControlVisible(target, "smooth"),
+                280
+              );
+            });
+
+            return () => {
+              window.cancelAnimationFrame(focusFrame);
+              if (revealTimer) window.clearTimeout(revealTimer);
+            };
+          }, [isGuideSimulation, keepControlVisible, open, step]);
+
+          useEffect(() => {
+            if (!open || isGuideSimulation || typeof window === "undefined") return undefined;
+
+            const viewport = window.visualViewport;
+            if (!viewport) return undefined;
+
+            let revealFrame = 0;
+            const syncKeyboardViewport = () => {
+              const visibleBottom = viewport.offsetTop + viewport.height;
+              const rawKeyboardInset = Math.max(
+                0,
+                window.innerHeight - visibleBottom
+              );
+              const keyboardInset = rawKeyboardInset > 80 ? rawKeyboardInset : 0;
+
+              dialogRef.current?.style.setProperty(
+                "--clara-keyboard-inset",
+                `${keyboardInset}px`
+              );
+
+              window.cancelAnimationFrame(revealFrame);
+              revealFrame = window.requestAnimationFrame(() => {
+                const active = document.activeElement;
+                if (active && dialogRef.current?.contains(active)) {
+                  keepControlVisible(active, "auto");
+                }
+              });
+            };
+
+            syncKeyboardViewport();
+            viewport.addEventListener("resize", syncKeyboardViewport);
+            viewport.addEventListener("scroll", syncKeyboardViewport);
+
+            return () => {
+              window.cancelAnimationFrame(revealFrame);
+              viewport.removeEventListener("resize", syncKeyboardViewport);
+              viewport.removeEventListener("scroll", syncKeyboardViewport);
+              dialogRef.current?.style.removeProperty("--clara-keyboard-inset");
+            };
+          }, [isGuideSimulation, keepControlVisible, open]);''',
+              ),
+              (
+                  '''        onSubmit={handleSubmit}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  className="relative flex max-h-[85dvh]''',
+                  '''        onSubmit={handleSubmit}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onFocusCapture={(event) => {
+                    const target = event.target;
+                    if (
+                      typeof window === "undefined" ||
+                      !target?.matches?.("input, textarea, select")
+                    ) {
+                      return;
+                    }
+                    window.setTimeout(
+                      () => keepControlVisible(target, "smooth"),
+                      280
+                    );
+                  }}
+                  className="relative flex max-h-[85dvh]''',
+              ),
+              (
+                  '''        <div
+                  className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  inert={isGuideSimulation ? "" : undefined}''',
+                  '''        <div
+                  ref={scrollAreaRef}
+                  className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  style={{
+                    paddingBottom:
+                      "calc(1rem + var(--clara-keyboard-inset, 0px))",
+                  }}
+                  inert={isGuideSimulation ? "" : undefined}''',
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"Expected source block was not found:\n{old[:180]}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit the targeted fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet.jsx
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No change was needed."
+            exit 0
+          fi
+          git commit -m "Keep manual expense fields above mobile keyboard"
+          git push origin HEAD:main
