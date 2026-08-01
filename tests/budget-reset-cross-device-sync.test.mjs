@@ -7,7 +7,7 @@ const financeRepositorySource = await fs.readFile(
   "utf8",
 );
 
-test("budget reset refreshes authoritative server versions before local mutation", () => {
+test("all synchronized finance mutations refresh authoritative versions first", () => {
   assert.match(
     financeRepositorySource,
     /import \{ getStoredBackendUser \} from "\.\/clara-backend-client\.js";/,
@@ -16,17 +16,34 @@ test("budget reset refreshes authoritative server versions before local mutation
     financeRepositorySource,
     /import \{ syncServerFinance \} from "\.\/server-finance-sync\.js";/,
   );
-  assert.match(financeRepositorySource, /function isBudgetResetPatch\(patch = \{\}\)/);
   assert.match(
     financeRepositorySource,
-    /await syncServerFinance\(\{ user \}\);/,
+    /async function prepareServerVersionBeforeMutation\(localUserId\)/,
   );
-  assert.doesNotMatch(
-    financeRepositorySource,
-    /syncServerFinance\(\{ user, forcePull: true \}\)/,
-  );
-  assert.match(
-    financeRepositorySource,
-    /async updateBudget\(localUserId, budgetId, patch, \.\.\.args\)[\s\S]*if \(isBudgetResetPatch\(patch\)\)[\s\S]*await refreshServerVersionBeforeBudgetReset\(localUserId\)[\s\S]*return repository\.updateBudget\(localUserId, budgetId, patch, \.\.\.args\);/,
-  );
+  assert.match(financeRepositorySource, /__claraPrepareServerFinanceMutation/);
+  assert.match(financeRepositorySource, /await syncServerFinance\(\{ user \}\);/);
+
+  for (const methodName of [
+    "addExpense",
+    "updateExpense",
+    "deleteExpense",
+    "addWallet",
+    "updateWallet",
+    "deleteWallet",
+    "insertWalletTransaction",
+    "addIncome",
+    "addMoney",
+    "transferBetweenWallets",
+    "addBudget",
+    "updateBudget",
+    "deleteBudget",
+    "upsertBudget",
+    "upsertSavingsGoal",
+    "upsertEmergencyFund",
+  ]) {
+    const methodPattern = new RegExp(
+      `async ${methodName}\\(localUserId,[\\s\\S]*?await prepareServerVersionBeforeMutation\\(localUserId\\);`,
+    );
+    assert.match(financeRepositorySource, methodPattern);
+  }
 });
