@@ -1,3 +1,4 @@
+import { COMMITTED_PLAN_KEY } from "@/lib/membership";
 import { meetsFinancialPlanRequirement } from "./financialPlanAccess";
 
 export const DEFAULT_FINANCIAL_CARD_KEY = "budget";
@@ -45,8 +46,8 @@ export const FINANCIAL_CARD_REGISTRY = [
     order: 3,
     detailKey: "emergency",
     tone: "teal",
-    minimumPlan: "pro",
-    lockedTier: "PRO",
+    minimumPlan: COMMITTED_PLAN_KEY,
+    lockedTier: "COMMITTED",
     featureFlag: "emergencyFund",
   },
   {
@@ -57,8 +58,8 @@ export const FINANCIAL_CARD_REGISTRY = [
     order: 4,
     detailKey: "savings",
     tone: "blue",
-    minimumPlan: "pro",
-    lockedTier: "PRO",
+    minimumPlan: COMMITTED_PLAN_KEY,
+    lockedTier: "COMMITTED",
     featureFlag: "savingsGoals",
   },
   {
@@ -69,8 +70,8 @@ export const FINANCIAL_CARD_REGISTRY = [
     order: 5,
     detailKey: "debtObligations",
     tone: "rose",
-    minimumPlan: "pro",
-    lockedTier: "PRO",
+    minimumPlan: COMMITTED_PLAN_KEY,
+    lockedTier: "COMMITTED",
     featureFlag: "debtObligations",
   },
 ];
