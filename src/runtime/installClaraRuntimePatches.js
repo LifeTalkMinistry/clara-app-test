@@ -23,6 +23,10 @@ import "./installSettingsModalBehavior";
 import "./installScopedClaraMemoryStorage";
 import "../clara-memory-bridge";
 
+// Authenticated app-open tracking. This records only session timestamps and a
+// broad platform label; it does not inspect budgets, screens, notes, or messages.
+import "./installAppOpenTracking";
+
 // Buy Check ownership note:
 // The active Pause Buy Check flow is now owned by React through
 // ClaraAiEnvironmentOverlay + useClaraBuyCheckFlow. The former global
