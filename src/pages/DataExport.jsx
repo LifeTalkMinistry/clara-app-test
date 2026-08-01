@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import DeviceTransferPanel from "@/components/device-transfer/DeviceTransferPanel";
 import {
   countCloudSnapshotItems,
   downloadClaraPrivateBackup,
@@ -88,9 +89,9 @@ export default function DataExport() {
           </button>
           <div className="text-center">
             <p className="text-xs tracking-[0.28em] text-emerald-300/70">
-              SECURITY & PRIVACY
+              DATA & DEVICES
             </p>
-            <h1 className="text-lg font-black">Backup & Restore</h1>
+            <h1 className="text-lg font-black">Backup & Transfer</h1>
           </div>
           <div className="h-11 w-11" />
         </div>
@@ -101,15 +102,17 @@ export default function DataExport() {
               <HardDrive size={19} />
             </div>
             <div>
-              <h2 className="font-black text-amber-50">This device stays local</h2>
+              <h2 className="font-black text-amber-50">No automatic replacement</h2>
               <p className="mt-1 text-xs leading-5 text-amber-50/65">
-                Automatic online sync and cross-device replacement are disabled.
-                CLARA will not move or overwrite this device&apos;s financial data in
-                the background.
+                CLARA will never replace this device&apos;s financial data simply
+                because you signed in somewhere else. A transfer only begins when
+                you intentionally start it below.
               </p>
             </div>
           </div>
         </section>
+
+        <DeviceTransferPanel user={user} profile={profile} />
 
         <section className="mt-5 rounded-[28px] border border-white/12 bg-white/[0.035] p-4">
           <div className="flex items-center gap-3">
@@ -117,10 +120,10 @@ export default function DataExport() {
               <ShieldCheck size={18} />
             </div>
             <div>
-              <h2 className="font-black">Personal backup</h2>
+              <h2 className="font-black">Personal backup file</h2>
               <p className="mt-1 text-xs leading-5 text-white/48">
-                Save an encrypted copy before resetting the app, changing devices,
-                or restoring another file.
+                Keep your own offline copy before resetting the app or making a
+                major change. This remains separate from device transfer.
               </p>
             </div>
           </div>
@@ -142,7 +145,7 @@ export default function DataExport() {
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.045] px-5 py-3.5 text-sm font-black text-white/80 disabled:opacity-40"
           >
             <Upload size={17} />
-            {importing ? "Restoring..." : "Restore from backup"}
+            {importing ? "Restoring..." : "Restore from backup file"}
           </button>
           <input
             ref={fileInputRef}
@@ -151,20 +154,6 @@ export default function DataExport() {
             className="hidden"
             onChange={handleFileSelected}
           />
-        </section>
-
-        <section className="mt-5 rounded-[28px] border border-cyan-300/15 bg-cyan-300/[0.05] p-4">
-          <div className="flex items-start gap-3">
-            <Info size={18} className="mt-0.5 shrink-0 text-cyan-100" />
-            <div>
-              <h2 className="font-black text-cyan-50">Device transfer comes next</h2>
-              <p className="mt-1 text-xs leading-5 text-cyan-50/60">
-                The replacement will require an intentional sender, a one-time
-                code, receiver confirmation, validation, and a recovery checkpoint.
-                Nothing is transferred automatically.
-              </p>
-            </div>
-          </div>
         </section>
 
         {error ? (
