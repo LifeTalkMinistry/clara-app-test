@@ -1,4 +1,5 @@
 import { getStoredBackendUser } from "../lib/clara-backend-client";
+import { getBackendAccountId } from "../lib/clara-account-identity";
 import {
   isOnlineSyncPaused,
   resumeOnlineSync,
@@ -8,17 +9,43 @@ import {
   getLocalRecordsByUser,
   runLocalFinanceTransaction,
 } from "../lib/localFinanceStore";
-import { syncServerFinance } from "../lib/server-finance-sync";
+import {
+  fetchServerFinanceStatus,
+  syncServerFinance,
+} from "../lib/server-finance-sync";
 
 const INSTALL_FLAG = "__claraFastAccountSyncInstalled";
-const VISIBLE_SYNC_INTERVAL_MS = 5_000;
+const VISIBLE_STATUS_INTERVAL_MS = 15_000;
+const RATE_LIMIT_BACKOFF_MS = 15 * 60 * 1000;
+const SYNC_STATE_PREFIX = "clara_server_finance_sync_v1:";
 let syncInFlight = false;
 let pausedDataCheckPromise = null;
+let rateLimitedUntil = 0;
 
 function canReachAccount() {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
   if (document.visibilityState !== "visible") return false;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
+  return true;
+}
+
+function readLocalRevision(user) {
+  const accountId = String(getBackendAccountId(user) || "").trim();
+  if (!accountId) return 0;
+
+  try {
+    const raw = window.localStorage.getItem(`${SYNC_STATE_PREFIX}${accountId}`);
+    const state = raw ? JSON.parse(raw) : null;
+    const revision = Number(state?.revision || 0);
+    return Number.isFinite(revision) ? revision : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function noteRateLimit(error) {
+  if (Number(error?.status || 0) !== 429) return false;
+  rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + RATE_LIMIT_BACKOFF_MS);
   return true;
 }
 
@@ -91,6 +118,20 @@ async function getPausedAccountSnapshot(localUserId) {
   return snapshot.length > 0 ? snapshot : null;
 }
 
+async function synchronizePausedDevice(user, localUserId, pausedSnapshot) {
+  if (Date.now() < rateLimitedUntil) return;
+
+  try {
+    await syncServerFinance({ user });
+    await restoreCapturedAccountData(localUserId, pausedSnapshot);
+    resumeOnlineSync();
+    await syncServerFinance({ user });
+  } catch (error) {
+    noteRateLimit(error);
+    throw error;
+  }
+}
+
 async function refreshAccountState() {
   if (!canReachAccount() || syncInFlight) return;
 
@@ -104,22 +145,33 @@ async function refreshAccountState() {
 
     if (isOnlineSyncPaused()) {
       if (!pausedSnapshot) return;
-
-      // Device Reset intentionally starts with sync paused. Once the user creates
-      // meaningful account data, first pull the authoritative server state while
-      // preserving that local work, then restore it with the server versions and
-      // upload it as a valid two-way account mutation.
-      await syncServerFinance({ user });
-      await restoreCapturedAccountData(localUserId, pausedSnapshot);
-      resumeOnlineSync();
-      await syncServerFinance({ user });
+      await synchronizePausedDevice(user, localUserId, pausedSnapshot);
       return;
     }
 
-    await syncServerFinance({ user });
-  } catch {
-    // The normal sync status UI handles network and authentication failures.
-    // Captured records remain in IndexedDB and are retried on the next interval.
+    // Poll the read-only status endpoint instead of POSTing /finance/sync every
+    // few seconds. A write sync is performed only when another device has moved
+    // the authoritative account revision forward.
+    const status = await fetchServerFinanceStatus(user);
+    const remoteRevision = Number(status?.revision || 0);
+    const localRevision = readLocalRevision(user);
+
+    if (
+      status?.initialized &&
+      Number.isFinite(remoteRevision) &&
+      remoteRevision !== localRevision &&
+      Date.now() >= rateLimitedUntil
+    ) {
+      try {
+        await syncServerFinance({ user });
+      } catch (error) {
+        noteRateLimit(error);
+      }
+    }
+  } catch (error) {
+    noteRateLimit(error);
+    // The regular sync status UI handles network and authentication failures.
+    // Captured records remain in IndexedDB and are retried later.
   } finally {
     syncInFlight = false;
   }
@@ -137,7 +189,7 @@ export function installFastAccountSync() {
   window.addEventListener("focus", runSoon);
   window.addEventListener("online", runSoon);
   document.addEventListener("visibilitychange", handleVisibility);
-  window.setInterval(refreshAccountState, VISIBLE_SYNC_INTERVAL_MS);
+  window.setInterval(refreshAccountState, VISIBLE_STATUS_INTERVAL_MS);
   runSoon();
 }
 
