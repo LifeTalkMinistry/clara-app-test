@@ -78,7 +78,7 @@ test("personal backup preserves Daily Check-In data", async () => {
   assert.match(localExportSource, /clara_daily_check_in_v3:/);
 });
 
-test("the production app has no automatic or manual server finance sync path", async () => {
+test("the production app has no background server finance synchronization", async () => {
   const mainSource = await fs.readFile(
     new URL("../src/main.jsx", import.meta.url),
     "utf8"
@@ -102,11 +102,11 @@ test("the production app has no automatic or manual server finance sync path", a
   assert.doesNotMatch(repositorySource, /prepareServerVersionBeforeMutation/);
   assert.doesNotMatch(repositorySource, /__claraPrepareServerFinanceMutation/);
 
-  assert.match(storageScreen, /Backup & Restore/);
-  assert.match(storageScreen, /Automatic online sync and cross-device replacement are disabled/);
+  assert.match(storageScreen, /Backup & Transfer/);
+  assert.match(storageScreen, /No automatic replacement/);
+  assert.match(storageScreen, /DeviceTransferPanel/);
   assert.doesNotMatch(storageScreen, /syncServerFinance/);
   assert.doesNotMatch(storageScreen, /\/api\/finance\/sync/);
-  assert.doesNotMatch(storageScreen, /Bring saved data to this device/);
 });
 
 test("legacy cloud vault remains available only as backup and recovery plumbing", async () => {
