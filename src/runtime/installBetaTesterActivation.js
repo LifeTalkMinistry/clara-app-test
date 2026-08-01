@@ -50,18 +50,18 @@ function createBetaTesterSection(panel) {
     <div class="clara-beta-tester-badge">Founding Tester Access</div>
     <h4 class="clara-beta-tester-title">I’m a Beta Tester</h4>
     <p class="clara-beta-tester-copy">
-      Enter your private 6-character tester code to activate the Committed Version on this signed-in account.
+      Enter the shared 6-character beta tester code to activate the Committed Version on this signed-in account.
     </p>
     <form class="clara-beta-tester-form" novalidate>
       <label class="clara-beta-tester-label" for="clara-beta-tester-code">
-        Your beta tester code
+        Universal beta tester code
       </label>
       <input
         id="clara-beta-tester-code"
         class="clara-beta-tester-input"
         type="text"
         inputmode="text"
-        autocomplete="one-time-code"
+        autocomplete="off"
         autocapitalize="characters"
         maxlength="6"
         placeholder="ABC123"
@@ -69,7 +69,7 @@ function createBetaTesterSection(panel) {
         spellcheck="false"
       />
       <p id="clara-beta-tester-help" class="clara-beta-tester-help">
-        This invitation is personal, one-time use, and securely verified by CLARA.
+        Approved beta testers use the same code. Activation applies only to the account currently signed in.
       </p>
       <button class="clara-beta-tester-button" type="submit" disabled>
         Activate My Committed Version
@@ -99,7 +99,7 @@ function createBetaTesterSection(panel) {
     button.dataset.loading = "true";
     button.disabled = true;
     button.textContent = "Activating…";
-    feedback.textContent = "Securely checking your beta tester invitation…";
+    feedback.textContent = "Securely checking the universal beta tester code…";
     feedback.dataset.state = "loading";
 
     try {
