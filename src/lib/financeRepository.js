@@ -6,23 +6,19 @@ import { reconcileSavingsGoalsWithLinkedExpenses } from "./savingsGoalLinkedExpe
 
 export * from "./financeRepositoryCore.js";
 
+const MUTATION_PREFLIGHT_HOOK = "__claraPrepareServerFinanceMutation";
+
 async function findExpenseById(repository, localUserId, expenseId) {
   if (!expenseId || typeof repository?.getExpenses !== "function") return null;
   const rows = await repository.getExpenses(localUserId, { includeDeleted: true });
-  return (Array.isArray(rows) ? rows : []).find(
-    (row) => String(row?.id || "") === String(expenseId)
-  ) || null;
-}
-
-function isBudgetResetPatch(patch = {}) {
-  return Boolean(
-    patch?.reset_start_at ||
-      patch?.resetAt ||
-      patch?.reset_at
+  return (
+    (Array.isArray(rows) ? rows : []).find(
+      (row) => String(row?.id || "") === String(expenseId)
+    ) || null
   );
 }
 
-async function refreshServerVersionBeforeBudgetReset(localUserId) {
+async function prepareServerVersionBeforeMutation(localUserId) {
   const user = getStoredBackendUser();
   const storedUserId = String(user?.id || "").trim();
   const targetUserId = String(localUserId || "").trim();
@@ -30,13 +26,16 @@ async function refreshServerVersionBeforeBudgetReset(localUserId) {
   if (!user || !storedUserId || storedUserId !== targetUserId) return;
 
   try {
-    // A reset is an explicit user action. Complete a normal two-way sync first
-    // so this device receives the newest serverVersion values without dropping
-    // other unsynced local finance changes.
+    const runtimeHook = globalThis?.[MUTATION_PREFLIGHT_HOOK];
+    if (typeof runtimeHook === "function") {
+      await runtimeHook({ localUserId: targetUserId });
+      return;
+    }
+
     await syncServerFinance({ user });
   } catch {
-    // Keep the repository offline-first. The reset still applies locally and
-    // the normal sync bridge can upload it when connectivity returns.
+    // Preserve offline-first behavior. The local mutation remains available and
+    // the sync bridge uploads it after connectivity returns.
   }
 }
 
@@ -46,15 +45,8 @@ function decorateFinanceRepository(repository) {
   return {
     ...repository,
 
-    async updateBudget(localUserId, budgetId, patch, ...args) {
-      if (isBudgetResetPatch(patch)) {
-        await refreshServerVersionBeforeBudgetReset(localUserId);
-      }
-
-      return repository.updateBudget(localUserId, budgetId, patch, ...args);
-    },
-
     async addExpense(localUserId, expense, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
       const result = await repository.addExpense(localUserId, expense, ...args);
       const savedExpense = result?.expense || result || expense;
 
@@ -69,8 +61,14 @@ function decorateFinanceRepository(repository) {
     },
 
     async updateExpense(localUserId, expenseId, patch, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
       const before = await findExpenseById(repository, localUserId, expenseId);
-      const result = await repository.updateExpense(localUserId, expenseId, patch, ...args);
+      const result = await repository.updateExpense(
+        localUserId,
+        expenseId,
+        patch,
+        ...args
+      );
       const after = result?.expense || (before ? { ...before, ...(patch || {}) } : patch);
 
       await syncManualExpenseLinkedTargetChange({
@@ -84,6 +82,7 @@ function decorateFinanceRepository(repository) {
     },
 
     async deleteExpense(localUserId, expenseId, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
       const before = await findExpenseById(repository, localUserId, expenseId);
       const result = await repository.deleteExpense(localUserId, expenseId, ...args);
 
@@ -97,6 +96,71 @@ function decorateFinanceRepository(repository) {
       }
 
       return result;
+    },
+
+    async addWallet(localUserId, wallet, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.addWallet(localUserId, wallet, ...args);
+    },
+
+    async updateWallet(localUserId, walletId, patch, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.updateWallet(localUserId, walletId, patch, ...args);
+    },
+
+    async deleteWallet(localUserId, walletId, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.deleteWallet(localUserId, walletId, ...args);
+    },
+
+    async insertWalletTransaction(localUserId, transaction, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.insertWalletTransaction(localUserId, transaction, ...args);
+    },
+
+    async addIncome(localUserId, income, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.addIncome(localUserId, income, ...args);
+    },
+
+    async addMoney(localUserId, payload, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.addMoney(localUserId, payload, ...args);
+    },
+
+    async transferBetweenWallets(localUserId, payload, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.transferBetweenWallets(localUserId, payload, ...args);
+    },
+
+    async addBudget(localUserId, budget, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.addBudget(localUserId, budget, ...args);
+    },
+
+    async updateBudget(localUserId, budgetId, patch, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.updateBudget(localUserId, budgetId, patch, ...args);
+    },
+
+    async deleteBudget(localUserId, budgetId, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.deleteBudget(localUserId, budgetId, ...args);
+    },
+
+    async upsertBudget(localUserId, budget, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.upsertBudget(localUserId, budget, ...args);
+    },
+
+    async upsertSavingsGoal(localUserId, goal, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.upsertSavingsGoal(localUserId, goal, ...args);
+    },
+
+    async upsertEmergencyFund(localUserId, emergencyFund, ...args) {
+      await prepareServerVersionBeforeMutation(localUserId);
+      return repository.upsertEmergencyFund(localUserId, emergencyFund, ...args);
     },
   };
 }
@@ -123,6 +187,46 @@ export async function deleteExpense(localUserId, expenseId, options) {
   return financeRepository.deleteExpense(localUserId, expenseId, options);
 }
 
+export async function getWallets(localUserId, options) {
+  return financeRepository.getWallets(localUserId, options);
+}
+
+export async function addWallet(localUserId, wallet, options) {
+  return financeRepository.addWallet(localUserId, wallet, options);
+}
+
+export async function updateWallet(localUserId, walletId, patch, options) {
+  return financeRepository.updateWallet(localUserId, walletId, patch, options);
+}
+
+export async function deleteWallet(localUserId, walletId, options) {
+  return financeRepository.deleteWallet(localUserId, walletId, options);
+}
+
+export async function getWalletTransactions(localUserId, options) {
+  return financeRepository.getWalletTransactions(localUserId, options);
+}
+
+export async function insertWalletTransaction(localUserId, transaction, options) {
+  return financeRepository.insertWalletTransaction(localUserId, transaction, options);
+}
+
+export async function addIncome(localUserId, income, options) {
+  return financeRepository.addIncome(localUserId, income, options);
+}
+
+export async function addMoney(localUserId, payload, options) {
+  return financeRepository.addMoney(localUserId, payload, options);
+}
+
+export async function transferBetweenWallets(localUserId, payload, options) {
+  return financeRepository.transferBetweenWallets(localUserId, payload, options);
+}
+
+export async function getTransfers(localUserId, options) {
+  return financeRepository.getTransfers(localUserId, options);
+}
+
 export async function getBudgets(localUserId, options) {
   return financeRepository.getBudgets(localUserId, options);
 }
@@ -133,6 +237,10 @@ export async function addBudget(localUserId, budget, options) {
 
 export async function updateBudget(localUserId, budgetId, patch, options) {
   return financeRepository.updateBudget(localUserId, budgetId, patch, options);
+}
+
+export async function deleteBudget(localUserId, budgetId, options) {
+  return financeRepository.deleteBudget(localUserId, budgetId, options);
 }
 
 export async function upsertBudget(localUserId, budget, options) {
@@ -146,4 +254,16 @@ export async function getSavingsGoals(localUserId, options) {
   ]);
 
   return reconcileSavingsGoalsWithLinkedExpenses(goals, expenses);
+}
+
+export async function upsertSavingsGoal(localUserId, goal, options) {
+  return financeRepository.upsertSavingsGoal(localUserId, goal, options);
+}
+
+export async function getEmergencyFund(localUserId, options) {
+  return financeRepository.getEmergencyFund(localUserId, options);
+}
+
+export async function upsertEmergencyFund(localUserId, emergencyFund, options) {
+  return financeRepository.upsertEmergencyFund(localUserId, emergencyFund, options);
 }
