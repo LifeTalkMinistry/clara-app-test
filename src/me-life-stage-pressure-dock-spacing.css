@@ -24,3 +24,37 @@
 #root div[data-clara-me-life-stage-root="true"]:not(#clara-me-legacy-layout) > section[data-clara-trend-snapshot="true"] {
   grid-row: 4 !important;
 }
+
+/* Restore the original compact pressure-signal dock dimensions.
+   Interaction ownership remains in React; this only reverses the later
+   full-width / 44px visual enlargement. */
+#root [data-clara-pressure-signals="true"] {
+  width: fit-content !important;
+  max-width: calc(100% - 18px) !important;
+  padding: 4px 8px !important;
+}
+
+#root [data-clara-pressure-signals="true"] .clara-pressure-track {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#root [data-clara-pressure-signals="true"] .clara-pressure-track > div {
+  display: flex !important;
+  min-width: max-content !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 0 2px !important;
+}
+
+#root [data-clara-pressure-signals="true"] .clara-pressure-chip {
+  width: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  font-size: 15px !important;
+}
