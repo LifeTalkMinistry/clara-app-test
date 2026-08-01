@@ -40,10 +40,6 @@ const financialClimateSource = readSource(
 const lifeStageFlowSource = readSource("src/life-stage-flow.js");
 const openingRefineSource = readSource("src/life-stage-opening-page-refine.js");
 const meLayoutCss = readSource("src/me-life-stage-signal-gap-fix.css");
-const cloudVaultSyncSource = readSource("src/components/CloudVaultSyncBridge.jsx");
-const cloudVaultSyncAliasSource = readSource(
-  "src/components/fresh/main-dashboard/CloudVaultSyncBridge.jsx"
-);
 const mainSource = readSource("src/main.jsx");
 const scheduleRuntimeSource = readSource(
   "src/runtime/claraGuideScheduleRuntime.js"
@@ -58,6 +54,8 @@ const retiredRuntimePaths = [
   "src/clara-settings-memory-entry.js",
   "src/runtime/claraGuideSchedulePhaseRedirect.js",
   "src/components/fresh/main-dashboard/hooks/useDashboardPanelController.js",
+  "src/components/CloudVaultSyncBridge.jsx",
+  "src/components/fresh/main-dashboard/CloudVaultSyncBridge.jsx",
 ];
 
 const retiredMeRuntimeImports = [
@@ -175,6 +173,7 @@ test("Settings owns its detail history, logout, memory, and scroll behavior in R
   });
   assert.doesNotMatch(mainSource, /installSettingsAccessLogout/);
   assert.doesNotMatch(mainSource, /installClaraGuideSchedulePhaseRedirect/);
+  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
   assert.doesNotMatch(runtimeRegistrySource, /installSettingsScrollReset/);
   assert.doesNotMatch(runtimeRegistrySource, /clara-settings-memory-entry/);
 });
@@ -233,7 +232,7 @@ test("configured Me Life Stage structure and interactions are React-owned", () =
   });
 });
 
-test("Me viewing is read-only while explicit mutations save and schedule cloud sync", () => {
+test("Me viewing is read-only while explicit mutations save locally", () => {
   assert.doesNotMatch(
     financialClimateSource,
     /useEffect\(\(\) => \{\s*if \(lifeStageConfigured\) saveStageProfile/
@@ -242,11 +241,8 @@ test("Me viewing is read-only while explicit mutations save and schedule cloud s
   assert.match(financialClimateSource, /persistProfilePatch/);
   assert.match(lifeStageFlowSource, /CLARA_LIFE_STAGE_UPDATED_EVENT/);
   assert.match(lifeStageFlowSource, /notifyLifeStageUpdated\(\{[\s\S]*kind: "profile"/);
-  assert.match(mainSource, /import CloudVaultSyncBridge from "@\/components\/CloudVaultSyncBridge"/);
-  assert.match(cloudVaultSyncSource, /CLARA_LIFE_STAGE_UPDATED_EVENT/);
-  assert.match(cloudVaultSyncSource, /SYNC_EVENTS[\s\S]*CLARA_LIFE_STAGE_UPDATED_EVENT/);
-  assert.match(cloudVaultSyncAliasSource, /export \{ default \} from "\.\.\/\.\.\/CloudVaultSyncBridge"/);
   assert.match(financialClimateSource, /notifyLifeStageUpdated\(\{ kind: "images" \}\)/);
+  assert.doesNotMatch(mainSource, /CloudVaultSyncBridge/);
 });
 
 test("Snapshot keeps canonical distribution statuses instead of post-render risk relabeling", () => {
