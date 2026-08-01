@@ -41,8 +41,10 @@ function requestToPromise(request) {
 function transactionToPromise(transaction) {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed."));
-    transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted."));
+    transaction.onerror = () =>
+      reject(transaction.error || new Error("IndexedDB transaction failed."));
+    transaction.onabort = () =>
+      reject(transaction.error || new Error("IndexedDB transaction aborted."));
   });
 }
 
@@ -60,17 +62,19 @@ async function openRecoveryDb() {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Unable to open transfer recovery storage."));
-    request.onblocked = () => reject(new Error("Close other CLARA tabs before transferring data."));
+    request.onerror = () =>
+      reject(request.error || new Error("Unable to open transfer recovery storage."));
+    request.onblocked = () =>
+      reject(new Error("Close other CLARA tabs before transferring data."));
   });
 }
 
 async function saveRecoveryRecord(record) {
   const db = await openRecoveryDb();
   try {
-    const tx = db.transaction(RECOVERY_STORE, "readwrite");
-    const completed = transactionToPromise(tx);
-    tx.objectStore(RECOVERY_STORE).put(record);
+    const transaction = db.transaction(RECOVERY_STORE, "readwrite");
+    const completed = transactionToPromise(transaction);
+    transaction.objectStore(RECOVERY_STORE).put(record);
     await completed;
   } finally {
     db.close();
@@ -81,9 +85,11 @@ async function saveRecoveryRecord(record) {
 async function getRecoveryRecord(id) {
   const db = await openRecoveryDb();
   try {
-    const tx = db.transaction(RECOVERY_STORE, "readonly");
-    const completed = transactionToPromise(tx);
-    const value = await requestToPromise(tx.objectStore(RECOVERY_STORE).get(id));
+    const transaction = db.transaction(RECOVERY_STORE, "readonly");
+    const completed = transactionToPromise(transaction);
+    const value = await requestToPromise(
+      transaction.objectStore(RECOVERY_STORE).get(id)
+    );
     await completed;
     return value || null;
   } finally {
@@ -92,9 +98,7 @@ async function getRecoveryRecord(id) {
 }
 
 function restoreFileLike(prepared) {
-  return {
-    text: async () => JSON.stringify(prepared),
-  };
+  return { text: async () => JSON.stringify(prepared) };
 }
 
 function storageEntries(prepared) {
@@ -104,12 +108,11 @@ function storageEntries(prepared) {
 function removeTransferredOnlyStorageKeys(transferredKeys = [], recoveryPrepared) {
   const recoveryKeys = new Set(Object.keys(storageEntries(recoveryPrepared)));
   transferredKeys.forEach((key) => {
-    if (!recoveryKeys.has(key)) {
-      try {
-        window.localStorage.removeItem(key);
-      } catch {
-        // The protected recovery restore below remains the source of truth.
-      }
+    if (recoveryKeys.has(key)) return;
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // The protected recovery restore below remains the source of truth.
     }
   });
 }
@@ -158,6 +161,21 @@ function streakDaysFromSnapshot(snapshot) {
   return Number.isFinite(best) ? best : 0;
 }
 
+function withoutNotificationDatabase(snapshot) {
+  return {
+    ...snapshot,
+    data: {
+      ...(snapshot?.data || {}),
+      indexedDB: {
+        ...(snapshot?.data?.indexedDB || {}),
+        databases: (snapshot?.data?.indexedDB?.databases || []).filter(
+          (database) => database?.name !== "clara_local_notifications"
+        ),
+      },
+    },
+  };
+}
+
 export function buildDeviceTransferSummary(snapshot) {
   const counts = countCloudSnapshotItems(snapshot);
   const preferences = preferenceRecords(snapshot);
@@ -178,21 +196,107 @@ export function buildDeviceTransferSummary(snapshot) {
 }
 
 export async function createDeviceTransferSnapshot({ user, profile } = {}) {
-  const snapshot = await buildClaraCloudVaultSnapshot({
+  const fullSnapshot = await buildClaraCloudVaultSnapshot({
     user,
     profile,
     includeDeviceOnly: true,
   });
+  const snapshot = withoutNotificationDatabase(fullSnapshot);
   return {
     snapshot,
     summary: buildDeviceTransferSummary(snapshot),
   };
 }
 
-function expectedFinanceRecordCount(prepared) {
-  const database = (prepared?.data?.indexedDB?.databases || []).find(
-    (entry) => entry?.name === "clara_local_finance"
+function rewriteRecordReferences(value, idMap, orderedIds) {
+  if (typeof value === "string") {
+    if (idMap.has(value)) return idMap.get(value);
+    return orderedIds.reduce(
+      (result, oldId) => result.split(oldId).join(idMap.get(oldId)),
+      value
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => rewriteRecordReferences(item, idMap, orderedIds));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        rewriteRecordReferences(item, idMap, orderedIds),
+      ])
+    );
+  }
+  return value;
+}
+
+function namespaceTransferredFinanceRecordIds(prepared, targetVaultId) {
+  const financeDatabase = getFinanceDatabase(prepared);
+  if (!financeDatabase) return prepared;
+
+  const records = Object.entries(financeDatabase.stores || {}).flatMap(
+    ([storeName, store]) =>
+      storeName === "metadata" ? [] : normalizeStoreRecords(store)
   );
+  const idMap = new Map(
+    records
+      .map((record) => text(record?.id))
+      .filter(Boolean)
+      .map((oldId) => [oldId, `transfer:${targetVaultId}:${oldId}`])
+  );
+  const orderedIds = [...idMap.keys()].sort(
+    (left, right) => right.length - left.length
+  );
+
+  return {
+    ...prepared,
+    data: {
+      ...prepared.data,
+      indexedDB: {
+        ...prepared.data.indexedDB,
+        databases: (prepared.data.indexedDB.databases || []).map((database) => {
+          if (database.name !== "clara_local_finance") return database;
+          return {
+            ...database,
+            stores: Object.fromEntries(
+              Object.entries(database.stores || {}).map(([storeName, store]) => {
+                const rewritten = normalizeStoreRecords(store).map((record) =>
+                  rewriteRecordReferences(record, idMap, orderedIds)
+                );
+                return [storeName, { ...store, records: rewritten, count: rewritten.length }];
+              })
+            ),
+          };
+        }),
+      },
+    },
+  };
+}
+
+function indexedDbOnly(prepared) {
+  return {
+    ...prepared,
+    raw: { localStorage: {}, sessionStorage: {} },
+    data: {
+      ...prepared.data,
+      localStorage: {},
+      sessionStorage: {},
+    },
+  };
+}
+
+function storageOnly(prepared) {
+  return {
+    ...prepared,
+    data: {
+      ...prepared.data,
+      indexedDB: { supported: true, databases: [], errors: [] },
+    },
+  };
+}
+
+function expectedFinanceRecordCount(prepared) {
+  const database = getFinanceDatabase(prepared);
   return Object.entries(database?.stores || {}).reduce((total, [storeName, store]) => {
     if (storeName === "metadata") return total;
     return total + normalizeStoreRecords(store).length;
@@ -209,6 +313,17 @@ async function actualFinanceRecordCount(localVaultId) {
     total += Array.isArray(records) ? records.length : 0;
   }
   return total;
+}
+
+function restoreErrors(result) {
+  return result?.errors || result?.summary?.restoreErrors || [];
+}
+
+function storageRestoreSkipped(result) {
+  return (
+    (result?.skipped?.localStorage?.length || 0) +
+    (result?.skipped?.sessionStorage?.length || 0)
+  );
 }
 
 function writeLastTransferMetadata(metadata) {
@@ -257,11 +372,15 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
     profile,
     includeDeviceOnly: true,
   });
-  const transferPrepared = prepareCloudSnapshotForRestore(snapshot, {
+  const basePrepared = prepareCloudSnapshotForRestore(snapshot, {
     accountId,
     targetVaultId: newVaultId,
     includeDeviceOnly: true,
   });
+  const transferPrepared = namespaceTransferredFinanceRecordIds(
+    basePrepared,
+    newVaultId
+  );
   const recoveryPrepared = prepareCloudSnapshotForRestore(recoverySnapshot, {
     accountId,
     targetVaultId: oldVaultId,
@@ -269,6 +388,8 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
   });
   const transferredKeys = Object.keys(storageEntries(transferPrepared));
   const previousMapping = getVaultMappingForAccount(accountId);
+  let vaultSwitched = false;
+  let storageWriteStarted = false;
 
   await saveRecoveryRecord({
     id: recoveryId,
@@ -282,13 +403,12 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
   });
 
   try {
-    const restoreResult = await restoreClaraLocalDataFromFile(
-      restoreFileLike(transferPrepared)
+    const staged = await restoreClaraLocalDataFromFile(
+      restoreFileLike(indexedDbOnly(transferPrepared))
     );
-    const restoreErrors =
-      restoreResult?.errors || restoreResult?.summary?.restoreErrors || [];
-    if (restoreErrors.length > 0) {
-      throw new Error(`Transfer validation failed: ${restoreErrors[0]}`);
+    const stagedErrors = restoreErrors(staged);
+    if (stagedErrors.length > 0) {
+      throw new Error(`Transfer validation failed: ${stagedErrors[0]}`);
     }
 
     const expectedRecords = expectedFinanceRecordCount(transferPrepared);
@@ -305,6 +425,18 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       vaultId: newVaultId,
       previousMapping,
     });
+    vaultSwitched = true;
+
+    storageWriteStarted = true;
+    const storageResult = await restoreClaraLocalDataFromFile(
+      restoreFileLike(storageOnly(transferPrepared))
+    );
+    const finalErrors = restoreErrors(storageResult);
+    if (finalErrors.length > 0 || storageRestoreSkipped(storageResult) > 0) {
+      throw new Error(
+        finalErrors[0] || "Transfer validation failed while applying device settings."
+      );
+    }
 
     const metadata = {
       recoveryId,
@@ -327,21 +459,25 @@ export async function importDeviceTransferIntoNewVault(snapshot, { user, profile
       recoveryId,
       expectedRecords,
       actualRecords,
-      restoreResult,
+      restoreResult: storageResult,
     };
   } catch (error) {
     try {
-      await restorePreparedBackup(recoveryPrepared, { transferredKeys });
+      if (storageWriteStarted) {
+        await restorePreparedBackup(recoveryPrepared, { transferredKeys });
+      }
       await clearLocalUserPrivateData(newVaultId);
-      switchAccountVault({
-        accountId,
-        accountEmail: user?.email || null,
-        vaultId: oldVaultId,
-        previousMapping: previousMapping || {
-          vaultId: oldVaultId,
+      if (vaultSwitched) {
+        switchAccountVault({
+          accountId,
           accountEmail: user?.email || null,
-        },
-      });
+          vaultId: oldVaultId,
+          previousMapping: previousMapping || {
+            vaultId: oldVaultId,
+            accountEmail: user?.email || null,
+          },
+        });
+      }
       await saveRecoveryRecord({
         ...(await getRecoveryRecord(recoveryId)),
         status: "rolled_back_after_failure",
