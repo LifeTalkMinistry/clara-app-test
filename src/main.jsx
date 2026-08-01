@@ -24,6 +24,8 @@ import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRu
 import "./runtime/installClaraRuntimePatches";
 import "./runtime/installManualExpenseKeyboardGuard";
 import "./runtime/installLocalFinanceSyncGuard";
+import "./runtime/installFastAccountSync";
+import "./runtime/installAccountStreakSyncBridge";
 import "./index.css";
 import "./manual-expense-wallet-step.css";
 import "./guide-mode-stacking.css";
