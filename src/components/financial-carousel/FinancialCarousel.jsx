@@ -14,6 +14,7 @@ import {
 } from "./shared/financialCarouselFocus";
 import "./shared/financialCarouselGuideMatchedVisual.css";
 import useEmergencyFundAllocationSync from "@/components/fresh/main-dashboard/carousel/logic/useEmergencyFundAllocationSync";
+import { COMMITTED_PLAN_KEY, FREE_PLAN_KEY } from "@/lib/membership";
 
 export default function FinancialCarousel(props) {
   const {
@@ -51,7 +52,20 @@ export default function FinancialCarousel(props) {
 
   const effectiveUser = isGuideMode ? null : user;
   const userId = effectiveUser?.id;
-  const userPlan = effectiveUser?.plan || plan;
+  const role = String(effectiveUser?.role || "").trim().toLowerCase();
+  const hasActiveCommittedAccess = Boolean(
+    effectiveUser?.subscription?.isPaid === true ||
+      effectiveUser?.subscription?.isActiveCommitted === true ||
+      (effectiveUser?.access_level === "committed" &&
+        effectiveUser?.subscription_status === "active")
+  );
+  const accessPlan = isGuideMode
+    ? COMMITTED_PLAN_KEY
+    : role === "admin" || role === "advertiser"
+      ? role
+      : hasActiveCommittedAccess
+        ? COMMITTED_PLAN_KEY
+        : FREE_PLAN_KEY;
   const {
     expenses: financeExpenses = [],
     transfers: financeTransfers = [],
@@ -90,15 +104,15 @@ export default function FinancialCarousel(props) {
       financeTotalIncome,
       financeTotalExpenses,
       financeTotalWalletBalance,
-      user: userId || userPlan ? { id: userId, plan: userPlan } : null,
-      plan,
+      user: { id: userId, plan: accessPlan },
+      plan: accessPlan,
       guardChecked: isGuideMode ? false : guardChecked,
       loading,
       profileData,
       featureFlags,
       includeLocked,
     }),
-    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, financeEmergencyFund, financeTotalIncome, financeTotalExpenses, financeTotalWalletBalance, userId, userPlan, plan, guardChecked, loading, profileData, featureFlags, includeLocked, isGuideMode]
+    [monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal, wallets, walletMoney, walletPreviewTransactions, survivalExpense, financeEmergencyFund, financeTotalIncome, financeTotalExpenses, financeTotalWalletBalance, userId, accessPlan, guardChecked, loading, profileData, featureFlags, includeLocked, isGuideMode]
   );
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
   const isActiveGuideCarousel = isGuideMode && typeof onGuideCarouselIndexChange === "function";
