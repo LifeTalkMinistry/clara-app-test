@@ -1,5 +1,5 @@
-import { getStoredBackendUser } from "../lib/clara-backend-client";
 import { getBackendAccountId } from "../lib/clara-account-identity";
+import { resolveAccountSyncUser } from "../lib/clara-account-sync-identity";
 import {
   isOnlineSyncPaused,
   resumeOnlineSync,
@@ -135,9 +135,9 @@ async function synchronizePausedDevice(user, localUserId, pausedSnapshot) {
 async function refreshAccountState() {
   if (!canReachAccount() || syncInFlight) return;
 
-  const user = getStoredBackendUser();
+  const user = resolveAccountSyncUser();
   const localUserId = String(user?.id || "").trim();
-  if (!localUserId) return;
+  if (!user || !localUserId) return;
 
   syncInFlight = true;
   try {
