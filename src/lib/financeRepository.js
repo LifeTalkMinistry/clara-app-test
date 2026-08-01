@@ -1,4 +1,6 @@
 import { createFinanceRepository as createCoreFinanceRepository } from "./financeRepositoryCore.js";
+import { getStoredBackendUser } from "./clara-backend-client.js";
+import { syncServerFinance } from "./server-finance-sync.js";
 import { syncManualExpenseLinkedTargetChange } from "./manualExpenseLinkedTargetSync.js";
 import { reconcileSavingsGoalsWithLinkedExpenses } from "./savingsGoalLinkedExpenseRepair.js";
 
@@ -12,11 +14,45 @@ async function findExpenseById(repository, localUserId, expenseId) {
   ) || null;
 }
 
+function isBudgetResetPatch(patch = {}) {
+  return Boolean(
+    patch?.reset_start_at ||
+      patch?.resetAt ||
+      patch?.reset_at
+  );
+}
+
+async function refreshServerVersionBeforeBudgetReset(localUserId) {
+  const user = getStoredBackendUser();
+  const storedUserId = String(user?.id || "").trim();
+  const targetUserId = String(localUserId || "").trim();
+
+  if (!user || !storedUserId || storedUserId !== targetUserId) return;
+
+  try {
+    // A reset is an explicit user action. Pull the newest server versions first
+    // so a second device does not submit stale baseVersion values and have the
+    // authoritative server restore the old budget immediately afterward.
+    await syncServerFinance({ user, forcePull: true });
+  } catch {
+    // Keep the repository offline-first. The reset still applies locally and
+    // the normal sync bridge can upload it when connectivity returns.
+  }
+}
+
 function decorateFinanceRepository(repository) {
   if (!repository || typeof repository !== "object") return repository;
 
   return {
     ...repository,
+
+    async updateBudget(localUserId, budgetId, patch, ...args) {
+      if (isBudgetResetPatch(patch)) {
+        await refreshServerVersionBeforeBudgetReset(localUserId);
+      }
+
+      return repository.updateBudget(localUserId, budgetId, patch, ...args);
+    },
 
     async addExpense(localUserId, expense, ...args) {
       const result = await repository.addExpense(localUserId, expense, ...args);
