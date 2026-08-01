@@ -1,10 +1,13 @@
-import { getStoredBackendUser } from "../lib/clara-backend-client";
+import { resolveAccountSyncUser } from "../lib/clara-account-sync-identity";
 import {
   LOCAL_FINANCE_STORES,
   getLocalRecordById,
   upsertLocalRecord,
 } from "../lib/localFinanceStore";
-import { syncServerFinance } from "../lib/server-finance-sync";
+import {
+  CLARA_SERVER_FINANCE_EVENT_SOURCE,
+  syncServerFinance,
+} from "../lib/server-finance-sync";
 
 const INSTALL_FLAG = "__claraAccountStreakSyncInstalled";
 const DAILY_CHECK_IN_EVENT = "clara:daily-check-in-updated";
@@ -21,9 +24,10 @@ function text(value) {
 }
 
 function getActiveIdentity() {
-  const user = getStoredBackendUser();
-  const userId = text(user?.id || user?.email);
-  return userId ? { user, userId } : null;
+  const user = resolveAccountSyncUser();
+  const userId = text(user?.id);
+  const accountId = text(user?.account_id || user?.server_user_id);
+  return userId && accountId ? { user, userId, accountId } : null;
 }
 
 function storageKey(userId) {
@@ -117,16 +121,26 @@ function numberValue(value) {
 function mergeStreakStates(firstValue, secondValue, userId) {
   const first = safeParse(firstValue) || {};
   const second = safeParse(secondValue) || {};
-  const firstIsNewer = isoTime(first.updatedAt || first.updated_at) >= isoTime(second.updatedAt || second.updated_at);
+  const firstIsNewer =
+    isoTime(first.updatedAt || first.updated_at) >=
+    isoTime(second.updatedAt || second.updated_at);
   const newer = firstIsNewer ? first : second;
   const older = firstIsNewer ? second : first;
   const checkInEvents = mergeEvents(first.checkInEvents, second.checkInEvents);
-  const eventDays = checkInEvents.map((event) => event?.eligibleDay || event?.eligible_day);
-  const completedDates = [...new Set([
-    ...(Array.isArray(first.completedDates) ? first.completedDates : []),
-    ...(Array.isArray(second.completedDates) ? second.completedDates : []),
-    ...eventDays,
-  ].filter(Boolean).map(String))].sort();
+  const eventDays = checkInEvents.map(
+    (event) => event?.eligibleDay || event?.eligible_day
+  );
+  const completedDates = [
+    ...new Set(
+      [
+        ...(Array.isArray(first.completedDates) ? first.completedDates : []),
+        ...(Array.isArray(second.completedDates) ? second.completedDates : []),
+        ...eventDays,
+      ]
+        .filter(Boolean)
+        .map(String)
+    ),
+  ].sort();
   const challengeStartDay = earliestDay(
     first.challengeStartDay,
     second.challengeStartDay,
@@ -198,12 +212,20 @@ function stableString(value) {
   return JSON.stringify(value);
 }
 
-function readLocalState(userId) {
+function readStorageState(id) {
   try {
-    return safeParse(window.localStorage.getItem(storageKey(userId)));
+    return safeParse(window.localStorage.getItem(storageKey(id)));
   } catch {
     return null;
   }
+}
+
+function readLocalState(userId, accountId) {
+  return mergeStreakStates(
+    readStorageState(userId),
+    accountId !== userId ? readStorageState(accountId) : null,
+    userId
+  );
 }
 
 function writeLocalState(userId, state) {
@@ -230,12 +252,18 @@ function writeLocalState(userId, state) {
   }
 }
 
-async function readAccountRecord(userId) {
-  return getLocalRecordById(STORE, recordId(userId), userId);
+async function readAccountRecord(userId, accountId) {
+  const canonical = await getLocalRecordById(STORE, recordId(userId), userId);
+  const legacy =
+    accountId !== userId
+      ? await getLocalRecordById(STORE, recordId(accountId), userId)
+      : null;
+  return { canonical, legacy };
 }
 
 async function saveAccountRecord(userId, state, existing = null) {
-  const updatedAt = state?.updatedAt || state?.updated_at || new Date().toISOString();
+  const updatedAt =
+    state?.updatedAt || state?.updated_at || new Date().toISOString();
   return upsertLocalRecord(
     STORE,
     {
@@ -258,28 +286,27 @@ async function saveAccountRecord(userId, state, existing = null) {
 async function hydrateFromAccountRecord() {
   const identity = getActiveIdentity();
   if (!identity) return;
-  const { user, userId } = identity;
+  const { user, userId, accountId } = identity;
 
-  // A new or reset device may not have a local server revision yet. Pull the
-  // authoritative account state before creating the mirrored streak record so
-  // the first server response cannot clear the newly written streak.
-  try {
-    await syncServerFinance({ user });
-  } catch {
-    // Continue offline. The merged record remains local and is retried later.
-  }
-
-  const existing = await readAccountRecord(userId);
-  const remoteState = safeParse(existing?.state);
-  const localState = readLocalState(userId);
-  if (!remoteState && !localState) return;
+  const { canonical, legacy } = await readAccountRecord(userId, accountId);
+  const remoteState = mergeStreakStates(
+    canonical?.state,
+    legacy?.state,
+    userId
+  );
+  const localState = readLocalState(userId, accountId);
+  if (!canonical && !legacy && !localState?.checkInEvents?.length) return;
 
   const merged = mergeStreakStates(localState, remoteState, userId);
   writeLocalState(userId, merged);
 
-  if (!existing || stableString(existing.state) !== stableString(merged)) {
-    await saveAccountRecord(userId, merged, existing);
-    await syncServerFinance({ user });
+  if (!canonical || stableString(canonical.state) !== stableString(merged)) {
+    await saveAccountRecord(userId, merged, canonical);
+    try {
+      await syncServerFinance({ user });
+    } catch {
+      // The canonical record remains pending and is retried by normal account sync.
+    }
   }
 }
 
@@ -288,7 +315,7 @@ async function mirrorLocalUpdate(event) {
 
   const identity = getActiveIdentity();
   if (!identity) return;
-  const { user, userId } = identity;
+  const { user, userId, accountId } = identity;
   if (text(event?.detail?.userId) !== userId) return;
 
   try {
@@ -297,26 +324,34 @@ async function mirrorLocalUpdate(event) {
     // Continue offline with the strongest state currently available on this device.
   }
 
-  const existing = await readAccountRecord(userId);
+  const { canonical, legacy } = await readAccountRecord(userId, accountId);
+  const existingState = mergeStreakStates(
+    canonical?.state,
+    legacy?.state,
+    userId
+  );
   const merged = mergeStreakStates(
-    existing?.state,
-    event?.detail?.state || readLocalState(userId),
+    existingState,
+    event?.detail?.state || readLocalState(userId, accountId),
     userId
   );
 
   writeLocalState(userId, merged);
-  await saveAccountRecord(userId, merged, existing);
+  await saveAccountRecord(userId, merged, canonical);
 
   try {
     await syncServerFinance({ user });
   } catch {
-    // The IndexedDB write remains pending and the normal sync bridge retries later.
+    // The IndexedDB write remains pending and normal account sync retries later.
   }
 }
 
 function enqueue(task) {
   taskQueue = taskQueue.then(task, task).catch((error) => {
-    console.warn("[CLARA Streak Sync] Account streak synchronization failed:", error);
+    console.warn(
+      "[CLARA Streak Sync] Account streak synchronization failed:",
+      error
+    );
   });
   return taskQueue;
 }
@@ -328,13 +363,21 @@ export function installAccountStreakSyncBridge() {
   window.addEventListener(DAILY_CHECK_IN_EVENT, (event) => {
     enqueue(() => mirrorLocalUpdate(event));
   });
-  window.addEventListener(FINANCE_UPDATED_EVENT, () => {
+  window.addEventListener(FINANCE_UPDATED_EVENT, (event) => {
+    // Server downloads already contain the current account records. Hydrate the
+    // card directly instead of starting another POST sync loop.
+    if (event?.detail?.source === CLARA_SERVER_FINANCE_EVENT_SOURCE) {
+      enqueue(hydrateFromAccountRecord);
+      return;
+    }
     enqueue(hydrateFromAccountRecord);
   });
   window.addEventListener("focus", () => enqueue(hydrateFromAccountRecord));
   window.addEventListener("online", () => enqueue(hydrateFromAccountRecord));
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") enqueue(hydrateFromAccountRecord);
+    if (document.visibilityState === "visible") {
+      enqueue(hydrateFromAccountRecord);
+    }
   });
 
   window.setTimeout(() => enqueue(hydrateFromAccountRecord), 1_500);
