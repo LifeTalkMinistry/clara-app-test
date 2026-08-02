@@ -8,6 +8,7 @@ import {
 export default function CarouselSlideShell({
   item,
   selectedDashboardTheme,
+  dashboardScale = {},
   isExpanded = false,
   performanceMode = "full",
   children,
@@ -23,8 +24,8 @@ export default function CarouselSlideShell({
   const expandedHeight = usesTallExpandedLayout
     ? WALLET_EXPANDED_SLIDE_HEIGHT
     : EXPANDED_SLIDE_HEIGHT;
-
-  const slideHeight = isExpanded ? expandedHeight : NORMAL_SLIDE_HEIGHT;
+  const collapsedHeight = dashboardScale.financeSlideHeight || NORMAL_SLIDE_HEIGHT;
+  const slideHeight = isExpanded ? expandedHeight : collapsedHeight;
 
   return (
     <div
