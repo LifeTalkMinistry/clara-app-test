@@ -1,12 +1,27 @@
 import { useEffect, useState } from "react";
 
+function getDashboardViewportSize() {
+  if (typeof window === "undefined") {
+    return { height: 844, width: 390 };
+  }
+
+  const visualViewport = window.visualViewport;
+  const height = Math.round(
+    Number(visualViewport?.height) || window.innerHeight || 844
+  );
+  const width = Math.round(
+    Number(visualViewport?.width) || window.innerWidth || 390
+  );
+
+  return { height, width };
+}
+
 export const getDashboardViewportMode = () => {
-  if (typeof window === "undefined") return "normal";
+  const { height, width } = getDashboardViewportSize();
 
-  const height = window.innerHeight || 844;
-  const width = window.innerWidth || 390;
-
-  if (height <= 700 || width <= 360) return "ultraCompact";
+  if (height <= 700 || width <= 340) return "ultraCompact";
+  if (width <= 430 && height <= 920) return "oneScreenPhone";
+  if (width <= 360) return "ultraCompact";
   if (height <= 780) return "compact";
   if (height <= 860) return "normal";
   return "spacious";
@@ -26,14 +41,18 @@ export function useDashboardViewportMode() {
       });
     };
 
+    const visualViewport = window.visualViewport;
+
     updateMode();
     window.addEventListener("resize", updateMode, { passive: true });
     window.addEventListener("orientationchange", updateMode, { passive: true });
+    visualViewport?.addEventListener("resize", updateMode, { passive: true });
 
     return () => {
       if (frameId) window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", updateMode);
       window.removeEventListener("orientationchange", updateMode);
+      visualViewport?.removeEventListener("resize", updateMode);
     };
   }, []);
 
@@ -41,6 +60,27 @@ export function useDashboardViewportMode() {
 }
 
 export const DASHBOARD_SCALE = {
+  oneScreenPhone: {
+    page: "min-h-0",
+    headerOuter: "px-[clamp(10px,3vw,14px)] pb-0.5 pt-[calc(env(safe-area-inset-top)+4px)] md:px-[clamp(10px,3vw,14px)]",
+    headerPanel: "min-h-[64px] rounded-[20px] px-1.5 py-1 sm:px-2",
+    headerItem: "min-h-[48px] gap-0.5 rounded-[13px] px-1 py-1 sm:px-1.5",
+    headerIcon: "h-[30px] w-[30px]",
+    headerIconSvg: "h-[15px] w-[15px]",
+    headerLabel: "text-[9.5px]",
+    content: "mt-1.5 space-y-[clamp(6px,1dvh,8px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+2px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(6px,1dvh,8px)]",
+    financeWrap: "space-y-[6px]",
+    financeClip: "rounded-[24px]",
+    financeSlide: "min-h-[264px] rounded-[24px] [&>*]:min-h-[262px] [&>*]:rounded-[23px]",
+    financeSlideHeight: "clamp(264px, 37dvh, 278px)",
+    dots: "gap-1 pt-0.5 pb-1",
+    summaryGrid: "rounded-[22px]",
+    summaryCell: "min-h-[94px] p-[clamp(10px,3vw,13px)]",
+    summaryLabel: "text-[9.5px] tracking-[0.18em]",
+    summaryAmount: "mt-2 text-[clamp(29px,7.8vw,34px)]",
+    summaryCopy: "mt-1.5 text-[11px] leading-4",
+    summarySubcopy: "mt-1 text-[10px] leading-4",
+  },
   ultraCompact: {
     page: "min-h-0",
     headerOuter: "px-[clamp(10px,3vw,14px)] pb-1 pt-[calc(env(safe-area-inset-top)+6px)] md:px-[clamp(10px,3vw,14px)]",
@@ -53,6 +93,7 @@ export const DASHBOARD_SCALE = {
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[24px]",
     financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
+    financeSlideHeight: "clamp(224px, 34dvh, 238px)",
     dots: "gap-1 pt-1 pb-[clamp(6px,1.2dvh,10px)]",
     summaryGrid: "rounded-[22px]",
     summaryCell: "min-h-[104px] p-[clamp(13px,3.4vw,16px)]",
@@ -73,6 +114,7 @@ export const DASHBOARD_SCALE = {
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[26px]",
     financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
+    financeSlideHeight: "clamp(238px, 36dvh, 254px)",
     dots: "gap-1.5 pt-1 pb-[clamp(7px,1.3dvh,12px)]",
     summaryGrid: "rounded-[24px]",
     summaryCell: "min-h-[106px] p-[clamp(13px,3.5vw,16px)]",
