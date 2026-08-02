@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Flame, Sparkles, Trophy, X } from "lucide-react";
+import { Check, Flame, LoaderCircle, Share2, Sparkles, Trophy, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useDailyCheckIn from "../logic/useDailyCheckIn";
+import {
+  createStreakShareImage,
+  downloadShareImage,
+  getEventStreakCount,
+  isShareableStreakEvent,
+} from "./streakShareImage";
 
 const ACTIVE_CURRENT_STATE_KEY = "CLARA_ACTIVE_CURRENT_STATE_V1";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
@@ -88,7 +94,9 @@ export default function StreakAchievementBubble() {
   const { user } = useAuth();
   const [guideMode, setGuideMode] = useState(false);
   const [sampleMode, setSampleMode] = useState(() => hasActiveSampleMode());
+  const [shareState, setShareState] = useState("idle");
   const actionRef = useRef(null);
+  const shareResetTimerRef = useRef(null);
   const simulationMode = guideMode || sampleMode;
   const { pendingBubble, dismissPendingBubble } = useDailyCheckIn({
     userId: user?.id || "guest",
@@ -128,10 +136,102 @@ export default function StreakAchievementBubble() {
     };
   }, [copy, dismissPendingBubble, pendingBubble?.id]);
 
+  useEffect(() => {
+    setShareState("idle");
+    if (shareResetTimerRef.current && typeof window !== "undefined") {
+      window.clearTimeout(shareResetTimerRef.current);
+      shareResetTimerRef.current = null;
+    }
+  }, [pendingBubble?.id]);
+
+  useEffect(
+    () => () => {
+      if (shareResetTimerRef.current && typeof window !== "undefined") {
+        window.clearTimeout(shareResetTimerRef.current);
+      }
+    },
+    [],
+  );
+
   if (simulationMode || !pendingBubble || !copy) return null;
 
   const Icon = copy.icon;
   const isThirtyDayAchievement = pendingBubble.type === "streak_30_completed";
+  const canShareStreak = isShareableStreakEvent(pendingBubble.type);
+  const streakCount = getEventStreakCount(pendingBubble);
+
+  const scheduleShareStateReset = () => {
+    if (typeof window === "undefined") return;
+    if (shareResetTimerRef.current) window.clearTimeout(shareResetTimerRef.current);
+    shareResetTimerRef.current = window.setTimeout(() => {
+      setShareState("idle");
+      shareResetTimerRef.current = null;
+    }, 2400);
+  };
+
+  const handleShareStreak = async () => {
+    if (shareState === "generating") return;
+
+    setShareState("generating");
+
+    try {
+      const blob = createStreakShareImage(pendingBubble);
+      const fileName = `clara-${streakCount}-day-streak.png`;
+      const shareTitle = `My ${streakCount}-day CLARA streak`;
+      const shareText = `I showed up for ${streakCount} ${streakCount === 1 ? "day" : "days"} straight with CLARA. Financial discipline, one day at a time.`;
+      const file = typeof File === "function" ? new File([blob], fileName, { type: "image/png" }) : null;
+
+      let shared = false;
+      if (file && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        let canUseFileShare = true;
+        if (typeof navigator.canShare === "function") {
+          try {
+            canUseFileShare = navigator.canShare({ files: [file] });
+          } catch {
+            canUseFileShare = false;
+          }
+        }
+
+        if (canUseFileShare) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: shareTitle,
+              text: shareText,
+            });
+            shared = true;
+          } catch (error) {
+            if (error?.name === "AbortError") {
+              setShareState("idle");
+              return;
+            }
+          }
+        }
+      }
+
+      if (shared) {
+        setShareState("shared");
+      } else {
+        downloadShareImage(blob, fileName);
+        setShareState("saved");
+      }
+      scheduleShareStateReset();
+    } catch {
+      setShareState("error");
+      scheduleShareStateReset();
+    }
+  };
+
+  const shareButtonLabel =
+    shareState === "generating"
+      ? "Preparing image"
+      : shareState === "shared"
+        ? "Shared"
+        : shareState === "saved"
+          ? "Image saved"
+          : shareState === "error"
+            ? "Try sharing again"
+            : "Share my streak";
 
   return (
     <div
@@ -208,6 +308,25 @@ export default function StreakAchievementBubble() {
           >
             {copy.action}
           </button>
+
+          {canShareStreak ? (
+            <button
+              type="button"
+              onClick={handleShareStreak}
+              disabled={shareState === "generating"}
+              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-100/16 bg-white/[0.055] px-4 py-3 text-[10.5px] font-black uppercase tracking-[0.13em] text-cyan-50/88 transition hover:bg-white/[0.09] active:scale-[0.99] disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100/70"
+              aria-label="Generate and share a social media image of this streak"
+            >
+              {shareState === "generating" ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : shareState === "shared" || shareState === "saved" ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Share2 className="h-4 w-4" />
+              )}
+              {shareButtonLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
