@@ -3,6 +3,29 @@
   "installCommand": "npm ci",
   "buildCommand": "npx vite build --base=./",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/clara-api/:path*",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Accept, Authorization, Content-Type, ngrok-skip-browser-warning"
+        },
+        {
+          "key": "Access-Control-Max-Age",
+          "value": "86400"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/clara-api/:path*",
