@@ -60,6 +60,22 @@ test("Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunne
   );
 });
 
+test("Vercel API gateway returns the CORS headers required by GitHub Pages and native clients", () => {
+  const gatewayHeaders = vercelConfig.headers?.find(
+    (entry) => entry?.source === "/clara-api/:path*"
+  )?.headers;
+  const headers = Object.fromEntries(
+    (gatewayHeaders || []).map(({ key, value }) => [String(key).toLowerCase(), value])
+  );
+
+  assert.equal(headers["access-control-allow-origin"], "*");
+  assert.match(headers["access-control-allow-methods"], /POST/);
+  assert.match(headers["access-control-allow-methods"], /OPTIONS/);
+  assert.match(headers["access-control-allow-headers"], /Authorization/i);
+  assert.match(headers["access-control-allow-headers"], /Content-Type/i);
+  assert.match(headers["access-control-allow-headers"], /ngrok-skip-browser-warning/i);
+});
+
 test("production builds pin native CLARA to the stable Vercel API gateway", () => {
   assert.match(
     productionEnvironment,
