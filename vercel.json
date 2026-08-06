@@ -29,7 +29,7 @@
   "rewrites": [
     {
       "source": "/clara-api/:path*",
-      "destination": "https://myself-infinite-road-bookmark.trycloudflare.com/:path*"
+      "destination": "https://clouds-fill-nothing-gaming.trycloudflare.com/:path*"
     }
   ]
 }
