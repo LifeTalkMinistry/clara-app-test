@@ -29,7 +29,7 @@
   "rewrites": [
     {
       "source": "/clara-api/:path*",
-      "destination": "https://clouds-fill-nothing-gaming.trycloudflare.com/:path*"
+      "destination": "https://trips-tee-betty-powerful.trycloudflare.com/:path*"
     }
   ]
 }
