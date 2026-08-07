@@ -27,6 +27,10 @@ import "../clara-memory-bridge";
 // broad platform label; it does not inspect budgets, screens, notes, or messages.
 import "./installAppOpenTracking";
 
+// Daily challenge reporting sends only streak/check-in metadata needed by the
+// admin contender board. Budget, transaction, message, and note content is never sent.
+import "./installChallengeStreakTracking";
+
 // Buy Check ownership note:
 // The active Pause Buy Check flow is now owned by React through
 // ClaraAiEnvironmentOverlay + useClaraBuyCheckFlow. The former global
