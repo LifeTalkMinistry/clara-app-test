@@ -155,26 +155,19 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
 
     try {
       setSubmitting(true);
-      await backendRequest("/api/support/messages", {
+      await backendRequest("/api/support/payments", {
         method: "POST",
         token,
         body: {
-          topic: "Support payment confirmation",
-          content: [
-            `Tier: ${tier.name}`,
-            `Amount: PHP ${tier.price}`,
-            `Payment method: ${selected.label}`,
-            cleanReference ? `Reference number: ${cleanReference}` : "Reference number: not provided",
-            proof?.dataUrl ? "Payment proof: screenshot uploaded" : "Payment proof: reference number only",
-            "User marked this payment as sent and is requesting manual verification.",
-          ].join("\n"),
+          tierKey: tier.key,
+          paymentMethodKey: selected.key,
           paymentReference: cleanReference,
           proofImageDataUrl: proof?.dataUrl || "",
           proofImageName: proof?.name || "",
         },
       });
       setSubmitted(true);
-      toast.success("Payment proof sent for verification. Thank you for supporting CLARA 💙");
+      toast.success("Payment submitted for review. Thank you for supporting CLARA 💙");
     } catch (submitError) {
       toast.error(submitError?.message || "Unable to submit payment verification.");
     } finally {
@@ -289,7 +282,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
           <div className="mt-4 border-t border-white/10 pt-4">
             {submitted ? (
               <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-xs leading-5 text-emerald-100/80">
-                Payment proof submitted for manual verification. Thank you for helping keep CLARA free. 💙
+                Payment proof submitted and is now Pending Review. Your supporter badge activates only after an administrator verifies the payment. 💙
               </div>
             ) : (
               <>
