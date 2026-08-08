@@ -25,9 +25,8 @@ button[aria-label="Back to Community"]::after {
  * accepts them. The Community route already has a unique full-screen class
  * token (h-[100dvh]), so target that stable token instead.
  *
- * The shell is the single vertical scroll owner. The feed/main region grows
- * naturally inside it, which avoids the nested flex + overflow scroller that
- * previously became stuck on physical Android devices.
+ * This remains the desktop/browser fallback. Physical Android uses the later
+ * mobile override so the already-proven Layout scroller owns touch scrolling.
  */
 div[class~="z-[80]"][class~="h-[100dvh]"] {
   display: block !important;
@@ -71,4 +70,58 @@ div[class~="z-[80]"][class~="h-[100dvh]"] > main {
  */
 div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) {
   display: none !important;
+}
+
+/*
+ * CAPACITOR / ANDROID WEBVIEW SCROLL FIX
+ *
+ * Desktop/mobile browsers can scroll an overflow element that is itself
+ * position:fixed. On the installed Capacitor app, the same fixed nested
+ * scroller can receive taps but fail to turn vertical drags into scrolling.
+ *
+ * On phone-sized viewports, stop making Community a fixed/nested scroll area.
+ * Let CLARA's outer Layout <main> (which already scrolls correctly throughout
+ * the native app) be the ONE vertical scroll owner. Community simply grows
+ * inside that proven scroller and keeps only its header sticky.
+ */
+@media (max-width: 767px) {
+  div[class~="z-[80]"][class~="h-[100dvh]"] {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+    touch-action: auto !important;
+    -webkit-overflow-scrolling: auto !important;
+    transform: none !important;
+    contain: none !important;
+  }
+
+  div[class~="z-[80]"][class~="h-[100dvh]"] > header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 90 !important;
+  }
+
+  div[class~="z-[80]"][class~="h-[100dvh]"] > main {
+    display: block !important;
+    flex: none !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+    touch-action: auto !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
 }
