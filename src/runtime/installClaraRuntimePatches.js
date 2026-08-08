@@ -123,6 +123,7 @@ import "../mobile-performance.css";
 import "../dashboard-bottom-spacing.css";
 import "../clara-ai-overlay-soft-anchor.css";
 import "../life-context-polish.css";
+import "../community-premium-theme.css";
 
 // Life Stage visual patches
 import "../life-stage-hero-polish.css";
