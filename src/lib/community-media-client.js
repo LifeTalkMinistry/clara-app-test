@@ -3,6 +3,9 @@ import {
   getStoredBackendToken,
 } from "./clara-backend-client";
 
+export const COMMUNITY_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+export const COMMUNITY_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
+
 const MIME_BY_EXTENSION = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -34,6 +37,21 @@ function resolveMimeType(file) {
   return MIME_BY_EXTENSION[extension] || "application/octet-stream";
 }
 
+function isVideoFile(file) {
+  return resolveMimeType(file).startsWith("video/");
+}
+
+export function validateCommunityMediaFile(file) {
+  if (!(file instanceof File)) throw new Error("Choose a file first.");
+  const maxBytes = isVideoFile(file) ? COMMUNITY_VIDEO_MAX_BYTES : COMMUNITY_ATTACHMENT_MAX_BYTES;
+  if (file.size > maxBytes) {
+    throw new Error(isVideoFile(file)
+      ? "Videos can be up to 200 MB."
+      : "Photos and files can be up to 25 MB.");
+  }
+  return file;
+}
+
 async function throwResponseError(response, fallback) {
   let message = fallback;
   try {
@@ -48,10 +66,9 @@ async function throwResponseError(response, fallback) {
 }
 
 export async function uploadCommunityMedia(file) {
-  if (!(file instanceof File)) throw new Error("Choose a file first.");
+  validateCommunityMediaFile(file);
   const token = getStoredBackendToken();
   if (!token) throw new Error("Your CLARA account session is not connected.");
-  if (file.size > 20 * 1024 * 1024) throw new Error("Attachments must be 20 MB or smaller.");
 
   const response = await fetch(buildUrl("/api/community/media"), {
     method: "POST",
