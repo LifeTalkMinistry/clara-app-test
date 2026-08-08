@@ -70,7 +70,7 @@ test("Settings directly owns detail history, logout, and Memory", () => {
 
 test("Settings keeps the signed-in account identity and Profile entry visible", () => {
   assert.match(activeSettingsSource, /title: "Profile information"/);
-  assert.match(activeSettingsSource, /description: "Name, email, and account identity"/);
+  assert.match(activeSettingsSource, /description: "Name, email, and your ME life & money profile"/);
   assert.match(activeSettingsSource, /user\?\.email \|\| "CLARA user"/);
   assert.match(activeSettingsSource, /activeSetting === "profile"/);
   assert.match(
