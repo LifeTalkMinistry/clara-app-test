@@ -16,6 +16,7 @@ export const ENROLLMENT_RETRY_STATUSES = new Set([
   "none",
   "",
 ]);
+// Legacy billing compatibility only. Paid state no longer controls core app access.
 export const PAID_TIERS = [COMMITTED_PLAN_KEY];
 
 export function normalizeAccessValue(value) {
@@ -53,15 +54,9 @@ export function hasAnyPaidSignal(profileLike = {}) {
   return resolveMembership({ profile: profileLike }).isActiveCommitted;
 }
 
-export function shouldForceEnrollment(profileLike, enrollment) {
-  const membership = resolveMembership({ profile: profileLike });
-  const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
-  if (!enrollment) return false;
-  return (
-    membership.planKey === FREE_PLAN_KEY &&
-    !membership.isActiveCommitted &&
-    ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus)
-  );
+// Enrollment/payment state must never block entry into CLARA's normal app.
+export function shouldForceEnrollment() {
+  return false;
 }
 
 export function resolveAppFlow() {
@@ -83,14 +78,14 @@ export function deriveAccessState(profileLike = {}, enrollment = null) {
     enrollmentStatus: getEnrollmentStatus(enrollment, profileLike),
     isAdmin,
     isAdvertiser,
-    isApproved: membership.isActiveCommitted,
+    isApproved: true,
     isPaid: membership.isActiveCommitted,
     isPending: membership.isPendingActivation,
     isFree: membership.planKey === FREE_PLAN_KEY,
-    activationRequired: membership.isCommittedPlan,
-    isActivated: membership.isActiveCommitted,
-    isPreActivation: membership.isPendingActivation,
+    activationRequired: false,
+    isActivated: true,
+    isPreActivation: false,
     flow,
-    forceEnroll: shouldForceEnrollment(profileLike, enrollment),
+    forceEnroll: false,
   };
 }
