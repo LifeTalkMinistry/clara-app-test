@@ -260,7 +260,7 @@ export default function CommunityBackend() {
             </section>
           ) : (
             <div className="space-y-6">
-              {canPost ? <section className={`rounded-[22px] border border-white/10 bg-[#0a1a29] ${composerOpen ? "p-4" : "p-3"}`}>
+              {canPost ? <section className={`mb-6 rounded-[22px] border border-white/10 bg-[#0a1a29] ${composerOpen ? "p-4" : "p-3"}`}>
                 {!composerOpen ? <button type="button" onClick={() => setComposerOpen(true)} className="flex h-12 w-full items-center rounded-2xl border border-white/10 bg-[#071725] px-4 text-left text-sm font-semibold text-white/35">What's happening with your money journey?</button> : <>
                   <div className="mb-2 flex items-center justify-between gap-3 px-1">
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/38">What are you sharing?</p>
