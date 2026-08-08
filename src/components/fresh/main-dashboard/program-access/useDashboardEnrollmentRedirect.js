@@ -1,20 +1,6 @@
-import { useEffect } from "react";
-import { shouldForceToEnroll } from "@/components/fresh/main-dashboard/program-access/programAccessRules";
-
-export default function useDashboardEnrollmentRedirect({
-  guardChecked,
-  profileData,
-  latestEnrollment,
-  isPaid,
-  navigate,
-}) {
-  useEffect(() => {
-    if (!guardChecked || !profileData) return;
-
-    const shouldRedirect = shouldForceToEnroll(profileData, latestEnrollment, isPaid);
-
-    if (shouldRedirect) {
-      navigate("/enroll", { replace: true });
-    }
-  }, [guardChecked, profileData, latestEnrollment, isPaid, navigate]);
+// CLARA's core app is free. Legacy enrollment records may still exist for
+// historical billing compatibility, but they must never redirect users away
+// from the dashboard or normal financial/accountability features.
+export default function useDashboardEnrollmentRedirect() {
+  return undefined;
 }
