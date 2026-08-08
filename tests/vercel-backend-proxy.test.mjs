@@ -9,10 +9,6 @@ const productionEnvironment = readFileSync(
   new URL("../.env.production", import.meta.url),
   "utf8"
 );
-const backendClientSource = readFileSync(
-  new URL("../src/lib/clara-backend-client.js", import.meta.url),
-  "utf8"
-);
 const coachingClientSource = readFileSync(
   new URL("../src/lib/coaching-backend-client.js", import.meta.url),
   "utf8"
@@ -26,87 +22,29 @@ const legalInformationClientSource = readFileSync(
   "utf8"
 );
 
-const ASSIGNED_BACKEND_ORIGIN =
-  "https://groin-mothproof-sixties.ngrok-free.dev/:path*";
+const PRODUCTION_API_ORIGIN = "https://api.clarapmc.ph";
 
-function createStorage() {
-  return {
-    getItem() {
-      return null;
-    },
-    setItem() {},
-    removeItem() {},
-  };
-}
-
-async function importBackendClientForHost(hostname) {
-  globalThis.window = {
-    location: { hostname },
-    localStorage: createStorage(),
-  };
-
-  try {
-    return await import(
-      `../src/lib/clara-backend-client.js?host=${encodeURIComponent(hostname)}-${Date.now()}-${Math.random()}`
-    );
-  } finally {
-    delete globalThis.window;
-  }
-}
-
-test("Vercel rewrites the stable CLARA API gateway to the assigned backend tunnel", () => {
-  assert.equal(vercelConfig.rewrites?.length, 1);
-  assert.equal(vercelConfig.rewrites[0]?.source, "/clara-api/:path*");
-  assert.equal(
-    String(vercelConfig.rewrites[0]?.destination || ""),
-    ASSIGNED_BACKEND_ORIGIN
-  );
-});
-
-test("Vercel API gateway returns the CORS headers required by GitHub Pages and native clients", () => {
-  const gatewayHeaders = vercelConfig.headers?.find(
-    (entry) => entry?.source === "/clara-api/:path*"
-  )?.headers;
-  const headers = Object.fromEntries(
-    (gatewayHeaders || []).map(({ key, value }) => [String(key).toLowerCase(), value])
-  );
-
-  assert.equal(headers["access-control-allow-origin"], "*");
-  assert.match(headers["access-control-allow-methods"], /POST/);
-  assert.match(headers["access-control-allow-methods"], /OPTIONS/);
-  assert.match(headers["access-control-allow-headers"], /Authorization/i);
-  assert.match(headers["access-control-allow-headers"], /Content-Type/i);
-  assert.match(headers["access-control-allow-headers"], /ngrok-skip-browser-warning/i);
-});
-
-test("production builds pin native CLARA to the stable Vercel API gateway", () => {
+test("production builds point directly to the self-hosted CLARA API hostname", () => {
   assert.match(
     productionEnvironment,
-    /^VITE_CLARA_API_URL=https:\/\/clara-app-test\.vercel\.app\/clara-api\s*$/m
+    /^VITE_CLARA_API_URL=https:\/\/api\.clarapmc\.ph\s*$/m
   );
 });
 
-test("Vercel web builds use the same-origin API proxy when no build override is present", async () => {
-  const client = await importBackendClientForHost("clara-app-test.vercel.app");
-
-  assert.equal(client.getClaraBackendUrl(), "/clara-api");
-  assert.equal(client.VERCEL_API_PROXY_PATH, "/clara-api");
+test("Vercel no longer proxies CLARA backend traffic through a tunnel provider", () => {
+  assert.equal(vercelConfig.rewrites, undefined);
+  assert.equal(vercelConfig.headers, undefined);
 });
 
-test("shared backend requests remain compatible with tunnel providers", () => {
-  assert.match(
-    backendClientSource,
-    /"ngrok-skip-browser-warning": "true"/
-  );
-});
-
-test("coaching requests are pinned to the working production proxy", () => {
-  assert.match(
-    coachingClientSource,
-    /return isVercelWebRuntime\(\)[\s\S]*VERCEL_COACHING_PROXY_PATH/
-  );
+test("coaching requests use the same direct backend base as the rest of CLARA", () => {
+  assert.match(coachingClientSource, /return getClaraBackendUrl\(\);/);
+  assert.doesNotMatch(coachingClientSource, /VERCEL_COACHING_PROXY_PATH/);
+  assert.doesNotMatch(coachingClientSource, /ngrok-skip-browser-warning/);
   assert.match(coachingClientSource, /Authorization: `Bearer \$\{authorizedToken\}`/);
-  assert.doesNotMatch(coachingClientSource, /backendRequest\(/);
+});
+
+test("the production API hostname remains the owned CLARA hostname", () => {
+  assert.equal(PRODUCTION_API_ORIGIN, "https://api.clarapmc.ph");
 });
 
 test("Settings backend clients coalesce rapid repeated reads", () => {
@@ -114,10 +52,4 @@ test("Settings backend clients coalesce rapid repeated reads", () => {
   assert.match(billingClientSource, /inFlightRequest/);
   assert.match(legalInformationClientSource, /LEGAL_INFORMATION_CACHE_TTL_MS/);
   assert.match(legalInformationClientSource, /inFlightRequest/);
-});
-
-test("development fallback remains available when no production build override is loaded", async () => {
-  const client = await importBackendClientForHost("localhost");
-
-  assert.equal(client.getClaraBackendUrl(), client.DEFAULT_API_URL);
 });
