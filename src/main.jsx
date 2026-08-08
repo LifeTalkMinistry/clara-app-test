@@ -23,6 +23,7 @@ import { installClaraGuideScheduleRuntime } from "./runtime/claraGuideScheduleRu
 import "./runtime/installClaraRuntimePatches";
 import "./runtime/installManualExpenseKeyboardGuard";
 import "./index.css";
+import "./support-orb-position.css";
 import "./messages-back-to-community-label.css";
 import "./messages-inbox-refine.css";
 import "./manual-expense-wallet-step.css";
