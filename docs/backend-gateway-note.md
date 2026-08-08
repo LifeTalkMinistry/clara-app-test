@@ -1,9 +1,9 @@
 # CLARA backend gateway
 
-Production Android builds use `https://clara-app-test.vercel.app/clara-api` as the stable public API gateway.
+Production CLARA clients now use `https://api.clarapmc.ph` directly.
 
-Vercel rewrites that path to CLARA's assigned backend tunnel. This keeps the tunnel-provider URL out of the Android production configuration, so app builds continue using the same public API address.
+That hostname is intended to terminate at a persistent, named Cloudflare Tunnel running on the backend PC and route to the local CLARA Node.js service at `http://127.0.0.1:3000`.
 
-The assigned backend origin is `https://groin-mothproof-sixties.ngrok-free.dev`. Unlike the old Cloudflare Quick Tunnel, this endpoint is intentionally fixed in `vercel.json` and should not be replaced during normal backend restarts.
+Production API traffic no longer depends on an ngrok hostname or a Vercel `/clara-api` rewrite. Vercel and GitHub Pages may still host frontend files, but the account, Community, Support, coaching, and other backend-authoritative requests go to the owned CLARA API hostname.
 
-The local CLARA backend and the ngrok tunnel process still need to be running on the backend PC. If either process is stopped, the stable Vercel gateway remains the same but cannot reach the local backend until those processes are started again.
+The backend PC remains the authority for Node.js, PostgreSQL, authentication, and server-side CLARA data. The `cloudflared` Windows service and the PM2 `clara-backend` process must remain running. If the PC, home internet, PostgreSQL, PM2 process, or Cloudflare Tunnel is unavailable, online CLARA backend features will be unavailable until the origin returns.
