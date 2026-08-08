@@ -27,12 +27,12 @@ export const ACCESS_LEVEL_PLAN_KEYS = {
   [COMMITTED_ACCESS_LEVEL]: COMMITTED_PLAN_KEY,
 };
 export const PLAN_LABELS = {
-  [FREE_PLAN_KEY]: "Free Version",
-  [COMMITTED_PLAN_KEY]: "Committed",
+  [FREE_PLAN_KEY]: "CLARA Free",
+  [COMMITTED_PLAN_KEY]: "Legacy Committed",
 };
 export const PLAN_BADGE_STYLES = {
-  [FREE_PLAN_KEY]: "bg-white/10 text-white border-white/10",
-  [COMMITTED_PLAN_KEY]: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
+  [FREE_PLAN_KEY]: "bg-cyan-500/10 text-cyan-100 border-cyan-300/15",
+  [COMMITTED_PLAN_KEY]: "bg-white/10 text-white/70 border-white/10",
   admin: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/20",
   advertiser: "bg-sky-500/15 text-sky-300 border-sky-400/20",
 };
@@ -51,7 +51,7 @@ export const FEATURE_DEFINITIONS = [
   { key: "modules", label: "Modules", description: "Weekly learning modules and playback.", modes: ["off", "preview", "full"] },
   { key: "community", label: "Community", description: "Private community space for deeper conversations and connection.", modes: ["off", "view", "full"] },
   { key: "messages", label: "Messages", description: "Private messaging and admin conversations.", modes: ["off", "admin_only", "full"] },
-  { key: "coaching", label: "Guidance", description: "Guided support and accountability surfaces.", modes: ["off", "teaser", "full"] },
+  { key: "coaching", label: "Guidance", description: "Guided support and accountability surfaces. Personal coaching remains a separate support benefit.", modes: ["off", "teaser", "full"] },
   { key: "news", label: "News", description: "News and CLARA updates.", modes: ["off", "full"] },
   { key: "referrals", label: "Referrals", description: "Referral and ambassador access.", modes: ["off", "full"] },
 ];
@@ -89,38 +89,45 @@ export const FEATURE_MODE_LABELS = {
   teaser: "Teaser",
 };
 
+// Core CLARA is free. Personal coaching is intentionally kept separate from
+// normal app access and can evolve as a supporter benefit without creating a
+// software paywall.
 const FREE_ACCESS_CONFIG = {
   dashboard: "full",
   feed: "full",
   expenses: "full",
   wallets: "full",
   budgets: "full",
-  analytics: "off",
-  ai: "off",
-  customization: "off",
-  savings_goals: "off",
-  tasks: "off",
-  modules: "off",
-  community: "off",
-  messages: "off",
-  coaching: "off",
+  analytics: "full",
+  ai: "full",
+  customization: "full",
+  savings_goals: "full",
+  tasks: "full",
+  modules: "full",
+  community: "full",
+  messages: "full",
+  coaching: "teaser",
   news: "full",
-  referrals: "off",
+  referrals: "full",
 };
 
-const COMMITTED_ACCESS_CONFIG = FEATURE_DEFINITIONS.reduce((acc, feature) => {
-  acc[feature.key] = feature.modes.includes("full") ? "full" : feature.modes.find((mode) => mode !== "off") || "off";
-  return acc;
-}, {});
+// Historical Committed accounts keep their billing identity for compatibility,
+// but they do not receive additional core app functionality.
+const COMMITTED_ACCESS_CONFIG = { ...FREE_ACCESS_CONFIG };
 
 export const PLAN_DEFAULTS = {
   [FREE_PLAN_KEY]: {
     key: FREE_PLAN_KEY,
-    name: "Free Version",
+    name: "CLARA Free",
     price: 0,
-    description: "Use CLARA’s essential money tracking tools for free.",
-    features: ["Dashboard access", "Expense tracking", "Wallet tracking", "Budget tracking", "News and updates"],
-    cta_label: "Start Free",
+    description: "The complete CLARA financial accountability app is free for everyone.",
+    features: [
+      "Complete CLARA financial accountability system",
+      "Ask Before You Spend and AI guidance",
+      "Budgets, wallets, analytics, savings and emergency-fund tools",
+      "Learning Hub, streaks, community and normal app features",
+    ],
+    cta_label: "Use CLARA Free",
     active: true,
     popular: false,
     sort_order: 1,
@@ -128,16 +135,20 @@ export const PLAN_DEFAULTS = {
   },
   [COMMITTED_PLAN_KEY]: {
     key: COMMITTED_PLAN_KEY,
-    name: "Committed",
+    name: "Legacy Committed",
     price: 249,
     product_id: COMMITTED_PRODUCT_ID,
     billing_type: "subscription",
-    description: "Unlock the complete CLARA experience through one monthly commitment.",
-    features: ["Complete CLARA financial system", "Full AI guidance", "Me and Schedule access", "Learning Hub and committed features"],
-    cta_label: "Start Your Commitment",
-    active: true,
-    popular: true,
-    sort_order: 2,
+    description: "Legacy billing record retained for compatibility. Core CLARA access is free for everyone.",
+    features: [
+      "Legacy account compatibility",
+      "No additional core app access",
+      "Support relationships now use Supporter, Builder, and Champion",
+    ],
+    cta_label: "Legacy plan",
+    active: false,
+    popular: false,
+    sort_order: 99,
     access_config: COMMITTED_ACCESS_CONFIG,
   },
 };
