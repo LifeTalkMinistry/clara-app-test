@@ -22,6 +22,7 @@ import {
   formatChatTime,
   getMessageInitials,
 } from "@/components/fresh/messages/messagesUtils";
+import SupportTierBadge from "@/components/support/SupportTierBadge";
 
 export default function MessagesBackend() {
   const navigate = useNavigate();
@@ -122,16 +123,20 @@ export default function MessagesBackend() {
       const otherProfile = usersById[String(otherId)] || {};
       const otherEmail = isMine ? message.recipient_email : message.sender_email;
       const otherName = isMine ? message.recipient_name : message.sender_name;
+      const otherSupportTier = (isMine ? message.recipient_support_tier : message.sender_support_tier) || otherProfile.support_tier || null;
       const key = String(otherId);
       if (!convos[key]) {
         convos[key] = {
           id: otherId,
           email: otherEmail || otherProfile.email || "",
           name: otherName || otherProfile.display_name || otherProfile.full_name || otherEmail || "CLARA User",
+          supportTier: otherSupportTier,
           messages: [],
           lastMessage: null,
           unreadCount: 0,
         };
+      } else if (!convos[key].supportTier && otherSupportTier) {
+        convos[key].supportTier = otherSupportTier;
       }
       convos[key].messages.push(message);
       if (String(message.recipient_id) === String(currentUserId) && !message.is_read) {
@@ -180,6 +185,7 @@ export default function MessagesBackend() {
       id: person.id,
       email: person.email || "",
       name: person.display_name || person.full_name || person.email || "CLARA User",
+      supportTier: person.support_tier || null,
       messages: [],
       lastMessage: null,
       unreadCount: 0,
@@ -252,6 +258,7 @@ export default function MessagesBackend() {
       recipient_id: activeConvo.id,
       recipient_email: activeConvo.email,
       recipient_name: activeConvo.name,
+      recipient_support_tier: activeConvo.supportTier || null,
       content,
       is_read: false,
       created_at: new Date().toISOString(),
@@ -289,7 +296,7 @@ export default function MessagesBackend() {
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <Button variant="ghost" size="icon" onClick={handleBackFromConversation} className="h-11 w-11 shrink-0 rounded-2xl border border-white/10 bg-white/5 text-white"><ArrowLeft className="h-4 w-4" /></Button>
             <div className="relative shrink-0"><div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 font-black text-[#ccfbf1]">{getMessageInitials(activeConvo.name)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div>
-            <div className="min-w-0 flex-1"><p className="truncate font-black text-white">{activeConvo.name}</p><p className="truncate text-xs text-white/45">Private conversation</p></div>
+            <div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-1.5"><p className="min-w-0 truncate font-black text-white">{activeConvo.name}</p><SupportTierBadge tier={activeConvo.supportTier} compact /></div><p className="truncate text-xs text-white/45">Private conversation</p></div>
             <button type="button" className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/60"><MoreHorizontal className="h-4 w-4" /></button>
           </div>
         </header>
@@ -324,9 +331,9 @@ export default function MessagesBackend() {
           <div className="flex h-12 items-center gap-3 rounded-[18px] border border-white/10 bg-white/[0.05] px-4"><Search className="h-4 w-4 text-white/38" /><Input placeholder="Search members" value={search} onFocus={() => setSearchActive(true)} onBlur={() => window.setTimeout(() => setSearchActive(false), 140)} onChange={(event) => setSearch(event.target.value)} className="min-w-0 border-0 bg-transparent px-0 text-sm font-semibold text-white placeholder:text-white/30 focus-visible:ring-0" /></div>
 
           {searchActive ? (
-            <section className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredUsers.length === 0 ? <div className="px-4 py-5 text-sm font-semibold text-white/42">No people found.</div> : filteredUsers.map((person) => <button type="button" key={person.id} onClick={() => openConversation(person.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{getMessageInitials(person.display_name || person.full_name || person.email)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{person.display_name || person.full_name || person.email}</p><p className="truncate text-[11px] font-semibold text-white/38">{String(person.role).toLowerCase() === "admin" ? "CLARA Admin" : "Community Member"}</p></div><span className="text-[11px] font-black text-[#99f6e4]">Chat</span></button>)}</div></section>
+            <section className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredUsers.length === 0 ? <div className="px-4 py-5 text-sm font-semibold text-white/42">No people found.</div> : filteredUsers.map((person) => <button type="button" key={person.id} onClick={() => openConversation(person.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{getMessageInitials(person.display_name || person.full_name || person.email)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-1.5"><p className="min-w-0 truncate text-sm font-black">{person.display_name || person.full_name || person.email}</p><SupportTierBadge tier={person.support_tier} compact /></div><p className="truncate text-[11px] font-semibold text-white/38">{String(person.role).toLowerCase() === "admin" ? "CLARA Admin" : "Community Member"}</p></div><span className="text-[11px] font-black text-[#99f6e4]">Chat</span></button>)}</div></section>
           ) : (
-            <section>{filteredConvos.length === 0 ? <div className="rounded-[22px] border border-white/10 bg-white/[0.035] px-4 py-7"><EmptyState icon={MessageSquare} title="No messages yet" description="Tap the search bar to find a community member." /></div> : <div className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredConvos.map((conversation) => { const last = conversation.lastMessage; const isFromMe = String(last?.sender_id) === String(currentUserId); return <button type="button" key={conversation.id} onClick={() => openConversation(conversation.id)} className="flex w-full items-center gap-3 px-3 py-3.5 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">{getMessageInitials(conversation.name)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-sm font-black">{conversation.name}</p><span className="shrink-0 text-[10px] text-white/35">{formatChatTime(last?.created_at)}</span></div><div className="mt-1 flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-xs font-semibold text-white/45">{isFromMe ? "You: " : ""}{last?.content || "Start chatting"}</p>{conversation.unreadCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#22c7b8] px-1.5 text-[10px] font-black text-[#042f2e]">{conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}</span> : null}</div></div></button>; })}</div></div>}</section>
+            <section>{filteredConvos.length === 0 ? <div className="rounded-[22px] border border-white/10 bg-white/[0.035] px-4 py-7"><EmptyState icon={MessageSquare} title="No messages yet" description="Tap the search bar to find a community member." /></div> : <div className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredConvos.map((conversation) => { const last = conversation.lastMessage; const isFromMe = String(last?.sender_id) === String(currentUserId); return <button type="button" key={conversation.id} onClick={() => openConversation(conversation.id)} className="flex w-full items-center gap-3 px-3 py-3.5 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">{getMessageInitials(conversation.name)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><p className="min-w-0 flex-1 truncate text-sm font-black">{conversation.name}</p><SupportTierBadge tier={conversation.supportTier} compact /><span className="shrink-0 text-[10px] text-white/35">{formatChatTime(last?.created_at)}</span></div><div className="mt-1 flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-xs font-semibold text-white/45">{isFromMe ? "You: " : ""}{last?.content || "Start chatting"}</p>{conversation.unreadCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#22c7b8] px-1.5 text-[10px] font-black text-[#042f2e]">{conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}</span> : null}</div></div></button>; })}</div></div>}</section>
           )}
         </div>
       </main>
