@@ -440,7 +440,7 @@ export default function CommunityBackend() {
                 const TypeIcon = postType.icon;
                 const postComments = commentsByPost[String(post.id)] || [];
                 const ownsPost = String(post.author_id) === String(currentUserId);
-                const canManage = ownsPost || isAdmin;
+                const canManage = ownsPost;
                 const isEditing = String(editingPost?.id || "") === String(post.id);
 
                 return (
