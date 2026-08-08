@@ -13,6 +13,7 @@ export default function Community() {
   const showingCircles = searchParams.get("view") === "circles";
 
   useEffect(() => {
+    setHeaderActions(null);
     if (showingChallenges || showingCircles) return undefined;
 
     let frameId = null;
