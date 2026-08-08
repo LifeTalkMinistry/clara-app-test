@@ -8,54 +8,54 @@
  *
  * Visible choreography:
  *   0.0-1.0s  calm / no glow
- *   1.0-3.0s  glow on + three slow, soft bounces
+ *   1.0-3.0s  glow on + three basketball-style bounces
  *   3.0-6.0s  React expands the Support label
- *   6.0-8.0s  three slow exit bounces
+ *   6.0-8.0s  three basketball-style exit bounces
  *   8.0-8.3s  settle
  *   8.3-9.0s  roll off the right edge
  */
 
 @keyframes claraSupportPremiumChoreography {
   0%, 11.1% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1, 1);
     opacity: 1;
     box-shadow:
       0 0 0 1px rgba(34, 211, 238, 0.06) inset,
       0 10px 28px rgba(0, 0, 0, 0.42);
   }
 
-  /* Slow entry bounce 1 */
+  /* Basketball bounce 1: highest arc */
   14.5% {
-    transform: translate3d(0, -8px, 0) rotate(-1deg) scale(1.022);
+    transform: translate3d(0, -22px, 0) rotate(-0.6deg) scale(0.99, 1.03);
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.12) inset,
       0 0 18px rgba(34, 211, 238, 0.42),
       0 0 38px rgba(59, 130, 246, 0.22),
-      0 14px 34px rgba(0, 0, 0, 0.48);
+      0 16px 36px rgba(0, 0, 0, 0.46);
   }
   18.1% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.992);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.055, 0.945);
   }
 
-  /* Slow entry bounce 2 */
+  /* Basketball bounce 2: naturally lower */
   21.5% {
-    transform: translate3d(0, -6px, 0) rotate(0.8deg) scale(1.016);
+    transform: translate3d(0, -15px, 0) rotate(0.45deg) scale(0.995, 1.02);
   }
   25.1% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.995);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.038, 0.962);
   }
 
-  /* Slow entry bounce 3 */
+  /* Basketball bounce 3: final smaller rebound */
   28.5% {
-    transform: translate3d(0, -4px, 0) rotate(-0.5deg) scale(1.010);
+    transform: translate3d(0, -9px, 0) rotate(-0.3deg) scale(0.998, 1.012);
   }
   32.7% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1, 1);
   }
 
   /* Expand and hold */
   33.333%, 66.666% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1, 1);
     opacity: 1;
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.10) inset,
@@ -64,38 +64,38 @@
       0 14px 38px rgba(0, 0, 0, 0.48);
   }
 
-  /* Slow exit bounce 1 */
+  /* Exit bounce 1: still pronounced, but slightly lower than entry */
   70.0% {
-    transform: translate3d(0, -7px, 0) rotate(1deg) scale(1.020);
+    transform: translate3d(0, -19px, 0) rotate(0.6deg) scale(0.99, 1.025);
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.14) inset,
       0 0 21px rgba(34, 211, 238, 0.48),
       0 0 42px rgba(59, 130, 246, 0.24),
-      0 14px 36px rgba(0, 0, 0, 0.50);
+      0 16px 38px rgba(0, 0, 0, 0.48);
   }
   73.7% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.992);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.05, 0.95);
   }
 
-  /* Slow exit bounce 2 */
+  /* Exit bounce 2 */
   77.1% {
-    transform: translate3d(0, -5px, 0) rotate(-0.8deg) scale(1.015);
+    transform: translate3d(0, -13px, 0) rotate(-0.45deg) scale(0.995, 1.018);
   }
   80.8% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.995);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.034, 0.966);
   }
 
-  /* Slow exit bounce 3 */
+  /* Exit bounce 3 */
   84.2% {
-    transform: translate3d(0, -3px, 0) rotate(0.5deg) scale(1.008);
+    transform: translate3d(0, -8px, 0) rotate(0.3deg) scale(0.998, 1.01);
   }
   88.5% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1, 1);
   }
 
   /* Short calm pause before rolling away. */
   92.2% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1, 1);
     opacity: 1;
   }
 
@@ -117,47 +117,47 @@
   }
   14.5% {
     opacity: 0.92;
-    transform: scale(1.08);
+    transform: scale(1.10);
   }
   18.1% {
-    opacity: 0.48;
-    transform: scale(0.96);
+    opacity: 0.46;
+    transform: scale(0.94);
   }
   21.5% {
-    opacity: 0.78;
-    transform: scale(1.05);
+    opacity: 0.80;
+    transform: scale(1.07);
   }
   25.1% {
-    opacity: 0.46;
-    transform: scale(0.97);
+    opacity: 0.45;
+    transform: scale(0.96);
   }
   28.5% {
-    opacity: 0.68;
-    transform: scale(1.03);
+    opacity: 0.70;
+    transform: scale(1.04);
   }
   32.7%, 66.6% {
     opacity: 0.48;
     transform: scale(1);
   }
   70% {
-    opacity: 0.94;
-    transform: scale(1.08);
+    opacity: 0.95;
+    transform: scale(1.10);
   }
   73.7% {
-    opacity: 0.52;
-    transform: scale(0.97);
+    opacity: 0.50;
+    transform: scale(0.95);
   }
   77.1% {
-    opacity: 0.80;
-    transform: scale(1.05);
+    opacity: 0.82;
+    transform: scale(1.07);
   }
   80.8% {
-    opacity: 0.48;
-    transform: scale(0.98);
+    opacity: 0.47;
+    transform: scale(0.96);
   }
   84.2% {
-    opacity: 0.68;
-    transform: scale(1.03);
+    opacity: 0.70;
+    transform: scale(1.04);
   }
   88.5%, 92.2% {
     opacity: 0.42;
@@ -236,6 +236,7 @@
 @media (prefers-reduced-motion: no-preference) {
   #clara-support-world [data-clara-support-bubble] {
     animation: claraSupportPremiumChoreography 9s ease-in-out 1 both !important;
+    transform-origin: 50% 100%;
     will-change: transform, opacity, box-shadow;
   }
 
