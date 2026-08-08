@@ -25,7 +25,6 @@
       0 10px 28px rgba(0, 0, 0, 0.42);
   }
 
-  /* Entry bounce 1 */
   16.2% {
     transform: translate3d(0, -10px, 0) rotate(-2deg) scale(1.035);
     box-shadow:
@@ -37,16 +36,12 @@
   18.6% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(0.985);
   }
-
-  /* Entry bounce 2 */
   20.6% {
     transform: translate3d(0, -7px, 0) rotate(1.5deg) scale(1.025);
   }
   22.6% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(0.99);
   }
-
-  /* Entry bounce 3 */
   24.4% {
     transform: translate3d(0, -4px, 0) rotate(-1deg) scale(1.015);
   }
@@ -54,7 +49,6 @@
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
 
-  /* Settle, expand, and hold */
   33.333%, 66.666% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     opacity: 1;
@@ -65,7 +59,6 @@
       0 14px 38px rgba(0, 0, 0, 0.48);
   }
 
-  /* Exit bounce 1 */
   69.4% {
     transform: translate3d(0, -9px, 0) rotate(2deg) scale(1.03);
     box-shadow:
@@ -77,16 +70,12 @@
   71.8% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(0.985);
   }
-
-  /* Exit bounce 2 */
   73.8% {
     transform: translate3d(0, -6px, 0) rotate(-1.5deg) scale(1.022);
   }
   75.8% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(0.99);
   }
-
-  /* Exit bounce 3 */
   77.6% {
     transform: translate3d(0, -4px, 0) rotate(1deg) scale(1.014);
   }
@@ -94,13 +83,10 @@
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
 
-  /* One-second pause before the creative exit. */
   88.888% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     opacity: 1;
   }
-
-  /* Roll naturally through the right screen edge. */
   94% {
     transform: translate3d(58px, -2px, 0) rotate(210deg) scale(0.92);
     opacity: 0.92;
@@ -210,6 +196,23 @@
     animation: claraSupportPremiumHeart 9s ease-in-out 1 both !important;
     will-change: filter;
   }
+}
+
+/* Active supporters keep a stable gratitude state instead of rolling away. */
+#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] {
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] [data-clara-support-halo],
+#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] [data-clara-support-heart] {
+  animation: none !important;
+}
+
+#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] [data-clara-support-halo] {
+  opacity: 0.46 !important;
+  transform: scale(1) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
