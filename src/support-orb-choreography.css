@@ -7,17 +7,16 @@
  * refreshes cannot take ownership of the Support experience.
  *
  * Visible choreography:
- *   0.0-1.2s  calm / no glow
- *   1.2-2.2s  glow on + three bounces
- *   2.2-3.0s  settle
+ *   0.0-1.0s  calm / no glow
+ *   1.0-3.0s  glow on + three slow, soft bounces
  *   3.0-6.0s  React expands the Support label
- *   6.0-7.0s  three exit bounces
- *   7.0-8.0s  settle
- *   8.0-9.0s  roll off the right edge
+ *   6.0-8.0s  three slow exit bounces
+ *   8.0-8.3s  settle
+ *   8.3-9.0s  roll off the right edge
  */
 
 @keyframes claraSupportPremiumChoreography {
-  0%, 13.333% {
+  0%, 11.1% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     opacity: 1;
     box-shadow:
@@ -25,30 +24,36 @@
       0 10px 28px rgba(0, 0, 0, 0.42);
   }
 
-  16.2% {
-    transform: translate3d(0, -10px, 0) rotate(-2deg) scale(1.035);
+  /* Slow entry bounce 1 */
+  14.5% {
+    transform: translate3d(0, -8px, 0) rotate(-1deg) scale(1.022);
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.12) inset,
       0 0 18px rgba(34, 211, 238, 0.42),
       0 0 38px rgba(59, 130, 246, 0.22),
       0 14px 34px rgba(0, 0, 0, 0.48);
   }
-  18.6% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.985);
+  18.1% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.992);
   }
-  20.6% {
-    transform: translate3d(0, -7px, 0) rotate(1.5deg) scale(1.025);
+
+  /* Slow entry bounce 2 */
+  21.5% {
+    transform: translate3d(0, -6px, 0) rotate(0.8deg) scale(1.016);
   }
-  22.6% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.99);
+  25.1% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.995);
   }
-  24.4% {
-    transform: translate3d(0, -4px, 0) rotate(-1deg) scale(1.015);
+
+  /* Slow entry bounce 3 */
+  28.5% {
+    transform: translate3d(0, -4px, 0) rotate(-0.5deg) scale(1.010);
   }
-  26.2% {
+  32.7% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
 
+  /* Expand and hold */
   33.333%, 66.666% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     opacity: 1;
@@ -59,130 +64,138 @@
       0 14px 38px rgba(0, 0, 0, 0.48);
   }
 
-  69.4% {
-    transform: translate3d(0, -9px, 0) rotate(2deg) scale(1.03);
+  /* Slow exit bounce 1 */
+  70.0% {
+    transform: translate3d(0, -7px, 0) rotate(1deg) scale(1.020);
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.14) inset,
       0 0 21px rgba(34, 211, 238, 0.48),
       0 0 42px rgba(59, 130, 246, 0.24),
       0 14px 36px rgba(0, 0, 0, 0.50);
   }
-  71.8% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.985);
+  73.7% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.992);
   }
-  73.8% {
-    transform: translate3d(0, -6px, 0) rotate(-1.5deg) scale(1.022);
+
+  /* Slow exit bounce 2 */
+  77.1% {
+    transform: translate3d(0, -5px, 0) rotate(-0.8deg) scale(1.015);
   }
-  75.8% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.99);
+  80.8% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.995);
   }
-  77.6% {
-    transform: translate3d(0, -4px, 0) rotate(1deg) scale(1.014);
+
+  /* Slow exit bounce 3 */
+  84.2% {
+    transform: translate3d(0, -3px, 0) rotate(0.5deg) scale(1.008);
   }
-  79.4% {
+  88.5% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
 
-  88.888% {
+  /* Short calm pause before rolling away. */
+  92.2% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     opacity: 1;
   }
-  94% {
-    transform: translate3d(58px, -2px, 0) rotate(210deg) scale(0.92);
-    opacity: 0.92;
+
+  /* Roll naturally through the right screen edge. */
+  96% {
+    transform: translate3d(54px, -1px, 0) rotate(180deg) scale(0.94);
+    opacity: 0.94;
   }
   100% {
-    transform: translate3d(170px, 2px, 0) rotate(560deg) scale(0.72);
+    transform: translate3d(170px, 2px, 0) rotate(520deg) scale(0.74);
     opacity: 0;
   }
 }
 
 @keyframes claraSupportPremiumHalo {
-  0%, 13.2% {
+  0%, 11.1% {
     opacity: 0;
     transform: scale(0.84);
   }
-  16.2% {
-    opacity: 0.96;
-    transform: scale(1.10);
+  14.5% {
+    opacity: 0.92;
+    transform: scale(1.08);
   }
-  18.6% {
+  18.1% {
     opacity: 0.48;
-    transform: scale(0.94);
-  }
-  20.6% {
-    opacity: 0.82;
-    transform: scale(1.06);
-  }
-  22.6% {
-    opacity: 0.46;
     transform: scale(0.96);
   }
-  24.4% {
-    opacity: 0.72;
-    transform: scale(1.04);
+  21.5% {
+    opacity: 0.78;
+    transform: scale(1.05);
   }
-  26.2%, 66.6% {
+  25.1% {
+    opacity: 0.46;
+    transform: scale(0.97);
+  }
+  28.5% {
+    opacity: 0.68;
+    transform: scale(1.03);
+  }
+  32.7%, 66.6% {
     opacity: 0.48;
     transform: scale(1);
   }
-  69.4% {
-    opacity: 1;
-    transform: scale(1.11);
+  70% {
+    opacity: 0.94;
+    transform: scale(1.08);
   }
-  71.8% {
+  73.7% {
     opacity: 0.52;
-    transform: scale(0.96);
-  }
-  73.8% {
-    opacity: 0.86;
-    transform: scale(1.07);
-  }
-  75.8% {
-    opacity: 0.48;
     transform: scale(0.97);
   }
-  77.6% {
-    opacity: 0.74;
-    transform: scale(1.04);
+  77.1% {
+    opacity: 0.80;
+    transform: scale(1.05);
   }
-  79.4%, 88.8% {
+  80.8% {
+    opacity: 0.48;
+    transform: scale(0.98);
+  }
+  84.2% {
+    opacity: 0.68;
+    transform: scale(1.03);
+  }
+  88.5%, 92.2% {
     opacity: 0.42;
     transform: scale(1);
   }
   100% {
     opacity: 0;
-    transform: scale(0.72);
+    transform: scale(0.74);
   }
 }
 
 @keyframes claraSupportPremiumCore {
-  0%, 13.2% {
+  0%, 11.1% {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.05) inset,
       0 5px 16px rgba(0, 0, 0, 0.34);
   }
-  16.2% {
+  14.5% {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.08) inset,
       0 0 14px rgba(103, 232, 249, 0.68),
       0 0 26px rgba(34, 211, 238, 0.34),
       0 5px 16px rgba(0, 0, 0, 0.36);
   }
-  26.2%, 66.6% {
+  32.7%, 66.6% {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.06) inset,
       0 0 10px rgba(34, 211, 238, 0.34),
       0 5px 16px rgba(0, 0, 0, 0.35);
   }
-  69.4% {
+  70% {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.09) inset,
       0 0 16px rgba(103, 232, 249, 0.76),
       0 0 30px rgba(34, 211, 238, 0.38),
       0 5px 16px rgba(0, 0, 0, 0.36);
   }
-  79.4%, 88.8% {
+  88.5%, 92.2% {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.06) inset,
       0 0 9px rgba(34, 211, 238, 0.28),
@@ -196,23 +209,23 @@
 }
 
 @keyframes claraSupportPremiumHeart {
-  0%, 13.2% {
+  0%, 11.1% {
     filter: none;
   }
-  16.2% {
+  14.5% {
     filter:
       drop-shadow(0 0 5px rgba(165, 243, 252, 0.95))
       drop-shadow(0 0 11px rgba(34, 211, 238, 0.82));
   }
-  26.2%, 66.6% {
+  32.7%, 66.6% {
     filter: drop-shadow(0 0 5px rgba(103, 232, 249, 0.62));
   }
-  69.4% {
+  70% {
     filter:
       drop-shadow(0 0 6px rgba(207, 250, 254, 1))
       drop-shadow(0 0 13px rgba(34, 211, 238, 0.90));
   }
-  79.4%, 88.8% {
+  88.5%, 92.2% {
     filter: drop-shadow(0 0 4px rgba(103, 232, 249, 0.52));
   }
   100% {
@@ -222,7 +235,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   #clara-support-world [data-clara-support-bubble] {
-    animation: claraSupportPremiumChoreography 9s cubic-bezier(0.22, 0.74, 0.20, 1) 1 both !important;
+    animation: claraSupportPremiumChoreography 9s ease-in-out 1 both !important;
     will-change: transform, opacity, box-shadow;
   }
 
