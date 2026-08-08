@@ -78,6 +78,11 @@ div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child >
   display: none !important;
 }
 
+/* The main header already provides Profile/ME access, so keep the composer focused on posting. */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child > div:first-child {
+  display: none !important;
+}
+
 div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child a[href$="/profile"] {
   border-color: rgba(34, 199, 184, 0.24) !important;
   background: var(--clara-community-accent-soft) !important;
