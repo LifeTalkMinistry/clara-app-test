@@ -39,18 +39,22 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         return;
       }
       try {
-        const result = await backendRequest("/api/support/payment-methods", { token });
+        const tierKey = encodeURIComponent(String(tier?.key || "supporter"));
+        const result = await backendRequest(`/api/support/payment-methods?tier=${tierKey}`, { token });
         if (cancelled) return;
         setMethods(Array.isArray(result?.methods) ? result.methods : []);
+        setSelectedKey("");
       } catch (loadError) {
         if (!cancelled) setError(loadError?.message || "Payment methods could not be loaded.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
+    setLoading(true);
+    setError("");
     load();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, tier?.key]);
 
   const selected = useMemo(
     () => methods.find((method) => method.key === selectedKey) || null,
@@ -123,7 +127,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
 
       <div className="mt-5">
         <p className="text-sm font-bold text-white">Choose how you want to support</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">Select GCash, Maya, or Security Bank. CLARA will show the payment details you configured in the Admin Dashboard.</p>
+        <p className="mt-1 text-xs leading-5 text-white/45">Select GCash, Maya, or Security Bank. CLARA will show the payment details configured specifically for the ₱{tier.price} tier.</p>
       </div>
 
       {loading ? (
@@ -154,7 +158,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
 
       {!loading && !error && methods.length === 0 && (
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs leading-5 text-white/55">
-          No payment methods are enabled yet. Configure them from the CLARA Admin Dashboard → Settings.
+          No payment methods are enabled yet for this tier. Configure them from the CLARA Admin Dashboard → Settings.
         </div>
       )}
 
@@ -162,7 +166,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
         <div className="mt-4 rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-bold text-white">Pay with {selected.label}</p>
+              <p className="text-sm font-bold text-white">Pay ₱{tier.price} with {selected.label}</p>
               <p className="mt-1 text-[11px] leading-4 text-white/45">{selected.instructions || "Use the details below to send your support."}</p>
             </div>
             <Check className="h-5 w-5 text-cyan-300" />
@@ -170,7 +174,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
 
           {selected.qrCodeDataUrl && (
             <div className="mt-4 rounded-2xl bg-white p-3">
-              <img src={selected.qrCodeDataUrl} alt={`${selected.label} payment QR code`} className="mx-auto block max-h-[260px] w-auto max-w-full object-contain" />
+              <img src={selected.qrCodeDataUrl} alt={`${selected.label} ₱${tier.price} payment QR code`} className="mx-auto block max-h-[260px] w-auto max-w-full object-contain" />
             </div>
           )}
 
