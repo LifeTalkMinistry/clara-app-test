@@ -267,7 +267,7 @@ export default function CommunityPostCard({ post, comments = [], currentUserId, 
   };
 
   return (
-    <article className="-mx-3 overflow-visible border-y border-white/10 bg-[#0a1a29] sm:mx-0 sm:rounded-[22px] sm:border">
+    <article className="-mx-3 !mt-0 overflow-visible border-b border-white/10 bg-[#0a1a29] sm:mx-0 sm:!mt-4 sm:rounded-[22px] sm:border">
       <div className="relative p-4">
         <div className="flex items-start gap-3">
           <button type="button" onClick={() => openProfile(post.author_id)} className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{authorAvatar ? <img src={authorAvatar} alt={`${authorName} profile`} className="h-full w-full object-cover" /> : initialsFor(authorName)}</button>
