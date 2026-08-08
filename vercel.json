@@ -17,7 +17,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Accept, Authorization, Content-Type, ngrok-skip-browser-warning"
+          "value": "Accept, Authorization, Content-Type, ngrok-skip-browser-warning, X-File-Name"
         },
         {
           "key": "Access-Control-Max-Age",
@@ -29,7 +29,7 @@
   "rewrites": [
     {
       "source": "/clara-api/:path*",
-      "destination": "https://trips-tee-betty-powerful.trycloudflare.com/:path*"
+      "destination": "https://groin-mothproof-sixties.ngrok-free.dev/:path*"
     }
   ]
 }
