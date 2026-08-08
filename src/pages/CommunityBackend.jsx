@@ -239,7 +239,7 @@ export default function CommunityBackend() {
     <div className="fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
       <header className="shrink-0 border-b border-white/10 bg-[#06111f]/96 px-3 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
-          <button type="button" onClick={() => navigate("/dashboard")} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-sm font-bold text-white/85" aria-label="Back to Dashboard"><ArrowLeft className="h-4 w-4" /></button>
+          <button type="button" onClick={() => activeView === "notifications" ? setActiveView("feed") : navigate("/dashboard")} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-sm font-bold text-white/85" aria-label={activeView === "notifications" ? "Back to Community feed" : "Back to Dashboard"}><ArrowLeft className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#5eead4]/60">CLARA</p><h1 className="truncate text-[17px] font-black tracking-[-0.025em] sm:text-xl">Community</h1></div>
           <div className="flex items-center gap-2">
             <Link to="/messages" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82" aria-label="Open private messages"><MessageCircle className="h-[18px] w-[18px]" /></Link>
