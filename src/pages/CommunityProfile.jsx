@@ -138,6 +138,7 @@ export default function CommunityProfile() {
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [editing, setEditing] = useState(false), [uploading, setUploading] = useState("");
   const [error, setError] = useState(""), [success, setSuccess] = useState(""), [profile, setProfile] = useState(null);
   const [activeTab, setActiveTab] = useState("overview"), [moreOpen, setMoreOpen] = useState(false), [editTab, setEditTab] = useState("basic");
+  const [photoViewer, setPhotoViewer] = useState(null);
   const [form, setForm] = useState({ display_name: "", headline: "", bio: "", avatar_url: "", cover_url: "", financial: emptyFinance() });
 
   useEffect(() => { let mounted = true; (async () => {
@@ -152,6 +153,18 @@ export default function CommunityProfile() {
     } catch (e) { if (mounted) setError(e?.message || "Unable to load this community profile."); }
     finally { if (mounted) setLoading(false); }
   })(); return () => { mounted = false; }; }, [navigate, own, targetId, token]);
+
+  useEffect(() => {
+    if (!photoViewer) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setPhotoViewer(null); };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [photoViewer]);
 
   const live = editing ? { ...profile, ...form } : profile || {}, finance = editing ? form.financial : profile?._financial_profile || emptyFinance();
   const initials = useMemo(() => getInitials(live.display_name || live.full_name, live.email), [live.display_name, live.full_name, live.email]);
@@ -177,7 +190,15 @@ export default function CommunityProfile() {
   const activeSection = SECTION_BY_KEY[activeTab];
   const editSection = SECTION_BY_KEY[editTab];
 
-  return <div className="min-h-screen bg-[#06111f] text-white"><div className="mx-auto w-full max-w-md px-4 pb-24 pt-4">
+  return <div className="min-h-screen bg-[#06111f] text-white">
+    {photoViewer ? <div role="dialog" aria-modal="true" aria-label={photoViewer.label} onClick={() => setPhotoViewer(null)} className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#02070d]/95 p-4 pt-20">
+      <div className="absolute inset-x-0 top-0 flex h-16 items-center justify-between border-b border-white/10 bg-black/20 px-4 backdrop-blur-xl">
+        <span className="text-xs font-black text-white/70">{photoViewer.label}</span>
+        <button type="button" aria-label="Close photo viewer" onClick={() => setPhotoViewer(null)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white"><X className="h-5 w-5"/></button>
+      </div>
+      <img src={photoViewer.src} alt={photoViewer.label} onClick={(event) => event.stopPropagation()} className="max-h-full max-w-full select-none object-contain shadow-[0_24px_80px_rgba(0,0,0,0.45)]"/>
+    </div> : null}
+    <div className="mx-auto w-full max-w-md px-4 pb-24 pt-4">
     <header className="mb-4 flex items-center justify-between gap-3">
       <button type="button" onClick={() => navigate("/community")} className="flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-3 text-white/85"><ArrowLeft className="h-4 w-4"/><span className="text-[11px] font-black">Community</span></button>
       <div className="text-center"><p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#5eead4]/60">CLARA Community</p><h1 className="mt-0.5 text-sm font-black">Profile</h1></div>
@@ -185,9 +206,9 @@ export default function CommunityProfile() {
     </header>
 
     <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[#0a1a29] shadow-[0_18px_54px_rgba(0,0,0,0.26)]">
-      <div className="relative h-32 bg-[linear-gradient(135deg,#0f766e_0%,#14b8a6_58%,#22c7b8_100%)]" style={live.cover_url ? { backgroundImage: `linear-gradient(135deg,rgba(6,95,87,.42),rgba(34,199,184,.24)),url("${live.cover_url}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}><div className="absolute right-[-24px] top-[-22px] h-32 w-32 rounded-full bg-white/10"/></div>
+      <button type="button" disabled={!live.cover_url} aria-label={live.cover_url ? "View cover photo" : undefined} onClick={() => live.cover_url && setPhotoViewer({ src: live.cover_url, label: "Cover photo" })} className={`relative block h-32 w-full bg-[linear-gradient(135deg,#0f766e_0%,#14b8a6_58%,#22c7b8_100%)] text-left ${live.cover_url ? "cursor-zoom-in" : "cursor-default"}`} style={live.cover_url ? { backgroundImage: `linear-gradient(135deg,rgba(6,95,87,.42),rgba(34,199,184,.24)),url("${live.cover_url}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}><div className="absolute right-[-24px] top-[-22px] h-32 w-32 rounded-full bg-white/10"/></button>
       <div className="relative px-5 pb-5">
-        <div className="-mt-12 flex items-end justify-between gap-3"><div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a1a29] bg-[#123346] text-2xl font-black shadow-[0_12px_30px_rgba(0,0,0,0.28)]">{live.avatar_url ? <img src={live.avatar_url} alt="Profile" className="h-full w-full object-cover"/> : initials}</div>{editing ? <div className="mb-1 flex gap-2"><label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[11px] font-bold text-white/80">{uploading === "avatar" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Camera className="h-3.5 w-3.5"/>} Photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { handleImage(e.target.files?.[0], "avatar"); e.target.value = ""; }}/></label><label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[11px] font-bold text-white/80">{uploading === "cover" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Upload className="h-3.5 w-3.5"/>} Cover<input type="file" accept="image/*" className="hidden" onChange={(e) => { handleImage(e.target.files?.[0], "cover"); e.target.value = ""; }}/></label></div> : null}</div>
+        <div className="-mt-12 flex items-end justify-between gap-3">{live.avatar_url ? <button type="button" aria-label="View profile photo" onClick={() => setPhotoViewer({ src: live.avatar_url, label: "Profile photo" })} className="flex h-24 w-24 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-full border-4 border-[#0a1a29] bg-[#123346] text-2xl font-black shadow-[0_12px_30px_rgba(0,0,0,0.28)]"><img src={live.avatar_url} alt="Profile" className="h-full w-full object-cover"/></button> : <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a1a29] bg-[#123346] text-2xl font-black shadow-[0_12px_30px_rgba(0,0,0,0.28)]">{initials}</div>}{editing ? <div className="mb-1 flex gap-2"><label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[11px] font-bold text-white/80">{uploading === "avatar" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Camera className="h-3.5 w-3.5"/>} Photo<input type="file" accept="image/*" className="hidden" onChange={(e) => { handleImage(e.target.files?.[0], "avatar"); e.target.value = ""; }}/></label><label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-[11px] font-bold text-white/80">{uploading === "cover" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Upload className="h-3.5 w-3.5"/>} Cover<input type="file" accept="image/*" className="hidden" onChange={(e) => { handleImage(e.target.files?.[0], "cover"); e.target.value = ""; }}/></label></div> : null}</div>
         <div className="mt-4"><h2 className="text-[28px] font-black leading-none tracking-[-0.035em]">{live.display_name || live.full_name || "CLARA Member"}</h2><p className="mt-2 text-sm font-semibold leading-5 text-[#ccfbf1]/78">{live.headline || "Building better money habits, one decision at a time."}</p><div className="mt-4 flex flex-wrap items-center gap-2"><div className="inline-flex items-center gap-2 rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#99f6e4]"><span className="h-1.5 w-1.5 rounded-full bg-[#2dd4bf]"/> Community Member</div><span className="text-[11px] font-semibold text-white/38">{formatJoined(profile?.created_at)}</span></div></div>
       </div>
     </section>
