@@ -1,0 +1,98 @@
+/* CLARA Messages inbox refinement.
+ * Keep member tiles readable on narrow screens and use the same single-color
+ * CLARA teal system as Community.
+ */
+
+/* PEOPLE ROW */
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main .no-scrollbar[class*="overflow-x-auto"] {
+  gap: 12px !important;
+  margin-inline: -2px !important;
+  padding: 2px 2px 8px !important;
+  scroll-padding-inline: 2px !important;
+  overscroll-behavior-inline: contain;
+}
+
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main .no-scrollbar[class*="overflow-x-auto"] > button {
+  width: 82px !important;
+  min-width: 82px !important;
+  padding: 4px 2px 2px !important;
+  border-radius: 18px !important;
+  overflow: visible !important;
+}
+
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main .no-scrollbar[class*="overflow-x-auto"] > button > div:first-child > div:first-child {
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(34, 199, 184, 0.24) !important;
+  background: rgba(34, 199, 184, 0.10) !important;
+  color: #ccfbf1 !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.20) !important;
+}
+
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main .no-scrollbar[class*="overflow-x-auto"] > button > p {
+  margin-top: 7px !important;
+  min-height: 28px !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  white-space: normal !important;
+  text-overflow: initial !important;
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+  font-weight: 750 !important;
+  color: rgba(241, 245, 249, 0.76) !important;
+  text-align: center !important;
+}
+
+/* Section labels */
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main section > div:first-child p:first-child {
+  letter-spacing: -0.01em !important;
+}
+
+/* RECENT CHATS */
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main section:last-child > div[class*="overflow-hidden"] {
+  border-radius: 18px !important;
+  border: 1px solid rgba(148, 163, 184, 0.13) !important;
+  background: #0a1a29 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14) !important;
+}
+
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main section:last-child button {
+  min-height: 72px !important;
+  padding: 12px 13px !important;
+}
+
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main section:last-child button > div:first-child > div:first-child {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  border-color: rgba(34, 199, 184, 0.20) !important;
+  background: rgba(34, 199, 184, 0.09) !important;
+  color: #ccfbf1 !important;
+}
+
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main section:last-child button:hover {
+  background: rgba(34, 199, 184, 0.045) !important;
+}
+
+/* Search stays visually quiet and full-width. */
+div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main > div > div:first-child {
+  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: #0a1a29 !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 420px) {
+  div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  div.z-\[90\]:has(> header button[aria-label="Back to Community"]) main .no-scrollbar[class*="overflow-x-auto"] > button {
+    width: 78px !important;
+    min-width: 78px !important;
+  }
+}
