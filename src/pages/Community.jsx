@@ -61,7 +61,7 @@ export default function Community() {
               <button
                 type="button"
                 onClick={openClaraSupport}
-                className="order-first inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
+                className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
                 aria-label="Support CLARA"
                 title="Support CLARA"
               >
@@ -69,7 +69,7 @@ export default function Community() {
               </button>
               <Link
                 to="/community?view=circles"
-                className="order-first inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
+                className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
                 aria-label="Open My Circle"
                 title="My Circle"
               >
@@ -77,7 +77,7 @@ export default function Community() {
               </Link>
               <Link
                 to="/community?view=challenges"
-                className="order-first inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
+                className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
                 aria-label="Open CLARA Challenges"
                 title="CLARA Challenges"
               >
