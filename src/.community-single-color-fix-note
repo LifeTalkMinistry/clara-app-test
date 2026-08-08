@@ -1,2 +1,0 @@
-CLARA Community single-color live selector fix.
-HashRouter renders navigation hrefs as #/messages and #/profile, so Community theme selectors must match href suffixes rather than exact non-hash paths.
