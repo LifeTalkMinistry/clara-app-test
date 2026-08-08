@@ -95,3 +95,20 @@ test("support verifier never mutates CLARA profile entitlements", () => {
   assert.doesNotMatch(verifier, /\.from\("profiles"\)/);
   assert.match(verifier, /app_access_changed: false/);
 });
+
+test("Support CLARA owns a persistent app-level overlay world and animation clock", () => {
+  const bubble = read("src/components/support/SupportClaraBubble.jsx");
+
+  assert.match(bubble, /createPortal/);
+  assert.match(bubble, /clara-support-world/);
+  assert.match(bubble, /document\.body\.appendChild\(world\)/);
+  assert.match(bubble, /isolation: "isolate"/);
+  assert.match(bubble, /pointerEvents: "none"/);
+  assert.match(bubble, /localStorage\.getItem\(SUPPORT_BUBBLE_EPOCH_KEY\)/);
+  assert.match(bubble, /ICON_FIRST_MS: 3000/);
+  assert.match(bubble, /EXPANDED_MS: 3000/);
+  assert.match(bubble, /ICON_SECOND_MS: 3000/);
+  assert.match(bubble, /HIDDEN_MS: 10000/);
+  assert.doesNotMatch(bubble, /SESSION_EXPANSION_KEY/);
+  assert.doesNotMatch(bubble, /querySelectorAll\('\[role="dialog"\]/);
+});
