@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CircleHelp,
   FileImage,
@@ -40,6 +40,7 @@ const REACTIONS = [
   { key: "angry", emoji: "😡", label: "Angry" },
 ];
 const REACTION_BY_KEY = Object.fromEntries(REACTIONS.map((item) => [item.key, item]));
+const PROFILE_REQUESTS = new Map();
 
 function initialsFor(value) {
   return String(value || "CLARA Member")
@@ -116,6 +117,17 @@ function reactionSummary(post) {
   return rows;
 }
 
+function loadAuthorProfile(authorId, token) {
+  const key = String(authorId || "");
+  if (!key || !token) return Promise.resolve(null);
+  if (PROFILE_REQUESTS.has(key)) return PROFILE_REQUESTS.get(key);
+  const request = backendRequest(`/api/community/profiles/${encodeURIComponent(key)}`, { token })
+    .catch(() => null)
+    .finally(() => PROFILE_REQUESTS.delete(key));
+  PROFILE_REQUESTS.set(key, request);
+  return request;
+}
+
 export default function CommunityPostCard({ post, comments = [], currentUserId, token, openProfile, refresh, reportError }) {
   const ownsPost = String(post.author_id) === String(currentUserId);
   const postType = POST_TYPE_BY_KEY[post.post_type] || POST_TYPE_BY_KEY.win;
@@ -124,6 +136,7 @@ export default function CommunityPostCard({ post, comments = [], currentUserId, 
   const summary = reactionSummary(post);
   const totalReactions = Math.max(0, Number(post.reactions) || summary.reduce((sum, item) => sum + item.count, 0));
 
+  const [authorProfile, setAuthorProfile] = useState(null);
   const [postMenuOpen, setPostMenuOpen] = useState(false);
   const [reactionOpen, setReactionOpen] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
@@ -132,6 +145,18 @@ export default function CommunityPostCard({ post, comments = [], currentUserId, 
   const [commentMenuId, setCommentMenuId] = useState(null);
   const [editingComment, setEditingComment] = useState(null);
   const [commentSaving, setCommentSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setAuthorProfile(null);
+    loadAuthorProfile(post.author_id, token).then((profile) => {
+      if (active) setAuthorProfile(profile);
+    });
+    return () => { active = false; };
+  }, [post.author_id, token]);
+
+  const authorName = authorProfile?.display_name || authorProfile?.full_name || post.author_name || "CLARA Member";
+  const authorAvatar = authorProfile?.avatar_url || post.author_avatar_url || "";
 
   const fail = (error, fallback) => {
     console.error("[Community]", error);
@@ -245,9 +270,9 @@ export default function CommunityPostCard({ post, comments = [], currentUserId, 
     <article className="overflow-visible rounded-[22px] border border-white/10 bg-[#0a1a29]">
       <div className="relative p-4">
         <div className="flex items-start gap-3">
-          <button type="button" onClick={() => openProfile(post.author_id)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{initialsFor(post.author_name)}</button>
+          <button type="button" onClick={() => openProfile(post.author_id)} className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{authorAvatar ? <img src={authorAvatar} alt={`${authorName} profile`} className="h-full w-full object-cover" /> : initialsFor(authorName)}</button>
           <div className="min-w-0 flex-1">
-            <button type="button" onClick={() => openProfile(post.author_id)} className="truncate text-left text-sm font-black">{post.author_name || "CLARA Member"}</button>
+            <button type="button" onClick={() => openProfile(post.author_id)} className="truncate text-left text-sm font-black">{authorName}</button>
             <div className="mt-1 flex items-center gap-2"><span className="inline-flex items-center gap-1 rounded-full border border-[#22c7b8]/16 bg-[#22c7b8]/8 px-2 py-1 text-[9px] font-black text-[#99f6e4]"><TypeIcon className="h-3 w-3" />{postType.label}</span><span className="text-[10px] font-semibold text-white/30">{formatTime(post.created_at)}{post.updated_at && post.updated_at !== post.created_at ? " · edited" : ""}</span></div>
           </div>
           {ownsPost ? <div className="relative"><button type="button" onClick={() => setPostMenuOpen((value) => !value)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/45"><MoreHorizontal className="h-4 w-4" /></button>{postMenuOpen ? <div className="absolute right-0 top-10 z-30 w-36 rounded-2xl border border-white/10 bg-[#0d1f2e] p-1.5 shadow-2xl"><button type="button" onClick={startPostEdit} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-white/75"><Pencil className="h-3.5 w-3.5" /> Edit post</button><button type="button" onClick={deletePost} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-red-300"><Trash2 className="h-3.5 w-3.5" /> Delete post</button></div> : null}</div> : null}
