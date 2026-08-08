@@ -1,5 +1,4 @@
-const DEFAULT_API_URL = "https://groin-mothproof-sixties.ngrok-free.dev";
-const VERCEL_API_PROXY_PATH = "/clara-api";
+const DEFAULT_API_URL = "https://api.clarapmc.ph";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const BACKEND_UNAVAILABLE_STATUS_CODES = new Set([404, 502, 503, 504]);
@@ -17,16 +16,9 @@ function getBuildEnvironment() {
   }
 }
 
-function isVercelWebRuntime() {
-  if (typeof window === "undefined") return false;
-  const hostname = String(window.location?.hostname || "").trim().toLowerCase();
-  return hostname === "clara-app-test.vercel.app" || hostname.endsWith(".vercel.app");
-}
-
 function resolveApiUrl() {
   const configuredUrl = String(getBuildEnvironment().VITE_CLARA_API_URL || "").trim();
-  if (configuredUrl) return configuredUrl;
-  return isVercelWebRuntime() ? VERCEL_API_PROXY_PATH : DEFAULT_API_URL;
+  return configuredUrl || DEFAULT_API_URL;
 }
 
 const API_URL = resolveApiUrl().replace(/\/+$/, "");
@@ -264,7 +256,6 @@ export async function backendRequest(
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        "ngrok-skip-browser-warning": "true",
         ...(body ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
@@ -391,5 +382,4 @@ export {
   TOKEN_KEY,
   USER_KEY,
   USER_VERIFIED_AT_KEY,
-  VERCEL_API_PROXY_PATH,
 };
