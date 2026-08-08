@@ -26,6 +26,9 @@ const legalInformationClientSource = readFileSync(
   "utf8"
 );
 
+const ASSIGNED_BACKEND_ORIGIN =
+  "https://groin-mothproof-sixties.ngrok-free.dev/:path*";
+
 function createStorage() {
   return {
     getItem() {
@@ -51,12 +54,12 @@ async function importBackendClientForHost(hostname) {
   }
 }
 
-test("Vercel rewrites the stable CLARA API gateway to an active Cloudflare tunnel", () => {
+test("Vercel rewrites the stable CLARA API gateway to the assigned backend tunnel", () => {
   assert.equal(vercelConfig.rewrites?.length, 1);
   assert.equal(vercelConfig.rewrites[0]?.source, "/clara-api/:path*");
-  assert.match(
+  assert.equal(
     String(vercelConfig.rewrites[0]?.destination || ""),
-    /^https:\/\/[a-z0-9-]+\.trycloudflare\.com\/:path\*$/
+    ASSIGNED_BACKEND_ORIGIN
   );
 });
 
