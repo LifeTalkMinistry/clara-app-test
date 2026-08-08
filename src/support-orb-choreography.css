@@ -156,6 +156,45 @@
   }
 }
 
+@keyframes claraSupportPremiumCore {
+  0%, 13.2% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+      0 5px 16px rgba(0, 0, 0, 0.34);
+  }
+  16.2% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 0 14px rgba(103, 232, 249, 0.68),
+      0 0 26px rgba(34, 211, 238, 0.34),
+      0 5px 16px rgba(0, 0, 0, 0.36);
+  }
+  26.2%, 66.6% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+      0 0 10px rgba(34, 211, 238, 0.34),
+      0 5px 16px rgba(0, 0, 0, 0.35);
+  }
+  69.4% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.09) inset,
+      0 0 16px rgba(103, 232, 249, 0.76),
+      0 0 30px rgba(34, 211, 238, 0.38),
+      0 5px 16px rgba(0, 0, 0, 0.36);
+  }
+  79.4%, 88.8% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+      0 0 9px rgba(34, 211, 238, 0.28),
+      0 5px 16px rgba(0, 0, 0, 0.35);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+      0 4px 12px rgba(0, 0, 0, 0.28);
+  }
+}
+
 @keyframes claraSupportPremiumHeart {
   0%, 13.2% {
     filter: none;
@@ -192,6 +231,11 @@
     will-change: opacity, transform;
   }
 
+  #clara-support-world [data-clara-support-bubble] > span:nth-of-type(2) {
+    animation: claraSupportPremiumCore 9s ease-in-out 1 both !important;
+    will-change: box-shadow;
+  }
+
   #clara-support-world [data-clara-support-heart] {
     animation: claraSupportPremiumHeart 9s ease-in-out 1 both !important;
     will-change: filter;
@@ -206,7 +250,8 @@
 }
 
 #clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] [data-clara-support-halo],
-#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] [data-clara-support-heart] {
+#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] [data-clara-support-heart],
+#clara-support-world [data-clara-support-bubble][aria-label="CLARA supporter status"] > span:nth-of-type(2) {
   animation: none !important;
 }
 
@@ -218,6 +263,7 @@
 @media (prefers-reduced-motion: reduce) {
   #clara-support-world [data-clara-support-bubble],
   #clara-support-world [data-clara-support-halo],
+  #clara-support-world [data-clara-support-bubble] > span:nth-of-type(2),
   #clara-support-world [data-clara-support-heart] {
     animation: none !important;
   }
