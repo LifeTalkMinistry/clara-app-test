@@ -139,7 +139,11 @@ export default function useUserRole() {
       communityPosting: hasFeatureAccess("community", ["full"]),
       messaging: isFeatureAvailable("messages"),
       messagingFull: hasFeatureAccess("messages", ["full"]),
-      messagingAdminOnly: hasFeatureAccess("messages", ["admin_only", "full"]),
+      // Preserve the legacy Support/admin conversation allowance explicitly while
+      // keeping normal messaging fully available to free users.
+      messagingAdminOnly:
+        hasFeatureAccess("messages", ["admin_only", "full"]) ||
+        plan === FREE_PLAN_KEY,
       emergencyFund: isFeatureAvailable("savings_goals"),
       savingsGoals: isFeatureAvailable("savings_goals"),
       news: isFeatureAvailable("news"),
@@ -151,7 +155,7 @@ export default function useUserRole() {
       customization: isFeatureAvailable("customization"),
       coaching: getFeatureAccessMode("coaching"),
     }),
-    [getFeatureAccessMode, hasFeatureAccess, isFeatureAvailable]
+    [getFeatureAccessMode, hasFeatureAccess, isFeatureAvailable, plan]
   );
   const refreshUser = useCallback(
     async (options) => refreshProfile?.(options),
