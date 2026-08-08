@@ -140,7 +140,8 @@ test("Community scroll ownership does not depend on :has support in Android WebV
   assert.notEqual(sectionEnd, -1);
 
   const communitySection = communityScrollCss.slice(sectionStart, sectionEnd);
-  assert.doesNotMatch(communitySection, /:has\(/);
+  const communityRulesOnly = communitySection.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(communityRulesOnly, /:has\(/);
   assert.match(
     communitySection,
     /div\[class~="z-\[80\]"\]\[class~="h-\[100dvh\]"\]\s*\{/
