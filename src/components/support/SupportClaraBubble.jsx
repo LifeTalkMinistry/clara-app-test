@@ -46,18 +46,11 @@ function getSupportBubblePhase(now = Date.now()) {
   const epoch = getSupportBubbleEpoch(now);
   const elapsed = ((now - epoch) % SUPPORT_BUBBLE_CYCLE_MS + SUPPORT_BUBBLE_CYCLE_MS) % SUPPORT_BUBBLE_CYCLE_MS;
 
-  if (elapsed < SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS) {
-    return SUPPORT_BUBBLE_PHASE.ICON;
-  }
-
+  if (elapsed < SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS) return SUPPORT_BUBBLE_PHASE.ICON;
   if (elapsed < SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS + SUPPORT_BUBBLE_TIMING.EXPANDED_MS) {
     return SUPPORT_BUBBLE_PHASE.EXPANDED;
   }
-
-  if (elapsed < SUPPORT_BUBBLE_VISIBLE_MS) {
-    return SUPPORT_BUBBLE_PHASE.ICON;
-  }
-
+  if (elapsed < SUPPORT_BUBBLE_VISIBLE_MS) return SUPPORT_BUBBLE_PHASE.ICON;
   return SUPPORT_BUBBLE_PHASE.HIDDEN;
 }
 
@@ -148,6 +141,7 @@ function SupportTierCard({ tier, busy, disabled, onChoose, championAvailability 
           RECOMMENDED
         </span>
       )}
+
       <div className="pr-24">
         <p className="text-sm font-semibold text-white">{tier.name}</p>
         <p className="mt-1 text-2xl font-bold tracking-tight text-white">
@@ -245,9 +239,25 @@ export default function SupportClaraBubble({ user }) {
           50% { transform: translateY(-5px); }
         }
 
+        @keyframes clara-support-halo {
+          0%, 100% { opacity: .52; transform: scale(.9); }
+          50% { opacity: .92; transform: scale(1.08); }
+        }
+
+        @keyframes clara-support-heart {
+          0%, 100% { filter: drop-shadow(0 0 3px rgba(103,232,249,.42)); }
+          50% { filter: drop-shadow(0 0 8px rgba(103,232,249,.9)); }
+        }
+
         @media (prefers-reduced-motion: no-preference) {
           [data-clara-support-bubble] {
             animation: clara-support-float 2.2s ease-in-out infinite;
+          }
+          [data-clara-support-halo] {
+            animation: clara-support-halo 2.2s ease-in-out infinite;
+          }
+          [data-clara-support-heart] {
+            animation: clara-support-heart 2.2s ease-in-out infinite;
           }
         }
       `}</style>
@@ -258,19 +268,62 @@ export default function SupportClaraBubble({ user }) {
           type="button"
           aria-label={supportState.isActive ? "CLARA supporter status" : "Support CLARA"}
           onClick={() => setOpen(true)}
-          className={`pointer-events-auto fixed right-4 z-[2] flex h-12 items-center overflow-hidden rounded-full border border-cyan-300/30 bg-[#07141d] text-xs font-semibold text-cyan-50 opacity-100 shadow-[0_14px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-[width,padding,gap] duration-500 ease-out ${
-            expanded ? "w-[116px] gap-2 px-3" : "w-12 gap-0 px-2.5"
+          className={`pointer-events-auto fixed right-4 z-[2] flex items-center rounded-full border text-xs font-semibold tracking-[0.01em] text-cyan-50 opacity-100 backdrop-blur-2xl transition-[width,padding,gap,box-shadow] duration-500 ease-out ${
+            expanded ? "justify-start gap-2" : "justify-center gap-0"
           }`}
-          style={{ bottom: "max(calc(env(safe-area-inset-bottom, 0px) + 112px), 28vh)" }}
+          style={{
+            bottom: "max(calc(env(safe-area-inset-bottom, 0px) + 112px), 28vh)",
+            width: expanded ? "124px" : "52px",
+            height: "52px",
+            padding: expanded ? "6px 13px 6px 7px" : "0",
+            overflow: "visible",
+            borderColor: "rgba(103, 232, 249, 0.48)",
+            background:
+              "linear-gradient(145deg, rgba(15,48,63,.97) 0%, rgba(5,22,35,.98) 50%, rgba(12,20,48,.98) 100%)",
+            boxShadow:
+              "0 0 0 1px rgba(34,211,238,.08) inset, 0 0 16px rgba(34,211,238,.30), 0 0 34px rgba(59,130,246,.18), 0 14px 38px rgba(0,0,0,.48)",
+          }}
         >
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-cyan-300/12">
-            <Heart className="h-4 w-4 fill-cyan-300/35 text-cyan-100" />
+          <span
+            data-clara-support-halo
+            aria-hidden="true"
+            className="pointer-events-none absolute rounded-full"
+            style={{
+              inset: expanded ? "-5px" : "-7px",
+              background:
+                "radial-gradient(circle, rgba(34,211,238,.22) 0%, rgba(59,130,246,.10) 46%, transparent 72%)",
+              filter: "blur(4px)",
+              zIndex: -1,
+            }}
+          />
+
+          <span
+            className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full border border-cyan-200/50"
+            style={{
+              background:
+                "radial-gradient(circle at 35% 30%, rgba(103,232,249,.28), rgba(14,116,144,.16) 45%, rgba(2,12,27,.88) 100%)",
+              boxShadow:
+                "0 0 0 1px rgba(255,255,255,.06) inset, 0 0 12px rgba(34,211,238,.36), 0 5px 16px rgba(0,0,0,.35)",
+            }}
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-[4px] rounded-full border border-white/10"
+              style={{ background: "linear-gradient(145deg, rgba(255,255,255,.07), transparent 55%)" }}
+            />
+            <Heart
+              data-clara-support-heart
+              className="absolute left-1/2 top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 fill-cyan-300/55 text-cyan-100"
+              strokeWidth={2.2}
+            />
           </span>
+
           <span
             aria-hidden={!expanded}
-            className={`whitespace-nowrap transition-[max-width,opacity] duration-400 ease-out ${
-              expanded ? "max-w-[72px] opacity-100" : "max-w-0 opacity-0"
+            className={`relative z-[1] overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-400 ease-out ${
+              expanded ? "max-w-[72px] translate-x-0 opacity-100" : "max-w-0 -translate-x-1 opacity-0"
             }`}
+            style={{ textShadow: "0 0 12px rgba(103,232,249,.28)" }}
           >
             {supportState.isActive ? "Thank you" : "Support"}
           </span>
@@ -297,9 +350,7 @@ export default function SupportClaraBubble({ user }) {
                   <Heart className="h-5 w-5 fill-cyan-300/20" />
                   <h2 id="clara-support-title" className="text-lg font-bold">Support CLARA</h2>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-white/72">
-                  CLARA is free for everyone.
-                </p>
+                <p className="mt-3 text-sm leading-6 text-white/72">CLARA is free for everyone.</p>
                 <p className="mt-2 text-sm leading-6 text-white/72">
                   If CLARA has helped you manage your money better, you can support what we're building and help us keep CLARA free for the next Filipino.
                 </p>
@@ -361,9 +412,7 @@ export default function SupportClaraBubble({ user }) {
                     />
                   </div>
                   {!customAvailability.enabled && (
-                    <p className="mt-2 text-[11px] leading-4 text-white/40">
-                      {customAvailability.reason}
-                    </p>
+                    <p className="mt-2 text-[11px] leading-4 text-white/40">{customAvailability.reason}</p>
                   )}
                 </div>
               </div>
