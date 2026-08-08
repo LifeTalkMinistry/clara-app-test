@@ -5,36 +5,52 @@ import { purchaseClaraSupport } from "@/lib/clara-support-billing";
 
 export default function useClaraSupport(user) {
   const [record, setRecord] = useState(null);
+  const [championCapacity, setChampionCapacity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [purchaseTier, setPurchaseTier] = useState(null);
   const [error, setError] = useState("");
 
+  const clearError = useCallback(() => setError(""), []);
+
   const refresh = useCallback(async () => {
     if (!user?.id) {
       setRecord(null);
+      setChampionCapacity(null);
       return null;
     }
 
     setLoading(true);
     try {
-      const { data, error: queryError } = await supabase
-        .from("support_subscriptions")
-        .select("id,user_id,tier,amount_php,payment_date,support_start_at,support_expires_at,renewal_at,status,custom_amount_php,product_id,created_at,updated_at")
-        .eq("user_id", user.id)
-        .order("support_expires_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [supportResult, capacityResult] = await Promise.all([
+        supabase
+          .from("support_subscriptions")
+          .select("id,user_id,tier,amount_php,payment_date,support_start_at,support_expires_at,renewal_at,status,custom_amount_php,product_id,created_at,updated_at")
+          .eq("user_id", user.id)
+          .order("support_expires_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("support_program_config")
+          .select("champion_slot_cap,champion_slots_used")
+          .eq("id", "default")
+          .maybeSingle(),
+      ]);
 
-      if (queryError) {
-        // Deployments can briefly run before the migration reaches the database.
-        // Keep the app fully usable and simply treat support as inactive.
-        console.warn("CLARA support state unavailable:", queryError.message);
+      if (supportResult.error) {
+        console.warn("CLARA support state unavailable:", supportResult.error.message);
         setRecord(null);
-        return null;
+      } else {
+        setRecord(supportResult.data || null);
       }
 
-      setRecord(data || null);
-      return data || null;
+      if (capacityResult.error) {
+        console.warn("CLARA support capacity unavailable:", capacityResult.error.message);
+        setChampionCapacity(null);
+      } else {
+        setChampionCapacity(capacityResult.data || null);
+      }
+
+      return supportResult.data || null;
     } finally {
       setLoading(false);
     }
@@ -49,7 +65,7 @@ export default function useClaraSupport(user) {
 
   const startSupport = useCallback(async (tierKey) => {
     if (!user?.id || purchaseTier) return null;
-    setError("");
+    clearError();
     setPurchaseTier(tierKey);
     try {
       const result = await purchaseClaraSupport({ tierKey, user });
@@ -61,17 +77,18 @@ export default function useClaraSupport(user) {
     } finally {
       setPurchaseTier(null);
     }
-  }, [purchaseTier, refresh, user]);
+  }, [clearError, purchaseTier, refresh, user]);
 
   return {
     record,
     support,
     isActive,
+    championCapacity,
     loading,
     purchaseTier,
     error,
     refresh,
     startSupport,
-    clearError: () => setError(""),
+    clearError,
   };
 }
