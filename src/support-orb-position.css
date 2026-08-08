@@ -1,3 +1,5 @@
+@import "./support-orb-choreography.css";
+
 #clara-support-world [data-clara-support-bubble] {
   right: 1.25rem !important;
   bottom: calc(5.7rem + env(safe-area-inset-bottom, 0px)) !important;
