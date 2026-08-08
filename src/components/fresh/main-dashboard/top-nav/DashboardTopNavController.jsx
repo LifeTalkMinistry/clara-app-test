@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { User, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 
 const CLARA_GUIDE_EXIT_EVENT = "clara:guide-exit";
@@ -125,6 +126,7 @@ export default function DashboardTopNavController({
   headerQuickActions = [],
   ...topNavVisualProps
 }) {
+  const navigate = useNavigate();
   const [guideActive, setGuideActive] = useState(false);
   const [meGuidePhase, setMeGuidePhase] = useState(ME_GUIDE_PHASES.INACTIVE);
   const [scheduleGuidePhase, setScheduleGuidePhase] = useState(
@@ -282,6 +284,11 @@ export default function DashboardTopNavController({
       }
 
       if (!guideActive) {
+        if (selection === "community") {
+          navigate("/community");
+          return;
+        }
+
         openDashboardPanel(selection);
         return;
       }
@@ -301,6 +308,7 @@ export default function DashboardTopNavController({
       guideActive,
       isAwaitingMeTab,
       isAwaitingScheduleTab,
+      navigate,
       openDashboardPanel,
     ]
   );
@@ -308,7 +316,20 @@ export default function DashboardTopNavController({
   const navItems = useMemo(() => {
     if (!guideActive) return headerQuickActions;
 
-    return headerQuickActions.map((item) => {
+    return headerQuickActions.map((rawItem) => {
+      const item =
+        rawItem.key === "community"
+          ? {
+              ...rawItem,
+              key: "me",
+              selectKey: "me",
+              label: "Me",
+              ariaLabel: "Open Me profile guide",
+              icon: User,
+              badge: null,
+            }
+          : rawItem;
+
       if (item.key === "settings") {
         return {
           ...item,
