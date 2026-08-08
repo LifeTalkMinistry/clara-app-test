@@ -185,12 +185,13 @@ test("signed-in theme persistence is scoped to the active CLARA account", () => 
   );
 });
 
-test("free users can still enter the CLARA Support admin conversation", () => {
+test("free users can use normal messaging and still enter the CLARA Support admin conversation", () => {
+  assert.match(userRoleSource, /messagingFull: hasFeatureAccess\("messages", \["full"\]\)/);
   assert.match(
     userRoleSource,
-    /messagingAdminOnly:[\s\S]{0,120}plan === FREE_PLAN_KEY/
+    /messagingAdminOnly:[\s\S]{0,180}plan === FREE_PLAN_KEY/
   );
-  assert.match(userRoleSource, /general private messaging is a Committed feature/);
+  assert.doesNotMatch(userRoleSource, /general private messaging is a Committed feature/);
 });
 
 test("Settings Admin Panel route opens a real backend-backed admin surface", () => {
