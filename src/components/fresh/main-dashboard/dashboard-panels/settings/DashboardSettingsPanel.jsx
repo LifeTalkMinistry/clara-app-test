@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import NotificationSettingsPanel from "@/components/notifications/NotificationSettingsPanel";
 import useNotificationPreferences from "@/hooks/useNotificationPreferences";
 import DashboardPanelShell from "@/components/fresh/main-dashboard/dashboard-panels/DashboardPanelShell";
+import DashboardMeLifePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeLifePanel";
 import {
   dashboardPanelCardClass,
   dashboardPanelTextClass,
@@ -567,7 +568,7 @@ const supportEmail = "claraprogram2026@gmail.com";
         {
           key: "profile",
           title: "Profile information",
-          description: "Name, email, and account identity",
+          description: "Name, email, and your ME life & money profile",
           icon: Home,
           badge: "Edit",
           action: () => openSetting("profile"),
@@ -767,7 +768,7 @@ const billingDetailsMessage =
     <div className="space-y-4">
       <DetailHeader
         title="Profile information"
-        subtitle="Manage how your CLARA profile appears across the app."
+        subtitle="Manage your account identity and the ME profile CLARA uses to understand the life behind your money."
       />
 
       {renderNotice()}
@@ -811,6 +812,25 @@ const billingDetailsMessage =
           {savingProfile ? "Saving..." : "Save profile"}
         </button>
       </div>
+
+      <section className="overflow-hidden rounded-[30px] border border-cyan-200/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.15),transparent_42%),rgba(255,255,255,0.035)] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+        <div className="px-2 pb-3 pt-1">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-200/10 text-sm font-black text-cyan-50">
+              ME
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">CLARA PROFILE</p>
+              <h3 className="mt-1 text-base font-black text-white">Your Life & Money Profile</h3>
+              <p className="mt-1 text-xs leading-5 text-white/48">The original ME experience now lives here inside Profile information.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[min(72dvh,650px)] min-h-[540px] overflow-hidden rounded-[28px] border border-white/10 bg-[#020817]">
+          <DashboardMeLifePanel />
+        </div>
+      </section>
     </div>
   );
 
