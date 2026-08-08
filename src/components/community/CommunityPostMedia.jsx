@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { fetchCommunityMediaBlob } from "@/lib/community-media-client";
 
-export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName }) {
+export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edgeToEdge = false }) {
   const [objectUrl, setObjectUrl] = useState("");
   const [loading, setLoading] = useState(Boolean(mediaUrl));
   const [failed, setFailed] = useState(false);
@@ -43,9 +43,13 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName }) {
 
   if (!mediaUrl) return null;
 
+  const frameClass = (backgroundClass) => edgeToEdge
+    ? `mt-4 -mx-4 overflow-hidden border-y border-white/10 ${backgroundClass} sm:mx-0 sm:rounded-[18px] sm:border`
+    : `mt-4 overflow-hidden rounded-[18px] border border-white/10 ${backgroundClass}`;
+
   if (loading) {
     return (
-      <div className="mt-4 flex h-32 items-center justify-center rounded-[18px] border border-white/10 bg-[#071725] text-white/45">
+      <div className={`${frameClass("bg-[#071725]")} flex h-32 items-center justify-center text-white/45`}>
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     );
@@ -53,7 +57,7 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName }) {
 
   if (failed || !objectUrl) {
     return (
-      <div className="mt-4 rounded-[18px] border border-white/10 bg-[#071725] px-4 py-4 text-xs font-semibold text-white/45">
+      <div className={`${frameClass("bg-[#071725]")} px-4 py-4 text-xs font-semibold text-white/45`}>
         This attachment could not be loaded.
       </div>
     );
@@ -61,7 +65,7 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName }) {
 
   if (mediaType === "image") {
     return (
-      <div className="mt-4 overflow-hidden rounded-[18px] border border-white/10 bg-black/20">
+      <div className={frameClass("bg-black/20")}>
         <img src={objectUrl} alt={mediaName || "Community attachment"} className="max-h-[520px] w-full object-cover" />
       </div>
     );
@@ -69,7 +73,7 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName }) {
 
   if (mediaType === "video") {
     return (
-      <div className="mt-4 overflow-hidden rounded-[18px] border border-white/10 bg-black/40">
+      <div className={frameClass("bg-black/40")}>
         <video src={objectUrl} controls playsInline preload="metadata" className="max-h-[560px] w-full bg-black" />
       </div>
     );
