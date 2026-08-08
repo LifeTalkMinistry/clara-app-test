@@ -1,7 +1,6 @@
 // Community-facing profile.
 //
-// The financial ME / Financial Climate experience is intentionally owned by
-// Settings -> Profile information inside the dashboard. The standalone
-// /profile route is the member-facing Community identity: display name,
-// headline/status, bio, photos, updates, and other public profile details.
-export { default } from "./UserProfile";
+// The financial ME / Financial Climate experience remains inside
+// Settings -> Profile information. The standalone /profile route is reserved
+// for the member-facing Community identity and profile editor.
+export { default } from "./CommunityProfile";
