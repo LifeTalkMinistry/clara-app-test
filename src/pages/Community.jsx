@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bell,
+  CircleHelp,
   Heart,
+  HeartHandshake,
+  Lightbulb,
   Lock,
   MessageCircle,
   MessageSquare,
@@ -11,6 +14,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Trophy,
   UserRound,
   Users,
 } from "lucide-react";
@@ -22,6 +26,43 @@ const COMMUNITY_VIEWS = {
   FEED: "feed",
   NOTIFICATIONS: "notifications",
 };
+
+const COMMUNITY_POST_TYPES = [
+  {
+    key: "win",
+    label: "Win",
+    icon: Trophy,
+    idleClass: "border-emerald-300/12 bg-emerald-300/[0.055] text-emerald-100/72",
+    activeClass: "border-emerald-200/32 bg-emerald-300/[0.16] text-emerald-50 shadow-[0_8px_24px_rgba(16,185,129,0.10)]",
+  },
+  {
+    key: "question",
+    label: "Question",
+    icon: CircleHelp,
+    idleClass: "border-cyan-300/12 bg-cyan-300/[0.055] text-cyan-100/72",
+    activeClass: "border-cyan-200/32 bg-cyan-300/[0.16] text-cyan-50 shadow-[0_8px_24px_rgba(34,211,238,0.10)]",
+  },
+  {
+    key: "struggle",
+    label: "Struggle",
+    icon: HeartHandshake,
+    idleClass: "border-violet-300/12 bg-violet-300/[0.055] text-violet-100/72",
+    activeClass: "border-violet-200/32 bg-violet-300/[0.16] text-violet-50 shadow-[0_8px_24px_rgba(139,92,246,0.10)]",
+  },
+  {
+    key: "money_lesson",
+    label: "Money Lesson",
+    icon: Lightbulb,
+    idleClass: "border-amber-300/12 bg-amber-300/[0.055] text-amber-100/72",
+    activeClass: "border-amber-200/32 bg-amber-300/[0.16] text-amber-50 shadow-[0_8px_24px_rgba(245,158,11,0.10)]",
+  },
+];
+
+const COMMUNITY_POST_TYPE_BY_KEY = Object.fromEntries(
+  COMMUNITY_POST_TYPES.map((item) => [item.key, item])
+);
+
+const COMMUNITY_POST_TYPE_MARKER = /^\[\[CLARA_POST_TYPE:(win|question|struggle|money_lesson)\]\]\s*/i;
 
 function displayNameFor(user) {
   return (
@@ -41,6 +82,39 @@ function initialsFor(value) {
     .slice(0, 2);
 
   return words.map((word) => word[0]?.toUpperCase()).join("") || "CL";
+}
+
+function normalizeCommunityPostType(value) {
+  const key = String(value || "").trim().toLowerCase();
+  return COMMUNITY_POST_TYPE_BY_KEY[key] ? key : null;
+}
+
+function encodeCommunityPostBody(body, postType) {
+  const normalizedType = normalizeCommunityPostType(postType);
+  if (!normalizedType) return body;
+  return `[[CLARA_POST_TYPE:${normalizedType}]]\n${body}`;
+}
+
+function decodeCommunityPost(post) {
+  const rawBody = String(post?.body || "");
+  const storedType = normalizeCommunityPostType(post?.post_type);
+  const markerMatch = rawBody.match(COMMUNITY_POST_TYPE_MARKER);
+  const markerType = normalizeCommunityPostType(markerMatch?.[1]);
+
+  return {
+    body: markerMatch ? rawBody.replace(COMMUNITY_POST_TYPE_MARKER, "") : rawBody,
+    postType: storedType || markerType,
+  };
+}
+
+function isMissingPostTypeColumnError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "PGRST204" ||
+    (message.includes("post_type") &&
+      (message.includes("column") || message.includes("schema cache")))
+  );
 }
 
 function formatCommunityTime(value) {
@@ -63,6 +137,7 @@ export default function Community() {
   const [posts, setPosts] = useState([]);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
+  const [selectedPostType, setSelectedPostType] = useState("win");
   const [commentDrafts, setCommentDrafts] = useState({});
   const [saving, setSaving] = useState(false);
   const [activeView, setActiveView] = useState(COMMUNITY_VIEWS.FEED);
@@ -131,18 +206,38 @@ export default function Community() {
 
     try {
       setSaving(true);
-      const { error } = await supabase.from("community_posts").insert([
+
+      const basePayload = {
+        body: text,
+        author_id: user.id,
+        author_email: user.email,
+        author_name: currentUserName,
+        status: "active",
+      };
+
+      let insertResult = await supabase.from("community_posts").insert([
         {
-          body: text,
-          author_id: user.id,
-          author_email: user.email,
-          author_name: currentUserName,
-          status: "active",
+          ...basePayload,
+          post_type: selectedPostType,
         },
       ]);
 
-      if (error) throw error;
+      // Older Community tables may not have post_type yet. In that case, keep
+      // the category in a small hidden body envelope so the feature works now
+      // without breaking existing installs or legacy posts.
+      if (insertResult.error && isMissingPostTypeColumnError(insertResult.error)) {
+        insertResult = await supabase.from("community_posts").insert([
+          {
+            ...basePayload,
+            body: encodeCommunityPostBody(text, selectedPostType),
+          },
+        ]);
+      }
+
+      if (insertResult.error) throw insertResult.error;
+
       setBody("");
+      setSelectedPostType("win");
       await loadCommunity();
     } catch (error) {
       console.error("Failed to create community post:", error);
@@ -325,12 +420,39 @@ export default function Community() {
 
                   {canPost ? (
                     <>
+                      <div className="mt-4">
+                        <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/34">
+                          What are you sharing?
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                          {COMMUNITY_POST_TYPES.map((postType) => {
+                            const TypeIcon = postType.icon;
+                            const isSelected = selectedPostType === postType.key;
+
+                            return (
+                              <button
+                                key={postType.key}
+                                type="button"
+                                onClick={() => setSelectedPostType(postType.key)}
+                                aria-pressed={isSelected}
+                                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[10px] font-black transition ${
+                                  isSelected ? postType.activeClass : postType.idleClass
+                                }`}
+                              >
+                                <TypeIcon className="h-3.5 w-3.5" />
+                                {postType.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       <textarea
                         rows={3}
                         value={body}
                         onChange={(event) => setBody(event.target.value)}
                         placeholder="What's happening with your money journey?"
-                        className="mt-4 w-full resize-none rounded-[22px] border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/30 focus:border-cyan-200/20"
+                        className="mt-3 w-full resize-none rounded-[22px] border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/30 focus:border-cyan-200/20"
                       />
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <p className="text-[10px] font-semibold text-white/34">
@@ -374,6 +496,11 @@ export default function Community() {
                     canMessageMembers &&
                     post.author_id &&
                     String(post.author_id) !== String(user?.id || "");
+                  const decodedPost = decodeCommunityPost(post);
+                  const postTypeMeta = decodedPost.postType
+                    ? COMMUNITY_POST_TYPE_BY_KEY[decodedPost.postType]
+                    : null;
+                  const PostTypeIcon = postTypeMeta?.icon;
 
                   return (
                     <article
@@ -402,8 +529,17 @@ export default function Community() {
                           </button>
                         </div>
 
+                        {postTypeMeta && PostTypeIcon ? (
+                          <div
+                            className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${postTypeMeta.idleClass}`}
+                          >
+                            <PostTypeIcon className="h-3 w-3" />
+                            {postTypeMeta.label}
+                          </div>
+                        ) : null}
+
                         <p className="mt-4 whitespace-pre-wrap text-[14px] font-semibold leading-7 text-white/78">
-                          {post.body}
+                          {decodedPost.body}
                         </p>
 
                         <div className="mt-5 flex items-center gap-2 border-t border-white/[0.07] pt-3">
