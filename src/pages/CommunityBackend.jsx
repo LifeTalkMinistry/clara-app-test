@@ -262,13 +262,15 @@ export default function CommunityBackend() {
             <div className="space-y-6">
               {canPost ? <section className={`rounded-[22px] border border-white/10 bg-[#0a1a29] ${composerOpen ? "p-4" : "p-3"}`}>
                 {!composerOpen ? <button type="button" onClick={() => setComposerOpen(true)} className="flex h-12 w-full items-center rounded-2xl border border-white/10 bg-[#071725] px-4 text-left text-sm font-semibold text-white/35">What's happening with your money journey?</button> : <>
-                  <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/38">What are you sharing?</p>
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/38">What are you sharing?</p>
+                    <button type="button" onClick={() => setComposerOpen(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/45 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95" aria-label="Close post composer"><X className="h-4 w-4" /></button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">{POST_TYPES.map((postType) => { const Icon = postType.icon; const selected = selectedPostType === postType.key; return <button key={postType.key} type="button" aria-pressed={selected} onClick={() => setSelectedPostType(postType.key)} className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[10px] font-black transition-all duration-150 ${selected ? "scale-[1.01] border-[#ccfbf1] bg-[#5eead4] text-[#042f2e] ring-1 ring-[#99f6e4]/70 shadow-[0_0_20px_rgba(34,199,184,0.35)]" : "border-white/10 bg-white/[0.035] text-white/55 hover:border-white/20 hover:text-white/75"}`}><Icon className="h-3.5 w-3.5" />{postType.label}</button>; })}</div>
                   <textarea autoFocus rows={4} value={body} onChange={(event) => setBody(event.target.value)} placeholder="What's happening with your money journey?" className="mt-3 w-full resize-none rounded-[18px] border border-white/10 bg-[#071725] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/28 focus:border-[#22c7b8]/45" />
                   <SelectedAttachment file={mediaFile} onRemove={() => setMediaFile(null)} />
                   <div className="mt-3 flex items-center justify-between gap-3"><AttachmentPicker onPick={pickComposerMedia} disabled={saving} /><Button onClick={createPost} disabled={saving || (!body.trim() && !mediaFile)} className="h-10 shrink-0 rounded-2xl bg-[#22c7b8] px-5 font-black text-[#042f2e]">{saving ? "Posting..." : "Post"}</Button></div>
                   <p className="mt-2 text-[9px] font-semibold text-white/30">Videos up to 200 MB · Photos and files up to 25 MB</p>
-                  <button type="button" onClick={() => { if (!body.trim() && !mediaFile) setComposerOpen(false); }} className="mt-3 text-[10px] font-bold text-white/38">Cancel</button>
                 </>}
               </section> : null}
 
