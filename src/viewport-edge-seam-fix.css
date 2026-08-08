@@ -1,0 +1,45 @@
+/* CLARA viewport edge seam guard.
+   The shared mobile shell previously reserved a visible top spacer and the
+   route-settle effect translated/scaled the whole scroll surface. On dark
+   full-screen pages that can expose the root/background layer as a thin cyan /
+   purple strip at the top or around an outer edge during navigation.
+
+   Keep only the real device safe-area inset and preserve the subtle route
+   settle as an opacity/saturation effect without moving or shrinking the
+   viewport surface. */
+
+.theme-page-shell main {
+  padding-top: var(--clara-safe-top, 0px) !important;
+}
+
+@media (max-width: 374px) {
+  .theme-page-shell main {
+    padding-top: var(--clara-safe-top, 0px) !important;
+  }
+}
+
+@keyframes clara-route-surface-settle-no-seam {
+  0% {
+    opacity: 0.985;
+    transform: none;
+    filter: saturate(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: saturate(1);
+  }
+}
+
+body.clara-route-soft-settle .theme-page-shell main {
+  animation: clara-route-surface-settle-no-seam 180ms cubic-bezier(.2,.8,.2,1) both !important;
+  backface-visibility: visible !important;
+  will-change: opacity, filter !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.clara-route-soft-settle .theme-page-shell main {
+    animation-duration: 1ms !important;
+  }
+}
