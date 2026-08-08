@@ -267,7 +267,7 @@ export default function CommunityPostCard({ post, comments = [], currentUserId, 
   };
 
   return (
-    <article className="overflow-visible rounded-[22px] border border-white/10 bg-[#0a1a29]">
+    <article className="-mx-3 overflow-visible border-y border-white/10 bg-[#0a1a29] sm:mx-0 sm:rounded-[22px] sm:border">
       <div className="relative p-4">
         <div className="flex items-start gap-3">
           <button type="button" onClick={() => openProfile(post.author_id)} className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{authorAvatar ? <img src={authorAvatar} alt={`${authorName} profile`} className="h-full w-full object-cover" /> : initialsFor(authorName)}</button>
@@ -287,7 +287,7 @@ export default function CommunityPostCard({ post, comments = [], currentUserId, 
           <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setEditingPost(null)} className="h-9 px-3 text-[10px] font-black text-white/45">Cancel</button><Button onClick={savePost} disabled={postSaving} className="h-9 rounded-xl bg-[#22c7b8] px-4 text-[10px] font-black text-[#042f2e]">{postSaving ? "Saving..." : "Save changes"}</Button></div>
         </div> : <>
           {post.body ? <p className="mt-4 whitespace-pre-wrap text-sm font-semibold leading-6 text-white/82">{post.body}</p> : null}
-          <CommunityPostMedia mediaUrl={post.media_url} mediaType={post.media_type} mediaName={post.media_name} />
+          <CommunityPostMedia mediaUrl={post.media_url} mediaType={post.media_type} mediaName={post.media_name} edgeToEdge />
           <div className="mt-4 flex items-center justify-between gap-3">
             <div className="relative">
               {reactionOpen ? <div className="absolute bottom-11 left-0 z-30 flex items-center gap-0.5 rounded-full border border-white/10 bg-[#102436]/98 px-2 py-1.5 shadow-2xl backdrop-blur-xl">{REACTIONS.map((reaction) => <button key={reaction.key} type="button" title={reaction.label} onClick={() => react(reaction.key)} className={`flex h-9 w-9 items-center justify-center rounded-full text-[22px] transition hover:-translate-y-1 hover:scale-110 ${post.my_reaction === reaction.key ? "bg-white/10 ring-1 ring-[#5eead4]/35" : ""}`}>{reaction.emoji}</button>)}</div> : null}
