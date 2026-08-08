@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Heart, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import useClaraSupport from "@/hooks/useClaraSupport";
 import { SUPPORT_TIER_KEYS, SUPPORT_TIERS, getChampionAvailability } from "@/lib/clara-support";
 import { customSupportAvailability } from "@/lib/clara-support-billing";
+
+const SUPPORT_BUBBLE_WORLD_ID = "clara-support-world";
+const SUPPORT_BUBBLE_EPOCH_KEY = "clara_support_bubble_cycle_epoch_v2";
 
 const SUPPORT_BUBBLE_PHASE = Object.freeze({
   ICON: "icon",
@@ -24,11 +28,65 @@ const SUPPORT_BUBBLE_VISIBLE_MS =
   SUPPORT_BUBBLE_TIMING.ICON_SECOND_MS;
 const SUPPORT_BUBBLE_CYCLE_MS = SUPPORT_BUBBLE_VISIBLE_MS + SUPPORT_BUBBLE_TIMING.HIDDEN_MS;
 
-function elementIsVisible(element) {
-  if (!element) return false;
-  const style = window.getComputedStyle(element);
-  const rect = element.getBoundingClientRect();
-  return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+function getSupportBubbleEpoch(now = Date.now()) {
+  if (typeof window === "undefined") return now;
+
+  try {
+    const stored = Number(window.localStorage.getItem(SUPPORT_BUBBLE_EPOCH_KEY));
+    if (Number.isFinite(stored) && stored > 0 && stored <= now) return stored;
+    window.localStorage.setItem(SUPPORT_BUBBLE_EPOCH_KEY, String(now));
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts.
+  }
+
+  return now;
+}
+
+function getSupportBubblePhase(now = Date.now()) {
+  const epoch = getSupportBubbleEpoch(now);
+  const elapsed = ((now - epoch) % SUPPORT_BUBBLE_CYCLE_MS + SUPPORT_BUBBLE_CYCLE_MS) % SUPPORT_BUBBLE_CYCLE_MS;
+
+  if (elapsed < SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS) {
+    return SUPPORT_BUBBLE_PHASE.ICON;
+  }
+
+  if (elapsed < SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS + SUPPORT_BUBBLE_TIMING.EXPANDED_MS) {
+    return SUPPORT_BUBBLE_PHASE.EXPANDED;
+  }
+
+  if (elapsed < SUPPORT_BUBBLE_VISIBLE_MS) {
+    return SUPPORT_BUBBLE_PHASE.ICON;
+  }
+
+  return SUPPORT_BUBBLE_PHASE.HIDDEN;
+}
+
+function useSupportBubbleWorld() {
+  const [host, setHost] = useState(null);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    let world = document.getElementById(SUPPORT_BUBBLE_WORLD_ID);
+    if (!world) {
+      world = document.createElement("div");
+      world.id = SUPPORT_BUBBLE_WORLD_ID;
+      world.dataset.claraSupportWorld = "true";
+      Object.assign(world.style, {
+        position: "fixed",
+        inset: "0",
+        zIndex: "2147483000",
+        pointerEvents: "none",
+        isolation: "isolate",
+      });
+      document.body.appendChild(world);
+    }
+
+    setHost(world);
+    return undefined;
+  }, []);
+
+  return host;
 }
 
 function useSupportBubbleOcclusionGuard(modalOpen) {
@@ -38,30 +96,31 @@ function useSupportBubbleOcclusionGuard(modalOpen) {
     if (typeof window === "undefined") return undefined;
 
     const check = () => {
+      if (modalOpen) {
+        setBlocked(false);
+        return;
+      }
+
       const viewport = window.visualViewport;
-      const keyboardOpen = Boolean(viewport && window.innerHeight - viewport.height > 140);
       const active = document.activeElement;
       const typing = Boolean(
         active &&
           (active.matches?.("input, textarea, select") || active.getAttribute?.("contenteditable") === "true")
       );
-      const otherDialog = Array.from(
-        document.querySelectorAll('[role="dialog"], [data-radix-dialog-content], [data-vaul-drawer]')
-      ).some((element) => !element.closest?.("[data-clara-support-modal]") && elementIsVisible(element));
+      const keyboardOpen = viewport
+        ? window.innerHeight - viewport.height > 140
+        : typing && window.innerWidth <= 768;
 
-      setBlocked(!modalOpen && (keyboardOpen || typing || otherDialog));
+      setBlocked(keyboardOpen);
     };
 
     check();
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { subtree: true, childList: true, attributes: true });
     window.addEventListener("focusin", check);
     window.addEventListener("focusout", check);
     window.addEventListener("resize", check);
     window.visualViewport?.addEventListener("resize", check);
 
     return () => {
-      observer.disconnect();
       window.removeEventListener("focusin", check);
       window.removeEventListener("focusout", check);
       window.removeEventListener("resize", check);
@@ -121,8 +180,11 @@ function SupportTierCard({ tier, busy, disabled, onChoose, championAvailability 
 
 export default function SupportClaraBubble({ user }) {
   const [open, setOpen] = useState(false);
-  const [bubblePhase, setBubblePhase] = useState(SUPPORT_BUBBLE_PHASE.ICON);
+  const [bubblePhase, setBubblePhase] = useState(() =>
+    typeof window === "undefined" ? SUPPORT_BUBBLE_PHASE.ICON : getSupportBubblePhase()
+  );
   const [customAmount, setCustomAmount] = useState("");
+  const portalHost = useSupportBubbleWorld();
   const supportState = useClaraSupport(user);
   const blocked = useSupportBubbleOcclusionGuard(open);
   const customAvailability = customSupportAvailability();
@@ -134,37 +196,17 @@ export default function SupportClaraBubble({ user }) {
   useEffect(() => {
     if (typeof window === "undefined" || supportState.isActive) return undefined;
 
-    const timers = new Set();
+    const syncPhase = () => setBubblePhase(getSupportBubblePhase(Date.now()));
+    syncPhase();
 
-    const schedule = (callback, delay) => {
-      const timer = window.setTimeout(() => {
-        timers.delete(timer);
-        callback();
-      }, delay);
-      timers.add(timer);
-    };
-
-    const runCycle = () => {
-      setBubblePhase(SUPPORT_BUBBLE_PHASE.ICON);
-
-      schedule(
-        () => setBubblePhase(SUPPORT_BUBBLE_PHASE.EXPANDED),
-        SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS
-      );
-      schedule(
-        () => setBubblePhase(SUPPORT_BUBBLE_PHASE.ICON),
-        SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS + SUPPORT_BUBBLE_TIMING.EXPANDED_MS
-      );
-      schedule(() => setBubblePhase(SUPPORT_BUBBLE_PHASE.HIDDEN), SUPPORT_BUBBLE_VISIBLE_MS);
-    };
-
-    runCycle();
-    const cycleTimer = window.setInterval(runCycle, SUPPORT_BUBBLE_CYCLE_MS);
+    const timer = window.setInterval(syncPhase, 250);
+    window.addEventListener("focus", syncPhase);
+    document.addEventListener("visibilitychange", syncPhase);
 
     return () => {
-      window.clearInterval(cycleTimer);
-      timers.forEach((timer) => window.clearTimeout(timer));
-      timers.clear();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", syncPhase);
+      document.removeEventListener("visibilitychange", syncPhase);
     };
   }, [supportState.isActive]);
 
@@ -190,12 +232,12 @@ export default function SupportClaraBubble({ user }) {
     }
   };
 
-  if (!user?.id) return null;
+  if (!user?.id || !portalHost) return null;
 
   const expanded = supportState.isActive || bubblePhase === SUPPORT_BUBBLE_PHASE.EXPANDED;
   const visible = supportState.isActive || bubblePhase !== SUPPORT_BUBBLE_PHASE.HIDDEN;
 
-  return (
+  const supportWorld = (
     <>
       <style>{`
         @keyframes clara-support-float {
@@ -216,7 +258,7 @@ export default function SupportClaraBubble({ user }) {
           type="button"
           aria-label={supportState.isActive ? "CLARA supporter status" : "Support CLARA"}
           onClick={() => setOpen(true)}
-          className={`fixed right-4 z-[62] flex h-12 items-center overflow-hidden rounded-full border border-cyan-300/30 bg-[#07141d] text-xs font-semibold text-cyan-50 opacity-100 shadow-[0_14px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-[width,padding,gap] duration-500 ease-out ${
+          className={`pointer-events-auto fixed right-4 z-[2] flex h-12 items-center overflow-hidden rounded-full border border-cyan-300/30 bg-[#07141d] text-xs font-semibold text-cyan-50 opacity-100 shadow-[0_14px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-[width,padding,gap] duration-500 ease-out ${
             expanded ? "w-[116px] gap-2 px-3" : "w-12 gap-0 px-2.5"
           }`}
           style={{ bottom: "max(calc(env(safe-area-inset-bottom, 0px) + 112px), 28vh)" }}
@@ -238,7 +280,7 @@ export default function SupportClaraBubble({ user }) {
       {open && (
         <div
           data-clara-support-modal
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-8 backdrop-blur-sm sm:items-center"
+          className="pointer-events-auto fixed inset-0 z-[4] flex items-end justify-center bg-black/55 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-8 backdrop-blur-sm sm:items-center"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setOpen(false);
           }}
@@ -349,4 +391,6 @@ export default function SupportClaraBubble({ user }) {
       )}
     </>
   );
+
+  return createPortal(supportWorld, portalHost);
 }
