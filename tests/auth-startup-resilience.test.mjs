@@ -34,13 +34,20 @@ test("local migrations cannot hold the global authentication loader open", () =>
 });
 
 test("authentication resolves the correct account vault before local state is built", () => {
-  const resolverCallIndex = authContextSource.indexOf("await resolveAccountLocalVault({");
+  assert.match(
+    authContextSource,
+    /async function resolveAccountLocalVaultForStartup\([\s\S]*?resolveAccountLocalVault\(\{/
+  );
+
+  const resolverCallIndex = authContextSource.indexOf(
+    "await resolveAccountLocalVaultForStartup({"
+  );
   const localProfileIndex = authContextSource.indexOf(
     "const localAccount = getLocalAccountProfile(localUserId);"
   );
   const stateReturnIndex = authContextSource.indexOf("return {", localProfileIndex);
 
-  assert.ok(resolverCallIndex >= 0, "authentication must call the account vault resolver");
+  assert.ok(resolverCallIndex >= 0, "authentication must call the startup account vault resolver");
   assert.ok(
     localProfileIndex > resolverCallIndex,
     "the account vault must be resolved before local profile data is read"
