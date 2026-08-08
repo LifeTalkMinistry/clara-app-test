@@ -1,4 +1,6 @@
 const INSTALL_FLAG = "__claraMessagesSearchCancelInstalled";
+const OVERLAY_SELECTOR = "[data-clara-messages-search-overlay='true']";
+const LEGACY_SELECTOR = "[data-clara-messages-search-cancel='true']";
 
 function setReactInputValue(input, value) {
   const descriptor = Object.getOwnPropertyDescriptor(
@@ -30,87 +32,114 @@ function createCloseIcon() {
   return svg;
 }
 
-function installCancelButton(input) {
-  if (!(input instanceof HTMLInputElement)) return;
+function removeLegacyContainerMutation(input) {
   const container = input.parentElement;
   if (!container) return;
 
-  container.style.position = "relative";
-  container.style.paddingRight = "2.65rem";
+  // The previous implementation inserted a raw button directly into this
+  // React-owned search row and also changed its inline layout. When the app
+  // switched from a conversation back to the list, React could reconcile
+  // against that foreign child and leave the search row partially collapsed.
+  // Restore the row to React's exact DOM before installing the non-invasive
+  // overlay control below.
+  container.querySelectorAll(LEGACY_SELECTOR).forEach((node) => node.remove());
+  container.style.removeProperty("position");
+  container.style.removeProperty("padding-right");
+}
 
-  let button = container.querySelector("[data-clara-messages-search-cancel='true']");
-  if (!button) {
-    button = document.createElement("button");
-    button.type = "button";
-    button.dataset.claraMessagesSearchCancel = "true";
-    button.setAttribute("aria-label", "Close member search");
-    button.setAttribute("title", "Close search");
-    button.appendChild(createCloseIcon());
+function installCancelButton(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  if (input.dataset.claraMessagesSearchCancelBound === "true") return;
 
-    Object.assign(button.style, {
-      position: "absolute",
-      right: "0.7rem",
-      top: "50%",
-      transform: "translateY(-50%)",
-      width: "2rem",
-      height: "2rem",
-      border: "0",
-      borderRadius: "0",
-      background: "transparent",
-      color: "rgba(255,255,255,0.46)",
-      display: "none",
-      opacity: "0",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-      zIndex: "4",
-      padding: "0",
-      boxShadow: "none",
-      outline: "none",
-      transition: "opacity 120ms ease, color 120ms ease",
-      WebkitTapHighlightColor: "transparent",
-    });
+  removeLegacyContainerMutation(input);
+  input.dataset.claraMessagesSearchCancelBound = "true";
 
-    button.addEventListener("pointerenter", () => {
-      button.style.color = "rgba(255,255,255,0.78)";
-    });
-    button.addEventListener("pointerleave", () => {
-      button.style.color = "rgba(255,255,255,0.46)";
-    });
-    button.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-    });
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.claraMessagesSearchOverlay = "true";
+  button.setAttribute("aria-label", "Close member search");
+  button.setAttribute("title", "Close search");
+  button.appendChild(createCloseIcon());
+  button.__claraMessagesSearchInput = input;
 
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
+  Object.assign(button.style, {
+    position: "fixed",
+    left: "0",
+    top: "0",
+    transform: "translateY(-50%)",
+    width: "2rem",
+    height: "2rem",
+    border: "0",
+    borderRadius: "0",
+    background: "transparent",
+    color: "rgba(255,255,255,0.46)",
+    display: "none",
+    opacity: "0",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    zIndex: "140",
+    padding: "0",
+    boxShadow: "none",
+    outline: "none",
+    transition: "opacity 120ms ease, color 120ms ease",
+    WebkitTapHighlightColor: "transparent",
+  });
 
-      // Keep the close control suppressed until the user explicitly taps the
-      // search field again. This prevents a focus/input observer from bringing
-      // the X back while the recent-chat list is already visible.
-      input.dataset.claraMessagesSearchCancelled = "true";
-      button.style.opacity = "0";
+  document.body.appendChild(button);
+
+  let frameId = null;
+
+  const placeButton = () => {
+    if (!input.isConnected) return false;
+    const row = input.parentElement;
+    if (!row) return false;
+    const rect = row.getBoundingClientRect();
+    button.style.left = `${Math.max(0, rect.right - 39)}px`;
+    button.style.top = `${rect.top + rect.height / 2}px`;
+    return true;
+  };
+
+  const stopTracking = () => {
+    if (frameId !== null) {
+      window.cancelAnimationFrame(frameId);
+      frameId = null;
+    }
+  };
+
+  const trackPosition = () => {
+    if (button.style.display === "none" || !placeButton()) {
+      stopTracking();
       button.style.display = "none";
-      setReactInputValue(input, "");
-      input.blur();
-    });
-
-    container.appendChild(button);
-  }
-
-  const showButton = () => {
-    if (input.dataset.claraMessagesSearchCancelled === "true") return;
-    button.style.display = "inline-flex";
-    window.requestAnimationFrame(() => {
-      if (input.dataset.claraMessagesSearchCancelled !== "true") {
-        button.style.opacity = "1";
-      }
-    });
+      return;
+    }
+    frameId = window.requestAnimationFrame(trackPosition);
   };
 
   const hideButton = () => {
+    stopTracking();
     button.style.opacity = "0";
     button.style.display = "none";
+  };
+
+  const showButton = () => {
+    if (!input.isConnected) return hideButton();
+    if (input.dataset.claraMessagesSearchCancelled === "true") return hideButton();
+    if (!placeButton()) return hideButton();
+
+    button.style.display = "inline-flex";
+    window.requestAnimationFrame(() => {
+      if (
+        input.isConnected &&
+        input.dataset.claraMessagesSearchCancelled !== "true" &&
+        document.activeElement === input
+      ) {
+        button.style.opacity = "1";
+      }
+    });
+
+    stopTracking();
+    frameId = window.requestAnimationFrame(trackPosition);
   };
 
   const syncVisibility = () => {
@@ -120,21 +149,44 @@ function installCancelButton(input) {
     else hideButton();
   };
 
-  if (!input.dataset.claraMessagesSearchCancelBound) {
-    input.dataset.claraMessagesSearchCancelBound = "true";
+  button.addEventListener("pointerenter", () => {
+    button.style.color = "rgba(255,255,255,0.78)";
+  });
+  button.addEventListener("pointerleave", () => {
+    button.style.color = "rgba(255,255,255,0.46)";
+  });
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+  });
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-    input.addEventListener("focus", () => {
-      input.dataset.claraMessagesSearchCancelled = "false";
-      showButton();
-    });
-    input.addEventListener("input", syncVisibility);
-    input.addEventListener("blur", () => window.setTimeout(syncVisibility, 160));
-  }
+    input.dataset.claraMessagesSearchCancelled = "true";
+    hideButton();
+    setReactInputValue(input, "");
+    input.blur();
+  });
+
+  input.addEventListener("focus", () => {
+    input.dataset.claraMessagesSearchCancelled = "false";
+    showButton();
+  });
+  input.addEventListener("input", syncVisibility);
+  input.addEventListener("blur", () => window.setTimeout(syncVisibility, 160));
 
   syncVisibility();
 }
 
+function cleanupDetachedOverlays() {
+  document.querySelectorAll(OVERLAY_SELECTOR).forEach((button) => {
+    const input = button.__claraMessagesSearchInput;
+    if (!input || !input.isConnected) button.remove();
+  });
+}
+
 function scanMessagesSearch() {
+  cleanupDetachedOverlays();
   document
     .querySelectorAll('input[placeholder="Search members"]')
     .forEach(installCancelButton);
