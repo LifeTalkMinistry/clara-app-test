@@ -4,8 +4,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Bell,
-  Heart,
   MessageCircle,
+  Newspaper,
   Trophy,
   UsersRound,
 } from "lucide-react";
@@ -14,7 +14,6 @@ import Challenges from "./Challenges";
 import MyCircle from "./MyCircle";
 import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
-import { openClaraSupport } from "@/lib/open-clara-support";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -35,7 +34,7 @@ function formatNotificationTime(value) {
   }
 }
 
-function CommunityShellHeader({ activeView, unreadCount, onBack }) {
+function CommunityShellHeader({ activeView, unreadCount, onExit }) {
   const itemClass = (active = false) =>
     `relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
       active
@@ -48,23 +47,23 @@ function CommunityShellHeader({ activeView, unreadCount, onBack }) {
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-1.5">
         <button
           type="button"
-          onClick={onBack}
+          onClick={onExit}
           className={itemClass(false)}
-          aria-label="Back to Community feed"
-          title="Community feed"
+          aria-label="Back to Dashboard"
+          title="Dashboard"
         >
           <ArrowLeft className="h-[17px] w-[17px]" />
         </button>
 
-        <button
-          type="button"
-          onClick={openClaraSupport}
-          className={itemClass(false)}
-          aria-label="Support CLARA"
-          title="Support CLARA"
+        <Link
+          to="/community"
+          className={itemClass(activeView === "feed")}
+          aria-label="Open Community feed"
+          title="Feed"
+          aria-current={activeView === "feed" ? "page" : undefined}
         >
-          <Heart className="h-[17px] w-[17px]" />
-        </button>
+          <Newspaper className="h-[17px] w-[17px]" />
+        </Link>
 
         <Link
           to="/community?view=circles"
@@ -219,15 +218,15 @@ export default function Community() {
         {headerActions
           ? createPortal(
               <>
-                <button
-                  type="button"
-                  onClick={openClaraSupport}
-                  className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
-                  aria-label="Support CLARA"
-                  title="Support CLARA"
+                <Link
+                  to="/community"
+                  className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-[#5eead4]/35 bg-[#22c7b8]/16 text-[#ccfbf1] shadow-[0_0_18px_rgba(34,199,184,0.12)]"
+                  aria-label="Community feed"
+                  title="Feed"
+                  aria-current="page"
                 >
-                  <Heart className="h-[18px] w-[18px]" />
-                </button>
+                  <Newspaper className="h-[18px] w-[18px]" />
+                </Link>
                 <Link
                   to="/community?view=circles"
                   className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
@@ -259,7 +258,7 @@ export default function Community() {
       <CommunityShellHeader
         activeView={activeView}
         unreadCount={unreadCount}
-        onBack={() => navigate("/community")}
+        onExit={() => navigate("/dashboard")}
       />
 
       <style>{`
