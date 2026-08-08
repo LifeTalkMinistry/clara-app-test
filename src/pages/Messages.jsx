@@ -1,3 +1,8 @@
-// Private Community messages are online account data owned by the self-hosted
-// CLARA backend. The backend page keeps conversations available across devices.
-export { default } from "./MessagesBackend";
+import { Navigate, useLocation } from "react-router-dom";
+
+export default function Messages() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("view", "messages");
+  return <Navigate to={`/community?${params.toString()}`} replace />;
+}
