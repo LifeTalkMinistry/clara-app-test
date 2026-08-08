@@ -22,7 +22,7 @@ import {
   getStoredBackendToken,
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
-import { uploadCommunityMedia } from "@/lib/community-media-client";
+import { uploadCommunityMedia, validateCommunityMediaFile } from "@/lib/community-media-client";
 import CommunityPostCard from "@/components/community/CommunityPostCard";
 
 const POST_TYPES = [
@@ -31,7 +31,6 @@ const POST_TYPES = [
   { key: "struggle", label: "Struggle", icon: HeartHandshake },
   { key: "money_lesson", label: "Money Lesson", icon: Lightbulb },
 ];
-const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
 
 function initialsFor(value) {
   return String(value || "CLARA Member")
@@ -66,8 +65,7 @@ function fileSizeLabel(bytes) {
 
 function acceptFile(file) {
   if (!file) return null;
-  if (file.size > MAX_MEDIA_BYTES) throw new Error("Attachments must be 20 MB or smaller.");
-  return file;
+  return validateCommunityMediaFile(file);
 }
 
 function AttachmentPicker({ onPick, disabled = false }) {
@@ -269,6 +267,7 @@ export default function CommunityBackend() {
                   <textarea autoFocus rows={4} value={body} onChange={(event) => setBody(event.target.value)} placeholder="What's happening with your money journey?" className="mt-3 w-full resize-none rounded-[18px] border border-white/10 bg-[#071725] px-4 py-3 text-sm font-semibold leading-6 text-white outline-none placeholder:text-white/28 focus:border-[#22c7b8]/45" />
                   <SelectedAttachment file={mediaFile} onRemove={() => setMediaFile(null)} />
                   <div className="mt-3 flex items-center justify-between gap-3"><AttachmentPicker onPick={pickComposerMedia} disabled={saving} /><Button onClick={createPost} disabled={saving || (!body.trim() && !mediaFile)} className="h-10 shrink-0 rounded-2xl bg-[#22c7b8] px-5 font-black text-[#042f2e]">{saving ? "Posting..." : "Post"}</Button></div>
+                  <p className="mt-2 text-[9px] font-semibold text-white/30">Videos up to 200 MB · Photos and files up to 25 MB</p>
                   <button type="button" onClick={() => { if (!body.trim() && !mediaFile) setComposerOpen(false); }} className="mt-3 text-[10px] font-bold text-white/38">Cancel</button>
                 </>}
               </section> : null}
