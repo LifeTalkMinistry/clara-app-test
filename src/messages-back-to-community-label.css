@@ -1,3 +1,5 @@
+@import "./community-composer-collapse.css";
+
 button[aria-label="Back to Community"] {
   width: auto !important;
   min-width: 40px;
