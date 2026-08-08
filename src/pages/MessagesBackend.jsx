@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   MessageSquare,
   MoreHorizontal,
-  Plus,
   Search,
   Send,
 } from "lucide-react";
@@ -46,7 +45,7 @@ export default function MessagesBackend() {
   const [selectedConvo, setSelectedConvo] = useState(null);
   const [newMsg, setNewMsg] = useState("");
   const [search, setSearch] = useState("");
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [searchActive, setSearchActive] = useState(false);
   const messagesEndRef = useRef(null);
 
   const fetchUsers = useCallback(async () => {
@@ -192,7 +191,7 @@ export default function MessagesBackend() {
     const person = users.find((item) => String(item.id) === String(targetUserIdFromUrl));
     if (!person) return;
     setSelectedConvo(person.id);
-    setComposerOpen(false);
+    setSearchActive(false);
   }, [targetUserIdFromUrl, users]);
 
   useEffect(() => {
@@ -226,7 +225,8 @@ export default function MessagesBackend() {
 
   const openConversation = (userId) => {
     setSelectedConvo(userId);
-    setComposerOpen(false);
+    setSearchActive(false);
+    setSearch("");
     const next = new URLSearchParams(searchParams);
     next.set("userId", String(userId));
     setSearchParams(next, { replace: true });
@@ -316,18 +316,18 @@ export default function MessagesBackend() {
   return (
     <div className="fixed inset-0 z-[90] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white">
       <header className="shrink-0 border-b border-white/[0.08] bg-[#06111f]/95 px-4 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-3"><button type="button" onClick={() => navigate("/community")} className="flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-white/80"><ArrowLeft className="h-4 w-4" /><span className="text-[11px] font-black">Community</span></button><div className="min-w-0 flex-1"><h1 className="text-lg font-black tracking-[-0.025em]">Messages</h1><p className="text-[11px] font-semibold text-white/42">Private conversations</p></div><button type="button" onClick={() => setComposerOpen((current) => !current)} className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${composerOpen ? "border-[#22c7b8]/30 bg-[#22c7b8]/12 text-[#ccfbf1]" : "border-white/10 bg-white/[0.05] text-white/80"}`}><Plus className="h-4 w-4" /></button></div>
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3"><button type="button" onClick={() => navigate("/community")} className="flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-white/80"><ArrowLeft className="h-4 w-4" /><span className="text-[11px] font-black">Community</span></button><div className="min-w-0 flex-1"><h1 className="text-lg font-black tracking-[-0.025em]">Messages</h1></div></div>
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+28px)] pt-4">
         <div className="mx-auto w-full max-w-3xl space-y-5">
-          <div className="flex h-12 items-center gap-3 rounded-[18px] border border-white/10 bg-white/[0.05] px-4"><Search className="h-4 w-4 text-white/38" /><Input placeholder="Search messages" value={search} onChange={(event) => setSearch(event.target.value)} className="min-w-0 border-0 bg-transparent px-0 text-sm font-semibold text-white placeholder:text-white/30 focus-visible:ring-0" /></div>
+          <div className="flex h-12 items-center gap-3 rounded-[18px] border border-white/10 bg-white/[0.05] px-4"><Search className="h-4 w-4 text-white/38" /><Input placeholder="Search members" value={search} onFocus={() => setSearchActive(true)} onBlur={() => window.setTimeout(() => setSearchActive(false), 140)} onChange={(event) => setSearch(event.target.value)} className="min-w-0 border-0 bg-transparent px-0 text-sm font-semibold text-white placeholder:text-white/30 focus-visible:ring-0" /></div>
 
-          {composerOpen ? (
-            <section className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.045]"><div className="border-b border-white/[0.07] px-4 py-3"><p className="text-sm font-black">New conversation</p><p className="mt-0.5 text-[11px] font-semibold text-white/38">Choose a member to message privately.</p></div><div className="divide-y divide-white/[0.07]">{filteredUsers.length === 0 ? <div className="px-4 py-5 text-sm font-semibold text-white/42">No people found.</div> : filteredUsers.map((person) => <button type="button" key={person.id} onClick={() => openConversation(person.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{getMessageInitials(person.display_name || person.full_name || person.email)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{person.display_name || person.full_name || person.email}</p><p className="truncate text-[11px] font-semibold text-white/38">{String(person.role).toLowerCase() === "admin" ? "CLARA Admin" : "Community Member"}</p></div><span className="text-[11px] font-black text-[#99f6e4]">Chat</span></button>)}</div></section>
-          ) : null}
-
-          <section><div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-sm font-black">Recent chats</p><p className="mt-0.5 text-[11px] font-semibold text-white/36">Your latest private conversations</p></div>{loading ? <span className="text-[10px] text-white/30">Syncing...</span> : null}</div>{filteredConvos.length === 0 ? <div className="rounded-[22px] border border-white/10 bg-white/[0.035] px-4 py-7"><EmptyState icon={MessageSquare} title="No messages yet" description="Tap + to start a private conversation." /></div> : <div className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredConvos.map((conversation) => { const last = conversation.lastMessage; const isFromMe = String(last?.sender_id) === String(currentUserId); return <button type="button" key={conversation.id} onClick={() => openConversation(conversation.id)} className="flex w-full items-center gap-3 px-3 py-3.5 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">{getMessageInitials(conversation.name)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-sm font-black">{conversation.name}</p><span className="shrink-0 text-[10px] text-white/35">{formatChatTime(last?.created_at)}</span></div><div className="mt-1 flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-xs font-semibold text-white/45">{isFromMe ? "You: " : ""}{last?.content || "Start chatting"}</p>{conversation.unreadCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#22c7b8] px-1.5 text-[10px] font-black text-[#042f2e]">{conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}</span> : null}</div></div></button>; })}</div></div>}</section>
+          {searchActive ? (
+            <section className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredUsers.length === 0 ? <div className="px-4 py-5 text-sm font-semibold text-white/42">No people found.</div> : filteredUsers.map((person) => <button type="button" key={person.id} onClick={() => openConversation(person.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-xs font-black text-[#ccfbf1]">{getMessageInitials(person.display_name || person.full_name || person.email)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{person.display_name || person.full_name || person.email}</p><p className="truncate text-[11px] font-semibold text-white/38">{String(person.role).toLowerCase() === "admin" ? "CLARA Admin" : "Community Member"}</p></div><span className="text-[11px] font-black text-[#99f6e4]">Chat</span></button>)}</div></section>
+          ) : (
+            <section>{filteredConvos.length === 0 ? <div className="rounded-[22px] border border-white/10 bg-white/[0.035] px-4 py-7"><EmptyState icon={MessageSquare} title="No messages yet" description="Tap the search bar to find a community member." /></div> : <div className="overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035]"><div className="divide-y divide-white/[0.07]">{filteredConvos.map((conversation) => { const last = conversation.lastMessage; const isFromMe = String(last?.sender_id) === String(currentUserId); return <button type="button" key={conversation.id} onClick={() => openConversation(conversation.id)} className="flex w-full items-center gap-3 px-3 py-3.5 text-left hover:bg-white/[0.04]"><div className="relative"><div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-sm font-black text-[#ccfbf1]">{getMessageInitials(conversation.name)}</div><span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#06111f] bg-emerald-400" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-sm font-black">{conversation.name}</p><span className="shrink-0 text-[10px] text-white/35">{formatChatTime(last?.created_at)}</span></div><div className="mt-1 flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-xs font-semibold text-white/45">{isFromMe ? "You: " : ""}{last?.content || "Start chatting"}</p>{conversation.unreadCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#22c7b8] px-1.5 text-[10px] font-black text-[#042f2e]">{conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}</span> : null}</div></div></button>; })}</div></div>}</section>
+          )}
         </div>
       </main>
     </div>
