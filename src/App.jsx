@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
+import SupportClaraBubble from "@/components/support/SupportClaraBubble";
 import useUserRole from "./hooks/useUserRole";
 import { deriveAccessState, resolveAppFlow } from "./lib/access-control";
 import {
@@ -241,148 +242,151 @@ function AppRoutes() {
           path="/*"
           element={
             user ? (
-              <Layout>
-                <Routes>
-                  <Route
-                    path="/"
-                    element={<Navigate to={homeRedirectPath} replace />}
-                  />
-                  <Route
-                    path="/onboarding"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                  <Route
-                    path="/program-onboarding"
-                    element={<ProgramOnboarding />}
-                  />
-                  <Route
-                    path="/pending"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                  <Route path="/enroll" element={<Enroll />} />
-                  <Route path="/tier-select" element={<TierSelect />} />
-                  <Route path="/activation" element={<Activation />} />
-                  <Route
-                    path="/advertiser"
-                    element={<AdvertiserDashboard />}
-                  />
-                  <Route
-                    path="/dashboard"
-                    element={guard(<Dashboard />, "/dashboard")}
-                  />
-                  <Route
-                    path="/welcome-session"
-                    element={<WelcomeSession />}
-                  />
-                  <Route
-                    path="/coaching-mock-preview"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                  <Route
-                    path="/lifeos"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                  <Route
-                    path="/investment-plan"
-                    element={guard(<InvestmentPlan />, "/investment-plan")}
-                  />
-                  <Route
-                    path="/budget-plan"
-                    element={<MonthlyBudgetPlan />}
-                  />
-                  <Route
-                    path="/expenses"
-                    element={guard(<TransactionHub />, "/expenses")}
-                  />
-                  <Route
-                    path="/transactions"
-                    element={guard(
-                      <TransactionHub />,
-                      "/transactions",
-                      forceEnroll,
-                      "/expenses"
-                    )}
-                  />
-                  <Route
-                    path="/add-funds"
-                    element={guard(<AddFunds />, "/add-funds")}
-                  />
-                  <Route
-                    path="/wallets"
-                    element={guard(<Wallets />, "/wallets")}
-                  />
-                  <Route
-                    path="/budgets"
-                    element={guard(<Budgets />, "/budgets")}
-                  />
-                  <Route
-                    path="/analytics"
-                    element={guard(<Analytics />, "/analytics")}
-                  />
-                  <Route
-                    path="/ai"
-                    element={guard(<AiInsights />, "/ai")}
-                  />
-                  <Route
-                    path="/modules"
-                    element={guard(<Modules />, "/modules")}
-                  />
-                  <Route
-                    path="/feed"
-                    element={guard(<Feed />, "/feed")}
-                  />
-                  <Route
-                    path="/people"
-                    element={guard(
-                      <ClaraPeople />,
-                      "/people",
-                      forceEnroll,
-                      "/community"
-                    )}
-                  />
-                  <Route
-                    path="/users/:userId"
-                    element={guard(
-                      <UserProfile />,
-                      "/users/:userId",
-                      forceEnroll,
-                      "/community"
-                    )}
-                  />
-                  <Route
-                    path="/community"
-                    element={guard(<Community />, "/community")}
-                  />
-                  <Route
-                    path="/messages"
-                    element={guard(<Messages />, "/messages")}
-                  />
-                  <Route
-                    path="/news"
-                    element={guard(<News />, "/news")}
-                  />
-                  <Route
-                    path="/referrals"
-                    element={guard(<Referrals />, "/referrals")}
-                  />
-                  <Route
-                    path="/savings-goals"
-                    element={guard(<SavingsGoals />, "/savings-goals")}
-                  />
-                  <Route
-                    path="/settings"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                  <Route
-                    path="/settings/:section"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/data-export" element={<DataExport />} />
-                  <Route path="/admin/*" element={<AdminPanel />} />
-                  <Route path="*" element={<PageNotFound />} />
-                </Routes>
-              </Layout>
+              <>
+                <Layout>
+                  <Routes>
+                    <Route
+                      path="/"
+                      element={<Navigate to={homeRedirectPath} replace />}
+                    />
+                    <Route
+                      path="/onboarding"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route
+                      path="/program-onboarding"
+                      element={<ProgramOnboarding />}
+                    />
+                    <Route
+                      path="/pending"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route path="/enroll" element={<Enroll />} />
+                    <Route path="/tier-select" element={<TierSelect />} />
+                    <Route path="/activation" element={<Activation />} />
+                    <Route
+                      path="/advertiser"
+                      element={<AdvertiserDashboard />}
+                    />
+                    <Route
+                      path="/dashboard"
+                      element={guard(<Dashboard />, "/dashboard")}
+                    />
+                    <Route
+                      path="/welcome-session"
+                      element={<WelcomeSession />}
+                    />
+                    <Route
+                      path="/coaching-mock-preview"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route
+                      path="/lifeos"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route
+                      path="/investment-plan"
+                      element={guard(<InvestmentPlan />, "/investment-plan")}
+                    />
+                    <Route
+                      path="/budget-plan"
+                      element={<MonthlyBudgetPlan />}
+                    />
+                    <Route
+                      path="/expenses"
+                      element={guard(<TransactionHub />, "/expenses")}
+                    />
+                    <Route
+                      path="/transactions"
+                      element={guard(
+                        <TransactionHub />,
+                        "/transactions",
+                        forceEnroll,
+                        "/expenses"
+                      )}
+                    />
+                    <Route
+                      path="/add-funds"
+                      element={guard(<AddFunds />, "/add-funds")}
+                    />
+                    <Route
+                      path="/wallets"
+                      element={guard(<Wallets />, "/wallets")}
+                    />
+                    <Route
+                      path="/budgets"
+                      element={guard(<Budgets />, "/budgets")}
+                    />
+                    <Route
+                      path="/analytics"
+                      element={guard(<Analytics />, "/analytics")}
+                    />
+                    <Route
+                      path="/ai"
+                      element={guard(<AiInsights />, "/ai")}
+                    />
+                    <Route
+                      path="/modules"
+                      element={guard(<Modules />, "/modules")}
+                    />
+                    <Route
+                      path="/feed"
+                      element={guard(<Feed />, "/feed")}
+                    />
+                    <Route
+                      path="/people"
+                      element={guard(
+                        <ClaraPeople />,
+                        "/people",
+                        forceEnroll,
+                        "/community"
+                      )}
+                    />
+                    <Route
+                      path="/users/:userId"
+                      element={guard(
+                        <UserProfile />,
+                        "/users/:userId",
+                        forceEnroll,
+                        "/community"
+                      )}
+                    />
+                    <Route
+                      path="/community"
+                      element={guard(<Community />, "/community")}
+                    />
+                    <Route
+                      path="/messages"
+                      element={guard(<Messages />, "/messages")}
+                    />
+                    <Route
+                      path="/news"
+                      element={guard(<News />, "/news")}
+                    />
+                    <Route
+                      path="/referrals"
+                      element={guard(<Referrals />, "/referrals")}
+                    />
+                    <Route
+                      path="/savings-goals"
+                      element={guard(<SavingsGoals />, "/savings-goals")}
+                    />
+                    <Route
+                      path="/settings"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route
+                      path="/settings/:section"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/data-export" element={<DataExport />} />
+                    <Route path="/admin/*" element={<AdminPanel />} />
+                    <Route path="*" element={<PageNotFound />} />
+                  </Routes>
+                </Layout>
+                <SupportClaraBubble user={user} />
+              </>
             ) : (
               <Navigate to="/login" replace state={{ from: location }} />
             )
