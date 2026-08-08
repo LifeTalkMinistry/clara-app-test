@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Clipboard, Landmark, Loader2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Check, Clipboard, ImagePlus, Landmark, Loader2, Smartphone, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 
@@ -8,6 +8,9 @@ const METHOD_ICONS = Object.freeze({
   maya: Smartphone,
   security_bank: Landmark,
 });
+
+const MAX_PROOF_SOURCE_BYTES = 8 * 1024 * 1024;
+const MAX_PROOF_DATA_URL_BYTES = 1_150_000;
 
 async function copyText(value, label) {
   const text = String(value || "").trim();
@@ -20,6 +23,70 @@ async function copyText(value, label) {
   }
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read that screenshot."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("That screenshot could not be opened."));
+    image.src = dataUrl;
+  });
+}
+
+function estimatedDataUrlBytes(dataUrl) {
+  const commaIndex = String(dataUrl || "").indexOf(",");
+  const base64Length = commaIndex >= 0 ? dataUrl.length - commaIndex - 1 : dataUrl.length;
+  return Math.ceil((base64Length * 3) / 4);
+}
+
+async function preparePaymentProof(file) {
+  if (!file || !/^image\/(png|jpeg|jpg|webp)$/i.test(file.type || "")) {
+    throw new Error("Choose a PNG, JPG, or WebP payment screenshot.");
+  }
+  if (file.size > MAX_PROOF_SOURCE_BYTES) {
+    throw new Error("That screenshot is too large. Choose an image smaller than 8 MB.");
+  }
+
+  const originalDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(originalDataUrl);
+  const attempts = [
+    { maxSide: 1400, quality: 0.82 },
+    { maxSide: 1200, quality: 0.72 },
+    { maxSide: 1000, quality: 0.62 },
+  ];
+
+  for (const attempt of attempts) {
+    const longestSide = Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height, 1);
+    const scale = Math.min(1, attempt.maxSide / longestSide);
+    const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+    const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Unable to prepare that screenshot.");
+    context.drawImage(image, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL("image/jpeg", attempt.quality);
+    if (estimatedDataUrlBytes(dataUrl) <= MAX_PROOF_DATA_URL_BYTES) {
+      return {
+        dataUrl,
+        name: `payment-proof-${Date.now()}.jpg`,
+        originalName: file.name || "payment-screenshot",
+      };
+    }
+  }
+
+  throw new Error("That screenshot is still too large after compression. Try cropping it first.");
+}
+
 export default function SupportPaymentSheet({ tier, onBack, onClose }) {
   const token = getStoredBackendToken();
   const [methods, setMethods] = useState([]);
@@ -27,6 +94,8 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reference, setReference] = useState("");
+  const [proof, setProof] = useState(null);
+  const [proofBusy, setProofBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -61,11 +130,26 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
     [methods, selectedKey]
   );
 
+  const handleProofFile = async (file) => {
+    if (!file || proofBusy) return;
+    try {
+      setProofBusy(true);
+      const prepared = await preparePaymentProof(file);
+      setProof(prepared);
+      setSubmitted(false);
+      toast.success("Payment screenshot ready to submit.");
+    } catch (proofError) {
+      toast.error(proofError?.message || "Unable to prepare that screenshot.");
+    } finally {
+      setProofBusy(false);
+    }
+  };
+
   const submitPaymentNotice = async () => {
-    if (!token || !selected || submitting) return;
+    if (!token || !selected || submitting || proofBusy) return;
     const cleanReference = reference.trim();
-    if (!cleanReference) {
-      toast.error("Enter the payment reference number first.");
+    if (!cleanReference && !proof?.dataUrl) {
+      toast.error("Upload a payment screenshot or enter the reference number.");
       return;
     }
 
@@ -80,13 +164,17 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
             `Tier: ${tier.name}`,
             `Amount: PHP ${tier.price}`,
             `Payment method: ${selected.label}`,
-            `Reference number: ${cleanReference}`,
+            cleanReference ? `Reference number: ${cleanReference}` : "Reference number: not provided",
+            proof?.dataUrl ? "Payment proof: screenshot uploaded" : "Payment proof: reference number only",
             "User marked this payment as sent and is requesting manual verification.",
           ].join("\n"),
+          paymentReference: cleanReference,
+          proofImageDataUrl: proof?.dataUrl || "",
+          proofImageName: proof?.name || "",
         },
       });
       setSubmitted(true);
-      toast.success("Payment sent for verification. Thank you for supporting CLARA 💙");
+      toast.success("Payment proof sent for verification. Thank you for supporting CLARA 💙");
     } catch (submitError) {
       toast.error(submitError?.message || "Unable to submit payment verification.");
     } finally {
@@ -144,7 +232,7 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
                 key={method.key}
                 type="button"
                 disabled={!method.configured}
-                onClick={() => { setSelectedKey(method.key); setReference(""); setSubmitted(false); }}
+                onClick={() => { setSelectedKey(method.key); setReference(""); setProof(null); setSubmitted(false); }}
                 className={`rounded-2xl border px-2 py-3 text-center transition disabled:cursor-not-allowed disabled:opacity-35 ${active ? "border-cyan-300/50 bg-cyan-300/[0.11] text-cyan-100" : "border-white/10 bg-white/[0.04] text-white/65"}`}
               >
                 <Icon className="mx-auto h-5 w-5" />
@@ -201,20 +289,70 @@ export default function SupportPaymentSheet({ tier, onBack, onClose }) {
           <div className="mt-4 border-t border-white/10 pt-4">
             {submitted ? (
               <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] p-3 text-xs leading-5 text-emerald-100/80">
-                Payment reference submitted for manual verification. Thank you for helping keep CLARA free. 💙
+                Payment proof submitted for manual verification. Thank you for helping keep CLARA free. 💙
               </div>
             ) : (
               <>
                 <label className="text-[10px] font-bold tracking-[0.12em] text-white/45">AFTER YOU SEND THE PAYMENT</label>
-                <input
-                  value={reference}
-                  onChange={(event) => setReference(event.target.value)}
-                  placeholder="Enter payment reference number"
-                  className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-300/35"
-                />
+                <div className="mt-3 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3">
+                  <p className="text-[10px] font-black tracking-[0.12em] text-cyan-100/70">OPTION 1 · RECOMMENDED</p>
+                  <p className="mt-1 text-xs font-bold text-white">Upload your payment screenshot</p>
+                  <p className="mt-1 text-[10px] leading-4 text-white/40">This is the fastest way for CLARA to verify what you sent.</p>
+
+                  <input
+                    id={`support-payment-proof-${tier.key}-${selected.key}`}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    disabled={proofBusy}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) handleProofFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <label
+                    htmlFor={`support-payment-proof-${tier.key}-${selected.key}`}
+                    className="mt-3 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] text-xs font-bold text-cyan-100"
+                  >
+                    {proofBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                    {proof ? "Replace screenshot" : "Upload payment screenshot"}
+                  </label>
+
+                  {proof && (
+                    <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-2">
+                      <img src={proof.dataUrl} alt="Payment screenshot preview" className="mx-auto max-h-44 w-auto max-w-full rounded-lg object-contain" />
+                      <div className="mt-2 flex items-center justify-between gap-2 px-1">
+                        <span className="min-w-0 truncate text-[10px] text-white/45">{proof.originalName}</span>
+                        <button type="button" onClick={() => setProof(null)} className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-200/70">
+                          <Trash2 className="h-3 w-3" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="my-3 flex items-center gap-3">
+                  <span className="h-px flex-1 bg-white/10" />
+                  <span className="text-[9px] font-black tracking-[0.15em] text-white/30">OR</span>
+                  <span className="h-px flex-1 bg-white/10" />
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-black tracking-[0.12em] text-white/40">OPTION 2</p>
+                  <input
+                    value={reference}
+                    onChange={(event) => setReference(event.target.value)}
+                    placeholder="Enter reference number (optional with screenshot)"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-300/35"
+                  />
+                </div>
+
+                <p className="mt-3 text-center text-[10px] leading-4 text-white/35">You only need one: a screenshot or the payment reference number.</p>
+
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={submitting || proofBusy}
                   onClick={submitPaymentNotice}
                   className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300/15 text-sm font-bold text-cyan-100 disabled:opacity-50"
                 >
