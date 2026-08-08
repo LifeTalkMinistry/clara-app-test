@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -131,14 +130,12 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
 export default function Community() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [headerActions, setHeaderActions] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const token = getStoredBackendToken();
   const requestedView = searchParams.get("view") || "feed";
-  const activeView = ["circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
+  const activeView = ["feed", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
     ? requestedView
     : "feed";
-  const showingFeed = activeView === "feed";
 
   const loadNotifications = useCallback(async () => {
     if (!token) return;
@@ -151,46 +148,16 @@ export default function Community() {
   }, [token]);
 
   useEffect(() => {
-    if (!showingFeed && token) loadNotifications();
-  }, [loadNotifications, showingFeed, token]);
+    if (token) loadNotifications();
+  }, [loadNotifications, token]);
 
   useEffect(() => {
-    if (showingFeed || !token) return undefined;
+    if (!token) return undefined;
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== "hidden") loadNotifications();
     }, 8000);
     return () => window.clearInterval(intervalId);
-  }, [loadNotifications, showingFeed, token]);
-
-  useEffect(() => {
-    setHeaderActions(null);
-    if (!showingFeed) return undefined;
-
-    let frameId = null;
-    let cancelled = false;
-
-    const attachToHeader = () => {
-      if (cancelled) return;
-
-      const target = document.querySelector(
-        ".clara-community-challenge-entry header > div > div:last-child"
-      );
-
-      if (target) {
-        setHeaderActions(target);
-        return;
-      }
-
-      frameId = window.requestAnimationFrame(attachToHeader);
-    };
-
-    attachToHeader();
-
-    return () => {
-      cancelled = true;
-      if (frameId !== null) window.cancelAnimationFrame(frameId);
-    };
-  }, [showingFeed]);
+  }, [loadNotifications, token]);
 
   const markNotificationRead = async (notification) => {
     if (!notification?.id || notification.is_read || !token) return;
@@ -210,47 +177,6 @@ export default function Community() {
     }
   };
 
-  if (showingFeed) {
-    return (
-      <div className="clara-community-challenge-entry">
-        <CommunityBackend />
-
-        {headerActions
-          ? createPortal(
-              <>
-                <Link
-                  to="/community"
-                  className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-[#5eead4]/35 bg-[#22c7b8]/16 text-[#ccfbf1] shadow-[0_0_18px_rgba(34,199,184,0.12)]"
-                  aria-label="Community feed"
-                  title="Feed"
-                  aria-current="page"
-                >
-                  <Newspaper className="h-[18px] w-[18px]" />
-                </Link>
-                <Link
-                  to="/community?view=circles"
-                  className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
-                  aria-label="Open My Circle"
-                  title="My Circle"
-                >
-                  <UsersRound className="h-[18px] w-[18px]" />
-                </Link>
-                <Link
-                  to="/community?view=challenges"
-                  className="order-first inline-flex h-11 w-11 scale-[0.92] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-white/82"
-                  aria-label="Open CLARA Challenges"
-                  title="CLARA Challenges"
-                >
-                  <Trophy className="h-[18px] w-[18px]" />
-                </Link>
-              </>,
-              headerActions
-            )
-          : null}
-      </div>
-    );
-  }
-
   const unreadCount = notifications.filter((item) => !item.is_read).length;
 
   return (
@@ -262,6 +188,7 @@ export default function Community() {
       />
 
       <style>{`
+        .clara-community-feed-view > div,
         .clara-community-challenges-view > div,
         .clara-community-messages-view > div {
           position: static !important;
@@ -271,6 +198,7 @@ export default function Community() {
           height: 100% !important;
           min-height: 100% !important;
         }
+        .clara-community-feed-view > div > header,
         .clara-community-challenges-view > div > header {
           display: none !important;
         }
@@ -294,7 +222,11 @@ export default function Community() {
         }
       `}</style>
 
-      {activeView === "circles" ? (
+      {activeView === "feed" ? (
+        <div className="clara-community-feed-view min-h-0 flex-1 overflow-hidden">
+          <CommunityBackend />
+        </div>
+      ) : activeView === "circles" ? (
         <div className="clara-community-circles-view min-h-0 flex-1 overflow-y-auto">
           <MyCircle />
         </div>
