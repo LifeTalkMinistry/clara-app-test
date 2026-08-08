@@ -19,14 +19,23 @@ button[aria-label="Back to Community"]::after {
 
 /*
  * Community owns its page scrolling directly.
- * Avoid a nested flex + inner-main scroll container because that combination
- * can refuse wheel/touch scrolling inside the routed CLARA shell on mobile,
- * Android WebView, and Chrome device emulation.
+ *
+ * IMPORTANT: do not use :has() to identify this shell. Some Android WebView
+ * versions can ignore :has()-based ownership rules even though desktop Chrome
+ * accepts them. The Community route already has a unique full-screen class
+ * token (h-[100dvh]), so target that stable token instead.
+ *
+ * The shell is the single vertical scroll owner. The feed/main region grows
+ * naturally inside it, which avoids the nested flex + overflow scroller that
+ * previously became stuck on physical Android devices.
  */
-div.z-\[80\]:has(> header a[href$="/messages"]) {
+div[class~="z-[80]"][class~="h-[100dvh]"] {
   display: block !important;
+  height: 100vh !important;
   height: 100dvh !important;
+  min-height: 100vh !important;
   min-height: 100dvh !important;
+  max-height: 100vh !important;
   max-height: 100dvh !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
@@ -36,14 +45,14 @@ div.z-\[80\]:has(> header a[href$="/messages"]) {
 }
 
 /* Keep Community navigation visible while the shell itself scrolls. */
-div.z-\[80\] > header:has(a[href$="/messages"]) {
+div[class~="z-[80]"][class~="h-[100dvh]"] > header {
   position: sticky !important;
   top: 0 !important;
   z-index: 90 !important;
 }
 
 /* Let feed content grow naturally; the parent Community shell scrolls it. */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main {
+div[class~="z-[80]"][class~="h-[100dvh]"] > main {
   display: block !important;
   flex: none !important;
   width: 100% !important;
