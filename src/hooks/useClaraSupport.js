@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { backendRequest, getStoredBackendToken } from "@/lib/clara-backend-client";
 import { getSupportDisplayState, isSupportRecordActive } from "@/lib/clara-support";
 import { purchaseClaraSupport } from "@/lib/clara-support-billing";
 
@@ -19,38 +19,25 @@ export default function useClaraSupport(user) {
       return null;
     }
 
+    const token = getStoredBackendToken();
+    if (!token) {
+      setRecord(null);
+      setChampionCapacity(null);
+      return null;
+    }
+
     setLoading(true);
     try {
-      const [supportResult, capacityResult] = await Promise.all([
-        supabase
-          .from("support_subscriptions")
-          .select("id,user_id,tier,amount_php,payment_date,support_start_at,support_expires_at,renewal_at,status,custom_amount_php,product_id,created_at,updated_at")
-          .eq("user_id", user.id)
-          .order("support_expires_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("support_program_config")
-          .select("champion_slot_cap,champion_slots_used")
-          .eq("id", "default")
-          .maybeSingle(),
-      ]);
-
-      if (supportResult.error) {
-        console.warn("CLARA support state unavailable:", supportResult.error.message);
-        setRecord(null);
-      } else {
-        setRecord(supportResult.data || null);
-      }
-
-      if (capacityResult.error) {
-        console.warn("CLARA support capacity unavailable:", capacityResult.error.message);
-        setChampionCapacity(null);
-      } else {
-        setChampionCapacity(capacityResult.data || null);
-      }
-
-      return supportResult.data || null;
+      const result = await backendRequest("/api/support/status", { token });
+      const membership = result?.membership || null;
+      setRecord(membership);
+      setChampionCapacity(null);
+      return membership;
+    } catch (supportError) {
+      console.warn("CLARA support state unavailable:", supportError?.message || supportError);
+      setRecord(null);
+      setChampionCapacity(null);
+      return null;
     } finally {
       setLoading(false);
     }
