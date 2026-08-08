@@ -102,7 +102,7 @@ function SupportTierCard({ tier, busy, disabled, onChoose, championAvailability 
   );
 }
 
-export default function SupportClaraBubble({ user, championCapacity = null }) {
+export default function SupportClaraBubble({ user }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
@@ -110,8 +110,8 @@ export default function SupportClaraBubble({ user, championCapacity = null }) {
   const blocked = useSupportBubbleOcclusionGuard(open);
   const customAvailability = customSupportAvailability();
   const championAvailability = useMemo(
-    () => getChampionAvailability(championCapacity || {}),
-    [championCapacity]
+    () => getChampionAvailability(supportState.championCapacity || {}),
+    [supportState.championCapacity]
   );
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function SupportClaraBubble({ user, championCapacity = null }) {
 
   useEffect(() => {
     if (!open) supportState.clearError();
-  }, [open]);
+  }, [open, supportState.clearError]);
 
   const handleSupport = async (tierKey) => {
     try {
@@ -233,7 +233,14 @@ export default function SupportClaraBubble({ user, championCapacity = null }) {
                 })}
 
                 <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-                  <p className="text-sm font-semibold text-white">Give a different amount</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">Give a different amount</p>
+                    {!customAvailability.enabled && (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold tracking-[0.1em] text-white/45">
+                        COMING SOON
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 text-xs leading-5 text-white/55">
                     Larger custom support does not create extra CLARA privileges.
                   </p>
@@ -244,11 +251,12 @@ export default function SupportClaraBubble({ user, championCapacity = null }) {
                       onChange={(event) => setCustomAmount(event.target.value.replace(/[^0-9]/g, ""))}
                       inputMode="numeric"
                       placeholder="Different amount"
-                      className="h-11 min-w-0 flex-1 bg-transparent px-2 text-sm text-white outline-none placeholder:text-white/30"
+                      disabled={!customAvailability.enabled}
+                      className="h-11 min-w-0 flex-1 bg-transparent px-2 text-sm text-white outline-none placeholder:text-white/30 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
-                  {!customAvailability.enabled && customAmount && (
-                    <p className="mt-2 text-[11px] leading-4 text-amber-200/75">
+                  {!customAvailability.enabled && (
+                    <p className="mt-2 text-[11px] leading-4 text-white/40">
                       {customAvailability.reason}
                     </p>
                   )}
