@@ -14,6 +14,8 @@ const isolationRuntime = readSource(
   "src/runtime/installUniversalOnboardingScrollIsolation.js"
 );
 const runtimeRegistry = readSource("src/runtime/installClaraRuntimePatches.js");
+const communityScrollCss = readSource("src/messages-back-to-community-label.css");
+const viewportEdgeCss = readSource("src/viewport-edge-seam-fix.css");
 
 const mobileMarker =
   "/* Android WebView onboarding: keep the shell as the single vertical scroll owner. */";
@@ -123,4 +125,64 @@ test("screen changes reset the active shell scroll container", () => {
     /onboardingShellRef\.current\?\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)/
   );
   assert.match(onboardingSource, /sm:h-\[calc\(100dvh-48px\)\]/);
+});
+
+test("Community scroll ownership does not depend on :has support in Android WebView", () => {
+  const sectionStart = communityScrollCss.indexOf(
+    "* Community owns its page scrolling directly."
+  );
+  const sectionEnd = communityScrollCss.indexOf(
+    "* Keep the default Messages inbox focused on existing conversations.",
+    sectionStart
+  );
+
+  assert.notEqual(sectionStart, -1);
+  assert.notEqual(sectionEnd, -1);
+
+  const communitySection = communityScrollCss.slice(sectionStart, sectionEnd);
+  assert.doesNotMatch(communitySection, /:has\(/);
+  assert.match(
+    communitySection,
+    /div\[class~="z-\[80\]"\]\[class~="h-\[100dvh\]"\]\s*\{/
+  );
+  assert.match(communitySection, /overflow-y:\s*auto !important;/);
+  assert.match(communitySection, /touch-action:\s*pan-y;/);
+  assert.match(communitySection, /-webkit-overflow-scrolling:\s*touch;/);
+  assert.match(
+    communitySection,
+    /> header \{[\s\S]*?position:\s*sticky !important;/
+  );
+  assert.match(
+    communitySection,
+    /> main \{[\s\S]*?overflow:\s*visible !important;/
+  );
+});
+
+test("route settle cannot create a transformed or filtered Community containing block", () => {
+  assert.match(
+    viewportEdgeCss,
+    /\.theme-page-shell > \.relative > main \{[\s\S]*?padding-top:/
+  );
+
+  const keyframeStart = viewportEdgeCss.indexOf(
+    "@keyframes clara-route-surface-settle-no-seam"
+  );
+  const routeRuleStart = viewportEdgeCss.indexOf(
+    "body.clara-route-soft-settle .theme-page-shell main"
+  );
+  assert.notEqual(keyframeStart, -1);
+  assert.notEqual(routeRuleStart, -1);
+
+  const keyframeSection = viewportEdgeCss.slice(keyframeStart, routeRuleStart);
+  assert.doesNotMatch(keyframeSection, /transform\s*:/);
+  assert.doesNotMatch(keyframeSection, /filter\s*:/);
+
+  const routeRule = getRuleBody(
+    viewportEdgeCss,
+    "body.clara-route-soft-settle .theme-page-shell main"
+  );
+  assert.match(routeRule, /transform:\s*none !important;/);
+  assert.match(routeRule, /filter:\s*none !important;/);
+  assert.match(routeRule, /will-change:\s*opacity !important;/);
+  assert.doesNotMatch(routeRule, /will-change:[^;]*(transform|filter)/);
 });
