@@ -4,16 +4,18 @@
    full-screen pages that can expose the root/background layer as a thin cyan /
    purple strip at the top or around an outer edge during navigation.
 
-   Keep only the real device safe-area inset and preserve the subtle route
-   settle as an opacity/saturation effect without moving or shrinking the
-   viewport surface. */
+   Keep only the real device safe-area inset and preserve a subtle opacity-only
+   settle. Do not animate transform or filter on route content: either property
+   can establish a containing block for fixed descendants and can break full-
+   screen route scrolling in Android WebView (including Community). */
 
-.theme-page-shell main {
+/* Only the Layout-owned scroll root gets the safe-area padding override. */
+.theme-page-shell > .relative > main {
   padding-top: var(--clara-safe-top, 0px) !important;
 }
 
 @media (max-width: 374px) {
-  .theme-page-shell main {
+  .theme-page-shell > .relative > main {
     padding-top: var(--clara-safe-top, 0px) !important;
   }
 }
@@ -21,21 +23,24 @@
 @keyframes clara-route-surface-settle-no-seam {
   0% {
     opacity: 0.985;
-    transform: none;
-    filter: saturate(0.98);
   }
 
   100% {
     opacity: 1;
-    transform: none;
-    filter: saturate(1);
   }
 }
 
+/*
+ * This intentionally remains broad enough to override the older inline
+ * .theme-page-shell main animation in index.html for nested route content too.
+ * Opacity is safe here; transform/filter are deliberately absent.
+ */
 body.clara-route-soft-settle .theme-page-shell main {
   animation: clara-route-surface-settle-no-seam 180ms cubic-bezier(.2,.8,.2,1) both !important;
   backface-visibility: visible !important;
-  will-change: opacity, filter !important;
+  transform: none !important;
+  filter: none !important;
+  will-change: opacity !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
