@@ -1,7 +1,9 @@
 import {
   backendRequest,
   getStoredBackendToken,
+  getStoredBackendUser,
 } from "./clara-backend-client";
+import { supabase as legacySupabase } from "./supabaseClient";
 
 function errorShape(error) {
   return {
@@ -16,6 +18,40 @@ async function request(path, options = {}) {
     ...options,
     token: options.token || getStoredBackendToken(),
   });
+}
+
+async function getIdentityBridge() {
+  const backendUser = getStoredBackendUser();
+  let appUserId = null;
+  try {
+    const result = await legacySupabase.auth.getUser();
+    appUserId = result?.data?.user?.id || null;
+  } catch {
+    appUserId = null;
+  }
+  return {
+    backendUserId: backendUser?.id ?? null,
+    appUserId,
+  };
+}
+
+function bridgeRecord(record, bridge) {
+  if (!record || !bridge?.backendUserId || !bridge?.appUserId) return record;
+  const ownBackendId = String(bridge.backendUserId);
+  const ownAppId = bridge.appUserId;
+  const next = { ...record };
+  for (const key of ["author_id", "sender_id", "recipient_id", "user_id"]) {
+    if (next[key] !== undefined && String(next[key]) === ownBackendId) {
+      next[key] = ownAppId;
+    }
+  }
+  return next;
+}
+
+async function bridgeData(data) {
+  const bridge = await getIdentityBridge();
+  if (Array.isArray(data)) return data.map((item) => bridgeRecord(item, bridge));
+  return bridgeRecord(data, bridge);
 }
 
 class CommunityQueryBuilder {
@@ -95,6 +131,8 @@ class CommunityQueryBuilder {
           throw new Error(`Unsupported Community table: ${this.table}`);
         }
 
+        data = await bridgeData(data);
+
         for (const filter of this.filters) {
           if (filter.kind === "eq") {
             data = (Array.isArray(data) ? data : []).filter(
@@ -123,6 +161,7 @@ class CommunityQueryBuilder {
         } else {
           throw new Error(`Unsupported Community insert: ${this.table}`);
         }
+        data = await bridgeData(data);
       } else if (this.action === "update") {
         if (this.table === "community_posts") {
           const idFilter = this.filters.find(
@@ -134,6 +173,7 @@ class CommunityQueryBuilder {
               method: "POST",
               body: {},
             });
+            data = await bridgeData(data);
           } else {
             throw new Error("Unsupported Community post update.");
           }
