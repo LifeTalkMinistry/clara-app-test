@@ -16,3 +16,58 @@ button[aria-label="Back to Community"]::after {
   line-height: 1;
   white-space: nowrap;
 }
+
+/*
+ * Messages inbox: the collapsed People section used narrow horizontal tiles.
+ * On mobile that made names and the left edge look clipped. Keep this section
+ * compact, but render members as full-width rows so it is stable at 390px and
+ * smaller viewports. The expanded + composer remains untouched.
+ */
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) {
+  overflow: visible !important;
+}
+
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) > div.no-scrollbar {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 8px !important;
+  width: 100% !important;
+  overflow: visible !important;
+  padding: 0 !important;
+}
+
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) > div.no-scrollbar > button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  text-align: left !important;
+}
+
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) > div.no-scrollbar > button:hover {
+  border-color: rgba(34, 199, 184, 0.24) !important;
+  background: rgba(34, 199, 184, 0.07) !important;
+}
+
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) > div.no-scrollbar > button > div:first-child {
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section:has(> div.no-scrollbar) > div.no-scrollbar > button > p {
+  margin: 0 !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  text-align: left !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  color: rgba(248, 250, 252, 0.9) !important;
+}
