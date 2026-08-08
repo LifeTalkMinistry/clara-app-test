@@ -1,52 +1,50 @@
 /*
- * CLARA Community / Messages visual system
- * One recognizable accent, not a rainbow UI.
- * Signature Community color: CLARA Aqua (#2dd4bf).
- * Presentation only; Community and messaging behavior remains owned by React.
+ * CLARA Community / Messages single-color visual system.
+ * The app uses HashRouter, so route links render as #/messages and #/profile.
+ * Match route suffixes instead of exact non-hash href values.
  */
 
 :root {
-  --clara-community-accent: #2dd4bf;
+  --clara-community-accent: #22c7b8;
   --clara-community-accent-strong: #14b8a6;
-  --clara-community-accent-soft: rgba(45, 212, 191, 0.12);
+  --clara-community-accent-soft: rgba(34, 199, 184, 0.14);
   --clara-community-bg: #06111f;
-  --clara-community-panel: #0a1b2b;
+  --clara-community-panel: #0a1a29;
   --clara-community-panel-soft: #0d2233;
-  --clara-community-border: rgba(148, 163, 184, 0.14);
+  --clara-community-border: rgba(148, 163, 184, 0.15);
 }
 
-/* COMMUNITY SHELL -------------------------------------------------------- */
-div.z-\[80\]:has(> header a[href="/messages"]) {
+/* COMMUNITY SHELL */
+div.z-\[80\]:has(> header a[href$="/messages"]) {
   background:
-    radial-gradient(circle at 20% -10%, rgba(45, 212, 191, 0.11), transparent 34%),
+    radial-gradient(circle at 18% -12%, rgba(34, 199, 184, 0.12), transparent 34%),
     var(--clara-community-bg) !important;
 }
 
-/* Header becomes a standard branded app bar: one accent, neutral controls. */
-div.z-\[80\] > header:has(a[href="/messages"]) {
+div.z-\[80\] > header:has(a[href$="/messages"]) {
   margin: 0 !important;
   padding: 12px 14px !important;
   border: 0 !important;
   border-bottom: 1px solid var(--clara-community-border) !important;
   border-radius: 0 !important;
-  background: rgba(6, 17, 31, 0.94) !important;
+  background: rgba(6, 17, 31, 0.96) !important;
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16) !important;
   backdrop-filter: blur(22px) !important;
+  -webkit-backdrop-filter: blur(22px) !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"])::after {
+div.z-\[80\] > header:has(a[href$="/messages"])::after {
   display: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) p:first-of-type {
+div.z-\[80\] > header:has(a[href$="/messages"]) p:first-of-type {
   color: rgba(94, 234, 212, 0.74) !important;
 }
 
-/* Back, Messages, Notifications and Profile share one visual language. */
-div.z-\[80\] > header:has(a[href="/messages"]) button[aria-label="Back to Dashboard"],
-div.z-\[80\] > header:has(a[href="/messages"]) a[href="/messages"],
-div.z-\[80\] > header:has(a[href="/messages"]) button[aria-label="Community notifications"],
-div.z-\[80\] > header:has(a[href="/messages"]) a[href="/profile"] {
+div.z-\[80\] > header:has(a[href$="/messages"]) button[aria-label="Back to Dashboard"],
+div.z-\[80\] > header:has(a[href$="/messages"]) a[href$="/messages"],
+div.z-\[80\] > header:has(a[href$="/messages"]) button[aria-label="Community notifications"],
+div.z-\[80\] > header:has(a[href$="/messages"]) a[href$="/profile"] {
   height: 40px !important;
   min-width: 40px !important;
   border-radius: 14px !important;
@@ -56,19 +54,19 @@ div.z-\[80\] > header:has(a[href="/messages"]) a[href="/profile"] {
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) button[aria-label="Community notifications"][class*="cyan"],
-div.z-\[80\] > header:has(a[href="/messages"]) a[href="/profile"] {
-  border-color: rgba(45, 212, 191, 0.22) !important;
-  background: rgba(45, 212, 191, 0.10) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) button[aria-label="Community notifications"][class*="cyan"],
+div.z-\[80\] > header:has(a[href$="/messages"]) a[href$="/profile"] {
+  border-color: rgba(34, 199, 184, 0.24) !important;
+  background: var(--clara-community-accent-soft) !important;
   color: #ccfbf1 !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main {
   padding-top: 14px !important;
 }
 
-/* COMPOSER --------------------------------------------------------------- */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child {
+/* COMPOSER */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child {
   overflow: visible !important;
   border: 1px solid var(--clara-community-border) !important;
   border-radius: 22px !important;
@@ -76,26 +74,24 @@ div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > 
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18) !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child::after {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child::after {
   display: none !important;
 }
 
-/* Profile chip inside composer. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child a[href="/profile"] {
-  border-color: rgba(45, 212, 191, 0.20) !important;
-  background: rgba(45, 212, 191, 0.11) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child a[href$="/profile"] {
+  border-color: rgba(34, 199, 184, 0.24) !important;
+  background: var(--clara-community-accent-soft) !important;
   color: #ccfbf1 !important;
 }
 
-/* Members-only badge is also the same accent. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child div[class*="emerald"] {
-  border-color: rgba(45, 212, 191, 0.16) !important;
-  background: rgba(45, 212, 191, 0.08) !important;
-  color: rgba(204, 251, 241, 0.80) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child div[class*="emerald"] {
+  border-color: rgba(34, 199, 184, 0.18) !important;
+  background: rgba(34, 199, 184, 0.08) !important;
+  color: rgba(204, 251, 241, 0.82) !important;
 }
 
-/* The four post types are semantic labels, not four brand colors. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child div:has(> button[aria-pressed]) {
+/* Post types use one CLARA color; icons/labels carry the meaning. */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child div:has(> button[aria-pressed]) {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 8px !important;
@@ -103,25 +99,24 @@ div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > 
   padding-bottom: 0 !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed] {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed] {
   width: 100% !important;
   height: 38px !important;
   justify-content: center !important;
   border-radius: 12px !important;
   border: 1px solid var(--clara-community-border) !important;
   background: rgba(255, 255, 255, 0.035) !important;
-  color: rgba(226, 232, 240, 0.72) !important;
+  color: rgba(226, 232, 240, 0.74) !important;
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed="true"] {
-  border-color: rgba(45, 212, 191, 0.40) !important;
-  background: rgba(45, 212, 191, 0.14) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed="true"] {
+  border-color: rgba(34, 199, 184, 0.42) !important;
+  background: rgba(34, 199, 184, 0.16) !important;
   color: #ccfbf1 !important;
 }
 
-/* Plain writing area: no decorative gradient, just comfortable contrast. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child textarea {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child textarea {
   min-height: 98px !important;
   border: 1px solid var(--clara-community-border) !important;
   border-radius: 16px !important;
@@ -130,25 +125,21 @@ div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > 
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child textarea:focus {
-  border-color: rgba(45, 212, 191, 0.42) !important;
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.08) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child textarea:focus {
+  border-color: rgba(34, 199, 184, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(34, 199, 184, 0.08) !important;
 }
 
-/* Primary action = the signature CLARA Aqua. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child button:not([aria-pressed]) {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[class*="bg-cyan-400"] {
+  background: var(--clara-community-accent) !important;
+  color: #042f2e !important;
+  border: 0 !important;
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child button[class*="bg-cyan"] {
-  border: 0 !important;
-  background: var(--clara-community-accent) !important;
-  color: #042f2e !important;
-}
-
-/* EMPTY STATE ------------------------------------------------------------ */
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:has(h3) {
-  min-height: 240px !important;
+/* EMPTY STATE */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) {
+  min-height: 245px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -156,111 +147,96 @@ div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > 
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  padding: 36px 18px 42px !important;
+  padding: 34px 20px 42px !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:has(h3) > div:first-child {
-  width: 52px !important;
-  height: 52px !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(45, 212, 191, 0.20) !important;
-  background: rgba(45, 212, 191, 0.08) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) > div:first-child {
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(34, 199, 184, 0.18) !important;
+  background: rgba(34, 199, 184, 0.08) !important;
   color: #99f6e4 !important;
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:has(h3) h3 {
-  margin-top: 18px !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) h3 {
+  margin-top: 20px !important;
+  color: #f8fafc !important;
   font-size: 19px !important;
   letter-spacing: -0.025em !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:has(h3) p {
-  max-width: 310px !important;
-  color: rgba(203, 213, 225, 0.55) !important;
-  line-height: 1.65 !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) p {
+  max-width: 300px !important;
+  color: rgba(203, 213, 225, 0.56) !important;
+  line-height: 1.7 !important;
 }
 
-/* POSTS ------------------------------------------------------------------ */
-div.z-\[80\] > header:has(a[href="/messages"]) + main article {
+/* FEED POSTS */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main article {
   border: 1px solid var(--clara-community-border) !important;
-  border-radius: 20px !important;
   background: var(--clara-community-panel) !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16) !important;
 }
 
-/* Member avatars are all one branded treatment. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main article div[class*="bg-gradient"] {
-  border-color: rgba(45, 212, 191, 0.18) !important;
-  background: rgba(45, 212, 191, 0.10) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main article div[class*="bg-gradient-to-br"] {
+  background: var(--clara-community-accent-soft) !important;
+  border-color: rgba(34, 199, 184, 0.20) !important;
   color: #ccfbf1 !important;
 }
 
-/* Post category badges are monochrome. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main article div[class*="uppercase"][class*="tracking"] {
-  border-color: rgba(45, 212, 191, 0.16) !important;
-  background: rgba(45, 212, 191, 0.08) !important;
-  color: rgba(204, 251, 241, 0.78) !important;
-}
-
-/* Reaction, comment and private-message actions use the same accent on hover. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main article button:hover {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main article div[class*="rounded-full"][class*="border"] {
+  border-color: rgba(34, 199, 184, 0.22) !important;
+  background: rgba(34, 199, 184, 0.10) !important;
   color: #99f6e4 !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main article button:has(svg[class*="message-circle"]),
-div.z-\[80\] > header:has(a[href="/messages"]) + main article button[class*="cyan"] {
-  border-color: rgba(45, 212, 191, 0.16) !important;
-  background: rgba(45, 212, 191, 0.07) !important;
-  color: rgba(204, 251, 241, 0.76) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main article button[class*="text-cyan"],
+div.z-\[80\] > header:has(a[href$="/messages"]) + main article button[class*="bg-cyan"] {
+  border-color: rgba(34, 199, 184, 0.18) !important;
+  background: rgba(34, 199, 184, 0.08) !important;
+  color: #99f6e4 !important;
 }
 
-/* Replies keep a slightly lighter neutral layer. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main article > div:last-child {
-  background: rgba(255, 255, 255, 0.018) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main article input:focus {
+  border-color: rgba(34, 199, 184, 0.40) !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main article input {
+/* DESKTOP SIDE PANELS */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main aside > * {
   border-color: var(--clara-community-border) !important;
-  background: #071725 !important;
-}
-
-div.z-\[80\] > header:has(a[href="/messages"]) + main article input:focus {
-  border-color: rgba(45, 212, 191, 0.36) !important;
-}
-
-/* DESKTOP SIDEBAR -------------------------------------------------------- */
-div.z-\[80\] > header:has(a[href="/messages"]) + main aside > * {
-  border: 1px solid var(--clara-community-border) !important;
-  background: var(--clara-community-panel) !important;
+  background: var(--clara-community-panel-soft) !important;
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main aside [class*="cyan"],
-div.z-\[80\] > header:has(a[href="/messages"]) + main aside [class*="emerald"] {
-  color: #99f6e4 !important;
-  border-color: rgba(45, 212, 191, 0.16) !important;
-  background: rgba(45, 212, 191, 0.07) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main aside a[href$="/messages"] {
+  background: var(--clara-community-panel-soft) !important;
+  border-color: rgba(34, 199, 184, 0.18) !important;
 }
 
-/* Locked and notification states follow the same single-color system. */
-div.z-\[80\] > header:has(a[href="/messages"]) + main section[class*="max-w-2xl"] {
+div.z-\[80\] > header:has(a[href$="/messages"]) + main aside a[href$="/profile"] div:first-child,
+div.z-\[80\] > header:has(a[href$="/messages"]) + main aside div[class*="emerald"] {
+  border-color: rgba(34, 199, 184, 0.18) !important;
+  background: rgba(34, 199, 184, 0.08) !important;
+  color: #99f6e4 !important;
+}
+
+/* NOTIFICATIONS / LOCKED COMMUNITY */
+div.z-\[80\] > header:has(a[href$="/messages"]) + main section[class*="max-w-2xl"] {
   border-color: var(--clara-community-border) !important;
   background: var(--clara-community-panel) !important;
 }
 
-div.z-\[80\] > header:has(a[href="/messages"]) + main section[class*="max-w-2xl"] [class*="cyan"],
-div.z-\[80\] > header:has(a[href="/messages"]) + main section[class*="max-w-2xl"] [class*="emerald"] {
-  color: #99f6e4 !important;
-  border-color: rgba(45, 212, 191, 0.18) !important;
-  background: rgba(45, 212, 191, 0.08) !important;
+div.z-\[80\] > header:has(a[href$="/messages"]) + main a[href$="/enroll"] button {
+  background: var(--clara-community-accent) !important;
+  color: #042f2e !important;
 }
 
-/* MESSAGES --------------------------------------------------------------- */
-/* Private messaging belongs to the same Community brand, not a new theme. */
+/* MESSAGES: same one-color family */
 div.z-\[90\]:has(> header button[aria-label="Back to Community"]) {
   background:
-    radial-gradient(circle at 20% -10%, rgba(45, 212, 191, 0.10), transparent 34%),
+    radial-gradient(circle at 18% -12%, rgba(34, 199, 184, 0.10), transparent 34%),
     var(--clara-community-bg) !important;
 }
 
@@ -270,32 +246,31 @@ div.z-\[90\] > header:has(button[aria-label="Back to Community"]) {
   border: 0 !important;
   border-bottom: 1px solid var(--clara-community-border) !important;
   border-radius: 0 !important;
-  background: rgba(6, 17, 31, 0.94) !important;
+  background: rgba(6, 17, 31, 0.96) !important;
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16) !important;
 }
 
-div.z-\[90\] > header:has(button[aria-label="Back to Community"]) button {
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) button[aria-label="Back to Community"],
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) button[aria-label="Start a new conversation"] {
   border-color: var(--clara-community-border) !important;
   background: rgba(255, 255, 255, 0.045) !important;
   color: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: none !important;
 }
 
 div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main {
   padding-top: 14px !important;
 }
 
-@media (max-width: 390px) {
-  div.z-\[80\] > header:has(a[href="/messages"]) {
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-  }
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section,
+div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main div[class*="rounded-[22px]"] {
+  border-color: var(--clara-community-border) !important;
+}
 
-  div.z-\[80\] > header:has(a[href="/messages"]) > div {
-    gap: 8px !important;
-  }
-
-  div.z-\[80\] > header:has(a[href="/messages"]) + main .grid > div:first-child > section:first-child {
-    padding-left: 14px !important;
-    padding-right: 14px !important;
+@media (min-width: 640px) {
+  div.z-\[80\] > header:has(a[href$="/messages"]),
+  div.z-\[90\] > header:has(button[aria-label="Back to Community"]) {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
   }
 }
