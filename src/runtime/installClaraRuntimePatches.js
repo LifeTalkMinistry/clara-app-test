@@ -21,6 +21,7 @@ import "./installSettingsModalBehavior";
 // Community/social data is online account data owned by the self-hosted CLARA
 // backend. Financial records remain under their existing local/device ownership.
 import "./installCommunityBackendOwnership";
+import "./installMessagesSearchCancel";
 
 // Core memory runtime. The scoped compatibility layer must install before any
 // legacy memory reader/writer touches the historical unscoped storage key.
