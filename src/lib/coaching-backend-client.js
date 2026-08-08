@@ -3,21 +3,10 @@ import {
   getStoredBackendToken,
 } from "@/lib/clara-backend-client";
 
-const VERCEL_COACHING_PROXY_PATH = "/clara-api";
 const COACHING_REQUEST_TIMEOUT_MS = 10_000;
 
-function isVercelWebRuntime() {
-  if (typeof window === "undefined") return false;
-  const hostname = String(window.location?.hostname || "").trim().toLowerCase();
-  return hostname === "clara-app-test.vercel.app" || hostname.endsWith(".vercel.app");
-}
-
 function getCoachingApiBase() {
-  // The production PWA must stay same-origin. This avoids browser CORS and
-  // routes requests through the Vercel rewrite that already reaches CLARA.
-  return isVercelWebRuntime()
-    ? VERCEL_COACHING_PROXY_PATH
-    : getClaraBackendUrl();
+  return getClaraBackendUrl();
 }
 
 function requireToken(token = getStoredBackendToken()) {
@@ -50,7 +39,6 @@ async function coachingRequest(
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        "ngrok-skip-browser-warning": "true",
         Authorization: `Bearer ${authorizedToken}`,
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
@@ -147,7 +135,6 @@ export function requestCoachingReschedule(appointmentId, token) {
 
 export {
   COACHING_REQUEST_TIMEOUT_MS,
-  VERCEL_COACHING_PROXY_PATH,
   getCoachingApiBase,
   normalizeAnswersForBackend,
 };
