@@ -47,6 +47,19 @@ export default function useClaraSupport(user) {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const sync = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [refresh]);
+
   const support = useMemo(() => getSupportDisplayState(record), [record]);
   const isActive = useMemo(() => isSupportRecordActive(record), [record]);
 
