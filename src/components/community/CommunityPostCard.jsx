@@ -16,10 +16,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { backendRequest } from "@/lib/clara-backend-client";
-import { uploadCommunityMedia } from "@/lib/community-media-client";
+import { uploadCommunityMedia, validateCommunityMediaFile } from "@/lib/community-media-client";
 import CommunityPostMedia from "@/components/community/CommunityPostMedia";
-
-const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
 
 const POST_TYPES = [
   { key: "win", label: "Win", icon: Trophy },
@@ -75,8 +73,7 @@ function fileSizeLabel(bytes) {
 
 function acceptFile(file) {
   if (!file) return null;
-  if (file.size > MAX_MEDIA_BYTES) throw new Error("Attachments must be 20 MB or smaller.");
-  return file;
+  return validateCommunityMediaFile(file);
 }
 
 function AttachmentPicker({ onPick, disabled }) {
