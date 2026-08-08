@@ -19,6 +19,16 @@ const buildModes = (planConfig) =>
     return acc;
   }, {});
 
+const buildFreeCoreModes = (plansByKey = {}) => {
+  // CLARA's financial/accountability app is free. Reuse the complete legacy
+  // feature map for compatibility, then keep personal coaching independent.
+  const modes = buildModes(
+    plansByKey?.[COMMITTED_PLAN_KEY] || getPlanDefaults(COMMITTED_PLAN_KEY)
+  );
+  modes.coaching = "teaser";
+  return modes;
+};
+
 export default function useUserRole() {
   const {
     user: authUser,
@@ -50,12 +60,10 @@ export default function useUserRole() {
   const effectiveProfile = profile || {};
   const plan = membership.planKey;
   const planConfig = plansByKey?.[plan] || getPlanDefaults(plan);
-  const featureModes = useMemo(() => {
-    const accessPlan = membership.hasCommittedAccess
-      ? COMMITTED_PLAN_KEY
-      : FREE_PLAN_KEY;
-    return buildModes(plansByKey?.[accessPlan] || getPlanDefaults(accessPlan));
-  }, [membership.hasCommittedAccess, plansByKey]);
+  const featureModes = useMemo(
+    () => buildFreeCoreModes(plansByKey),
+    [plansByKey]
+  );
 
   const isFeatureAvailable = useCallback(
     (featureKey) => featureModes[featureKey] !== "off",
@@ -131,12 +139,7 @@ export default function useUserRole() {
       communityPosting: hasFeatureAccess("community", ["full"]),
       messaging: isFeatureAvailable("messages"),
       messagingFull: hasFeatureAccess("messages", ["full"]),
-      // Help & support is available to every signed-in CLARA user even when
-      // general private messaging is a Committed feature. The Messages panel
-      // uses this flag to expose only the CLARA Support/admin conversation.
-      messagingAdminOnly:
-        plan === FREE_PLAN_KEY ||
-        hasFeatureAccess("messages", ["admin_only", "full"]),
+      messagingAdminOnly: hasFeatureAccess("messages", ["admin_only", "full"]),
       emergencyFund: isFeatureAvailable("savings_goals"),
       savingsGoals: isFeatureAvailable("savings_goals"),
       news: isFeatureAvailable("news"),
@@ -146,8 +149,9 @@ export default function useUserRole() {
       aiAdvanced: isFeatureAvailable("ai"),
       aiElite: isFeatureAvailable("ai"),
       customization: isFeatureAvailable("customization"),
+      coaching: getFeatureAccessMode("coaching"),
     }),
-    [hasFeatureAccess, isFeatureAvailable, plan]
+    [getFeatureAccessMode, hasFeatureAccess, isFeatureAvailable]
   );
   const refreshUser = useCallback(
     async (options) => refreshProfile?.(options),
@@ -162,6 +166,8 @@ export default function useUserRole() {
     plan,
     isAdmin,
     isAdvertiser,
+    // Legacy billing state is retained for account compatibility only. It does
+    // not determine access to CLARA's normal financial/accountability features.
     isPaid: membership.isActiveCommitted,
     isFree: plan === FREE_PLAN_KEY,
     isPending: membership.isPendingActivation,
