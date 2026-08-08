@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { CalendarDays, Home, Settings, User } from "lucide-react";
+import { CalendarDays, Home, Settings, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { resolveMembership } from "@/lib/membership";
@@ -72,9 +72,9 @@ export default function useDashboardPanelUiState({
     () => [
       { key: "home", label: "Home", icon: Home, badge: null },
       {
-        key: "me",
-        label: "Me",
-        icon: User,
+        key: "community",
+        label: "Community",
+        icon: Users,
         badge: isFreePlan ? committedBadge : null,
       },
       {
