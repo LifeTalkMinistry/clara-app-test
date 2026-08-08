@@ -18,6 +18,28 @@ button[aria-label="Back to Community"]::after {
 }
 
 /*
+ * Community is a full-screen flex shell. Make the feed/main region the one
+ * explicit vertical scroll owner so long feeds keep scrolling reliably in
+ * Chrome device emulation, Android WebView, and mobile browsers.
+ */
+div.z-\[80\]:has(> header a[href$="/messages"]) {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+
+div.z-\[80\] > header:has(a[href$="/messages"]) + main {
+  flex: 1 1 0% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
  * Keep the default Messages inbox focused on existing conversations.
  * Starting a new private chat belongs behind the + New conversation action,
  * so the duplicate collapsed People section is intentionally hidden.
