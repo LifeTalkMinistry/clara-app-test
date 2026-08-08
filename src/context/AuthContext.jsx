@@ -12,6 +12,11 @@ import {
   getOrCreateLocalVaultId,
 } from "@/lib/local-user-identity";
 import { resolveAccountLocalVault } from "@/lib/accountLinking/resolveAccountLocalVault";
+import { getVaultMappingForAccount } from "@/lib/account-vault-directory";
+import {
+  getActiveLocalVaultId,
+  setActiveLocalVaultId,
+} from "@/lib/localVaultIdentity";
 import {
   buildLocalMembershipProfile,
   getLocalAccountProfile,
@@ -37,6 +42,7 @@ import {
 } from "@/lib/clara-backend-client";
 
 const AuthContext = createContext(null);
+const LOCAL_VAULT_STARTUP_TIMEOUT_MS = 5_000;
 
 function emptyState() {
   return {
@@ -51,12 +57,70 @@ function emptyState() {
   };
 }
 
+function createLocalVaultStartupTimeoutError() {
+  const error = new Error(
+    `CLARA local vault recovery did not finish within ${LOCAL_VAULT_STARTUP_TIMEOUT_MS}ms.`
+  );
+  error.code = "LOCAL_VAULT_STARTUP_TIMEOUT";
+  return error;
+}
+
+async function resolveAccountLocalVaultForStartup({ accountUserId, accountEmail }) {
+  const accountId = String(accountUserId || "").trim();
+  let timeoutId = null;
+
+  try {
+    return await Promise.race([
+      resolveAccountLocalVault({
+        accountUserId: accountId,
+        accountEmail,
+      }),
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(createLocalVaultStartupTimeoutError()),
+          LOCAL_VAULT_STARTUP_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } catch (error) {
+    if (error?.code !== "LOCAL_VAULT_STARTUP_TIMEOUT") throw error;
+
+    // Startup must never remain blocked indefinitely by IndexedDB recovery.
+    // Only fall back to a vault already mapped to this exact backend account;
+    // never reuse the currently active vault if it belongs to another account.
+    const mapping = getVaultMappingForAccount(accountId);
+    const mappedVaultId = String(mapping?.vaultId || "").trim();
+    if (!mappedVaultId) throw error;
+
+    const previousVaultId = String(getActiveLocalVaultId() || "").trim();
+    const vaultId = setActiveLocalVaultId(mappedVaultId);
+
+    console.warn("[CLARA Auth] local vault resolver timed out; using verified account mapping.", {
+      accountUserId: accountId,
+      vaultId,
+    });
+
+    return {
+      vaultId,
+      accountUserId: accountId,
+      accountEmail: String(accountEmail || "").trim().toLowerCase() || null,
+      reused: true,
+      created: false,
+      adoptedUnlinkedVault: false,
+      startupFallback: true,
+      switched: previousVaultId !== vaultId,
+    };
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
+}
+
 async function buildAuthenticatedState({ serverUser, token, offline = false }) {
   if (!serverUser?.id || !token) {
     throw new Error("CLARA returned an incomplete account session.");
   }
 
-  const resolvedVault = await resolveAccountLocalVault({
+  const resolvedVault = await resolveAccountLocalVaultForStartup({
     accountUserId: String(serverUser.id),
     accountEmail: serverUser.email,
   });
