@@ -5,7 +5,24 @@ import useClaraSupport from "@/hooks/useClaraSupport";
 import { SUPPORT_TIER_KEYS, SUPPORT_TIERS, getChampionAvailability } from "@/lib/clara-support";
 import { customSupportAvailability } from "@/lib/clara-support-billing";
 
-const SESSION_EXPANSION_KEY = "clara_support_bubble_expanded_this_session";
+const SUPPORT_BUBBLE_PHASE = Object.freeze({
+  ICON: "icon",
+  EXPANDED: "expanded",
+  HIDDEN: "hidden",
+});
+
+const SUPPORT_BUBBLE_TIMING = Object.freeze({
+  ICON_FIRST_MS: 3000,
+  EXPANDED_MS: 3000,
+  ICON_SECOND_MS: 3000,
+  HIDDEN_MS: 10000,
+});
+
+const SUPPORT_BUBBLE_VISIBLE_MS =
+  SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS +
+  SUPPORT_BUBBLE_TIMING.EXPANDED_MS +
+  SUPPORT_BUBBLE_TIMING.ICON_SECOND_MS;
+const SUPPORT_BUBBLE_CYCLE_MS = SUPPORT_BUBBLE_VISIBLE_MS + SUPPORT_BUBBLE_TIMING.HIDDEN_MS;
 
 function elementIsVisible(element) {
   if (!element) return false;
@@ -104,7 +121,7 @@ function SupportTierCard({ tier, busy, disabled, onChoose, championAvailability 
 
 export default function SupportClaraBubble({ user }) {
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [bubblePhase, setBubblePhase] = useState(SUPPORT_BUBBLE_PHASE.ICON);
   const [customAmount, setCustomAmount] = useState("");
   const supportState = useClaraSupport(user);
   const blocked = useSupportBubbleOcclusionGuard(open);
@@ -116,18 +133,44 @@ export default function SupportClaraBubble({ user }) {
 
   useEffect(() => {
     if (typeof window === "undefined" || supportState.isActive) return undefined;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return undefined;
-    if (sessionStorage.getItem(SESSION_EXPANSION_KEY) === "1") return undefined;
 
-    const expandTimer = window.setTimeout(() => {
-      if (blocked || open) return;
-      sessionStorage.setItem(SESSION_EXPANSION_KEY, "1");
-      setExpanded(true);
-      window.setTimeout(() => setExpanded(false), 2400);
-    }, 18000);
+    const timers = new Set();
 
-    return () => window.clearTimeout(expandTimer);
-  }, [blocked, open, supportState.isActive]);
+    const schedule = (callback, delay) => {
+      const timer = window.setTimeout(() => {
+        timers.delete(timer);
+        callback();
+      }, delay);
+      timers.add(timer);
+    };
+
+    const runCycle = () => {
+      setBubblePhase(SUPPORT_BUBBLE_PHASE.ICON);
+
+      schedule(
+        () => setBubblePhase(SUPPORT_BUBBLE_PHASE.EXPANDED),
+        SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS
+      );
+      schedule(
+        () => setBubblePhase(SUPPORT_BUBBLE_PHASE.ICON),
+        SUPPORT_BUBBLE_TIMING.ICON_FIRST_MS + SUPPORT_BUBBLE_TIMING.EXPANDED_MS
+      );
+      schedule(() => setBubblePhase(SUPPORT_BUBBLE_PHASE.HIDDEN), SUPPORT_BUBBLE_VISIBLE_MS);
+    };
+
+    runCycle();
+    const cycleTimer = window.setInterval(runCycle, SUPPORT_BUBBLE_CYCLE_MS);
+
+    return () => {
+      window.clearInterval(cycleTimer);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }, [supportState.isActive]);
+
+  useEffect(() => {
+    if (supportState.isActive) setBubblePhase(SUPPORT_BUBBLE_PHASE.ICON);
+  }, [supportState.isActive]);
 
   useEffect(() => {
     if (!open) supportState.clearError();
@@ -149,25 +192,45 @@ export default function SupportClaraBubble({ user }) {
 
   if (!user?.id) return null;
 
+  const expanded = supportState.isActive || bubblePhase === SUPPORT_BUBBLE_PHASE.EXPANDED;
+  const visible = supportState.isActive || bubblePhase !== SUPPORT_BUBBLE_PHASE.HIDDEN;
+
   return (
     <>
-      {!open && !blocked && (
+      <style>{`
+        @keyframes clara-support-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+          [data-clara-support-bubble] {
+            animation: clara-support-float 2.2s ease-in-out infinite;
+          }
+        }
+      `}</style>
+
+      {!open && !blocked && visible && (
         <button
+          data-clara-support-bubble
           type="button"
           aria-label={supportState.isActive ? "CLARA supporter status" : "Support CLARA"}
           onClick={() => setOpen(true)}
-          className="fixed right-4 z-[62] flex h-11 max-w-[190px] items-center gap-2 overflow-hidden rounded-full border border-cyan-300/20 bg-[#07141d]/88 px-3 text-xs font-semibold text-cyan-50 shadow-[0_14px_42px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-500"
+          className={`fixed right-4 z-[62] flex h-12 items-center overflow-hidden rounded-full border border-cyan-300/30 bg-[#07141d] text-xs font-semibold text-cyan-50 opacity-100 shadow-[0_14px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-[width,padding,gap] duration-500 ease-out ${
+            expanded ? "w-[116px] gap-2 px-3" : "w-12 gap-0 px-2.5"
+          }`}
           style={{ bottom: "max(calc(env(safe-area-inset-bottom, 0px) + 112px), 28vh)" }}
         >
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-cyan-300/10">
-            <Heart className="h-4 w-4 fill-cyan-300/25 text-cyan-200" />
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-cyan-300/12">
+            <Heart className="h-4 w-4 fill-cyan-300/35 text-cyan-100" />
           </span>
           <span
-            className={`whitespace-nowrap transition-all duration-500 ${
-              supportState.isActive || expanded ? "max-w-[132px] opacity-100" : "max-w-[58px] opacity-100"
+            aria-hidden={!expanded}
+            className={`whitespace-nowrap transition-[max-width,opacity] duration-400 ease-out ${
+              expanded ? "max-w-[72px] opacity-100" : "max-w-0 opacity-0"
             }`}
           >
-            {supportState.isActive ? "Thank you" : expanded ? "Support CLARA" : "Support"}
+            {supportState.isActive ? "Thank you" : "Support"}
           </span>
         </button>
       )}
