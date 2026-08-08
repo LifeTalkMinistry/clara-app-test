@@ -20,10 +20,11 @@ button[aria-label="Back to Community"]::after {
 /*
  * Community owns its page scrolling directly.
  *
- * IMPORTANT: do not use :has() to identify this shell. Some Android WebView
- * versions can ignore :has()-based ownership rules even though desktop Chrome
- * accepts them. The Community route already has a unique full-screen class
- * token (h-[100dvh]), so target that stable token instead.
+ * IMPORTANT: identify this shell with stable class tokens rather than a
+ * relational selector. Some Android WebView versions can ignore those
+ * ownership rules even though desktop Chrome accepts them. The Community route
+ * already has a unique full-screen class token (h-[100dvh]), so target that
+ * stable token instead.
  *
  * This remains the desktop/browser fallback. Physical Android uses the later
  * mobile override so the already-proven Layout scroller owns touch scrolling.
