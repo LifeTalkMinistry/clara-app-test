@@ -1,0 +1,234 @@
+/*
+ * CLARA unified shell theme
+ *
+ * The Community Feed is the visual source of truth for the new CLARA app shell.
+ * This layer is intentionally presentation-only: it does not change finance,
+ * schedule, profile, settings, messaging, challenge, or notification logic.
+ */
+
+.clara-community-root {
+  --clara-shell-bg: #06111f;
+  --clara-shell-bg-deep: #051024;
+  --clara-shell-surface: rgba(9, 25, 48, 0.985);
+  --clara-shell-surface-2: rgba(8, 20, 45, 0.985);
+  --clara-shell-border: rgba(109, 131, 181, 0.20);
+  --clara-shell-border-soft: rgba(255, 255, 255, 0.065);
+  --clara-shell-teal: #2be1d8;
+  --clara-shell-teal-soft: #8ffff8;
+  --clara-shell-violet: #6857e8;
+  --clara-shell-text: rgba(255, 255, 255, 0.94);
+  --clara-shell-muted: rgba(226, 240, 255, 0.52);
+  --clara-shell-panel-bg:
+    radial-gradient(circle at 100% 0%, rgba(91, 72, 246, 0.075), transparent 34%),
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.055), transparent 30%),
+    linear-gradient(145deg, rgba(10, 27, 50, 0.985), rgba(8, 20, 45, 0.985));
+  --clara-shell-page-bg:
+    radial-gradient(circle at 90% 7%, rgba(91, 72, 246, 0.13), transparent 31%),
+    radial-gradient(circle at 8% 22%, rgba(24, 190, 178, 0.08), transparent 30%),
+    linear-gradient(180deg, #06111f 0%, #06111f 52%, #071126 100%);
+
+  background: var(--clara-shell-page-bg) !important;
+  color: var(--clara-shell-text);
+}
+
+/* One page atmosphere across every destination in the new shell. */
+.clara-community-root .clara-community-home-view,
+.clara-community-root .clara-community-feed-view,
+.clara-community-root .clara-community-schedule-view,
+.clara-community-root .clara-community-circles-view,
+.clara-community-root .clara-community-challenges-view,
+.clara-community-root .clara-community-messages-view,
+.clara-community-root .clara-community-notifications-view,
+.clara-community-root .clara-community-profile-view {
+  background: var(--clara-shell-page-bg) !important;
+  color: var(--clara-shell-text) !important;
+}
+
+/* Keep the global navigation visually identical no matter which app area is open. */
+.clara-community-root .clara-community-shell-header {
+  border-bottom-color: rgba(255, 255, 255, 0.055) !important;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(31, 210, 202, 0.08), transparent 32%),
+    radial-gradient(circle at 94% 10%, rgba(99, 76, 232, 0.10), transparent 34%),
+    linear-gradient(180deg, rgba(4, 14, 32, 0.995), rgba(5, 17, 36, 0.982)) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.14) !important;
+}
+
+.clara-community-root .clara-community-nav-item {
+  border-color: rgba(111, 131, 180, 0.24) !important;
+  background: rgba(11, 23, 48, 0.88) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 20px rgba(0, 0, 0, 0.12) !important;
+}
+
+.clara-community-root .clara-community-nav-item[aria-current="page"] {
+  border-color: rgba(85, 242, 233, 0.62) !important;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(74, 236, 224, 0.30), transparent 42%),
+    linear-gradient(145deg, rgba(13, 66, 86, 0.98), rgba(21, 34, 75, 0.98)) !important;
+  color: var(--clara-shell-teal-soft) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    0 0 0 1px rgba(85, 242, 233, 0.08),
+    0 0 24px rgba(43, 225, 216, 0.18) !important;
+}
+
+/* Home now belongs to the Feed universe instead of looking like a separate dashboard. */
+.clara-community-root .clara-community-home-view > div,
+.clara-community-root .clara-community-schedule-view > div,
+.clara-community-root .clara-community-notifications-view > div,
+.clara-community-root .clara-community-profile-view > div {
+  color: var(--clara-shell-text);
+}
+
+.clara-community-root .clara-community-home-financial-carousel,
+.clara-community-root .clara-community-home-money-left,
+.clara-community-root .clara-community-home-learning-hub {
+  isolation: isolate;
+}
+
+/* Feed-style glass surfaces for migrated Dashboard panels (Schedule + Settings). */
+.clara-community-root .clara-community-schedule-view [class*="rounded-[28px]"][class*="border"],
+.clara-community-root .clara-community-profile-view [class*="rounded-[28px]"][class*="border"] {
+  border-color: var(--clara-shell-border) !important;
+  background: var(--clara-shell-panel-bg) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 50px rgba(0, 0, 0, 0.20) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+/* Smaller nested cards inherit the same material, with reduced depth. */
+.clara-community-root .clara-community-schedule-view [class*="rounded-2xl"][class*="border-white"],
+.clara-community-root .clara-community-profile-view [class*="rounded-2xl"][class*="border-white"] {
+  border-color: rgba(109, 131, 181, 0.16) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.035), transparent 38%),
+    linear-gradient(145deg, rgba(8, 25, 46, 0.90), rgba(7, 18, 40, 0.92)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+/* Profile tabs should feel like Feed filters, not an imported settings bar. */
+.clara-community-root .clara-community-profile-view nav {
+  border-color: rgba(109, 131, 181, 0.16) !important;
+  background:
+    radial-gradient(circle at 8% 50%, rgba(45, 212, 191, 0.055), transparent 32%),
+    radial-gradient(circle at 92% 50%, rgba(99, 86, 232, 0.07), transparent 34%),
+    rgba(7, 20, 43, 0.82) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* Inputs and editable areas use the same dark inset treatment as the Feed composer. */
+.clara-community-root .clara-community-schedule-view input,
+.clara-community-root .clara-community-schedule-view textarea,
+.clara-community-root .clara-community-schedule-view select,
+.clara-community-root .clara-community-profile-view input,
+.clara-community-root .clara-community-profile-view textarea,
+.clara-community-root .clara-community-profile-view select {
+  border-color: rgba(121, 146, 190, 0.16) !important;
+  background: rgba(4, 16, 34, 0.56) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+.clara-community-root .clara-community-schedule-view input:focus,
+.clara-community-root .clara-community-schedule-view textarea:focus,
+.clara-community-root .clara-community-schedule-view select:focus,
+.clara-community-root .clara-community-profile-view input:focus,
+.clara-community-root .clara-community-profile-view textarea:focus,
+.clara-community-root .clara-community-profile-view select:focus {
+  border-color: rgba(76, 231, 222, 0.34) !important;
+  outline: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 0 0 3px rgba(45, 212, 207, 0.055) !important;
+}
+
+.clara-community-root input::placeholder,
+.clara-community-root textarea::placeholder {
+  color: rgba(224, 242, 254, 0.30) !important;
+}
+
+/* Settings / profile action buttons borrow the Feed action-button material. */
+.clara-community-root .clara-community-profile-view button[class*="border-white"],
+.clara-community-root .clara-community-profile-view a[class*="border-white"] {
+  border-color: rgba(109, 131, 181, 0.18) !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.clara-community-root .clara-community-profile-view button[class*="border-white"]:hover,
+.clara-community-root .clara-community-profile-view a[class*="border-white"]:hover {
+  border-color: rgba(45, 212, 207, 0.26) !important;
+  background: rgba(45, 212, 207, 0.055) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+
+/* Notification center is now a first-class CLARA destination, not Community-only chrome. */
+.clara-community-root .clara-community-notifications-card {
+  border-color: var(--clara-shell-border) !important;
+  background: var(--clara-shell-panel-bg) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 50px rgba(0, 0, 0, 0.20) !important;
+}
+
+.clara-community-root .clara-community-notifications-card > button {
+  border-bottom-color: rgba(255, 255, 255, 0.055) !important;
+}
+
+/* Keep headings, muted copy, separators and focus states consistent everywhere. */
+.clara-community-root h1,
+.clara-community-root h2,
+.clara-community-root h3,
+.clara-community-root h4 {
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: -0.025em;
+}
+
+.clara-community-root hr,
+.clara-community-root [class*="border-t-white"],
+.clara-community-root [class*="border-b-white"] {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.clara-community-root :focus-visible {
+  outline: 2px solid rgba(85, 242, 233, 0.72);
+  outline-offset: 2px;
+}
+
+/* The entire shell uses one discreet scrollbar treatment. */
+.clara-community-root * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(74, 222, 214, 0.20) transparent;
+}
+
+.clara-community-root *::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.clara-community-root *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.clara-community-root *::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(45, 212, 207, 0.22), rgba(104, 87, 232, 0.20));
+}
+
+@media (max-width: 640px) {
+  .clara-community-root .clara-community-home-view,
+  .clara-community-root .clara-community-schedule-view,
+  .clara-community-root .clara-community-profile-view,
+  .clara-community-root .clara-community-notifications-view {
+    background:
+      radial-gradient(circle at 100% 4%, rgba(91, 72, 246, 0.12), transparent 28%),
+      radial-gradient(circle at 0% 18%, rgba(24, 190, 178, 0.075), transparent 29%),
+      #06111f !important;
+  }
+}
