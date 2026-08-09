@@ -94,11 +94,10 @@ export default function CommunityHomeFinancialCarousel() {
     [emergencyFund, user?.id]
   );
 
-  // During the staged shell migration, detailed editors still live on the old
-  // Dashboard. Keep every finance CTA alive by handing those interactions back
-  // to the existing screen instead of duplicating finance mutation logic here.
+  // The Community shell is now CLARA's primary app. Detailed finance editors
+  // remain on this hidden bridge until their mutation flows are migrated too.
   const openLegacyFinanceTools = useCallback(() => {
-    navigate("/dashboard");
+    navigate("/legacy-dashboard");
   }, [navigate]);
 
   const moneyLeftSummaryHandlers = useMemo(
