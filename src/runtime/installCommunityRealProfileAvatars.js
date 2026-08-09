@@ -122,7 +122,6 @@ function applyToProfileNav(profile) {
 
   const marker = nav.querySelector(":scope > span.pointer-events-none");
   nav.insertBefore(avatarNode(profile), marker || nav.firstChild);
-  nav.title = profile?.display_name || profile?.full_name || "Profile";
 }
 
 function applyToComposer(profile) {
