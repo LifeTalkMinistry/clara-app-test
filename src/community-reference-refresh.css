@@ -3,8 +3,8 @@
  *
  * This is the final presentation layer for the redesigned Community feed.
  * It intentionally loads after the older premium theme so the React-owned
- * layout can keep the circular top controls, open social canvas, inset cards,
- * and strong teal/violet selection states used by the current Community UI.
+ * layout can keep the circular top controls, open social canvas, premium
+ * identity system, and strong teal/violet selection states.
  */
 
 .clara-community-shell-header {
@@ -101,6 +101,173 @@
   opacity: 0.42 !important;
 }
 
+/* -------------------------------------------------------------------------- */
+/* COMMUNITY HERO — focused identity mark                                     */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-feed-scroll section:has(h1) {
+  isolation: isolate;
+  min-height: 132px !important;
+  border-color: rgba(115, 238, 231, 0.13) !important;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(34, 211, 203, 0.17), transparent 34%),
+    radial-gradient(circle at 92% 74%, rgba(99, 73, 222, 0.20), transparent 43%),
+    linear-gradient(126deg, rgba(9, 61, 73, 0.78) 0%, rgba(8, 35, 62, 0.94) 46%, rgba(38, 25, 82, 0.94) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 18px 44px rgba(0, 0, 0, 0.20),
+    0 0 34px rgba(31, 211, 201, 0.045) !important;
+}
+
+.clara-community-feed-scroll section:has(h1)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.045), transparent 28%, transparent 72%, rgba(255, 255, 255, 0.018)),
+    radial-gradient(circle at 82% 38%, rgba(109, 91, 255, 0.10), transparent 31%);
+}
+
+.clara-community-feed-scroll section:has(h1)::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(82, 238, 229, 0.20), rgba(127, 92, 255, 0.20), transparent);
+}
+
+.clara-community-feed-scroll section:has(h1) > div:first-child {
+  max-width: 61% !important;
+}
+
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none {
+  right: 8px !important;
+  width: 136px !important;
+  height: 136px !important;
+  overflow: visible;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.17));
+}
+
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 108px;
+  height: 108px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(43, 225, 216, 0.14) 0%, rgba(65, 93, 214, 0.07) 48%, transparent 72%);
+  filter: blur(8px);
+}
+
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 104px;
+  height: 104px;
+  transform: translate(-50%, -50%) rotate(-13deg);
+  border: 1px solid rgba(78, 238, 228, 0.18);
+  border-radius: 999px;
+  box-shadow: inset 0 0 18px rgba(57, 221, 213, 0.035);
+}
+
+/* Retire the noisy stacked glow blobs. */
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(2),
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(3) {
+  display: none !important;
+}
+
+/* Controlled ambient halo. */
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(1) {
+  left: 50% !important;
+  top: 50% !important;
+  width: 96px !important;
+  height: 96px !important;
+  transform: translate(-50%, -50%) !important;
+  background: rgba(47, 219, 211, 0.11) !important;
+  filter: blur(24px) !important;
+  opacity: 0.9 !important;
+}
+
+/* One teal orbit + one violet orbit, deliberately restrained. */
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(4) {
+  left: 50% !important;
+  top: 50% !important;
+  width: 112px !important;
+  height: 82px !important;
+  transform: translate(-50%, -50%) rotate(-16deg) !important;
+  border-color: rgba(65, 235, 226, 0.30) !important;
+  box-shadow: 0 0 17px rgba(45, 212, 207, 0.09) !important;
+}
+
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(5) {
+  left: 50% !important;
+  top: 50% !important;
+  width: 88px !important;
+  height: 112px !important;
+  transform: translate(-50%, -50%) rotate(24deg) !important;
+  border-color: rgba(128, 103, 255, 0.22) !important;
+  box-shadow: none !important;
+}
+
+/* Main community medallion: strong focal point, no visual clutter. */
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(6) {
+  left: 50% !important;
+  top: 50% !important;
+  width: 72px !important;
+  height: 72px !important;
+  transform: translate(-50%, -50%) !important;
+  border: 1px solid rgba(185, 255, 250, 0.18) !important;
+  border-radius: 26px !important;
+  background:
+    radial-gradient(circle at 31% 24%, rgba(139, 255, 247, 0.20), transparent 35%),
+    linear-gradient(145deg, rgba(15, 125, 133, 0.60), rgba(52, 55, 139, 0.66)) !important;
+  color: #c8fffb !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -14px 28px rgba(18, 16, 74, 0.20),
+    0 12px 28px rgba(0, 0, 0, 0.20),
+    0 0 24px rgba(52, 224, 214, 0.13) !important;
+  backdrop-filter: blur(16px) saturate(122%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(122%) !important;
+}
+
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > div:nth-child(6) svg {
+  width: 31px !important;
+  height: 31px !important;
+  color: #c9fffb !important;
+  stroke-width: 1.7 !important;
+  filter: drop-shadow(0 0 9px rgba(102, 255, 245, 0.22));
+}
+
+/* Two tiny orbit signals instead of decorative confetti. */
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > span:nth-of-type(1) {
+  right: 10px !important;
+  top: 25px !important;
+  width: 9px !important;
+  height: 9px !important;
+  background: #6ffbf2 !important;
+  border: 2px solid rgba(8, 35, 62, 0.82);
+  box-shadow: 0 0 13px rgba(87, 255, 245, 0.52) !important;
+}
+
+.clara-community-feed-scroll section:has(h1) > div.pointer-events-none > span:nth-of-type(2) {
+  left: 17px !important;
+  bottom: 24px !important;
+  width: 7px !important;
+  height: 7px !important;
+  background: #8b72ff !important;
+  box-shadow: 0 0 11px rgba(139, 114, 255, 0.50) !important;
+}
+
 @media (max-width: 639px) {
   .clara-community-shell-header {
     padding-top: max(12px, env(safe-area-inset-top)) !important;
@@ -117,24 +284,46 @@
     border-radius: 9999px !important;
   }
 
+  /* The social feed itself is full-bleed; utility controls remain inset. */
   .clara-community-feed-scroll {
     padding-top: 20px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .clara-community-feed-scroll section:has(h1),
+  .clara-community-composer,
+  .clara-community-composer + div {
+    margin-left: 16px !important;
+    margin-right: 16px !important;
+  }
+
+  .clara-community-feed-scroll section:has(h1) {
+    min-height: 136px !important;
+    border-radius: 28px !important;
+  }
+
+  .clara-community-feed-scroll section:has(h1) > div:first-child {
+    max-width: 58% !important;
+  }
+
+  .clara-community-feed-scroll section:has(h1) > div.pointer-events-none {
+    right: 2px !important;
+    width: 126px !important;
+    height: 126px !important;
   }
 
   .clara-community-composer {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
     border-radius: 28px !important;
   }
 
   .clara-community-root .clara-community-feed-view .clara-community-post-card {
-    border-left: 1px solid rgba(109, 131, 181, 0.20) !important;
-    border-right: 1px solid rgba(109, 131, 181, 0.20) !important;
-    border-radius: 28px !important;
+    width: 100% !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 0 !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.035),
-      0 14px 34px rgba(0, 0, 0, 0.18) !important;
+      0 12px 28px rgba(0, 0, 0, 0.16) !important;
   }
 }
