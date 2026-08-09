@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Loader2, RefreshCw } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  Download,
+  Expand,
+  FileText,
+  Loader2,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import {
   fetchCommunityMediaBlob,
   getCommunityMediaStreamUrl,
@@ -8,6 +16,10 @@ import "@/community-feed-refinement.css";
 
 export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edgeToEdge = false }) {
   const frameRef = useRef(null);
+  const inlineVideoRef = useRef(null);
+  const viewerVideoRef = useRef(null);
+  const viewerStartTimeRef = useRef(0);
+  const viewerShouldPlayRef = useRef(false);
   const [shouldLoad, setShouldLoad] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -15,6 +27,7 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
   const [retryKey, setRetryKey] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const isStreamable = mediaType === "image" || mediaType === "video";
 
@@ -23,6 +36,7 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
     setStreamUrl("");
     setFailed(false);
     setDownloadFailed(false);
+    setViewerOpen(false);
   }, [mediaUrl, mediaType]);
 
   useEffect(() => {
@@ -74,11 +88,129 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
     };
   }, [isStreamable, mediaUrl, retryKey, shouldLoad]);
 
+  useEffect(() => {
+    if (!viewerOpen || typeof document === "undefined") return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") closeViewer();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [viewerOpen]);
+
   if (!mediaUrl) return null;
 
   const frameClass = (backgroundClass) => edgeToEdge
     ? `mt-4 -mx-4 overflow-hidden border-y border-white/10 ${backgroundClass} sm:mx-0 sm:rounded-[18px] sm:border`
     : `mt-4 overflow-hidden rounded-[18px] border border-white/10 ${backgroundClass}`;
+
+  const openViewer = () => {
+    if (!streamUrl || !isStreamable) return;
+
+    if (mediaType === "video" && inlineVideoRef.current) {
+      viewerStartTimeRef.current = Number(inlineVideoRef.current.currentTime || 0);
+      viewerShouldPlayRef.current = !inlineVideoRef.current.paused;
+      inlineVideoRef.current.pause();
+    }
+
+    setViewerOpen(true);
+  };
+
+  function closeViewer() {
+    if (mediaType === "video" && viewerVideoRef.current) {
+      const viewer = viewerVideoRef.current;
+      viewerStartTimeRef.current = Number(viewer.currentTime || 0);
+      viewerShouldPlayRef.current = !viewer.paused && !viewer.ended;
+      viewer.pause();
+
+      const inlineVideo = inlineVideoRef.current;
+      if (inlineVideo) {
+        try {
+          inlineVideo.currentTime = viewerStartTimeRef.current;
+        } catch {
+          // Some browsers block seeking until metadata is fully ready.
+        }
+        if (viewerShouldPlayRef.current) {
+          inlineVideo.play().catch(() => {});
+        }
+      }
+    }
+
+    setViewerOpen(false);
+  }
+
+  const handleViewerVideoReady = () => {
+    const viewer = viewerVideoRef.current;
+    if (!viewer) return;
+
+    try {
+      viewer.currentTime = viewerStartTimeRef.current;
+    } catch {
+      // Ignore early seek failures and let the video start at the beginning.
+    }
+
+    if (viewerShouldPlayRef.current) {
+      viewer.play().catch(() => {});
+    }
+  };
+
+  const viewer = viewerOpen && typeof document !== "undefined"
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[300] bg-black text-white"
+          role="dialog"
+          aria-modal="true"
+          aria-label={mediaType === "video" ? "Expanded Community video" : "Expanded Community photo"}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(36,211,203,0.08),transparent_28%),#000]" />
+
+          <button
+            type="button"
+            onClick={closeViewer}
+            className="fixed right-3 top-[max(12px,env(safe-area-inset-top))] z-[320] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-xl backdrop-blur-xl transition active:scale-95 sm:right-5 sm:top-5"
+            aria-label="Close expanded media"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          <div className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-[620px] items-center justify-center overflow-hidden bg-black shadow-[0_0_80px_rgba(0,0,0,0.85)] sm:border-x sm:border-white/10">
+            {mediaType === "image" ? (
+              <img
+                src={streamUrl}
+                alt={mediaName || "Community attachment"}
+                className="block max-h-[100dvh] w-full select-none object-contain"
+                draggable="false"
+              />
+            ) : (
+              <video
+                ref={viewerVideoRef}
+                src={streamUrl}
+                controls
+                playsInline
+                preload="metadata"
+                onLoadedMetadata={handleViewerVideoReady}
+                onCanPlay={handleViewerVideoReady}
+                className="block h-[100dvh] w-full bg-black object-contain"
+              />
+            )}
+
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/55 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/30 to-transparent" />
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
 
   if (!isStreamable) {
     const downloadFile = async () => {
@@ -167,29 +299,79 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
 
   if (mediaType === "image") {
     return (
-      <div ref={frameRef} className={`${frameClass("bg-[#020617]")} flex max-h-[68dvh] items-center justify-center sm:max-h-[720px]`}>
-        <img
-          src={streamUrl}
-          alt={mediaName || "Community attachment"}
-          loading="lazy"
-          decoding="async"
-          onError={() => setFailed(true)}
-          className="block h-auto max-h-[68dvh] w-full object-contain sm:max-h-[720px]"
-        />
-      </div>
+      <>
+        <button
+          ref={frameRef}
+          type="button"
+          onClick={openViewer}
+          className={`${frameClass("bg-[#020617]")} group relative flex max-h-[68dvh] w-full cursor-zoom-in items-center justify-center text-left sm:max-h-[720px]`}
+          aria-label="Expand photo"
+        >
+          <img
+            src={streamUrl}
+            alt={mediaName || "Community attachment"}
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailed(true)}
+            className="block h-auto max-h-[68dvh] w-full object-contain sm:max-h-[720px]"
+          />
+          <span className="pointer-events-none absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/85 opacity-90 shadow-lg backdrop-blur-md transition group-hover:bg-black/65 group-hover:text-white">
+            <Expand className="h-4 w-4" />
+          </span>
+        </button>
+        {viewer}
+      </>
     );
   }
 
+  const handleVideoFrameClick = (event) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const distanceFromBottom = bounds.bottom - event.clientY;
+
+    // Keep the native transport controls usable. Tapping the picture area opens
+    // the immersive viewer; tapping the bottom control strip stays inline.
+    if (distanceFromBottom <= 62) return;
+    openViewer();
+  };
+
   return (
-    <div ref={frameRef} className={`${frameClass("bg-black/70")} flex max-h-[68dvh] items-center justify-center sm:max-h-[720px]`}>
-      <video
-        src={streamUrl}
-        controls
-        playsInline
-        preload="metadata"
-        onError={() => setFailed(true)}
-        className="block max-h-[68dvh] w-full object-contain bg-black sm:max-h-[720px]"
-      />
-    </div>
+    <>
+      <div
+        ref={frameRef}
+        onClick={handleVideoFrameClick}
+        className={`${frameClass("bg-black/70")} group relative flex max-h-[68dvh] cursor-zoom-in items-center justify-center sm:max-h-[720px]`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openViewer();
+          }
+        }}
+        aria-label="Expand video"
+      >
+        <video
+          ref={inlineVideoRef}
+          src={streamUrl}
+          controls
+          playsInline
+          preload="metadata"
+          onError={() => setFailed(true)}
+          className="block max-h-[68dvh] w-full object-contain bg-black sm:max-h-[720px]"
+        />
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            openViewer();
+          }}
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white/90 shadow-lg backdrop-blur-md transition hover:bg-black/75 hover:text-white active:scale-95"
+          aria-label="Open video fullscreen viewer"
+        >
+          <Expand className="h-4 w-4" />
+        </button>
+      </div>
+      {viewer}
+    </>
   );
 }
