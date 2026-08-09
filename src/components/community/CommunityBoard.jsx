@@ -140,9 +140,9 @@ export default function CommunityBoard({ token, navigate }) {
               <button
                 key={item.id}
                 type="button"
-                disabled={!clickable}
                 onClick={() => openItem(item)}
-                className="relative h-full min-w-full overflow-hidden text-left disabled:cursor-default"
+                className={`relative h-full min-w-full overflow-hidden text-left ${clickable ? "cursor-pointer" : "cursor-default"}`}
+                aria-disabled={!clickable}
                 aria-label={clickable ? item.alt_text || "Open CLARA Board item" : item.alt_text || "CLARA Board"}
               >
                 <AuthenticatedCommunityImage
