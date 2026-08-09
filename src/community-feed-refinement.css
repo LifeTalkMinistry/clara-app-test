@@ -1,0 +1,48 @@
+/*
+ * CLARA Community feed refinement.
+ *
+ * Mobile rule: the social feed itself is full-bleed like a native social app,
+ * while CLARA's hero/composer/filter controls keep intentional side breathing room.
+ * Desktop/tablet keep the premium inset-card treatment.
+ */
+
+@media (max-width: 639px) {
+  .clara-community-feed-scroll {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .clara-community-feed-scroll > div {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Keep non-feed controls comfortably inset even though the feed canvas is full width. */
+  .clara-community-feed-scroll > div > .clara-community-composer,
+  .clara-community-feed-scroll > div > section:not(.clara-community-composer),
+  .clara-community-feed-scroll > div > div.overflow-x-auto {
+    margin-left: 16px !important;
+    margin-right: 16px !important;
+  }
+
+  /* Posts own the full mobile viewport width. Inner post padding still protects content. */
+  .clara-community-feed-scroll > div > div.space-y-5 {
+    width: 100% !important;
+  }
+
+  .clara-community-post-card {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Prevent decorative shadows from making a full-bleed post look inset again. */
+  .clara-community-post-card {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 10px 24px rgba(0, 0, 0, 0.14) !important;
+  }
+}
