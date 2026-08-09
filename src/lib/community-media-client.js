@@ -4,7 +4,7 @@ import {
 } from "./clara-backend-client";
 
 export const COMMUNITY_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
-export const COMMUNITY_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
+export const COMMUNITY_VIDEO_MAX_BYTES = 500 * 1024 * 1024;
 
 const DIRECT_UPLOAD_MAX_BYTES = 80 * 1024 * 1024;
 const DEFAULT_CHUNK_BYTES = 8 * 1024 * 1024;
@@ -50,7 +50,7 @@ export function validateCommunityMediaFile(file) {
   const maxBytes = isVideoFile(file) ? COMMUNITY_VIDEO_MAX_BYTES : COMMUNITY_ATTACHMENT_MAX_BYTES;
   if (file.size > maxBytes) {
     throw new Error(isVideoFile(file)
-      ? "Videos can be up to 200 MB."
+      ? "Videos can be up to 500 MB."
       : "Photos and files can be up to 25 MB.");
   }
   return file;
