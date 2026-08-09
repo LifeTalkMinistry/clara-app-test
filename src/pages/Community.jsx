@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Bell,
   CalendarDays,
@@ -14,6 +14,7 @@ import Challenges from "./Challenges";
 import MyCircle from "./MyCircle";
 import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
+import CommunityGuideTour from "@/components/community/CommunityGuideTour";
 import CommunityHomeFinancialCarousel from "@/components/community/CommunityHomeFinancialCarousel";
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
@@ -158,9 +159,9 @@ function CommunityShellHeader({ activeView, unreadCount }) {
 }
 
 export default function Community() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [notifications, setNotifications] = useState([]);
+  const [communityGuideOpen, setCommunityGuideOpen] = useState(false);
   const token = getStoredBackendToken();
   const requestedView = searchParams.get("view") || "feed";
   const activeView = ["home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
@@ -289,15 +290,18 @@ export default function Community() {
           aria-label="CLARA Home"
         >
           <div className="mx-auto w-full max-w-3xl">
-            <div className="relative z-10">
+            <div className="relative z-10" data-clara-community-guide="daily-tip">
               <FreeDailyTipCard flushSpacing />
             </div>
             <div
               aria-hidden="true"
               className="clara-community-home-legacy-selector-shield h-4 w-full sm:h-5"
             />
-            <div className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5">
-              <LearningHub onOpenGuideIntro={() => navigate("/legacy-dashboard")} />
+            <div
+              className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5"
+              data-clara-community-guide="learning-hub"
+            >
+              <LearningHub onOpenGuideIntro={() => setCommunityGuideOpen(true)} />
             </div>
             <CommunityHomeFinancialCarousel />
           </div>
@@ -373,6 +377,11 @@ export default function Community() {
           </div>
         </main>
       )}
+
+      <CommunityGuideTour
+        open={communityGuideOpen}
+        onClose={() => setCommunityGuideOpen(false)}
+      />
     </div>
   );
 }
