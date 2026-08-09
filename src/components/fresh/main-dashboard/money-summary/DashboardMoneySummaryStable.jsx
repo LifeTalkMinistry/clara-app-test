@@ -1,7 +1,14 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Calculator, Eye, EyeOff } from "lucide-react";
 import MoneyLeftCalculator from "./MoneyLeftCalculator";
 import useMoneyLeftOrbGestures from "./useMoneyLeftOrbGestures";
+
+const GUIDE_EXIT_EVENT = "clara:guide-exit";
+const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
+const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const GUIDE_FEATURE_MONEY_CALCULATOR = "money-calculator";
+const GUIDE_FEATURE_MONEY_LEFT_ORB = "money-left-orb";
+const GUIDE_CALCULATOR_ROOT_CLASS = "clara-guide-money-calculator-active";
 
 const resolveOrbAssetSrc = (assetPath = "") => {
   const trimmedPath = String(assetPath || "").trim();
@@ -16,6 +23,33 @@ const resolveOrbAssetSrc = (assetPath = "") => {
 };
 
 const CLARA_ORB_LOGO_SRC = resolveOrbAssetSrc("/images/clara/clara-orb-logo.png");
+
+function CalculatorGuideBubble() {
+  return (
+    <div
+      className="pointer-events-none fixed left-1/2 z-[240] w-[min(calc(100vw-44px),360px)] -translate-x-1/2"
+      style={{ top: "clamp(94px, 12dvh, 126px)" }}
+      role="dialog"
+      aria-live="polite"
+      aria-labelledby="clara-guide-calculator-title"
+    >
+      <div className="relative rounded-[28px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-5 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl">
+        <p
+          id="clara-guide-calculator-title"
+          className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100"
+        >
+          QUICK CALCULATOR
+        </p>
+        <p className="mt-3 text-[14px] font-bold leading-relaxed text-white">
+          Need to total, split, or check an amount before logging it? You can calculate it without leaving the dashboard.
+        </p>
+        <p className="mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
+          TAP THE CALCULATOR ICON NOW.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardMoneySummaryStable({
   dashboardScale = {},
@@ -44,6 +78,7 @@ export default function DashboardMoneySummaryStable({
   fmt = (value) => String(value ?? 0),
 }) {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [isGuideCalculatorActive, setIsGuideCalculatorActive] = useState(false);
   const spacingClass = flushSpacing ? "mt-0" : "mt-2";
   const isGuideOrbPreviewActive =
     isGuideMode &&
@@ -52,10 +87,52 @@ export default function DashboardMoneySummaryStable({
   const isGuideOrbComplete =
     isGuideMode && isGuideOrbStepActive && guideOrbPhase === "complete";
   const isGuideOrbButtonDisabled =
-    isGuideOrbIntroActive || isGuideOrbPreviewActive || isGuideOrbComplete;
+    (isGuideMode && !isGuideOrbStepActive) ||
+    isGuideOrbIntroActive ||
+    isGuideOrbPreviewActive ||
+    isGuideOrbComplete;
   const effectiveMoneySummaryVisible = isGuidePrivacyStepActive
     ? guideMoneySummaryVisible
     : moneySummaryVisible;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return undefined;
+
+    const root = document.documentElement;
+
+    const setCalculatorGuideActive = (active) => {
+      const nextActive = Boolean(active);
+      setIsGuideCalculatorActive(nextActive);
+      root.classList.toggle(GUIDE_CALCULATOR_ROOT_CLASS, nextActive);
+      if (!nextActive) setIsCalculatorOpen(false);
+
+      if (nextActive) {
+        window.setTimeout(() => {
+          document
+            .querySelector("[data-clara-money-calculator-toggle='true']")
+            ?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+        }, 80);
+      }
+    };
+
+    const handleTargetChange = (event) => {
+      setCalculatorGuideActive(
+        event?.detail?.feature === GUIDE_FEATURE_MONEY_CALCULATOR,
+      );
+    };
+    const resetGuide = () => setCalculatorGuideActive(false);
+
+    window.addEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
+    window.addEventListener(GUIDE_EXIT_EVENT, resetGuide);
+    window.addEventListener(GUIDE_MODE_CHANGE_EVENT, resetGuide);
+
+    return () => {
+      root.classList.remove(GUIDE_CALCULATOR_ROOT_CLASS);
+      window.removeEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
+      window.removeEventListener(GUIDE_EXIT_EVENT, resetGuide);
+      window.removeEventListener(GUIDE_MODE_CHANGE_EVENT, resetGuide);
+    };
+  }, []);
 
   const openTransactionHub = useCallback(
     (event) => {
@@ -80,7 +157,7 @@ export default function DashboardMoneySummaryStable({
 
   const handlePrivacyToggle = useCallback(
     (event) => {
-      if (isGuideOrbStepActive) {
+      if (isGuideCalculatorActive || isGuideOrbStepActive) {
         orb.stop(event);
         return;
       }
@@ -92,6 +169,7 @@ export default function DashboardMoneySummaryStable({
       if (!isGuideMode) toggleMoneySummaryVisibility?.(event);
     },
     [
+      isGuideCalculatorActive,
       isGuideMode,
       isGuideOrbStepActive,
       isGuidePrivacyStepActive,
@@ -100,6 +178,19 @@ export default function DashboardMoneySummaryStable({
       toggleMoneySummaryVisibility,
     ],
   );
+
+  const handleCalculatorGuideComplete = useCallback(() => {
+    if (!isGuideCalculatorActive || typeof window === "undefined") return;
+
+    setIsCalculatorOpen(false);
+    setIsGuideCalculatorActive(false);
+    document.documentElement.classList.remove(GUIDE_CALCULATOR_ROOT_CLASS);
+    window.dispatchEvent(
+      new CustomEvent(GUIDE_TARGET_CHANGE_EVENT, {
+        detail: { feature: GUIDE_FEATURE_MONEY_LEFT_ORB },
+      }),
+    );
+  }, [isGuideCalculatorActive]);
 
   const bubbleSurface = {
     background:
@@ -119,11 +210,21 @@ export default function DashboardMoneySummaryStable({
 
   return (
     <>
+      {isGuideCalculatorActive ? (
+        <style>{`
+          html.${GUIDE_CALCULATOR_ROOT_CLASS} .clara-guide-carousel-bubble-shell {
+            display: none !important;
+          }
+        `}</style>
+      ) : null}
+
+      {isGuideCalculatorActive && !isCalculatorOpen ? <CalculatorGuideBubble /> : null}
+
       <section
         aria-label="Financial summary"
         data-clara-dashboard-section="money-summary"
         data-clara-guide-orb-phase={isGuideOrbStepActive ? guideOrbPhase : undefined}
-        className={`relative ${spacingClass} grid cursor-default select-none grid-cols-2 overflow-hidden border ${
+        className={`relative ${isGuideCalculatorActive ? "z-[150] isolate" : ""} ${spacingClass} grid cursor-default select-none grid-cols-2 overflow-hidden border ${
           dashboardScale.summaryGrid || "rounded-[26px]"
         }`}
         style={{
@@ -138,8 +239,8 @@ export default function DashboardMoneySummaryStable({
           type="button"
           data-clara-summary-privacy-toggle="true"
           onClick={handlePrivacyToggle}
-          disabled={isGuideOrbStepActive}
-          aria-disabled={isGuideOrbStepActive}
+          disabled={isGuideCalculatorActive || isGuideOrbStepActive}
+          aria-disabled={isGuideCalculatorActive || isGuideOrbStepActive}
           className="absolute left-[39%] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 disabled:opacity-45 max-[380px]:left-[42%] max-[380px]:top-7"
           aria-label={
             effectiveMoneySummaryVisible
@@ -157,13 +258,17 @@ export default function DashboardMoneySummaryStable({
         <button
           type="button"
           data-clara-money-calculator-toggle="true"
-          disabled={isGuideMode}
-          aria-disabled={isGuideMode}
+          disabled={isGuideMode && !isGuideCalculatorActive}
+          aria-disabled={isGuideMode && !isGuideCalculatorActive}
           onClick={(event) => {
             event.stopPropagation();
-            if (!isGuideMode) setIsCalculatorOpen(true);
+            if (!isGuideMode || isGuideCalculatorActive) setIsCalculatorOpen(true);
           }}
-          className="absolute left-[calc(39%_+_38px)] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 disabled:pointer-events-none disabled:opacity-35 max-[380px]:left-[calc(42%_+_38px)] max-[380px]:top-7"
+          className={`absolute left-[calc(39%_+_38px)] top-8 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95 disabled:pointer-events-none disabled:opacity-35 max-[380px]:left-[calc(42%_+_38px)] max-[380px]:top-7 ${
+            isGuideCalculatorActive
+              ? "border-cyan-100/80 text-cyan-50 ring-2 ring-cyan-200/80 ring-offset-2 ring-offset-slate-950 shadow-[0_0_28px_rgba(34,211,238,0.48)]"
+              : "border-cyan-100/15"
+          }`}
           aria-label="Open calculator"
           title="Calculator"
         >
@@ -215,7 +320,7 @@ export default function DashboardMoneySummaryStable({
                 : orb.awaitDouble
                   ? "Tap twice to practice opening Transaction Hub"
                   : orb.awaitHold
-                    ? "Press and hold to practice opening CLARA Chat"
+                    ? "Press and hold to practice Pause Before Buying"
                     : "Tap to log expense, double tap for Transaction Hub, long press to pause before buying"
             }
           >
@@ -274,6 +379,8 @@ export default function DashboardMoneySummaryStable({
       <MoneyLeftCalculator
         isOpen={isCalculatorOpen}
         onClose={() => setIsCalculatorOpen(false)}
+        guideMode={isGuideCalculatorActive}
+        onGuideComplete={handleCalculatorGuideComplete}
         onUseExpense={(amount) => {
           setIsCalculatorOpen(false);
           orb.openManualExpense(undefined, amount);
