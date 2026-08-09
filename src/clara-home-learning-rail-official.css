@@ -133,3 +133,21 @@
   outline: 2px solid rgba(255, 216, 74, 0.78) !important;
   outline-offset: 2px !important;
 }
+
+/* Learning → Finance transition: official CLARA red separator. */
+.clara-community-root[data-community-view="home"] .clara-community-home-financial-carousel::before {
+  height: 3px !important;
+  margin: 3px 16px 14px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(
+    90deg,
+    rgba(168, 19, 44, 0.78) 0%,
+    #f32645 18%,
+    #ff3b59 50%,
+    #f32645 82%,
+    rgba(168, 19, 44, 0.78) 100%
+  ) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05),
+    0 3px 8px rgba(120, 8, 27, 0.18) !important;
+}
