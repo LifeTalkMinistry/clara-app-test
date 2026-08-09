@@ -13,6 +13,7 @@ import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSou
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
 import { installCommunityVideoAutoplay } from "./runtime/installCommunityVideoAutoplay";
+import { installCommunityProfileEditShortcut } from "./runtime/installCommunityProfileEditShortcut";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
@@ -167,6 +168,12 @@ try {
   installCommunityVideoAutoplay();
 } catch (error) {
   console.warn("Community video autoplay failed to init:", error);
+}
+
+try {
+  installCommunityProfileEditShortcut();
+} catch (error) {
+  console.warn("Community profile edit shortcut failed to init:", error);
 }
 
 try {
