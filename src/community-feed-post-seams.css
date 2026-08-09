@@ -1,0 +1,34 @@
+/*
+ * CLARA Community mobile feed seams.
+ *
+ * Posts should read as one continuous social feed on phones: each card touches
+ * the next card, while a restrained CLARA-toned hairline keeps posts visually
+ * distinct. Desktop keeps the existing spaced card treatment.
+ */
+
+@media (max-width: 639px) {
+  /* Tailwind's space-y-5 currently creates the large dark gutters between posts. */
+  .clara-community-root .clara-community-feed-view .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .clara-community-root .clara-community-feed-view .space-y-5 > .clara-community-post-card {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Avoid a doubled border where two full-bleed posts meet. */
+  .clara-community-root .clara-community-feed-view .space-y-5 > .clara-community-post-card:not(:last-child) {
+    border-bottom-color: transparent !important;
+  }
+
+  /* One precise seam: visible enough to separate posts without reopening a gap. */
+  .clara-community-root .clara-community-feed-view .space-y-5 > .clara-community-post-card + .clara-community-post-card {
+    border-top: 1px solid rgba(103, 232, 249, 0.22) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.025),
+      0 -1px 0 rgba(45, 212, 191, 0.055),
+      0 12px 28px rgba(0, 0, 0, 0.16) !important;
+  }
+}
