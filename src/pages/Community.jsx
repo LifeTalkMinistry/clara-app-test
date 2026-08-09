@@ -264,7 +264,7 @@ export default function Community() {
             <div className="relative z-10">
               <FreeDailyTipCard flushSpacing />
             </div>
-            <div className="clara-community-home-learning-hub relative z-20 mt-6 pb-2 sm:mt-7">
+            <div className="clara-community-home-learning-hub relative z-20 mt-10 pb-2 pt-1 sm:mt-11 sm:pt-1.5">
               <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
             </div>
           </div>
