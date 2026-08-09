@@ -6,8 +6,10 @@ import {
   House,
   MessageCircle,
   Newspaper,
+  ShieldCheck,
   Trophy,
   UsersRound,
+  X,
 } from "lucide-react";
 import CommunityBackend from "./CommunityBackend";
 import Challenges from "./Challenges";
@@ -23,6 +25,8 @@ import {
   backendRequest,
   getStoredBackendToken,
 } from "@/lib/clara-backend-client";
+
+const COMMUNITY_GUIDE_LAUNCHER_SELECTOR = '[aria-label="Open CLARA Guide Mode"]';
 
 function formatNotificationTime(value) {
   if (!value) return "Just now";
@@ -158,15 +162,140 @@ function CommunityShellHeader({ activeView, unreadCount }) {
   );
 }
 
+function CommunityGuideIntroModal({ onStart, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-[2147483550] flex items-center justify-center bg-[#020817]/82 px-4 py-6 backdrop-blur-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="community-guide-intro-title"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        aria-label="Close CLARA Guide intro"
+      />
+
+      <section className="relative w-full max-w-[390px] overflow-hidden rounded-[30px] border border-cyan-100/14 bg-[linear-gradient(145deg,rgba(5,19,41,0.98),rgba(8,24,55,0.97)_48%,rgba(18,13,52,0.97))] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_58px_rgba(34,211,238,0.13)]">
+        <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/12 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -right-10 h-48 w-48 rounded-full bg-indigo-400/14 blur-3xl" />
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/58 transition hover:bg-white/[0.10] hover:text-white/78"
+          aria-label="Close CLARA Guide intro"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="relative z-10">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-100/15 bg-cyan-300/10 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+
+          <p className="text-[9px] font-black uppercase tracking-[0.26em] text-cyan-100/52">
+            Safe walkthrough
+          </p>
+          <h2
+            id="community-guide-intro-title"
+            className="mt-2 text-2xl font-black tracking-[-0.04em] text-white"
+          >
+            CLARA Guide Mode
+          </h2>
+          <p className="mt-2 text-[13px] font-semibold leading-relaxed text-cyan-50/76">
+            Practice using the current CLARA app without touching your real data.
+          </p>
+
+          <div className="mt-4 space-y-3 rounded-[24px] border border-white/10 bg-white/[0.055] p-4 text-[12px] font-medium leading-relaxed text-white/74 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <p>
+              CLARA will highlight the real feature you are learning and explain what it does as you move through the app.
+            </p>
+            <p>
+              Nothing in Guide Mode will publish a post, create a schedule, book coaching, or change your wallet, budget, savings, streak, transactions, messages, or profile.
+            </p>
+            <p className="font-black text-cyan-100/86">You can exit anytime.</p>
+          </div>
+
+          <div className="mt-5 grid gap-2">
+            <button
+              type="button"
+              onClick={onStart}
+              className="rounded-2xl bg-cyan-200 px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] text-slate-950 shadow-[0_16px_34px_rgba(34,211,238,0.24)] transition active:scale-[0.99]"
+            >
+              Start Guide Mode
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] text-white/68 transition hover:bg-white/[0.09] active:scale-[0.99]"
+            >
+              Not Now
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function Community() {
   const [searchParams] = useSearchParams();
   const [notifications, setNotifications] = useState([]);
+  const [communityGuideIntroOpen, setCommunityGuideIntroOpen] = useState(false);
   const [communityGuideOpen, setCommunityGuideOpen] = useState(false);
   const token = getStoredBackendToken();
   const requestedView = searchParams.get("view") || "feed";
   const activeView = ["home", "feed", "schedule", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
     ? requestedView
     : "feed";
+
+  const openCommunityGuideIntro = useCallback(() => {
+    setCommunityGuideOpen(false);
+    setCommunityGuideIntroOpen(true);
+  }, []);
+
+  const startCommunityGuide = useCallback(() => {
+    setCommunityGuideIntroOpen(false);
+    setCommunityGuideOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    let touchHandledUntil = 0;
+
+    const isGuideLauncher = (target) =>
+      Boolean(target?.closest?.(COMMUNITY_GUIDE_LAUNCHER_SELECTOR));
+
+    const handlePointerUp = (event) => {
+      if (!isGuideLauncher(event.target)) return;
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      touchHandledUntil = Date.now() + 450;
+      openCommunityGuideIntro();
+    };
+
+    const handleClick = (event) => {
+      if (!isGuideLauncher(event.target)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (Date.now() <= touchHandledUntil) return;
+      openCommunityGuideIntro();
+    };
+
+    document.addEventListener("pointerup", handlePointerUp, true);
+    document.addEventListener("click", handleClick, true);
+
+    return () => {
+      document.removeEventListener("pointerup", handlePointerUp, true);
+      document.removeEventListener("click", handleClick, true);
+    };
+  }, [openCommunityGuideIntro]);
 
   const loadNotifications = useCallback(async () => {
     if (!token) return;
@@ -279,6 +408,12 @@ export default function Community() {
           contain: none !important;
           clip-path: none !important;
         }
+        .clara-community-home-learning-hub ${COMMUNITY_GUIDE_LAUNCHER_SELECTOR} {
+          position: relative !important;
+          z-index: 95 !important;
+          pointer-events: auto !important;
+          touch-action: manipulation !important;
+        }
         .clara-community-schedule-view > div {
           min-height: 100% !important;
         }
@@ -301,7 +436,7 @@ export default function Community() {
               className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5"
               data-clara-community-guide="learning-hub"
             >
-              <LearningHub onOpenGuideIntro={() => setCommunityGuideOpen(true)} />
+              <LearningHub onOpenGuideIntro={openCommunityGuideIntro} />
             </div>
             <CommunityHomeFinancialCarousel />
           </div>
@@ -377,6 +512,13 @@ export default function Community() {
           </div>
         </main>
       )}
+
+      {communityGuideIntroOpen ? (
+        <CommunityGuideIntroModal
+          onStart={startCommunityGuide}
+          onClose={() => setCommunityGuideIntroOpen(false)}
+        />
+      ) : null}
 
       <CommunityGuideTour
         open={communityGuideOpen}
