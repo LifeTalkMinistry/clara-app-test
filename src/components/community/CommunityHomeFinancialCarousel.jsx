@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
@@ -26,6 +26,7 @@ export default function CommunityHomeFinancialCarousel() {
   const dashboardScale =
     DASHBOARD_SCALE[dashboardViewportMode] || DASHBOARD_SCALE.normal;
   const { user, plan } = useUserRole();
+  const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
 
   const financeCardController = useFinancialData(user);
   const {
@@ -94,24 +95,56 @@ export default function CommunityHomeFinancialCarousel() {
     [emergencyFund, user?.id]
   );
 
-  // The Community shell is now CLARA's primary app. Detailed finance editors
-  // remain on this hidden bridge until their mutation flows are migrated too.
-  const openLegacyFinanceTools = useCallback(() => {
-    navigate("/legacy-dashboard");
+  // Home owns finance-card expansion now. No finance expand/collapse interaction
+  // is allowed to leave the Community shell or hand control back to Dashboard.
+  const toggleHomeFinanceDetails = useCallback((cardKey, options = {}) => {
+    if (!cardKey) return;
+    const { forceOpen = false } = options || {};
+
+    setExpandedFinanceCard((current) =>
+      forceOpen ? cardKey : current === cardKey ? null : cardKey
+    );
+  }, []);
+
+  // Secondary management actions use the current dedicated CLARA surfaces.
+  // This keeps every Home finance interaction disconnected from /legacy-dashboard
+  // while the remaining editors are progressively moved inline too.
+  const openTransactions = useCallback(() => {
+    navigate("/transactions");
   }, [navigate]);
+
+  const openBudgetPlan = useCallback(() => {
+    navigate("/budget-plan");
+  }, [navigate]);
+
+  const openWalletManager = useCallback(() => {
+    navigate("/wallets");
+  }, [navigate]);
+
+  const openAddFunds = useCallback(() => {
+    navigate("/add-funds");
+  }, [navigate]);
+
+  const openSavingsGoals = useCallback(() => {
+    navigate("/savings-goals");
+  }, [navigate]);
+
+  const handleSurvivalSaved = useCallback(() => {
+    void refreshData?.();
+  }, [refreshData]);
 
   const moneyLeftSummaryHandlers = useMemo(
     () => ({
-      onDoubleClick: openLegacyFinanceTools,
+      onDoubleClick: openTransactions,
       onKeyDown: (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          openLegacyFinanceTools();
+          openTransactions();
         }
       },
-      openTransactionHubFromMoneyLeft: openLegacyFinanceTools,
+      openTransactionHubFromMoneyLeft: openTransactions,
     }),
-    [openLegacyFinanceTools]
+    [openTransactions]
   );
 
   const profileData = useMemo(
@@ -145,24 +178,24 @@ export default function CommunityHomeFinancialCarousel() {
         totalSavingsSaved={totalSavingsSaved}
         totalSavingsTarget={totalSavingsTarget}
         primarySavingsGoal={primarySavingsGoal}
-        expandedFinanceCard={null}
-        toggleFinanceDetails={openLegacyFinanceTools}
+        expandedFinanceCard={expandedFinanceCard}
+        toggleFinanceDetails={toggleHomeFinanceDetails}
         financeActionLoading={loading || refreshing}
-        onQuickExpense={openLegacyFinanceTools}
-        onSurvivalSaved={openLegacyFinanceTools}
-        onSaveBudget={openLegacyFinanceTools}
-        onEditBudgetCategory={openLegacyFinanceTools}
-        onDeleteBudgetCategory={openLegacyFinanceTools}
-        onResetBudget={openLegacyFinanceTools}
-        onCreateWallet={openLegacyFinanceTools}
-        onMoveWallet={openLegacyFinanceTools}
-        onDeleteWallet={openLegacyFinanceTools}
-        onAddMoney={openLegacyFinanceTools}
-        onTransferMoney={openLegacyFinanceTools}
-        onEditWallet={openLegacyFinanceTools}
-        onSaveSavingsGoal={openLegacyFinanceTools}
-        onDeleteSavingsGoal={openLegacyFinanceTools}
-        onAddSavings={openLegacyFinanceTools}
+        onQuickExpense={openTransactions}
+        onSurvivalSaved={handleSurvivalSaved}
+        onSaveBudget={openBudgetPlan}
+        onEditBudgetCategory={openBudgetPlan}
+        onDeleteBudgetCategory={openBudgetPlan}
+        onResetBudget={openBudgetPlan}
+        onCreateWallet={openWalletManager}
+        onMoveWallet={openWalletManager}
+        onDeleteWallet={openWalletManager}
+        onAddMoney={openAddFunds}
+        onTransferMoney={openWalletManager}
+        onEditWallet={openWalletManager}
+        onSaveSavingsGoal={openSavingsGoals}
+        onDeleteSavingsGoal={openSavingsGoals}
+        onAddSavings={openSavingsGoals}
         incomeSources={[]}
         incomeData={{ totalIncome }}
         refreshData={refreshData}
@@ -177,7 +210,7 @@ export default function CommunityHomeFinancialCarousel() {
           moneySummaryVisible={moneySummaryVisible}
           toggleMoneySummaryVisibility={toggleMoneySummaryVisibility}
           moneyLeftSummaryHandlers={moneyLeftSummaryHandlers}
-          handleMoneyLeftOrbClick={openLegacyFinanceTools}
+          handleMoneyLeftOrbClick={openTransactions}
           walletMoney={totalWalletBalance}
           thisMonthSpent={thisMonthSpent}
           fmt={formatPhpCurrency}
