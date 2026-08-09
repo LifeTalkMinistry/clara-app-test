@@ -44,6 +44,10 @@ const LEARNING_HUB_PHASE_EVENT = "clara:guide-learning-hub-phase";
 const GUIDE_MODE_CHANGE_EVENT = "clara:guide-mode-change";
 const GUIDE_EXIT_EVENT = "clara:guide-exit";
 const GUIDE_TARGET_CHANGE_EVENT = "clara:guide-target-change";
+const GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
+const GUIDE_FEATURE_COACHING = "coaching-calendar";
+const GUIDE_FEATURE_COMMUNITY = "community";
+const GUIDE_COACHING_ROOT_CLASS = "clara-guide-coaching-active";
 
 function getDashboardScrollRoot() {
   if (typeof document === "undefined") return null;
@@ -89,13 +93,18 @@ function ClaraGuideButton({ hasNewGuide = false, onClick }) {
   );
 }
 
-function CoachingCalendarButton({ onClick }) {
+function CoachingCalendarButton({ onClick, guideTarget = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
       data-clara-coaching-calendar-button="true"
-      className="clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border border-cyan-200/20 bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96]"
+      data-clara-guide-coaching-target={guideTarget ? "true" : undefined}
+      className={`clara-learning-motion relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-visible rounded-full border bg-[rgba(6,18,38,0.68)] text-cyan-50 shadow-[0_10px_26px_rgba(0,0,0,0.22),0_0_24px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:border-cyan-200/36 hover:bg-white/[0.09] active:scale-[0.96] ${
+        guideTarget
+          ? "z-[180] border-cyan-100/80 ring-2 ring-cyan-200/80 ring-offset-2 ring-offset-slate-950/80 shadow-[0_0_36px_rgba(34,211,238,0.46)]"
+          : "border-cyan-200/20"
+      }`}
       aria-label="Open CLARA Coaching Calendar"
       title="CLARA Coaching Calendar"
     >
@@ -105,6 +114,54 @@ function CoachingCalendarButton({ onClick }) {
         30m
       </span>
     </button>
+  );
+}
+
+function CoachingGuideBubble() {
+  return (
+    <div
+      className="pointer-events-none fixed left-1/2 z-[240] w-[min(calc(100vw-44px),360px)] -translate-x-1/2"
+      style={{ top: "clamp(100px, 13dvh, 138px)" }}
+      role="dialog"
+      aria-live="polite"
+      aria-labelledby="clara-guide-coaching-title"
+    >
+      <div className="relative rounded-[28px] border border-cyan-100/24 bg-[linear-gradient(145deg,rgba(5,18,36,0.985),rgba(10,22,54,0.985)_52%,rgba(27,18,65,0.985))] px-5 py-5 text-white shadow-[0_22px_70px_rgba(0,0,0,0.72),0_0_44px_rgba(34,211,238,0.18)] backdrop-blur-2xl">
+        <p id="clara-guide-coaching-title" className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
+          30-MIN COACHING
+        </p>
+        <p className="mt-3 text-[14px] font-bold leading-relaxed text-white">
+          This small calendar orb opens CLARA Coaching when you want a focused one-on-one conversation about your money situation.
+        </p>
+        <p className="mt-3 border-t border-cyan-100/15 pt-3 text-[12px] font-black uppercase leading-relaxed tracking-[0.08em] text-cyan-100/90">
+          TAP THE 30m CALENDAR ORB NOW.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CoachingGuidePreview({ onNext }) {
+  return (
+    <div className="fixed inset-0 z-[320] flex items-center justify-center bg-slate-950/84 px-4 py-6 backdrop-blur-lg" role="dialog" aria-modal="true" aria-labelledby="clara-guide-coaching-preview-title">
+      <section className="w-full max-w-[360px] rounded-[28px] border border-cyan-100/22 bg-[linear-gradient(145deg,rgba(5,18,36,0.99),rgba(10,22,54,0.99)_52%,rgba(27,18,65,0.99))] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_42px_rgba(34,211,238,0.16)]">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-100/20 bg-emerald-300/10 text-emerald-100">
+          <CalendarDays className="h-5 w-5" />
+        </div>
+        <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/60">Guide preview · no booking is created</p>
+        <h3 id="clara-guide-coaching-preview-title" className="mt-1.5 text-xl font-black tracking-[-0.03em]">CLARA Coaching Calendar</h3>
+        <p className="mt-3 text-[13px] font-semibold leading-6 text-white/72">
+          In the real screen, you can choose an available coaching time and a focus for the session. Use it when you need a human conversation for a money problem that deserves more than a quick app interaction.
+        </p>
+        <button
+          type="button"
+          onClick={onNext}
+          className="mt-5 min-h-[46px] w-full rounded-full border border-cyan-100/30 bg-cyan-100/15 px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-50 shadow-[0_12px_34px_rgba(34,211,238,0.16)] transition active:scale-[0.99]"
+        >
+          Next — Community
+        </button>
+      </section>
+    </div>
   );
 }
 
@@ -159,6 +216,7 @@ export default function LearningHub({
   const navigate = useNavigate();
   const [shouldLoadHub, setShouldLoadHub] = useState(false);
   const [learningHubGuidePhase, setLearningHubGuidePhase] = useState("inactive");
+  const [coachingGuidePhase, setCoachingGuidePhase] = useState("inactive");
   const learningHubGuideEntryScrollRef = useRef(null);
   const realHasCommittedAccess = useCommittedFeatureAccess();
   const hasCommittedAccess = isGuideMode ? true : realHasCommittedAccess;
@@ -171,19 +229,33 @@ export default function LearningHub({
     isLearningHubGuideActive && learningHubGuidePhase === "await-open";
   const isLearningHubGuidePreview =
     isLearningHubGuideActive && learningHubGuidePhase === "preview";
+  const isCoachingGuideActive =
+    isGuideMode && coachingGuidePhase !== "inactive";
+  const isCoachingGuideAwaitOpen =
+    isCoachingGuideActive && coachingGuidePhase === "await-open";
+  const isCoachingGuidePreview =
+    isCoachingGuideActive && coachingGuidePhase === "preview";
 
   const handleCloseHub = useCallback(() => {
     setShouldLoadHub(false);
   }, []);
 
-
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    const resetGuidePreview = () => {
+    const root = document.documentElement;
+    const resetLearningHubGuide = () => {
       learningHubGuideEntryScrollRef.current = null;
       setLearningHubGuidePhase("inactive");
       setShouldLoadHub(false);
+    };
+    const resetCoachingGuide = () => {
+      setCoachingGuidePhase("inactive");
+      root.classList.remove(GUIDE_COACHING_ROOT_CLASS);
+    };
+    const resetAllGuidePreviews = () => {
+      resetLearningHubGuide();
+      resetCoachingGuide();
     };
 
     const handleLearningHubPhase = (event) => {
@@ -201,29 +273,44 @@ export default function LearningHub({
         return;
       }
 
-      resetGuidePreview();
-    };
-
-    const handleGuideModeChange = () => {
-      resetGuidePreview();
+      resetLearningHubGuide();
     };
 
     const handleTargetChange = (event) => {
-      if (event?.detail?.feature !== "learning-hub") {
-        resetGuidePreview();
+      const feature = event?.detail?.feature;
+
+      if (feature !== "learning-hub") {
+        resetLearningHubGuide();
+      }
+
+      if (feature === GUIDE_FEATURE_COACHING) {
+        setShouldLoadHub(false);
+        setCoachingGuidePhase("await-open");
+        root.classList.add(GUIDE_COACHING_ROOT_CLASS);
+        window.setTimeout(() => {
+          document
+            .querySelector("[data-clara-coaching-calendar-button='true']")
+            ?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+        }, 80);
+        return;
+      }
+
+      if (feature !== GUIDE_FEATURE_COACHING) {
+        resetCoachingGuide();
       }
     };
 
     window.addEventListener(LEARNING_HUB_PHASE_EVENT, handleLearningHubPhase);
-    window.addEventListener(GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
-    window.addEventListener(GUIDE_EXIT_EVENT, resetGuidePreview);
+    window.addEventListener(GUIDE_MODE_CHANGE_EVENT, resetAllGuidePreviews);
+    window.addEventListener(GUIDE_EXIT_EVENT, resetAllGuidePreviews);
     window.addEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
 
     return () => {
       learningHubGuideEntryScrollRef.current = null;
+      root.classList.remove(GUIDE_COACHING_ROOT_CLASS);
       window.removeEventListener(LEARNING_HUB_PHASE_EVENT, handleLearningHubPhase);
-      window.removeEventListener(GUIDE_MODE_CHANGE_EVENT, handleGuideModeChange);
-      window.removeEventListener(GUIDE_EXIT_EVENT, resetGuidePreview);
+      window.removeEventListener(GUIDE_MODE_CHANGE_EVENT, resetAllGuidePreviews);
+      window.removeEventListener(GUIDE_EXIT_EVENT, resetAllGuidePreviews);
       window.removeEventListener(GUIDE_TARGET_CHANGE_EVENT, handleTargetChange);
     };
   }, []);
@@ -259,7 +346,32 @@ export default function LearningHub({
   }, [isGuideMode, isLocked, shouldLoadHub]);
 
   const handleOpenCoachingCalendar = () => {
+    if (isGuideMode) {
+      if (isCoachingGuideAwaitOpen) {
+        setCoachingGuidePhase("preview");
+      }
+      return;
+    }
+
     navigate("/welcome-session");
+  };
+
+  const handleCoachingGuideNext = () => {
+    if (!isCoachingGuidePreview || typeof window === "undefined") return;
+
+    setCoachingGuidePhase("inactive");
+    document.documentElement.classList.remove(GUIDE_COACHING_ROOT_CLASS);
+
+    window.dispatchEvent(
+      new CustomEvent(GUIDE_TARGET_CHANGE_EVENT, {
+        detail: { feature: GUIDE_FEATURE_COMMUNITY },
+      }),
+    );
+    window.dispatchEvent(
+      new CustomEvent(GUIDE_FEATURE_COMPLETE_EVENT, {
+        detail: { feature: GUIDE_FEATURE_COACHING },
+      }),
+    );
   };
 
   const handleOpenHub = () => {
@@ -322,6 +434,17 @@ export default function LearningHub({
       data-clara-guide-learning-hub-section="true"
       className="clara-budget-focus-shift clara-budget-focus-hub w-full"
     >
+      {isCoachingGuideActive ? (
+        <style>{`
+          html.${GUIDE_COACHING_ROOT_CLASS} .clara-guide-carousel-bubble-shell {
+            display: none !important;
+          }
+        `}</style>
+      ) : null}
+
+      {isCoachingGuideAwaitOpen ? <CoachingGuideBubble /> : null}
+      {isCoachingGuidePreview ? <CoachingGuidePreview onNext={handleCoachingGuideNext} /> : null}
+
       <div className="relative flex w-full flex-col gap-[var(--clara-hub-rail-gap,14px)] overflow-visible px-1 py-0">
         <div
           className={`${isDailyTipGuideActive ? "relative z-[150] isolate" : "relative"} ${
@@ -344,15 +467,18 @@ export default function LearningHub({
         {!shouldLoadHub ? (
           <div
             data-clara-learning-hub-bridge="true"
-            className="relative grid w-full items-center"
+            className={`relative grid w-full items-center ${isCoachingGuideActive ? "z-[150] isolate" : ""}`}
             style={{ gridTemplateColumns: "1fr auto 1fr" }}
           >
-            {!isGuideMode ? (
+            {!isGuideMode || isCoachingGuideActive ? (
               <div
                 className="clara-guide-float mr-1.5 justify-self-end"
                 style={{ animationDelay: "-0.5s" }}
               >
-                <CoachingCalendarButton onClick={handleOpenCoachingCalendar} />
+                <CoachingCalendarButton
+                  onClick={handleOpenCoachingCalendar}
+                  guideTarget={isCoachingGuideAwaitOpen}
+                />
               </div>
             ) : (
               <span aria-hidden="true" />
