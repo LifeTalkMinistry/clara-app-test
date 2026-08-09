@@ -276,20 +276,6 @@ export default function PeopleDiscoveryPanel({
 
   return (
     <section className="space-y-3">
-      <div className="overflow-hidden rounded-[24px] border border-[#22c7b8]/14 bg-[radial-gradient(circle_at_top_left,rgba(34,199,184,0.10),transparent_46%),#0a1a29] p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#22c7b8]/18 bg-[#22c7b8]/10 text-[#99f6e4]"><UserCheck className="h-4 w-4" /></div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black">Build your accountability network.</p>
-            <p className="mt-1 text-[11px] leading-5 text-white/42">Connect first. Invite people you trust into a circle when you are ready.</p>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-white/[0.06] bg-black/10 px-3 py-2.5">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-[#5eead4]/55" />
-          <p className="text-[9.5px] leading-4 text-white/36">A connection never reveals salary, balances, transactions, budgets, savings, or debt. Financial data stays private unless you explicitly share progress.</p>
-        </div>
-      </div>
-
       <div className="rounded-[22px] border border-white/10 bg-[#0a1a29] p-3">
         <div className="flex items-center gap-2 rounded-2xl border border-white/[0.07] bg-[#071725] px-3">
           <Search className="h-4 w-4 text-[#5eead4]/48" />
