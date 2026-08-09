@@ -46,3 +46,43 @@
       0 10px 24px rgba(0, 0, 0, 0.14) !important;
   }
 }
+
+/*
+ * Immersive photo/video viewer.
+ *
+ * The global CLARA theme deliberately makes generic `bg-black` utilities
+ * transparent so page surfaces inherit the app gradient. That rule must never
+ * leak into the Reels/Shorts-style media viewer: otherwise the full-screen video
+ * sits over the feed and looks like a duplicated player. Keep this overlay above
+ * the global body glow pseudo-elements as well.
+ */
+body > [role="dialog"][aria-label^="Expanded Community"] {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  z-index: 2147483000 !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  opacity: 1 !important;
+  transform: none !important;
+  contain: none !important;
+  background: #000 !important;
+  background-color: #000 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body > [role="dialog"][aria-label^="Expanded Community"] video {
+  background: #000 !important;
+  background-color: #000 !important;
+}
+
+body > [role="dialog"][aria-label^="Expanded Community"] button[aria-label="Close expanded media"] {
+  z-index: 2147483640 !important;
+  background: rgba(0, 0, 0, 0.64) !important;
+  background-color: rgba(0, 0, 0, 0.64) !important;
+}
