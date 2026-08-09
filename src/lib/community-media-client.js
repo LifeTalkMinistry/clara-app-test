@@ -45,13 +45,43 @@ function isVideoFile(file) {
   return resolveMimeType(file).startsWith("video/");
 }
 
+export function formatCommunityMediaBytes(bytes) {
+  const size = Math.max(0, Number(bytes) || 0);
+  const gb = 1024 * 1024 * 1024;
+  const mb = 1024 * 1024;
+  const kb = 1024;
+  if (size >= gb) return `${(size / gb).toFixed(size % gb === 0 ? 0 : 2)} GB`;
+  if (size >= mb) return `${(size / mb).toFixed(size % mb === 0 ? 0 : 1)} MB`;
+  if (size >= kb) return `${Math.max(1, Math.round(size / kb))} KB`;
+  return `${size} B`;
+}
+
+function createMediaLimitError(file, maxBytes, video) {
+  const actualLabel = formatCommunityMediaBytes(file.size);
+  const maxLabel = formatCommunityMediaBytes(maxBytes);
+  const fileName = String(file.name || (video ? "Video" : "Attachment"));
+  const error = new Error(
+    video
+      ? `Video is too large — ${fileName} is ${actualLabel}. CLARA supports videos up to ${maxLabel} per post. Please choose a smaller video or compress this file before uploading.`
+      : `Attachment is too large — ${fileName} is ${actualLabel}. CLARA supports photos and files up to ${maxLabel} per post. Please choose a smaller file before uploading.`
+  );
+  error.name = "CommunityMediaLimitError";
+  error.code = video ? "COMMUNITY_VIDEO_TOO_LARGE" : "COMMUNITY_ATTACHMENT_TOO_LARGE";
+  error.fileName = fileName;
+  error.actualBytes = file.size;
+  error.maxBytes = maxBytes;
+  error.actualLabel = actualLabel;
+  error.maxLabel = maxLabel;
+  error.mediaType = video ? "video" : "attachment";
+  return error;
+}
+
 export function validateCommunityMediaFile(file) {
   if (!(file instanceof File)) throw new Error("Choose a file first.");
-  const maxBytes = isVideoFile(file) ? COMMUNITY_VIDEO_MAX_BYTES : COMMUNITY_ATTACHMENT_MAX_BYTES;
+  const video = isVideoFile(file);
+  const maxBytes = video ? COMMUNITY_VIDEO_MAX_BYTES : COMMUNITY_ATTACHMENT_MAX_BYTES;
   if (file.size > maxBytes) {
-    throw new Error(isVideoFile(file)
-      ? "Videos can be up to 1 GB."
-      : "Photos and files can be up to 25 MB.");
+    throw createMediaLimitError(file, maxBytes, video);
   }
   return file;
 }
@@ -113,7 +143,12 @@ function authHeaders(token, extra = {}) {
   };
 }
 
-async function uploadDirect(file, token) {
+function reportProgress(onProgress, data) {
+  if (typeof onProgress === "function") onProgress(data);
+}
+
+async function uploadDirect(file, token, onProgress) {
+  reportProgress(onProgress, { percent: 0, currentPart: 0, totalParts: 1, phase: "uploading" });
   const response = await fetchWithRetry(buildUrl("/api/community/media"), {
     method: "POST",
     cache: "no-store",
@@ -125,6 +160,7 @@ async function uploadDirect(file, token) {
   });
 
   if (!response.ok) await throwResponseError(response, "Unable to upload that attachment.");
+  reportProgress(onProgress, { percent: 100, currentPart: 1, totalParts: 1, phase: "processing" });
   return response.json();
 }
 
@@ -178,7 +214,7 @@ async function completeChunkedUpload(token, uploadId) {
   return response.json();
 }
 
-async function uploadInChunks(file, token) {
+async function uploadInChunks(file, token, onProgress) {
   const session = await beginChunkedUpload(file, token);
   const uploadId = String(session?.upload_id || "");
   const chunkSize = Number(session?.chunk_size_bytes) || DEFAULT_CHUNK_BYTES;
@@ -188,28 +224,39 @@ async function uploadInChunks(file, token) {
     throw new Error("The server could not prepare this video upload. Please try again.");
   }
 
+  reportProgress(onProgress, { percent: 0, currentPart: 0, totalParts: totalChunks, phase: "uploading" });
+
   for (let index = 0; index < totalChunks; index += 1) {
     const start = index * chunkSize;
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
     await uploadChunk({ token, uploadId, index, chunk });
+    const currentPart = index + 1;
+    reportProgress(onProgress, {
+      percent: Math.min(99, Math.round((currentPart / totalChunks) * 100)),
+      currentPart,
+      totalParts: totalChunks,
+      phase: "uploading",
+    });
   }
 
+  reportProgress(onProgress, { percent: 100, currentPart: totalChunks, totalParts: totalChunks, phase: "processing" });
   return completeChunkedUpload(token, uploadId);
 }
 
-export async function uploadCommunityMedia(file) {
+export async function uploadCommunityMedia(file, options = {}) {
   validateCommunityMediaFile(file);
   const token = getStoredBackendToken();
   if (!token) throw new Error("Your CLARA account session is not connected.");
+  const onProgress = options?.onProgress;
 
   try {
     if (file.size > DIRECT_UPLOAD_MAX_BYTES) {
-      return await uploadInChunks(file, token);
+      return await uploadInChunks(file, token, onProgress);
     }
-    return await uploadDirect(file, token);
+    return await uploadDirect(file, token, onProgress);
   } catch (error) {
-    if (error?.status) throw error;
+    if (error?.status || error?.code?.startsWith("COMMUNITY_")) throw error;
     if (error instanceof TypeError) {
       throw new Error("Upload connection was interrupted. CLARA retried automatically, but the server could not be reached. Please try again.");
     }
