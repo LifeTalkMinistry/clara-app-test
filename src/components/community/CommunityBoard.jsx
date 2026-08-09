@@ -117,7 +117,7 @@ export default function CommunityBoard({ token, navigate }) {
 
   return (
     <section
-      className="clara-community-board relative mb-6 h-[134px] overflow-hidden rounded-[28px] border border-[#73eee7]/15 bg-[linear-gradient(126deg,rgba(8,55,67,0.96),rgba(10,29,58,0.98)_52%,rgba(38,25,82,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_18px_44px_rgba(0,0,0,0.20)] sm:h-[150px]"
+      className="clara-community-board relative mb-6 aspect-[5/2] overflow-hidden rounded-[28px] border border-[#73eee7]/15 bg-[linear-gradient(126deg,rgba(8,55,67,0.96),rgba(10,29,58,0.98)_52%,rgba(38,25,82,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_18px_44px_rgba(0,0,0,0.20)] sm:aspect-auto sm:h-[150px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
