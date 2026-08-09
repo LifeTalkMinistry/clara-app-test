@@ -10,6 +10,10 @@ import {
   useDashboardViewportMode,
 } from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";
 import { readStoredSurvivalExpense } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
+import DashboardMoneySummaryStable from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable";
+import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics";
+import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";
+import { formatPhpCurrency } from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -67,6 +71,15 @@ export default function CommunityHomeFinancialCarousel() {
     savingsGoals,
   });
 
+  const { thisMonthSpent = 0 } = useDashboardMoneyLeftMetrics({
+    expenses,
+    walletTransactions,
+    user,
+  });
+
+  const [moneySummaryVisible, toggleMoneySummaryVisibility] =
+    useMoneySummaryVisibility();
+
   const survivalExpense = useMemo(
     () =>
       firstPositiveNumber(
@@ -82,11 +95,25 @@ export default function CommunityHomeFinancialCarousel() {
   );
 
   // During the staged shell migration, detailed editors still live on the old
-  // Dashboard. Keep every carousel CTA alive by handing those interactions back
+  // Dashboard. Keep every finance CTA alive by handing those interactions back
   // to the existing screen instead of duplicating finance mutation logic here.
   const openLegacyFinanceTools = useCallback(() => {
     navigate("/dashboard");
   }, [navigate]);
+
+  const moneyLeftSummaryHandlers = useMemo(
+    () => ({
+      onDoubleClick: openLegacyFinanceTools,
+      onKeyDown: (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openLegacyFinanceTools();
+        }
+      },
+      openTransactionHubFromMoneyLeft: openLegacyFinanceTools,
+    }),
+    [openLegacyFinanceTools]
+  );
 
   const profileData = useMemo(
     () => ({
@@ -99,7 +126,7 @@ export default function CommunityHomeFinancialCarousel() {
   if (!user) return null;
 
   return (
-    <div className="clara-community-home-financial-carousel relative z-30 mt-4 overflow-visible pb-2 sm:mt-5">
+    <div className="clara-community-home-financial-carousel relative z-30 mt-4 overflow-visible pb-5 sm:mt-5">
       <FinancialCarousel
         flushSpacing
         dashboardScale={dashboardScale}
@@ -142,6 +169,21 @@ export default function CommunityHomeFinancialCarousel() {
         refreshData={refreshData}
         featureFlags={profileData.feature_flags}
       />
+
+      <div className="clara-community-home-money-left relative z-20 mt-4 px-4 sm:px-0">
+        <DashboardMoneySummaryStable
+          flushSpacing
+          dashboardScale={dashboardScale}
+          selectedDashboardTheme={selectedDashboardTheme || {}}
+          moneySummaryVisible={moneySummaryVisible}
+          toggleMoneySummaryVisibility={toggleMoneySummaryVisibility}
+          moneyLeftSummaryHandlers={moneyLeftSummaryHandlers}
+          handleMoneyLeftOrbClick={openLegacyFinanceTools}
+          walletMoney={totalWalletBalance}
+          thisMonthSpent={thisMonthSpent}
+          fmt={formatPhpCurrency}
+        />
+      </div>
 
       <span className="sr-only">
         Financial totals loaded: {totalIncome}, {totalExpenses}, {totalWalletBalance}
