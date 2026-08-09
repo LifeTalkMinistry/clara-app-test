@@ -18,6 +18,7 @@ import CommunityProfile from "./CommunityProfile";
 import CommunityHomeFinancialCarousel from "@/components/community/CommunityHomeFinancialCarousel";
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
+import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -292,6 +293,9 @@ export default function Community() {
           contain: none !important;
           clip-path: none !important;
         }
+        .clara-community-schedule-view > div {
+          min-height: 100% !important;
+        }
       `}</style>
 
       {activeView === "home" ? (
@@ -319,9 +323,13 @@ export default function Community() {
         </div>
       ) : activeView === "schedule" ? (
         <main
-          className="clara-community-schedule-view min-h-0 flex-1 bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f]"
+          className="clara-community-schedule-view min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f] pb-[calc(env(safe-area-inset-bottom)+30px)]"
           aria-label="CLARA Schedule"
-        />
+        >
+          <div className="mx-auto min-h-full w-full max-w-3xl">
+            <DashboardSchedulePanel />
+          </div>
+        </main>
       ) : activeView === "circles" ? (
         <div className="clara-community-circles-view min-h-0 flex-1 overflow-y-auto">
           <MyCircle />
