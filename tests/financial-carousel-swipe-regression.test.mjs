@@ -6,6 +6,7 @@ const readSource = (relativePath) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
 const hook = readSource("src/components/financial-carousel/logic/useAutoMovingHorizontalCarousel.js");
+const guideSwipeAdapter = readSource("src/components/financial-carousel/logic/useGuideMobileSwipeAdapter.js");
 const viewport = readSource("src/components/financial-carousel/ui/CarouselViewport.jsx");
 const slide = readSource("src/components/financial-carousel/ui/CarouselSlideShell.jsx");
 const carousel = readSource("src/components/financial-carousel/FinancialCarousel.jsx");
@@ -28,6 +29,13 @@ test("normal pointer interaction is recorded before Guide-only controls", () => 
   assert.notEqual(beginIndex, -1);
   assert.notEqual(guideGuardIndex, -1);
   assert.equal(beginIndex < guideGuardIndex, true);
+});
+
+test("Guide Mode mobile swipe stays intentionally lightweight", () => {
+  assert.equal(guideSwipeAdapter.includes("const MOBILE_DRAG_LOCK_THRESHOLD_PX = 2;"), true);
+  assert.equal(guideSwipeAdapter.includes("const MOBILE_SWIPE_DISTANCE_MAX_PX = 14;"), true);
+  assert.equal(guideSwipeAdapter.includes("const MOBILE_SWIPE_DISTANCE_RATIO = 0.035;"), true);
+  assert.equal(guideSwipeAdapter.includes("const MOBILE_LIVE_DRAG_GAIN = 1.18;"), true);
 });
 
 test("native carousel snaps one financial card at a time", () => {
