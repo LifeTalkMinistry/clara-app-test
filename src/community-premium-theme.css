@@ -1,324 +1,536 @@
 /*
- * CLARA Community / Messages single-color visual system.
- * The app uses HashRouter, so route links render as #/messages and #/profile.
- * Match route suffixes instead of exact non-hash href values.
+ * CLARA Community premium visual system — v2.
+ *
+ * Visual target: the same premium teal -> navy -> violet language used by the
+ * Savings Goals experience, while preserving the Community's social-feed layout.
+ * Durable .clara-community-* hooks are owned by React; avoid brittle DOM-order selectors.
  */
 
 :root {
-  --clara-community-accent: #22c7b8;
-  --clara-community-accent-strong: #14b8a6;
-  --clara-community-accent-soft: rgba(34, 199, 184, 0.14);
-  --clara-community-bg: #06111f;
-  --clara-community-panel: #0a1a29;
-  --clara-community-panel-soft: #0d2233;
-  --clara-community-border: rgba(148, 163, 184, 0.15);
+  --clara-community-teal: #2dd4bf;
+  --clara-community-cyan: #67e8f9;
+  --clara-community-mint: #99f6e4;
+  --clara-community-violet: #8b5cf6;
+  --clara-community-indigo: #6366f1;
+  --clara-community-ink: #041220;
+  --clara-community-deep: #061426;
+  --clara-community-panel: rgba(7, 25, 45, 0.88);
+  --clara-community-line: rgba(165, 243, 252, 0.15);
+  --clara-community-soft-line: rgba(255, 255, 255, 0.08);
 }
 
-/* COMMUNITY SHELL */
-div.z-\[80\]:has(> header a[href$="/messages"]) {
+/* -------------------------------------------------------------------------- */
+/* ROOT / AMBIENT CANVAS                                                      */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root {
+  isolation: isolate;
   background:
-    radial-gradient(circle at 18% -12%, rgba(34, 199, 184, 0.12), transparent 34%),
-    var(--clara-community-bg) !important;
+    radial-gradient(circle at -10% 2%, rgba(20, 184, 166, 0.32), transparent 34%),
+    radial-gradient(circle at 106% 12%, rgba(124, 58, 237, 0.30), transparent 34%),
+    radial-gradient(circle at 42% 110%, rgba(14, 116, 144, 0.14), transparent 40%),
+    linear-gradient(148deg, #041727 0%, #071a30 42%, #14113c 100%) !important;
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) {
-  margin: 0 !important;
-  padding: 12px 14px !important;
+.clara-community-root::before,
+.clara-community-root::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(70px);
+  opacity: 0.42;
+}
+
+.clara-community-root::before {
+  left: -92px;
+  top: 18%;
+  width: 190px;
+  height: 260px;
+  background: rgba(45, 212, 191, 0.22);
+}
+
+.clara-community-root::after {
+  right: -110px;
+  top: 38%;
+  width: 240px;
+  height: 320px;
+  background: rgba(124, 58, 237, 0.20);
+}
+
+.clara-community-feed-view,
+.clara-community-circles-view,
+.clara-community-challenges-view,
+.clara-community-messages-view,
+.clara-community-profile-view,
+.clara-community-notifications-view {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+.clara-community-backend-root {
+  background: transparent !important;
+}
+
+.clara-community-feed-scroll {
+  background:
+    linear-gradient(180deg, rgba(4, 18, 32, 0.05), rgba(4, 18, 32, 0.22) 52%, rgba(4, 18, 32, 0.40)) !important;
+  scrollbar-color: rgba(103, 232, 249, 0.18) transparent;
+}
+
+/* -------------------------------------------------------------------------- */
+/* PREMIUM TOP NAV — SAVINGS-GOALS DNA                                        */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-shell-header {
+  position: relative;
+  z-index: 80;
   border: 0 !important;
-  border-bottom: 1px solid var(--clara-community-border) !important;
-  border-radius: 0 !important;
-  background: rgba(6, 17, 31, 0.96) !important;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16) !important;
-  backdrop-filter: blur(22px) !important;
-  -webkit-backdrop-filter: blur(22px) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"])::after {
-  display: none !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) p:first-of-type {
-  color: rgba(94, 234, 212, 0.74) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) button[aria-label="Back to Dashboard"],
-div.z-\[80\] > header:has(a[href$="/messages"]) a[href$="/messages"],
-div.z-\[80\] > header:has(a[href$="/messages"]) button[aria-label="Community notifications"],
-div.z-\[80\] > header:has(a[href$="/messages"]) a[href$="/profile"] {
-  height: 40px !important;
-  min-width: 40px !important;
-  border-radius: 14px !important;
-  border: 1px solid var(--clara-community-border) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  color: rgba(255, 255, 255, 0.86) !important;
+  background: transparent !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  padding-bottom: 8px !important;
   box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) button[aria-label="Community notifications"][class*="cyan"],
-div.z-\[80\] > header:has(a[href$="/messages"]) a[href$="/profile"] {
-  border-color: rgba(34, 199, 184, 0.24) !important;
-  background: var(--clara-community-accent-soft) !important;
-  color: #ccfbf1 !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main {
-  padding-top: 14px !important;
-}
-
-/* COMPOSER */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child {
-  overflow: visible !important;
-  border: 1px solid var(--clara-community-border) !important;
-  border-radius: 22px !important;
-  background: var(--clara-community-panel) !important;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child::after {
-  display: none !important;
-}
-
-/* The main header already provides Profile/ME access, so keep the composer focused on posting. */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child > div:first-child {
-  display: none !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child a[href$="/profile"] {
-  border-color: rgba(34, 199, 184, 0.24) !important;
-  background: var(--clara-community-accent-soft) !important;
-  color: #ccfbf1 !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child div[class*="emerald"] {
-  border-color: rgba(34, 199, 184, 0.18) !important;
-  background: rgba(34, 199, 184, 0.08) !important;
-  color: rgba(204, 251, 241, 0.82) !important;
-}
-
-/* Post types use one CLARA color; icons/labels carry the meaning. */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child div:has(> button[aria-pressed]) {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 8px !important;
-  overflow: visible !important;
-  padding-bottom: 0 !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed] {
-  width: 100% !important;
-  height: 38px !important;
-  justify-content: center !important;
-  border-radius: 12px !important;
-  border: 1px solid var(--clara-community-border) !important;
-  background: rgba(255, 255, 255, 0.035) !important;
-  color: rgba(226, 232, 240, 0.74) !important;
-  box-shadow: none !important;
-  transform: translateY(0) scale(1) !important;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed="true"] {
-  border-color: #ccfbf1 !important;
-  background: linear-gradient(135deg, #67f3dd 0%, #22c7b8 100%) !important;
-  color: #032b29 !important;
+.clara-community-shell-nav {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 6px;
+  border: 1px solid rgba(103, 232, 249, 0.34);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(45, 212, 191, 0.20), transparent 38%),
+    radial-gradient(circle at 94% 100%, rgba(139, 92, 246, 0.28), transparent 42%),
+    linear-gradient(135deg, rgba(4, 67, 78, 0.94) 0%, rgba(12, 37, 72, 0.96) 48%, rgba(57, 35, 112, 0.95) 100%);
   box-shadow:
-    0 0 0 1px rgba(204, 251, 241, 0.72),
-    0 0 22px rgba(34, 199, 184, 0.44),
-    0 8px 18px rgba(0, 0, 0, 0.22) !important;
-  transform: translateY(-1px) scale(1.015) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 16px 40px rgba(0, 0, 0, 0.34),
+    0 0 28px rgba(45, 212, 191, 0.09),
+    0 0 36px rgba(124, 58, 237, 0.10);
+  backdrop-filter: blur(22px) saturate(128%);
+  -webkit-backdrop-filter: blur(22px) saturate(128%);
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[aria-pressed="true"] svg {
-  color: #032b29 !important;
+.clara-community-shell-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 42%),
+    radial-gradient(circle at 28% 20%, rgba(103, 232, 249, 0.10), transparent 28%);
+}
+
+/* Signature violet arc inspired by Savings Goals header. */
+.clara-community-shell-nav::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: -54px;
+  bottom: -34px;
+  width: 190px;
+  height: 72px;
+  pointer-events: none;
+  border-top: 2px solid rgba(129, 92, 246, 0.82);
+  border-radius: 50%;
+  transform: rotate(-12deg);
+  filter: drop-shadow(0 0 7px rgba(139, 92, 246, 0.68));
+  opacity: 0.88;
+}
+
+.clara-community-nav-item {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(186, 230, 253, 0.15) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)) !important;
+  color: rgba(236, 254, 255, 0.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    0 5px 14px rgba(0, 0, 0, 0.18) !important;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease !important;
+}
+
+.clara-community-nav-item:hover {
+  border-color: rgba(165, 243, 252, 0.30) !important;
+  color: #ecfeff !important;
+}
+
+.clara-community-nav-item:active {
+  transform: scale(0.96);
+}
+
+.clara-community-nav-item[aria-current="page"] {
+  border-color: rgba(207, 250, 254, 0.88) !important;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(153, 246, 228, 0.34), transparent 42%),
+    linear-gradient(135deg, rgba(13, 148, 136, 0.76), rgba(30, 64, 175, 0.64) 50%, rgba(109, 40, 217, 0.68)) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 0 0 1px rgba(103, 232, 249, 0.24),
+    0 0 26px rgba(45, 212, 191, 0.23),
+    0 0 26px rgba(139, 92, 246, 0.20),
+    0 8px 20px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* COMPOSER                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-composer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden !important;
+  border: 1px solid rgba(103, 232, 249, 0.22) !important;
+  border-radius: 26px !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.16), transparent 38%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.19), transparent 44%),
+    linear-gradient(138deg, rgba(6, 44, 59, 0.94), rgba(8, 26, 53, 0.97) 50%, rgba(38, 23, 83, 0.95)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 18px 46px rgba(0, 0, 0, 0.34),
+    0 0 28px rgba(45, 212, 191, 0.07),
+    0 0 36px rgba(124, 58, 237, 0.08) !important;
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+
+.clara-community-composer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 34%),
+    radial-gradient(circle at 22% 22%, rgba(103, 232, 249, 0.07), transparent 28%);
+}
+
+.clara-community-composer::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: -64px;
+  bottom: -30px;
+  width: 210px;
+  height: 80px;
+  pointer-events: none;
+  border-top: 2px solid rgba(129, 92, 246, 0.76);
+  border-radius: 50%;
+  transform: rotate(-14deg);
+  filter: drop-shadow(0 0 9px rgba(139, 92, 246, 0.64));
+  opacity: 0.78;
+}
+
+.clara-community-composer[data-composer-open="false"] {
+  padding: 10px !important;
+}
+
+.clara-community-composer-trigger {
+  height: 52px !important;
+  border-color: rgba(165, 243, 252, 0.16) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(135deg, rgba(7, 36, 56, 0.86), rgba(11, 28, 58, 0.88) 58%, rgba(30, 25, 70, 0.80)) !important;
+  color: rgba(207, 250, 254, 0.66) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 9px 24px rgba(0, 0, 0, 0.18) !important;
+}
+
+.clara-community-composer-trigger:hover {
+  border-color: rgba(103, 232, 249, 0.30) !important;
+  color: rgba(236, 254, 255, 0.84) !important;
+}
+
+.clara-community-composer-close {
+  border-color: rgba(196, 181, 253, 0.20) !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: rgba(237, 233, 254, 0.65) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.clara-community-post-types button[aria-pressed] {
+  position: relative;
+  overflow: hidden;
+  height: 40px !important;
+  border-radius: 13px !important;
+  border-color: rgba(186, 230, 253, 0.13) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(99, 102, 241, 0.055)) !important;
+  color: rgba(226, 232, 240, 0.70) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  transform: none !important;
+}
+
+.clara-community-post-types button[aria-pressed="true"] {
+  border-color: rgba(207, 250, 254, 0.95) !important;
+  background:
+    linear-gradient(135deg, #a7f3d0 0%, #67e8f9 48%, #5eead4 100%) !important;
+  color: #042f2e !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 0 0 1px rgba(153, 246, 228, 0.44),
+    0 0 24px rgba(45, 212, 191, 0.40),
+    0 8px 20px rgba(0, 0, 0, 0.22) !important;
+  transform: translateY(-1px) scale(1.012) !important;
+}
+
+.clara-community-post-types button[aria-pressed="true"] svg {
+  color: #042f2e !important;
   stroke: currentColor !important;
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child textarea {
-  min-height: 98px !important;
-  border: 1px solid var(--clara-community-border) !important;
-  border-radius: 16px !important;
-  background: #071725 !important;
+.clara-community-composer-textarea {
+  min-height: 112px !important;
+  border-color: rgba(165, 243, 252, 0.14) !important;
+  border-radius: 19px !important;
+  background:
+    linear-gradient(145deg, rgba(4, 24, 41, 0.91), rgba(8, 24, 49, 0.92) 62%, rgba(26, 20, 64, 0.82)) !important;
   color: #f8fafc !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -18px 40px rgba(0, 0, 0, 0.10) !important;
+}
+
+.clara-community-composer-textarea::placeholder {
+  color: rgba(165, 243, 252, 0.54) !important;
+}
+
+.clara-community-composer-textarea:focus {
+  border-color: rgba(103, 232, 249, 0.48) !important;
+  box-shadow:
+    0 0 0 3px rgba(45, 212, 191, 0.08),
+    0 0 28px rgba(45, 212, 191, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.clara-community-attachment-button {
+  border-color: rgba(186, 230, 253, 0.13) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025)) !important;
+  color: rgba(224, 242, 254, 0.68) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+}
+
+.clara-community-attachment-button:hover {
+  border-color: rgba(103, 232, 249, 0.32) !important;
+  color: #ecfeff !important;
+}
+
+.clara-community-selected-attachment {
+  border-color: rgba(103, 232, 249, 0.20) !important;
+  background:
+    linear-gradient(135deg, rgba(20, 184, 166, 0.10), rgba(99, 102, 241, 0.08)) !important;
+}
+
+.clara-community-post-button {
+  border: 1px solid rgba(207, 250, 254, 0.48) !important;
+  background:
+    linear-gradient(135deg, #67e8f9 0%, #2dd4bf 54%, #22c55e 120%) !important;
+  color: #032b29 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 24px rgba(13, 148, 136, 0.26),
+    0 0 22px rgba(45, 212, 191, 0.22) !important;
+}
+
+.clara-community-post-button:disabled {
+  opacity: 0.42 !important;
   box-shadow: none !important;
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child textarea:focus {
-  border-color: rgba(34, 199, 184, 0.46) !important;
-  box-shadow: 0 0 0 3px rgba(34, 199, 184, 0.08) !important;
+/* -------------------------------------------------------------------------- */
+/* FEED POSTS                                                                  */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root .clara-community-feed-view article {
+  position: relative;
+  border-color: rgba(165, 243, 252, 0.11) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 32%),
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.085), transparent 36%),
+    linear-gradient(145deg, rgba(5, 25, 43, 0.96), rgba(7, 23, 46, 0.97) 50%, rgba(20, 18, 58, 0.95)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 12px 34px rgba(0, 0, 0, 0.20) !important;
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:first-child button[class*="bg-cyan-400"] {
-  background: var(--clara-community-accent) !important;
-  color: #042f2e !important;
-  border: 0 !important;
-  box-shadow: none !important;
+.clara-community-root .clara-community-feed-view article > div:first-child {
+  position: relative;
 }
 
-/* EMPTY STATE */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) {
-  min-height: 245px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border: 0 !important;
+.clara-community-root .clara-community-feed-view article > div:first-child::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.36), rgba(139, 92, 246, 0.30), transparent);
+  opacity: 0.75;
+}
+
+.clara-community-root .clara-community-feed-view article button[class*="border"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.clara-community-root .clara-community-feed-view article input,
+.clara-community-root .clara-community-feed-view article textarea {
+  border-color: rgba(165, 243, 252, 0.13) !important;
+  background:
+    linear-gradient(135deg, rgba(4, 22, 39, 0.92), rgba(10, 25, 52, 0.90)) !important;
+  color: #f8fafc !important;
+}
+
+.clara-community-root .clara-community-feed-view article input::placeholder,
+.clara-community-root .clara-community-feed-view article textarea::placeholder {
+  color: rgba(203, 213, 225, 0.40) !important;
+}
+
+.clara-community-root .clara-community-feed-view article input:focus,
+.clara-community-root .clara-community-feed-view article textarea:focus {
+  border-color: rgba(103, 232, 249, 0.38) !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.06) !important;
+}
+
+/* Preserve the immersive edge-to-edge mobile feed, but make desktop cards premium. */
+@media (min-width: 640px) {
+  .clara-community-root .clara-community-feed-view article {
+    border-radius: 26px !important;
+    border: 1px solid rgba(165, 243, 252, 0.12) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 18px 48px rgba(0, 0, 0, 0.25),
+      0 0 28px rgba(45, 212, 191, 0.045),
+      0 0 34px rgba(124, 58, 237, 0.045) !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* NOTIFICATIONS + OTHER COMMUNITY VIEWS                                      */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-notifications-card {
+  border-color: rgba(103, 232, 249, 0.16) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.10), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.12), transparent 40%),
+    linear-gradient(145deg, rgba(6, 29, 48, 0.94), rgba(8, 25, 51, 0.96) 56%, rgba(27, 20, 66, 0.94)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 16px 42px rgba(0, 0, 0, 0.24) !important;
+}
+
+.clara-community-notifications-card > button {
+  border-color: rgba(165, 243, 252, 0.08) !important;
+}
+
+.clara-community-notifications-card > button:hover {
+  background: rgba(45, 212, 191, 0.055) !important;
+}
+
+.clara-community-root .clara-community-circles-view > div,
+.clara-community-root .clara-community-challenges-view > div,
+.clara-community-root .clara-community-messages-view > div,
+.clara-community-root .clara-community-profile-view > div {
   background: transparent !important;
-  box-shadow: none !important;
-  padding: 34px 20px 42px !important;
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) > div:first-child {
-  width: 54px !important;
-  height: 54px !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(34, 199, 184, 0.18) !important;
-  background: rgba(34, 199, 184, 0.08) !important;
-  color: #99f6e4 !important;
-  box-shadow: none !important;
+/* Bring nested Community surfaces into the same teal/navy/violet family without
+   flattening feature-specific layouts or changing behavior. */
+.clara-community-root :is(
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-profile-view
+) :is(section, article)[class*="border"] {
+  border-color: rgba(165, 243, 252, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 36px rgba(0, 0, 0, 0.19);
 }
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) h3 {
-  margin-top: 20px !important;
-  color: #f8fafc !important;
-  font-size: 19px !important;
-  letter-spacing: -0.025em !important;
-}
+/* -------------------------------------------------------------------------- */
+/* STANDALONE MESSAGES FALLBACK                                                */
+/* -------------------------------------------------------------------------- */
 
-div.z-\[80\] > header:has(a[href$="/messages"]) + main .grid > div:first-child > section:has(h3) p {
-  max-width: 300px !important;
-  color: rgba(203, 213, 225, 0.56) !important;
-  line-height: 1.7 !important;
-}
-
-/* FEED POSTS */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main article {
-  border: 1px solid var(--clara-community-border) !important;
-  background: var(--clara-community-panel) !important;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main article div[class*="bg-gradient-to-br"] {
-  background: var(--clara-community-accent-soft) !important;
-  border-color: rgba(34, 199, 184, 0.20) !important;
-  color: #ccfbf1 !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main article div[class*="rounded-full"][class*="border"] {
-  border-color: rgba(34, 199, 184, 0.22) !important;
-  background: rgba(34, 199, 184, 0.10) !important;
-  color: #99f6e4 !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main article button[class*="text-cyan"],
-div.z-\[80\] > header:has(a[href$="/messages"]) + main article button[class*="bg-cyan"] {
-  border-color: rgba(34, 199, 184, 0.18) !important;
-  background: rgba(34, 199, 184, 0.08) !important;
-  color: #99f6e4 !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main article input:focus {
-  border-color: rgba(34, 199, 184, 0.40) !important;
-}
-
-/* DESKTOP SIDE PANELS */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main aside > * {
-  border-color: var(--clara-community-border) !important;
-  background: var(--clara-community-panel-soft) !important;
-  box-shadow: none !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main aside a[href$="/messages"] {
-  background: var(--clara-community-panel-soft) !important;
-  border-color: rgba(34, 199, 184, 0.18) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main aside a[href$="/profile"] div:first-child,
-div.z-\[80\] > header:has(a[href$="/messages"]) + main aside div[class*="emerald"] {
-  border-color: rgba(34, 199, 184, 0.18) !important;
-  background: rgba(34, 199, 184, 0.08) !important;
-  color: #99f6e4 !important;
-}
-
-/* NOTIFICATIONS / LOCKED COMMUNITY */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main section[class*="max-w-2xl"] {
-  border-color: var(--clara-community-border) !important;
-  background: var(--clara-community-panel) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main a[href$="/enroll"] button {
-  background: var(--clara-community-accent) !important;
-  color: #042f2e !important;
-}
-
-/* MESSAGES: same one-color family */
+/* /messages may still be reached directly from older links. Keep it visually
+   related to Community without relying on the Community wrapper. */
 div.z-\[90\]:has(> header button[aria-label="Back to Community"]) {
   background:
-    radial-gradient(circle at 18% -12%, rgba(34, 199, 184, 0.10), transparent 34%),
-    var(--clara-community-bg) !important;
+    radial-gradient(circle at 0% 0%, rgba(20, 184, 166, 0.18), transparent 32%),
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.16), transparent 34%),
+    linear-gradient(148deg, #041727, #071a30 48%, #14113c) !important;
 }
 
 div.z-\[90\] > header:has(button[aria-label="Back to Community"]) {
-  margin: 0 !important;
-  padding: 12px 14px !important;
-  border: 0 !important;
-  border-bottom: 1px solid var(--clara-community-border) !important;
-  border-radius: 0 !important;
-  background: rgba(6, 17, 31, 0.96) !important;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16) !important;
+  border-color: rgba(165, 243, 252, 0.12) !important;
+  background: rgba(5, 20, 37, 0.84) !important;
+  backdrop-filter: blur(22px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(120%) !important;
 }
 
-div.z-\[90\] > header:has(button[aria-label="Back to Community"]) button[aria-label="Back to Community"],
-div.z-\[90\] > header:has(button[aria-label="Back to Community"]) button[aria-label="Start a new conversation"] {
-  border-color: var(--clara-community-border) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  color: rgba(255, 255, 255, 0.86) !important;
-  box-shadow: none !important;
+/* -------------------------------------------------------------------------- */
+/* MOBILE                                                                      */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 639px) {
+  .clara-community-shell-header {
+    padding-top: max(7px, env(safe-area-inset-top)) !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    padding-bottom: 7px !important;
+  }
+
+  .clara-community-shell-nav {
+    border-radius: 21px;
+    padding: 5px;
+    gap: 4px !important;
+  }
+
+  .clara-community-nav-item {
+    border-radius: 15px !important;
+  }
+
+  .clara-community-feed-scroll {
+    padding-top: 12px !important;
+  }
+
+  .clara-community-composer {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-radius: 24px !important;
+  }
+
+  .clara-community-root .clara-community-feed-view article {
+    border-left: 0 !important;
+    border-right: 0 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 10px 24px rgba(0, 0, 0, 0.16) !important;
+  }
 }
 
-div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main {
-  padding-top: 14px !important;
-}
-
-div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main section,
-div.z-\[90\] > header:has(button[aria-label="Back to Community"]) + main div[class*="rounded-[22px]"] {
-  border-color: var(--clara-community-border) !important;
-}
-
-/* CURRENT COMMUNITYBACKEND COMPOSER
- * The live composer no longer uses the old .grid > div:first-child wrapper.
- * These rules intentionally target the actual current DOM so the whole selected
- * post-type tab becomes unmistakably bright, not just its label.
- */
-div.z-\[80\] > header:has(a[href$="/messages"]) + main section:has(button[aria-pressed]) button[aria-pressed] {
-  border: 1px solid rgba(148, 163, 184, 0.22) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  color: rgba(226, 232, 240, 0.72) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
-  transform: translateY(0) scale(1) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main section:has(button[aria-pressed]) button[aria-pressed="true"] {
-  border-color: #e6fffb !important;
-  background: linear-gradient(135deg, #86ffe9 0%, #5eead4 42%, #22c7b8 100%) !important;
-  color: #032724 !important;
-  box-shadow:
-    0 0 0 1px rgba(230, 255, 251, 0.78),
-    0 0 28px rgba(45, 212, 191, 0.56),
-    0 10px 22px rgba(0, 0, 0, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.48) !important;
-  transform: translateY(-1px) scale(1.02) !important;
-}
-
-div.z-\[80\] > header:has(a[href$="/messages"]) + main section:has(button[aria-pressed]) button[aria-pressed="true"] svg {
-  color: #032724 !important;
-  stroke: #032724 !important;
-  filter: none !important;
-}
-
-@media (min-width: 640px) {
-  div.z-\[80\] > header:has(a[href$="/messages"]),
-  div.z-\[90\] > header:has(button[aria-label="Back to Community"]) {
-    padding-left: 20px !important;
-    padding-right: 20px !important;
+@media (prefers-reduced-motion: reduce) {
+  .clara-community-nav-item,
+  .clara-community-post-types button[aria-pressed],
+  .clara-community-post-button {
+    transition: none !important;
   }
 }
