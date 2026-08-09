@@ -83,6 +83,20 @@ body > [role="dialog"][aria-label^="Expanded Community"] video {
 
 body > [role="dialog"][aria-label^="Expanded Community"] button[aria-label="Close expanded media"] {
   z-index: 2147483640 !important;
-  background: rgba(0, 0, 0, 0.64) !important;
-  background-color: rgba(0, 0, 0, 0.64) !important;
+  background: rgba(0, 0, 0, 0.56) !important;
+  background-color: rgba(0, 0, 0, 0.56) !important;
+}
+
+/* Reels controls intentionally use dark translucent circles. Override the app-wide
+   black-background transparency rule only inside the immersive viewer. */
+body > [role="dialog"][aria-label^="Expanded Community"] button[class*="bg-black"],
+body > [role="dialog"][aria-label^="Expanded Community"] span[class*="bg-black"] {
+  background: rgba(0, 0, 0, 0.42) !important;
+  background-color: rgba(0, 0, 0, 0.42) !important;
+}
+
+body > [role="dialog"][aria-label^="Expanded Community"] button[aria-label^="Mute"],
+body > [role="dialog"][aria-label^="Expanded Community"] button[aria-label^="Unmute"] {
+  background: rgba(0, 0, 0, 0.56) !important;
+  background-color: rgba(0, 0, 0, 0.56) !important;
 }
