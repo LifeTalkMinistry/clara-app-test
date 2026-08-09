@@ -2,8 +2,38 @@ let installed = false;
 
 const SHORTCUT_ATTR = "data-clara-profile-edit-shortcut";
 const SHORTCUT_ROW_ATTR = "data-clara-profile-edit-shortcut-row";
+const PROFILE_CLARITY_STYLE_ID = "clara-community-profile-image-clarity";
+
+function ensureProfileImageClarityStyles() {
+  if (document.getElementById(PROFILE_CLARITY_STYLE_ID)) return;
+
+  const style = document.createElement("style");
+  style.id = PROFILE_CLARITY_STYLE_ID;
+  style.textContent = `
+    /* The global CLARA atmosphere is useful on cards, but it sits above user
+       artwork. Disable only that wash while the Community profile is open. */
+    body:has(.clara-community-profile-view)::before,
+    body:has(.clara-community-profile-view)::after {
+      opacity: 0 !important;
+    }
+
+    .clara-community-profile-view button[aria-label="View cover photo"] {
+      opacity: 1 !important;
+      filter: none !important;
+      background-blend-mode: normal !important;
+    }
+
+    .clara-community-profile-view button[aria-label="View profile photo"] img {
+      opacity: 1 !important;
+      filter: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 function syncProfileImageClarity() {
+  ensureProfileImageClarityStyles();
+
   document.querySelectorAll('button[aria-label="View cover photo"]').forEach((button) => {
     const inlineBackground = button.style.getPropertyValue("background-image");
     const urlStart = inlineBackground.indexOf("url(");
@@ -143,6 +173,8 @@ function syncShortcut() {
 export function installCommunityProfileEditShortcut() {
   if (installed || typeof window === "undefined" || typeof document === "undefined") return;
   installed = true;
+
+  ensureProfileImageClarityStyles();
 
   let frame = 0;
   const scheduleSync = () => {
