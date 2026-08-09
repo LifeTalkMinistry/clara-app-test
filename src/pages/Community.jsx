@@ -14,6 +14,7 @@ import Challenges from "./Challenges";
 import MyCircle from "./MyCircle";
 import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
+import CommunityHomeFinancialCarousel from "@/components/community/CommunityHomeFinancialCarousel";
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import {
@@ -297,6 +298,7 @@ export default function Community() {
             <div className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5">
               <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
             </div>
+            <CommunityHomeFinancialCarousel />
           </div>
         </main>
       ) : activeView === "feed" ? (
