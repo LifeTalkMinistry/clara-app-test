@@ -1,0 +1,205 @@
+/*
+ * CLARA Home premium theme
+ *
+ * The Feed is the visual source of truth. This pass specifically removes the
+ * old dashboard's loud cyan/violet card fills from Home and gives Daily Tip,
+ * Learning Hub, finance cards, and Money Left the same restrained premium
+ * navy/glass material used by the Community Feed.
+ * Presentation only — no finance, streak, guide, or interaction logic changes.
+ */
+
+.clara-community-root .clara-community-home-view {
+  background:
+    radial-gradient(circle at 92% 6%, rgba(91, 72, 246, 0.105), transparent 30%),
+    radial-gradient(circle at 4% 18%, rgba(24, 190, 178, 0.065), transparent 29%),
+    linear-gradient(180deg, #06111f 0%, #06111f 58%, #071126 100%) !important;
+}
+
+.clara-community-root .clara-community-home-view > div {
+  position: relative;
+  isolation: isolate;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Daily Money Tip — same restrained glass depth as a premium Feed card.      */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root .clara-community-home-view [data-clara-daily-tip-card="true"] {
+  position: relative;
+  z-index: 2;
+}
+
+.clara-community-root .clara-community-home-view .clara-daily-tip-face {
+  border-color: rgba(103, 132, 181, 0.22) !important;
+  background:
+    radial-gradient(circle at 2% 0%, rgba(45, 212, 191, 0.105), transparent 36%),
+    radial-gradient(circle at 100% 100%, rgba(99, 86, 232, 0.115), transparent 42%),
+    linear-gradient(145deg, rgba(10, 27, 50, 0.985), rgba(8, 20, 45, 0.99)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 46px rgba(0, 0, 0, 0.20),
+    0 0 26px rgba(43, 225, 216, 0.025) !important;
+}
+
+.clara-community-root .clara-community-home-view .clara-daily-tip-face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(112deg, rgba(255,255,255,0.035), transparent 25%, transparent 76%, rgba(255,255,255,0.014)),
+    radial-gradient(circle at 84% 16%, rgba(104, 87, 232, 0.055), transparent 28%);
+}
+
+.clara-community-root .clara-community-home-view .clara-checkin-action {
+  border: 1px solid rgba(91, 230, 222, 0.20) !important;
+  border-radius: 999px !important;
+  background: rgba(7, 24, 45, 0.72) !important;
+  color: rgba(203, 251, 245, 0.78) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 8px 20px rgba(0,0,0,0.14) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Learning Hub rail — premium navigation material, not a dashboard pill.     */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"],
+.clara-community-root .clara-community-home-learning-hub [data-clara-coaching-calendar-button="true"] {
+  border-color: rgba(103, 132, 181, 0.24) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(99, 86, 232, 0.08), transparent 42%),
+    linear-gradient(145deg, rgba(9, 27, 49, 0.97), rgba(8, 20, 44, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 12px 30px rgba(0, 0, 0, 0.18),
+    0 0 18px rgba(43, 225, 216, 0.035) !important;
+}
+
+.clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"] {
+  color: rgba(255,255,255,0.78) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Financial carousel — remove the old large turquoise/purple slab.           */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface {
+  border-color: rgba(109, 131, 181, 0.22) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(91, 72, 246, 0.085), transparent 40%),
+    linear-gradient(145deg, rgba(10, 27, 50, 0.995), rgba(8, 20, 45, 0.995)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 20px 52px rgba(0, 0, 0, 0.22),
+    0 0 34px rgba(43, 225, 216, 0.025) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.03), transparent 26%, transparent 74%, rgba(255,255,255,0.012)),
+    radial-gradient(circle at 82% 16%, rgba(104,87,232,0.045), transparent 27%);
+}
+
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Nested finance metrics and detail controls use the Feed's quieter inset glass. */
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is(
+  [class*="bg-white/"],
+  [class*="bg-black/"],
+  [class*="bg-[#071725]"],
+  [class*="bg-[#0a1a29]"]
+)[class*="rounded"] {
+  border-color: rgba(109, 131, 181, 0.13) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45,212,191,0.025), transparent 42%),
+    linear-gradient(145deg, rgba(7, 23, 43, 0.76), rgba(6, 17, 37, 0.80)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.022) !important;
+}
+
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface button[class*="border"] {
+  border-color: rgba(109, 131, 181, 0.18) !important;
+}
+
+/* Keep teal as a precise accent instead of flooding the entire card. */
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is(
+  [class*="text-emerald"],
+  [class*="text-teal"],
+  [class*="text-cyan"]
+) {
+  text-shadow: 0 0 18px rgba(43, 225, 216, 0.07);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Money Left — same Feed card material with the CLARA orb as the hero accent.*/
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root .clara-community-home-money-left {
+  padding-bottom: 4px;
+}
+
+.clara-community-root .clara-community-home-money-left [data-clara-dashboard-section="money-summary"] {
+  border-color: rgba(109, 131, 181, 0.22) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(91, 72, 246, 0.08), transparent 40%),
+    linear-gradient(145deg, rgba(10, 27, 50, 0.99), rgba(8, 20, 45, 0.995)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 18px 48px rgba(0, 0, 0, 0.20),
+    0 0 28px rgba(43, 225, 216, 0.025) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.clara-community-root .clara-community-home-money-left [data-clara-summary-privacy-toggle="true"],
+.clara-community-root .clara-community-home-money-left [data-clara-money-calculator-toggle="true"] {
+  border-color: rgba(109, 131, 181, 0.20) !important;
+  background: rgba(7, 23, 43, 0.72) !important;
+  color: rgba(226, 240, 255, 0.58) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+}
+
+.clara-community-root .clara-community-home-money-left [data-clara-orb-control="true"] > div:first-child {
+  opacity: 0.68 !important;
+}
+
+/* Give Home the same clean separation rhythm as Feed posts. */
+.clara-community-root .clara-community-home-financial-carousel::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 2px 16px 14px;
+  background: linear-gradient(90deg, transparent, rgba(109,131,181,0.12), rgba(43,225,216,0.10), transparent);
+}
+
+@media (max-width: 640px) {
+  .clara-community-root .clara-community-home-view {
+    background:
+      radial-gradient(circle at 100% 5%, rgba(91,72,246,0.09), transparent 28%),
+      radial-gradient(circle at 0% 17%, rgba(24,190,178,0.055), transparent 28%),
+      #06111f !important;
+  }
+
+  .clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface,
+  .clara-community-root .clara-community-home-money-left [data-clara-dashboard-section="money-summary"] {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      0 14px 36px rgba(0,0,0,0.18) !important;
+  }
+}
