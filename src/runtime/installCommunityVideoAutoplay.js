@@ -3,13 +3,90 @@ let installed = false;
 const COMMUNITY_VIDEO_SELECTOR = ".clara-community-post-card video";
 const MIN_VISIBLE_RATIO = 0.58;
 
+function createVolumeIcon(muted) {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("h-5", "w-5");
+
+  const addPath = (d) => {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  };
+
+  addPath("M11 5 6 9H2v6h4l5 4V5Z");
+
+  if (muted) {
+    addPath("m22 9-6 6");
+    addPath("m16 9 6 6");
+  } else {
+    addPath("M15.54 8.46a5 5 0 0 1 0 7.07");
+    addPath("M19.07 4.93a10 10 0 0 1 0 14.14");
+  }
+
+  return svg;
+}
+
 export function installCommunityVideoAutoplay() {
   if (installed || typeof window === "undefined" || typeof document === "undefined") return;
   installed = true;
 
   const preparedVideos = new WeakSet();
+  const muteControls = new WeakMap();
   let animationFrame = 0;
   let mutationObserver = null;
+
+  const updateMuteControl = (video) => {
+    const button = muteControls.get(video);
+    if (!button) return;
+
+    const muted = Boolean(video.muted);
+    const label = muted ? "Unmute video" : "Mute video";
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    button.setAttribute("aria-pressed", muted ? "true" : "false");
+    button.replaceChildren(createVolumeIcon(muted));
+  };
+
+  const ensureMuteControl = (video) => {
+    if (!video?.parentElement) return;
+
+    const existing = muteControls.get(video);
+    if (existing?.isConnected) {
+      updateMuteControl(video);
+      return;
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "clara-community-video-mute absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white shadow-lg backdrop-blur-md transition hover:bg-black/75 active:scale-95";
+    button.dataset.claraCommunityVideoMute = "true";
+
+    const stopFrameInteraction = (event) => {
+      event.stopPropagation();
+    };
+
+    button.addEventListener("pointerdown", stopFrameInteraction);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      video.muted = !video.muted;
+      video.defaultMuted = video.muted;
+      updateMuteControl(video);
+    });
+
+    muteControls.set(video, button);
+    video.parentElement.appendChild(button);
+    updateMuteControl(video);
+  };
 
   const scheduleEvaluation = () => {
     if (animationFrame) return;
@@ -29,11 +106,16 @@ export function installCommunityVideoAutoplay() {
   };
 
   const prepareVideo = (video) => {
-    if (!video || preparedVideos.has(video)) return;
+    if (!video) return;
+    if (preparedVideos.has(video)) {
+      ensureMuteControl(video);
+      return;
+    }
     preparedVideos.add(video);
 
     // Browsers only guarantee scroll-triggered autoplay when media starts muted.
-    // Users can still unmute with the native controls; we do not force-mute it again.
+    // The persistent button keeps the mute state visible and gives touch users
+    // a reliable one-tap way to turn audio on or off without waiting for controls.
     video.playsInline = true;
     video.setAttribute("playsinline", "");
     video.setAttribute("webkit-playsinline", "");
@@ -41,6 +123,8 @@ export function installCommunityVideoAutoplay() {
     video.muted = true;
     video.loop = true;
 
+    ensureMuteControl(video);
+    video.addEventListener("volumechange", () => updateMuteControl(video), { passive: true });
     video.addEventListener("loadedmetadata", scheduleEvaluation, { passive: true });
     video.addEventListener("canplay", scheduleEvaluation, { passive: true });
     video.addEventListener("emptied", scheduleEvaluation, { passive: true });
@@ -58,6 +142,7 @@ export function installCommunityVideoAutoplay() {
           if (!video.isConnected || !video.paused) return;
           video.muted = true;
           video.defaultMuted = true;
+          updateMuteControl(video);
           video.play().catch(() => {});
         });
       }
