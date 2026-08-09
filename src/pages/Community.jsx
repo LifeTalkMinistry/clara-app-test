@@ -14,6 +14,7 @@ import Challenges from "./Challenges";
 import MyCircle from "./MyCircle";
 import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
+import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -251,7 +252,14 @@ export default function Community() {
       `}</style>
 
       {activeView === "home" ? (
-        <main className="clara-community-home-view min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f]" aria-label="CLARA Home" />
+        <main
+          className="clara-community-home-view min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f] pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:pt-6"
+          aria-label="CLARA Home"
+        >
+          <div className="mx-auto w-full max-w-3xl">
+            <FreeDailyTipCard flushSpacing />
+          </div>
+        </main>
       ) : activeView === "feed" ? (
         <div className="clara-community-feed-view min-h-0 flex-1 overflow-hidden">
           <CommunityBackend />
