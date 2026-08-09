@@ -1,6 +1,7 @@
 let installed = false;
 
 const SHORTCUT_ATTR = "data-clara-profile-edit-shortcut";
+const SHORTCUT_ROW_ATTR = "data-clara-profile-edit-shortcut-row";
 
 function findOwnProfileEditButton() {
   return Array.from(document.querySelectorAll("header button")).find(
@@ -11,12 +12,10 @@ function findOwnProfileEditButton() {
 function findProfileHero(editButton) {
   if (!editButton) return null;
   const root = editButton.closest("div.min-h-screen") || document;
+
   return Array.from(root.querySelectorAll("section")).find((section) => {
     const text = String(section.textContent || "");
-    const hasProfileMedia = Boolean(
-      section.querySelector('button[aria-label="View profile photo"], button[aria-label="View cover photo"]')
-    );
-    return hasProfileMedia && text.includes("Community Member");
+    return text.includes("Community Member") && Boolean(section.querySelector("h2"));
   }) || null;
 }
 
@@ -25,6 +24,14 @@ function findHeroBody(hero) {
   return Array.from(hero.children).find((child) => {
     const className = String(child.className || "");
     return className.includes("relative") && className.includes("px-5") && className.includes("pb-5");
+  }) || null;
+}
+
+function findAvatarRow(heroBody) {
+  if (!heroBody) return null;
+  return Array.from(heroBody.children).find((child) => {
+    const className = String(child.className || "");
+    return className.includes("-mt-12") && className.includes("flex") && className.includes("items-end");
   }) || null;
 }
 
@@ -37,8 +44,16 @@ function pencilIcon() {
   `;
 }
 
+function restoreShortcutRow() {
+  const row = document.querySelector(`[${SHORTCUT_ROW_ATTR}]`);
+  if (!row) return;
+  row.style.removeProperty("justify-content");
+  row.removeAttribute(SHORTCUT_ROW_ATTR);
+}
+
 function removeShortcut() {
   document.querySelector(`[${SHORTCUT_ATTR}]`)?.remove();
+  restoreShortcutRow();
 }
 
 function syncShortcut() {
@@ -48,19 +63,20 @@ function syncShortcut() {
   // The normal Edit button only exists on the owner's profile while not editing.
   // If it disappears, the shortcut must disappear too (editing mode / other profile / route change).
   if (!editButton) {
-    existing?.remove();
+    removeShortcut();
     return;
   }
 
   const hero = findProfileHero(editButton);
   const heroBody = findHeroBody(hero);
-  if (!heroBody) {
-    existing?.remove();
+  const avatarRow = findAvatarRow(heroBody);
+  if (!avatarRow) {
+    removeShortcut();
     return;
   }
 
-  if (existing && existing.parentElement === heroBody) return;
-  existing?.remove();
+  if (existing && existing.parentElement === avatarRow) return;
+  removeShortcut();
 
   const shortcut = document.createElement("button");
   shortcut.type = "button";
@@ -68,13 +84,13 @@ function syncShortcut() {
   shortcut.setAttribute("aria-label", "Edit full profile");
   shortcut.title = "Edit profile";
   shortcut.innerHTML = pencilIcon();
-  shortcut.className = "absolute z-30 flex items-center justify-center rounded-full border border-[#76fff7]/55 bg-[#0d5360] text-[#d9fffc] shadow-[0_6px_18px_rgba(0,0,0,0.34)] backdrop-blur-md transition active:scale-95";
+  shortcut.className = "z-30 inline-flex shrink-0 items-center justify-center rounded-full border border-[#76fff7]/45 bg-[#0d5360] text-[#d9fffc] shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-md transition hover:border-[#8ffff8]/70 hover:bg-[#126573] active:scale-95";
   shortcut.style.width = "34px";
   shortcut.style.height = "34px";
-  shortcut.style.left = "88px";
-  shortcut.style.top = "-3px";
+  shortcut.style.marginLeft = "10px";
+  shortcut.style.marginBottom = "6px";
   shortcut.style.cursor = "pointer";
-  shortcut.style.background = "linear-gradient(145deg, rgba(15,118,110,.98), rgba(17,94,105,.98))";
+  shortcut.style.background = "linear-gradient(145deg, rgba(15,83,96,.96), rgba(17,66,84,.96))";
 
   shortcut.addEventListener("click", (event) => {
     event.preventDefault();
@@ -83,7 +99,12 @@ function syncShortcut() {
     if (currentEditButton) currentEditButton.click();
   });
 
-  heroBody.appendChild(shortcut);
+  // Keep the pencil as a separate control beside the avatar/initials instead of
+  // visually attaching it to the profile photo. This also makes the shortcut
+  // available when a member has not uploaded a profile or cover image yet.
+  avatarRow.setAttribute(SHORTCUT_ROW_ATTR, "true");
+  avatarRow.style.justifyContent = "flex-start";
+  avatarRow.appendChild(shortcut);
 }
 
 export function installCommunityProfileEditShortcut() {
