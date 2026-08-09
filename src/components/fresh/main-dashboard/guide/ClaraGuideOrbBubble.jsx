@@ -6,7 +6,7 @@ const COPY = {
     items: [
       ["1 TAP", "Log Expense"],
       ["2 TAPS", "Transaction Hub"],
-      ["HOLD", "Chat with CLARA"],
+      ["HOLD", "Pause Before Buying"],
     ],
     showNext: true,
   },
@@ -21,13 +21,13 @@ const COPY = {
     footer: "DOUBLE-TAP THE ORB NOW.",
   },
   "await-hold": {
-    title: "HOLD — CHAT WITH CLARA",
-    body: "Press and hold the real orb until the production CLARA chat opens.",
+    title: "HOLD — PAUSE BEFORE BUYING",
+    body: "Press and hold the real orb to open CLARA’s Pause Before Buying flow before a purchase.",
     footer: "PRESS AND HOLD THE ORB NOW.",
   },
   complete: {
     title: "ORB READY",
-    body: "Tap once to log an expense, tap twice for Transaction Hub, or hold to chat with CLARA.",
+    body: "Tap once to log an expense, tap twice for Transaction Hub, or hold to pause before buying.",
     footer: "YOU NOW KNOW ALL THREE ORB ACTIONS.",
     showNext: true,
   },
