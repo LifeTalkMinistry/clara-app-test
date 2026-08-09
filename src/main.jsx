@@ -12,6 +12,7 @@ import { installDailyTipFlipSound } from "./runtime/installDailyTipFlipSound";
 import { installLearningHubOpenSound } from "./runtime/installLearningHubOpenSound";
 import { installMoneyVisibilitySound } from "./runtime/installMoneyVisibilitySound";
 import { installFinancialCarouselSwipeSound } from "./runtime/installFinancialCarouselSwipeSound";
+import { installCommunityVideoAutoplay } from "./runtime/installCommunityVideoAutoplay";
 import { installClaraBackgroundRuntimeGuard } from "./runtime/installClaraBackgroundRuntimeGuard";
 import { installBudgetSetupCopyCleanup } from "./runtime/installBudgetSetupCopyCleanup";
 import { installClaraGuideDemoPatches } from "./runtime/installClaraGuideDemoPatches";
@@ -160,6 +161,12 @@ try {
   installFinancialCarouselSwipeSound();
 } catch (error) {
   console.warn("Financial carousel swipe sound failed to init:", error);
+}
+
+try {
+  installCommunityVideoAutoplay();
+} catch (error) {
+  console.warn("Community video autoplay failed to init:", error);
 }
 
 try {
