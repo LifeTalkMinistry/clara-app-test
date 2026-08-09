@@ -36,10 +36,18 @@ function setBridgeHidden(bridge) {
   bridge.style.pointerEvents = "none";
 }
 
+function setImportantStyle(element, property, value) {
+  element?.style?.setProperty?.(property, value, "important");
+}
+
 function forceViewportGuideSurface(element, { centerContent = false } = {}) {
   if (!element) return;
 
-  Object.assign(element.style, {
+  // Community has several historical mobile/layout rules that use !important.
+  // Normal inline styles lose to those rules, which made the Guide mount as a
+  // flex child below the visible page. Apply the Guide's viewport ownership at
+  // the same priority so the intro/tour cannot be pushed into Home/My Circle.
+  const viewportStyles = {
     position: "fixed",
     inset: "0px",
     left: "0px",
@@ -48,23 +56,38 @@ function forceViewportGuideSurface(element, { centerContent = false } = {}) {
     bottom: "0px",
     width: "100vw",
     height: "100dvh",
-    minWidth: "100vw",
-    minHeight: "100dvh",
-    maxWidth: "none",
-    maxHeight: "none",
+    "min-width": "100vw",
+    "min-height": "100dvh",
+    "max-width": "none",
+    "max-height": "none",
     margin: "0px",
     transform: "none",
-    zIndex: "2147483550",
+    "z-index": "2147483550",
+    visibility: "visible",
+    opacity: "1",
+    "pointer-events": "auto",
+    "box-sizing": "border-box",
+  };
+
+  Object.entries(viewportStyles).forEach(([property, value]) => {
+    setImportantStyle(element, property, value);
   });
 
   if (centerContent) {
-    Object.assign(element.style, {
+    const centerStyles = {
       display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
+      "align-items": "center",
+      "justify-content": "center",
+      overflow: "auto",
       padding: "24px 16px",
+    };
+
+    Object.entries(centerStyles).forEach(([property, value]) => {
+      setImportantStyle(element, property, value);
     });
+  } else {
+    setImportantStyle(element, "display", "block");
+    setImportantStyle(element, "overflow", "visible");
   }
 }
 
@@ -174,11 +197,12 @@ function createBridge() {
     // React-owned Safe Walkthrough modal.
     launcher.click();
 
-    // React mounts the intro on the next render. Normalize it immediately and
-    // again shortly after so Community flex/overflow rules cannot push it below
-    // the viewport.
+    // React mounts the intro on the next render. Normalize on several frames so
+    // late Community/mobile CSS cannot move it after React paints.
     window.requestAnimationFrame(normalizeGuideSurfaces);
+    window.setTimeout(normalizeGuideSurfaces, 0);
     window.setTimeout(normalizeGuideSurfaces, 30);
+    window.setTimeout(normalizeGuideSurfaces, 120);
     window.setTimeout(() => syncBridgeToLauncher(bridge), 180);
   };
 
