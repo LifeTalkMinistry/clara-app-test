@@ -50,6 +50,9 @@ const ProgramOnboarding = lazy(() =>
 );
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
+const CLARA_HOME_PATH = "/community?view=home";
+const LEGACY_DASHBOARD_PATH = "/legacy-dashboard";
+
 function FullScreenLoader({ message = "Loading CLARA..." }) {
   return (
     <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
@@ -67,11 +70,11 @@ function getHomeRedirectPath({
   forceEnroll,
   offlineAccessActive,
 }) {
-  if (offlineAccessActive) return "/dashboard";
+  if (offlineAccessActive) return CLARA_HOME_PATH;
   if (isAdvertiser) return "/advertiser";
   if (flow === "program_onboarding") return "/program-onboarding";
   if (forceEnroll) return "/enroll";
-  return "/dashboard";
+  return CLARA_HOME_PATH;
 }
 
 function GuardedRoute({
@@ -82,7 +85,12 @@ function GuardedRoute({
   path,
   offlineAccessActive = false,
 }) {
-  if (offlineAccessActive && path === "/dashboard") return children;
+  if (
+    offlineAccessActive &&
+    (path === "/dashboard" || path === "/community" || path === LEGACY_DASHBOARD_PATH)
+  ) {
+    return children;
+  }
   if (featureKey && !isFeatureAvailable(featureKey)) {
     return <Navigate to="/enroll" replace state={{ from: path }} />;
   }
@@ -235,7 +243,7 @@ function AppRoutes() {
         />
         <Route
           path="/link-local-vault"
-          element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
+          element={<Navigate to={user ? CLARA_HOME_PATH : "/login"} replace />}
         />
         <Route path="/app-preview" element={<AppPreview />} />
         <Route
@@ -251,7 +259,7 @@ function AppRoutes() {
                     />
                     <Route
                       path="/onboarding"
-                      element={<Navigate to="/dashboard" replace />}
+                      element={<Navigate to={CLARA_HOME_PATH} replace />}
                     />
                     <Route
                       path="/program-onboarding"
@@ -259,7 +267,7 @@ function AppRoutes() {
                     />
                     <Route
                       path="/pending"
-                      element={<Navigate to="/dashboard" replace />}
+                      element={<Navigate to={CLARA_HOME_PATH} replace />}
                     />
                     <Route path="/enroll" element={<Enroll />} />
                     <Route path="/tier-select" element={<TierSelect />} />
@@ -270,7 +278,16 @@ function AppRoutes() {
                     />
                     <Route
                       path="/dashboard"
-                      element={guard(<Dashboard />, "/dashboard")}
+                      element={<Navigate to={CLARA_HOME_PATH} replace />}
+                    />
+                    <Route
+                      path={LEGACY_DASHBOARD_PATH}
+                      element={guard(
+                        <Dashboard />,
+                        LEGACY_DASHBOARD_PATH,
+                        forceEnroll,
+                        "/dashboard"
+                      )}
                     />
                     <Route
                       path="/welcome-session"
@@ -278,11 +295,11 @@ function AppRoutes() {
                     />
                     <Route
                       path="/coaching-mock-preview"
-                      element={<Navigate to="/dashboard" replace />}
+                      element={<Navigate to={CLARA_HOME_PATH} replace />}
                     />
                     <Route
                       path="/lifeos"
-                      element={<Navigate to="/dashboard" replace />}
+                      element={<Navigate to={CLARA_HOME_PATH} replace />}
                     />
                     <Route
                       path="/investment-plan"
@@ -373,11 +390,11 @@ function AppRoutes() {
                     />
                     <Route
                       path="/settings"
-                      element={<Navigate to="/dashboard" replace />}
+                      element={<Navigate to="/community?view=profile" replace />}
                     />
                     <Route
                       path="/settings/:section"
-                      element={<Navigate to="/dashboard" replace />}
+                      element={<Navigate to="/community?view=profile" replace />}
                     />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/data-export" element={<DataExport />} />
