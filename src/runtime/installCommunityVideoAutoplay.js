@@ -48,10 +48,14 @@ export function installCommunityVideoAutoplay() {
     if (!button) return;
 
     const muted = Boolean(video.muted);
+    const mutedState = muted ? "true" : "false";
+    if (button.dataset.muted === mutedState) return;
+
     const label = muted ? "Unmute video" : "Mute video";
+    button.dataset.muted = mutedState;
     button.setAttribute("aria-label", label);
     button.setAttribute("title", label);
-    button.setAttribute("aria-pressed", muted ? "true" : "false");
+    button.setAttribute("aria-pressed", mutedState);
     button.replaceChildren(createVolumeIcon(muted));
   };
 
