@@ -1,205 +1,167 @@
-/*
- * CLARA Home premium theme
- *
- * The Feed is the visual source of truth. This pass specifically removes the
- * old dashboard's loud cyan/violet card fills from Home and gives Daily Tip,
- * Learning Hub, finance cards, and Money Left the same restrained premium
- * navy/glass material used by the Community Feed.
- * Presentation only — no finance, streak, guide, or interaction logic changes.
- */
-
-.clara-community-root .clara-community-home-view {
+/* CLARA Home — official Philippine brand theme. Home-only; presentation only. */
+.clara-community-root[data-community-view="home"]{
+  --ch-blue:#0867ff;--ch-sky:#19b5ff;--ch-gold:#ffd84a;--ch-red:#f32645;--ch-soft:#8fc7ff;
+}
+.clara-community-root .clara-community-home-view{
+  position:relative;isolation:isolate;
   background:
-    radial-gradient(circle at 92% 6%, rgba(91, 72, 246, 0.105), transparent 30%),
-    radial-gradient(circle at 4% 18%, rgba(24, 190, 178, 0.065), transparent 29%),
-    linear-gradient(180deg, #06111f 0%, #06111f 58%, #071126 100%) !important;
+    radial-gradient(circle at 4% 5%,rgba(25,181,255,.13),transparent 24%),
+    radial-gradient(circle at 96% 15%,rgba(8,103,255,.10),transparent 28%),
+    radial-gradient(circle at 102% 72%,rgba(243,38,69,.055),transparent 31%),
+    linear-gradient(180deg,#040b18 0%,#050d1d 44%,#040a16 100%)!important;
 }
-
-.clara-community-root .clara-community-home-view > div {
-  position: relative;
-  isolation: isolate;
+.clara-community-root .clara-community-home-view::before{
+  content:"";position:fixed;z-index:0;top:74px;left:-95px;width:250px;height:250px;border-radius:50%;
+  pointer-events:none;opacity:.42;
+  background:repeating-conic-gradient(from -8deg,rgba(255,216,74,.028) 0 3deg,transparent 3deg 18deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0 25%,transparent 68%);mask-image:radial-gradient(circle,#000 0 25%,transparent 68%);
 }
-
-/* -------------------------------------------------------------------------- */
-/* Daily Money Tip — same restrained glass depth as a premium Feed card.      */
-/* -------------------------------------------------------------------------- */
-
-.clara-community-root .clara-community-home-view [data-clara-daily-tip-card="true"] {
-  position: relative;
-  z-index: 2;
+.clara-community-root .clara-community-home-view::after{
+  content:"";position:fixed;z-index:0;right:-120px;bottom:8%;width:300px;height:260px;border-radius:50%;
+  pointer-events:none;background:radial-gradient(circle,rgba(243,38,69,.075),transparent 66%);filter:blur(12px);
 }
+.clara-community-root .clara-community-home-view>div{position:relative;z-index:1;isolation:isolate}
 
-.clara-community-root .clara-community-home-view .clara-daily-tip-face {
-  border-color: rgba(103, 132, 181, 0.22) !important;
+/* Home shell/nav */
+.clara-community-root[data-community-view="home"] .clara-community-shell-header{
+  border-bottom-color:rgba(100,145,207,.13)!important;
   background:
-    radial-gradient(circle at 2% 0%, rgba(45, 212, 191, 0.105), transparent 36%),
-    radial-gradient(circle at 100% 100%, rgba(99, 86, 232, 0.115), transparent 42%),
-    linear-gradient(145deg, rgba(10, 27, 50, 0.985), rgba(8, 20, 45, 0.99)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 46px rgba(0, 0, 0, 0.20),
-    0 0 26px rgba(43, 225, 216, 0.025) !important;
+    radial-gradient(circle at 6% 0%,rgba(25,181,255,.095),transparent 34%),
+    radial-gradient(circle at 98% 100%,rgba(243,38,69,.035),transparent 30%),
+    linear-gradient(180deg,rgba(3,8,20,.995),rgba(5,13,29,.985))!important;
+  box-shadow:0 10px 30px rgba(0,0,0,.16);
+}
+.clara-community-root[data-community-view="home"] .clara-community-nav-item{
+  border-color:rgba(98,139,196,.18)!important;background:rgba(7,21,43,.80)!important;color:rgba(201,220,243,.53)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 6px 18px rgba(0,0,0,.12)!important;
+}
+.clara-community-root[data-community-view="home"] .clara-community-nav-item[aria-current="page"]{
+  border-color:rgba(64,158,255,.48)!important;color:#9bd4ff!important;
+  background:radial-gradient(circle at 36% 28%,rgba(25,181,255,.22),transparent 48%),linear-gradient(145deg,rgba(9,41,78,.96),rgba(5,20,44,.98))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(8,103,255,.08),0 0 24px rgba(8,103,255,.17)!important;
+}
+.clara-community-root[data-community-view="home"] .clara-community-nav-item[aria-current="page"]>span[class*="-bottom"]{
+  background:linear-gradient(90deg,transparent,var(--ch-blue) 20%,var(--ch-gold) 50%,var(--ch-blue) 80%,transparent)!important;
+  box-shadow:0 0 12px rgba(8,103,255,.55),0 0 8px rgba(255,216,74,.18)!important;
+}
+.clara-community-root[data-community-view="home"] a[aria-label="Community notifications"]>span[class*="-top-1"]{
+  border-color:#071329!important;background:var(--ch-red)!important;color:#fff!important;box-shadow:0 0 12px rgba(243,38,69,.34)!important;
+}
+.clara-community-root[data-community-view="home"] a[aria-label="Open Community profile"]{
+  border-color:rgba(255,216,74,.20)!important;color:rgba(255,255,255,.86)!important;
+  background:radial-gradient(circle at 28% 20%,rgba(25,181,255,.16),transparent 42%),linear-gradient(145deg,rgba(8,31,61,.96),rgba(6,17,37,.98))!important;
 }
 
-.clara-community-root .clara-community-home-view .clara-daily-tip-face::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background:
-    linear-gradient(112deg, rgba(255,255,255,0.035), transparent 25%, transparent 76%, rgba(255,255,255,0.014)),
-    radial-gradient(circle at 84% 16%, rgba(104, 87, 232, 0.055), transparent 28%);
+/* Daily Money Tip */
+.clara-community-root .clara-community-home-view .clara-daily-tip-scene::before,
+.clara-community-root .clara-community-home-view .clara-daily-tip-face{
+  border-color:rgba(77,142,225,.22)!important;
+  background:radial-gradient(circle at 0% 0%,rgba(25,181,255,.14),transparent 38%),radial-gradient(circle at 100% 100%,rgba(243,38,69,.045),transparent 40%),linear-gradient(145deg,rgba(7,26,53,.995),rgba(4,14,34,.995))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 46px rgba(0,0,0,.22),0 0 30px rgba(8,103,255,.035)!important;
 }
-
-.clara-community-root .clara-community-home-view .clara-checkin-action {
-  border: 1px solid rgba(91, 230, 222, 0.20) !important;
-  border-radius: 999px !important;
-  background: rgba(7, 24, 45, 0.72) !important;
-  color: rgba(203, 251, 245, 0.78) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.04),
-    0 8px 20px rgba(0,0,0,0.14) !important;
+.clara-community-root .clara-community-home-view .clara-daily-tip-face--front>.relative.grid>:first-child,
+.clara-community-root .clara-community-home-view .clara-daily-tip-face--back span[class*="uppercase"]{color:rgba(255,216,74,.78)!important}
+.clara-community-root .clara-community-home-view .clara-checkin-action{
+  border-color:rgba(74,149,242,.24)!important;background:rgba(6,24,49,.78)!important;color:rgba(219,236,255,.76)!important;text-shadow:none!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 20px rgba(0,0,0,.15)!important;
 }
+.clara-community-root .clara-community-home-view [data-check-in-state="available"] .clara-checkin-action{
+  border-color:rgba(111,186,255,.72)!important;background:linear-gradient(135deg,rgba(9,80,173,.94),rgba(8,103,255,.86),rgba(17,77,160,.90))!important;
+  color:#f4f9ff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 0 18px rgba(8,103,255,.28),0 8px 22px rgba(0,0,0,.18)!important;
+}
+.clara-community-root .clara-community-home-view [data-check-in-state="completed-local"] .clara-checkin-action{
+  border-color:rgba(255,216,74,.24)!important;background:rgba(29,35,42,.72)!important;color:rgba(255,233,141,.82)!important;
+}
+.clara-community-root .clara-community-home-view .clara-checkin-dot{border-color:rgba(120,151,190,.17)!important;background:rgba(87,117,154,.23)!important}
+.clara-community-root .clara-community-home-view .clara-checkin-dot--done{
+  border-color:rgba(111,186,255,.50)!important;background:rgba(111,186,255,.72)!important;
+  box-shadow:0 0 5px rgba(25,181,255,.20),0 0 10px rgba(8,103,255,.10),inset 0 1px 0 rgba(255,255,255,.42)!important;filter:brightness(.86)!important;
+}
+.clara-community-root .clara-community-home-view .clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done)){
+  border-color:rgba(255,233,141,.88)!important;background:var(--ch-gold)!important;filter:none!important;opacity:1!important;
+  box-shadow:0 0 0 2px rgba(255,216,74,.10),0 0 9px rgba(255,216,74,.38),0 0 18px rgba(255,216,74,.14),inset 0 1px 0 rgba(255,255,255,.68)!important;
+}
+.clara-community-root .clara-community-home-view .clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done))::before{border-color:rgba(255,216,74,.62)!important}
+.clara-community-root .clara-community-home-view .clara-checkin-dot--today:not(.clara-checkin-dot--done){
+  border-color:rgba(255,216,74,.86)!important;background:rgba(255,216,74,.12)!important;box-shadow:0 0 0 2px rgba(255,216,74,.08),0 0 12px rgba(255,216,74,.26)!important;
+}
+.clara-community-root .clara-community-home-view .clara-checkin-dot--missed{border-color:rgba(243,38,69,.48)!important;background:rgba(243,38,69,.14)!important}
+.clara-community-root .clara-community-home-view .clara-checkin-metrics>span{border-color:rgba(87,126,178,.14)!important;background:rgba(3,13,30,.34)!important}
+.clara-community-root .clara-community-home-view .clara-checkin-metrics small{color:rgba(181,207,238,.53)!important}
 
-/* -------------------------------------------------------------------------- */
-/* Learning Hub rail — premium navigation material, not a dashboard pill.     */
-/* -------------------------------------------------------------------------- */
-
+/* Learning Hub */
 .clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"],
-.clara-community-root .clara-community-home-learning-hub [data-clara-coaching-calendar-button="true"] {
-  border-color: rgba(103, 132, 181, 0.24) !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 40%),
-    radial-gradient(circle at 100% 100%, rgba(99, 86, 232, 0.08), transparent 42%),
-    linear-gradient(145deg, rgba(9, 27, 49, 0.97), rgba(8, 20, 44, 0.98)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 12px 30px rgba(0, 0, 0, 0.18),
-    0 0 18px rgba(43, 225, 216, 0.035) !important;
+.clara-community-root .clara-community-home-learning-hub [data-clara-coaching-calendar-button="true"]{
+  border-color:rgba(76,139,218,.25)!important;
+  background:radial-gradient(circle at 0% 0%,rgba(25,181,255,.09),transparent 42%),linear-gradient(145deg,rgba(7,27,52,.98),rgba(5,17,38,.99))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 12px 30px rgba(0,0,0,.18),0 0 18px rgba(8,103,255,.035)!important;
 }
+.clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"]{color:rgba(244,248,255,.80)!important}
+.clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"] svg{color:rgba(143,199,255,.72)!important}
+.clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"] svg:last-child{color:rgba(255,216,74,.48)!important}
+.clara-community-root .clara-community-home-learning-hub [class*="bg-emerald"],
+.clara-community-root .clara-community-home-learning-hub [class*="bg-teal"]{background-color:rgba(255,216,74,.92)!important;color:#131824!important}
 
-.clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"] {
-  color: rgba(255,255,255,0.78) !important;
+/* Finance carousel */
+.clara-community-root .clara-community-home-financial-carousel::before{
+  content:"";display:block;height:1px;margin:2px 16px 14px;
+  background:linear-gradient(90deg,transparent,rgba(87,129,188,.12),rgba(8,103,255,.16),rgba(255,216,74,.075),transparent);
 }
-
-/* -------------------------------------------------------------------------- */
-/* Financial carousel — remove the old large turquoise/purple slab.           */
-/* -------------------------------------------------------------------------- */
-
-.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface {
-  border-color: rgba(109, 131, 181, 0.22) !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 34%),
-    radial-gradient(circle at 100% 100%, rgba(91, 72, 246, 0.085), transparent 40%),
-    linear-gradient(145deg, rgba(10, 27, 50, 0.995), rgba(8, 20, 45, 0.995)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 20px 52px rgba(0, 0, 0, 0.22),
-    0 0 34px rgba(43, 225, 216, 0.025) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface{
+  border-color:rgba(76,127,199,.22)!important;
+  background:radial-gradient(circle at 0% 0%,rgba(25,181,255,.10),transparent 35%),radial-gradient(circle at 102% 104%,rgba(243,38,69,.04),transparent 37%),linear-gradient(145deg,rgba(7,24,49,.997),rgba(4,14,34,.998))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 52px rgba(0,0,0,.23),0 0 34px rgba(8,103,255,.025)!important;
+  backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;
 }
-
-.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background:
-    linear-gradient(115deg, rgba(255,255,255,0.03), transparent 26%, transparent 74%, rgba(255,255,255,0.012)),
-    radial-gradient(circle at 82% 16%, rgba(104,87,232,0.045), transparent 27%);
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(115deg,rgba(255,255,255,.028),transparent 26%,transparent 74%,rgba(255,255,255,.01)),radial-gradient(circle at 84% 13%,rgba(8,103,255,.045),transparent 25%);
 }
-
-.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface > * {
-  position: relative;
-  z-index: 1;
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface>*{position:relative;z-index:1}
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is([class*="bg-white/"],[class*="bg-black/"],[class*="bg-[#071725]"],[class*="bg-[#0a1a29]"])[class*="rounded"]{
+  border-color:rgba(84,126,181,.13)!important;background:linear-gradient(145deg,rgba(5,19,39,.80),rgba(3,12,29,.84))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.022)!important;
 }
-
-/* Nested finance metrics and detail controls use the Feed's quieter inset glass. */
-.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is(
-  [class*="bg-white/"],
-  [class*="bg-black/"],
-  [class*="bg-[#071725]"],
-  [class*="bg-[#0a1a29]"]
-)[class*="rounded"] {
-  border-color: rgba(109, 131, 181, 0.13) !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(45,212,191,0.025), transparent 42%),
-    linear-gradient(145deg, rgba(7, 23, 43, 0.76), rgba(6, 17, 37, 0.80)) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.022) !important;
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface button[class*="border"]{border-color:rgba(86,132,193,.19)!important}
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is([class*="text-cyan"],[class*="text-teal"],[class*="text-indigo"],[class*="text-violet"],[class*="text-purple"]){
+  color:rgba(143,199,255,.82)!important;text-shadow:0 0 16px rgba(8,103,255,.06);
 }
+.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is([class*="bg-indigo"],[class*="bg-violet"],[class*="bg-purple"]){background-color:rgba(8,103,255,.10)!important}
 
-.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface button[class*="border"] {
-  border-color: rgba(109, 131, 181, 0.18) !important;
+/* Money Left */
+.clara-community-root .clara-community-home-money-left [data-clara-dashboard-section="money-summary"]{
+  border-color:rgba(76,127,199,.23)!important;
+  background:radial-gradient(circle at 0% 0%,rgba(25,181,255,.095),transparent 35%),radial-gradient(circle at 100% 55%,rgba(243,38,69,.038),transparent 29%),linear-gradient(145deg,rgba(7,24,49,.995),rgba(4,14,34,.998))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 18px 48px rgba(0,0,0,.21),0 0 28px rgba(8,103,255,.025)!important;
 }
-
-/* Keep teal as a precise accent instead of flooding the entire card. */
-.clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface :is(
-  [class*="text-emerald"],
-  [class*="text-teal"],
-  [class*="text-cyan"]
-) {
-  text-shadow: 0 0 18px rgba(43, 225, 216, 0.07);
+.clara-community-root .clara-community-home-money-left [data-clara-summary-card="money-left"],
+.clara-community-root .clara-community-home-money-left [data-clara-summary-card="total-expense"]{
+  background:radial-gradient(circle at 0% 0%,rgba(8,103,255,.035),transparent 48%),linear-gradient(145deg,rgba(5,19,39,.46),rgba(3,12,29,.58))!important;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Money Left — same Feed card material with the CLARA orb as the hero accent.*/
-/* -------------------------------------------------------------------------- */
-
-.clara-community-root .clara-community-home-money-left {
-  padding-bottom: 4px;
-}
-
-.clara-community-root .clara-community-home-money-left [data-clara-dashboard-section="money-summary"] {
-  border-color: rgba(109, 131, 181, 0.22) !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.075), transparent 34%),
-    radial-gradient(circle at 100% 100%, rgba(91, 72, 246, 0.08), transparent 40%),
-    linear-gradient(145deg, rgba(10, 27, 50, 0.99), rgba(8, 20, 45, 0.995)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 18px 48px rgba(0, 0, 0, 0.20),
-    0 0 28px rgba(43, 225, 216, 0.025) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-}
-
+.clara-community-root .clara-community-home-money-left [data-clara-summary-card="total-expense"]{border-color:rgba(80,125,184,.14)!important}
 .clara-community-root .clara-community-home-money-left [data-clara-summary-privacy-toggle="true"],
-.clara-community-root .clara-community-home-money-left [data-clara-money-calculator-toggle="true"] {
-  border-color: rgba(109, 131, 181, 0.20) !important;
-  background: rgba(7, 23, 43, 0.72) !important;
-  color: rgba(226, 240, 255, 0.58) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+.clara-community-root .clara-community-home-money-left [data-clara-money-calculator-toggle="true"]{
+  border-color:rgba(84,136,204,.22)!important;background:rgba(5,20,41,.78)!important;color:rgba(205,225,248,.58)!important;
 }
-
-.clara-community-root .clara-community-home-money-left [data-clara-orb-control="true"] > div:first-child {
-  opacity: 0.68 !important;
+.clara-community-root .clara-community-home-money-left [data-clara-orb-control="true"]>div:first-child{
+  opacity:.82!important;background:radial-gradient(circle,rgba(25,181,255,.23) 0%,rgba(8,103,255,.18) 38%,rgba(243,38,69,.08) 56%,transparent 76%)!important;
+  box-shadow:0 0 18px rgba(8,103,255,.30),0 0 30px rgba(243,38,69,.08)!important;
 }
-
-/* Give Home the same clean separation rhythm as Feed posts. */
-.clara-community-root .clara-community-home-financial-carousel::before {
-  content: "";
-  display: block;
-  height: 1px;
-  margin: 2px 16px 14px;
-  background: linear-gradient(90deg, transparent, rgba(109,131,181,0.12), rgba(43,225,216,0.10), transparent);
+.clara-community-root .clara-community-home-money-left [data-clara-orb-control="true"]>div:nth-child(2){border-color:rgba(77,145,232,.20)!important;background:rgba(5,18,38,.68)!important}
+.clara-community-root .clara-community-home-money-left [data-clara-manual-expense-orb="true"]{
+  border-color:rgba(100,165,247,.24)!important;background-color:rgba(4,14,31,.82)!important;
+  background-image:url("./assets/clara-official-home-orb.webp")!important;background-position:center!important;background-repeat:no-repeat!important;background-size:108% 108%!important;
+  box-shadow:0 0 18px rgba(8,103,255,.22),inset 0 1px 0 rgba(255,255,255,.055)!important;
 }
+.clara-community-root .clara-community-home-money-left [data-clara-manual-expense-orb="true"] img{opacity:0!important;filter:none!important}
 
-@media (max-width: 640px) {
-  .clara-community-root .clara-community-home-view {
-    background:
-      radial-gradient(circle at 100% 5%, rgba(91,72,246,0.09), transparent 28%),
-      radial-gradient(circle at 0% 17%, rgba(24,190,178,0.055), transparent 28%),
-      #06111f !important;
+@media(max-width:640px){
+  .clara-community-root .clara-community-home-view{
+    background:radial-gradient(circle at 0% 5%,rgba(25,181,255,.105),transparent 27%),radial-gradient(circle at 100% 68%,rgba(243,38,69,.045),transparent 29%),linear-gradient(180deg,#040b18 0%,#050d1d 50%,#040a16 100%)!important;
   }
-
   .clara-community-root .clara-community-home-financial-carousel .clara-finance-slide-surface,
-  .clara-community-root .clara-community-home-money-left [data-clara-dashboard-section="money-summary"] {
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.04),
-      0 14px 36px rgba(0,0,0,0.18) !important;
-  }
+  .clara-community-root .clara-community-home-money-left [data-clara-dashboard-section="money-summary"]{box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 14px 36px rgba(0,0,0,.19)!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .clara-community-root .clara-community-home-view .clara-checkin-dot--done,
+  .clara-community-root .clara-community-home-view [data-check-in-state="available"] .clara-checkin-action{animation:none!important}
 }
