@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Paperclip,
   Plus,
-  Sparkles,
   Trophy,
   UsersRound,
   Video,
@@ -26,6 +25,7 @@ import {
   getStoredBackendUser,
 } from "@/lib/clara-backend-client";
 import { uploadCommunityMedia, validateCommunityMediaFile } from "@/lib/community-media-client";
+import CommunityBoard from "@/components/community/CommunityBoard";
 import CommunityPostCard from "@/components/community/CommunityPostCard";
 
 const POST_TYPES = [
@@ -40,44 +40,6 @@ const FEED_FILTERS = [
   { key: "win", label: "Wins", icon: Trophy },
   { key: "question", label: "Questions", icon: CircleHelp },
   { key: "money_lesson", label: "Tips", icon: Lightbulb },
-];
-
-const CLARA_BOARD_ROTATE_MS = 4500;
-
-const CLARA_BOARD_ITEMS = [
-  {
-    id: "fies-income-spending-2023",
-    type: "fact",
-    kicker: "DID YOU KNOW?",
-    headline: "Filipino families earned about ₱353K on average in 2023 — and spent about ₱258K.",
-    teaser: "That difference looks big. But what does it actually tell us?",
-    detail:
-      "The Philippine Statistics Authority estimated average annual family income at ₱353.23 thousand and average annual family expenditure at ₱258.05 thousand in 2023. The gap is an average across families, so it should not be treated as automatic cash savings for every household.",
-    source: "Philippine Statistics Authority · 2023 Family Income and Expenditure Survey",
-    sourceUrl: "https://psa.gov.ph/statistics/income-expenditure/fies",
-  },
-  {
-    id: "poverty-families-2023",
-    type: "fact",
-    kicker: "PHILIPPINE MONEY REALITY",
-    headline: "Did you know 10.9% of Filipino families were classified as poor in 2023?",
-    teaser: "That was about 3 million families. Tap to see what the number means.",
-    detail:
-      "PSA reported a 10.9% poverty incidence among Filipino families in 2023, equivalent to about 3.0 million families. Poverty incidence measures the share of families whose income is below the estimated amount needed for minimum basic food and non-food needs.",
-    source: "Philippine Statistics Authority · 2023 Full-Year Poverty Statistics",
-    sourceUrl: "https://psa.gov.ph/content/percentage-filipino-families-classified-poor-declined-109-percent-2023",
-  },
-  {
-    id: "gross-saving-2025",
-    type: "fact",
-    kicker: "QUICK FACT",
-    headline: "Did you know the Philippines recorded ₱8.40T in gross saving in 2025?",
-    teaser: "Households and nonprofit institutions accounted for about ₱973B of it.",
-    detail:
-      "PSA reported total Philippine gross saving of ₱8.40 trillion in 2025. By institutional sector, households together with nonprofit institutions serving households recorded ₱973.14 billion in gross saving. This is a national-accounts measure, not the balance of personal bank savings accounts.",
-    source: "Philippine Statistics Authority · 2025 Consolidated Accounts",
-    sourceUrl: "https://psa.gov.ph/content/countrys-total-gross-saving-2025-expands-php-840-trillion",
-  },
 ];
 
 function initialsFor(value) {
@@ -273,8 +235,6 @@ function MediaLimitDialog({ notice, onClose, onPickReplacement }) {
 export default function CommunityBackend() {
   const navigate = useNavigate();
   const composerRef = useRef(null);
-  const boardTouchStartXRef = useRef(null);
-  const boardMovedRef = useRef(false);
   const { access, isAdmin, isFree, isPending } = useUserRole();
   const backendUser = getStoredBackendUser();
   const token = getStoredBackendToken();
@@ -294,9 +254,6 @@ export default function CommunityBackend() {
   const [saving, setSaving] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [boardIndex, setBoardIndex] = useState(0);
-  const [boardPaused, setBoardPaused] = useState(false);
-  const [boardOpenItem, setBoardOpenItem] = useState(null);
 
   const loadFeed = useCallback(async () => {
     if (!token || isLocked) return;
@@ -324,22 +281,6 @@ export default function CommunityBackend() {
     }, 5000);
     return () => window.clearInterval(interval);
   }, [isLocked, loadFeed, token]);
-
-  const advanceBoard = useCallback((direction = 1) => {
-    setBoardIndex((current) => {
-      const total = CLARA_BOARD_ITEMS.length;
-      if (!total) return 0;
-      return (current + direction + total) % total;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (isLocked || boardPaused || boardOpenItem || CLARA_BOARD_ITEMS.length < 2) return undefined;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "hidden") advanceBoard(1);
-    }, CLARA_BOARD_ROTATE_MS);
-    return () => window.clearInterval(timer);
-  }, [advanceBoard, boardOpenItem, boardPaused, isLocked]);
 
   const commentsByPost = useMemo(
     () => comments.reduce((acc, comment) => {
@@ -431,40 +372,6 @@ export default function CommunityBackend() {
     });
   };
 
-  const handleBoardTouchStart = (event) => {
-    boardTouchStartXRef.current = event.touches?.[0]?.clientX ?? null;
-    boardMovedRef.current = false;
-    setBoardPaused(true);
-  };
-
-  const handleBoardTouchMove = (event) => {
-    const startX = boardTouchStartXRef.current;
-    const currentX = event.touches?.[0]?.clientX;
-    if (startX === null || currentX === undefined) return;
-    if (Math.abs(currentX - startX) > 12) boardMovedRef.current = true;
-  };
-
-  const handleBoardTouchEnd = (event) => {
-    const startX = boardTouchStartXRef.current;
-    const endX = event.changedTouches?.[0]?.clientX;
-    boardTouchStartXRef.current = null;
-
-    if (startX !== null && endX !== undefined) {
-      const delta = endX - startX;
-      if (Math.abs(delta) >= 45) advanceBoard(delta < 0 ? 1 : -1);
-    }
-
-    window.setTimeout(() => setBoardPaused(false), 1200);
-  };
-
-  const openBoardItem = (item) => {
-    if (boardMovedRef.current) {
-      boardMovedRef.current = false;
-      return;
-    }
-    setBoardOpenItem(item);
-  };
-
   if (!token || !currentUserId) {
     return (
       <div className="flex h-full items-center justify-center bg-[#06111f] px-6 text-white">
@@ -504,82 +411,7 @@ export default function CommunityBackend() {
             </section>
           ) : (
             <>
-              <section
-                className="clara-community-board relative mb-6 overflow-hidden rounded-[28px] border border-[#73eee7]/15 bg-[radial-gradient(circle_at_12%_12%,rgba(34,211,203,0.18),transparent_34%),radial-gradient(circle_at_96%_80%,rgba(99,73,222,0.22),transparent_44%),linear-gradient(126deg,rgba(9,61,73,0.82),rgba(8,35,62,0.96)_48%,rgba(38,25,82,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_18px_44px_rgba(0,0,0,0.20)]"
-                onMouseEnter={() => setBoardPaused(true)}
-                onMouseLeave={() => setBoardPaused(false)}
-                onFocusCapture={() => setBoardPaused(true)}
-                onBlurCapture={() => setBoardPaused(false)}
-              >
-                <div
-                  className="overflow-hidden touch-pan-y"
-                  onTouchStart={handleBoardTouchStart}
-                  onTouchMove={handleBoardTouchMove}
-                  onTouchEnd={handleBoardTouchEnd}
-                  onTouchCancel={handleBoardTouchEnd}
-                >
-                  <div
-                    className="flex transition-transform duration-500 ease-out"
-                    style={{ transform: `translateX(-${boardIndex * 100}%)` }}
-                  >
-                    {CLARA_BOARD_ITEMS.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => openBoardItem(item)}
-                        className="relative min-w-full overflow-hidden px-5 pb-11 pt-5 text-left sm:px-7 sm:pb-12 sm:pt-6"
-                        aria-label={`Read more: ${item.headline}`}
-                      >
-                        <div className="pointer-events-none absolute -right-7 -top-7 h-36 w-36 rounded-full border border-[#7c6cff]/18 bg-[#7662ff]/[0.07]" />
-                        <div className="pointer-events-none absolute right-7 top-1/2 flex h-[74px] w-[74px] -translate-y-1/2 items-center justify-center rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(28,210,202,0.20),rgba(102,78,235,0.25))] text-[#a9fffa] shadow-[0_0_30px_rgba(45,212,207,0.12)] sm:right-9 sm:h-[82px] sm:w-[82px]">
-                          {item.type === "sponsored" ? <Sparkles className="h-7 w-7" /> : <BarChart3 className="h-7 w-7" />}
-                        </div>
-
-                        <div className="relative z-10 max-w-[76%] pr-2 sm:max-w-[72%]">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.20em] text-[#6ff8ef]/80">
-                              <Sparkles className="h-3.5 w-3.5" /> CLARA BOARD
-                            </span>
-                            {item.type === "sponsored" ? (
-                              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-white/45">
-                                Sponsored
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/40">{item.kicker}</p>
-                          <h2 className="mt-1.5 text-[20px] font-black leading-[1.12] tracking-[-0.035em] text-white sm:text-[25px]">
-                            {item.headline}
-                          </h2>
-                          <p className="mt-2 line-clamp-2 text-[11px] font-semibold leading-[1.45] text-white/48 sm:text-[12px]">
-                            {item.teaser}
-                          </p>
-                          <span className="mt-3 inline-flex items-center text-[10px] font-black text-[#8ffff8]">
-                            Tap to read more →
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pointer-events-none absolute inset-x-5 bottom-3.5 z-20 flex items-center justify-between gap-4">
-                  <div className="pointer-events-auto flex items-center gap-1.5" aria-label="CLARA Board slides">
-                    {CLARA_BOARD_ITEMS.map((item, index) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setBoardIndex(index)}
-                        className={`h-1.5 rounded-full transition-all ${
-                          boardIndex === index ? "w-5 bg-[#6ff8ef]" : "w-1.5 bg-white/25"
-                        }`}
-                        aria-label={`Show CLARA Board item ${index + 1}`}
-                        aria-current={boardIndex === index ? "true" : undefined}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/25">Swipe</span>
-                </div>
-              </section>
+              <CommunityBoard token={token} navigate={navigate} />
 
               {canPost ? (
                 <section
@@ -726,74 +558,6 @@ export default function CommunityBackend() {
         >
           <Plus className="h-6 w-6" />
         </button>
-      ) : null}
-
-      {boardOpenItem ? (
-        <div
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-[#020813]/82 px-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="clara-board-detail-title"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            onClick={() => setBoardOpenItem(null)}
-            aria-label="Close CLARA Board detail"
-          />
-          <article className="relative w-full max-w-[440px] overflow-hidden rounded-[30px] border border-[#6ff8ef]/15 bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,203,0.15),transparent_34%),radial-gradient(circle_at_100%_100%,rgba(99,73,222,0.18),transparent_42%),linear-gradient(145deg,#0b2031,#0b1730)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.58),0_0_45px_rgba(45,212,207,0.07)] sm:p-6">
-            <button
-              type="button"
-              onClick={() => setBoardOpenItem(null)}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.035] text-white/42 transition hover:text-white"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-[#6ff8ef]/20 bg-[#2dd4cf]/[0.08] text-[#8ffff8]">
-              {boardOpenItem.type === "sponsored" ? <Sparkles className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
-            </div>
-            <div className="mt-5 flex items-center gap-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.20em] text-[#6ff8ef]/70">CLARA Board</p>
-              {boardOpenItem.type === "sponsored" ? (
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-white/40">Sponsored</span>
-              ) : null}
-            </div>
-            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-white/35">{boardOpenItem.kicker}</p>
-            <h2 id="clara-board-detail-title" className="mt-2 pr-8 text-[24px] font-black leading-[1.12] tracking-[-0.04em] text-white">
-              {boardOpenItem.headline}
-            </h2>
-            <p className="mt-4 text-[13px] font-semibold leading-6 text-white/58">{boardOpenItem.detail}</p>
-
-            {boardOpenItem.source ? (
-              <div className="mt-5 rounded-[18px] border border-white/[0.07] bg-black/15 px-3.5 py-3">
-                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/28">Source</p>
-                <p className="mt-1 text-[10px] font-bold leading-4 text-white/50">{boardOpenItem.source}</p>
-              </div>
-            ) : null}
-
-            <div className="mt-5 flex gap-2.5">
-              {boardOpenItem.sourceUrl ? (
-                <a
-                  href={boardOpenItem.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl border border-[#74fff6]/20 bg-[#28d8d0] px-4 text-[11px] font-black text-[#033438] shadow-[0_10px_26px_rgba(40,216,208,0.16)]"
-                >
-                  View source ↗
-                </a>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setBoardOpenItem(null)}
-                className="h-11 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 text-[11px] font-black text-white/60"
-              >
-                Done
-              </button>
-            </div>
-          </article>
-        </div>
       ) : null}
 
       <MediaLimitDialog
