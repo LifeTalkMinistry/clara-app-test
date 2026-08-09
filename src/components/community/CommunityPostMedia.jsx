@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { fetchCommunityMediaBlob } from "@/lib/community-media-client";
+import "@/community-feed-refinement.css";
 
 export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edgeToEdge = false }) {
   const [objectUrl, setObjectUrl] = useState("");
@@ -65,16 +66,28 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
 
   if (mediaType === "image") {
     return (
-      <div className={frameClass("bg-black/20")}>
-        <img src={objectUrl} alt={mediaName || "Community attachment"} className="max-h-[520px] w-full object-cover" />
+      <div className={`${frameClass("bg-[#020617]")} flex max-h-[68dvh] items-center justify-center sm:max-h-[720px]`}>
+        <img
+          src={objectUrl}
+          alt={mediaName || "Community attachment"}
+          loading="lazy"
+          decoding="async"
+          className="block h-auto max-h-[68dvh] w-full object-contain sm:max-h-[720px]"
+        />
       </div>
     );
   }
 
   if (mediaType === "video") {
     return (
-      <div className={frameClass("bg-black/40")}>
-        <video src={objectUrl} controls playsInline preload="metadata" className="max-h-[560px] w-full bg-black" />
+      <div className={`${frameClass("bg-black/70")} flex max-h-[68dvh] items-center justify-center sm:max-h-[720px]`}>
+        <video
+          src={objectUrl}
+          controls
+          playsInline
+          preload="metadata"
+          className="block max-h-[68dvh] w-full object-contain bg-black sm:max-h-[720px]"
+        />
       </div>
     );
   }
