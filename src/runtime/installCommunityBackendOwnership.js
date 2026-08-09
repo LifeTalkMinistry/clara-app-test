@@ -1,5 +1,6 @@
 import { supabase as legacySupabase } from "@/lib/supabaseClient";
 import { supabase as communityBackend } from "@/lib/community-backend-supabase-compat";
+import "./installCommunityRealProfileAvatars";
 
 const COMMUNITY_TABLES = new Set([
   "community_posts",
