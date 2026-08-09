@@ -1,0 +1,101 @@
+/*
+ * Community Profile owns normal document scrolling.
+ *
+ * The main CLARA shell has several route-specific viewport locks for dashboard,
+ * onboarding, sheets, and modal experiences. Community Profile is a long-form
+ * social/profile page, especially while editing, so it must behave like a normal
+ * mobile page: the hero, profile card, edit tabs, fields, and save button all move
+ * together through one vertical scroll surface.
+ */
+
+html.clara-community-profile-scroll,
+html.clara-community-profile-scroll body {
+  width: 100% !important;
+  min-height: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+html.clara-community-profile-scroll {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+}
+
+html.clara-community-profile-scroll body {
+  min-height: 100vh !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (min-height: 100dvh) {
+  html.clara-community-profile-scroll body {
+    min-height: 100dvh !important;
+  }
+}
+
+/* Every CLARA shell between #root and CommunityProfile must release fixed-height
+   and overflow locks so the whole profile can move upward naturally. */
+html.clara-community-profile-scroll .clara-community-profile-scroll-owner {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  overscroll-behavior-y: auto !important;
+  contain: none !important;
+}
+
+html.clara-community-profile-scroll #root.clara-community-profile-scroll-owner {
+  min-height: 100vh !important;
+  width: 100% !important;
+}
+
+@supports (min-height: 100dvh) {
+  html.clara-community-profile-scroll #root.clara-community-profile-scroll-owner {
+    min-height: 100dvh !important;
+  }
+}
+
+html.clara-community-profile-scroll .clara-community-profile-page {
+  position: relative !important;
+  min-height: 100vh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (min-height: 100dvh) {
+  html.clara-community-profile-scroll .clara-community-profile-page {
+    min-height: 100dvh !important;
+  }
+}
+
+/* The edit-category rail is independently swipeable left/right while the page
+   itself remains vertically scrollable. */
+html.clara-community-profile-scroll .clara-community-profile-page .overflow-x-auto {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain !important;
+  touch-action: pan-x !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+html.clara-community-profile-scroll .clara-community-profile-page .overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Settings already has a deliberate internal scroll region. Keep it functional
+   when opened from the profile More tab without trapping the rest of the page. */
+html.clara-community-profile-scroll .clara-profile-settings-scroll {
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
