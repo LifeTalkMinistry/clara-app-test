@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { completeClaraTemporaryPasswordReset } from "@/lib/password-reset-client";
 import ClaraLogo from "@/components/ClaraLogo";
 
 const MODE_COPY = {
@@ -18,6 +19,13 @@ const MODE_COPY = {
     secondaryLead: "Already have an account?",
     secondaryAction: "Log in",
   },
+  reset: {
+    title: "Create a new password",
+    subtitle: "Your temporary password was accepted. Set a new password before continuing.",
+    button: "Set new password",
+    secondaryLead: "Want to use a different account?",
+    secondaryAction: "Back to login",
+  },
 };
 
 function friendlyError(error) {
@@ -32,6 +40,12 @@ function friendlyError(error) {
   }
   if (error?.code === "ACCOUNT_VAULT_DIRECTORY_CONFLICT") {
     return "CLARA found conflicting local account data and blocked access to protect your records.";
+  }
+  if (normalized.includes("temporary password")) {
+    return message;
+  }
+  if (error?.status === 410 || normalized.includes("expired")) {
+    return message || "This temporary password has expired. Ask CLARA support for a new reset.";
   }
   if (error?.code === "NETWORK_ERROR" || normalized.includes("account server")) {
     return "CLARA could not reach the account server. Check your connection and try again.";
@@ -73,6 +87,7 @@ export default function Login() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -86,11 +101,14 @@ export default function Login() {
   const validate = () => {
     if (mode === "signup" && !fullName.trim()) return "Your name is required.";
     if (!email.trim()) return "Email is required.";
-    if (!password) return "Password is required.";
-    if (mode === "signup" && password.length < 8) {
+    if (!password) return mode === "reset" ? "New password is required." : "Password is required.";
+    if (mode === "reset" && !temporaryPassword) {
+      return "Your temporary password session is no longer available. Return to login and enter the temporary password again.";
+    }
+    if ((mode === "signup" || mode === "reset") && password.length < 8) {
       return "Password must contain at least 8 characters.";
     }
-    if (mode === "signup" && password !== confirmPassword) {
+    if ((mode === "signup" || mode === "reset") && password !== confirmPassword) {
       return "The passwords do not match.";
     }
     return null;
@@ -119,11 +137,35 @@ export default function Login() {
           fullName: fullName.trim(),
         });
         navigate("/dashboard", { replace: true });
+      } else if (mode === "reset") {
+        const newPassword = password;
+        await completeClaraTemporaryPasswordReset({
+          email: email.trim(),
+          temporaryPassword,
+          newPassword,
+        });
+        await signIn({ email: email.trim(), password: newPassword });
+        setTemporaryPassword("");
+        navigate("/dashboard", { replace: true });
       } else {
         await signIn({ email: email.trim(), password });
         navigate(destination, { replace: true });
       }
     } catch (error) {
+      if (
+        mode === "login" &&
+        (error?.status === 428 || String(error?.message || "").toLowerCase().includes("must create a new password"))
+      ) {
+        setTemporaryPassword(password);
+        setPassword("");
+        setConfirmPassword("");
+        setShowPassword(false);
+        setMode("reset");
+        setSuccess(false);
+        setMessage("");
+        return;
+      }
+
       console.error("[CLARA Login] authentication failed", error);
       setSuccess(false);
       setMessage(friendlyError(error));
@@ -137,13 +179,16 @@ export default function Login() {
     setMode(nextMode);
     setMessage("");
     setSuccess(false);
+    setPassword("");
+    setTemporaryPassword("");
     setConfirmPassword("");
+    setShowPassword(false);
   };
 
   const handleForgotPassword = () => {
     setSuccess(false);
     setMessage(
-      "Password recovery is not available yet. Please contact CLARA support for account assistance."
+      "Please contact CLARA support for a password reset. If an administrator already sent you a temporary password, enter it above to continue."
     );
   };
 
@@ -203,22 +248,29 @@ export default function Login() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   autoComplete="email"
+                  readOnly={mode === "reset"}
                   disabled={loading}
                   className={inputClass}
                 />
               </FieldShell>
 
               <FieldShell
-                label="Password"
-                hint={mode === "signup" ? "Minimum 8 characters" : null}
+                label={mode === "reset" ? "New password" : "Password"}
+                hint={mode === "signup" || mode === "reset" ? "Minimum 8 characters" : null}
               >
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder={mode === "signup" ? "Create a password" : "Enter your password"}
+                    placeholder={
+                      mode === "signup"
+                        ? "Create a password"
+                        : mode === "reset"
+                          ? "Create your new password"
+                          : "Enter your password"
+                    }
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
                     disabled={loading}
                     className={`${inputClass} pr-14`}
                   />
@@ -239,7 +291,7 @@ export default function Login() {
                 </div>
               </FieldShell>
 
-              {mode === "signup" ? (
+              {mode === "signup" || mode === "reset" ? (
                 <FieldShell label="Confirm password">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -294,7 +346,11 @@ export default function Login() {
               <span>{copy.secondaryLead}</span>{" "}
               <button
                 type="button"
-                onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+                onClick={() =>
+                  switchMode(
+                    mode === "login" ? "signup" : "login"
+                  )
+                }
                 disabled={loading}
                 className="font-semibold text-cyan-300 transition hover:text-violet-200 disabled:cursor-not-allowed disabled:text-white/30"
               >
