@@ -1,0 +1,477 @@
+/*
+ * CLARA feature-level visual conversion
+ *
+ * Stage 2 of the shell migration: make the actual migrated feature surfaces
+ * follow the Community Feed visual language. Presentation only — no feature
+ * state, finance, schedule, messaging, profile, or challenge logic changes.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Shared feature material                                                     */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-root :is(
+  .clara-community-home-view,
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-notifications-view,
+  .clara-community-profile-view
+) {
+  --clara-feature-panel:
+    radial-gradient(circle at 100% 0%, rgba(91, 72, 246, 0.075), transparent 34%),
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.055), transparent 30%),
+    linear-gradient(145deg, rgba(10, 27, 50, 0.985), rgba(8, 20, 45, 0.985));
+  --clara-feature-panel-soft:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.035), transparent 38%),
+    linear-gradient(145deg, rgba(8, 25, 46, 0.93), rgba(7, 18, 40, 0.95));
+  --clara-feature-field: rgba(4, 16, 34, 0.62);
+  --clara-feature-border: rgba(109, 131, 181, 0.19);
+  --clara-feature-border-soft: rgba(109, 131, 181, 0.13);
+  --clara-feature-accent: #2be1d8;
+  --clara-feature-accent-soft: #8ffff8;
+}
+
+/* Imported feature roots should never reintroduce a flat old dashboard page. */
+.clara-community-root :is(
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-profile-view
+) > div {
+  background-color: transparent !important;
+}
+
+/* Feed-like cards across the actual migrated screens. */
+.clara-community-root :is(
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-profile-view
+) :is(
+  [class*="bg-[#0a1a29]"],
+  [class*="bg-[#091a2b]"],
+  [class*="bg-[#0b1b2b]"],
+  [class*="bg-white/[0.05]"],
+  [class*="bg-white/[0.055]"]
+)[class*="rounded"] {
+  border-color: var(--clara-feature-border) !important;
+  background: var(--clara-feature-panel) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 46px rgba(0, 0, 0, 0.18) !important;
+}
+
+.clara-community-root :is(
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-profile-view
+) :is(
+  [class*="bg-[#071725]"],
+  [class*="bg-[#081725]"],
+  [class*="bg-white/[0.025]"],
+  [class*="bg-white/[0.035]"],
+  [class*="bg-black/10"]
+)[class*="rounded"] {
+  border-color: var(--clara-feature-border-soft) !important;
+  background: var(--clara-feature-panel-soft) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.022) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* HOME — migrated dashboard pieces now live inside the Feed design system     */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-home-view [data-clara-daily-tip-card="true"] {
+  border-color: rgba(109, 131, 181, 0.20) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 48px rgba(0, 0, 0, 0.20),
+    0 0 34px rgba(43, 225, 216, 0.035) !important;
+}
+
+.clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"] {
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.clara-community-home-learning-hub :is(
+  [data-clara-coaching-calendar-button="true"],
+  button[class*="rounded-full"]
+) {
+  border-color: rgba(85, 242, 233, 0.22) !important;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(45, 212, 191, 0.13), transparent 48%),
+    linear-gradient(145deg, rgba(8, 28, 50, 0.94), rgba(11, 21, 48, 0.96)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 26px rgba(0, 0, 0, 0.20),
+    0 0 20px rgba(43, 225, 216, 0.07) !important;
+}
+
+.clara-community-home-financial-carousel :is(
+  [class*="rounded-[28px]"],
+  [class*="rounded-[26px]"],
+  [class*="rounded-[24px]"]
+)[class*="border"] {
+  border-color: var(--clara-feature-border) !important;
+}
+
+.clara-community-home-financial-carousel :is(
+  [class*="bg-white/[0.05]"],
+  [class*="bg-white/[0.055]"],
+  [class*="bg-[#0a1a29]"],
+  [class*="bg-[#071725]"]
+)[class*="rounded"] {
+  background: var(--clara-feature-panel) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 16px 44px rgba(0, 0, 0, 0.17) !important;
+}
+
+.clara-community-home-money-left > * {
+  border-color: rgba(109, 131, 181, 0.20) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* SCHEDULE                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-schedule-view header,
+.clara-community-schedule-view [class*="sticky"][class*="top-0"] {
+  border-color: rgba(255, 255, 255, 0.055) !important;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(45, 212, 191, 0.06), transparent 35%),
+    linear-gradient(180deg, rgba(4, 14, 32, 0.98), rgba(5, 17, 36, 0.94)) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+.clara-community-schedule-view :is(input, textarea, select) {
+  border-color: rgba(121, 146, 190, 0.16) !important;
+  background: var(--clara-feature-field) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.clara-community-schedule-view :is(input, textarea, select):focus {
+  border-color: rgba(76, 231, 222, 0.36) !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 207, 0.055) !important;
+}
+
+.clara-community-schedule-view button[class*="bg-emerald"],
+.clara-community-schedule-view button[class*="bg-teal"],
+.clara-community-schedule-view button[class*="bg-cyan"] {
+  border-color: rgba(85, 242, 233, 0.30) !important;
+  background: linear-gradient(135deg, rgba(31, 194, 187, 0.96), rgba(40, 170, 193, 0.96)) !important;
+  color: #032f34 !important;
+  box-shadow: 0 10px 26px rgba(43, 225, 216, 0.13) !important;
+}
+
+/* Calendar selections use Feed's teal focus, while holiday/event meaning stays intact. */
+.clara-community-schedule-view [aria-selected="true"],
+.clara-community-schedule-view button[class*="ring-emerald"],
+.clara-community-schedule-view button[class*="ring-cyan"] {
+  border-color: rgba(85, 242, 233, 0.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 2px rgba(43, 225, 216, 0.12),
+    0 0 22px rgba(43, 225, 216, 0.10) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* CHALLENGES                                                                  */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-challenges-view main {
+  background: transparent !important;
+}
+
+.clara-community-challenges-view section[class*="rounded"],
+.clara-community-challenges-view div[class*="rounded-[20px]"][class*="border"],
+.clara-community-challenges-view div[class*="rounded-[18px]"][class*="border"] {
+  border-color: var(--clara-feature-border) !important;
+  background: var(--clara-feature-panel) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 16px 42px rgba(0, 0, 0, 0.17) !important;
+}
+
+.clara-community-challenges-view div[class*="grid-cols-3"][class*="rounded-[18px]"] {
+  border-color: rgba(109, 131, 181, 0.16) !important;
+  background: rgba(6, 18, 38, 0.62) !important;
+}
+
+.clara-community-challenges-view div[class*="grid-cols-3"] > button {
+  color: rgba(255, 255, 255, 0.50) !important;
+}
+
+.clara-community-challenges-view div[class*="grid-cols-3"] > button[class*="bg-[#22c7b8]"] {
+  border: 1px solid rgba(85, 242, 233, 0.34) !important;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(78, 238, 228, 0.22), transparent 50%),
+    linear-gradient(145deg, rgba(13, 66, 86, 0.98), rgba(21, 34, 75, 0.98)) !important;
+  color: #a7fff9 !important;
+  box-shadow: 0 0 20px rgba(43, 225, 216, 0.10) !important;
+}
+
+.clara-community-challenges-view button[class*="bg-[#22c7b8]"]:not([class*="grid-cols-3"] *) {
+  background: linear-gradient(135deg, #31d7cf, #29b9c8) !important;
+  color: #042f2e !important;
+  box-shadow: 0 10px 26px rgba(43, 225, 216, 0.14) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* CIRCLES                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-circles-view header {
+  border-color: rgba(255, 255, 255, 0.055) !important;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(45, 212, 191, 0.06), transparent 35%),
+    linear-gradient(180deg, rgba(4, 14, 32, 0.985), rgba(5, 17, 36, 0.955)) !important;
+}
+
+.clara-community-circles-view section[class*="rounded"],
+.clara-community-circles-view article[class*="rounded"] {
+  border-color: var(--clara-feature-border) !important;
+  background: var(--clara-feature-panel) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 16px 42px rgba(0, 0, 0, 0.16) !important;
+}
+
+.clara-community-circles-view :is(input, textarea, select) {
+  border-color: rgba(121, 146, 190, 0.16) !important;
+  background: var(--clara-feature-field) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.clara-community-circles-view :is(input, textarea, select):focus {
+  border-color: rgba(76, 231, 222, 0.36) !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 207, 0.055) !important;
+}
+
+.clara-community-circles-view div[class*="grid-cols-2"][class*="rounded-[18px]"] {
+  border-color: rgba(109, 131, 181, 0.16) !important;
+  background: rgba(6, 18, 38, 0.64) !important;
+}
+
+.clara-community-circles-view div[class*="grid-cols-2"] > button[class*="bg-[#22c7b8]"] {
+  border: 1px solid rgba(85, 242, 233, 0.34) !important;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(78, 238, 228, 0.22), transparent 50%),
+    linear-gradient(145deg, rgba(13, 66, 86, 0.98), rgba(21, 34, 75, 0.98)) !important;
+  color: #a7fff9 !important;
+}
+
+.clara-community-circles-view button[class*="bg-[#22c7b8]"]:not([class*="grid-cols-2"] *) {
+  background: linear-gradient(135deg, #31d7cf, #29b9c8) !important;
+  color: #042f2e !important;
+  box-shadow: 0 10px 24px rgba(43, 225, 216, 0.12) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* MESSAGES                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-messages-view header,
+.clara-community-messages-view footer {
+  border-color: rgba(255, 255, 255, 0.055) !important;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(45, 212, 191, 0.055), transparent 34%),
+    linear-gradient(180deg, rgba(4, 14, 32, 0.985), rgba(5, 17, 36, 0.96)) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+.clara-community-messages-view main {
+  background:
+    radial-gradient(circle at 92% 9%, rgba(91, 72, 246, 0.08), transparent 30%),
+    radial-gradient(circle at 8% 22%, rgba(24, 190, 178, 0.05), transparent 30%),
+    transparent !important;
+}
+
+.clara-community-messages-view :is(input, textarea) {
+  border-color: rgba(121, 146, 190, 0.16) !important;
+  background: rgba(4, 16, 34, 0.46) !important;
+  color: rgba(255, 255, 255, 0.93) !important;
+}
+
+.clara-community-messages-view [class*="rounded-[22px]"][class*="bg-[#22c7b8]"] {
+  background: linear-gradient(135deg, #35d9d0, #27b8c9) !important;
+  color: #042f2e !important;
+  box-shadow: 0 10px 24px rgba(43, 225, 216, 0.10) !important;
+}
+
+.clara-community-messages-view [class*="rounded-[22px]"][class*="bg-white"] {
+  border-color: rgba(109, 131, 181, 0.17) !important;
+  background: var(--clara-feature-panel-soft) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+.clara-community-messages-view button[class*="border-white"] {
+  border-color: rgba(109, 131, 181, 0.17) !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* PROFILE + MORE                                                              */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-profile-view section[class*="bg-[#0a1a29]"],
+.clara-community-profile-view div[class*="bg-[#0a1a29]"][class*="rounded"] {
+  border-color: var(--clara-feature-border) !important;
+  background: var(--clara-feature-panel) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 16px 44px rgba(0, 0, 0, 0.17) !important;
+}
+
+/* Replace the old flat teal default cover with the Feed's teal-violet identity. */
+.clara-community-profile-view section[class*="rounded-[30px]"] > button[class*="h-32"] {
+  background-image:
+    radial-gradient(circle at 12% 24%, rgba(69, 232, 222, 0.22), transparent 34%),
+    radial-gradient(circle at 88% 68%, rgba(109, 88, 240, 0.30), transparent 43%),
+    linear-gradient(126deg, #0a4b58 0%, #0a2948 47%, #29205d 100%) !important;
+}
+
+.clara-community-profile-view nav + div[class*="grid-cols-2"] {
+  border-color: rgba(109, 131, 181, 0.18) !important;
+  background: var(--clara-feature-panel) !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18) !important;
+}
+
+.clara-community-profile-view nav button[class*="bg-[#22c7b8]"] {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(78, 238, 228, 0.18), transparent 50%),
+    linear-gradient(145deg, rgba(13, 66, 86, 0.88), rgba(21, 34, 75, 0.94)) !important;
+  color: #a7fff9 !important;
+}
+
+.clara-community-profile-view :is(input, textarea, select) {
+  border-color: rgba(121, 146, 190, 0.16) !important;
+  background: var(--clara-feature-field) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* SETTINGS — actual embedded settings feature                                 */
+/* -------------------------------------------------------------------------- */
+
+.clara-profile-settings-scroll {
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  padding-top: 12px;
+}
+
+.clara-profile-settings-scroll > div {
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.clara-profile-settings-scroll [class*="rounded-[28px]"][class*="border"],
+.clara-profile-settings-scroll [class*="rounded-[24px]"][class*="border"],
+.clara-profile-settings-scroll [class*="rounded-3xl"][class*="border"] {
+  border-color: var(--clara-feature-border) !important;
+  background: var(--clara-feature-panel) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 16px 44px rgba(0, 0, 0, 0.17) !important;
+}
+
+.clara-profile-settings-scroll :is(
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"]
+)[class*="border-white"] {
+  border-color: rgba(109, 131, 181, 0.15) !important;
+  background: var(--clara-feature-panel-soft) !important;
+}
+
+.clara-profile-settings-scroll :is(input, textarea, select) {
+  border-color: rgba(121, 146, 190, 0.16) !important;
+  background: var(--clara-feature-field) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.clara-profile-settings-scroll :is(input, textarea, select):focus {
+  border-color: rgba(76, 231, 222, 0.36) !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 207, 0.055) !important;
+}
+
+.clara-profile-settings-scroll button[class*="bg-emerald"],
+.clara-profile-settings-scroll button[class*="bg-teal"],
+.clara-profile-settings-scroll button[class*="bg-cyan"] {
+  background: linear-gradient(135deg, #31d7cf, #29b9c8) !important;
+  color: #042f2e !important;
+  box-shadow: 0 10px 24px rgba(43, 225, 216, 0.12) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* NOTIFICATIONS                                                               */
+/* -------------------------------------------------------------------------- */
+
+.clara-community-notifications-view {
+  background: transparent !important;
+}
+
+.clara-community-notifications-card {
+  border-color: var(--clara-feature-border) !important;
+  background: var(--clara-feature-panel) !important;
+}
+
+.clara-community-notifications-card > button:hover {
+  background: rgba(45, 212, 207, 0.045) !important;
+}
+
+.clara-community-notifications-card > button[class*="bg-[#22c7b8]"] {
+  background:
+    linear-gradient(90deg, rgba(45, 212, 191, 0.07), rgba(91, 72, 246, 0.035)) !important;
+}
+
+/* Preserve semantic danger/warning colors. Everything else uses the CLARA accent. */
+.clara-community-root :is(
+  .clara-community-home-view,
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-notifications-view,
+  .clara-community-profile-view
+) :is(button, a) {
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.clara-community-root :is(
+  .clara-community-schedule-view,
+  .clara-community-circles-view,
+  .clara-community-challenges-view,
+  .clara-community-messages-view,
+  .clara-community-profile-view
+) :is(button, a):active {
+  transform: scale(0.985);
+}
+
+@media (max-width: 640px) {
+  .clara-community-root :is(
+    .clara-community-home-view,
+    .clara-community-schedule-view,
+    .clara-community-circles-view,
+    .clara-community-challenges-view,
+    .clara-community-messages-view,
+    .clara-community-notifications-view,
+    .clara-community-profile-view
+  ) {
+    background:
+      radial-gradient(circle at 100% 4%, rgba(91, 72, 246, 0.12), transparent 28%),
+      radial-gradient(circle at 0% 18%, rgba(24, 190, 178, 0.075), transparent 29%),
+      #06111f !important;
+  }
+
+  .clara-profile-settings-scroll {
+    padding-right: 0 !important;
+  }
+}
