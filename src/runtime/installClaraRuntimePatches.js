@@ -11,6 +11,10 @@
  * - manual dashboard/billing/supabase smoke tests
  */
 
+// Password reset email compatibility. Canonicalizes legacy query-string reset
+// links into the HashRouter reset-password route before React mounts.
+import "./installPasswordResetRouteBridge";
+
 // Media playback runtime
 import "./installSoundTouchFeedbackBridge";
 
