@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft,
   Bell,
   CalendarDays,
   House,
@@ -46,7 +45,7 @@ function ActiveMarker({ active }) {
   );
 }
 
-function CommunityShellHeader({ activeView, unreadCount, onExit }) {
+function CommunityShellHeader({ activeView, unreadCount }) {
   const itemClass = (active = false) =>
     `clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-all duration-200 max-[420px]:h-9 max-[420px]:w-9 sm:h-12 sm:w-12 ${
       active
@@ -57,16 +56,6 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
   return (
     <header className="clara-community-shell-header shrink-0 border-b border-white/[0.06] bg-[linear-gradient(180deg,rgba(5,15,34,0.99),rgba(5,17,34,0.97))] px-3 pb-4 pt-[max(14px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
       <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-0.5 sm:gap-2">
-        <button
-          type="button"
-          onClick={onExit}
-          className={itemClass(false)}
-          aria-label="Back to Dashboard"
-          title="Dashboard"
-        >
-          <ArrowLeft className="h-[18px] w-[18px] max-[420px]:h-[17px] max-[420px]:w-[17px] sm:h-[19px] sm:w-[19px]" />
-        </button>
-
         <Link
           to="/community?view=home"
           className={itemClass(activeView === "home")}
@@ -225,11 +214,7 @@ export default function Community() {
       className="clara-community-root fixed inset-0 z-[80] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#06111f] text-white"
       data-community-view={activeView}
     >
-      <CommunityShellHeader
-        activeView={activeView}
-        unreadCount={unreadCount}
-        onExit={() => navigate("/dashboard")}
-      />
+      <CommunityShellHeader activeView={activeView} unreadCount={unreadCount} />
 
       <style>{`
         .clara-community-feed-view > div,
@@ -312,7 +297,7 @@ export default function Community() {
               className="clara-community-home-legacy-selector-shield h-4 w-full sm:h-5"
             />
             <div className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5">
-              <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
+              <LearningHub onOpenGuideIntro={() => navigate("/legacy-dashboard")} />
             </div>
             <CommunityHomeFinancialCarousel />
           </div>
