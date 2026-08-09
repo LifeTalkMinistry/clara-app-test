@@ -41,6 +41,7 @@ import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
 import "./clara-unified-shell-theme.css";
 import "./clara-feature-theme-pass.css";
+import "./clara-home-premium-theme.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
