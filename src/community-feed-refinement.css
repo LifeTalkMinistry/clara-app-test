@@ -100,3 +100,36 @@ body > [role="dialog"][aria-label^="Expanded Community"] button[aria-label^="Unm
   background: rgba(0, 0, 0, 0.56) !important;
   background-color: rgba(0, 0, 0, 0.56) !important;
 }
+
+/*
+ * Feed media interaction: the media itself is the expand control.
+ *
+ * Photos already open from the entire image surface, so remove the redundant
+ * corner expand badge. Videos keep their existing openViewer handler, but the
+ * invisible fullscreen button is stretched across the complete media frame so
+ * any tap/click on the video opens the immersive Reels viewer immediately.
+ */
+.clara-community-post-card button[aria-label="Expand photo"] > span {
+  display: none !important;
+}
+
+.clara-community-post-card button[aria-label="Open video fullscreen viewer"] {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  cursor: pointer !important;
+  z-index: 20 !important;
+}
