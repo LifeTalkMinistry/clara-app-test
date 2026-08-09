@@ -3,6 +3,7 @@ let installed = false;
 const SHORTCUT_ATTR = "data-clara-profile-edit-shortcut";
 const SHORTCUT_ROW_ATTR = "data-clara-profile-edit-shortcut-row";
 const PROFILE_CLARITY_STYLE_ID = "clara-community-profile-image-clarity";
+const PEOPLE_PREVIEW_ACTION_ATTR = "data-clara-people-preview-action";
 
 function ensureProfileImageClarityStyles() {
   if (document.getElementById(PROFILE_CLARITY_STYLE_ID)) return;
@@ -64,6 +65,64 @@ function syncProfileImageClarity() {
   });
 }
 
+function syncPeoplePreviewActions() {
+  const profileButtons = Array.from(document.querySelectorAll("button")).filter(
+    (button) => String(button.textContent || "").trim() === "View CLARA profile"
+  );
+
+  profileButtons.forEach((profileButton) => {
+    const actionArea = profileButton.parentElement;
+    if (!actionArea) return;
+
+    const actionWrapper = Array.from(actionArea.children).find((child) => {
+      if (!(child instanceof HTMLElement) || child === profileButton) return false;
+      const labels = Array.from(child.querySelectorAll("button")).map((button) =>
+        String(button.textContent || "").trim()
+      );
+      return labels.some((label) =>
+        ["Connect", "Requested", "Invite", "Invite to Circle", "Accept", "Decline"].includes(label)
+      );
+    });
+
+    if (!actionWrapper) return;
+
+    // The profile is the information path; the relationship action is the main CTA.
+    // Keep them stacked in that order and give the relationship action the same
+    // full-width premium footprint as the profile button.
+    if (profileButton.nextElementSibling !== actionWrapper) {
+      actionArea.insertBefore(profileButton, actionWrapper);
+    }
+
+    actionWrapper.setAttribute(PEOPLE_PREVIEW_ACTION_ATTR, "true");
+    actionWrapper.style.width = "100%";
+
+    const actionButtons = Array.from(actionWrapper.querySelectorAll("button"));
+    if (actionButtons.length > 1) {
+      actionWrapper.style.display = "grid";
+      actionWrapper.style.gridTemplateColumns = "repeat(2,minmax(0,1fr))";
+      actionWrapper.style.gap = "8px";
+    }
+
+    actionButtons.forEach((button) => {
+      const label = String(button.textContent || "").trim();
+      button.style.width = "100%";
+      button.style.height = "44px";
+      button.style.minHeight = "44px";
+      button.style.justifyContent = "center";
+      button.style.borderRadius = "16px";
+      button.style.fontSize = "12px";
+      button.style.fontWeight = "900";
+
+      if (label === "Connect" || label === "Accept" || label === "Invite" || label === "Invite to Circle") {
+        button.style.background = "#22c7b8";
+        button.style.color = "#042f2e";
+        button.style.borderColor = "rgba(94,234,212,.32)";
+        button.style.boxShadow = "0 10px 26px rgba(34,199,184,.16)";
+      }
+    });
+  });
+}
+
 function findOwnProfileEditButton() {
   return Array.from(document.querySelectorAll("header button")).find(
     (button) => String(button.textContent || "").trim() === "Edit"
@@ -119,6 +178,7 @@ function removeShortcut() {
 
 function syncShortcut() {
   syncProfileImageClarity();
+  syncPeoplePreviewActions();
 
   const editButton = findOwnProfileEditButton();
   const existing = document.querySelector(`[${SHORTCUT_ATTR}]`);
