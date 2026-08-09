@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useRef } from "react";
 
-const MOBILE_DRAG_LOCK_THRESHOLD_PX = 4;
-const MOBILE_SWIPE_AXIS_RATIO = 0.8;
-const MOBILE_SWIPE_DISTANCE_MAX_PX = 28;
-const MOBILE_SWIPE_DISTANCE_RATIO = 0.08;
-const MOBILE_SWIPE_VELOCITY_THRESHOLD = 0.18;
+// Guide Mode should feel noticeably lighter than the production carousel.
+// A short, intentional horizontal flick should be enough to move one card.
+const MOBILE_DRAG_LOCK_THRESHOLD_PX = 2;
+const MOBILE_SWIPE_AXIS_RATIO = 0.7;
+const MOBILE_SWIPE_DISTANCE_MAX_PX = 14;
+const MOBILE_SWIPE_DISTANCE_RATIO = 0.035;
+const MOBILE_SWIPE_VELOCITY_THRESHOLD = 0.1;
+const MOBILE_LIVE_DRAG_GAIN = 1.18;
 
 // These mirror the guarded thresholds inside the existing controlled carousel.
 // The adapter only changes Guide Mode input before forwarding it.
@@ -107,6 +110,7 @@ export const GUIDE_MOBILE_SWIPE_SETTINGS = Object.freeze({
   distanceMaxPx: MOBILE_SWIPE_DISTANCE_MAX_PX,
   distanceRatio: MOBILE_SWIPE_DISTANCE_RATIO,
   velocityThreshold: MOBILE_SWIPE_VELOCITY_THRESHOLD,
+  liveDragGain: MOBILE_LIVE_DRAG_GAIN,
 });
 
 export default function useGuideMobileSwipeAdapter({
@@ -190,13 +194,14 @@ export default function useGuideMobileSwipeAdapter({
         }
 
         gesture.horizontalIntent = true;
+        const gainedDeltaX = deltaX * MOBILE_LIVE_DRAG_GAIN;
         gesture.liveOffsetX =
           Math.sign(deltaX || 1) *
           Math.max(
             0,
             INTERNAL_DRAG_LOCK_THRESHOLD_PX +
               LIVE_LOCK_PADDING_PX -
-              Math.abs(deltaX)
+              Math.abs(gainedDeltaX)
           );
       }
 
@@ -207,7 +212,7 @@ export default function useGuideMobileSwipeAdapter({
         // touch-action: pan-y remains the browser-level vertical scroll guard.
       }
 
-      const liveDeltaX = deltaX + gesture.liveOffsetX;
+      const liveDeltaX = deltaX * MOBILE_LIVE_DRAG_GAIN + gesture.liveOffsetX;
       const maximumIntentY = Math.abs(liveDeltaX) / 1.1;
       const liveDeltaY = Math.max(
         -maximumIntentY,
@@ -281,7 +286,7 @@ export default function useGuideMobileSwipeAdapter({
       const releaseDeltaX = passedDistance
         ? Math.sign(actualDeltaX || 1) *
           (getInternalDistanceThreshold(viewportWidth) + LIVE_LOCK_PADDING_PX)
-        : actualDeltaX + gesture.liveOffsetX;
+        : actualDeltaX * MOBILE_LIVE_DRAG_GAIN + gesture.liveOffsetX;
 
       // A cancelled horizontal gesture is evaluated like a release using its
       // latest real coordinates. Vertical cancellations still use the original
