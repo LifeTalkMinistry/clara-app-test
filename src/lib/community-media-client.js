@@ -264,6 +264,24 @@ export async function uploadCommunityMedia(file, options = {}) {
   }
 }
 
+export async function getCommunityMediaStreamUrl(mediaPath) {
+  const token = getStoredBackendToken();
+  if (!token) throw new Error("Your CLARA account session is not connected.");
+  if (!mediaPath) throw new Error("Community media path is missing.");
+
+  const response = await fetchWithRetry(buildUrl("/api/community/media/stream-access"), {
+    method: "POST",
+    cache: "no-store",
+    headers: authHeaders(token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({ media_url: mediaPath }),
+  });
+
+  if (!response.ok) await throwResponseError(response, "Unable to prepare this media for playback.");
+  const payload = await response.json();
+  if (!payload?.stream_url) throw new Error("The server did not return a media playback URL.");
+  return buildUrl(payload.stream_url);
+}
+
 export async function fetchCommunityMediaBlob(mediaPath) {
   const token = getStoredBackendToken();
   if (!token) throw new Error("Your CLARA account session is not connected.");
