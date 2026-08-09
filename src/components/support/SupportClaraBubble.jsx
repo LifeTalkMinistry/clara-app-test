@@ -220,7 +220,7 @@ export default function SupportClaraBubble({ user }) {
     setSelectedTierKey(tierKey);
   };
 
-  if (!user?.id || !portalHost) return null;
+  if (!user?.id || !portalHost || supportState.isActive) return null;
 
   const expanded = supportState.isActive || bubblePhase === SUPPORT_BUBBLE_PHASE.EXPANDED;
   const visible = supportState.isActive || bubblePhase !== SUPPORT_BUBBLE_PHASE.HIDDEN;
