@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Clock3,
   Search,
-  ShieldCheck,
   UserCheck,
   UserPlus,
   UsersRound,
@@ -415,11 +414,6 @@ export default function PeopleDiscoveryPanel({
                   <p className="text-[8px] font-black uppercase tracking-[0.13em] text-white/28">Mutual circles</p>
                   <p className="mt-1 text-xs font-black text-white/78">{Number(selectedPerson.mutual_circle_count) || 0}</p>
                 </div>
-              </div>
-
-              <div className="flex items-start gap-2 rounded-2xl border border-[#22c7b8]/12 bg-[#22c7b8]/[0.045] px-3 py-3">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#5eead4]/58" />
-                <p className="text-[10px] leading-5 text-white/38">Connecting lets you invite each other into accountability spaces. It does not unlock private financial records.</p>
               </div>
 
               <div>{primaryAction(selectedPerson)}</div>
