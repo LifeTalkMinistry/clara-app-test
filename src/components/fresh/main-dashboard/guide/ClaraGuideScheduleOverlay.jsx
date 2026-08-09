@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { markDailyMoneyTipGuideComplete } from "./claraGuideProgress";
 
 const CLARA_GUIDE_SCHEDULE_PHASE_REQUEST_EVENT = "clara:guide-schedule-phase-request";
 const CLARA_GUIDE_FEATURE_COMPLETE_EVENT = "clara:guide-feature-complete";
@@ -174,6 +175,8 @@ export default function ClaraGuideScheduleOverlay({ phase }) {
 
   const handleAction = () => {
     if (config.finish) {
+      markDailyMoneyTipGuideComplete();
+      window.dispatchEvent(new Event("storage"));
       window.dispatchEvent(
         new CustomEvent(CLARA_GUIDE_FEATURE_COMPLETE_EVENT, {
           detail: { feature: GUIDE_FEATURE_SCHEDULE },
