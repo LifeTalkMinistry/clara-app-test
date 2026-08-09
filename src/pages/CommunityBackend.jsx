@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   BarChart3,
   CircleHelp,
   FileImage,
@@ -53,6 +54,8 @@ function initialsFor(value) {
 
 function fileSizeLabel(bytes) {
   const size = Number(bytes) || 0;
+  const gb = 1024 * 1024 * 1024;
+  if (size >= gb) return `${(size / gb).toFixed(size % gb === 0 ? 0 : 2)} GB`;
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -94,31 +97,137 @@ function AttachmentPicker({ onPick, disabled = false }) {
   );
 }
 
-function SelectedAttachment({ file, onRemove }) {
+function SelectedAttachment({ file, onRemove, progress = null, disabled = false }) {
   if (!file) return null;
   const Icon = file.type?.startsWith("image/")
     ? FileImage
     : file.type?.startsWith("video/")
       ? Video
       : Paperclip;
+  const percent = Math.max(0, Math.min(100, Number(progress?.percent) || 0));
+  const isUploading = Boolean(progress);
 
   return (
-    <div className="mt-3 flex items-center gap-3 rounded-[18px] border border-[#2dd4cf]/20 bg-[#2dd4cf]/[0.07] px-3 py-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2dd4cf]/12 text-[#8ffbf4]">
-        <Icon className="h-4 w-4" />
+    <div className="mt-3 rounded-[18px] border border-[#2dd4cf]/20 bg-[#2dd4cf]/[0.07] px-3 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2dd4cf]/12 text-[#8ffbf4]">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-black text-white">{file.name}</p>
+          <p className="mt-0.5 text-[9px] font-semibold text-white/35">{fileSizeLabel(file.size)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={disabled}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.07] hover:text-white disabled:pointer-events-none disabled:opacity-25"
+          aria-label="Remove attachment"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-black text-white">{file.name}</p>
-        <p className="mt-0.5 text-[9px] font-semibold text-white/35">{fileSizeLabel(file.size)}</p>
+
+      {isUploading ? (
+        <div className="mt-3 border-t border-white/[0.06] pt-3" aria-live="polite">
+          <div className="flex items-center justify-between gap-3 text-[10px] font-black">
+            <span className="text-[#9afff8]">
+              {progress.phase === "processing" ? "Finishing video..." : `Uploading video... ${percent}%`}
+            </span>
+            {progress.totalParts > 1 ? (
+              <span className="text-white/35">Part {Math.max(1, progress.currentPart)} of {progress.totalParts}</span>
+            ) : null}
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#23d7ce,#5b5df6)] transition-[width] duration-300"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <p className="mt-2 text-[9px] font-semibold text-white/30">Please keep CLARA open while your video is uploading.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MediaLimitDialog({ notice, onClose, onPickReplacement }) {
+  if (!notice) return null;
+  const isVideo = notice.mediaType === "video";
+  const accept = isVideo
+    ? "video/mp4,video/webm,video/quicktime"
+    : "image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
+
+  return (
+    <div
+      className="fixed inset-0 z-[140] flex items-center justify-center bg-[#020813]/80 px-4 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="community-media-limit-title"
+    >
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close size warning" />
+      <div className="relative w-full max-w-[420px] overflow-hidden rounded-[30px] border border-white/[0.09] bg-[linear-gradient(145deg,#0d2032,#0a1730)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.55),0_0_45px_rgba(45,212,207,0.08)] sm:p-6">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.035] text-white/42 transition hover:text-white"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-amber-300/20 bg-amber-300/[0.08] text-amber-200">
+          <AlertTriangle className="h-5 w-5" />
+        </div>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.2em] text-[#5eead4]/55">CLARA Community</p>
+        <h2 id="community-media-limit-title" className="mt-1 text-[25px] font-black tracking-[-0.035em] text-white">
+          {isVideo ? "Video is too large" : "File is too large"}
+        </h2>
+        <p className="mt-2 text-[13px] font-semibold leading-5 text-white/48">
+          {isVideo
+            ? "CLARA currently supports videos up to 1 GB per post. Choose a smaller video or compress this file before uploading."
+            : `CLARA currently supports photos and files up to ${notice.maxLabel} per post. Choose a smaller file before uploading.`}
+        </p>
+
+        <div className="mt-5 rounded-[20px] border border-white/[0.07] bg-black/15 p-3.5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2dd4cf]/10 text-[#8ffbf4]">
+              {isVideo ? <Video className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-black text-white">{notice.fileName}</p>
+              <p className="mt-0.5 text-[10px] font-bold text-amber-200/80">{notice.actualLabel}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-3 text-[10px] font-bold">
+            <span className="text-white/35">Maximum allowed</span>
+            <span className="text-[#8ffbf4]">{notice.maxLabel} per post</span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <label className="inline-flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-[#5ff9f0]/25 bg-[#28d8d0] px-4 text-xs font-black text-[#033438] shadow-[0_10px_26px_rgba(40,216,208,0.17)] transition active:scale-[0.98]">
+            Choose another {isVideo ? "video" : "file"}
+            <input
+              type="file"
+              accept={accept}
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onPickReplacement(file);
+                event.target.value = "";
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 text-xs font-black text-white/65 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.07] hover:text-white"
-        aria-label="Remove attachment"
-      >
-        <X className="h-4 w-4" />
-      </button>
     </div>
   );
 }
@@ -140,6 +249,8 @@ export default function CommunityBackend() {
   const [selectedPostType, setSelectedPostType] = useState("win");
   const [feedFilter, setFeedFilter] = useState("all");
   const [mediaFile, setMediaFile] = useState(null);
+  const [mediaLimitNotice, setMediaLimitNotice] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [saving, setSaving] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -187,12 +298,24 @@ export default function CommunityBackend() {
   );
 
   const pickComposerMedia = (file) => {
+    setMediaLimitNotice(null);
     try {
       setActionError("");
       setMediaFile(acceptFile(file));
       setComposerOpen(true);
     } catch (error) {
-      setActionError(error.message);
+      if (error?.code === "COMMUNITY_VIDEO_TOO_LARGE" || error?.code === "COMMUNITY_ATTACHMENT_TOO_LARGE") {
+        setActionError("");
+        setComposerOpen(true);
+        setMediaLimitNotice({
+          mediaType: error.mediaType,
+          fileName: error.fileName || file?.name || "Attachment",
+          actualLabel: error.actualLabel || fileSizeLabel(file?.size),
+          maxLabel: error.maxLabel || (error.mediaType === "video" ? "1 GB" : "25 MB"),
+        });
+        return;
+      }
+      setActionError(error?.message || "Unable to use that attachment.");
     }
   };
 
@@ -203,7 +326,10 @@ export default function CommunityBackend() {
     try {
       setSaving(true);
       setActionError("");
-      const media = mediaFile ? await uploadCommunityMedia(mediaFile) : null;
+      setUploadProgress(mediaFile ? { percent: 0, currentPart: 0, totalParts: 0, phase: "uploading" } : null);
+      const media = mediaFile
+        ? await uploadCommunityMedia(mediaFile, { onProgress: setUploadProgress })
+        : null;
       await backendRequest("/api/community/posts", {
         method: "POST",
         token,
@@ -230,6 +356,7 @@ export default function CommunityBackend() {
       setActionError(error?.message || "Unable to publish that post.");
     } finally {
       setSaving(false);
+      setUploadProgress(null);
     }
   };
 
@@ -256,6 +383,12 @@ export default function CommunityBackend() {
       </div>
     );
   }
+
+  const postButtonLabel = saving
+    ? uploadProgress?.phase === "uploading" && mediaFile
+      ? `Uploading ${Math.max(0, Math.min(99, Number(uploadProgress.percent) || 0))}%`
+      : "Posting..."
+    : "Post";
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.16),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.09),transparent_30%),#06111f] text-white">
@@ -352,7 +485,12 @@ export default function CommunityBackend() {
                     </div>
                   </div>
 
-                  <SelectedAttachment file={mediaFile} onRemove={() => setMediaFile(null)} />
+                  <SelectedAttachment
+                    file={mediaFile}
+                    onRemove={() => setMediaFile(null)}
+                    progress={saving && mediaFile ? uploadProgress : null}
+                    disabled={saving}
+                  />
 
                   <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-3">
                     <AttachmentPicker onPick={pickComposerMedia} disabled={saving} />
@@ -361,7 +499,7 @@ export default function CommunityBackend() {
                       disabled={saving || (!body.trim() && !mediaFile)}
                       className="h-11 shrink-0 rounded-full border border-white/10 bg-[linear-gradient(90deg,#23d7ce,#2aa9f4)] px-6 text-sm font-black text-white shadow-[0_8px_24px_rgba(34,211,238,0.16)] disabled:opacity-35"
                     >
-                      {saving ? "Posting..." : "Post"}
+                      {postButtonLabel}
                     </Button>
                   </div>
                 </section>
@@ -444,6 +582,12 @@ export default function CommunityBackend() {
           <Plus className="h-6 w-6" />
         </button>
       ) : null}
+
+      <MediaLimitDialog
+        notice={mediaLimitNotice}
+        onClose={() => setMediaLimitNotice(null)}
+        onPickReplacement={pickComposerMedia}
+      />
     </div>
   );
 }
