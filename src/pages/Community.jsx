@@ -15,6 +15,7 @@ import MyCircle from "./MyCircle";
 import MessagesBackend from "./MessagesBackend";
 import CommunityProfile from "./CommunityProfile";
 import FreeDailyTipCard from "@/components/fresh/main-dashboard/daily-tip";
+import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import {
   backendRequest,
   getStoredBackendToken,
@@ -249,6 +250,9 @@ export default function Community() {
         .clara-community-profile-view > div {
           min-height: 100% !important;
         }
+        .clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"] > div > div:has([data-clara-daily-tip-card="true"]) {
+          display: none !important;
+        }
       `}</style>
 
       {activeView === "home" ? (
@@ -258,6 +262,9 @@ export default function Community() {
         >
           <div className="mx-auto w-full max-w-3xl">
             <FreeDailyTipCard flushSpacing />
+            <div className="clara-community-home-learning-hub mt-3">
+              <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
+            </div>
           </div>
         </main>
       ) : activeView === "feed" ? (
