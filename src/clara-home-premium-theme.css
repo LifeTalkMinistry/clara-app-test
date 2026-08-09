@@ -22,42 +22,55 @@
 }
 .clara-community-root .clara-community-home-view>div{position:relative;z-index:1;isolation:isolate}
 
-/* Home shell/nav — subtle Philippine-flag flow: gold light, dominant blue, restrained red. */
+/* Home shell/nav — official CLARA sequence, intentionally bold and perfectly balanced. */
 .clara-community-root[data-community-view="home"] .clara-community-shell-header{
   position:relative;isolation:isolate;overflow:hidden;
-  border-bottom-color:rgba(100,145,207,.14)!important;
-  background:
-    radial-gradient(ellipse at 3% 8%,rgba(255,216,74,.12),transparent 25%),
-    radial-gradient(ellipse at 49% -20%,rgba(25,181,255,.15),transparent 52%),
-    radial-gradient(ellipse at 103% 88%,rgba(243,38,69,.11),transparent 31%),
-    linear-gradient(90deg,rgba(18,22,27,.995) 0%,rgba(4,22,49,.995) 22%,rgba(4,28,65,.995) 72%,rgba(30,10,24,.992) 100%)!important;
-  box-shadow:0 10px 30px rgba(0,0,0,.18),inset 0 -1px 0 rgba(73,137,224,.06);
+  border-bottom-color:rgba(255,255,255,.18)!important;
+  background:linear-gradient(90deg,
+    #0756d8 0%,#0756d8 33.333%,
+    #d9ae00 33.333%,#d9ae00 66.666%,
+    #c51c37 66.666%,#c51c37 100%)!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -12px 24px rgba(0,0,0,.16);
 }
 .clara-community-root[data-community-view="home"] .clara-community-shell-header::before{
   content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-  background:linear-gradient(100deg,rgba(255,216,74,.075) 0%,rgba(255,216,74,.025) 14%,rgba(8,103,255,.045) 25%,rgba(8,103,255,.095) 56%,rgba(8,103,255,.035) 76%,rgba(243,38,69,.07) 100%);
-  opacity:.95;
+  background:linear-gradient(180deg,rgba(255,255,255,.11) 0%,rgba(255,255,255,.025) 44%,rgba(0,0,0,.20) 100%);
+}
+.clara-community-root[data-community-view="home"] .clara-community-shell-header::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;z-index:0;height:3px;pointer-events:none;
+  background:linear-gradient(90deg,
+    var(--ch-blue) 0%,var(--ch-blue) 33.333%,
+    var(--ch-gold) 33.333%,var(--ch-gold) 66.666%,
+    var(--ch-red) 66.666%,var(--ch-red) 100%);
+  box-shadow:0 0 14px rgba(255,255,255,.16);
 }
 .clara-community-root[data-community-view="home"] .clara-community-shell-nav{position:relative;z-index:1}
 .clara-community-root[data-community-view="home"] .clara-community-nav-item{
-  border-color:rgba(98,139,196,.18)!important;background:rgba(5,17,37,.66)!important;color:rgba(201,220,243,.53)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 6px 18px rgba(0,0,0,.12)!important;
+  border-color:rgba(255,255,255,.22)!important;
+  background:rgba(3,11,25,.58)!important;
+  color:rgba(255,255,255,.66)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 7px 20px rgba(0,0,0,.20)!important;
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
 }
 .clara-community-root[data-community-view="home"] .clara-community-nav-item[aria-current="page"]{
-  border-color:rgba(64,158,255,.52)!important;color:#9bd4ff!important;
-  background:radial-gradient(circle at 36% 28%,rgba(25,181,255,.24),transparent 48%),linear-gradient(145deg,rgba(9,41,78,.94),rgba(5,20,44,.96))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(8,103,255,.09),0 0 24px rgba(8,103,255,.19)!important;
+  border-color:rgba(255,255,255,.62)!important;color:#fff!important;
+  background:rgba(2,10,24,.76)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 0 0 1px rgba(255,255,255,.09),0 0 22px rgba(0,0,0,.32)!important;
 }
 .clara-community-root[data-community-view="home"] .clara-community-nav-item[aria-current="page"]>span[class*="-bottom"]{
-  background:linear-gradient(90deg,var(--ch-gold) 0 18%,var(--ch-blue) 35% 72%,var(--ch-red) 88% 100%)!important;
-  box-shadow:0 0 9px rgba(255,216,74,.24),0 0 13px rgba(8,103,255,.48),0 0 9px rgba(243,38,69,.22)!important;
+  width:36px!important;
+  background:linear-gradient(90deg,
+    var(--ch-blue) 0%,var(--ch-blue) 33.333%,
+    var(--ch-gold) 33.333%,var(--ch-gold) 66.666%,
+    var(--ch-red) 66.666%,var(--ch-red) 100%)!important;
+  box-shadow:0 0 10px rgba(8,103,255,.42),0 0 10px rgba(255,216,74,.28),0 0 10px rgba(243,38,69,.32)!important;
 }
 .clara-community-root[data-community-view="home"] a[aria-label="Community notifications"]>span[class*="-top-1"]{
-  border-color:#071329!important;background:var(--ch-red)!important;color:#fff!important;box-shadow:0 0 12px rgba(243,38,69,.34)!important;
+  border-color:rgba(3,11,25,.85)!important;background:#ff3152!important;color:#fff!important;box-shadow:0 0 12px rgba(243,38,69,.48)!important;
 }
 .clara-community-root[data-community-view="home"] a[aria-label="Open Community profile"]{
-  border-color:rgba(255,216,74,.20)!important;color:rgba(255,255,255,.86)!important;
-  background:radial-gradient(circle at 28% 20%,rgba(25,181,255,.16),transparent 42%),linear-gradient(145deg,rgba(8,31,61,.96),rgba(6,17,37,.98))!important;
+  border-color:rgba(255,255,255,.30)!important;color:#fff!important;
+  background:rgba(3,11,25,.62)!important;
 }
 
 /* Daily Money Tip */
