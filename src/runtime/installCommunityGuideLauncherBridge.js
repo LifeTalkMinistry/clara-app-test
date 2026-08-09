@@ -9,12 +9,20 @@ function isCommunityHome() {
   return String(window.location.hash || "").includes("/community?view=home");
 }
 
+function getIntroDialog() {
+  if (typeof document === "undefined") return null;
+  return document.getElementById(INTRO_TITLE_ID)?.closest?.("[role='dialog']") || null;
+}
+
+function getTourRoot() {
+  if (typeof document === "undefined") return null;
+  const tourDialog = document.getElementById(TOUR_TITLE_ID)?.closest?.("[role='dialog']");
+  return tourDialog?.parentElement || null;
+}
+
 function guideSurfaceOpen() {
   if (typeof document === "undefined") return false;
-  return Boolean(
-    document.getElementById(INTRO_TITLE_ID) ||
-      document.getElementById(TOUR_TITLE_ID),
-  );
+  return Boolean(getIntroDialog() || getTourRoot());
 }
 
 function findGuideButton() {
@@ -28,8 +36,69 @@ function setBridgeHidden(bridge) {
   bridge.style.pointerEvents = "none";
 }
 
+function forceViewportGuideSurface(element, { centerContent = false } = {}) {
+  if (!element) return;
+
+  Object.assign(element.style, {
+    position: "fixed",
+    inset: "0px",
+    left: "0px",
+    top: "0px",
+    right: "0px",
+    bottom: "0px",
+    width: "100vw",
+    height: "100dvh",
+    minWidth: "100vw",
+    minHeight: "100dvh",
+    maxWidth: "none",
+    maxHeight: "none",
+    margin: "0px",
+    transform: "none",
+    zIndex: "2147483550",
+  });
+
+  if (centerContent) {
+    Object.assign(element.style, {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      padding: "24px 16px",
+    });
+  }
+}
+
+function normalizeGuideSurfaces() {
+  // Community is a viewport-owned shell. Keep Guide surfaces viewport-owned too
+  // so they never become a flex child at the bottom of Home/My Circle/etc.
+  forceViewportGuideSurface(getIntroDialog(), { centerContent: true });
+  forceViewportGuideSurface(getTourRoot());
+}
+
+function closeStaleIntroOutsideHome() {
+  if (isCommunityHome()) return;
+
+  const introDialog = getIntroDialog();
+  if (!introDialog) return;
+
+  const closeButton = introDialog.querySelector(
+    "button[aria-label='Close CLARA Guide intro']",
+  );
+  closeButton?.click?.();
+}
+
 function syncBridgeToLauncher(bridge) {
-  if (!bridge || !isCommunityHome() || guideSurfaceOpen()) {
+  normalizeGuideSurfaces();
+
+  if (!bridge) return;
+
+  if (!isCommunityHome()) {
+    setBridgeHidden(bridge);
+    closeStaleIntroOutsideHome();
+    return;
+  }
+
+  if (guideSurfaceOpen()) {
     setBridgeHidden(bridge);
     return;
   }
@@ -105,6 +174,11 @@ function createBridge() {
     // React-owned Safe Walkthrough modal.
     launcher.click();
 
+    // React mounts the intro on the next render. Normalize it immediately and
+    // again shortly after so Community flex/overflow rules cannot push it below
+    // the viewport.
+    window.requestAnimationFrame(normalizeGuideSurfaces);
+    window.setTimeout(normalizeGuideSurfaces, 30);
     window.setTimeout(() => syncBridgeToLauncher(bridge), 180);
   };
 
