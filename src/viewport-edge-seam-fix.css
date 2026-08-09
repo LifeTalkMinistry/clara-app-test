@@ -43,6 +43,67 @@ body.clara-route-soft-settle .theme-page-shell main {
   will-change: opacity !important;
 }
 
+/*
+ * Community is a true viewport-owned surface. A fixed child becomes relative
+ * to any ancestor that is transformed, filtered, perspective-enabled, or
+ * containment-scoped. That can make the Community render only inside the
+ * Layout main column and expose the violet app canvas as a large right-side
+ * "leak" on phones/PWAs.
+ *
+ * When Community is mounted, neutralize every possible containing-block maker
+ * in the Layout chain and make the Community root own the complete visual
+ * viewport. This is intentionally route-scoped so finance motion transitions
+ * and other screens keep their existing behavior.
+ */
+html:has(.clara-community-root),
+body:has(.clara-community-root),
+#root:has(.clara-community-root),
+.theme-page-shell:has(.clara-community-root),
+.theme-page-shell > .relative:has(.clara-community-root),
+.theme-page-shell main:has(.clara-community-root) {
+  width: 100% !important;
+  max-width: none !important;
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
+  contain: none !important;
+}
+
+.theme-page-shell:has(.clara-community-root),
+.theme-page-shell > .relative:has(.clara-community-root) {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.theme-page-shell main:has(.clara-community-root) {
+  min-width: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  animation: none !important;
+  backface-visibility: visible !important;
+  will-change: auto !important;
+}
+
+.clara-community-root {
+  position: fixed !important;
+  inset: 0 !important;
+  width: auto !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  margin: 0 !important;
+  transform: none !important;
+  overflow: hidden !important;
+  overscroll-behavior-x: none !important;
+}
+
+@supports (overflow: clip) {
+  .clara-community-root {
+    overflow-x: clip !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body.clara-route-soft-settle .theme-page-shell main {
     animation-duration: 1ms !important;
