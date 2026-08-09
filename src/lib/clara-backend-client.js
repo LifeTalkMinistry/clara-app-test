@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "https://api.clarapmc.ph";
+const DEFAULT_API_URL = "https://api.clarapmc.com";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const OFFLINE_MEMBERSHIP_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const BACKEND_UNAVAILABLE_STATUS_CODES = new Set([404, 502, 503, 504]);
