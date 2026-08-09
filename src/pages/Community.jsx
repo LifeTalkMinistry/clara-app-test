@@ -33,17 +33,24 @@ function formatNotificationTime(value) {
   }
 }
 
+function ActiveMarker({ active }) {
+  if (!active) return null;
+  return (
+    <span className="pointer-events-none absolute -bottom-[13px] left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-[#2be1d8] shadow-[0_0_12px_rgba(43,225,216,0.75)]" />
+  );
+}
+
 function CommunityShellHeader({ activeView, unreadCount, onExit }) {
   const itemClass = (active = false) =>
-    `clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
+    `clara-community-nav-item relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-all duration-200 ${
       active
-        ? "border-[#5eead4]/35 bg-[#22c7b8]/16 text-[#ccfbf1] shadow-[0_0_18px_rgba(34,199,184,0.12)]"
-        : "border-white/10 bg-white/[0.05] text-white/78"
+        ? "border-[#55f2e9]/45 bg-[radial-gradient(circle_at_35%_30%,rgba(49,225,216,0.22),rgba(16,31,57,0.96))] text-[#8ffff8] shadow-[0_0_0_1px_rgba(85,242,233,0.08),0_0_24px_rgba(43,225,216,0.16)]"
+        : "border-[#6f83b4]/22 bg-[#0b1730]/88 text-white/60 hover:border-white/20 hover:text-white/85"
     }`;
 
   return (
-    <header className="clara-community-shell-header shrink-0 border-b border-white/10 bg-[#06111f]/96 px-3 pb-3 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl">
-      <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-1.5">
+    <header className="clara-community-shell-header shrink-0 border-b border-white/[0.06] bg-[linear-gradient(180deg,rgba(5,15,34,0.99),rgba(5,17,34,0.97))] px-4 pb-4 pt-[max(14px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
+      <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-2">
         <button
           type="button"
           onClick={onExit}
@@ -51,7 +58,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           aria-label="Back to Dashboard"
           title="Dashboard"
         >
-          <ArrowLeft className="h-[17px] w-[17px]" />
+          <ArrowLeft className="h-[19px] w-[19px]" />
         </button>
 
         <Link
@@ -61,7 +68,8 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="Feed"
           aria-current={activeView === "feed" ? "page" : undefined}
         >
-          <Newspaper className="h-[17px] w-[17px]" />
+          <Newspaper className="h-[19px] w-[19px]" />
+          <ActiveMarker active={activeView === "feed"} />
         </Link>
 
         <Link
@@ -71,7 +79,8 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="My Circle"
           aria-current={activeView === "circles" ? "page" : undefined}
         >
-          <UsersRound className="h-[17px] w-[17px]" />
+          <UsersRound className="h-[19px] w-[19px]" />
+          <ActiveMarker active={activeView === "circles"} />
         </Link>
 
         <Link
@@ -81,7 +90,8 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="CLARA Challenges"
           aria-current={activeView === "challenges" ? "page" : undefined}
         >
-          <Trophy className="h-[17px] w-[17px]" />
+          <Trophy className="h-[19px] w-[19px]" />
+          <ActiveMarker active={activeView === "challenges"} />
         </Link>
 
         <Link
@@ -91,7 +101,8 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="Messages"
           aria-current={activeView === "messages" ? "page" : undefined}
         >
-          <MessageCircle className="h-[17px] w-[17px]" />
+          <MessageCircle className="h-[19px] w-[19px]" />
+          <ActiveMarker active={activeView === "messages"} />
         </Link>
 
         <Link
@@ -101,26 +112,28 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="Notifications"
           aria-current={activeView === "notifications" ? "page" : undefined}
         >
-          <Bell className="h-[17px] w-[17px]" />
+          <Bell className="h-[19px] w-[19px]" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#22c7b8] px-1 text-[9px] font-black text-[#042f2e]">
+            <span className="absolute -right-0.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#071329] bg-[#28ddd5] px-1 text-[8px] font-black text-[#023d3a] shadow-[0_0_12px_rgba(40,221,213,0.45)]">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           ) : null}
+          <ActiveMarker active={activeView === "notifications"} />
         </Link>
 
         <Link
           to="/community?view=profile"
-          className={`clara-community-nav-item relative inline-flex h-10 min-w-[44px] shrink-0 items-center justify-center rounded-2xl border px-2 text-[10px] font-black transition ${
+          className={`clara-community-nav-item relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-[11px] font-black tracking-[-0.01em] transition-all duration-200 ${
             activeView === "profile"
-              ? "border-[#5eead4]/35 bg-[#22c7b8]/16 text-[#ccfbf1] shadow-[0_0_18px_rgba(34,199,184,0.12)]"
-              : "border-white/10 bg-white/[0.05] text-white/78"
+              ? "border-[#8ffff8]/45 bg-[linear-gradient(135deg,#25bfd4,#6356e8)] text-white shadow-[0_0_24px_rgba(74,110,255,0.28)]"
+              : "border-[#6f83b4]/22 bg-[linear-gradient(135deg,rgba(35,170,190,0.78),rgba(88,70,214,0.82))] text-white/95 shadow-[0_8px_22px_rgba(65,76,180,0.16)]"
           }`}
           aria-label="Open Community profile"
           title="ME"
           aria-current={activeView === "profile" ? "page" : undefined}
         >
           ME
+          <ActiveMarker active={activeView === "profile"} />
         </Link>
       </div>
     </header>
@@ -246,21 +259,21 @@ export default function Community() {
           <CommunityProfile />
         </div>
       ) : (
-        <main className="clara-community-notifications-view min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-4 sm:px-5">
+        <main className="clara-community-notifications-view min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_85%_4%,rgba(79,70,229,0.12),transparent_30%),#06111f] px-4 pb-[calc(env(safe-area-inset-bottom)+30px)] pt-5 sm:px-6">
           <div className="mx-auto w-full max-w-3xl">
-            <div className="mb-4">
+            <div className="mb-5">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5eead4]/55">Community activity</p>
-              <h2 className="mt-1 text-xl font-black">Notifications</h2>
+              <h2 className="mt-1 text-2xl font-black tracking-[-0.03em]">Notifications</h2>
             </div>
 
             {notifications.length === 0 ? (
-              <div className="py-16 text-center">
+              <div className="rounded-[26px] border border-white/[0.06] bg-white/[0.02] py-16 text-center">
                 <Bell className="mx-auto h-8 w-8 text-[#5eead4]/40" />
                 <p className="mt-3 font-black">Nothing new yet.</p>
                 <p className="mt-1 text-sm text-white/42">Comments, reactions, and messages will appear here.</p>
               </div>
             ) : (
-              <div className="clara-community-notifications-card overflow-hidden rounded-[22px] border border-white/10 bg-[#0a1a29]">
+              <div className="clara-community-notifications-card overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#0a1a29] shadow-2xl shadow-black/20">
                 {notifications.map((notification) => (
                   <button
                     type="button"
