@@ -21,7 +21,7 @@ const GUIDE_CHAT_MESSAGES = [
   {
     id: "guide-clara-sample-reply",
     role: "clara",
-    text: "Let’s check if that fits your money left and current budget before you spend.",
+    text: "Before you buy it, let’s check your money left, budget, and what this purchase could affect.",
   },
 ];
 
@@ -183,13 +183,13 @@ export default function ClaraGuideClaraAiChatPreview({ onNext }) {
             id="clara-guide-ai-preview-title"
             className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100"
           >
-            HOLD — CHAT WITH CLARA
+            HOLD — PAUSE BEFORE BUYING
           </p>
           <p className="mt-2 text-[14px] font-bold leading-6 text-white">
-            Holding the orb opens CLARA’s money decision space.
+            Holding the orb opens CLARA’s Pause Before Buying decision space.
           </p>
           <p className="mt-2 text-[12.5px] font-semibold leading-5 text-cyan-50/68">
-            Use Buy Check before a purchase, Forecast to see what may happen next, or Analytic to understand your current money pattern.
+            Use it before an unplanned purchase so CLARA can help you check the price against your money left, budget, and current priorities before you decide.
           </p>
         </div>
 
@@ -197,7 +197,7 @@ export default function ClaraGuideClaraAiChatPreview({ onNext }) {
           type="button"
           onClick={handleNext}
           disabled={!actionsArmed}
-          aria-label="Close CLARA demonstration and continue"
+          aria-label="Close Pause Before Buying demonstration and continue"
           className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full border border-white/70 bg-white/[0.06] text-white transition disabled:pointer-events-none disabled:opacity-45 active:scale-95"
         >
           <X className="h-4 w-4" />
@@ -209,7 +209,7 @@ export default function ClaraGuideClaraAiChatPreview({ onNext }) {
               Guide mode
             </p>
             <p className="mt-0.5 truncate text-[10px] font-semibold text-white/42">
-              Static preview — no message will be sent
+              Static preview — no purchase or message is recorded
             </p>
           </div>
 
