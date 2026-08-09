@@ -18,6 +18,7 @@ import Layout from "./components/Layout";
 import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
 const Login = lazy(() => import("./pages/Login"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Profile = lazy(() => import("./pages/Profile"));
 const DataExport = lazy(() => import("./pages/DataExport"));
 const AppPreview = lazy(() => import("./pages/AppPreview"));
@@ -212,8 +213,9 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  const isLoginRoute = location.pathname === "/login";
-  if (!authReady || roleLoading || (loading && !isLoginRoute)) {
+  const isPublicAuthRoute =
+    location.pathname === "/login" || location.pathname === "/reset-password";
+  if (!authReady || roleLoading || (loading && !isPublicAuthRoute)) {
     return <FullScreenLoader message="Restoring your CLARA account..." />;
   }
 
@@ -241,6 +243,7 @@ function AppRoutes() {
           path="/login"
           element={user ? <Navigate to={homeRedirectPath} replace /> : <Login />}
         />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/link-local-vault"
           element={<Navigate to={user ? CLARA_HOME_PATH : "/login"} replace />}
