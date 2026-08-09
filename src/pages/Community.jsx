@@ -261,8 +261,10 @@ export default function Community() {
           aria-label="CLARA Home"
         >
           <div className="mx-auto w-full max-w-3xl">
-            <FreeDailyTipCard flushSpacing />
-            <div className="clara-community-home-learning-hub mt-3">
+            <div className="relative z-10">
+              <FreeDailyTipCard flushSpacing />
+            </div>
+            <div className="clara-community-home-learning-hub relative z-20 mt-6 pb-2 sm:mt-7">
               <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
             </div>
           </div>
