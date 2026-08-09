@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Bell,
+  House,
   MessageCircle,
   Newspaper,
   Trophy,
@@ -36,21 +37,21 @@ function formatNotificationTime(value) {
 function ActiveMarker({ active }) {
   if (!active) return null;
   return (
-    <span className="pointer-events-none absolute -bottom-[13px] left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-[#2be1d8] shadow-[0_0_12px_rgba(43,225,216,0.75)]" />
+    <span className="pointer-events-none absolute -bottom-[13px] left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-[#2be1d8] shadow-[0_0_12px_rgba(43,225,216,0.75)] sm:w-9" />
   );
 }
 
 function CommunityShellHeader({ activeView, unreadCount, onExit }) {
   const itemClass = (active = false) =>
-    `clara-community-nav-item relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-all duration-200 ${
+    `clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-all duration-200 sm:h-12 sm:w-12 ${
       active
         ? "border-[#55f2e9]/45 bg-[radial-gradient(circle_at_35%_30%,rgba(49,225,216,0.22),rgba(16,31,57,0.96))] text-[#8ffff8] shadow-[0_0_0_1px_rgba(85,242,233,0.08),0_0_24px_rgba(43,225,216,0.16)]"
         : "border-[#6f83b4]/22 bg-[#0b1730]/88 text-white/60 hover:border-white/20 hover:text-white/85"
     }`;
 
   return (
-    <header className="clara-community-shell-header shrink-0 border-b border-white/[0.06] bg-[linear-gradient(180deg,rgba(5,15,34,0.99),rgba(5,17,34,0.97))] px-4 pb-4 pt-[max(14px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
-      <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-2">
+    <header className="clara-community-shell-header shrink-0 border-b border-white/[0.06] bg-[linear-gradient(180deg,rgba(5,15,34,0.99),rgba(5,17,34,0.97))] px-3 pb-4 pt-[max(14px,env(safe-area-inset-top))] backdrop-blur-xl sm:px-5">
+      <div className="clara-community-shell-nav mx-auto flex w-full max-w-3xl items-center justify-between gap-1 sm:gap-2">
         <button
           type="button"
           onClick={onExit}
@@ -58,8 +59,19 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           aria-label="Back to Dashboard"
           title="Dashboard"
         >
-          <ArrowLeft className="h-[19px] w-[19px]" />
+          <ArrowLeft className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
         </button>
+
+        <Link
+          to="/community?view=home"
+          className={itemClass(activeView === "home")}
+          aria-label="Open Home"
+          title="Home"
+          aria-current={activeView === "home" ? "page" : undefined}
+        >
+          <House className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
+          <ActiveMarker active={activeView === "home"} />
+        </Link>
 
         <Link
           to="/community"
@@ -68,7 +80,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="Feed"
           aria-current={activeView === "feed" ? "page" : undefined}
         >
-          <Newspaper className="h-[19px] w-[19px]" />
+          <Newspaper className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
           <ActiveMarker active={activeView === "feed"} />
         </Link>
 
@@ -79,7 +91,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="My Circle"
           aria-current={activeView === "circles" ? "page" : undefined}
         >
-          <UsersRound className="h-[19px] w-[19px]" />
+          <UsersRound className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
           <ActiveMarker active={activeView === "circles"} />
         </Link>
 
@@ -90,7 +102,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="CLARA Challenges"
           aria-current={activeView === "challenges" ? "page" : undefined}
         >
-          <Trophy className="h-[19px] w-[19px]" />
+          <Trophy className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
           <ActiveMarker active={activeView === "challenges"} />
         </Link>
 
@@ -101,7 +113,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="Messages"
           aria-current={activeView === "messages" ? "page" : undefined}
         >
-          <MessageCircle className="h-[19px] w-[19px]" />
+          <MessageCircle className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
           <ActiveMarker active={activeView === "messages"} />
         </Link>
 
@@ -112,9 +124,9 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
           title="Notifications"
           aria-current={activeView === "notifications" ? "page" : undefined}
         >
-          <Bell className="h-[19px] w-[19px]" />
+          <Bell className="h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-0.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#071329] bg-[#28ddd5] px-1 text-[8px] font-black text-[#023d3a] shadow-[0_0_12px_rgba(40,221,213,0.45)]">
+            <span className="absolute -right-0.5 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-[#071329] bg-[#28ddd5] px-1 text-[8px] font-black text-[#023d3a] shadow-[0_0_12px_rgba(40,221,213,0.45)] sm:h-[18px] sm:min-w-[18px]">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           ) : null}
@@ -123,7 +135,7 @@ function CommunityShellHeader({ activeView, unreadCount, onExit }) {
 
         <Link
           to="/community?view=profile"
-          className={`clara-community-nav-item relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-[11px] font-black tracking-[-0.01em] transition-all duration-200 ${
+          className={`clara-community-nav-item relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-[10px] font-black tracking-[-0.01em] transition-all duration-200 sm:h-12 sm:w-12 sm:text-[11px] ${
             activeView === "profile"
               ? "border-[#8ffff8]/45 bg-[linear-gradient(135deg,#25bfd4,#6356e8)] text-white shadow-[0_0_24px_rgba(74,110,255,0.28)]"
               : "border-[#6f83b4]/22 bg-[linear-gradient(135deg,rgba(35,170,190,0.78),rgba(88,70,214,0.82))] text-white/95 shadow-[0_8px_22px_rgba(65,76,180,0.16)]"
@@ -146,7 +158,7 @@ export default function Community() {
   const [notifications, setNotifications] = useState([]);
   const token = getStoredBackendToken();
   const requestedView = searchParams.get("view") || "feed";
-  const activeView = ["feed", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
+  const activeView = ["home", "feed", "circles", "challenges", "messages", "notifications", "profile"].includes(requestedView)
     ? requestedView
     : "feed";
 
@@ -238,7 +250,9 @@ export default function Community() {
         }
       `}</style>
 
-      {activeView === "feed" ? (
+      {activeView === "home" ? (
+        <main className="clara-community-home-view min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_88%_8%,rgba(79,70,229,0.12),transparent_30%),radial-gradient(circle_at_12%_22%,rgba(20,184,166,0.07),transparent_30%),#06111f]" aria-label="CLARA Home" />
+      ) : activeView === "feed" ? (
         <div className="clara-community-feed-view min-h-0 flex-1 overflow-hidden">
           <CommunityBackend />
         </div>
