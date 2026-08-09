@@ -40,6 +40,7 @@ import "./welcome-session-calendar-status.css";
 import "./budget-manager-layout-fix.css";
 import "./guided-onboarding-bubble.css";
 import "./clara-unified-shell-theme.css";
+import "./clara-feature-theme-pass.css";
 
 const App = React.lazy(() => import("./App.jsx"));
 
