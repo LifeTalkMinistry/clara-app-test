@@ -253,6 +253,24 @@ export default function Community() {
         .clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"] > div > div:has([data-clara-daily-tip-card="true"]) {
           display: none !important;
         }
+
+        /* The dashboard's mobile billboard rule targets main > first child > second child
+           with overflow:hidden + contain:paint. In the new Home shell that second child
+           is the Learning Hub rail, which clipped the 30m/Guide float animation at an
+           invisible horizontal wall. Neutralize only that inherited rule here. */
+        .clara-community-home-view > div:first-child > .clara-community-home-learning-hub {
+          overflow: visible !important;
+          contain: none !important;
+          isolation: auto !important;
+          border-radius: 0 !important;
+        }
+        .clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"],
+        .clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"] > div,
+        .clara-community-home-learning-hub [data-clara-learning-hub-bridge="true"] {
+          overflow: visible !important;
+          contain: none !important;
+          clip-path: none !important;
+        }
       `}</style>
 
       {activeView === "home" ? (
