@@ -1,0 +1,229 @@
+/* HOME / Daily Money Tip — official CLARA hero treatment.
+   Presentation only: preserves streak, check-in, flip, and guide behavior. */
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] > [role="button"] {
+  height: clamp(166px, 20dvh, 176px) !important;
+  border-radius: 24px !important;
+  filter: none !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration {
+  border-radius: 24px !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene::before,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face {
+  border: 1px solid rgba(76, 135, 219, 0.30) !important;
+  background:
+    radial-gradient(ellipse at -6% -8%, rgba(25, 181, 255, 0.22), transparent 39%),
+    radial-gradient(ellipse at 112% 112%, rgba(243, 38, 69, 0.075), transparent 38%),
+    linear-gradient(145deg, rgba(6, 25, 53, 0.995) 0%, rgba(4, 16, 37, 0.998) 54%, rgba(5, 13, 31, 0.999) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.065),
+    inset 0 -1px 0 rgba(8,103,255,0.07),
+    0 18px 45px rgba(0,0,0,0.22),
+    0 0 30px rgba(8,103,255,0.045) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgba(8,103,255,0.78), rgba(25,181,255,0.45) 48%, rgba(255,216,74,0.70) 72%, rgba(243,38,69,0.55)) top / 100% 2px no-repeat,
+    linear-gradient(115deg, rgba(255,255,255,0.04), transparent 24%, transparent 76%, rgba(255,255,255,0.012));
+  opacity: 0.88;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid {
+  position: relative;
+  z-index: 1;
+  grid-template-rows: auto 1fr auto auto !important;
+  row-gap: 7px !important;
+  padding: 13px 15px 12px !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid > :first-child {
+  color: rgba(255, 222, 91, 0.88) !important;
+  font-size: 8.5px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.27em !important;
+  text-shadow: 0 0 14px rgba(255,216,74,0.12) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid > :nth-child(2) {
+  align-items: center !important;
+  min-height: 38px;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid > :nth-child(2) > div:first-child > div:first-child {
+  font-size: clamp(20px, 5vw, 23px) !important;
+  font-weight: 900 !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.04em !important;
+  color: #f7fbff !important;
+  text-shadow: 0 2px 18px rgba(8,103,255,0.10) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid > :nth-child(2) p {
+  margin-top: 5px !important;
+  color: rgba(199, 220, 245, 0.68) !important;
+  font-size: 9.5px !important;
+  line-height: 1.28 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-action {
+  min-width: 84px !important;
+  padding: 7px 11px !important;
+  border-radius: 999px !important;
+  border-color: rgba(79, 148, 236, 0.28) !important;
+  background: rgba(5, 20, 43, 0.84) !important;
+  color: rgba(218, 235, 255, 0.82) !important;
+  font-size: 7.5px !important;
+  letter-spacing: 0.14em !important;
+  text-shadow: none !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), 0 7px 18px rgba(0,0,0,0.18) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-check-in-state="available"] .clara-checkin-action {
+  border-color: rgba(105, 176, 255, 0.72) !important;
+  background: linear-gradient(135deg, rgba(8, 76, 169, 0.97), rgba(8, 103, 255, 0.91) 55%, rgba(17, 78, 159, 0.96)) !important;
+  color: #f7fbff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.24),
+    0 0 0 1px rgba(8,103,255,0.12),
+    0 0 18px rgba(8,103,255,0.24),
+    0 8px 20px rgba(0,0,0,0.20) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-check-in-state="completed-local"] .clara-checkin-action {
+  border-color: rgba(255, 216, 74, 0.36) !important;
+  background: linear-gradient(145deg, rgba(41, 36, 18, 0.82), rgba(16, 23, 38, 0.86)) !important;
+  color: rgba(255, 232, 140, 0.92) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px rgba(255,216,74,0.055) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-grid {
+  width: min(100%, 266px) !important;
+  gap: 6px 9px !important;
+  padding: 2px 1px !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot {
+  width: 10px !important;
+  height: 10px !important;
+  border-color: rgba(109, 139, 177, 0.17) !important;
+  background: rgba(73, 103, 143, 0.20) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.045) !important;
+  opacity: 0.72 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--done {
+  border-color: rgba(112, 185, 255, 0.52) !important;
+  background: rgba(92, 168, 255, 0.82) !important;
+  box-shadow: 0 0 5px rgba(25,181,255,0.20), 0 0 10px rgba(8,103,255,0.10), inset 0 1px 0 rgba(255,255,255,0.42) !important;
+  filter: brightness(0.88) !important;
+  opacity: 0.90 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done)),
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--today:not(.clara-checkin-dot--done) {
+  width: 12px !important;
+  height: 12px !important;
+  border-color: rgba(255, 235, 151, 0.92) !important;
+  background: #ffd84a !important;
+  opacity: 1 !important;
+  filter: none !important;
+  box-shadow:
+    0 0 0 3px rgba(255,216,74,0.08),
+    0 0 10px rgba(255,216,74,0.45),
+    0 0 22px rgba(255,216,74,0.13),
+    inset 0 1px 0 rgba(255,255,255,0.75) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done))::before {
+  inset: -5px !important;
+  border-color: rgba(255,216,74,0.56) !important;
+  opacity: 0.34 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--missed {
+  border-color: rgba(243,38,69,0.54) !important;
+  background: rgba(243,38,69,0.18) !important;
+  box-shadow: 0 0 8px rgba(243,38,69,0.10) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics {
+  gap: 8px !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics > span {
+  min-height: 28px;
+  border-radius: 11px !important;
+  border-color: rgba(76, 118, 171, 0.16) !important;
+  background: linear-gradient(145deg, rgba(3, 14, 32, 0.56), rgba(5, 20, 42, 0.48)) !important;
+  padding: 6px 9px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics small {
+  color: rgba(163, 193, 229, 0.56) !important;
+  font-size: 7.4px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.075em !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics strong {
+  color: #f4f8ff !important;
+  font-size: 10.5px !important;
+  font-weight: 900 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back {
+  border-color: rgba(78, 139, 220, 0.28) !important;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(255,216,74,0.09), transparent 34%),
+    radial-gradient(ellipse at 0% 100%, rgba(8,103,255,0.15), transparent 42%),
+    linear-gradient(145deg, rgba(5, 20, 44, 0.998), rgba(4, 13, 31, 0.999)) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back > .relative.grid {
+  position: relative;
+  z-index: 1;
+  padding: 14px 20px 13px !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back span[class*="uppercase"] {
+  color: rgba(255, 222, 91, 0.84) !important;
+  letter-spacing: 0.22em !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back p[class*="text-[13px]"] {
+  color: rgba(242, 247, 255, 0.93) !important;
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back .h-px {
+  background: linear-gradient(90deg, transparent, rgba(8,103,255,0.40), rgba(255,216,74,0.34), transparent) !important;
+}
+
+@media (max-width: 390px) {
+  .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] > [role="button"] {
+    height: 170px !important;
+  }
+
+  .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid {
+    padding-left: 13px !important;
+    padding-right: 13px !important;
+  }
+
+  .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-grid {
+    gap: 5px 7px !important;
+  }
+}
