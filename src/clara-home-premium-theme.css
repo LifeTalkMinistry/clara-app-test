@@ -22,55 +22,52 @@
 }
 .clara-community-root .clara-community-home-view>div{position:relative;z-index:1;isolation:isolate}
 
-/* Home shell/nav — official CLARA sequence, intentionally bold and perfectly balanced. */
+/* Home shell/nav — abstract official CLARA tri-color atmosphere. */
 .clara-community-root[data-community-view="home"] .clara-community-shell-header{
   position:relative;isolation:isolate;overflow:hidden;
-  border-bottom-color:rgba(255,255,255,.18)!important;
-  background:linear-gradient(90deg,
-    #0756d8 0%,#0756d8 33.333%,
-    #d9ae00 33.333%,#d9ae00 66.666%,
-    #c51c37 66.666%,#c51c37 100%)!important;
-  box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -12px 24px rgba(0,0,0,.16);
+  border-bottom-color:rgba(105,145,202,.16)!important;
+  background:
+    radial-gradient(ellipse at 8% 4%,rgba(8,103,255,.58) 0%,rgba(8,103,255,.28) 24%,transparent 49%),
+    radial-gradient(ellipse at 51% -24%,rgba(255,216,74,.46) 0%,rgba(255,216,74,.22) 22%,transparent 47%),
+    radial-gradient(ellipse at 96% 8%,rgba(243,38,69,.54) 0%,rgba(243,38,69,.27) 24%,transparent 50%),
+    linear-gradient(105deg,#06152e 0%,#08234a 31%,#172033 50%,#301322 72%,#170a17 100%)!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08),inset 0 -10px 22px rgba(0,0,0,.14);
 }
 .clara-community-root[data-community-view="home"] .clara-community-shell-header::before{
-  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-  background:linear-gradient(180deg,rgba(255,255,255,.11) 0%,rgba(255,255,255,.025) 44%,rgba(0,0,0,.20) 100%);
+  content:"";position:absolute;inset:-22% -8%;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(118deg,rgba(8,103,255,.16) 2%,rgba(25,181,255,.04) 27%,rgba(255,216,74,.12) 49%,rgba(255,216,74,.035) 60%,rgba(243,38,69,.16) 82%,rgba(243,38,69,.07) 100%);
+  filter:blur(15px);transform:skewX(-8deg) scale(1.06);opacity:.92;
 }
 .clara-community-root[data-community-view="home"] .clara-community-shell-header::after{
-  content:"";position:absolute;left:0;right:0;bottom:0;z-index:0;height:3px;pointer-events:none;
-  background:linear-gradient(90deg,
-    var(--ch-blue) 0%,var(--ch-blue) 33.333%,
-    var(--ch-gold) 33.333%,var(--ch-gold) 66.666%,
-    var(--ch-red) 66.666%,var(--ch-red) 100%);
-  box-shadow:0 0 14px rgba(255,255,255,.16);
+  content:"";position:absolute;left:0;right:0;bottom:0;z-index:0;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,rgba(8,103,255,.92) 0%,rgba(25,181,255,.48) 24%,rgba(255,216,74,.86) 50%,rgba(243,38,69,.80) 76%,rgba(197,28,55,.92) 100%);
+  box-shadow:0 0 10px rgba(8,103,255,.18),0 0 10px rgba(255,216,74,.10),0 0 10px rgba(243,38,69,.14);
 }
 .clara-community-root[data-community-view="home"] .clara-community-shell-nav{position:relative;z-index:1}
 .clara-community-root[data-community-view="home"] .clara-community-nav-item{
-  border-color:rgba(255,255,255,.22)!important;
-  background:rgba(3,11,25,.58)!important;
-  color:rgba(255,255,255,.66)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 7px 20px rgba(0,0,0,.20)!important;
-  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  border-color:rgba(255,255,255,.16)!important;
+  background:rgba(3,11,25,.54)!important;
+  color:rgba(255,255,255,.64)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 7px 20px rgba(0,0,0,.17)!important;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
 }
 .clara-community-root[data-community-view="home"] .clara-community-nav-item[aria-current="page"]{
-  border-color:rgba(255,255,255,.62)!important;color:#fff!important;
-  background:rgba(2,10,24,.76)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 0 0 1px rgba(255,255,255,.09),0 0 22px rgba(0,0,0,.32)!important;
+  border-color:rgba(142,199,255,.50)!important;color:#fff!important;
+  background:rgba(3,15,34,.70)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 0 0 1px rgba(8,103,255,.10),0 0 20px rgba(8,103,255,.20)!important;
 }
 .clara-community-root[data-community-view="home"] .clara-community-nav-item[aria-current="page"]>span[class*="-bottom"]{
-  width:36px!important;
-  background:linear-gradient(90deg,
-    var(--ch-blue) 0%,var(--ch-blue) 33.333%,
-    var(--ch-gold) 33.333%,var(--ch-gold) 66.666%,
-    var(--ch-red) 66.666%,var(--ch-red) 100%)!important;
-  box-shadow:0 0 10px rgba(8,103,255,.42),0 0 10px rgba(255,216,74,.28),0 0 10px rgba(243,38,69,.32)!important;
+  width:30px!important;
+  background:linear-gradient(90deg,var(--ch-blue) 0%,var(--ch-sky) 27%,var(--ch-gold) 50%,var(--ch-red) 76%,#cf2340 100%)!important;
+  box-shadow:0 0 9px rgba(8,103,255,.30),0 0 7px rgba(255,216,74,.18),0 0 8px rgba(243,38,69,.20)!important;
 }
 .clara-community-root[data-community-view="home"] a[aria-label="Community notifications"]>span[class*="-top-1"]{
-  border-color:rgba(3,11,25,.85)!important;background:#ff3152!important;color:#fff!important;box-shadow:0 0 12px rgba(243,38,69,.48)!important;
+  border-color:rgba(3,11,25,.85)!important;background:#ff3152!important;color:#fff!important;box-shadow:0 0 12px rgba(243,38,69,.40)!important;
 }
 .clara-community-root[data-community-view="home"] a[aria-label="Open Community profile"]{
-  border-color:rgba(255,255,255,.30)!important;color:#fff!important;
-  background:rgba(3,11,25,.62)!important;
+  border-color:rgba(255,255,255,.20)!important;color:#fff!important;
+  background:rgba(3,11,25,.56)!important;
 }
 
 /* Daily Money Tip */
