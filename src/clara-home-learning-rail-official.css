@@ -1,0 +1,135 @@
+/*
+ * CLARA Home — Learning Hub rail official branding
+ * Presentation only. Keeps Coaching, Learning Hub, and Guide behavior intact.
+ */
+
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-bridge="true"] {
+  min-height: 46px;
+  padding: 3px 2px;
+}
+
+/* Shared premium-blue material for the three rail controls. */
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-toggle="true"],
+.clara-community-root[data-community-view="home"] [data-clara-coaching-calendar-button="true"],
+.clara-community-root[data-community-view="home"] button[aria-label="Open CLARA Guide Mode"] {
+  border-color: rgba(117, 176, 255, 0.32) !important;
+  background: linear-gradient(
+    145deg,
+    rgba(10, 78, 164, 0.98) 0%,
+    rgba(7, 57, 128, 0.99) 48%,
+    rgba(5, 38, 91, 0.995) 100%
+  ) !important;
+  background-image: linear-gradient(
+    145deg,
+    rgba(10, 78, 164, 0.98) 0%,
+    rgba(7, 57, 128, 0.99) 48%,
+    rgba(5, 38, 91, 0.995) 100%
+  ) !important;
+  color: rgba(246, 250, 255, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.17),
+    0 9px 22px rgba(0, 0, 0, 0.19) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Main Learning Hub pill: visually dominant center action. */
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-toggle="true"] {
+  min-height: 40px;
+  padding: 9px 17px !important;
+  gap: 9px !important;
+  border-radius: 999px !important;
+  letter-spacing: 0.18em !important;
+  color: rgba(255, 255, 255, 0.90) !important;
+}
+
+/* Remove the ToggleButton's old internal color blobs/sheens. */
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-toggle="true"] > span.pointer-events-none.absolute {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-toggle="true"] > svg {
+  color: #b9d9ff !important;
+  opacity: 0.94 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-toggle="true"] > svg:last-of-type {
+  color: #ffd84a !important;
+  opacity: 0.86 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-learning-hub-toggle="true"] > span[class*="max-w"] {
+  color: rgba(255, 255, 255, 0.90) !important;
+  font-weight: 800 !important;
+}
+
+/* Coaching orb: same blue family, gold time marker. */
+.clara-community-root[data-community-view="home"] [data-clara-coaching-calendar-button="true"] {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 999px !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-coaching-calendar-button="true"] > span.pointer-events-none.absolute {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-coaching-calendar-button="true"] > svg {
+  color: #b9d9ff !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-coaching-calendar-button="true"] > span[class*="-top-2"] {
+  border-color: rgba(255, 235, 153, 0.68) !important;
+  background: #ffd84a !important;
+  color: #10244a !important;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.24) !important;
+}
+
+/* Guide orb/button: quiet blue. Red is reserved for the optional NEW/GUIDE flag. */
+.clara-community-root[data-community-view="home"] button[aria-label="Open CLARA Guide Mode"] {
+  min-width: 40px !important;
+  height: 40px !important;
+  padding-left: 11px !important;
+  padding-right: 11px !important;
+  border-radius: 999px !important;
+}
+
+.clara-community-root[data-community-view="home"] button[aria-label="Open CLARA Guide Mode"] > span.pointer-events-none.absolute {
+  display: none !important;
+}
+
+.clara-community-root[data-community-view="home"] button[aria-label="Open CLARA Guide Mode"] > svg {
+  color: #b9d9ff !important;
+}
+
+.clara-community-root[data-community-view="home"] button[aria-label="Open CLARA Guide Mode"] > span[class*="-top-2"] {
+  border-color: rgba(255, 161, 176, 0.55) !important;
+  background: #f32645 !important;
+  color: #ffffff !important;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.24) !important;
+}
+
+/* Deliberate hover/focus lift without neon bloom. */
+.clara-community-root[data-community-view="home"] :is(
+  [data-clara-learning-hub-toggle="true"],
+  [data-clara-coaching-calendar-button="true"],
+  button[aria-label="Open CLARA Guide Mode"]
+):hover {
+  border-color: rgba(147, 197, 253, 0.48) !important;
+  background: linear-gradient(
+    145deg,
+    rgba(12, 90, 188, 0.99) 0%,
+    rgba(8, 67, 146, 0.995) 50%,
+    rgba(5, 44, 102, 1) 100%
+  ) !important;
+}
+
+.clara-community-root[data-community-view="home"] :is(
+  [data-clara-learning-hub-toggle="true"],
+  [data-clara-coaching-calendar-button="true"],
+  button[aria-label="Open CLARA Guide Mode"]
+):focus-visible {
+  outline: 2px solid rgba(255, 216, 74, 0.78) !important;
+  outline-offset: 2px !important;
+}
