@@ -28,6 +28,19 @@ function compactCount(value) {
   return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
 }
 
+function parseButtonCount(button, label) {
+  const text = String(button?.textContent || "").replace(/\s+/g, " ").trim();
+  const remainder = text.startsWith(label) ? text.slice(label.length).trim() : "";
+  const match = remainder.match(/([\d.]+)\s*([KMB])?$/i);
+  if (!match) return 0;
+  const value = Number(match[1]) || 0;
+  const suffix = String(match[2] || "").toUpperCase();
+  if (suffix === "K") return Math.round(value * 1000);
+  if (suffix === "M") return Math.round(value * 1_000_000);
+  if (suffix === "B") return Math.round(value * 1_000_000_000);
+  return Math.round(value);
+}
+
 function initialsFor(value) {
   return String(value || "CLARA")
     .trim()
@@ -65,6 +78,7 @@ export default function CommunityPostMedia({
   const [viewerCurrentTime, setViewerCurrentTime] = useState(0);
   const [viewerLandscape, setViewerLandscape] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
+  const [derivedSocial, setDerivedSocial] = useState(null);
 
   const isStreamable = mediaType === "image" || mediaType === "video";
 
@@ -80,6 +94,7 @@ export default function CommunityPostMedia({
     setViewerCurrentTime(0);
     setViewerLandscape(false);
     setShareNotice("");
+    setDerivedSocial(null);
   }, [mediaUrl, mediaType]);
 
   useEffect(() => {
@@ -161,11 +176,55 @@ export default function CommunityPostMedia({
     ? `mt-4 -mx-4 overflow-hidden border-y border-white/10 ${backgroundClass} sm:mx-0 sm:rounded-[18px] sm:border`
     : `mt-4 overflow-hidden rounded-[18px] border border-white/10 ${backgroundClass}`;
 
+  const deriveSocialFromPost = () => {
+    const card = frameRef.current?.closest?.(".clara-community-post-card");
+    if (!card) return null;
+
+    const buttons = Array.from(card.querySelectorAll("button"));
+    const actionButton = (label) =>
+      buttons.find((button) => String(button.textContent || "").replace(/\s+/g, " ").trim().startsWith(label));
+
+    const loveButton = actionButton("Love");
+    const supportButton = actionButton("Support");
+    const commentButton = actionButton("Comment");
+    const profileButton = buttons.find((button) => button.querySelector('img[alt$=" profile"]')) || null;
+    const nameButton = buttons.find((button) => {
+      if (button === profileButton) return false;
+      const className = String(button.className || "");
+      return className.includes("text-[15px]") && className.includes("font-black");
+    });
+    const avatarImage = profileButton?.querySelector("img") || null;
+    const bodyNode = card.querySelector("p.whitespace-pre-wrap");
+    const typeNode = Array.from(card.querySelectorAll("span")).find((span) => {
+      const className = String(span.className || "");
+      return className.includes("text-[#38e3dd]");
+    });
+
+    const loveActive = String(loveButton?.className || "").includes("#ff4f8d");
+    const supportActive = String(supportButton?.className || "").includes("#22d3ee");
+
+    return {
+      authorName: String(nameButton?.textContent || "CLARA Member").trim(),
+      authorAvatar: avatarImage?.src || "",
+      body: String(bodyNode?.textContent || "").trim(),
+      postTypeLabel: String(typeNode?.textContent || "").replace(/\s+/g, " ").trim(),
+      loveCount: parseButtonCount(loveButton, "Love"),
+      supportCount: parseButtonCount(supportButton, "Support"),
+      commentCount: parseButtonCount(commentButton, "Comment"),
+      myReaction: loveActive ? "love" : supportActive ? "care" : null,
+      onLove: loveButton ? () => loveButton.click() : null,
+      onSupport: supportButton ? () => supportButton.click() : null,
+      onComment: commentButton ? () => commentButton.click() : null,
+      onProfile: profileButton ? () => profileButton.click() : null,
+    };
+  };
+
   const openViewer = () => {
     if (!streamUrl || !isStreamable) return;
 
     viewerSyncedRef.current = false;
     setShareNotice("");
+    if (!viewerSocial) setDerivedSocial(deriveSocialFromPost());
 
     if (mediaType === "video" && inlineVideoRef.current) {
       viewerStartTimeRef.current = Number(inlineVideoRef.current.currentTime || 0);
@@ -249,11 +308,13 @@ export default function CommunityPostMedia({
     setViewerCurrentTime(viewer.currentTime);
   };
 
+  const activeSocial = viewerSocial || derivedSocial;
+
   const shareViewer = async (event) => {
     event?.stopPropagation?.();
     const shareData = {
-      title: `${viewerSocial?.authorName || "CLARA Community"} on CLARA`,
-      text: String(viewerSocial?.body || "Check out this CLARA Community post.").slice(0, 220),
+      title: `${activeSocial?.authorName || "CLARA Community"} on CLARA`,
+      text: String(activeSocial?.body || "Check out this CLARA Community post.").slice(0, 220),
       url: typeof window !== "undefined" ? window.location.href : "",
     };
 
@@ -283,9 +344,9 @@ export default function CommunityPostMedia({
     action();
   };
 
-  const socialAuthorName = viewerSocial?.authorName || "CLARA Member";
-  const socialAvatar = viewerSocial?.authorAvatar || "";
-  const socialBody = String(viewerSocial?.body || "").trim();
+  const socialAuthorName = activeSocial?.authorName || "CLARA Member";
+  const socialAvatar = activeSocial?.authorAvatar || "";
+  const socialBody = String(activeSocial?.body || "").trim();
   const progress = viewerDuration > 0
     ? Math.max(0, Math.min(100, (viewerCurrentTime / viewerDuration) * 100))
     : 0;
@@ -381,43 +442,43 @@ export default function CommunityPostMedia({
               </button>
             ) : null}
 
-            {viewerSocial ? (
+            {activeSocial ? (
               <>
                 <div className="absolute bottom-[138px] right-3 z-40 flex w-14 flex-col items-center gap-4 sm:right-4">
                   <button
                     type="button"
-                    onClick={(event) => runSocialAction(event, viewerSocial.onLove)}
-                    className={`flex flex-col items-center gap-1 text-white ${viewerSocial.myReaction === "love" ? "text-[#ff7dab]" : ""}`}
+                    onClick={(event) => runSocialAction(event, activeSocial.onLove)}
+                    className={`flex flex-col items-center gap-1 text-white ${activeSocial.myReaction === "love" ? "text-[#ff7dab]" : ""}`}
                     aria-label="Love this post"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
-                      <Heart className={`h-7 w-7 ${viewerSocial.myReaction === "love" ? "fill-current" : ""}`} />
+                      <Heart className={`h-7 w-7 ${activeSocial.myReaction === "love" ? "fill-current" : ""}`} />
                     </span>
-                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(viewerSocial.loveCount)}</span>
+                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(activeSocial.loveCount)}</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={(event) => runSocialAction(event, viewerSocial.onComment, true)}
+                    onClick={(event) => runSocialAction(event, activeSocial.onComment, true)}
                     className="flex flex-col items-center gap-1 text-white"
                     aria-label="Open comments"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
                       <MessageCircle className="h-7 w-7" />
                     </span>
-                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(viewerSocial.commentCount)}</span>
+                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(activeSocial.commentCount)}</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={(event) => runSocialAction(event, viewerSocial.onSupport)}
-                    className={`flex flex-col items-center gap-1 text-white ${viewerSocial.myReaction === "care" ? "text-[#69fff5]" : ""}`}
+                    onClick={(event) => runSocialAction(event, activeSocial.onSupport)}
+                    className={`flex flex-col items-center gap-1 text-white ${activeSocial.myReaction === "care" ? "text-[#69fff5]" : ""}`}
                     aria-label="Support this post"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
                       <HeartHandshake className="h-7 w-7" />
                     </span>
-                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(viewerSocial.supportCount)}</span>
+                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(activeSocial.supportCount)}</span>
                   </button>
 
                   <button
@@ -436,7 +497,7 @@ export default function CommunityPostMedia({
                 <div className="absolute bottom-[52px] left-4 right-[78px] z-40 text-left sm:left-5">
                   <button
                     type="button"
-                    onClick={(event) => runSocialAction(event, viewerSocial.onProfile, true)}
+                    onClick={(event) => runSocialAction(event, activeSocial.onProfile, true)}
                     className="flex min-w-0 items-center gap-2.5 text-left"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/85 bg-[#0b2633] text-[10px] font-black shadow-xl">
@@ -455,9 +516,9 @@ export default function CommunityPostMedia({
                     </p>
                   ) : null}
 
-                  {viewerSocial.postTypeLabel ? (
+                  {activeSocial.postTypeLabel ? (
                     <p className="mt-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#78fff7] drop-shadow-lg">
-                      {viewerSocial.postTypeLabel}
+                      {activeSocial.postTypeLabel}
                     </p>
                   ) : null}
                 </div>
@@ -610,8 +671,6 @@ export default function CommunityPostMedia({
     const bounds = event.currentTarget.getBoundingClientRect();
     const distanceFromBottom = bounds.bottom - event.clientY;
 
-    // Keep native transport controls usable in the feed. Tapping the picture
-    // itself opens CLARA's immersive viewer.
     if (distanceFromBottom <= 62) return;
     openViewer();
   };
