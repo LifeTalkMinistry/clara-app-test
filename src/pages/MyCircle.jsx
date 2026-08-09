@@ -75,66 +75,55 @@ function Notice({ notice }) {
 
 function MyCircleHero() {
   return (
-    <section className="relative rounded-[28px] border border-[#22c7b8]/18 bg-[radial-gradient(circle_at_top_left,rgba(34,199,184,0.17),transparent_42%),radial-gradient(circle_at_90%_15%,rgba(111,73,255,0.16),transparent_42%),#0a1a29] px-5 py-5 shadow-[0_18px_50px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.045)]">
-      <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#22c7b8]/22 bg-[#22c7b8]/10 text-[#99f6e4] shadow-[0_10px_28px_rgba(34,199,184,0.08),inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <UsersRound className="h-5 w-5" />
-        </div>
-
-        <div className="min-w-0 flex-1 pr-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#5eead4]/58">Your people</p>
-              <h2 className="mt-1 text-[20px] font-black leading-[1.12] tracking-[-0.025em] text-white">
-                You don&apos;t have to do it alone.
-              </h2>
-            </div>
-
-            <Popover.Root>
-              <Popover.Trigger asChild>
-                <button
-                  type="button"
-                  aria-label="How privacy works in My Circle"
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-[#22c7b8]/28 hover:bg-[#22c7b8]/10 hover:text-[#ccfbf1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5eead4]/40"
-                >
-                  <Info className="h-4 w-4" />
-                </button>
-              </Popover.Trigger>
-
-              <Popover.Portal>
-                <Popover.Content
-                  side="bottom"
-                  align="end"
-                  sideOffset={10}
-                  collisionPadding={14}
-                  className="z-[100] w-[min(292px,calc(100vw-28px))] rounded-[22px] border border-[#22c7b8]/20 bg-[linear-gradient(145deg,rgba(8,26,41,0.98),rgba(13,20,48,0.98))] p-4 text-left text-white shadow-[0_24px_70px_rgba(0,0,0,0.58),0_0_28px_rgba(34,199,184,0.08)] backdrop-blur-2xl outline-none"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-[#99f6e4]">
-                      <ShieldCheck className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#5eead4]/68">Private by default</p>
-                      <p className="mt-1 text-sm font-black tracking-[-0.01em]">You control what your circle sees.</p>
-                      <p className="mt-2 text-[11px] leading-[1.65] text-white/54">
-                        Your balances, income, budgets, expenses, savings, and debt are never shared automatically.
-                      </p>
-                      <p className="mt-2 text-[11px] leading-[1.65] text-white/38">
-                        CLARA only shows what you intentionally share with the people you trust.
-                      </p>
-                    </div>
-                  </div>
-                  <Popover.Arrow className="fill-[#0b1b2c]" />
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          </div>
-
-          <p className="mt-2.5 max-w-[34ch] text-[13px] font-medium leading-5 text-white/48">
-            Build a private circle that helps you save, stay disciplined, and keep moving.
-          </p>
-        </div>
+    <section className="relative overflow-hidden rounded-[28px] border border-[#22c7b8]/18 bg-[radial-gradient(circle_at_top_left,rgba(34,199,184,0.17),transparent_42%),radial-gradient(circle_at_90%_15%,rgba(111,73,255,0.16),transparent_42%),#0a1a29] px-5 py-[22px] shadow-[0_18px_50px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.045)]">
+      <div className="max-w-[calc(100%-48px)]">
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#5eead4]/62">Your connections</p>
+        <h2 className="mt-1.5 max-w-[15ch] text-[21px] font-black leading-[1.1] tracking-[-0.028em] text-white">
+          You don&apos;t have to do it alone.
+        </h2>
+        <p className="mt-3 max-w-[34ch] text-[13px] font-medium leading-[1.58] text-white/50">
+          Build a private circle that helps you save, stay disciplined, and keep moving.
+        </p>
       </div>
+
+      <Popover.Root>
+        <Popover.Trigger asChild>
+          <button
+            type="button"
+            aria-label="How privacy works in My Circle"
+            className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#5eead4]/22 bg-[#39d7cd]/90 text-[#063c43] shadow-[0_8px_24px_rgba(34,199,184,0.16),inset_0_1px_0_rgba(255,255,255,0.34)] transition hover:bg-[#5eead4] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5eead4]/40"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        </Popover.Trigger>
+
+        <Popover.Portal>
+          <Popover.Content
+            side="bottom"
+            align="end"
+            sideOffset={10}
+            collisionPadding={14}
+            className="z-[100] w-[min(292px,calc(100vw-28px))] rounded-[22px] border border-[#22c7b8]/20 bg-[linear-gradient(145deg,rgba(8,26,41,0.98),rgba(13,20,48,0.98))] p-4 text-left text-white shadow-[0_24px_70px_rgba(0,0,0,0.58),0_0_28px_rgba(34,199,184,0.08)] backdrop-blur-2xl outline-none"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#22c7b8]/20 bg-[#22c7b8]/10 text-[#99f6e4]">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#5eead4]/68">Private by default</p>
+                <p className="mt-1 text-sm font-black tracking-[-0.01em]">You control what your circle sees.</p>
+                <p className="mt-2 text-[11px] leading-[1.65] text-white/54">
+                  Your balances, income, budgets, expenses, savings, and debt are never shared automatically.
+                </p>
+                <p className="mt-2 text-[11px] leading-[1.65] text-white/38">
+                  CLARA only shows what you intentionally share with the connections you trust.
+                </p>
+              </div>
+            </div>
+            <Popover.Arrow className="fill-[#0b1b2c]" />
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
     </section>
   );
 }
