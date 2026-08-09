@@ -254,19 +254,27 @@ export default function Community() {
           display: none !important;
         }
 
-        /* The dashboard's mobile billboard rule targets main > first child > second child
-           with overflow:hidden + contain:paint. In the new Home shell that second child
-           is the Learning Hub rail, which clipped the 30m/Guide float animation at an
-           invisible horizontal wall. Neutralize only that inherited rule here. */
+        .clara-community-home-legacy-selector-shield {
+          min-height: 2rem !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          pointer-events: none !important;
+        }
         .clara-community-home-view > div:first-child > .clara-community-home-learning-hub {
+          position: relative !important;
+          z-index: 60 !important;
           overflow: visible !important;
           contain: none !important;
-          isolation: auto !important;
+          isolation: isolate !important;
           border-radius: 0 !important;
         }
         .clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"],
         .clara-community-home-learning-hub [data-clara-guide-learning-hub-section="true"] > div,
         .clara-community-home-learning-hub [data-clara-learning-hub-bridge="true"] {
+          position: relative !important;
+          z-index: 70 !important;
           overflow: visible !important;
           contain: none !important;
           clip-path: none !important;
@@ -282,7 +290,11 @@ export default function Community() {
             <div className="relative z-10">
               <FreeDailyTipCard flushSpacing />
             </div>
-            <div className="clara-community-home-learning-hub relative z-20 mt-10 pb-2 pt-1 sm:mt-11 sm:pt-1.5">
+            <div
+              aria-hidden="true"
+              className="clara-community-home-legacy-selector-shield h-8 w-full sm:h-9"
+            />
+            <div className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5">
               <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
             </div>
           </div>
