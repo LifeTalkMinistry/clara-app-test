@@ -255,7 +255,7 @@ export default function Community() {
         }
 
         .clara-community-home-legacy-selector-shield {
-          min-height: 2rem !important;
+          min-height: 1rem !important;
           border: 0 !important;
           border-radius: 0 !important;
           background: transparent !important;
@@ -292,7 +292,7 @@ export default function Community() {
             </div>
             <div
               aria-hidden="true"
-              className="clara-community-home-legacy-selector-shield h-8 w-full sm:h-9"
+              className="clara-community-home-legacy-selector-shield h-4 w-full sm:h-5"
             />
             <div className="clara-community-home-learning-hub relative z-[60] pb-2 pt-1 sm:pt-1.5">
               <LearningHub onOpenGuideIntro={() => navigate("/dashboard")} />
