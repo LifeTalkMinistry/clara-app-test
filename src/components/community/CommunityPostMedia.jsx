@@ -64,6 +64,7 @@ export default function CommunityPostMedia({
   const viewerStartTimeRef = useRef(0);
   const viewerShouldPlayRef = useRef(false);
   const viewerSyncedRef = useRef(false);
+  const viewerActionTimerRef = useRef(null);
   const [shouldLoad, setShouldLoad] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -79,6 +80,8 @@ export default function CommunityPostMedia({
   const [viewerLandscape, setViewerLandscape] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
   const [derivedSocial, setDerivedSocial] = useState(null);
+  const [viewerSocialState, setViewerSocialState] = useState(null);
+  const [viewerActionBusy, setViewerActionBusy] = useState(false);
 
   const isStreamable = mediaType === "image" || mediaType === "video";
 
@@ -95,7 +98,17 @@ export default function CommunityPostMedia({
     setViewerLandscape(false);
     setShareNotice("");
     setDerivedSocial(null);
+    setViewerSocialState(null);
+    setViewerActionBusy(false);
+    if (viewerActionTimerRef.current) {
+      window.clearTimeout(viewerActionTimerRef.current);
+      viewerActionTimerRef.current = null;
+    }
   }, [mediaUrl, mediaType]);
+
+  useEffect(() => () => {
+    if (viewerActionTimerRef.current) window.clearTimeout(viewerActionTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!mediaUrl || !isStreamable || shouldLoad) return undefined;
@@ -224,7 +237,10 @@ export default function CommunityPostMedia({
 
     viewerSyncedRef.current = false;
     setShareNotice("");
-    if (!viewerSocial) setDerivedSocial(deriveSocialFromPost());
+    const resolvedSocial = viewerSocial || deriveSocialFromPost();
+    if (!viewerSocial) setDerivedSocial(resolvedSocial);
+    setViewerSocialState(resolvedSocial ? { ...resolvedSocial } : null);
+    setViewerActionBusy(false);
 
     if (mediaType === "video" && inlineVideoRef.current) {
       viewerStartTimeRef.current = Number(inlineVideoRef.current.currentTime || 0);
@@ -257,6 +273,7 @@ export default function CommunityPostMedia({
     }
 
     setViewerOpen(false);
+    setViewerActionBusy(false);
   }
 
   const syncViewerVideo = () => {
@@ -308,7 +325,26 @@ export default function CommunityPostMedia({
     setViewerCurrentTime(viewer.currentTime);
   };
 
-  const activeSocial = viewerSocial || derivedSocial;
+  const activeSocial = viewerSocialState || viewerSocial || derivedSocial;
+
+  const copyShareLink = async (url) => {
+    if (!url) return false;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      return true;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = url;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand?.("copy") === true;
+    textarea.remove();
+    return copied;
+  };
 
   const shareViewer = async (event) => {
     event?.stopPropagation?.();
@@ -321,15 +357,23 @@ export default function CommunityPostMedia({
     try {
       if (navigator.share) {
         await navigator.share(shareData);
+        setShareNotice("Shared");
+        window.setTimeout(() => setShareNotice(""), 1200);
         return;
       }
-      if (navigator.clipboard && shareData.url) {
-        await navigator.clipboard.writeText(shareData.url);
+
+      if (await copyShareLink(shareData.url)) {
         setShareNotice("Link copied");
+      } else {
+        setShareNotice("Share unavailable");
+      }
+      window.setTimeout(() => setShareNotice(""), 1800);
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.warn("[Community] share failed:", error);
+        setShareNotice("Share unavailable");
         window.setTimeout(() => setShareNotice(""), 1800);
       }
-    } catch (error) {
-      if (error?.name !== "AbortError") console.warn("[Community] share failed:", error);
     }
   };
 
@@ -342,6 +386,48 @@ export default function CommunityPostMedia({
       return;
     }
     action();
+  };
+
+  const handleViewerReaction = async (event, reactionType) => {
+    event?.stopPropagation?.();
+    if (viewerActionBusy || !activeSocial) return;
+
+    const action = reactionType === "love" ? activeSocial.onLove : activeSocial.onSupport;
+    if (typeof action !== "function") return;
+
+    const previous = { ...activeSocial };
+    const currentReaction = previous.myReaction || null;
+    const nextReaction = currentReaction === reactionType ? null : reactionType;
+    let nextLoveCount = Math.max(0, Number(previous.loveCount) || 0);
+    let nextSupportCount = Math.max(0, Number(previous.supportCount) || 0);
+
+    if (currentReaction === "love") nextLoveCount = Math.max(0, nextLoveCount - 1);
+    if (currentReaction === "care") nextSupportCount = Math.max(0, nextSupportCount - 1);
+    if (nextReaction === "love") nextLoveCount += 1;
+    if (nextReaction === "care") nextSupportCount += 1;
+
+    setViewerActionBusy(true);
+    setViewerSocialState({
+      ...previous,
+      myReaction: nextReaction,
+      loveCount: nextLoveCount,
+      supportCount: nextSupportCount,
+    });
+
+    try {
+      await Promise.resolve(action());
+    } catch (error) {
+      console.warn("[Community] viewer reaction failed:", error);
+      setViewerSocialState(previous);
+      setShareNotice("Couldn't react");
+      window.setTimeout(() => setShareNotice(""), 1600);
+    } finally {
+      if (viewerActionTimerRef.current) window.clearTimeout(viewerActionTimerRef.current);
+      viewerActionTimerRef.current = window.setTimeout(() => {
+        setViewerActionBusy(false);
+        viewerActionTimerRef.current = null;
+      }, 320);
+    }
   };
 
   const socialAuthorName = activeSocial?.authorName || "CLARA Member";
@@ -447,12 +533,14 @@ export default function CommunityPostMedia({
                 <div className="absolute bottom-[138px] right-3 z-40 flex w-14 flex-col items-center gap-4 sm:right-4">
                   <button
                     type="button"
-                    onClick={(event) => runSocialAction(event, activeSocial.onLove)}
-                    className={`flex flex-col items-center gap-1 text-white ${activeSocial.myReaction === "love" ? "text-[#ff7dab]" : ""}`}
+                    onClick={(event) => handleViewerReaction(event, "love")}
+                    disabled={viewerActionBusy}
+                    className={`flex flex-col items-center gap-1 transition active:scale-90 disabled:opacity-80 ${activeSocial.myReaction === "love" ? "text-[#ff7dab]" : "text-white"}`}
                     aria-label="Love this post"
+                    aria-pressed={activeSocial.myReaction === "love"}
                   >
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
-                      <Heart className={`h-7 w-7 ${activeSocial.myReaction === "love" ? "fill-current" : ""}`} />
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-full drop-shadow-lg backdrop-blur-sm transition ${activeSocial.myReaction === "love" ? "bg-[#ff4f8d]/28 shadow-[0_0_22px_rgba(255,79,141,0.26)]" : "bg-black/28"}`}>
+                      <Heart className={`h-7 w-7 transition ${activeSocial.myReaction === "love" ? "fill-current scale-110" : ""}`} />
                     </span>
                     <span className="text-[11px] font-black drop-shadow-lg">{compactCount(activeSocial.loveCount)}</span>
                   </button>
@@ -460,7 +548,7 @@ export default function CommunityPostMedia({
                   <button
                     type="button"
                     onClick={(event) => runSocialAction(event, activeSocial.onComment, true)}
-                    className="flex flex-col items-center gap-1 text-white"
+                    className="flex flex-col items-center gap-1 text-white transition active:scale-90"
                     aria-label="Open comments"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
@@ -471,12 +559,14 @@ export default function CommunityPostMedia({
 
                   <button
                     type="button"
-                    onClick={(event) => runSocialAction(event, activeSocial.onSupport)}
-                    className={`flex flex-col items-center gap-1 text-white ${activeSocial.myReaction === "care" ? "text-[#69fff5]" : ""}`}
+                    onClick={(event) => handleViewerReaction(event, "care")}
+                    disabled={viewerActionBusy}
+                    className={`flex flex-col items-center gap-1 transition active:scale-90 disabled:opacity-80 ${activeSocial.myReaction === "care" ? "text-[#69fff5]" : "text-white"}`}
                     aria-label="Support this post"
+                    aria-pressed={activeSocial.myReaction === "care"}
                   >
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
-                      <HeartHandshake className="h-7 w-7" />
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-full drop-shadow-lg backdrop-blur-sm transition ${activeSocial.myReaction === "care" ? "bg-[#22d3ee]/24 shadow-[0_0_22px_rgba(34,211,238,0.24)]" : "bg-black/28"}`}>
+                      <HeartHandshake className={`h-7 w-7 transition ${activeSocial.myReaction === "care" ? "scale-110" : ""}`} />
                     </span>
                     <span className="text-[11px] font-black drop-shadow-lg">{compactCount(activeSocial.supportCount)}</span>
                   </button>
@@ -484,7 +574,7 @@ export default function CommunityPostMedia({
                   <button
                     type="button"
                     onClick={shareViewer}
-                    className="flex flex-col items-center gap-1 text-white"
+                    className="flex flex-col items-center gap-1 text-white transition active:scale-90"
                     aria-label="Share post"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
@@ -498,7 +588,7 @@ export default function CommunityPostMedia({
                   <button
                     type="button"
                     onClick={(event) => runSocialAction(event, activeSocial.onProfile, true)}
-                    className="flex min-w-0 items-center gap-2.5 text-left"
+                    className="flex min-w-0 items-center gap-2.5 text-left transition active:scale-[0.98]"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/85 bg-[#0b2633] text-[10px] font-black shadow-xl">
                       {socialAvatar ? (
