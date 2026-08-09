@@ -54,17 +54,11 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* DAILY MONEY TIP — zero decorative layers                                   */
+/* DAILY MONEY TIP — clean premium CLARA blue                                 */
 /* -------------------------------------------------------------------------- */
 /*
- * The visible light shape came from the Daily Tip's own stacked visual system:
- * - scene ::before
- * - face ::before / ::after
- * - the first absolute overlay child on both flip faces
- * - the celebration overlay
- *
- * Do not style around those layers. Remove them entirely and leave the actual
- * content, flip mechanics, check-in dots, metrics, and action control intact.
+ * Keep every legacy decorative layer disabled. Premium depth comes only from
+ * linear blue tonal movement, restrained borders/shadows, and gold accents.
  */
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene::before,
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene::after,
@@ -79,9 +73,7 @@
   opacity: 0 !important;
 }
 
-/* Both the front and back JSX faces place their old radial overlay as the first
-   child. Hide that exact layer directly instead of depending on Tailwind class
-   matching. The real content grid is the second child and remains untouched. */
+/* Both flip faces still contain an old JSX overlay as their first child. */
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > div:first-child,
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back > div:first-child {
   display: none !important;
@@ -92,23 +84,117 @@
   filter: none !important;
 }
 
-/* One controlled blue material only. No radial, ellipse, mask, conic, or sheen. */
+/* Premium royal-blue material. Linear only — never radial. */
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face,
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front,
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back {
-  background: #082f69 !important;
-  background-color: #082f69 !important;
-  background-image: none !important;
+  background:
+    linear-gradient(
+      132deg,
+      #0d56b6 0%,
+      #0b479f 22%,
+      #093a86 47%,
+      #082e6c 72%,
+      #061d48 100%
+    ) !important;
+  background-color: #082e6c !important;
+  background-image: linear-gradient(
+    132deg,
+    #0d56b6 0%,
+    #0b479f 22%,
+    #093a86 47%,
+    #082e6c 72%,
+    #061d48 100%
+  ) !important;
   filter: none !important;
-  border-color: rgba(92, 154, 235, 0.34) !important;
+  border-color: rgba(112, 174, 255, 0.38) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.16),
-    0 16px 36px rgba(0, 0, 0, 0.20) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 14px 30px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(8, 103, 255, 0.045) !important;
 }
 
-/* Remove the full-screen-in-card celebration layer as well. This avoids any
-   transient flash being mistaken for part of the card surface. */
+/* Brand label and content hierarchy. */
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > .relative.grid > :first-child,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back span[class*="uppercase"] {
+  color: #ffd84a !important;
+  text-shadow: 0 1px 10px rgba(255, 216, 74, 0.10) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-action {
+  border-color: rgba(255, 216, 74, 0.32) !important;
+  background: linear-gradient(180deg, rgba(5, 24, 58, 0.58), rgba(3, 16, 42, 0.72)) !important;
+  color: rgba(255, 232, 137, 0.94) !important;
+  text-shadow: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 7px 16px rgba(0, 0, 0, 0.16) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] [data-check-in-state="available"] .clara-checkin-action {
+  border-color: rgba(119, 185, 255, 0.62) !important;
+  background: linear-gradient(135deg, #0b5fc8, #0867ff 58%, #084da7) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 8px 18px rgba(1, 18, 48, 0.24) !important;
+}
+
+/* Progress: warm gold completed/current points, muted navy future points. */
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot {
+  border-color: rgba(117, 160, 216, 0.16) !important;
+  background: rgba(25, 65, 120, 0.48) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--done {
+  border-color: rgba(255, 233, 141, 0.68) !important;
+  background: rgba(255, 216, 74, 0.86) !important;
+  box-shadow:
+    0 0 5px rgba(255, 216, 74, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.46) !important;
+  filter: none !important;
+  opacity: 0.88 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--done:not(:has(~ .clara-checkin-dot--done)) {
+  border-color: rgba(255, 240, 173, 0.98) !important;
+  background: #ffd84a !important;
+  opacity: 1 !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 216, 74, 0.10),
+    0 0 9px rgba(255, 216, 74, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--today:not(.clara-checkin-dot--done) {
+  border-color: rgba(255, 216, 74, 0.88) !important;
+  background: rgba(255, 216, 74, 0.16) !important;
+  box-shadow: 0 0 8px rgba(255, 216, 74, 0.20) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-dot--missed {
+  border-color: rgba(243, 38, 69, 0.56) !important;
+  background: rgba(243, 38, 69, 0.20) !important;
+  box-shadow: none !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics > span {
+  border-color: rgba(125, 170, 231, 0.14) !important;
+  background: linear-gradient(180deg, rgba(3, 18, 48, 0.35), rgba(2, 13, 35, 0.48)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics small {
+  color: rgba(180, 211, 250, 0.58) !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-metrics strong {
+  color: #ffffff !important;
+}
+
+/* Keep celebration visual layers disabled. */
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration {
   display: none !important;
   visibility: hidden !important;
