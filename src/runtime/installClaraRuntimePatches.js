@@ -130,7 +130,7 @@ import "../dashboard-bottom-spacing.css";
 import "../clara-ai-overlay-soft-anchor.css";
 import "../life-context-polish.css";
 import "../community-premium-theme.css";
-import "../community-blue-slate-theme.css";
+import "../community-reference-refresh.css";
 
 // Life Stage visual patches
 import "../life-stage-hero-polish.css";
