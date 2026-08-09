@@ -1,5 +1,6 @@
 import { Crown, Gem, Heart } from "lucide-react";
 import { normalizeSupportTier } from "@/lib/clara-support";
+import "@/community-badge-premium.css";
 
 const BADGES = Object.freeze({
   supporter: {
