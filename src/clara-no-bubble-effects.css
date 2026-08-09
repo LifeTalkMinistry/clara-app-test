@@ -53,32 +53,70 @@
   -webkit-mask-image: none !important;
 }
 
-/* Daily Money Tip: strictly linear premium blue — no circular light source. */
+/* -------------------------------------------------------------------------- */
+/* DAILY MONEY TIP — zero decorative layers                                   */
+/* -------------------------------------------------------------------------- */
+/*
+ * The visible light shape came from the Daily Tip's own stacked visual system:
+ * - scene ::before
+ * - face ::before / ::after
+ * - the first absolute overlay child on both flip faces
+ * - the celebration overlay
+ *
+ * Do not style around those layers. Remove them entirely and leave the actual
+ * content, flip mechanics, check-in dots, metrics, and action control intact.
+ */
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene::before,
-.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face {
-  background: linear-gradient(
-    145deg,
-    #0b3f83 0%,
-    #082f69 31%,
-    #071f4d 67%,
-    #061735 100%
-  ) !important;
-}
-
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene::after,
 .clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face::before,
-.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-scene::after {
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face::after {
   content: none !important;
   display: none !important;
   background: none !important;
+  background-image: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
 }
 
-.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face > [class~="pointer-events-none"][class~="absolute"] {
+/* Both the front and back JSX faces place their old radial overlay as the first
+   child. Hide that exact layer directly instead of depending on Tailwind class
+   matching. The real content grid is the second child and remains untouched. */
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front > div:first-child,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back > div:first-child {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  background: none !important;
+  background-image: none !important;
+  filter: none !important;
 }
 
-/* The check-in celebration had its own radial glow pseudo-element centered on
-   the progress dots. Keep the spark burst, remove only the large bubble light. */
-.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration::before {
+/* One controlled blue material only. No radial, ellipse, mask, conic, or sheen. */
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--front,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-daily-tip-face--back {
+  background: #082f69 !important;
+  background-color: #082f69 !important;
+  background-image: none !important;
+  filter: none !important;
+  border-color: rgba(92, 154, 235, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+    0 16px 36px rgba(0, 0, 0, 0.20) !important;
+}
+
+/* Remove the full-screen-in-card celebration layer as well. This avoids any
+   transient flash being mistaken for part of the card surface. */
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration::before,
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration::after {
   content: none !important;
   display: none !important;
   background: none !important;
