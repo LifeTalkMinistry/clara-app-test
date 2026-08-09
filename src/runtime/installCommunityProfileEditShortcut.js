@@ -3,16 +3,34 @@ let installed = false;
 const SHORTCUT_ATTR = "data-clara-profile-edit-shortcut";
 const SHORTCUT_ROW_ATTR = "data-clara-profile-edit-shortcut-row";
 
-function syncCoverImagePriority() {
+function syncProfileImageClarity() {
   document.querySelectorAll('button[aria-label="View cover photo"]').forEach((button) => {
     const inlineBackground = button.style.getPropertyValue("background-image");
-    if (!inlineBackground || !inlineBackground.includes("url(")) return;
-    if (button.style.getPropertyPriority("background-image") === "important") return;
+    const urlStart = inlineBackground.indexOf("url(");
+    if (urlStart < 0) return;
 
-    // The Community feature theme intentionally owns the empty-cover gradient with
-    // an !important background-image. A saved cover is supplied by React inline,
-    // so promote only that real user cover above the legacy fallback gradient.
-    button.style.setProperty("background-image", inlineBackground, "important");
+    // React historically rendered the saved cover as:
+    // gradient overlay + url(...). The gradient made real artwork look faded.
+    // Keep only the user's actual image and promote it over the legacy
+    // !important fallback cover supplied by the Community theme.
+    const coverOnly = inlineBackground.slice(urlStart).trim();
+    if (
+      inlineBackground !== coverOnly ||
+      button.style.getPropertyPriority("background-image") !== "important"
+    ) {
+      button.style.setProperty("background-image", coverOnly, "important");
+    }
+
+    button.style.setProperty("background-blend-mode", "normal", "important");
+    button.style.setProperty("filter", "none", "important");
+    button.style.setProperty("opacity", "1", "important");
+  });
+
+  document.querySelectorAll('button[aria-label="View profile photo"] img').forEach((image) => {
+    // Profile artwork should preserve the exact uploaded colors. The surrounding
+    // CLARA card provides the visual treatment; the image itself stays untouched.
+    image.style.setProperty("filter", "none", "important");
+    image.style.setProperty("opacity", "1", "important");
   });
 }
 
@@ -70,7 +88,7 @@ function removeShortcut() {
 }
 
 function syncShortcut() {
-  syncCoverImagePriority();
+  syncProfileImageClarity();
 
   const editButton = findOwnProfileEditButton();
   const existing = document.querySelector(`[${SHORTCUT_ATTR}]`);
