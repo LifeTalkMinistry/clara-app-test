@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
   Download,
   Expand,
   FileText,
+  Heart,
+  HeartHandshake,
   Loader2,
+  MessageCircle,
+  Play,
   RefreshCw,
-  X,
+  Share2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   fetchCommunityMediaBlob,
@@ -14,12 +21,36 @@ import {
 } from "@/lib/community-media-client";
 import "@/community-feed-refinement.css";
 
-export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edgeToEdge = false }) {
+function compactCount(value) {
+  const count = Math.max(0, Number(value) || 0);
+  if (count < 1000) return String(count);
+  if (count < 1_000_000) return `${(count / 1000).toFixed(count >= 10_000 ? 0 : 1).replace(/\.0$/, "")}K`;
+  return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
+}
+
+function initialsFor(value) {
+  return String(value || "CLARA")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "CL";
+}
+
+export default function CommunityPostMedia({
+  mediaUrl,
+  mediaType,
+  mediaName,
+  edgeToEdge = false,
+  viewerSocial = null,
+}) {
   const frameRef = useRef(null);
   const inlineVideoRef = useRef(null);
   const viewerVideoRef = useRef(null);
   const viewerStartTimeRef = useRef(0);
   const viewerShouldPlayRef = useRef(false);
+  const viewerSyncedRef = useRef(false);
   const [shouldLoad, setShouldLoad] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -28,6 +59,12 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
   const [downloading, setDownloading] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerPaused, setViewerPaused] = useState(true);
+  const [viewerMuted, setViewerMuted] = useState(false);
+  const [viewerDuration, setViewerDuration] = useState(0);
+  const [viewerCurrentTime, setViewerCurrentTime] = useState(0);
+  const [viewerLandscape, setViewerLandscape] = useState(false);
+  const [shareNotice, setShareNotice] = useState("");
 
   const isStreamable = mediaType === "image" || mediaType === "video";
 
@@ -37,6 +74,12 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
     setFailed(false);
     setDownloadFailed(false);
     setViewerOpen(false);
+    setViewerPaused(true);
+    setViewerMuted(false);
+    setViewerDuration(0);
+    setViewerCurrentTime(0);
+    setViewerLandscape(false);
+    setShareNotice("");
   }, [mediaUrl, mediaType]);
 
   useEffect(() => {
@@ -98,6 +141,10 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") closeViewer();
+      if (event.key === " " && mediaType === "video") {
+        event.preventDefault();
+        toggleViewerPlayback();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
 
@@ -106,7 +153,7 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
       document.body.style.overflow = previousOverflow;
       document.body.style.overscrollBehavior = previousOverscrollBehavior;
     };
-  }, [viewerOpen]);
+  }, [viewerOpen, mediaType]);
 
   if (!mediaUrl) return null;
 
@@ -117,10 +164,14 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
   const openViewer = () => {
     if (!streamUrl || !isStreamable) return;
 
+    viewerSyncedRef.current = false;
+    setShareNotice("");
+
     if (mediaType === "video" && inlineVideoRef.current) {
       viewerStartTimeRef.current = Number(inlineVideoRef.current.currentTime || 0);
-      viewerShouldPlayRef.current = !inlineVideoRef.current.paused;
+      viewerShouldPlayRef.current = true;
       inlineVideoRef.current.pause();
+      setViewerPaused(false);
     }
 
     setViewerOpen(true);
@@ -149,63 +200,294 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
     setViewerOpen(false);
   }
 
-  const handleViewerVideoReady = () => {
+  const syncViewerVideo = () => {
     const viewer = viewerVideoRef.current;
     if (!viewer) return;
 
-    try {
-      viewer.currentTime = viewerStartTimeRef.current;
-    } catch {
-      // Ignore early seek failures and let the video start at the beginning.
+    setViewerDuration(Number(viewer.duration || 0));
+    if (viewer.videoWidth && viewer.videoHeight) {
+      setViewerLandscape(viewer.videoWidth / viewer.videoHeight > 1.08);
     }
 
-    if (viewerShouldPlayRef.current) {
-      viewer.play().catch(() => {});
+    if (!viewerSyncedRef.current) {
+      viewerSyncedRef.current = true;
+      try {
+        viewer.currentTime = viewerStartTimeRef.current;
+      } catch {
+        // Ignore early seek failures and let the video start at the beginning.
+      }
+      if (viewerShouldPlayRef.current) {
+        viewer.play().catch(() => setViewerPaused(true));
+      }
     }
   };
+
+  function toggleViewerPlayback() {
+    const viewer = viewerVideoRef.current;
+    if (!viewer) return;
+    if (viewer.paused || viewer.ended) {
+      viewer.play().catch(() => {});
+    } else {
+      viewer.pause();
+    }
+  }
+
+  const toggleViewerMute = (event) => {
+    event?.stopPropagation?.();
+    const nextMuted = !viewerMuted;
+    setViewerMuted(nextMuted);
+    if (viewerVideoRef.current) viewerVideoRef.current.muted = nextMuted;
+  };
+
+  const seekViewer = (event) => {
+    event.stopPropagation();
+    const viewer = viewerVideoRef.current;
+    if (!viewer || !viewerDuration) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const fraction = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    viewer.currentTime = fraction * viewerDuration;
+    setViewerCurrentTime(viewer.currentTime);
+  };
+
+  const shareViewer = async (event) => {
+    event?.stopPropagation?.();
+    const shareData = {
+      title: `${viewerSocial?.authorName || "CLARA Community"} on CLARA`,
+      text: String(viewerSocial?.body || "Check out this CLARA Community post.").slice(0, 220),
+      url: typeof window !== "undefined" ? window.location.href : "",
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      if (navigator.clipboard && shareData.url) {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareNotice("Link copied");
+        window.setTimeout(() => setShareNotice(""), 1800);
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") console.warn("[Community] share failed:", error);
+    }
+  };
+
+  const runSocialAction = (event, action, closeAfter = false) => {
+    event?.stopPropagation?.();
+    if (typeof action !== "function") return;
+    if (closeAfter) {
+      closeViewer();
+      window.setTimeout(() => action(), 80);
+      return;
+    }
+    action();
+  };
+
+  const socialAuthorName = viewerSocial?.authorName || "CLARA Member";
+  const socialAvatar = viewerSocial?.authorAvatar || "";
+  const socialBody = String(viewerSocial?.body || "").trim();
+  const progress = viewerDuration > 0
+    ? Math.max(0, Math.min(100, (viewerCurrentTime / viewerDuration) * 100))
+    : 0;
 
   const viewer = viewerOpen && typeof document !== "undefined"
     ? createPortal(
         <div
-          className="fixed inset-0 z-[300] bg-black text-white"
+          className="clara-community-reels-viewer fixed inset-0 z-[300] text-white"
           role="dialog"
           aria-modal="true"
           aria-label={mediaType === "video" ? "Expanded Community video" : "Expanded Community photo"}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(36,211,203,0.08),transparent_28%),#000]" />
+          <div className="absolute inset-0 bg-black" />
 
-          <button
-            type="button"
-            onClick={closeViewer}
-            className="fixed right-3 top-[max(12px,env(safe-area-inset-top))] z-[320] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-xl backdrop-blur-xl transition active:scale-95 sm:right-5 sm:top-5"
-            aria-label="Close expanded media"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="relative z-10 mx-auto h-[100dvh] w-full max-w-[560px] overflow-hidden bg-black shadow-[0_0_90px_rgba(0,0,0,0.9)] sm:border-x sm:border-white/10">
+            <button
+              type="button"
+              onClick={closeViewer}
+              className="absolute left-3 top-[max(12px,env(safe-area-inset-top))] z-50 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-xl backdrop-blur-xl transition active:scale-95"
+              aria-label="Close expanded media"
+            >
+              <ArrowLeft className="h-6 w-6" />
+            </button>
 
-          <div className="relative z-10 mx-auto flex h-[100dvh] w-full max-w-[620px] items-center justify-center overflow-hidden bg-black shadow-[0_0_80px_rgba(0,0,0,0.85)] sm:border-x sm:border-white/10">
-            {mediaType === "image" ? (
-              <img
-                src={streamUrl}
-                alt={mediaName || "Community attachment"}
-                className="block max-h-[100dvh] w-full select-none object-contain"
-                draggable="false"
-              />
-            ) : (
-              <video
-                ref={viewerVideoRef}
-                src={streamUrl}
-                controls
-                playsInline
-                preload="metadata"
-                onLoadedMetadata={handleViewerVideoReady}
-                onCanPlay={handleViewerVideoReady}
-                className="block h-[100dvh] w-full bg-black object-contain"
-              />
-            )}
+            {mediaType === "video" ? (
+              <button
+                type="button"
+                onClick={toggleViewerMute}
+                className="absolute right-3 top-[max(12px,env(safe-area-inset-top))] z-50 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-xl backdrop-blur-xl transition active:scale-95"
+                aria-label={viewerMuted ? "Unmute video" : "Mute video"}
+              >
+                {viewerMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              </button>
+            ) : null}
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/55 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/30 to-transparent" />
+            <div
+              className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black"
+              onClick={mediaType === "video" ? toggleViewerPlayback : undefined}
+              role={mediaType === "video" ? "button" : undefined}
+              tabIndex={mediaType === "video" ? 0 : undefined}
+            >
+              {mediaType === "image" ? (
+                <img
+                  src={streamUrl}
+                  alt={mediaName || "Community attachment"}
+                  draggable="false"
+                  onLoad={(event) => {
+                    const image = event.currentTarget;
+                    if (image.naturalWidth && image.naturalHeight) {
+                      setViewerLandscape(image.naturalWidth / image.naturalHeight > 1.08);
+                    }
+                  }}
+                  className="block h-full w-full select-none"
+                  style={{ objectFit: viewerLandscape ? "contain" : "cover" }}
+                />
+              ) : (
+                <video
+                  ref={viewerVideoRef}
+                  src={streamUrl}
+                  playsInline
+                  preload="metadata"
+                  muted={viewerMuted}
+                  onLoadedMetadata={syncViewerVideo}
+                  onCanPlay={syncViewerVideo}
+                  onTimeUpdate={(event) => {
+                    setViewerCurrentTime(Number(event.currentTarget.currentTime || 0));
+                    setViewerDuration(Number(event.currentTarget.duration || 0));
+                  }}
+                  onPlay={() => setViewerPaused(false)}
+                  onPause={() => setViewerPaused(true)}
+                  onEnded={() => setViewerPaused(true)}
+                  onError={() => setFailed(true)}
+                  className="block h-full w-full bg-black"
+                  style={{ objectFit: viewerLandscape ? "contain" : "cover" }}
+                />
+              )}
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-36 bg-gradient-to-b from-black/65 via-black/18 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[42%] bg-gradient-to-t from-black/88 via-black/28 to-transparent" />
+
+            {mediaType === "video" && viewerPaused ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleViewerPlayback();
+                }}
+                className="absolute left-1/2 top-1/2 z-30 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white shadow-2xl backdrop-blur-md transition active:scale-95"
+                aria-label="Play video"
+              >
+                <Play className="ml-1 h-7 w-7 fill-current" />
+              </button>
+            ) : null}
+
+            {viewerSocial ? (
+              <>
+                <div className="absolute bottom-[138px] right-3 z-40 flex w-14 flex-col items-center gap-4 sm:right-4">
+                  <button
+                    type="button"
+                    onClick={(event) => runSocialAction(event, viewerSocial.onLove)}
+                    className={`flex flex-col items-center gap-1 text-white ${viewerSocial.myReaction === "love" ? "text-[#ff7dab]" : ""}`}
+                    aria-label="Love this post"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
+                      <Heart className={`h-7 w-7 ${viewerSocial.myReaction === "love" ? "fill-current" : ""}`} />
+                    </span>
+                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(viewerSocial.loveCount)}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(event) => runSocialAction(event, viewerSocial.onComment, true)}
+                    className="flex flex-col items-center gap-1 text-white"
+                    aria-label="Open comments"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
+                      <MessageCircle className="h-7 w-7" />
+                    </span>
+                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(viewerSocial.commentCount)}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(event) => runSocialAction(event, viewerSocial.onSupport)}
+                    className={`flex flex-col items-center gap-1 text-white ${viewerSocial.myReaction === "care" ? "text-[#69fff5]" : ""}`}
+                    aria-label="Support this post"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
+                      <HeartHandshake className="h-7 w-7" />
+                    </span>
+                    <span className="text-[11px] font-black drop-shadow-lg">{compactCount(viewerSocial.supportCount)}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={shareViewer}
+                    className="flex flex-col items-center gap-1 text-white"
+                    aria-label="Share post"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/28 drop-shadow-lg backdrop-blur-sm">
+                      <Share2 className="h-7 w-7" />
+                    </span>
+                    <span className="text-[10px] font-black drop-shadow-lg">Share</span>
+                  </button>
+                </div>
+
+                <div className="absolute bottom-[52px] left-4 right-[78px] z-40 text-left sm:left-5">
+                  <button
+                    type="button"
+                    onClick={(event) => runSocialAction(event, viewerSocial.onProfile, true)}
+                    className="flex min-w-0 items-center gap-2.5 text-left"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/85 bg-[#0b2633] text-[10px] font-black shadow-xl">
+                      {socialAvatar ? (
+                        <img src={socialAvatar} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        initialsFor(socialAuthorName)
+                      )}
+                    </span>
+                    <span className="min-w-0 truncate text-[14px] font-black text-white drop-shadow-lg">{socialAuthorName}</span>
+                  </button>
+
+                  {socialBody ? (
+                    <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-5 text-white/92 drop-shadow-lg">
+                      {socialBody}
+                    </p>
+                  ) : null}
+
+                  {viewerSocial.postTypeLabel ? (
+                    <p className="mt-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#78fff7] drop-shadow-lg">
+                      {viewerSocial.postTypeLabel}
+                    </p>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+
+            {shareNotice ? (
+              <div className="absolute left-1/2 top-[76px] z-50 -translate-x-1/2 rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-[10px] font-black text-white shadow-xl backdrop-blur-lg">
+                {shareNotice}
+              </div>
+            ) : null}
+
+            {mediaType === "video" ? (
+              <button
+                type="button"
+                onClick={seekViewer}
+                className="absolute inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-50 h-6"
+                aria-label="Seek video"
+              >
+                <span className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-white/30" />
+                <span
+                  className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-[#67fff5]"
+                  style={{ width: `${progress}%` }}
+                />
+                <span
+                  className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-lg"
+                  style={{ left: `${progress}%` }}
+                />
+              </button>
+            ) : null}
           </div>
         </div>,
         document.body
@@ -328,8 +610,8 @@ export default function CommunityPostMedia({ mediaUrl, mediaType, mediaName, edg
     const bounds = event.currentTarget.getBoundingClientRect();
     const distanceFromBottom = bounds.bottom - event.clientY;
 
-    // Keep the native transport controls usable. Tapping the picture area opens
-    // the immersive viewer; tapping the bottom control strip stays inline.
+    // Keep native transport controls usable in the feed. Tapping the picture
+    // itself opens CLARA's immersive viewer.
     if (distanceFromBottom <= 62) return;
     openViewer();
   };
