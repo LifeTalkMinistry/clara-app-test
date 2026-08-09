@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { completeClaraTemporaryPasswordReset } from "@/lib/password-reset-client";
+import { requestClaraPasswordReset } from "@/lib/password-reset-client";
 import ClaraLogo from "@/components/ClaraLogo";
 
 const MODE_COPY = {
@@ -19,11 +19,12 @@ const MODE_COPY = {
     secondaryLead: "Already have an account?",
     secondaryAction: "Log in",
   },
-  reset: {
-    title: "Create a new password",
-    subtitle: "Your temporary password was accepted. Set a new password before continuing.",
-    button: "Set new password",
-    secondaryLead: "Want to use a different account?",
+  forgot: {
+    title: "Reset your password",
+    subtitle:
+      "Enter the email connected to your CLARA account and we'll send you a secure reset link.",
+    button: "Send reset email",
+    secondaryLead: "Remembered your password?",
     secondaryAction: "Back to login",
   },
 };
@@ -41,12 +42,6 @@ function friendlyError(error) {
   if (error?.code === "ACCOUNT_VAULT_DIRECTORY_CONFLICT") {
     return "CLARA found conflicting local account data and blocked access to protect your records.";
   }
-  if (normalized.includes("temporary password")) {
-    return message;
-  }
-  if (error?.status === 410 || normalized.includes("expired")) {
-    return message || "This temporary password has expired. Ask CLARA support for a new reset.";
-  }
   if (error?.code === "NETWORK_ERROR" || normalized.includes("account server")) {
     return "CLARA could not reach the account server. Check your connection and try again.";
   }
@@ -55,6 +50,9 @@ function friendlyError(error) {
   }
   if (error?.status === 409 || normalized.includes("already registered")) {
     return "This email is already registered. Try logging in instead.";
+  }
+  if (error?.status === 429) {
+    return "Too many requests. Please wait a little while before trying again.";
   }
   if (normalized.includes("at least 8 characters")) {
     return "Password must contain at least 8 characters.";
@@ -87,7 +85,6 @@ export default function Login() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -101,14 +98,12 @@ export default function Login() {
   const validate = () => {
     if (mode === "signup" && !fullName.trim()) return "Your name is required.";
     if (!email.trim()) return "Email is required.";
-    if (!password) return mode === "reset" ? "New password is required." : "Password is required.";
-    if (mode === "reset" && !temporaryPassword) {
-      return "Your temporary password session is no longer available. Return to login and enter the temporary password again.";
-    }
-    if ((mode === "signup" || mode === "reset") && password.length < 8) {
+    if (mode === "forgot") return null;
+    if (!password) return "Password is required.";
+    if (mode === "signup" && password.length < 8) {
       return "Password must contain at least 8 characters.";
     }
-    if ((mode === "signup" || mode === "reset") && password !== confirmPassword) {
+    if (mode === "signup" && password !== confirmPassword) {
       return "The passwords do not match.";
     }
     return null;
@@ -137,35 +132,18 @@ export default function Login() {
           fullName: fullName.trim(),
         });
         navigate("/dashboard", { replace: true });
-      } else if (mode === "reset") {
-        const newPassword = password;
-        await completeClaraTemporaryPasswordReset({
-          email: email.trim(),
-          temporaryPassword,
-          newPassword,
-        });
-        await signIn({ email: email.trim(), password: newPassword });
-        setTemporaryPassword("");
-        navigate("/dashboard", { replace: true });
+      } else if (mode === "forgot") {
+        const result = await requestClaraPasswordReset({ email: email.trim() });
+        setSuccess(true);
+        setMessage(
+          result?.message ||
+            "If an account exists for this email, we've sent password reset instructions."
+        );
       } else {
         await signIn({ email: email.trim(), password });
         navigate(destination, { replace: true });
       }
     } catch (error) {
-      if (
-        mode === "login" &&
-        (error?.status === 428 || String(error?.message || "").toLowerCase().includes("must create a new password"))
-      ) {
-        setTemporaryPassword(password);
-        setPassword("");
-        setConfirmPassword("");
-        setShowPassword(false);
-        setMode("reset");
-        setSuccess(false);
-        setMessage("");
-        return;
-      }
-
       console.error("[CLARA Login] authentication failed", error);
       setSuccess(false);
       setMessage(friendlyError(error));
@@ -180,16 +158,12 @@ export default function Login() {
     setMessage("");
     setSuccess(false);
     setPassword("");
-    setTemporaryPassword("");
     setConfirmPassword("");
     setShowPassword(false);
   };
 
   const handleForgotPassword = () => {
-    setSuccess(false);
-    setMessage(
-      "Please contact CLARA support for a password reset. If an administrator already sent you a temporary password, enter it above to continue."
-    );
+    switchMode("forgot");
   };
 
   const inputClass =
@@ -248,50 +222,47 @@ export default function Login() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   autoComplete="email"
-                  readOnly={mode === "reset"}
                   disabled={loading}
                   className={inputClass}
                 />
               </FieldShell>
 
-              <FieldShell
-                label={mode === "reset" ? "New password" : "Password"}
-                hint={mode === "signup" || mode === "reset" ? "Minimum 8 characters" : null}
-              >
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder={
-                      mode === "signup"
-                        ? "Create a password"
-                        : mode === "reset"
-                          ? "Create your new password"
-                          : "Enter your password"
-                    }
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    disabled={loading}
-                    className={`${inputClass} pr-14`}
-                  />
+              {mode !== "forgot" ? (
+                <FieldShell
+                  label="Password"
+                  hint={mode === "signup" ? "Minimum 8 characters" : null}
+                >
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder={
+                        mode === "signup" ? "Create a password" : "Enter your password"
+                      }
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      autoComplete={mode === "login" ? "current-password" : "new-password"}
+                      disabled={loading}
+                      className={`${inputClass} pr-14`}
+                    />
 
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((previous) => !previous)}
-                    disabled={loading}
-                    className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35 disabled:cursor-not-allowed disabled:text-white/22 disabled:hover:bg-transparent"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-[18px] w-[18px]" />
-                    ) : (
-                      <Eye className="h-[18px] w-[18px]" />
-                    )}
-                  </button>
-                </div>
-              </FieldShell>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((previous) => !previous)}
+                      disabled={loading}
+                      className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-white/48 transition hover:bg-white/8 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35 disabled:cursor-not-allowed disabled:text-white/22 disabled:hover:bg-transparent"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-[18px] w-[18px]" />
+                      ) : (
+                        <Eye className="h-[18px] w-[18px]" />
+                      )}
+                    </button>
+                  </div>
+                </FieldShell>
+              ) : null}
 
-              {mode === "signup" || mode === "reset" ? (
+              {mode === "signup" ? (
                 <FieldShell label="Confirm password">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -346,11 +317,7 @@ export default function Login() {
               <span>{copy.secondaryLead}</span>{" "}
               <button
                 type="button"
-                onClick={() =>
-                  switchMode(
-                    mode === "login" ? "signup" : "login"
-                  )
-                }
+                onClick={() => switchMode(mode === "login" ? "signup" : "login")}
                 disabled={loading}
                 className="font-semibold text-cyan-300 transition hover:text-violet-200 disabled:cursor-not-allowed disabled:text-white/30"
               >
