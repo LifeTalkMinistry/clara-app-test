@@ -76,6 +76,15 @@
   display: none !important;
 }
 
+/* The check-in celebration had its own radial glow pseudo-element centered on
+   the progress dots. Keep the spark burst, remove only the large bubble light. */
+.clara-community-root[data-community-view="home"] [data-clara-daily-tip-card="true"] .clara-checkin-celebration::before {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  animation: none !important;
+}
+
 /* Learning Hub controls: retain premium depth without radial highlights. */
 .clara-community-root .clara-community-home-learning-hub [data-clara-learning-hub-toggle="true"],
 .clara-community-root .clara-community-home-learning-hub [data-clara-coaching-calendar-button="true"] {
