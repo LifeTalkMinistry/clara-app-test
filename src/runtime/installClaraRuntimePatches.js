@@ -17,6 +17,7 @@ import "./installSoundTouchFeedbackBridge";
 // Route-level scroll ownership
 import "./installUniversalOnboardingScrollIsolation";
 import "./installSettingsModalBehavior";
+import "./installCommunityProfileScrollOwnership";
 
 // Community/social data is online account data owned by the self-hosted CLARA
 // backend. Financial records remain under their existing local/device ownership.
